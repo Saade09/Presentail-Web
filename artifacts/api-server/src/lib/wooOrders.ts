@@ -66,6 +66,8 @@ export const WooOrderSchema = z.object({
         wcId: z.number().int().nonnegative().optional(),
         // OS product slug — used when wcId is 0 (OS-native products not mirrored in WC).
         osSlug: z.string().optional(),
+        // Optional personalisation note (max 22 chars) when the product has an input field.
+        customInput: z.string().max(22).optional(),
       }),
     )
     .min(1),
@@ -797,7 +799,7 @@ export async function attemptCreateOsOrder(
   }
 
   let catalogSubtotalUsd = 0;
-  const lineItemData: { wcId: number | undefined; osProductId: string; osNumericId?: string; name: string; quantity: number; priceUsd: number }[] = [];
+  const lineItemData: { wcId: number | undefined; osProductId: string; osNumericId?: string; name: string; quantity: number; priceUsd: number; customInput?: string }[] = [];
 
   for (const item of catalogItemInputs) {
     // Look up price: by wcId when > 0, by osSlug for OS-native products (wcId === 0).
@@ -855,6 +857,7 @@ export async function attemptCreateOsOrder(
         name: item.name,
         quantity: item.quantity,
         priceUsd: item.price,
+        customInput: item.customInput?.trim() || undefined,
       });
       catalogSubtotalUsd += item.price * item.quantity;
       continue;
@@ -868,6 +871,7 @@ export async function attemptCreateOsOrder(
       name: catalog.name,
       quantity: item.quantity,
       priceUsd: catalog.price,
+      customInput: item.customInput?.trim() || undefined,
     });
     catalogSubtotalUsd += catalog.price * item.quantity;
   }
@@ -937,6 +941,7 @@ export async function attemptCreateOsOrder(
       productName: d.name,
       quantity: d.quantity,
       priceUsd: d.priceUsd,
+      ...(d.customInput ? { customInput: d.customInput } : {}),
     })),
     feeItems: nonCatalogFeeItems.map((item) => ({
       name: item.name,

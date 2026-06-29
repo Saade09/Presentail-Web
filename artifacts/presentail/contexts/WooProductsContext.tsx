@@ -169,6 +169,7 @@ function mergeProducts(
         wcId: wp.wcId,
         popularity: wp.popularity ?? 0,
         inStock: wp.inStock,
+        hasInputField: wp.hasInputField ?? (sp as any).hasInputField ?? false,
       });
     } else {
       result.push(sp);
@@ -193,6 +194,7 @@ function mergeProducts(
       occasions: [],
       popularity: wp.popularity ?? 0,
       inStock: wp.inStock,
+      hasInputField: wp.hasInputField ?? false,
     });
   }
 

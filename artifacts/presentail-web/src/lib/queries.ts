@@ -53,6 +53,7 @@ export type Product = {
   occasions: string[];
   brandNames?: string[];
   popularity?: number;
+  hasInputField?: boolean;
 };
 
 export type CategoryProductsResponse = { ok: boolean; products: Product[]; count: number; categoryName?: string };

@@ -7,13 +7,15 @@ import { getStartupItem } from "@/lib/startupState";
 export type CartItem = {
   product: Product;
   quantity: number;
+  customNote?: string;
 };
 
 export type CartContextType = {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number) => void;
+  addItem: (product: Product, quantity?: number, customNote?: string) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
+  updateCustomNote: (productId: string, note: string) => void;
   clearCart: () => void;
   subtotal: number;
   itemCount: number;
@@ -63,17 +65,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items]);
 
-  const addItem = (product: Product, quantity = 1) => {
+  const addItem = (product: Product, quantity = 1, customNote?: string) => {
     setItems(current => {
       const existing = current.find(i => i.product.id === product.id);
       if (existing) {
-        return current.map(i => 
-          i.product.id === product.id 
+        return current.map(i =>
+          i.product.id === product.id
             ? { ...i, quantity: i.quantity + quantity }
             : i
         );
       }
-      return [...current, { product, quantity }];
+      return [...current, { product, quantity, customNote: customNote?.trim() || undefined }];
     });
     trackFbEvent("AddToCart", {
       content_ids: [product.id],
@@ -93,8 +95,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeItem(productId);
       return;
     }
-    setItems(current => 
+    setItems(current =>
       current.map(i => i.product.id === productId ? { ...i, quantity } : i)
+    );
+  };
+
+  const updateCustomNote = (productId: string, note: string) => {
+    setItems(current =>
+      current.map(i =>
+        i.product.id === productId
+          ? { ...i, customNote: note.trim() || undefined }
+          : i,
+      ),
     );
   };
 
@@ -104,7 +116,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, subtotal, itemCount, isHydrated }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateCustomNote, clearCart, subtotal, itemCount, isHydrated }}>
       {children}
     </CartContext.Provider>
   );

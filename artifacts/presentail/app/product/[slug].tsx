@@ -12,6 +12,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   ToastAndroid,
   View,
 } from "react-native";
@@ -166,6 +167,8 @@ function ProductDetail() {
   const headingFontRegular = useHeadingFont("400Regular");
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
+  const [customNote, setCustomNote] = useState("");
+  useEffect(() => { setCustomNote(""); }, [slug]);
   const copiedOpacity = useRef(new Animated.Value(0)).current;
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Capture the moment this screen component mounts so we can report
@@ -372,6 +375,8 @@ function ProductDetail() {
           cat={cat}
           colors={colors}
           router={router}
+          customNote={customNote}
+          setCustomNote={setCustomNote}
         />
       </ScrollView>
 
@@ -392,7 +397,7 @@ function ProductDetail() {
       >
         <Pressable
           onPress={() => {
-            add(product.id, 1);
+            add(product.id, 1, customNote || undefined);
             if (cc) {
               trackFbMobileEvent("AddToCart", {
                 countryCode: cc,
@@ -468,7 +473,7 @@ function ProductDetail() {
   );
 }
 
-function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _router }: any) {
+function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _router, customNote, setCustomNote }: any) {
   const deliverySelection = useDeliverySelection();
   const { formatNative, currencyCode } = useCurrency();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
@@ -716,6 +721,40 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
           </View>
         ))}
       </View>
+
+      {/* Custom personalisation note */}
+      {product.hasInputField && (
+        <View style={{ marginTop: 16, paddingHorizontal: 0 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
+            {t.customNoteLabel}
+          </AppText>
+          <View style={{ position: "relative" }}>
+            <TextInput
+              value={customNote}
+              onChangeText={(text) => { if (text.length <= 22) setCustomNote(text); }}
+              placeholder={t.customNotePlaceholder}
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={22}
+              style={{
+                backgroundColor: colors.card,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                paddingEnd: 48,
+                fontFamily: "Inter_400Regular",
+                fontSize: 14,
+                color: colors.primary,
+              }}
+              returnKeyType="done"
+            />
+            <AppText style={{ position: "absolute", end: 12, top: "50%", transform: [{ translateY: -8 }], fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
+              {t.customNoteCounter.replace("{count}", String(customNote.length))}
+            </AppText>
+          </View>
+        </View>
+      )}
 
       {/* Payment methods */}
       <View style={{ marginTop: 6, gap: 8 }}>

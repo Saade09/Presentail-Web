@@ -115,11 +115,13 @@ const DEFAULT_PAGE_SIZE = 100;
  * product name so URLs remain human-readable (e.g. "velvet-rose-bouquet").
  * After normalisation, `OSProduct.id` is always a URL-safe string slug.
  */
-type RawOSProduct = Omit<OSProduct, "id"> & {
+type RawOSProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   id: number | string;
   slug?: string;
   /** OS API returns category data under this key (not `categories`). */
   catalog_categories?: OSProductCategory[];
+  /** OS API sends this as snake_case; normaliseProduct maps it to hasInputField. */
+  has_input_field?: boolean;
 };
 
 type RawOSProductsResponse = Omit<OSProductsResponse, "products"> & {
@@ -145,7 +147,13 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
   // The OS API returns category data under `catalog_categories`, not `categories`.
   // Prefer `catalog_categories` when present so filtering by category works correctly.
   const categories = raw.catalog_categories ?? raw.categories ?? [];
-  return { ...raw, categories, id, _rawNumericId: raw.id };
+  return {
+    ...raw,
+    categories,
+    id,
+    _rawNumericId: raw.id,
+    hasInputField: raw.has_input_field ?? false,
+  };
 }
 
 /**

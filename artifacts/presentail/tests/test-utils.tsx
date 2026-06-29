@@ -104,6 +104,7 @@ export const DEFAULT_CART: CartContextValue = {
   add: () => {},
   remove: () => {},
   setQty: () => {},
+  setCustomNote: () => {},
   clear: () => {},
   onClear: () => () => {},
   detailed: [],

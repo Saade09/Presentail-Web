@@ -37,6 +37,9 @@ export const productStrings: Dict = {
   "product.tab.careTips": { en: "Care Tips", ar: "نصائح العناية" },
   "product.tabs.aria": { en: "Product information tabs", ar: "تبويبات معلومات المنتج" },
   "product.bouquetIncludes": { en: "Bouquet Includes:", ar: "محتويات الباقة:" },
+  "product.customNote.label": { en: "Personalisation (optional)", ar: "تخصيص (اختياري)" },
+  "product.customNote.placeholder": { en: "e.g. Happy Birthday, Anna!", ar: "مثال: عيد ميلاد سعيد، آنا!" },
+  "product.customNote.counter": { en: "{count}/22", ar: "{count}/22" }, // no-translate — counter pattern
 };
 
 export const productStringsFr: Record<string, string> = {
@@ -76,4 +79,7 @@ export const productStringsFr: Record<string, string> = {
   "product.tab.careTips": "Conseils d'entretien",
   "product.tabs.aria": "Onglets d'information produit",
   "product.bouquetIncludes": "Le bouquet comprend :",
+  "product.customNote.label": "Personnalisation (facultatif)",
+  "product.customNote.placeholder": "ex. : Joyeux anniversaire, Anna !",
+  "product.customNote.counter": "{count}/22",
 };

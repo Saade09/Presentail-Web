@@ -61,6 +61,8 @@ export const cartStrings: Dict = {
     en: "Please enter a valid URL starting with http:// or https://",
     ar: "يرجى إدخال رابط صحيح يبدأ بـ http:// أو https://",
   },
+  "cart.customNote.label": { en: "Personalisation", ar: "تخصيص" },
+  "cart.customNote.placeholder": { en: "e.g. Happy Birthday, Anna!", ar: "مثال: عيد ميلاد سعيد، آنا!" },
 };
 
 export const cartStringsFr: Record<string, string> = {
@@ -114,4 +116,6 @@ export const cartStringsFr: Record<string, string> = {
   "cart.qrLink.label": "Ajouter un lien (facultatif)",
   "cart.qrLink.placeholder": "https://...",
   "cart.qrLink.error": "Veuillez saisir une URL valide commençant par http:// ou https://",
+  "cart.customNote.label": "Personnalisation",
+  "cart.customNote.placeholder": "ex. : Joyeux anniversaire, Anna !",
 };

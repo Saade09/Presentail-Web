@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -66,6 +67,9 @@ export default function ProductDetail() {
   const { countryCode: locationCountry } = useLocationSelection();
   const [currentPath, setLocation] = useLocation();
   const [upsellOpen, setUpsellOpen] = useState(false);
+  const [customNote, setCustomNote] = useState("");
+  // Reset note when navigating to a different product
+  useEffect(() => { setCustomNote(""); }, [slug]);
   const delivery = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();
 
@@ -277,7 +281,7 @@ export default function ProductDetail() {
         });
       }
     }
-    addItem(product, 1);
+    addItem(product, 1, customNote || undefined);
     setUpsellOpen(true);
   };
 
@@ -402,6 +406,29 @@ export default function ProductDetail() {
                   deliverySelection.setSelection({ mode, date, slotLabel });
                 }}
               />
+            )}
+
+            {product.hasInputField && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+                  {t("product.customNote.label")}
+                </label>
+                <div className="relative">
+                  <Input
+                    value={customNote}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 22) setCustomNote(e.target.value);
+                    }}
+                    placeholder={t("product.customNote.placeholder")}
+                    maxLength={22}
+                    className="pr-12"
+                    data-testid="input-custom-note"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground tabular-nums">
+                    {t("product.customNote.counter").replace("{count}", String(customNote.length))}
+                  </span>
+                </div>
+              </div>
             )}
 
             <div className="hidden md:flex gap-3">

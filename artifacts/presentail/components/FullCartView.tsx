@@ -47,18 +47,21 @@ import { trackEvent } from "@/lib/analytics";
 
 type CartItemRowProps = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  product: { id: string; name: string; image: any };
+  product: { id: string; name: string; image: any; hasInputField?: boolean };
   qty: number;
   lineTotal: number;
+  customNote?: string;
+  setCustomNote: (id: string, note: string) => void;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
   router: ReturnType<typeof import("expo-router").useRouter>;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
 };
 
-function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }: CartItemRowProps) {
+function CartItemRow({ product, qty, lineTotal, customNote, setCustomNote, colors, router, setQty, remove }: CartItemRowProps) {
   const headingFontMedium = useHeadingFont("500Medium");
   const [imageLoaded, setImageLoaded] = React.useState(false);
+  const t = useT();
   return (
     <View
       style={{
@@ -89,6 +92,33 @@ function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }
             {product.name}
           </AppText>
         </Pressable>
+        {product.hasInputField && (
+          <View style={{ position: "relative" }}>
+            <TextInput
+              value={customNote ?? ""}
+              onChangeText={(text) => { if (text.length <= 22) setCustomNote(product.id, text); }}
+              placeholder={t.customNotePlaceholder}
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={22}
+              style={{
+                backgroundColor: colors.background,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                paddingEnd: 42,
+                fontFamily: "Inter_400Regular",
+                fontSize: 12,
+                color: colors.primary,
+              }}
+              returnKeyType="done"
+            />
+            <Text style={{ position: "absolute", end: 8, top: "50%", transform: [{ translateY: -7 }], fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>
+              {(customNote ?? "").length}/22
+            </Text>
+          </View>
+        )}
         <Price
           value={lineTotal}
           style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
@@ -184,7 +214,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   }, []);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const [cardMessageSheetVisible, setCardMessageSheetVisible] = React.useState(false);
-  const { detailed, total, setQty, remove, clear, cartMessage, setCartMessage } = useCart();
+  const { items, detailed, total, setQty, remove, setCustomNote, clear, cartMessage, setCartMessage } = useCart();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { currencyCode, convert } = useCurrency();
   const t = useT();
@@ -466,6 +496,8 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 product={product}
                 qty={qty}
                 lineTotal={lineTotal}
+                customNote={items.find((i) => i.productId === product.id)?.customNote}
+                setCustomNote={setCustomNote}
                 colors={colors}
                 router={router}
                 setQty={setQty}

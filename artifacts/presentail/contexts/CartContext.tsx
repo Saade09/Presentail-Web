@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { Product } from "@/data/catalog";
 import { useWooProducts } from "./WooProductsContext";
 
-export type CartItem = { productId: string; qty: number };
+export type CartItem = { productId: string; qty: number; customNote?: string };
 
 export type CartCardMessage = { to: string; from: string; body: string };
 
@@ -15,9 +15,10 @@ export type CartContextValue = {
   items: CartItem[];
   count: number;
   total: number;
-  add: (productId: string, qty?: number) => void;
+  add: (productId: string, qty?: number, customNote?: string) => void;
   remove: (productId: string) => void;
   setQty: (productId: string, qty: number) => void;
+  setCustomNote: (productId: string, note: string) => void;
   clear: () => void;
   /**
    * Subscribe to cart-clear events. Used by sibling contexts (e.g.
@@ -43,9 +44,10 @@ export type CartContextValue = {
 export const CartContext = createContext<CartContextValue | null>(null);
 
 type PendingMutation =
-  | { type: "add"; productId: string; qty: number }
+  | { type: "add"; productId: string; qty: number; customNote?: string }
   | { type: "remove"; productId: string }
   | { type: "setQty"; productId: string; qty: number }
+  | { type: "setNote"; productId: string; customNote: string }
   | { type: "clear" };
 
 function applyMutation(items: CartItem[], m: PendingMutation): CartItem[] {
@@ -55,6 +57,13 @@ function applyMutation(items: CartItem[], m: PendingMutation): CartItem[] {
     if (m.qty <= 0) return items.filter((i) => i.productId !== m.productId);
     return items.map((i) => (i.productId === m.productId ? { ...i, qty: m.qty } : i));
   }
+  if (m.type === "setNote") {
+    return items.map((i) =>
+      i.productId === m.productId
+        ? { ...i, customNote: m.customNote.trim() || undefined }
+        : i,
+    );
+  }
   // add
   const existing = items.find((i) => i.productId === m.productId);
   if (existing) {
@@ -62,7 +71,7 @@ function applyMutation(items: CartItem[], m: PendingMutation): CartItem[] {
       i.productId === m.productId ? { ...i, qty: i.qty + m.qty } : i,
     );
   }
-  return [...items, { productId: m.productId, qty: m.qty }];
+  return [...items, { productId: m.productId, qty: m.qty, customNote: m.customNote?.trim() || undefined }];
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -159,13 +168,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const clearPendingNavigation = useCallback(() => setPendingNavigation(null), []);
 
-  const add = useCallback((productId: string, qty = 1) => {
+  const add = useCallback((productId: string, qty = 1, customNote?: string) => {
     if (!hydrated.current) {
-      pending.current.push({ type: "add", productId, qty });
+      pending.current.push({ type: "add", productId, qty, customNote });
     } else {
-      setItems((prev) => applyMutation(prev, { type: "add", productId, qty }));
+      setItems((prev) => applyMutation(prev, { type: "add", productId, qty, customNote }));
     }
     setIsCartOpen(true);
+  }, []);
+
+  const setCustomNote = useCallback((productId: string, note: string) => {
+    if (!hydrated.current) {
+      pending.current.push({ type: "setNote", productId, customNote: note });
+      return;
+    }
+    setItems((prev) => applyMutation(prev, { type: "setNote", productId, customNote: note }));
   }, []);
 
   const remove = useCallback((productId: string) => {
@@ -224,8 +241,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage }),
-    [items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage],
+    () => ({ items, count, total, add, remove, setQty, setCustomNote, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage }),
+    [items, count, total, add, remove, setQty, setCustomNote, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -6,7 +6,9 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
+  TextInput,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -48,7 +50,7 @@ export function CartDrawer() {
   const { user: _user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
-  const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
+  const { isCartOpen, closeCart, items, detailed, count, total, remove, setQty, setCustomNote } = useCart();
 
   // Navigation from inside a Modal portal is unreliable — the native view
   // sits above the Stack navigator and router.push is silently swallowed.
@@ -355,6 +357,33 @@ export function CartDrawer() {
                     >
                       {product.name}
                     </AppText>
+                    {(product as any).hasInputField && (
+                      <View style={{ position: "relative" }}>
+                        <TextInput
+                          value={items.find((i) => i.productId === product.id)?.customNote ?? ""}
+                          onChangeText={(text) => { if (text.length <= 22) setCustomNote(product.id, text); }}
+                          placeholder={t.customNotePlaceholder}
+                          placeholderTextColor={colors.mutedForeground}
+                          maxLength={22}
+                          style={{
+                            backgroundColor: colors.background,
+                            borderWidth: StyleSheet.hairlineWidth,
+                            borderColor: colors.border,
+                            borderRadius: 8,
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                            paddingEnd: 42,
+                            fontFamily: "Inter_400Regular",
+                            fontSize: 11,
+                            color: colors.primary,
+                          }}
+                          returnKeyType="done"
+                        />
+                        <Text style={{ position: "absolute", end: 8, top: "50%", transform: [{ translateY: -6 }], fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>
+                          {(items.find((i) => i.productId === product.id)?.customNote ?? "").length}/22
+                        </Text>
+                      </View>
+                    )}
                     <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
                       {formatPrice(lineTotal)}
                     </AppText>

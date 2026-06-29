@@ -90,7 +90,7 @@ function CartSkeleton() {
 }
 
 export default function Cart() {
-  const { items, updateQuantity, removeItem, subtotal, itemCount, isHydrated } = useCart();
+  const { items, updateQuantity, removeItem, updateCustomNote, subtotal, itemCount, isHydrated } = useCart();
   const { t, dir } = useLocale();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -361,6 +361,24 @@ export default function Cart() {
                   <Link href={`/product/${item.product.id}`} className="cursor-pointer">
                     <h3 className="font-serif text-sm leading-snug line-clamp-2 hover:opacity-70 transition-opacity">{item.product.name}</h3>
                   </Link>
+                  {item.product.hasInputField && (
+                    <div className="relative">
+                      <Input
+                        value={item.customNote ?? ""}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 22) updateCustomNote(item.product.id, e.target.value);
+                        }}
+                        placeholder={t("cart.customNote.placeholder")}
+                        maxLength={22}
+                        className="h-8 text-xs pr-10"
+                        aria-label={t("cart.customNote.label")}
+                        data-testid={`input-cart-note-${item.product.id}`}
+                      />
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums">
+                        {(item.customNote ?? "").length}/22
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center border rounded-full overflow-hidden bg-background w-fit">
                     <button
                       onClick={() => updateQuantity(item.product.id, item.quantity - 1)}

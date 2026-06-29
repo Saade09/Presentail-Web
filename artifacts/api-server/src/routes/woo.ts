@@ -69,6 +69,7 @@ type WcProduct = {
   categories?: WcProductCategory[];
   meta_data?: WcMeta[];
   brandNames?: string[];
+  hasInputField?: boolean;
 };
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
@@ -142,6 +143,7 @@ function mapOsProductToWcShape(p: OSProduct): WcProduct {
     categories,
     meta_data: meta,
     brandNames: p.brands.map((b) => decodeHtmlEntities(b.name)),
+    hasInputField: p.hasInputField ?? false,
   };
 }
 
@@ -321,6 +323,7 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
       .map((c) => c.slug),
     brandNames: p.brandNames ?? [],
     popularity: typeof p.total_sales === "number" ? p.total_sales : 0,
+    hasInputField: p.hasInputField ?? false,
   };
 }
 

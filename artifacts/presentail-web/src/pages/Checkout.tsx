@@ -1419,6 +1419,7 @@ function CheckoutForm() {
       wcId: i.product.wcId,
       osSlug: i.product.id,
       image: i.product.images?.[0]?.uri,
+      customInput: i.customNote?.trim() || undefined,
     })),
     billing: {
       firstName: sender.firstName,
@@ -1797,7 +1798,7 @@ function CheckoutForm() {
         // the Presentail OS catalog — client-supplied amounts are never used).
         const intentRes = await createPaymentIntent.mutateAsync({
           data: {
-            items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+            items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
             orderId,
             currency: currencyCode,
             email: sender.email || undefined,
@@ -1912,7 +1913,7 @@ function CheckoutForm() {
 
       if (payMethod === "paypal") {
         const res = await paypalPayment.mutateAsync({
-          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
           district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",
           noAddress,
@@ -1938,7 +1939,7 @@ function CheckoutForm() {
       if (payMethod === "mamo") {
         const finalizedPaymentMethod: PaymentMethodId = payMethod;
         const res = await mamoPayment.mutateAsync({
-          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
           orderId,
           district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",

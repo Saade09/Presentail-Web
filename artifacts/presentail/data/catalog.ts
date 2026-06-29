@@ -28,6 +28,7 @@ export type Product = {
   description?: string;
   wcId?: number;
   popularity?: number;
+  hasInputField?: boolean;
 };
 
 export type Category = { id: string; name: string; icon: string; image: any; description?: string | null };

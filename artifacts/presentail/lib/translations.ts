@@ -223,6 +223,9 @@ const EN = {
   includedCard: "Complimentary message card",
   includedDelivery: "Climate-controlled delivery",
   addLabel: "Add to Cart",
+  customNoteLabel: "Personalisation (optional)",
+  customNotePlaceholder: "e.g. Happy Birthday, Anna!", // no-translate — example name
+  customNoteCounter: "{count}/22 chars",
 
   // ── Checkout ──
   checkoutStep0: "Customize",
@@ -1078,6 +1081,9 @@ const AR: typeof EN = {
   includedCard: "بطاقة رسالة مجانية",
   includedDelivery: "توصيل بتحكم مناخي",
   addLabel: "أضف إلى السلة",
+  customNoteLabel: "تخصيص (اختياري)",
+  customNotePlaceholder: "مثال: عيد ميلاد سعيد، آنا!",
+  customNoteCounter: "{count}/22 حرف",
 
   // ── Checkout ──
   checkoutStep0: "تخصيص",
@@ -1927,6 +1933,9 @@ const FR: typeof EN = {
   includedCard: "Carte message offerte",
   includedDelivery: "Livraison climatisée",
   addLabel: "Ajouter au panier",
+  customNoteLabel: "Personnalisation (facultatif)",
+  customNotePlaceholder: "ex. : Joyeux anniversaire, Anna !",
+  customNoteCounter: "{count}/22 car.",
 
   // ── Checkout ──
   checkoutStep0: "Personnaliser",

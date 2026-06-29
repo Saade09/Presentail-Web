@@ -901,6 +901,7 @@ function CheckoutScreen() {
       quantity: qty,
       price: product.priceValue,
       wcId: product.wcId,
+      customInput: items.find((i) => i.productId === product.id)?.customNote?.trim() || undefined,
     })),
     billing: {
       firstName: senderFirst,

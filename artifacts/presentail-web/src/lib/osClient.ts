@@ -35,11 +35,13 @@ function osUrl(path: string, extra: Record<string, string> = {}): string {
   return url.toString();
 }
 
-type RawOsProduct = Omit<OSProduct, "id"> & {
+type RawOsProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   id: number | string;
   slug?: string;
   /** OS API returns category data under this key (not `categories`). */
   catalog_categories?: OSProductCategory[];
+  /** OS API sends this as snake_case; normaliseProduct maps it to hasInputField. */
+  has_input_field?: boolean;
 };
 
 type RawOsProductsPage = {
@@ -62,7 +64,13 @@ function normaliseProduct(raw: RawOsProduct): NormalisedProduct {
   const id = raw.slug ?? nameToSlug(raw.name);
   // The OS API returns category data under `catalog_categories`, not `categories`.
   const categories = raw.catalog_categories ?? raw.categories ?? [];
-  return { ...raw, categories, id, _rawNumericId: raw.id };
+  return {
+    ...raw,
+    categories,
+    id,
+    _rawNumericId: raw.id,
+    hasInputField: raw.has_input_field ?? false,
+  };
 }
 
 function deduplicateSlugs(products: NormalisedProduct[]): OSProduct[] {

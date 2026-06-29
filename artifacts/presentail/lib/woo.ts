@@ -15,6 +15,7 @@ export type WooProduct = {
   tag?: string;
   occasions: string[];
   popularity?: number;
+  hasInputField?: boolean;
 };
 
 export type OccasionGroup = {
@@ -141,7 +142,7 @@ export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProd
 
 export type WooOrderPayload = {
   orderId: string;
-  items: { name: string; quantity: number; price: number; wcId?: number }[];
+  items: { name: string; quantity: number; price: number; wcId?: number; customInput?: string }[];
   billing: { firstName: string; lastName: string; email: string; phone: string };
   recipient: { firstName: string; lastName: string; phone: string };
   district: string;

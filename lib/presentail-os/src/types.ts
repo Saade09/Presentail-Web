@@ -177,6 +177,11 @@ export type OSProduct = {
   discount_price_usd?: string | null;
   /** Discounted price in AED. Use directly for AED shoppers when available. */
   discount_price_aed?: string | null;
+  /**
+   * When true, a short personalisation note (max 22 chars) can be entered
+   * for this product at the time of ordering.
+   */
+  hasInputField?: boolean;
 };
 
 export type OSProductsResponse = {

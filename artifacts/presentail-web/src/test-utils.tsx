@@ -36,6 +36,7 @@ export const DEFAULT_CART: CartContextType = {
   addItem: () => {},
   removeItem: () => {},
   updateQuantity: () => {},
+  updateCustomNote: () => {},
   clearCart: () => {},
   subtotal: 0,
   itemCount: 0,
