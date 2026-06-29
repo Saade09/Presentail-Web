@@ -1,4 +1,5 @@
 import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, type Product } from "@/lib/queries";
+import { SEOContentSection } from "@/components/SEOContentSection";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
 import { useEffect } from "react";
@@ -576,12 +577,23 @@ export default function Shop() {
                 ))}
               </div>
             )}
-            {category && catalogCategory?.description && (
-              <div className="mt-16 pt-10 border-t border-border" data-testid="category-description">
-                <h2 className="font-serif text-2xl mb-4">{catalogCategory.name}</h2>
-                <p className="text-muted-foreground leading-relaxed max-w-2xl">{catalogCategory.description}</p>
-              </div>
-            )}
+            {(category || occasion) && products.length > 0 && (() => {
+              const cityLabel = city ? cityName(city.id, city.name) : "";
+              const availableCategoryIds = catalogMetadata?.categories.map((c) => c.id) ?? [];
+              const availableOccasionIds = catalogMetadata?.occasions.map((o) => o.id) ?? [];
+              return (
+                <SEOContentSection
+                  pageType={category ? "category" : "occasion"}
+                  entityName={entityName}
+                  entitySlug={category || occasion}
+                  cityLabel={cityLabel}
+                  lang={language}
+                  countryCode={countryCode ?? ""}
+                  availableCategoryIds={availableCategoryIds}
+                  availableOccasionIds={availableOccasionIds}
+                />
+              );
+            })()}
           </div>
         </div>
       </div>

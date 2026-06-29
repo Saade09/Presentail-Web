@@ -89,6 +89,135 @@ export const shopStrings: Dict = {
   "shop.color.silver": { en: "Silver", ar: "فضي" },
   "shop.color.coral": { en: "Coral", ar: "مرجاني" },
   "shop.color.lilac": { en: "Lilac", ar: "ليلكي" },
+
+  // SEO content section — category pages
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.heading": { en: "{name} Delivery in {city}", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.introFlower": {
+    en: "Presentail brings you a curated selection of {name} delivered fresh to your door in {city}. Whether you're celebrating a birthday, marking an anniversary, or simply brightening someone's day, our expert florists hand-arrange every bouquet with care. Enjoy express same-day delivery, flexible scheduling, and the option to add chocolates, balloons, or a personalised card to make every moment unforgettable.",
+    ar: "",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.introNonFlower": {
+    en: "Find the perfect {name} for every occasion at Presentail. Our curated collection in {city} spans premium brands and thoughtful designs, all available with same-day delivery. Add a card, flowers, or another personal touch to create a gift that truly stands out — ordered online in minutes and delivered fresh to the door.",
+    ar: "",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.linksLabel": { en: "Popular occasions in {city}", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.faq.1.q": { en: "How fast can you deliver {name} in {city}?", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.faq.1.a": {
+    en: "Presentail offers same-day {name} delivery in {city} when you order before midday. We also offer scheduled delivery for up to 30 days in advance — choose your preferred date and two-hour time window at checkout.",
+    ar: "",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.faq.2.q": { en: "Can I schedule a {name} delivery in advance?", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.faq.2.a": {
+    en: "Yes. You can schedule your delivery up to 30 days ahead. At checkout, simply pick the date and two-hour delivery window that suits you, and we'll take care of the rest.",
+    ar: "",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.faq.3.q": { en: "What extras can I add to my {name} order?", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.cat.faq.3.a": {
+    en: "When ordering {name} in {city}, you can add a personalised card, chocolates, balloons, scented candles, and more. Browse the extras section at checkout to see everything available for your order.",
+    ar: "",
+  },
+
+  // SEO content section — occasion pages
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.heading": { en: "Send {name} Flowers & Gifts in {city}", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.intro": {
+    en: "Make every {name} moment memorable with Presentail. Browse our handpicked selection of flowers, cakes, chocolates and gifts for {name} delivery in {city}, with same-day options available. From elegant hand bouquets to indulgent gift sets, our concierge team is ready to help you find the perfect send.",
+    ar: "",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.linksLabel": { en: "Popular gifts for {name}", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.anniversary": { en: "Anniversary", ar: "ذكرى سنوية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.faq.1.q": { en: "What gifts can I send for {name} in {city}?", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.faq.1.a": {
+    en: "Presentail offers a wide range of {name} gifts in {city}, including fresh flower bouquets, flower boxes, cakes, chocolates, plants and curated gift sets. Browse the collection above to find the perfect match for your recipient.",
+    ar: "",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.faq.2.q": { en: "Is same-day {name} gift delivery available in {city}?", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.faq.2.a": {
+    en: "Yes — same-day delivery is available in {city} when you place your order before midday. You can also schedule delivery up to 30 days ahead for extra peace of mind.",
+    ar: "",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.faq.3.q": { en: "Do you deliver {name} gifts on weekends in {city}?", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.occ.faq.3.a": {
+    en: "Presentail delivers seven days a week in {city}, including weekends and most public holidays. Check the checkout for available slots on your chosen date.",
+    ar: "",
+  },
+
+  // SEO content section — shared
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.faqTitle": { en: "Frequently Asked Questions", ar: "أسئلة شائعة" },
+
+  // SEO content section — flower category benefits
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.1.title": { en: "Same-day delivery", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.1.body": { en: "Order before midday for express flower delivery the same day.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.2.title": { en: "Hand-arranged by florists", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.2.body": { en: "Every bouquet is freshly arranged by our expert florists, never factory-made.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.3.title": { en: "Schedule up to 30 days ahead", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.3.body": { en: "Choose your preferred date and two-hour delivery window.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.4.title": { en: "Gift extras available", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.flower.4.body": { en: "Add chocolates, balloons, scented candles or a personalised card.", ar: "" },
+
+  // SEO content section — non-flower gift category benefits
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.1.title": { en: "Express same-day delivery", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.1.body": { en: "We deliver across the city — same-day or next-day, you choose.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.2.title": { en: "Premium quality, always", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.2.body": { en: "Every item is sourced from trusted partner brands and quality-checked.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.3.title": { en: "Your chosen delivery time", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.3.body": { en: "Pick a two-hour window that works for you, up to 30 days in advance.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.4.title": { en: "Beautifully packaged", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.gift.4.body": { en: "All gifts arrive in our signature packaging, ready to impress.", ar: "" },
+
+  // SEO content section — occasion benefits
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.1.title": { en: "Fast delivery for every occasion", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.1.body": { en: "Same-day or scheduled delivery available across the city.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.2.title": { en: "Curated for the moment", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.2.body": { en: "Gifts handpicked by our team to suit the spirit of each occasion.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.3.title": { en: "Thousands of happy customers", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.3.body": { en: "Join a community of gifters who trust Presentail for every milestone.", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.4.title": { en: "Hassle-free, start to finish", ar: "" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.benefit.occ.4.body": { en: "Order in minutes, track in real time, delivered with care.", ar: "" },
 };
 
 export const shopStringsFr: Record<string, string> = {
@@ -167,4 +296,61 @@ export const shopStringsFr: Record<string, string> = {
   "shop.color.silver": "Argent",
   "shop.color.coral": "Corail",
   "shop.color.lilac": "Lilas",
+
+  // SEO content section — category pages (FR placeholder)
+  "seo.content.cat.heading": "",
+  "seo.content.cat.introFlower": "",
+  "seo.content.cat.introNonFlower": "",
+  "seo.content.cat.linksLabel": "",
+  "seo.content.cat.faq.1.q": "",
+  "seo.content.cat.faq.1.a": "",
+  "seo.content.cat.faq.2.q": "",
+  "seo.content.cat.faq.2.a": "",
+  "seo.content.cat.faq.3.q": "",
+  "seo.content.cat.faq.3.a": "",
+
+  // SEO content section — occasion pages (FR placeholder)
+  "seo.content.occ.heading": "",
+  "seo.content.occ.intro": "",
+  "seo.content.occ.linksLabel": "",
+  "seo.content.occ.anniversary": "Anniversaire",
+  "seo.content.occ.faq.1.q": "",
+  "seo.content.occ.faq.1.a": "",
+  "seo.content.occ.faq.2.q": "",
+  "seo.content.occ.faq.2.a": "",
+  "seo.content.occ.faq.3.q": "",
+  "seo.content.occ.faq.3.a": "",
+
+  // SEO content section — shared (FR)
+  "seo.content.faqTitle": "Foire aux questions",
+
+  // SEO content section — flower benefits (FR placeholder)
+  "seo.content.benefit.flower.1.title": "",
+  "seo.content.benefit.flower.1.body": "",
+  "seo.content.benefit.flower.2.title": "",
+  "seo.content.benefit.flower.2.body": "",
+  "seo.content.benefit.flower.3.title": "",
+  "seo.content.benefit.flower.3.body": "",
+  "seo.content.benefit.flower.4.title": "",
+  "seo.content.benefit.flower.4.body": "",
+
+  // SEO content section — gift benefits (FR placeholder)
+  "seo.content.benefit.gift.1.title": "",
+  "seo.content.benefit.gift.1.body": "",
+  "seo.content.benefit.gift.2.title": "",
+  "seo.content.benefit.gift.2.body": "",
+  "seo.content.benefit.gift.3.title": "",
+  "seo.content.benefit.gift.3.body": "",
+  "seo.content.benefit.gift.4.title": "",
+  "seo.content.benefit.gift.4.body": "",
+
+  // SEO content section — occasion benefits (FR placeholder)
+  "seo.content.benefit.occ.1.title": "",
+  "seo.content.benefit.occ.1.body": "",
+  "seo.content.benefit.occ.2.title": "",
+  "seo.content.benefit.occ.2.body": "",
+  "seo.content.benefit.occ.3.title": "",
+  "seo.content.benefit.occ.3.body": "",
+  "seo.content.benefit.occ.4.title": "",
+  "seo.content.benefit.occ.4.body": "",
 };
