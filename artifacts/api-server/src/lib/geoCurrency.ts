@@ -15,8 +15,6 @@ const COUNTRY_TO_CURRENCY: Record<string, SupportedCurrency> = {
   AU: "AUD",
   QA: "QAR",
   SA: "SAR",
-  KW: "KWD",
-  OM: "OMR",
   CH: "CHF",
   LI: "CHF",
   // Eurozone

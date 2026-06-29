@@ -81,8 +81,6 @@ vi.mock("../src/lib/fx", async () => {
         AUD: 1.5,
         QAR: 3.64,
         SAR: 3.75,
-        KWD: 0.307,
-        OMR: 0.384,
         CHF: 0.88,
         LBP: 89_500,
       },

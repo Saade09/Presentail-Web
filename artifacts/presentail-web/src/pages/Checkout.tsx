@@ -89,23 +89,14 @@ function stripeDeclineMsg(
   return null;
 }
 
-// Currencies routed to the Gulf Stripe account.
-// AED is included so Apple Pay / Google Pay for UAE use the Gulf Stripe account.
-const GULF_STRIPE_CURRENCIES = ["KWD", "OMR", "AED"];
-
 // The country code of the Stripe merchant account used for Apple Pay / Google
 // Pay PaymentRequest construction. This must match the account's registered
-// country (e.g. "US"), NOT the shopper's delivery country. Lebanon ("LB") is
-// not a supported Stripe merchant country and causes the PaymentRequest
-// constructor to throw on every attempt.
+// country (e.g. "CY" for the Cyprus account), NOT the shopper's delivery
+// country. Lebanon ("LB") is not a supported Stripe merchant country and causes
+// the PaymentRequest constructor to throw on every attempt.
 // Configurable via VITE_STRIPE_MERCHANT_COUNTRY (default "US").
 const STRIPE_MERCHANT_COUNTRY: string =
   (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY as string | undefined) || "US";
-
-// Gulf Stripe account merchant country (AED / KWD / OMR wallet payments).
-// Configurable via VITE_STRIPE_MERCHANT_COUNTRY_GULF (default "AE").
-const STRIPE_MERCHANT_COUNTRY_GULF: string =
-  (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY_GULF as string | undefined) || "AE";
 
 // Maps the active display-currency to its most likely Stripe merchant country.
 // Mirrors the mobile checkout's countryFromCurrency / resolveCountryCode pattern.
@@ -120,24 +111,13 @@ function resolveCheckoutCountry(selectedCountryCode?: string | null, currencyCod
   return selectedCountryCode || countryFromCurrency(currencyCode) || "LB";
 }
 
-// Module-level Stripe promise cache — keyed by account (standard vs gulf).
-// Lazily initialised via dynamic import so @stripe/stripe-js is NOT bundled
-// into the eagerly-evaluated checkout chunk, and js.stripe.com is NOT fetched
-// until a Stripe-dependent payment method is first selected.
-// Subsequent calls for the same account return the same cached promise.
+// Module-level Stripe promise cache — lazily initialised via dynamic import so
+// @stripe/stripe-js is NOT bundled into the eagerly-evaluated checkout chunk,
+// and js.stripe.com is NOT fetched until a Stripe-dependent payment method is
+// first selected. Subsequent calls return the same cached promise.
 let _stripePromise: Promise<import("@stripe/stripe-js").Stripe | null> | null = null;
-let _stripeGulfPromise: Promise<import("@stripe/stripe-js").Stripe | null> | null = null;
 
-function getStripePromise(isGulf: boolean) {
-  if (isGulf) {
-    return (_stripeGulfPromise ??= import("@stripe/stripe-js").then(({ loadStripe }) =>
-      loadStripe(
-        import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_GULF ||
-          import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
-          null,
-      ),
-    ));
-  }
+function getStripePromise() {
   return (_stripePromise ??= import("@stripe/stripe-js").then(({ loadStripe }) =>
     loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null),
   ));
@@ -390,10 +370,6 @@ function CheckoutForm() {
   // the dynamic import and mounts LazyStripeSection.  Once mounted it calls
   // onStripeReady with the resolved Stripe instance so we can run the wallet
   // probe and confirm card payments without needing the hooks in this component.
-  const isGulf = GULF_STRIPE_CURRENCIES.includes(currencyCode);
-  const isGulfRef = useRef(isGulf);
-  isGulfRef.current = isGulf;
-
   const [stripePromise, setStripePromise] = useState<
     Promise<import("@stripe/stripe-js").Stripe | null> | null
   >(null);
@@ -403,7 +379,7 @@ function CheckoutForm() {
   const [stripeNeeded, setStripeNeeded] = useState(false);
 
   const triggerStripeLoad = useCallback(() => {
-    setStripePromise((prev) => prev ?? getStripePromise(isGulfRef.current));
+    setStripePromise((prev) => prev ?? getStripePromise());
     setStripeNeeded(true);
   }, []);
 
@@ -1086,9 +1062,7 @@ function CheckoutForm() {
     let pr: import("@stripe/stripe-js").PaymentRequest;
     try {
       pr = stripe.paymentRequest({
-        // Use the merchant country for the active Stripe account: Gulf (AE) for
-        // AED/KWD/OMR, main (CY) for everything else.
-        country: isGulfRef.current ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY,
+        country: STRIPE_MERCHANT_COUNTRY,
         currency: "usd",
         total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
         requestPayerName: false,
@@ -1244,9 +1218,7 @@ function CheckoutForm() {
           // call show() synchronously inside the click gesture with no await.
           try {
             const submitPr = stripe.paymentRequest({
-              country: isGulfRef.current
-                ? STRIPE_MERCHANT_COUNTRY_GULF
-                : STRIPE_MERCHANT_COUNTRY,
+              country: STRIPE_MERCHANT_COUNTRY,
               currency: res.currency.toLowerCase(),
               total: {
                 label: t("checkout.payment.orderTitle"),

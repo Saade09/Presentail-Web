@@ -8,7 +8,7 @@ import {
 
 describe("isPayMethodSupported – PayPal", () => {
   const supportedCurrencies = ["USD", "EUR", "GBP", "CAD", "AUD", "CHF"];
-  const unsupportedCurrencies = ["AED", "QAR", "SAR", "KWD", "OMR"];
+  const unsupportedCurrencies = ["AED", "QAR", "SAR"];
 
   for (const currency of supportedCurrencies) {
     it(`is enabled for ${currency} (LB)`, () => {

@@ -25,8 +25,6 @@ const SUPPORTED_CODES = new Set([
   "AUD",
   "QAR",
   "SAR",
-  "KWD",
-  "OMR",
   "CHF",
 ]);
 

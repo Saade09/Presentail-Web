@@ -186,8 +186,6 @@ export const CURRENCY_DECIMALS: Record<string, number> = {
   AUD: 2,
   QAR: 2,
   SAR: 2,
-  KWD: 3,
-  OMR: 3,
   CHF: 2,
   LBP: 0,
 };
@@ -199,17 +197,11 @@ export function currencyDecimals(currency: string): number {
 
 /**
  * Convert an amount already expressed in `currency` into the smallest unit
- * Stripe expects. Handles three-decimal currencies (KWD/OMR), which Stripe
- * requires to be rounded to the nearest 10 minor units, and zero-decimal
- * currencies (LBP).
+ * Stripe expects. Handles zero-decimal currencies (LBP) and standard
+ * two-decimal currencies.
  */
 export function toStripeMinorUnits(convertedAmount: number, currency: string): number {
   const decimals = currencyDecimals(currency);
-  if (decimals === 3) {
-    // Stripe requires three-decimal currencies to be rounded to nearest 10.
-    const minor = Math.round(convertedAmount * 1000);
-    return Math.round(minor / 10) * 10;
-  }
   if (decimals === 0) {
     return Math.round(convertedAmount);
   }

@@ -63,8 +63,6 @@ export type CurrencyCode =
   | "AUD"
   | "QAR"
   | "SAR"
-  | "KWD"
-  | "OMR"
   | "CHF";
 
 export type Currency = {

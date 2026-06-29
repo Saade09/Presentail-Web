@@ -164,8 +164,8 @@ describe("readManualCurrency / writeManualCurrency — storage behaviour", () =>
 
   describe("round-trip (write → read)", () => {
     it("persistent write is returned by read", () => {
-      writeManualCurrency({ code: "KWD", persistent: true });
-      expect(readManualCurrency()).toEqual({ code: "KWD", persistent: true });
+      writeManualCurrency({ code: "AED", persistent: true });
+      expect(readManualCurrency()).toEqual({ code: "AED", persistent: true });
     });
 
     it("session write is returned by read", () => {

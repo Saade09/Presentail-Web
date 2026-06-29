@@ -22,8 +22,6 @@ const CURRENCY_FLAG: Record<string, string> = {
   AUD: "AU",
   QAR: "QA",
   SAR: "SA",
-  KWD: "KW",
-  OMR: "OM",
   CHF: "CH",
 };
 

@@ -9,7 +9,7 @@ import {
 //
 // FX rate sources (priority order):
 //   1. Presentail OS public endpoint (`GET /api/public/currency-rates?workspace=…`)
-//      for the currencies it manages: AED, EUR, GBP, KWD, OMR, QAR, SAR.
+//      for the currencies it manages: AED, EUR, GBP, QAR, SAR.
 //      These are fetched in parallel with the open.er-api.com call below.
 //   2. open.er-api.com for the remaining live currencies: CAD, AUD, CHF.
 //      Also used as a full fallback if the OS fetch fails (covering all
@@ -30,8 +30,6 @@ export type SupportedCurrency =
   | "AUD"
   | "QAR"
   | "SAR"
-  | "KWD"
-  | "OMR"
   | "CHF"
   | "LBP";
 
@@ -44,14 +42,12 @@ export const SUPPORTED_CURRENCIES: SupportedCurrency[] = [
   "AUD",
   "QAR",
   "SAR",
-  "KWD",
-  "OMR",
   "CHF",
   "LBP",
 ];
 
 // Currencies sourced from Presentail OS (primary).
-const OS_CURRENCIES: SupportedCurrency[] = ["AED", "EUR", "GBP", "KWD", "OMR", "QAR", "SAR"];
+const OS_CURRENCIES: SupportedCurrency[] = ["AED", "EUR", "GBP", "QAR", "SAR"];
 
 // Currencies always sourced from open.er-api.com (OS does not provide these).
 const ER_API_CURRENCIES: SupportedCurrency[] = ["CAD", "AUD", "CHF"];
@@ -69,8 +65,6 @@ const FALLBACK_RATES: Record<SupportedCurrency, number> = {
   AUD: 1.5,
   QAR: 3.64,
   SAR: 3.75,
-  KWD: 0.307,
-  OMR: 0.384,
   CHF: 0.88,
   LBP: 89_500,
 };
@@ -303,7 +297,7 @@ export function roundForCurrency(amount: number, currency: SupportedCurrency): n
 /**
  * Convert a USD amount into the smallest unit Stripe expects for the given
  * currency. Delegates to the shared `@workspace/display-currency` helper so the
- * server and clients use identical rounding (KWD/OMR nearest-10, LBP 0-decimal).
+ * server and clients use identical rounding (LBP 0-decimal, standard 2-decimal).
  */
 export function toStripeMinorUnits(
   convertedAmount: number,

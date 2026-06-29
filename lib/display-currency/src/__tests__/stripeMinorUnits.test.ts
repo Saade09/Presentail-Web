@@ -7,7 +7,7 @@
 //     (`fx.ts`) both re-export the helpers below, so this single source of truth
 //     is what both platforms execute. The decimals map covers exactly the
 //     server's SupportedCurrency set and uses the Stripe-correct rounding for
-//     KWD/OMR (nearest 10 minor units) and LBP (0-decimal).
+//     LBP (0-decimal).
 //
 //  2. BOUNDED DIVERGENCE — the wallet sheet (web) converts the *grand total*
 //     once, whereas the server-created PaymentIntent converts each item's unit
@@ -29,8 +29,6 @@ const SUPPORTED = [
   "AUD",
   "QAR",
   "SAR",
-  "KWD",
-  "OMR",
   "CHF",
   "LBP",
 ] as const;
@@ -46,8 +44,6 @@ describe("CURRENCY_DECIMALS", () => {
       AUD: 2,
       QAR: 2,
       SAR: 2,
-      KWD: 3,
-      OMR: 3,
       CHF: 2,
       LBP: 0,
     });
@@ -59,7 +55,6 @@ describe("CURRENCY_DECIMALS", () => {
 
 describe("currencyDecimals", () => {
   it("is case-insensitive and defaults to 2 for unknown codes", () => {
-    expect(currencyDecimals("kwd")).toBe(3);
     expect(currencyDecimals("Lbp")).toBe(0);
     expect(currencyDecimals("ZZZ")).toBe(2);
   });
@@ -77,11 +72,6 @@ describe("toStripeMinorUnits", () => {
     expect(toStripeMinorUnits(89500.6, "LBP")).toBe(89501);
   });
 
-  it("rounds three-decimal currencies to the nearest 10 minor units (KWD/OMR)", () => {
-    expect(toStripeMinorUnits(30.704, "KWD")).toBe(30700);
-    expect(toStripeMinorUnits(30.705, "KWD")).toBe(30710);
-    expect(toStripeMinorUnits(12.345, "OMR")).toBe(12350);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -158,8 +148,6 @@ const RATES: Record<string, number> = {
   AUD: 1.5,
   QAR: 3.64,
   SAR: 3.75,
-  KWD: 0.307,
-  OMR: 0.384,
   CHF: 0.88,
   LBP: 89_500,
 };
@@ -172,18 +160,16 @@ const RATES: Record<string, number> = {
  * is amplified by its quantity. The delivery fee and coupon are each rounded
  * once, and the web sheet rounds the grand total once. Hence the worst case is:
  *
- *   (Σ quantity + deliveryRounded + couponRounded + 1) × step / 2
+ *   (Σ quantity + deliveryRounded + couponRounded + 1) × 1 / 2
  *
- * where `step` is 1 minor unit for normal currencies and 10 for KWD/OMR (Stripe
- * rounds three-decimal currencies to the nearest 10). `Math.ceil` keeps the
- * bound integer and never under-states it.
+ * All supported currencies now use 2-decimal (cents) or 0-decimal (LBP)
+ * Stripe rounding. `Math.ceil` keeps the bound integer.
  */
-function tolerance(cart: (typeof CARTS)[number], currency: string): number {
+function tolerance(cart: (typeof CARTS)[number], _currency: string): number {
   const sumQty = cart.items.reduce((s, i) => s + i.quantity, 0);
   const roundedTerms =
     sumQty + (cart.deliveryFeeUsd > 0 ? 1 : 0) + (cart.couponUsd > 0 ? 1 : 0) + 1;
-  const step = currencyDecimals(currency) === 3 ? 10 : 1;
-  return Math.ceil((roundedTerms * step) / 2);
+  return Math.ceil(roundedTerms / 2);
 }
 
 describe("wallet sheet vs PaymentIntent divergence", () => {

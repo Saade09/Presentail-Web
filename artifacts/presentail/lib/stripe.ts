@@ -25,26 +25,11 @@ const PRODUCTION_API_BASE = "https://lebanon-luxury-showcase.replit.app";
 export const STRIPE_PUBLISHABLE_KEY =
   process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
-// Gulf Stripe account publishable key — used for KWD and OMR payments.
-// Register via:
-//   eas secret:create --scope project \
-//     --name EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_GULF --value pk_live_...
-// Falls back to the main key when unset so the app keeps working without it.
-export const STRIPE_PUBLISHABLE_KEY_GULF =
-  process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_GULF ?? "";
-
-// Currencies routed to the Gulf Stripe account.
-const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"] as const;
-
 /**
- * Return the Stripe publishable key to use for the given display currency.
- * KWD and OMR are charged through the Gulf account; everything else uses
- * the main account. Falls back to the main key if the Gulf key is unset.
+ * Return the Stripe publishable key. All currencies are processed through
+ * the single CY Stripe account.
  */
-export function getStripePublishableKey(currency: string): string {
-  if ((GULF_STRIPE_CURRENCIES as readonly string[]).includes(currency)) {
-    return STRIPE_PUBLISHABLE_KEY_GULF || STRIPE_PUBLISHABLE_KEY;
-  }
+export function getStripePublishableKey(_currency?: string): string {
   return STRIPE_PUBLISHABLE_KEY;
 }
 

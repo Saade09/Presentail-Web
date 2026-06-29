@@ -20,20 +20,18 @@ export const PAY_METHOD_CURRENCIES: Record<
   PayMethodId,
   readonly string[] | "all"
 > = {
-  // Stripe processes USD/EUR/GBP/etc. cards directly. AED is routed through
-  // the Gulf Stripe account (STRIPE_SECRET_KEY_GULF) along with KWD and OMR.
-  card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
-  // apple_pay uses Stripe's native PlatformPay sheet (iOS). AED is now
-  // included via the Gulf Stripe account.
-  apple_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
+  // Stripe processes all supported currencies through the single CY account.
+  card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "CHF", "AED"],
+  // apple_pay uses Stripe's native PlatformPay sheet (iOS).
+  apple_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "CHF", "AED"],
   // google_pay uses Stripe's native PlatformPay sheet (Android). Same currency
   // set as apple_pay.
-  google_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
+  google_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "CHF", "AED"],
   // Wallet (legacy combined Apple Pay / Google Pay row) is kept in the table
-  // for type-compatibility. AED is included via the Gulf Stripe account.
-  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
+  // for type-compatibility.
+  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "CHF", "AED"],
   // PayPal settles in USD and the other major currencies the app supports;
-  // Gulf currencies (AED, QAR, SAR, KWD, OMR) are excluded — PayPal does
+  // Gulf currencies (AED, QAR, SAR) are excluded — PayPal does
   // not settle in them, and UAE is also blocked via PAY_METHOD_EXCLUDED_COUNTRIES.
   paypal: ["USD", "EUR", "GBP", "CAD", "AUD", "CHF"],
   // Mamo is disabled — secrets are retained but no currency routes to it.

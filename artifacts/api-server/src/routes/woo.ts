@@ -829,8 +829,7 @@ router.post("/woo/order", async (req, res) => {
       // server restarts (or submits hours later), their intent is gone and the
       // original code returned 402 — silently dropping a captured payment.
       //
-      // Recovery path for pi_ refs: probe Stripe directly (trying both the
-      // main and Gulf keys, since we no longer have the stored account hint).
+      // Recovery path for pi_ refs: probe Stripe directly.
       // verifyStripePaymentIntentPaid checks both status === "succeeded" AND
       // metadata.orderId === body.orderId, so anti-replay guarantees hold.
       // Without the snapshot we fall back to the OS-cache price path (same as
@@ -838,7 +837,6 @@ router.post("/woo/order", async (req, res) => {
       if (paymentRef.startsWith("pi_")) {
         const stripeKeysFallback = [
           process.env.STRIPE_SECRET_KEY,
-          process.env.STRIPE_SECRET_KEY_GULF,
         ].filter((k): k is string => !!k);
         let recoveredFromStripe = false;
         for (const k of stripeKeysFallback) {
@@ -901,15 +899,8 @@ router.post("/woo/order", async (req, res) => {
       // Hoist the verified prices so attemptCreateOsOrder can use them directly.
       snapshotItems = intent.snapshot.items;
 
-      // Resolve the Stripe secret key for the account that created this session.
-      // Gulf payments (KWD, OMR, AED) are created on STRIPE_SECRET_KEY_GULF;
-      // verifying them with the main key returns 404 from Stripe and causes
-      // paymentVerified to stay false, blocking the order. Fall back to the
-      // main key if the Gulf key is absent (same degradation path as checkout).
-      const stripeKey =
-        intent.stripeAccount === "gulf"
-          ? (process.env.STRIPE_SECRET_KEY_GULF ?? process.env.STRIPE_SECRET_KEY)
-          : process.env.STRIPE_SECRET_KEY;
+      // All payments go through the single CY Stripe account.
+      const stripeKey = process.env.STRIPE_SECRET_KEY;
 
       if (!stripeKey) {
         req.log?.warn?.(

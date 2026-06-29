@@ -66,14 +66,6 @@ const TEST_SNAPSHOT: CurrencySnapshot = {
       spaceBetween: false,
       decimals: 0,
     },
-    {
-      code: "KWD",
-      name: "Kuwaiti Dinar",
-      symbol: "KD",
-      symbolPosition: "left",
-      spaceBetween: false,
-      decimals: 2,
-    },
   ],
 };
 
@@ -144,16 +136,6 @@ describe("formatPriceInCurrency — edge-case amounts", () => {
   it("falls back to USD for null/undefined currency code", () => {
     expect(formatPriceInCurrency(50, null)).toBe("$50");
     expect(formatPriceInCurrency(50, undefined)).toBe("$50");
-  });
-});
-
-describe("formatPriceInCurrency — KWD rounding (no decimals)", () => {
-  it("KWD whole number formats without decimals", () => {
-    expect(formatPriceInCurrency(10, "KWD")).toBe("KD10");
-  });
-
-  it("KWD fractional amount is rounded to nearest integer", () => {
-    expect(formatPriceInCurrency(10.5, "KWD")).toBe("KD11");
   });
 });
 

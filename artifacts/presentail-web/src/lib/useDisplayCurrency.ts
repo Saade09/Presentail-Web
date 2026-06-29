@@ -58,8 +58,6 @@ const PICKER_CURRENCY_CODES = [
   "AUD",
   "QAR",
   "SAR",
-  "KWD",
-  "OMR",
   "CHF",
 ] as const;
 

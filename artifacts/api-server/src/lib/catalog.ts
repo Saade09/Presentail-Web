@@ -250,8 +250,7 @@ export async function resolveCartItems(
 // created for a different (cheaper) order and replayed here.
 //
 // stripeKey must be the secret key for the Stripe account that created the
-// session — the main key for most currencies, the Gulf key for KWD/OMR/AED.
-// Using the wrong key causes Stripe to return 404, making verification fail.
+// session (STRIPE_SECRET_KEY — the single CY account used for all currencies).
 export async function verifyStripePayment(
   sessionId: string,
   expectedOrderId: string,
@@ -282,7 +281,7 @@ export async function verifyStripePayment(
 // which checks hosted Checkout sessions (paymentRef starts with "cs_").
 //
 // stripeKey must be the secret key for the Stripe account that created the
-// PaymentIntent — the main key for most currencies, the Gulf key for KWD/OMR/AED.
+// PaymentIntent (STRIPE_SECRET_KEY — the single CY account used for all currencies).
 export async function verifyStripePaymentIntentPaid(
   paymentIntentId: string,
   expectedOrderId: string,
