@@ -44,17 +44,7 @@ import {
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { trackEvent } from "@/lib/analytics";
-
-function isDiscountActive(
-  currencyCode: string,
-  discountPriceValue?: number | null,
-  discountPriceAed?: number | null,
-): boolean {
-  const hasUsdDiscount = discountPriceValue != null && discountPriceValue > 0;
-  const hasAedDiscount = discountPriceAed != null && discountPriceAed > 0;
-  if (currencyCode === "AED") return hasAedDiscount || hasUsdDiscount;
-  return hasUsdDiscount;
-}
+import { isDiscountActive } from "@/lib/salePriceHelpers";
 
 type CartItemRowProps = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

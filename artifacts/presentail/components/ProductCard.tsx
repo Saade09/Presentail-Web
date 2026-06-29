@@ -17,6 +17,7 @@ import {
   prefetchOnInteraction,
 } from "@/lib/prefetchScreens";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
+import { isDiscountActive } from "@/lib/salePriceHelpers";
 
 const imageLoadedCache = new Set<string>();
 
@@ -25,17 +26,6 @@ function getImageUri(image: Product["image"]): string | null {
   if (typeof image === "string") return image || null;
   if (typeof image === "object" && "uri" in image) return (image as { uri: string }).uri || null;
   return null;
-}
-
-function isDiscountActive(
-  currencyCode: string,
-  discountPriceValue?: number | null,
-  discountPriceAed?: number | null,
-): boolean {
-  const hasUsdDiscount = discountPriceValue != null && discountPriceValue > 0;
-  const hasAedDiscount = discountPriceAed != null && discountPriceAed > 0;
-  if (currencyCode === "AED") return hasAedDiscount || hasUsdDiscount;
-  return hasUsdDiscount;
 }
 
 type Props = {
