@@ -116,6 +116,8 @@ export const DEFAULT_CART: CartContextValue = {
   clearPendingNavigation: () => {},
   cartMessage: null,
   setCartMessage: () => {},
+  priceUpdatedProductIds: [],
+  dismissPriceUpdated: () => {},
 };
 
 // ---------------------------------------------------------------------------

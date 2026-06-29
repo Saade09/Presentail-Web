@@ -214,7 +214,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   }, []);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const [cardMessageSheetVisible, setCardMessageSheetVisible] = React.useState(false);
-  const { items, detailed, total, setQty, remove, setCustomNote, clear, cartMessage, setCartMessage } = useCart();
+  const { items, detailed, total, setQty, remove, setCustomNote, clear, cartMessage, setCartMessage, priceUpdatedProductIds, dismissPriceUpdated } = useCart();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { currencyCode, convert } = useCurrency();
   const t = useT();
@@ -378,6 +378,28 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               gap: 14,
             }}
           >
+            {priceUpdatedProductIds.length > 0 && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  backgroundColor: "#FEF9EC",
+                  borderRadius: 14,
+                  padding: 12,
+                  borderWidth: 1,
+                  borderColor: "#F5D97A",
+                }}
+              >
+                <Feather name="info" size={15} color="#B88A00" style={{ marginTop: 1 }} />
+                <AppText style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: "#7A5A00", lineHeight: 18 }}>
+                  {t.cartPriceUpdatedBanner}
+                </AppText>
+                <Pressable onPress={dismissPriceUpdated} hitSlop={10}>
+                  <Feather name="x" size={15} color="#B88A00" />
+                </Pressable>
+              </View>
+            )}
             {freeDeliveryEnabled && (
             <View
               style={{

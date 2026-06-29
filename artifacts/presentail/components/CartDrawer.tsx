@@ -50,7 +50,7 @@ export function CartDrawer() {
   const { user: _user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
-  const { isCartOpen, closeCart, items, detailed, count, total, remove, setQty, setCustomNote } = useCart();
+  const { isCartOpen, closeCart, items, detailed, count, total, remove, setQty, setCustomNote, priceUpdatedProductIds, dismissPriceUpdated } = useCart();
 
   // Navigation from inside a Modal portal is unreliable — the native view
   // sits above the Stack navigator and router.push is silently swallowed.
@@ -220,6 +220,28 @@ export function CartDrawer() {
               contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
               showsVerticalScrollIndicator={false}
             >
+              {priceUpdatedProductIds.length > 0 && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    backgroundColor: "#FEF9EC",
+                    borderRadius: 14,
+                    padding: 12,
+                    borderWidth: 1,
+                    borderColor: "#F5D97A",
+                  }}
+                >
+                  <Feather name="info" size={14} color="#B88A00" style={{ marginTop: 1 }} />
+                  <AppText style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: "#7A5A00", lineHeight: 17 }}>
+                    {t.cartPriceUpdatedBanner}
+                  </AppText>
+                  <Pressable onPress={dismissPriceUpdated} hitSlop={10}>
+                    <Feather name="x" size={14} color="#B88A00" />
+                  </Pressable>
+                </View>
+              )}
               {freeDeliveryEnabled && (
               <View
                 style={{

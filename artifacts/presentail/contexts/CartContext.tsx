@@ -2,7 +2,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Product } from "@/data/catalog";
+import type { WooProduct } from "@/lib/woo";
 import { useWooProducts } from "./WooProductsContext";
+
+function effectiveUsdPrice(product: WooProduct | Product): number {
+  const disc = (product as WooProduct).discountPriceValue;
+  if (disc != null && disc > 0) return disc;
+  return product.priceValue;
+}
 
 export type CartItem = { productId: string; qty: number; customNote?: string };
 
@@ -39,6 +46,14 @@ export type CartContextValue = {
   clearPendingNavigation: () => void;
   cartMessage: CartCardMessage | null;
   setCartMessage: (msg: CartCardMessage | null) => void;
+  /**
+   * Product IDs of cart items whose effective price increased after a catalog
+   * re-sync (e.g. a sale ended while the item was in the cart). Non-empty
+   * means the shopper should see a "prices updated" notice.
+   */
+  priceUpdatedProductIds: string[];
+  /** Dismiss the price-updated notice. */
+  dismissPriceUpdated: () => void;
 };
 
 export const CartContext = createContext<CartContextValue | null>(null);
@@ -79,9 +94,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [cartMessage, setCartMessageState] = useState<CartCardMessage | null>(null);
+  const [priceUpdatedProductIds, setPriceUpdatedProductIds] = useState<string[]>([]);
   const hydrated = useRef(false);
   const pending = useRef<PendingMutation[]>([]);
   const clearListeners = useRef<Set<() => void>>(new Set());
+  // Map of productId → effective USD price from the last catalog sync. null
+  // means we haven't seen a sync yet (don't alert on the very first load).
+  const prevEffectivePricesRef = useRef<Map<string, number> | null>(null);
   const { products: wooProducts } = useWooProducts();
 
   const onClear = useCallback((cb: () => void) => {
@@ -100,6 +119,53 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, []);
+
+  const dismissPriceUpdated = useCallback(() => {
+    setPriceUpdatedProductIds([]);
+  }, []);
+
+  // Detect when the catalog re-sync removes a discount that was active for a
+  // cart item so we can alert the shopper before they proceed to checkout.
+  useEffect(() => {
+    if (wooProducts.length === 0) return;
+    const currentPrices = new Map<string, number>();
+    for (const p of wooProducts) {
+      currentPrices.set(p.id, effectiveUsdPrice(p));
+    }
+    const prev = prevEffectivePricesRef.current;
+    if (prev === null) {
+      // First sync — just record prices; no banner on initial load.
+      prevEffectivePricesRef.current = currentPrices;
+      return;
+    }
+    // Compare against cart items only: flag those whose effective price rose.
+    const increased: string[] = [];
+    for (const item of items) {
+      const prevPrice = prev.get(item.productId);
+      const nextPrice = currentPrices.get(item.productId);
+      if (prevPrice !== undefined && nextPrice !== undefined && nextPrice > prevPrice) {
+        increased.push(item.productId);
+      }
+    }
+    prevEffectivePricesRef.current = currentPrices;
+    if (increased.length > 0) {
+      setPriceUpdatedProductIds((existing) => {
+        const merged = new Set([...existing, ...increased]);
+        return Array.from(merged);
+      });
+    }
+  }, [wooProducts]); // items intentionally excluded: we only compare on catalog change, not cart mutations
+
+  // Keep priceUpdatedProductIds in sync with the live cart — if the shopper
+  // removes a flagged item the banner has nothing to say about it any more.
+  useEffect(() => {
+    setPriceUpdatedProductIds((prev) => {
+      if (prev.length === 0) return prev;
+      const cartIds = new Set(items.map((i) => i.productId));
+      const next = prev.filter((id) => cartIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [items]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,6 +274,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setItems([]);
     }
     setCartMessageState(null);
+    setPriceUpdatedProductIds([]);
     AsyncStorage.removeItem(CART_MESSAGE_STORAGE_KEY).catch(() => {});
     fireClearListeners();
   }, [fireClearListeners]);
@@ -228,7 +295,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const wooProduct = wooProducts.find((p) => p.id === i.productId) as Product | undefined;
           const product: Product | undefined = wooProduct;
           if (!product) return null;
-          return { product, qty: i.qty, lineTotal: product.priceValue * i.qty };
+          return { product, qty: i.qty, lineTotal: effectiveUsdPrice(product) * i.qty };
         })
         .filter(Boolean) as { product: Product; qty: number; lineTotal: number }[],
     [items, wooProducts],
@@ -241,8 +308,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ items, count, total, add, remove, setQty, setCustomNote, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage }),
-    [items, count, total, add, remove, setQty, setCustomNote, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage],
+    () => ({ items, count, total, add, remove, setQty, setCustomNote, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage, priceUpdatedProductIds, dismissPriceUpdated }),
+    [items, count, total, add, remove, setQty, setCustomNote, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage, priceUpdatedProductIds, dismissPriceUpdated],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
