@@ -2900,6 +2900,10 @@ components:
         count:
           type: integer
           description: Number of in-stock products associated with this brand across all supported countries.
+        sort_order:
+          type: integer
+          nullable: true
+          description: OS admin sort order. Lower values appear first. Null when not set by the OS admin.
       required:
         - name
         - slug

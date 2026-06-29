@@ -306,12 +306,19 @@ export function MainNavbar() {
   const brandsMegaMenuDef: MegaMenuDef = {
     key: "brands",
     labelKey: "nav.brands",
-    items: (catalogMetadata?.brands ?? []).map((b) => ({
-      label: b.name,
-      href: `/brand/${b.slug}`,
-      img: b.image ?? undefined,
-      emoji: "🏷️",
-    })),
+    items: [...(catalogMetadata?.brands ?? [])]
+      .sort((a, b) => {
+        const aOrder = (a.sort_order ?? null) !== null ? a.sort_order! : Infinity;
+        const bOrder = (b.sort_order ?? null) !== null ? b.sort_order! : Infinity;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.name.localeCompare(b.name);
+      })
+      .map((b) => ({
+        label: b.name,
+        href: `/brand/${b.slug}`,
+        img: b.image ?? undefined,
+        emoji: "🏷️",
+      })),
     footer: { label: t("nav.viewAllBrands"), href: "/brands" },
     loading: !catalogMetadata,
   };

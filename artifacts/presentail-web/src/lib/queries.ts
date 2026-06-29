@@ -328,7 +328,7 @@ export type CatalogImageRef = { asset?: string; uri?: string } | null;
 
 export type CatalogCategory = { id: string; name: string; icon: string; image?: CatalogImageRef; description?: string | null };
 export type CatalogOccasion = { id: string; name: string; icon: string; description?: string; image?: CatalogImageRef };
-export type CatalogBrand = { name: string; slug: string; image: string | null; count: number };
+export type CatalogBrand = { name: string; slug: string; image: string | null; count: number; sort_order?: number | null };
 export type CatalogMetadataResponse = {
   categories: CatalogCategory[];
   occasions: CatalogOccasion[];

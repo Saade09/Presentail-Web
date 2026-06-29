@@ -199,14 +199,18 @@ export type OSCategoriesResponse = {
 
 export type OSCatalogAttributeBrand = {
   id: number | string;
-  slug: string;
+  /** Canonical slug. May be absent when the OS hasn't assigned one yet; callers
+   *  should derive a slug from `name` in that case rather than skipping the brand. */
+  slug?: string;
   name: string;
   description?: string | null;
   image_url?: string | null;
   image_public_url?: string | null;
   sort_order?: number;
-  /** Whether this brand is active in the OS admin. Absent = treat as active. */
-  is_active?: boolean;
+  /** Whether this brand is active in the OS admin.
+   *  May be a boolean (true/false) or a string ("active"/"inactive").
+   *  Absent means the OS didn't send the field — treat as active. */
+  is_active?: boolean | string;
 };
 
 export type OSCatalogAttributeBrandsResponse = {

@@ -224,14 +224,22 @@ router.get("/catalog/metadata", (_req, res) => {
 
   // Prefer raw catalog-attribute brands so that active brands with zero products
   // are still surfaced (the product-count filter in getOsBrands() removes them).
-  // Filter by is_active !== false: absent means the OS didn't send the field,
-  // which we treat as active. Fall back to the product-filtered list when the
-  // raw cache hasn't been populated yet (first cold-start request).
+  //
+  // Normalise is_active — the OS may send a boolean, a string, or nothing:
+  //   absent / true  / "active"   → active (show in menu)
+  //   false  / "inactive"         → inactive (hide from menu)
+  //
+  // Fall back to the product-filtered list when the raw cache hasn't been
+  // populated yet (first cold-start request).
+  function isBrandActive(isActive?: boolean | string): boolean {
+    if (isActive === false || isActive === "inactive") return false;
+    return true;
+  }
   const rawCatalogBrands = getOsRawCatalogBrands();
   const OS_BASE = "https://os.presentail.com";
   const brands = rawCatalogBrands
     ? rawCatalogBrands
-        .filter((b) => b.is_active !== false)
+        .filter((b) => isBrandActive(b.is_active))
         .map((b) => {
           const rawImg = b.image_public_url || b.image_url || null;
           const fullImg = rawImg
@@ -239,10 +247,17 @@ router.get("/catalog/metadata", (_req, res) => {
             : null;
           return {
             name: b.name,
-            slug: b.slug,
+            slug: b.slug!,
             image: toBrandImageProxyUrl(fullImg),
-            count: brandCountMap.get(b.slug) ?? 0,
+            count: brandCountMap.get(b.slug!) ?? 0,
+            sort_order: b.sort_order ?? null,
           };
+        })
+        .sort((a, b) => {
+          const aOrder = a.sort_order ?? Infinity;
+          const bOrder = b.sort_order ?? Infinity;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          return a.name.localeCompare(b.name);
         })
     : osBrands
     ? osBrands.map((b) => ({
@@ -250,6 +265,7 @@ router.get("/catalog/metadata", (_req, res) => {
         slug: b.slug,
         image: toBrandImageProxyUrl(b.image),
         count: brandCountMap.get(b.slug) ?? 0,
+        sort_order: null,
       }))
     : [];
 

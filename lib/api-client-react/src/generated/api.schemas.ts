@@ -975,6 +975,8 @@ export interface CatalogBrand {
   image: string | null;
   /** Number of in-stock products associated with this brand across all supported countries. */
   count: number;
+  /** OS admin sort order. Lower values appear first. Null when not set by the OS admin. */
+  sort_order?: number | null;
 }
 
 /**

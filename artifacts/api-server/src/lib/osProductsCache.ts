@@ -353,6 +353,7 @@ export function __resetFirstPopulatedForTest(): void {
 export function __resetBrandFilterStateForTest(): void {
   storeCache.clear();
   cachedBrands = null;
+  cachedRawCatalogBrands = null;
   cachedBrandProductCounts = new Map();
   cachedCategoryProductCounts = new Map();
   cachedOccasionProductCounts = new Map();
@@ -878,12 +879,28 @@ async function fetchAndStore(): Promise<void> {
 
       if (brandsResp.status === "fulfilled") {
         const raw = brandsResp.value.brands ?? [];
+        // Brands without a slug field are recoverable — derive a slug from the
+        // name the same way the client library does so we don't silently drop them.
+        const withDerivedSlug = raw.map((b) => {
+          if (b.slug) return b;
+          const derived = b.name
+            .toLowerCase()
+            .replace(/'/g, "")
+            .replace(/&/g, "and")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+          return { ...b, slug: derived };
+        });
+        const withSlugCount = raw.filter((b) => b.slug).length;
+        const derivedSlugCount = raw.length - withSlugCount;
+        const activeCount = withDerivedSlug.filter((b) =>
+          b.is_active !== false && b.is_active !== "inactive",
+        ).length;
         // Store the full raw list (including zero-product brands) so the
         // catalog metadata endpoint can filter by is_active independently.
-        cachedRawCatalogBrands = raw.filter((b) => b.slug);
+        cachedRawCatalogBrands = withDerivedSlug;
         const osBase = config.baseUrl ?? "https://os.presentail.com";
-        for (const b of raw) {
-          if (!b.slug) continue;
+        for (const b of withDerivedSlug) {
           // image_public_url is preferred (absolute CDN URL); fall back to
           // image_url which is a relative path that needs the OS base prepended.
           const rawImage = b.image_public_url || b.image_url || null;
@@ -892,16 +909,22 @@ async function fetchAndStore(): Promise<void> {
               ? rawImage
               : `${osBase}${rawImage}`
             : null;
-          brandMap.set(b.slug, {
-            id: b.slug,
-            slug: b.slug,
+          brandMap.set(b.slug!, {
+            id: b.slug!,
+            slug: b.slug!,
             name: b.name,
             image,
             description: b.description ?? undefined,
           });
         }
         logger.info(
-          { brandCount: brandMap.size },
+          {
+            totalBrands: raw.length,
+            withCanonicalSlug: withSlugCount,
+            withDerivedSlug: derivedSlugCount,
+            activeBrands: activeCount,
+            brandMapSize: brandMap.size,
+          },
           "osProductsCache: brands refreshed from Presentail OS catalog-attributes",
         );
       } else {

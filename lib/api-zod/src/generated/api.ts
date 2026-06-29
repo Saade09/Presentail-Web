@@ -1462,6 +1462,12 @@ export const GetCatalogMetadataResponse = zod.object({
         .describe(
           "Number of in-stock products associated with this brand across all supported countries.",
         ),
+      sort_order: zod
+        .number()
+        .nullish()
+        .describe(
+          "OS admin sort order. Lower values appear first. Null when not set by the OS admin.",
+        ),
     }),
   ),
 });

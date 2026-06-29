@@ -24,6 +24,7 @@ import type { OSProduct, OSProductBrand, OSCatalogAttributeBrand } from "@worksp
 import {
   getOsBrands,
   getOsBrandProductCounts,
+  getOsRawCatalogBrands,
   fetchAndStoreForTesting,
   __resetBrandFilterStateForTest,
 } from "./osProductsCache";
@@ -298,5 +299,95 @@ describe("osProductsCache — zero-product brand filter", () => {
     __resetBrandFilterStateForTest();
     expect(getOsBrands()).toBeNull();
     expect(getOsBrandProductCounts().size).toBe(0);
+  });
+});
+
+// ── Active brand filter (is_active normalisation) ──────────────────────────
+//
+// The catalog-metadata endpoint filters rawCatalogBrands by is_active.
+// The OS may send a boolean (true/false), a string ("active"/"inactive"),
+// or omit the field entirely. These tests verify that cachedRawCatalogBrands
+// (i.e. getOsRawCatalogBrands()) contains ALL brands after a fetch cycle
+// and that the is_active field is preserved faithfully so catalog.ts can
+// apply the normalised filter correctly.
+
+describe("osProductsCache — active brand filter (is_active field)", () => {
+  it("stores all brands in cachedRawCatalogBrands regardless of is_active value", async () => {
+    vi.mocked(fetchOsCatalogAttributesBrands).mockResolvedValue({
+      brands: [
+        { id: "1", slug: "brand-bool-true",    name: "Bool True",    is_active: true },
+        { id: "2", slug: "brand-bool-false",   name: "Bool False",   is_active: false },
+        { id: "3", slug: "brand-str-active",   name: "Str Active",   is_active: "active" },
+        { id: "4", slug: "brand-str-inactive", name: "Str Inactive", is_active: "inactive" },
+        { id: "5", slug: "brand-absent",       name: "Absent",       /* no is_active */ },
+      ],
+    });
+
+    await fetchAndStoreForTesting();
+
+    const raw = getOsRawCatalogBrands();
+    expect(raw).not.toBeNull();
+    // All five brands must be stored (active filtering happens in catalog.ts, not here).
+    expect(raw!.map((b) => b.slug)).toEqual(
+      expect.arrayContaining([
+        "brand-bool-true",
+        "brand-bool-false",
+        "brand-str-active",
+        "brand-str-inactive",
+        "brand-absent",
+      ]),
+    );
+    expect(raw).toHaveLength(5);
+  });
+
+  it("preserves is_active field values exactly as received from the OS", async () => {
+    vi.mocked(fetchOsCatalogAttributesBrands).mockResolvedValue({
+      brands: [
+        { id: "1", slug: "bool-true",    name: "Bool True",    is_active: true },
+        { id: "2", slug: "bool-false",   name: "Bool False",   is_active: false },
+        { id: "3", slug: "str-active",   name: "Str Active",   is_active: "active" },
+        { id: "4", slug: "str-inactive", name: "Str Inactive", is_active: "inactive" },
+        { id: "5", slug: "absent",       name: "Absent" },
+      ],
+    });
+
+    await fetchAndStoreForTesting();
+
+    const raw = getOsRawCatalogBrands()!;
+    const bySlug = Object.fromEntries(raw.map((b) => [b.slug, b]));
+
+    expect(bySlug["bool-true"].is_active).toBe(true);
+    expect(bySlug["bool-false"].is_active).toBe(false);
+    expect(bySlug["str-active"].is_active).toBe("active");
+    expect(bySlug["str-inactive"].is_active).toBe("inactive");
+    expect(bySlug["absent"].is_active).toBeUndefined();
+  });
+
+  it("derives a slug from name for brands without a slug field", async () => {
+    vi.mocked(fetchOsCatalogAttributesBrands).mockResolvedValue({
+      brands: [
+        // No slug — osProductsCache must derive one from the name.
+        { id: "99", name: "Roses & Blooms" } as OSCatalogAttributeBrand,
+      ],
+    });
+
+    await fetchAndStoreForTesting();
+
+    const raw = getOsRawCatalogBrands()!;
+    expect(raw).toHaveLength(1);
+    // nameToSlug("Roses & Blooms") → "roses-and-blooms"
+    expect(raw[0].slug).toBe("roses-and-blooms");
+  });
+
+  it("reset clears cachedRawCatalogBrands", async () => {
+    vi.mocked(fetchOsCatalogAttributesBrands).mockResolvedValue({
+      brands: [{ id: "1", slug: "brand-a", name: "Brand A" }],
+    });
+
+    await fetchAndStoreForTesting();
+    expect(getOsRawCatalogBrands()).not.toBeNull();
+
+    __resetBrandFilterStateForTest();
+    expect(getOsRawCatalogBrands()).toBeNull();
   });
 });
