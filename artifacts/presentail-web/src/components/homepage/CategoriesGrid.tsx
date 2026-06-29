@@ -51,7 +51,7 @@ export function CategoriesGrid() {
           <p className="text-muted-foreground text-sm md:text-base">{t("categories.subtitle")}</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 md:auto-rows-[200px] gap-3 md:gap-5">
+        <div className="grid grid-cols-4 md:auto-rows-[200px] gap-3 md:gap-5">
           {items.map((item, i) => {
             const staticImg = STATIC_FALLBACK_IMAGES[item.slug];
             const imgSrc = item.imageUrl || staticImg || null;

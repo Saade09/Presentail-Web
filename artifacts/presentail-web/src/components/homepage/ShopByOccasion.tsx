@@ -77,7 +77,7 @@ export function ShopByOccasion() {
           <p className="text-muted-foreground text-sm md:text-base">{t("occasions.subtitle")}</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-5">
+        <div className="grid grid-cols-4 gap-3 md:gap-5">
           {ITEMS.map((it, i) => {
             const osImg = osImageBySlug.get(it.slug);
             return (
