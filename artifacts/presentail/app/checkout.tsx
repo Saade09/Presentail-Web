@@ -3530,8 +3530,19 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
 
 // =============== Collapsible Order Summary ===============
 
+function isDiscountActive(
+  currencyCode: string,
+  discountPriceValue?: number | null,
+  discountPriceAed?: number | null,
+): boolean {
+  const hasUsdDiscount = discountPriceValue != null && discountPriceValue > 0;
+  const hasAedDiscount = discountPriceAed != null && discountPriceAed > 0;
+  if (currencyCode === "AED") return hasAedDiscount || hasUsdDiscount;
+  return hasUsdDiscount;
+}
+
 function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee, initialOpen = false }: any) {
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currencyCode } = useCurrency();
   const { isRTL } = useLanguage();
   const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
@@ -3587,7 +3598,7 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
 
       <Animated.View style={{ maxHeight: bodyMaxHeight, opacity: bodyOpacity, overflow: "hidden" }}>
         <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18, gap: 12 }}>
-          {detailed.map(({ product, qty, lineTotal, regularLineTotal }: any) => (
+          {detailed.map(({ product, qty, lineTotal }: any) => (
             <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <Image source={product.image} style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
               <View style={{ flex: 1 }}>
@@ -3605,12 +3616,18 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
                 </View>
               </View>
               <View style={{ alignItems: "flex-end", gap: 6 }}>
-                <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }}>
-                  {formatPrice(lineTotal)}
-                </AppText>
-                {regularLineTotal !== null && regularLineTotal !== undefined && (
-                  <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, textDecorationLine: "line-through" }}>
-                    {formatPrice(regularLineTotal)}
+                {isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed) ? (
+                  <View style={{ alignItems: "flex-end", gap: 2 }}>
+                    <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: "#e11d48" }}>
+                      {formatPrice(lineTotal)}
+                    </AppText>
+                    <AppText style={{ fontFamily: headingFontMedium, fontSize: 12, color: colors.mutedForeground, textDecorationLine: "line-through" }}>
+                      {formatPrice(product.priceValue * qty)}
+                    </AppText>
+                  </View>
+                ) : (
+                  <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }}>
+                    {formatPrice(lineTotal)}
                   </AppText>
                 )}
                 <Pressable onPress={() => remove(product.id)} hitSlop={6}>

@@ -45,12 +45,22 @@ import {
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { trackEvent } from "@/lib/analytics";
 
+function isDiscountActive(
+  currencyCode: string,
+  discountPriceValue?: number | null,
+  discountPriceAed?: number | null,
+): boolean {
+  const hasUsdDiscount = discountPriceValue != null && discountPriceValue > 0;
+  const hasAedDiscount = discountPriceAed != null && discountPriceAed > 0;
+  if (currencyCode === "AED") return hasAedDiscount || hasUsdDiscount;
+  return hasUsdDiscount;
+}
+
 type CartItemRowProps = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  product: { id: string; name: string; image: any; hasInputField?: boolean };
+  product: { id: string; name: string; image: any; hasInputField?: boolean; priceValue: number; discountPriceValue?: number | null; discountPriceAed?: number | null };
   qty: number;
   lineTotal: number;
-  regularLineTotal: number | null;
   customNote?: string;
   setCustomNote: (id: string, note: string) => void;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
@@ -59,10 +69,13 @@ type CartItemRowProps = {
   remove: (id: string) => void;
 };
 
-function CartItemRow({ product, qty, lineTotal, regularLineTotal, customNote, setCustomNote, colors, router, setQty, remove }: CartItemRowProps) {
+function CartItemRow({ product, qty, lineTotal, customNote, setCustomNote, colors, router, setQty, remove }: CartItemRowProps) {
   const headingFontMedium = useHeadingFont("500Medium");
   const [imageLoaded, setImageLoaded] = React.useState(false);
   const t = useT();
+  const { currencyCode } = useCurrency();
+  const onSale = isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed);
+  const regularLineTotal = product.priceValue * qty;
   return (
     <View
       style={{
@@ -120,18 +133,23 @@ function CartItemRow({ product, qty, lineTotal, regularLineTotal, customNote, se
             </Text>
           </View>
         )}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        {onSale ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Price
+              value={lineTotal}
+              style={{ fontFamily: headingFontMedium, fontSize: 16, color: "#e11d48" }}
+            />
+            <Price
+              value={regularLineTotal}
+              style={{ fontFamily: headingFontMedium, fontSize: 13, color: colors.mutedForeground, textDecorationLine: "line-through" }}
+            />
+          </View>
+        ) : (
           <Price
             value={lineTotal}
             style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
           />
-          {regularLineTotal !== null && (
-            <Price
-              value={regularLineTotal}
-              style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textDecorationLine: "line-through" }}
-            />
-          )}
-        </View>
+        )}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
           <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 999 }}>
             <Pressable onPress={() => setQty(product.id, qty - 1)} style={cartItemStyles.qtyBtn}>
@@ -521,13 +539,12 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             </View>
             )}
 
-            {detailed.map(({ product, qty, lineTotal, regularLineTotal }) => (
+            {detailed.map(({ product, qty, lineTotal }) => (
               <CartItemRow
                 key={product.id}
                 product={product}
                 qty={qty}
                 lineTotal={lineTotal}
-                regularLineTotal={regularLineTotal}
                 customNote={items.find((i) => i.productId === product.id)?.customNote}
                 setCustomNote={setCustomNote}
                 colors={colors}
