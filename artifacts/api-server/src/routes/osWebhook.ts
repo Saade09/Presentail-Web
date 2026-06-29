@@ -35,7 +35,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { db, appOrdersTable, customersTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import {
   storeLocationsFromWebhook,
   invalidateOsLocationsCache,
@@ -475,6 +475,7 @@ async function handleOrderStatusUpdated(
       totalUsdCents: appOrdersTable.totalUsdCents,
       lineItemsJson: appOrdersTable.lineItemsJson,
       marketingAttributionJson: appOrdersTable.marketingAttributionJson,
+      gadsConversionUploadedAt: appOrdersTable.gadsConversionUploadedAt,
     })
     .from(appOrdersTable)
     .where(where)
@@ -525,31 +526,60 @@ async function handleOrderStatusUpdated(
     }
   }
 
-  // Upload Google Ads click conversion on order confirmation or delivery
-  // (best-effort, fire-and-forget — failures log + Slack alert but never
-  // block the response). Both states are covered so attribution is reported
-  // even if the confirmed webhook was missed; Google Ads deduplicates by
-  // orderId so a double upload within the deduplication window is safe.
+  // Upload Google Ads click conversion exactly once per order.
+  //
+  // To prevent duplicate uploads when OS delivers the confirmed/delivered
+  // webhook more than once (retry, re-confirmation, or order edit) we use
+  // an atomic conditional UPDATE:
+  //
+  //   UPDATE app_orders
+  //      SET gads_conversion_uploaded_at = NOW()
+  //    WHERE app_order_id = ?
+  //      AND gads_conversion_uploaded_at IS NULL
+  //
+  // If the UPDATE affects 1 row we are the first handler to claim this order
+  // and can proceed with the upload.  If it affects 0 rows another handler
+  // (concurrent or earlier) already claimed it — skip silently.  This
+  // eliminates the read-then-write race that two concurrent webhook
+  // deliveries could otherwise both win.
   if (state === "confirmed" || state === "delivered") {
-    let attribution: MarketingAttribution = {};
-    if (row.marketingAttributionJson) {
-      try {
-        attribution = JSON.parse(row.marketingAttributionJson) as MarketingAttribution;
-      } catch {
-        // Malformed JSON — proceed with empty attribution; upload will no-op.
-      }
-    }
-    uploadGoogleAdsConversion({
-      appOrderId: resolvedAppOrderId,
-      attribution,
-      conversionTimeMs: Date.now(),
-      totalUsdCents: row.totalUsdCents,
-    }).catch((err: unknown) => {
-      req.log.warn?.(
-        { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
-        "osWebhook: Google Ads conversion upload failed unexpectedly (non-fatal)",
+    const claimed = await db
+      .update(appOrdersTable)
+      .set({ gadsConversionUploadedAt: new Date() })
+      .where(
+        and(
+          eq(appOrdersTable.appOrderId, resolvedAppOrderId),
+          isNull(appOrdersTable.gadsConversionUploadedAt),
+        ),
+      )
+      .returning({ id: appOrdersTable.id });
+
+    if (claimed.length === 0) {
+      req.log.info?.(
+        { appOrderId: resolvedAppOrderId },
+        "osWebhook: Google Ads conversion already uploaded for this order — skipping duplicate",
       );
-    });
+    } else {
+      let attribution: MarketingAttribution = {};
+      if (row.marketingAttributionJson) {
+        try {
+          attribution = JSON.parse(row.marketingAttributionJson) as MarketingAttribution;
+        } catch {
+          // Malformed JSON — proceed with empty attribution; upload will no-op.
+        }
+      }
+      uploadGoogleAdsConversion({
+        appOrderId: resolvedAppOrderId,
+        attribution,
+        conversionTimeMs: Date.now(),
+        totalUsdCents: row.totalUsdCents,
+      }).catch((err: unknown) => {
+        req.log.warn?.(
+          { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
+          "osWebhook: Google Ads conversion upload failed unexpectedly (non-fatal)",
+        );
+      });
+    }
   }
 
   // Fire push notification (best-effort).

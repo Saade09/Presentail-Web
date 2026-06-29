@@ -79,6 +79,15 @@ export const appOrdersTable = pgTable(
     // rejects or ignores the metadata field. Shape mirrors MarketingAttribution
     // from openapi.yaml: { source, first_touch, last_touch, conversion }.
     marketingAttributionJson: text("marketing_attribution_json"),
+    // Timestamp of the first Google Ads click-conversion upload attempt for
+    // this order. Set to NOW() after the first upload attempt (success or
+    // failure) to prevent duplicate uploads when OS sends the confirmed
+    // webhook more than once (retry, re-confirmation, or order edit).
+    // Null for orders placed before this column existed or orders with no
+    // Google Ads click ID in their attribution.
+    gadsConversionUploadedAt: timestamp("gads_conversion_uploaded_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
