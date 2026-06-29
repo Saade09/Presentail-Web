@@ -64,6 +64,75 @@ describe("webVisiblePayMethods — visibility matrix", () => {
   });
 });
 
+describe("webVisiblePayMethods — platform gating", () => {
+  it("Apple platform: google_pay is hidden, apple_pay is visible (LB × USD)", () => {
+    const visible = webVisiblePayMethods({
+      countryCode: "LB",
+      activeCurrency: "USD",
+      isApplePlatform: true,
+    });
+    expect(visible).not.toContain("google_pay");
+    expect(visible).toContain("apple_pay");
+    expect(visible).toEqual(["apple_pay", "card", "paypal", "whish"]);
+  });
+
+  it("Non-Apple platform (Windows / Android): apple_pay is hidden, google_pay is visible (LB × USD)", () => {
+    const visible = webVisiblePayMethods({
+      countryCode: "LB",
+      activeCurrency: "USD",
+      isApplePlatform: false,
+    });
+    expect(visible).not.toContain("apple_pay");
+    expect(visible).toContain("google_pay");
+    expect(visible).toEqual(["google_pay", "card", "paypal", "whish"]);
+  });
+
+  it("No platform context: both apple_pay and google_pay are visible (graceful SSR fallback)", () => {
+    const visible = webVisiblePayMethods({
+      countryCode: "LB",
+      activeCurrency: "USD",
+    });
+    expect(visible).toContain("apple_pay");
+    expect(visible).toContain("google_pay");
+  });
+
+  it("Apple platform: google_pay hidden across all countries and currencies", () => {
+    for (const country of ["LB", "AE", "CY"]) {
+      for (const currency of ["USD", "AED", "EUR"]) {
+        const visible = webVisiblePayMethods({
+          countryCode: country,
+          activeCurrency: currency,
+          isApplePlatform: true,
+        });
+        expect(visible).not.toContain("google_pay" as WebPaymentMethodId);
+      }
+    }
+  });
+
+  it("Non-Apple platform: apple_pay hidden across all countries and currencies", () => {
+    for (const country of ["LB", "AE", "CY"]) {
+      for (const currency of ["USD", "AED", "EUR"]) {
+        const visible = webVisiblePayMethods({
+          countryCode: country,
+          activeCurrency: currency,
+          isApplePlatform: false,
+        });
+        expect(visible).not.toContain("apple_pay" as WebPaymentMethodId);
+      }
+    }
+  });
+
+  it("defensive fallback to [card] still works on non-Apple when no method is visible", () => {
+    expect(
+      webVisiblePayMethods({
+        countryCode: "LB",
+        activeCurrency: "ZZZ",
+        isApplePlatform: false,
+      }),
+    ).toEqual(["card"]);
+  });
+});
+
 describe("webPaymentMethodLabelKey — Mamo flips to 'Pay by card' in AED", () => {
   it("Mamo label is 'checkout.pay.payByCard' in AED", () => {
     expect(webPaymentMethodLabelKey("mamo", "AED")).toBe(
@@ -209,5 +278,95 @@ describe("webNextPaymentMethod — auto-fallback never picks a hidden tile", () 
         }
       }
     }
+  });
+});
+
+describe("webNextPaymentMethod — platform-aware auto-fallback", () => {
+  it("Apple platform: default falls back away from google_pay to first visible method", () => {
+    // On Apple, google_pay is hidden; if the current method becomes google_pay
+    // (e.g. from a shared-default path), it should fall back to apple_pay.
+    expect(
+      webNextPaymentMethod("google_pay", {
+        countryCode: "LB",
+        activeCurrency: "USD",
+        isApplePlatform: true,
+      }),
+    ).toBe("apple_pay");
+  });
+
+  it("Non-Apple platform: default falls back away from apple_pay to google_pay", () => {
+    expect(
+      webNextPaymentMethod("apple_pay", {
+        countryCode: "LB",
+        activeCurrency: "USD",
+        isApplePlatform: false,
+      }),
+    ).toBe("google_pay");
+  });
+
+  it("Apple platform: auto-fallback never selects google_pay across full matrix", () => {
+    const countries = ["LB", "AE", "CY"] as const;
+    const currencies = ["USD", "AED", "EUR"];
+    for (const country of countries) {
+      for (const currency of currencies) {
+        const visible = webVisiblePayMethods({
+          countryCode: country,
+          activeCurrency: currency,
+          isApplePlatform: true,
+        });
+        for (const current of WEB_PAY_METHODS) {
+          const next = webNextPaymentMethod(current, {
+            countryCode: country,
+            activeCurrency: currency,
+            isApplePlatform: true,
+          });
+          expect(next).not.toBe("google_pay" as WebPaymentMethodId);
+          expect(visible).toContain(next);
+        }
+      }
+    }
+  });
+
+  it("Non-Apple platform: auto-fallback never selects apple_pay across full matrix", () => {
+    const countries = ["LB", "AE", "CY"] as const;
+    const currencies = ["USD", "AED", "EUR"];
+    for (const country of countries) {
+      for (const currency of currencies) {
+        const visible = webVisiblePayMethods({
+          countryCode: country,
+          activeCurrency: currency,
+          isApplePlatform: false,
+        });
+        for (const current of WEB_PAY_METHODS) {
+          const next = webNextPaymentMethod(current, {
+            countryCode: country,
+            activeCurrency: currency,
+            isApplePlatform: false,
+          });
+          expect(next).not.toBe("apple_pay" as WebPaymentMethodId);
+          expect(visible).toContain(next);
+        }
+      }
+    }
+  });
+
+  it("apple_pay preserved on Apple platform when already selected and visible", () => {
+    expect(
+      webNextPaymentMethod("apple_pay", {
+        countryCode: "LB",
+        activeCurrency: "USD",
+        isApplePlatform: true,
+      }),
+    ).toBe("apple_pay");
+  });
+
+  it("google_pay preserved on non-Apple platform when already selected and visible", () => {
+    expect(
+      webNextPaymentMethod("google_pay", {
+        countryCode: "LB",
+        activeCurrency: "USD",
+        isApplePlatform: false,
+      }),
+    ).toBe("google_pay");
   });
 });

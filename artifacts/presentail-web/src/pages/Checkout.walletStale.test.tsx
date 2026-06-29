@@ -433,7 +433,8 @@ async function driveWalletSuccess(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
   await user.click(screen.getByTestId("button-continue-to-payment"));
   expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
-  await user.click(await screen.findByTestId("option-payment-apple_pay"));
+  // In jsdom (non-Apple platform) apple_pay is platform-hidden; use google_pay.
+  await user.click(await screen.findByTestId("option-payment-google_pay"));
   await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
 
   // The wallet sheet only opens once the PaymentIntent has been pre-created for
@@ -487,7 +488,11 @@ describe("Checkout wallet finalize → OrderConfirmed staleness guard", () => {
     // Wallet sheets only appear on mobile viewports.
     mockUseIsMobile.mockReturnValue(true);
     // vi.clearAllMocks() wipes call history but not implementations — re-assert.
-    mockCanMakePayment.mockResolvedValue(null);
+    // Return a truthy non-null result so the wallet pre-creation effect sets
+    // paymentRequestRef.current = submitPr (required for walletViaNativeSheet=true
+    // and pr.show() to be called in handleSubmit).  A null result would leave
+    // paymentRequestRef=null and the wallet sheet branch would never execute.
+    mockCanMakePayment.mockResolvedValue({ applePay: false });
     mockPrShow.mockImplementation(() => {});
     for (const key of Object.keys(mockPrEventHandlers)) {
       delete mockPrEventHandlers[key];

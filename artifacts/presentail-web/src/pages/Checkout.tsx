@@ -57,6 +57,7 @@ import {
 } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import {
+  isApplePlatform,
   webNextPaymentMethod,
   webPaymentMethodLabelKey,
   webVisiblePayMethods,
@@ -615,7 +616,13 @@ function CheckoutForm() {
   const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">(
     persistedScheduleMode,
   );
-  const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>("apple_pay");
+  // Stable platform flag — derived from navigator once per component mount.
+  // Used to gate Apple Pay (Apple-only) and Google Pay (non-Apple only) tiles.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const appleDevice = useMemo(() => isApplePlatform(), []);
+  const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>(
+    () => (appleDevice ? "apple_pay" : "google_pay"),
+  );
   // Tracks whether the Stripe PaymentRequest probe confirmed a wallet (Apple Pay /
   // Google Pay) is available on this browser. Starts true (rows visible while probe
   // is pending), flipped to false when probe resolves as unsupported so the rows
@@ -971,22 +978,14 @@ function CheckoutForm() {
     () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
     [t],
   );
-  // Google Pay only works in Chrome/Android — it never opens a native sheet in
-  // Safari (which uses Apple Pay instead). Hide the Google Pay tile in Safari
-  // so it isn't presented as a tappable option that always falls back to card.
-  const isSafari = typeof navigator !== "undefined" && navigator.vendor === "Apple";
-
   const payCtxCountry = countryCode ?? undefined;
   const paymentOptions = useMemo(() => {
     const ids = webVisiblePayMethods({
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
+      isApplePlatform: appleDevice,
     }).filter((id) => {
       if (id === "apple_pay" || id === "google_pay") {
-        // Google Pay never shows a native sheet in Safari — hide it so shoppers
-        // in Safari on iPhone/Mac aren't presented with a tile that always falls
-        // back to card fields with no explanation.
-        if (id === "google_pay" && isSafari) return false;
         return walletSupported;
       }
       return true;
@@ -1004,6 +1003,7 @@ function CheckoutForm() {
     const fallback = webNextPaymentMethod(paymentMethod, {
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
+      isApplePlatform: appleDevice,
     });
     if (fallback !== paymentMethod) {
       setPaymentMethodState(fallback);

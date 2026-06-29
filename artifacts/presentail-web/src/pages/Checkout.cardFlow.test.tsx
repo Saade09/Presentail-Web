@@ -490,6 +490,16 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     mockSetLocation.mockClear();
     // Default to desktop so the null canMakePayment probe auto-advances to card.
     mockUseIsMobile.mockReturnValue(false);
+    // Card success path calls finalizeOrderNow() which calls createOrder.mutateAsync
+    // to submit the order then navigates to /order-confirmed.  Without a valid
+    // response the mutateAsync call returns undefined, res.ok throws TypeError,
+    // and handleSubmit's catch block shows a toast instead of navigating.
+    mockCreateOrderMutate.mockResolvedValue({
+      ok: true,
+      wcOrderId: 42,
+      orderKey: "wc_order_key_42",
+      couponDiscount: 0,
+    });
     user = userEvent.setup();
   });
 
@@ -499,10 +509,9 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     // confirmCardPayment resolves immediately with status="succeeded".
     // This mirrors the 4000000000003220 test card which does not trigger 3DS.
     //
-    // Architecture note: Checkout no longer calls createOrder directly for the
-    // card path.  On success it stashes the order payload in sessionStorage and
-    // redirects to /order-confirmed, which finalises the order server-side.
-    // The createOrderMutate hook is therefore NOT expected to be called here.
+    // The card path calls finalizeOrderNow() which calls createOrder.mutateAsync
+    // to submit the order to the server, then navigates to /order-confirmed.
+    // mockCreateOrderMutate is set up in beforeEach.
     mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
     mockConfirmCardPayment.mockResolvedValue({
       paymentIntent: { id: "pi_direct_abc", status: "succeeded" },
@@ -547,10 +556,8 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
   it("3DS path (like 4000002760003184): calls handleNextAction and redirects when auth succeeds", async () => {
     // confirmCardPayment returns requires_action first (3DS challenge needed).
     //
-    // Architecture note: Checkout no longer calls createOrder directly for the
-    // card path.  On success it stashes the order payload in sessionStorage and
-    // redirects to /order-confirmed, which finalises the order server-side.
-    // The createOrderMutate hook is therefore NOT expected to be called here.
+    // After 3DS succeeds finalizeOrderNow() submits the order via
+    // createOrder.mutateAsync (mocked in beforeEach) and navigates to /order-confirmed.
     mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
     mockConfirmCardPayment.mockResolvedValue({
       paymentIntent: { id: "pi_3ds_abc", status: "requires_action" },
@@ -716,15 +723,20 @@ describe("Checkout — mobile viewport wallet tile visibility", () => {
     mockUseIsMobile.mockReturnValue(false);
   });
 
-  it("keeps Apple Pay and Google Pay tiles visible on mobile when canMakePayment returns null", async () => {
+  it("keeps the platform-appropriate wallet tile visible on mobile when canMakePayment returns null", async () => {
     // canMakePayment returns null (no pre-configured wallet in the test
     // environment), but isMobile=true so the checkout must NOT hide the tiles.
+    // In the jsdom test environment navigator.platform is empty/non-Apple, so
+    // isApplePlatform() returns false: apple_pay is platform-hidden and
+    // google_pay is the visible wallet tile. On real Apple devices the inverse
+    // applies (apple_pay visible, google_pay hidden).
     renderCheckout();
     await navigateToStep2(user);
 
-    // Both wallet tiles must be present in the payment method list.
-    expect(screen.getByTestId("option-payment-apple_pay")).toBeTruthy();
+    // Google Pay tile must be present (the non-Apple wallet tile in jsdom).
     expect(screen.getByTestId("option-payment-google_pay")).toBeTruthy();
+    // Apple Pay is platform-hidden in the non-Apple jsdom environment.
+    expect(screen.queryByTestId("option-payment-apple_pay")).toBeNull();
   });
 
   it("hides Apple Pay and Google Pay tiles on desktop when canMakePayment returns null", async () => {
@@ -755,9 +767,10 @@ describe("Checkout — mobile viewport wallet tile visibility", () => {
 //   4. pr.show() throws → wallet state is reset and the selected method falls
 //      back to card so the shopper can retry.
 //
-// The wallet path only runs on mobile viewports (mockUseIsMobile=true): the
-// upfront canMakePayment probe resolves null, so handleSubmit builds a fresh
-// PaymentRequest on demand — exactly the documented mobile wallet behaviour.
+// The wallet path only runs on mobile viewports (mockUseIsMobile=true).
+// canMakePayment returns a truthy non-null result so the wallet pre-creation
+// effect sets paymentRequestRef.current = submitPr, enabling walletViaNativeSheet=true
+// and pr.show() in handleSubmit.
 // ---------------------------------------------------------------------------
 
 describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () => {
@@ -770,9 +783,12 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     mockUseIsMobile.mockReturnValue(true);
     // Reset the controllable PaymentRequest mock to its default healthy state.
     // vi.clearAllMocks() clears call history but not implementations, so we
-    // re-assert canMakePayment (null) and a non-throwing show() here, and clear
+    // re-assert canMakePayment and a non-throwing show() here, and clear
     // any handlers captured by a previous test.
-    mockCanMakePayment.mockResolvedValue(null);
+    // Return a truthy non-null result so the wallet pre-creation effect sets
+    // paymentRequestRef.current = submitPr (required for walletViaNativeSheet=true
+    // and pr.show() to be called in handleSubmit).
+    mockCanMakePayment.mockResolvedValue({ applePay: false });
     mockPrShow.mockImplementation(() => {});
     for (const key of Object.keys(mockPrEventHandlers)) {
       delete mockPrEventHandlers[key];
@@ -800,7 +816,8 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
     await user.click(screen.getByTestId("button-continue-to-payment"));
     expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
-    await user.click(await screen.findByTestId("option-payment-apple_pay"));
+    // In jsdom (non-Apple platform) apple_pay is platform-hidden; use google_pay.
+    await user.click(await screen.findByTestId("option-payment-google_pay"));
     await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
   }
 
