@@ -57,7 +57,7 @@ import {
 } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import {
-  isApplePlatform,
+  isApplePayBrowser,
   webNextPaymentMethod,
   webPaymentMethodLabelKey,
   webVisiblePayMethods,
@@ -593,9 +593,11 @@ function CheckoutForm() {
     persistedScheduleMode,
   );
   // Stable platform flag — derived from navigator once per component mount.
-  // Used to gate Apple Pay (Apple-only) and Google Pay (non-Apple only) tiles.
+  // Used to gate Apple Pay (Safari only) and Google Pay (non-Safari) tiles.
+  // Chrome on Mac is excluded: isApplePayBrowser() returns false there so the
+  // tile correctly shows Google Pay instead of a mis-labelled Apple Pay button.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const appleDevice = useMemo(() => isApplePlatform(), []);
+  const appleDevice = useMemo(() => isApplePayBrowser(), []);
   const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>(
     () => (appleDevice ? "apple_pay" : "google_pay"),
   );

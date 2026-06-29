@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   WEB_PAY_METHODS,
+  isApplePayBrowser,
   webNextPaymentMethod,
   webPaymentMethodLabelKey,
   webVisiblePayMethods,
@@ -278,6 +279,100 @@ describe("webNextPaymentMethod — auto-fallback never picks a hidden tile", () 
         }
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isApplePayBrowser — UA-level Safari gating
+// ---------------------------------------------------------------------------
+// These tests mock navigator to simulate real-world UA strings so the Safari
+// detection logic (absent from higher-level context tests) is exercised.
+describe("isApplePayBrowser — Safari gating", () => {
+  let originalNavigator: Navigator;
+
+  beforeEach(() => {
+    originalNavigator = globalThis.navigator;
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, "navigator", {
+      value: originalNavigator,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  function mockNavigator(ua: string, platform: string) {
+    Object.defineProperty(globalThis, "navigator", {
+      value: { userAgent: ua, platform },
+      configurable: true,
+      writable: true,
+    });
+  }
+
+  it("Safari on Mac returns true (Apple Pay supported)", () => {
+    mockNavigator(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+      "MacIntel",
+    );
+    expect(isApplePayBrowser()).toBe(true);
+  });
+
+  it("Chrome on Mac returns false (Google Pay opens, not Apple Pay)", () => {
+    mockNavigator(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      "MacIntel",
+    );
+    expect(isApplePayBrowser()).toBe(false);
+  });
+
+  it("Chrome on iOS (CriOS) returns true (WebKit-backed, supports Apple Pay)", () => {
+    mockNavigator(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/125.0.6422.80 Mobile/15E148 Safari/604.1",
+      "iPhone",
+    );
+    expect(isApplePayBrowser()).toBe(true);
+  });
+
+  it("Safari on iPhone returns true", () => {
+    mockNavigator(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+      "iPhone",
+    );
+    expect(isApplePayBrowser()).toBe(true);
+  });
+
+  it("Firefox on Mac returns false (not WebKit/Safari)", () => {
+    mockNavigator(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Gecko/20100101 Firefox/127.0",
+      "MacIntel",
+    );
+    expect(isApplePayBrowser()).toBe(false);
+  });
+
+  it("Edge on Mac returns false (Chromium-based, opens Google Pay)", () => {
+    mockNavigator(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0",
+      "MacIntel",
+    );
+    expect(isApplePayBrowser()).toBe(false);
+  });
+
+  it("Chrome on Windows returns false (non-Apple platform)", () => {
+    mockNavigator(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      "Win32",
+    );
+    expect(isApplePayBrowser()).toBe(false);
+  });
+
+  it("SSR (navigator undefined) returns false safely", () => {
+    Object.defineProperty(globalThis, "navigator", {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    expect(isApplePayBrowser()).toBe(false);
   });
 });
 

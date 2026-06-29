@@ -43,14 +43,23 @@ export type WebPayMethodCtx = {
 };
 
 /**
- * Detect whether the current browser is running on an Apple platform (iOS,
- * iPadOS, or macOS). Returns `false` on Windows, Linux, Android, and other
- * non-Apple platforms.
+ * Detect whether the current browser supports Apple Pay. Returns `true` only
+ * when the browser is running on an Apple platform (iOS, iPadOS, macOS) **and**
+ * the browser itself is Safari or Chrome on iOS (which runs on WebKit and
+ * supports Apple Pay). Chrome/Chromium on macOS is excluded — it does not
+ * support Apple Pay and instead opens Google Pay when the Stripe
+ * PaymentRequest API is invoked, creating a confusing label mismatch.
+ *
+ * Detection logic:
+ * - Chrome on iOS carries `"CriOS"` in the UA and is WebKit-backed → Apple Pay.
+ * - Desktop Chrome / Chromium carries `"Chrome"` in the UA → not Apple Pay.
+ * - Safari (Mac + iOS) carries `"Safari"` but not `"Chrome"` in the UA → Apple Pay.
+ * - Firefox, Edge, and other non-Safari Mac browsers are also excluded.
  *
  * Safe to call in SSR / test environments — guards with
  * `typeof navigator !== "undefined"` before accessing browser globals.
  */
-export function isApplePlatform(): boolean {
+export function isApplePayBrowser(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
   // userAgentData.platform is available in Chromium but not Safari.
@@ -58,16 +67,35 @@ export function isApplePlatform(): boolean {
   const platform: string =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (navigator as any).userAgentData?.platform ?? navigator.platform ?? "";
-  // iOS / iPadOS (pre-13): "iPhone", "iPad", "iPod" in platform
-  if (/iP(hone|ad|od)/.test(platform)) return true;
-  // iOS in UA (belt-and-suspenders)
-  if (/iP(hone|ad|od)/.test(ua)) return true;
-  // macOS: platform starts with "Mac"
-  if (/^Mac/.test(platform)) return true;
-  // iPadOS 13+ reports as "MacIntel" but includes "iPad" in the UA
-  if (platform === "MacIntel" && /iPad/.test(ua)) return true;
+
+  // Step 1: must be on an Apple platform.
+  const isApple =
+    // iOS / iPadOS (pre-13): "iPhone", "iPad", "iPod" in platform
+    /iP(hone|ad|od)/.test(platform) ||
+    // iOS in UA (belt-and-suspenders)
+    /iP(hone|ad|od)/.test(ua) ||
+    // macOS: platform starts with "Mac"
+    /^Mac/.test(platform) ||
+    // iPadOS 13+ reports as "MacIntel" but includes "iPad" in the UA
+    (platform === "MacIntel" && /iPad/.test(ua));
+
+  if (!isApple) return false;
+
+  // Step 2: require a browser that actually supports Apple Pay.
+  // Chrome on iOS uses the "CriOS" token, runs on WebKit, and supports Apple Pay.
+  if (/CriOS/.test(ua)) return true;
+  // Desktop Chrome / Chromium on macOS carry "Chrome" in the UA but do NOT
+  // support Apple Pay — they open Google Pay instead.
+  if (/Chrome/.test(ua)) return false;
+  // Safari (Mac + iOS) includes "Safari" in the UA without "Chrome".
+  // Firefox, Gecko-based browsers, and other non-WebKit engines on macOS do
+  // NOT include "Safari" — they are excluded here so only real Safari passes.
+  if (/Safari/.test(ua)) return true;
   return false;
 }
+
+/** @deprecated Use `isApplePayBrowser()` instead. */
+export const isApplePlatform = isApplePayBrowser;
 
 /**
  * The i18n label key for a payment method in the active currency. Mamo
