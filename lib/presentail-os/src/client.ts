@@ -282,7 +282,36 @@ export async function fetchOsCategories(
   if (!res.ok) {
     throw new Error(`Presentail OS categories API returned HTTP ${res.status}`);
   }
-  return res.json() as Promise<OSCategoriesResponse>;
+  const raw = (await res.json()) as {
+    categories?: Array<{
+      id: string | number;
+      slug: string;
+      name: string;
+      is_featured?: boolean;
+      image_url?: string | null;
+      image_public_url?: string | null;
+      description?: string | null;
+      // Some OS deployments already send camelCase — handle both.
+      image?: string | null;
+      imagePublicUrl?: string | null;
+    }>;
+  };
+  const toAbs = (u: string | null | undefined) =>
+    u ? (u.startsWith("http") ? u : `${baseUrl}${u}`) : null;
+  const categories: OSCategoriesResponse["categories"] = (
+    raw.categories ?? []
+  ).map((item) => ({
+    id: String(item.id),
+    slug: item.slug,
+    name: item.name,
+    is_featured: item.is_featured,
+    description: item.description ?? null,
+    // Normalise snake_case → camelCase so the proxy and buildOsCategories
+    // can reliably read image fields regardless of which OS version is deployed.
+    image: toAbs(item.image_url) ?? item.image ?? null,
+    imagePublicUrl: toAbs(item.image_public_url) ?? item.imagePublicUrl ?? null,
+  }));
+  return { categories };
 }
 
 /**
