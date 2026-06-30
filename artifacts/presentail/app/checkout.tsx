@@ -1543,13 +1543,7 @@ function CheckoutScreen() {
           position: "relative",
         }}
       >
-        <Pressable
-          onPress={() => (step === 0 ? router.back() : setStep(((step - 1) as Step)))}
-          hitSlop={12}
-          style={{ position: "absolute", left: 18, top: insets.top + 14, padding: 6 }}
-        >
-          <Feather name="arrow-left" size={20} color="#fff" />
-        </Pressable>
+
         <AppText style={{ fontFamily: headingFontMedium, fontSize: 22, color: "#fff" }}>
           {t.checkoutBrandHeader}
         </AppText>
