@@ -577,28 +577,6 @@ export function MainNavbar() {
 
         {/* ── Right: Brands trigger (desktop) + icons ──────── */}
         <div className="flex items-center justify-end gap-1 md:gap-1">
-          {/* Brands nav — right of logo, desktop only */}
-          <nav className="hidden md:flex items-center mr-3">
-            <button
-              type="button"
-              onMouseEnter={() => { openMenu("brands"); loadShop().catch(() => {}); }}
-              onMouseLeave={scheduleClose}
-              onClick={() => setActiveMenu(activeMenu === "brands" ? null : "brands")}
-              aria-haspopup="true"
-              aria-expanded={activeMenu === "brands"}
-              data-testid="nav-trigger-brands"
-              className={`text-sm font-semibold flex items-center gap-0.5 transition-colors py-1 ${
-                activeMenu === "brands" ? "text-primary" : "text-foreground hover:text-primary/80"
-              }`}
-            >
-              {t("nav.brands")}
-              <ChevronDown
-                className={`w-3.5 h-3.5 opacity-60 transition-transform duration-200 ${
-                  activeMenu === "brands" ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-          </nav>
           <Button
             variant="ghost"
             size="icon"
