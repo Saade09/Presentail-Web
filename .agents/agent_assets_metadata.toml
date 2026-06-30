@@ -186,6 +186,18 @@ uri = "file://artifacts/presentail-web/public/brand-covers/salma.png"
 type = "image"
 title = "salma-gifts-cover"
 
+[[generated]]
+id = "qkSSl1YYWol1NuxVX2j4B"
+uri = "file://attached_assets/gift-baskets-gen.png"
+type = "image"
+title = "luxury gift basket product photo"
+
+[[generated]]
+id = "AokwF10IWgpnj-4DJn5vv"
+uri = "file://attached_assets/flower-baskets-gen.png"
+type = "image"
+title = "luxury flower basket product photo"
+
 [[outputs]]
 id = "aAOtzP0PF-XLjuj8tfWfH"
 uri = "file://attached_assets/play-store/feature-graphic-1024x500.png"
