@@ -2063,7 +2063,7 @@ function CheckoutForm() {
             style={{ color: "rgba(255,255,255,0.72)" }}
             data-testid="link-back-to-cart"
           >
-            <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
+            <ArrowLeft className={`hidden sm:block w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
             <span className="hidden sm:inline">{t("checkout.backToCart")}</span>
           </Link>
         </div>
