@@ -19,3 +19,4 @@ export * from "./productColorCache";
 export * from "./wpCustomerIdMap";
 export * from "./orderIdSequences";
 export * from "./coupons";
+export * from "./productPairAffinity";

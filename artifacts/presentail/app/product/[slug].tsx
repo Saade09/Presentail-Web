@@ -37,6 +37,7 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { FrequentlyBoughtTogether } from "@/components/FrequentlyBoughtTogether";
 import { trackScreenTTID } from "@/lib/analytics";
 import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { buildProductShareUrl } from "@/lib/productShareUrl";
@@ -408,6 +409,7 @@ function ProductDetail() {
           customNote={customNote}
           setCustomNote={setCustomNote}
         />
+        <FrequentlyBoughtTogether anchorSlug={slug} />
       </ScrollView>
 
       <View

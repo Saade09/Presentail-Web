@@ -1391,6 +1391,44 @@ export interface WooOrderRequest {
   marketing_attribution?: MarketingAttribution;
 }
 
+export type FrequentlyBoughtTogetherProductImagesItem = {
+  uri: string;
+};
+
+/**
+ * A product returned in the frequently bought together list.
+ */
+export interface FrequentlyBoughtTogetherProduct {
+  /** OS product slug (unique identifier). */
+  slug: string;
+  /** OS product id (same as slug). */
+  id: string;
+  /** Display name of the product. */
+  name: string;
+  /** Price in USD. */
+  price: number;
+  /** Price in USD (alias for price). */
+  priceValue?: number;
+  /** Primary category slug. */
+  category: string;
+  /** Whether the product is currently in stock. */
+  inStock: boolean;
+  /** Product images. */
+  images: FrequentlyBoughtTogetherProductImagesItem[];
+  /** Discounted price in USD, or null if no discount. */
+  discountPriceValue?: number | null;
+  /** Discounted price in AED, or null if no discount. */
+  discountPriceAed?: number | null;
+}
+
+/**
+ * Frequently bought together products for a PDP.
+ */
+export interface FrequentlyBoughtTogetherResponse {
+  /** Up to 4 co-purchased products, most frequent first. */
+  products: FrequentlyBoughtTogetherProduct[];
+}
+
 export type ProductColorHintsRequestProductsItem = {
   /** Product slug (unique identifier). */
   slug: string;
@@ -1493,6 +1531,29 @@ export type ProxyOsImageF = (typeof ProxyOsImageF)[keyof typeof ProxyOsImageF];
 export const ProxyOsImageF = {
   webp: "webp",
   jpeg: "jpeg",
+} as const;
+
+export type GetFrequentlyBoughtTogetherParams = {
+  /**
+   * OS product slug of the anchor product.
+   */
+  slug: string;
+  /**
+ * Store key used to resolve live product data and stock status.
+Defaults to `lebanon`.
+
+ */
+  store?: GetFrequentlyBoughtTogetherStore;
+};
+
+export type GetFrequentlyBoughtTogetherStore =
+  (typeof GetFrequentlyBoughtTogetherStore)[keyof typeof GetFrequentlyBoughtTogetherStore];
+
+export const GetFrequentlyBoughtTogetherStore = {
+  lebanon: "lebanon",
+  dubai: "dubai",
+  abudhabi: "abudhabi",
+  cyprus: "cyprus",
 } as const;
 
 export type GetHomepageBannersParams = {

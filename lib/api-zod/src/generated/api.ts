@@ -367,6 +367,73 @@ export const RecordFbWebEventResponse = zod.object({
 });
 
 /**
+ * Returns up to 4 in-stock products that are most frequently co-purchased
+with the given anchor product slug, derived from real co-purchase data
+in `app_orders`. Only applies to products in the `flowers` or `cakes`
+categories; returns an empty array for all other categories so
+non-targeted PDPs are unaffected.
+
+Cold-start behaviour: when fewer than 2 affinity matches exist, the
+gap is filled with top-selling in-stock products from the same category
+so the section is never empty once the catalog is populated.
+
+Returns 503 when the OS product cache has not yet been populated.
+
+ * @summary Get frequently bought together products for a PDP
+ */
+export const GetFrequentlyBoughtTogetherQueryParams = zod.object({
+  slug: zod.coerce.string().describe("OS product slug of the anchor product."),
+  store: zod
+    .enum(["lebanon", "dubai", "abudhabi", "cyprus"])
+    .optional()
+    .describe(
+      "Store key used to resolve live product data and stock status.\nDefaults to `lebanon`.\n",
+    ),
+});
+
+export const GetFrequentlyBoughtTogetherResponse = zod
+  .object({
+    products: zod
+      .array(
+        zod
+          .object({
+            slug: zod.string().describe("OS product slug (unique identifier)."),
+            id: zod.string().describe("OS product id (same as slug)."),
+            name: zod.string().describe("Display name of the product."),
+            price: zod.number().describe("Price in USD."),
+            priceValue: zod
+              .number()
+              .optional()
+              .describe("Price in USD (alias for price)."),
+            category: zod.string().describe("Primary category slug."),
+            inStock: zod
+              .boolean()
+              .describe("Whether the product is currently in stock."),
+            images: zod
+              .array(
+                zod.object({
+                  uri: zod.string(),
+                }),
+              )
+              .describe("Product images."),
+            discountPriceValue: zod
+              .number()
+              .nullish()
+              .describe("Discounted price in USD, or null if no discount."),
+            discountPriceAed: zod
+              .number()
+              .nullish()
+              .describe("Discounted price in AED, or null if no discount."),
+          })
+          .describe(
+            "A product returned in the frequently bought together list.",
+          ),
+      )
+      .describe("Up to 4 co-purchased products, most frequent first."),
+  })
+  .describe("Frequently bought together products for a PDP.");
+
+/**
  * Accepts a list of product slugs and names. Returns a map of slug →
 color keyword (one of the 17 known colors) or null for products where
 no color can be confidently inferred. Results are cached by name hash

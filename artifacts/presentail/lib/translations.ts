@@ -929,6 +929,9 @@ const EN = {
   cartUpsellsTabCandles: "Candles",
   cartUpsellsAddedToast: "Added to your cart",
 
+  // ── Frequently bought together ──
+  frequentlyBoughtTogether: "Frequently Bought Together",
+
   // ── Phone field ──
   phoneInvalidNumber: "Please enter a valid phone number for this country",
 
@@ -1783,6 +1786,9 @@ const AR: typeof EN = {
   cartUpsellsTabBears: "دببة",
   cartUpsellsTabCandles: "شموع",
   cartUpsellsAddedToast: "تمت الإضافة إلى العربة",
+
+  // ── Frequently bought together ──
+  frequentlyBoughtTogether: "يُشترى معاً في الغالب",
 
   // ── Phone field ──
   phoneInvalidNumber: "يرجى إدخال رقم هاتف صحيح لهذا البلد",
@@ -2641,6 +2647,9 @@ const FR: typeof EN = {
   cartUpsellsTabBears: "Ours",
   cartUpsellsTabCandles: "Bougies",
   cartUpsellsAddedToast: "Ajouté à votre panier",
+
+  // ── Frequently bought together ──
+  frequentlyBoughtTogether: "Souvent achetés ensemble",
 
   // ── Phone field ──
   phoneInvalidNumber: "Veuillez entrer un numéro de téléphone valide pour ce pays",

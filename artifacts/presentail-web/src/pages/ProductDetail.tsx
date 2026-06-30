@@ -43,6 +43,7 @@ import { useNow } from "@/lib/useNow";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { buildProductSeo } from "@/lib/seo";
+import { FrequentlyBoughtTogether } from "@/components/product/FrequentlyBoughtTogether";
 
 const SEO_ATTR = "data-seo-managed";
 
@@ -495,6 +496,8 @@ export default function ProductDetail() {
           careTips={vm.careTips}
         />
       </div>
+
+      {slug && <FrequentlyBoughtTogether slug={slug} />}
 
       <AddToCartUpsellModal
         open={upsellOpen}

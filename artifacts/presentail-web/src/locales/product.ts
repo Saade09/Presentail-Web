@@ -40,6 +40,7 @@ export const productStrings: Dict = {
   "product.customNote.label": { en: "Personalisation (optional)", ar: "تخصيص (اختياري)" },
   "product.customNote.placeholder": { en: "e.g. Happy Birthday, Anna!", ar: "مثال: عيد ميلاد سعيد، آنا!" },
   "product.customNote.counter": { en: "{count}/22", ar: "{count}/22" }, // no-translate — counter pattern
+  "product.frequentlyBoughtTogether": { en: "Frequently Bought Together", ar: "يُشترى معاً في الغالب" },
 
   "productUnavailable.heading": { en: "Not Available in {city}", ar: "غير متاح في {city}" },
   "productUnavailable.subtitleWithAlts": {
@@ -102,6 +103,7 @@ export const productStringsFr: Record<string, string> = {
   "product.customNote.label": "Personnalisation (facultatif)",
   "product.customNote.placeholder": "ex. : Joyeux anniversaire, Anna !",
   "product.customNote.counter": "{count}/22",
+  "product.frequentlyBoughtTogether": "Souvent achetés ensemble",
 
   "productUnavailable.heading": "Pas disponible à {city}",
   "productUnavailable.subtitleWithAlts": "Ce produit est disponible à {altCity}. Revenez à {altCity} pour l'acheter, ou parcourez notre sélection pour {city} ci-dessous.",

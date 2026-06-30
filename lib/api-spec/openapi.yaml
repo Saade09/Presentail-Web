@@ -305,6 +305,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /products/frequently-bought-together:
+    get:
+      operationId: getFrequentlyBoughtTogether
+      tags: [products]
+      summary: Get frequently bought together products for a PDP
+      description: |
+        Returns up to 4 in-stock products that are most frequently co-purchased
+        with the given anchor product slug, derived from real co-purchase data
+        in `app_orders`. Only applies to products in the `flowers` or `cakes`
+        categories; returns an empty array for all other categories so
+        non-targeted PDPs are unaffected.
+
+        Cold-start behaviour: when fewer than 2 affinity matches exist, the
+        gap is filled with top-selling in-stock products from the same category
+        so the section is never empty once the catalog is populated.
+
+        Returns 503 when the OS product cache has not yet been populated.
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          description: OS product slug of the anchor product.
+          schema:
+            type: string
+        - name: store
+          in: query
+          required: false
+          description: |
+            Store key used to resolve live product data and stock status.
+            Defaults to `lebanon`.
+          schema:
+            type: string
+            enum: [lebanon, dubai, abudhabi, cyprus]
+      responses:
+        "200":
+          description: Frequently bought together products (may be empty)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FrequentlyBoughtTogetherResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Product catalog not yet available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/color-hints:
     post:
       operationId: getProductColorHints
@@ -3574,6 +3626,59 @@ components:
               type: string
               format: date-time
               description: ISO 8601 timestamp when the order was placed.
+    FrequentlyBoughtTogetherProduct:
+      type: object
+      description: A product returned in the frequently bought together list.
+      properties:
+        slug:
+          type: string
+          description: OS product slug (unique identifier).
+        id:
+          type: string
+          description: OS product id (same as slug).
+        name:
+          type: string
+          description: Display name of the product.
+        price:
+          type: number
+          description: Price in USD.
+        priceValue:
+          type: number
+          description: Price in USD (alias for price).
+        category:
+          type: string
+          description: Primary category slug.
+        inStock:
+          type: boolean
+          description: Whether the product is currently in stock.
+        images:
+          type: array
+          description: Product images.
+          items:
+            type: object
+            properties:
+              uri:
+                type: string
+            required: [uri]
+        discountPriceValue:
+          type: number
+          nullable: true
+          description: Discounted price in USD, or null if no discount.
+        discountPriceAed:
+          type: number
+          nullable: true
+          description: Discounted price in AED, or null if no discount.
+      required: [slug, id, name, price, category, inStock, images]
+    FrequentlyBoughtTogetherResponse:
+      type: object
+      description: Frequently bought together products for a PDP.
+      properties:
+        products:
+          type: array
+          description: Up to 4 co-purchased products, most frequent first.
+          items:
+            $ref: "#/components/schemas/FrequentlyBoughtTogetherProduct"
+      required: [products]
     ProductColorHintsRequest:
       type: object
       properties:

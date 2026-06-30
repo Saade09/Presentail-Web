@@ -722,6 +722,8 @@ export type OrderLineItemSnapshot = {
   name: string;
   quantity: number;
   priceUsdCents: number;
+  /** OS product slug — used as the co-purchase affinity corpus key. */
+  osSlug?: string;
 };
 
 export type OsOrderAttemptResult =
@@ -1090,6 +1092,7 @@ export async function attemptCreateOsOrder(
         name: d.name,
         quantity: d.quantity,
         priceUsdCents: Math.round(d.priceUsd * 100),
+        osSlug: d.osProductId || undefined,
       })),
     };
   } catch (err: any) {

@@ -48,8 +48,10 @@ import type {
   FbMobileEventResponse,
   FbWebEventRequest,
   FbWebEventResponse,
+  FrequentlyBoughtTogetherResponse,
   GeoCurrencyResponse,
   GetDeliveryConfigParams,
+  GetFrequentlyBoughtTogetherParams,
   GetGeoCurrencyByCoordsParams,
   GetHomepageBannersParams,
   GetHomepageBestSellersParams,
@@ -829,6 +831,127 @@ export const useRecordFbWebEvent = <
 > => {
   return useMutation(getRecordFbWebEventMutationOptions(options));
 };
+
+/**
+ * Returns up to 4 in-stock products that are most frequently co-purchased
+with the given anchor product slug, derived from real co-purchase data
+in `app_orders`. Only applies to products in the `flowers` or `cakes`
+categories; returns an empty array for all other categories so
+non-targeted PDPs are unaffected.
+
+Cold-start behaviour: when fewer than 2 affinity matches exist, the
+gap is filled with top-selling in-stock products from the same category
+so the section is never empty once the catalog is populated.
+
+Returns 503 when the OS product cache has not yet been populated.
+
+ * @summary Get frequently bought together products for a PDP
+ */
+export const getGetFrequentlyBoughtTogetherUrl = (
+  params: GetFrequentlyBoughtTogetherParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/products/frequently-bought-together?${stringifiedParams}`
+    : `/api/products/frequently-bought-together`;
+};
+
+export const getFrequentlyBoughtTogether = async (
+  params: GetFrequentlyBoughtTogetherParams,
+  options?: RequestInit,
+): Promise<FrequentlyBoughtTogetherResponse> => {
+  return customFetch<FrequentlyBoughtTogetherResponse>(
+    getGetFrequentlyBoughtTogetherUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetFrequentlyBoughtTogetherQueryKey = (
+  params?: GetFrequentlyBoughtTogetherParams,
+) => {
+  return [
+    `/api/products/frequently-bought-together`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetFrequentlyBoughtTogetherQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFrequentlyBoughtTogether>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetFrequentlyBoughtTogetherParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFrequentlyBoughtTogether>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFrequentlyBoughtTogetherQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFrequentlyBoughtTogether>>
+  > = ({ signal }) =>
+    getFrequentlyBoughtTogether(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFrequentlyBoughtTogether>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFrequentlyBoughtTogetherQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFrequentlyBoughtTogether>>
+>;
+export type GetFrequentlyBoughtTogetherQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get frequently bought together products for a PDP
+ */
+
+export function useGetFrequentlyBoughtTogether<
+  TData = Awaited<ReturnType<typeof getFrequentlyBoughtTogether>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetFrequentlyBoughtTogetherParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFrequentlyBoughtTogether>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFrequentlyBoughtTogetherQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Accepts a list of product slugs and names. Returns a map of slug →
