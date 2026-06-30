@@ -49,6 +49,7 @@ export type CircularCarouselItem = {
   label: string;
   slug?: string;
   imageUrl: string;
+  fallbackImageUrl?: string;
   href: string;
 };
 
@@ -159,6 +160,12 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
                         alt={item.label}
                         loading="lazy"
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        onError={item.fallbackImageUrl ? (e) => {
+                          const img = e.currentTarget;
+                          if (img.src !== item.fallbackImageUrl) {
+                            img.src = item.fallbackImageUrl!;
+                          }
+                        } : undefined}
                       />
                     ) : (
                       (() => {

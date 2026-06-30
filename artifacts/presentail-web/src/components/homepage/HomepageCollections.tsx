@@ -44,10 +44,12 @@ function CategoriesRow() {
     data?.items
       .filter((i) => i.isActive)
       .map((i) => {
+        const staticImg = CATEGORY_STATIC_IMAGES[i.slug] || "";
         const base = toCarouselItem(i, `/category/${encodeURIComponent(CATEGORY_SLUG_REMAP[i.slug] ?? i.slug)}`);
         return {
           ...base,
-          imageUrl: base.imageUrl || CATEGORY_STATIC_IMAGES[i.slug] || "",
+          imageUrl: base.imageUrl || staticImg,
+          fallbackImageUrl: staticImg,
         };
       }) ?? [];
 
