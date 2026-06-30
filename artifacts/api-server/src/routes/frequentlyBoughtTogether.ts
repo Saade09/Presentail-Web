@@ -2,8 +2,8 @@
  * GET /api/products/frequently-bought-together
  *
  * Returns up to 4 in-stock products that are most frequently co-purchased
- * with the given anchor product. Only applies to products in the `flowers`
- * or `cakes` categories (configurable via AFFINITY_CATEGORY_SLUGS).
+ * with the given anchor product. Only applies to products in flower or cake
+ * categories (configurable via AFFINITY_CATEGORY_SLUGS).
  *
  * Query params:
  *   slug  — OS product slug of the anchor product (required)
@@ -32,7 +32,10 @@ const router: IRouter = Router();
 // Add more slugs here (comma-separated env var) to extend to other categories
 // without a code change.
 const AFFINITY_CATEGORY_SLUGS: Set<string> = new Set(
-  (process.env.AFFINITY_CATEGORY_SLUGS ?? "flowers,cakes") // i18n-ignore — internal category slug config, not user-visible copy
+  (
+    process.env.AFFINITY_CATEGORY_SLUGS ?? // i18n-ignore — internal category slug config, not user-visible copy
+    "flowers,hand-bouquets,flower-boxes,flower-baskets,flower-vases,preserved-flowers,lux-arrangements,cakes"
+  )
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),

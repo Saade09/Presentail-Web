@@ -1,0 +1,277 @@
+Please improve the Product Not Found / Product Unavailable by City experience on the customer website.
+Context
+A real customer flow:
+Customer is shopping in Beirut, Lebanon.
+They open a valid product page, for example:
+/en-lb/beirut/product/nutella-cake--889
+The product loads correctly because Nutella Cake is available in Beirut.
+Customer then switches city to Dubai.
+The URL becomes something like:
+/en-ae/dubai/product/nutella-cake--889
+The page currently shows a basic:
+Product Not Found
+This is technically correct because the product is not sold in Dubai, but the UX feels like an error/dead end. We need to make this much more helpful and conversion-friendly.
+Use the approved design direction from the generated mockup: a clean centered message, clear explanation, strong CTA buttons, and recommended available products below.
+
+Goal
+When a product exists in the system but is not available in the currently selected city, show a helpful “Unavailable in this city” page instead of the generic “Product Not Found” page.
+Only show the generic Product Not Found page when the product truly does not exist anywhere.
+
+Required UX
+Replace the current basic not-found state with a polished page like this:
+Main message section
+Show a centered card/section with:
+Icon
+Use a soft location/unavailable icon.
+Example:
+Location pin icon
+Small “x” or unavailable badge
+Circular soft teal/gray background
+Title
+Dynamic:
+This product is not available in Dubai
+Where Dubai is the currently selected city.
+Subtitle
+Dynamic:
+Nutella Cake is currently available in Beirut, but not in Dubai. You can switch back to Beirut or continue shopping products available in Dubai.
+Where:
+Nutella Cake = product name
+Beirut = city/cities where the product is available
+Dubai = currently selected city
+Fallback if the original/available city is unknown:
+This product is not available in your selected city. Please choose another city or browse products available near you.
+
+CTA buttons
+Show 2–3 actions.
+Primary CTA
+Shop Products in Dubai
+This should link to the current selected city’s main shop/home page.
+Example:
+/en-ae/dubai
+The selected city should be dynamic.
+Secondary CTA
+Switch Back to Beirut
+Only show this if we know:
+the previous city before the switch, or
+a city where the product is available.
+Clicking this should switch the customer back to that city and reload/open the original product page in the available city.
+Example:
+/en-lb/beirut/product/nutella-cake--889
+Optional third CTA
+Browse Cakes in Dubai
+Only show this if:
+the product category is known, and
+that category exists in the selected city.
+Example:
+/en-ae/dubai/category/cakes
+If the category does not exist or has no products in Dubai, hide this button.
+
+Product recommendations section
+Below the main message, add a product recommendation row.
+Heading
+Available in Dubai
+or if category-specific:
+Cakes Available in Dubai
+Product recommendation logic
+Show 4–8 products available in the currently selected city.
+Priority order:
+Products from the same category as the unavailable product.
+Products from the same brand, if relevant.
+Popular/bestselling products in the selected city.
+Fallback to new arrivals or general recommended products in the selected city.
+For the Nutella Cake example, show available cakes or sweets in Dubai if they exist.
+Each product card should use the existing Presentail product card component:
+product image
+product name
+price
+points
+wishlist icon
+click opens product page in selected city
+Add a small link on the right side of the section header:
+View all Cakes in Dubai
+Only show this if the category page exists.
+
+Help section
+At the bottom of the unavailable page, add a simple help strip:
+Need help? Our team is here for you.
+With quick actions:
+Chat on WhatsApp
+Call us
+Email us
+Use existing contact links/components if already available.
+
+Design requirements
+Please match the existing Presentail luxury style:
+Clean white background
+Large spacing
+Elegant serif heading
+Teal primary button
+Soft rounded cards
+Thin borders
+Minimal icon styling
+Keep the existing header and footer
+Do not make this look like a technical error page
+Avoid harsh language like “error” or “failed”
+Do not only show “Product Not Found”
+The page should feel intentional and helpful.
+
+Technical behavior
+Please update the product page loading logic.
+Current likely logic:const product = await getProductBySlugAndCity(slug, selectedCity);
+
+if (!product) {
+  return <ProductNotFound />;
+}
+
+New logic should be closer to:const productInSelectedCity = await getProductBySlugAndCity(slug, selectedCityId);
+
+if (productInSelectedCity) {
+  return <ProductPage product={productInSelectedCity} />;
+}
+
+const globalProduct = await getProductBySlugGlobally(slug);
+
+if (globalProduct) {
+  return (
+    <ProductUnavailableInCityPage
+      productName={globalProduct.name}
+      productSlug={slug}
+      selectedCity={selectedCity}
+      selectedCountry={selectedCountry}
+      availableCities={globalProduct.availableCities}
+      previousCity={previousCity}
+      category={globalProduct.category}
+      brand={globalProduct.brand}
+    />
+  );
+}
+
+return <ProductNotFound />;
+
+Important distinction:
+Product exists globally but not in selected city
+Show the new “unavailable in this city” page.
+Product does not exist globally at all
+Show the true “Product Not Found” page.
+
+City switching logic
+When the user changes city while on a product page:
+Do not automatically send them to a generic not-found page.
+Allow the product page route to load.
+If the product is not available in the new city, show the new unavailable-city page.
+Preserve language, country, city, and currency behavior.
+Make sure URL structure remains correct.
+Example:
+From:
+/en-lb/beirut/product/nutella-cake--889
+Switch to Dubai:
+/en-ae/dubai/product/nutella-cake--889
+Then render:
+This product is not available in Dubai
+
+Data requirements
+The new page needs access to:
+product slug
+product name
+product category
+product brand, if available
+current selected city
+current selected country
+cities where product is available
+previous city if stored
+recommended products available in current selected city
+If the API currently only fetches products by selected city, please add or update an endpoint to check whether a slug exists globally.
+Possible endpoint options:GET /api/products/slug/:slug/global
+
+or:GET /api/products/:slug/availability
+
+Response example:{
+  "exists": true,
+  "productName": "Nutella Cake",
+  "slug": "nutella-cake--889",
+  "category": {
+    "id": "cakes",
+    "name": "Cakes",
+    "slug": "cakes"
+  },
+  "availableCities": [
+    {
+      "id": "beirut",
+      "name": "Beirut",
+      "countryCode": "LB",
+      "url": "/en-lb/beirut/product/nutella-cake--889"
+    }
+  ]
+}
+
+If exists: false, render the normal Product Not Found page.
+
+Analytics tracking
+Please add analytics events so we can understand how often this happens.
+Event: unavailable page viewed
+product_unavailable_city_viewed
+Properties:{
+  "product_slug": "nutella-cake--889",
+  "product_name": "Nutella Cake",
+  "selected_city": "Dubai",
+  "selected_country": "UAE",
+  "available_cities": ["Beirut"],
+  "previous_city": "Beirut",
+  "language": "en",
+  "currency": "USD"
+}
+
+CTA click events
+Track:
+shop_selected_city_clicked
+Properties:
+selected_city
+selected_country
+product_slug
+switch_back_city_clicked
+Properties:
+previous_city
+selected_city
+product_slug
+browse_category_selected_city_clicked
+Properties:
+selected_city
+category_slug
+product_slug
+recommended_product_clicked
+Properties:
+selected_city
+unavailable_product_slug
+recommended_product_slug
+recommendation_position
+
+SEO requirements
+For unavailable-city pages:
+Do not index unavailable combinations if they create duplicate/thin pages.
+Add noindex, follow to product-city combinations where the product is unavailable in that city.
+Keep valid product pages indexable.
+Keep true product-not-found pages handled as they are today.
+Do not break canonical tags for available product pages.
+Suggested meta behavior:
+If product exists but unavailable in selected city:<meta name="robots" content="noindex, follow" />
+
+Canonical should either:
+point to the product page in the available city if there is one clear primary available city, or
+be omitted if there are multiple available cities and no clear canonical.
+Please implement carefully.
+
+Acceptance criteria
+This task is complete when:
+A Beirut-only product opened in Dubai no longer shows only “Product Not Found.”
+The page clearly says:
+This product is not available in Dubai.
+The page explains that the product is available in Beirut, if known.
+There is a primary button to shop products in Dubai.
+There is a secondary button to switch back to Beirut, if applicable.
+There is an optional category button like Browse Cakes in Dubai, only if valid.
+Recommended products available in Dubai are shown below.
+The true “Product Not Found” page still appears for deleted/invalid product slugs.
+The solution works across all countries, cities, languages, and product categories.
+The page keeps the existing Presentail header, footer, style, and routing.
+Analytics events are added.
+SEO is handled with noindex, follow for unavailable city/product combinations.
