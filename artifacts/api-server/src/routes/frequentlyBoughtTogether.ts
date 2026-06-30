@@ -62,7 +62,9 @@ router.get("/products/frequently-bought-together", async (req, res) => {
   const storeKey = store as StoreKey;
 
   if (!hasOsProducts(storeKey)) {
-    res.status(503).json({ error: "Product catalog not yet available" });
+    // Cache not yet warm — return empty gracefully so the section stays hidden
+    // without logging a client error (503 would cause retry noise).
+    res.json({ products: [] });
     return;
   }
 
