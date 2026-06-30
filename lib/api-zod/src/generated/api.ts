@@ -462,6 +462,11 @@ export const RecordAnalyticsEventBody = zod.object({
       "payment_wallet_opened",
       "payment_wallet_fallback",
       "banner_clicked",
+      "product_unavailable_city_viewed",
+      "shop_selected_city_clicked",
+      "switch_back_city_clicked",
+      "browse_category_selected_city_clicked",
+      "recommended_product_clicked",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n\n`payment_wallet_opened` is emitted when the native wallet sheet\n(Apple Pay \/ Google Pay) successfully opens on web or mobile. The\n`action` field carries `apple_pay` or `google_pay` on mobile and\n`wallet` on web (browser determines which wallet is active).\n\n`payment_wallet_fallback` is emitted when the wallet sheet could\nnot be opened and the checkout silently falls back to the card\nform. The `errorCode` field carries the reason:\n`constructor_failed` (web — PaymentRequest constructor threw),\n`show_failed` (web — pr.show() threw synchronously), or\n`not_available` (mobile — isPlatformPaySupported returned false).\n",
@@ -613,6 +618,13 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "For `banner_clicked` events: the raw destination URL when the\nbanner has a legacy `linkUrl` (internal path or external URL).\nNull\/absent for structured-link banners where `linkKind` is\nset.\n",
+    ),
+  recommendationPosition: zod
+    .number()
+    .min(1)
+    .optional()
+    .describe(
+      "For `recommended_product_clicked` events: 1-based position of\nthe clicked product in the recommendations row shown on the\nunavailable-in-city page.\n",
     ),
 });
 

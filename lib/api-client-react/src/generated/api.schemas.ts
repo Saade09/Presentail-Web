@@ -272,6 +272,12 @@ export const AnalyticsEventName = {
   payment_wallet_opened: "payment_wallet_opened",
   payment_wallet_fallback: "payment_wallet_fallback",
   banner_clicked: "banner_clicked",
+  product_unavailable_city_viewed: "product_unavailable_city_viewed",
+  shop_selected_city_clicked: "shop_selected_city_clicked",
+  switch_back_city_clicked: "switch_back_city_clicked",
+  browse_category_selected_city_clicked:
+    "browse_category_selected_city_clicked",
+  recommended_product_clicked: "recommended_product_clicked",
 } as const;
 
 /**
@@ -501,6 +507,14 @@ set.
    * @maxLength 512
    */
   linkUrl?: string;
+  /**
+   * For `recommended_product_clicked` events: 1-based position of
+the clicked product in the recommendations row shown on the
+unavailable-in-city page.
+
+   * @minimum 1
+   */
+  recommendationPosition?: number;
 }
 
 export interface AnalyticsEventResponse {

@@ -608,6 +608,52 @@ export type SearchResponse = {
   brands: SearchBrand[];
 };
 
+// ── Product availability (cross-city) ─────────────────────────────────────
+//
+// Used by ProductDetail to distinguish "product not available in this city"
+// from "product genuinely does not exist". Only fetched when the main product
+// lookup returns nothing (i.e., the product is absent from the current city's
+// cached product list).
+
+export type ProductAvailabilityStore = {
+  storeKey: string;
+  countryCode: string;
+  countrySlug: string;
+  cityId: string | null;
+  citySlug: string;
+  cityLabel: string;
+};
+
+export type ProductAvailabilityResponse =
+  | { exists: false }
+  | {
+      exists: true;
+      productName: string;
+      slug: string;
+      category?: string;
+      brand?: string;
+      availableStores: ProductAvailabilityStore[];
+    };
+
+export const useProductAvailability = (
+  slug: string | undefined,
+  options?: { enabled?: boolean },
+) => {
+  return useQuery<ProductAvailabilityResponse>({
+    queryKey: ["product-availability", slug ?? ""],
+    queryFn: async () => {
+      if (!slug) return { exists: false };
+      const data = await apiFetch<ProductAvailabilityResponse>(
+        `/products/availability/${encodeURIComponent(slug)}`,
+      );
+      return data;
+    },
+    enabled: options?.enabled !== false && !!slug,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+};
+
 // useSearch filters the OS product cache client-side for product matches and
 // searches categories, occasions, and brands by name.
 export const useSearch = (q: string, params: LocalizedParams = {}) => {

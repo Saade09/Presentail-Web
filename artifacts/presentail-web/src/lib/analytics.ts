@@ -17,7 +17,12 @@ type AnalyticsEventName =
   | "signup_step_completed"
   | "payment_wallet_opened"
   | "payment_wallet_fallback"
-  | "banner_clicked";
+  | "banner_clicked"
+  | "product_unavailable_city_viewed"
+  | "shop_selected_city_clicked"
+  | "switch_back_city_clicked"
+  | "browse_category_selected_city_clicked"
+  | "recommended_product_clicked";
 
 type AnalyticsSurface =
   | "cart"
@@ -81,6 +86,8 @@ export type AnalyticsEvent = {
   linkKind?: string;
   linkSlug?: string;
   linkUrl?: string;
+  /** recommended_product_clicked: 1-based position in the recommendations row */
+  recommendationPosition?: number;
 };
 
 function generateSessionId(): string {

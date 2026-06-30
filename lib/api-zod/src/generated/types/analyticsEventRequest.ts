@@ -136,4 +136,12 @@ set.
    * @maxLength 512
    */
   linkUrl?: string;
+  /**
+   * For `recommended_product_clicked` events: 1-based position of
+the clicked product in the recommendations row shown on the
+unavailable-in-city page.
+
+   * @minimum 1
+   */
+  recommendationPosition?: number;
 }

@@ -10,7 +10,8 @@ import { AddToCartUpsellModal } from "@/components/cart/AddToCartUpsellModal";
 import { useToast } from "@/hooks/use-toast";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useProducts, useCatalogMetadata } from "@/lib/queries";
+import { useProducts, useCatalogMetadata, useProductAvailability } from "@/lib/queries";
+import { ProductUnavailableInCity } from "@/components/product/ProductUnavailableInCity";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -83,6 +84,15 @@ export default function ProductDetail() {
   const { data: allData, isLoading } = useProducts(locParams);
   const { data: catalogMetadata } = useCatalogMetadata();
   const product = allData?.products?.find((p) => p.id === slug);
+
+  // When the main product lookup comes back empty, check whether the product
+  // exists in another city. Only trigger when loading is complete and the
+  // product is absent. This avoids an unnecessary API call for every PDP visit.
+  const shouldCheckAvailability = !isLoading && !product && !!slug;
+  const {
+    data: availabilityData,
+    isLoading: isCheckingAvailability,
+  } = useProductAvailability(slug, { enabled: shouldCheckAvailability });
 
   // Express Delivery is only offered between 8 AM and 10 PM in the
   // recipient country's local time. The 10 PM cutoff lives in the shared
@@ -319,24 +329,37 @@ export default function ProductDetail() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-page max-w-content pt-12 pb-24">
-        <Skeleton className="h-4 w-64 mb-8" />
-        <div className="grid lg:grid-cols-[3fr_2fr] gap-10 lg:gap-16">
-          <Skeleton className="aspect-square rounded-3xl" />
-          <div className="space-y-6">
-            <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-8 w-1/3" />
-            <Skeleton className="h-32 w-full rounded-2xl" />
-            <Skeleton className="h-12 w-full rounded-xl" />
-          </div>
+  const pdpSkeleton = (
+    <div className="container mx-auto px-page max-w-content pt-12 pb-24">
+      <Skeleton className="h-4 w-64 mb-8" />
+      <div className="grid lg:grid-cols-[3fr_2fr] gap-10 lg:gap-16">
+        <Skeleton className="aspect-square rounded-3xl" />
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-3/4" />
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
         </div>
       </div>
-    );
+    </div>
+  );
+
+  if (isLoading || (shouldCheckAvailability && isCheckingAvailability)) {
+    return pdpSkeleton;
   }
 
   if (!product || !vm || product.inStock === false) {
+    if (availabilityData?.exists) {
+      return (
+        <ProductUnavailableInCity
+          productName={availabilityData.productName}
+          productSlug={availabilityData.slug}
+          availableStores={availabilityData.availableStores}
+          category={availabilityData.category}
+          brand={availabilityData.brand}
+        />
+      );
+    }
     return (
       <div className="container mx-auto px-page max-w-content pt-32 pb-24 text-center">
         <h1 className="font-serif text-3xl mb-4">{t("product.notFound")}</h1>

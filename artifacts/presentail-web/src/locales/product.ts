@@ -40,6 +40,26 @@ export const productStrings: Dict = {
   "product.customNote.label": { en: "Personalisation (optional)", ar: "تخصيص (اختياري)" },
   "product.customNote.placeholder": { en: "e.g. Happy Birthday, Anna!", ar: "مثال: عيد ميلاد سعيد، آنا!" },
   "product.customNote.counter": { en: "{count}/22", ar: "{count}/22" }, // no-translate — counter pattern
+
+  "productUnavailable.heading": { en: "Not Available in {city}", ar: "غير متاح في {city}" },
+  "productUnavailable.subtitleWithAlts": {
+    en: "This product is available in {altCity}. Switch back to shop it there, or browse our selection for {city} below.",
+    ar: "هذا المنتج متاح في {altCity}. عُد إلى {altCity} للتسوق منه، أو تصفح اختياراتنا لـ{city} أدناه.",
+  },
+  "productUnavailable.subtitleNoAlts": {
+    en: "This product isn't currently available in {city}. Browse our selection below.",
+    ar: "هذا المنتج غير متاح حالياً في {city}. تصفح اختياراتنا أدناه.",
+  },
+  "productUnavailable.shopCity": { en: "Shop in {city}", ar: "تسوق في {city}" },
+  "productUnavailable.switchBack": { en: "Switch to {city}", ar: "التبديل إلى {city}" },
+  "productUnavailable.browseCategory": { en: "Browse {category} in {city}", ar: "تصفح {category} في {city}" },
+  "productUnavailable.recommendedHeading": { en: "Available in {city}", ar: "متاح في {city}" },
+  "productUnavailable.viewAllCategory": { en: "View all {category} in {city}", ar: "عرض كل {category} في {city}" },
+  "productUnavailable.helpTitle": { en: "Need help finding something?", ar: "هل تحتاج مساعدة في إيجاد شيء ما؟" },
+  "productUnavailable.helpDesc": { en: "Our team is here 7 days a week.", ar: "فريقنا متاح 7 أيام في الأسبوع." },
+  "productUnavailable.helpWhatsApp": { en: "Chat on WhatsApp", ar: "تواصل عبر واتساب" },
+  "productUnavailable.helpPhone": { en: "Call Us", ar: "اتصل بنا" },
+  "productUnavailable.helpEmail": { en: "Email Us", ar: "راسلنا بالبريد الإلكتروني" },
 };
 
 export const productStringsFr: Record<string, string> = {
@@ -82,4 +102,18 @@ export const productStringsFr: Record<string, string> = {
   "product.customNote.label": "Personnalisation (facultatif)",
   "product.customNote.placeholder": "ex. : Joyeux anniversaire, Anna !",
   "product.customNote.counter": "{count}/22",
+
+  "productUnavailable.heading": "Pas disponible à {city}",
+  "productUnavailable.subtitleWithAlts": "Ce produit est disponible à {altCity}. Revenez à {altCity} pour l'acheter, ou parcourez notre sélection pour {city} ci-dessous.",
+  "productUnavailable.subtitleNoAlts": "Ce produit n'est pas disponible à {city} pour le moment. Parcourez notre sélection ci-dessous.",
+  "productUnavailable.shopCity": "Acheter à {city}",
+  "productUnavailable.switchBack": "Revenir à {city}",
+  "productUnavailable.browseCategory": "Voir {category} à {city}",
+  "productUnavailable.recommendedHeading": "Disponible à {city}",
+  "productUnavailable.viewAllCategory": "Voir tout {category} à {city}",
+  "productUnavailable.helpTitle": "Besoin d'aide pour trouver quelque chose ?",
+  "productUnavailable.helpDesc": "Notre équipe est disponible 7 jours sur 7.",
+  "productUnavailable.helpWhatsApp": "Chatter sur WhatsApp",
+  "productUnavailable.helpPhone": "Nous appeler",
+  "productUnavailable.helpEmail": "Nous écrire",
 };

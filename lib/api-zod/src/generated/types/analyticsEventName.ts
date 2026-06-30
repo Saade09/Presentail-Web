@@ -80,4 +80,10 @@ export const AnalyticsEventName = {
   payment_wallet_opened: "payment_wallet_opened",
   payment_wallet_fallback: "payment_wallet_fallback",
   banner_clicked: "banner_clicked",
+  product_unavailable_city_viewed: "product_unavailable_city_viewed",
+  shop_selected_city_clicked: "shop_selected_city_clicked",
+  switch_back_city_clicked: "switch_back_city_clicked",
+  browse_category_selected_city_clicked:
+    "browse_category_selected_city_clicked",
+  recommended_product_clicked: "recommended_product_clicked",
 } as const;
