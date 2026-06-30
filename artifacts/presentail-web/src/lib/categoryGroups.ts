@@ -69,7 +69,8 @@ export const CATEGORY_STATIC_IMAGES: Record<string, string> = {
   "single-balloons":    "/catalog/categories/balloons.webp",
   "balloon-bundles":    "/catalog/categories/balloons.webp",
   "balloon-deco":       "/catalog/categories/balloons.webp",
-  "baskets":            "/catalog/categories/arabic-sweets.webp",
+  "baskets":            "/catalog/categories/gift-baskets.png",
+  "gift-baskets":       "/catalog/categories/gift-baskets.png",
   "flower-baskets":     "/catalog/categories/flower-baskets.avif",
 };
 

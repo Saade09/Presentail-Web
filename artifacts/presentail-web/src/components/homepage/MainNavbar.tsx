@@ -107,7 +107,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Chocolate",       href: "/category/chocolate",       img: "/catalog/categories/chocolate.webp" },
       { label: "Balloon Bundles", href: "/category/balloon-bundles", img: "/catalog/categories/balloons.webp" },
       { label: "Beauty",          href: "/category/beauty",          emoji: "💄" },
-      { label: "Gift Baskets",    href: "/category/gift-baskets",    emoji: "🎁" },
+      { label: "Gift Baskets",    href: "/category/gift-baskets",    img: "/catalog/categories/gift-baskets.png" },
       { label: "Arabic Sweets",   href: "/category/arabic-sweets",   img: "/catalog/categories/arabic-sweets.webp" },
       { label: "Balloon Deco",    href: "/category/balloon-deco",    img: "/catalog/categories/balloons.webp" },
     ],
