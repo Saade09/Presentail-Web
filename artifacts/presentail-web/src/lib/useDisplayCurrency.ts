@@ -132,6 +132,19 @@ export function useDisplayCurrency(): {
   const snapshot = useCurrencyTables();
   useCurrenciesData();
 
+  // Always re-detect on every load (no localStorage cache). Skip the geo
+  // call only when the visitor has locked a delivery country — that fully
+  // determines display currency.
+  const { data } = useQuery({
+    queryKey: ["geo-currency"],
+    queryFn: () => apiFetch<GeoCurrencyResponse>("/geo/currency"),
+    enabled: !hasSelectedCountry,
+    staleTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: false,
+  });
+
   const countryToCurrency = useCallback(
     (country: string): string | null => {
       const upper = country.toUpperCase();
@@ -178,19 +191,6 @@ export function useDisplayCurrency(): {
   useEffect(() => {
     clearLegacyDetectedCurrency();
   }, []);
-
-  // Always re-detect on every load (no localStorage cache). Skip the geo
-  // call only when the visitor has locked a delivery country — that fully
-  // determines display currency.
-  const { data } = useQuery({
-    queryKey: ["geo-currency"],
-    queryFn: () => apiFetch<GeoCurrencyResponse>("/geo/currency"),
-    enabled: !hasSelectedCountry,
-    staleTime: 60 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    retry: false,
-  });
 
   const { data: fxData } = useFxRates();
   const rates = fxData?.rates ?? {};
