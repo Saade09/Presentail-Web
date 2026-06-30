@@ -3006,6 +3006,16 @@ components:
             - type: string
             - type: "null"
           description: Brand logo URL from Presentail OS, or null when no image has been set.
+        cover_image:
+          oneOf:
+            - type: string
+            - type: "null"
+          description: Wide cover photo URL for the brand storefront header, or null when not set.
+        description:
+          oneOf:
+            - type: string
+            - type: "null"
+          description: Short brand description from Presentail OS, or null when not provided.
         count:
           type: integer
           description: Number of in-stock products associated with this brand across all supported countries.

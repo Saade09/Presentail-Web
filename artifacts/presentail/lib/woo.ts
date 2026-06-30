@@ -89,6 +89,8 @@ export type BrandProductsResult = {
   products: WooProduct[];
   brandImage: string | null;
   brandName: string | null;
+  brandDescription: string | null;
+  brandCoverImage: string | null;
 };
 
 export async function fetchBrandProducts(
@@ -108,11 +110,13 @@ export async function fetchBrandProducts(
         products: json.products,
         brandImage: json.brandImage ?? null,
         brandName: typeof json.brandName === "string" ? json.brandName : null,
+        brandDescription: typeof json.brandDescription === "string" ? json.brandDescription : null,
+        brandCoverImage: typeof json.brandCoverImage === "string" ? json.brandCoverImage : null,
       };
     }
-    return { products: [], brandImage: null, brandName: null };
+    return { products: [], brandImage: null, brandName: null, brandDescription: null, brandCoverImage: null };
   } catch {
-    return { products: [], brandImage: null, brandName: null };
+    return { products: [], brandImage: null, brandName: null, brandDescription: null, brandCoverImage: null };
   }
 }
 

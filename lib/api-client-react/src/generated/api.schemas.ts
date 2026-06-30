@@ -987,6 +987,10 @@ export interface CatalogBrand {
   slug: string;
   /** Brand logo URL from Presentail OS, or null when no image has been set. */
   image: string | null;
+  /** Wide cover photo URL for the brand storefront header, or null when not set. */
+  cover_image?: string | null;
+  /** Short brand description from Presentail OS, or null when not provided. */
+  description?: string | null;
   /** Number of in-stock products associated with this brand across all supported countries. */
   count: number;
   /** OS admin sort order. Lower values appear first. Null when not set by the OS admin. */

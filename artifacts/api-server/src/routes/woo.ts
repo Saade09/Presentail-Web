@@ -30,10 +30,11 @@ import {
   getOsProducts,
   getOsCategories,
   getOsBrands,
+  getOsRawCatalogBrands,
   getOsOccasions,
   getOsProductBySlug,
 } from "../lib/osProductsCache";
-import type { OSProduct } from "@workspace/presentail-os";
+import type { OSProduct, OSCatalogAttributeBrand } from "@workspace/presentail-os";
 
 const router: IRouter = Router();
 
@@ -365,9 +366,14 @@ router.get("/woo/brand-products", (req, res) => {
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
   const osBrands = getOsBrands();
+  const rawBrands = getOsRawCatalogBrands();
   const brandEntry = osBrands?.find((b) => b.slug === brandSlug);
+  const rawBrandEntry = rawBrands?.find((b: OSCatalogAttributeBrand) => b.slug === brandSlug);
   const brandName = brandEntry ? decodeHtmlEntities(brandEntry.name) : brandSlug;
   const brandImage = brandEntry?.image ?? null;
+  const brandDescription = brandEntry?.description ? decodeHtmlEntities(brandEntry.description) : null;
+  const brandCoverImage: string | null =
+    rawBrandEntry?.cover_image ?? rawBrandEntry?.image_public_url ?? null;
 
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const products = osProducts
@@ -376,7 +382,7 @@ router.get("/woo/brand-products", (req, res) => {
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter))
     .map((p) => transformProduct(p, store.currencySymbol));
-  return res.json({ ok: true, products, count: products.length, brandName, brandImage });
+  return res.json({ ok: true, products, count: products.length, brandName, brandImage, brandDescription, brandCoverImage });
 });
 
 const OCCASION_SLUGS = [

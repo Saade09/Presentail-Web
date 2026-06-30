@@ -763,7 +763,7 @@ const EN = {
   occasionItems: "items",
 
   // ── Brand[slug] page ──
-  brandSlugLabel: "Brand",
+  brandSlugBackToBrands: "Back to Brands",
   brandSlugLoading: "Loading products…",
   brandSlugNoProducts: "No products found",
   brandSlugNoProductsPrefix: "We couldn't find products for",
@@ -1621,7 +1621,7 @@ const AR: typeof EN = {
   occasionItems: "قطع",
 
   // ── Brand[slug] page ──
-  brandSlugLabel: "العلامة",
+  brandSlugBackToBrands: "العودة إلى العلامات",
   brandSlugLoading: "جارٍ تحميل المنتجات…",
   brandSlugNoProducts: "لم يتم العثور على منتجات",
   brandSlugNoProductsPrefix: "لم نتمكن من العثور على منتجات لـ",
@@ -2482,7 +2482,7 @@ const FR: typeof EN = {
   occasionItems: "articles",
 
   // ── Brand[slug] page ──
-  brandSlugLabel: "Marque",
+  brandSlugBackToBrands: "Retour aux marques",
   brandSlugLoading: "Chargement des produits…",
   brandSlugNoProducts: "Aucun produit trouvé",
   brandSlugNoProductsPrefix: "Nous n'avons pas trouvé de produits pour",

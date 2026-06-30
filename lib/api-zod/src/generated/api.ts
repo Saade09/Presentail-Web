@@ -1536,6 +1536,18 @@ export const GetCatalogMetadataResponse = zod.object({
         .describe(
           "Brand logo URL from Presentail OS, or null when no image has been set.",
         ),
+      cover_image: zod
+        .union([zod.string(), zod.null()])
+        .optional()
+        .describe(
+          "Wide cover photo URL for the brand storefront header, or null when not set.",
+        ),
+      description: zod
+        .union([zod.string(), zod.null()])
+        .optional()
+        .describe(
+          "Short brand description from Presentail OS, or null when not provided.",
+        ),
       count: zod
         .number()
         .describe(

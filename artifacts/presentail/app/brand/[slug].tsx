@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -9,8 +8,6 @@ import {
   FlatList,
   Platform,
   Pressable,
-  StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
@@ -28,6 +25,9 @@ import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
+const COVER_HEIGHT = 200;
+const LOGO_SIZE = 76;
+const LOGO_OFFSET = LOGO_SIZE / 2;
 
 function BrandScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -42,15 +42,14 @@ function BrandScreen() {
   const [loading, setLoading] = useState(true);
   const [brandImage, setBrandImage] = useState<string | null>(null);
   const [brandName, setBrandName] = useState<string>(String(slug ?? ""));
+  const [brandDescription, setBrandDescription] = useState<string | null>(null);
+  const [brandCoverImage, setBrandCoverImage] = useState<string | null>(null);
   const [coverLoaded, setCoverLoaded] = useState(false);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
-  // Capture mount time so the TTID includes the async product fetch.
   const mountMsRef = useRef(Date.now());
 
-  // Fire a mobile TTID event the first time the brand screen has product
-  // data to show. Skipped on web (web-vitals handles performance there).
   useEffect(() => {
     if (loading || Platform.OS === "web") return;
     trackScreenTTID("brand", mountMsRef.current);
@@ -62,11 +61,15 @@ function BrandScreen() {
     setProducts([]);
     setBrandImage(null);
     setBrandName(String(slug ?? ""));
+    setBrandDescription(null);
+    setBrandCoverImage(null);
     setCoverLoaded(false);
     fetchBrandProducts(String(slug), { countryCode, cityId }).then((res) => {
       if (!cancelled) {
         setProducts(res.products.filter((p) => p.image));
         setBrandImage(res.brandImage);
+        setBrandDescription(res.brandDescription);
+        setBrandCoverImage(res.brandCoverImage);
         if (res.brandName) setBrandName(res.brandName);
         setLoading(false);
       }
@@ -74,71 +77,150 @@ function BrandScreen() {
     return () => { cancelled = true; };
   }, [slug, countryCode, cityId]);
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+  const hasCover = !!brandCoverImage;
+
+  const ListHeader = (
+    <View style={{ paddingBottom: 8 }}>
+      {/* Cover photo */}
+      {hasCover && (
+        <View
+          style={{
+            marginHorizontal: 18,
+            marginTop: 16,
+            height: COVER_HEIGHT,
+            borderRadius: 16,
+            overflow: "hidden",
+            backgroundColor: colors.imagePlaceholder,
+          }}
+        >
+          {!coverLoaded && <ShimmerPlaceholder />}
+          <Image
+            source={{ uri: brandCoverImage! }}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="cover"
+            onLoad={() => setCoverLoaded(true)}
+            onError={() => setCoverLoaded(true)}
+          />
+        </View>
+      )}
+
+      {/* Logo badge */}
       <View
         style={{
-          backgroundColor: colors.primary,
-          paddingTop: insets.top + 12,
-          paddingBottom: 20,
-          paddingHorizontal: 18,
-          overflow: "hidden",
+          alignItems: "center",
+          marginTop: hasCover ? -LOGO_OFFSET : 20,
         }}
       >
-        {brandImage ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.imagePlaceholder }]}>
-            {!coverLoaded && <ShimmerPlaceholder />}
+        <View
+          style={{
+            width: LOGO_SIZE,
+            height: LOGO_SIZE,
+            borderRadius: 18,
+            backgroundColor: "#fff",
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 4,
+            overflow: "hidden",
+          }}
+        >
+          {brandImage ? (
             <Image
               source={{ uri: brandImage }}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              onLoad={() => setCoverLoaded(true)}
-              onError={() => setCoverLoaded(true)}
+              style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
+              contentFit="contain"
             />
-            <LinearGradient
-              colors={["rgba(0,65,78,0.25)", "rgba(0,65,78,0.85)"]}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
-        ) : null}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={10}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              backgroundColor: "rgba(255,255,255,0.18)",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Feather name="arrow-left" size={18} color="#fff" />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 1.2, textTransform: "uppercase" }}>
-              {t.brandSlugLabel}
+          ) : (
+            <AppText style={{ fontFamily: headingFontSemiBold, fontSize: 28, color: colors.primary }}>
+              {brandName.charAt(0).toUpperCase()}
             </AppText>
-            <AppText style={{ fontFamily: headingFontSemiBold, fontSize: 22, color: "#fff", marginTop: 2 }}>
-              {brandName}
-            </AppText>
-          </View>
-          <Pressable
-            onPress={() => router.push({ pathname: "/(tabs)/catalog", params: { brand: String(slug), brandName } })}
-            hitSlop={10}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              backgroundColor: "rgba(255,255,255,0.18)",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Feather name="search" size={18} color="#fff" />
-          </Pressable>
+          )}
         </View>
+      </View>
+
+      {/* Brand name */}
+      <AppText
+        style={{
+          fontFamily: headingFontSemiBold,
+          fontSize: 22,
+          color: colors.primary,
+          textAlign: "center",
+          marginTop: 12,
+          marginHorizontal: 24,
+        }}
+      >
+        {brandName}
+      </AppText>
+
+      {/* Brand description */}
+      {!!brandDescription && (
+        <AppText
+          style={{
+            fontFamily: "Inter_400Regular",
+            fontSize: 13,
+            color: colors.mutedForeground,
+            textAlign: "center",
+            marginTop: 6,
+            marginHorizontal: 32,
+            lineHeight: 20,
+          }}
+        >
+          {brandDescription}
+        </AppText>
+      )}
+
+      {/* Product count label */}
+      <View style={{ paddingHorizontal: 24, marginTop: 20, marginBottom: 4 }}>
+        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+          {products.length} {products.length !== 1 ? t.brandSlugProducts : t.brandSlugProduct}
+        </AppText>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Top bar */}
+      <View
+        style={{
+          paddingTop: insets.top + 8,
+          paddingBottom: 10,
+          paddingHorizontal: 18,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          backgroundColor: colors.background,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border ?? "rgba(0,0,0,0.06)",
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            backgroundColor: colors.muted ?? "rgba(0,0,0,0.05)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Feather name="arrow-left" size={18} color={colors.primary} />
+        </Pressable>
+        <AppText
+          style={{
+            fontFamily: "Inter_400Regular",
+            fontSize: 13,
+            color: colors.mutedForeground,
+            flex: 1,
+          }}
+        >
+          {t.brandSlugBackToBrands}
+        </AppText>
       </View>
 
       {loading ? (
@@ -170,15 +252,9 @@ function BrandScreen() {
           keyExtractor={(item) => item.id}
           numColumns={2}
           columnWrapperStyle={{ gap: 10, paddingHorizontal: 24 }}
-          contentContainerStyle={{ paddingTop: 20, paddingBottom: insets.bottom + 40, gap: 18 }}
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 18 }}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View style={{ paddingHorizontal: 24, marginBottom: 4 }}>
-              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-                {products.length} {products.length !== 1 ? t.brandSlugProducts : t.brandSlugProduct}
-              </AppText>
-            </View>
-          }
+          ListHeaderComponent={ListHeader}
           renderItem={({ item }) => (
             <ProductCard
               product={item as any}

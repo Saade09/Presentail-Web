@@ -206,6 +206,12 @@ export type OSCatalogAttributeBrand = {
   description?: string | null;
   image_url?: string | null;
   image_public_url?: string | null;
+  /**
+   * Wide cover photo URL for the brand storefront header.
+   * Distinct from the brand logo (image_url/image_public_url).
+   * Null or absent when the OS admin has not set a cover photo for this brand.
+   */
+  cover_image?: string | null;
   sort_order?: number;
   /** Whether this brand is active in the OS admin.
    *  May be a boolean (true/false) or a string ("active"/"inactive").
