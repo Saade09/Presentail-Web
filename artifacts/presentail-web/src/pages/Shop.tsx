@@ -402,7 +402,7 @@ export default function Shop() {
             </h1>
             {!isLoading && (
               <p className="md:hidden text-sm text-muted-foreground font-normal mt-1 whitespace-nowrap">
-                <span className="opacity-40">/</span>{" "}{t("shop.productCount", { count: String(products.length) })}
+                {t("shop.productCount", { count: String(products.length) })}
               </p>
             )}
           </div>
