@@ -20,7 +20,11 @@ export interface CheckoutFeeInput {
   subtotal: number;
   /** ISO-3166-1 alpha-2 store country code (e.g. "LB", "AE", "CY"). */
   countryCode: string;
-  /** When true, no fixed delivery address — a flat $35 fee is charged. */
+  /**
+   * When true, the recipient's address will be collected later (ask-recipient
+   * flow). Does not affect the delivery fee — the district fee chosen before
+   * entering checkout is always used.
+   */
   noAddress: boolean;
   /**
    * Per-city delivery fee in USD from the OS /delivery-locations payload.
@@ -76,7 +80,6 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   const {
     subtotal,
     countryCode,
-    noAddress,
     cityFee,
     deliveryMode,
     timeSlots,
@@ -91,7 +94,7 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
       ? input.expressSurchargeUsdOverride
       : expressSurchargeForCountry(countryCode);
 
-  const baseFee = noAddress ? 35 : cityFee;
+  const baseFee = cityFee;
   const districtFee = (freeDeliveryEnabled && subtotal >= threshold) ? 0 : baseFee;
   const expressFee = deliveryMode === "express" ? surcharge : 0;
   const slotFee =
