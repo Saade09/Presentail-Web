@@ -340,7 +340,7 @@ router.get("/catalog/metadata", (_req, res) => {
 // Returns { ok: true, slugs: [] } when filtering is disabled (empty env var).
 router.get("/catalog/brand-allowlist", (_req, res) => {
   const raw = process.env.PRESENTAIL_OS_BRAND_ALLOWLIST;
-  const allowlistStr = raw === undefined ? "presentail-flowers--gifts" : raw;
+  const allowlistStr = raw ?? "";
   const slugs = allowlistStr.trim()
     ? allowlistStr.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
