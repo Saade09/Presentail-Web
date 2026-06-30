@@ -95,19 +95,22 @@ export default function BrandDetail() {
       {/* ── Brand hero ── */}
       <div className="container mx-auto max-w-content px-page">
         {hasCover ? (
-          <div className="relative rounded-2xl overflow-hidden h-48 md:h-56 bg-secondary/40">
-            {/* AI-generated cover image, or blurred logo as fallback */}
-            <img
-              src={coverImage ?? brand!.image!}
-              alt=""
-              aria-hidden="true"
-              className={`absolute inset-0 w-full h-full object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
-            />
-            {/* Gradient overlay for depth */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+          /* Wrapper holds the cover + the logo badge (which overflows below cover) */
+          <div className="relative pb-9">
+            <div className="rounded-2xl overflow-hidden h-48 md:h-56 bg-secondary/40">
+              {/* AI-generated cover image, or blurred logo as fallback */}
+              <img
+                src={coverImage ?? brand!.image!}
+                alt=""
+                aria-hidden="true"
+                className={`absolute inset-0 w-full h-full object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
+              />
+              {/* Gradient overlay for depth */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+            </div>
 
-            {/* Logo card overlapping bottom center */}
-            <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 w-[72px] h-[72px] md:w-20 md:h-20 bg-white rounded-2xl shadow-lg border border-white/80 flex items-center justify-center p-2.5">
+            {/* Logo badge — outside overflow-hidden so it isn't clipped */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[72px] h-[72px] md:w-20 md:h-20 bg-white rounded-2xl shadow-lg border border-white/80 flex items-center justify-center p-2.5">
               <img
                 src={brand!.image!}
                 alt={brand!.name}

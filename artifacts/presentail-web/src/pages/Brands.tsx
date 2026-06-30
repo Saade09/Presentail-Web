@@ -10,10 +10,9 @@ import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 interface BrandCardProps {
   brand: { id: number | string; slug: string; name: string; image?: string | null; count?: number };
   index: number;
-  productLabel: string;
 }
 
-function BrandCard({ brand, index, productLabel }: BrandCardProps) {
+function BrandCard({ brand, index }: BrandCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const showImage = !!brand.image && !imgFailed;
@@ -58,11 +57,6 @@ function BrandCard({ brand, index, productLabel }: BrandCardProps) {
         <h3 className="font-serif text-center font-medium group-hover:text-primary transition-colors">
           {brand.name}
         </h3>
-        {brand.count != null && (
-          <p className="text-center text-xs text-muted-foreground mt-1">
-            {brand.count} {productLabel}
-          </p>
-        )}
       </Link>
     </motion.div>
   );
@@ -105,7 +99,6 @@ export default function Brands() {
                 key={brand.id}
                 brand={brand}
                 index={i}
-                productLabel={t("brands.products")}
               />
             ))}
           </div>
