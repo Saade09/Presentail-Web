@@ -39,18 +39,20 @@ export default function Home() {
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
+      {/* Summer Picks rail — shown above Best Sellers so seasonal products are seen first.
+          Summer is an OS occasion (not a category), so occasionSlug is used. */}
+      <BestSellersPreview
+        occasionSlug="summer"
+        titleKey="collections.summer.title"
+        railKey="rail-summer"
+        viewAllHref="/occasion/summer"
+        testId="section-collection-summer"
+      />
+
       <BestSellersPreview
         titleKey="bestSellers.title"
         railKey="best-sellers"
         viewAllHref="/shop"
-      />
-
-      {/* First themed product rail — mirrors the live site's "Summer Collection". */}
-      <BestSellersPreview
-        categorySlug="summer"
-        titleKey="collections.summer.title"
-        railKey="rail-summer"
-        testId="section-collection-summer"
       />
 
       <HomepageCollections />

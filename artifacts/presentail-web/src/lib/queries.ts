@@ -235,6 +235,19 @@ export const useCategoryProducts = (
   return { ...result, data };
 };
 
+export const useOccasionFlatProducts = (
+  slug: string,
+  params: LocalizedParams = {},
+) => {
+  const result = useOsAllProducts(params, !!slug);
+  const data = useMemo(() => {
+    if (!result.data) return undefined;
+    const products = result.data.filter((p) => p.occasions.includes(slug));
+    return { ok: true as const, products, count: products.length } satisfies CategoryProductsResponse;
+  }, [result.data, slug]);
+  return { ...result, data };
+};
+
 export const useOccasionProducts = (
   slug: string,
   params: LocalizedParams = {},
