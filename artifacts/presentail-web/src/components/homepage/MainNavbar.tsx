@@ -477,9 +477,18 @@ export function MainNavbar() {
                         >
                           <ChevronRight className="w-5 h-5 rotate-180" />
                         </button>
-                        <span className="text-[17px] font-semibold text-gray-900">
+                        <span className="flex-1 text-[17px] font-semibold text-gray-900">
                           {subDef ? t(subDef.labelKey) : ""}
                         </span>
+                        <SheetClose asChild>
+                          <button
+                            type="button"
+                            className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors shrink-0"
+                            aria-label={t("nav.closeMenuAria")}
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </SheetClose>
                       </div>
 
                       {/* Sub-panel grid */}
