@@ -133,9 +133,21 @@ export function useDisplayCurrency(): {
   useCurrenciesData();
 
   const countryToCurrency = useCallback(
-    (country: string): string | null =>
-      snapshot.countryToCurrency[country.toUpperCase()] ?? null,
-    [snapshot],
+    (country: string): string | null => {
+      const upper = country.toUpperCase();
+      // Prefer the server's pre-computed currency for the IP-detected country.
+      // The server-side map covers all supported regions (Eurozone, CHF, etc.)
+      // while the web snapshot only ships the picker's ~10 entries.
+      if (
+        data?.countryCode &&
+        upper === data.countryCode.toUpperCase() &&
+        typeof data.currencyCode === "string"
+      ) {
+        return data.currencyCode;
+      }
+      return snapshot.countryToCurrency[upper] ?? null;
+    },
+    [snapshot, data?.countryCode, data?.currencyCode],
   );
   const isFormattable = useCallback(
     (currency: string): boolean =>
