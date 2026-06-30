@@ -32,13 +32,13 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex items-center gap-1.5 shrink-0"
+          className="flex items-center gap-1 shrink-0"
           data-testid="product-points-info"
           aria-label={t("product.pointsAria")}
         >
-          <Sparkles className="w-3.5 h-3.5 text-gold" />
+          <Sparkles className="w-3 h-3 text-gold" />
           <span
-            className="text-xs font-semibold text-gold"
+            className="text-[10px] font-semibold text-gold"
             data-testid="product-points"
           >
             {t("product.earnPoints", { points: String(rewardPoints) })}

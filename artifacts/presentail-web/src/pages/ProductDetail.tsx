@@ -377,7 +377,7 @@ export default function ProductDetail() {
         <PageBreadcrumb crumbs={productBreadcrumbs} />
       </div>
       <div className="container mx-auto px-page max-w-content pt-4 sm:pt-6 pb-28 sm:pb-20 md:pb-16">
-        <div className="grid lg:grid-cols-[3fr_2fr] lg:items-stretch gap-6 sm:gap-8 lg:gap-16">
+        <div className="grid lg:grid-cols-[3fr_2fr] lg:items-stretch gap-6 sm:gap-8 lg:gap-8">
           <div className="h-full">
             <ProductGallery
               images={vm.galleryImages}
