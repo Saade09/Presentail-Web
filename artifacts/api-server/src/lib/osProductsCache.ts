@@ -60,6 +60,22 @@ type StoreOsFetchSpec = {
   cityId?: string;
 };
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Normalise a brand name for slug cross-reference lookups.
+ * Strips punctuation, lowercases, and collapses whitespace so that
+ * "Hallab 1881" and "hallab 1881" produce the same key regardless of
+ * capitalisation or minor punctuation differences.
+ */
+function normaliseBrandName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ── Known stores to fetch from OS ─────────────────────────────────────────
 
 const OS_STORE_SPECS: StoreOsFetchSpec[] = [
@@ -119,6 +135,19 @@ let cachedRawCatalogBrands: import("@workspace/presentail-os").OSCatalogAttribut
  * associated with that brand across all stores.
  */
 let cachedBrandProductCounts: Map<string, number> = new Map();
+
+/**
+ * Name-normalised cross-reference map from catalog-attribute brands.
+ * Key: lowercase, whitespace-collapsed, punctuation-stripped brand name.
+ * Value: the canonical catalog-attribute slug for that brand.
+ *
+ * Built whenever `cachedRawCatalogBrands` is populated and used in the
+ * per-brand count computation to resolve product-embedded brand slugs that
+ * differ from catalog-attribute slugs (e.g. embedded slug "hallab" vs
+ * catalog slug "hallab-1881") to the correct canonical slug so the count
+ * is stored under the same key that `catalog.ts` looks up.
+ */
+let cachedBrandNameToCanonicalSlug: Map<string, string> = new Map();
 
 /**
  * Pre-computed per-category and per-occasion in-stock product counts across
@@ -355,6 +384,7 @@ export function __resetBrandFilterStateForTest(): void {
   cachedBrands = null;
   cachedRawCatalogBrands = null;
   cachedBrandProductCounts = new Map();
+  cachedBrandNameToCanonicalSlug = new Map();
   cachedCategoryProductCounts = new Map();
   cachedOccasionProductCounts = new Map();
 }
@@ -899,6 +929,12 @@ async function fetchAndStore(): Promise<void> {
         // Store the full raw list (including zero-product brands) so the
         // catalog metadata endpoint can filter by is_active independently.
         cachedRawCatalogBrands = withDerivedSlug;
+        // Build a name-normalised cross-reference map so that the per-brand
+        // count computation can resolve product-embedded brand slugs (which may
+        // differ from catalog-attribute slugs) to the canonical slug.
+        cachedBrandNameToCanonicalSlug = new Map(
+          withDerivedSlug.map((b) => [normaliseBrandName(b.name), b.slug!]),
+        );
         const osBase = config.baseUrl ?? "https://os.presentail.com";
         for (const b of withDerivedSlug) {
           // image_public_url is preferred (absolute CDN URL); fall back to
@@ -957,7 +993,14 @@ async function fetchAndStore(): Promise<void> {
           if (!p.inStock || seenProductIds.has(p.id)) continue;
           seenProductIds.add(p.id);
           for (const b of p.brands ?? []) {
-            counts.set(b.slug, (counts.get(b.slug) ?? 0) + 1);
+            // Resolve to the canonical catalog-attribute slug via name lookup.
+            // This handles the case where the product-embedded brand slug
+            // differs from the catalog-attribute slug (e.g. "hallab" vs
+            // "hallab-1881"). Falls back to the embedded slug when no match.
+            const canonicalSlug =
+              cachedBrandNameToCanonicalSlug.get(normaliseBrandName(b.name)) ??
+              b.slug;
+            counts.set(canonicalSlug, (counts.get(canonicalSlug) ?? 0) + 1);
           }
           for (const c of p.categories ?? []) {
             categoryCounts.set(c.slug, (categoryCounts.get(c.slug) ?? 0) + 1);

@@ -269,6 +269,36 @@ describe("osProductsCache — zero-product brand filter", () => {
     expect(slugs).toContain("brand-b");
   });
 
+  it("resolves count to canonical catalog slug when product-embedded slug differs (slug mismatch)", async () => {
+    // Real-world scenario: catalog-attributes returns slug "hallab-1881" but
+    // the product-embedded brand object carries slug "hallab" with name
+    // "Hallab 1881". Without the name cross-reference the count lands under
+    // "hallab" and brandCountMap.get("hallab-1881") returns 0, making the
+    // brand appear to have no products on the brands grid.
+    vi.mocked(fetchOsCatalogAttributesBrands).mockResolvedValue({
+      brands: [makeOsCatalogBrand("hallab-1881", "Hallab 1881")],
+    });
+    vi.mocked(fetchOsProducts).mockResolvedValue({
+      products: [
+        // Embedded brand has the *wrong* slug but the correct name.
+        makeProduct("prod-hallab-1", [{ id: "hallab", slug: "hallab", name: "Hallab 1881" }]),
+        makeProduct("prod-hallab-2", [{ id: "hallab", slug: "hallab", name: "Hallab 1881" }]),
+      ],
+    });
+
+    await fetchAndStoreForTesting();
+
+    const counts = getOsBrandProductCounts();
+    // Count must be stored under the canonical catalog slug, not the embedded one.
+    expect(counts.get("hallab-1881")).toBe(2);
+    expect(counts.has("hallab")).toBe(false);
+
+    // The brand must appear in getOsBrands() with the correct count.
+    const brands = getOsBrands();
+    expect(brands).not.toBeNull();
+    expect(brands!.map((b) => b.slug)).toContain("hallab-1881");
+  });
+
   it("getOsBrands returns null and counts are empty when no products are present", async () => {
     vi.mocked(fetchOsCatalogAttributesBrands).mockResolvedValue({
       brands: [makeOsCatalogBrand("brand-a", "Brand A")],
