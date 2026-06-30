@@ -1,4 +1,6 @@
 import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, type Product } from "@/lib/queries";
+import { applyRecipientFilter } from "@/lib/birthdayRecipients";
+import { BirthdayRecipientTabs } from "@/components/BirthdayRecipientTabs";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
@@ -25,6 +27,10 @@ import {
 } from "@/components/ui/sheet";
 
 const SEO_ATTR = "data-seo-managed";
+
+const VALID_BIRTHDAY_RECIPIENT_KEYS = new Set([
+  "all", "mom", "dad", "teta", "jedo", "girlfriend", "boyfriend", "wife", "husband", "kids",
+]);
 
 function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
   let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
@@ -182,25 +188,44 @@ export default function Shop() {
       .slice(0, 6);
   }, [fallbackPool.data, category]);
 
+  const rawRecipientKey = searchParams.get("for") || "all";
+  const recipientKey = VALID_BIRTHDAY_RECIPIENT_KEYS.has(rawRecipientKey) ? rawRecipientKey : "all";
+
+  function handleRecipientSelect(key: string) {
+    const params = new URLSearchParams(searchString);
+    if (key === "all") {
+      params.delete("for");
+    } else {
+      params.set("for", key);
+    }
+    const qs = params.toString();
+    navigate(location + (qs ? `?${qs}` : ""), { replace: true });
+  }
+
   const [sort, setSort] = useState("featured");
   const [selectedPriceBucket, setSelectedPriceBucket] = useState<PriceBucket | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  const recipientFilteredProducts: Product[] = useMemo(() => {
+    if (occasion !== "birthday") return sourceProducts;
+    return applyRecipientFilter(sourceProducts, recipientKey);
+  }, [sourceProducts, occasion, recipientKey]);
+
   const priceBuckets: PriceBucketDef[] = useMemo(() => {
     return convertedBucketDefs.map((def) => ({
       key: def.key,
       label: def.label,
-      count: sourceProducts.filter((p) => def.test(p)).length,
+      count: recipientFilteredProducts.filter((p) => def.test(p)).length,
     })).filter((b) => b.count > 0);
-  }, [sourceProducts, convertedBucketDefs]);
+  }, [recipientFilteredProducts, convertedBucketDefs]);
 
   // Identify products that did not match any keyword so we can ask the AI
   const unmatchedProducts = useMemo(() => {
-    return sourceProducts
+    return recipientFilteredProducts
       .filter((p) => extractColor(p.name) === null)
       .map((p) => ({ slug: p.id, name: p.name }));
-  }, [sourceProducts]);
+  }, [recipientFilteredProducts]);
 
   // AI-inferred color hints for unmatched products (loads asynchronously, does
   // not block rendering — color facets update once the response arrives)
@@ -211,7 +236,7 @@ export default function Shop() {
 
   const colorFacets: ColorFacet[] = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const p of sourceProducts) {
+    for (const p of recipientFilteredProducts) {
       const c = resolveColor(p);
       if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
     }
@@ -219,13 +244,13 @@ export default function Shop() {
       .sort((a, b) => b[1] - a[1])
       .map(([color, count]) => ({ color: color as ColorFacet["color"], count }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceProducts, aiColorHints]);
+  }, [recipientFilteredProducts, aiColorHints]);
 
   const filteredProducts: Product[] = useMemo(() => {
     const bucketTest = selectedPriceBucket
       ? convertedBucketDefs.find((d) => d.key === selectedPriceBucket)?.test ?? null
       : null;
-    return sourceProducts.filter((p) => {
+    return recipientFilteredProducts.filter((p) => {
       if (bucketTest && !bucketTest(p)) return false;
       if (selectedColors.length > 0) {
         const c = resolveColor(p);
@@ -234,7 +259,7 @@ export default function Shop() {
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceProducts, selectedPriceBucket, selectedColors, aiColorHints, convertedBucketDefs]);
+  }, [recipientFilteredProducts, selectedPriceBucket, selectedColors, aiColorHints, convertedBucketDefs]);
 
   const products = useMemo(() => {
     const p = [...filteredProducts];
@@ -396,6 +421,10 @@ export default function Shop() {
             </Select>
           </div>
         </div>
+
+        {occasion === "birthday" && (
+          <BirthdayRecipientTabs activeKey={recipientKey} onSelect={handleRecipientSelect} />
+        )}
 
         <div className="block md:hidden w-full mb-6">
           <Button

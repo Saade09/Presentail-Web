@@ -65,6 +65,18 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
 
+  "shop.birthdayFor.label": { en: "Shop Birthday Gifts For:", ar: "تسوّق هدايا عيد الميلاد لـ:" },
+  "shop.birthdayFor.all": { en: "All", ar: "الكل" },
+  "shop.birthdayFor.mom": { en: "Mom", ar: "الأم" },
+  "shop.birthdayFor.dad": { en: "Dad", ar: "الأب" },
+  "shop.birthdayFor.teta": { en: "Teta", ar: "تيتا" },
+  "shop.birthdayFor.jedo": { en: "Jedo", ar: "جدو" },
+  "shop.birthdayFor.girlfriend": { en: "Girlfriend", ar: "الصديقة" },
+  "shop.birthdayFor.boyfriend": { en: "Boyfriend", ar: "الصديق" },
+  "shop.birthdayFor.wife": { en: "Wife", ar: "الزوجة" },
+  "shop.birthdayFor.husband": { en: "Husband", ar: "الزوج" },
+  "shop.birthdayFor.kids": { en: "Kids", ar: "الأطفال" },
+
   "shop.filter.priceTitle": { en: "Price", ar: "السعر" },
   "shop.filter.colorTitle": { en: "Color", ar: "اللون" },
   "shop.filter.clearFilters": { en: "Clear filters", ar: "مسح التصفية" },
@@ -272,6 +284,18 @@ export const shopStringsFr: Record<string, string> = {
   "shop.occ.congratulations": "Félicitations",
   "shop.occ.thankYou": "Merci",
   "shop.occ.condolences": "Condoléances",
+
+  "shop.birthdayFor.label": "Offrir pour l'anniversaire de :",
+  "shop.birthdayFor.all": "Tous",
+  "shop.birthdayFor.mom": "Maman",
+  "shop.birthdayFor.dad": "Papa",
+  "shop.birthdayFor.teta": "Teta",
+  "shop.birthdayFor.jedo": "Jedo",
+  "shop.birthdayFor.girlfriend": "Petite amie",
+  "shop.birthdayFor.boyfriend": "Petit ami",
+  "shop.birthdayFor.wife": "Femme",
+  "shop.birthdayFor.husband": "Mari",
+  "shop.birthdayFor.kids": "Enfants",
 
   "shop.filter.priceTitle": "Prix",
   "shop.filter.colorTitle": "Couleur",
