@@ -37,6 +37,7 @@ import ordersRouter from "./orders";
 import couponsRouter from "./coupons";
 import adminPixelDiagnosticsRouter from "./adminPixelDiagnostics";
 import seoQaRouter from "./seoQa";
+import { merchantFeedDebugRouter } from "./merchantFeed";
 
 const router: IRouter = Router();
 
@@ -78,5 +79,6 @@ router.use(ordersRouter);
 router.use(couponsRouter);
 router.use(adminPixelDiagnosticsRouter);
 router.use(seoQaRouter);
+router.use(merchantFeedDebugRouter);
 
 export default router;

@@ -55,11 +55,12 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       '<meta property="og:image" content="https://cdn.test/velvet.jpg"',
     );
     expect(out).toContain('<meta property="og:type" content="product"');
+    // AE market: price is converted from USD to AED (3.6725 peg): 89.5 × 3.6725 = 328.69
     expect(out).toContain(
-      '<meta property="product:price:amount" content="89.50"',
+      '<meta property="product:price:amount" content="328.69"',
     );
     expect(out).toContain(
-      '<meta property="product:price:currency" content="USD"',
+      '<meta property="product:price:currency" content="AED"',
     );
     expect(out).toContain(
       '<meta property="og:url" content="https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet"',
@@ -4237,13 +4238,14 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
       "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
     );
     // Offer carries shippingDetails + hasMerchantReturnPolicy so the listing
-    // qualifies for Google's enhanced/free merchant results. Price 89.50 is just
-    // below the AE free-delivery threshold (89.84) so it shows the AE standard
-    // delivery surcharge (4.90).
+    // qualifies for Google's enhanced/free merchant results.
+    // AE market: price is converted from USD to AED (3.6725 peg): 89.5 × 3.6725 = 328.69.
+    // The original USD priceValue 89.50 is just below the AE free-delivery threshold
+    // so the shippingDetails shows the AE standard delivery surcharge (4.90 USD).
     expect(product.offers).toEqual({
       "@type": "Offer",
-      price: "89.50",
-      priceCurrency: "USD",
+      price: "328.69",
+      priceCurrency: "AED",
       availability: "https://schema.org/InStock",
       itemCondition: "https://schema.org/NewCondition",
       url: "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
@@ -4745,7 +4747,8 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     const blocks = assertAllJsonLdValid(out, "product page");
     const product = byType(blocks, "Product");
     expect(product).toBeTruthy();
-    expect(product.offers.price).toBe("89.50");
+    // AE market: price is converted from USD to AED (3.6725 peg): 89.5 × 3.6725 = 328.69
+    expect(product.offers.price).toBe("328.69");
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 

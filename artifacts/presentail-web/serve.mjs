@@ -667,6 +667,32 @@ const STRIPE_APPLE_PAY_FILE_CONTENT = resolveStripeApplePayFileContent();
 }
 
 // ---------------------------------------------------------------------------
+// Google Merchant Center site verification
+//
+// Setting GMC_VERIFICATION_FILE_TOKEN causes the server to respond to
+// /{token}.html with "google-site-verification: {token}" — the HTML-file
+// verification method that GMC uses to confirm domain ownership.
+//
+// Setting VITE_GOOGLE_MERCHANT_CENTER_VERIFICATION causes the server to inject
+//   <meta name="google-site-verification" content="{token}" />
+// into the <head> of every HTML page it serves — the meta-tag verification
+// method.  Both env vars are optional; set whichever GMC asks for.
+// ---------------------------------------------------------------------------
+const GMC_VERIFICATION_FILE_TOKEN =
+  process.env.GMC_VERIFICATION_FILE_TOKEN?.trim() || null;
+const GMC_META_VERIFICATION_TOKEN =
+  process.env.VITE_GOOGLE_MERCHANT_CENTER_VERIFICATION?.trim() || null;
+
+/** Injects the GMC verification meta tag into HTML when configured. */
+function injectGmcMeta(html) {
+  if (!GMC_META_VERIFICATION_TOKEN) return html;
+  return html.replace(
+    "</head>",
+    `<meta name="google-site-verification" content="${GMC_META_VERIFICATION_TOKEN}" /></head>`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sidecar (.br / .gz) existence cache
 // ---------------------------------------------------------------------------
 // Pre-compressed sidecars are build-time artifacts written by compress-assets.mjs.
@@ -766,6 +792,7 @@ const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
   "/shop", "/brands", "/occasions", "/cart", "/checkout",
   "/order-confirmed", "/careers", "/blog", "/partner",
   "/weddings", "/corporate", "/contact", "/faqs", "/terms", "/privacy",
+  "/shipping-policy", "/return-policy",
   "/reset-password", "/unauthorized", "/account", "/favorites",
   "/sign-in", "/sign-up",
 ]);
@@ -928,6 +955,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Google Merchant Center HTML-file verification.
+    // GMC asks you to upload a file named after the verification token at the
+    // root of the domain.  When GMC_VERIFICATION_FILE_TOKEN is set, we serve
+    // that file dynamically so no build step or public-folder change is needed.
+    // The response body follows the exact format GMC expects:
+    //   google-site-verification: {token}
+    if (
+      GMC_VERIFICATION_FILE_TOKEN &&
+      pathname === `/${GMC_VERIFICATION_FILE_TOKEN}.html`
+    ) {
+      res.writeHead(200, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=3600, must-revalidate",
+        "expires": makeExpires(3600),
+      });
+      res.end(`google-site-verification: ${GMC_VERIFICATION_FILE_TOKEN}`);
+      return;
+    }
+
     // Dynamic sitemap — intercept before file lookup so a missing
     // dist/public/sitemap.xml doesn't fall through to the SPA shell.
     // The cache has a TTL (SITEMAP_CACHE_TTL_MS) so catalog data stays current
@@ -1086,7 +1132,7 @@ const server = http.createServer(async (req, res) => {
           acceptLanguage: req.headers["accept-language"],
           firstBannerImageUrl: firstBannerImageUrl ?? undefined,
         });
-        const out = injectModulePreloads(injectFontPreloads(seoOut));
+        const out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
         const canonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
@@ -1223,7 +1269,7 @@ const server = http.createServer(async (req, res) => {
       acceptLanguage: req.headers["accept-language"],
       firstBannerImageUrl: firstBannerImageUrl ?? undefined,
     });
-    const out = injectModulePreloads(injectFontPreloads(seoOut));
+    const out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);
     const spaCanonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;

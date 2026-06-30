@@ -5,6 +5,7 @@ import compression from "compression";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
+import { feedsRouter } from "./routes/merchantFeed";
 import clerkWebhookRouter from "./routes/clerkWebhook";
 import wooWebhookRouter from "./routes/wooWebhook";
 import {
@@ -139,6 +140,10 @@ app.use(
     fallthrough: false,
   }),
 );
+
+// Product feed endpoints — served at /feeds (not under /api)
+// so GMC can access https://presentail.com/feeds/google-merchant/lb.xml directly.
+app.use("/feeds", feedsRouter);
 
 app.use("/api", router);
 

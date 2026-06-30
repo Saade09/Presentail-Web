@@ -1776,6 +1776,16 @@ export function buildProductHead({
 
   const inStock = product.inStock !== false;
 
+  // Determine market currency from countryCode (ISO 3166-1 alpha-2).
+  // AED is pegged to USD at 3.6725 by the UAE Central Bank (fixed rate).
+  // EUR rate is approximate — same as feed generator.
+  const COUNTRY_CURRENCY = { AE: "AED", CY: "EUR" };
+  const COUNTRY_FX = { AE: 3.6725, CY: 0.92 };
+  const marketCurrency =
+    (countryCode && COUNTRY_CURRENCY[String(countryCode).toUpperCase()]) || "USD";
+  const marketFx =
+    (countryCode && COUNTRY_FX[String(countryCode).toUpperCase()]) || 1;
+
   const extraLines = [];
   if (
     inStock &&
@@ -1783,10 +1793,11 @@ export function buildProductHead({
     Number.isFinite(product.priceValue) &&
     product.priceValue > 0
   ) {
+    const marketPrice = Math.round(product.priceValue * marketFx * 100) / 100;
     extraLines.push(
-      `<meta property="product:price:amount" content="${escapeAttr(product.priceValue.toFixed(2))}" />`,
+      `<meta property="product:price:amount" content="${escapeAttr(marketPrice.toFixed(2))}" />`,
     );
-    extraLines.push(`<meta property="product:price:currency" content="USD" />`);
+    extraLines.push(`<meta property="product:price:currency" content="${escapeAttr(marketCurrency)}" />`);
   }
 
   // Canonical product URL (no query string) — reused for the Product `url`,
@@ -1840,8 +1851,8 @@ export function buildProductHead({
       ? {
           offers: {
             "@type": "Offer",
-            price: product.priceValue.toFixed(2),
-            priceCurrency: "USD",
+            price: (Math.round(product.priceValue * marketFx * 100) / 100).toFixed(2),
+            priceCurrency: marketCurrency,
             availability: inStock
               ? "https://schema.org/InStock"
               : "https://schema.org/OutOfStock",
