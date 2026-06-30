@@ -13,6 +13,15 @@ import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
 
 const SEO_ATTR = "data-seo-managed";
 
+// AI-generated cover images per brand slug.
+// Add a new entry here whenever a new brand cover is placed in public/brand-covers/.
+const BRAND_COVER_IMAGES: Record<string, string> = {
+  "hallab-1881": "/brand-covers/hallab-1881.png",
+  "apple": "/brand-covers/apple.png",
+  "sables-gourmets": "/brand-covers/sables-gourmets.png",
+  "salma": "/brand-covers/salma.png",
+};
+
 function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
   let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
   if (!el) {
@@ -66,7 +75,8 @@ export default function BrandDetail() {
     isBrandsLoading && !brand ? ({ skeleton: true } as const) : { label: brandName },
   ];
 
-  const hasCover = !!brand?.image;
+  const coverImage = slug ? BRAND_COVER_IMAGES[slug] ?? null : null;
+  const hasCover = !!coverImage || !!brand?.image;
 
   return (
     <div className="min-h-screen pb-24 bg-background">
@@ -86,12 +96,12 @@ export default function BrandDetail() {
       <div className="container mx-auto max-w-content px-page">
         {hasCover ? (
           <div className="relative rounded-2xl overflow-hidden h-48 md:h-56 bg-secondary/40">
-            {/* Blurred cover using the brand logo image */}
+            {/* AI-generated cover image, or blurred logo as fallback */}
             <img
-              src={brand!.image!}
+              src={coverImage ?? brand!.image!}
               alt=""
               aria-hidden="true"
-              className="absolute inset-0 w-full h-full object-cover scale-110 blur-sm"
+              className={`absolute inset-0 w-full h-full object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
             />
             {/* Gradient overlay for depth */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />

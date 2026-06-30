@@ -162,6 +162,30 @@ uri = "file://artifacts/presentail-web/public/blog/what-to-send-when-there-are-n
 type = "image"
 title = "sympathy flowers card"
 
+[[generated]]
+id = "8iEBaWrhZEv8_HjlxMpkI"
+uri = "file://artifacts/presentail-web/public/brand-covers/hallab-1881.png"
+type = "image"
+title = "hallab-sweets-cover"
+
+[[generated]]
+id = "20Hto2eLQ-ShQdnNSBkJk"
+uri = "file://artifacts/presentail-web/public/brand-covers/apple.png"
+type = "image"
+title = "apple-tech-cover"
+
+[[generated]]
+id = "FJs0_w89Lo-1cSWZqo3gI"
+uri = "file://artifacts/presentail-web/public/brand-covers/sables-gourmets.png"
+type = "image"
+title = "sables-pastry-cover"
+
+[[generated]]
+id = "bLGZffNMXBlbtVYMNubUT"
+uri = "file://artifacts/presentail-web/public/brand-covers/salma.png"
+type = "image"
+title = "salma-gifts-cover"
+
 [[outputs]]
 id = "aAOtzP0PF-XLjuj8tfWfH"
 uri = "file://attached_assets/play-store/feature-graphic-1024x500.png"
