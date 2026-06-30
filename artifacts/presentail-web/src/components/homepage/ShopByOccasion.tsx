@@ -77,7 +77,8 @@ export function ShopByOccasion() {
           <p className="text-muted-foreground text-sm md:text-base">{t("occasions.subtitle")}</p>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 md:gap-5">
+        <div className="-mx-4 px-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0 md:overflow-x-visible">
+          <div className="flex flex-nowrap gap-3 md:grid md:grid-cols-4 md:gap-5">
           {ITEMS.map((it, i) => {
             const osImg = osImageBySlug.get(it.slug);
             return (
@@ -87,6 +88,7 @@ export function ShopByOccasion() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.4, delay: i * 0.04 }}
+                className="min-w-[calc(25vw-0.75rem)] md:min-w-0"
               >
                 <Link
                   href={`/occasion/${it.slug}`}
@@ -101,6 +103,7 @@ export function ShopByOccasion() {
               </motion.div>
             );
           })}
+          </div>
         </div>
 
         <div className="flex justify-center mt-8 md:mt-10">

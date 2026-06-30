@@ -51,7 +51,8 @@ export function CategoriesGrid() {
           <p className="text-muted-foreground text-sm md:text-base">{t("categories.subtitle")}</p>
         </div>
 
-        <div className="grid grid-cols-4 md:auto-rows-[200px] gap-3 md:gap-5">
+        <div className="-mx-4 px-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0 md:overflow-x-visible">
+          <div className="flex flex-nowrap gap-3 md:grid md:grid-cols-4 md:auto-rows-[200px] md:gap-5">
           {items.map((item, i) => {
             const staticImg = STATIC_FALLBACK_IMAGES[item.slug];
             const imgSrc = item.imageUrl || staticImg || null;
@@ -63,7 +64,7 @@ export function CategoriesGrid() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.5, delay: i * 0.05 }}
-                className={spanClass}
+                className={`min-w-[calc(25vw-0.75rem)] md:min-w-0 ${spanClass}`}
               >
                 <Link
                   href={`/category/${encodeURIComponent(CATEGORY_SLUG_REMAP[item.slug] ?? item.slug)}`}
@@ -93,6 +94,7 @@ export function CategoriesGrid() {
               </motion.div>
             );
           })}
+          </div>
         </div>
       </div>
     </section>
