@@ -50,8 +50,23 @@ export function AccountDropdown() {
   const [, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
   const [points, setPoints] = useState<number | null>(null);
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches,
+  );
   const wrapperRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isDesktop) setOpen(false);
+  }, [isDesktop]);
 
   const scheduleClose = () => {
     clearTimeout(closeTimerRef.current);
@@ -134,14 +149,14 @@ export function AccountDropdown() {
     <div
       ref={wrapperRef}
       className="relative"
-      onMouseEnter={() => { cancelClose(); setOpen(true); }}
-      onMouseLeave={scheduleClose}
+      onMouseEnter={isDesktop ? () => { cancelClose(); setOpen(true); } : undefined}
+      onMouseLeave={isDesktop ? scheduleClose : undefined}
     >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="true"
-        aria-expanded={open}
+        onClick={isDesktop ? () => setOpen((o) => !o) : () => setLocation("/account")}
+        aria-haspopup={isDesktop ? "true" : undefined}
+        aria-expanded={isDesktop ? open : undefined}
         data-testid="button-account"
         className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold hover:opacity-90 transition-opacity shrink-0 select-none"
         aria-label={t("nav.accountAria")}
