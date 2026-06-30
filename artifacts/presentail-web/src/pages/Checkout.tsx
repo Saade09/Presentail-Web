@@ -1797,21 +1797,40 @@ function CheckoutForm() {
 
         // Step 1: Create a PaymentIntent server-side (prices resolved from
         // the Presentail OS catalog — client-supplied amounts are never used).
-        const intentRes = await createPaymentIntent.mutateAsync({
-          data: {
-            items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
-            orderId,
-            currency: currencyCode,
-            email: sender.email || undefined,
-            deliveryFeeUsd: districtFee + expressFee + slotFee,
-            district: _selectedDistrict,
-            expressDelivery: deliveryMode === "express",
-            noAddress,
-            ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
-            // Only request card saving when using a new card (not a saved one)
-            ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
-          } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
-        });
+        // mutateAsync throws an ApiError on any non-2xx response, so we catch
+        // here to handle the 409 already_paid case (succeeded PI found after a
+        // server restart) without surfacing it as a generic card error.
+        let intentRes: Awaited<ReturnType<typeof createPaymentIntent.mutateAsync>>;
+        try {
+          intentRes = await createPaymentIntent.mutateAsync({
+            data: {
+              items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
+              orderId,
+              currency: currencyCode,
+              email: sender.email || undefined,
+              deliveryFeeUsd: districtFee + expressFee + slotFee,
+              district: _selectedDistrict,
+              expressDelivery: deliveryMode === "express",
+              noAddress,
+              ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
+              // Only request card saving when using a new card (not a saved one)
+              ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
+            } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
+          });
+        } catch (err: unknown) {
+          const apiErr = err as { status?: number; data?: unknown };
+          if (apiErr?.status === 409 && (apiErr?.data as { code?: string } | null)?.code === "already_paid") {
+            // The order was already paid (e.g. the shopper retried after a
+            // server restart and Stripe found a succeeded PI for this orderId).
+            // Route to the confirmation screen instead of showing an error.
+            setLocation(`/order-confirmed?status=success&ref=${encodeURIComponent(orderId)}`);
+            return;
+          }
+          setStripeCardError(
+            (apiErr?.data as { message?: string } | null)?.message ?? t("checkout.toast.cardUnavailableDesc"),
+          );
+          return;
+        }
 
         if (!intentRes.ok || !intentRes.clientSecret) {
           setStripeCardError((intentRes as { message?: string }).message || t("checkout.toast.cardUnavailableDesc"));

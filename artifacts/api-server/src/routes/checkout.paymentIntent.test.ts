@@ -18,11 +18,13 @@ const {
   createMock,
   retrieveMock,
   updateMock,
+  searchMock,
 } = vi.hoisted(() => {
   const createMock = vi.fn();
   const retrieveMock = vi.fn();
   const updateMock = vi.fn();
-  return { createMock, retrieveMock, updateMock };
+  const searchMock = vi.fn();
+  return { createMock, retrieveMock, updateMock, searchMock };
 });
 
 vi.mock("stripe", () => {
@@ -31,6 +33,7 @@ vi.mock("stripe", () => {
       create: createMock,
       retrieve: retrieveMock,
       update: updateMock,
+      search: searchMock,
     };
     customers = {
       create: vi.fn().mockResolvedValue({ id: "cus_test" }),
@@ -131,6 +134,9 @@ beforeEach(() => {
   createMock.mockReset();
   retrieveMock.mockReset();
   updateMock.mockReset();
+  searchMock.mockReset();
+  // Default: search returns empty results (no prior PI found).
+  searchMock.mockResolvedValue({ data: [], has_more: false });
 });
 
 afterEach(() => {
@@ -244,6 +250,100 @@ describe("POST /checkout/payment-intent — idempotency", () => {
     expect(secondRef).toBe("pi_existing");
     const secondEntry = peekPaymentIntent("pi_existing");
     expect(secondEntry?.expiresAt).toBeGreaterThan(firstExpiresAt);
+  });
+
+  it("(d) cache miss after restart: search finds existing PI in requires_payment_method → reuses it without calling create", async () => {
+    // Use a fresh orderId that has never been seeded in the in-memory store,
+    // simulating a post-restart cache wipe. getPaymentIntentForOrder returns
+    // undefined, so the route falls through to the Stripe search fallback.
+    const orderId = "LB-RESTART-MISS";
+
+    searchMock.mockResolvedValueOnce({
+      data: [
+        {
+          id: "pi_post_restart",
+          client_secret: "pi_post_restart_secret",
+          status: "requires_payment_method",
+          amount: 1000,
+          currency: "usd",
+        },
+      ],
+      has_more: false,
+    });
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ ...BASE_BODY, orderId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.clientSecret).toBe("pi_post_restart_secret");
+    expect(createMock).not.toHaveBeenCalled();
+    expect(retrieveMock).not.toHaveBeenCalled();
+    expect(searchMock).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.stringContaining(orderId) }),
+    );
+  });
+
+  it("(e) cache miss after restart: search finds succeeded PI → returns 409 already_paid without calling create", async () => {
+    const orderId = "LB-RESTART-PAID";
+
+    searchMock.mockResolvedValueOnce({
+      data: [
+        {
+          id: "pi_already_paid",
+          client_secret: "pi_already_paid_secret",
+          status: "succeeded",
+          amount: 1000,
+          currency: "usd",
+        },
+      ],
+      has_more: false,
+    });
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ ...BASE_BODY, orderId });
+
+    expect(res.status).toBe(409);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("already_paid");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("(f) cache hit with succeeded PI: returns 409 already_paid instead of creating a new PI", async () => {
+    const orderId = "LB-CACHE-SUCCEEDED";
+
+    // First request seeds the store
+    createMock.mockResolvedValueOnce({
+      id: "pi_succeeded",
+      client_secret: "pi_succeeded_secret",
+      status: "requires_payment_method",
+      amount: 1000,
+      currency: "usd",
+    });
+    const app = await buildApp();
+    await request(app).post("/checkout/payment-intent").send({ ...BASE_BODY, orderId });
+
+    // Second request: PI is now succeeded (payment went through)
+    createMock.mockReset();
+    retrieveMock.mockResolvedValueOnce({
+      id: "pi_succeeded",
+      client_secret: "pi_succeeded_secret",
+      status: "succeeded",
+      amount: 1000,
+      currency: "usd",
+    });
+
+    const res = await request(app).post("/checkout/payment-intent").send({ ...BASE_BODY, orderId });
+
+    expect(res.status).toBe(409);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("already_paid");
+    expect(createMock).not.toHaveBeenCalled();
+    expect(retrieveMock).toHaveBeenCalledWith("pi_succeeded");
   });
 
   it("(c) prior PI with different amount: calls stripe.paymentIntents.update and returns updated clientSecret", async () => {

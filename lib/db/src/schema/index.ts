@@ -20,3 +20,4 @@ export * from "./wpCustomerIdMap";
 export * from "./orderIdSequences";
 export * from "./coupons";
 export * from "./productPairAffinity";
+export * from "./checkoutAttempts";

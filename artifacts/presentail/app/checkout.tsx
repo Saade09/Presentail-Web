@@ -1202,6 +1202,15 @@ function CheckoutScreen() {
         ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
       });
       if (!intentResult.ok) {
+        if (intentResult.code === "already_paid") {
+          // The order was already paid (e.g. the shopper successfully paid on
+          // another device, or the server restarted mid-flow and found an
+          // existing succeeded PI). Route straight to the confirmation screen
+          // without attempting another payment.
+          router.replace(buildResultPath("success"));
+          setPaying(false);
+          return;
+        }
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
         Alert.alert(
           t.checkoutPaymentErrorTitle,

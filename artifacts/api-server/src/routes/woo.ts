@@ -7,6 +7,7 @@ import {
   enqueuePendingWcOrder,
   listPendingWooOrders,
   normalizePlatform,
+  recordFailedPaymentAttempt,
   recordSuccessfulWcOrder,
 } from "../lib/wooOrders";
 import {
@@ -942,6 +943,17 @@ router.post("/woo/order", async (req, res) => {
             { appOrderId: body.orderId, paymentRef, stripeAccount: intent.stripeAccount },
             "woo.order: Stripe payment not confirmed — rejecting order",
           );
+          // Fire-and-forget: record the declined attempt in app_orders and
+          // send to OS with payment.verified=false so ops can see it.
+          void recordFailedPaymentAttempt(body, {
+            paymentRef,
+            snapshotItems,
+            store,
+            platform: requestPlatform,
+            userId: resolvedUserId,
+            customerId: resolvedCustomerId,
+            log: req.log,
+          });
           return res.status(402).json({
             ok: false,
             code: "payment_not_confirmed",
@@ -1009,6 +1021,17 @@ router.post("/woo/order", async (req, res) => {
           { appOrderId: body.orderId, paymentRef },
           "woo.order: Mamo payment not confirmed — rejecting order",
         );
+        // Fire-and-forget: record the declined attempt in app_orders and
+        // send to OS with payment.verified=false so ops can see it.
+        void recordFailedPaymentAttempt(body, {
+          paymentRef,
+          snapshotItems,
+          store,
+          platform: requestPlatform,
+          userId: resolvedUserId,
+          customerId: resolvedCustomerId,
+          log: req.log,
+        });
         return res.status(402).json({
           ok: false,
           code: "payment_not_confirmed",
@@ -1075,6 +1098,17 @@ router.post("/woo/order", async (req, res) => {
           { appOrderId: body.orderId, paymentRef },
           "woo.order: PayPal payment capture/verification failed — rejecting order",
         );
+        // Fire-and-forget: record the declined attempt in app_orders and
+        // send to OS with payment.verified=false so ops can see it.
+        void recordFailedPaymentAttempt(body, {
+          paymentRef,
+          snapshotItems,
+          store,
+          platform: requestPlatform,
+          userId: resolvedUserId,
+          customerId: resolvedCustomerId,
+          log: req.log,
+        });
         return res.status(402).json({
           ok: false,
           code: "payment_not_confirmed",

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { db, orderIdSequencesTable } from "@workspace/db";
+import { db, orderIdSequencesTable, checkoutAttemptsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -42,7 +42,27 @@ router.post("/orders/next-id", async (req, res) => {
   // RETURNING gives the UPDATED value (after +1), so the claimed number
   // is nextVal - 1.
   const claimed = rows[0].claimedVal - 1;
-  return res.json({ ok: true, orderId: `${prefix}-${claimed}` });
+  const orderId = `${prefix}-${claimed}`;
+
+  // Fire-and-forget: record every orderId reservation so abandoned checkouts
+  // are visible in the database.  Errors must never block the response.
+  const rawPlatform = req.header("x-app-platform");
+  const platform = typeof rawPlatform === "string" && rawPlatform ? rawPlatform : null;
+
+  void db
+    .insert(checkoutAttemptsTable)
+    .values({
+      appOrderId: orderId,
+      countryCode: prefix,
+      platform,
+      status: "initiated",
+    })
+    .onConflictDoNothing()
+    .catch(() => {
+      // Silently ignore — tracking is best-effort and must not block checkout.
+    });
+
+  return res.json({ ok: true, orderId });
 });
 
 export default router;

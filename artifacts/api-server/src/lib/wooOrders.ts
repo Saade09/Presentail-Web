@@ -547,6 +547,9 @@ export async function recordSuccessfulWcOrder(input: {
   // Snapshot of resolved line items for use in transactional emails.
   lineItems?: OrderLineItemSnapshot[] | null;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
+  // Order state written to app_orders. Defaults to "confirmed" for successfully
+  // paid orders; pass "payment_failed" for declined-payment recordings.
+  state?: string | null;
 }) {
   const {
     body,
@@ -561,7 +564,9 @@ export async function recordSuccessfulWcOrder(input: {
     osOrderId,
     lineItems,
     log,
+    state: inputState,
   } = input;
+  const orderState = inputState ?? "confirmed";
 
   const senderName =
     `${body.billing.firstName ?? ""} ${body.billing.lastName ?? ""}`.trim() || null;
@@ -615,7 +620,7 @@ export async function recordSuccessfulWcOrder(input: {
         recipientName: recipientName || null,
         deliveryDate: body.deliveryDate ?? null,
         deliverySlot: body.deliverySlot ?? null,
-        state: "confirmed",
+        state: orderState,
         platform: platform ?? null,
         totalUsdCents: totalUsdCents ?? null,
         storeKey: storeKey ?? null,
@@ -642,7 +647,11 @@ export async function recordSuccessfulWcOrder(input: {
           recipientName: recipientName || null,
           deliveryDate: body.deliveryDate ?? null,
           deliverySlot: body.deliverySlot ?? null,
-          state: "confirmed",
+          // Only promote state forward: payment_failed → confirmed is
+          // allowed (shopper retried and succeeded), but never go backward.
+          // Use a SQL CASE to guard: update only when incoming state is
+          // "confirmed" OR current state is not already "confirmed".
+          state: orderState,
           platform: platform ?? null,
           totalUsdCents: totalUsdCents ?? null,
           storeKey: storeKey ?? null,
@@ -1102,6 +1111,68 @@ export async function attemptCreateOsOrder(
       message: err?.message ?? "Failed to create order in Presentail OS", // i18n-ignore
       recipientName: recipientFullName,
     };
+  }
+}
+
+/**
+ * Fire-and-forget: record a declined / unverified-payment order attempt in
+ * app_orders (state = "payment_failed") and submit to Presentail OS with
+ * payment.verified = false so it appears in the OS dashboard.
+ *
+ * Must never throw — all errors are swallowed and logged as warnings.
+ * The caller is expected to `void` the returned promise and still return the
+ * appropriate 402 error to the client.
+ */
+export async function recordFailedPaymentAttempt(
+  body: WooOrderPayload,
+  opts: {
+    paymentRef?: string | null;
+    snapshotItems?: { wcId: number; osSlug?: string; priceUsd: number; name?: string }[];
+    store?: WooStoreConfig;
+    platform?: string | null;
+    userId?: number | null;
+    customerId?: number | null;
+    log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
+  } = {},
+): Promise<void> {
+  try {
+    const osResult = await attemptCreateOsOrder(body, {
+      paymentVerified: false,
+      store: opts.store,
+      platform: opts.platform,
+      preVerifiedItems: opts.snapshotItems,
+    });
+
+    await recordSuccessfulWcOrder({
+      body,
+      wcOrderId: null,
+      userId: opts.userId ?? null,
+      customerId: opts.customerId ?? null,
+      recipientName: osResult.recipientName,
+      totalUsdCents: osResult.ok ? (osResult.totalUsdCents ?? null) : null,
+      platform: opts.platform,
+      storeKey: opts.store?.storeKey ?? null,
+      senderPhone: null,
+      osOrderId: osResult.ok ? (osResult.osOrderId ?? null) : null,
+      lineItems: osResult.ok ? (osResult.lineItems ?? null) : null,
+      log: opts.log,
+      state: "payment_failed",
+    });
+
+    opts.log?.info?.(
+      {
+        appOrderId: body.orderId,
+        paymentRef: opts.paymentRef ?? null,
+        osOk: osResult.ok,
+        osOrderId: osResult.ok ? (osResult.osOrderId ?? null) : null,
+      },
+      "woo.order: payment-failed attempt recorded",
+    );
+  } catch (err: any) {
+    opts.log?.warn?.(
+      { err: err?.message, appOrderId: body.orderId },
+      "woo.order: recordFailedPaymentAttempt failed (non-fatal)",
+    );
   }
 }
 

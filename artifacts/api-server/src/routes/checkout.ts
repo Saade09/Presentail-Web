@@ -440,12 +440,63 @@ router.post("/checkout/payment-intent", async (req, res) => {
             currency,
           });
         }
-        // PI is in a terminal / non-reusable status (succeeded, canceled,
-        // processing) — fall through to create a fresh one below.
+        // PI already paid or is being processed — do not create a duplicate.
+        if (existing.status === "succeeded" || existing.status === "processing") {
+          return res.status(409).json({ ok: false, code: "already_paid", message: "This order has already been paid." }); // i18n-ignore
+        }
+        // PI is in a canceled or other non-reusable status — fall through to
+        // create a fresh one below.
       } catch {
         // PI could not be retrieved (e.g. deleted in the Stripe dashboard) —
         // fall through and create a new one.
       }
+    }
+
+    // Cache miss (post-restart or TTL expiry) — search Stripe for an existing
+    // PI created for this orderId before creating a new one. This prevents a
+    // duplicate PaymentIntent when the in-memory cache is wiped (e.g. after a
+    // Replit deployment) and the shopper retries a declined card.
+    try {
+      const searchResult = await stripe.paymentIntents.search({
+        query: `metadata['orderId']:'${orderId}'`,
+        limit: 5,
+      });
+      for (const pi of searchResult.data) {
+        if (pi.status === "succeeded" || pi.status === "processing") {
+          return res.status(409).json({ ok: false, code: "already_paid", message: "This order has already been paid." }); // i18n-ignore
+        }
+        const reusableSearchStatuses = ["requires_payment_method", "requires_confirmation"];
+        if (reusableSearchStatuses.includes(pi.status)) {
+          // Re-populate the cache so subsequent calls hit the fast path.
+          storePaymentIntent({
+            orderId,
+            paymentRef: pi.id,
+            provider: "stripe",
+            stripeAccount: "main",
+            totalUsd,
+            snapshot: {
+              items: catalogResult.items.map((i) => ({
+                wcId: i.wcId,
+                osSlug: i.osSlug,
+                quantity: i.quantity,
+                priceUsd: i.priceUsd,
+              })),
+              district: district ?? "Beirut",
+              expressDelivery: expressDelivery === true,
+              noAddress: noAddress === true,
+            },
+          });
+          return res.json({
+            ok: true,
+            clientSecret: pi.client_secret,
+            orderId,
+            amount: totalMinorUnits,
+            currency,
+          });
+        }
+      }
+    } catch {
+      // Stripe search failure — fall through to create a new PI.
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
