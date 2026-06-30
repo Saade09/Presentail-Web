@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
+import { Logo } from "@/components/Logo";
 
 type Step = "name-password" | "phone";
 
@@ -172,6 +173,9 @@ export default function SignUpPage() {
         {step === "name-password" && (
           <>
             <div className="text-center mb-6">
+              <div className="flex justify-center mb-4">
+                <Logo height={36} />
+              </div>
               <h1 className="text-2xl font-serif">{t("auth.signup")}</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {t("auth.signupDesc")}

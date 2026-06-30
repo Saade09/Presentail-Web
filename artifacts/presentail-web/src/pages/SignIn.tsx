@@ -10,6 +10,7 @@ import { trackEvent } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { CompleteProfileDialog } from "@/components/auth/CompleteProfileDialog";
+import { Logo } from "@/components/Logo";
 
 const AppleLogo = () => (
   <svg
@@ -451,6 +452,9 @@ export default function SignInPage() {
         data-testid="signin-card"
       >
         <div className="text-center mb-6">
+          <div className="flex justify-center mb-4">
+            <Logo height={36} />
+          </div>
           <h1 className="text-2xl font-serif">{t("auth.cardHeading")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {step === "email" || step === "social-redirect"

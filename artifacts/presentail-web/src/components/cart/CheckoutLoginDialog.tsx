@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent } from "@/lib/analytics";
+import { Logo } from "@/components/Logo";
 
 const AppleLogo = () => (
   <svg
@@ -148,6 +149,9 @@ export function CheckoutLoginDialog({
         data-testid="dialog-checkout-login"
       >
         <div className="px-6 pt-8 pb-6 text-center">
+          <div className="flex justify-center mb-4">
+            <Logo height={36} />
+          </div>
           <h2 className="text-2xl font-serif mb-2">
             {t("checkoutLogin.title")}
           </h2>
