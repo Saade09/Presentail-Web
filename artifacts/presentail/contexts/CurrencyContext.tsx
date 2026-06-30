@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { resolveDisplayCurrency } from "@workspace/display-currency";
+import { countryFromLocale, resolveDisplayCurrency } from "@workspace/display-currency";
 
 import {
   CURRENCIES,
@@ -120,12 +120,21 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         const ipResult = await detectGeoFromLocation();
         if (cancelled) return;
 
-        // expo-localization is intentionally NOT imported here. The native
-        // module is not present in TestFlight build 16 / App Store build,
-        // so importing it (even dynamically) crashes the app on boot via a
-        // hard native error that JS can't catch. Locale-country resolution
-        // will be re-enabled in the next binary build.
-        const localeCountry: string | null = null;
+        // Try to read the device locale as the lowest-priority soft signal.
+        // expo-localization is imported dynamically and wrapped in try/catch so
+        // a missing native module (e.g. older binary) never crashes the app.
+        let localeCountry: string | null = null;
+        try {
+          const Localization = await import("expo-localization");
+          const locales = Localization.getLocales?.() ?? [];
+          const tag = locales[0]?.languageTag ?? null;
+          localeCountry = countryFromLocale(tag);
+        } catch {
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.debug("[display-currency:mobile] expo-localization unavailable, skipping locale signal");
+          }
+        }
 
         const resolved = resolveDisplayCurrency({
           manualOverride: manualOverrideRef.current,
@@ -188,12 +197,21 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       try {
         const deviceResult = await detectGeoFromDeviceLocation();
         const ipResult = await detectGeoFromLocation();
+        let localeCountry: string | null = null;
+        try {
+          const Localization = await import("expo-localization");
+          const locales = Localization.getLocales?.() ?? [];
+          const tag = locales[0]?.languageTag ?? null;
+          localeCountry = countryFromLocale(tag);
+        } catch {
+          // missing native module — locale signal skipped
+        }
         const resolved = resolveDisplayCurrency({
           manualOverride: null,
           savedCountry: null,
           gpsCountry: deviceResult?.countryCode ?? null,
           ipCountry: ipResult?.countryCode ?? null,
-          localeCountry: null,
+          localeCountry,
           countryToCurrency: (c) => COUNTRY_TO_CURRENCY_MAP[c] ?? null,
           isSupported: (c) => isSupportedCurrencyCode(c),
           fallback: FALLBACK_CURRENCY_CODE,

@@ -201,6 +201,12 @@ export async function detectGeoFromDeviceLocation(
   deviceInFlight = run;
   try {
     return await run;
+  } catch {
+    // Safety net: inner try/catch blocks inside `run` should cover all paths,
+    // but guard the outer await too so a permission exception thrown at any
+    // point never rejects this promise and never prevents the caller from
+    // falling through to the IP-based detection step.
+    return null;
   } finally {
     deviceInFlight = null;
   }
