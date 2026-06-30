@@ -50,7 +50,7 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.bundles": { en: "Bundles", ar: "باقات مجمّعة" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.baskets": { en: "Baskets", ar: "سلال" },
+  "shop.cat.baskets": { en: "Gift Baskets", ar: "سلال هدايا" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.flowerBaskets": { en: "Flower Baskets", ar: "سلال الزهور" },
 
@@ -276,7 +276,7 @@ export const shopStringsFr: Record<string, string> = {
   "shop.cat.cakes": "Gâteaux",
   "shop.cat.chocolate": "Chocolat",
   "shop.cat.bundles": "Coffrets",
-  "shop.cat.baskets": "Paniers",
+  "shop.cat.baskets": "Paniers cadeaux",
   "shop.cat.flowerBaskets": "Paniers de fleurs",
 
   "shop.occ.birthday": "Anniversaire",

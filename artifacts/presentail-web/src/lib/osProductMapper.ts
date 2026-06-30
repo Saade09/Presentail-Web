@@ -23,6 +23,7 @@
 
 import type { OSProduct } from "@workspace/presentail-os";
 import type { Product } from "./queries";
+import { CATEGORY_SLUG_REMAP } from "./categoryGroups";
 
 // Must match the server-side HIDDEN_CATEGORY_SLUGS in routes/woo.ts.
 const HIDDEN_CATEGORY_SLUGS = new Set(["electronics", "board-games", "coffee"]);
@@ -126,7 +127,7 @@ export function mapOsProduct(p: OSProduct): Product {
     image: imageList[0] ?? null,
     images: imageList,
     category: mapCategory(p.categories),
-    categories: p.categories.map((c) => c.slug),
+    categories: p.categories.map((c) => CATEGORY_SLUG_REMAP[c.slug] ?? c.slug),
     inStock: p.inStock,
     description: p.description
       ? decodeHtmlEntities(stripHtml(p.description))
