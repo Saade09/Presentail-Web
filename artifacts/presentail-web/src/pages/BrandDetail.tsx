@@ -40,9 +40,6 @@ export default function BrandDetail() {
 
   useEffect(() => {
     if (typeof document === "undefined" || !brandName) return;
-    // Guard: if a city/country ID is selected but the resolved object isn't
-    // available yet (delivery-locations query re-fetching after a city switch),
-    // skip this render to avoid writing a title with a blank city label.
     if (cityId && !city) return;
     if (countryCode && !country) return;
     const head = document.head;
@@ -69,32 +66,77 @@ export default function BrandDetail() {
     isBrandsLoading && !brand ? ({ skeleton: true } as const) : { label: brandName },
   ];
 
-  return (
-    <div className="min-h-screen pt-6 pb-24 bg-background">
-      <div className="container mx-auto max-w-content px-page pt-4">
-        <PageBreadcrumb crumbs={breadcrumbCrumbs} />
-      </div>
-      <div className="container mx-auto max-w-content px-page pt-4">
-        <Link href="/brands" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
-          <ArrowLeft className={`w-4 h-4 mr-2 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("brand.backToBrands")}
-        </Link>
+  const hasCover = !!brand?.image;
 
-        <div className="flex flex-col md:flex-row items-center gap-8 mb-16">
-          <div className="w-32 h-32 bg-secondary/50 rounded-2xl flex items-center justify-center p-4 shrink-0">
-            {brand?.image ? (
-              <img src={brand.image} alt={brand.name} className="max-w-full max-h-full object-contain mix-blend-multiply" loading="eager" fetchPriority="high" />
-            ) : (
-              <span className="font-serif text-4xl text-muted-foreground">{brand?.name?.charAt(0) || slug?.charAt(0)}</span>
-            )}
+  return (
+    <div className="min-h-screen pb-24 bg-background">
+      {/* ── Breadcrumb + back link ── */}
+      <div className="container mx-auto max-w-content px-page pt-6">
+        <PageBreadcrumb crumbs={breadcrumbCrumbs} />
+        <Link
+          href="/brands"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mt-3 mb-4"
+        >
+          <ArrowLeft className={`w-4 h-4 mr-1.5 ${dir === "rtl" ? "rotate-180" : ""}`} />
+          {t("brand.backToBrands")}
+        </Link>
+      </div>
+
+      {/* ── Brand hero ── */}
+      <div className="container mx-auto max-w-content px-page">
+        {hasCover ? (
+          <div className="relative rounded-2xl overflow-hidden h-48 md:h-56 bg-secondary/40">
+            {/* Blurred cover using the brand logo image */}
+            <img
+              src={brand!.image!}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover scale-110 blur-sm"
+            />
+            {/* Gradient overlay for depth */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+
+            {/* Logo card overlapping bottom center */}
+            <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 w-[72px] h-[72px] md:w-20 md:h-20 bg-white rounded-2xl shadow-lg border border-white/80 flex items-center justify-center p-2.5">
+              <img
+                src={brand!.image!}
+                alt={brand!.name}
+                className="max-w-full max-h-full object-contain mix-blend-multiply"
+                loading="eager"
+                fetchPriority="high"
+              />
+            </div>
           </div>
-          <div>
-            <h1 className="text-4xl md:text-5xl font-serif mb-4">{brandName}</h1>
-            <p className="text-muted-foreground text-lg">
-              {t("brand.descPrefix", { name: brandName })}
-            </p>
+        ) : (
+          /* No cover: just show logo centred on a soft background */
+          <div className="flex justify-center">
+            <div className="w-20 h-20 bg-secondary/50 rounded-2xl flex items-center justify-center p-3 shadow-sm">
+              {brand?.image ? (
+                <img
+                  src={brand.image}
+                  alt={brand.name}
+                  className="max-w-full max-h-full object-contain mix-blend-multiply"
+                  loading="eager"
+                  fetchPriority="high"
+                />
+              ) : (
+                <span className="font-serif text-4xl text-muted-foreground">
+                  {brand?.name?.charAt(0) || slug?.charAt(0)}
+                </span>
+              )}
+            </div>
           </div>
+        )}
+
+        {/* ── Brand name + description ── */}
+        <div className={`text-center ${hasCover ? "mt-12 md:mt-14" : "mt-6"} mb-6`}>
+          <h1 className="text-3xl md:text-4xl font-serif mb-2">{brandName}</h1>
+          <p className="text-muted-foreground text-sm md:text-base max-w-xs md:max-w-sm mx-auto leading-relaxed">
+            {t("brand.descPrefix", { name: brandName })}
+          </p>
         </div>
 
+        {/* ── Products ── */}
         <h2 className="sr-only">{t("shop.productsHeading")}</h2>
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
