@@ -506,6 +506,319 @@ describe("osLocationsCache — express-omission warning", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: webhook with partial city list — prior-cached inactive cities preserved
+// ---------------------------------------------------------------------------
+
+describe("osLocationsCache — webhook partial city list / inactive city persistence", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+    vi.mocked(sendAlert).mockClear();
+  });
+
+  it("city absent from OS response is served as inactive (isActive:false)", () => {
+    // OS returns only Beirut — all other LB cities should appear as inactive supplements.
+    const cities = loadLbCities([makeCity({ id: 1, slug: "beirut", name: "Beirut" })]);
+
+    const tyre = cities.find((c) => c.id === "lb-tyre");
+    expect(tyre, "lb-tyre must be present as an inactive supplement").toBeTruthy();
+    expect(tyre!.isActive).toBe(false);
+  });
+
+  it("city returned by OS without isActive field is correctly shown as active", () => {
+    // OS returns Beirut without an explicit isActive field — it being returned
+    // implies it is active (OS omits inactive cities from its response).
+    const partialCity = { id: 1, slug: "beirut", name: "Beirut", timeSlots: [] } as OSCity;
+    const cities = loadLbCities([partialCity]);
+
+    const beirut = cities.find((c) => c.id === "lb-beirut");
+    expect(beirut, "lb-beirut must be present").toBeTruthy();
+    expect(beirut!.isActive).toBe(true);
+  });
+
+  it("city with explicit isActive:false from OS is shown as inactive", () => {
+    const cities = loadLbCities([
+      makeCity({ id: 1, slug: "beirut", name: "Beirut", isActive: false }),
+    ]);
+
+    const beirut = cities.find((c) => c.id === "lb-beirut");
+    expect(beirut, "lb-beirut must be present").toBeTruthy();
+    expect(beirut!.isActive).toBe(false);
+  });
+
+  it("prior-cached inactive cities remain inactive when a subsequent partial webhook omits them", () => {
+    // Step 1: seed with Beirut and Metn active; Tyre absent → inactive.
+    const seed: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+          makeCity({ id: 2, slug: "metn", name: "Metn" }),
+          // Tyre intentionally omitted → becomes inactive via supplement.
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(seed);
+
+    const lbAfterSeed = getLocations().find((c) => c.code === "LB");
+    const tyreAfterSeed = lbAfterSeed!.cities.find((c) => c.id === "lb-tyre");
+    expect(tyreAfterSeed!.isActive, "lb-tyre must be inactive after seed (absent from OS)").toBe(false);
+
+    // Step 2: a partial webhook arrives with only Beirut (Metn and Tyre absent).
+    const partialWebhook: OSLocationsResponse = {
+      countries: [makeLbCountry([makeCity({ id: 1, slug: "beirut", name: "Beirut" })])],
+    };
+    storeLocationsFromWebhook(partialWebhook);
+
+    const lbAfterPartial = getLocations().find((c) => c.code === "LB");
+    expect(lbAfterPartial, "LB must still be in locations after partial webhook").toBeTruthy();
+
+    // Tyre was absent from both the seed and the partial webhook — it must still be inactive.
+    const tyreAfterPartial = lbAfterPartial!.cities.find((c) => c.id === "lb-tyre");
+    expect(tyreAfterPartial, "lb-tyre must still be present after partial webhook").toBeTruthy();
+    expect(
+      tyreAfterPartial!.isActive,
+      "lb-tyre must remain inactive after partial webhook (absent from OS response)",
+    ).toBe(false);
+
+    // Beirut must still be active (it was in both the seed and the partial webhook).
+    const beirutAfterPartial = lbAfterPartial!.cities.find((c) => c.id === "lb-beirut");
+    expect(beirutAfterPartial!.isActive).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: sticky-inactive — formerly-inactive cities stay inactive when OS
+//        returns them without an explicit isActive field (regression guard)
+// ---------------------------------------------------------------------------
+
+describe("osLocationsCache — sticky-inactive regression guard", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+    vi.mocked(sendAlert).mockClear();
+  });
+
+  it("keeps a formerly-inactive city inactive when OS returns it without isActive (core regression path)", () => {
+    // Step 1: seed cache where Tyre is inactive because OS omitted it.
+    const seed: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+          // Tyre intentionally omitted → becomes inactive via supplement logic.
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(seed);
+
+    const lbAfterSeed = getLocations().find((c) => c.code === "LB");
+    expect(lbAfterSeed!.cities.find((c) => c.id === "lb-tyre")!.isActive).toBe(false);
+
+    // Step 2: OS now returns Tyre (API contract drift) WITHOUT an isActive field.
+    // Before fix: c.isActive = undefined → falls through to hardcoded ?? true → active (bug).
+    // After fix: c.isActive = undefined + priorCity.isActive = false → stays false (fix).
+    const regressionPayload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+          // Tyre returned but no isActive — simulates the regression where OS
+          // starts returning all cities without omitting inactive ones AND
+          // without sending explicit isActive:false.
+          { id: 2, slug: "tyre", name: "Tyre", timeSlots: [] } as OSCity,
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(regressionPayload);
+
+    const lbAfterRegression = getLocations().find((c) => c.code === "LB");
+    const tyreAfterRegression = lbAfterRegression!.cities.find((c) => c.id === "lb-tyre");
+    expect(tyreAfterRegression, "lb-tyre must still be in the city list").toBeTruthy();
+    expect(
+      tyreAfterRegression!.isActive,
+      "lb-tyre must remain inactive — prior cache sticky-inactive guard must prevent silent reactivation",
+    ).toBe(false);
+
+    // Beirut must still be active.
+    const beirutAfterRegression = lbAfterRegression!.cities.find((c) => c.id === "lb-beirut");
+    expect(beirutAfterRegression!.isActive).toBe(true);
+  });
+
+  it("correctly activates a city when OS explicitly sends isActive:true (not blocked by sticky guard)", () => {
+    // Seed: Tyre inactive (absent from OS).
+    const seed: OSLocationsResponse = {
+      countries: [makeLbCountry([makeCity({ id: 1, slug: "beirut", name: "Beirut" })])],
+    };
+    storeLocationsFromWebhook(seed);
+    expect(
+      getLocations().find((c) => c.code === "LB")!.cities.find((c) => c.id === "lb-tyre")!.isActive,
+    ).toBe(false);
+
+    // OS explicitly activates Tyre: isActive: true.
+    const activationPayload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+          makeCity({ id: 2, slug: "tyre", name: "Tyre", isActive: true }),
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(activationPayload);
+
+    const tyreAfterActivation = getLocations()
+      .find((c) => c.code === "LB")!
+      .cities.find((c) => c.id === "lb-tyre");
+    expect(
+      tyreAfterActivation!.isActive,
+      "lb-tyre must become active when OS explicitly sends isActive:true",
+    ).toBe(true);
+  });
+
+  it("correctly activates a city on first-load when there is no prior cache (no sticky interference)", () => {
+    // No seed — first load from scratch.
+    // Tyre returned without isActive; no prior cache → should default to active.
+    const firstLoad: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+          { id: 2, slug: "tyre", name: "Tyre", timeSlots: [] } as OSCity,
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(firstLoad);
+
+    const tyreOnFirstLoad = getLocations()
+      .find((c) => c.code === "LB")!
+      .cities.find((c) => c.id === "lb-tyre");
+    expect(tyreOnFirstLoad, "lb-tyre must be present").toBeTruthy();
+    // No prior cache → no sticky-inactive evidence → defaults to active.
+    expect(
+      tyreOnFirstLoad!.isActive,
+      "lb-tyre must be active on first load when OS returns it without isActive (no prior cache)",
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: all-active regression Slack alert
+// ---------------------------------------------------------------------------
+
+describe("osLocationsCache — all-active regression alert", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+    vi.mocked(sendAlert).mockClear();
+  });
+
+  it("fires a Slack alert when a country transitions from having inactive cities to all-active", () => {
+    // Seed: Beirut active, Tyre inactive (absent from OS).
+    const seed: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([makeCity({ id: 1, slug: "beirut", name: "Beirut" })]),
+      ],
+    };
+    storeLocationsFromWebhook(seed);
+
+    // Verify Tyre is inactive in the seed.
+    const lbAfterSeed = getLocations().find((c) => c.code === "LB");
+    expect(lbAfterSeed!.cities.find((c) => c.id === "lb-tyre")!.isActive).toBe(false);
+
+    // No alert should have fired yet (no prior-to-prior cache for comparison).
+    // (sendAlert may have been called during seed with regression check, but since
+    // it's the first load from an empty prior, the regression guard must NOT fire.)
+    vi.mocked(sendAlert).mockClear();
+
+    // Now OS sends ALL cities including formerly-inactive ones (regression scenario).
+    // In a real regression the OS would return all cities without isActive:false;
+    // here we simulate by sending every hardcoded LB city slug so none are absent
+    // and the supplement never fires.
+    const allActiveSlugs = [
+      "beirut", "metn", "aley", "baabda", "chouf", "jbeil",
+      "kesserwan", "koura", "akkar", "batroun", "bcharee",
+      "minnieh-dennaya", "rechaya", "saida", "tripoli", "west-bekaa",
+      "zahle", "zghorta",
+      // Formerly-inactive cities — OS now returns them without isActive:false.
+      "tyre", "nabatieh", "hasbaya", "baalbeck", "hermel",
+      "jezzine", "marjayoun", "bent-jbeil",
+    ];
+    const allActiveCities = allActiveSlugs.map((slug, i) =>
+      makeCity({ id: i + 100, slug, name: slug }),
+    );
+    const regressionPayload: OSLocationsResponse = {
+      countries: [makeLbCountry(allActiveCities)],
+    };
+    storeLocationsFromWebhook(regressionPayload);
+
+    // The regression check must have fired a Slack alert.
+    expect(vi.mocked(sendAlert)).toHaveBeenCalledTimes(1);
+    const alertCall = vi.mocked(sendAlert).mock.calls[0]![0];
+    expect(alertCall.title).toMatch(/all cities active/i);
+    expect(alertCall.title).toMatch(/LB/);
+    expect(alertCall.severity).toBe("warn");
+  });
+
+  it("does NOT fire an alert on the very first successful fetch (no prior cache)", () => {
+    // The very first load has no prior cache so the regression check must be skipped.
+    const firstPayload: OSLocationsResponse = {
+      countries: [makeLbCountry([makeCity({ id: 1, slug: "beirut", name: "Beirut" })])],
+    };
+    storeLocationsFromWebhook(firstPayload);
+
+    // No alert should fire on first load (prior cache was empty).
+    expect(vi.mocked(sendAlert)).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fire an alert for a genuinely all-active country (was always all-active)", () => {
+    // Seed where every LB city is active (all returned by OS — no supplement needed).
+    const activeSlugs = [
+      "beirut", "metn", "aley", "baabda", "chouf", "jbeil",
+      "kesserwan", "koura", "akkar", "batroun", "bcharee",
+      "minnieh-dennaya", "rechaya", "saida", "tripoli", "west-bekaa",
+      "zahle", "zghorta", "tyre", "nabatieh", "hasbaya", "baalbeck",
+      "hermel", "jezzine", "marjayoun", "bent-jbeil",
+    ];
+    const allCities = activeSlugs.map((slug, i) =>
+      makeCity({ id: i + 1, slug, name: slug }),
+    );
+    const seedPayload: OSLocationsResponse = {
+      countries: [makeLbCountry(allCities)],
+    };
+    storeLocationsFromWebhook(seedPayload);
+    vi.mocked(sendAlert).mockClear();
+
+    // Second poll: still all active.
+    storeLocationsFromWebhook(seedPayload);
+
+    // No alert — the country never had inactive cities in the prior cache.
+    expect(vi.mocked(sendAlert)).not.toHaveBeenCalled();
+  });
+
+  it("fires the alert only once per day even if multiple polls trigger the regression condition", () => {
+    // Seed with an inactive city.
+    const seed: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([makeCity({ id: 1, slug: "beirut", name: "Beirut" })]),
+      ],
+    };
+    storeLocationsFromWebhook(seed);
+    vi.mocked(sendAlert).mockClear();
+
+    // Regression payload: all cities active.
+    const allActive: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+          makeCity({ id: 2, slug: "tyre", name: "Tyre" }),
+        ]),
+      ],
+    };
+
+    // First regression detection → alert fires.
+    storeLocationsFromWebhook(allActive);
+    expect(vi.mocked(sendAlert)).toHaveBeenCalledTimes(1);
+
+    // Second poll on the same day → alert must NOT fire again.
+    storeLocationsFromWebhook(allActive);
+    expect(vi.mocked(sendAlert)).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests: fetch failure paths (c) and (d)
 // ---------------------------------------------------------------------------
 

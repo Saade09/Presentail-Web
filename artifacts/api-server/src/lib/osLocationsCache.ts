@@ -122,6 +122,18 @@ let fetching = false;
 let lastLocationsSignature: string | null = null;
 let locationsChangedFlag = false;
 
+// ── All-active regression tracking ─────────────────────────────────────────
+//
+// Detects when a country transitions from having ≥1 inactive city to having
+// zero inactive cities in the same OS response cycle. This can happen when the
+// OS API contract changes so that inactive cities are no longer omitted from
+// the response — the "absent = inactive" supplement never fires and every city
+// defaults to active. A single Slack alert is fired per country per UTC day.
+//
+// Key: "{COUNTRY_CODE}:{YYYY-MM-DD}" — tracks which countries have already
+// had the alert sent today so we don't spam Slack on every poll.
+let allActiveRegressionAlertSentKeys = new Set<string>();
+
 // ── Express-omission tracking ───────────────────────────────────────────────
 //
 // Counts webhook payloads per UTC day where a city was express-enabled in the
@@ -435,14 +447,43 @@ function transformOsResponse(
                     arr.findIndex((s) => s.cutoffHour === slot.cutoffHour) === idx,
                 );
 
+        // Determine the city's active/inactive status using a layered strategy
+        // that is defensive against OS API contract drift:
+        //
+        //  1. OS explicitly sends isActive (true or false) → use it.
+        //  2. OS returns the city but omits isActive (undefined):
+        //       a. Prior cache had this city as inactive → stay inactive
+        //          (sticky-inactive guard: prevents a regression where OS stops
+        //          omitting inactive cities and returns them all without a flag
+        //          from silently promoting every city to active).
+        //       b. Prior cache had it as active, or no prior cache exists
+        //          → fall back to hardcoded → default true (opt-in model).
+        //
+        // When prior cache preserves inactive state despite OS returning the
+        // city, emit a WARN so ops see ambiguous active/inactive signalling.
+        const resolvedIsActive = (() => {
+          if (c.isActive !== undefined) return c.isActive;
+          // OS omitted isActive — check prior cache for a known-inactive state.
+          if (priorCity !== undefined && priorCity.isActive === false) {
+            logger.warn(
+              { cityId: canonicalId, countryCode: code },
+              "osLocationsCache: OS returned city without isActive field but prior cache had it inactive — retaining inactive state; verify OS active/inactive signalling for this city",
+            );
+            return false;
+          }
+          // No prior evidence of inactivity. The city IS present in the OS
+          // response — presence implies it is active (the "absent = inactive"
+          // heuristic works in the opposite direction). Do NOT fall back to
+          // hardcoded isActive here: hardcoded isActive:false values are
+          // designed for the supplement path (cities absent from the OS
+          // response), not for cities that OS explicitly includes.
+          return true;
+        })();
+
         return {
           id: canonicalId,
           name: displayName,
-          isActive:
-            c.isActive ??
-            (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
-              ?.isActive ??
-            true,
+          isActive: resolvedIsActive,
           // deliveryFee is in country display currency — convert to USD.
           // Use the canonical displayName (from hardcoded list) for the fee
           // lookup so OS spelling variants (e.g. "Zghorta") still resolve to
@@ -577,6 +618,58 @@ function transformOsResponse(
       localizedNames: localizedNamesForCity(city.id),
     })),
   }));
+
+  // ── All-active regression check ──────────────────────────────────────────
+  // For each country we received from OS, compare the inactive city count
+  // against what was in the prior cache. If a country that previously had ≥1
+  // inactive city now has zero, it likely means the OS API stopped omitting
+  // inactive cities from its response and the "absent = inactive" supplement
+  // never fired. Emit one Slack alert per country per UTC day so ops can
+  // investigate before shoppers see incorrectly available cities.
+  //
+  // Only fires when there is a prior cache (previousCountries is non-null) so
+  // the very first successful fetch never triggers a false alarm for genuinely
+  // all-active countries (e.g. UAE/Cyprus when every city is enabled).
+  if (previousCountries && previousCountries.length > 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    for (const newCountry of fromOs) {
+      const priorCountry = previousCountries.find((p) => p.code === newCountry.code);
+      if (!priorCountry) continue; // New country added to OS — not a regression.
+
+      const priorInactiveCount = priorCountry.cities.filter((c) => !c.isActive).length;
+      const newInactiveCount = newCountry.cities.filter((c) => !c.isActive).length;
+
+      if (priorInactiveCount >= 1 && newInactiveCount === 0) {
+        const alertKey = `${newCountry.code}:${today}`;
+        if (!allActiveRegressionAlertSentKeys.has(alertKey)) {
+          allActiveRegressionAlertSentKeys.add(alertKey);
+          logger.warn(
+            {
+              countryCode: newCountry.code,
+              priorInactiveCities: priorInactiveCount,
+              totalCities: newCountry.cities.length,
+            },
+            "osLocationsCache: all-active regression detected — country had inactive cities but now all are active",
+          );
+          sendAlert({
+            title: `All cities active for ${newCountry.code} — possible OS active/inactive regression`, // i18n-ignore
+            body:
+              `Country \`${newCountry.code}\` previously had **${priorInactiveCount}** inactive ` + // i18n-ignore
+              `${priorInactiveCount === 1 ? "city" : "cities"}, but the latest OS response has all ` + // i18n-ignore
+              `${newCountry.cities.length} cities marked active. ` + // i18n-ignore
+              `This may indicate the OS API stopped omitting inactive cities from its response, ` + // i18n-ignore
+              `causing the "absent = inactive" supplement to never fire. ` + // i18n-ignore
+              `Verify \`GET /api/delivery-locations-ext\` and the \`delivery_config.updated\` webhook ` + // i18n-ignore
+              `payload for explicit \`isActive: false\` flags on inactive cities.`, // i18n-ignore
+            severity: "warn",
+            source: "osLocationsCache",
+          }).catch(() => {
+            // Swallow — sendAlert already logs its own failures.
+          });
+        }
+      }
+    }
+  }
 
   return [...fromOs, ...hardcodedOnly];
 }
@@ -873,6 +966,7 @@ export function resetCacheForTesting(): void {
   expressOmissionDay = null;
   expressOmissionCount = 0;
   expressOmissionAlertSent = false;
+  allActiveRegressionAlertSentKeys = new Set();
 }
 
 /**

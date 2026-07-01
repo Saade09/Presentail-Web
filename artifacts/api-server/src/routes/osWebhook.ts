@@ -191,7 +191,13 @@ export function parseDeliveryConfigPayload(data: {
         id: city.id ?? 0,
         slug: city.slug ?? "",
         name: city.name ?? "",
-        isActive: city.is_active ?? true,
+        // Pass is_active through as-is (including undefined when omitted).
+        // Defaulting missing is_active to true was the pre-fix behaviour;
+        // now transformOsResponse applies the sticky-inactive logic when
+        // is_active is undefined and the prior cache had the city inactive.
+        // This ensures a webhook that omits is_active for inactive cities
+        // cannot silently promote them to active.
+        isActive: city.is_active,
         deliveryFee,
         // Return undefined (not false) when both express_available and
         // express_delivery_fee are absent from the payload. This lets
@@ -329,6 +335,19 @@ router.post("/os/webhook", async (req, res) => {
         { countryCount: locations.countries.length },
         "osWebhook: delivery config updated from webhook",
       );
+
+      // Belt-and-suspenders: schedule a full GET re-fetch 30 s after the
+      // webhook update. Webhook payloads may be partial or may omit the
+      // isActive field for inactive cities — a fresh poll guarantees the
+      // "absent = inactive" supplement fires on the complete OS response
+      // without waiting up to 15 minutes for the next scheduled poll.
+      const refetchTimer = setTimeout(() => {
+        invalidateOsLocationsCache();
+        req.log.info(
+          "osWebhook: scheduled post-webhook OS locations re-fetch triggered",
+        );
+      }, 30_000);
+      refetchTimer.unref?.();
 
       // Notify all connected web clients immediately so open browser tabs
       // refetch delivery-locations without waiting for the 10-minute poll.
