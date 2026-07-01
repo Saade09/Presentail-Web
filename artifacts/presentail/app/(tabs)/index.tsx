@@ -84,6 +84,34 @@ const MOBILE_ICON_GLYPH: Record<
   "hand-heart": "hand-heart",
 };
 
+const CATEGORY_STATIC_IMAGES: Record<string, number> = {
+  "arabic-sweets":     require("../../assets/categories/arabic-sweets.webp"),
+  "balloons":          require("../../assets/categories/balloons.webp"),
+  "bundles":           require("../../assets/categories/bundles.webp"),
+  "cakes":             require("../../assets/categories/cakes.webp"),
+  "chocolate":         require("../../assets/categories/chocolate.webp"),
+  "flower-baskets":    require("../../assets/categories/flower-baskets.webp"),
+  "flower-boxes":      require("../../assets/categories/flower-boxes.webp"),
+  "flower-vases":      require("../../assets/categories/flower-vases.webp"),
+  "gift-cards":        require("../../assets/categories/gift-cards.webp"),
+  "hand-bouquets":     require("../../assets/categories/hand-bouquets.webp"),
+  "lux-arrangements":  require("../../assets/categories/lux-arrangements.webp"),
+  "plants":            require("../../assets/categories/plants.webp"),
+  "preserved-flowers": require("../../assets/categories/preserved-flowers.webp"),
+  "stuffed-animals":   require("../../assets/categories/stuffed-animals.webp"),
+};
+
+const OCCASION_STATIC_IMAGES: Record<string, number> = {
+  "birthday":     require("../../assets/occasions/birthday.webp"),
+  "condolences":  require("../../assets/occasions/condolences.webp"),
+  "farewell":     require("../../assets/occasions/farewell.webp"),
+  "housewarming": require("../../assets/occasions/housewarming.webp"),
+  "love-romance": require("../../assets/occasions/love-romance.webp"),
+  "new-job":      require("../../assets/occasions/new-job.webp"),
+  "promotion":    require("../../assets/occasions/promotion.webp"),
+  "thank-you":    require("../../assets/occasions/thank-you.webp"),
+};
+
 function HomeHeader({
   topPad,
   onOpenDelivery,
@@ -958,7 +986,7 @@ function BundlesSection() {
 type CategoryTileItem = {
   id: string | number;
   slug: string;
-  imageUrl?: string | null;
+  imageUrl?: string | number | null;
   name: string;
 };
 
@@ -990,16 +1018,16 @@ function CategoryTile({ item, tileWidth, imageSize, imageToLabelGap, onPress }: 
           borderColor: colors.border,
         }}
       >
-        {item.imageUrl ? (
+        {item.imageUrl != null ? (
           <>
             <Image
-              source={{ uri: item.imageUrl }}
+              source={typeof item.imageUrl === "number" ? item.imageUrl : { uri: item.imageUrl }}
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageLoaded(true)}
             />
-            {!imageLoaded && <ShimmerPlaceholder />}
+            {!imageLoaded && typeof item.imageUrl !== "number" && <ShimmerPlaceholder />}
           </>
         ) : (
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -1068,7 +1096,7 @@ function CategoryRail() {
   const renderTile = (item: (typeof items)[number]) => (
     <CategoryTile
       key={item.id}
-      item={item}
+      item={{ ...item, imageUrl: item.imageUrl || CATEGORY_STATIC_IMAGES[item.slug] }}
       tileWidth={TILE_WIDTH}
       imageSize={TILE_IMAGE_SIZE}
       imageToLabelGap={TILE_IMAGE_TO_LABEL_GAP}
@@ -1144,7 +1172,7 @@ type OccasionTileItem = {
   id: number | string;
   slug: string;
   name: string;
-  imageUrl?: string | null;
+  imageUrl?: string | number | null;
 };
 
 function OccasionTile({
@@ -1158,7 +1186,7 @@ function OccasionTile({
 }) {
   const colors = useColors();
   const [imageLoaded, setImageLoaded] = React.useState(
-    () => item.imageUrl != null && occasionImageLoadedCache.has(item.imageUrl),
+    () => typeof item.imageUrl === "string" && occasionImageLoadedCache.has(item.imageUrl),
   );
 
   return (
@@ -1174,23 +1202,23 @@ function OccasionTile({
           borderColor: colors.border,
         }}
       >
-        {item.imageUrl ? (
+        {item.imageUrl != null ? (
           <>
             <Image
-              source={{ uri: item.imageUrl }}
+              source={typeof item.imageUrl === "number" ? item.imageUrl : { uri: item.imageUrl }}
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
               priority={index < 4 ? "high" : "normal"}
               onLoad={() => {
-                if (item.imageUrl) occasionImageLoadedCache.add(item.imageUrl);
+                if (typeof item.imageUrl === "string") occasionImageLoadedCache.add(item.imageUrl);
                 setImageLoaded(true);
               }}
               onError={() => {
-                if (item.imageUrl) occasionImageLoadedCache.add(item.imageUrl);
+                if (typeof item.imageUrl === "string") occasionImageLoadedCache.add(item.imageUrl);
                 setImageLoaded(true);
               }}
             />
-            {!imageLoaded && <ShimmerPlaceholder />}
+            {!imageLoaded && typeof item.imageUrl !== "number" && <ShimmerPlaceholder />}
           </>
         ) : (
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -1269,7 +1297,7 @@ function OccasionsCarousel() {
           : items.map((item, idx) => (
               <OccasionTile
                 key={item.id}
-                item={item}
+                item={{ ...item, imageUrl: item.imageUrl || OCCASION_STATIC_IMAGES[item.slug] }}
                 index={idx}
                 onPress={() =>
                   router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })
