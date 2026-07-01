@@ -12,4 +12,4 @@ else
   echo "pnpm-lock.yaml unchanged — skipping pnpm install"
 fi
 
-pnpm --filter @workspace/db run push
+pnpm --filter @workspace/db run push-force
