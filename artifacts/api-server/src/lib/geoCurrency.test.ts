@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   resolveGeoCurrency,
+  resolveGeoCurrencyByCoords,
   currencyForCountry,
   __resetGeoCurrencyCacheForTests,
 } from "./geoCurrency";
@@ -167,6 +168,116 @@ describe("resolveGeoCurrency", () => {
 
     const second = await resolveGeoCurrency("1.2.3.4");
     expect(second.source).toBe("cache");
+    expect(second.countryCode).toBe("AE");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveGeoCurrencyByCoords — Nominatim primary, ipwho.is fallback
+// ---------------------------------------------------------------------------
+
+function nominatimOkResponse(countryCode: string): Response {
+  return new Response(
+    JSON.stringify({ address: { country_code: countryCode } }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+function nominatimNon200Response(): Response {
+  return new Response("Service Unavailable", { status: 503 });
+}
+
+function ipwhoisCoordsOkResponse(countryCode: string): Response {
+  return new Response(
+    JSON.stringify({ country_code: countryCode }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+function ipwhoisCoordsFailResponse(): Response {
+  return new Response(
+    JSON.stringify({ country_code: null }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+describe("resolveGeoCurrencyByCoords", () => {
+  beforeEach(() => {
+    __resetGeoCurrencyCacheForTests();
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns GBP for London coords via nominatim (GB)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(nominatimOkResponse("gb"));
+
+    const result = await resolveGeoCurrencyByCoords(51.5, -0.1);
+    expect(result.countryCode).toBe("GB");
+    expect(result.currencyCode).toBe("GBP");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatch(
+      /nominatim\.openstreetmap\.org/,
+    );
+  });
+
+  it("returns QAR for Doha coords via nominatim (QA)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(nominatimOkResponse("qa"));
+
+    const result = await resolveGeoCurrencyByCoords(25.3, 51.5);
+    expect(result.countryCode).toBe("QA");
+    expect(result.currencyCode).toBe("QAR");
+  });
+
+  it("returns EUR for Paris coords via nominatim (FR)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(nominatimOkResponse("fr"));
+
+    const result = await resolveGeoCurrencyByCoords(48.8, 2.3);
+    expect(result.countryCode).toBe("FR");
+    expect(result.currencyCode).toBe("EUR");
+  });
+
+  it("falls back to ipwho.is when nominatim returns non-2xx", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(nominatimNon200Response())
+      .mockResolvedValueOnce(ipwhoisCoordsOkResponse("GB"));
+
+    const result = await resolveGeoCurrencyByCoords(51.5, -0.1);
+    expect(result.countryCode).toBe("GB");
+    expect(result.currencyCode).toBe("GBP");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls[1][0]).toMatch(
+      /ipwho\.is/,
+    );
+  });
+
+  it("returns USD fallback when both nominatim and ipwho.is fail", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(nominatimNon200Response())
+      .mockResolvedValueOnce(ipwhoisCoordsFailResponse());
+
+    const result = await resolveGeoCurrencyByCoords(51.5, -0.1);
+    expect(result.countryCode).toBeNull();
+    expect(result.currencyCode).toBe("USD");
+  });
+
+  it("returns USD fallback for out-of-range coordinates without calling fetch", async () => {
+    const result = await resolveGeoCurrencyByCoords(999, 999);
+    expect(result.countryCode).toBeNull();
+    expect(result.currencyCode).toBe("USD");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("serves a second call from cache without a second fetch", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(nominatimOkResponse("ae"));
+
+    const first = await resolveGeoCurrencyByCoords(25.2, 55.3);
+    expect(first.countryCode).toBe("AE");
+
+    const second = await resolveGeoCurrencyByCoords(25.2, 55.3);
     expect(second.countryCode).toBe("AE");
     expect(fetch).toHaveBeenCalledTimes(1);
   });

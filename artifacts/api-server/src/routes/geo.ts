@@ -76,6 +76,29 @@ function readCfIpCountry(req: Request): string | null {
 }
 
 router.get("/geo/currency", geoCurrencyLimiter, async (req, res) => {
+  // Dev-only: ?country=XX lets engineers test currency display without a VPN.
+  // Silently ignored in production so it can never be used to spoof currency.
+  if (process.env.NODE_ENV !== "production") {
+    const countryOverride = req.query.country;
+    if (
+      typeof countryOverride === "string" &&
+      /^[A-Za-z]{2}$/.test(countryOverride)
+    ) {
+      const country = countryOverride.toUpperCase();
+      req.log.warn(
+        { geo: { provider: "dev-override", country } },
+        "geo: using ?country dev override — ignored in production",
+      );
+      const result = geoCurrencyForCountry(country);
+      const body: GeoCurrencyResponse = {
+        countryCode: result.countryCode,
+        currencyCode: result.currencyCode,
+      };
+      res.json(body);
+      return;
+    }
+  }
+
   // Replit puts requests through more than one proxy hop, so
   // `app.set("trust proxy", 1)` alone leaves `req.ip` pointing at an
   // internal hop — and `isPrivateOrLoopback` would short-circuit every

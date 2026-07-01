@@ -337,10 +337,10 @@ export function geoCurrencyForCountry(country: string | null): GeoCurrencyResult
 
 // ── Coordinate-based country lookup ──────────────────────────────────────────
 // Used by /geo/currency-by-coords to translate the device's GPS-reported
-// latitude/longitude into an ISO country code. We use BigDataCloud's public,
-// keyless `reverse-geocode-client` endpoint (works without an API key, no
-// PII beyond the lat/lng leaves the server) and fall back to USD on any
-// failure. Results are cached server-side keyed by lat/lng rounded to 0.1°
+// latitude/longitude into an ISO country code. Primary: Nominatim
+// (nominatim.openstreetmap.org) — free, no API key, server-callable.
+// Fallback: ipwho.is coords endpoint, matching the pattern used for IP
+// lookups. Results are cached server-side keyed by lat/lng rounded to 0.1°
 // (~11 km) so a few sequential lookups from the same area share a single
 // outbound call without storing precise locations.
 
@@ -375,25 +375,25 @@ function writeCoordsCache(
   coordsCache.set(key, { ...entry, expiresAt: Date.now() + ttlMs });
 }
 
-async function fetchCountryFromCoords(
-  lat: number,
-  lng: number,
-): Promise<string | null> {
+async function fetchFromNominatim(lat: number, lng: number): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
   try {
     const url =
-      `https://api.bigdatacloud.net/data/reverse-geocode-client` +
-      `?latitude=${encodeURIComponent(lat.toString())}` +
-      `&longitude=${encodeURIComponent(lng.toString())}` +
-      `&localityLanguage=en`;
+      `https://nominatim.openstreetmap.org/reverse` +
+      `?lat=${encodeURIComponent(lat.toString())}` +
+      `&lon=${encodeURIComponent(lng.toString())}` +
+      `&format=json`;
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
       signal: controller.signal,
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as { countryCode?: unknown };
-    const code = typeof json?.countryCode === "string" ? json.countryCode.trim() : "";
+    const json = (await res.json()) as { address?: { country_code?: unknown } };
+    const code =
+      typeof json?.address?.country_code === "string"
+        ? json.address.country_code.trim()
+        : "";
     if (code && /^[A-Za-z]{2}$/.test(code)) return code.toUpperCase();
     return null;
   } catch {
@@ -401,6 +401,39 @@ async function fetchCountryFromCoords(
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchFromIpwhoisCoords(lat: number, lng: number): Promise<string | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `https://ipwho.is/${encodeURIComponent(lat.toString())},${encodeURIComponent(lng.toString())}`,
+      {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { country_code?: unknown };
+    const code =
+      typeof json?.country_code === "string" ? json.country_code.trim() : "";
+    if (code && /^[A-Za-z]{2}$/.test(code)) return code.toUpperCase();
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchCountryFromCoords(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  const nominatim = await fetchFromNominatim(lat, lng);
+  if (nominatim) return nominatim;
+  return fetchFromIpwhoisCoords(lat, lng);
 }
 
 export type GeoCurrencyByCoordsResult = {
