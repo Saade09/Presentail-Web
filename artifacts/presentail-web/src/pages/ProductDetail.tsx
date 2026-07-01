@@ -408,6 +408,29 @@ export default function ProductDetail() {
               rewardPoints={vm.rewardPoints}
             />
 
+            {product.hasInputField && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+                  {t("product.customNote.label")}
+                </label>
+                <div className="relative">
+                  <Input
+                    value={customNote}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 22) setCustomNote(e.target.value);
+                    }}
+                    placeholder={t("product.customNote.placeholder")}
+                    maxLength={22}
+                    className="pr-12"
+                    data-testid="input-custom-note"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground tabular-nums">
+                    {t("product.customNote.counter").replace("{count}", String(customNote.length))}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <DeliveryOptions
               value={deliveryChoice}
               onSelectExpress={handleSelectExpress}
@@ -430,29 +453,6 @@ export default function ProductDetail() {
                   deliverySelection.setSelection({ mode, date, slotLabel });
                 }}
               />
-            )}
-
-            {product.hasInputField && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
-                  {t("product.customNote.label")}
-                </label>
-                <div className="relative">
-                  <Input
-                    value={customNote}
-                    onChange={(e) => {
-                      if (e.target.value.length <= 22) setCustomNote(e.target.value);
-                    }}
-                    placeholder={t("product.customNote.placeholder")}
-                    maxLength={22}
-                    className="pr-12"
-                    data-testid="input-custom-note"
-                  />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground tabular-nums">
-                    {t("product.customNote.counter").replace("{count}", String(customNote.length))}
-                  </span>
-                </div>
-              </div>
             )}
 
             <div className="hidden md:flex gap-3">

@@ -703,6 +703,40 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         </View>
       </View>
 
+      {/* Custom personalisation note */}
+      {product.hasInputField && (
+        <View style={{ marginTop: 16, paddingHorizontal: 0 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
+            {t.customNoteLabel}
+          </AppText>
+          <View style={{ position: "relative" }}>
+            <TextInput
+              value={customNote}
+              onChangeText={(text) => { if (text.length <= 22) setCustomNote(text); }}
+              placeholder={t.customNotePlaceholder}
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={22}
+              style={{
+                backgroundColor: colors.card,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                paddingEnd: 48,
+                fontFamily: "Inter_400Regular",
+                fontSize: 14,
+                color: colors.primary,
+              }}
+              returnKeyType="done"
+            />
+            <AppText style={{ position: "absolute", end: 12, top: "50%", transform: [{ translateY: -8 }], fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
+              {t.customNoteCounter.replace("{count}", String(customNote.length))}
+            </AppText>
+          </View>
+        </View>
+      )}
+
       {/* Delivery options — only shown when express is available */}
       {expressAvailable && (
         <View style={{ marginTop: 8, gap: 10 }}>
@@ -788,40 +822,6 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
           </View>
         ))}
       </View>
-
-      {/* Custom personalisation note */}
-      {product.hasInputField && (
-        <View style={{ marginTop: 16, paddingHorizontal: 0 }}>
-          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
-            {t.customNoteLabel}
-          </AppText>
-          <View style={{ position: "relative" }}>
-            <TextInput
-              value={customNote}
-              onChangeText={(text) => { if (text.length <= 22) setCustomNote(text); }}
-              placeholder={t.customNotePlaceholder}
-              placeholderTextColor={colors.mutedForeground}
-              maxLength={22}
-              style={{
-                backgroundColor: colors.card,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: colors.border,
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                paddingEnd: 48,
-                fontFamily: "Inter_400Regular",
-                fontSize: 14,
-                color: colors.primary,
-              }}
-              returnKeyType="done"
-            />
-            <AppText style={{ position: "absolute", end: 12, top: "50%", transform: [{ translateY: -8 }], fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
-              {t.customNoteCounter.replace("{count}", String(customNote.length))}
-            </AppText>
-          </View>
-        </View>
-      )}
 
       {/* Payment methods */}
       <View style={{ marginTop: 6, gap: 8 }}>
