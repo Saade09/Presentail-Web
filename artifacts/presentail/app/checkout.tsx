@@ -936,7 +936,7 @@ function CheckoutScreen() {
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
     deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
     cardMessage,
-    cardFrom,
+    cardFrom: ((cardFrom.trim() || [authUser?.firstName, authUser?.lastName].filter(Boolean).join(" ").trim()).slice(0, 300) || undefined),
     cardTo,
     ...(/^https?:\/\/.+/.test((qrLink ?? "").trim()) ? { qrLink: qrLink.trim() } : {}),
     orderNotes,
