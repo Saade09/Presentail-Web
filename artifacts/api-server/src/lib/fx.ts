@@ -2,8 +2,11 @@ import { logger } from "./logger";
 import {
   CURRENCY_DECIMALS,
   currencyDecimals,
+  roundToWholeUnit,
   toStripeMinorUnits as sharedToStripeMinorUnits,
 } from "@workspace/display-currency";
+
+export { roundToWholeUnit };
 
 // Single source of truth for currency conversion across the server.
 //

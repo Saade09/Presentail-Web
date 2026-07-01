@@ -64,6 +64,7 @@ vi.mock("../lib/catalog", () => ({
 vi.mock("../lib/fx", () => ({
   normalizeCurrency: (c: string) => (c ?? "USD").toUpperCase(),
   convertFromUsd: vi.fn().mockImplementation(async (usd: number) => usd),
+  roundToWholeUnit: (amount: number) => Math.round(amount),
   toStripeMinorUnits: vi.fn().mockImplementation((amount: number) => Math.round(amount * 100)),
 }));
 

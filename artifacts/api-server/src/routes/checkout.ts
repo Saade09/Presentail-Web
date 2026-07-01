@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import {
   convertFromUsd,
   normalizeCurrency,
+  roundToWholeUnit,
   toStripeMinorUnits,
 } from "../lib/fx";
 import { resolveCartItems } from "../lib/catalog";
@@ -105,7 +106,7 @@ router.post("/checkout/session", async (req, res) => {
   try {
     const convertedItems = await Promise.all(
       catalogResult.items.map(async (i) => {
-        const convertedUnit = await convertFromUsd(i.priceUsd, currency);
+        const convertedUnit = roundToWholeUnit(await convertFromUsd(i.priceUsd, currency));
         return {
           ...i,
           minorUnit: toStripeMinorUnits(convertedUnit, currency),
@@ -323,7 +324,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
   try {
     const convertedSubtotal = await Promise.all(
       catalogResult.items.map(async (i) => {
-        const convertedUnit = await convertFromUsd(i.priceUsd, currency);
+        const convertedUnit = roundToWholeUnit(await convertFromUsd(i.priceUsd, currency));
         return { ...i, minorUnit: toStripeMinorUnits(convertedUnit, currency) };
       }),
     );
@@ -335,7 +336,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
 
     // Include delivery fee in the charged amount.
     const deliveryFeeMinorUnits = clientDeliveryFeeUsd > 0
-      ? toStripeMinorUnits(await convertFromUsd(clientDeliveryFeeUsd, currency), currency)
+      ? toStripeMinorUnits(roundToWholeUnit(await convertFromUsd(clientDeliveryFeeUsd, currency)), currency)
       : 0;
 
     // Apply coupon discount if a code is provided.
@@ -356,7 +357,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       if (couponResult.valid) {
         couponDiscountUsd = couponResult.discountAmountUsd;
         couponDiscountMinorUnits = toStripeMinorUnits(
-          await convertFromUsd(couponDiscountUsd, currency),
+          roundToWholeUnit(await convertFromUsd(couponDiscountUsd, currency)),
           currency,
         );
       }

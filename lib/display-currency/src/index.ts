@@ -196,6 +196,15 @@ export function currencyDecimals(currency: string): number {
 }
 
 /**
+ * Round a display-currency amount to the nearest whole number so the Stripe
+ * charge matches the whole-number price shown to the shopper. LBP is already
+ * zero-decimal and is unaffected (Math.round of an integer is a no-op).
+ */
+export function roundToWholeUnit(amount: number): number {
+  return Math.round(amount);
+}
+
+/**
  * Convert an amount already expressed in `currency` into the smallest unit
  * Stripe expects. Handles zero-decimal currencies (LBP) and standard
  * two-decimal currencies.
