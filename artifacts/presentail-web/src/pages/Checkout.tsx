@@ -112,13 +112,24 @@ function resolveCheckoutCountry(selectedCountryCode?: string | null, currencyCod
   return selectedCountryCode || countryFromCurrency(currencyCode) || "LB";
 }
 
-// Module-level Stripe promise cache — lazily initialised via dynamic import so
+// Module-level Stripe promise caches — lazily initialised via dynamic import so
 // @stripe/stripe-js is NOT bundled into the eagerly-evaluated checkout chunk,
 // and js.stripe.com is NOT fetched until a Stripe-dependent payment method is
 // first selected. Subsequent calls return the same cached promise.
 let _stripePromise: Promise<import("@stripe/stripe-js").Stripe | null> | null = null;
+let _stripePromiseGulf: Promise<import("@stripe/stripe-js").Stripe | null> | null = null;
 
-function getStripePromise() {
+// Merchant country for the Gulf Stripe account (AE). Configured via
+// VITE_STRIPE_MERCHANT_COUNTRY_GULF; falls back to "AE".
+const STRIPE_MERCHANT_COUNTRY_GULF: string =
+  (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY_GULF as string | undefined) || "AE";
+
+function getStripePromise(currency?: string) {
+  if (currency === "AED") {
+    return (_stripePromiseGulf ??= import("@stripe/stripe-js").then(({ loadStripe }) =>
+      loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_GULF || null),
+    ));
+  }
   return (_stripePromise ??= import("@stripe/stripe-js").then(({ loadStripe }) =>
     loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null),
   ));
@@ -380,9 +391,9 @@ function CheckoutForm() {
   const [stripeNeeded, setStripeNeeded] = useState(false);
 
   const triggerStripeLoad = useCallback(() => {
-    setStripePromise((prev) => prev ?? getStripePromise());
+    setStripePromise((prev) => prev ?? getStripePromise(currencyCode));
     setStripeNeeded(true);
-  }, []);
+  }, [currencyCode]);
 
   const handleStripeReady = useCallback(
     (s: import("@stripe/stripe-js").Stripe | null, e: import("@stripe/stripe-js").StripeElements | null) => {
@@ -1066,7 +1077,7 @@ function CheckoutForm() {
     let pr: import("@stripe/stripe-js").PaymentRequest;
     try {
       pr = stripe.paymentRequest({
-        country: STRIPE_MERCHANT_COUNTRY,
+        country: currencyCode === "AED" ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY,
         currency: "usd",
         total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
         requestPayerName: false,
@@ -1222,7 +1233,7 @@ function CheckoutForm() {
           // call show() synchronously inside the click gesture with no await.
           try {
             const submitPr = stripe.paymentRequest({
-              country: STRIPE_MERCHANT_COUNTRY,
+              country: currencyCode === "AED" ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY,
               currency: res.currency.toLowerCase(),
               total: {
                 label: t("checkout.payment.orderTitle"),

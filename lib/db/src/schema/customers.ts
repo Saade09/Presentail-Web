@@ -47,6 +47,8 @@ export const customersTable = pgTable(
     source: text("source").notNull().default("presentail.com"),
     // Stripe Customer ID — populated lazily on the first save-card opt-in.
     stripeCustomerId: text("stripe_customer_id"),
+    // Stripe Customer ID on the Gulf account (AED / UAE shoppers).
+    stripeCustomerIdGulf: text("stripe_customer_id_gulf"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

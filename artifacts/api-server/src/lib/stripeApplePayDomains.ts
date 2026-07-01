@@ -53,4 +53,9 @@ export async function registerStripeApplePayDomains(): Promise<void> {
   }
 
   await registerDomainOnAccount(mainKey, "main"); // i18n-ignore
+
+  const gulfKey = process.env.STRIPE_SECRET_KEY_GULF;
+  if (gulfKey) {
+    await registerDomainOnAccount(gulfKey, "gulf"); // i18n-ignore
+  }
 }

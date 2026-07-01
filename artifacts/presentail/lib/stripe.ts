@@ -25,11 +25,21 @@ const PRODUCTION_API_BASE = "https://lebanon-luxury-showcase.replit.app";
 export const STRIPE_PUBLISHABLE_KEY =
   process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
+// Gulf Stripe publishable key — used for AED (UAE) payments.
+// Register as an EAS project-level secret (EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_GULF)
+// so it is inlined at EAS build time for TestFlight / App Store binaries.
+export const STRIPE_PUBLISHABLE_KEY_GULF =
+  process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_GULF ?? "";
+
 /**
- * Return the Stripe publishable key. All currencies are processed through
- * the single CY Stripe account.
+ * Return the Stripe publishable key for the given currency.
+ * AED (UAE) orders are routed to the Gulf Stripe account; all other
+ * currencies use the main CY account.
  */
-export function getStripePublishableKey(_currency?: string): string {
+export function getStripePublishableKey(currency?: string): string {
+  if (currency === "AED") {
+    return STRIPE_PUBLISHABLE_KEY_GULF || STRIPE_PUBLISHABLE_KEY;
+  }
   return STRIPE_PUBLISHABLE_KEY;
 }
 

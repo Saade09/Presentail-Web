@@ -17,6 +17,24 @@ import { db, customersTable } from "@workspace/db";
 const router: IRouter = Router();
 
 /**
+ * Returns true when the store key corresponds to a UAE city (AED payments).
+ */
+function isGulfStore(storeKey: StoreKey): boolean {
+  return storeKey === "dubai" || storeKey === "abudhabi";
+}
+
+/**
+ * Resolves the correct Stripe secret key for a given store.
+ * UAE stores (dubai, abudhabi) use the Gulf account key; all others use main.
+ */
+function resolveStripeKey(storeKey: StoreKey): string | null {
+  if (isGulfStore(storeKey)) {
+    return process.env.STRIPE_SECRET_KEY_GULF ?? null;
+  }
+  return process.env.STRIPE_SECRET_KEY ?? null;
+}
+
+/**
  * Maps a resolved StoreKey to a human-readable market name for the Stripe
  * payment description (e.g. "Order PR-123 from Presentail Lebanon").
  * Both UAE store keys (dubai + abudhabi) map to "UAE".
@@ -84,7 +102,10 @@ router.post("/checkout/session", async (req, res) => {
 
   const currency = normalizeCurrency(rawCurrency ?? "USD");
 
-  const key = process.env.STRIPE_SECRET_KEY ?? null;
+  // Resolve catalog prices server-side. Client-supplied amounts are ignored.
+  const store = resolveStoreFromRequest(req);
+  const isGulf = isGulfStore(store.storeKey);
+  const key = resolveStripeKey(store.storeKey);
   if (!key) {
     return res.status(503).json({
       ok: false,
@@ -95,9 +116,6 @@ router.post("/checkout/session", async (req, res) => {
   }
 
   const stripeCurrency = currency.toLowerCase();
-
-  // Resolve catalog prices server-side. Client-supplied amounts are ignored.
-  const store = resolveStoreFromRequest(req);
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, message: catalogResult.message });
@@ -154,7 +172,7 @@ router.post("/checkout/session", async (req, res) => {
       orderId,
       paymentRef: session.id,
       provider: "stripe",
-      stripeAccount: "main",
+      stripeAccount: isGulf ? "gulf" : "main",
       totalUsd: catalogResult.subtotalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
@@ -204,10 +222,14 @@ type PaymentIntentBody = {
  *
  * Upserts the resulting customer ID into the `customers` row so subsequent
  * checkouts reuse the same Stripe Customer.
+ *
+ * When accountType is "gulf", reads/writes `stripeCustomerIdGulf` instead of
+ * `stripeCustomerId` so UAE shoppers get a separate Customer on the Gulf account.
  */
 async function getOrCreateStripeCustomer(
   localCustomerId: number,
   stripe: Stripe,
+  accountType: "main" | "gulf",
   email?: string,
   log?: { warn: (obj: object, msg: string) => void },
 ): Promise<string | null> {
@@ -216,6 +238,7 @@ async function getOrCreateStripeCustomer(
     const [row] = await db
       .select({
         stripeCustomerId: customersTable.stripeCustomerId,
+        stripeCustomerIdGulf: customersTable.stripeCustomerIdGulf,
         email: customersTable.email,
         firstName: customersTable.firstName,
         lastName: customersTable.lastName,
@@ -226,7 +249,8 @@ async function getOrCreateStripeCustomer(
 
     if (!row) return null;
 
-    if (row.stripeCustomerId) return row.stripeCustomerId;
+    const existingId = accountType === "gulf" ? row.stripeCustomerIdGulf : row.stripeCustomerId;
+    if (existingId) return existingId;
 
     // No Stripe Customer yet — create one.
     const customerEmail = email || row.email;
@@ -237,10 +261,14 @@ async function getOrCreateStripeCustomer(
       metadata: { presentail_customer_id: String(localCustomerId) },
     });
 
-    // Persist the new Stripe Customer ID.
+    // Persist the new Stripe Customer ID in the correct column.
+    const updateField =
+      accountType === "gulf"
+        ? { stripeCustomerIdGulf: stripeCustomer.id }
+        : { stripeCustomerId: stripeCustomer.id };
     await db
       .update(customersTable)
-      .set({ stripeCustomerId: stripeCustomer.id })
+      .set(updateField)
       .where(eq(customersTable.id, localCustomerId));
 
     return stripeCustomer.id;
@@ -269,7 +297,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
 
   const currency = normalizeCurrency(rawCurrency ?? "USD");
 
-  const key = process.env.STRIPE_SECRET_KEY ?? null;
+  const store = resolveStoreFromRequest(req);
+  const isGulf = isGulfStore(store.storeKey);
+  const key = resolveStripeKey(store.storeKey);
   if (!key) {
     return res.status(503).json({
       ok: false,
@@ -279,7 +309,6 @@ router.post("/checkout/payment-intent", async (req, res) => {
     });
   }
 
-  const store = resolveStoreFromRequest(req);
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, message: catalogResult.message });
@@ -314,6 +343,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       const customerId = await getOrCreateStripeCustomer(
         auth.localCustomerId,
         stripe,
+        isGulf ? "gulf" : "main",
         email,
         req.log,
       );
@@ -387,7 +417,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               orderId,
               paymentRef: existingRef,
               provider: "stripe",
-              stripeAccount: "main",
+              stripeAccount: isGulf ? "gulf" : "main",
               totalUsd,
               snapshot: {
                 items: catalogResult.items.map((i) => ({
@@ -419,7 +449,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             orderId,
             paymentRef: updated.id,
             provider: "stripe",
-            stripeAccount: "main",
+            stripeAccount: isGulf ? "gulf" : "main",
             totalUsd,
             snapshot: {
               items: catalogResult.items.map((i) => ({
@@ -473,7 +503,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             orderId,
             paymentRef: pi.id,
             provider: "stripe",
-            stripeAccount: "main",
+            stripeAccount: isGulf ? "gulf" : "main",
             totalUsd,
             snapshot: {
               items: catalogResult.items.map((i) => ({
@@ -527,7 +557,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       orderId,
       paymentRef: paymentIntent.id,
       provider: "stripe",
-      stripeAccount: "main",
+      stripeAccount: isGulf ? "gulf" : "main",
       totalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
@@ -569,20 +599,26 @@ router.get("/checkout/payment-methods", async (req, res) => {
     return res.json({ ok: true, paymentMethods: [] });
   }
 
+  const store = resolveStoreFromRequest(req);
+  const gulf = isGulfStore(store.storeKey);
+  const stripeKey = resolveStripeKey(store.storeKey);
+  if (!stripeKey) return res.json({ ok: true, paymentMethods: [] });
+
   try {
     const [row] = await db
-      .select({ stripeCustomerId: customersTable.stripeCustomerId })
+      .select({
+        stripeCustomerId: customersTable.stripeCustomerId,
+        stripeCustomerIdGulf: customersTable.stripeCustomerIdGulf,
+      })
       .from(customersTable)
       .where(eq(customersTable.id, auth.localCustomerId))
       .limit(1);
 
-    if (!row || !row.stripeCustomerId) return res.json({ ok: true, paymentMethods: [] });
+    const customerId = gulf ? row?.stripeCustomerIdGulf : row?.stripeCustomerId;
+    if (!row || !customerId) return res.json({ ok: true, paymentMethods: [] });
 
-    const mainKey = process.env.STRIPE_SECRET_KEY;
-    if (!mainKey) return res.json({ ok: true, paymentMethods: [] });
-
-    const stripe = new Stripe(mainKey);
-    const list = await stripe.paymentMethods.list({ customer: row.stripeCustomerId, type: "card" });
+    const stripe = new Stripe(stripeKey);
+    const list = await stripe.paymentMethods.list({ customer: customerId, type: "card" });
     const results = list.data
       .filter((pm) => pm.card)
       .map((pm) => ({
@@ -617,25 +653,31 @@ router.delete("/checkout/payment-methods/:id", async (req, res) => {
     return res.status(400).json({ ok: false, message: "Invalid payment method ID" }); // i18n-ignore
   }
 
+  const store = resolveStoreFromRequest(req);
+  const gulf = isGulfStore(store.storeKey);
+  const stripeKey = resolveStripeKey(store.storeKey);
+  if (!stripeKey) {
+    return res.status(503).json({ ok: false, message: "Stripe not configured" }); // i18n-ignore
+  }
+
   try {
     const [row] = await db
-      .select({ stripeCustomerId: customersTable.stripeCustomerId })
+      .select({
+        stripeCustomerId: customersTable.stripeCustomerId,
+        stripeCustomerIdGulf: customersTable.stripeCustomerIdGulf,
+      })
       .from(customersTable)
       .where(eq(customersTable.id, auth.localCustomerId))
       .limit(1);
 
-    if (!row || !row.stripeCustomerId) {
+    const customerId = gulf ? row?.stripeCustomerIdGulf : row?.stripeCustomerId;
+    if (!row || !customerId) {
       return res.status(404).json({ ok: false, message: "No saved payment methods" }); // i18n-ignore
     }
 
-    const mainKey = process.env.STRIPE_SECRET_KEY;
-    if (!mainKey) {
-      return res.status(503).json({ ok: false, message: "Stripe not configured" }); // i18n-ignore
-    }
-
-    const stripe = new Stripe(mainKey);
+    const stripe = new Stripe(stripeKey);
     const pm = await stripe.paymentMethods.retrieve(pmId);
-    if (pm.customer !== row.stripeCustomerId) {
+    if (pm.customer !== customerId) {
       return res.status(404).json({ ok: false, message: "Payment method not found" }); // i18n-ignore
     }
     await stripe.paymentMethods.detach(pmId);

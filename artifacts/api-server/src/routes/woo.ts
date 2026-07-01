@@ -859,6 +859,7 @@ router.post("/woo/order", async (req, res) => {
       if (paymentRef.startsWith("pi_")) {
         const stripeKeysFallback = [
           process.env.STRIPE_SECRET_KEY,
+          process.env.STRIPE_SECRET_KEY_GULF,
         ].filter((k): k is string => !!k);
         let recoveredFromStripe = false;
         for (const k of stripeKeysFallback) {
@@ -921,8 +922,11 @@ router.post("/woo/order", async (req, res) => {
       // Hoist the verified prices so attemptCreateOsOrder can use them directly.
       snapshotItems = intent.snapshot.items;
 
-      // All payments go through the single CY Stripe account.
-      const stripeKey = process.env.STRIPE_SECRET_KEY;
+      // Resolve the Stripe key based on which account processed this payment.
+      const stripeKey =
+        intent.stripeAccount === "gulf"
+          ? process.env.STRIPE_SECRET_KEY_GULF
+          : process.env.STRIPE_SECRET_KEY;
 
       if (!stripeKey) {
         req.log?.warn?.(

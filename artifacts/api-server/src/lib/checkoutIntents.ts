@@ -40,9 +40,8 @@ export type PaymentIntent = {
   orderId: string;
   paymentRef: string;
   provider: "stripe" | "mamo" | "paypal";
-  // Which Stripe account was used. Always "main" (single CY account).
-  // Kept for backward compatibility with stored intents.
-  stripeAccount?: "main";
+  // Which Stripe account was used: "main" (CY) or "gulf" (AE).
+  stripeAccount?: "main" | "gulf";
   // Canonical total in USD that the provider was instructed to charge.
   // For Stripe: product subtotal only (delivery is outside the session).
   // For Mamo/PayPal: product subtotal + district fee + express surcharge.
@@ -81,7 +80,7 @@ export function storePaymentIntent(params: {
   orderId: string;
   paymentRef: string;
   provider: "stripe" | "mamo" | "paypal";
-  stripeAccount?: "main";
+  stripeAccount?: "main" | "gulf";
   totalUsd: number;
   snapshot: CartSnapshot;
 }): void {
