@@ -90,6 +90,7 @@
     "@stripe/stripe-react-native": "^0.66.0",
     "babel-preset-expo": "^54.0.10",
     "expo-apple-authentication": "~8.0.8",
+    "expo-build-properties": "^57.0.1",
     "expo-clipboard": "~8.0.8",
     "expo-localization": "^17.0.8",
     "expo-secure-store": "^15.0.8",
