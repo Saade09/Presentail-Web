@@ -23,6 +23,7 @@ import {
   type DeliveryCountry,
 } from "@/constants/deliveryLocations";
 import { isSupportedCurrencyCode } from "@/data/currencies";
+import { API_BASE } from "@/lib/stripe";
 
 const TIMEOUT_MS = 4000;
 
@@ -31,12 +32,14 @@ const TIMEOUT_MS = 4000;
 // these codes so the country picker can never display unsupported destinations.
 const ALLOWED_COUNTRY_CODES = new Set(["LB", "AE", "CY"]);
 
-function getEndpoint(): string | null {
+function getEndpoint(): string {
   const override = process.env.EXPO_PUBLIC_DELIVERY_LOCATIONS_URL;
   if (typeof override === "string" && override.trim().length > 0) {
     return override.trim();
   }
-  return null;
+  // Default to the API server's delivery-locations endpoint, using the same
+  // base URL resolution as the rest of the app (dev → local, prod → replit.app).
+  return `${API_BASE}/api/delivery-locations`;
 }
 
 function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
@@ -164,13 +167,6 @@ export type FetchDeliveryLocationsResult = {
 
 export async function fetchDeliveryLocations(): Promise<FetchDeliveryLocationsResult> {
   const endpoint = getEndpoint();
-  if (!endpoint) {
-    return {
-      countries: FALLBACK_DELIVERY_COUNTRIES,
-      source: "fallback",
-      error: null,
-    };
-  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
