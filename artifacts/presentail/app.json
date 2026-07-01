@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "presentail",
-      "buildNumber": "33",
+      "buildNumber": "36",
       "usesAppleSignIn": true,
       "entitlements": {
         "keychain-access-groups": [
