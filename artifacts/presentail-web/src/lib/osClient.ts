@@ -40,8 +40,9 @@ type RawOsProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   slug?: string;
   /** OS API returns category data under this key (not `categories`). */
   catalog_categories?: OSProductCategory[];
-  /** OS API sends this as snake_case; normaliseProduct maps it to hasInputField. */
+  /** OS API sends snake_case; some versions send camelCase — handle both. */
   has_input_field?: boolean;
+  hasInputField?: boolean;
 };
 
 type RawOsProductsPage = {
@@ -69,7 +70,7 @@ function normaliseProduct(raw: RawOsProduct): NormalisedProduct {
     categories,
     id,
     _rawNumericId: raw.id,
-    hasInputField: raw.has_input_field ?? false,
+    hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
   };
 }
 
