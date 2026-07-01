@@ -76,6 +76,11 @@ export const shopStrings: Dict = {
   "shop.anniversaryFor.her": { en: "For Her", ar: "لها" },
   "shop.anniversaryFor.him": { en: "For Him", ar: "له" },
 
+  "shop.loveRomanceFor.label": { en: "Shop Love & Romance Gifts For:", ar: "تسوّق هدايا الحب والرومانسية لـ:" },
+  "shop.loveRomanceFor.all": { en: "All", ar: "الكل" },
+  "shop.loveRomanceFor.her": { en: "For Her", ar: "لها" },
+  "shop.loveRomanceFor.him": { en: "For Him", ar: "له" },
+
   "shop.birthdayFor.label": { en: "Shop Birthday Gifts For:", ar: "تسوّق هدايا عيد الميلاد لـ:" },
   "shop.birthdayFor.all": { en: "All", ar: "الكل" },
   "shop.birthdayFor.mom": { en: "Mom", ar: "الأم" },
@@ -306,6 +311,11 @@ export const shopStringsFr: Record<string, string> = {
   "shop.anniversaryFor.all": "Tous",
   "shop.anniversaryFor.her": "Pour elle",
   "shop.anniversaryFor.him": "Pour lui",
+
+  "shop.loveRomanceFor.label": "Offrir des cadeaux romantiques pour :",
+  "shop.loveRomanceFor.all": "Tous",
+  "shop.loveRomanceFor.her": "Pour elle",
+  "shop.loveRomanceFor.him": "Pour lui",
 
   "shop.birthdayFor.label": "Offrir pour l'anniversaire de :",
   "shop.birthdayFor.all": "Tous",
