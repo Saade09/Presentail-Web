@@ -130,9 +130,10 @@ router.get("/catalog/category-image/:id", async (req, res) => {
   }
   const osCategories = getOsCategories();
   const category = osCategories?.find((c) => c.id === id);
-  // Prefer the public-objects URL; only fall back to the private path when no
-  // public URL is available (the private path may return the OS web-app shell).
-  const imageUrl = category?.imagePublicUrl ?? category?.image ?? null;
+  // Only serve the public-objects URL. The private upload path (/objects/…)
+  // returns the OS web-app HTML shell instead of an image, so we never fall
+  // back to it — callers must ensure imagePublicUrl is set in the OS admin.
+  const imageUrl = category?.imagePublicUrl ?? null;
   if (!imageUrl) {
     res.status(404).json({ error: "Category image not found" });
     return;

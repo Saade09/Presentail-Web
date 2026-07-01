@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useGetHomepageCategories, useGetHomepageOccasions } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { getHomepageIconName, type HomepageIconName } from "@workspace/homepage-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,7 +39,8 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { localizedCountryName } from "@/data/countryNamesLocalized";
-import { fetchCategoryProducts, fetchWcBrands, type WcBrand, type WooProduct } from "@/lib/woo";
+import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
+import { API_BASE } from "@/lib/stripe";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -1375,6 +1377,13 @@ function BrandTile({ item, onPress }: { item: BrandTileItem; onPress: () => void
   );
 }
 
+type WooBrand = {
+  id: string;
+  name: string;
+  slug: string;
+  image: string | null;
+};
+
 function BrandsCarousel() {
   const colors = useColors();
   const router = useRouter();
@@ -1382,26 +1391,26 @@ function BrandsCarousel() {
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
-  const [brands, setBrands] = useState<WcBrand[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    fetchWcBrands({ countryCode, cityId })
-      .then((data) => {
-        if (!cancelled) {
-          setBrands(data.filter((b) => b.count > 0));
-          setIsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [countryCode, cityId]);
+  // Brands are global (not location-filtered by the server), but we include
+  // countryCode/cityId in the query key so a location change triggers the
+  // same cache-invalidation behaviour as CategoryRail — future-proofing if
+  // the endpoint ever gains per-store filtering.
+  const { data, isLoading } = useQuery({
+    queryKey: ["woo-brands", { countryCode, cityId }],
+    queryFn: async () => {
+      const headers: Record<string, string> = {};
+      if (countryCode) headers["x-store-country"] = countryCode;
+      if (cityId) headers["x-store-city"] = cityId;
+      const res = await fetch(`${API_BASE}/api/woo/brands`, { headers });
+      if (!res.ok) return { brands: [] as WooBrand[] };
+      const json = await res.json() as { ok?: boolean; brands?: WooBrand[] };
+      return { brands: Array.isArray(json.brands) ? json.brands : [] };
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const brands = data?.brands ?? [];
 
   if (!isLoading && brands.length === 0) return null;
 

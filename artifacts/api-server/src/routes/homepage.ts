@@ -216,9 +216,12 @@ function buildOsCategories(): HomepageCollectionItem[] | null {
         id: c.id,
         name: c.name,
         slug: c.slug,
-        // Route through our proxy so the browser never needs the OS API key.
-        // Only populate when an image URL exists; client handles empty gracefully.
-        imageUrl: c.image || c.imagePublicUrl ? `/api/catalog/category-image/${c.id}` : "",
+        // Only emit the proxy URL when a public CDN image is available.
+        // The private c.image field returns the OS web-app HTML shell when
+        // fetched without an auth token, so the proxy 404s and the mobile
+        // falls through to the static asset anyway. Skip it to avoid the
+        // unnecessary round-trip. Client handles empty imageUrl gracefully.
+        imageUrl: c.imagePublicUrl ? `/api/catalog/category-image/${c.id}` : "",
         sortOrder: i,
         isActive: true,
       }));
