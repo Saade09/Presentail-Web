@@ -1621,7 +1621,7 @@ function CheckoutScreen() {
           couponOpen={couponOpen}
           setCouponOpen={setCouponOpen}
           showDeliveryFee={step > 0}
-          initialOpen={step === 0}
+          initialOpen={false}
         />
       </View>
 
