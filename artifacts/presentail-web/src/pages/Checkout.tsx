@@ -277,7 +277,7 @@ function addressDisplayLabel(a: SavedAddress): string {
 
 function applyAddressToRecipient(
   a: SavedAddress,
-  setRecipient: React.Dispatch<React.SetStateAction<{ firstName: string; lastName: string; phone: string; district: string; address: string; deliveryDate: string; cardMessage: string }>>,
+  setRecipient: React.Dispatch<React.SetStateAction<{ firstName: string; lastName: string; phone: string; district: string; address: string; deliveryDate: string; cardMessage: string; cardTo: string }>>,
   opts: { onlyEmpty?: boolean } = {},
 ) {
   const phone = [a.recipientPhoneCountryCode, a.recipientPhone].filter(Boolean).join("");
@@ -439,6 +439,7 @@ function CheckoutForm() {
         ? seededDeliverySelection.date
         : "",
     cardMessage: (() => { try { return localStorage.getItem(CARD_MESSAGE_KEY) ?? ""; } catch { return ""; } })(),
+    cardTo: (() => { try { return localStorage.getItem(CARD_TO_KEY) ?? ""; } catch { return ""; } })(),
   });
 
   const [sender, setSender] = useState({
@@ -1444,6 +1445,8 @@ function CheckoutForm() {
     deliverySlot: deliveryMode === "express" ? t("checkout.expressDeliveryLabel") : deliverySlot,
     deliverySlotTime: deliveryMode === "express" ? undefined : slotTimeRangeForLabel(deliverySlot, timeSlots),
     cardMessage: recipient.cardMessage,
+    cardTo: recipient.cardTo.trim() || undefined,
+    cardFrom: identitySecret ? undefined : ([sender.firstName, sender.lastName].filter(Boolean).join(" ").trim() || undefined),
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
     // "apple_pay" / "google_pay" are client-side UX IDs; the API server and
     // WooCommerce only recognise the legacy "wallet" value for both.
