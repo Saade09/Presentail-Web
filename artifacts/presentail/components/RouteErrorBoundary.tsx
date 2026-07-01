@@ -199,22 +199,23 @@ export function withRouteErrorBoundary<P extends object>(
     <RouteErrorFallback {...props} routeName={routeName} />
   );
 
+  // Named function (not an inline arrow in JSX) so the React Compiler does
+  // not lift it into a module-level _tempN where `routeName` is out of scope.
+  function handleError(error: Error, stackTrace: React.ErrorInfo) {
+    console.error(
+      `[RouteErrorBoundary] ${routeName} crashed: ${error.message}`,
+      stackTrace,
+    );
+    reportClientError({
+      error,
+      componentStack: stackTrace,
+      route: routeName,
+      boundary: "route",
+    });
+  }
+
   const Wrapped: ComponentType<P> = (props) => (
-    <ErrorBoundary
-      FallbackComponent={Fallback}
-      onError={(error, stackTrace) => {
-        console.error(
-          `[RouteErrorBoundary] ${routeName} crashed: ${error.message}`,
-          stackTrace,
-        );
-        reportClientError({
-          error,
-          componentStack: stackTrace,
-          route: routeName,
-          boundary: "route",
-        });
-      }}
-    >
+    <ErrorBoundary FallbackComponent={Fallback} onError={handleError}>
       <Component {...props} />
     </ErrorBoundary>
   );
