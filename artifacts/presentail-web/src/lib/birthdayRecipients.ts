@@ -59,7 +59,7 @@ export const BIRTHDAY_RECIPIENTS: BirthdayRecipient[] = [
   {
     key: "kids",
     labelKey: "shop.birthdayFor.kids",
-    preferredCategories: ["cakes", "chocolate", "flower-boxes", "bundles", "hand-bouquets"],
+    preferredCategories: ["cakes", "chocolate", "bundles"],
     excludeColorKeywords: [],
   },
 ];
