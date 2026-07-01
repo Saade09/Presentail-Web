@@ -315,9 +315,9 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/15">
-        <div className="container mx-auto max-w-content px-4 py-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+        <div className="container mx-auto max-w-content px-4 py-6 flex flex-col md:grid md:grid-cols-3 md:items-center gap-4 md:gap-6">
           {/* Copyright + address */}
-          <div className="text-xs text-white/70 leading-relaxed md:flex-1">
+          <div className="text-xs text-white/70 leading-relaxed">
             <p data-testid="footer-copyright">
               {t(
                 isCY
@@ -348,8 +348,8 @@ export function Footer() {
             </p>
           </div>
 
-          {/* Legal links */}
-          <div className="flex items-center gap-4 text-xs">
+          {/* Legal links — centered column */}
+          <div className="flex items-center justify-center gap-4 text-xs text-center">
             <InLink href="/terms" testId="footer-link-terms">
               {t("footer.terms")}
             </InLink>
@@ -368,7 +368,7 @@ export function Footer() {
           </div>
 
           {/* Payment logos — flat logos on a single white rounded card */}
-          <div className="md:ms-auto">
+          <div className="md:flex md:justify-end">
             <PaymentMethods label={null} countryCode={countryCode} currencyCode={currencyCode} />
           </div>
         </div>
