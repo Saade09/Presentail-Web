@@ -1093,16 +1093,23 @@ function CategoryRail() {
   const ROW_GAP = 18;
   const COL_GAP = 8;
 
-  const renderTile = (item: (typeof items)[number]) => (
-    <CategoryTile
-      key={item.id}
-      item={{ ...item, imageUrl: item.imageUrl || CATEGORY_STATIC_IMAGES[item.slug] }}
-      tileWidth={TILE_WIDTH}
-      imageSize={TILE_IMAGE_SIZE}
-      imageToLabelGap={TILE_IMAGE_TO_LABEL_GAP}
-      onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: item.slug } })}
-    />
-  );
+  const renderTile = (item: (typeof items)[number]) => {
+    // CATEGORY_STATIC_IMAGES values are require() numbers — valid on native but
+    // expo-image's web bundle calls str.startsWith() on the source without a
+    // typeof guard, crashing when source is a number. On web, skip the static
+    // fallback so tiles without an API imageUrl show the icon instead.
+    const staticFallback = Platform.OS !== "web" ? CATEGORY_STATIC_IMAGES[item.slug] : undefined;
+    return (
+      <CategoryTile
+        key={item.id}
+        item={{ ...item, imageUrl: item.imageUrl || staticFallback }}
+        tileWidth={TILE_WIDTH}
+        imageSize={TILE_IMAGE_SIZE}
+        imageToLabelGap={TILE_IMAGE_TO_LABEL_GAP}
+        onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: item.slug } })}
+      />
+    );
+  };
 
   const renderSkeletonTile = (key: string | number) => (
     <View key={key} style={{ alignItems: "center", gap: TILE_IMAGE_TO_LABEL_GAP, width: TILE_WIDTH }}>
@@ -1294,16 +1301,19 @@ function OccasionsCarousel() {
                 </View>
               </View>
             ))
-          : items.map((item, idx) => (
-              <OccasionTile
-                key={item.id}
-                item={{ ...item, imageUrl: item.imageUrl || OCCASION_STATIC_IMAGES[item.slug] }}
-                index={idx}
-                onPress={() =>
-                  router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })
-                }
-              />
-            ))}
+          : items.map((item, idx) => {
+              const staticFallback = Platform.OS !== "web" ? OCCASION_STATIC_IMAGES[item.slug] : undefined;
+              return (
+                <OccasionTile
+                  key={item.id}
+                  item={{ ...item, imageUrl: item.imageUrl || staticFallback }}
+                  index={idx}
+                  onPress={() =>
+                    router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })
+                  }
+                />
+              );
+            })}
       </ScrollView>
     </View>
   );
