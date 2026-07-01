@@ -22,8 +22,7 @@
         "autoIncrement": false
       },
       "ios": {
-        "autoIncrement": true,
-        "image": "macos-sequoia-15.5-xcode-16.4"
+        "autoIncrement": true
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://lebanon-luxury-showcase.replit.app"

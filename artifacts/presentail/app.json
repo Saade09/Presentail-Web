@@ -98,14 +98,7 @@
       "policy": "appVersion"
     },
     "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useModularHeaders": true
-          }
-        }
-      ],
+      "./plugins/withModularHeaders",
       [
         "expo-router",
         {
