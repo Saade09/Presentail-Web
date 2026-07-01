@@ -89,12 +89,17 @@ const MOBILE_ICON_GLYPH: Record<
 const CATEGORY_STATIC_IMAGES: Record<string, number> = {
   "arabic-sweets":     require("../../assets/categories/arabic-sweets.webp"),
   "balloons":          require("../../assets/categories/balloons.webp"),
+  "bears":             require("../../assets/categories/stuffed-animals.webp"),
+  "board-games":       require("../../assets/categories/board-games.webp"),
   "bundles":           require("../../assets/categories/bundles.webp"),
   "cakes":             require("../../assets/categories/cakes.webp"),
   "chocolate":         require("../../assets/categories/chocolate.webp"),
+  "coffee":            require("../../assets/categories/coffee.webp"),
   "flower-baskets":    require("../../assets/categories/flower-baskets.webp"),
+  "flower-bouquets":   require("../../assets/categories/hand-bouquets.webp"),
   "flower-boxes":      require("../../assets/categories/flower-boxes.webp"),
   "flower-vases":      require("../../assets/categories/flower-vases.webp"),
+  "gift-baskets":      require("../../assets/categories/gift-baskets.webp"),
   "gift-cards":        require("../../assets/categories/gift-cards.webp"),
   "hand-bouquets":     require("../../assets/categories/hand-bouquets.webp"),
   "lux-arrangements":  require("../../assets/categories/lux-arrangements.webp"),
@@ -1356,8 +1361,19 @@ function BrandTile({ item, onPress }: { item: BrandTileItem; onPress: () => void
             {!imageLoaded && <ShimmerPlaceholder />}
           </>
         ) : (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-            <MaterialCommunityIcons name="tag-outline" size={24} color={colors.primary} />
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 6 }}>
+            <Text
+              numberOfLines={3}
+              style={{
+                fontFamily: "PlayfairDisplay_400Regular",
+                fontSize: 11,
+                lineHeight: 14,
+                color: colors.primary,
+                textAlign: "center",
+              }}
+            >
+              {item.name}
+            </Text>
           </View>
         )}
       </View>
