@@ -238,6 +238,7 @@ function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const { items, detailed, total, clear, setQty, remove, cartMessage: cartMessageFromCart } = useCart();
   const { loading: productsLoading } = useWooProducts();
   const { formatPrice, currencyCode } = useCurrency();
@@ -1540,66 +1541,73 @@ function CheckoutScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Brand bar */}
+      {/* Brand bar — contains brand name (left) and inline stepper (right) */}
       <View
         style={{
           paddingTop: insets.top + 14,
           paddingBottom: 14,
+          paddingHorizontal: 16,
           backgroundColor: colors.primary,
           alignItems: "center",
           flexDirection: "row",
-          justifyContent: "center",
-          position: "relative",
         }}
       >
-
-        <AppText style={{ fontFamily: headingFontMedium, fontSize: 22, color: "#fff" }}>
+        {/* Brand name — shrinks if screen is narrow so the stepper is never clipped */}
+        <AppText
+          style={{ fontFamily: headingFontMedium, fontSize: 22, color: "#fff", flexShrink: 1 }}
+          numberOfLines={1}
+        >
           {t.checkoutBrandHeader}
         </AppText>
-      </View>
 
-      {/* Stepper */}
-      <View style={{ paddingHorizontal: 20, paddingVertical: 18, backgroundColor: "#fff", borderBottomWidth: 1, borderColor: colors.border }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        {/* Inline stepper — flex:1 so it fills remaining space; right-aligned.
+            Labels are hidden on narrow screens (< 360 px, e.g. iPhone SE)
+            so the three bubbles always have room to render without clipping. */}
+        <View style={{ flex: 1, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", minWidth: 0, marginLeft: 8 }}>
           {([t.checkoutStep0, t.checkoutStep1, t.checkoutStep2] as const).map((label, i) => (
-            <View key={label} style={{ alignItems: "center", flex: 1 }}>
+            <View key={label} style={{ flex: 1, alignItems: "center", minWidth: 0 }}>
               <View
                 style={{
-                  width: 28,
-                  height: 28,
+                  width: 22,
+                  height: 22,
                   borderRadius: 999,
                   borderWidth: 1.5,
                   alignItems: "center",
                   justifyContent: "center",
-                  borderColor: i <= step ? colors.primary : colors.border,
-                  backgroundColor: i < step ? colors.primary : "#fff",
+                  borderColor: i <= step ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
+                  backgroundColor: i < step ? "rgba(255,255,255,0.25)" : "transparent",
                 }}
               >
                 {i < step ? (
-                  <Feather name="check" size={14} color="#fff" />
+                  <Feather name="check" size={11} color="#fff" />
                 ) : (
-                  <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: i === step ? colors.primary : colors.mutedForeground }}>
+                  <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#fff" }}>
                     {i + 1}
                   </AppText>
                 )}
               </View>
-              <AppText
-                style={{
-                  marginTop: 6,
-                  fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular",
-                  fontSize: 11,
-                  color: i === step ? colors.primary : colors.mutedForeground,
-                }}
-              >
-                {label}
-              </AppText>
+              {screenWidth >= 360 && (
+                <AppText
+                  style={{
+                    marginTop: 3,
+                    fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular",
+                    fontSize: 9,
+                    color: i === step ? "#fff" : "rgba(255,255,255,0.6)",
+                    textAlign: "center",
+                  }}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {label}
+                </AppText>
+              )}
               <View
                 style={{
-                  marginTop: 6,
+                  marginTop: 3,
                   height: 2,
                   width: "70%",
                   borderRadius: 1,
-                  backgroundColor: i === step ? colors.primary : "transparent",
+                  backgroundColor: i === step ? "rgba(255,255,255,0.9)" : "transparent",
                 }}
               />
             </View>
