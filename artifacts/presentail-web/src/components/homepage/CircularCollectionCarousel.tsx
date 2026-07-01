@@ -126,7 +126,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
 
         <div
           ref={trackRef}
-          className="flex gap-3 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 [&::-webkit-scrollbar]:hidden"
+          className="flex gap-3 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 -mr-4 pr-4 md:mr-0 md:pr-0 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {isLoading
