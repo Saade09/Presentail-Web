@@ -1,6 +1,8 @@
 import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, type Product } from "@/lib/queries";
 import { applyRecipientFilter } from "@/lib/birthdayRecipients";
+import { applyAnniversaryGenderFilter } from "@/lib/anniversaryGender";
 import { BirthdayRecipientTabs } from "@/components/BirthdayRecipientTabs";
+import { AnniversaryGenderTabs } from "@/components/AnniversaryGenderTabs";
 import { BearSizeTabs } from "@/components/BearSizeTabs";
 import { VALID_BEAR_SIZE_KEYS, applyBearSizeFilter, useBearSizeMap } from "@/lib/bearSizes";
 import { SEOContentSection } from "@/components/SEOContentSection";
@@ -33,6 +35,8 @@ const SEO_ATTR = "data-seo-managed";
 const VALID_BIRTHDAY_RECIPIENT_KEYS = new Set([
   "all", "mom", "dad", "teta", "jedo", "girlfriend", "boyfriend", "wife", "husband", "kids",
 ]);
+
+const VALID_ANNIVERSARY_GENDER_KEYS = new Set(["all", "her", "him"]);
 
 const STUFFED_ANIMALS_SLUG = "stuffed-animals";
 
@@ -206,6 +210,22 @@ export default function Shop() {
     navigate(location + (qs ? `?${qs}` : ""), { replace: true });
   }
 
+  const rawAnniversaryGenderKey = searchParams.get("gender") || "all";
+  const anniversaryGenderKey = occasion === "anniversary" && VALID_ANNIVERSARY_GENDER_KEYS.has(rawAnniversaryGenderKey)
+    ? rawAnniversaryGenderKey
+    : "all";
+
+  function handleAnniversaryGenderSelect(key: string) {
+    const params = new URLSearchParams(searchString);
+    if (key === "all") {
+      params.delete("gender");
+    } else {
+      params.set("gender", key);
+    }
+    const qs = params.toString();
+    navigate(location + (qs ? `?${qs}` : ""), { replace: true });
+  }
+
   const isStuffedAnimals = category === STUFFED_ANIMALS_SLUG;
   const rawBearSizeKey = searchParams.get("size") || "all";
   const bearSizeKey = isStuffedAnimals && VALID_BEAR_SIZE_KEYS.has(rawBearSizeKey) ? rawBearSizeKey : "all";
@@ -233,10 +253,15 @@ export default function Shop() {
     return applyRecipientFilter(sourceProducts, recipientKey);
   }, [sourceProducts, occasion, recipientKey]);
 
+  const anniversaryGenderFilteredProducts: Product[] = useMemo(() => {
+    if (occasion !== "anniversary") return recipientFilteredProducts;
+    return applyAnniversaryGenderFilter(recipientFilteredProducts, anniversaryGenderKey);
+  }, [recipientFilteredProducts, occasion, anniversaryGenderKey]);
+
   const bearSizeFilteredProducts: Product[] = useMemo(() => {
-    if (!isStuffedAnimals) return recipientFilteredProducts;
-    return applyBearSizeFilter(recipientFilteredProducts, bearSizeMap, bearSizeKey);
-  }, [recipientFilteredProducts, isStuffedAnimals, bearSizeMap, bearSizeKey]);
+    if (!isStuffedAnimals) return anniversaryGenderFilteredProducts;
+    return applyBearSizeFilter(anniversaryGenderFilteredProducts, bearSizeMap, bearSizeKey);
+  }, [anniversaryGenderFilteredProducts, isStuffedAnimals, bearSizeMap, bearSizeKey]);
 
   const priceBuckets: PriceBucketDef[] = useMemo(() => {
     return convertedBucketDefs.map((def) => ({
@@ -450,6 +475,10 @@ export default function Shop() {
 
         {occasion === "birthday" && (
           <BirthdayRecipientTabs activeKey={recipientKey} onSelect={handleRecipientSelect} />
+        )}
+
+        {occasion === "anniversary" && (
+          <AnniversaryGenderTabs activeKey={anniversaryGenderKey} onSelect={handleAnniversaryGenderSelect} />
         )}
 
         {isStuffedAnimals && (

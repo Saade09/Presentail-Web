@@ -71,6 +71,11 @@ export const shopStrings: Dict = {
   "shop.bearSize.medium": { en: "Medium Bears", ar: "دببة متوسطة" },
   "shop.bearSize.lifeSize": { en: "Life-Size Bears", ar: "دببة بالحجم الطبيعي" },
 
+  "shop.anniversaryFor.label": { en: "Shop Anniversary Gifts For:", ar: "تسوّق هدايا الذكرى لـ:" },
+  "shop.anniversaryFor.all": { en: "All", ar: "الكل" },
+  "shop.anniversaryFor.her": { en: "For Her", ar: "لها" },
+  "shop.anniversaryFor.him": { en: "For Him", ar: "له" },
+
   "shop.birthdayFor.label": { en: "Shop Birthday Gifts For:", ar: "تسوّق هدايا عيد الميلاد لـ:" },
   "shop.birthdayFor.all": { en: "All", ar: "الكل" },
   "shop.birthdayFor.mom": { en: "Mom", ar: "الأم" },
@@ -296,6 +301,11 @@ export const shopStringsFr: Record<string, string> = {
   "shop.bearSize.small": "Petits ours",
   "shop.bearSize.medium": "Ours moyens",
   "shop.bearSize.lifeSize": "Ours grandeur nature",
+
+  "shop.anniversaryFor.label": "Offrir pour l'anniversaire de :",
+  "shop.anniversaryFor.all": "Tous",
+  "shop.anniversaryFor.her": "Pour elle",
+  "shop.anniversaryFor.him": "Pour lui",
 
   "shop.birthdayFor.label": "Offrir pour l'anniversaire de :",
   "shop.birthdayFor.all": "Tous",
