@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Link } from "wouter";
+import { isChunkLoadError, reloadForStaleChunk } from "@/lib/chunkReload";
 
 type State = { hasError: boolean };
 
@@ -19,6 +20,14 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // A render-time failure caused by a lazy chunk that could not be fetched
+    // (stale index.html after a redeploy, or a flaky-network drop) is
+    // recoverable: reload once to pull a fresh index.html + chunk set instead
+    // of stranding the user on the error fallback.
+    if (isChunkLoadError(error)) {
+      reloadForStaleChunk();
+      return;
+    }
     // eslint-disable-next-line no-console
     console.error("[ErrorBoundary] caught render error:", error, info.componentStack);
   }

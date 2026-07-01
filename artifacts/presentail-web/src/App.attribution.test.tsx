@@ -363,7 +363,10 @@ describe("App — attribution captured when landing directly on /checkout via ad
     const { loadCheckout } = await import("@/lib/pageLoaders");
     vi.mocked(loadCheckout).mockReturnValue(
       // A promise that never resolves keeps Checkout permanently suspended.
-      new Promise<{ default: React.ComponentType }>(() => {}),
+      // Typed as Promise<never> since it never yields a value — this is
+      // structurally assignable to the real loadCheckout return type without
+      // having to restate the full Checkout module shape.
+      new Promise<never>(() => {}),
     );
 
     await act(async () => {

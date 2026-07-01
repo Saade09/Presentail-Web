@@ -19,3 +19,4 @@
 - [SEO generic share copy](seo-generic-share-copy.md) — only category has GENERIC_OG; shop/brands/all-occasions intentionally reuse page title/description; seo-inject tests can be cache-masked (verify in isolation)
 - [hasOsProducts vs getOsProducts](os-products-disabled-guard.md) — hasOsProducts() 503s when OS_PRODUCTS_DISABLED=1; read-only catalog endpoints must use getOsProducts() instead
 - [Bear size inference](bear-size-inference.md) — OS descriptions embed "N cm Height"; parse it for size tabs (45/120cm thresholds), don't trust the LLM; restart real API workflow to clear cache
+- [Stale-chunk blank-page recovery](chunk-reload-recovery.md) — web force-reloads on lazy import() 404s (stale index.html after deploy); dual loop guards cap at 2, storage-fail path must fail closed, don't match plain "Load failed"
