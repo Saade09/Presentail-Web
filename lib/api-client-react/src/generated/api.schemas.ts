@@ -1500,6 +1500,21 @@ alternatives instead.
   code?: AuthWebBridgeResponseCode;
 }
 
+/**
+ * Map of product ID (string) to size bucket.
+ */
+export type StuffedAnimalsSizesResponseSizes = {
+  [key: string]: "small" | "medium" | "life-size";
+};
+
+/**
+ * AI-inferred size classification for stuffed-animals products.
+ */
+export interface StuffedAnimalsSizesResponse {
+  /** Map of product ID (string) to size bucket. */
+  sizes: StuffedAnimalsSizesResponseSizes;
+}
+
 export interface NextOrderIdRequest {
   /** ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB. */
   countryCode: string;

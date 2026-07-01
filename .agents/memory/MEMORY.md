@@ -17,3 +17,5 @@
 - [Playwright executablePath + checkout e2e seeding](playwright-executable-path.md) — executablePath must be under use.launchOptions; web checkout e2e needs delivery_location key, locale-prefixed URL, ?guest=1
 - [Stripe minor-units single source](stripe-minor-units-divergence.md) — decimals map + toStripeMinorUnits live in @workspace/display-currency (server+web re-export); wallet sheet vs PaymentIntent divergence is bounded, KWD/OMR step is 10
 - [SEO generic share copy](seo-generic-share-copy.md) — only category has GENERIC_OG; shop/brands/all-occasions intentionally reuse page title/description; seo-inject tests can be cache-masked (verify in isolation)
+- [hasOsProducts vs getOsProducts](os-products-disabled-guard.md) — hasOsProducts() 503s when OS_PRODUCTS_DISABLED=1; read-only catalog endpoints must use getOsProducts() instead
+- [Bear size inference](bear-size-inference.md) — OS descriptions embed "N cm Height"; parse it for size tabs (45/120cm thresholds), don't trust the LLM; restart real API workflow to clear cache

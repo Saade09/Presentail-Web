@@ -86,6 +86,7 @@ import type {
   PushUnregisterResponse,
   ReferralCodeResponse,
   SharedFavoritesResponse,
+  StuffedAnimalsSizesResponse,
   WooOrderRequest,
   WooSearchParams,
   WooSearchResult,
@@ -831,6 +832,93 @@ export const useRecordFbWebEvent = <
 > => {
   return useMutation(getRecordFbWebEventMutationOptions(options));
 };
+
+/**
+ * Returns a map of product ID → size bucket (small | medium | life-size)
+for all products in the stuffed-animals category. Size is inferred from
+the product name using keyword heuristics (mini/baby/small → small;
+giant/life-size/large → life-size; everything else → medium) with an
+LLM fallback for ambiguous names. Results are cached in-process for
+24 hours — no extra round-trips on page load. Returns 503 when the OS
+product cache has not yet been populated.
+
+ * @summary Get AI-inferred size classifications for stuffed-animals products
+ */
+export const getGetStuffedAnimalsSizesUrl = () => {
+  return `/api/categories/stuffed-animals/sizes`;
+};
+
+export const getStuffedAnimalsSizes = async (
+  options?: RequestInit,
+): Promise<StuffedAnimalsSizesResponse> => {
+  return customFetch<StuffedAnimalsSizesResponse>(
+    getGetStuffedAnimalsSizesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStuffedAnimalsSizesQueryKey = () => {
+  return [`/api/categories/stuffed-animals/sizes`] as const;
+};
+
+export const getGetStuffedAnimalsSizesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStuffedAnimalsSizes>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStuffedAnimalsSizes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStuffedAnimalsSizesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStuffedAnimalsSizes>>
+  > = ({ signal }) => getStuffedAnimalsSizes({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStuffedAnimalsSizes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStuffedAnimalsSizesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStuffedAnimalsSizes>>
+>;
+export type GetStuffedAnimalsSizesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get AI-inferred size classifications for stuffed-animals products
+ */
+
+export function useGetStuffedAnimalsSizes<
+  TData = Awaited<ReturnType<typeof getStuffedAnimalsSizes>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStuffedAnimalsSizes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStuffedAnimalsSizesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns up to 4 in-stock products that are most frequently co-purchased

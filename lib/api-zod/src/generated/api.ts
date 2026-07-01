@@ -367,6 +367,25 @@ export const RecordFbWebEventResponse = zod.object({
 });
 
 /**
+ * Returns a map of product ID → size bucket (small | medium | life-size)
+for all products in the stuffed-animals category. Size is inferred from
+the product name using keyword heuristics (mini/baby/small → small;
+giant/life-size/large → life-size; everything else → medium) with an
+LLM fallback for ambiguous names. Results are cached in-process for
+24 hours — no extra round-trips on page load. Returns 503 when the OS
+product cache has not yet been populated.
+
+ * @summary Get AI-inferred size classifications for stuffed-animals products
+ */
+export const GetStuffedAnimalsSizesResponse = zod
+  .object({
+    sizes: zod
+      .record(zod.string(), zod.enum(["small", "medium", "life-size"]))
+      .describe("Map of product ID (string) to size bucket."),
+  })
+  .describe("AI-inferred size classification for stuffed-animals products.");
+
+/**
  * Returns up to 4 in-stock products that are most frequently co-purchased
 with the given anchor product slug, derived from real co-purchase data
 in `app_orders`. Only applies to products in the `flowers` or `cakes`

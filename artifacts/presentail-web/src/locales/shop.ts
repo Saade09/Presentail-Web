@@ -65,6 +65,12 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
 
+  "shop.bearSize.label": { en: "Bear Size:", ar: "حجم الدب:" },
+  "shop.bearSize.all": { en: "All Bears", ar: "كل الدببة" },
+  "shop.bearSize.small": { en: "Small Bears", ar: "دببة صغيرة" },
+  "shop.bearSize.medium": { en: "Medium Bears", ar: "دببة متوسطة" },
+  "shop.bearSize.lifeSize": { en: "Life-Size Bears", ar: "دببة بالحجم الطبيعي" },
+
   "shop.birthdayFor.label": { en: "Shop Birthday Gifts For:", ar: "تسوّق هدايا عيد الميلاد لـ:" },
   "shop.birthdayFor.all": { en: "All", ar: "الكل" },
   "shop.birthdayFor.mom": { en: "Mom", ar: "الأم" },
@@ -284,6 +290,12 @@ export const shopStringsFr: Record<string, string> = {
   "shop.occ.congratulations": "Félicitations",
   "shop.occ.thankYou": "Merci",
   "shop.occ.condolences": "Condoléances",
+
+  "shop.bearSize.label": "Taille de l'ours :",
+  "shop.bearSize.all": "Tous les ours",
+  "shop.bearSize.small": "Petits ours",
+  "shop.bearSize.medium": "Ours moyens",
+  "shop.bearSize.lifeSize": "Ours grandeur nature",
 
   "shop.birthdayFor.label": "Offrir pour l'anniversaire de :",
   "shop.birthdayFor.all": "Tous",

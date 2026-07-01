@@ -136,6 +136,8 @@ export * from "./referralCodeResponse";
 export * from "./savedPaymentMethod";
 export * from "./sharedFavoritesItem";
 export * from "./sharedFavoritesResponse";
+export * from "./stuffedAnimalsSizesResponse";
+export * from "./stuffedAnimalsSizesResponseSizes";
 export * from "./user";
 export * from "./wooOrderRequest";
 export * from "./wooOrderRequestPaymentMethod";

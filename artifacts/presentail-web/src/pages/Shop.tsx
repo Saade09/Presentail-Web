@@ -1,6 +1,8 @@
 import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, type Product } from "@/lib/queries";
 import { applyRecipientFilter } from "@/lib/birthdayRecipients";
 import { BirthdayRecipientTabs } from "@/components/BirthdayRecipientTabs";
+import { BearSizeTabs } from "@/components/BearSizeTabs";
+import { VALID_BEAR_SIZE_KEYS, applyBearSizeFilter, useBearSizeMap } from "@/lib/bearSizes";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
@@ -31,6 +33,8 @@ const SEO_ATTR = "data-seo-managed";
 const VALID_BIRTHDAY_RECIPIENT_KEYS = new Set([
   "all", "mom", "dad", "teta", "jedo", "girlfriend", "boyfriend", "wife", "husband", "kids",
 ]);
+
+const STUFFED_ANIMALS_SLUG = "stuffed-animals";
 
 function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
   let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
@@ -202,6 +206,23 @@ export default function Shop() {
     navigate(location + (qs ? `?${qs}` : ""), { replace: true });
   }
 
+  const isStuffedAnimals = category === STUFFED_ANIMALS_SLUG;
+  const rawBearSizeKey = searchParams.get("size") || "all";
+  const bearSizeKey = isStuffedAnimals && VALID_BEAR_SIZE_KEYS.has(rawBearSizeKey) ? rawBearSizeKey : "all";
+
+  const bearSizeMap = useBearSizeMap(isStuffedAnimals);
+
+  function handleBearSizeSelect(key: string) {
+    const params = new URLSearchParams(searchString);
+    if (key === "all") {
+      params.delete("size");
+    } else {
+      params.set("size", key);
+    }
+    const qs = params.toString();
+    navigate(location + (qs ? `?${qs}` : ""), { replace: true });
+  }
+
   const [sort, setSort] = useState("featured");
   const [selectedPriceBucket, setSelectedPriceBucket] = useState<PriceBucket | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
@@ -212,20 +233,25 @@ export default function Shop() {
     return applyRecipientFilter(sourceProducts, recipientKey);
   }, [sourceProducts, occasion, recipientKey]);
 
+  const bearSizeFilteredProducts: Product[] = useMemo(() => {
+    if (!isStuffedAnimals) return recipientFilteredProducts;
+    return applyBearSizeFilter(recipientFilteredProducts, bearSizeMap, bearSizeKey);
+  }, [recipientFilteredProducts, isStuffedAnimals, bearSizeMap, bearSizeKey]);
+
   const priceBuckets: PriceBucketDef[] = useMemo(() => {
     return convertedBucketDefs.map((def) => ({
       key: def.key,
       label: def.label,
-      count: recipientFilteredProducts.filter((p) => def.test(p)).length,
+      count: bearSizeFilteredProducts.filter((p) => def.test(p)).length,
     })).filter((b) => b.count > 0);
-  }, [recipientFilteredProducts, convertedBucketDefs]);
+  }, [bearSizeFilteredProducts, convertedBucketDefs]);
 
   // Identify products that did not match any keyword so we can ask the AI
   const unmatchedProducts = useMemo(() => {
-    return recipientFilteredProducts
+    return bearSizeFilteredProducts
       .filter((p) => extractColor(p.name) === null)
       .map((p) => ({ slug: p.id, name: p.name }));
-  }, [recipientFilteredProducts]);
+  }, [bearSizeFilteredProducts]);
 
   // AI-inferred color hints for unmatched products (loads asynchronously, does
   // not block rendering — color facets update once the response arrives)
@@ -236,7 +262,7 @@ export default function Shop() {
 
   const colorFacets: ColorFacet[] = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const p of recipientFilteredProducts) {
+    for (const p of bearSizeFilteredProducts) {
       const c = resolveColor(p);
       if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
     }
@@ -244,13 +270,13 @@ export default function Shop() {
       .sort((a, b) => b[1] - a[1])
       .map(([color, count]) => ({ color: color as ColorFacet["color"], count }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recipientFilteredProducts, aiColorHints]);
+  }, [bearSizeFilteredProducts, aiColorHints]);
 
   const filteredProducts: Product[] = useMemo(() => {
     const bucketTest = selectedPriceBucket
       ? convertedBucketDefs.find((d) => d.key === selectedPriceBucket)?.test ?? null
       : null;
-    return recipientFilteredProducts.filter((p) => {
+    return bearSizeFilteredProducts.filter((p) => {
       if (bucketTest && !bucketTest(p)) return false;
       if (selectedColors.length > 0) {
         const c = resolveColor(p);
@@ -259,7 +285,7 @@ export default function Shop() {
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recipientFilteredProducts, selectedPriceBucket, selectedColors, aiColorHints, convertedBucketDefs]);
+  }, [bearSizeFilteredProducts, selectedPriceBucket, selectedColors, aiColorHints, convertedBucketDefs]);
 
   const products = useMemo(() => {
     const p = [...filteredProducts];
@@ -424,6 +450,15 @@ export default function Shop() {
 
         {occasion === "birthday" && (
           <BirthdayRecipientTabs activeKey={recipientKey} onSelect={handleRecipientSelect} />
+        )}
+
+        {isStuffedAnimals && (
+          <BearSizeTabs
+            activeKey={bearSizeKey}
+            onSelect={handleBearSizeSelect}
+            sizeMap={bearSizeMap}
+            products={recipientFilteredProducts}
+          />
         )}
 
         <div className="block md:hidden w-full mb-6">
