@@ -29,6 +29,7 @@
     "test-os-order": "tsx ./src/testOsOrder.ts",
     "compute-affinity": "tsx ./src/computeProductAffinity.ts",
     "submit-sitemap": "tsx ./src/submitSitemap.ts",
+    "compress-app-tile-images": "tsx ./src/compressAppTileImages.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "sharp": "^0.35.1",
     "tsx": "catalog:",
     "vitest": "^4.1.5"
   }

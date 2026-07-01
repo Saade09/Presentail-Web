@@ -351,7 +351,7 @@ importers:
         version: 3.1.0
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
 
   artifacts/mockup-sandbox:
     devDependencies:
@@ -778,7 +778,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
       zod:
         specifier: 'catalog:'
         version: 3.25.76
@@ -1085,7 +1085,7 @@ importers:
         version: 7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
       wouter:
         specifier: ^3.3.5
         version: 3.9.0(react@19.1.0)
@@ -1146,13 +1146,13 @@ importers:
     devDependencies:
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
 
   lib/display-currency:
     devDependencies:
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
 
   lib/eslint-config-base:
     dependencies:
@@ -1170,7 +1170,7 @@ importers:
         version: 9.39.4(jiti@2.6.1)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
 
   lib/homepage-icons: {}
 
@@ -1194,7 +1194,7 @@ importers:
     devDependencies:
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)
 
   lib/presentail-os: {}
 
@@ -1215,12 +1215,15 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+      sharp:
+        specifier: ^0.35.1
+        version: 0.35.1
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)
 
 packages:
 
@@ -8949,7 +8952,6 @@ packages:
       '@vitest/ui': 4.1.5
       happy-dom: '*'
       jsdom: '*'
-      vite: ^7.3.5
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -18793,7 +18795,7 @@ snapshots:
       tsx: 4.22.4
       yaml: 2.8.3
 
-  vitest@4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)):
+  vitest@4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3):
     dependencies:
       '@vitest/expect': 4.1.5
       '@vitest/mocker': 4.1.5(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
@@ -18819,9 +18821,19 @@ snapshots:
       '@types/node': 25.3.5
       jsdom: 29.1.1(@noble/hashes@1.8.0)
     transitivePeerDependencies:
+      - jiti
+      - less
+      - lightningcss
       - msw
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - yaml
 
-  vitest@4.1.5(@types/node@25.3.5)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3)):
+  vitest@4.1.5(@types/node@25.3.5)(jiti@2.6.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3):
     dependencies:
       '@vitest/expect': 4.1.5
       '@vitest/mocker': 4.1.5(vite@7.3.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.1)(tsx@4.22.4)(yaml@2.8.3))
@@ -18847,7 +18859,17 @@ snapshots:
       '@types/node': 25.3.5
       jsdom: 29.1.1(@noble/hashes@1.8.0)
     transitivePeerDependencies:
+      - jiti
+      - less
+      - lightningcss
       - msw
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - yaml
 
   vlq@1.0.1: {}
 
