@@ -119,7 +119,6 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.presentail",
           "enableGooglePay": false
         }
       ]

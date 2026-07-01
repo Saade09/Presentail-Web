@@ -1,0 +1,97 @@
+Creating Gymfile
+Gymfile created
+Successfully loaded '/Users/expo/workingdir/build/artifacts/presentail/ios/Gymfile' 📄
++---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                  Detected Values from './Gymfile'                                                                   |
++-----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| suppress_xcode_output | true                                                                                                                                        |
+| clean                 | false                                                                                                                                       |
+| scheme                | Presentail                                                                                                                                  |
+| configuration         | Release                                                                                                                                     |
+| export_options        |                                                                                                                                             |
+| export_xcargs         | OTHER_CODE_SIGN_FLAGS="--keychain /var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/eas-build-84004ee1-9eb2-4e34-8bc8-d60ca2234f7e.keychain" |
+| disable_xcpretty      | true                                                                                                                                        |
+| buildlog_path         | /Users/expo/workingdir/logs                                                                                                                 |
+| derived_data_path     | ./build                                                                                                                                     |
+| result_bundle         | true                                                                                                                                        |
+| result_bundle_path    | /var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/result-bundle-1782909269006.xcresult                                                       |
+| output_directory      | ./build                                                                                                                                     |
++-----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+Resolving Swift Package Manager dependencies...
+$ xcodebuild -resolvePackageDependencies -workspace ./Presentail.xcworkspace -scheme Presentail -configuration Release -derivedDataPath ./build
+▸ Command line invocation:
+▸     /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -resolvePackageDependencies -workspace ./Presentail.xcworkspace -scheme Presentail -configuration Release -derivedDataPath ./build
+▸ resolved source packages:
+$ xcodebuild -showBuildSettings -workspace ./Presentail.xcworkspace -scheme Presentail -configuration Release -derivedDataPath ./build 2>&1
+Detected provisioning profile mapping: {:presentail=>"f99890bd-03ae-44ac-83ee-bfd0746d48f7"}
+
++----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                   Summary for gym 2.228.0                                                                                    |
++------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| workspace                                      | ./Presentail.xcworkspace                                                                                                                    |
+| scheme                                         | Presentail                                                                                                                                  |
+| clean                                          | false                                                                                                                                       |
+| output_directory                               | ./build                                                                                                                                     |
+| output_name                                    | Presentail                                                                                                                                  |
+| configuration                                  | Release                                                                                                                                     |
+| silent                                         | false                                                                                                                                       |
+| skip_package_ipa                               | false                                                                                                                                       |
+| skip_package_pkg                               | false                                                                                                                                       |
+| export_options.method                          | app-store                                                                                                                                   |
+| export_options.provisioningProfiles.presentail | f99890bd-03ae-44ac-83ee-bfd0746d48f7                                                                                                        |
+| export_xcargs                                  | OTHER_CODE_SIGN_FLAGS="--keychain /var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/eas-build-84004ee1-9eb2-4e34-8bc8-d60ca2234f7e.keychain" |
+| build_path                                     | /Users/expo/Library/Developer/Xcode/Archives/2026-07-01                                                                                     |
+| derived_data_path                              | ./build                                                                                                                                     |
+| result_bundle                                  | true                                                                                                                                        |
+| result_bundle_path                             | /var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/result-bundle-1782909269006.xcresult                                                       |
+| buildlog_path                                  | /Users/expo/workingdir/logs                                                                                                                 |
+| destination                                    | generic/platform=iOS                                                                                                                        |
+| suppress_xcode_output                          | true                                                                                                                                        |
+| xcodebuild_formatter                           | xcpretty                                                                                                                                    |
+| build_timing_summary                           | false                                                                                                                                       |
+| disable_xcpretty                               | true                                                                                                                                        |
+| skip_profile_detection                         | false                                                                                                                                       |
+| xcodebuild_command                             | xcodebuild                                                                                                                                  |
+| skip_package_dependencies_resolution           | false                                                                                                                                       |
+| disable_package_automatic_updates              | false                                                                                                                                       |
+| use_system_scm                                 | false                                                                                                                                       |
+| xcode_path                                     | /Applications/Xcode.app                                                                                                                     |
++------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+$ set -o pipefail && xcodebuild -workspace ./Presentail.xcworkspace -scheme Presentail -configuration Release -derivedDataPath ./build -destination 'generic/platform=iOS' -archivePath /Users/expo/Library/Developer/Xcode/Archives/2026-07-01/Presentail\ 2026-07-01\ 05.34.34.xcarchive -resultBundlePath '/var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/result-bundle-1782909269006.xcresult' archive | tee /Users/expo/workingdir/logs/Presentail-Presentail.log > /dev/null
+⚠️  Pods/PromisesObjC-FBLPromises_Privacy: iOS@9.0 deployment version mismatch, expected >= 2.0 <= 26.0.99
+⚠️  Pods/SDWebImage-SDWebImage: iOS@9.0 deployment version mismatch, expected >= 2.0 <= 26.0.99
+⚠️  Pods/GTMSessionFetcher-GTMSessionFetcher_Core_Privacy: iOS@10.0 deployment version mismatch, expected >= 2.0 <= 26.0.99
+❌  /: Provisioning Profile "*[expo] presentail AppStore 2026-05-26T09:44:32.263Z" does not support the Apple Pay capability.
+
+❌  Provisioning profile "*[expo] presentail AppStore 2026-05-26T09:44:32.263Z" doesn't support the merchant.presentail Merchant ID. (in target 'Presentail' from project 'Presentail')
+
+
+❌  Presentail/Presentail: Entitlements file defines the value "com.apple.developer.in-app-payments" which is not registered for profile "*[expo] presentail AppStore 2026-05-26T09:44:32.263Z".
+⚠️  Pods/PromisesSwift-Promises_Privacy: iOS@9.0 deployment version mismatch, expected >= 2.0 <= 26.0.99
+▸ ** ARCHIVE FAILED **
+▸ The following build commands failed:
+▸ 	Archiving workspace Presentail with scheme Presentail
+▸ (1 failure)
+Exit status: 65
+
++---------------------------------------+
+|           Build environment           |
++-------------+-------------------------+
+| xcode_path  | /Applications/Xcode.app |
+| gym_version | 2.228.0                 |
+| sdk         | iPhoneOS26.0.sdk        |
++-------------+-------------------------+
+Looks like fastlane ran into a build/archive error with your project
+It's hard to tell what's causing the error, so we wrote some guides on how
+to troubleshoot build and signing issues: https://docs.fastlane.tools/codesigning/getting-started/
+Before submitting an issue on GitHub, please follow the guide above and make
+sure your project is set up correctly.
+fastlane uses `xcodebuild` commands to generate your binary, you can see the
+the full commands printed out in yellow in the above log.
+Make sure to inspect the output above, as usually you'll find more error information there
+[!] Error building the application - see the log above
+Error: The "Run fastlane" step failed because of an error in the Xcode build process. We automatically detected following errors in your Xcode build logs:
+- Provisioning profile "*[expo] presentail AppStore 2026-05-26T09:44:32.263Z" doesn't support the Apple Pay capability.  (in target 'Presentail' from project 'Presentail')
+- Provisioning profile "*[expo] presentail AppStore 2026-05-26T09:44:32.263Z" doesn't support the merchant.presentail Merchant ID. (in target 'Presentail' from project 'Presentail')
+- Provisioning profile "*[expo] presentail AppStore 2026-05-26T09:44:32.263Z" doesn't include the com.apple.developer.in-app-payments entitlement. (in target 'Presentail' from project 'Presentail')
+Refer to "Xcode Logs" below for additional, more detailed logs.
