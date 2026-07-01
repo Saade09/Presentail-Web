@@ -401,7 +401,13 @@ function AppWithStripe({ fontsLoaded }: { fontsLoaded: boolean }) {
 function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { ready } = useAppInitialization({ fontsLoaded });
   const { hydrated: onboardingHydrated, needsOnboarding } = useOnboarding();
-  const [splashGone, setSplashGone] = useState(false);
+  // On web the native splash handoff does not exist and Reanimated worklet
+  // callbacks are unreliable, so skip the in-app splash screen entirely.
+  const [splashGone, setSplashGone] = useState(Platform.OS === "web");
+
+  // Hold the splash open until we know whether onboarding is needed, so we
+  // never flash the main navigator before the first-run picker.
+  const initReady = ready && onboardingHydrated;
 
   const handleFadeOutEnd = useCallback(() => {
     setSplashGone(true);
@@ -420,10 +426,6 @@ function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
       loadCheckoutScreen,
     ]);
   }, []);
-
-  // Hold the splash open until we know whether onboarding is needed, so we
-  // never flash the main navigator before the first-run picker (Task #286).
-  const initReady = ready && onboardingHydrated;
 
   return (
     <>

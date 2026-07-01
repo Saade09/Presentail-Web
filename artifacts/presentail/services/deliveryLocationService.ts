@@ -23,7 +23,6 @@ import {
   type DeliveryCountry,
 } from "@/constants/deliveryLocations";
 import { isSupportedCurrencyCode } from "@/data/currencies";
-import { API_BASE } from "@/lib/stripe";
 
 const TIMEOUT_MS = 4000;
 
@@ -32,14 +31,27 @@ const TIMEOUT_MS = 4000;
 // these codes so the country picker can never display unsupported destinations.
 const ALLOWED_COUNTRY_CODES = new Set(["LB", "AE", "CY"]);
 
+// Production API base — same value as stripe.ts PRODUCTION_API_BASE.
+// Inlined here to avoid importing stripe.ts (which has Stripe-key side
+// effects at module init time that are irrelevant to location fetching).
+const PRODUCTION_API_BASE = "https://lebanon-luxury-showcase.replit.app";
+
+function resolveApiBase(): string {
+  const explicit = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (explicit) return explicit;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain}`;
+  return PRODUCTION_API_BASE;
+}
+
 function getEndpoint(): string {
   const override = process.env.EXPO_PUBLIC_DELIVERY_LOCATIONS_URL;
   if (typeof override === "string" && override.trim().length > 0) {
     return override.trim();
   }
   // Default to the API server's delivery-locations endpoint, using the same
-  // base URL resolution as the rest of the app (dev → local, prod → replit.app).
-  return `${API_BASE}/api/delivery-locations`;
+  // base URL resolution as the rest of the app (dev → API domain, prod → replit.app).
+  return `${resolveApiBase()}/api/delivery-locations`;
 }
 
 function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
