@@ -128,17 +128,16 @@ export function useDisplayCurrency(): {
   // environments that don't mount a full LocationProvider.
   const locationCtx = useContext(LocationContext);
   const countryCode = locationCtx?.countryCode ?? null;
-  const hasSelectedCountry = !!countryCode;
   const snapshot = useCurrencyTables();
   useCurrenciesData();
 
-  // Always re-detect on every load (no localStorage cache). Skip the geo
-  // call only when the visitor has locked a delivery country — that fully
-  // determines display currency.
+  // Always re-detect on every load (no localStorage cache). The delivery
+  // country tells us where the gift goes — it does NOT determine the
+  // visitor's display currency. A shopper in UAE ordering to Beirut should
+  // still see AED prices, so we run the geo lookup unconditionally.
   const { data } = useQuery({
     queryKey: ["geo-currency"],
     queryFn: () => apiFetch<GeoCurrencyResponse>("/geo/currency"),
-    enabled: !hasSelectedCountry,
     staleTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -202,7 +201,13 @@ export function useDisplayCurrency(): {
     () =>
       resolveDisplayCurrency({
         manualOverride: manualCode,
-        savedCountry: hasSelectedCountry ? countryCode : null,
+        // Delivery country is intentionally NOT passed as savedCountry.
+        // Where a gift is delivered has no bearing on which currency the
+        // visitor is paying in — a shopper in UAE ordering to Beirut should
+        // see AED, not USD. IP detection (ipCountry) is the source of truth
+        // for display currency; the delivery location only affects delivery
+        // options and pricing.
+        savedCountry: null,
         gpsCountry: null,
         ipCountry: data?.countryCode ?? null,
         localeCountry,
@@ -210,7 +215,7 @@ export function useDisplayCurrency(): {
         isSupported: isFormattable,
         fallback: "USD",
       }),
-    [manualCode, hasSelectedCountry, countryCode, data?.countryCode, localeCountry, countryToCurrency, isFormattable],
+    [manualCode, data?.countryCode, localeCountry, countryToCurrency, isFormattable],
   );
 
   const currencyCode = resolved.finalCurrency;
@@ -219,7 +224,7 @@ export function useDisplayCurrency(): {
     if (!import.meta.env.DEV) return;
     // eslint-disable-next-line no-console
     console.log("[display-currency:web]", {
-      savedCountry: hasSelectedCountry ? countryCode : null,
+      deliveryCountry: countryCode ?? null,
       gpsCountry: null,
       ipCountry: data?.countryCode ?? null,
       localeCountry,
@@ -230,7 +235,6 @@ export function useDisplayCurrency(): {
       finalCurrency: resolved.finalCurrency,
     });
   }, [
-    hasSelectedCountry,
     countryCode,
     data?.countryCode,
     localeCountry,
@@ -307,7 +311,7 @@ export function useDisplayCurrency(): {
 
   return {
     currencyCode,
-    isDetected: !hasSelectedCountry && manual === null,
+    isDetected: manual === null,
     isManual: manual !== null,
     isManualPersistent: manual?.persistent === true,
     setCurrencyCode,
