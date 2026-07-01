@@ -13,17 +13,27 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { useT } from "@/hooks/useT";
 
 export type ErrorFallbackProps = {
   error: Error;
   resetError: () => void;
 };
 
+// Hardcoded fallback strings — ErrorFallback is rendered by the root
+// ErrorBoundary which wraps the entire provider tree. Using context-dependent
+// hooks like useT() here causes a second crash (useDeliveryLocationContext
+// throws when DeliveryLocationProvider is not in the tree), producing a
+// blank white screen instead of the intended error UI.
+const FALLBACK_STRINGS = {
+  errorSomethingWrong: "Something went wrong",
+  errorReloadApp: "Please reload the app to continue.",
+  errorTryAgain: "Try again",
+} as const;
+
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const t = useT();
+  const t = FALLBACK_STRINGS;
 
   const [isModalVisible, setIsModalVisible] = useState(false);
 
