@@ -26,6 +26,7 @@ const OCC_NAME_KEY: Record<string, string> = {
   "love-romance": "occ_love_romance",
   farewell: "occ_farewell",
   condolences: "occ_condolences",
+  ramadan: "occ_ramadan",
 };
 const OCC_DESC_KEY: Record<string, string> = {
   housewarming: "occ_housewarming_desc",
@@ -36,6 +37,7 @@ const OCC_DESC_KEY: Record<string, string> = {
   "love-romance": "occ_love_romance_desc",
   farewell: "occ_farewell_desc",
   condolences: "occ_condolences_desc",
+  ramadan: "occ_ramadan_desc",
 };
 
 type OccasionCardProps = {

@@ -57,6 +57,7 @@ const OCC_NAME_KEY: Record<string, string> = {
   friend: "occ_friend",
   "im-sorry": "occ_im_sorry",
   children: "occ_children",
+  ramadan: "occ_ramadan",
 };
 
 function CatalogScreen() {

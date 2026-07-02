@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import type { OSProductOccasion } from "@workspace/presentail-os";
 import {
   GetCatalogMetadataResponse,
   GetCurrenciesResponse,
@@ -10,7 +11,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsRawCatalogBrands } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -222,6 +223,48 @@ router.get("/catalog/metadata", (_req, res) => {
     }
     return { ...occ, count };
   });
+
+  // Append OS-only occasions — occasions that exist in OS but are not in the
+  // hardcoded list. These surface on the /occasions page automatically without
+  // a code deploy. The featured flag is intentionally ignored here; that filter
+  // only applies to the megamenu (/catalog/occasions endpoint).
+  //
+  // Two sources are merged so an occasion shows up even if it was only tagged
+  // on products (e.g. "kateb-kitab") without being added to the OS occasions
+  // catalog endpoint. The dedicated catalog endpoint takes precedence for image
+  // and name when both sources have the same slug.
+  // Best-effort icon map for known OS-only slugs; unmapped ones fall back to "star".
+  const OS_OCCASION_ICONS: Record<string, string> = {
+    "mothers-day": "flower-2",
+    "fathers-day": "user",
+    "valentines-day": "heart",
+    "womens-day": "sparkles",
+    christmas: "gift",
+    "new-year": "party-popper",
+    "national-day": "star",
+    "katb-kitab": "ring",
+  };
+  const hardcodedSlugs = new Set(occasions.map((o) => o.id));
+  // Merge: dedicated OS occasions catalog wins over product-tag occasions for
+  // the same slug. Start with product-tag occasions as the base, then overwrite
+  // with dedicated catalog entries.
+  const osProductOccasions = getOsProductOccasions();
+  const allOsOccasions = new Map<string, OSProductOccasion>(osProductOccasions);
+  for (const osOcc of osOccasions ?? []) {
+    allOsOccasions.set(osOcc.slug, osOcc);
+  }
+  for (const osOcc of allOsOccasions.values()) {
+    if (!hardcodedSlugs.has(osOcc.slug)) {
+      mergedOccasions.push({
+        id: osOcc.slug,
+        name: osOcc.name,
+        icon: OS_OCCASION_ICONS[osOcc.slug] ?? "star",
+        description: undefined,
+        image: osOcc.image ? { uri: `/api/catalog/occasion-image/${osOcc.id}` } : null,
+        count: occasionCountMap.get(osOcc.slug) ?? 0,
+      });
+    }
+  }
 
   // Prefer raw catalog-attribute brands so that active brands with zero products
   // are still surfaced (the product-count filter in getOsBrands() removes them).

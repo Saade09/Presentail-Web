@@ -185,6 +185,8 @@ const EN = {
   occ_love_romance_desc: "Romantic roses, eternal blooms and decadent bundles.",
   occ_farewell_desc: "Send a tender goodbye with our most heartfelt arrangements.",
   occ_condolences_desc: "White and pastel arrangements to express quiet sympathy.",
+  occ_ramadan: "Ramadan", // no-translate — proper noun, identical in EN and FR
+  occ_ramadan_desc: "Celebrate the holy month with premium dates, sweets and elegant arrangements.",
 
   // Category names
 
@@ -1049,6 +1051,8 @@ const AR: typeof EN = {
   occ_love_romance_desc: "ورود رومانسية وأزهار أبدية وحزم شهية.",
   occ_farewell_desc: "أرسل وداعاً حنوناً بأكثر ترتيباتنا صدقاً.",
   occ_condolences_desc: "ترتيبات بيضاء وباستيل للتعبير عن تعاطف هادئ.",
+  occ_ramadan: "رمضان",
+  occ_ramadan_desc: "احتفل بالشهر الكريم بتمور وحلويات فاخرة وترتيبات أنيقة.",
 
   // Category names
 
@@ -1907,6 +1911,8 @@ const FR: typeof EN = {
   occ_love_romance_desc: "Roses romantiques, fleurs éternelles et coffrets gourmands.",
   occ_farewell_desc: "Envoyez un adieu tendre avec nos compositions les plus sincères.",
   occ_condolences_desc: "Compositions blanches et pastel pour exprimer une sympathie discrète.",
+  occ_ramadan: "Ramadan", // no-translate — proper noun, same as EN
+  occ_ramadan_desc: "Célébrez le mois sacré avec des dattes, des douceurs et des compositions élégantes.",
 
   // Category names
 

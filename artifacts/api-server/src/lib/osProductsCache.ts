@@ -158,6 +158,15 @@ let cachedBrandNameToCanonicalSlug: Map<string, string> = new Map();
  */
 let cachedCategoryProductCounts: Map<string, number> = new Map();
 let cachedOccasionProductCounts: Map<string, number> = new Map();
+/**
+ * Unique OSProductOccasion objects collected from product tags across all
+ * stores, keyed by slug. Populated in the same post-fetch loop that builds
+ * cachedOccasionProductCounts. Used by /catalog/metadata to surface occasions
+ * that are tagged on products but not yet listed in the OS occasions catalog
+ * endpoint (e.g. occasions created via product tagging before the OS admin
+ * adds them to the occasions catalog).
+ */
+let cachedProductOccasions: Map<string, OSProductOccasion> = new Map();
 
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
@@ -387,6 +396,7 @@ export function __resetBrandFilterStateForTest(): void {
   cachedBrandNameToCanonicalSlug = new Map();
   cachedCategoryProductCounts = new Map();
   cachedOccasionProductCounts = new Map();
+  cachedProductOccasions = new Map();
 }
 
 /**
@@ -1005,6 +1015,9 @@ async function fetchAndStore(): Promise<void> {
           }
           for (const o of p.occasions ?? []) {
             occasionCounts.set(o.slug, (occasionCounts.get(o.slug) ?? 0) + 1);
+            if (!cachedProductOccasions.has(o.slug)) {
+              cachedProductOccasions.set(o.slug, o);
+            }
           }
         }
       }
@@ -1207,6 +1220,16 @@ export function getOsCategoryProductCounts(): ReadonlyMap<string, number> {
  */
 export function getOsOccasionProductCounts(): ReadonlyMap<string, number> {
   return cachedOccasionProductCounts;
+}
+
+/**
+ * Returns unique OSProductOccasion objects collected from product tags across
+ * all stores. Supplements getOsOccasions() to surface occasions that are
+ * tagged on products but not yet in the OS occasions catalog endpoint.
+ * Empty map until the product cache is warm.
+ */
+export function getOsProductOccasions(): ReadonlyMap<string, OSProductOccasion> {
+  return cachedProductOccasions;
 }
 
 /**

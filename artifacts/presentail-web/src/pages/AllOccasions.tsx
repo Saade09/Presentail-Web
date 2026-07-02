@@ -1,4 +1,5 @@
 import { useCatalogMetadata } from "@/lib/queries";
+import { catalogAssetUrl } from "@/lib/catalogAssets";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -97,7 +98,7 @@ interface OccasionCardProps {
 function OccasionCard({ occasion, index }: OccasionCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const Icon = getIcon(occasion.icon ?? "");
-  const photoUri = !imgFailed ? (occasion.image?.uri ?? null) : null;
+  const photoUri = !imgFailed ? catalogAssetUrl(occasion.image ?? undefined) : null;
 
   return (
     <motion.div
