@@ -186,24 +186,52 @@ function buildFeedData(
     const rawDesc = product.description ? stripHtml(product.description) : "";
     const description = (rawDesc || product.name).slice(0, 5000);
 
-    const price = convertPrice(product.price, currency);
+    // Resolve the base (regular) price in USD.
+    // Prefer OS-native regular_price when present and valid; fall back to product.price.
+    const regularPriceRaw = product.regular_price ? parseFloat(product.regular_price) : NaN;
+    const hasRegularPrice = !isNaN(regularPriceRaw) && regularPriceRaw > 0;
+    const basePriceUsd = hasRegularPrice ? regularPriceRaw : product.price;
 
-    // Sale price — currency units must match for the validity check.
-    // discount_price_aed is already in AED (not USD); discount_price_usd is in USD.
-    // product.price is always in USD.
+    const price = convertPrice(basePriceUsd, currency);
+
+    // Sale price resolution — mirrors mapOsProductToWcShape priority order:
+    //   1. OS-native sale_price (explicit field, USD), if valid and < regular_price.
+    //   2. product.price (WC active selling price), if < regular_price — handles the
+    //      common case where the OS omits sale_price but already sets price=sale price.
+    //   3. AED-native discount_price_aed (legacy, AED feed only).
+    //   4. Legacy discount_price_usd (USD, converted to feed currency).
     let salePrice: string | null = null;
-    if (currency === "AED" && product.discount_price_aed) {
-      // AED discount: compare against the AED-equivalent base price (both in AED).
-      const discountAed = parseFloat(product.discount_price_aed);
-      const baseAed = product.price * (USD_RATE["AED"] ?? 1);
-      if (!isNaN(discountAed) && discountAed > 0 && discountAed < baseAed) {
-        salePrice = `${discountAed.toFixed(2)} AED`;
+
+    if (hasRegularPrice) {
+      // Try explicit sale_price field first.
+      if (product.sale_price) {
+        const salePriceUsd = parseFloat(product.sale_price);
+        if (!isNaN(salePriceUsd) && salePriceUsd > 0 && salePriceUsd < regularPriceRaw) {
+          salePrice = convertPrice(salePriceUsd, currency);
+        }
       }
-    } else if (product.discount_price_usd) {
-      // USD discount: compare against the USD base price, then convert to feed currency.
-      const discountUsd = parseFloat(product.discount_price_usd);
-      if (!isNaN(discountUsd) && discountUsd > 0 && discountUsd < product.price) {
-        salePrice = convertPrice(discountUsd, currency);
+      // Fall back to product.price when it is lower than regular_price.
+      if (salePrice === null && product.price > 0 && product.price < regularPriceRaw) {
+        salePrice = convertPrice(product.price, currency);
+      }
+    }
+
+    // Paths 3 & 4: legacy discount fields — used when regular_price is absent
+    // OR when it was present but yielded no valid sale price.
+    if (salePrice === null) {
+      if (currency === "AED" && product.discount_price_aed) {
+        // AED-native discount price — compare against the AED-equivalent base price.
+        const discountAed = parseFloat(product.discount_price_aed);
+        const baseAed = basePriceUsd * (USD_RATE["AED"] ?? 1);
+        if (!isNaN(discountAed) && discountAed > 0 && discountAed < baseAed) {
+          salePrice = `${discountAed.toFixed(2)} AED`;
+        }
+      } else if (product.discount_price_usd) {
+        // Legacy USD discount — compare against the USD base price, then convert.
+        const discountUsd = parseFloat(product.discount_price_usd);
+        if (!isNaN(discountUsd) && discountUsd > 0 && discountUsd < basePriceUsd) {
+          salePrice = convertPrice(discountUsd, currency);
+        }
       }
     }
 

@@ -166,32 +166,60 @@ type OSProductLike = {
   inStock: boolean;
   discount_price_usd?: string | null;
   discount_price_aed?: string | null;
+  regular_price?: string | null;
+  sale_price?: string | null;
 };
+
+function parseDiscountField(raw: string | null | undefined): number | null {
+  if (raw == null || raw === "" || raw === "0") return null;
+  const n = parseFloat(raw);
+  return isFinite(n) && n > 0 ? n : null;
+}
 
 function formatProduct(product: OSProductLike) {
   const firstImage = product.images?.[0];
   const imageUri = firstImage?.url ?? firstImage?.src ?? undefined;
   const categorySlug =
     (product.categories?.[0]?.slug ?? product.categories?.[0]?.id) ?? "";
-  const discountPriceValue = product.discount_price_usd
-    ? parseFloat(product.discount_price_usd)
-    : null;
-  const discountPriceAed = product.discount_price_aed
-    ? parseFloat(product.discount_price_aed)
-    : null;
+
+  // Prefer OS-native regular_price / sale_price pair over legacy discount fields.
+  // regular_price is the crossed-out "was" price; the active sale price is resolved as:
+  //   1. sale_price (explicit field), if valid and < regular_price
+  //   2. product.price (WC active selling price), if < regular_price
+  //   3. No discount (no sale active)
+  // When regular_price is absent, fall back to legacy discount_price_usd.
+  const regularPriceValue = parseDiscountField(product.regular_price);
+  const salePriceField = parseDiscountField(product.sale_price);
+
+  const priceValue =
+    regularPriceValue != null && regularPriceValue > 0 ? regularPriceValue : product.price;
+
+  let discountPriceValue: number | null;
+  if (regularPriceValue != null && regularPriceValue > 0) {
+    if (salePriceField != null && salePriceField > 0 && salePriceField < regularPriceValue) {
+      discountPriceValue = salePriceField;
+    } else if (product.price > 0 && product.price < regularPriceValue) {
+      discountPriceValue = product.price;
+    } else {
+      discountPriceValue = null;
+    }
+  } else {
+    discountPriceValue = parseDiscountField(product.discount_price_usd);
+  }
+
+  const discountPriceAed = parseDiscountField(product.discount_price_aed);
+
   return {
     slug: product.id,
     id: product.id,
     name: product.name,
-    price: product.price,
-    priceValue: product.price,
+    price: priceValue,
+    priceValue,
     category: categorySlug,
     inStock: product.inStock,
     images: imageUri ? [{ uri: imageUri }] : [],
-    discountPriceValue: isNaN(discountPriceValue ?? NaN)
-      ? null
-      : discountPriceValue,
-    discountPriceAed: isNaN(discountPriceAed ?? NaN) ? null : discountPriceAed,
+    discountPriceValue,
+    discountPriceAed,
   };
 }
 

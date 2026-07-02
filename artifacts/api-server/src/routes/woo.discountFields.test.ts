@@ -298,3 +298,134 @@ describe("discount fields — full pipeline (OS → WcShape → transformed)", (
     expect(result.discountPriceAed).toBeNull();
   });
 });
+
+// ── sale_price / regular_price — mapOsProductToWcShape ────────────────────────
+
+describe("mapOsProductToWcShape — sale_price / regular_price fields", () => {
+  it("uses regular_price as the base price and sale_price as the discount when both are valid and sale < regular", () => {
+    const p = makeOsProduct({ price: 15, regular_price: "25", sale_price: "15" });
+    const wc = mapOsProductToWcShape(p);
+    // Base price (crossed-out) should be regular_price, not p.price
+    expect(parseFloat(wc.price ?? "")).toBe(25);
+    expect(wc.discountPriceValue).toBe(15);
+  });
+
+  it("sale_price absent, p.price === regular_price → no discount (no actual sale active)", () => {
+    // Default makeOsProduct price = 25; regular_price = 25 means no reduction
+    const p = makeOsProduct({ price: 25, regular_price: "25", sale_price: undefined });
+    const wc = mapOsProductToWcShape(p);
+    expect(wc.discountPriceValue).toBeNull();
+    expect(parseFloat(wc.price ?? "")).toBe(25);
+  });
+
+  it("sale_price absent, p.price < regular_price → p.price used as discount (WC active price)", () => {
+    // When regular_price is set, legacy discount_price_usd is NOT used; p.price is authoritative
+    const p = makeOsProduct({ price: 18, regular_price: "25", sale_price: undefined, discount_price_usd: "18" });
+    const wc = mapOsProductToWcShape(p);
+    // p.price (18) < regular_price (25): discount is active
+    expect(wc.discountPriceValue).toBe(18);
+    expect(parseFloat(wc.price ?? "")).toBe(25);
+  });
+
+  it("sale_price equal to regular_price → no discount (not a real sale)", () => {
+    const p = makeOsProduct({ price: 25, regular_price: "25", sale_price: "25" });
+    const wc = mapOsProductToWcShape(p);
+    expect(wc.discountPriceValue).toBeNull();
+  });
+
+  it("sale_price greater than regular_price → no discount (invalid sale configuration)", () => {
+    const p = makeOsProduct({ price: 30, regular_price: "25", sale_price: "30" });
+    const wc = mapOsProductToWcShape(p);
+    expect(wc.discountPriceValue).toBeNull();
+  });
+
+  it("sale_price present but regular_price absent → no discount from sale_price path", () => {
+    const p = makeOsProduct({ sale_price: "15", regular_price: undefined });
+    const wc = mapOsProductToWcShape(p);
+    expect(wc.discountPriceValue).toBeNull();
+  });
+
+  it("regular_price '0' is treated as absent (falls back to p.price as base)", () => {
+    const p = makeOsProduct({ price: 25, regular_price: "0", sale_price: "15" });
+    const wc = mapOsProductToWcShape(p);
+    expect(parseFloat(wc.price ?? "")).toBe(25);
+    expect(wc.discountPriceValue).toBeNull();
+  });
+
+  it("sale_price '0' but p.price < regular_price → p.price used as discount", () => {
+    const p = makeOsProduct({ price: 20, regular_price: "25", sale_price: "0" });
+    const wc = mapOsProductToWcShape(p);
+    // sale_price=0 is invalid; p.price=20 < regular_price=25 activates the discount
+    expect(wc.discountPriceValue).toBe(20);
+    expect(parseFloat(wc.price ?? "")).toBe(25);
+  });
+
+  it("p.price < regular_price (no sale_price field) → p.price used as discount", () => {
+    const p = makeOsProduct({ price: 90, regular_price: "130" });
+    const wc = mapOsProductToWcShape(p);
+    expect(parseFloat(wc.price ?? "")).toBe(130);
+    expect(wc.discountPriceValue).toBe(90);
+  });
+
+  it("p.price === regular_price → no discount (price hasn't been reduced)", () => {
+    const p = makeOsProduct({ price: 130, regular_price: "130" });
+    const wc = mapOsProductToWcShape(p);
+    expect(wc.discountPriceValue).toBeNull();
+  });
+});
+
+// ── sale_price / regular_price — full pipeline ────────────────────────────────
+
+describe("sale_price / regular_price — full pipeline (OS → WcShape → transformed)", () => {
+  it("sale + regular prices survive the full pipeline and display correctly", () => {
+    const os = makeOsProduct({ price: 15, regular_price: "25", sale_price: "15" });
+    const wc = mapOsProductToWcShape(os);
+    const result = transformProduct(wc, "$");
+    // priceValue = regular_price (the crossed-out base)
+    expect(result.priceValue).toBe(25);
+    // discountPriceValue = sale_price (shown prominently)
+    expect(result.discountPriceValue).toBe(15);
+  });
+
+  it("sale_price ≥ regular_price → no discount after full pipeline", () => {
+    const os = makeOsProduct({ price: 25, regular_price: "25", sale_price: "25" });
+    const wc = mapOsProductToWcShape(os);
+    const result = transformProduct(wc, "$");
+    expect(result.discountPriceValue).toBeNull();
+  });
+
+  it("regular_price only (no sale_price), p.price < regular_price → p.price is the sale price", () => {
+    const os = makeOsProduct({ price: 25, regular_price: "30" });
+    const wc = mapOsProductToWcShape(os);
+    const result = transformProduct(wc, "$");
+    // regular_price is the crossed-out base; p.price (25) is the active selling price
+    expect(result.priceValue).toBe(30);
+    expect(result.discountPriceValue).toBe(25);
+  });
+
+  it("legacy discount_price_usd still works when sale_price/regular_price are absent", () => {
+    const os = makeOsProduct({ price: 25, discount_price_usd: "18" });
+    const wc = mapOsProductToWcShape(os);
+    const result = transformProduct(wc, "$");
+    expect(result.priceValue).toBe(25);
+    expect(result.discountPriceValue).toBe(18);
+  });
+
+  it("p.price < regular_price (no sale_price) → slash price shown via p.price", () => {
+    const os = makeOsProduct({ price: 90, regular_price: "130" });
+    const wc = mapOsProductToWcShape(os);
+    const result = transformProduct(wc, "$");
+    // regular_price becomes the crossed-out base
+    expect(result.priceValue).toBe(130);
+    // p.price (90) is the active selling price — shown prominently
+    expect(result.discountPriceValue).toBe(90);
+  });
+
+  it("p.price === regular_price → no discount (no sale active)", () => {
+    const os = makeOsProduct({ price: 130, regular_price: "130" });
+    const wc = mapOsProductToWcShape(os);
+    const result = transformProduct(wc, "$");
+    expect(result.priceValue).toBe(130);
+    expect(result.discountPriceValue).toBeNull();
+  });
+});

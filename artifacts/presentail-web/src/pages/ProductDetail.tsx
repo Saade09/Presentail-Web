@@ -10,7 +10,7 @@ import { AddToCartUpsellModal } from "@/components/cart/AddToCartUpsellModal";
 import { useToast } from "@/hooks/use-toast";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useProducts, useCatalogMetadata, useProductAvailability } from "@/lib/queries";
+import { useProducts, useCatalogMetadata, useProductAvailability, useOsProductPricing } from "@/lib/queries";
 import { ProductUnavailableInCity } from "@/components/product/ProductUnavailableInCity";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { useFavorites } from "@/contexts/FavoritesContext";
@@ -85,6 +85,10 @@ export default function ProductDetail() {
   const { data: allData, isLoading } = useProducts(locParams);
   const { data: catalogMetadata } = useCatalogMetadata();
   const product = allData?.products?.find((p) => p.id === slug);
+
+  // The OS list endpoint omits discount pricing. Fetch it from the single-product
+  // endpoint using the numeric OS ID preserved during catalogue normalisation.
+  const { data: osPricing } = useOsProductPricing(product?.osNumericId);
 
   // When the main product lookup comes back empty, check whether the product
   // exists in another city. Only trigger when loading is complete and the
@@ -400,8 +404,8 @@ export default function ProductDetail() {
               price={
                 <SalePrice
                   priceValue={product.priceValue}
-                  discountPriceValue={product.discountPriceValue}
-                  discountPriceAed={product.discountPriceAed}
+                  discountPriceValue={osPricing?.discountPriceUsd ?? product.discountPriceValue}
+                  discountPriceAed={osPricing?.discountPriceAed ?? product.discountPriceAed}
                 />
               }
               taxLabel="TAX Inclusive"

@@ -137,12 +137,38 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     return isFinite(n) && n > 0 ? n : null;
   }
 
+  // Prefer OS-native regular_price / sale_price pair over legacy discount fields.
+  // regular_price is the crossed-out "was" price; the active sale price is resolved as:
+  //   1. sale_price (explicit field), if valid and < regular_price
+  //   2. p.price (WooCommerce always sets `price` = active selling price), if < regular_price
+  //   3. No discount (regular_price == p.price means no actual sale is active)
+  // When regular_price is absent, fall back to legacy discount_price_usd.
+  const regularPriceValue = parseDiscountField(p.regular_price);
+  const salePriceField = parseDiscountField(p.sale_price);
+
+  const basePrice =
+    regularPriceValue != null && regularPriceValue > 0 ? regularPriceValue : p.price;
+
+  let discountPriceValue: number | null;
+  if (regularPriceValue != null && regularPriceValue > 0) {
+    if (salePriceField != null && salePriceField > 0 && salePriceField < regularPriceValue) {
+      discountPriceValue = salePriceField;
+    } else if (p.price > 0 && p.price < regularPriceValue) {
+      // p.price is the WooCommerce active selling price — already the discounted price
+      discountPriceValue = p.price;
+    } else {
+      discountPriceValue = null;
+    }
+  } else {
+    discountPriceValue = parseDiscountField(p.discount_price_usd);
+  }
+
   return {
     id: p.wcId ?? 0,
     // p.id is the slug (normalised by fetchOsProducts in lib/presentail-os).
     slug: p.id,
     name: decodeHtmlEntities(p.name),
-    price: String(p.price),
+    price: String(basePrice),
     short_description: p.description,
     stock_status: p.inStock ? "instock" : "outofstock",
     featured: p.featured ?? false,
@@ -154,7 +180,7 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     meta_data: meta,
     brandNames: p.brands.map((b) => decodeHtmlEntities(b.name)),
     hasInputField: p.hasInputField ?? false,
-    discountPriceValue: parseDiscountField(p.discount_price_usd),
+    discountPriceValue,
     discountPriceAed: parseDiscountField(p.discount_price_aed),
   };
 }

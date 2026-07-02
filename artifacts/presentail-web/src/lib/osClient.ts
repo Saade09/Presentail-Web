@@ -62,9 +62,7 @@ function nameToSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-type NormalisedProduct = OSProduct & { _rawNumericId: number | string };
-
-function normaliseProduct(raw: RawOsProduct): NormalisedProduct {
+function normaliseProduct(raw: RawOsProduct): OSProduct {
   const id = raw.slug ?? nameToSlug(raw.name);
   // The OS API returns category data under `catalog_categories`, not `categories`.
   const categories = raw.catalog_categories ?? raw.categories ?? [];
@@ -75,23 +73,57 @@ function normaliseProduct(raw: RawOsProduct): NormalisedProduct {
     categories,
     brands,
     id,
-    _rawNumericId: raw.id,
+    // Preserve the raw numeric DB PK so callers can fetch single-product
+    // endpoints (which expose discount_price_usd / discount_price_aed).
+    osNumericId: raw.id,
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
   };
 }
 
-function deduplicateSlugs(products: NormalisedProduct[]): OSProduct[] {
+function deduplicateSlugs(products: OSProduct[]): OSProduct[] {
   const counts = new Map<string, number>();
   for (const p of products) {
     counts.set(p.id, (counts.get(p.id) ?? 0) + 1);
   }
   return products.map((p) => {
-    const { _rawNumericId, ...rest } = p as NormalisedProduct & Record<string, unknown>;
     if ((counts.get(p.id) ?? 0) > 1) {
-      return { ...(rest as OSProduct), id: `${p.id}--${_rawNumericId}` };
+      return { ...p, id: `${p.id}--${p.osNumericId}` };
     }
-    return rest as OSProduct;
+    return p;
   });
+}
+
+/** Shape returned by the OS single-product endpoint. */
+type OsProductDetail = {
+  product?: {
+    discount_price_usd?: string | number | null;
+    discount_price_aed?: string | number | null;
+    [key: string]: unknown;
+  };
+};
+
+function parseOsPrice(v: unknown): number | null {
+  if (v == null || v === "" || v === "0") return null;
+  const n = parseFloat(String(v));
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Fetch discount pricing for a single OS product by its numeric DB ID.
+ * The list endpoint omits discount_price_usd/aed; this single-product call
+ * fills in those fields so the product detail page can show the slash price.
+ */
+export async function fetchOsProductPricing(
+  osId: number | string,
+): Promise<{ discountPriceUsd: number | null; discountPriceAed: number | null }> {
+  const res = await fetch(osUrl(`/api/products/${osId}`), { headers: osHeaders() });
+  if (!res.ok) throw new Error(`OS product detail returned HTTP ${res.status}`);
+  const body = (await res.json()) as OsProductDetail;
+  const p = body.product ?? {};
+  return {
+    discountPriceUsd: parseOsPrice(p.discount_price_usd),
+    discountPriceAed: parseOsPrice(p.discount_price_aed),
+  };
 }
 
 /**
@@ -134,7 +166,7 @@ export async function fetchOsProducts(opts: {
     }),
   );
 
-  const all: NormalisedProduct[] = [...normalisedFirst];
+  const all: OSProduct[] = [...normalisedFirst];
   for (const res of remaining) {
     if (!res.ok) break;
     const body = (await res.json()) as RawOsProductsPage;

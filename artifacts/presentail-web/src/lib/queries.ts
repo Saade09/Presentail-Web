@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
-import { fetchOsProducts } from "./osClient";
+import { fetchOsProducts, fetchOsProductPricing } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
 import { readAttribution } from "./attribution";
 
@@ -36,6 +36,8 @@ async function getOsBrandAllowlist(): Promise<Set<string> | null> {
 // Types matching the backend shape
 export type Product = {
   id: string; // slug
+  /** Numeric OS DB primary key. Used to fetch single-product pricing data. */
+  osNumericId?: number | string;
   wcId: number;
   name: string;
   price: string;
@@ -664,6 +666,22 @@ export const useProductAvailability = (
     enabled: options?.enabled !== false && !!slug,
     staleTime: 5 * 60 * 1000,
     retry: false,
+  });
+};
+
+/**
+ * Fetches discount pricing for a single OS product from the single-product
+ * endpoint, which includes discount_price_usd / discount_price_aed that the
+ * list endpoint omits. Returns null values when no discount is set.
+ * Pass `undefined` to skip the fetch (e.g. while the product is still loading).
+ */
+export const useOsProductPricing = (osNumericId: number | string | undefined) => {
+  return useQuery({
+    queryKey: ["os-product-pricing", osNumericId ?? ""],
+    queryFn: () => fetchOsProductPricing(osNumericId!),
+    enabled: osNumericId != null,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 };
 

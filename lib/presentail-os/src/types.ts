@@ -178,6 +178,23 @@ export type OSProduct = {
   /** Discounted price in AED. Use directly for AED shoppers when available. */
   discount_price_aed?: string | null;
   /**
+   * The original (non-discounted) price in USD as set in the OS admin.
+   * When present and valid (> 0), this is the crossed-out "was" price shown
+   * alongside `sale_price`. Takes precedence over `discount_price_usd` /
+   * `discount_price_aed` for determining the base price to display.
+   * Absent means no OS-native regular/sale price pair is configured.
+   */
+  regular_price?: string | null;
+  /**
+   * The active sale price in USD as set in the OS admin.
+   * Only meaningful when `regular_price` is also present and valid.
+   * When `sale_price` < `regular_price` (both valid), it is used as
+   * `discountPriceValue` (shown prominently) and `regular_price` becomes the
+   * crossed-out base price. Falls back to `discount_price_usd` behaviour when
+   * absent or invalid.
+   */
+  sale_price?: string | null;
+  /**
    * When true, a short personalisation note (max 22 chars) can be entered
    * for this product at the time of ordering.
    */

@@ -105,8 +105,7 @@ export function mapOsProduct(p: OSProduct): Product {
     .filter((img) => img.url && img.url.length > 0)
     .map((img) => ({ uri: img.url }));
 
-  const price = p.price;
-  const formattedPrice = `$${price.toLocaleString()}`;
+  const rawPrice = p.price;
 
   function parseDiscountField(raw: string | null | undefined): number | null {
     if (raw == null || raw === "" || raw === "0") return null;
@@ -114,15 +113,44 @@ export function mapOsProduct(p: OSProduct): Product {
     return isFinite(n) && n > 0 ? n : null;
   }
 
-  const discountPriceValue = parseDiscountField(p.discount_price_usd);
+  // Prefer OS-native regular_price / sale_price pair over legacy discount fields.
+  // regular_price is the crossed-out "was" price; the active sale price is resolved as:
+  //   1. sale_price (explicit field), if valid and < regular_price
+  //   2. p.price (WooCommerce always sets `price` = active selling price), if < regular_price
+  //   3. No discount (regular_price == p.price means no actual sale is active)
+  // When regular_price is absent, fall back to legacy discount_price_usd.
+  const regularPriceValue = parseDiscountField(p.regular_price);
+  const salePriceField = parseDiscountField(p.sale_price);
+
+  const priceValue =
+    regularPriceValue != null && regularPriceValue > 0 ? regularPriceValue : rawPrice;
+
+  let discountPriceValue: number | null;
+  if (regularPriceValue != null && regularPriceValue > 0) {
+    if (salePriceField != null && salePriceField > 0 && salePriceField < regularPriceValue) {
+      // Explicit sale_price field
+      discountPriceValue = salePriceField;
+    } else if (rawPrice > 0 && rawPrice < regularPriceValue) {
+      // p.price is already the active (discounted) price — WC sets it automatically
+      discountPriceValue = rawPrice;
+    } else {
+      discountPriceValue = null;
+    }
+  } else {
+    discountPriceValue = parseDiscountField(p.discount_price_usd);
+  }
+
   const discountPriceAed = parseDiscountField(p.discount_price_aed);
+
+  const formattedPrice = `$${priceValue.toLocaleString()}`;
 
   return {
     id: String(p.id),
+    osNumericId: p.osNumericId,
     wcId: p.wcId ?? 0,
     name: decodeHtmlEntities(p.name),
     price: formattedPrice,
-    priceValue: price,
+    priceValue,
     discountPriceValue,
     discountPriceAed,
     image: imageList[0] ?? null,
