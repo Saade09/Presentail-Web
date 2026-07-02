@@ -1,5 +1,6 @@
 import { useCatalogMetadata } from "@/lib/queries";
 import { catalogAssetUrl } from "@/lib/catalogAssets";
+import { buildCatalogImageSrcset } from "@/lib/imageUtils";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -145,13 +146,26 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
       >
         {photoUri ? (
           <span className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden flex-shrink-0">
-            <img
-              src={photoUri}
-              alt={displayName}
-              className="w-full h-full object-cover"
-              loading="lazy"
-              onError={() => setImgFailed(true)}
-            />
+            {(() => {
+              // Occasion circles are 128 px on mobile, 160 px on desktop.
+              // Card srcset (144/288/480w) covers up to 3× the largest slot.
+              const catalogSrcset = buildCatalogImageSrcset(
+                photoUri,
+                "(min-width: 768px) 160px, 128px",
+              );
+              return (
+                <img
+                  src={catalogSrcset?.src ?? photoUri}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  {...(catalogSrcset
+                    ? { srcSet: catalogSrcset.srcset, sizes: catalogSrcset.sizes }
+                    : {})}
+                  onError={() => setImgFailed(true)}
+                />
+              );
+            })()}
           </span>
         ) : (
           <span className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-secondary flex items-center justify-center text-primary group-hover:bg-gold group-hover:text-white transition-colors">

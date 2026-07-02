@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Link } from "wouter";
+import { buildCatalogImageSrcset } from "@/lib/imageUtils";
 import {
   ChevronLeft,
   ChevronRight,
@@ -155,18 +156,36 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
                     style={{ backgroundColor: "#F3F3F3" }}
                   >
                     {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.label}
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        onError={item.fallbackImageUrl ? (e) => {
-                          const img = e.currentTarget;
-                          if (img.src !== item.fallbackImageUrl) {
-                            img.src = item.fallbackImageUrl!;
-                          }
-                        } : undefined}
-                      />
+                      (() => {
+                        // Circular carousel items are 80 px on mobile and 144 px on desktop.
+                        // Card srcset (144/288/480w) covers up to 3.3× the largest slot.
+                        const catalogSrcset = buildCatalogImageSrcset(
+                          item.imageUrl,
+                          "(min-width: 768px) 144px, 80px",
+                        );
+                        return (
+                          <img
+                            src={catalogSrcset?.src ?? item.imageUrl}
+                            alt={item.label}
+                            loading="lazy"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            {...(catalogSrcset
+                              ? { srcSet: catalogSrcset.srcset, sizes: catalogSrcset.sizes }
+                              : {})}
+                            onError={item.fallbackImageUrl ? (e) => {
+                              const img = e.currentTarget;
+                              if (img.src !== item.fallbackImageUrl) {
+                                // Clear srcset/sizes before swapping src so the
+                                // browser uses the fallback URL and ignores the
+                                // stale responsive candidates.
+                                img.srcset = "";
+                                img.sizes = "";
+                                img.src = item.fallbackImageUrl!;
+                              }
+                            } : undefined}
+                          />
+                        );
+                      })()
                     ) : (
                       (() => {
                         const Icon = ICON_FOR_NAME[getHomepageIconName(item.slug, item.label)];
