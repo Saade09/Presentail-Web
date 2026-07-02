@@ -9,7 +9,7 @@
  *   Large text  (≥ 18 pt / ≥ 14 pt bold):  contrast ≥ 3.0:1
  *   Non-text UI components:                contrast ≥ 3.0:1  (SC 1.4.11)
  *
- * Two checks are performed:
+ * Three checks are performed:
  *
  * ── Check 1: rgba text colour on a light background ──────────────────────
  * Detects `color: "rgba(R,G,B,alpha)"` patterns where the base colour is
@@ -18,9 +18,7 @@
  *
  *   Dark threshold:   R ≤ 160 AND G ≤ 160 AND B ≤ 160
  *   Near-white skip:  R ≥ 200 AND G ≥ 200 AND B ≥ 200
- *                     (white-on-dark patterns — background is unknown
- *                      statically; they appear on intentionally dark/tinted
- *                      header backgrounds in this app)
+ *                     (white-on-dark patterns — evaluated by Check 3 below)
  *
  * Examples from the codebase:
  *   rgba(0,0,0,0.35)  → contrast ≈ 2.4:1  ✗  (fails normal text)
@@ -34,6 +32,25 @@
  * Muted tokens tracked: `mutedForeground`, `subtitle`, `subtext`, `muted`.
  * (Full-word match so `mutedForegroundSomething` is not a false positive.)
  *
+ * ── Check 3: white/near-white rgba text on known dark header backgrounds ──
+ * Detects `color: "rgba(R,G,B,alpha)"` patterns where the base colour is
+ * near-white (R ≥ 200 AND G ≥ 200 AND B ≥ 200) and the effective blended
+ * colour falls below 4.5:1 contrast against ANY of the known dark background
+ * colours used in the app's header banners (from constants/colors.ts):
+ *
+ *   teal900  #00414E  (primary header background)
+ *   teal800  #0a5663  (secondary header / gradient)
+ *   charcoal #1A2226  (dark overlay backgrounds)
+ *
+ * The check always uses the WORST-CASE (lowest-contrast) background colour
+ * among the set so that a pattern that passes on the darkest background is
+ * not silently flagged — only patterns that fail on at least one known bg
+ * are reported.  The reported contrast value is from the failing background.
+ *
+ * Examples:
+ *   rgba(255,255,255,0.6) on teal900 → check and flag if contrast < 4.5:1
+ *   rgba(255,255,255,0.9) on teal900 → passes ✓
+ *
  * ── Skipped properties ────────────────────────────────────────────────────
  * Only `color:` is checked.  The following sibling properties are NEVER
  * flagged: backgroundColor, borderColor, tintColor, shadowColor,
@@ -45,6 +62,8 @@
  *   - Disabled / inactive UI elements (WCAG 1.4.3 exception)
  *   - Purely decorative icons / illustrations / loading skeletons
  *   - Hover / press-only states where the resting colour is accessible
+ *   - Large-text / icon-only components where the 3.0:1 threshold applies
+ *     and the blended colour meets that lower bar
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run check-low-contrast-text-mobile
@@ -113,6 +132,28 @@ function contrastOnWhite(r: number, g: number, b: number, a: number): number {
   return contrastRatio(textL, bgL);
 }
 
+/**
+ * Compute the WCAG contrast ratio of an rgba() colour against an arbitrary
+ * solid background colour (bgR, bgG, bgB).  The alpha compositing follows
+ * the standard "source-over" formula.
+ */
+function contrastOnBackground(
+  r: number,
+  g: number,
+  b: number,
+  a: number,
+  bgR: number,
+  bgG: number,
+  bgB: number,
+): number {
+  const blendedR = r * a + bgR * (1 - a);
+  const blendedG = g * a + bgG * (1 - a);
+  const blendedB = b * a + bgB * (1 - a);
+  const textL = relativeLuminance(blendedR, blendedG, blendedB);
+  const bgL = relativeLuminance(bgR, bgG, bgB);
+  return contrastRatio(textL, bgL);
+}
+
 // ── Violation types ────────────────────────────────────────────────────────
 
 interface Violation {
@@ -122,7 +163,9 @@ interface Violation {
   match: string;
   source: string;
   contrast?: number;
-  check: "rgba" | "opacity-token";
+  check: "rgba" | "opacity-token" | "white-on-dark";
+  /** For white-on-dark: the background token name that produced the failure */
+  bgToken?: string;
 }
 
 // ── Check 1: rgba text colour ──────────────────────────────────────────────
@@ -197,7 +240,7 @@ function checkRgbaColors(
       const a = parseFloat(m.groups!.a);
 
       // Skip near-white base colours — these are white/light text on a dark
-      // background and the background colour is unknown statically.
+      // background and are evaluated by Check 3 (checkWhiteOnDark) instead.
       if (r >= 200 && g >= 200 && b >= 200) continue;
 
       // Only flag colours dark enough to plausibly be text on a light bg.
@@ -273,6 +316,79 @@ function checkOpacityWithMutedToken(
   return violations;
 }
 
+// ── Check 3: white/near-white rgba text on known dark backgrounds ──────────
+
+/**
+ * Known dark background colours used in header banners and dark-themed
+ * sections of the app, derived from `artifacts/presentail/constants/colors.ts`.
+ *
+ * Each entry is the solid background colour the text is composited against.
+ * The check evaluates rgba white text against every entry and flags if it
+ * fails WCAG AA (4.5:1) on ANY of them.
+ */
+const KNOWN_DARK_BACKGROUNDS: Array<{ token: string; r: number; g: number; b: number }> = [
+  { token: "teal900 (#00414E)", r: 0,  g: 65, b: 78 },
+  { token: "teal800 (#0a5663)", r: 10, g: 86, b: 99 },
+  { token: "charcoal (#1A2226)", r: 26, g: 34, b: 38 },
+];
+
+function checkWhiteOnDark(
+  lines: string[],
+  filePath: string,
+): Violation[] {
+  const violations: Violation[] = [];
+
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx];
+
+    if (line.includes(ESCAPE_HATCH)) continue;
+    const prevLine = lineIdx > 0 ? lines[lineIdx - 1] : "";
+    if (prevLine.includes(ESCAPE_HATCH)) continue;
+
+    RGBA_TEXT_COLOR_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = RGBA_TEXT_COLOR_RE.exec(line)) !== null) {
+      const linePrefix = line.slice(0, m.index);
+      if (SKIP_BEFORE_PATTERNS.some((re) => re.test(linePrefix))) continue;
+
+      const r = parseInt(m.groups!.r, 10);
+      const g = parseInt(m.groups!.g, 10);
+      const b = parseInt(m.groups!.b, 10);
+      const a = parseFloat(m.groups!.a);
+
+      // Only handle near-white / white colours (the ones skipped by Check 1).
+      if (!(r >= 200 && g >= 200 && b >= 200)) continue;
+
+      // Evaluate the rgba text against each known dark background.
+      // Report only the first failing background (lowest contrast found).
+      let worstContrast = Infinity;
+      let worstToken = "";
+      for (const bg of KNOWN_DARK_BACKGROUNDS) {
+        const contrast = contrastOnBackground(r, g, b, a, bg.r, bg.g, bg.b);
+        if (contrast < worstContrast) {
+          worstContrast = contrast;
+          worstToken = bg.token;
+        }
+      }
+
+      if (worstContrast < WCAG_AA_NORMAL_TEXT) {
+        violations.push({
+          file: filePath,
+          line: lineIdx + 1,
+          col: m.index + 1,
+          match: `rgba(${r},${g},${b},${a})`,
+          source: line.trim(),
+          contrast: worstContrast,
+          check: "white-on-dark",
+          bgToken: worstToken,
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
 // ── File traversal ────────────────────────────────────────────────────────
 
 function collectFiles(dir: string, results: string[]): void {
@@ -293,6 +409,7 @@ function checkFile(filePath: string): Violation[] {
   return [
     ...checkRgbaColors(lines, filePath),
     ...checkOpacityWithMutedToken(lines, filePath),
+    ...checkWhiteOnDark(lines, filePath),
   ];
 }
 
@@ -316,7 +433,7 @@ function run(): void {
     `✗ check-low-contrast-text-mobile: ${allViolations.length} violation(s) found.\n`,
   );
   console.error(
-    "These patterns may push text contrast below WCAG AA (4.5:1) on a white background.",
+    "These patterns may push text contrast below WCAG AA (4.5:1).",
   );
   console.error(
     "Fix by increasing the alpha / removing the opacity modifier, or annotate with",
@@ -325,7 +442,10 @@ function run(): void {
     "  // contrast-ok: <reason>",
   );
   console.error(
-    "if the element is disabled/inactive, purely decorative, or a press-only state.\n",
+    "if the element is disabled/inactive, purely decorative, a press-only state, or a",
+  );
+  console.error(
+    "large-text/icon component where the 3.0:1 non-text threshold applies.\n",
   );
 
   const byFile = new Map<string, Violation[]>();
@@ -341,7 +461,8 @@ function run(): void {
     for (const v of vs) {
       const contrastStr =
         v.contrast !== undefined ? `  contrast ≈ ${v.contrast.toFixed(2)}:1` : "";
-      console.error(`    line ${v.line}:${v.col}  ${v.match}${contrastStr}`);
+      const bgStr = v.bgToken ? `  (on ${v.bgToken})` : "";
+      console.error(`    line ${v.line}:${v.col}  ${v.match}${contrastStr}${bgStr}`);
       console.error(`      ${v.source}`);
     }
     console.error("");
