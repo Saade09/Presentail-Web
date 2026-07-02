@@ -59,11 +59,53 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.loveRomance": { en: "Love & Romance", ar: "الحب والرومانسية" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.housewarming": { en: "Housewarming", ar: "تدشين المنزل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.anniversary": { en: "Anniversary", ar: "ذكرى سنوية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.newJob": { en: "New Job", ar: "وظيفة جديدة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.promotion": { en: "Job Promotion", ar: "ترقية وظيفية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.graduation": { en: "Graduation", ar: "تخرج" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.congratulations": { en: "Congratulations", ar: "تهانٍ" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.thankYou": { en: "Thank You", ar: "شكراً" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.getWellSoon": { en: "Get Well Soon", ar: "الشفاء العاجل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.newborn": { en: "New Born", ar: "مولود جديد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.eid": { en: "Eid Mubarak", ar: "عيد مبارك" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.ramadan": { en: "Ramadan", ar: "رمضان" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.wedding": { en: "Wedding", ar: "زفاف" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.thinkingOfYou": { en: "Thinking of You", ar: "أفكر فيك" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.farewell": { en: "Farewell", ar: "وداع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.colleague": { en: "Colleague", ar: "زميل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.friend": { en: "Friend", ar: "صديق" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.imSorry": { en: "I'm Sorry", ar: "آسف" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.children": { en: "Children", ar: "أطفال" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.valentine": { en: "Valentine's Day", ar: "عيد الحب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.mothersDay": { en: "Mother's Day", ar: "عيد الأم" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.womensDay": { en: "Women's Day", ar: "يوم المرأة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.fathersDay": { en: "Father's Day", ar: "عيد الأب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.christmas": { en: "Christmas", ar: "الكريسماس" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.katbKitab": { en: "Katb Kitab", ar: "كتب كتاب" },
 
@@ -304,9 +346,30 @@ export const shopStringsFr: Record<string, string> = {
 
   "shop.occ.birthday": "Anniversaire",
   "shop.occ.loveRomance": "Amour & Romance",
+  "shop.occ.housewarming": "Pendaison de crémaillère",
+  "shop.occ.anniversary": "Anniversaire de mariage",
+  "shop.occ.newJob": "Nouvel emploi",
+  "shop.occ.promotion": "Promotion",
+  "shop.occ.graduation": "Remise des diplômes",
   "shop.occ.congratulations": "Félicitations",
   "shop.occ.thankYou": "Merci",
+  "shop.occ.getWellSoon": "Prompt rétablissement",
+  "shop.occ.newborn": "Nouveau-né",
+  "shop.occ.eid": "Aïd Moubarak",
+  "shop.occ.ramadan": "Ramadan",
+  "shop.occ.wedding": "Mariage",
+  "shop.occ.thinkingOfYou": "Je pense à toi",
+  "shop.occ.farewell": "Adieu",
   "shop.occ.condolences": "Condoléances",
+  "shop.occ.colleague": "Collègue",
+  "shop.occ.friend": "Ami(e)",
+  "shop.occ.imSorry": "Je suis désolé(e)",
+  "shop.occ.children": "Enfants",
+  "shop.occ.valentine": "Saint-Valentin",
+  "shop.occ.mothersDay": "Fête des Mères",
+  "shop.occ.womensDay": "Journée de la Femme",
+  "shop.occ.fathersDay": "Fête des Pères",
+  "shop.occ.christmas": "Noël",
   "shop.occ.katbKitab": "Katb Kitab",
 
   "shop.bearSize.label": "Taille de l'ours :",

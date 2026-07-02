@@ -95,10 +95,42 @@ interface OccasionCardProps {
   index: number;
 }
 
+const OCCASION_LABEL_KEYS: Record<string, string> = {
+  "birthday": "shop.occ.birthday",
+  "love-romance": "shop.occ.loveRomance",
+  "housewarming": "shop.occ.housewarming",
+  "anniversary": "shop.occ.anniversary",
+  "new-job": "shop.occ.newJob",
+  "promotion": "shop.occ.promotion",
+  "graduation": "shop.occ.graduation",
+  "congratulations": "shop.occ.congratulations",
+  "thank-you": "shop.occ.thankYou",
+  "get-well-soon": "shop.occ.getWellSoon",
+  "newborn": "shop.occ.newborn",
+  "eid": "shop.occ.eid",
+  "ramadan": "shop.occ.ramadan",
+  "wedding": "shop.occ.wedding",
+  "thinking-of-you": "shop.occ.thinkingOfYou",
+  "farewell": "shop.occ.farewell",
+  "condolences": "shop.occ.condolences",
+  "colleague": "shop.occ.colleague",
+  "friend": "shop.occ.friend",
+  "im-sorry": "shop.occ.imSorry",
+  "children": "shop.occ.children",
+  "valentine": "shop.occ.valentine",
+  "mothers-day": "shop.occ.mothersDay",
+  "womens-day": "shop.occ.womensDay",
+  "fathers-day": "shop.occ.fathersDay",
+  "christmas": "shop.occ.christmas",
+};
+
 function OccasionCard({ occasion, index }: OccasionCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
+  const { t } = useLocale();
   const Icon = getIcon(occasion.icon ?? "");
   const photoUri = !imgFailed ? catalogAssetUrl(occasion.image ?? undefined) : null;
+  const labelKey = OCCASION_LABEL_KEYS[occasion.id];
+  const displayName = (labelKey ? t(labelKey, {}) : undefined) || occasion.name;
 
   return (
     <motion.div
@@ -115,7 +147,7 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
           <span className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden flex-shrink-0">
             <img
               src={photoUri}
-              alt={occasion.name}
+              alt={displayName}
               className="w-full h-full object-cover"
               loading="lazy"
               onError={() => setImgFailed(true)}
@@ -127,7 +159,7 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
           </span>
         )}
         <span className="font-serif text-base md:text-lg text-primary leading-snug">
-          {occasion.name}
+          {displayName}
         </span>
       </Link>
     </motion.div>
