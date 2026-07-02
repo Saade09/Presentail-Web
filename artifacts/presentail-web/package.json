@@ -29,6 +29,7 @@
     "check-font-face-declarations": "node scripts/check-font-face-declarations.mjs dist/public",
     "check-stripe-isolation": "node scripts/check-stripe-isolation.mjs dist/public",
     "check-public-image-budget": "node scripts/check-public-image-budget.mjs public",
+    "check-font-budget": "node scripts/check-public-font-budget.mjs src/fonts",
     "check-contact-title-length": "node scripts/check-contact-title-length.mjs",
     "check-seo-title-length": "node scripts/check-seo-title-length.mjs",
     "check-static-entity-title-lengths": "node scripts/check-static-entity-title-lengths.mjs",

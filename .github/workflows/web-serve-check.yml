@@ -39,6 +39,9 @@ jobs:
       - name: Check public/ image budget (per-format; blog WebP-only ≤300 kB)
         run: pnpm --filter @workspace/presentail-web run check-public-image-budget
 
+      - name: Check src/fonts/ woff2 budget (latin ≤30 kB, roboto-400 ≤50 kB, arabic ≤60 kB)
+        run: pnpm --filter @workspace/presentail-web run check-font-budget
+
       - name: Check blog hero responsive variants are present (480w/768w)
         run: pnpm --filter @workspace/presentail-web run check-blog-hero-variants
 
