@@ -12,8 +12,49 @@ import {
   occasions,
 } from "@workspace/catalog-data";
 import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories } from "../lib/osProductsCache";
+import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
 
 const router: IRouter = Router();
+
+// ── Shared LRU image cache ─────────────────────────────────────────────────
+// Bounded in-memory LRU cache shared across all catalog image proxy endpoints.
+// Max 300 entries or ~75 MB total (catalog images can be larger than product
+// thumbnails so we allocate a slightly bigger pool than imgProxy.ts).
+
+type CacheEntry = { data: Buffer; contentType: string; size: number };
+
+const CACHE_MAX_ENTRIES = 300;
+const CACHE_MAX_BYTES = 75 * 1024 * 1024;
+const catalogImageCache = new Map<string, CacheEntry>();
+let catalogCacheBytes = 0;
+
+function catalogCacheGet(key: string): CacheEntry | undefined {
+  const entry = catalogImageCache.get(key);
+  if (!entry) return undefined;
+  catalogImageCache.delete(key);
+  catalogImageCache.set(key, entry);
+  return entry;
+}
+
+function catalogCacheSet(key: string, entry: CacheEntry): void {
+  if (catalogImageCache.has(key)) {
+    const old = catalogImageCache.get(key)!;
+    catalogCacheBytes -= old.size;
+    catalogImageCache.delete(key);
+  }
+  while (
+    catalogImageCache.size >= CACHE_MAX_ENTRIES ||
+    catalogCacheBytes + entry.size > CACHE_MAX_BYTES
+  ) {
+    const firstKey = catalogImageCache.keys().next().value;
+    if (firstKey === undefined) break;
+    const evicted = catalogImageCache.get(firstKey)!;
+    catalogCacheBytes -= evicted.size;
+    catalogImageCache.delete(firstKey);
+  }
+  catalogImageCache.set(key, entry);
+  catalogCacheBytes += entry.size;
+}
 
 // ── Brand image proxy ─────────────────────────────────────────────────────────
 
@@ -42,20 +83,50 @@ router.get("/catalog/brand-image/:filename", async (req, res) => {
     res.status(503).json({ error: "OS API key not configured" });
     return;
   }
+
+  const width = resolveWidth(typeof req.query.w === "string" ? req.query.w : undefined);
+  const format = resolveFormat(typeof req.query.f === "string" ? req.query.f : undefined);
+  const quality = resolveQuality(typeof req.query.q === "string" ? req.query.q : undefined);
+  const cacheKey = `brand|${filename}|${width}|${format}|${quality}`;
+
+  const cached = catalogCacheGet(cacheKey);
+  if (cached) {
+    res.setHeader("Content-Type", cached.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "HIT"); // i18n-ignore
+    res.send(cached.data);
+    return;
+  }
+
   const upstream = `${OS_BRAND_IMAGE_PREFIX}${filename}`;
   try {
     const upstream_res = await fetch(upstream, {
       headers: { "x-api-key": apiKey },
+      signal: AbortSignal.timeout(10_000),
     });
     if (!upstream_res.ok) {
       res.status(upstream_res.status).json({ error: "Upstream error" });
       return;
     }
     const contentType = upstream_res.headers.get("content-type") ?? "image/webp";
-    const buf = await upstream_res.arrayBuffer();
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
-    res.send(Buffer.from(buf));
+    if (!contentType.startsWith("image/")) {
+      res.status(404).json({ error: "Brand image not accessible" });
+      return;
+    }
+    const sourceBuffer = Buffer.from(await upstream_res.arrayBuffer());
+    let result: { data: Buffer; contentType: string };
+    try {
+      result = await transformImage(sourceBuffer, { width, format, quality });
+    } catch (err) {
+      req.log.warn({ err }, "catalog/brand-image: sharp transform failed");
+      res.status(500).end();
+      return;
+    }
+    catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "MISS"); // i18n-ignore
+    res.send(result.data);
   } catch {
     res.status(502).json({ error: "Failed to fetch brand image" });
   }
@@ -78,6 +149,21 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
     res.status(503).json({ error: "OS API key not configured" });
     return;
   }
+
+  const width = resolveWidth(typeof req.query.w === "string" ? req.query.w : undefined);
+  const format = resolveFormat(typeof req.query.f === "string" ? req.query.f : undefined);
+  const quality = resolveQuality(typeof req.query.q === "string" ? req.query.q : undefined);
+  const cacheKey = `occasion|${id}|${width}|${format}|${quality}`;
+
+  const cached = catalogCacheGet(cacheKey);
+  if (cached) {
+    res.setHeader("Content-Type", cached.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "HIT"); // i18n-ignore
+    res.send(cached.data);
+    return;
+  }
+
   const osOccasions = getOsOccasions();
   const occasion = osOccasions?.find((o) => o.id === id);
   // Only use the public-objects URL. The private upload path (/objects/…) returns
@@ -104,10 +190,20 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
       res.status(404).json({ error: "Occasion image not accessible" });
       return;
     }
-    const buf = await upstream_res.arrayBuffer();
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
-    res.send(Buffer.from(buf));
+    const sourceBuffer = Buffer.from(await upstream_res.arrayBuffer());
+    let result: { data: Buffer; contentType: string };
+    try {
+      result = await transformImage(sourceBuffer, { width, format, quality });
+    } catch (err) {
+      req.log.warn({ err }, "catalog/occasion-image: sharp transform failed");
+      res.status(500).end();
+      return;
+    }
+    catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "MISS"); // i18n-ignore
+    res.send(result.data);
   } catch {
     res.status(502).json({ error: "Failed to fetch occasion image" });
   }
@@ -136,6 +232,21 @@ router.get("/catalog/category-image/:id", async (req, res) => {
     res.status(503).json({ error: "OS API key not configured" });
     return;
   }
+
+  const width = resolveWidth(typeof req.query.w === "string" ? req.query.w : undefined);
+  const format = resolveFormat(typeof req.query.f === "string" ? req.query.f : undefined);
+  const quality = resolveQuality(typeof req.query.q === "string" ? req.query.q : undefined);
+  const cacheKey = `category|${id}|${width}|${format}|${quality}`;
+
+  const cached = catalogCacheGet(cacheKey);
+  if (cached) {
+    res.setHeader("Content-Type", cached.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "HIT"); // i18n-ignore
+    res.send(cached.data);
+    return;
+  }
+
   // Primary: look up in the OS categories endpoint cache (keyed by id).
   // Fallback: look up by slug in product-embedded categories for categories
   // that exist in products but haven't appeared in the categories endpoint yet.
@@ -175,10 +286,20 @@ router.get("/catalog/category-image/:id", async (req, res) => {
       res.status(404).json({ error: "Category image not accessible" });
       return;
     }
-    const buf = await upstream_res.arrayBuffer();
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
-    res.send(Buffer.from(buf));
+    const sourceBuffer = Buffer.from(await upstream_res.arrayBuffer());
+    let result: { data: Buffer; contentType: string };
+    try {
+      result = await transformImage(sourceBuffer, { width, format, quality });
+    } catch (err) {
+      req.log.warn({ err }, "catalog/category-image: sharp transform failed");
+      res.status(500).end();
+      return;
+    }
+    catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "MISS"); // i18n-ignore
+    res.send(result.data);
   } catch {
     res.status(502).json({ error: "Failed to fetch category image" });
   }

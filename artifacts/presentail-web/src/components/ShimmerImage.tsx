@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { buildOsImageSrcset } from "@/lib/imageUtils";
+import { buildOsImageSrcset, buildCatalogImageSrcset } from "@/lib/imageUtils";
 
 const loadedUrls = new Set<string>();
 
@@ -27,6 +27,10 @@ interface ShimmerImageProps {
  * When `src` is an OS storage URL and no explicit `srcset` prop is provided,
  * srcset/sizes are auto-derived via `/api/img/proxy` so all existing usages
  * benefit from WebP + responsive sizing without any call-site changes.
+ *
+ * When `src` is a catalog image proxy URL (`/api/catalog/*-image/…`) and no
+ * explicit `srcset` prop is provided, srcset/sizes are auto-derived at 144w,
+ * 288w, and 480w so catalog cards benefit automatically without call-site changes.
  */
 export function ShimmerImage({
   src,
@@ -41,11 +45,13 @@ export function ShimmerImage({
   const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
 
-  // Auto-apply OS image srcset when the caller did not supply one.
+  // Auto-apply srcset when the caller did not supply one.
+  // Priority: explicit prop > OS storage srcset > catalog proxy srcset.
   const osProps = !srcset ? buildOsImageSrcset(src) : null;
-  const resolvedSrc = osProps?.src ?? src;
-  const resolvedSrcset = srcset ?? osProps?.srcset;
-  const resolvedSizes = sizes ?? osProps?.sizes;
+  const catalogProps = !srcset && !osProps ? buildCatalogImageSrcset(src) : null;
+  const resolvedSrc = osProps?.src ?? catalogProps?.src ?? src;
+  const resolvedSrcset = srcset ?? osProps?.srcset ?? catalogProps?.srcset;
+  const resolvedSizes = sizes ?? osProps?.sizes ?? catalogProps?.sizes;
 
   if (failed) {
     return fallback ? <>{fallback}</> : null;

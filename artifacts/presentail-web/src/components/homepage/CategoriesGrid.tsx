@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "@/contexts/LocaleContext";
 import { apiFetch } from "@/lib/api";
 import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
+import { ShimmerImage } from "@/components/ShimmerImage";
 import bouquets from "@/assets/category-bouquets.png";
 import boxes from "@/assets/category-boxes.png";
 import plants from "@/assets/category-plants.png";
@@ -72,11 +73,11 @@ export function CategoriesGrid() {
                   data-testid={`link-category-${item.slug}`}
                 >
                   {imgSrc ? (
-                    <img
+                    <ShimmerImage
                       src={imgSrc}
                       alt={item.name}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      loading="lazy"
+                      className="absolute inset-0 object-cover transition-transform duration-700 group-hover:scale-105"
+                      sizes="(max-width: 768px) 25vw, 300px"
                     />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-secondary to-muted" />

@@ -8,6 +8,7 @@ import {
   useGetCatalogOccasions,
   getGetCatalogOccasionsQueryKey,
 } from "@workspace/api-client-react";
+import { buildCatalogImageSrcset } from "@/lib/imageUtils";
 
 type OccasionItem = {
   key: string;
@@ -36,13 +37,17 @@ function OccasionIcon({
   const [failed, setFailed] = useState(false);
 
   if (img && !failed) {
+    // Occasion icons are rendered at 28–32 CSS px (w-7 h-7 / w-8 h-8).
+    // Serve srcset at 144w (covers 4.5× retina) and 288w (9× — future-proofed).
+    const catalogSrcset = buildCatalogImageSrcset(img, "32px");
     return (
       <img
-        src={img}
+        src={catalogSrcset?.src ?? img}
         alt=""
         className="w-7 h-7 md:w-8 md:h-8 object-contain"
         loading="lazy"
         decoding="async"
+        {...(catalogSrcset ? { srcSet: catalogSrcset.srcset, sizes: "32px" } : {})}
         onError={() => setFailed(true)}
       />
     );

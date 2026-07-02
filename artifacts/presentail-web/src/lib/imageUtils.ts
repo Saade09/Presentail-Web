@@ -5,6 +5,17 @@ const OS_STORAGE_HOST = "os.presentail.com";
 const OS_STORAGE_PATH_PREFIX = "/api/storage/";
 const OS_SRCSET_WIDTHS = [400, 800, 1200] as const;
 
+// Catalog proxy URL path prefixes (relative, served by the API server).
+const CATALOG_IMAGE_PREFIXES = [
+  "/api/catalog/occasion-image/",
+  "/api/catalog/category-image/",
+  "/api/catalog/brand-image/",
+] as const;
+
+// Srcset widths for catalog card images. At 144 CSS px the 2× retina entry
+// (288) covers HiDPI; 480 covers the occasional larger hero-style card.
+const CATALOG_SRCSET_WIDTHS = [144, 288, 480] as const;
+
 /**
  * Given an Unsplash image URL that already contains a `w=` parameter, returns
  * `{ srcset, sizes }` strings suitable for a responsive `<img>` hero banner:
@@ -76,6 +87,14 @@ export function isOsStorageUrl(url: string): boolean {
 }
 
 /**
+ * Returns true when the given URL is a relative catalog image proxy path
+ * (one of the three `/api/catalog/*-image/…` endpoints).
+ */
+export function isCatalogProxyUrl(url: string): boolean {
+  return CATALOG_IMAGE_PREFIXES.some((prefix) => url.startsWith(prefix));
+}
+
+/**
  * Builds the proxy URL for a single OS storage image at the given width.
  * Returns the raw URL unchanged when it is not an OS storage path.
  */
@@ -104,6 +123,31 @@ export function buildOsImageSrcset(
 
   const srcset = OS_SRCSET_WIDTHS.map((w) => `${buildOsProxyUrl(url, w)} ${w}w`).join(", ");
   const src = buildOsProxyUrl(url, 800);
+
+  return { srcset, sizes, src };
+}
+
+/**
+ * Given a catalog image proxy URL (`/api/catalog/occasion-image/…`,
+ * `/api/catalog/category-image/…`, or `/api/catalog/brand-image/…`), returns
+ * `{ srcset, sizes, src }` for a responsive `<img>` element:
+ *
+ * - `srcset`: three entries at 144w, 288w, 480w appending `?w=…&f=webp`.
+ * - `sizes`: caller-supplied or the default card hint.
+ * - `src`: the 288w proxy URL (decent retina fallback for non-srcset consumers).
+ *
+ * Returns `null` for any URL that is not a recognized catalog proxy path.
+ */
+export function buildCatalogImageSrcset(
+  url: string,
+  sizes = "(max-width: 768px) 25vw, 300px",
+): { srcset: string; sizes: string; src: string } | null {
+  if (!isCatalogProxyUrl(url)) return null;
+
+  // Append (or replace) w and f params. The base URL may already contain a
+  // trailing slash — we append query params directly.
+  const srcset = CATALOG_SRCSET_WIDTHS.map((w) => `${url}?w=${w}&f=webp ${w}w`).join(", ");
+  const src = `${url}?w=288&f=webp`;
 
   return { srcset, sizes, src };
 }

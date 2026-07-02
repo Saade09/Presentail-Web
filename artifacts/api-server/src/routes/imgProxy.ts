@@ -1,5 +1,5 @@
 import { Router } from "express";
-import sharp from "sharp";
+import { transformImage, resolveWidth, resolveFormat } from "../lib/imageTransform";
 
 const router = Router();
 
@@ -82,12 +82,8 @@ router.get("/img/proxy", async (req, res) => {
     return res.status(400).json({ ok: false, message: "URL not allowed" }); // i18n-ignore
   }
 
-  const rawW = typeof req.query.w === "string" ? parseInt(req.query.w, 10) : NaN;
-  const width = Number.isFinite(rawW) && rawW > 0 ? Math.min(rawW, MAX_WIDTH) : 800;
-
-  const rawF = typeof req.query.f === "string" ? req.query.f : "webp";
-  const format: "webp" | "jpeg" = rawF === "jpeg" ? "jpeg" : "webp";
-  const contentType = format === "jpeg" ? "image/jpeg" : "image/webp";
+  const width = resolveWidth(typeof req.query.w === "string" ? req.query.w : undefined);
+  const format = resolveFormat(typeof req.query.f === "string" ? req.query.f : undefined);
 
   const cacheKey = `${urlParam}|${width}|${format}`;
   const cached = cacheGet(cacheKey);
@@ -121,25 +117,20 @@ router.get("/img/proxy", async (req, res) => {
     return res.status(502).end();
   }
 
-  let transformed: Buffer;
+  let result: { data: Buffer; contentType: string };
   try {
-    const pipeline = sharp(sourceBuffer).resize({ width, withoutEnlargement: true });
-    if (format === "jpeg") {
-      transformed = await pipeline.jpeg({ quality: 82, mozjpeg: true }).toBuffer();
-    } else {
-      transformed = await pipeline.webp({ quality: 82 }).toBuffer();
-    }
+    result = await transformImage(sourceBuffer, { width, format, quality: 82 });
   } catch (err) {
     req.log.warn({ err }, "img-proxy: sharp transform failed");
     return res.status(500).end();
   }
 
-  cacheSet(cacheKey, { data: transformed, contentType, size: transformed.byteLength });
+  cacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
 
-  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Type", result.contentType);
   res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   res.setHeader("X-Cache", "MISS"); // i18n-ignore
-  return res.send(transformed);
+  return res.send(result.data);
 });
 
 export { SRCSET_WIDTHS, MAX_WIDTH };
