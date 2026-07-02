@@ -1,0 +1,144 @@
+Copy/paste this to Replit:
+
+---
+
+The image optimization fix helped a lot. Lighthouse/PageSpeed savings dropped from around **26,963 KiB** to around **1,794 KiB**, which is a big improvement.
+
+Now we need to improve it further and clean up the remaining image delivery issues.
+
+Current remaining issues from PageSpeed:
+
+1. **Category images are still too large for their displayed size**
+   Examples:
+
+   * `/catalog/categories/arabic-sweets.webp`
+   * `/catalog/categories/lux-arrangements.avif`
+   * `/catalog/categories/chocolate.webp`
+   * `/catalog/categories/hand-bouquets.webp`
+   * `/catalog/categories/balloons.webp`
+   * `/catalog/categories/stuffed-animals.webp`
+   * `/catalog/categories/plants.webp`
+   * `/catalog/categories/flower-boxes.avif`
+
+   These are being displayed around **144x144**, but the actual image files are still around **1080x1080** and between **48KB–143KB** each.
+
+   Please create smaller responsive versions for category images too.
+
+2. **Product images are still oversized**
+   Examples:
+
+   * `50 Colorful Balloons Bundle`
+   * `1000 Red Roses Basket`
+   * `Emerald Royale Gift Set`
+
+   These are displayed around **282x282** or **381x282**, but the served images are around **794x796** or **592x592** and still around **50KB–66KB**.
+
+   Please make product cards request smaller optimized image sizes based on their actual display size.
+
+3. **Fix the category image URLs**
+   Right now category images use static URLs like:
+
+```html
+<img
+  alt="Flower Bouquets"
+  loading="lazy"
+  class="w-full h-full object-cover ..."
+  src="/catalog/categories/hand-bouquets.webp"
+/>
+```
+
+Please update category image rendering to use responsive image URLs, similar to:
+
+```html
+<img
+  src="/api/img/proxy?url=/catalog/categories/hand-bouquets.webp&w=288&format=webp&q=78"
+  srcset="
+    /api/img/proxy?url=/catalog/categories/hand-bouquets.webp&w=144&format=webp&q=78 144w,
+    /api/img/proxy?url=/catalog/categories/hand-bouquets.webp&w=288&format=webp&q=78 288w,
+    /api/img/proxy?url=/catalog/categories/hand-bouquets.webp&w=432&format=webp&q=78 432w
+  "
+  sizes="144px"
+  alt="Flower Bouquets"
+  loading="lazy"
+  decoding="async"
+  className="w-full h-full object-cover"
+/>
+```
+
+Or create a cleaner internal helper function if that fits the codebase better.
+
+4. **Fix product card `sizes`**
+   Current product image markup seems too broad:
+
+```html
+sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 800px"
+```
+
+This is probably causing the browser to download larger images than needed.
+
+For product cards in grids, use more accurate sizes. For example:
+
+```html
+sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 282px"
+```
+
+If product cards are usually around 280px wide on desktop, the browser should not be downloading 800px images.
+
+5. **Create reusable frontend image helpers**
+   Please create reusable helpers/components for optimized images so we do not repeat logic everywhere.
+
+Suggested components:
+
+* `OptimizedImage`
+* `OptimizedCategoryImage`
+* `OptimizedProductImage`
+* `OptimizedCatalogCardImage`
+
+Each should automatically generate:
+
+* `src`
+* `srcSet`
+* `sizes`
+* `loading`
+* `decoding`
+* optional `fetchPriority`
+
+6. **Target file sizes**
+   Please aim for:
+
+   * Category thumbnails shown at 144x144: ideally **under 15–25KB**
+   * Product thumbnails shown around 282x282: ideally **under 25–40KB**
+   * No category/card thumbnail should be 100KB+ unless visually necessary.
+
+7. **Improve `/api/img/proxy` behavior**
+   Please confirm the proxy supports:
+
+   * `w`
+   * `h`
+   * `fit=cover`
+   * `format=webp` and ideally `format=avif`
+   * `q`
+   * proper caching
+
+   Add cache headers:
+
+```txt
+Cache-Control: public, max-age=31536000, immutable
+```
+
+Generated image variants should be cached so we do not resize/compress on every request.
+
+8. **Avoid serving 1080x1080 category images to 144x144 containers**
+   This is the main remaining PageSpeed warning. Even if 1080x1080 WebP is smaller than before, it is still unnecessary for small cards.
+
+9. **Validate after changes**
+   After implementation:
+
+   * Run Lighthouse/PageSpeed again on desktop and mobile.
+   * Confirm “Improve image delivery” savings drops as close to zero as possible.
+   * In the Network tab, confirm category card images are no longer 1080x1080.
+   * Confirm product cards are no longer downloading 700–800px images unless actually needed.
+   * Confirm image quality still looks good on retina displays.
+
+Goal:
+We already fixed the biggest issue. Now we need the final optimization pass so PageSpeed no longer flags category/product thumbnails as oversized.
