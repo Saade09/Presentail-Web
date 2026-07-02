@@ -627,19 +627,22 @@ export function MainNavbar() {
             <span {...prefetchProps(loadAccount, loadFavorites)}>
               <AccountDropdown />
             </span>
-          ) : (
+          ) : !isSignInRoute ? (
             <Link
               href="/sign-in"
               aria-label={t("nav.accountAria")}
-              className={isSignInRoute ? "pointer-events-none opacity-30" : undefined}
-              aria-hidden={isSignInRoute ? "true" : undefined}
-              tabIndex={isSignInRoute ? -1 : undefined}
               {...prefetchProps(loadSignIn, loadSignUp)}
             >
               <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")} data-testid="button-account">
                 <User className="!w-[22px] !h-[22px]" />
               </Button>
             </Link>
+          ) : (
+            <span className="opacity-30" inert={true}>
+              <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")} data-testid="button-account">
+                <User className="!w-[22px] !h-[22px]" />
+              </Button>
+            </span>
           )}
 
           <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart, loadCheckout)}>
