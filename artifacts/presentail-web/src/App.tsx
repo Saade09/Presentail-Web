@@ -448,22 +448,23 @@ function AttributionTracker() {
   return null;
 }
 
-// Checkout is intentionally excluded from idle prefetch — it must not appear
-// in the home-page critical waterfall. It is prefetched on hover of the cart
-// icon (see MainNavbar) so it only loads when the user signals intent to check
-// out, not unconditionally on every page load.
+// The following chunks are intentionally excluded from idle prefetch — they
+// must not appear in the home-page critical waterfall on throttled connections.
+// Each is instead prefetched on the user-interaction that signals intent:
+//
+//   • loadCheckout        — cart icon hover (MainNavbar, prefetchProps)
+//   • loadSignIn          — sign-in/account icon hover (MainNavbar, prefetchProps)
+//   • loadSignUp          — sign-in link hover (sign-up is the next likely step)
+//   • loadAccount         — account icon hover (MainNavbar, prefetchProps)
+//   • loadFavorites       — account icon hover (Favorites lives under Account)
+//   • loadBrands          — Brands nav link hover (MainNavbar, prefetchProps)
+//   • loadBrandDetail     — Brands nav link hover (first brand page is likely next)
 const IDLE_PREFETCH = [
   loadHomepageHeader,
   loadFooter,
   loadHome,
   loadShop,
   loadCart,
-  loadSignIn,
-  loadAccount,
-  loadFavorites,
-  loadBrands,
-  loadBrandDetail,
-  loadSignUp,
 ];
 
 function App() {

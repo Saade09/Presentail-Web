@@ -22,6 +22,11 @@ import {
   loadCart,
   loadCheckout,
   loadSignIn,
+  loadSignUp,
+  loadAccount,
+  loadFavorites,
+  loadBrands,
+  loadBrandDetail,
   loadShop,
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
@@ -608,8 +613,20 @@ export function MainNavbar() {
             brandName={activeBrand?.name ?? undefined}
           />
 
+          {/* Brands link (desktop only) — prefetches Brands + BrandDetail on hover/focus */}
+          <Link
+            href="/brands"
+            className="hidden md:inline-flex items-center text-sm font-semibold text-foreground hover:text-primary/80 transition-colors px-2 py-1"
+            data-testid="nav-link-brands"
+            {...prefetchProps(loadBrands, loadBrandDetail)}
+          >
+            {t("nav.brands")}
+          </Link>
+
           {user ? (
-            <AccountDropdown />
+            <span {...prefetchProps(loadAccount, loadFavorites)}>
+              <AccountDropdown />
+            </span>
           ) : (
             <Link
               href="/sign-in"
@@ -617,7 +634,7 @@ export function MainNavbar() {
               className={isSignInRoute ? "pointer-events-none opacity-30" : undefined}
               aria-hidden={isSignInRoute ? "true" : undefined}
               tabIndex={isSignInRoute ? -1 : undefined}
-              {...prefetchProps(loadSignIn)}
+              {...prefetchProps(loadSignIn, loadSignUp)}
             >
               <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")} data-testid="button-account">
                 <User className="!w-[22px] !h-[22px]" />
