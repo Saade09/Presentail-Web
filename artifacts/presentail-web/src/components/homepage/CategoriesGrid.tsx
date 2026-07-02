@@ -5,6 +5,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { apiFetch } from "@/lib/api";
 import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
 import { ShimmerImage } from "@/components/ShimmerImage";
+import { buildCatalogHeroImageSrcset, isCatalogProxyUrl } from "@/lib/imageUtils";
 import bouquets from "@/assets/category-bouquets.png";
 import boxes from "@/assets/category-boxes.png";
 import plants from "@/assets/category-plants.png";
@@ -58,6 +59,10 @@ export function CategoriesGrid() {
             const staticImg = STATIC_FALLBACK_IMAGES[item.slug];
             const imgSrc = item.imageUrl || staticImg || null;
             const spanClass = i === 0 ? "md:col-span-2 md:row-span-2" : "";
+            const heroSrcsetResult =
+              i === 0 && imgSrc && isCatalogProxyUrl(imgSrc)
+                ? buildCatalogHeroImageSrcset(imgSrc, "(max-width: 768px) 25vw, 600px")
+                : null;
             return (
               <motion.div
                 key={item.id}
@@ -74,11 +79,18 @@ export function CategoriesGrid() {
                 >
                   {imgSrc ? (
                     <ShimmerImage
-                      src={imgSrc}
+                      src={heroSrcsetResult?.src ?? imgSrc}
                       alt={item.name}
                       className="absolute inset-0 object-cover transition-transform duration-700 group-hover:scale-105"
                       priority={i === 0}
-                      sizes={i === 0 ? "(max-width: 768px) 25vw, 600px" : "(max-width: 768px) 25vw, 300px"}
+                      srcset={heroSrcsetResult?.srcset}
+                      sizes={
+                        heroSrcsetResult
+                          ? heroSrcsetResult.sizes
+                          : i === 0
+                          ? "(max-width: 768px) 25vw, 600px"
+                          : "(max-width: 768px) 25vw, 300px"
+                      }
                     />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-secondary to-muted" />
