@@ -201,7 +201,7 @@ export function withRouteErrorBoundary<P extends object>(
 
   // Named function (not an inline arrow in JSX) so the React Compiler does
   // not lift it into a module-level _tempN where `routeName` is out of scope.
-  function handleError(error: Error, stackTrace: React.ErrorInfo) {
+  function handleError(error: Error, stackTrace: string) {
     console.error(
       `[RouteErrorBoundary] ${routeName} crashed: ${error.message}`,
       stackTrace,
