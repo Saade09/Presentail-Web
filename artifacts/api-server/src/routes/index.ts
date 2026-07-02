@@ -40,6 +40,7 @@ import couponsRouter from "./coupons";
 import adminPixelDiagnosticsRouter from "./adminPixelDiagnostics";
 import seoQaRouter from "./seoQa";
 import { merchantFeedDebugRouter } from "./merchantFeed";
+import ogImageRouter from "./ogImage";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(couponsRouter);
 router.use(adminPixelDiagnosticsRouter);
 router.use(seoQaRouter);
 router.use(merchantFeedDebugRouter);
+router.use(ogImageRouter);
 
 export default router;

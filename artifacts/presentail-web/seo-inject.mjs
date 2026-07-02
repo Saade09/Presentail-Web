@@ -1754,6 +1754,7 @@ export function buildProductHead({
   cityLabel,
   countryLabel,
   countryCode,
+  ogImageUrl,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const rawDesc =
@@ -1768,7 +1769,11 @@ export function buildProductHead({
   const title = rawName ? seo.title : "Presentail";
   const description =
     seo.description || genericFallbackDescription(lang, "product");
-  const imageUrl =
+  // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
+  // by the API). When provided it takes precedence over the raw product photo
+  // so WhatsApp / iMessage / Slack previews show a Presentail-branded card
+  // rather than a plain product photo.
+  const imageUrl = ogImageUrl ||
     (product.image && typeof product.image.uri === "string" && product.image.uri) ||
     (Array.isArray(product.images) &&
       product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
@@ -1902,6 +1907,10 @@ export function buildProductHead({
     localeBase: locBase,
     imageUrl,
   });
+  // When a pre-generated branded OG image URL is provided use fixed 1200×630
+  // dimensions (no need to probe the URL with a Range request).
+  const effectiveImageWidth = ogImageUrl ? 1200 : imageDimensions?.width;
+  const effectiveImageHeight = ogImageUrl ? 630 : imageDimensions?.height;
   return {
     ...buildEntityHead({
       ogType: "product",
@@ -1909,8 +1918,8 @@ export function buildProductHead({
       description,
       imageUrl,
       imageAlt: rawName || "Presentail product", // i18n-ignore — brand+type label used as OG image alt fallback
-      imageWidth: imageDimensions?.width,
-      imageHeight: imageDimensions?.height,
+      imageWidth: effectiveImageWidth,
+      imageHeight: effectiveImageHeight,
       basePath,
       origin,
       pathname,
@@ -2149,6 +2158,7 @@ export function buildOccasionHead({
   countryLabel,
   productCount,
   items,
+  ogImageUrl,
 }) {
   return buildShopEntityHead({
     entityKind: "occasion",
@@ -2164,6 +2174,7 @@ export function buildOccasionHead({
     countryLabel,
     productCount,
     items,
+    ogImageUrl,
   });
 }
 
@@ -2181,6 +2192,7 @@ function buildShopEntityHead({
   countryLabel,
   productCount,
   items,
+  ogImageUrl,
 }) {
   const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
   const seo =
@@ -2208,8 +2220,10 @@ function buildShopEntityHead({
   // Mark genuinely empty listing pages (zero deliverable products) as
   // noindex so search engines don't surface thin/empty results.
   const robots = seo.robots === "noindex, follow" ? "noindex, follow" : undefined;
-  const imageUrl =
-    typeof entity.image === "string" && entity.image ? entity.image : null;
+  // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
+  // by the API). When provided it takes precedence over the raw entity image.
+  const imageUrl = ogImageUrl ||
+    (typeof entity.image === "string" && entity.image ? entity.image : null);
   // BreadcrumbList + ItemList JSON-LD, emitted together in one @graph block.
   // Breadcrumb: Home > {City} > {Category/Occasion}. "Home" is the site root,
   // "{City}" is the locale/city homepage; the city crumb is dropped when no
@@ -2229,6 +2243,10 @@ function buildShopEntityHead({
   }
   const extraLines = [jsonLdGraphTag(graphNodes)];
   const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
+  // When a pre-generated branded OG image URL is provided use fixed 1200×630
+  // dimensions (no need to probe the URL with a Range request).
+  const effectiveImageWidth = ogImageUrl ? 1200 : imageDimensions?.width;
+  const effectiveImageHeight = ogImageUrl ? 630 : imageDimensions?.height;
   return {
     ...buildEntityHead({
       ogType: "website",
@@ -2236,8 +2254,8 @@ function buildShopEntityHead({
       description,
       imageUrl,
       imageAlt: rawName || altText,
-      imageWidth: imageDimensions?.width,
-      imageHeight: imageDimensions?.height,
+      imageWidth: effectiveImageWidth,
+      imageHeight: effectiveImageHeight,
       basePath,
       origin,
       pathname,
@@ -2391,15 +2409,22 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         if (product.inStock === false) {
           return assembleHtml(html, generic);
         }
-        const bareImageUrl =
-          (product.image && typeof product.image.uri === "string" && product.image.uri) ||
-          (Array.isArray(product.images) &&
-            product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
-          null;
-        const bareImageDims = await fetchImageDimensions(bareImageUrl);
+        const barePublicOrigin = (rest.origin ?? "").replace(/\/$/, "");
+        const bareProductOgImageUrl = barePublicOrigin
+          ? `${barePublicOrigin}/api/og-image/product/${encodeURIComponent(bareProductSlug)}`
+          : null;
+        const bareImageDims = bareProductOgImageUrl
+          ? null
+          : await fetchImageDimensions(
+              (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+              (Array.isArray(product.images) &&
+                product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+              null,
+            );
         const result = buildProductHead({
           product,
           imageDimensions: bareImageDims,
+          ogImageUrl: bareProductOgImageUrl,
           lang: bareProductLang,
           basePath: rest.basePath ?? "",
           origin: rest.origin ?? "",
@@ -2536,6 +2561,12 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     countryCode,
   };
 
+  // Base public origin used to build OG image API URLs. The og:image tag must
+  // contain an absolute URL accessible to crawlers (WhatsApp, iMessage, Slack,
+  // etc.), so we use the request origin (e.g. https://presentail.com) plus the
+  // /api/og-image/* path that the reverse proxy routes to the API server.
+  const publicOrigin = (rest.origin ?? "").replace(/\/$/, "");
+
   let result = null;
   if (productSlug) {
     const product = await fetchEntityForSeoCached("product", fetchProductForSeo, {
@@ -2548,13 +2579,28 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       if (product.inStock === false) {
         return assembleHtml(html, generic);
       }
-      const productImageUrl =
-        (product.image && typeof product.image.uri === "string" && product.image.uri) ||
-        (Array.isArray(product.images) &&
-          product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
-        null;
-      const productImageDims = await fetchImageDimensions(productImageUrl);
-      result = buildProductHead({ product, imageDimensions: productImageDims, ...headOpts });
+      // Use the branded per-product OG image (generated on demand by the API
+      // server) instead of the raw product photo. This gives WhatsApp / iMessage
+      // / Slack a 1200×630 card with the product name and Presentail branding.
+      // If publicOrigin is empty (e.g. in unit tests), fall back to probing the
+      // raw product image URL.
+      const productOgImageUrl = publicOrigin
+        ? `${publicOrigin}/api/og-image/product/${encodeURIComponent(productSlug)}`
+        : null;
+      const productImageDims = productOgImageUrl
+        ? null // dimensions are always 1200×630 — no probe needed
+        : await fetchImageDimensions(
+            (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+            (Array.isArray(product.images) &&
+              product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+            null,
+          );
+      result = buildProductHead({
+        product,
+        imageDimensions: productImageDims,
+        ogImageUrl: productOgImageUrl,
+        ...headOpts,
+      });
     }
   } else if (brandSlug) {
     const brand = await fetchEntityForSeoCached("brand", fetchBrandForSeo, {
@@ -2596,8 +2642,16 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       ...fetchOpts,
     });
     if (occasion) {
-      const occImageUrl = typeof occasion.image === "string" && occasion.image ? occasion.image : null;
-      const occImageDims = await fetchImageDimensions(occImageUrl);
+      // Use the branded per-occasion OG image (generated on demand by the API
+      // server) instead of the raw occasion photo.
+      const occasionOgImageUrl = publicOrigin
+        ? `${publicOrigin}/api/og-image/occasion/${encodeURIComponent(occasionSlug)}`
+        : null;
+      const occImageDims = occasionOgImageUrl
+        ? null // dimensions are always 1200×630 — no probe needed
+        : await fetchImageDimensions(
+            typeof occasion.image === "string" && occasion.image ? occasion.image : null,
+          );
       const listing = await fetchListingProductsForSeo({
         kind: "occasion",
         slug: occasionSlug,
@@ -2607,6 +2661,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       result = buildOccasionHead({
         occasion,
         imageDimensions: occImageDims,
+        ogImageUrl: occasionOgImageUrl,
         search: "",
         productCount: listing?.count,
         items: listing?.items ?? [],
