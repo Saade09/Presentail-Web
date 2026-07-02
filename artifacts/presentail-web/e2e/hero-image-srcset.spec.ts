@@ -204,7 +204,123 @@ test.describe("Occasion hero image srcset", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Brand hero — /brand/<slug>
+// 2. Category hero — /category/<slug>
+// ---------------------------------------------------------------------------
+
+test.describe("Category hero image srcset", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubCurrencyAndGeo(page);
+
+    // Catalog metadata: category "hand-bouquets" has a catalog proxy image URI.
+    // buildCatalogHeroImageSrcset() recognises this prefix and generates srcset.
+    await page.route(/\/api\/catalog\/metadata/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          categories: [
+            {
+              id: "hand-bouquets",
+              name: "Hand Bouquets",
+              slug: "hand-bouquets",
+              image: { uri: "/api/catalog/category-image/hand-bouquets" },
+            },
+          ],
+          occasions: [],
+          brands: [],
+        }),
+      }),
+    );
+
+    // Products fallback — any product list is fine; the hero renders regardless.
+    await page.route("**/api/woo/products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, products: [] }),
+      }),
+    );
+
+    // OS direct-fetch path (if VITE_OS_API_KEY is set in the test env).
+    await page.route("**/os.presentail.com/api/products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [], totalPages: 1 }),
+      }),
+    );
+
+    // Brand allowlist — 404 means no filtering applied.
+    await page.route("**/api/catalog/brand-allowlist", (route) =>
+      route.fulfill({ status: 404, body: "" }),
+    );
+
+    // Stub the catalog image proxy so ShimmerImage's onError never fires.
+    await page.route("**/api/catalog/category-image/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: Buffer.from(TINY_PNG_B64, "base64"),
+      }),
+    );
+
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/category/hand-bouquets");
+  });
+
+  test("hero <img> has a non-empty srcset containing ?w=1200", async ({
+    page,
+  }) => {
+    const heroBanner = page
+      .locator("div.rounded-2xl.overflow-hidden")
+      .filter({ has: page.locator('img[srcset*="category-image"]') })
+      .first();
+
+    await expect(heroBanner).toBeVisible({ timeout: 15_000 });
+
+    const heroImg = heroBanner.locator("img").first();
+    await expect(heroImg).toBeAttached({ timeout: 10_000 });
+
+    const srcset = await heroImg.getAttribute("srcset");
+    expect(srcset).toBeTruthy();
+    expect(srcset).toContain("?w=1200");
+  });
+
+  test("hero srcset does NOT contain a raw URL without ?w= param", async ({
+    page,
+  }) => {
+    const heroImg = page
+      .locator('img[srcset*="category-image"]')
+      .first();
+
+    await expect(heroImg).toBeAttached({ timeout: 15_000 });
+
+    const srcset = await heroImg.getAttribute("srcset");
+    expect(srcset).toBeTruthy();
+
+    const entries = (srcset ?? "").split(",").map((e) => e.trim());
+    for (const entry of entries) {
+      expect(entry).toContain("?w=");
+    }
+  });
+
+  test("hero srcset contains the 800w and 1600w entries too", async ({
+    page,
+  }) => {
+    const heroImg = page
+      .locator('img[srcset*="category-image"]')
+      .first();
+
+    await expect(heroImg).toBeAttached({ timeout: 15_000 });
+
+    const srcset = await heroImg.getAttribute("srcset");
+    expect(srcset).toContain("?w=800");
+    expect(srcset).toContain("?w=1600");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. Brand hero — /brand/<slug>
 // ---------------------------------------------------------------------------
 
 /**
