@@ -66,7 +66,7 @@ const ER_API_CURRENCIES: SupportedCurrency[] = ["CAD", "AUD", "CHF"];
 // OS-sourced currencies (AED, EUR, GBP, QAR, SAR) are used as-is — no markup.
 // The fallback rates for CAD/AUD/CHF are pre-multiplied by 1.03 so the fallback
 // path is consistent with the live-rate path.
-const FALLBACK_RATES: Record<SupportedCurrency, number> = {
+export const FALLBACK_RATES: Record<SupportedCurrency, number> = {
   USD: 1,
   AED: 3.673,
   EUR: 0.92,
@@ -326,6 +326,19 @@ export function toStripeMinorUnits(
   currency: SupportedCurrency,
 ): number {
   return sharedToStripeMinorUnits(convertedAmount, currency);
+}
+
+/** @internal — test use only. Resets the module-level rate cache and counters. */
+export function __resetFxForTest(): void {
+  cache = {
+    base: "USD",
+    rates: { ...FALLBACK_RATES },
+    fetchedAt: 0,
+    source: "fallback",
+  };
+  inflight = null;
+  lastLiveAt = 0;
+  consecutiveFailures = 0;
 }
 
 // PayPal supports a fixed list of presentment currencies. Anything outside
