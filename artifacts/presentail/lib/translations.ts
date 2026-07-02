@@ -940,7 +940,6 @@ const EN = {
   deliveryUnableToLoad: "Unable to load delivery locations",
   deliveryRetry: "Retry",
   onboardingSelectCountry: "Select country of delivery",
-  onboardingSelectCity: "Select city of delivery",
   onboardingContinue: "Continue",
   onboardingContinueTo: "Continue to [[flag]] [[city]]",
 
@@ -1834,7 +1833,6 @@ const AR: typeof EN = {
   deliveryUnableToLoad: "تعذّر تحميل مواقع التوصيل",
   deliveryRetry: "إعادة المحاولة",
   onboardingSelectCountry: "اختر بلد التوصيل",
-  onboardingSelectCity: "اختر مدينة التوصيل",
   onboardingContinue: "متابعة",
   onboardingContinueTo: "متابعة إلى [[flag]] [[city]]",
 
@@ -2731,7 +2729,6 @@ const FR: typeof EN = {
   deliveryUnableToLoad: "Impossible de charger les lieux de livraison",
   deliveryRetry: "Réessayer",
   onboardingSelectCountry: "Sélectionnez le pays de livraison",
-  onboardingSelectCity: "Sélectionnez la ville de livraison",
   onboardingContinue: "Continuer",
   onboardingContinueTo: "Continuer vers [[flag]] [[city]]",
 

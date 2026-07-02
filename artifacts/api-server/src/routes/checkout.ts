@@ -156,7 +156,7 @@ router.post("/checkout/session", async (req, res) => {
       // description must be set on the underlying PaymentIntent via
       // payment_intent_data — SessionCreateParams has no top-level description.
       payment_intent_data: {
-        description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`,
+        description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`, // i18n-ignore
       },
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       success_url: successUrl,
@@ -541,7 +541,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       // card without enumerating them explicitly, and automatically surfaces any
       // future wallet methods Stripe adds to the account.
       automatic_payment_methods: { enabled: true },
-      description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`,
+      description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`, // i18n-ignore
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       ...(email ? { receipt_email: email } : {}),
       // Attach Stripe Customer when the shopper is authenticated.

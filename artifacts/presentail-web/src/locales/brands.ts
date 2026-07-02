@@ -3,7 +3,6 @@ import type { Dict } from "./types";
 export const brandsStrings: Dict = {
   "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },
   "brands.desc": { en: "Discover our curated selection of luxury gifting brands, from artisan chocolatiers to premium florists.", ar: "اكتشف مجموعتنا المنتقاة من علامات الهدايا الفاخرة، من صنّاع الشوكولاتة الحرفيين إلى أرقى محلات الزهور." },
-  "brands.products": { en: "products", ar: "منتجات" },
   "brand.backToBrands": { en: "Back to Brands", ar: "العودة إلى العلامات" },
   "brand.descPrefix": { en: "Explore the complete collection from {name}.", ar: "استكشف المجموعة الكاملة من {name}." },
   "brand.empty.titleCountry": { en: "No products available in {country}", ar: "لا توجد منتجات متاحة في {country}" },
@@ -16,7 +15,6 @@ export const brandsStrings: Dict = {
 export const brandsStringsFr: Record<string, string> = {
   "brandsPage.title": "Nos marques partenaires",
   "brands.desc": "Découvrez notre sélection de marques de cadeaux de luxe, des chocolatiers artisans aux fleuristes premium.",
-  "brands.products": "produits",
   "brand.backToBrands": "Retour aux marques",
   "brand.descPrefix": "Explorez la collection complète de {name}.",
   "brand.empty.titleCountry": "Aucun produit disponible en {country}",

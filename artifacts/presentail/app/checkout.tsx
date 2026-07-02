@@ -572,7 +572,7 @@ function CheckoutScreen() {
     : selectedCity?.slotsByDay && Object.keys(selectedCity.slotsByDay).length > 0
       ? Object.values(selectedCity.slotsByDay as Record<string, TimeSlot[]>)
           .flat()
-          .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i)
+          .filter((s, i, arr) => arr.findIndex((slot) => slot.cutoffHour === s.cutoffHour) === i)
       : timeSlotsForCountry(effectiveCountry)) as TimeSlot[];
   // Express availability: when OS explicitly configures the city, honour the
   // OS flag and cutoff hour. Otherwise fall back to the hardcoded 8 AM–10 PM

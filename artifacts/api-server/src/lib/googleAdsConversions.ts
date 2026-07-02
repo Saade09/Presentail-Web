@@ -264,8 +264,8 @@ export async function uploadGoogleAdsConversion(
       await sendAlert({
         title: "Google Ads conversion upload — partial failure", // i18n-ignore
         body:
-          `Order ${params.appOrderId}: the Google Ads Conversions API reported a partial failure. ` +
-          `Check that the conversion action ID and click IDs are valid. Details: ${errStr}`,
+          `Order ${params.appOrderId}: the Google Ads Conversions API reported a partial failure. ` + // i18n-ignore
+          `Check that the conversion action ID and click IDs are valid. Details: ${errStr}`, // i18n-ignore
         severity: "warn",
         fields: [
           { title: "appOrderId", value: params.appOrderId }, // i18n-ignore
@@ -296,8 +296,8 @@ export async function uploadGoogleAdsConversion(
     await sendAlert({
       title: "Google Ads conversion upload failed", // i18n-ignore
       body:
-        `Order ${params.appOrderId}: failed to upload click conversion to Google Ads Conversions API. ` +
-        `Attribution data may be lost for this order. Error: ${message.slice(0, 200)}`,
+        `Order ${params.appOrderId}: failed to upload click conversion to Google Ads Conversions API. ` + // i18n-ignore
+        `Attribution data may be lost for this order. Error: ${message.slice(0, 200)}`, // i18n-ignore
       severity: "warn",
       fields: [
         { title: "appOrderId", value: params.appOrderId }, // i18n-ignore
