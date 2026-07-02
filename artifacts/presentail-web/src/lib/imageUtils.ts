@@ -181,3 +181,34 @@ export function buildCatalogHeroImageSrcset(
 
   return { srcset, sizes, src };
 }
+
+/**
+ * Default sizes hint for the first-card hero in the CategoriesGrid layout.
+ * Kept here so the component and tests share a single source of truth, and a
+ * future layout change only needs to be updated in one place.
+ */
+export const CATEGORY_CARD_HERO_SIZES = "(max-width: 768px) 25vw, 600px";
+
+/**
+ * Resolves the srcset result for the first (hero) category card in
+ * CategoriesGrid. Branches on URL type:
+ *
+ * - catalog proxy path  → `buildCatalogHeroImageSrcset` (800w/1200w/1600w WebP)
+ * - OS storage URL      → `buildOsImageSrcset` (400w/800w/1200w via img proxy)
+ * - static asset / other → `null` (no srcset; raw `src` is used as-is)
+ *
+ * A sizes override can be passed when the layout changes so callers don't have
+ * to duplicate the branching logic.
+ */
+export function buildCategoryHeroSrcset(
+  imgSrc: string,
+  sizes = CATEGORY_CARD_HERO_SIZES,
+): { srcset: string; sizes: string; src: string } | null {
+  if (isCatalogProxyUrl(imgSrc)) {
+    return buildCatalogHeroImageSrcset(imgSrc, sizes);
+  }
+  if (isOsStorageUrl(imgSrc)) {
+    return buildOsImageSrcset(imgSrc, sizes);
+  }
+  return null;
+}

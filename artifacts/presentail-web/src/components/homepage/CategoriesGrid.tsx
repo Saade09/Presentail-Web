@@ -5,7 +5,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { apiFetch } from "@/lib/api";
 import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
 import { ShimmerImage } from "@/components/ShimmerImage";
-import { buildCatalogHeroImageSrcset, buildOsImageSrcset, isCatalogProxyUrl, isOsStorageUrl } from "@/lib/imageUtils";
+import { buildCategoryHeroSrcset, CATEGORY_CARD_HERO_SIZES } from "@/lib/imageUtils";
 import bouquets from "@/assets/category-bouquets.png";
 import boxes from "@/assets/category-boxes.png";
 import plants from "@/assets/category-plants.png";
@@ -59,15 +59,8 @@ export function CategoriesGrid() {
             const staticImg = STATIC_FALLBACK_IMAGES[item.slug];
             const imgSrc = item.imageUrl || staticImg || null;
             const spanClass = i === 0 ? "md:col-span-2 md:row-span-2" : "";
-            const HERO_SIZES = "(max-width: 768px) 25vw, 600px";
             const heroSrcsetResult =
-              i === 0 && imgSrc
-                ? isCatalogProxyUrl(imgSrc)
-                  ? buildCatalogHeroImageSrcset(imgSrc, HERO_SIZES)
-                  : isOsStorageUrl(imgSrc)
-                  ? buildOsImageSrcset(imgSrc, HERO_SIZES)
-                  : null
-                : null;
+              i === 0 && imgSrc ? buildCategoryHeroSrcset(imgSrc, CATEGORY_CARD_HERO_SIZES) : null;
             return (
               <motion.div
                 key={item.id}
