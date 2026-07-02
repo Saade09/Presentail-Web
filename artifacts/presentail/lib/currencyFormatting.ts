@@ -5,15 +5,18 @@
  * shared with any non-React code that needs price formatting.
  */
 
+import { roundToNearestFive } from "@workspace/display-currency";
+
 import type { Currency } from "@workspace/catalog-data";
 
 /**
- * Convert a USD amount into the given currency.
+ * Convert a USD amount into the given currency, rounded to the nearest 5
+ * (or nearest 500 for LBP, or nearest cent for USD).
  * Returns 0 for non-finite / non-numeric inputs.
  */
 export function convertCurrency(currency: Currency, usdValue: number): number {
   const v = Number(usdValue) || 0;
-  return v * currency.rate;
+  return roundToNearestFive(v * currency.rate, currency.code);
 }
 
 /**

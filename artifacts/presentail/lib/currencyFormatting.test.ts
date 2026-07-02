@@ -15,6 +15,8 @@ import { CURRENCIES, getCurrency } from "@workspace/catalog-data";
 
 import { applyFxRates } from "../data/currencies";
 
+import { roundToNearestFive } from "@workspace/display-currency";
+
 import {
   convertCurrency,
   formatCurrencyPrice,
@@ -79,22 +81,22 @@ describe("UAE / AED (rate ≈ 3.673, spaceBetween + left symbol)", () => {
     expect(result).toMatch(/^AED \d{3}/);
   });
 
-  it("formatCurrencyPrice(100) produces the expected 'AED 367' (static rate)", () => {
-    // Rate 3.673 × 100 = 367.3 → rounds to 367
-    expect(formatCurrencyPrice(aed, 100)).toBe("AED 367");
+  it("formatCurrencyPrice(100) produces the expected 'AED 365' (static rate, nearest-5 rounded)", () => {
+    // Rate 3.673 × 100 = 367.3 → roundToNearestFive → 365
+    expect(formatCurrencyPrice(aed, 100)).toBe("AED 365");
   });
 
-  it("formatCurrencyPrice(50) → 'AED 184'", () => {
-    // 3.673 × 50 = 183.65 → rounds to 184
-    expect(formatCurrencyPrice(aed, 50)).toBe("AED 184");
+  it("formatCurrencyPrice(50) → 'AED 185'", () => {
+    // 3.673 × 50 = 183.65 → roundToNearestFive → 185
+    expect(formatCurrencyPrice(aed, 50)).toBe("AED 185");
   });
 
   it("formatCurrencyPrice(0) → 'AED 0'", () => {
     expect(formatCurrencyPrice(aed, 0)).toBe("AED 0");
   });
 
-  it("convertCurrency(100) ≈ 367", () => {
-    expect(Math.round(convertCurrency(aed, 100))).toBe(367);
+  it("convertCurrency(100) → 365 (nearest-5 rounded)", () => {
+    expect(convertCurrency(aed, 100)).toBe(365);
   });
 
   it("formatNativeAmount(367) → 'AED 367' (already in AED, no further conversion)", () => {
@@ -134,21 +136,21 @@ describe("Cyprus / EUR (rate ≈ 0.855, spaceBetween + left symbol)", () => {
     expect(numeric).toBeLessThan(100);
   });
 
-  it("formatCurrencyPrice(100) produces '€ 86' (static rate 0.855 × 100 = 85.5 → rounds to 86)", () => {
-    expect(formatCurrencyPrice(eur, 100)).toBe("€ 86");
+  it("formatCurrencyPrice(100) produces '€ 85' (static rate 0.855 × 100 = 85.5 → roundToNearestFive → 85)", () => {
+    expect(formatCurrencyPrice(eur, 100)).toBe("€ 85");
   });
 
-  it("formatCurrencyPrice(50) → '€ 43'", () => {
-    // 0.855 × 50 = 42.75 → rounds to 43
-    expect(formatCurrencyPrice(eur, 50)).toBe("€ 43");
+  it("formatCurrencyPrice(50) → '€ 45'", () => {
+    // 0.855 × 50 = 42.75 → roundToNearestFive → 45
+    expect(formatCurrencyPrice(eur, 50)).toBe("€ 45");
   });
 
   it("formatCurrencyPrice(0) → '€ 0'", () => {
     expect(formatCurrencyPrice(eur, 0)).toBe("€ 0");
   });
 
-  it("convertCurrency(100) ≈ 86", () => {
-    expect(Math.round(convertCurrency(eur, 100))).toBe(86);
+  it("convertCurrency(100) → 85 (nearest-5 rounded)", () => {
+    expect(convertCurrency(eur, 100)).toBe(85);
   });
 
   it("formatNativeAmount(86) → '€ 86'", () => {
@@ -275,7 +277,7 @@ describe("applyFxRates", () => {
     applyFxRates({ AED: 0 });
     const aed = getCurrency("AED");
     expect(formatCurrencyPrice(aed, 100)).toBe(
-      `AED ${Math.round(staticRate * 100)}`,
+      `AED ${roundToNearestFive(staticRate * 100, "AED")}`,
     );
   });
 });
