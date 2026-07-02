@@ -16,6 +16,11 @@ const CATALOG_IMAGE_PREFIXES = [
 // (288) covers HiDPI; 480 covers the occasional larger hero-style card.
 const CATALOG_SRCSET_WIDTHS = [144, 288, 480] as const;
 
+// Srcset widths for catalog hero images (brand cover, occasion/category banner).
+// 800 covers narrow viewports (≤768 px); 1200 covers desktop up to the 1280 px
+// content cap; 1600 serves 2× retina desktop displays.
+const CATALOG_HERO_SRCSET_WIDTHS = [800, 1200, 1600] as const;
+
 /**
  * Given an Unsplash image URL that already contains a `w=` parameter, returns
  * `{ srcset, sizes }` strings suitable for a responsive `<img>` hero banner:
@@ -148,6 +153,31 @@ export function buildCatalogImageSrcset(
   // trailing slash — we append query params directly.
   const srcset = CATALOG_SRCSET_WIDTHS.map((w) => `${url}?w=${w}&f=webp ${w}w`).join(", ");
   const src = `${url}?w=288&f=webp`;
+
+  return { srcset, sizes, src };
+}
+
+/**
+ * Given a catalog image proxy URL, returns `{ srcset, sizes, src }` optimised
+ * for a full-width page hero (brand cover, occasion/category banner):
+ *
+ * - `srcset`: three entries at 800w, 1200w, 1600w — covers mobile through
+ *   2× retina desktop without serving the un-resized original.
+ * - `sizes`: `(max-width: 1280px) 100vw, 1280px` — matches the hero layout
+ *   where the banner spans the full viewport up to the 1280 px content cap.
+ * - `src`: the 1200w proxy URL as a sensible non-srcset fallback.
+ *
+ * Returns `null` for any URL that is not a recognized catalog proxy path so
+ * callers can fall back to the raw URL or a static asset unchanged.
+ */
+export function buildCatalogHeroImageSrcset(
+  url: string,
+  sizes = "(max-width: 1280px) 100vw, 1280px",
+): { srcset: string; sizes: string; src: string } | null {
+  if (!isCatalogProxyUrl(url)) return null;
+
+  const srcset = CATALOG_HERO_SRCSET_WIDTHS.map((w) => `${url}?w=${w}&f=webp ${w}w`).join(", ");
+  const src = `${url}?w=1200&f=webp`;
 
   return { srcset, sizes, src };
 }

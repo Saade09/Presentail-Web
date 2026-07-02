@@ -24,6 +24,9 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { buildCategorySeo, buildOccasionSeo } from "@/lib/seo";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
+import { ShimmerImage } from "@/components/ShimmerImage";
+import { catalogAssetUrl } from "@/lib/catalogAssets";
+import { buildCatalogHeroImageSrcset } from "@/lib/imageUtils";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { roundToNearestFive } from "@workspace/display-currency";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
@@ -420,6 +423,17 @@ export default function Shop() {
   const categoryLabelKey = CATEGORIES.find((c) => c.slug === category)?.labelKey;
   const occasionLabelKey = OCCASIONS.find((o) => o.slug === occasion)?.labelKey;
 
+  // Hero image for occasion/category detail pages.
+  // Resolved from the catalog metadata image ref; only catalog proxy URLs
+  // benefit from the wider srcset widths via buildCatalogHeroImageSrcset.
+  const heroRef = isOccasionRoute
+    ? catalogOccasion?.image
+    : isCategoryRoute
+      ? catalogCategory?.image
+      : undefined;
+  const heroImgUrl = heroRef ? catalogAssetUrl(heroRef) : null;
+  const heroSrcsetData = heroImgUrl ? buildCatalogHeroImageSrcset(heroImgUrl) : null;
+
   const entityName = category
     ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) || catalogCategory?.name || ""
     : occasion
@@ -516,6 +530,25 @@ export default function Shop() {
           <PageBreadcrumb crumbs={breadcrumbCrumbs} />
         </div>
       )}
+
+      {/* ── Occasion / category hero banner ── */}
+      {heroImgUrl && (isOccasionRoute || isCategoryRoute) && (
+        <div className="container mx-auto max-w-content px-page mt-4 mb-2">
+          <div className="relative rounded-2xl overflow-hidden h-40 md:h-52 bg-secondary/30">
+            <ShimmerImage
+              src={heroSrcsetData?.src ?? heroImgUrl}
+              alt=""
+              containerClassName="absolute inset-0"
+              className="object-cover"
+              srcset={heroSrcsetData?.srcset}
+              sizes={heroSrcsetData?.sizes ?? "(max-width: 1280px) 100vw, 1280px"}
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+          </div>
+        </div>
+      )}
+
       <div className={`container mx-auto max-w-content px-page${breadcrumbCrumbs.length > 0 ? " pt-4" : ""}`}>
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
           <div>

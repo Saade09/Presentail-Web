@@ -10,6 +10,8 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { buildBrandSeo } from "@/lib/seo";
 import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
+import { ShimmerImage } from "@/components/ShimmerImage";
+import { buildCatalogHeroImageSrcset } from "@/lib/imageUtils";
 
 const SEO_ATTR = "data-seo-managed";
 
@@ -78,6 +80,12 @@ export default function BrandDetail() {
   const coverImage = slug ? BRAND_COVER_IMAGES[slug] ?? null : null;
   const hasCover = !!coverImage || !!brand?.image;
 
+  // Compute srcset for the hero cover when the source is a catalog proxy URL.
+  // coverImage is a static local file and won't match; brand!.image is a
+  // /api/catalog/brand-image/… URL that benefits from the wider hero widths.
+  const heroImgSrc = coverImage ?? brand?.image ?? null;
+  const heroSrcsetData = heroImgSrc ? buildCatalogHeroImageSrcset(heroImgSrc) : null;
+
   return (
     <div className="min-h-screen pb-24 bg-background">
       {/* ── Breadcrumb + back link ── */}
@@ -97,13 +105,16 @@ export default function BrandDetail() {
         {hasCover ? (
           /* Wrapper holds the cover + the logo badge (which overflows below cover) */
           <div className="relative pb-9">
-            <div className="rounded-2xl overflow-hidden h-48 md:h-56 bg-secondary/40">
+            <div className="relative rounded-2xl overflow-hidden h-48 md:h-56 bg-secondary/40">
               {/* AI-generated cover image, or blurred logo as fallback */}
-              <img
-                src={coverImage ?? brand!.image!}
+              <ShimmerImage
+                src={heroSrcsetData?.src ?? heroImgSrc ?? ""}
                 alt=""
-                aria-hidden="true"
-                className={`absolute inset-0 w-full h-full object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
+                containerClassName="absolute inset-0"
+                className={`object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
+                srcset={heroSrcsetData?.srcset}
+                sizes={heroSrcsetData?.sizes ?? "(max-width: 1280px) 100vw, 1280px"}
+                priority
               />
               {/* Gradient overlay for depth */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
