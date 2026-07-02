@@ -291,6 +291,62 @@ describe("useServerEvents", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Backoff resets to 5 s after a successful open on the reconnected source
+  // -------------------------------------------------------------------------
+
+  it("resets the backoff to 5 s after an open event fires on the reconnected EventSource", async () => {
+    renderHook(() => useServerEvents(), { wrapper: makeWrapper(queryClient) });
+
+    const first = await advancePastInitialDelay();
+
+    // Error 1 — backoff is 5 s consumed, next backoff is now 10 s.
+    act(() => {
+      first.onerror?.(new Event("error"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    const second = MockEventSource.instances[1];
+
+    // Error 2 on the second connection — backoff (10 s) would be consumed and
+    // next would be 20 s, but first fire an open event to reset it to 5 s.
+    act(() => {
+      second.onerror?.(new Event("error"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(MockEventSource.instances).toHaveLength(3);
+
+    const third = MockEventSource.instances[2];
+
+    // Fire open on the third connection — this must reset the backoff to 5 s.
+    act(() => {
+      third.dispatchEvent(new Event("open"));
+    });
+
+    // Trigger an error on the third connection.  Because open reset the
+    // backoff, the reconnect should fire after exactly 5 s, not 20 s.
+    act(() => {
+      third.onerror?.(new Event("error"));
+    });
+
+    // 4 999 ms — must NOT have reconnected yet.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_999);
+    });
+    expect(MockEventSource.instances).toHaveLength(3);
+
+    // 1 ms more — fires at exactly 5 s, confirming the reset worked.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(MockEventSource.instances).toHaveLength(4);
+  });
+
+  // -------------------------------------------------------------------------
   // Reconnected EventSource has its own locations-updated listener
   // -------------------------------------------------------------------------
 
