@@ -2047,7 +2047,7 @@ function CheckoutForm() {
           <Link href="/" aria-label={t("nav.logoAria")}>
             <Logo height={56} inverse={true} />
           </Link>
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-end sm:justify-center">
             {stepLabels.map((label, i) => {
               const n = i + 1;
               const done = step > n;
