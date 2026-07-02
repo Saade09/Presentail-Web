@@ -77,7 +77,8 @@ export function CategoriesGrid() {
                       src={imgSrc}
                       alt={item.name}
                       className="absolute inset-0 object-cover transition-transform duration-700 group-hover:scale-105"
-                      sizes="(max-width: 768px) 25vw, 300px"
+                      priority={i === 0}
+                      sizes={i === 0 ? "(max-width: 768px) 25vw, 600px" : "(max-width: 768px) 25vw, 300px"}
                     />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-secondary to-muted" />
