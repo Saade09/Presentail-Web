@@ -33,16 +33,16 @@ export function TrustpilotBrandsRow() {
           ? Array(MAX_BRANDS)
               .fill(0)
               .map((_, i) => (
-                <div
-                  key={i}
-                  className="w-24 h-24 rounded-xl bg-muted animate-pulse"
-                />
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <div className="w-24 h-24 rounded-xl bg-muted animate-pulse" />
+                  <div className="h-3 w-16 rounded bg-muted animate-pulse" />
+                </div>
               ))
           : brands.map((brand) => (
               <Link
                 key={brand.id}
                 href={`/brand/${brand.slug}`}
-                className="group flex-shrink-0"
+                className="group flex-shrink-0 flex flex-col items-center gap-2"
                 data-testid={`trustpilot-brand-${brand.slug}`}
                 title={brand.name}
               >
@@ -62,12 +62,15 @@ export function TrustpilotBrandsRow() {
                     />
                   </div>
                 ) : (
-                  <div className="h-24 flex items-center justify-center px-4 group-hover:scale-105 transition-transform duration-300">
-                    <span className="font-serif text-sm text-primary whitespace-nowrap">
+                  <div className="w-24 h-24 flex items-center justify-center px-4 group-hover:scale-105 transition-transform duration-300">
+                    <span className="font-serif text-sm text-primary text-center leading-tight">
                       {brand.name}
                     </span>
                   </div>
                 )}
+                <span className="text-xs text-muted-foreground text-center leading-tight max-w-[6rem] truncate">
+                  {brand.name}
+                </span>
               </Link>
             ))}
       </div>
