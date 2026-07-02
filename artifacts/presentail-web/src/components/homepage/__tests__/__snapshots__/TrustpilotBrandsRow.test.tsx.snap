@@ -1,0 +1,258 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded brands snapshot (text fallback, no images) 1`] = `
+<div
+  class="hidden md:block mt-10"
+>
+  <div
+    class="flex items-center gap-4 mb-6"
+  >
+    <div
+      class="flex-1 h-px bg-border/40"
+    />
+    <span
+      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/60"
+    >
+      brands.featuredEyebrow
+    </span>
+    <div
+      class="flex-1 h-px bg-border/40"
+    />
+  </div>
+  <div
+    class="flex items-center justify-center gap-8 flex-wrap"
+  >
+    <a
+      class="group flex-shrink-0 flex flex-col items-center gap-2"
+      data-testid="trustpilot-brand-brand-1"
+      href="/brand/brand-1"
+      title="Brand 1"
+    >
+      <div
+        class="w-24 h-24 flex items-center justify-center px-4 group-hover:scale-105 transition-transform duration-300"
+      >
+        <span
+          class="font-serif text-sm text-primary text-center leading-tight"
+        >
+          Brand 1
+        </span>
+      </div>
+      <span
+        class="text-xs text-muted-foreground text-center leading-tight max-w-[6rem] truncate"
+      >
+        Brand 1
+      </span>
+    </a>
+    <a
+      class="group flex-shrink-0 flex flex-col items-center gap-2"
+      data-testid="trustpilot-brand-brand-2"
+      href="/brand/brand-2"
+      title="Brand 2"
+    >
+      <div
+        class="w-24 h-24 flex items-center justify-center px-4 group-hover:scale-105 transition-transform duration-300"
+      >
+        <span
+          class="font-serif text-sm text-primary text-center leading-tight"
+        >
+          Brand 2
+        </span>
+      </div>
+      <span
+        class="text-xs text-muted-foreground text-center leading-tight max-w-[6rem] truncate"
+      >
+        Brand 2
+      </span>
+    </a>
+  </div>
+</div>
+`;
+
+exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded brands snapshot (with images) 1`] = `
+<div
+  class="hidden md:block mt-10"
+>
+  <div
+    class="flex items-center gap-4 mb-6"
+  >
+    <div
+      class="flex-1 h-px bg-border/40"
+    />
+    <span
+      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/60"
+    >
+      brands.featuredEyebrow
+    </span>
+    <div
+      class="flex-1 h-px bg-border/40"
+    />
+  </div>
+  <div
+    class="flex items-center justify-center gap-8 flex-wrap"
+  >
+    <a
+      class="group flex-shrink-0 flex flex-col items-center gap-2"
+      data-testid="trustpilot-brand-brand-1"
+      href="/brand/brand-1"
+      title="Brand 1"
+    >
+      <div
+        class="w-24 h-24 rounded-xl overflow-hidden group-hover:scale-105 transition-transform duration-300"
+      >
+        <img
+          alt="Brand 1"
+        />
+      </div>
+      <span
+        class="text-xs text-muted-foreground text-center leading-tight max-w-[6rem] truncate"
+      >
+        Brand 1
+      </span>
+    </a>
+    <a
+      class="group flex-shrink-0 flex flex-col items-center gap-2"
+      data-testid="trustpilot-brand-brand-2"
+      href="/brand/brand-2"
+      title="Brand 2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl overflow-hidden group-hover:scale-105 transition-transform duration-300"
+      >
+        <img
+          alt="Brand 2"
+        />
+      </div>
+      <span
+        class="text-xs text-muted-foreground text-center leading-tight max-w-[6rem] truncate"
+      >
+        Brand 2
+      </span>
+    </a>
+    <a
+      class="group flex-shrink-0 flex flex-col items-center gap-2"
+      data-testid="trustpilot-brand-brand-3"
+      href="/brand/brand-3"
+      title="Brand 3"
+    >
+      <div
+        class="w-24 h-24 rounded-xl overflow-hidden group-hover:scale-105 transition-transform duration-300"
+      >
+        <img
+          alt="Brand 3"
+        />
+      </div>
+      <span
+        class="text-xs text-muted-foreground text-center leading-tight max-w-[6rem] truncate"
+      >
+        Brand 3
+      </span>
+    </a>
+  </div>
+</div>
+`;
+
+exports[`TrustpilotBrandsRow — snapshot (loading state) > matches the loading skeleton snapshot 1`] = `
+<div
+  class="hidden md:block mt-10"
+>
+  <div
+    class="flex items-center gap-4 mb-6"
+  >
+    <div
+      class="flex-1 h-px bg-border/40"
+    />
+    <span
+      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/60"
+    >
+      brands.featuredEyebrow
+    </span>
+    <div
+      class="flex-1 h-px bg-border/40"
+    />
+  </div>
+  <div
+    class="flex items-center justify-center gap-8 flex-wrap"
+  >
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+    <div
+      class="flex flex-col items-center gap-2"
+    >
+      <div
+        class="w-24 h-24 rounded-xl bg-muted animate-pulse"
+      />
+      <div
+        class="h-3 w-16 rounded bg-muted animate-pulse"
+      />
+    </div>
+  </div>
+</div>
+`;
