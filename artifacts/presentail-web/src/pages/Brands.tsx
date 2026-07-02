@@ -1,9 +1,8 @@
-import { useBrands } from "@/lib/queries";
+import { useCatalogMetadata } from "@/lib/queries";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useLocationSelection } from "@/contexts/LocationContext";
 import { useState } from "react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
@@ -63,12 +62,15 @@ function BrandCard({ brand, index }: BrandCardProps) {
 }
 
 export default function Brands() {
-  const { t, language } = useLocale();
-  const { countryCode, cityId } = useLocationSelection();
-  const brandParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
-  if (countryCode) brandParams.countryCode = countryCode;
-  if (cityId) brandParams.cityId = cityId;
-  const { data, isLoading } = useBrands(brandParams);
+  const { t } = useLocale();
+  const { data: catalogMetadata, isLoading } = useCatalogMetadata();
+
+  const brands = [...(catalogMetadata?.brands ?? [])].sort((a, b) => {
+    const aOrder = (a.sort_order ?? null) !== null ? a.sort_order! : Infinity;
+    const bOrder = (b.sort_order ?? null) !== null ? b.sort_order! : Infinity;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return a.name.localeCompare(b.name);
+  });
 
   const breadcrumbCrumbs = [
     { label: t("nav.home"), href: "/" },
@@ -94,10 +96,10 @@ export default function Brands() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {data?.brands.map((brand, i) => (
+            {brands.map((brand, i) => (
               <BrandCard
-                key={brand.id}
-                brand={brand}
+                key={brand.slug}
+                brand={{ id: brand.slug, slug: brand.slug, name: brand.name, image: brand.image, count: brand.count }}
                 index={i}
               />
             ))}
