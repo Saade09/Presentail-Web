@@ -8,15 +8,16 @@ import {
 } from "@workspace/pay-methods";
 
 describe("isPayMethodSupported", () => {
-  it("AED supports Mamo (card flow) and legacy wallet (Mamo-hosted); apple_pay/google_pay excluded", () => {
-    expect(isPayMethodSupported("mamo", "AED")).toBe(true);
-    // Legacy wallet still supports AED (Mamo's hosted checkout exposes Apple/Google Pay)
+  it("AED supports apple_pay, google_pay, card, and legacy wallet via Gulf Stripe account; mamo is disabled", () => {
+    // Mamo is disabled — its currency list is empty
+    expect(isPayMethodSupported("mamo", "AED")).toBe(false);
+    // Legacy wallet still supports AED (Stripe PlatformPay sheet)
     expect(isPayMethodSupported("wallet", "AED")).toBe(true);
     expect(isPayMethodSupported("wallet", "AED", { country: "AE" })).toBe(true);
-    // apple_pay and google_pay go through Stripe's native sheet — AED excluded
-    expect(isPayMethodSupported("apple_pay", "AED")).toBe(false);
-    expect(isPayMethodSupported("google_pay", "AED")).toBe(false);
-    expect(isPayMethodSupported("card", "AED")).toBe(false);
+    // apple_pay, google_pay, and card are enabled for AED via Gulf Stripe account
+    expect(isPayMethodSupported("apple_pay", "AED")).toBe(true);
+    expect(isPayMethodSupported("google_pay", "AED")).toBe(true);
+    expect(isPayMethodSupported("card", "AED")).toBe(true);
     expect(isPayMethodSupported("paypal", "AED")).toBe(false);
     expect(isPayMethodSupported("whish", "AED")).toBe(false);
     expect(isPayMethodSupported("western", "AED")).toBe(false);
@@ -45,12 +46,14 @@ describe("isPayMethodSupported", () => {
     expect(isPayMethodSupported("western", "USD", ctx)).toBe(false);
   });
 
-  it("AED + AE still excludes PayPal, apple_pay, google_pay; enables mamo and legacy wallet", () => {
+  it("AED + AE excludes PayPal and mamo (disabled); apple_pay, google_pay, and legacy wallet enabled", () => {
     const ctx = { country: "AE" };
     expect(isPayMethodSupported("paypal", "AED", ctx)).toBe(false);
-    expect(isPayMethodSupported("apple_pay", "AED", ctx)).toBe(false);
-    expect(isPayMethodSupported("google_pay", "AED", ctx)).toBe(false);
-    expect(isPayMethodSupported("mamo", "AED", ctx)).toBe(true);
+    // apple_pay and google_pay are enabled for AED via Gulf Stripe account
+    expect(isPayMethodSupported("apple_pay", "AED", ctx)).toBe(true);
+    expect(isPayMethodSupported("google_pay", "AED", ctx)).toBe(true);
+    // Mamo is disabled
+    expect(isPayMethodSupported("mamo", "AED", ctx)).toBe(false);
     expect(isPayMethodSupported("wallet", "AED", ctx)).toBe(true);
   });
 
@@ -97,8 +100,8 @@ describe("defaultPayMethodFor", () => {
     expect(defaultPayMethodFor("EUR")).toBe("apple_pay");
   });
 
-  it("falls back to mamo for AED (apple_pay/google_pay/card unavailable)", () => {
-    expect(defaultPayMethodFor("AED")).toBe("mamo");
+  it("defaults to apple_pay for AED (Gulf Stripe account; mamo is disabled)", () => {
+    expect(defaultPayMethodFor("AED")).toBe("apple_pay");
   });
 
   it("returns card as a final safe default for unsupported currencies", () => {
@@ -122,11 +125,14 @@ describe("nextPayMethodForCurrency — currency/country switch transition", () =
   it("falls back to default when the selection becomes incompatible", () => {
     // QAR is not in paypal's supported currencies, so paypal→apple_pay
     expect(nextPayMethodForCurrency("paypal", "QAR")).toBe("apple_pay");
-    expect(nextPayMethodForCurrency("card", "AED")).toBe("mamo");
-    expect(nextPayMethodForCurrency("apple_pay", "AED")).toBe("mamo");
-    expect(nextPayMethodForCurrency("google_pay", "AED")).toBe("mamo");
+    // card/apple_pay/google_pay are compatible with AED (Gulf Stripe account) — preserved
+    expect(nextPayMethodForCurrency("card", "AED")).toBe("card");
+    expect(nextPayMethodForCurrency("apple_pay", "AED")).toBe("apple_pay");
+    expect(nextPayMethodForCurrency("google_pay", "AED")).toBe("google_pay");
+    // mamo is disabled so it has no supported currencies — falls to apple_pay for USD
     expect(nextPayMethodForCurrency("mamo", "USD")).toBe("apple_pay");
-    expect(nextPayMethodForCurrency("whish", "AED")).toBe("mamo");
+    // whish is LB-only and AED has no country, so falls to apple_pay (default for AED)
+    expect(nextPayMethodForCurrency("whish", "AED")).toBe("apple_pay");
   });
 
   it("preserves legacy wallet on AED (routes through Mamo) instead of dropping back to mamo", () => {
@@ -140,9 +146,9 @@ describe("nextPayMethodForCurrency — currency/country switch transition", () =
     expect(nextPayMethodForCurrency("paypal", "USD", { country: "AE" })).toBe(
       "apple_pay",
     );
-    // AED+AE: apple_pay doesn't support AED, so falls back through to mamo
+    // AED+AE: apple_pay supports AED via Gulf Stripe account — falls back to apple_pay
     expect(nextPayMethodForCurrency("paypal", "AED", { country: "AE" })).toBe(
-      "mamo",
+      "apple_pay",
     );
   });
 
@@ -176,13 +182,15 @@ describe("payMethodAvailability — disabled (not hidden) for incompatible", () 
     );
   });
 
-  it("AED enables mamo and legacy wallet; apple_pay/google_pay and other methods disabled", () => {
+  it("AED enables apple_pay, google_pay, card, and legacy wallet; mamo is disabled", () => {
     const av = payMethodAvailability("AED");
-    expect(av.mamo.enabled).toBe(true);
+    // Mamo is disabled (empty currency list)
+    expect(av.mamo.enabled).toBe(false);
     expect(av.wallet.enabled).toBe(true);
-    expect(av.apple_pay.enabled).toBe(false);
-    expect(av.google_pay.enabled).toBe(false);
-    expect(av.card.enabled).toBe(false);
+    // apple_pay/google_pay/card are enabled for AED via Gulf Stripe account
+    expect(av.apple_pay.enabled).toBe(true);
+    expect(av.google_pay.enabled).toBe(true);
+    expect(av.card.enabled).toBe(true);
     expect(av.paypal.enabled).toBe(false);
     expect(av.whish.enabled).toBe(false);
     expect(av.western.enabled).toBe(false);
