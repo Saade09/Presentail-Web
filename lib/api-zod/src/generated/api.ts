@@ -386,6 +386,26 @@ export const GetStuffedAnimalsSizesResponse = zod
   .describe("AI-inferred size classification for stuffed-animals products.");
 
 /**
+ * Returns a map of product ID → gender bucket (boy | girl | neutral)
+for all products in the new-born occasion. Gender is inferred from
+keyword heuristics first (blue/navy/boy → "boy"; pink/rose/girl → "girl";
+everything else → "neutral") with an LLM fallback for ambiguous names.
+Results are cached in-process for 24 hours. Returns 503 when the OS
+product cache has not yet been populated.
+
+ * @summary Get AI-inferred gender classifications for new-born occasion products
+ */
+export const GetNewbornGenderResponse = zod
+  .object({
+    genders: zod
+      .record(zod.string(), zod.enum(["boy", "girl", "neutral"]))
+      .describe("Map of product ID (string) to gender bucket."),
+  })
+  .describe(
+    "AI-inferred gender classification for new-born occasion products.",
+  );
+
+/**
  * Returns up to 4 in-stock products that are most frequently co-purchased
 with the given anchor product slug, derived from real co-purchase data
 in `app_orders`. Only applies to products in the `flowers` or `cakes`

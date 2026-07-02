@@ -104,6 +104,8 @@ export * from "./marketingAttribution";
 export * from "./marketingAttributionConversion";
 export * from "./marketingAttributionFirstTouch";
 export * from "./marketingAttributionLastTouch";
+export * from "./newbornGenderResponse";
+export * from "./newbornGenderResponseGenders";
 export * from "./nextOrderIdRequest";
 export * from "./nextOrderIdResponse";
 export * from "./occasionDeleteResponse";

@@ -63,6 +63,7 @@ import type {
   ListPaymentMethodsResponse,
   LoyaltyAdminResponse,
   LoyaltyMeResponse,
+  NewbornGenderResponse,
   NextOrderIdRequest,
   NextOrderIdResponse,
   OccasionDeleteResponse,
@@ -912,6 +913,88 @@ export function useGetStuffedAnimalsSizes<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStuffedAnimalsSizesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns a map of product ID → gender bucket (boy | girl | neutral)
+for all products in the new-born occasion. Gender is inferred from
+keyword heuristics first (blue/navy/boy → "boy"; pink/rose/girl → "girl";
+everything else → "neutral") with an LLM fallback for ambiguous names.
+Results are cached in-process for 24 hours. Returns 503 when the OS
+product cache has not yet been populated.
+
+ * @summary Get AI-inferred gender classifications for new-born occasion products
+ */
+export const getGetNewbornGenderUrl = () => {
+  return `/api/occasions/new-born/gender`;
+};
+
+export const getNewbornGender = async (
+  options?: RequestInit,
+): Promise<NewbornGenderResponse> => {
+  return customFetch<NewbornGenderResponse>(getGetNewbornGenderUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNewbornGenderQueryKey = () => {
+  return [`/api/occasions/new-born/gender`] as const;
+};
+
+export const getGetNewbornGenderQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNewbornGender>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNewbornGender>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetNewbornGenderQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getNewbornGender>>
+  > = ({ signal }) => getNewbornGender({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNewbornGender>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNewbornGenderQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNewbornGender>>
+>;
+export type GetNewbornGenderQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get AI-inferred gender classifications for new-born occasion products
+ */
+
+export function useGetNewbornGender<
+  TData = Awaited<ReturnType<typeof getNewbornGender>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNewbornGender>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNewbornGenderQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

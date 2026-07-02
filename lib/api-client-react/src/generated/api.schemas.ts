@@ -1515,6 +1515,21 @@ export interface StuffedAnimalsSizesResponse {
   sizes: StuffedAnimalsSizesResponseSizes;
 }
 
+/**
+ * Map of product ID (string) to gender bucket.
+ */
+export type NewbornGenderResponseGenders = {
+  [key: string]: "boy" | "girl" | "neutral";
+};
+
+/**
+ * AI-inferred gender classification for new-born occasion products.
+ */
+export interface NewbornGenderResponse {
+  /** Map of product ID (string) to gender bucket. */
+  genders: NewbornGenderResponseGenders;
+}
+
 export interface NextOrderIdRequest {
   /** ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB. */
   countryCode: string;

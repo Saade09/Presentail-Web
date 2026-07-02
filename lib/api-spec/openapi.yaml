@@ -333,6 +333,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /occasions/new-born/gender:
+    get:
+      operationId: getNewbornGender
+      tags: [occasions]
+      summary: Get AI-inferred gender classifications for new-born occasion products
+      description: |
+        Returns a map of product ID → gender bucket (boy | girl | neutral)
+        for all products in the new-born occasion. Gender is inferred from
+        keyword heuristics first (blue/navy/boy → "boy"; pink/rose/girl → "girl";
+        everything else → "neutral") with an LLM fallback for ambiguous names.
+        Results are cached in-process for 24 hours. Returns 503 when the OS
+        product cache has not yet been populated.
+      responses:
+        "200":
+          description: Gender map for all new-born occasion products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewbornGenderResponse"
+        "503":
+          description: Product catalog not yet available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/frequently-bought-together:
     get:
       operationId: getFrequentlyBoughtTogether
@@ -3805,6 +3830,18 @@ components:
             enum: [small, medium, life-size]
       required:
         - sizes
+    NewbornGenderResponse:
+      type: object
+      description: AI-inferred gender classification for new-born occasion products.
+      properties:
+        genders:
+          type: object
+          description: Map of product ID (string) to gender bucket.
+          additionalProperties:
+            type: string
+            enum: [boy, girl, neutral]
+      required:
+        - genders
     NextOrderIdRequest:
       type: object
       properties:

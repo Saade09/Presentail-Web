@@ -2,9 +2,11 @@ import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts
 import { applyRecipientFilter } from "@/lib/birthdayRecipients";
 import { applyAnniversaryGenderFilter } from "@/lib/anniversaryGender";
 import { applyLoveRomanceGenderFilter } from "@/lib/loveRomanceGender";
+import { applyNewbornGenderFilter, useNewbornGenderMap, VALID_NEWBORN_GENDER_KEYS } from "@/lib/newbornGender";
 import { BirthdayRecipientTabs } from "@/components/BirthdayRecipientTabs";
 import { AnniversaryGenderTabs } from "@/components/AnniversaryGenderTabs";
 import { LoveRomanceGenderTabs } from "@/components/LoveRomanceGenderTabs";
+import { NewbornGenderTabs } from "@/components/NewbornGenderTabs";
 import { BearSizeTabs } from "@/components/BearSizeTabs";
 import { VALID_BEAR_SIZE_KEYS, applyBearSizeFilter, useBearSizeMap } from "@/lib/bearSizes";
 import { SEOContentSection } from "@/components/SEOContentSection";
@@ -40,6 +42,7 @@ const VALID_BIRTHDAY_RECIPIENT_KEYS = new Set([
 
 const VALID_ANNIVERSARY_GENDER_KEYS = new Set(["all", "her", "him"]);
 const VALID_LOVE_ROMANCE_GENDER_KEYS = new Set(["all", "her", "him"]);
+const NEW_BORN_OCCASION_SLUG = "new-born";
 
 const STUFFED_ANIMALS_SLUG = "stuffed-animals";
 
@@ -248,6 +251,25 @@ export default function Shop() {
     navigate(location + (qs ? `?${qs}` : ""), { replace: true });
   }
 
+  const isNewborn = occasion === NEW_BORN_OCCASION_SLUG;
+  const rawNewbornGenderKey = searchParams.get("gender") || "all";
+  const newbornGenderKey = isNewborn && VALID_NEWBORN_GENDER_KEYS.has(rawNewbornGenderKey)
+    ? rawNewbornGenderKey
+    : "all";
+
+  function handleNewbornGenderSelect(key: string) {
+    const params = new URLSearchParams(searchString);
+    if (key === "all") {
+      params.delete("gender");
+    } else {
+      params.set("gender", key);
+    }
+    const qs = params.toString();
+    navigate(location + (qs ? `?${qs}` : ""), { replace: true });
+  }
+
+  const newbornGenderMap = useNewbornGenderMap(isNewborn);
+
   const isStuffedAnimals = category === STUFFED_ANIMALS_SLUG;
   const rawBearSizeKey = searchParams.get("size") || "all";
   const bearSizeKey = isStuffedAnimals && VALID_BEAR_SIZE_KEYS.has(rawBearSizeKey) ? rawBearSizeKey : "all";
@@ -285,10 +307,15 @@ export default function Shop() {
     return applyLoveRomanceGenderFilter(anniversaryGenderFilteredProducts, loveRomanceGenderKey);
   }, [anniversaryGenderFilteredProducts, occasion, loveRomanceGenderKey]);
 
+  const newbornGenderFilteredProducts: Product[] = useMemo(() => {
+    if (!isNewborn) return loveRomanceGenderFilteredProducts;
+    return applyNewbornGenderFilter(loveRomanceGenderFilteredProducts, newbornGenderKey, newbornGenderMap);
+  }, [loveRomanceGenderFilteredProducts, isNewborn, newbornGenderKey, newbornGenderMap]);
+
   const bearSizeFilteredProducts: Product[] = useMemo(() => {
-    if (!isStuffedAnimals) return loveRomanceGenderFilteredProducts;
-    return applyBearSizeFilter(loveRomanceGenderFilteredProducts, bearSizeMap, bearSizeKey);
-  }, [loveRomanceGenderFilteredProducts, isStuffedAnimals, bearSizeMap, bearSizeKey]);
+    if (!isStuffedAnimals) return newbornGenderFilteredProducts;
+    return applyBearSizeFilter(newbornGenderFilteredProducts, bearSizeMap, bearSizeKey);
+  }, [newbornGenderFilteredProducts, isStuffedAnimals, bearSizeMap, bearSizeKey]);
 
   const priceBuckets: PriceBucketDef[] = useMemo(() => {
     return convertedBucketDefs.map((def) => ({
@@ -510,6 +537,10 @@ export default function Shop() {
 
         {occasion === "love-romance" && (
           <LoveRomanceGenderTabs activeKey={loveRomanceGenderKey} onSelect={handleLoveRomanceGenderSelect} />
+        )}
+
+        {isNewborn && (
+          <NewbornGenderTabs activeKey={newbornGenderKey} onSelect={handleNewbornGenderSelect} />
         )}
 
         {isStuffedAnimals && (
