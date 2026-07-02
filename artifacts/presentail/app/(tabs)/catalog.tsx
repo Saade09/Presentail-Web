@@ -58,6 +58,11 @@ const OCC_NAME_KEY: Record<string, string> = {
   "im-sorry": "occ_im_sorry",
   children: "occ_children",
   ramadan: "occ_ramadan",
+  valentine: "occ_valentine",
+  "mothers-day": "occ_mothers_day",
+  "womens-day": "occ_womens_day",
+  "fathers-day": "occ_fathers_day",
+  christmas: "occ_christmas",
 };
 
 function CatalogScreen() {
