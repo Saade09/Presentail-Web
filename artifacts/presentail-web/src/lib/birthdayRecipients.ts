@@ -17,7 +17,7 @@ export const BIRTHDAY_RECIPIENTS: BirthdayRecipient[] = [
   {
     key: "dad",
     labelKey: "shop.birthdayFor.dad",
-    preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets", "hand-bouquets"],
+    preferredCategories: ["chocolate", "spirits", "plants", "bundles", "gift-baskets"],
     excludeColorKeywords: ["pink", "rose gold", "blush", "lilac", "lavender", "fuchsia", "magenta"],
   },
   {
