@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   countryFromLocale,
   resolveDisplayCurrency,
+  roundToNearestFive,
 } from "@workspace/display-currency";
 import { apiFetch } from "./api";
 import { useCurrenciesData, useFxRates } from "./queries";
@@ -300,7 +301,7 @@ export function useDisplayCurrency(): {
       // same rates the mobile app and server use for billing).
       const targetRate = Number(rates?.[currencyCode] ?? 0);
       if (targetRate > 0) {
-        return formatPriceInCurrency(v * targetRate, currencyCode);
+        return formatPriceInCurrency(roundToNearestFive(v * targetRate, currencyCode), currencyCode);
       }
       // FX rates not yet available — show USD as fallback rather than a
       // misleading converted number.

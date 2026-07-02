@@ -196,9 +196,31 @@ export function currencyDecimals(currency: string): number {
 }
 
 /**
- * Round a display-currency amount to the nearest whole number so the Stripe
- * charge matches the whole-number price shown to the shopper. LBP is already
- * zero-decimal and is unaffected (Math.round of an integer is a no-op).
+ * Round a converted amount to the nearest "clean" unit for display and charging:
+ *  - LBP: nearest 500 (amounts are in the hundreds of thousands).
+ *  - USD: nearest 1 (base currency; 2-decimal standard, no nearest-5 needed).
+ *  - All other currencies: nearest 5 (prices end in 0 or 5 — e.g. 367 AED → 365).
+ *
+ * This is the single source of truth for display/charge rounding used by the
+ * API server, the web storefront, and the mobile app.
+ */
+export function roundToNearestFive(amount: number, currency: string): number {
+  const upper = currency.toUpperCase();
+  if (upper === "LBP") {
+    return Math.round(amount / 500) * 500;
+  }
+  if (upper === "USD") {
+    // USD keeps 2-decimal standard precision (nearest cent) — no nearest-5 needed.
+    return Math.round(amount * 100) / 100;
+  }
+  return Math.round(amount / 5) * 5;
+}
+
+/**
+ * @deprecated Use `roundToNearestFive(amount, currency)` instead, which rounds
+ * non-USD/non-LBP prices to the nearest 5 and LBP to the nearest 500.
+ * This alias preserves the old `Math.round` behaviour for callers that have
+ * not yet been migrated (e.g. test mocks).
  */
 export function roundToWholeUnit(amount: number): number {
   return Math.round(amount);

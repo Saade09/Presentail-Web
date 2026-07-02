@@ -3,10 +3,11 @@ import {
   CURRENCY_DECIMALS,
   currencyDecimals,
   roundToWholeUnit,
+  roundToNearestFive,
   toStripeMinorUnits as sharedToStripeMinorUnits,
 } from "@workspace/display-currency";
 
-export { roundToWholeUnit };
+export { roundToWholeUnit, roundToNearestFive };
 
 // Single source of truth for currency conversion across the server.
 //
@@ -59,16 +60,22 @@ const ER_API_CURRENCIES: SupportedCurrency[] = ["CAD", "AUD", "CHF"];
 // close to the static rates the mobile app shipped with so prices don't lurch.
 // LBP: the Lebanese pound has been pegged informally at ~89,500 LBP/USD since
 // the 2023 monetary reform; update if the peg shifts.
+//
+// IMPORTANT: CAD, AUD, and CHF are sourced from open.er-api.com (ER_API) and
+// carry a 3% intentional markup (× 1.03) to cover spread/conversion costs.
+// OS-sourced currencies (AED, EUR, GBP, QAR, SAR) are used as-is — no markup.
+// The fallback rates for CAD/AUD/CHF are pre-multiplied by 1.03 so the fallback
+// path is consistent with the live-rate path.
 const FALLBACK_RATES: Record<SupportedCurrency, number> = {
   USD: 1,
   AED: 3.673,
   EUR: 0.92,
   GBP: 0.78,
-  CAD: 1.37,
-  AUD: 1.5,
+  CAD: 1.4111, // 1.37 × 1.03 — 3% ER_API markup applied
+  AUD: 1.545,  // 1.50 × 1.03 — 3% ER_API markup applied
   QAR: 3.64,
   SAR: 3.75,
-  CHF: 0.88,
+  CHF: 0.9064, // 0.88 × 1.03 — 3% ER_API markup applied
   LBP: 89_500,
 };
 
@@ -218,7 +225,14 @@ async function fetchLiveRates(): Promise<RateCache> {
       const codesFromEr = osOk ? ER_API_CURRENCIES : [...OS_CURRENCIES, ...ER_API_CURRENCIES];
       for (const code of codesFromEr) {
         const r = erRates[code];
-        if (typeof r === "number" && r > 0) rates[code] = r;
+        if (typeof r === "number" && r > 0) {
+          // INTENTIONAL: apply a 3% markup to ER_API-sourced currencies (CAD, AUD, CHF)
+          // to cover spread/conversion costs. OS-sourced currencies (AED, EUR, GBP, QAR, SAR)
+          // are used as-is. When OS fails and ER_API covers those too, no markup is applied
+          // to the OS currencies — the markup only ever touches ER_API_CURRENCIES.
+          const markup = ER_API_CURRENCIES.includes(code) ? 1.03 : 1;
+          rates[code] = r * markup;
+        }
       }
     } else {
       logger.warn(
@@ -290,11 +304,16 @@ export async function convertFromUsd(
   return Number(usdAmount) * rate;
 }
 
-/** Round a converted amount to the currency's display decimals. */
+/**
+ * Round a converted amount for display and charging.
+ * Delegates to `roundToNearestFive` (single source of truth in
+ * `@workspace/display-currency`):
+ *   - LBP → nearest 500
+ *   - USD → nearest 1 (standard 2-decimal base currency)
+ *   - all others → nearest 5 (prices end in 0 or 5)
+ */
 export function roundForCurrency(amount: number, currency: SupportedCurrency): number {
-  const decimals = currencyDecimals(currency);
-  const factor = Math.pow(10, decimals);
-  return Math.round(amount * factor) / factor;
+  return roundToNearestFive(amount, currency);
 }
 
 /**

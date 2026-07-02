@@ -2,18 +2,19 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useFxRates } from "@/lib/queries";
 import { DirhamSymbol } from "./DirhamSymbol";
 import { RiyalSymbol } from "./RiyalSymbol";
+import { roundToNearestFive } from "@workspace/display-currency";
 
 function aedNumStr(usdValue: number, rates: Record<string, number>): string {
   const v = Number(usdValue) || 0;
   const rate = Number(rates["AED"] ?? 0);
-  const converted = rate > 0 ? Math.round(v * rate) : Math.round(v);
+  const converted = rate > 0 ? roundToNearestFive(v * rate, "AED") : roundToNearestFive(v, "AED");
   return converted.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function sarNumStr(usdValue: number, rates: Record<string, number>): string {
   const v = Number(usdValue) || 0;
   const rate = Number(rates["SAR"] ?? 0);
-  const converted = rate > 0 ? Math.round(v * rate) : Math.round(v);
+  const converted = rate > 0 ? roundToNearestFive(v * rate, "SAR") : roundToNearestFive(v, "SAR");
   return converted.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 

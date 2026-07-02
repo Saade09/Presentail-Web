@@ -25,6 +25,7 @@ import { buildCategorySeo, buildOccasionSeo } from "@/lib/seo";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { roundToNearestFive } from "@workspace/display-currency";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
 import {
   Sheet,
@@ -95,38 +96,38 @@ export default function Shop() {
     return r > 0 ? r : 1;
   }, [currencyCode, fxData]);
 
-  // Rounded converted thresholds — match what formatPrice() displays for these USD values.
-  // Using Math.round because formatPriceInCurrency uses toFixed(0) which also rounds.
+  // Converted thresholds using roundToNearestFive — must match what formatPrice() displays.
   const [cT50, cT100, cT200] = useMemo(
-    () => USD_BUCKET_THRESHOLDS.map((usd) => Math.round(usd * currencyRate)),
-    [currencyRate],
+    () => USD_BUCKET_THRESHOLDS.map((usd) => roundToNearestFive(usd * currencyRate, currencyCode)),
+    [currencyRate, currencyCode],
   );
 
   // Bucket definitions: stable key + rate-aware test + human-readable label.
+  // Product rounding mirrors formatPrice() — roundToNearestFive keeps thresholds consistent.
   const convertedBucketDefs = useMemo(
     () => [
       {
         key: "under50" as PriceBucket,
-        test: (p: Product) => Math.round(p.priceValue * currencyRate) < cT50,
+        test: (p: Product) => roundToNearestFive(p.priceValue * currencyRate, currencyCode) < cT50,
         label: t("shop.filter.priceUnderAmount", { amount: formatPrice(50) }),
       },
       {
         key: "50to100" as PriceBucket,
-        test: (p: Product) => { const cv = Math.round(p.priceValue * currencyRate); return cv >= cT50 && cv < cT100; },
+        test: (p: Product) => { const cv = roundToNearestFive(p.priceValue * currencyRate, currencyCode); return cv >= cT50 && cv < cT100; },
         label: t("shop.filter.priceRange", { from: formatPrice(50), to: formatPrice(100) }),
       },
       {
         key: "100to200" as PriceBucket,
-        test: (p: Product) => { const cv = Math.round(p.priceValue * currencyRate); return cv >= cT100 && cv < cT200; },
+        test: (p: Product) => { const cv = roundToNearestFive(p.priceValue * currencyRate, currencyCode); return cv >= cT100 && cv < cT200; },
         label: t("shop.filter.priceRange", { from: formatPrice(100), to: formatPrice(200) }),
       },
       {
         key: "over200" as PriceBucket,
-        test: (p: Product) => Math.round(p.priceValue * currencyRate) >= cT200,
+        test: (p: Product) => roundToNearestFive(p.priceValue * currencyRate, currencyCode) >= cT200,
         label: t("shop.filter.priceOverAmount", { amount: formatPrice(200) }),
       },
     ],
-    [currencyRate, cT50, cT100, cT200, formatPrice, t],
+    [currencyRate, currencyCode, cT50, cT100, cT200, formatPrice, t],
   );
   const [location, navigate] = useLocation();
   const params = useParams<{ slug?: string }>();
