@@ -23,6 +23,7 @@
  *   Fonts and weights checked:
  *     Inter              400, 500, 600, 700
  *     Noto Naskh Arabic  400, 700
+ *     Playfair Display   400, 700
  *     Roboto             400, 500
  *
  * Exits 0 on PASS, 1 on FAIL.
@@ -108,6 +109,7 @@ function getFontWeight(block) {
 const EXPECTED_FONTS = {
   inter: ["400", "500", "600", "700"],
   "noto naskh arabic": ["400", "700"],
+  "playfair display": ["400", "700"],
   roboto: ["400", "500"],
 };
 
@@ -115,6 +117,7 @@ const EXPECTED_FONTS = {
 const DISPLAY_NAME = {
   inter: "Inter",
   "noto naskh arabic": "Noto Naskh Arabic",
+  "playfair display": "Playfair Display",
   roboto: "Roboto",
 };
 
@@ -193,6 +196,6 @@ if (failures > 0) {
 
 console.log(
   `\nPASS  All expected font-face declarations found for Inter (400, 500, 600, 700),` +
-    ` Noto Naskh Arabic (400, 700), and Roboto (400, 500).`
+    ` Noto Naskh Arabic (400, 700), Playfair Display (400, 700), and Roboto (400, 500).`
 );
 process.exit(0);
