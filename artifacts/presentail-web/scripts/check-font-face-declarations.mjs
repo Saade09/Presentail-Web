@@ -2,9 +2,8 @@
 /**
  * check-font-face-declarations.mjs
  *
- * Parses every CSS file in dist/public/assets/ and verifies that all four
- * Inter font weights (400, 500, 600, 700) appear as `font-weight` values
- * inside `@font-face` blocks.
+ * Parses every CSS file in dist/public/assets/ and verifies that all
+ * expected @font-face declarations are present for each font family.
  *
  * Why this is a separate check from check-font-files-emitted.mjs:
  *   The font-files check confirms the .woff2 files were emitted into the
@@ -17,9 +16,14 @@
  *
  * What it checks:
  *   - At least one CSS file exists in the assets directory.
- *   - Each of the four Inter weights (400, 500, 600, 700) appears as a
- *     `font-weight` value inside at least one `@font-face` block whose
- *     `font-family` is "Inter" (case-insensitive).
+ *   - For each font family in EXPECTED_FONTS, every listed weight appears as
+ *     a `font-weight` value inside at least one `@font-face` block whose
+ *     `font-family` matches (case-insensitive).
+ *
+ *   Fonts and weights checked:
+ *     Inter              400, 500, 600, 700
+ *     Noto Naskh Arabic  400, 700
+ *     Roboto             400, 500
  *
  * Exits 0 on PASS, 1 on FAIL.
  *
@@ -96,9 +100,29 @@ function getFontWeight(block) {
   return m ? m[1] : null;
 }
 
-const EXPECTED_WEIGHTS = ["400", "500", "600", "700"];
+/**
+ * Map of font-family (lowercase, as it appears in font-family declarations)
+ * to the array of font-weight values that must each appear in at least one
+ * @font-face block for that family.
+ */
+const EXPECTED_FONTS = {
+  inter: ["400", "500", "600", "700"],
+  "noto naskh arabic": ["400", "700"],
+  roboto: ["400", "500"],
+};
 
-const foundWeights = new Set();
+/** Display names for PASS/FAIL messages (preserves original capitalisation). */
+const DISPLAY_NAME = {
+  inter: "Inter",
+  "noto naskh arabic": "Noto Naskh Arabic",
+  roboto: "Roboto",
+};
+
+/** foundWeights["inter"]["400"] = true when that block was seen. */
+const foundWeights = {};
+for (const family of Object.keys(EXPECTED_FONTS)) {
+  foundWeights[family] = {};
+}
 
 let totalCssFiles = 0;
 let totalBlocks = 0;
@@ -112,41 +136,54 @@ for (const filePath of cssFiles.sort()) {
   for (const block of blocks) {
     const family = getFontFamily(block);
     const weight = getFontWeight(block);
-    if (family === "inter" && weight) {
-      foundWeights.add(weight);
+    if (family && weight && family in foundWeights) {
+      foundWeights[family][weight] = true;
     }
   }
 }
 
-console.log(`\nfont-face-declarations check  (scanned ${totalCssFiles} CSS file(s), ${totalBlocks} @font-face block(s))`);
+console.log(
+  `\nfont-face-declarations check  (scanned ${totalCssFiles} CSS file(s), ${totalBlocks} @font-face block(s))`
+);
 console.log("─".repeat(72));
 
 let failures = 0;
 
-for (const weight of EXPECTED_WEIGHTS) {
-  if (foundWeights.has(weight)) {
-    console.log(`  ✓  Inter font-weight: ${weight} declared in @font-face`);
-  } else {
-    console.error(
-      `  ❌ Inter font-weight: ${weight} is missing from all @font-face blocks\n` +
-        `       Expected a @font-face { font-family: 'Inter'; font-weight: ${weight}; … }\n` +
-        `       declaration somewhere in the built CSS.\n` +
-        `       Root cause: the @font-face rule for weight ${weight} may have been\n` +
-        `       removed from src/index.css, or stripped by a CSS processing step.\n` +
-        `       The browser will never download inter-${weight}.woff2 and will\n` +
-        `       silently fall back to the system font for that weight.`
-    );
-    failures++;
+for (const [familyKey, expectedWeights] of Object.entries(EXPECTED_FONTS)) {
+  const displayName = DISPLAY_NAME[familyKey];
+  for (const weight of expectedWeights) {
+    if (foundWeights[familyKey][weight]) {
+      console.log(
+        `  ✓  ${displayName} font-weight: ${weight} declared in @font-face`
+      );
+    } else {
+      console.error(
+        `  ❌ ${displayName} font-weight: ${weight} is missing from all @font-face blocks\n` +
+          `       Expected a @font-face { font-family: '${displayName}'; font-weight: ${weight}; … }\n` +
+          `       declaration somewhere in the built CSS.\n` +
+          `       Root cause: the @font-face rule for ${displayName} weight ${weight} may have been\n` +
+          `       removed from src/index.css, or stripped by a CSS processing step.\n` +
+          `       The browser will never download the matching .woff2 file and will\n` +
+          `       silently fall back to the system font for that weight.`
+      );
+      failures++;
+    }
   }
 }
 
 console.log("─".repeat(72));
-console.log(`\n  Weights found in @font-face blocks: ${[...foundWeights].sort().join(", ") || "(none)"}`);
-console.log(`  Expected weights: ${EXPECTED_WEIGHTS.join(", ")}`);
+
+for (const [familyKey, expectedWeights] of Object.entries(EXPECTED_FONTS)) {
+  const displayName = DISPLAY_NAME[familyKey];
+  const found = Object.keys(foundWeights[familyKey]).sort().join(", ") || "(none)";
+  console.log(
+    `  ${displayName}: found weights [${found}]  expected [${expectedWeights.join(", ")}]`
+  );
+}
 
 if (failures > 0) {
   console.error(
-    `\nFAIL  ${failures} Inter font weight(s) are missing from @font-face CSS declarations.\n` +
+    `\nFAIL  ${failures} font-weight declaration(s) are missing from @font-face CSS blocks.\n` +
       `      The .woff2 file(s) may still exist in the build output, but without\n` +
       `      a matching @font-face rule the browser will never request them.\n` +
       `      Restore the missing rule(s) in src/index.css.`
@@ -155,6 +192,7 @@ if (failures > 0) {
 }
 
 console.log(
-  `\nPASS  All four Inter font weights (400, 500, 600, 700) are declared in @font-face blocks.`
+  `\nPASS  All expected font-face declarations found for Inter (400, 500, 600, 700),` +
+    ` Noto Naskh Arabic (400, 700), and Roboto (400, 500).`
 );
 process.exit(0);
