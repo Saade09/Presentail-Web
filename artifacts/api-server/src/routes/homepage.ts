@@ -197,8 +197,13 @@ const PRODUCT_TYPE_SLUGS = new Set([
   "lux-arrangements", "orchids", "roses", "roses-lebanon",
   "arabic-sweets", "personal-gifts", "beauty",
   "gift-bundles", "baskets", "spirits", "gaming",
-  "summer",
+  "summer", "electronics",
 ]);
+
+// Categories that must appear on the homepage even when OS does not mark them
+// as featured. Add slugs here when OS admin curates them as non-featured but
+// the product team still wants them in the carousel.
+const FORCE_INCLUDE_CATEGORY_SLUGS = new Set(["electronics"]);
 
 // ── Presentail OS-backed collection builders ─────────────────────────────
 //
@@ -211,33 +216,47 @@ function buildOsCategories(): HomepageCollectionItem[] | null {
   const osCategories = getOsCategories();
   if (osCategories && osCategories.length > 0) {
     return osCategories
-      .filter((c) => c.is_featured === true && !HIDDEN_CATEGORY_SLUGS.has(c.slug))
+      .filter(
+        (c) =>
+          (c.is_featured === true || FORCE_INCLUDE_CATEGORY_SLUGS.has(c.slug)) &&
+          !HIDDEN_CATEGORY_SLUGS.has(c.slug),
+      )
       .map((c, i) => ({
         id: c.id,
         name: c.name,
         slug: c.slug,
-        // Only emit the proxy URL when a public CDN image is available.
-        // The private c.image field returns the OS web-app HTML shell when
-        // fetched without an auth token, so the proxy 404s and the mobile
-        // falls through to the static asset anyway. Skip it to avoid the
-        // unnecessary round-trip. Client handles empty imageUrl gracefully.
-        imageUrl: c.imagePublicUrl ? `/api/catalog/category-image/${c.id}` : "",
+        // OS category images are now publicly accessible via imagePublicUrl.
+        // Use the CDN URL directly so the browser fetches without a proxy
+        // round-trip. Fall back to empty string; the client resolves static
+        // assets from CATEGORY_STATIC_IMAGES[slug] when imageUrl is empty.
+        imageUrl: c.imagePublicUrl ?? "",
         sortOrder: i,
         isActive: true,
       }));
   }
   // Fall back to static catalog-data categories (same source as /catalog/metadata)
   // so the homepage carousel is never empty even before the OS cache warms up.
+  // Do NOT forward external (WordPress) image URIs — they may be unreachable
+  // and would override the client's own static-asset fallback. Return an empty
+  // imageUrl; HomepageCollections fills it from CATEGORY_STATIC_IMAGES[slug].
+  const OS_STORAGE_PREFIX = "https://os.presentail.com/api/storage/";
   return staticCategories
     .filter((c) => PRODUCT_TYPE_SLUGS.has(c.id) && !HIDDEN_CATEGORY_SLUGS.has(c.id))
-    .map((c, i) => ({
-      id: c.id,
-      name: c.name,
-      slug: c.id,
-      imageUrl: "image" in c && c.image && "uri" in c.image ? c.image.uri : "",
-      sortOrder: i,
-      isActive: true,
-    }));
+    .map((c, i) => {
+      const uri =
+        "image" in c && c.image && "uri" in c.image ? c.image.uri : null;
+      return {
+        id: c.id,
+        name: c.name,
+        slug: c.id,
+        // Only forward OS storage URLs (served via our proxy); drop external
+        // WP/CDN URLs that may be broken or slow so the client uses its own
+        // static images from CATEGORY_STATIC_IMAGES[slug] instead.
+        imageUrl: uri?.startsWith(OS_STORAGE_PREFIX) ? uri : "",
+        sortOrder: i,
+        isActive: true,
+      };
+    });
 }
 
 function buildOsOccasions(): HomepageCollectionItem[] | null {

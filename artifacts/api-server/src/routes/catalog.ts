@@ -120,10 +120,10 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
 //
 // CATEGORY_IMAGE_OVERRIDES: fallback URLs for categories whose OS /api/categories
 // JSON response doesn't expose the uploaded image URL in image/imagePublicUrl.
-// Key = category slug, value = full OS storage URL.
-const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
-  electronics: "https://os.presentail.com/api/storage/objects/user_3DCcbYtdoRYrTOqHwKxb1gwXxJR/uploads/5e9e8f16-70fd-4ff1-8a01-6fb6c7f47aa5",
-};
+// Key = category slug, value = full OS public-objects storage URL.
+// Add an entry here when OS has an image for the category but imagePublicUrl
+// isn't yet surfaced by the categories API response.
+const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {};
 
 router.get("/catalog/category-image/:id", async (req, res) => {
   const { id } = req.params;
