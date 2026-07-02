@@ -591,10 +591,18 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       // Seed a sensible default so adding to cart without opening the
       // reschedule sheet still produces a valid schedule selection. The
       // sheet overrides this with the shopper's pick on Confirm.
+      // A stored selection is still valid only when it refers to a future date,
+      // OR it refers to today and today still has open slots. If today's last
+      // slot has already passed, discard the stored selection and re-seed with
+      // the correctly-computed defaultDate/defaultSlot (which call
+      // firstAvailableDay and already point to tomorrow or later).
+      const storedDateIsToday = deliverySelection.date === todayIso;
+      const todayStillHasSlots = nearestSlotForHour(PROD_SLOTS, true, localH) !== null;
       const hasExisting =
         (deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot") &&
         deliverySelection.date &&
-        deliverySelection.slotLabel;
+        deliverySelection.slotLabel &&
+        (!storedDateIsToday || todayStillHasSlots);
       if (!hasExisting) {
         deliverySelection.setSelection({
           mode: "schedule",

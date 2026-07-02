@@ -100,14 +100,30 @@ export function RescheduleDeliverySheet({
     if (!visible) return;
     // Seed from the existing delivery selection when one is already in place,
     // so adding a second product inherits the slot already chosen for the first.
+    // Exception: if the stored date is today, validate that slots are still open.
+    // If today still has slots, snap to the nearest valid one (the stored label
+    // may be stale). If all of today's slots are past, fall through to
+    // firstAvailableDay so the picker opens on the next valid date.
     if (
       (deliverySelection.mode === "today_slot" || deliverySelection.mode === "schedule") &&
       deliverySelection.date &&
       deliverySelection.slotLabel
     ) {
-      setDate(deliverySelection.date);
-      setSlotLabel(deliverySelection.slotLabel);
-      return;
+      if (deliverySelection.date !== todayIso) {
+        // Future date — restore as-is.
+        setDate(deliverySelection.date);
+        setSlotLabel(deliverySelection.slotLabel);
+        return;
+      }
+      // Stored date is today — check remaining slots.
+      const todaySlot = nearestSlotForHour(timeSlots, true, localHour);
+      if (todaySlot) {
+        // Today still has slots — keep today but snap to the first valid one.
+        setDate(todayIso);
+        setSlotLabel(todaySlot.label);
+        return;
+      }
+      // Today has no more slots — fall through to firstAvailableDay below.
     }
     const todaySlot = nearestSlotForHour(timeSlots, true, localHour);
     if (todaySlot) {
@@ -342,6 +358,11 @@ export function RescheduleDeliverySheet({
               }}
               colors={colors}
               moreLabel={t.dateStripMoreLabel}
+              disabledDates={
+                timeSlots.some((s) => s.cutoffHour > localHour)
+                  ? undefined
+                  : new Set<string>([todayIso])
+              }
             />
 
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
