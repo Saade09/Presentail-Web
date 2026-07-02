@@ -173,6 +173,7 @@ router.post("/checkout/session", async (req, res) => {
       paymentRef: session.id,
       provider: "stripe",
       stripeAccount: isGulf ? "gulf" : "main",
+      currency,
       totalUsd: catalogResult.subtotalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
@@ -418,6 +419,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               paymentRef: existingRef,
               provider: "stripe",
               stripeAccount: isGulf ? "gulf" : "main",
+              currency,
               totalUsd,
               snapshot: {
                 items: catalogResult.items.map((i) => ({
@@ -450,6 +452,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             paymentRef: updated.id,
             provider: "stripe",
             stripeAccount: isGulf ? "gulf" : "main",
+            currency,
             totalUsd,
             snapshot: {
               items: catalogResult.items.map((i) => ({
@@ -504,6 +507,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             paymentRef: pi.id,
             provider: "stripe",
             stripeAccount: isGulf ? "gulf" : "main",
+            currency,
             totalUsd,
             snapshot: {
               items: catalogResult.items.map((i) => ({
@@ -558,6 +562,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       paymentRef: paymentIntent.id,
       provider: "stripe",
       stripeAccount: isGulf ? "gulf" : "main",
+      currency,
       totalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({

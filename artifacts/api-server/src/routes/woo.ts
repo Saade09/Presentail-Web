@@ -840,6 +840,12 @@ router.post("/woo/order", async (req, res) => {
   // payment-verified branch so that attemptCreateOsOrder can use these prices
   // directly (bypassing the OS cache lookup and cold-cache guard).
   let snapshotItems: { wcId: number; osSlug?: string; priceUsd: number; name?: string }[] | undefined;
+  // The exact currency the payment provider charged, sourced from the stored
+  // intent (not from the client body). Passed to attemptCreateOsOrder so OS
+  // receives the real charge currency (e.g. "QAR") instead of the display
+  // currency the client sent in body.currencyCode.
+  // Remains undefined on the server-restart recovery path (no intent available).
+  let verifiedCurrency: string | undefined;
 
   if (body.paymentMethod === "card" || body.paymentMethod === "wallet") {
     if (!paymentRef) {
@@ -930,6 +936,10 @@ router.post("/woo/order", async (req, res) => {
 
       // Hoist the verified prices so attemptCreateOsOrder can use them directly.
       snapshotItems = intent.snapshot.items;
+      // Hoist the charge currency so OS receives the exact currency Stripe used,
+      // not the client-supplied body.currencyCode (which can drift — e.g. a LB
+      // order where the shopper's display currency is QAR).
+      verifiedCurrency = intent.currency;
 
       // Resolve the Stripe key based on which account processed this payment.
       const stripeKey =
@@ -1020,6 +1030,7 @@ router.post("/woo/order", async (req, res) => {
     }
 
     snapshotItems = intent.snapshot.items;
+    verifiedCurrency = intent.currency;
 
     if (!process.env.MAMO_SECRET_KEY) {
       req.log?.warn?.(
@@ -1097,6 +1108,7 @@ router.post("/woo/order", async (req, res) => {
     }
 
     snapshotItems = intent.snapshot.items;
+    verifiedCurrency = intent.currency;
 
     if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
       req.log?.warn?.(
@@ -1151,6 +1163,7 @@ router.post("/woo/order", async (req, res) => {
     store,
     platform: requestPlatform,
     preVerifiedItems: snapshotItems,
+    verifiedCurrency,
   });
 
   if (!result.ok) {

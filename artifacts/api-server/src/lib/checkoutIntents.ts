@@ -42,6 +42,12 @@ export type PaymentIntent = {
   provider: "stripe" | "mamo" | "paypal";
   // Which Stripe account was used: "main" (CY) or "gulf" (AE).
   stripeAccount?: "main" | "gulf";
+  // The exact currency the provider was instructed to charge (e.g. "QAR",
+  // "AED", "USD"). For Stripe this is the currency passed to the PI/session
+  // create call; for Mamo it is always "AED"; for PayPal it is the settled
+  // currency returned by paypalCurrencyFor(). Used by the order route to
+  // send the correct currencyCode to Presentail OS.
+  currency: string;
   // Canonical total in USD that the provider was instructed to charge.
   // For Stripe: product subtotal only (delivery is outside the session).
   // For Mamo/PayPal: product subtotal + district fee + express surcharge.
@@ -81,6 +87,8 @@ export function storePaymentIntent(params: {
   paymentRef: string;
   provider: "stripe" | "mamo" | "paypal";
   stripeAccount?: "main" | "gulf";
+  /** The exact currency the provider was charged in (e.g. "QAR", "AED", "USD"). */
+  currency: string;
   totalUsd: number;
   snapshot: CartSnapshot;
 }): void {

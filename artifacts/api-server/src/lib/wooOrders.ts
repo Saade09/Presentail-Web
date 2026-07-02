@@ -775,6 +775,13 @@ export async function attemptCreateOsOrder(
      * Keyed by `osSlug` (preferred) or `wcId` as fallback.
      */
     preVerifiedItems?: { wcId: number; osSlug?: string; priceUsd: number; name?: string }[];
+    /**
+     * The exact currency the payment provider charged, taken from the stored
+     * PaymentIntent (intent.currency). When present, overrides body.currencyCode
+     * so OS always receives the currency Stripe/Mamo/PayPal actually charged.
+     * Only absent on the server-restart recovery path (no intent in memory).
+     */
+    verifiedCurrency?: string;
   } = {},
 ): Promise<OsOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
@@ -790,7 +797,12 @@ export async function attemptCreateOsOrder(
     };
   }
 
-  const presentedCurrency: SupportedCurrency = normalizeCurrency(body.currencyCode);
+  // Prefer the currency recorded in the payment intent (the exact currency the
+  // provider charged) over the client-supplied body.currencyCode, which can
+  // drift (e.g. a LB order charged in QAR would otherwise send "USD" to OS).
+  const presentedCurrency: SupportedCurrency = normalizeCurrency(
+    opts.verifiedCurrency ?? body.currencyCode,
+  );
 
   // Resolve catalog prices from the OS product cache (by wcId or osSlug).
   // If OS cache is not populated, fall back to WooCommerce (startup window).

@@ -275,6 +275,7 @@ router.post("/payment/mamo", async (req, res) => {
       orderId,
       paymentRef: String(data.id),
       provider: "mamo",
+      currency: "AED",
       totalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
@@ -450,6 +451,7 @@ router.post("/payment/paypal", async (req, res) => {
       orderId,
       paymentRef: String(data.id),
       provider: "paypal",
+      currency: settle,
       totalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
