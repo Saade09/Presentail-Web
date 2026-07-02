@@ -160,6 +160,7 @@ function DeliveryRow({
       {active ? (
         <CircleCheck className="w-5 h-5 text-gold shrink-0" />
       ) : (
+        /* contrast-ok: decorative inactive-state radio indicator icon, not text */
         <Circle className="w-5 h-5 text-muted-foreground/40 shrink-0" />
       )}
     </button>

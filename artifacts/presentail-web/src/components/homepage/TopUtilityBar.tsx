@@ -27,7 +27,7 @@ export function TopUtilityBar() {
   }, [items.length]);
 
   return (
-    <div className="bg-[#e6e6e6] text-xs text-foreground/60 border-b border-border/80">
+    <div className="bg-[#e6e6e6] text-xs text-foreground/80 border-b border-border/80">
       <div className="container mx-auto max-w-content px-4 h-8 flex items-center justify-between gap-4">
 
         {/* Sliding ticker */}

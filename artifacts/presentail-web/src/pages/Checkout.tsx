@@ -2267,6 +2267,7 @@ function CheckoutForm() {
                                 <SelectItem key={city.id} value={city.name} disabled={inactive}>
                                   {label}
                                   {inactive && (
+                                    // contrast-ok: inside disabled={inactive} SelectItem – WCAG 1.4.3 inactive UI exception
                                     <span className="ml-1.5 text-xs text-muted-foreground/70">
                                       {t("location.cityUnavailable")}
                                     </span>

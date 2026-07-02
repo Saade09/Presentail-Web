@@ -642,7 +642,7 @@ export default function SignInPage() {
             </p>
 
             {/* Privacy note */}
-            <p className="text-center text-[11px] text-muted-foreground/70 leading-relaxed">
+            <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
               {t("auth.privacyNote")}
             </p>
           </div>

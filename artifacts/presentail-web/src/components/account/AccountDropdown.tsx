@@ -199,6 +199,7 @@ export function AccountDropdown() {
                     <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t(item.labelKey)}</span>
                     {item.badge}
+                    {/* contrast-ok: decorative directional indicator icon, not informational text */}
                     <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
                   </button>
                 );

@@ -462,7 +462,8 @@ export default function Cart() {
                   </p>
                   <button
                     onClick={() => removeItem(item.product.id)}
-                    className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5"
+                    // contrast-ok: icon button (non-text); /70 → 3.08:1 passes WCAG 1.4.11 non-text contrast ≥3:1
+                    className="text-muted-foreground/70 hover:text-destructive transition-colors p-0.5"
                     aria-label={t("cart.removeAria")}
                   >
                     <Trash2 className="w-4 h-4" />

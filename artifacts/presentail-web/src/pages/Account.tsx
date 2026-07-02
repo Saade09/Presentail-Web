@@ -199,7 +199,7 @@ function ProfileField({
       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
         {label}
       </div>
-      <div className={`text-base ${value ? "text-foreground" : "text-muted-foreground/60 italic"}`}>
+      <div className={`text-base ${value ? "text-foreground" : "text-muted-foreground italic"}`}>
         {value || notAdded}
       </div>
     </div>
@@ -457,6 +457,7 @@ function ProfilePanel({
             <button
               type="button"
               onClick={() => setEditNameOpen(true)}
+              // contrast-ok: text-muted-foreground/0 is fully transparent (invisible); the button only appears on group-hover
               className="absolute top-0 right-0 p-1 rounded-md text-muted-foreground/0 group-hover:text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
               title={t("account.editName")}
               data-testid="profile-edit-name-btn"
@@ -472,6 +473,7 @@ function ProfilePanel({
             <button
               type="button"
               onClick={() => setEditPhoneOpen(true)}
+              // contrast-ok: text-muted-foreground/0 is fully transparent (invisible); the button only appears on group-hover
               className="absolute top-0 right-0 p-1 rounded-md text-muted-foreground/0 group-hover:text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
               title={t("account.editPhone")}
               data-testid="profile-edit-phone-btn"
@@ -681,7 +683,7 @@ function AddressCard({
             <div className="text-sm text-muted-foreground mt-0.5">{recipientPhone}</div>
           )}
           {address.directions && (
-            <div className="text-xs text-muted-foreground/70 mt-1 italic">{address.directions}</div>
+            <div className="text-xs text-muted-foreground mt-1 italic">{address.directions}</div>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">

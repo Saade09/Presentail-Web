@@ -77,7 +77,7 @@ export function LocationPicker({
           onClick={handleBackToCountries}
           aria-label={t("locationPicker.back")}
           data-testid="button-picker-back"
-          className="self-start inline-flex items-center gap-1.5 text-xs font-medium text-foreground/50 hover:text-foreground/80 hover:underline underline-offset-2 transition-colors cursor-pointer mb-3"
+          className="self-start inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors cursor-pointer mb-3"
         >
           <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180 shrink-0" />
           {t("locationPicker.changeCountry")}
@@ -89,7 +89,7 @@ export function LocationPicker({
       </h2>
 
       {!showCities && (
-        <p className="text-sm text-foreground/60 font-medium mt-1 mb-4 text-center md:text-start">
+        <p className="text-sm text-muted-foreground font-medium mt-1 mb-4 text-center md:text-start">
           {t("locationPicker.selectRecipientCountry")}
         </p>
       )}
@@ -155,9 +155,11 @@ export function LocationPicker({
                 } ${inactive ? "cursor-not-allowed bg-muted/30" : "active:bg-secondary/40 cursor-pointer"}`}
                 data-testid={`button-city-${city.id}`}
               >
+                {/* contrast-ok: disabled={inactive} button – WCAG 1.4.3 inactive UI exception */}
                 <span className={`text-base font-medium ${inactive ? "text-foreground/40" : "text-foreground"}`}>
                   {cityName(city.id, city.name)}
                   {inactive && (
+                    // contrast-ok: disabled city label – WCAG 1.4.3 inactive UI exception
                     <span className="ml-1.5 text-sm font-normal text-foreground/35">
                       {t("location.cityUnavailable")}
                     </span>

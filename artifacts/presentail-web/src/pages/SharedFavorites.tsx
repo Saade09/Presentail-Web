@@ -58,6 +58,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
   if (isError) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+        {/* contrast-ok: decorative error-state illustration icon, aria-hidden="true" */}
         <Heart className="w-12 h-12 text-muted-foreground/30 mb-6" aria-hidden="true" />
         <h1 className="font-serif text-3xl mb-3">{t("sharedFavorites.unavailableTitle")}</h1>
         <p className="text-muted-foreground mb-8 max-w-sm">
@@ -120,6 +121,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
           </div>
         ) : favoriteProducts.length === 0 ? (
           <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed">
+            {/* contrast-ok: decorative empty-state illustration icon, not informational text */}
             <Heart className="w-12 h-12 mx-auto mb-6 text-muted-foreground/40" />
             <h3 className="font-serif text-2xl mb-3">{t("sharedFavorites.emptyTitle")}</h3>
             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">

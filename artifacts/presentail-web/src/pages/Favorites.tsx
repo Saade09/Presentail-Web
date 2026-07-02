@@ -108,6 +108,7 @@ export default function Favorites() {
           </div>
         ) : favoriteProducts.length === 0 ? (
           <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed">
+            {/* contrast-ok: decorative empty-state illustration icon, not informational text */}
             <Heart className="w-12 h-12 mx-auto mb-6 text-muted-foreground/40" />
             <h3 className="font-serif text-2xl mb-3">{t("account.favorites.empty")}</h3>
             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">

@@ -327,7 +327,7 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
                         {formatOccasionDate(occ.month, occ.day, t, language)}
                       </div>
                       {occ.note && (
-                        <div className="text-xs text-muted-foreground/70 mt-1 italic truncate">
+                        <div className="text-xs text-muted-foreground mt-1 italic truncate">
                           {occ.note}
                         </div>
                       )}

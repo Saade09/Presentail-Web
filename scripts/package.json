@@ -31,6 +31,7 @@
     "submit-sitemap": "tsx ./src/submitSitemap.ts",
     "compress-app-tile-images": "tsx ./src/compressAppTileImages.ts",
     "check-occasion-coverage": "tsx ./src/checkOccasionCoverage.ts",
+    "check-low-contrast-text": "tsx ./src/checkLowContrastText.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

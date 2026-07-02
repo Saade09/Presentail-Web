@@ -40,12 +40,14 @@ export function ProductCard({
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               priority={index < 4}
               fallback={
+                // contrast-ok: decorative placeholder shown only when image fails to load
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 font-serif text-2xl">
                   P
                 </div>
               }
             />
           ) : (
+            // contrast-ok: decorative placeholder shown only when no image is available
             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 font-serif text-2xl">
               P
             </div>

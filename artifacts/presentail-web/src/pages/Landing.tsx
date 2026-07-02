@@ -82,9 +82,11 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
             } ${inactive ? "cursor-not-allowed opacity-40" : "hover:bg-stone-100/60"}`}
             data-testid={`button-city-${city.id}`}
           >
+            {/* contrast-ok: disabled city option (cursor-not-allowed + opacity-40 on parent) – WCAG 1.4.3 inactive UI exception */}
             <span className={`text-sm font-medium ${inactive ? "text-foreground/40" : "text-foreground"}`}>
               {cityName(city.id, city.name)}
               {inactive && (
+                // contrast-ok: disabled city label – WCAG 1.4.3 inactive UI exception
                 <span className="ml-1.5 text-xs font-normal text-foreground/35">
                   {t("location.cityUnavailable")}
                 </span>
