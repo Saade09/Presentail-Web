@@ -152,9 +152,20 @@ for (const { id, basename } of LOGOS) {
         `        ${preloadTags || "(none found)"}`
     );
   } else {
-    passes.push(
-      `  PASS  id="${id}" — ${match[0].slice(0, 100)}${match[0].length > 100 ? "…" : ""}`
-    );
+    const tag = match[0];
+    const needsFetchPriority = id === "preload-logo-en" || id === "preload-logo-ar";
+    if (needsFetchPriority && !/fetchpriority=["']high["']/i.test(tag)) {
+      failures.push(
+        `  FAIL  id="${id}" — tag is present but missing fetchpriority="high".\n` +
+          `        Lighthouse will flag this as a low-priority LCP preload request.\n` +
+          `        Fix: add fetchpriority="high" to the enTag/arTag strings in\n` +
+          `        artifacts/presentail-web/vite.config.ts (logoPreloadPlugin).`
+      );
+    } else {
+      passes.push(
+        `  PASS  id="${id}" — ${tag.slice(0, 120)}${tag.length > 120 ? "…" : ""}`
+      );
+    }
   }
 }
 

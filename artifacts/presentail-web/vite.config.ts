@@ -123,9 +123,9 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
 
       // All four preload tags are emitted with IDs so the inline script can
       // remove the two that are not needed for the current locale.
-      const enTag = `<link rel="preload" as="image" type="image/webp" href="${enHref}" id="preload-logo-en">`;
+      const enTag = `<link rel="preload" as="image" type="image/webp" href="${enHref}" fetchpriority="high" id="preload-logo-en">`;
       const arTag = arHref
-        ? `<link rel="preload" as="image" type="image/webp" href="${arHref}" id="preload-logo-ar">`
+        ? `<link rel="preload" as="image" type="image/webp" href="${arHref}" fetchpriority="high" id="preload-logo-ar">`
         : null;
       const enWhiteTag = enWhiteHref
         ? `<link rel="preload" as="image" type="image/webp" href="${enWhiteHref}" id="preload-logo-en-white">`
