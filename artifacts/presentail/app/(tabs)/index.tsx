@@ -24,6 +24,7 @@ import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
+import { BrandTile, type BrandTileItem } from "@/components/BrandTile";
 import { CountryFlag } from "@/components/CountryFlag";
 import { DeliveryLocationSheet } from "@/components/location/DeliveryLocationSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
@@ -1323,73 +1324,6 @@ function OccasionsCarousel() {
             })}
       </ScrollView>
     </View>
-  );
-}
-
-type BrandTileItem = {
-  slug: string;
-  name: string;
-  imageUrl?: string | null;
-};
-
-function BrandTile({ item, onPress }: { item: BrandTileItem; onPress: () => void }) {
-  const colors = useColors();
-  const [imageLoaded, setImageLoaded] = React.useState(false);
-
-  return (
-    <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 88 }}>
-      <View
-        style={{
-          width: 80,
-          height: 80,
-          borderRadius: 999,
-          overflow: "hidden",
-          backgroundColor: "#F3F3F3",
-          borderWidth: 1,
-          borderColor: colors.border,
-        }}
-      >
-        {item.imageUrl ? (
-          <>
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={{ width: "100%", height: "100%" }}
-              contentFit="cover"
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageLoaded(true)}
-            />
-            {!imageLoaded && <ShimmerPlaceholder />}
-          </>
-        ) : (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 6 }}>
-            <Text
-              numberOfLines={3}
-              style={{
-                fontFamily: "PlayfairDisplay_400Regular",
-                fontSize: 11,
-                lineHeight: 14,
-                color: colors.primary,
-                textAlign: "center",
-              }}
-            >
-              {item.name}
-            </Text>
-          </View>
-        )}
-      </View>
-      <AppText
-        numberOfLines={2}
-        style={{
-          fontFamily: "Inter_500Medium",
-          fontSize: 11,
-          color: colors.primary,
-          textAlign: "center",
-          lineHeight: 14,
-        }}
-      >
-        {item.name}
-      </AppText>
-    </Pressable>
   );
 }
 
