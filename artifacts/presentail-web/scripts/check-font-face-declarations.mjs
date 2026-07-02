@@ -16,15 +16,18 @@
  *
  * What it checks:
  *   - At least one CSS file exists in the assets directory.
- *   - For each font family in EXPECTED_FONTS, every listed weight appears as
- *     a `font-weight` value inside at least one `@font-face` block whose
- *     `font-family` matches (case-insensitive).
+ *   - For each font family in EXPECTED_FONTS, every listed (weight, style)
+ *     variant appears as a matching @font-face block whose `font-family`
+ *     matches (case-insensitive), `font-weight` matches, and `font-style`
+ *     matches.  Tracking both dimensions catches silent browser synthesis of
+ *     italic variants when only the italic @font-face rule is dropped while
+ *     the .woff2 file still exists in the build output.
  *
- *   Fonts and weights checked:
- *     Inter              400, 500, 600, 700
- *     Noto Naskh Arabic  400, 700
- *     Playfair Display   400, 700
- *     Roboto             400, 500
+ *   Fonts and variants checked (weight / style):
+ *     Inter              400/normal, 500/normal, 600/normal, 700/normal
+ *     Noto Naskh Arabic  400/normal, 700/normal
+ *     Playfair Display   400/normal, 700/normal
+ *     Roboto             400/normal, 500/normal, 400/italic
  *
  * Exits 0 on PASS, 1 on FAIL.
  *
@@ -102,15 +105,44 @@ function getFontWeight(block) {
 }
 
 /**
- * Map of font-family (lowercase, as it appears in font-family declarations)
- * to the array of font-weight values that must each appear in at least one
- * @font-face block for that family.
+ * Return the font-style value from a @font-face block body.
+ * Defaults to "normal" when the declaration is absent (matching browser
+ * behaviour: omitting font-style is equivalent to font-style: normal).
+ */
+function getFontStyle(block) {
+  const m = block.match(/font-style\s*:\s*([\w-]+)\s*[;}/]/);
+  return m ? m[1].toLowerCase() : "normal";
+}
+
+/**
+ * A variant is a { weight, style } pair that must appear as a @font-face
+ * block for a given font family.
+ *
+ * Map of font-family (lowercase) → array of required variants.
+ * style defaults to "normal"; only list "italic" where an explicit italic
+ * @font-face rule exists in src/index.css (browser synthesis is not
+ * acceptable for shipped fonts).
  */
 const EXPECTED_FONTS = {
-  inter: ["400", "500", "600", "700"],
-  "noto naskh arabic": ["400", "700"],
-  "playfair display": ["400", "700"],
-  roboto: ["400", "500"],
+  inter: [
+    { weight: "400", style: "normal" },
+    { weight: "500", style: "normal" },
+    { weight: "600", style: "normal" },
+    { weight: "700", style: "normal" },
+  ],
+  "noto naskh arabic": [
+    { weight: "400", style: "normal" },
+    { weight: "700", style: "normal" },
+  ],
+  "playfair display": [
+    { weight: "400", style: "normal" },
+    { weight: "700", style: "normal" },
+  ],
+  roboto: [
+    { weight: "400", style: "normal" },
+    { weight: "500", style: "normal" },
+    { weight: "400", style: "italic" },
+  ],
 };
 
 /** Display names for PASS/FAIL messages (preserves original capitalisation). */
@@ -121,10 +153,13 @@ const DISPLAY_NAME = {
   roboto: "Roboto",
 };
 
-/** foundWeights["inter"]["400"] = true when that block was seen. */
-const foundWeights = {};
+/**
+ * foundVariants[family]["400|normal"] = true when that @font-face block was seen.
+ * Key format: "<weight>|<style>"
+ */
+const foundVariants = {};
 for (const family of Object.keys(EXPECTED_FONTS)) {
-  foundWeights[family] = {};
+  foundVariants[family] = {};
 }
 
 let totalCssFiles = 0;
@@ -139,8 +174,9 @@ for (const filePath of cssFiles.sort()) {
   for (const block of blocks) {
     const family = getFontFamily(block);
     const weight = getFontWeight(block);
-    if (family && weight && family in foundWeights) {
-      foundWeights[family][weight] = true;
+    const style = getFontStyle(block);
+    if (family && weight && family in foundVariants) {
+      foundVariants[family][`${weight}|${style}`] = true;
     }
   }
 }
@@ -152,22 +188,23 @@ console.log("─".repeat(72));
 
 let failures = 0;
 
-for (const [familyKey, expectedWeights] of Object.entries(EXPECTED_FONTS)) {
+for (const [familyKey, expectedVariants] of Object.entries(EXPECTED_FONTS)) {
   const displayName = DISPLAY_NAME[familyKey];
-  for (const weight of expectedWeights) {
-    if (foundWeights[familyKey][weight]) {
+  for (const { weight, style } of expectedVariants) {
+    const key = `${weight}|${style}`;
+    if (foundVariants[familyKey][key]) {
       console.log(
-        `  ✓  ${displayName} font-weight: ${weight} declared in @font-face`
+        `  ✓  ${displayName} font-weight: ${weight}, font-style: ${style} declared in @font-face`
       );
     } else {
       console.error(
-        `  ❌ ${displayName} font-weight: ${weight} is missing from all @font-face blocks\n` +
-          `       Expected a @font-face { font-family: '${displayName}'; font-weight: ${weight}; … }\n` +
+        `  ❌ ${displayName} font-weight: ${weight}, font-style: ${style} is missing from all @font-face blocks\n` +
+          `       Expected a @font-face { font-family: '${displayName}'; font-weight: ${weight}; font-style: ${style}; … }\n` +
           `       declaration somewhere in the built CSS.\n` +
-          `       Root cause: the @font-face rule for ${displayName} weight ${weight} may have been\n` +
+          `       Root cause: the @font-face rule for ${displayName} weight ${weight} ${style} may have been\n` +
           `       removed from src/index.css, or stripped by a CSS processing step.\n` +
-          `       The browser will never download the matching .woff2 file and will\n` +
-          `       silently fall back to the system font for that weight.`
+          `       Without it the browser synthesises the ${style} variant from the normal weight,\n` +
+          `       silently degrading rendering quality and never downloading the matching .woff2 file.`
       );
       failures++;
     }
@@ -176,26 +213,31 @@ for (const [familyKey, expectedWeights] of Object.entries(EXPECTED_FONTS)) {
 
 console.log("─".repeat(72));
 
-for (const [familyKey, expectedWeights] of Object.entries(EXPECTED_FONTS)) {
+for (const [familyKey, expectedVariants] of Object.entries(EXPECTED_FONTS)) {
   const displayName = DISPLAY_NAME[familyKey];
-  const found = Object.keys(foundWeights[familyKey]).sort().join(", ") || "(none)";
+  const found = Object.keys(foundVariants[familyKey]).sort().join(", ") || "(none)";
+  const expected = expectedVariants.map((v) => `${v.weight}/${v.style}`).join(", ");
   console.log(
-    `  ${displayName}: found weights [${found}]  expected [${expectedWeights.join(", ")}]`
+    `  ${displayName}: found variants [${found}]  expected [${expected}]`
   );
 }
 
 if (failures > 0) {
   console.error(
-    `\nFAIL  ${failures} font-weight declaration(s) are missing from @font-face CSS blocks.\n` +
+    `\nFAIL  ${failures} font-face declaration(s) are missing.\n` +
       `      The .woff2 file(s) may still exist in the build output, but without\n` +
-      `      a matching @font-face rule the browser will never request them.\n` +
+      `      a matching @font-face rule the browser will never request them\n` +
+      `      (normal variants) or will silently synthesise them (italic variants).\n` +
       `      Restore the missing rule(s) in src/index.css.`
   );
   process.exit(1);
 }
 
-console.log(
-  `\nPASS  All expected font-face declarations found for Inter (400, 500, 600, 700),` +
-    ` Noto Naskh Arabic (400, 700), Playfair Display (400, 700), and Roboto (400, 500).`
-);
+const summary = [
+  "Inter (400–700 normal)",
+  "Noto Naskh Arabic (400, 700 normal)",
+  "Playfair Display (400, 700 normal)",
+  "Roboto (400 normal, 500 normal, 400 italic)",
+].join(", ");
+console.log(`\nPASS  All expected font-face declarations found for ${summary}.`);
 process.exit(0);
