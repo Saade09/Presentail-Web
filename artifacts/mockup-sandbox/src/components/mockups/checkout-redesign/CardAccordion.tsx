@@ -185,14 +185,14 @@ export default function CardAccordionCheckout() {
                   style={{ borderColor: BRAND }}
                 >
                   {/* Card header */}
-                  <div className="px-6 py-5 flex items-center gap-4 border-b border-slate-100">
+                  <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100">
+                    <h2 className="font-semibold text-lg text-slate-900">{label}</h2>
                     <div
                       className="flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold text-white shrink-0"
                       style={{ background: BRAND }}
                     >
                       {n}
                     </div>
-                    <h2 className="font-semibold text-lg text-slate-900">{label}</h2>
                   </div>
 
                   {/* Step 1 form */}

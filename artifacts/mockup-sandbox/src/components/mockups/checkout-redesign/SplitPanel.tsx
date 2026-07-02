@@ -117,25 +117,25 @@ export default function SplitPanelCheckout() {
             <div className="flex items-center justify-between mb-16 relative">
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[1px] bg-gray-200 z-0"></div>
               
-              <div className="relative z-10 flex flex-col items-center bg-[#fdfcf8] px-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 1 ? 'bg-[#0d2b1e] text-[#fdfcf8]' : 'bg-gray-100 text-gray-400'}`}>
+              <div className="relative z-10 flex flex-row items-center justify-between bg-[#fdfcf8] px-2 gap-2 min-w-[90px]">
+                <span className={`text-xs font-medium ${step >= 1 ? 'text-[#0d2b1e]' : 'text-gray-400'}`}>Recipient</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors shrink-0 ${step >= 1 ? 'bg-[#0d2b1e] text-[#fdfcf8]' : 'bg-gray-100 text-gray-400'}`}>
                   {step > 1 ? <Check size={16} /> : "1"}
                 </div>
-                <span className={`text-xs mt-2 font-medium ${step >= 1 ? 'text-[#0d2b1e]' : 'text-gray-400'}`}>Recipient</span>
               </div>
               
-              <div className="relative z-10 flex flex-col items-center bg-[#fdfcf8] px-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 2 ? 'bg-[#0d2b1e] text-[#fdfcf8]' : 'bg-gray-100 text-gray-400'}`}>
+              <div className="relative z-10 flex flex-row items-center justify-between bg-[#fdfcf8] px-2 gap-2 min-w-[90px]">
+                <span className={`text-xs font-medium ${step >= 2 ? 'text-[#0d2b1e]' : 'text-gray-400'}`}>Sender</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors shrink-0 ${step >= 2 ? 'bg-[#0d2b1e] text-[#fdfcf8]' : 'bg-gray-100 text-gray-400'}`}>
                   {step > 2 ? <Check size={16} /> : "2"}
                 </div>
-                <span className={`text-xs mt-2 font-medium ${step >= 2 ? 'text-[#0d2b1e]' : 'text-gray-400'}`}>Sender</span>
               </div>
               
-              <div className="relative z-10 flex flex-col items-center bg-[#fdfcf8] px-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 3 ? 'bg-[#0d2b1e] text-[#fdfcf8]' : 'bg-gray-100 text-gray-400'}`}>
+              <div className="relative z-10 flex flex-row items-center justify-between bg-[#fdfcf8] px-2 gap-2 min-w-[90px]">
+                <span className={`text-xs font-medium ${step >= 3 ? 'text-[#0d2b1e]' : 'text-gray-400'}`}>Payment</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors shrink-0 ${step >= 3 ? 'bg-[#0d2b1e] text-[#fdfcf8]' : 'bg-gray-100 text-gray-400'}`}>
                   3
                 </div>
-                <span className={`text-xs mt-2 font-medium ${step >= 3 ? 'text-[#0d2b1e]' : 'text-gray-400'}`}>Payment</span>
               </div>
             </div>
 

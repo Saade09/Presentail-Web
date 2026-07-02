@@ -77,19 +77,19 @@ export default function MinimalStepper() {
               const isCompleted = currentStep > step;
               
               return (
-                <div key={step} className="flex flex-col items-center bg-[#faf8f4] px-2 z-10">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs mb-2 transition-colors ${
-                    isActive ? 'bg-[#1a3a2e] text-[#faf8f4]' : 
-                    isCompleted ? 'bg-[#e5e5e5] text-[#1a3a2e]' : 'bg-[#f0ece1] text-[#9ca3af]'
-                  }`}>
-                    {isCompleted ? <Check className="w-3.5 h-3.5" /> : step}
-                  </div>
+                <div key={step} className="flex flex-row items-center justify-between bg-[#faf8f4] px-2 z-10 gap-2 min-w-[90px]">
                   <span className={`text-[0.65rem] uppercase tracking-wider ${
                     isActive ? 'text-[#1a3a2e] font-semibold' : 
                     isCompleted ? 'text-[#6b7280]' : 'text-[#9ca3af]'
                   }`}>
                     {step === 1 ? 'Recipient' : step === 2 ? 'Sender' : 'Payment'}
                   </span>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors shrink-0 ${
+                    isActive ? 'bg-[#1a3a2e] text-[#faf8f4]' : 
+                    isCompleted ? 'bg-[#e5e5e5] text-[#1a3a2e]' : 'bg-[#f0ece1] text-[#9ca3af]'
+                  }`}>
+                    {isCompleted ? <Check className="w-3.5 h-3.5" /> : step}
+                  </div>
                 </div>
               );
             })}
