@@ -550,6 +550,9 @@ export async function recordSuccessfulWcOrder(input: {
   // Order state written to app_orders. Defaults to "confirmed" for successfully
   // paid orders; pass "payment_failed" for declined-payment recordings.
   state?: string | null;
+  // ISO 4217 currency code the shopper actually paid in (e.g. "SAR", "AED").
+  // Taken from the verified payment intent; falls back to null for legacy rows.
+  currencyCode?: string | null;
 }) {
   const {
     body,
@@ -565,6 +568,7 @@ export async function recordSuccessfulWcOrder(input: {
     lineItems,
     log,
     state: inputState,
+    currencyCode,
   } = input;
   const orderState = inputState ?? "confirmed";
 
@@ -633,6 +637,7 @@ export async function recordSuccessfulWcOrder(input: {
         deliveryDistrict,
         deliveryAddress,
         paymentMethod,
+        currencyCode: currencyCode ?? null,
         couponCode,
         cardMessage,
         marketingAttributionJson,
@@ -664,6 +669,7 @@ export async function recordSuccessfulWcOrder(input: {
           deliveryDistrict,
           deliveryAddress,
           paymentMethod,
+          currencyCode: currencyCode ?? null,
           couponCode,
           cardMessage,
           marketingAttributionJson,
@@ -1217,6 +1223,9 @@ export async function enqueuePendingWcOrder(input: {
   storeCountryCode?: string | null;
   storeCityId?: string | null;
   platform?: string | null;
+  // Server-verified payment currency (e.g. "SAR"). Stored in the reconciliation
+  // payload so retries use the same currency instead of the client-supplied value.
+  verifiedCurrency?: string | null;
   log?: { warn?: (...args: any[]) => void };
 }) {
   const {
@@ -1230,6 +1239,7 @@ export async function enqueuePendingWcOrder(input: {
     storeCountryCode,
     storeCityId,
     platform,
+    verifiedCurrency,
     log,
   } = input;
   const deviceId =
@@ -1247,6 +1257,7 @@ export async function enqueuePendingWcOrder(input: {
     _storeCountryCode: storeCountryCode ?? null,
     _storeCityId: storeCityId ?? null,
     _platform: platform ?? null,
+    _verifiedCurrency: verifiedCurrency ?? null,
   };
 
   try {
@@ -1340,6 +1351,8 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
   const storedCityId =
     typeof rawPayload?._storeCityId === "string" ? rawPayload._storeCityId : null;
   const storedPlatform = normalizePlatform(rawPayload?._platform);
+  const storedVerifiedCurrency =
+    typeof rawPayload?._verifiedCurrency === "string" ? rawPayload._verifiedCurrency : null;
   const store = resolveStore(storedCountryCode, storedCityId);
 
   // Reconciliation retries via OS (the authoritative order submission path).
@@ -1350,6 +1363,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
     paymentVerified,
     store,
     platform: storedPlatform,
+    verifiedCurrency: storedVerifiedCurrency ?? undefined,
   });
   const nextAttempts = row.attempts + 1;
 
@@ -1375,6 +1389,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       lineItems: result.lineItems,
       platform: storedPlatform,
       storeKey: store.storeKey,
+      currencyCode: storedVerifiedCurrency,
       log: logger,
     });
     logger.info(

@@ -69,6 +69,11 @@ export const appOrdersTable = pgTable(
     deliveryAddress: text("delivery_address"),
     // Payment method used: card | wallet | whish | western | mamo | paypal.
     paymentMethod: text("payment_method"),
+    // ISO 4217 currency code the shopper actually paid in (e.g. "SAR", "AED",
+    // "USD"). Taken from the Stripe / Mamo / PayPal charge record rather than
+    // the store default so mixed-currency orders (a LB shopper paying in SAR
+    // via Apple Pay) are recorded correctly. Nullable for legacy rows.
+    currencyCode: text("currency_code"),
     // Coupon code applied at checkout (trimmed, uppercase). Null when no coupon
     // was applied.
     couponCode: text("coupon_code"),

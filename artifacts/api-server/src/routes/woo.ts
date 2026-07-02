@@ -1220,6 +1220,7 @@ router.post("/woo/order", async (req, res) => {
         storeCountryCode: store.country,
         storeCityId: null,
         platform: requestPlatform,
+        verifiedCurrency,
         log: req.log,
       });
       req.log?.warn?.(
@@ -1251,6 +1252,7 @@ router.post("/woo/order", async (req, res) => {
     platform: requestPlatform,
     storeKey: store.storeKey,
     osOrderId: result.osOrderId ?? null,
+    currencyCode: verifiedCurrency,
     log: req.log,
   });
 
@@ -1262,7 +1264,7 @@ router.post("/woo/order", async (req, res) => {
   void sendCapiPurchase({
     eventId: `fbpurchase-${body.orderId}`,
     value: result.totalUsdCents != null ? result.totalUsdCents / 100 : 0,
-    currency: "USD",
+    currency: verifiedCurrency ?? "USD",
     countryCode: store.country,
     userData: {
       email: body.billing.email ?? null,
