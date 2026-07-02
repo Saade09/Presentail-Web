@@ -376,6 +376,33 @@ describe("useServerEvents", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Early unmount during initial 3-second defer window (readyState complete)
+  // -------------------------------------------------------------------------
+
+  it("never opens an EventSource when unmounted before the initial 3-second defer fires", async () => {
+    // jsdom already sets readyState to "complete", so the hook schedules the
+    // 3-second connect timer immediately at mount — no load event needed.
+    const { unmount } = renderHook(() => useServerEvents(), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    // Verify nothing has connected yet.
+    expect(MockEventSource.instances).toHaveLength(0);
+
+    // Unmount before the 3-second timer fires (e.g. Lighthouse navigates away,
+    // or React tears down the component during hydration).
+    unmount();
+
+    // Advance well past the 3-second window.  The cleanup should have
+    // cancelled the timer, so no EventSource should ever be created.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(MockEventSource.instances).toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
   // Mid-backoff unmount: pending reconnect timer must be cancelled on cleanup
   // -------------------------------------------------------------------------
 
