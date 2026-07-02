@@ -130,6 +130,35 @@ describe("useServerEvents", () => {
   });
 
   // -------------------------------------------------------------------------
+  // readyState "complete": hook must defer 3 s without waiting for load event
+  // (simulates React hydration where load already fired before the hook runs)
+  // -------------------------------------------------------------------------
+
+  it("does not open the EventSource before 3 s when readyState is already complete at mount", async () => {
+    // jsdom already sets readyState to "complete", but make it explicit so
+    // this test documents the hydration path and is not fragile to jsdom changes.
+    Object.defineProperty(document, "readyState", {
+      value: "complete",
+      configurable: true,
+    });
+
+    renderHook(() => useServerEvents(), { wrapper: makeWrapper(queryClient) });
+
+    // One millisecond short of the delay — load already fired, but the 3 s
+    // guard must still hold.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_999);
+    });
+    expect(MockEventSource.instance).toBeNull();
+
+    // Advance the final millisecond — EventSource must open at exactly 3 s.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(MockEventSource.instance).not.toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
   // readyState "loading": hook must wait for the load event, then wait 3 s
   // -------------------------------------------------------------------------
 
