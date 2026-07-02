@@ -98,7 +98,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
   };
 
   return (
-    <section className="py-10 md:py-14" data-testid={testId}>
+    <section className="py-6 md:py-14" data-testid={testId}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
