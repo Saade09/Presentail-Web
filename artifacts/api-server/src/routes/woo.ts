@@ -270,9 +270,13 @@ function readMetaList(meta: WcMeta[] | undefined, ...keys: string[]): string[] |
   return null;
 }
 
-// Slugs of WooCommerce categories that should never surface to clients.
-// Products belonging to any of these categories are dropped from every
-// product-listing response, even if they live in another category too.
+// Slugs of OS/WooCommerce categories that are treated as internal-only tags.
+// A product is hidden only when ALL of its categories are in this set — i.e.
+// it has no visible category at all. Products that carry one of these slugs
+// alongside a visible category (e.g. "bundles" + "electronics") are still
+// surfaced, because the visible category is the meaningful classification.
+// Pure "electronics", "board-games", or "coffee" products (no other category)
+// remain hidden, as before.
 const HIDDEN_CATEGORY_SLUGS = new Set(["electronics", "board-games", "coffee"]);
 
 function isHiddenCategory(slug: string): boolean {
@@ -287,7 +291,12 @@ function isVisibleProduct(p: WcProduct): boolean {
   // counts as hidden so we fail closed when WC doesn't return the field.
   if (p.stock_status !== "instock") return false;
   const slugs = (p.categories ?? []).map((c) => c.slug);
-  return !slugs.some((s) => HIDDEN_CATEGORY_SLUGS.has(s));
+  // Show the product unless every category it belongs to is a hidden tag.
+  // Products with at least one visible category (e.g. "bundles") are surfaced
+  // even when they also carry an internal tag like "electronics". Only
+  // products whose entire category set is hidden are suppressed.
+  const hasVisibleCategory = slugs.some((s) => !HIDDEN_CATEGORY_SLUGS.has(s));
+  return slugs.length === 0 || hasVisibleCategory;
 }
 
 function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {

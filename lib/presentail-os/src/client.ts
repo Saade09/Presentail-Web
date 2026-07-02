@@ -1,6 +1,7 @@
 import type {
   OSLocationsResponse,
   OSProduct,
+  OSProductBrand,
   OSProductCategory,
   OSProductsResponse,
   OSCategoriesResponse,
@@ -120,6 +121,8 @@ type RawOSProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   slug?: string;
   /** OS API returns category data under this key (not `categories`). */
   catalog_categories?: OSProductCategory[];
+  /** OS API returns brand data under this key (not `brands`). */
+  catalog_brands?: OSProductBrand[];
   /** OS API sends snake_case; some versions send camelCase — handle both. */
   has_input_field?: boolean;
   hasInputField?: boolean;
@@ -148,9 +151,13 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
   // The OS API returns category data under `catalog_categories`, not `categories`.
   // Prefer `catalog_categories` when present so filtering by category works correctly.
   const categories = raw.catalog_categories ?? raw.categories ?? [];
+  // The OS API returns brand data under `catalog_brands`, not `brands`.
+  // Prefer `catalog_brands` when present so filtering by brand slug works correctly.
+  const brands = raw.catalog_brands ?? raw.brands ?? [];
   return {
     ...raw,
     categories,
+    brands,
     id,
     _rawNumericId: raw.id,
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
