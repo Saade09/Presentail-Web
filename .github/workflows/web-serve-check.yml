@@ -182,6 +182,9 @@ jobs:
       - name: Font files emitted check (all four Inter .woff2 weights must be present)
         run: node artifacts/presentail-web/scripts/check-font-files-emitted.mjs artifacts/presentail-web/dist/public
 
+      - name: Font @font-face declarations check (all four Inter weights must be declared in CSS)
+        run: node artifacts/presentail-web/scripts/check-font-face-declarations.mjs artifacts/presentail-web/dist/public
+
       - name: Stripe isolation check (Stripe must be absent from instant chunks)
         run: node artifacts/presentail-web/scripts/check-stripe-isolation.mjs artifacts/presentail-web/dist/public
 
