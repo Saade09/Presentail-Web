@@ -176,6 +176,9 @@ jobs:
       - name: CSS bundle budget (≤200 kB raw / ≤80 kB brotli)
         run: node artifacts/presentail-web/scripts/check-css-budget.mjs artifacts/presentail-web/dist/public
 
+      - name: Font inlining check (Inter fonts must not be inlined as data URIs)
+        run: node artifacts/presentail-web/scripts/check-font-not-inlined.mjs artifacts/presentail-web/dist/public
+
       - name: Stripe isolation check (Stripe must be absent from instant chunks)
         run: node artifacts/presentail-web/scripts/check-stripe-isolation.mjs artifacts/presentail-web/dist/public
 
