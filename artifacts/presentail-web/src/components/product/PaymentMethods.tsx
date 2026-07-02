@@ -21,6 +21,12 @@ type PaymentMethodsProps = {
    * `@workspace/pay-methods` rules as the checkout and mobile app.
    */
   currencyCode?: string | null;
+  /**
+   * Renders badges at a reduced size with no wrapping — used in the footer
+   * where horizontal space is limited. Does not affect the label or outer
+   * container layout.
+   */
+  compact?: boolean;
 };
 
 export function PaymentMethods({
@@ -29,6 +35,7 @@ export function PaymentMethods({
   className,
   countryCode,
   currencyCode,
+  compact = false,
 }: PaymentMethodsProps = {}) {
   const { t } = useLocale();
   const resolvedLabel = label !== undefined ? label : t("product.waysToPayLabel");
@@ -85,15 +92,15 @@ export function PaymentMethods({
         </p>
       ) : null}
 
-      <div className="flex flex-1 flex-wrap items-center justify-center gap-2 sm:gap-[5px] min-w-0">
+      <div className={compact ? "flex flex-nowrap items-center justify-center gap-1 min-w-0" : "flex flex-1 flex-wrap items-center justify-center gap-2 sm:gap-[5px] min-w-0"}>
         {logos.map((logo) => (
           <span
             key={logo.name}
             title={logo.name}
             className={
               logo.fill
-                ? "inline-flex shrink-0 overflow-hidden rounded-[4px] shadow-sm w-[42px] h-7"
-                : "inline-flex shrink-0 items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[3px] w-[42px] h-7"
+                ? `inline-flex shrink-0 overflow-hidden rounded-[4px] shadow-sm ${compact ? "w-[34px] h-[22px]" : "w-[42px] h-7"}`
+                : `inline-flex shrink-0 items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[3px] ${compact ? "w-[34px] h-[22px]" : "w-[42px] h-7"}`
             }
           >
             <img
@@ -102,7 +109,7 @@ export function PaymentMethods({
               className={
                 logo.fill
                   ? "block w-full h-full object-fill"
-                  : `block max-w-[26px] object-contain ${logo.maxH ?? ""}`
+                  : `block ${compact ? "max-w-[22px]" : "max-w-[26px]"} object-contain ${logo.maxH ?? ""}`
               }
               loading="lazy"
               decoding="async"
