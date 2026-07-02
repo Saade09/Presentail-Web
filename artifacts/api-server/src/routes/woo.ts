@@ -33,6 +33,7 @@ import {
   getOsBrands,
   getOsRawCatalogBrands,
   getOsOccasions,
+  getOsProductOccasions,
   getOsProductBySlug,
 } from "../lib/osProductsCache";
 import type { OSProduct, OSCatalogAttributeBrand } from "@workspace/presentail-os";
@@ -423,7 +424,8 @@ const OCCASION_SLUGS = [
   "birthday", "housewarming", "new-job", "promotion", "thank-you",
   "love-romance", "farewell", "condolences", "anniversary", "wedding",
   "graduation", "newborn", "get-well-soon", "congratulations",
-  "colleague", "friend", "thinking-of-you", "im-sorry", "eid", "children",
+  "colleague", "friend", "thinking-of-you", "im-sorry", "eid", "ramadan",
+  "children",
 ];
 
 const OCCASION_LABELS: Record<string, string> = {
@@ -446,6 +448,7 @@ const OCCASION_LABELS: Record<string, string> = {
   "thinking-of-you": "Thinking of You",
   "im-sorry": "I'm Sorry",
   "eid": "Eid",
+  "ramadan": "Ramadan",
   "children": "Children",
 };
 
@@ -508,11 +511,14 @@ router.get("/woo/occasion-products", (req, res) => {
   if (!slug) {
     return res.json({ ok: true, groups: [] });
   }
-  // Validate against live OS occasions (warm cache). Fall back to the static
-  // OCCASION_SLUGS list on cold start so the endpoint never fails.
+  // Validate against live OS occasions (warm cache). Also accept slugs that
+  // appear on products even when no formal occasion catalog entry exists
+  // (e.g. products tagged "ramadan" before the OS admin creates the occasion).
+  // Fall back to the static OCCASION_SLUGS list on cold start.
   const liveOccasions = getOsOccasions();
+  const productOccasions = getOsProductOccasions();
   const validSlug = liveOccasions
-    ? liveOccasions.some((o) => o.slug === slug)
+    ? liveOccasions.some((o) => o.slug === slug) || productOccasions.has(slug)
     : OCCASION_SLUGS.includes(slug);
   if (!validSlug) {
     return res.json({ ok: true, groups: [] });
