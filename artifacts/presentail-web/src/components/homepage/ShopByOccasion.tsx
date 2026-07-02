@@ -20,7 +20,7 @@ const ITEMS: OccasionItem[] = [
   { key: "occasions.romance",    slug: "love-romance",   Icon: Heart },
   { key: "occasions.anniversary",slug: "anniversary",    Icon: Sparkles },
   { key: "occasions.congrats",   slug: "congratulations",Icon: Trophy },
-  { key: "occasion.newborn",     slug: "new-born",       Icon: Baby },
+  { key: "occasions.newborn",    slug: "new-born",       Icon: Baby },
   { key: "occasions.thankYou",   slug: "thank-you",      Icon: Smile },
   { key: "occasions.sympathy",   slug: "condolences",    Icon: Flower2 },
   { key: "occasions.justBecause",slug: "just-because",   Icon: Gift },
