@@ -752,8 +752,18 @@ async function fetchAndStore(): Promise<void> {
  * Returns the cached delivery countries + cities.
  * Always returns a non-empty array (hardcoded fallback at worst).
  */
+const COUNTRY_SORT_ORDER: Record<string, number> = { LB: 0, AE: 1, CY: 2 };
+
+function sortCountries(countries: CachedCountry[]): CachedCountry[] {
+  return [...countries].sort((a, b) => {
+    const aOrder = COUNTRY_SORT_ORDER[a.code] ?? 99;
+    const bOrder = COUNTRY_SORT_ORDER[b.code] ?? 99;
+    return aOrder - bOrder;
+  });
+}
+
 export function getLocations(): CachedCountry[] {
-  return cachedCountries ?? hardcodedFallback();
+  return sortCountries(cachedCountries ?? hardcodedFallback());
 }
 
 /**
