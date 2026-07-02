@@ -29,10 +29,14 @@ export const appOrdersTable = pgTable(
     // funnel dashboard alongside the analytics-event counts.
     platform: text("platform"),
     // Authoritative order total in USD cents (catalog subtotal + delivery fee
-    // + express surcharge + non-catalog fee items). USD is the canonical wire
-    // currency on this codebase; presented currency is a display concern only.
+    // + express surcharge + non-catalog fee items). Retained for USD-based
+    // revenue reporting and cross-currency comparisons.
     // Nullable for legacy rows created before the column existed.
     totalUsdCents: integer("total_usd_cents"),
+    // Order total in the currency the customer actually paid (minor units —
+    // cents for SAR/AED/USD, fils for KWD). Paired with currency_code.
+    // Null for legacy rows or orders where currency could not be determined.
+    totalPaymentCents: integer("total_payment_cents"),
     // Canonical store key the order was placed against
     // (lebanon|dubai|abudhabi|cyprus). Required for loyalty crediting because
     // Dubai and Abu Dhabi share country code AE — using the country alone

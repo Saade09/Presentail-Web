@@ -12,6 +12,7 @@ import {
   convertFromUsd,
   normalizeCurrency,
   roundForCurrency,
+  toStripeMinorUnits,
   type SupportedCurrency,
 } from "./fx";
 import {
@@ -553,6 +554,8 @@ export async function recordSuccessfulWcOrder(input: {
   // ISO 4217 currency code the shopper actually paid in (e.g. "SAR", "AED").
   // Taken from the verified payment intent; falls back to null for legacy rows.
   currencyCode?: string | null;
+  // Order total in the payment currency (minor units). Pairs with currencyCode.
+  totalPaymentCents?: number | null;
 }) {
   const {
     body,
@@ -569,6 +572,7 @@ export async function recordSuccessfulWcOrder(input: {
     log,
     state: inputState,
     currencyCode,
+    totalPaymentCents,
   } = input;
   const orderState = inputState ?? "confirmed";
 
@@ -638,6 +642,7 @@ export async function recordSuccessfulWcOrder(input: {
         deliveryAddress,
         paymentMethod,
         currencyCode: currencyCode ?? null,
+        totalPaymentCents: totalPaymentCents ?? null,
         couponCode,
         cardMessage,
         marketingAttributionJson,
@@ -670,6 +675,7 @@ export async function recordSuccessfulWcOrder(input: {
           deliveryAddress,
           paymentMethod,
           currencyCode: currencyCode ?? null,
+          totalPaymentCents: totalPaymentCents ?? null,
           couponCode,
           cardMessage,
           marketingAttributionJson,
@@ -747,6 +753,7 @@ export type OsOrderAttemptResult =
       osOrderId: string | null;
       recipientName: string;
       totalUsdCents: number;
+      totalPaymentCents: number;
       lineItems: OrderLineItemSnapshot[];
     }
   | {
@@ -979,6 +986,10 @@ export async function attemptCreateOsOrder(
     expressSurchargeAppliedUsd +
     slotFeeAppliedUsd;
   const totalUsdCents = Math.max(0, Math.round(totalUsd * 100));
+  // Convert the USD total to the payment currency so OS receives the amount
+  // the customer actually paid, not a USD equivalent.
+  const totalInPaymentCurrency = roundForCurrency(totalUsd, presentedCurrency);
+  const totalPaymentCents = toStripeMinorUnits(totalInPaymentCurrency, presentedCurrency);
 
   const osPayload = {
     workspace: osConfig.workspace ?? "presentail",
@@ -1083,6 +1094,9 @@ export async function attemptCreateOsOrder(
       ref: body.paymentRef || undefined,
       verified: opts.paymentVerified === true,
       currencyCode: presentedCurrency,
+      // Actual amount in the payment currency (what the customer paid).
+      totalAmount: totalInPaymentCurrency,
+      // USD equivalent retained for OS's cross-currency accounting.
       totalUsd: Math.round(totalUsd * 100) / 100,
     },
     platform: opts.platform ?? undefined,
@@ -1115,6 +1129,7 @@ export async function attemptCreateOsOrder(
       osOrderId,
       recipientName: recipientFullName,
       totalUsdCents,
+      totalPaymentCents,
       lineItems: lineItemData.map((d) => ({
         name: d.name,
         quantity: d.quantity,
@@ -1386,6 +1401,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       customerId: storedCustomerId,
       recipientName: result.recipientName,
       totalUsdCents: result.totalUsdCents,
+      totalPaymentCents: result.totalPaymentCents,
       lineItems: result.lineItems,
       platform: storedPlatform,
       storeKey: store.storeKey,

@@ -1248,6 +1248,7 @@ router.post("/woo/order", async (req, res) => {
     customerId: resolvedCustomerId,
     recipientName: result.recipientName,
     totalUsdCents: result.totalUsdCents,
+    totalPaymentCents: result.totalPaymentCents,
     lineItems: result.lineItems,
     platform: requestPlatform,
     storeKey: store.storeKey,
