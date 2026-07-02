@@ -5,6 +5,7 @@ import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
+import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Home() {
@@ -81,6 +82,7 @@ export default function Home() {
           {trustpilotTitle}
         </h2>
         <TrustpilotCarousel />
+        <TrustpilotBrandsRow />
       </div>
     </div>
   );
