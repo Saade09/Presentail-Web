@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY } from "./Cart";
+import { buildCardFrom } from "@/lib/cardFrom";
 import {
   useCreateOrder,
   useDeliveryLocations,
@@ -1457,7 +1458,7 @@ function CheckoutForm() {
     deliverySlotTime: deliveryMode === "express" ? undefined : slotTimeRangeForLabel(deliverySlot, timeSlots),
     cardMessage: recipient.cardMessage,
     cardTo: recipient.cardTo.trim() || undefined,
-    cardFrom: ([sender.firstName, sender.lastName].filter(Boolean).join(" ").trim().slice(0, 300) || undefined),
+    cardFrom: buildCardFrom(sender.firstName, sender.lastName),
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
     // "apple_pay" / "google_pay" are client-side UX IDs; the API server and
     // WooCommerce only recognise the legacy "wallet" value for both.

@@ -108,6 +108,7 @@ import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { firePostOrderAnalytics } from "@/lib/postOrderAnalytics";
 import { useNow } from "@/lib/useNow";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
+import { buildCardFrom } from "@/lib/cardFrom";
 import { isDiscountActive } from "@/lib/salePriceHelpers";
 import { getDeviceId } from "@/services/notifications";
 
@@ -936,7 +937,7 @@ function CheckoutScreen() {
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
     deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
     cardMessage,
-    cardFrom: ((cardFrom.trim() || [authUser?.firstName, authUser?.lastName].filter(Boolean).join(" ").trim()).slice(0, 300) || undefined),
+    cardFrom: buildCardFrom(cardFrom, authUser),
     cardTo,
     ...(/^https?:\/\/.+/.test((qrLink ?? "").trim()) ? { qrLink: qrLink.trim() } : {}),
     orderNotes,
