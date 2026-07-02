@@ -11,8 +11,8 @@ import { trackEvent } from "@/lib/analytics";
 import { buildLocalePath } from "@/lib/locale-route";
 import type { Lang, CountrySlug } from "@/lib/locale-route";
 
-const WHATSAPP_URL = "https://wa.me/96181392194";
-const PHONE_E164 = "+96181392194";
+const WHATSAPP_URL = "https://wa.me/9613136532";
+const PHONE_E164 = "+9613136532";
 const SUPPORT_EMAIL = "hello@presentail.com";
 
 interface ProductUnavailableInCityProps {

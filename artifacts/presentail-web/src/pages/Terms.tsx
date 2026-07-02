@@ -172,7 +172,7 @@ const SECTIONS: LegalSection[] = [
     heading: "IX. Contact Us",
     body: [
       "Thank you for reading Presentail's Terms of Use. We would like to hear your feedback regarding these Terms of Use or if you have any questions or concerns regarding any part of our Terms of Use.",
-      "Please email us at concierge@presentail.com or reach us by phone or WhatsApp at (+961) 81 392 194.",
+      "Please email us at concierge@presentail.com or reach us by phone or WhatsApp at (+961) 3 136 532.",
       "Questions about the Terms of Service should be sent to us at concierge@presentail.com.",
     ],
   },

@@ -31,9 +31,9 @@ type Copy = {
 };
 
 const SUPPORT_EMAIL = "hello@presentail.com";
-const PHONE_DISPLAY = "+961 81 392 194";
-const PHONE_E164 = "+96181392194";
-const WHATSAPP_URL = "https://wa.me/96181392194";
+const PHONE_DISPLAY = "+961 3 136 532";
+const PHONE_E164 = "+9613136532";
+const WHATSAPP_URL = "https://wa.me/9613136532";
 const ADDRESS =
   "3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon";
 const MAPS_URL =
