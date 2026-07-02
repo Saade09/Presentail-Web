@@ -313,6 +313,7 @@ export function MainNavbar() {
     return { ...menu, items: resolvedItems, footer: resolvedFooter };
   });
 
+  // Mobile-only: brands sub-panel definition (desktop uses a plain link in the right nav)
   const brandsMegaMenuDef: MegaMenuDef = {
     key: "brands",
     labelKey: "nav.brands",
@@ -333,7 +334,10 @@ export function MainNavbar() {
     loading: !catalogMetadata,
   };
 
-  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus, brandsMegaMenuDef];
+  // Desktop mega-menu triggers (excludes brands — desktop uses a plain link in the right nav)
+  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus];
+  // Mobile sub-panel lookup includes brands so the mobile sheet can drill into it
+  const mobileMenuDefs: MegaMenuDef[] = [...megaMenus, brandsMegaMenuDef];
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSubPanel, setMobileSubPanel] = useState<string | null>(null);
@@ -474,7 +478,7 @@ export function MainNavbar() {
                 }`}
               >
                 {(() => {
-                  const subDef = megaMenus.find((m) => m.key === mobileSubPanel);
+                  const subDef = mobileMenuDefs.find((m) => m.key === mobileSubPanel);
                   return (
                     <>
                       {/* Sub-panel header */}
@@ -560,9 +564,9 @@ export function MainNavbar() {
             <Search className="!w-[22px] !h-[22px]" />
           </Button>
 
-          {/* Desktop nav triggers (left of logo — excludes Brands) */}
+          {/* Desktop nav triggers (left of logo) */}
           <nav className="hidden md:flex items-center gap-6" aria-label={t("nav.mainNavAria")}>
-            {megaMenus.filter((m) => m.key !== "brands").map((menu) => (
+            {megaMenus.map((menu) => (
               <button
                 key={menu.key}
                 type="button"
@@ -594,7 +598,7 @@ export function MainNavbar() {
           </Link>
         </div>
 
-        {/* ── Right: Brands trigger (desktop) + icons ──────── */}
+        {/* ── Right: search + Brands link (desktop) + account ─ */}
         <div className="flex items-center justify-end gap-1 md:gap-1">
           <Button
             variant="ghost"
