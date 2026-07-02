@@ -69,30 +69,56 @@ export default function MinimalStepper() {
           <h1 className="font-playfair text-xl tracking-widest uppercase mb-10">Presentail</h1>
           
           {/* Stepper */}
-          <div className="flex items-center justify-between relative max-w-md mx-auto">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[1px] bg-[#e5e5e5] -z-10" />
-            
-            {[1, 2, 3].map((step) => {
-              const isActive = currentStep === step;
-              const isCompleted = currentStep > step;
-              
-              return (
-                <div key={step} className="flex flex-row items-center justify-between bg-[#faf8f4] px-2 z-10 gap-2 min-w-[90px]">
-                  <span className={`text-[0.65rem] uppercase tracking-wider ${
-                    isActive ? 'text-[#1a3a2e] font-semibold' : 
-                    isCompleted ? 'text-[#6b7280]' : 'text-[#9ca3af]'
-                  }`}>
-                    {step === 1 ? 'Recipient' : step === 2 ? 'Sender' : 'Payment'}
-                  </span>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors shrink-0 ${
-                    isActive ? 'bg-[#1a3a2e] text-[#faf8f4]' : 
-                    isCompleted ? 'bg-[#e5e5e5] text-[#1a3a2e]' : 'bg-[#f0ece1] text-[#9ca3af]'
-                  }`}>
-                    {isCompleted ? <Check className="w-3.5 h-3.5" /> : step}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex items-center max-w-md mx-auto">
+            {/* Step 1 */}
+            <div className="flex flex-row items-center bg-[#faf8f4] pr-2 gap-2 shrink-0">
+              <span className={`text-[0.65rem] uppercase tracking-wider ${
+                currentStep === 1 ? 'text-[#1a3a2e] font-semibold' :
+                currentStep > 1 ? 'text-[#6b7280]' : 'text-[#9ca3af]'
+              }`}>Recipient</span>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors shrink-0 ${
+                currentStep === 1 ? 'bg-[#1a3a2e] text-[#faf8f4]' :
+                currentStep > 1 ? 'bg-[#e5e5e5] text-[#1a3a2e]' : 'bg-[#f0ece1] text-[#9ca3af]'
+              }`}>
+                {currentStep > 1 ? <Check className="w-3.5 h-3.5" /> : 1}
+              </div>
+            </div>
+
+            {/* Connector 1→2 */}
+            <div className="flex-1 h-[1px] bg-[#e5e5e5] overflow-hidden">
+              <div className={`h-full bg-[#1a3a2e] transition-all duration-500 ${currentStep > 1 ? 'w-full' : 'w-0'}`} />
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex flex-row items-center bg-[#faf8f4] px-2 gap-2 shrink-0">
+              <span className={`text-[0.65rem] uppercase tracking-wider ${
+                currentStep === 2 ? 'text-[#1a3a2e] font-semibold' :
+                currentStep > 2 ? 'text-[#6b7280]' : 'text-[#9ca3af]'
+              }`}>Sender</span>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors shrink-0 ${
+                currentStep === 2 ? 'bg-[#1a3a2e] text-[#faf8f4]' :
+                currentStep > 2 ? 'bg-[#e5e5e5] text-[#1a3a2e]' : 'bg-[#f0ece1] text-[#9ca3af]'
+              }`}>
+                {currentStep > 2 ? <Check className="w-3.5 h-3.5" /> : 2}
+              </div>
+            </div>
+
+            {/* Connector 2→3 */}
+            <div className="flex-1 h-[1px] bg-[#e5e5e5] overflow-hidden">
+              <div className={`h-full bg-[#1a3a2e] transition-all duration-500 ${currentStep > 2 ? 'w-full' : 'w-0'}`} />
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex flex-row items-center bg-[#faf8f4] pl-2 gap-2 shrink-0">
+              <span className={`text-[0.65rem] uppercase tracking-wider ${
+                currentStep === 3 ? 'text-[#1a3a2e] font-semibold' : 'text-[#9ca3af]'
+              }`}>Payment</span>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors shrink-0 ${
+                currentStep === 3 ? 'bg-[#1a3a2e] text-[#faf8f4]' : 'bg-[#f0ece1] text-[#9ca3af]'
+              }`}>
+                3
+              </div>
+            </div>
           </div>
         </div>
 
