@@ -104,7 +104,7 @@ router.get("/img/proxy", async (req, res) => {
     const upstream = await fetch(target.toString(), {
       headers: apiKey ? { "x-api-key": apiKey } : {},
       redirect: "manual",
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(5_000),
     });
     // Reject any redirect — we only trust the original allowlisted URL.
     if (upstream.status >= 300 && upstream.status < 400) {

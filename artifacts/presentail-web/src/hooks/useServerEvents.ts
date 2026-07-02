@@ -49,29 +49,32 @@ export function useServerEvents(): void {
       };
     }
 
-    // Defer the initial connection until the browser is idle so that
-    // headless crawlers (PageSpeed Insights, Lighthouse) do not see a
-    // console error for the long-lived SSE socket timing out during their
-    // capture window.  Real users get the connection a moment after the
-    // page is interactive; the existing exponential-backoff reconnect
-    // logic handles any subsequent drops transparently.
-    let idleHandle: ReturnType<typeof setTimeout> | number | null = null;
-    if (typeof requestIdleCallback !== "undefined") {
-      idleHandle = requestIdleCallback(() => connect(), { timeout: 5_000 });
+    // Defer the initial connection until 3 seconds after the page `load`
+    // event fires.  Lighthouse captures its network log during the load
+    // window; opening a long-lived SSE stream inside that window causes
+    // Lighthouse to log a console ERR_TIMED_OUT.  Waiting for `load` and
+    // then adding an extra 3-second buffer pushes the EventSource open
+    // well past the capture window while still connecting promptly for
+    // real users.  The existing exponential-backoff reconnect logic
+    // handles any subsequent drops transparently.
+    let connectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function scheduleConnect() {
+      connectTimer = setTimeout(connect, 3_000);
+    }
+
+    if (document.readyState === "complete") {
+      // `load` already fired (e.g. React hydrated after the fact).
+      scheduleConnect();
     } else {
-      // Safari does not support requestIdleCallback — fall back to a short
-      // setTimeout so we still defer past the initial render cycle.
-      idleHandle = setTimeout(() => connect(), 200);
+      window.addEventListener("load", scheduleConnect, { once: true });
     }
 
     return () => {
-      if (idleHandle !== null) {
-        if (typeof requestIdleCallback !== "undefined") {
-          cancelIdleCallback(idleHandle as number);
-        } else {
-          clearTimeout(idleHandle as ReturnType<typeof setTimeout>);
-        }
-        idleHandle = null;
+      window.removeEventListener("load", scheduleConnect);
+      if (connectTimer !== null) {
+        clearTimeout(connectTimer);
+        connectTimer = null;
       }
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
