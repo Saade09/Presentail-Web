@@ -9,11 +9,13 @@ import React from "react";
 // Mock EventSource
 //
 // Extends EventTarget so addEventListener / dispatchEvent work natively.
-// The constructor captures the single instance so tests can fire events.
+// `instance` holds the *latest* created source (original tests).
+// `instances` holds every source ever created (reconnect tests).
 // ---------------------------------------------------------------------------
 
 class MockEventSource extends EventTarget {
   static instance: MockEventSource | null = null;
+  static instances: MockEventSource[] = [];
 
   readonly url: string;
   onerror: ((event: Event) => void) | null = null;
@@ -22,6 +24,7 @@ class MockEventSource extends EventTarget {
     super();
     this.url = url;
     MockEventSource.instance = this;
+    MockEventSource.instances.push(this);
   }
 
   close() {
@@ -45,8 +48,21 @@ function makeWrapper(queryClient: QueryClient) {
   };
 }
 
+/**
+ * Advance past the 3-second deferred-connect guard so the first EventSource
+ * is opened, then return it.
+ */
+async function advancePastInitialDelay(): Promise<MockEventSource> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3_000);
+  });
+  const src = MockEventSource.instances[0];
+  expect(src).toBeDefined();
+  return src;
+}
+
 // ---------------------------------------------------------------------------
-// Tests
+// Suite setup
 // ---------------------------------------------------------------------------
 
 describe("useServerEvents", () => {
@@ -55,6 +71,7 @@ describe("useServerEvents", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     MockEventSource.instance = null;
+    MockEventSource.instances = [];
     vi.stubGlobal("EventSource", MockEventSource);
 
     queryClient = new QueryClient({
@@ -171,5 +188,138 @@ describe("useServerEvents", () => {
     unmount();
 
     expect(closeSpy).toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Backoff reconnect — new EventSource is created after onerror + 5 s wait
+  // -------------------------------------------------------------------------
+
+  it("creates a new EventSource after onerror once the 5-second backoff elapses", async () => {
+    renderHook(() => useServerEvents(), { wrapper: makeWrapper(queryClient) });
+
+    const first = await advancePastInitialDelay();
+    expect(MockEventSource.instances).toHaveLength(1);
+
+    // Trigger an error on the first connection.
+    act(() => {
+      first.onerror?.(new Event("error"));
+    });
+
+    // One millisecond short of the backoff — still no new connection.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_999);
+    });
+    expect(MockEventSource.instances).toHaveLength(1);
+
+    // At exactly 5 seconds the reconnect fires.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+    expect(MockEventSource.instances[1].url).toBe("/api/events");
+  });
+
+  // -------------------------------------------------------------------------
+  // Backoff doubles on consecutive errors and is capped at 60 s
+  // -------------------------------------------------------------------------
+
+  it("doubles the backoff on each consecutive error and caps at 60 s", async () => {
+    renderHook(() => useServerEvents(), { wrapper: makeWrapper(queryClient) });
+
+    const first = await advancePastInitialDelay();
+
+    // Error 1 — backoff is 5 s → next connection fires after 5 s.
+    act(() => {
+      first.onerror?.(new Event("error"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    // Error 2 — backoff should now be 10 s.
+    const second = MockEventSource.instances[1];
+    act(() => {
+      second.onerror?.(new Event("error"));
+    });
+    // 9 999 ms — should NOT have reconnected yet.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_999);
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+    // 1 ms more — fires at exactly 10 s.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(MockEventSource.instances).toHaveLength(3);
+
+    // Errors 3, 4, 5 → expected delays: 20 s, 40 s, 60 s (cap applied at 80→60).
+    const expectedDelays = [20_000, 40_000, 60_000];
+    for (const delay of expectedDelays) {
+      const prev = MockEventSource.instances.at(-1)!;
+      const countBefore = MockEventSource.instances.length;
+      act(() => {
+        prev.onerror?.(new Event("error"));
+      });
+      // One ms short — must not have fired yet.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(delay - 1);
+      });
+      expect(MockEventSource.instances.length).toBe(countBefore);
+      // Exact ms — fires.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(MockEventSource.instances.length).toBe(countBefore + 1);
+    }
+
+    // After the cap-enforcing error the next backoff must still be 60 s
+    // (not 120 s), confirming Math.min(80_000, 60_000) === 60_000.
+    const capped = MockEventSource.instances.at(-1)!;
+    const countBeforeCapped = MockEventSource.instances.length;
+    act(() => {
+      capped.onerror?.(new Event("error"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(59_999);
+    });
+    expect(MockEventSource.instances.length).toBe(countBeforeCapped);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(MockEventSource.instances.length).toBe(countBeforeCapped + 1);
+  });
+
+  // -------------------------------------------------------------------------
+  // Reconnected EventSource has its own locations-updated listener
+  // -------------------------------------------------------------------------
+
+  it("invalidates delivery-locations when locations-updated fires on the reconnected EventSource", async () => {
+    renderHook(() => useServerEvents(), { wrapper: makeWrapper(queryClient) });
+
+    const first = await advancePastInitialDelay();
+
+    // Drop the first connection and wait for the backoff reconnect.
+    act(() => {
+      first.onerror?.(new Event("error"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    // Confirm the original connection does NOT trigger the spy.
+    (queryClient.invalidateQueries as ReturnType<typeof vi.spyOn>).mockClear();
+
+    const reconnected = MockEventSource.instances[1];
+
+    // Fire the SSE event on the NEW connection.
+    act(() => {
+      reconnected.dispatchEvent(new Event("locations-updated"));
+    });
+
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["delivery-locations"],
+    });
   });
 });
