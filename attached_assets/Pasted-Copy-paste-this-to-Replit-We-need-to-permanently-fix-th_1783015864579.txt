@@ -1,0 +1,136 @@
+Copy/paste this to Replit:
+
+---
+
+We need to permanently fix the “Improve image delivery” Lighthouse/PageSpeed issue on presentail.com.
+
+Current issue:
+Occasion/category images are being displayed very small, around **144x144**, but the API is serving huge original files like **4500x4500**, sometimes **3–5 MB each**.
+
+Examples from Lighthouse:
+
+* `/api/catalog/occasion-image/44`
+* `/api/catalog/occasion-image/48`
+* `/api/catalog/occasion-image/45`
+* `/api/catalog/occasion-image/43`
+* `/api/catalog/occasion-image/4`
+
+These images are used in cards like:
+
+```html
+<img
+  alt="I'm Sorry"
+  loading="lazy"
+  class="w-full h-full object-cover ..."
+  src="/api/catalog/occasion-image/44"
+/>
+```
+
+Lighthouse is reporting estimated savings of around **26,963 KiB**, which is very large. This is hurting LCP/FCP and mobile performance.
+
+Please implement a proper image optimization solution.
+
+Requirements:
+
+1. **Do not serve original 4500x4500 images directly for thumbnails**
+
+   * Occasion/category cards should receive small optimized images.
+   * For cards displayed around 144x144, serve something like 288x288 or 320x320 max for retina screens.
+
+2. **Create responsive image versions**
+
+   * Generate/serve multiple sizes, for example:
+
+     * 144px
+     * 288px
+     * 480px
+     * 768px
+   * Use `srcset` and `sizes` on the frontend so the browser downloads the correct image size.
+
+Example:
+
+```html
+<img
+  src="/api/catalog/occasion-image/44?w=288&format=webp"
+  srcset="
+    /api/catalog/occasion-image/44?w=144&format=webp 144w,
+    /api/catalog/occasion-image/44?w=288&format=webp 288w,
+    /api/catalog/occasion-image/44?w=480&format=webp 480w
+  "
+  sizes="144px"
+  alt="I'm Sorry"
+  loading="lazy"
+  decoding="async"
+  className="w-full h-full object-cover"
+/>
+```
+
+3. **Use modern image formats**
+
+   * Serve WebP by default.
+   * If easy, support AVIF as well.
+   * Fallback to JPEG/PNG only when needed.
+
+4. **Compress images**
+
+   * Target good visual quality but much smaller file size.
+   * Recommended:
+
+     * WebP quality: 75–82
+     * AVIF quality: 45–60
+     * JPEG quality: 75–82
+
+5. **Update the image API**
+
+   * The endpoint `/api/catalog/occasion-image/:id` should support query params:
+
+     * `w` for width
+     * `h` optional
+     * `format` optional: `webp`, `avif`, `jpeg`
+     * `quality` optional
+   * Example:
+
+     * `/api/catalog/occasion-image/44?w=288&format=webp&q=80`
+
+6. **Add caching**
+
+   * Optimized images should be cached.
+   * Use strong cache headers for generated image responses:
+
+     * `Cache-Control: public, max-age=31536000, immutable`
+   * Avoid regenerating the same resized image on every request.
+   * Either cache generated images on disk/storage or use an in-memory/cache layer if appropriate.
+
+7. **Preserve the original uploaded image**
+
+   * Do not overwrite original images.
+   * Original image can remain stored for admin/editing purposes.
+   * Public frontend should use optimized/resized versions.
+
+8. **Apply this to all similar catalog images**
+   Please check and fix not only occasion images, but also:
+
+   * Category images
+   * Brand images
+   * Recipient images
+   * Product thumbnails if they have the same issue
+   * Any other catalog card image shown small but served as a large file
+
+9. **Frontend updates**
+
+   * Replace plain `src="/api/catalog/occasion-image/ID"` with optimized URLs.
+   * Add `srcSet`, `sizes`, `loading="lazy"`, and `decoding="async"`.
+   * For above-the-fold images, consider not lazy-loading the first visible image if it affects LCP.
+   * Ensure image dimensions are known or the container has stable dimensions to avoid layout shift.
+
+10. **Validation**
+    After implementation:
+
+* Run Lighthouse/PageSpeed again.
+* Confirm the “Improve image delivery” savings are significantly reduced.
+* Check Network tab and confirm thumbnails are no longer downloading multi-MB files.
+* The 144x144 card image should ideally download under 50KB, not 3–5MB.
+* Confirm image quality still looks good on retina/mobile screens.
+
+Important:
+This should be a permanent platform-level fix, not a one-time manual compression of current images. Any new uploaded occasion/category/product image should automatically be served in optimized responsive sizes on the public website.
