@@ -360,7 +360,7 @@ export function Footer() {
           </div>
 
           {/* Payment logos — flat logos on a single white rounded card */}
-          <div className="md:flex md:justify-end">
+          <div className="flex justify-center">
             <PaymentMethods label={null} countryCode={countryCode} currencyCode={currencyCode} compact />
           </div>
         </div>
