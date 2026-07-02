@@ -347,6 +347,36 @@ describe("useServerEvents", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Mid-backoff unmount: pending reconnect timer must be cancelled on cleanup
+  // -------------------------------------------------------------------------
+
+  it("cancels the backoff timer and opens no new EventSource when the hook unmounts mid-backoff", async () => {
+    const { unmount } = renderHook(() => useServerEvents(), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    const first = await advancePastInitialDelay();
+    expect(MockEventSource.instances).toHaveLength(1);
+
+    // Trigger an error — this closes the current source and queues a 5 s
+    // backoff timer before opening the next EventSource.
+    act(() => {
+      first.onerror?.(new Event("error"));
+    });
+
+    // Unmount immediately, while the 5-second backoff timer is still pending.
+    unmount();
+
+    // Advance well past the backoff delay.  The cleanup should have cancelled
+    // the timer, so no second EventSource should ever be created.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(MockEventSource.instances).toHaveLength(1);
+  });
+
+  // -------------------------------------------------------------------------
   // Reconnected EventSource has its own locations-updated listener
   // -------------------------------------------------------------------------
 
