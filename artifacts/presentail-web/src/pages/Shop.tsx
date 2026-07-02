@@ -26,7 +26,7 @@ import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
 import { ShimmerImage } from "@/components/ShimmerImage";
 import { catalogAssetUrl } from "@/lib/catalogAssets";
-import { buildCatalogHeroImageSrcset } from "@/lib/imageUtils";
+import { buildOccasionHeroSrcset, OCCASION_HERO_SIZES } from "@/lib/imageUtils";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { roundToNearestFive } from "@workspace/display-currency";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
@@ -424,15 +424,17 @@ export default function Shop() {
   const occasionLabelKey = OCCASIONS.find((o) => o.slug === occasion)?.labelKey;
 
   // Hero image for occasion/category detail pages.
-  // Resolved from the catalog metadata image ref; only catalog proxy URLs
-  // benefit from the wider srcset widths via buildCatalogHeroImageSrcset.
+  // buildOccasionHeroSrcset branches on URL type:
+  //  - /api/catalog/occasion-image/… or /api/catalog/category-image/… → catalog proxy (800/1200/1600w)
+  //  - os.presentail.com/api/storage/… → OS img-proxy widths (400/800/1200w)
+  //  - static asset paths or other URLs → null (raw src used as-is)
   const heroRef = isOccasionRoute
     ? catalogOccasion?.image
     : isCategoryRoute
       ? catalogCategory?.image
       : undefined;
   const heroImgUrl = heroRef ? catalogAssetUrl(heroRef) : null;
-  const heroSrcsetData = heroImgUrl ? buildCatalogHeroImageSrcset(heroImgUrl) : null;
+  const heroSrcsetData = heroImgUrl ? buildOccasionHeroSrcset(heroImgUrl) : null;
 
   const entityName = category
     ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) || catalogCategory?.name || ""
@@ -541,7 +543,7 @@ export default function Shop() {
               containerClassName="absolute inset-0"
               className="object-cover"
               srcset={heroSrcsetData?.srcset}
-              sizes={heroSrcsetData?.sizes ?? "(max-width: 1280px) 100vw, 1280px"}
+              sizes={heroSrcsetData?.sizes ?? OCCASION_HERO_SIZES}
               priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />

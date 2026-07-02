@@ -212,3 +212,69 @@ export function buildCategoryHeroSrcset(
   }
   return null;
 }
+
+/**
+ * Default sizes hint for the brand detail hero banner.
+ * Kept here so BrandDetail.tsx and its tests share a single source of truth,
+ * and a future layout change only needs to be updated in one place.
+ *
+ * The brand hero spans the full content width up to the 1280 px content cap.
+ */
+export const BRAND_HERO_SIZES = "(max-width: 1280px) 100vw, 1280px";
+
+/**
+ * Resolves the srcset result for the brand detail page hero banner.
+ * Branches on URL type:
+ *
+ * - catalog proxy path  → `buildCatalogHeroImageSrcset` (800w/1200w/1600w WebP)
+ * - OS storage URL      → `buildOsImageSrcset` (400w/800w/1200w via img proxy)
+ * - static asset / other → `null` (no srcset; raw `src` is used as-is)
+ *
+ * A sizes override can be passed when the layout changes so callers don't have
+ * to duplicate the branching logic.
+ */
+export function buildBrandHeroSrcset(
+  imgSrc: string,
+  sizes = BRAND_HERO_SIZES,
+): { srcset: string; sizes: string; src: string } | null {
+  if (isCatalogProxyUrl(imgSrc)) {
+    return buildCatalogHeroImageSrcset(imgSrc, sizes);
+  }
+  if (isOsStorageUrl(imgSrc)) {
+    return buildOsImageSrcset(imgSrc, sizes);
+  }
+  return null;
+}
+
+/**
+ * Default sizes hint for the occasion/category detail page hero banner in
+ * Shop.tsx.  Kept here so the component and tests share a single source of
+ * truth, and a future layout change only needs to be updated in one place.
+ *
+ * The occasion/category hero spans the full content width up to 1280 px.
+ */
+export const OCCASION_HERO_SIZES = "(max-width: 1280px) 100vw, 1280px";
+
+/**
+ * Resolves the srcset result for the occasion (and category) detail page hero
+ * banner in Shop.tsx.  Branches on URL type:
+ *
+ * - catalog proxy path  → `buildCatalogHeroImageSrcset` (800w/1200w/1600w WebP)
+ * - OS storage URL      → `buildOsImageSrcset` (400w/800w/1200w via img proxy)
+ * - static asset / other → `null` (no srcset; raw `src` is used as-is)
+ *
+ * A sizes override can be passed when the layout changes so callers don't have
+ * to duplicate the branching logic.
+ */
+export function buildOccasionHeroSrcset(
+  imgSrc: string,
+  sizes = OCCASION_HERO_SIZES,
+): { srcset: string; sizes: string; src: string } | null {
+  if (isCatalogProxyUrl(imgSrc)) {
+    return buildCatalogHeroImageSrcset(imgSrc, sizes);
+  }
+  if (isOsStorageUrl(imgSrc)) {
+    return buildOsImageSrcset(imgSrc, sizes);
+  }
+  return null;
+}

@@ -11,7 +11,7 @@ import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { buildBrandSeo } from "@/lib/seo";
 import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
 import { ShimmerImage } from "@/components/ShimmerImage";
-import { buildCatalogHeroImageSrcset } from "@/lib/imageUtils";
+import { buildBrandHeroSrcset, BRAND_HERO_SIZES } from "@/lib/imageUtils";
 
 const SEO_ATTR = "data-seo-managed";
 
@@ -80,11 +80,12 @@ export default function BrandDetail() {
   const coverImage = slug ? BRAND_COVER_IMAGES[slug] ?? null : null;
   const hasCover = !!coverImage || !!brand?.image;
 
-  // Compute srcset for the hero cover when the source is a catalog proxy URL.
-  // coverImage is a static local file and won't match; brand!.image is a
-  // /api/catalog/brand-image/… URL that benefits from the wider hero widths.
+  // Compute srcset for the hero cover. buildBrandHeroSrcset branches on URL type:
+  //  - /api/catalog/brand-image/… → catalog proxy widths (800/1200/1600w)
+  //  - os.presentail.com/api/storage/… → OS img-proxy widths (400/800/1200w)
+  //  - static /brand-covers/… paths → null (raw src used as-is)
   const heroImgSrc = coverImage ?? brand?.image ?? null;
-  const heroSrcsetData = heroImgSrc ? buildCatalogHeroImageSrcset(heroImgSrc) : null;
+  const heroSrcsetData = heroImgSrc ? buildBrandHeroSrcset(heroImgSrc) : null;
 
   return (
     <div className="min-h-screen pb-24 bg-background">
@@ -113,7 +114,7 @@ export default function BrandDetail() {
                 containerClassName="absolute inset-0"
                 className={`object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
                 srcset={heroSrcsetData?.srcset}
-                sizes={heroSrcsetData?.sizes ?? "(max-width: 1280px) 100vw, 1280px"}
+                sizes={heroSrcsetData?.sizes ?? BRAND_HERO_SIZES}
                 priority
               />
               {/* Gradient overlay for depth */}
