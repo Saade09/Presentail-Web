@@ -2825,9 +2825,11 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
                         }}
                       >
                         <View style={{ flexDirection: "column", gap: 2 }}>
+                          {/* contrast-ok: disabled/inactive city row — WCAG 1.4.3 exception */}
                           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 15, color: "rgba(0,0,0,0.35)" }}>
                             {item.name}
                           </AppText>
+                          {/* contrast-ok: disabled/inactive city row — WCAG 1.4.3 exception */}
                           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "rgba(0,0,0,0.3)" }}>
                             {t.deliveryCityUnavailable}
                           </AppText>

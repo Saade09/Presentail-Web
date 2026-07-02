@@ -32,6 +32,7 @@
     "compress-app-tile-images": "tsx ./src/compressAppTileImages.ts",
     "check-occasion-coverage": "tsx ./src/checkOccasionCoverage.ts",
     "check-low-contrast-text": "tsx ./src/checkLowContrastText.ts",
+    "check-low-contrast-text-mobile": "tsx ./src/checkLowContrastTextMobile.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

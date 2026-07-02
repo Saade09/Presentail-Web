@@ -50,7 +50,7 @@ export function CityList({ cities, onSelect, selectedId, trailingIcon = "check" 
                 style={{
                   fontFamily: isSelected && !inactive ? "Inter_600SemiBold" : "Inter_500Medium",
                   fontSize: 16,
-                  color: inactive ? "rgba(0,0,0,0.35)" : isSelected ? colors.teal600 : colors.text,
+                  color: inactive ? "rgba(0,0,0,0.35)" : isSelected ? colors.teal600 : colors.text, // contrast-ok: inactive branch — WCAG 1.4.3 exception
                   textAlign: isRTL ? "right" : "left",
                 }}
               >
@@ -60,7 +60,7 @@ export function CityList({ cities, onSelect, selectedId, trailingIcon = "check" 
                 <Text
                   style={{
                     fontSize: 12,
-                    color: "rgba(0,0,0,0.3)",
+                    color: "rgba(0,0,0,0.3)", // contrast-ok: inactive/unavailable city label — WCAG 1.4.3 exception
                     textAlign: isRTL ? "right" : "left",
                   }}
                 >
