@@ -70,7 +70,11 @@ const OCCASIONS = [
   { slug: "congratulations", labelKey: "shop.occ.congratulations" },
   { slug: "thank-you", labelKey: "shop.occ.thankYou" },
   { slug: "condolences", labelKey: "shop.occ.condolences" },
+  { slug: "katb-kitab", labelKey: "shop.occ.katbKitab" },
 ];
+
+const slugToTitle = (slug: string) =>
+  slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
 const USD_BUCKET_THRESHOLDS = [50, 100, 200] as const;
 
@@ -370,7 +374,7 @@ export default function Shop() {
   const entityName = category
     ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) || catalogCategory?.name || ""
     : occasion
-      ? (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) || catalogOccasion?.name || ""
+      ? (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) || catalogOccasion?.name || slugToTitle(occasion)
       : "";
 
   useEffect(() => {
@@ -409,7 +413,7 @@ export default function Shop() {
     : occasion
       ? capitalizeFirst((occasionLabelKey ? t(occasionLabelKey, {}) : undefined)
         || catalogOccasion?.name
-        || occasion)
+        || slugToTitle(occasion))
       : brand
         ? (brandProducts.data?.brandName ?? brand)
         : t("shop.allCollection");
@@ -436,7 +440,7 @@ export default function Shop() {
       const label = capitalizeFirst(
         (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) ||
         catalogOccasion?.name ||
-        occasion
+        slugToTitle(occasion)
       );
       return [home, { label }];
     }

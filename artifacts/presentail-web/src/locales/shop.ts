@@ -64,6 +64,8 @@ export const shopStrings: Dict = {
   "shop.occ.thankYou": { en: "Thank You", ar: "شكراً" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.katbKitab": { en: "Katb Kitab", ar: "كتب كتاب" },
 
   "shop.bearSize.label": { en: "Bear Size:", ar: "حجم الدب:" },
   "shop.bearSize.all": { en: "All Bears", ar: "كل الدببة" },
@@ -300,6 +302,7 @@ export const shopStringsFr: Record<string, string> = {
   "shop.occ.congratulations": "Félicitations",
   "shop.occ.thankYou": "Merci",
   "shop.occ.condolences": "Condoléances",
+  "shop.occ.katbKitab": "Katb Kitab",
 
   "shop.bearSize.label": "Taille de l'ours :",
   "shop.bearSize.all": "Tous les ours",
