@@ -329,7 +329,59 @@ export default function Cart() {
   return (
     <div className="min-h-screen bg-[#fafaf9] pt-6 pb-32 lg:pb-24">
       <div className="container mx-auto px-page max-w-content">
-        <h1 className="text-4xl font-serif mb-4">{t("cart.title")} ({itemCount})</h1>
+        <div className="flex items-center justify-between mb-4 gap-4">
+          <h1 className="text-3xl font-serif">{t("cart.title")} ({itemCount})</h1>
+
+          {/* Mobile-only promo toggle — on the right of the heading row */}
+          <div className="lg:hidden shrink-0 relative">
+            <button
+              type="button"
+              onClick={handleCouponToggle}
+              className="flex items-center gap-1.5 rounded-lg border border-primary/15 bg-white px-3 py-1.5 text-xs transition-colors hover:bg-secondary/40 shadow-sm"
+              data-testid="button-promo-toggle-mobile"
+            >
+              <Tag className="w-3 h-3 text-primary/60 shrink-0" />
+              {couponApplied ? (
+                <span className="font-medium text-primary flex items-center gap-1">
+                  {couponInput}
+                  <Check className="w-3 h-3 text-emerald-600" />
+                </span>
+              ) : (
+                <span className="text-muted-foreground">{t("cart.promoCode")}</span>
+              )}
+              {couponOpen ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
+            </button>
+            {couponOpen && (
+              <div className="absolute right-4 left-4 mt-1 z-10 bg-white border border-primary/15 rounded-xl shadow-lg p-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value);
+                      if (couponError) setCouponError(null);
+                      if (couponApplied) { setCouponApplied(false); setCouponDiscountUsd(0); }
+                    }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
+                    placeholder={t("cart.promoCodePlaceholder")}
+                    className={`h-8 text-xs rounded-lg${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                    data-testid="input-promo-code-mobile"
+                    autoFocus
+                  />
+                  {couponApplied ? (
+                    <Button type="button" variant="outline" size="sm" onClick={handleCouponRemove} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-remove-mobile">
+                      {t("cart.promoCodeRemove")}
+                    </Button>
+                  ) : (
+                    <Button type="button" size="sm" onClick={handleCouponApply} disabled={!couponInput.trim() || couponValidating} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-apply-mobile">
+                      {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
+                    </Button>
+                  )}
+                </div>
+                {couponError && <p className="mt-1.5 text-xs text-destructive">{couponError}</p>}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_26.4rem] gap-x-12 gap-y-6">
           {/* Cart Items – banner + items */}
@@ -360,7 +412,7 @@ export default function Cart() {
                 {/* Name + compact stepper */}
                 <div className="flex flex-col flex-1 min-w-0 gap-2">
                   <Link href={`/product/${item.product.id}`} className="cursor-pointer">
-                    <h3 className="font-serif text-sm leading-snug line-clamp-2 hover:opacity-70 transition-opacity">{item.product.name}</h3>
+                    <h3 className="font-serif text-xs leading-snug line-clamp-2 hover:opacity-70 transition-opacity">{item.product.name}</h3>
                   </Link>
                   {item.product.hasInputField && (
                     <div className="relative">
@@ -401,7 +453,7 @@ export default function Cart() {
 
                 {/* Price (top) + remove button (bottom) */}
                 <div className="flex flex-col items-end justify-between self-stretch shrink-0 py-0.5">
-                  <p className="font-medium text-sm tabular-nums">
+                  <p className="font-medium text-xs tabular-nums">
                     <SalePrice
                       priceValue={item.product.priceValue * item.quantity}
                       discountPriceValue={item.product.discountPriceValue != null ? item.product.discountPriceValue * item.quantity : null}
@@ -419,10 +471,11 @@ export default function Cart() {
               </motion.div>
             ))}
             </div>
+
           </div>
 
           {/* Order Summary */}
-          <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2">
+          <div className="hidden lg:block lg:col-start-2 lg:row-start-1 lg:row-span-2">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
               {/* Promo Code Accordion */}
               <div className="mb-6">
@@ -675,6 +728,14 @@ export default function Cart() {
                   <Eye className="h-4 w-4" />
                   {t("checkout.previewCard")}
                 </button>
+              </div>
+
+              {/* Delivery Date */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
+                  {t("cart.deliverySummary")}
+                </p>
+                <DeliveryDateRow />
               </div>
 
               <CartUpsells />
