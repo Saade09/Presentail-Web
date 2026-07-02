@@ -483,6 +483,12 @@ export default defineConfig(async ({ command }) => {
       // AR-white).  Without this, small logos (<4 kB default threshold) would
       // be inlined, skipped by the manifest lookup, and silently omitted from
       // the preload tags — causing a missed LCP hint for Arabic-white pages.
+      //
+      // NOTE: In Vite 6+ the function variant of assetsInlineLimit must return
+      // boolean | undefined, NOT a number.  Returning a number is coerced to a
+      // boolean, so `return 4096` would be truthy → always inline, bloating the
+      // CSS with base64-encoded fonts.  Use `return false` to force a separate
+      // file and `return undefined` to fall back to Vite's default 4 kB check.
       assetsInlineLimit: (filePath: string) => {
         if (
           [
@@ -492,9 +498,9 @@ export default defineConfig(async ({ command }) => {
             LOGO_AR_WHITE_WEBP_BASENAME,
           ].some((basename) => filePath.endsWith(basename))
         ) {
-          return 0; // force separate file — never inline
+          return false; // force separate file — never inline logos
         }
-        return 4096; // Vite default
+        return undefined; // fall back to Vite's default 4 kB threshold
       },
       rollupOptions: {
         output: {

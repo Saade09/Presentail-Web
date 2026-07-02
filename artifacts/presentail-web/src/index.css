@@ -1,4 +1,4 @@
-@layer theme, base, clerk, components, utilities;
+@layer theme, base, components, utilities;
 
 /* Self-hosted Inter (Latin subset) */
 @font-face {
@@ -100,7 +100,6 @@
 
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@clerk/themes/shadcn.css";
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
