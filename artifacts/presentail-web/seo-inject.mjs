@@ -410,8 +410,8 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const defaultImage = `${origin}${cleanBase}/opengraph.jpg`;
   const defaultImageAlt = "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(defaultImage)}" />`);
-  lines.push(`<meta property="og:image:width" content="1280" />`);
-  lines.push(`<meta property="og:image:height" content="720" />`);
+  lines.push(`<meta property="og:image:width" content="1200" />`);
+  lines.push(`<meta property="og:image:height" content="630" />`);
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
