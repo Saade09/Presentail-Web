@@ -632,7 +632,9 @@ export default function SignInPage() {
             {/* Help link */}
             <p className="text-center text-xs text-muted-foreground">
               <a
-                href="mailto:support@presentail.com"
+                href="https://wa.me/9613136532"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="underline underline-offset-2 hover:text-foreground transition-colors"
               >
                 {t("auth.helpLink")}
