@@ -317,46 +317,102 @@ function preconnectPlugin(outDir: string): Plugin {
 }
 
 /**
- * Inline critical (above-the-fold) CSS and load the full stylesheet
- * non-blocking using Google's `critters` library. Runs only at build time so
- * it never slows down dev-server restarts.
+ * Convert every hashed CSS asset link in the built index.html from a
+ * render-blocking <link rel="stylesheet"> into the LoadCSS preload+swap
+ * pattern, eliminating the CSS file from the render-blocking critical path.
  *
- * critters converts each <link rel="stylesheet"> into:
- *   1. A <style> block containing only the CSS rules needed for the initial
- *      viewport (inlined critical CSS — no network round-trip before first paint).
- *   2. A preload + onload swap pattern that fetches the full CSS asynchronously,
- *      eliminating it from the render-blocking critical path.
+ * Each matching tag is replaced with:
+ *   <link rel="preload" as="style" href="..." onload="this.onload=null;this.rel='stylesheet'">
+ *   <noscript><link rel="stylesheet" href="..."></noscript>
+ *
+ * This achieves the same outcome critters was supposed to produce but does so
+ * with a simple string transform that works reliably on the SPA shell produced
+ * by Vite (critters was silently a no-op because the SPA shell has no visible
+ * content for its JSDOM renderer to identify as "critical").
+ *
+ * A build-time assertion at the end confirms the transformation happened so a
+ * regression is caught immediately in CI rather than silently reaching prod.
  *
  * Note: the chunk-budget check (scripts/check-chunk-budget.mjs) iterates only
- * over JS chunks from the Vite manifest — it never reads inline <style> blocks
- * or CSS files, so this transformation has no effect on that budget check.
+ * over JS chunks from the Vite manifest — CSS files are not affected.
  */
 function criticalCssPlugin(outDir: string): Plugin {
   return {
     name: "presentail-critical-css",
     apply: "build",
-    async closeBundle() {
+    closeBundle() {
       const htmlPath = path.join(outDir, "index.html");
       if (!fs.existsSync(htmlPath)) return;
 
-      // Dynamically import critters so the import is resolved at build time.
-      const { default: Critters } = await import("critters");
-      const critters = new Critters({
-        // "swap" converts <link rel="stylesheet"> to a preload+onload swap,
-        // eliminating both CSS files from the render-blocking critical path.
-        preload: "swap",
-        // Keep the full CSS file on disk; only inline the critical subset.
-        pruneSource: false,
-        // Resolve relative asset URLs against the built output directory.
-        path: outDir,
-        // Log warnings but don't throw on missing selectors (e.g. dynamic classes).
-        logLevel: "warn",
-      });
-
       const html = fs.readFileSync(htmlPath, "utf8");
-      const result = await critters.process(html);
-      fs.writeFileSync(htmlPath, result, "utf8");
-      console.log("[critical-css] Inlined critical CSS into index.html");
+
+      // Match hashed CSS asset links emitted by Vite, e.g.:
+      //   <link rel="stylesheet" crossorigin href="/assets/index-xxx.css">
+      //   <link rel="stylesheet" href="/assets/index-xxx.css">
+      // Vite always emits href with a leading "/" under the base path. The regex
+      // captures the href value and any extra attributes so they can be preserved
+      // on the replacement tags.
+      //
+      // Two patterns cover both attribute orderings Vite may produce:
+      //   Pattern 1: rel="stylesheet" ... href="..."   (rel before href)
+      //   Pattern 2: href="..."       ... rel="stylesheet" (href before rel)
+      const CSS_HREF_PAT = `"(/[^"]+\\.css[^"]*)"`;
+      const STYLESHEET_RE =
+        new RegExp(`<link([^>]*)\\srel="stylesheet"([^>]*)\\shref=${CSS_HREF_PAT}([^>]*)>`, "g");
+
+      let replaced = 0;
+
+      function makePreload(href: string, ...attrFragments: string[]): string {
+        // Strip rel/as from captured attribute fragments to avoid duplicates.
+        const extra = attrFragments
+          .join(" ")
+          .replace(/\s*rel="[^"]*"/g, "")
+          .replace(/\s*as="[^"]*"/g, "")
+          .trim();
+        const extraAttr = extra ? ` ${extra}` : "";
+        replaced++;
+        return (
+          `<link rel="preload" as="style" href="${href}"${extraAttr} onload="this.onload=null;this.rel='stylesheet'">` +
+          `<noscript><link rel="stylesheet" href="${href}"${extraAttr}></noscript>`
+        );
+      }
+
+      const result = html.replace(
+        STYLESHEET_RE,
+        (_match, before: string, between: string, href: string, after: string) =>
+          makePreload(href, before, between, after),
+      );
+
+      // Also handle the alternate attribute order: href before rel
+      const STYLESHEET_RE2 =
+        new RegExp(`<link([^>]*)\\shref=${CSS_HREF_PAT}([^>]*)\\srel="stylesheet"([^>]*)>`, "g");
+
+      const result2 = result.replace(
+        STYLESHEET_RE2,
+        (_match, before: string, href: string, between: string, after: string) =>
+          makePreload(href, before, between, after),
+      );
+
+      fs.writeFileSync(htmlPath, result2, "utf8");
+
+      // Build-time assertion: no plain stylesheet link to a hashed CSS asset must remain
+      // outside of <noscript> fallbacks. Strip <noscript>...</noscript> blocks first so
+      // the intentional fallback links we just inserted don't trigger a false positive.
+      const withoutNoscript = result2.replace(/<noscript>[\s\S]*?<\/noscript>/g, "");
+      const remaining = withoutNoscript.match(/<link[^>]+rel="stylesheet"[^>]+href="\/[^"]+\.css|<link[^>]+href="\/[^"]+\.css[^>]+rel="stylesheet"/g);
+      if (remaining && remaining.length > 0) {
+        throw new Error(
+          `[critical-css] Build assertion failed: ${remaining.length} render-blocking stylesheet link(s) remain in index.html after transform.\n` +
+          remaining.map((t) => `  ${t}`).join("\n"),
+        );
+      }
+
+      if (replaced === 0) {
+        // Warn but don't fail — Vite may have emitted no CSS chunks (e.g. empty build).
+        console.warn("[critical-css] No hashed CSS stylesheet links found in index.html; nothing to transform.");
+      } else {
+        console.log(`[critical-css] Converted ${replaced} stylesheet link(s) to non-blocking preload in index.html`);
+      }
     },
   };
 }

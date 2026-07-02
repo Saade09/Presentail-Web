@@ -90,7 +90,6 @@
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
-    "critters": "^0.0.25",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "eslint": "^9.29.0",
