@@ -63,8 +63,10 @@ function cleanDescription(description?: string | null): string {
 /**
  * Keyword heuristic: checks name + description for gender signals.
  * Returns "boy", "girl", or null (neutral / ambiguous).
+ *
+ * Exported for unit testing only.
  */
-function inferFromKeywords(name: string, description?: string | null): NewbornGender | null {
+export function inferFromKeywords(name: string, description?: string | null): NewbornGender | null {
   const nameLower = name.toLowerCase();
   const combined = `${nameLower} ${cleanDescription(description).toLowerCase()}`;
 
