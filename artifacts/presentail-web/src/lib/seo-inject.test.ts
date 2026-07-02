@@ -5429,6 +5429,53 @@ describe("buildContactSeo — title-length guardrail", () => {
     expect(titleLen).toBeLessThanOrEqual(65);
     expect(titleLen).toBeGreaterThanOrEqual(30);
   });
+
+  it("no city — EN title is 'Contact Presentail | Gift Delivery Help' (no trailing 'in')", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({});
+    expect(result.title).toBe("Contact Presentail | Gift Delivery Help");
+    expect(result.title).not.toMatch(/\bin\s*$/);
+  });
+
+  it("no city — explicit empty string produces city-less title", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "en", city: "", country: "ae" });
+    expect(result.title).toBe("Contact Presentail | Gift Delivery Help");
+    expect(result.title).not.toMatch(/\bin\s*$/);
+  });
+
+  it("no city — whitespace-only city produces city-less title", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "en", city: "   ", country: "ae" });
+    expect(result.title).toBe("Contact Presentail | Gift Delivery Help");
+    expect(result.title).not.toMatch(/\bin\s*$/);
+  });
+
+  it("no city — AR title has no dangling في", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "ar" });
+    expect(result.title).toBe("تواصل مع Presentail | دعم التوصيل");
+    expect(result.title).not.toMatch(/في\s*$/);
+  });
+
+  it("no city — FR title has no dangling à", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "fr" });
+    expect(result.title).toBe("Contacter Presentail | Aide livraison");
+    expect(result.title).not.toMatch(/à\s*$/);
+  });
+
+  it("with a city — EN title still includes the city and preposition", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "en", city: "Dubai", country: "ae" });
+    expect(result.title).toBe("Contact Presentail in Dubai | Gift Delivery Help");
+  });
 });
 
 describe("buildFaqsSeo — title-length guardrail", () => {

@@ -706,10 +706,20 @@ const CONTACT_TITLE_MEDIUM = {
   fr: "Contact Presentail {city} | Aide livraison",
 };
 
+// Used when no city is selected — avoids a dangling preposition ("in", "في", "à").
+const CONTACT_TITLE_NO_CITY = {
+  en: "Contact Presentail | Gift Delivery Help",
+  ar: "تواصل مع Presentail | دعم التوصيل",
+  fr: "Contacter Presentail | Aide livraison",
+};
+
 /**
  * Build SEO meta for the /contact page with a smart title-length guardrail.
  *
- * Tiers (evaluated in order):
+ * When no city is provided (empty or whitespace) the no-city template is used
+ * directly to avoid a dangling preposition.
+ *
+ * With a city, tiers are evaluated in order:
  *   1. Preferred  — used when its rendered length ≤ CONTACT_TITLE_HARD_MAX (65).
  *   2. Fallback   — used when preferred is too long.
  *   3. Medium     — used when fallback is shorter than CONTACT_TITLE_MIN (30),
@@ -720,6 +730,13 @@ const CONTACT_TITLE_MEDIUM = {
 export function buildContactSeo({ lang, city, country } = {}) {
   const l = pickLang(lang);
   const params = { city: city ?? "", country: country ?? "" };
+
+  if (!params.city.trim()) {
+    return meta({
+      title: CONTACT_TITLE_NO_CITY[l],
+      description: formatTemplate(DESCRIPTIONS[l].contact, params),
+    });
+  }
 
   const preferred = formatTemplate(CONTACT_TITLE_PREFERRED[l], params);
   const fallback = formatTemplate(CONTACT_TITLE_FALLBACK[l], params);
