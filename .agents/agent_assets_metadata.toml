@@ -198,6 +198,12 @@ uri = "file://attached_assets/flower-baskets-gen.png"
 type = "image"
 title = "luxury flower basket product photo"
 
+[[generated]]
+id = "tKimYT5tsWUEMvKmYkfsk"
+uri = "file://attached_assets/electronics-category.png"
+type = "image"
+title = "electronics category gift"
+
 [[outputs]]
 id = "aAOtzP0PF-XLjuj8tfWfH"
 uri = "file://attached_assets/play-store/feature-graphic-1024x500.png"

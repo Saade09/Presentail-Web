@@ -273,11 +273,9 @@ function readMetaList(meta: WcMeta[] | undefined, ...keys: string[]): string[] |
 // Slugs of OS/WooCommerce categories that are treated as internal-only tags.
 // A product is hidden only when ALL of its categories are in this set — i.e.
 // it has no visible category at all. Products that carry one of these slugs
-// alongside a visible category (e.g. "bundles" + "electronics") are still
-// surfaced, because the visible category is the meaningful classification.
-// Pure "electronics", "board-games", or "coffee" products (no other category)
-// remain hidden, as before.
-const HIDDEN_CATEGORY_SLUGS = new Set(["electronics", "board-games", "coffee"]);
+// alongside a visible category are still surfaced, because the visible category
+// is the meaningful classification.
+const HIDDEN_CATEGORY_SLUGS = new Set(["board-games", "coffee"]);
 
 function isHiddenCategory(slug: string): boolean {
   return HIDDEN_CATEGORY_SLUGS.has(slug);

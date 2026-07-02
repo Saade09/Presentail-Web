@@ -45,6 +45,7 @@ export const CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   "spirits": "gifts",
   "gaming": "gifts",
   "summer": "gifts",
+  "electronics": "gifts",
 };
 
 /**
@@ -72,6 +73,7 @@ export const CATEGORY_STATIC_IMAGES: Record<string, string> = {
   "baskets":            "/catalog/categories/gift-baskets.webp",
   "gift-baskets":       "/catalog/categories/gift-baskets.webp",
   "flower-baskets":     "/catalog/categories/flower-baskets.webp",
+  "electronics":        "/catalog/categories/electronics.webp",
 };
 
 /**

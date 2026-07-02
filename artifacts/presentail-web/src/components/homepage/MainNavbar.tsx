@@ -82,6 +82,7 @@ function MobileSubPanelTile({ img, emoji }: { img?: string; emoji?: string }) {
 
 type MegaItem = {
   label: string;
+  labelKey?: string;
   href: string;
   img?: string;
   emoji?: string;
@@ -110,6 +111,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Gift Baskets",    href: "/category/gift-baskets",    img: "/catalog/categories/gift-baskets.png" },
       { label: "Arabic Sweets",   href: "/category/arabic-sweets",   img: "/catalog/categories/arabic-sweets.webp" },
       { label: "Balloon Deco",    href: "/category/balloon-deco",    img: "/catalog/categories/balloons.webp" },
+      { label: "Electronics",     labelKey: "nav.electronics", href: "/category/electronics",     emoji: "📱" },
     ],
     footer: { label: "View all Gifts", labelKey: "nav.viewAllGifts", href: "/shop" },
   },
@@ -300,7 +302,10 @@ export function MainNavbar() {
         }
       : undefined;
 
-    return { ...menu, items: [...filteredItems, ...newItems], footer: resolvedFooter };
+    const resolvedItems = [...filteredItems, ...newItems].map((item) =>
+      item.labelKey ? { ...item, label: t(item.labelKey) } : item,
+    );
+    return { ...menu, items: resolvedItems, footer: resolvedFooter };
   });
 
   const brandsMegaMenuDef: MegaMenuDef = {

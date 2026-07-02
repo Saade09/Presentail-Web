@@ -26,7 +26,7 @@ import type { Product } from "./queries";
 import { CATEGORY_SLUG_REMAP } from "./categoryGroups";
 
 // Must match the server-side HIDDEN_CATEGORY_SLUGS in routes/woo.ts.
-const HIDDEN_CATEGORY_SLUGS = new Set(["electronics", "board-games", "coffee"]);
+const HIDDEN_CATEGORY_SLUGS = new Set(["board-games", "coffee"]);
 
 const CATEGORY_MAP: Record<string, string> = {
   "hand-bouquets": "hand-bouquets",
@@ -45,6 +45,7 @@ const CATEGORY_MAP: Record<string, string> = {
   "arabic-sweets": "arabic-sweets",
   coffee: "coffee",
   "stuffed-animals": "stuffed-animals",
+  "electronics": "electronics",
 };
 
 function mapCategory(cats: { slug: string }[]): string {

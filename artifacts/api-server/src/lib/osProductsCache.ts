@@ -1165,6 +1165,34 @@ export function getOsCategories(): OSProductCategory[] | null {
 }
 
 /**
+ * Derives a slug → OSProductCategory map by scanning every product in every
+ * store cache and collecting the embedded category entries.
+ *
+ * The OS /api/categories endpoint can lag behind the product catalogue — a
+ * category may be tagged on products before it appears in the categories list
+ * (e.g. "electronics"). This function surfaces those product-only categories
+ * so the catalog metadata endpoint and the image proxy can serve them without
+ * waiting for the categories endpoint to catch up.
+ *
+ * Returns an empty map when no stores are populated yet.
+ * When the same slug appears in multiple products the first occurrence wins
+ * (they should be identical; we just want the imagePublicUrl).
+ */
+export function getOsProductEmbeddedCategories(): Map<string, OSProductCategory> {
+  const result = new Map<string, OSProductCategory>();
+  for (const entry of storeCache.values()) {
+    for (const product of entry.products) {
+      for (const cat of product.categories) {
+        if (cat.slug && !result.has(cat.slug)) {
+          result.set(cat.slug, cat);
+        }
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Returns cached OS brands (global, not per-store).
  * Only includes brands that have at least one in-stock product.
  */

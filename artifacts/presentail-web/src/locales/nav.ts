@@ -33,6 +33,7 @@ export const navStrings: Dict = {
   "nav.viewAllOccasions": { en: "View all Occasions", ar: "عرض جميع المناسبات" },
   "nav.viewAllGifts": { en: "View all Gifts", ar: "عرض جميع الهدايا" },
   "nav.viewAllBrands": { en: "View all brands", ar: "عرض جميع العلامات التجارية" },
+  "nav.electronics": { en: "Electronics", ar: "إلكترونيات" },
 };
 
 export const navStringsFr: Record<string, string> = {
@@ -68,4 +69,5 @@ export const navStringsFr: Record<string, string> = {
   "nav.viewAllOccasions": "Voir toutes les occasions",
   "nav.viewAllGifts": "Voir tous les cadeaux",
   "nav.viewAllBrands": "Voir toutes les marques",
+  "nav.electronics": "Électronique",
 };

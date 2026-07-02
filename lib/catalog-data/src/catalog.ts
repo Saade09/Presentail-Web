@@ -20,6 +20,7 @@ const cat = {
   "arabic-sweets": { asset: "categories/arabic-sweets.webp" },
   plants: { asset: "categories/plants.webp" },
   bundles: { asset: "categories/bundles.webp" },
+  electronics: { asset: "categories/electronics.webp" },
 } as const;
 
 const occ = {
@@ -64,6 +65,7 @@ export const categories: Category[] = [
   { id: "arabic-sweets", name: "Arabic Sweets", icon: "candy-outline", image: cat["arabic-sweets"] },
   { id: "plants", name: "Plants", icon: "leaf", image: cat.plants },
   { id: "bundles", name: "Bundles", icon: "gift", image: cat.bundles },
+  { id: "electronics", name: "Electronics", icon: "devices", image: cat.electronics },
 ];
 
 export const occasions: Occasion[] = [
