@@ -2283,13 +2283,47 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   // For homepage routes, append a <link rel="preload"> for the first banner
   // image so the browser preload scanner can discover and fetch the LCP image
   // before the JS bundle executes. Skipped gracefully when the cache is cold.
+  //
+  // When the banner is an OS storage image (hostname os.presentail.com,
+  // path /api/storage/…) we build a responsive preload with imagesrcset at
+  // 400/800/1200 w via the /api/img/proxy endpoint — identical to what
+  // HeroBannerSlide renders — so the browser reuses the preloaded bytes
+  // instead of issuing a second fetch. For non-OS URLs (Unsplash, etc.) we
+  // fall back to a plain href preload (still better than nothing).
   if (firstBannerImageUrl) {
     const isHomepage =
       (!parsed.hasLocalePrefix && (pathname === "/" || pathname === "")) ||
       (parsed.hasLocalePrefix && (parsed.rest === "" || parsed.rest === "/"));
     if (isHomepage) {
-      generic.headSnippet +=
-        `\n    <link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(firstBannerImageUrl)}">`;
+      const isOsStorage = (() => {
+        try {
+          const u = new URL(firstBannerImageUrl);
+          return (
+            u.hostname === "os.presentail.com" &&
+            u.pathname.startsWith("/api/storage/")
+          );
+        } catch {
+          return false;
+        }
+      })();
+      let preloadTag;
+      if (isOsStorage) {
+        const widths = [400, 800, 1200];
+        const srcset = widths
+          .map(
+            (w) =>
+              `/api/img/proxy?url=${encodeURIComponent(firstBannerImageUrl)}&w=${w}&f=webp ${w}w`,
+          )
+          .join(", ");
+        const sizes = "(max-width: 1280px) 100vw, 1280px";
+        preloadTag =
+          `<link rel="preload" as="image" fetchpriority="high"` +
+          ` imagesrcset="${escapeAttr(srcset)}"` +
+          ` imagesizes="${escapeAttr(sizes)}">`;
+      } else {
+        preloadTag = `<link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(firstBannerImageUrl)}">`;
+      }
+      generic.headSnippet += `\n    ${preloadTag}`;
     }
   }
   if (!apiBaseUrl) {

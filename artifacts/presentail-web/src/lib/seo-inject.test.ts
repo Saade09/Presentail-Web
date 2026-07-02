@@ -5586,3 +5586,88 @@ describe("buildFaqsSeo — title-length guardrail", () => {
     expect(titleLen).toBeGreaterThanOrEqual(30);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Banner LCP preload — imagesrcset / imagesizes injection
+// ---------------------------------------------------------------------------
+describe("injectSeoTagsAsync — banner LCP preload tag", () => {
+  const OS_BANNER_URL =
+    "https://os.presentail.com/api/storage/banners/hero.jpg";
+  // Unsplash URL with a `&` — escapeAttr encodes it as &amp; in the HTML attr.
+  const NON_OS_BANNER_URL =
+    "https://images.unsplash.com/photo-123?w=1280&q=80";
+
+  beforeEach(() => {
+    // Clear the generic SEO cache so tests using the same path (e.g. /) don't
+    // inherit a cached head snippet that includes a banner preload from a
+    // previous test in the suite.
+    genericSeoCache.clear();
+  });
+
+  it("emits imagesrcset + imagesizes for an OS storage banner on bare /", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const out = await injectSeoTagsAsync(HTML, "/", {
+      ...OPTS,
+      firstBannerImageUrl: OS_BANNER_URL,
+    });
+    expect(out).toContain('rel="preload"');
+    expect(out).toContain('as="image"');
+    expect(out).toContain('fetchpriority="high"');
+    expect(out).toContain("imagesrcset=");
+    expect(out).toContain("imagesizes=");
+    // All three srcset widths must be present.
+    expect(out).toContain("w=400");
+    expect(out).toContain("w=800");
+    expect(out).toContain("w=1200");
+    // Must reference the proxy endpoint with the encoded URL.
+    expect(out).toContain("/api/img/proxy?url=");
+    expect(out).toContain(encodeURIComponent(OS_BANNER_URL));
+    // sizes value must match HeroBannerSlide.
+    expect(out).toContain("(max-width: 1280px) 100vw, 1280px");
+    // Must NOT emit a plain href= preload (would cause a double-fetch).
+    expect(out).not.toContain(`href="${OS_BANNER_URL}"`);
+  });
+
+  it("emits imagesrcset + imagesizes for an OS storage banner on locale homepage", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", {
+      ...OPTS,
+      firstBannerImageUrl: OS_BANNER_URL,
+    });
+    expect(out).toContain("imagesrcset=");
+    expect(out).toContain("imagesizes=");
+    expect(out).toContain("w=400");
+  });
+
+  it("falls back to plain href preload for a non-OS banner URL", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", {
+      ...OPTS,
+      firstBannerImageUrl: NON_OS_BANNER_URL,
+    });
+    expect(out).toContain('rel="preload"');
+    // escapeAttr encodes & as &amp; inside HTML attributes.
+    expect(out).toContain(
+      'href="https://images.unsplash.com/photo-123?w=1280&amp;q=80"',
+    );
+    // Should NOT emit imagesrcset for a non-OS URL.
+    expect(out).not.toContain("imagesrcset=");
+  });
+
+  it("does NOT inject any preload on a non-homepage route", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
+      ...OPTS,
+      firstBannerImageUrl: OS_BANNER_URL,
+    });
+    expect(out).not.toContain('rel="preload" as="image"');
+  });
+
+  it("does NOT inject any preload when firstBannerImageUrl is absent", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    // Use bare / with no firstBannerImageUrl. Cache cleared in beforeEach so
+    // no stale preload tag from a prior test leaks in.
+    const out = await injectSeoTagsAsync(HTML, "/", OPTS);
+    expect(out).not.toContain('rel="preload" as="image"');
+  });
+});
