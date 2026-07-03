@@ -103,37 +103,49 @@ export default function BrandDetail() {
 
       {/* ── Brand hero ── */}
       <div className="container mx-auto max-w-content px-page">
-        {hasCover ? (
+        {/*
+         * Render the tall container unconditionally while loading OR when a
+         * cover is known — this prevents CLS when brand data arrives and
+         * hasCover transitions false→true after the first paint.
+         * Image content is gated on hasCover; the container itself is not.
+         */}
+        {(hasCover || isBrandsLoading) ? (
           /* Wrapper holds the cover + the logo badge (which overflows below cover) */
           <div className="relative pb-9">
             <div className="relative rounded-2xl overflow-hidden h-48 md:h-56 bg-secondary/40">
-              {/* AI-generated cover image, or blurred logo as fallback */}
-              <ShimmerImage
-                src={heroSrcsetData?.src ?? heroImgSrc ?? ""}
-                alt=""
-                containerClassName="absolute inset-0"
-                className={`object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
-                srcset={heroSrcsetData?.srcset}
-                sizes={heroSrcsetData?.sizes ?? BRAND_HERO_SIZES}
-                priority
-              />
-              {/* Gradient overlay for depth */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+              {hasCover && (
+                <>
+                  {/* AI-generated cover image, or blurred logo as fallback */}
+                  <ShimmerImage
+                    src={heroSrcsetData?.src ?? heroImgSrc ?? ""}
+                    alt=""
+                    containerClassName="absolute inset-0"
+                    className={`object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
+                    srcset={heroSrcsetData?.srcset}
+                    sizes={heroSrcsetData?.sizes ?? BRAND_HERO_SIZES}
+                    priority
+                  />
+                  {/* Gradient overlay for depth */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+                </>
+              )}
             </div>
 
             {/* Logo badge — outside overflow-hidden so it isn't clipped */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[72px] h-[72px] md:w-20 md:h-20 bg-white rounded-2xl shadow-lg border border-white/80 flex items-center justify-center p-2.5">
-              <img
-                src={brand!.image!}
-                alt={brand!.name}
-                className="max-w-full max-h-full object-contain mix-blend-multiply"
-                loading="eager"
-                fetchPriority="high"
-              />
-            </div>
+            {brand?.image && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[72px] h-[72px] md:w-20 md:h-20 bg-white rounded-2xl shadow-lg border border-white/80 flex items-center justify-center p-2.5">
+                <img
+                  src={brand.image}
+                  alt={brand.name}
+                  className="max-w-full max-h-full object-contain mix-blend-multiply"
+                  loading="eager"
+                  fetchPriority="high"
+                />
+              </div>
+            )}
           </div>
         ) : (
-          /* No cover: just show logo centred on a soft background */
+          /* No cover and data has loaded: just show logo centred on a soft background */
           <div className="flex justify-center">
             <div className="w-20 h-20 bg-secondary/50 rounded-2xl flex items-center justify-center p-3 shadow-sm">
               {brand?.image ? (
@@ -154,7 +166,7 @@ export default function BrandDetail() {
         )}
 
         {/* ── Brand name + description ── */}
-        <div className={`text-center ${hasCover ? "mt-5 md:mt-6" : "mt-4"} mb-6`}>
+        <div className={`text-center ${hasCover || isBrandsLoading ? "mt-5 md:mt-6" : "mt-4"} mb-6`}>
           <h1 className="text-3xl md:text-4xl font-serif mb-2">{brandName}</h1>
           <p className="text-muted-foreground text-sm md:text-base max-w-xs md:max-w-sm mx-auto leading-relaxed">
             {t("brand.descPrefix", { name: brandName })}

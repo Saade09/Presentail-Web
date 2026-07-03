@@ -9,6 +9,10 @@
  * If the resize pipeline ever regresses and the hero falls back to requesting
  * the raw catalog proxy URL (no `?w=` param), these tests will fail.
  *
+ * Section 4 tests the CLS guard: the brand hero container (h-48 md:h-56
+ * bg-secondary/40) must be present in the DOM on first paint, before the
+ * brands API response arrives — preventing layout shift when data loads.
+ *
  * All external calls are stubbed so the tests run without a live API or OS key.
  */
 
@@ -458,5 +462,100 @@ test.describe("Brand hero image srcset", () => {
     const srcset = await heroImg.getAttribute("srcset");
     expect(srcset).toContain("?w=800");
     expect(srcset).toContain("?w=1600");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Brand hero CLS guard — container present before brand data loads
+// ---------------------------------------------------------------------------
+
+test.describe("Brand hero CLS guard", () => {
+  test("hero container (h-48 md:h-56) is in the DOM before brands API responds", async ({
+    page,
+  }) => {
+    await stubCurrencyAndGeo(page);
+
+    // Hold the brands response so we can assert the container is already
+    // rendered on first paint, before brand data arrives.
+    let releaseBrands!: () => void;
+    const brandsHeld = new Promise<void>((resolve) => {
+      releaseBrands = resolve;
+    });
+
+    await page.route("**/api/woo/brands**", async (route) => {
+      await brandsHeld;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          brands: [
+            {
+              id: BRAND_SLUG,
+              name: "Test Brand",
+              slug: BRAND_SLUG,
+              image: `/api/catalog/brand-image/${BRAND_SLUG}`,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/api/woo/brand-products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, products: [], count: 0 }),
+      }),
+    );
+
+    await page.route("**/os.presentail.com/api/products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [], totalPages: 1 }),
+      }),
+    );
+
+    await page.route("**/api/catalog/brand-allowlist", (route) =>
+      route.fulfill({ status: 404, body: "" }),
+    );
+
+    await page.route(/\/api\/catalog\/metadata/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ categories: [], occasions: [], brands: [] }),
+      }),
+    );
+
+    await page.route("**/api/catalog/brand-image/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: Buffer.from(TINY_PNG_B64, "base64"),
+      }),
+    );
+
+    await seedLocation(page);
+
+    // Navigate but keep the brands response held so hero container renders
+    // purely from the loading state.
+    await page.goto(`/en-lb/beirut/brand/${BRAND_SLUG}`);
+
+    // The hero container must already be in the DOM while brands data is still
+    // in-flight. `h-48` and `bg-secondary\/40` are both applied to it.
+    const heroContainer = page.locator("div.h-48.bg-secondary\\/40").first();
+    await expect(heroContainer).toBeAttached({ timeout: 10_000 });
+
+    // Now release brands so the page finishes loading cleanly.
+    releaseBrands();
+
+    // After data arrives the container must still be there (not replaced by
+    // the small-logo fallback that renders for confirmed no-cover brands).
+    await expect(
+      page.getByRole("heading", { name: "Test Brand", level: 1 }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(heroContainer).toBeAttached();
   });
 });
