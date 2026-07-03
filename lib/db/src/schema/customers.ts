@@ -49,6 +49,24 @@ export const customersTable = pgTable(
     stripeCustomerId: text("stripe_customer_id"),
     // Stripe Customer ID on the Gulf account (AED / UAE shoppers).
     stripeCustomerIdGulf: text("stripe_customer_id_gulf"),
+    // Set to NOW() when the account is deleted (anonymised). Sessions that
+    // resolve to a row with deletedAt != null are rejected immediately so
+    // old bearer tokens cannot access data after account deletion.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // True once the account owner has confirmed ownership of the email
+    // address. Defaults to true for accounts created via social/Clerk/WC
+    // auth (those providers verify email themselves). Set to false for new
+    // local password registrations until the verification link is clicked.
+    // Orders are not attached to unverified accounts so a fraudulent
+    // registration cannot pre-claim another user's order history.
+    emailVerified: boolean("email_verified").notNull().default(true),
+    // One-time token sent in the verification email. Hex-encoded 32-byte
+    // random value. Cleared once the account is verified.
+    emailVerificationToken: text("email_verification_token"),
+    emailVerificationTokenExpiresAt: timestamp(
+      "email_verification_token_expires_at",
+      { withTimezone: true },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -2,12 +2,13 @@ import { SignJWT, jwtVerify } from "jose";
 import { getAuth, createClerkClient } from "@clerk/express";
 import type { Request } from "express";
 import { isUserType } from "@workspace/clerk-types";
+import { eq } from "drizzle-orm";
 
 import { resolveStore, resolveStoreFromRequest } from "./wooStore";
 import { upsertCustomer, getCustomerById } from "./customers";
 import { syncCustomerToWoo } from "./customers";
 import { logger } from "./logger";
-import { db, analyticsEventsTable } from "@workspace/db";
+import { db, analyticsEventsTable, customersTable } from "@workspace/db";
 
 const SERVER_JWT_ISSUER = "presentail-api";
 const SERVER_JWT_AUDIENCE = "presentail-app";
@@ -258,6 +259,10 @@ async function resolveClerkSession(
       authUserId: userId,
       country: store.country,
       source: "presentail.com",
+      // Clerk verifies emails itself; mark the row as verified so a
+      // returning user who registered via local password and then later
+      // signs in via Clerk gets their email-verified flag upgraded.
+      emailVerified: true,
     });
     localCustomerId = upserted.customer.id;
   } catch (err: any) {
@@ -266,6 +271,29 @@ async function resolveClerkSession(
       "auth.clerk: failed to upsert local customer",
     );
     return { ok: false, status: 500, message: "Failed to resolve customer" }; // i18n-ignore
+  }
+
+  // Reject sessions that resolve to a deleted customer row. This closes
+  // the window where a user deletes their account but their Clerk session
+  // survives because the Clerk user was not actually removed.
+  const resolvedCustomer = await getCustomerById(localCustomerId);
+  if (resolvedCustomer?.deletedAt) {
+    req.log?.warn?.(
+      { localCustomerId, userId },
+      "auth.clerk: session resolved to a deleted customer row — rejecting",
+    );
+    // Best-effort: try to clean up the dangling Clerk user so this path
+    // cannot be re-entered on the next request.
+    try {
+      const clerk = createClerkClient({ secretKey });
+      await clerk.users.deleteUser(userId);
+    } catch (cleanupErr: any) {
+      req.log?.warn?.(
+        { err: cleanupErr?.message, userId },
+        "auth.clerk: cleanup delete of Clerk user failed (non-fatal)",
+      );
+    }
+    return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
   }
 
   // When WC auth is disabled (default for new deployments), skip the
@@ -363,7 +391,28 @@ export async function authenticate(
 
   const payload = decodeJwtPayload(token);
   if (payload?.iss === SERVER_JWT_ISSUER) {
-    return verifyServerToken(token, req);
+    const result = await verifyServerToken(token, req);
+    if (result.ok) {
+      // Enforce account deletion centrally: a pre-deletion bearer token must
+      // not grant access after the account row is tombstoned.
+      // localCustomerId is set for WC-mode social tokens; for local-only tokens
+      // customerId IS the local DB row id.
+      const localId = result.localCustomerId ?? result.customerId;
+      try {
+        const [row] = await db
+          .select({ deletedAt: customersTable.deletedAt })
+          .from(customersTable)
+          .where(eq(customersTable.id, localId))
+          .limit(1);
+        if (row?.deletedAt != null) {
+          return { ok: false, status: 401, message: "Account has been deleted. Please sign up again." }; // i18n-ignore
+        }
+      } catch {
+        // DB lookup failure — fail open to avoid a liveness outage. Per-route
+        // checks (resolveCustomerId, resolveClerkSession) still enforce deletedAt.
+      }
+    }
+    return result;
   }
 
   try {
@@ -392,5 +441,21 @@ export async function authenticate(
   if (!Number.isFinite(id) || id <= 0) {
     return { ok: false, status: 401, message: "Token missing user id" }; // i18n-ignore
   }
+
+  // Enforce account deletion for WP JWT paths: look up the local customer row
+  // by WC customer ID and reject deleted accounts before returning the auth result.
+  try {
+    const [row] = await db
+      .select({ deletedAt: customersTable.deletedAt })
+      .from(customersTable)
+      .where(eq(customersTable.wcCustomerId, id))
+      .limit(1);
+    if (row?.deletedAt != null) {
+      return { ok: false, status: 401, message: "Account has been deleted. Please sign up again." }; // i18n-ignore
+    }
+  } catch {
+    // DB lookup failure — fail open; per-route checks still enforce deletedAt.
+  }
+
   return { ok: true, customerId: id, token };
 }

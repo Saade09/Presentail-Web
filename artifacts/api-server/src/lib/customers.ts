@@ -48,6 +48,12 @@ export type UpsertCustomerInput = {
   // When provided we prefer to load this row (used for authenticated flows
   // where the caller already knows the canonical customer).
   preferredCustomerId?: number | null;
+  // When true, upgrades an existing row's emailVerified flag to true (used
+  // by Clerk/social sign-in which verify the email themselves). Never
+  // downgrades an existing verified row. When false, creates the row as
+  // unverified (local password registration only). Omit to leave the
+  // existing flag untouched (defaults to true for new rows).
+  emailVerified?: boolean;
 };
 
 export type UpsertCustomerResult = {
@@ -99,6 +105,13 @@ function buildPatch(
     if (existing.preferredLang !== input.preferredLang) {
       patch.preferredLang = input.preferredLang;
     }
+  }
+
+  // emailVerified: only upgrade from false → true, never downgrade. Callers
+  // that have verified the email themselves (Clerk, social sign-in) pass
+  // emailVerified=true so returning users get the flag set on sign-in.
+  if (input.emailVerified === true && !existing.emailVerified) {
+    patch.emailVerified = true;
   }
 
   return patch;
@@ -190,6 +203,10 @@ export async function upsertCustomer(
       input.authProvider && input.authUserId ? input.authProvider : null,
     authUserId:
       input.authProvider && input.authUserId ? input.authUserId : null,
+    // emailVerified defaults to true for all auth paths except local password
+    // registration, which explicitly passes false so the email must be
+    // confirmed before order history is accessible.
+    ...(input.emailVerified === false ? { emailVerified: false } : {}),
     ...(input.preferredLang && VALID_LANGS_INSERT.has(input.preferredLang)
       ? { preferredLang: input.preferredLang }
       : {}),

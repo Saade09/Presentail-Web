@@ -50,6 +50,7 @@ import {
   getOsProductBySlug,
 } from "../lib/osProductsCache";
 import type { OSProduct, OSCatalogAttributeBrand } from "@workspace/presentail-os";
+import { getCustomerById } from "../lib/customers";
 
 const router: IRouter = Router();
 
@@ -954,12 +955,25 @@ router.post("/woo/order", async (req, res) => {
       source: "presentail.com",
       preferredCustomerId,
     });
-    resolvedCustomerId = upserted.customer.id;
+    // Do not attach the order to an unverified account. An attacker who
+    // registered with the victim's email before they could claim it must not
+    // gain read access to subsequent orders via /me/orders. We still create
+    // the order record — it just won't have a customerId foreign key until
+    // the legitimate owner verifies and the order is later reconciled by email.
+    const upsertedRow = await getCustomerById(upserted.customer.id);
+    if (upsertedRow && !upsertedRow.emailVerified) {
+      resolvedCustomerId = null;
+    } else {
+      resolvedCustomerId = upserted.customer.id;
+    }
 
     // Best-effort: mirror to WooCommerce for legacy order linking.
     // WC is no longer used for order submission, so a sync failure must
     // not block the checkout — log a warning and proceed.
+    // Skip the WC sync when the account is unverified (resolvedCustomerId
+    // is null) to avoid creating a WC record for a potentially fraudulent row.
     try {
+      if (resolvedCustomerId == null) throw new Error("skip: unverified customer");
       wcCustomerId = await syncCustomerToWoo(resolvedCustomerId, store);
     } catch (syncErr: any) {
       req.log?.warn?.(

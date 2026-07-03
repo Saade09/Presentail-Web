@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { desc, eq } from "drizzle-orm";
-import { db, appOrdersTable } from "@workspace/db";
+import { db, appOrdersTable, customersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { getCustomerById, getCustomerByWcId } from "../lib/customers";
@@ -59,14 +59,23 @@ async function resolveCustomerId(
   // (a) localCustomerId claim — native JWT / web auth; look up directly.
   if (auth.localCustomerId) {
     const local = await getCustomerById(auth.localCustomerId);
-    if (local) return { ok: true, customerId: local.id };
+    if (local) {
+      if (local.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+      return { ok: true, customerId: local.id };
+    }
   }
   // (b) WC customer ID — mobile WordPress JWT; look up by wcCustomerId.
   const byWc = await getCustomerByWcId(auth.customerId);
-  if (byWc) return { ok: true, customerId: byWc.id };
+  if (byWc) {
+    if (byWc.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+    return { ok: true, customerId: byWc.id };
+  }
   // (c) Final fallback — local-only JWT where customerId IS the local row id.
   const byId = await getCustomerById(auth.customerId);
-  if (byId) return { ok: true, customerId: byId.id };
+  if (byId) {
+    if (byId.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+    return { ok: true, customerId: byId.id };
+  }
   return { ok: false, status: 404, message: "Customer profile not found" }; // i18n-ignore
 }
 
@@ -86,6 +95,19 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
     }
     // Customer profile not found — return an empty list rather than an error.
     res.json({ ok: true, orders: [] });
+    return;
+  }
+
+  // Guard: do not return order history for unverified accounts.
+  // A fraudulent registration with someone else's email must not be able to
+  // read orders that were linked to that email before verification.
+  const [customerRow] = await db
+    .select({ emailVerified: customersTable.emailVerified })
+    .from(customersTable)
+    .where(eq(customersTable.id, resolved.customerId))
+    .limit(1);
+  if (customerRow && !customerRow.emailVerified) {
+    res.json({ ok: true, orders: [], needsEmailVerification: true });
     return;
   }
 

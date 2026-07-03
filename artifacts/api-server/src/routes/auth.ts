@@ -5,7 +5,7 @@ import { getAuth, createClerkClient } from "@clerk/express";
 import { authenticate, decodeJwtPayload, signServerToken, isWcAuthEnabled } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { requireUserType } from "../lib/requireUserType";
-import { and, eq, isNull, gt } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, gt } from "drizzle-orm";
 import { db, customersTable, CUSTOMER_GENDERS, phoneOtpsTable } from "@workspace/db";
 import { upsertCustomer, getCustomerByWcId, getCustomerById, normalizePhoneE164 } from "../lib/customers";
 import { validateStoredPhone } from "../lib/phoneValidation";
@@ -693,6 +693,51 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
   }
 });
 
+// ── Email verification helper ─────────────────────────────────────────────────
+// Sends a one-time verification link to the given email via SMTP (best-effort).
+// Returns immediately without awaiting the send result so the registration
+// response is never delayed. Logged at WARN level on failure.
+function sendEmailVerification(opts: {
+  email: string;
+  token: string;
+  log?: { warn?: (...args: any[]) => void };
+}): void {
+  const smtpHost = process.env.SMTP_HOST;
+  if (!smtpHost) return; // SMTP not configured — skip silently.
+
+  const { email, token, log } = opts;
+  const domain =
+    (process.env.EXPO_PUBLIC_DOMAIN ?? "presentail.com").replace(/\/$/, "");
+  const verifyUrl = `https://${domain}/verify-email?token=${token}`;
+  const from =
+    process.env.EMAIL_FROM ?? process.env.SMTP_USER ?? "no-reply@presentail.com"; // i18n-ignore
+
+  import("nodemailer")
+    .then(({ createTransport }) => {
+      const transport = createTransport({
+        host: smtpHost,
+        port: Number(process.env.SMTP_PORT ?? 587),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: process.env.SMTP_USER
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? "" }
+          : undefined,
+      });
+      return transport.sendMail({
+        from,
+        to: email,
+        subject: "Verify your Presentail account", // i18n-ignore
+        text: `Please verify your email address by visiting:\n${verifyUrl}\n\nThis link expires in 24 hours.`, // i18n-ignore
+        html: `<p>Please <a href="${verifyUrl}">verify your email address</a>.</p><p>This link expires in 24 hours.</p>`, // i18n-ignore
+      });
+    })
+    .catch((err: any) => {
+      log?.warn?.(
+        { err: err?.message, email },
+        "auth.register: verification email send failed (non-fatal)",
+      );
+    });
+}
+
 // ── Register: create a local customer (or WooCommerce customer for legacy) ───
 // When WC_AUTH_ENABLED=false (default), registration creates a row in the local
 // `customers` table directly, propagates to Clerk, and returns a server-issued
@@ -743,7 +788,25 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
         authUserId: null,
         source: "presentail.com",
         preferredLang: langFromRequest(req),
+        // New local password registrations start unverified so a fraudulent
+        // registration cannot immediately read orders tied to that email.
+        emailVerified: false,
       });
+
+      // Generate a secure email verification token and persist it.
+      const verificationToken = randomBytes(32).toString("hex");
+      const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 h
+      await db
+        .update(customersTable)
+        .set({
+          emailVerificationToken: verificationToken,
+          emailVerificationTokenExpiresAt: tokenExpiresAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(customersTable.id, customer.id));
+
+      // Best-effort: send verification email if SMTP is configured.
+      sendEmailVerification({ email: normalizedEmail, token: verificationToken, log: req.log });
 
       // Best-effort Clerk propagation (so web sign-in can find the new shopper).
       if (isClerkConfigured()) {
@@ -769,6 +832,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
       return res.json({
         ok: true,
         token,
+        emailVerificationRequired: true,
         user: {
           id: customer.id,
           email: customer.email,
@@ -825,7 +889,63 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 
     const mapped = mapCustomer(data);
     if (mapped.id) {
+      const wcEmail = (mapped.email ?? "").trim().toLowerCase();
+      if (wcEmail) {
+        // AWAIT the unverified pre-create so the row exists with
+        // emailVerified=false BEFORE mirrorAndPropagateToClerk runs. If the
+        // mirror won the race and created a verified row first, the unverified
+        // guard would be silently bypassed.
+        // buildPatch never downgrades emailVerified (only upgrades false→true
+        // when input.emailVerified===true), so the subsequent background mirror
+        // upsert — which omits emailVerified — cannot change the flag.
+        try {
+          const { customer: unverifiedCustomer } = await upsertCustomer({
+            email: wcEmail,
+            firstName: mapped.firstName ?? "",
+            lastName: mapped.lastName ?? "",
+            phone: mapped.phone ?? undefined,
+            authProvider: null,
+            authUserId: null,
+            source: "presentail.com",
+            preferredLang: langFromRequest(req),
+            emailVerified: false,
+          });
+          // Persist verification token and fire email (non-blocking — does not
+          // hold up the registration response).
+          const verificationToken = randomBytes(32).toString("hex");
+          void db
+            .update(customersTable)
+            .set({
+              emailVerificationToken: verificationToken,
+              emailVerificationTokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(customersTable.id, unverifiedCustomer.id),
+                isNull(customersTable.emailVerificationToken),
+              ),
+            )
+            .then(() => {
+              sendEmailVerification({ email: wcEmail, token: verificationToken, log: req.log });
+            })
+            .catch((err: any) => {
+              req.log?.warn?.(
+                { err: err?.message, email: wcEmail },
+                "auth.register.wc: verification token persist failed (non-fatal)",
+              );
+            });
+        } catch (err: any) {
+          req.log?.warn?.(
+            { err: err?.message, email: wcEmail },
+            "auth.register.wc: pre-verification upsert failed (non-fatal)",
+          );
+        }
+      }
+
       // Mirror to local DB AND propagate to Clerk (best-effort, non-blocking).
+      // The unverified row is guaranteed to exist by this point, so the mirror
+      // upsert finds it via email and buildPatch leaves emailVerified untouched.
       mirrorAndPropagateToClerk(
         mapped.id,
         {
@@ -839,9 +959,89 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
         req.log,
       );
     }
-    return res.json({ ok: true, token, user: mapped });
+    return res.json({ ok: true, token, user: mapped, emailVerificationRequired: true });
   } catch (e: any) {
     return res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Registration failed" }); // i18n-ignore
+  }
+});
+
+// ── Email verification: confirm ownership of a registered email ───────────────
+// The verification link emailed during local registration points here.
+// A successful call marks the customer row as emailVerified=true and clears
+// the one-time token so the link cannot be replayed.
+router.get("/auth/verify-email", async (req, res) => {
+  const token = req.query.token;
+  if (!token || typeof token !== "string" || !token.match(/^[0-9a-f]{64}$/)) {
+    res.status(400).json({ ok: false, code: "invalid_token", message: "Invalid verification link" }); // i18n-ignore
+    return;
+  }
+  try {
+    const now = new Date();
+    const [row] = await db
+      .select({ id: customersTable.id, expiresAt: customersTable.emailVerificationTokenExpiresAt })
+      .from(customersTable)
+      .where(eq(customersTable.emailVerificationToken, token))
+      .limit(1);
+
+    if (!row) {
+      res.status(400).json({ ok: false, code: "invalid_token", message: "Invalid or already-used verification link" }); // i18n-ignore
+      return;
+    }
+    if (!row.expiresAt || row.expiresAt < now) {
+      res.status(400).json({ ok: false, code: "token_expired", message: "Verification link has expired. Please request a new one." }); // i18n-ignore
+      return;
+    }
+
+    await db
+      .update(customersTable)
+      .set({
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationTokenExpiresAt: null,
+        updatedAt: now,
+      })
+      .where(eq(customersTable.id, row.id));
+
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Verification failed" }); // i18n-ignore
+  }
+});
+
+// ── Resend email verification ─────────────────────────────────────────────────
+// Lets the client prompt a fresh verification email for the signed-in user
+// when the previous link expired or was never received.
+router.post("/auth/resend-verification", registerIpLimiter, async (req, res) => {
+  const auth = await authenticate(req.header("authorization"), req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ ok: false, message: auth.message });
+    return;
+  }
+  const localId = auth.localCustomerId ?? auth.customerId;
+  try {
+    const [row] = await db
+      .select({ id: customersTable.id, email: customersTable.email, emailVerified: customersTable.emailVerified })
+      .from(customersTable)
+      .where(eq(customersTable.id, localId))
+      .limit(1);
+    if (!row) {
+      res.status(404).json({ ok: false, message: "Account not found" }); // i18n-ignore
+      return;
+    }
+    if (row.emailVerified) {
+      res.json({ ok: true, alreadyVerified: true });
+      return;
+    }
+    const verificationToken = randomBytes(32).toString("hex");
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await db
+      .update(customersTable)
+      .set({ emailVerificationToken: verificationToken, emailVerificationTokenExpiresAt: tokenExpiresAt, updatedAt: new Date() })
+      .where(eq(customersTable.id, row.id));
+    sendEmailVerification({ email: row.email, token: verificationToken, log: req.log });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, message: e?.message ?? "Resend failed" }); // i18n-ignore
   }
 });
 
@@ -890,6 +1090,7 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
         lastName,
         authProvider: "clerk",
         authUserId: clerkUserId,
+        emailVerified: true,
       });
       res.json({
         ok: true,
@@ -1593,6 +1794,16 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
     const localId = auth.localCustomerId ?? auth.customerId;
     const tombstoneEmail = `deleted-${localId}-${Date.now()}@deleted.local`;
     try {
+      // Read the Clerk user id BEFORE we wipe authUserId from the row so
+      // we can look up and delete the Clerk account by userId directly.
+      const [preDeletion] = await db
+        .select({ authProvider: customersTable.authProvider, authUserId: customersTable.authUserId })
+        .from(customersTable)
+        .where(eq(customersTable.id, localId))
+        .limit(1);
+      const savedClerkUserId =
+        preDeletion?.authProvider === "clerk" ? (preDeletion.authUserId ?? null) : null;
+
       await db
         .update(customersTable)
         .set({
@@ -1604,22 +1815,33 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
           birthday: null,
           authProvider: null,
           authUserId: null,
+          emailVerified: false,
+          emailVerificationToken: null,
+          emailVerificationTokenExpiresAt: null,
+          deletedAt: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(customersTable.id, localId));
 
-      // Best-effort Clerk deletion.
+      // Best-effort Clerk deletion — look up by userId (externalId in Clerk
+      // terminology) which we saved before anonymising the row. This fixes
+      // the previous bug where the lookup used the tombstone email (which
+      // doesn't exist in Clerk yet) and always missed.
       const clerkSecretKey = process.env.CLERK_SECRET_KEY;
-      if (clerkSecretKey) {
+      if (clerkSecretKey && savedClerkUserId) {
         const clerk = createClerkClient({ secretKey: clerkSecretKey });
-        const { data: clerkUsers } = await clerk.users.getUserList({
-          emailAddress: [tombstoneEmail],
-        }).catch(() => ({ data: [] }));
-        // If by chance the email lookup found them (unlikely post-anonymise),
-        // delete. Realistically the Clerk account was under the original email.
-        // We do a second lookup by externalId instead.
+        await clerk.users.deleteUser(savedClerkUserId).catch((e: any) => {
+          req.log?.warn?.({ err: e?.message, clerkUserId: savedClerkUserId }, "auth.delete: Clerk user delete failed (non-fatal)");
+        });
+      } else if (clerkSecretKey && !savedClerkUserId) {
+        // Fallback: try to find by original email via the auth header claims.
+        // Only needed for accounts where authProvider != "clerk" but a Clerk
+        // user still exists (e.g. Clerk was provisioned for a WC account).
+        const { data: clerkUsers } = await (createClerkClient({ secretKey: clerkSecretKey })
+          .users.getUserList({ emailAddress: [tombstoneEmail] })
+          .catch(() => ({ data: [] })));
         for (const u of clerkUsers) {
-          await clerk.users.deleteUser(u.id).catch((e: any) => {
+          await createClerkClient({ secretKey: clerkSecretKey }).users.deleteUser(u.id).catch((e: any) => {
             req.log?.warn?.({ err: e?.message, clerkUserId: u.id }, "auth.delete: Clerk user delete failed (non-fatal)");
           });
         }
@@ -1692,6 +1914,25 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
       // the account is functionally deleted from the user's perspective.
       req.log?.warn?.({ status: delRes.status, message: data?.message }, "auth.delete: WC delete failed but anonymised");
     }
+
+    // Also mark the local customers row (if any) as deleted so that legacy
+    // WP JWTs that reference this WC customer ID are rejected on the next
+    // request (session revocation for the WC auth path).
+    await db
+      .update(customersTable)
+      .set({
+        deletedAt: new Date(),
+        emailVerified: false,
+        emailVerificationToken: null,
+        emailVerificationTokenExpiresAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(customersTable.wcCustomerId, id),
+          isNotNull(customersTable.wcCustomerId),
+        ),
+      );
 
     res.json({ ok: true });
   } catch (e: any) {
@@ -1855,6 +2096,8 @@ async function issueSocialSession(
         authUserId: profile.email,
         source: "presentail.com",
         preferredLang: langFromRequest(req),
+        // Apple and Google verify the email themselves.
+        emailVerified: true,
       });
 
       if (isClerkConfigured()) {
@@ -2629,6 +2872,9 @@ router.post("/auth/otp/verify", registerIpLimiter, async (req, res) => {
         authUserId: null,
         source: "presentail.com",
         preferredLang: langFromRequest(req),
+        // Phone OTP verifies phone ownership, not the email address. Mark
+        // email as unverified so the order-history guard still applies.
+        emailVerified: false,
       });
 
       if (isClerkConfigured()) {

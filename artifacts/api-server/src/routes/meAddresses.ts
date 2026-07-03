@@ -80,14 +80,23 @@ async function resolveCustomerId(
   // (a) localCustomerId claim — native JWT / web auth; look up directly.
   if (auth.localCustomerId) {
     const local = await getCustomerById(auth.localCustomerId);
-    if (local) return { ok: true, customerId: local.id };
+    if (local) {
+      if (local.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+      return { ok: true, customerId: local.id };
+    }
   }
   // (b) WC customer ID — mobile WordPress JWT; look up by wcCustomerId.
   const byWc = await getCustomerByWcId(auth.customerId);
-  if (byWc) return { ok: true, customerId: byWc.id };
+  if (byWc) {
+    if (byWc.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+    return { ok: true, customerId: byWc.id };
+  }
   // (c) Final fallback — local-only JWT where customerId IS the local row id.
   const byId = await getCustomerById(auth.customerId);
-  if (byId) return { ok: true, customerId: byId.id };
+  if (byId) {
+    if (byId.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+    return { ok: true, customerId: byId.id };
+  }
   return {
     ok: false,
     status: 404,
