@@ -424,6 +424,7 @@ function CheckoutForm() {
   const [step, setStep] = useState(1);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [orderNote, setOrderNote] = useState("");
+  const [noteOpen, setNoteOpen] = useState(false);
 
   // Saved addresses for signed-in shoppers
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -2446,16 +2447,39 @@ function CheckoutForm() {
                   <p className="text-sm text-muted-foreground">{t("checkout.step3.desc")}</p>
                 </div>
 
-                {/* Note for team */}
+                {/* Note for team — collapsible on mobile, always expanded on desktop */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-3">{t("checkout.noteForTeam")}</p>
-                  <textarea
-                    value={orderNote}
-                    onChange={(e) => setOrderNote(e.target.value)}
-                    placeholder={t("checkout.noteForTeamPh")}
-                    rows={3}
-                    className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
-                  />
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between lg:pointer-events-none"
+                    onClick={() => setNoteOpen((o) => !o)}
+                  >
+                    <p className="text-xs font-semibold text-primary uppercase tracking-widest">{t("checkout.noteForTeam")}</p>
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform duration-200 lg:hidden${noteOpen ? " rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {/* Desktop: always visible. Mobile: only when open */}
+                  <div className={`mt-3${!noteOpen ? " hidden lg:block" : ""}`}>
+                    <textarea
+                      value={orderNote}
+                      onChange={(e) => setOrderNote(e.target.value)}
+                      placeholder={t("checkout.noteForTeamPh")}
+                      rows={3}
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
+                    />
+                    {/* Save button — mobile only, collapses the section */}
+                    <div className="flex justify-end mt-2 lg:hidden">
+                      <button
+                        type="button"
+                        onClick={() => setNoteOpen(false)}
+                        className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                      >
+                        {t("checkout.noteForTeamSave")}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Payment methods */}
