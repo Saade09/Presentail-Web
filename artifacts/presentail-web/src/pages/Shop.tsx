@@ -24,9 +24,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { buildCategorySeo, buildOccasionSeo } from "@/lib/seo";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
-import { ShimmerImage } from "@/components/ShimmerImage";
-import { catalogAssetUrl } from "@/lib/catalogAssets";
-import { buildOccasionHeroSrcset, OCCASION_HERO_SIZES } from "@/lib/imageUtils";
+
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { roundToNearestFive } from "@workspace/display-currency";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
@@ -423,19 +421,6 @@ export default function Shop() {
   const categoryLabelKey = CATEGORIES.find((c) => c.slug === category)?.labelKey;
   const occasionLabelKey = OCCASIONS.find((o) => o.slug === occasion)?.labelKey;
 
-  // Hero image for occasion/category detail pages.
-  // buildOccasionHeroSrcset branches on URL type:
-  //  - /api/catalog/occasion-image/… or /api/catalog/category-image/… → catalog proxy (800/1200/1600w)
-  //  - os.presentail.com/api/storage/… → OS img-proxy widths (400/800/1200w)
-  //  - static asset paths or other URLs → null (raw src used as-is)
-  const heroRef = isOccasionRoute
-    ? catalogOccasion?.image
-    : isCategoryRoute
-      ? catalogCategory?.image
-      : undefined;
-  const heroImgUrl = heroRef ? catalogAssetUrl(heroRef) : null;
-  const heroSrcsetData = heroImgUrl ? buildOccasionHeroSrcset(heroImgUrl) : null;
-
   const entityName = category
     ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) || catalogCategory?.name || ""
     : occasion
@@ -530,24 +515,6 @@ export default function Shop() {
       {breadcrumbCrumbs.length > 0 && (
         <div className="container mx-auto max-w-content px-page pt-2 md:pt-4">
           <PageBreadcrumb crumbs={breadcrumbCrumbs} />
-        </div>
-      )}
-
-      {/* ── Occasion / category hero banner ── */}
-      {heroImgUrl && (isOccasionRoute || isCategoryRoute) && (
-        <div className="container mx-auto max-w-content px-page mt-4 mb-2">
-          <div className="relative rounded-2xl overflow-hidden h-40 md:h-52 bg-secondary/30">
-            <ShimmerImage
-              src={heroSrcsetData?.src ?? heroImgUrl}
-              alt=""
-              containerClassName="absolute inset-0"
-              className="object-cover"
-              srcset={heroSrcsetData?.srcset}
-              sizes={heroSrcsetData?.sizes ?? OCCASION_HERO_SIZES}
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-          </div>
         </div>
       )}
 
