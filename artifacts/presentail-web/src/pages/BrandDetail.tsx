@@ -154,7 +154,7 @@ export default function BrandDetail() {
         )}
 
         {/* ── Brand name + description ── */}
-        <div className={`text-center ${hasCover ? "mt-12 md:mt-14" : "mt-6"} mb-6`}>
+        <div className={`text-center ${hasCover ? "mt-5 md:mt-6" : "mt-4"} mb-6`}>
           <h1 className="text-3xl md:text-4xl font-serif mb-2">{brandName}</h1>
           <p className="text-muted-foreground text-sm md:text-base max-w-xs md:max-w-sm mx-auto leading-relaxed">
             {t("brand.descPrefix", { name: brandName })}
