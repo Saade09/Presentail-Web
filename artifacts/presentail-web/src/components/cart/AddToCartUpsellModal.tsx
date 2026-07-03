@@ -249,16 +249,6 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           <DeliveryDateRow className="mb-3" />
         </div>
         <div className="px-6 py-4 shrink-0 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1 flex flex-col gap-0.5 text-sm">
-            <div className="flex items-center justify-between sm:justify-start sm:gap-2 text-muted-foreground">
-              <span>{t("cart.subtotal")}</span>
-              <span><FormattedPrice usdValue={subtotal} /></span>
-            </div>
-            <div className="flex items-center justify-between sm:justify-start sm:gap-2">
-              <span className="font-medium text-primary">{t("cart.total")}</span>
-              <span className="font-serif text-base text-primary"><FormattedPrice usdValue={subtotal} /></span>
-            </div>
-          </div>
           <div className="flex gap-2 sm:gap-3">
             <Button
               variant="outline"

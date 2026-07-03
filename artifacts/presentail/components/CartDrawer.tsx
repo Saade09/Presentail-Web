@@ -106,7 +106,6 @@ export function CartDrawer() {
   );
   const isExpress = deliverySelection.mode === "express";
   const expressFeeUsd = isExpress ? expressSurchargeForCountry(countryCode) : 0;
-  const grandTotalUsd = total + expressFeeUsd;
   // Resolve persisted slot against current country + country-local hour for
   // display; see FullCartView for the rationale (do not rewrite persisted
   // state here — checkout's mount effect repairs it).
@@ -532,14 +531,6 @@ export function CartDrawer() {
                   />
                 </View>
               ) : null}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.mutedForeground }}>
-                  Total
-                </AppText>
-                <AppText style={{ fontFamily: headingFontMedium, fontSize: 20, color: colors.primary }}>
-                  {formatPrice(grandTotalUsd)}
-                </AppText>
-              </View>
               <Pressable
                 onPress={goToCart}
                 style={({ pressed }) => ({
