@@ -1350,6 +1350,15 @@ function CheckoutScreen() {
           successUrl,
           cancelUrl,
           storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+          // Pass delivery context so the server includes the authoritative delivery
+          // fee in the Stripe charge and can validate params at order finalization.
+          district: district?.name ?? "",
+          expressDelivery: deliveryMode === "express",
+          noAddress,
+          // Pass slot context so slot fees are computed server-side and bound
+          // to the Stripe charge, preventing slot-upgrade attacks after payment.
+          deliverySlot: deliveryMode === "express" ? "" : (slot?.label ?? ""),
+          cityId: selectedCity?.id,
         });
         if (session.ok) {
           const deferredStartedAt = Date.now();

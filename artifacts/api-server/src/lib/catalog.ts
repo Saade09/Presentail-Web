@@ -287,21 +287,47 @@ export async function verifyStripePaymentIntentPaid(
   expectedOrderId: string,
   stripeKey?: string,
 ): Promise<boolean> {
+  const details = await fetchStripePaymentIntentDetails(paymentIntentId, expectedOrderId, stripeKey);
+  return details !== null;
+}
+
+// Fetch full payment details for a Stripe PaymentIntent. Returns paid amount
+// and currency in addition to the paid/orderId verification. Used by the
+// expired-intent recovery path to verify that the amount Stripe actually
+// collected covers the catalog value of the submitted order items.
+//
+// Returns null when the intent does not exist, has not succeeded, or
+// metadata.orderId does not match expectedOrderId.
+export async function fetchStripePaymentIntentDetails(
+  paymentIntentId: string,
+  expectedOrderId: string,
+  stripeKey?: string,
+): Promise<{ paid: boolean; amountReceived: number; currency: string } | null> {
   const key = stripeKey ?? process.env.STRIPE_SECRET_KEY;
-  if (!key || !paymentIntentId) return false;
+  if (!key || !paymentIntentId) return null;
   try {
     const encoded = Buffer.from(`${key}:`).toString("base64");
     const r = await fetch(
       `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`,
       { headers: { Authorization: `Basic ${encoded}` } },
     );
-    if (!r.ok) return false;
-    const data = (await r.json()) as { status?: string; metadata?: Record<string, string> };
-    if (data.status !== "succeeded") return false;
+    if (!r.ok) return null;
+    const data = (await r.json()) as {
+      status?: string;
+      metadata?: Record<string, string>;
+      amount_received?: number;
+      currency?: string;
+    };
+    if (data.status !== "succeeded") return null;
     const piOrderId = data.metadata?.orderId ?? "";
-    return piOrderId === expectedOrderId;
+    if (piOrderId !== expectedOrderId) return null;
+    return {
+      paid: true,
+      amountReceived: data.amount_received ?? 0,
+      currency: (data.currency ?? "usd").toUpperCase(),
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 

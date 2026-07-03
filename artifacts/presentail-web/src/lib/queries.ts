@@ -543,6 +543,11 @@ export const useStripeCheckoutSession = () => {
       metadata?: Record<string, string>;
       successUrl: string;
       cancelUrl: string;
+      // Delivery context — pass these so the server includes the delivery fee
+      // in the Stripe charge and validates delivery params at order finalization.
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
     }) => apiFetch<{ ok: boolean; id?: string; url?: string; message?: string; code?: string }>("/checkout/session", {
       method: "POST",
       body: JSON.stringify(data),

@@ -13,9 +13,21 @@ import {
 import {
   verifyStripePayment,
   verifyStripePaymentIntentPaid,
+  fetchStripePaymentIntentDetails,
+  resolveCartItems,
+  computeDistrictFeeUsd,
+  expressSurchargeUsd,
+  countryForDistrict,
   verifyMamoPayment,
   captureAndVerifyPayPalOrder,
 } from "../lib/catalog";
+import { getDeliverySlots } from "../lib/osLocationsCache";
+import {
+  convertFromUsd,
+  normalizeCurrency,
+  roundToNearestFive,
+  toStripeMinorUnits,
+} from "../lib/fx";
 import { consumePaymentIntent, verifyCartMatchesSnapshot } from "../lib/checkoutIntents";
 import {
   upsertCustomer,
@@ -1026,18 +1038,97 @@ router.post("/woo/order", async (req, res) => {
           process.env.STRIPE_SECRET_KEY,
           process.env.STRIPE_SECRET_KEY_GULF,
         ].filter((k): k is string => !!k);
-        let recoveredFromStripe = false;
+        let recoveredPiDetails: Awaited<ReturnType<typeof fetchStripePaymentIntentDetails>> = null;
         for (const k of stripeKeysFallback) {
-          if (await verifyStripePaymentIntentPaid(paymentRef, body.orderId, k)) {
-            recoveredFromStripe = true;
+          const details = await fetchStripePaymentIntentDetails(paymentRef, body.orderId, k);
+          if (details) {
+            recoveredPiDetails = details;
             break;
           }
         }
-        if (recoveredFromStripe) {
+        if (recoveredPiDetails) {
           req.log?.warn?.(
             { appOrderId: body.orderId, paymentRef },
-            "woo.order: intent not in store (server restart / expiry) — verified directly with Stripe; proceeding without cart snapshot",
+            "woo.order: intent not in store (server restart / expiry) — verified directly with Stripe; checking amount against submitted cart",
           );
+
+          // Layer 1-recovery: Without the original cart snapshot we cannot
+          // verify item-for-item which products were paid for. We CAN verify
+          // that the amount Stripe actually collected covers the full
+          // authoritative cost: catalog subtotal + district fee + express fee
+          // + slot fee for the params the client is now submitting. This
+          // closes cheap-cart/cheap-delivery → expensive substitution attacks
+          // after snapshot expiry.
+          //
+          // Fail-closed: if we cannot resolve catalog prices we cannot
+          // verify the amount, so we must reject (never proceed unverified).
+          const recoveredStore = resolveStoreFromRequest(req);
+          const cartResolution = await resolveCartItems(
+            body.items.map((i) => ({
+              wcId: i.wcId ?? 0,
+              osSlug: i.osSlug,
+              quantity: i.quantity,
+            })),
+            recoveredStore,
+          );
+          if (!cartResolution.ok) {
+            req.log?.warn?.(
+              { appOrderId: body.orderId, paymentRef, reason: cartResolution.message },
+              "woo.order: recovery path — cannot resolve catalog prices for amount verification; rejecting",
+            );
+            return res.status(402).json({
+              ok: false,
+              code: "amount_mismatch",
+              message: "Cannot verify payment amount for the submitted cart. Please initiate checkout again.", // i18n-ignore
+            });
+          }
+
+          {
+            const piCurrency = normalizeCurrency(recoveredPiDetails.currency);
+            // Compute the full server-side authoritative cost for the
+            // submitted delivery parameters (district, express, slot).
+            const isExpressRecovery = (body.expressFee ?? 0) > 0;
+            const recoveredDistrictFeeUsd = body.district
+              ? computeDistrictFeeUsd(body.district, cartResolution.subtotalUsd, body.noAddress === true)
+              : 0;
+            const recoveredExpressFeeUsd = isExpressRecovery && body.district
+              ? expressSurchargeUsd(countryForDistrict(body.district))
+              : 0;
+            const recoveredSlotFeeUsd = (() => {
+              if (isExpressRecovery || !body.deliverySlot || !body.cityId) return 0;
+              const citySlots = getDeliverySlots(body.cityId);
+              const bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
+              return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+            })();
+            const recoveredTotalUsd =
+              cartResolution.subtotalUsd + recoveredDistrictFeeUsd + recoveredExpressFeeUsd + recoveredSlotFeeUsd;
+            const requiredMinorUnits = toStripeMinorUnits(
+              roundToNearestFive(await convertFromUsd(recoveredTotalUsd, piCurrency), piCurrency),
+              piCurrency,
+            );
+            if (recoveredPiDetails.amountReceived < requiredMinorUnits) {
+              req.log?.warn?.(
+                {
+                  appOrderId: body.orderId,
+                  paymentRef,
+                  amountReceived: recoveredPiDetails.amountReceived,
+                  required: requiredMinorUnits,
+                  currency: piCurrency,
+                  subtotalUsd: cartResolution.subtotalUsd,
+                  districtFeeUsd: recoveredDistrictFeeUsd,
+                  expressFeeUsd: recoveredExpressFeeUsd,
+                  slotFeeUsd: recoveredSlotFeeUsd,
+                },
+                "woo.order: recovery path — Stripe amount_received is less than authoritative total; rejecting",
+              );
+              return res.status(402).json({
+                ok: false,
+                code: "amount_mismatch",
+                message: "Payment amount does not cover the submitted cart. Please initiate checkout again.", // i18n-ignore
+              });
+            }
+          }
+
           paymentVerified = true;
           // snapshotItems remains undefined — attemptCreateOsOrder will use
           // the OS products cache for price lookup (same path as the
@@ -1071,7 +1162,20 @@ router.post("/woo/order", async (req, res) => {
       // stored when the payment session was created. This closes the cart-
       // substitution gap: a client cannot pay for a cheap cart and submit a
       // more expensive one to /woo/order — the wcId+quantity pairs must match.
-      const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot);
+      //
+      // Delivery context (district, express, noAddress, slot) is now fully
+      // bound in the Stripe charge and snapshot for all new sessions. Always
+      // enable checkDelivery so district/slot mismatches are caught even for
+      // sessions whose snapshot recorded district:"" (an attacker omitting
+      // district gets snapshot.district="" and the submitted district must
+      // also be "" — submitting any non-empty district will fail here).
+      const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+        checkDelivery: true,
+        submittedDistrict: body.district,
+        submittedExpressDelivery: (body.expressFee ?? 0) > 0,
+        submittedNoAddress: body.noAddress === true,
+        submittedDeliverySlot: body.deliverySlot ?? "",
+      });
       if (cartMismatch) {
         req.log?.warn?.(
           { appOrderId: body.orderId, paymentRef, reason: cartMismatch },

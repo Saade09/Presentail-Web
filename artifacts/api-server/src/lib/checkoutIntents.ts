@@ -24,9 +24,10 @@ export type CartSnapshot = {
   // creation time. The WC order route verifies the submitted cart's wcId+quantity
   // pairs match this snapshot exactly.
   items: { wcId: number; osSlug?: string; quantity: number; priceUsd: number }[];
-  // Delivery context — only meaningful for Mamo/PayPal which include the
-  // delivery fee in the charged total. Stripe sessions only cover product
-  // subtotals; district/expressDelivery are still stored for audit purposes.
+  // Delivery context — all Stripe sessions (both PaymentIntent and hosted
+  // Checkout Session) now include delivery fees in the charged total.
+  // These fields are verified at finalization so delivery params cannot be
+  // swapped after payment.
   district: string;
   expressDelivery: boolean;
   // True when the customer ticked the "I don't know the address" checkbox at
@@ -34,6 +35,11 @@ export type CartSnapshot = {
   // instead of the per-district fee. Stored so the WC order route can verify
   // the submitted order doesn't switch this flag after paying.
   noAddress?: boolean;
+  // The delivery slot label selected at checkout (e.g. "Morning 9am-1pm").
+  // Non-empty only when the shopper picked a premium slot that has an extraFee.
+  // Verified at finalization so a free-slot payment cannot be upgraded to a
+  // fee-slot on the order submission.
+  deliverySlot?: string;
 };
 
 export type PaymentIntent = {
@@ -67,7 +73,7 @@ const store = new Map<string, PaymentIntent>();
 // PaymentIntent for a given order without scanning the full store.
 const orderIndex = new Map<string, string>();
 
-const TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — long enough to survive most server restarts and cover slow shoppers
 
 // Remove entries that have expired. Called lazily on write.
 function sweep(): void {
@@ -150,18 +156,19 @@ export function consumePaymentIntent(
   return intent;
 }
 
-// Options for snapshot verification. `deliveryContext` is required for
-// providers that include delivery fees in the charged total (Mamo, PayPal).
-// Stripe sessions cover product subtotals only, so delivery context is
-// not applicable there.
+// Options for snapshot verification. All Stripe and Mamo/PayPal flows now
+// include delivery fees in the charged total, so checkDelivery should always
+// be true. It remains a flag so legacy snapshots (district:"") can still be
+// matched against submitted orders that also have no delivery context.
 export type SnapshotVerifyOptions = {
-  // When true, also verify district and expressDelivery match the snapshot.
-  // Set this for Mamo/PayPal where the full total (products + delivery) was
-  // charged. Leave false for Stripe where delivery is billed separately.
+  // When true, also verify district, expressDelivery, noAddress, and deliverySlot
+  // match the snapshot. Set to true for all payment-verified flows.
   checkDelivery?: boolean;
   submittedDistrict?: string;
   submittedExpressDelivery?: boolean; // derived from body.expressFee > 0
   submittedNoAddress?: boolean;
+  // The delivery slot label from the /woo/order body (body.deliverySlot).
+  submittedDeliverySlot?: string;
 };
 
 // Verify that a submitted cart (from the /woo/order body) matches the cart
@@ -210,10 +217,9 @@ export function verifyCartMatchesSnapshot(
     }
   }
 
-  // For Mamo/PayPal the full total (including delivery) is charged up front.
-  // Verify the delivery context matches so the customer cannot pay for a cheap
-  // delivery zone (e.g., Beirut/no express) and then finalise the order with
-  // an expensive one (e.g., Akkar/express) while still getting set_paid: true.
+  // Delivery context is charged in full for all Stripe, Mamo, and PayPal flows.
+  // Verify it matches so delivery cannot be swapped to a higher-cost option
+  // after payment (e.g. cheap district → expensive one, no-slot → premium slot).
   if (opts.checkDelivery) {
     if (
       opts.submittedDistrict !== undefined &&
@@ -232,6 +238,13 @@ export function verifyCartMatchesSnapshot(
       opts.submittedNoAddress !== (snapshot.noAddress === true)
     ) {
       return `No-address flag mismatch: submitted ${opts.submittedNoAddress}, paid for ${snapshot.noAddress === true}`; // i18n-ignore
+    }
+    // Verify the delivery slot: a shopper cannot pay for a free/cheap slot and
+    // then submit an order with a premium slot (or vice versa).
+    const snapshotSlot = snapshot.deliverySlot ?? "";
+    const submittedSlot = opts.submittedDeliverySlot ?? "";
+    if (snapshotSlot !== submittedSlot) {
+      return `Delivery slot mismatch: submitted "${submittedSlot}", paid for "${snapshotSlot}"`; // i18n-ignore
     }
   }
 

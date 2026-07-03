@@ -7,8 +7,14 @@ import {
   roundToNearestFive,
   toStripeMinorUnits,
 } from "../lib/fx";
-import { resolveCartItems } from "../lib/catalog";
+import {
+  resolveCartItems,
+  computeDistrictFeeUsd,
+  expressSurchargeUsd,
+  countryForDistrict,
+} from "../lib/catalog";
 import { storePaymentIntent, getPaymentIntentForOrder } from "../lib/checkoutIntents";
+import { getDeliverySlots } from "../lib/osLocationsCache";
 import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
 import { validateCoupon } from "../lib/couponValidation";
 import { authenticate } from "../lib/auth";
@@ -71,6 +77,16 @@ type Body = {
   metadata?: Record<string, string>;
   successUrl: string;
   cancelUrl: string;
+  // Delivery context — must be provided so the server-side delivery fee is
+  // included in the Stripe charge and recorded in the cart snapshot.
+  // When omitted the session covers products only (legacy behaviour, no delivery check).
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  // Slot context — required when the shopper selected a premium delivery slot.
+  // cityId is used to look up the slot's extraFee from the OS locations cache.
+  deliverySlot?: string;
+  cityId?: string;
 };
 
 router.post("/checkout/session", async (req, res) => {
@@ -82,6 +98,11 @@ router.post("/checkout/session", async (req, res) => {
     metadata,
     successUrl,
     cancelUrl,
+    district: rawDistrict,
+    expressDelivery: rawExpressDelivery,
+    noAddress: rawNoAddress,
+    deliverySlot: rawDeliverySlot,
+    cityId: rawCityId,
   } = req.body as Body;
 
   if (!orderId) {
@@ -121,6 +142,33 @@ router.post("/checkout/session", async (req, res) => {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
+  // Compute delivery fees server-side so the Stripe session charge includes
+  // the authoritative fee, not a client-supplied amount.
+  // When district is not provided the session covers products only.
+  const sessionDistrict = rawDistrict ?? "";
+  const sessionExpressDelivery = rawExpressDelivery === true;
+  const sessionNoAddress = rawNoAddress === true;
+  const sessionDeliverySlot = rawDeliverySlot ?? "";
+  const sessionSubtotalUsd = catalogResult.subtotalUsd;
+  const sessionDistrictFeeUsd = sessionDistrict
+    ? computeDistrictFeeUsd(sessionDistrict, sessionSubtotalUsd, sessionNoAddress)
+    : 0;
+  const sessionExpressFeeUsd =
+    sessionDistrict && sessionExpressDelivery
+      ? expressSurchargeUsd(countryForDistrict(sessionDistrict))
+      : 0;
+  // Slot fee is computed server-side from the OS locations cache. Only charged
+  // when the customer chose a premium slot and is NOT on express delivery
+  // (express is a flat surcharge that supersedes slot pricing).
+  const sessionSlotFeeUsd = (() => {
+    if (sessionExpressDelivery || !sessionDeliverySlot || !rawCityId) return 0;
+    const citySlots = getDeliverySlots(rawCityId);
+    const bookedSlot = citySlots.find((s) => s.label === sessionDeliverySlot);
+    return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+  })();
+  const sessionDeliveryFeeUsd = sessionDistrictFeeUsd + sessionExpressFeeUsd + sessionSlotFeeUsd;
+  const sessionTotalUsd = sessionSubtotalUsd + sessionDeliveryFeeUsd;
+
   try {
     const convertedItems = await Promise.all(
       catalogResult.items.map(async (i) => {
@@ -132,6 +180,26 @@ router.post("/checkout/session", async (req, res) => {
       }),
     );
 
+    // Delivery fee line item (only added when a district was provided and fee > 0).
+    const deliveryLineItems: Array<{
+      quantity: number;
+      price_data: { currency: string; unit_amount: number; product_data: { name: string } };
+    }> = [];
+    if (sessionDeliveryFeeUsd > 0) {
+      const convertedDeliveryUnit = roundToNearestFive(
+        await convertFromUsd(sessionDeliveryFeeUsd, currency),
+        currency,
+      );
+      deliveryLineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: stripeCurrency,
+          unit_amount: toStripeMinorUnits(convertedDeliveryUnit, currency),
+          product_data: { name: "Delivery fee" }, // i18n-ignore
+        },
+      });
+    }
+
     const stripe = new Stripe(key);
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -139,18 +207,21 @@ router.post("/checkout/session", async (req, res) => {
       // enabled on the account (card, Apple Pay, Google Pay, etc.).
       // Explicitly listing only ["card"] would suppress wallet options.
       customer_email: email,
-      line_items: convertedItems.map((i) => ({
-        quantity: i.quantity,
-        price_data: {
-          currency: stripeCurrency,
-          unit_amount: i.minorUnit,
-          product_data: {
-            name: i.name,
-            description: i.description,
-            images: i.image ? [i.image] : undefined,
+      line_items: [
+        ...convertedItems.map((i) => ({
+          quantity: i.quantity,
+          price_data: {
+            currency: stripeCurrency,
+            unit_amount: i.minorUnit,
+            product_data: {
+              name: i.name,
+              description: i.description,
+              images: i.image ? [i.image] : undefined,
+            },
           },
-        },
-      })),
+        })),
+        ...deliveryLineItems,
+      ],
       // orderId is embedded in metadata so verifyStripePayment can confirm
       // this session was not created for a different order and replayed.
       // description must be set on the underlying PaymentIntent via
@@ -165,16 +236,16 @@ router.post("/checkout/session", async (req, res) => {
 
     // Store a payment intent that binds this Stripe session to the specific
     // orderId AND records the authoritative cart snapshot (catalog-resolved
-    // wcId+quantity+priceUsd). The /woo/order endpoint will verify that the
-    // submitted cart matches this snapshot before marking the order as paid.
-    // For Stripe, the charged total covers product subtotal only (no delivery).
+    // wcId+quantity+priceUsd) AND the delivery context. The /woo/order endpoint
+    // verifies the submitted cart and delivery params match this snapshot before
+    // marking the order as paid.
     storePaymentIntent({
       orderId,
       paymentRef: session.id,
       provider: "stripe",
       stripeAccount: isGulf ? "gulf" : "main",
       currency,
-      totalUsd: catalogResult.subtotalUsd,
+      totalUsd: sessionTotalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,
@@ -182,11 +253,13 @@ router.post("/checkout/session", async (req, res) => {
           quantity: i.quantity,
           priceUsd: i.priceUsd,
         })),
-        // District/express are not part of the Stripe charge for this flow,
-        // but they are stored for audit purposes. The /woo/order endpoint
-        // computes delivery fees independently from the server-side table.
-        district: "",
-        expressDelivery: false,
+        // Delivery context is now part of the Stripe charge (included as a
+        // line item when fee > 0). Store it in the snapshot so /woo/order can
+        // enforce that the submitted delivery params match what was paid for.
+        district: sessionDistrict,
+        expressDelivery: sessionExpressDelivery,
+        noAddress: sessionNoAddress,
+        deliverySlot: sessionDeliverySlot,
       },
     });
 
@@ -208,10 +281,15 @@ type PaymentIntentBody = {
   orderId: string;
   currency?: string;
   email?: string;
+  // deliveryFeeUsd is accepted for backwards compat but intentionally ignored —
+  // the server computes the authoritative fee from district/expressDelivery.
   deliveryFeeUsd?: number;
   district?: string;
   expressDelivery?: boolean;
   noAddress?: boolean;
+  // Slot context — required when the shopper selected a premium delivery slot.
+  deliverySlot?: string;
+  cityId?: string;
   couponCode?: string;
   saveCard?: boolean;
   metadata?: Record<string, string>;
@@ -280,7 +358,7 @@ async function getOrCreateStripeCustomer(
 }
 
 router.post("/checkout/payment-intent", async (req, res) => {
-  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, couponCode, saveCard } =
+  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, cityId, couponCode, saveCard } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -315,16 +393,30 @@ router.post("/checkout/payment-intent", async (req, res) => {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
-  // Use the client-computed delivery fee (district + express + slot). The client
-  // derives this from the same OS /delivery-locations data the customer sees on
-  // screen, so the charged amount matches the displayed total exactly.
-  // Cap at $200 and floor at $0 for basic sanity; never trust for product prices.
-  const clientDeliveryFeeUsd =
-    typeof rawDeliveryFeeUsd === "number" && rawDeliveryFeeUsd >= 0
-      ? Math.min(rawDeliveryFeeUsd, 200)
-      : 0;
+  // Compute delivery fees server-side from authoritative tables. The client-
+  // supplied deliveryFeeUsd is intentionally ignored — trusting it would allow
+  // an attacker to send deliveryFeeUsd:0 and have Stripe charge only the product
+  // subtotal, then finalize a fully-paid order with expensive delivery options.
   const subtotalUsd = catalogResult.subtotalUsd;
-  const totalUsd = subtotalUsd + clientDeliveryFeeUsd;
+  const serverDistrictFeeUsd = computeDistrictFeeUsd(
+    district ?? "Beirut",
+    subtotalUsd,
+    noAddress === true,
+  );
+  const serverExpressFeeUsd =
+    expressDelivery === true
+      ? expressSurchargeUsd(countryForDistrict(district ?? "Beirut"))
+      : 0;
+  // Slot fee is computed server-side from the OS locations cache. Only charged
+  // when the customer chose a premium slot and is NOT on express delivery.
+  const serverSlotFeeUsd = (() => {
+    if (expressDelivery === true || !deliverySlot || !cityId) return 0;
+    const citySlots = getDeliverySlots(cityId);
+    const bookedSlot = citySlots.find((s) => s.label === deliverySlot);
+    return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+  })();
+  const serverDeliveryFeeUsd = serverDistrictFeeUsd + serverExpressFeeUsd + serverSlotFeeUsd;
+  const totalUsd = subtotalUsd + serverDeliveryFeeUsd;
 
   const stripeCurrency = currency.toLowerCase();
 
@@ -365,9 +457,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
       0,
     );
 
-    // Include delivery fee in the charged amount.
-    const deliveryFeeMinorUnits = clientDeliveryFeeUsd > 0
-      ? toStripeMinorUnits(roundToNearestFive(await convertFromUsd(clientDeliveryFeeUsd, currency), currency), currency)
+    // Include the server-computed delivery fee in the Stripe charge amount.
+    const deliveryFeeMinorUnits = serverDeliveryFeeUsd > 0
+      ? toStripeMinorUnits(roundToNearestFive(await convertFromUsd(serverDeliveryFeeUsd, currency), currency), currency)
       : 0;
 
     // Apply coupon discount if a code is provided.
@@ -431,6 +523,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
                 district: district ?? "Beirut",
                 expressDelivery: expressDelivery === true,
                 noAddress: noAddress === true,
+                deliverySlot: deliverySlot ?? "",
               },
             });
             return res.json({
@@ -464,6 +557,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               district: district ?? "Beirut",
               expressDelivery: expressDelivery === true,
               noAddress: noAddress === true,
+              deliverySlot: deliverySlot ?? "",
             },
           });
           return res.json({
@@ -519,6 +613,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               district: district ?? "Beirut",
               expressDelivery: expressDelivery === true,
               noAddress: noAddress === true,
+              deliverySlot: deliverySlot ?? "",
             },
           });
           return res.json({
@@ -574,6 +669,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
         district: district ?? "Beirut",
         expressDelivery: expressDelivery === true,
         noAddress: noAddress === true,
+        deliverySlot: deliverySlot ?? "",
       },
     });
 

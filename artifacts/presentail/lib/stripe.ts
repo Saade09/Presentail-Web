@@ -179,6 +179,14 @@ export async function createStripeCheckoutSession(payload: {
   successUrl: string;
   cancelUrl: string;
   storeContext?: StoreContext;
+  // Delivery context — must be provided so the server includes the delivery fee
+  // in the Stripe charge and validates delivery params at order finalization.
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  // Slot context — required when the shopper selected a premium delivery slot.
+  deliverySlot?: string;
+  cityId?: string;
 }): Promise<
   | { ok: true; url: string; id: string }
   | { ok: false; code?: string; message: string }
