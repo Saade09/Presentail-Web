@@ -414,7 +414,7 @@ export default function ProductDetail() {
 
             {product.hasInputField && (
               <div className="space-y-3">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 block">
                   {t("product.customNote.label")}
                 </label>
                 <div className="relative">
