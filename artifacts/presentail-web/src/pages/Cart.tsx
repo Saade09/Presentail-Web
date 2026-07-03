@@ -815,8 +815,6 @@ function CardPreviewDialog({
   const len = trimmed.length;
   const messageFontPx = len === 0 ? 18 : len > 280 ? 14 : len > 180 ? 16 : len > 100 ? 18 : 20;
   const ink = "#00414e";
-  const toLabel = t("checkout.previewCardTo");
-  const fromLabel = t("checkout.previewCardFrom");
   const cardRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
@@ -898,30 +896,16 @@ function CardPreviewDialog({
         }}
       >
         <div style={{ color: ink, opacity: cardTo ? 1 : 0.55, lineHeight: 1.3 }}>
-          <span
-            style={{
-              fontFamily: "'Roboto', sans-serif",
-              fontWeight: 500,
-              fontSize: "12px",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
-            {toLabel}
-          </span>
           {cardTo ? (
-            <>
-              {" "}
-              <span
-                style={{
-                  fontFamily: "'Roboto', sans-serif",
-                  fontWeight: 400,
-                  fontSize: "18px",
-                }}
-              >
-                {cardTo}
-              </span>
-            </>
+            <span
+              style={{
+                fontFamily: "'Roboto', sans-serif",
+                fontWeight: 400,
+                fontSize: "18px",
+              }}
+            >
+              {cardTo}
+            </span>
           ) : null}
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 4px" }}>
@@ -942,30 +926,16 @@ function CardPreviewDialog({
           </p>
         </div>
         <div style={{ color: ink, opacity: cardFrom ? 1 : 0.55, lineHeight: 1.3 }}>
-          <span
-            style={{
-              fontFamily: "'Roboto', sans-serif",
-              fontWeight: 500,
-              fontSize: "12px",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
-            {fromLabel}
-          </span>
           {cardFrom ? (
-            <>
-              {" "}
-              <span
-                style={{
-                  fontFamily: "'Roboto', sans-serif",
-                  fontWeight: 400,
-                  fontSize: "18px",
-                }}
-              >
-                {cardFrom}
-              </span>
-            </>
+            <span
+              style={{
+                fontFamily: "'Roboto', sans-serif",
+                fontWeight: 400,
+                fontSize: "18px",
+              }}
+            >
+              {cardFrom}
+            </span>
           ) : null}
         </div>
       </div>
