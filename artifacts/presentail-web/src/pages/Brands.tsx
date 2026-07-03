@@ -26,7 +26,7 @@ function BrandCard({ brand, index }: BrandCardProps) {
       <Link href={`/brand/${brand.slug}`} className="block group">
         <div
           className={[
-            "relative aspect-square rounded-2xl flex items-center justify-center mb-4 border border-transparent",
+            "relative aspect-square rounded-2xl flex items-center justify-center mb-2 border border-transparent",
             "transition-colors group-hover:border-primary/10 overflow-hidden",
             showImage
               ? "bg-white p-4 group-hover:bg-white/90"
