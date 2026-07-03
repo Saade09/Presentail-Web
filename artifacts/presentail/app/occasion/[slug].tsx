@@ -20,6 +20,7 @@ import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getOccasion, occasions } from "@/data/catalog";
@@ -66,6 +67,7 @@ function OccasionScreen() {
   const [groups, setGroups] = useState<OccasionGroup[]>([]);
   const [brandProducts, setBrandProducts] = useState<WooProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [coverLoaded, setCoverLoaded] = useState(false);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   // Capture mount time so the TTID includes the async product fetch.
   const mountMsRef = useRef(Date.now());
@@ -78,6 +80,10 @@ function OccasionScreen() {
   }, [loading]);
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
+
+  useEffect(() => {
+    setCoverLoaded(false);
+  }, [slug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,10 +165,17 @@ function OccasionScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}
-        <View style={{ height: 260, backgroundColor: colors.background }}>
+        <View style={{ height: 260, backgroundColor: colors.imagePlaceholder }}>
           {occasion ? (
-            <Image source={occasion.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image
+              source={occasion.image}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              onLoad={() => setCoverLoaded(true)}
+              onError={() => setCoverLoaded(true)}
+            />
           ) : null}
+          {occasion && !coverLoaded && <ShimmerPlaceholder />}
           <LinearGradient
             colors={["rgba(0,65,78,0.2)", "rgba(0,65,78,0.88)"]}
             style={StyleSheet.absoluteFill}
