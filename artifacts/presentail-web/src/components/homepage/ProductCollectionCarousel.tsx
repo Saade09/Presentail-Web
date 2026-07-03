@@ -25,6 +25,7 @@ export function ProductCollectionCarousel({
   const { t, dir } = useLocale();
   const trackRef = useRef<HTMLDivElement>(null);
   const cardWidthRef = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
 
@@ -38,17 +39,25 @@ export function ProductCollectionCarousel({
     setCanNext(left < max - epsilon);
   };
 
+  const scheduleUpdateNav = () => {
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      updateNav();
+    });
+  };
+
   useEffect(() => {
-    updateNav();
+    scheduleUpdateNav();
     const el = trackRef.current;
     if (!el) return;
-    el.addEventListener("scroll", updateNav, { passive: true });
+    el.addEventListener("scroll", scheduleUpdateNav, { passive: true });
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         cardWidthRef.current = entry.contentRect.width;
       }
-      updateNav();
+      scheduleUpdateNav();
     });
 
     const firstCard = el.querySelector<HTMLElement>("[data-collection-card]");
@@ -57,8 +66,12 @@ export function ProductCollectionCarousel({
     }
 
     return () => {
-      el.removeEventListener("scroll", updateNav);
+      el.removeEventListener("scroll", scheduleUpdateNav);
       ro.disconnect();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, [products.length, isLoading]);
 
