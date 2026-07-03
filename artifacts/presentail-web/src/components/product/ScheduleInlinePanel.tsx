@@ -44,7 +44,7 @@ export function ScheduleInlinePanel({
 }: Props) {
   const { t } = useLocale();
   const code = (countryCode ?? "LB").toUpperCase();
-  const days = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
+  const allDays = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
   /** Flat fallback slot list (all days merged, or hardcoded per-country), sorted by window start. */
   const flatTimeSlots = useMemo(() => {
     const raw = propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(code);
@@ -53,10 +53,48 @@ export function ScheduleInlinePanel({
     );
   }, [propTimeSlots, code]);
   const localHour = useMemo(() => getCountryHour(code), [code]);
-  const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
+  const todayIso = allDays[0]?.iso ?? new Date().toISOString().slice(0, 10);
 
+  // Slots to use when checking whether today still has any open windows.
+  // Prefers the per-day-of-week OS override when available, otherwise falls
+  // back to the flat list — the same resolution logic used for the time picker.
+  const todaySlotsForCheck = useMemo<TimeSlot[]>(() => {
+    if (propSlotsByDay) {
+      const weekday = new Date(`${todayIso}T00:00:00`)
+        .toLocaleDateString("en-US", { weekday: "long" })
+        .toLowerCase();
+      const daySlots = propSlotsByDay[weekday];
+      if (daySlots && daySlots.length > 0)
+        return [...daySlots].sort(
+          (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
+        );
+    }
+    return flatTimeSlots;
+  }, [propSlotsByDay, todayIso, flatTimeSlots]);
+
+  // Hide "Today" from the date chip strip when every slot has passed its cutoff.
+  const todayHasSlots = useMemo(
+    () => firstAvailableSlot(todaySlotsForCheck, true, localHour) !== null,
+    [todaySlotsForCheck, localHour],
+  );
+
+  // Only show Today when it still has bookable slots; otherwise start from Tomorrow.
+  const days = useMemo(
+    () => allDays.filter((d) => d.iso !== todayIso || todayHasSlots),
+    [allDays, todayIso, todayHasSlots],
+  );
+
+  const tomorrowIso =
+    allDays[1]?.iso ??
+    (() => {
+      const d = new Date(`${todayIso}T00:00:00`);
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().slice(0, 10);
+    })();
+
+  const defaultDate = todayHasSlots ? todayIso : tomorrowIso;
   const seedDate =
-    initialDate && initialDate >= todayIso ? initialDate : todayIso;
+    initialDate && initialDate >= todayIso ? initialDate : defaultDate;
   const [date, setDateState] = useState<string>(seedDate);
 
   // No upper-bound clamp — shoppers can pick any future date via the calendar.
