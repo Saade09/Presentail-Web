@@ -714,14 +714,14 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       {/* Custom personalisation note */}
       {product.hasInputField && (
         <View style={{ marginTop: 16, paddingHorizontal: 0 }}>
-          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 14 }}>
             {t.customNoteLabel}
           </AppText>
           <View style={{ position: "relative" }}>
             <TextInput
               value={customNote}
               onChangeText={(text) => { if (text.length <= 22) setCustomNote(text); }}
-              placeholder={t.customNotePlaceholder}
+              placeholder={_cat?.slug === "cakes" ? t.cakeNotePlaceholder : t.customNotePlaceholder}
               placeholderTextColor={colors.mutedForeground}
               maxLength={22}
               style={{

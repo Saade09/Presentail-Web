@@ -413,7 +413,7 @@ export default function ProductDetail() {
             />
 
             {product.hasInputField && (
-              <div className="space-y-1.5">
+              <div className="space-y-3">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
                   {t("product.customNote.label")}
                 </label>
@@ -423,7 +423,7 @@ export default function ProductDetail() {
                     onChange={(e) => {
                       if (e.target.value.length <= 22) setCustomNote(e.target.value);
                     }}
-                    placeholder={t("product.customNote.placeholder")}
+                    placeholder={product.category === "cakes" ? t("product.customNote.cakePlaceholder") : t("product.customNote.placeholder")}
                     maxLength={22}
                     className="pr-12"
                     data-testid="input-custom-note"

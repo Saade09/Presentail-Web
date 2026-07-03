@@ -39,6 +39,7 @@ export const productStrings: Dict = {
   "product.bouquetIncludes": { en: "Bouquet Includes:", ar: "محتويات الباقة:" },
   "product.customNote.label": { en: "Personalisation (optional)", ar: "تخصيص (اختياري)" },
   "product.customNote.placeholder": { en: "e.g. Happy Birthday, Anna!", ar: "مثال: عيد ميلاد سعيد، آنا!" },
+  "product.customNote.cakePlaceholder": { en: "Cake Message", ar: "رسالة الكعكة" },
   "product.customNote.counter": { en: "{count}/22", ar: "{count}/22" }, // no-translate — counter pattern
   "product.frequentlyBoughtTogether": { en: "Frequently Bought Together", ar: "يُشترى معاً في الغالب" },
 
@@ -102,6 +103,7 @@ export const productStringsFr: Record<string, string> = {
   "product.bouquetIncludes": "Le bouquet comprend :",
   "product.customNote.label": "Personnalisation (facultatif)",
   "product.customNote.placeholder": "ex. : Joyeux anniversaire, Anna !",
+  "product.customNote.cakePlaceholder": "Message du gâteau",
   "product.customNote.counter": "{count}/22",
   "product.frequentlyBoughtTogether": "Souvent achetés ensemble",
 
