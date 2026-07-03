@@ -3,18 +3,20 @@ import { Router } from "express";
 const router = Router();
 
 const ALLOWED_HOSTNAME = "os.presentail.com";
-const ALLOWED_PATH_PREFIX = "/api/storage/";
+const ALLOWED_PATH_PREFIX = "/api/storage/public-objects/";
 
 /**
  * GET /api/os/image?url=<encoded-os-image-url>
  *
- * Proxies product images from Presentail OS storage. The OS storage endpoint
- * requires `x-api-key` auth; browsers cannot supply this directly, so we
- * proxy here and add the key server-side.
+ * Proxies product images from Presentail OS public storage. The OS storage
+ * endpoint requires `x-api-key` auth; browsers cannot supply this directly,
+ * so we proxy here and add the key server-side.
  *
- * Security: only proxies os.presentail.com URLs under /api/storage/ to
- * prevent SSRF. No caller auth required — images are product photos that
- * should be visible to all shoppers.
+ * Security: only proxies os.presentail.com URLs under /api/storage/public-objects/
+ * to prevent both SSRF and credential-misuse against private OS storage objects.
+ * Redirects are rejected so the allowlist cannot be bypassed by a redirect chain.
+ * The upstream response Content-Type must be an image/ type before the body is
+ * forwarded — non-image responses (e.g. HTML error pages) are dropped.
  *
  * Responses are cached for 24 h at the browser / CDN level.
  */
@@ -42,14 +44,29 @@ router.get("/os/image", async (req, res) => {
   try {
     const upstream = await fetch(target.toString(), {
       headers: apiKey ? { "x-api-key": apiKey } : {},
-      redirect: "follow",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
     });
+
+    // Reject redirects — the allowlist only covers the requested URL, not
+    // wherever a redirect might lead.
+    if (upstream.status >= 300 && upstream.status < 400) {
+      req.log.warn({ status: upstream.status, url: urlParam }, "os-image-proxy: upstream redirected; rejecting");
+      return res.status(502).end();
+    }
 
     if (!upstream.ok) {
       return res.status(upstream.status).end();
     }
 
-    const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
+    const contentType = upstream.headers.get("content-type") ?? "";
+    // Only forward actual image responses. Non-image responses (e.g. the OS
+    // web-app HTML shell returned for private/missing objects) are dropped.
+    if (!contentType.startsWith("image/")) {
+      req.log.warn({ contentType, url: urlParam }, "os-image-proxy: upstream returned non-image content-type; rejecting");
+      return res.status(404).end();
+    }
+
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600");
     const data = await upstream.arrayBuffer();

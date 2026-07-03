@@ -4,7 +4,7 @@ import { transformImage, resolveWidth, resolveFormat } from "../lib/imageTransfo
 const router = Router();
 
 const ALLOWED_HOSTNAME = "os.presentail.com";
-const ALLOWED_PATH_PREFIX = "/api/storage/";
+const ALLOWED_PATH_PREFIX = "/api/storage/public-objects/";
 const MAX_WIDTH = 1600;
 const SRCSET_WIDTHS = [400, 800, 1200] as const;
 
@@ -58,9 +58,11 @@ function cacheSet(key: string, entry: CacheEntry): void {
  * requested width using Sharp, and returns the result with a long-lived
  * immutable Cache-Control header.
  *
- * Security: only proxies os.presentail.com URLs under /api/storage/ to
- * prevent SSRF. Width is clamped to MAX_WIDTH. No caller auth required —
- * images are product photos visible to all shoppers.
+ * Security: only proxies os.presentail.com URLs under /api/storage/public-objects/
+ * to prevent both SSRF and credential-misuse against private OS storage objects.
+ * Redirects are rejected so the allowlist cannot be bypassed by a redirect chain.
+ * Width is clamped to MAX_WIDTH. No caller auth required — images are product
+ * photos visible to all shoppers.
  */
 router.get("/img/proxy", async (req, res) => {
   const urlParam = typeof req.query.url === "string" ? req.query.url.trim() : null;
