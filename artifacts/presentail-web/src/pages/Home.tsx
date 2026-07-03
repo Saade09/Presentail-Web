@@ -10,11 +10,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
-  const { t, cityName } = useLocale();
+  const { t, cityName, language } = useLocale();
   const isMobile = useIsMobile();
   const countryCode = country?.code ?? undefined;
   const device = isMobile ? "mobile" as const : "desktop" as const;
-  const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device);
+  const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device, language);
 
   const cityLabel = city
     ? cityName(city.id, city.name)

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GetHomepageBannersDevice } from "./getHomepageBannersDevice";
+import type { GetHomepageBannersLang } from "./getHomepageBannersLang";
 
 export type GetHomepageBannersParams = {
   /**
@@ -26,4 +27,15 @@ media asset dimensions and crop for the viewport.
 
  */
   device: GetHomepageBannersDevice;
+  /**
+ * Language for banner text fields (title, headline, subtitle,
+ctaText). When the OS response contains a localised variant
+(flat fields such as title_ar / title_fr, or a nested
+translations.{lang}.* shape) that value is returned instead
+of the English original. Falls back to English when the
+localised field is absent or empty. Defaults to "en" when
+omitted.
+
+ */
+  lang?: GetHomepageBannersLang;
 };

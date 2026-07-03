@@ -6,6 +6,7 @@ import {
   GetHomepageOccasionsResponse,
 } from "@workspace/api-zod";
 import type { HomepageCollectionItem } from "@workspace/api-zod";
+import { translateBanners, type BannerLang } from "../lib/bannerTranslation";
 
 import {
   hasOsProducts,
@@ -30,7 +31,8 @@ const router: IRouter = Router();
 const BANNER_FANOUT_COUNTRIES = ["LB", "AE", "CY"] as const;
 
 router.get("/homepage/banners", async (req, res) => {
-  const { countryCode, cityId, device } = GetHomepageBannersQueryParams.parse(req.query);
+  const { countryCode, cityId, device, lang } = GetHomepageBannersQueryParams.parse(req.query);
+  const resolvedLang = lang ?? "en";
   const osBase = process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com";
   const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
   const workspace = process.env.PRESENTAIL_OS_WORKSPACE ?? "presentail";
@@ -156,7 +158,22 @@ router.get("/homepage/banners", async (req, res) => {
       }
     }
 
-    const banners = normaliseBanners(rawList);
+    let banners = normaliseBanners(rawList);
+
+    // For ar/fr: translate the English text we got from OS using our own LLM.
+    // We always fetch English from OS and translate ourselves rather than relying
+    // on OS-native localised fields (which the OS may not support yet).
+    if (resolvedLang === "ar" || resolvedLang === "fr") {
+      const textFields = banners.map((b) => ({
+        title: b.title,
+        headline: b.headline,
+        subtitle: b.subtitle,
+        ctaText: b.ctaText,
+      }));
+      const translated = await translateBanners(resolvedLang as BannerLang, textFields);
+      banners = banners.map((b, i) => ({ ...b, ...translated[i] }));
+    }
+
     return res.json(GetHomepageBannersResponse.parse({ banners }));
   } catch (err: unknown) {
     req.log.warn({ err: (err as Error)?.message }, "homepage/banners: OS fetch failed");

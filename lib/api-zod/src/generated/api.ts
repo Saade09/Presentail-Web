@@ -746,6 +746,8 @@ OS. Results are sorted by sortOrder ascending then priority ascending.
 
  * @summary Get active homepage hero banners
  */
+export const getHomepageBannersQueryLangDefault = `en`;
+
 export const GetHomepageBannersQueryParams = zod.object({
   countryCode: zod.coerce
     .string()
@@ -763,6 +765,12 @@ export const GetHomepageBannersQueryParams = zod.object({
     .enum(["desktop", "mobile"])
     .describe(
       "The requesting device type. OS uses this to return the correct\nmedia asset dimensions and crop for the viewport.\n",
+    ),
+  lang: zod
+    .enum(["en", "ar", "fr"])
+    .default(getHomepageBannersQueryLangDefault)
+    .describe(
+      'Language for banner text fields (title, headline, subtitle,\nctaText). When the OS response contains a localised variant\n(flat fields such as title_ar \/ title_fr, or a nested\ntranslations.{lang}.\* shape) that value is returned instead\nof the English original. Falls back to English when the\nlocalised field is absent or empty. Defaults to \"en\" when\nomitted.\n',
     ),
 });
 

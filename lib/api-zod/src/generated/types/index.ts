@@ -75,6 +75,7 @@ export * from "./getFrequentlyBoughtTogetherParams";
 export * from "./getFrequentlyBoughtTogetherStore";
 export * from "./getGeoCurrencyByCoordsParams";
 export * from "./getHomepageBannersDevice";
+export * from "./getHomepageBannersLang";
 export * from "./getHomepageBannersParams";
 export * from "./getHomepageBestSellersParams";
 export * from "./getHomepageCategoriesParams";

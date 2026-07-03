@@ -117,6 +117,8 @@ function DataRefreshPushListener() {
       lastInvalidatedAt = Date.now();
       qc.invalidateQueries({ queryKey: ["/api/homepage/categories"] });
       qc.invalidateQueries({ queryKey: ["/api/homepage/occasions"] });
+      // Invalidate all language variants of the banner query so every cached
+      // lang (en/ar/fr) is refetched after a content push from the OS.
       qc.invalidateQueries({ queryKey: ["/api/homepage/banners"] });
       // Re-fetch per-city delivery config so free-delivery thresholds and
       // city availability reflect the latest OS data after a content push.

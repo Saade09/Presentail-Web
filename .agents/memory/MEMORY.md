@@ -21,3 +21,4 @@
 - [Bear size inference](bear-size-inference.md) — OS descriptions embed "N cm Height"; parse it for size tabs (45/120cm thresholds), don't trust the LLM; restart real API workflow to clear cache
 - [Stale-chunk blank-page recovery](chunk-reload-recovery.md) — web force-reloads on lazy import() 404s (stale index.html after deploy); dual loop guards cap at 2, storage-fail path must fail closed, don't match plain "Load failed"
 - [Display currency vs delivery country](display-currency-delivery-country.md) — delivery country must NOT feed savedCountry in resolveDisplayCurrency; IP geo is the source of truth for display currency; delivery location only affects delivery options
+- [Banner AI translation](banner-ai-translation.md) — banner text always fetched in English from OS; ar/fr translated via OpenAI in one batched call; max_completion_tokens must be ≥4096 or Arabic output truncates to invalid JSON

@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useGetHomepageCategories, useGetHomepageOccasions } from "@workspace/api-client-react";
+import { useGetHomepageCategories, useGetHomepageOccasions, useGetHomepageBanners } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { getHomepageIconName, type HomepageIconName } from "@workspace/homepage-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -420,25 +421,45 @@ function HomeScreen() {
   );
 }
 
+type HeroSlide = {
+  key: string;
+  /** Local require() result (number) for static assets, or a remote URL (string) for OS banners. */
+  image: number | string;
+  title: string;
+  subtitle?: string;
+  cta: string;
+  route: Href | null;
+};
+
 function Hero() {
   const colors = useColors();
   const router = useRouter();
   const t = useT();
-  const { isRTL } = useLanguage();
+  const { lang, isRTL } = useLanguage();
+  const { selectedCountry } = useDeliveryLocation();
   const headingFont = useHeadingFont("400Regular");
   const ta = isRTL ? "right" : "left";
   const alignSelf = isRTL ? "flex-end" : "flex-start";
 
-  const slides = [
+  // Fetch localised banners from the OS feed. Language is lowercased to match
+  // the API enum (en/ar/fr) from the LanguageContext value (EN/AR/FR).
+  const apiLang = lang.toLowerCase() as "en" | "ar" | "fr";
+  const { data: osBannerData } = useGetHomepageBanners({
+    device: "mobile",
+    lang: apiLang,
+    countryCode: selectedCountry?.code || undefined,
+  });
+
+  const staticSlides: HeroSlide[] = [
     {
-      key: "1",
+      key: "static-1",
       image: require("@/assets/images/hero-slide1.png"),
       title: t.heroTitle,
       cta: t.heroCta,
       route: "/category/lux-arrangements" as Href,
     },
     {
-      key: "2",
+      key: "static-2",
       image: require("@/assets/images/hero-summer-collection.png"),
       title: t.heroSlide2Title,
       subtitle: t.heroSlide2Subtitle,
@@ -446,13 +467,40 @@ function Hero() {
       route: "/category/summer" as Href,
     },
     {
-      key: "3",
+      key: "static-3",
       image: require("@/assets/images/hero-slide3.png"),
       title: t.heroSlide3Title,
       cta: t.heroSlide3Cta,
       route: "/category/lux-arrangements" as Href,
     },
   ];
+
+  // OS banners take precedence when the feed returns at least one result.
+  // Falls back to static slides while loading or when the OS feed is empty.
+  const osBanners = osBannerData?.banners;
+  const osSlides: HeroSlide[] | null =
+    osBanners && osBanners.length > 0
+      ? osBanners.map((b) => {
+          let route: Href | null = null;
+          if (b.linkKind === "category" && b.linkSlug) {
+            route = `/category/${b.linkSlug}` as Href;
+          } else if (b.linkKind === "occasion" && b.linkSlug) {
+            route = `/occasion/${b.linkSlug}` as Href;
+          } else if (b.linkUrl) {
+            route = b.linkUrl as Href;
+          }
+          return {
+            key: b.id,
+            image: b.mediaUrl,
+            title: b.title ?? "",
+            subtitle: b.subtitle,
+            cta: b.ctaText ?? t.heroCta,
+            route,
+          };
+        })
+      : null;
+
+  const slides: HeroSlide[] = osSlides ?? staticSlides;
 
   const displaySlides = isRTL ? [...slides].reverse() : slides;
 
@@ -544,13 +592,13 @@ function Hero() {
   ).current;
 
   const renderSlide = useCallback(
-    ({ item }: { item: (typeof slides)[0] }) => (
+    ({ item }: { item: HeroSlide }) => (
       <Pressable
-        onPress={() => router.push(item.route)}
+        onPress={() => { if (item.route) router.push(item.route); }}
         style={{ width: SCREEN_W, height: HERO_HEIGHT }}
       >
         <Image
-          source={item.image}
+          source={typeof item.image === "string" ? { uri: item.image } : item.image}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
         />

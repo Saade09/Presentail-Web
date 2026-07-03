@@ -1609,6 +1609,17 @@ media asset dimensions and crop for the viewport.
 
  */
   device: GetHomepageBannersDevice;
+  /**
+ * Language for banner text fields (title, headline, subtitle,
+ctaText). When the OS response contains a localised variant
+(flat fields such as title_ar / title_fr, or a nested
+translations.{lang}.* shape) that value is returned instead
+of the English original. Falls back to English when the
+localised field is absent or empty. Defaults to "en" when
+omitted.
+
+ */
+  lang?: GetHomepageBannersLang;
 };
 
 export type GetHomepageBannersDevice =
@@ -1617,6 +1628,15 @@ export type GetHomepageBannersDevice =
 export const GetHomepageBannersDevice = {
   desktop: "desktop",
   mobile: "mobile",
+} as const;
+
+export type GetHomepageBannersLang =
+  (typeof GetHomepageBannersLang)[keyof typeof GetHomepageBannersLang];
+
+export const GetHomepageBannersLang = {
+  en: "en",
+  ar: "ar",
+  fr: "fr",
 } as const;
 
 export type GetHomepageCategoriesParams = {

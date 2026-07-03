@@ -510,9 +510,24 @@ paths:
           schema:
             type: string
             enum: [desktop, mobile]
+        - name: lang
+          in: query
+          required: false
+          description: |
+            Language for banner text fields (title, headline, subtitle,
+            ctaText). When the OS response contains a localised variant
+            (flat fields such as title_ar / title_fr, or a nested
+            translations.{lang}.* shape) that value is returned instead
+            of the English original. Falls back to English when the
+            localised field is absent or empty. Defaults to "en" when
+            omitted.
+          schema:
+            type: string
+            enum: [en, ar, fr]
+            default: en
       responses:
         "200":
-          description: Active banners for the country/city/device
+          description: Active banners for the country/city/device/lang
           content:
             application/json:
               schema:
