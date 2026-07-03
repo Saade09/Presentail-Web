@@ -16,6 +16,7 @@ export type WooProduct = {
   occasions: string[];
   popularity?: number;
   hasInputField?: boolean;
+  hasLetterField?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
 };

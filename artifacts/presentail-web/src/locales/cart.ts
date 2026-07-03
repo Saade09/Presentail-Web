@@ -64,6 +64,8 @@ export const cartStrings: Dict = {
   },
   "cart.customNote.label": { en: "Personalisation", ar: "تخصيص" },
   "cart.customNote.placeholder": { en: "e.g. Happy Birthday, Anna!", ar: "مثال: عيد ميلاد سعيد، آنا!" },
+  "cart.letterNote.label": { en: "Your letter", ar: "حرفك" },
+  "cart.letterNote.placeholder": { en: "A", ar: "أ" },
 };
 
 export const cartStringsFr: Record<string, string> = {
@@ -120,4 +122,6 @@ export const cartStringsFr: Record<string, string> = {
   "cart.qrLink.error": "Veuillez saisir une URL valide commençant par http:// ou https://",
   "cart.customNote.label": "Personnalisation",
   "cart.customNote.placeholder": "ex. : Joyeux anniversaire, Anna !",
+  "cart.letterNote.label": "Votre lettre",
+  "cart.letterNote.placeholder": "A",
 };

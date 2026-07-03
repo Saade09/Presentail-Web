@@ -166,5 +166,6 @@ export function mapOsProduct(p: OSProduct): Product {
     brandNames: p.brands.map((b) => b.name),
     popularity: p.totalSales ?? 0,
     hasInputField: p.hasInputField ?? false,
+    hasLetterField: p.hasLetterField ?? false,
   };
 }

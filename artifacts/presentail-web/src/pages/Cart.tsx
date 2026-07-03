@@ -444,6 +444,22 @@ export default function Cart() {
                       </span>
                     </div>
                   )}
+                  {item.product.hasLetterField && (
+                    <div className="relative w-16">
+                      <Input
+                        value={item.customNote ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 1).toUpperCase();
+                          updateCustomNote(item.product.id, v);
+                        }}
+                        placeholder={t("cart.letterNote.placeholder")}
+                        maxLength={1}
+                        className="h-8 text-xs text-center uppercase tracking-widest"
+                        aria-label={t("cart.letterNote.label")}
+                        data-testid={`input-cart-letter-${item.product.id}`}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center border rounded-full overflow-hidden bg-background w-fit">
                     <button
                       onClick={() => updateQuantity(item.product.id, item.quantity - 1)}

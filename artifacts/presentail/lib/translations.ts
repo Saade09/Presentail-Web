@@ -262,6 +262,8 @@ const EN = {
   addLabel: "Add to Cart",
   customNoteLabel: "Personalisation (optional)",
   customNotePlaceholder: "e.g. Happy Birthday, Anna!", // no-translate — example name
+  letterNoteLabel: "Your letter",
+  letterNotePlaceholder: "A", // i18n-ignore
   cakeNotePlaceholder: "Cake Message",
   customNoteCounter: "{count}/22 chars",
 
@@ -1166,6 +1168,8 @@ const AR: typeof EN = {
   addLabel: "أضف إلى السلة",
   customNoteLabel: "تخصيص (اختياري)",
   customNotePlaceholder: "مثال: عيد ميلاد سعيد، آنا!",
+  letterNoteLabel: "حرفك",
+  letterNotePlaceholder: "أ",
   cakeNotePlaceholder: "رسالة الكعكة",
   customNoteCounter: "{count}/22 حرف",
 
@@ -2064,6 +2068,8 @@ const FR: typeof EN = {
   addLabel: "Ajouter au panier",
   customNoteLabel: "Personnalisation (facultatif)",
   customNotePlaceholder: "ex. : Joyeux anniversaire, Anna !",
+  letterNoteLabel: "Votre lettre",
+  letterNotePlaceholder: "A", // i18n-ignore
   cakeNotePlaceholder: "Message du gâteau",
   customNoteCounter: "{count}/22 car.",
 

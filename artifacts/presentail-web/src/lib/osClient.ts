@@ -46,6 +46,7 @@ type RawOsProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   /** OS API sends snake_case; some versions send camelCase — handle both. */
   has_input_field?: boolean;
   hasInputField?: boolean;
+  hasLetterField?: boolean;
 };
 
 type RawOsProductsPage = {

@@ -77,12 +77,17 @@ type WcProduct = {
   meta_data?: WcMeta[];
   brandNames?: string[];
   hasInputField?: boolean;
+  hasLetterField?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
 };
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
 type Lang = (typeof SUPPORTED_LANGS)[number];
+
+// Products that support a single-letter personalisation input.
+// Used as a fallback until the OS API surfaces the `hasLetterField` flag.
+const LETTER_INPUT_PRODUCT_NAMES = ["red letter box", "pink letter box"];
 
 // ── Presentail OS → WcProduct adapter ─────────────────────────────────────
 //
@@ -186,6 +191,7 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     meta_data: meta,
     brandNames: p.brands.map((b) => decodeHtmlEntities(b.name)),
     hasInputField: p.hasInputField ?? false,
+    hasLetterField: p.hasLetterField ?? LETTER_INPUT_PRODUCT_NAMES.includes(p.name.toLowerCase().trim()),
     discountPriceValue,
     discountPriceAed: parseDiscountField(p.discount_price_aed),
   };
@@ -376,6 +382,7 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
     brandNames: p.brandNames ?? [],
     popularity: typeof p.total_sales === "number" ? p.total_sales : 0,
     hasInputField: p.hasInputField ?? false,
+    hasLetterField: p.hasLetterField ?? false,
     discountPriceValue: p.discountPriceValue ?? null,
     discountPriceAed: p.discountPriceAed ?? null,
   };

@@ -405,6 +405,34 @@ export function CartDrawer() {
                         </Text>
                       </View>
                     )}
+                    {(product as any).hasLetterField && (
+                      <TextInput
+                        value={items.find((i) => i.productId === product.id)?.customNote ?? ""}
+                        onChangeText={(text) => {
+                          const v = text.replace(/[^a-zA-Z]/g, "").slice(0, 1).toUpperCase();
+                          setCustomNote(product.id, v);
+                        }}
+                        placeholder={t.letterNotePlaceholder}
+                        placeholderTextColor={colors.mutedForeground}
+                        maxLength={1}
+                        autoCapitalize="characters"
+                        style={{
+                          backgroundColor: colors.background,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: colors.border,
+                          borderRadius: 8,
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          fontFamily: "Inter_400Regular",
+                          fontSize: 13,
+                          color: colors.primary,
+                          textAlign: "center",
+                          width: 48,
+                          letterSpacing: 2,
+                        }}
+                        returnKeyType="done"
+                      />
+                    )}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                       <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
                         {formatPrice(lineTotal)}

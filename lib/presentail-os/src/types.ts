@@ -199,6 +199,11 @@ export type OSProduct = {
    * for this product at the time of ordering.
    */
   hasInputField?: boolean;
+  /**
+   * When true, customers can add a single letter (1 character) to this
+   * product at checkout (e.g. letter boxes).
+   */
+  hasLetterField?: boolean;
 };
 
 export type OSProductsResponse = {
