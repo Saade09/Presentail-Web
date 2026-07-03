@@ -96,8 +96,11 @@ function deduplicateSlugs(products: OSProduct[]): OSProduct[] {
 /** Shape returned by the OS single-product endpoint. */
 type OsProductDetail = {
   product?: {
+    price?: string | number | null;
     discount_price_usd?: string | number | null;
     discount_price_aed?: string | number | null;
+    regular_price?: string | number | null;
+    sale_price?: string | number | null;
     [key: string]: unknown;
   };
 };
@@ -110,17 +113,52 @@ function parseOsPrice(v: unknown): number | null {
 
 /**
  * Fetch discount pricing for a single OS product by its numeric DB ID.
- * The list endpoint omits discount_price_usd/aed; this single-product call
+ * The list endpoint may omit discount_price_usd/aed; this single-product call
  * fills in those fields so the product detail page can show the slash price.
+ *
+ * Handles both pricing schemes:
+ *  - Legacy: discount_price_usd / discount_price_aed  (explicit discount field)
+ *  - Modern: regular_price + sale_price pair (OS-native; sale_price or price < regular_price
+ *    is treated as the active (discounted) price; regular_price becomes the crossed-out price)
+ *
+ * Returns regularPriceUsd when the modern scheme is active so callers can
+ * override product.priceValue (the base/crossed-out price).
  */
 export async function fetchOsProductPricing(
   osId: number | string,
-): Promise<{ discountPriceUsd: number | null; discountPriceAed: number | null }> {
+): Promise<{
+  discountPriceUsd: number | null;
+  discountPriceAed: number | null;
+  /** Non-null only when the modern regular_price/sale_price scheme is active. */
+  regularPriceUsd: number | null;
+}> {
   const res = await fetch(osUrl(`/api/products/${osId}`), { headers: osHeaders() });
   if (!res.ok) throw new Error(`OS product detail returned HTTP ${res.status}`);
   const body = (await res.json()) as OsProductDetail;
   const p = body.product ?? {};
+
+  const regularPriceRaw = parseOsPrice(p.regular_price);
+  const salePriceRaw = parseOsPrice(p.sale_price);
+  const priceRaw = parseOsPrice(p.price);
+
+  // Modern scheme: regular_price is the crossed-out "was" price; derive discount.
+  if (regularPriceRaw != null && regularPriceRaw > 0) {
+    let discountPriceUsd: number | null = null;
+    if (salePriceRaw != null && salePriceRaw > 0 && salePriceRaw < regularPriceRaw) {
+      discountPriceUsd = salePriceRaw;
+    } else if (priceRaw != null && priceRaw > 0 && priceRaw < regularPriceRaw) {
+      discountPriceUsd = priceRaw;
+    }
+    return {
+      regularPriceUsd: regularPriceRaw,
+      discountPriceUsd,
+      discountPriceAed: parseOsPrice(p.discount_price_aed),
+    };
+  }
+
+  // Legacy scheme: discount_price_usd / discount_price_aed.
   return {
+    regularPriceUsd: null,
     discountPriceUsd: parseOsPrice(p.discount_price_usd),
     discountPriceAed: parseOsPrice(p.discount_price_aed),
   };

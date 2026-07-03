@@ -403,7 +403,7 @@ export default function ProductDetail() {
               name={product.name}
               price={
                 <SalePrice
-                  priceValue={product.priceValue}
+                  priceValue={osPricing?.regularPriceUsd ?? product.priceValue}
                   discountPriceValue={osPricing?.discountPriceUsd ?? product.discountPriceValue}
                   discountPriceAed={osPricing?.discountPriceAed ?? product.discountPriceAed}
                 />
