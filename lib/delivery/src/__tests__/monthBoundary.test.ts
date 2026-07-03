@@ -5,6 +5,7 @@ import {
   firstAvailableSlot,
   getBeirutOffsetHours,
   getCountryHour,
+  getLocalIso,
   timeSlotsForCountry,
 } from "../index.js";
 
@@ -257,5 +258,52 @@ describe("getCountryHour (LB) — Beirut DST transition hours", () => {
 
   it("handles midnight UTC exactly during DST (UTC+3 → 03:00 local)", () => {
     expect(getCountryHour("LB", utc(2026, 6, 31, 0, 0, 0))).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getLocalIso — returns the local calendar date, not the UTC date
+// ---------------------------------------------------------------------------
+
+describe("getLocalIso — correct local date across the midnight UTC boundary", () => {
+  it("returns the Beirut date (not UTC date) at 21:09 UTC on Jul 2 (= 00:09 Beirut Jul 3, UTC+3 DST)", () => {
+    // This is the exact scenario from the real Jul-3 order bug:
+    // UTC says July 2, but Beirut is already July 3.
+    const at = utc(2026, 6, 2, 21, 9, 0); // 2026-07-02T21:09:00Z
+    expect(getLocalIso("LB", at)).toBe("2026-07-03");
+    // Confirm that a naive UTC slice returns the wrong date, to document the before/after.
+    expect(at.toISOString().slice(0, 10)).toBe("2026-07-02");
+  });
+
+  it("returns the same date as UTC when the time is well within the working day", () => {
+    // 08:00 UTC = 11:00 Beirut — unambiguously the same calendar date.
+    const at = utc(2026, 6, 3, 8, 0, 0); // 2026-07-03T08:00:00Z
+    expect(getLocalIso("LB", at)).toBe("2026-07-03");
+    expect(at.toISOString().slice(0, 10)).toBe("2026-07-03");
+  });
+
+  it("returns the correct Beirut date across a month boundary (Jul 31 → Aug 1)", () => {
+    // 21:30 UTC on Jul 31 = 00:30 Beirut on Aug 1 (UTC+3 DST)
+    const at = utc(2026, 6, 31, 21, 30, 0); // 2026-07-31T21:30:00Z
+    expect(getLocalIso("LB", at)).toBe("2026-08-01");
+  });
+
+  it("returns the correct UAE date at midnight UTC (AE = UTC+4 year-round)", () => {
+    // 21:00 UTC on Dec 31 = 01:00 on Jan 1 in Dubai (UTC+4)
+    const at = utc(2026, 11, 31, 21, 0, 0); // 2026-12-31T21:00:00Z
+    expect(getLocalIso("AE", at)).toBe("2027-01-01");
+  });
+
+  it("uses Beirut as the default when no countryCode is given", () => {
+    // Same as the LB test above — default is Beirut.
+    const at = utc(2026, 6, 2, 21, 9, 0);
+    expect(getLocalIso(undefined, at)).toBe("2026-07-03");
+    expect(getLocalIso(null, at)).toBe("2026-07-03");
+  });
+
+  it("correctly handles the year-end boundary for Lebanon (LB = UTC+2 in winter)", () => {
+    // 22:30 UTC on Dec 31 = 00:30 Beirut on Jan 1 (UTC+2 winter)
+    const at = utc(2026, 11, 31, 22, 30, 0); // 2026-12-31T22:30:00Z
+    expect(getLocalIso("LB", at)).toBe("2027-01-01");
   });
 });

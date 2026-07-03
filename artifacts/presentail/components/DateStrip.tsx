@@ -23,6 +23,7 @@ import { Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-n
 import { AppText } from "@/components/AppText";
 
 import type { DeliveryDay } from "@workspace/delivery";
+import { getLocalIso } from "@workspace/delivery";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 
 export type DateStripColors = {
@@ -83,10 +84,15 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
   const todayHighlight = colors.secondary ?? "#FAF6EE";
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 90);
-  const maxIso = maxDate.toISOString().slice(0, 10);
+  // Use the country-aware local date so calendars opened between midnight UTC
+  // and ~3 AM Beirut time correctly show today's Beirut date, not yesterday's
+  // UTC date.  Default to "LB" (Beirut) — same conservative default used by
+  // deliverySelectionSanitize.ts at hydration time.
+  const todayIso = getLocalIso();
+  const [todayY, todayM, todayD] = todayIso.split("-").map(Number) as [number, number, number];
+  // maxIso = 90 local days ahead of today
+  const maxLocalDate = new Date(todayY, todayM - 1, todayD + 90, 12, 0, 0);
+  const maxIso = `${maxLocalDate.getFullYear()}-${String(maxLocalDate.getMonth() + 1).padStart(2, "0")}-${String(maxLocalDate.getDate()).padStart(2, "0")}`;
 
   const openCalendar = () => {
     const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
@@ -117,13 +123,12 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
     }
   };
 
-  const today = new Date();
   const canGoPrev =
-    calYear > today.getFullYear() ||
-    (calYear === today.getFullYear() && calMonth > today.getMonth());
+    calYear > todayY ||
+    (calYear === todayY && calMonth > todayM - 1);
   const canGoNext =
-    calYear < maxDate.getFullYear() ||
-    (calYear === maxDate.getFullYear() && calMonth < maxDate.getMonth());
+    calYear < maxLocalDate.getFullYear() ||
+    (calYear === maxLocalDate.getFullYear() && calMonth < maxLocalDate.getMonth());
 
   const daysInMonth = getDaysInMonth(calYear, calMonth);
   const firstDow = getFirstDayOfWeek(calYear, calMonth);

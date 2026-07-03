@@ -27,6 +27,7 @@ import { sendCapiPurchase } from "../lib/fbConversions";
 import {
   resolveStoreFromRequest,
 } from "../lib/wooStore";
+import { getLocalIso } from "@workspace/delivery";
 import {
   getOsProducts,
   getOsCategories,
@@ -870,6 +871,25 @@ router.post("/woo/order", async (req, res) => {
       .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues }); // i18n-ignore
   }
   const body = parsed.data;
+
+  // Server-side past-date guard — reject any scheduled delivery date that is
+  // strictly before "today" in the recipient country's local timezone.  This
+  // catches stale clients (e.g. a browser tab left open past midnight) that
+  // still hold a UTC-derived date string from the previous calendar day.
+  if (body.deliveryDate) {
+    const todayLocal = getLocalIso(store.country);
+    if (body.deliveryDate < todayLocal) {
+      req.log?.warn?.(
+        { deliveryDate: body.deliveryDate, todayLocal, country: store.country },
+        "woo.order: delivery date is in the past — rejecting",
+      );
+      return res.status(422).json({
+        ok: false,
+        code: "past_delivery_date",
+        message: "The selected delivery date has already passed. Please select a date from today onwards.", // i18n-ignore
+      });
+    }
+  }
 
   const requestPlatform = normalizePlatform(req.header("x-app-platform"));
 

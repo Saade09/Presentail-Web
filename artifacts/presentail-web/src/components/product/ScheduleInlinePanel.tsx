@@ -6,6 +6,7 @@ import {
   dayLabels,
   firstAvailableSlot,
   getCountryHour,
+  getLocalIso,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -44,7 +45,9 @@ export function ScheduleInlinePanel({
 }: Props) {
   const { t } = useLocale();
   const code = (countryCode ?? "LB").toUpperCase();
-  const allDays = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
+  // Pass the country code so dayLabels() uses the local timezone (not UTC)
+  // when computing which calendar day is "today".
+  const allDays = useMemo(() => dayLabels("Today", "Tomorrow", new Date(), code).slice(0, 3), [code]);
   /** Flat fallback slot list (all days merged, or hardcoded per-country), sorted by window start. */
   const flatTimeSlots = useMemo(() => {
     const raw = propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(code);
@@ -53,7 +56,9 @@ export function ScheduleInlinePanel({
     );
   }, [propTimeSlots, code]);
   const localHour = useMemo(() => getCountryHour(code), [code]);
-  const todayIso = allDays[0]?.iso ?? new Date().toISOString().slice(0, 10);
+  // allDays[0].iso is already the country-local date (dayLabels uses getLocalIso
+  // internally); fall back to getLocalIso directly so the two are always in sync.
+  const todayIso = allDays[0]?.iso ?? getLocalIso(code);
 
   // Slots to use when checking whether today still has any open windows.
   // Prefers the per-day-of-week OS override when available, otherwise falls

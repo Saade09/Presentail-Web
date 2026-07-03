@@ -9,10 +9,19 @@ import { renderWithProviders } from "@/test-utils";
 // Pin getCountryHour to 10 AM so time-slot availability is stable regardless
 // of when the test suite runs. Without this, tests that rely on "today" having
 // available slots break after 9 PM Lebanon time (all LB slots have cutoffHour
-// ≤ 21). All other exports from @workspace/delivery are passed through as-is.
+// ≤ 21).
+//
+// Also pin getLocalIso to the UTC calendar date so the component's todayIso and
+// the test helper addDays(0) always agree, even when the test suite runs between
+// 21:00 UTC and midnight UTC (= early Beirut morning of the next day), where the
+// two would otherwise diverge and make most assertions about "today" wrong.
 vi.mock("@workspace/delivery", async (importActual) => {
   const actual = await importActual<typeof import("@workspace/delivery")>();
-  return { ...actual, getCountryHour: () => 10 };
+  return {
+    ...actual,
+    getCountryHour: () => 10,
+    getLocalIso: () => new Date().toISOString().slice(0, 10),
+  };
 });
 
 const LOCALE_T: Record<string, string> = {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeliveryPickerModal } from "./DeliveryPickerModal";
@@ -10,8 +10,14 @@ import { renderWithProviders } from "@/test-utils";
 // Stable mocks — pin everything that varies with real time.
 // ---------------------------------------------------------------------------
 
+// Use vi.hoisted so the mutable `mockNow` reference can be updated per-test.
+const { mockNow } = vi.hoisted(() => {
+  const mockNow = vi.fn(() => new Date("2026-06-15T10:00:00"));
+  return { mockNow };
+});
+
 vi.mock("@/lib/useNow", () => ({
-  useNow: () => new Date("2026-06-15T10:00:00"),
+  useNow: mockNow,
 }));
 
 vi.mock("@/components/FormattedPrice", () => ({
@@ -40,6 +46,12 @@ vi.mock("@/contexts/LocationContext", () => ({
 
 beforeEach(() => {
   mockSetSelection.mockClear();
+  // Restore the default stable clock so existing tests are unaffected.
+  mockNow.mockReturnValue(new Date("2026-06-15T10:00:00"));
+});
+
+afterEach(() => {
+  mockNow.mockReturnValue(new Date("2026-06-15T10:00:00"));
 });
 
 // ---------------------------------------------------------------------------
@@ -130,5 +142,40 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
     // and should be auto-selected for today.
     const morningBtn = screen.getByText("09:00 – 13:00").closest("button") as HTMLButtonElement;
     expect(morningBtn.className).toContain("border-primary");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Midnight UTC timezone boundary
+// ---------------------------------------------------------------------------
+
+describe("DeliveryPickerModal — handleConfirm uses local Beirut date at midnight UTC", () => {
+  it("emits today=2026-07-03 (Beirut local) when useNow returns 21:09 UTC on Jul 2 (= 00:09 Beirut Jul 3)", async () => {
+    // 2026-07-02T21:09:00Z = 00:09 Beirut (UTC+3 DST) = already July 3 locally.
+    // Before the fix, handleConfirm computed `new Date().toISOString().slice(0,10)`
+    // which would have returned "2026-07-02" — sending yesterday's date to the API.
+    mockNow.mockReturnValue(new Date("2026-07-02T21:09:00Z"));
+
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+
+    renderWithProviders(
+      <DeliveryPickerModal
+        open={true}
+        onOpenChange={() => {}}
+        timeSlots={OS_SLOTS}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    // Click the Confirm button. The t() stub returns the key as-is.
+    const confirmBtn = screen.getByText("delivery.picker.confirm").closest("button") as HTMLButtonElement;
+    await user.click(confirmBtn);
+
+    // The selection date must be the Beirut-local date, NOT the UTC date.
+    expect(onConfirm).toHaveBeenCalledOnce();
+    const selection = onConfirm.mock.calls[0][0] as { date: string; mode: string };
+    expect(selection.date).toBe("2026-07-03");
+    expect(selection.date).not.toBe("2026-07-02");
   });
 });

@@ -20,6 +20,7 @@ import {
   firstAvailableDay,
   firstAvailableSlot,
   getCountryHour,
+  getLocalIso,
   isExpressDeliveryAvailable,
   nearestSlotForHour,
   timeSlotsForCountry,
@@ -78,8 +79,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     );
   }, [propTimeSlots, countryCode]);
   const quickDays = useMemo(
-    () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")).slice(0, 3),
-    [t],
+    () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow"), now, countryCode).slice(0, 3),
+    [t, now, countryCode],
   );
   const expressAvailable = useMemo(
     () => cityExpressAvailable && isExpressDeliveryAvailable(countryCode, now),
@@ -90,7 +91,9 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
       ? expressSurchargeUsd
       : expressSurchargeForCountry(countryCode);
   const currentHour = useMemo(() => getCountryHour(countryCode, now), [countryCode, now]);
-  const todayIso = useMemo(() => now.toISOString().slice(0, 10), [now]);
+  // Use the country-aware local date instead of UTC so that midnight-to-~3 AM
+  // UTC calls (= early Beirut morning) correctly show today's local date.
+  const todayIso = useMemo(() => getLocalIso(countryCode, now), [countryCode, now]);
 
   const todayHasSlots = useMemo(
     () => firstAvailableSlot(timeSlots, true, currentHour) !== null,
@@ -159,13 +162,15 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   };
 
   const handleConfirm = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    // Use the already-memoized local-timezone today (getLocalIso(countryCode, now))
+    // so that "today" comparisons and the express date payload are correct even
+    // between midnight UTC and ~3 AM Beirut time.
     let selection: DeliveryPickerSelection;
     if (mode === "express") {
-      selection = { mode: "express", date: today, slotLabel: null };
+      selection = { mode: "express", date: todayIso, slotLabel: null };
     } else {
-      const resolvedMode = date && date === today ? "today_slot" : "schedule";
-      selection = { mode: resolvedMode, date: date || today, slotLabel: slot || null };
+      const resolvedMode = date && date === todayIso ? "today_slot" : "schedule";
+      selection = { mode: resolvedMode, date: date || todayIso, slotLabel: slot || null };
     }
     deliverySelection.setSelection(selection);
     onConfirm?.(selection);
@@ -258,9 +263,11 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                   value={date}
                   onChange={(e) => handleDateChange(e.target.value)}
                   min={todayHasSlots ? todayIso : (() => {
-                    const tom = new Date(todayIso);
-                    tom.setDate(tom.getDate() + 1);
-                    return tom.toISOString().slice(0, 10);
+                    // Compute "tomorrow" from local date parts so we never
+                    // accidentally land on the UTC-yesterday via toISOString().
+                    const [ty, tm, td] = todayIso.split("-").map(Number) as [number, number, number];
+                    const tom = new Date(ty, tm - 1, td + 1, 12, 0, 0);
+                    return `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, "0")}-${String(tom.getDate()).padStart(2, "0")}`;
                   })()}
                 />
               </div>

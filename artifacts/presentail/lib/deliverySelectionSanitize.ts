@@ -1,13 +1,23 @@
 import {
   firstAvailableDay,
   getBeirutHour,
+  getLocalIso,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 
 import type { DeliveryMode, DeliverySelection } from "@/contexts/DeliverySelectionContext";
 
+/**
+ * Returns today's date as "YYYY-MM-DD" in the Beirut local timezone.
+ *
+ * Using Beirut (LB) as the conservative default at hydration time: the
+ * mobile app's delivery context is always anchored to LB, AE, or CY, and
+ * the checkout re-validates with the actual country's slots once the
+ * delivery location is known.  Using UTC here caused orders placed between
+ * midnight UTC and ~3 AM Beirut time to see yesterday's date as "today".
+ */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getLocalIso("LB");
 }
 
 /**

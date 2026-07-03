@@ -204,6 +204,29 @@ describe("sanitize — out-of-range slot labels are cleared", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Timezone edge case — midnight UTC / early morning Beirut
+// ---------------------------------------------------------------------------
+
+describe("todayIso — returns the Beirut-local date, not the UTC date, at midnight UTC", () => {
+  it("reports July 3 (Beirut) when UTC is still July 2 at 21:09 (= 00:09 Beirut UTC+3 DST)", () => {
+    // Beirut is UTC+3 during summer DST.  At 2026-07-02T21:09:00Z the UTC date
+    // is still July 2, but it is already 00:09 on July 3 in Beirut.
+    // Before the fix, new Date().toISOString().slice(0,10) returned "2026-07-02".
+    vi.setSystemTime(new Date("2026-07-02T21:09:00Z"));
+    expect(todayIso()).toBe("2026-07-03");
+    // Restore the suite-wide fixed clock.
+    vi.setSystemTime(FIXED_NOW);
+  });
+
+  it("reports the correct UTC date when well inside the working day (no ambiguity)", () => {
+    // 06:00 UTC = 09:00 Beirut (UTC+3 DST) — same calendar date in both zones.
+    vi.setSystemTime(new Date("2025-06-15T06:00:00.000Z"));
+    expect(todayIso()).toBe("2025-06-15");
+    vi.setSystemTime(FIXED_NOW);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Valid complete selections pass through unchanged
 // ---------------------------------------------------------------------------
 

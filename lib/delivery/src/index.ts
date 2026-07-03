@@ -180,13 +180,21 @@ export function dayLabels(
   todayLabel: string,
   tomLabel: string,
   now: Date = new Date(),
+  countryCode?: string | null,
 ): DeliveryDay[] {
   const out: DeliveryDay[] = [];
+  // Derive the starting local date from the country timezone so that calls
+  // between midnight UTC and ~3 AM UTC correctly open on the local "today"
+  // rather than yesterday's UTC date.
+  const startIso = getLocalIso(countryCode, now);
+  const [y0, m0, d0] = startIso.split("-").map(Number) as [number, number, number];
   for (let i = 0; i < 10; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
+    // Construct a Date at noon local time for day i.  Using noon avoids
+    // DST-ambiguity at midnight while keeping toLocaleDateString correct.
+    const d = new Date(y0, m0 - 1, d0 + i, 12, 0, 0);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     out.push({
-      iso: d.toISOString().slice(0, 10),
+      iso,
       label:
         i === 0
           ? todayLabel
@@ -274,6 +282,46 @@ export function formatDeliveryRow(args: {
     : date;
   const displaySlot = slotTimeRange ?? slotLabel;
   return `${dayPrefix} · ${displaySlot}`;
+}
+
+// ---------------------------------------------------------------------------
+// Country-aware local date (YYYY-MM-DD)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the current local date as "YYYY-MM-DD" in the recipient country's
+ * timezone.  LB/CY → Asia/Beirut (UTC+2 in winter, UTC+3 during DST);
+ * AE → Asia/Dubai (UTC+4, no DST); default → Beirut.
+ *
+ * Prefers `Intl.DateTimeFormat` when available; falls back to manual UTC-offset
+ * arithmetic using `getBeirutOffsetHours` so it works correctly even in
+ * environments with limited `Intl` support (e.g. older Hermes on React Native).
+ */
+export function getLocalIso(countryCode?: string | null, at: Date = new Date()): string {
+  const tz = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(at);
+    const year = parts.find((p) => p.type === "year")?.value ?? "";
+    const month = parts.find((p) => p.type === "month")?.value ?? "";
+    const day = parts.find((p) => p.type === "day")?.value ?? "";
+    if (year && month && day) return `${year}-${month}-${day}`;
+  } catch {
+    // Fall through to manual computation.
+  }
+  // Manual fallback: shift the UTC timestamp by the country's fixed offset,
+  // then read the date parts from the resulting "fake UTC" date.
+  const offset = countryCode === "AE" ? 4 : getBeirutOffsetHours(at);
+  const localMs = at.getTime() + offset * 3_600_000;
+  const shifted = new Date(localMs);
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -397,11 +445,12 @@ export function firstAvailableDay(
   maxDays = 10,
 ): FirstAvailableDayResult | null {
   if (slots.length === 0) return null;
-  const startMs = new Date(`${startIso}T00:00:00`).getTime();
+  const [sy, sm, sd] = startIso.split("-").map(Number) as [number, number, number];
   for (let i = 0; i < maxDays; i++) {
-    const d = new Date(startMs);
-    d.setDate(d.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
+    // Build the date from local parts so the ISO string is never shifted by a
+    // UTC-offset mismatch.  Using noon avoids DST-ambiguity at midnight.
+    const d = new Date(sy, sm - 1, sd + i, 12, 0, 0);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const isToday = iso === todayIso;
     const slot = firstAvailableSlot(slots, isToday, currentHour);
     if (slot) return { iso, slot };
