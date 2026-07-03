@@ -73,7 +73,6 @@ export function Navbar() {
               <nav className="flex flex-col gap-4 mt-8">
                 <Link href="/shop" className="text-lg font-serif">{t("nav.shop")}</Link>
                 <Link href="/occasion/birthday" className="text-lg font-serif">{t("nav.occasions")}</Link>
-                {countryCode?.toUpperCase() !== "AE" && <Link href="/brands" className="text-lg font-serif">{t("nav.brands")}</Link>}
               </nav>
             </SheetContent>
           </Sheet>
@@ -96,7 +95,6 @@ export function Navbar() {
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/shop" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.shop")}</Link>
             <Link href="/occasion/birthday" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.occasions")}</Link>
-            {countryCode?.toUpperCase() !== "AE" && <Link href="/brands" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.brands")}</Link>}
           </nav>
         </div>
 

@@ -25,8 +25,6 @@ import {
   loadSignUp,
   loadAccount,
   loadFavorites,
-  loadBrands,
-  loadBrandDetail,
   loadShop,
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
@@ -213,7 +211,7 @@ export function MainNavbar() {
   const [isSignInRoute] = useRoute("/sign-in");
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
-  const { data: brandsData, isPending: brandsLoading } = useBrands({
+  const { data: brandsData } = useBrands({
     lang: language,
     countryCode: countryCode ?? undefined,
     cityId: cityId ?? undefined,
@@ -616,16 +614,6 @@ export function MainNavbar() {
             brandSlug={activeBrandSlug ?? undefined}
             brandName={activeBrand?.name ?? undefined}
           />
-
-          {/* Brands link (desktop only) — prefetches Brands + BrandDetail on hover/focus */}
-          <Link
-            href="/brands"
-            className="hidden md:inline-flex items-center text-sm font-semibold text-foreground hover:text-primary/80 transition-colors px-2 py-1"
-            data-testid="nav-link-brands"
-            {...prefetchProps(loadBrands, loadBrandDetail)}
-          >
-            {t("nav.brands")}
-          </Link>
 
           {user ? (
             <span {...prefetchProps(loadAccount, loadFavorites)}>
