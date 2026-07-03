@@ -28,6 +28,24 @@ const GIRL_KEYWORDS = [
   "mauve",
 ];
 
+/**
+ * Manual override map: normalized product name (lowercase, trimmed) → forced gender.
+ * Checked before keyword heuristics and LLM so it always wins.
+ *
+ * Exported for unit testing only.
+ */
+export const GENDER_OVERRIDES: Record<string, NewbornGender> = {
+  "pastel bliss bouquet": "boy",
+  "colorful joy basket": "boy",
+  "blue sky": "boy",
+  "ethereal bloom": "boy",
+  "baby boy bundle": "boy",
+  "50 blue balloons bundle": "boy",
+  "vibrant balloon mix": "boy",
+  "brown bear": "boy",
+  "marmalade bear": "boy",
+};
+
 const BATCH_SIZE = 50;
 const MAX_DESC_CHARS = 300;
 
@@ -181,6 +199,12 @@ export async function getNewbornGenderMap(
   const now = Date.now();
 
   for (const p of products) {
+    const overrideKey = p.name.toLowerCase().trim();
+    if (Object.prototype.hasOwnProperty.call(GENDER_OVERRIDES, overrideKey)) {
+      result[p.id] = GENDER_OVERRIDES[overrideKey]!;
+      continue;
+    }
+
     const kw = inferFromKeywords(p.name, p.description);
     if (kw !== null) {
       result[p.id] = kw;

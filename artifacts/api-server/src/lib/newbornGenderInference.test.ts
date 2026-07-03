@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { inferFromKeywords } from "./newbornGenderInference";
+import { inferFromKeywords, GENDER_OVERRIDES } from "./newbornGenderInference";
 
 describe("inferFromKeywords", () => {
   describe("boy keywords", () => {
@@ -138,5 +138,61 @@ describe("inferFromKeywords", () => {
     it("does not match 'navy' as a substring of another word", () => {
       expect(inferFromKeywords("Unavailable Newborn Bundle")).toBeNull();
     });
+  });
+});
+
+describe("GENDER_OVERRIDES", () => {
+  const PINNED_TO_BOY = [
+    "pastel bliss bouquet",
+    "colorful joy basket",
+    "blue sky",
+    "ethereal bloom",
+    "baby boy bundle",
+    "50 blue balloons bundle",
+    "vibrant balloon mix",
+    "brown bear",
+    "marmalade bear",
+  ];
+
+  it("contains exactly the 9 expected pinned-to-boy products", () => {
+    expect(Object.keys(GENDER_OVERRIDES).sort()).toEqual([...PINNED_TO_BOY].sort());
+  });
+
+  for (const name of PINNED_TO_BOY) {
+    it(`pins "${name}" to "boy"`, () => {
+      expect(GENDER_OVERRIDES[name]).toBe("boy");
+    });
+  }
+
+  it("override takes priority over keyword heuristic for neutral-named products (Pastel Bliss Bouquet)", () => {
+    // "Pastel Bliss Bouquet" has no boy/girl keyword — keyword heuristic returns null.
+    // The override must be checked before keywords so it still resolves.
+    expect(inferFromKeywords("Pastel Bliss Bouquet")).toBeNull();
+    expect(GENDER_OVERRIDES["pastel bliss bouquet"]).toBe("boy");
+  });
+
+  it("override takes priority over keyword heuristic for neutral-named products (Brown Bear)", () => {
+    expect(inferFromKeywords("Brown Bear")).toBeNull();
+    expect(GENDER_OVERRIDES["brown bear"]).toBe("boy");
+  });
+
+  it("override takes priority over keyword heuristic for neutral-named products (Marmalade Bear)", () => {
+    expect(inferFromKeywords("Marmalade Bear")).toBeNull();
+    expect(GENDER_OVERRIDES["marmalade bear"]).toBe("boy");
+  });
+
+  it("override takes priority over keyword heuristic for neutral-named products (Ethereal Bloom)", () => {
+    expect(inferFromKeywords("Ethereal Bloom")).toBeNull();
+    expect(GENDER_OVERRIDES["ethereal bloom"]).toBe("boy");
+  });
+
+  it("override takes priority over keyword heuristic for neutral-named products (Vibrant Balloon Mix)", () => {
+    expect(inferFromKeywords("Vibrant Balloon Mix")).toBeNull();
+    expect(GENDER_OVERRIDES["vibrant balloon mix"]).toBe("boy");
+  });
+
+  it("override takes priority over keyword heuristic for neutral-named products (Colorful Joy Basket)", () => {
+    expect(inferFromKeywords("Colorful Joy Basket")).toBeNull();
+    expect(GENDER_OVERRIDES["colorful joy basket"]).toBe("boy");
   });
 });
