@@ -548,7 +548,7 @@ export default function Shop() {
           is available; when the catalog has no image the bg-secondary/30 div acts as a placeholder. */}
       {(isOccasionRoute || isCategoryRoute) && (
         <div className="container mx-auto max-w-content px-page pt-4">
-          <div className="relative rounded-2xl overflow-hidden h-40 md:h-52 bg-secondary/30">
+          <div className={`relative rounded-2xl overflow-hidden h-40 md:h-52 bg-secondary/30${!heroImgUrl ? " animate-shimmer" : ""}`}>
             {heroImgUrl && (
               <>
                 <ShimmerImage
