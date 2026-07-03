@@ -121,10 +121,10 @@ describe("FX pipeline — ER_API 3% markup (CAD, AUD, CHF)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// OS-sourced currencies carry NO markup
+// OS-sourced currencies carry the uniform 3% markup
 // ---------------------------------------------------------------------------
 
-describe("FX pipeline — OS-sourced currencies (AED, EUR, GBP, QAR, SAR) have no markup", () => {
+describe("FX pipeline — OS-sourced currencies (AED, EUR, GBP, QAR, SAR) get 3% markup", () => {
   const osInputRates = { AED: 3.700, EUR: 0.930, GBP: 0.800, QAR: 3.650, SAR: 3.760 };
 
   beforeEach(() => {
@@ -139,38 +139,38 @@ describe("FX pipeline — OS-sourced currencies (AED, EUR, GBP, QAR, SAR) have n
     );
   });
 
-  it("AED is stored exactly as received from OS", async () => {
+  it("AED is stored at OS rate × 1.03", async () => {
     const result = await getRates();
-    expect(result.rates.AED).toBe(osInputRates.AED);
+    expect(result.rates.AED).toBeCloseTo(osInputRates.AED * 1.03, 8);
   });
 
-  it("EUR is stored exactly as received from OS", async () => {
+  it("EUR is stored at OS rate × 1.03", async () => {
     const result = await getRates();
-    expect(result.rates.EUR).toBe(osInputRates.EUR);
+    expect(result.rates.EUR).toBeCloseTo(osInputRates.EUR * 1.03, 8);
   });
 
-  it("GBP is stored exactly as received from OS", async () => {
+  it("GBP is stored at OS rate × 1.03", async () => {
     const result = await getRates();
-    expect(result.rates.GBP).toBe(osInputRates.GBP);
+    expect(result.rates.GBP).toBeCloseTo(osInputRates.GBP * 1.03, 8);
   });
 
-  it("QAR is stored exactly as received from OS", async () => {
+  it("QAR is stored at OS rate × 1.03", async () => {
     const result = await getRates();
-    expect(result.rates.QAR).toBe(osInputRates.QAR);
+    expect(result.rates.QAR).toBeCloseTo(osInputRates.QAR * 1.03, 8);
   });
 
-  it("SAR is stored exactly as received from OS", async () => {
+  it("SAR is stored at OS rate × 1.03", async () => {
     const result = await getRates();
-    expect(result.rates.SAR).toBe(osInputRates.SAR);
+    expect(result.rates.SAR).toBeCloseTo(osInputRates.SAR * 1.03, 8);
   });
 });
 
 // ---------------------------------------------------------------------------
-// OS fails — ER_API covers OS currencies without markup
+// OS fails — ER_API covers OS currencies, markup still applied uniformly
 // ---------------------------------------------------------------------------
 
-describe("FX pipeline — OS failure: ER_API covers OS currencies without markup", () => {
-  it("does not apply markup to AED/EUR/GBP when OS is down and ER_API covers them", async () => {
+describe("FX pipeline — OS failure: ER_API covers OS currencies with 3% markup", () => {
+  it("applies 1.03× to AED/EUR/GBP/QAR/SAR when OS is down and ER_API covers them", async () => {
     const erRatesIncludingOs = {
       AED: 3.700, EUR: 0.930, GBP: 0.800, QAR: 3.650, SAR: 3.760,
       CAD: 1.37, AUD: 1.50, CHF: 0.88,
@@ -190,12 +190,14 @@ describe("FX pipeline — OS failure: ER_API covers OS currencies without markup
     const result = await getRates();
     expect(result.source).toBe("live");
 
-    // OS currencies sourced from ER_API must NOT have the 1.03 markup
-    expect(result.rates.AED).toBeCloseTo(erRatesIncludingOs.AED, 8);
-    expect(result.rates.EUR).toBeCloseTo(erRatesIncludingOs.EUR, 8);
-    expect(result.rates.GBP).toBeCloseTo(erRatesIncludingOs.GBP, 8);
+    // OS currencies sourced from ER_API get the uniform 1.03 markup
+    expect(result.rates.AED).toBeCloseTo(erRatesIncludingOs.AED * 1.03, 8);
+    expect(result.rates.EUR).toBeCloseTo(erRatesIncludingOs.EUR * 1.03, 8);
+    expect(result.rates.GBP).toBeCloseTo(erRatesIncludingOs.GBP * 1.03, 8);
+    expect(result.rates.QAR).toBeCloseTo(erRatesIncludingOs.QAR * 1.03, 8);
+    expect(result.rates.SAR).toBeCloseTo(erRatesIncludingOs.SAR * 1.03, 8);
 
-    // ER_API currencies still get the 1.03 markup
+    // ER_API currencies also get the 1.03 markup
     expect(result.rates.CAD).toBeCloseTo(erRatesIncludingOs.CAD * 1.03, 8);
     expect(result.rates.AUD).toBeCloseTo(erRatesIncludingOs.AUD * 1.03, 8);
     expect(result.rates.CHF).toBeCloseTo(erRatesIncludingOs.CHF * 1.03, 8);
@@ -229,12 +231,22 @@ describe("FX pipeline — fallback when both upstreams fail", () => {
     expect(getFxStatus().consecutiveFailures).toBe(1);
   });
 
-  it("fallback CAD/AUD/CHF rates are pre-multiplied by 1.03", () => {
-    // Verify the embedded constants are consistent with the markup rule.
+  it("all non-USD non-LBP fallback rates are pre-multiplied by 1.03", () => {
+    // Verify the embedded constants are consistent with the uniform markup rule.
     // These are the "raw" market rates used as the pre-markup base.
-    expect(FALLBACK_RATES.CAD).toBeCloseTo(1.37 * 1.03, 2);
-    expect(FALLBACK_RATES.AUD).toBeCloseTo(1.50 * 1.03, 2);
-    expect(FALLBACK_RATES.CHF).toBeCloseTo(0.88 * 1.03, 2);
+    expect(FALLBACK_RATES.AED).toBeCloseTo(3.673 * 1.03, 2);
+    expect(FALLBACK_RATES.EUR).toBeCloseTo(0.92  * 1.03, 2);
+    expect(FALLBACK_RATES.GBP).toBeCloseTo(0.78  * 1.03, 2);
+    expect(FALLBACK_RATES.CAD).toBeCloseTo(1.37  * 1.03, 2);
+    expect(FALLBACK_RATES.AUD).toBeCloseTo(1.50  * 1.03, 2);
+    expect(FALLBACK_RATES.QAR).toBeCloseTo(3.64  * 1.03, 2);
+    expect(FALLBACK_RATES.SAR).toBeCloseTo(3.75  * 1.03, 2);
+    expect(FALLBACK_RATES.CHF).toBeCloseTo(0.88  * 1.03, 2);
+  });
+
+  it("USD stays at 1.0 and LBP stays at 89500 (no markup)", () => {
+    expect(FALLBACK_RATES.USD).toBe(1);
+    expect(FALLBACK_RATES.LBP).toBe(89_500);
   });
 });
 
@@ -305,27 +317,27 @@ describe("Full pipeline: ER_API fetch → markup → round → Stripe minor unit
     expect(minor).toBe(Math.round(rounded * 100));
   });
 
-  it("AED: 100 USD at OS rate 3.673 → rounds to nearest 5, no markup", async () => {
-    const aeRate = 3.673;
+  it("AED: 100 USD at OS rate 3.673 → marked up by 3% → rounds to nearest 5", async () => {
+    const aeRaw = 3.673;
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {
         if (String(url).includes("er-api.com")) {
           return Promise.resolve(makeErApiResponse({ CAD: 1.37, AUD: 1.50, CHF: 0.88 }));
         }
-        return Promise.resolve(makeOsRatesResponse({ AED: aeRate, EUR: 0.92, GBP: 0.78, QAR: 3.64, SAR: 3.75 }));
+        return Promise.resolve(makeOsRatesResponse({ AED: aeRaw, EUR: 0.92, GBP: 0.78, QAR: 3.64, SAR: 3.75 }));
       }),
     );
 
     const aedRate = await getRate("AED");
-    expect(aedRate).toBe(aeRate); // no markup
+    expect(aedRate).toBeCloseTo(aeRaw * 1.03, 8); // 3% markup applied
 
-    const converted = 100 * aedRate; // 367.3
-    const rounded = roundForCurrency(converted, "AED"); // 365
-    const minor = toStripeMinorUnits(rounded, "AED"); // 36500
+    const converted = 100 * aedRate; // ~378.32
+    const rounded = roundForCurrency(converted, "AED"); // 380
+    const minor = toStripeMinorUnits(rounded, "AED"); // 38000
 
-    expect(rounded).toBe(365);
-    expect(minor).toBe(36500);
+    expect(rounded).toBe(380);
+    expect(minor).toBe(38000);
   });
 
   it("LBP: 10 USD at static peg 89500 → rounds to nearest 500, 0-decimal", async () => {

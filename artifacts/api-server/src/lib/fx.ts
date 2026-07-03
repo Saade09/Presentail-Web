@@ -25,6 +25,11 @@ export { roundToWholeUnit, roundToNearestFive };
 // day is sufficient) and 5 min for the fallback retry so `consecutiveFailures`
 // increments at most once per 5 minutes rather than per request.
 
+// Intentional spread/conversion markup applied to every non-USD, non-LBP rate
+// regardless of source (OS or ER_API). LBP is a static local-market peg and
+// is never marked up. USD is always 1.0 (base currency).
+const FX_MARKUP = 1.03;
+
 export type SupportedCurrency =
   | "USD"
   | "AED"
@@ -61,21 +66,19 @@ const ER_API_CURRENCIES: SupportedCurrency[] = ["CAD", "AUD", "CHF"];
 // LBP: the Lebanese pound has been pegged informally at ~89,500 LBP/USD since
 // the 2023 monetary reform; update if the peg shifts.
 //
-// IMPORTANT: CAD, AUD, and CHF are sourced from open.er-api.com (ER_API) and
-// carry a 3% intentional markup (× 1.03) to cover spread/conversion costs.
-// OS-sourced currencies (AED, EUR, GBP, QAR, SAR) are used as-is — no markup.
-// The fallback rates for CAD/AUD/CHF are pre-multiplied by 1.03 so the fallback
-// path is consistent with the live-rate path.
+// IMPORTANT: All non-USD, non-LBP currencies carry the FX_MARKUP (× 1.03)
+// spread/conversion markup. The fallback rates below are pre-multiplied by
+// 1.03 so the fallback path is consistent with the live-rate path.
 export const FALLBACK_RATES: Record<SupportedCurrency, number> = {
   USD: 1,
-  AED: 3.673,
-  EUR: 0.92,
-  GBP: 0.78,
-  CAD: 1.4111, // 1.37 × 1.03 — 3% ER_API markup applied
-  AUD: 1.545,  // 1.50 × 1.03 — 3% ER_API markup applied
-  QAR: 3.64,
-  SAR: 3.75,
-  CHF: 0.9064, // 0.88 × 1.03 — 3% ER_API markup applied
+  AED: 3.7832, // 3.673 × 1.03 — 3% markup applied
+  EUR: 0.9476, // 0.92  × 1.03 — 3% markup applied
+  GBP: 0.8034, // 0.78  × 1.03 — 3% markup applied
+  CAD: 1.4111, // 1.37  × 1.03 — 3% markup applied
+  AUD: 1.545,  // 1.50  × 1.03 — 3% markup applied
+  QAR: 3.7492, // 3.64  × 1.03 — 3% markup applied
+  SAR: 3.8625, // 3.75  × 1.03 — 3% markup applied
+  CHF: 0.9064, // 0.88  × 1.03 — 3% markup applied
   LBP: 89_500,
 };
 
@@ -210,11 +213,11 @@ async function fetchLiveRates(): Promise<RateCache> {
     }
 
     if (osOk) {
-      // Primary path: apply OS rates for OS_CURRENCIES.
+      // Primary path: apply OS rates for OS_CURRENCIES with the uniform FX_MARKUP.
       const osRates = (osResult as PromiseFulfilledResult<Partial<Record<SupportedCurrency, number>>>).value;
       for (const code of OS_CURRENCIES) {
         const r = osRates[code];
-        if (typeof r === "number" && r > 0) rates[code] = r;
+        if (typeof r === "number" && r > 0) rates[code] = r * FX_MARKUP;
       }
     }
 
@@ -226,12 +229,9 @@ async function fetchLiveRates(): Promise<RateCache> {
       for (const code of codesFromEr) {
         const r = erRates[code];
         if (typeof r === "number" && r > 0) {
-          // INTENTIONAL: apply a 3% markup to ER_API-sourced currencies (CAD, AUD, CHF)
-          // to cover spread/conversion costs. OS-sourced currencies (AED, EUR, GBP, QAR, SAR)
-          // are used as-is. When OS fails and ER_API covers those too, no markup is applied
-          // to the OS currencies — the markup only ever touches ER_API_CURRENCIES.
-          const markup = ER_API_CURRENCIES.includes(code) ? 1.03 : 1;
-          rates[code] = r * markup;
+          // INTENTIONAL: apply FX_MARKUP (3%) to all non-USD, non-LBP currencies
+          // regardless of source (OS or ER_API) to cover spread/conversion costs.
+          rates[code] = r * FX_MARKUP;
         }
       }
     } else {
