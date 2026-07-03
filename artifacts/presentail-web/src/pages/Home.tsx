@@ -30,7 +30,7 @@ export default function Home() {
   const trustpilotTitle =
     countryCode === "LB"
       ? "The Modern Flower Delivery Company"
-      : "Made For Lebanese Expats, By Lebanese Expats";
+      : "Lebanese Expats, By Lebanese Expats";
 
   return (
     <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
