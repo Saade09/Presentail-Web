@@ -18,6 +18,7 @@ import { SalePrice } from "@/components/SalePrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { expressSurchargeForCountry, freeDeliveryThresholdUsd } from "@workspace/delivery";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
@@ -102,6 +103,7 @@ export default function Cart() {
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
+  const { mode: deliveryMode } = useDeliverySelection();
   const { formatPrice } = useDisplayCurrency();
   // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
   //   1. OS per-city value (most specific)
@@ -128,6 +130,16 @@ export default function Cart() {
     return cityFeeUsd;
   })();
 
+  // When express is selected, add the surcharge on top of the base delivery fee.
+  // null base → still null (no city selected); 0 base (free threshold met) →
+  // expressSurcharge alone (express always incurs the fee even over the threshold).
+  const effectiveDeliveryFeeUsd: number | null =
+    deliveryMode === "express" && expressSurcharge > 0
+      ? deliveryFeeUsd === null
+        ? null
+        : (deliveryFeeUsd ?? 0) + expressSurcharge
+      : deliveryFeeUsd;
+
   // Promo code — persisted to localStorage so Checkout picks it up automatically.
   const [couponOpen, setCouponOpen] = useState(() => {
     try { return (localStorage.getItem(COUPON_STORAGE_KEY) ?? "").length > 0; } catch { return false; }
@@ -144,7 +156,7 @@ export default function Cart() {
     try { return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0; } catch { return 0; }
   });
 
-  const cartTotal = Math.max(0, (deliveryFeeUsd !== null ? subtotal + deliveryFeeUsd : subtotal) - couponDiscountUsd);
+  const cartTotal = Math.max(0, (effectiveDeliveryFeeUsd !== null ? subtotal + effectiveDeliveryFeeUsd : subtotal) - couponDiscountUsd);
 
   const handleCouponToggle = () => {
     const next = !couponOpen;
@@ -569,15 +581,15 @@ export default function Cart() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t("cart.deliveryCharges")}</span>
                     <span className="font-medium">
-                      {deliveryFeeUsd === null
+                      {effectiveDeliveryFeeUsd === null
                         ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
-                        : deliveryFeeUsd === 0
+                        : effectiveDeliveryFeeUsd === 0
                           ? <span className="text-emerald-600">{t("cart.deliveryFree")}</span>
-                          : <FormattedPrice usdValue={deliveryFeeUsd} />
+                          : <FormattedPrice usdValue={effectiveDeliveryFeeUsd} />
                       }
                     </span>
                   </div>
-                  {expressSurcharge > 0 && locationCity?.expressAvailable !== false && (
+                  {expressSurcharge > 0 && locationCity?.expressAvailable !== false && deliveryMode !== "express" && (
                     <p className="text-xs text-muted-foreground">
                       {t("cart.expressNote").replace("{{amount}}", formatPrice(expressSurcharge))}
                     </p>
