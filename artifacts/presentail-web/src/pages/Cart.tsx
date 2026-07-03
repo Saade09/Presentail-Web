@@ -477,7 +477,7 @@ export default function Cart() {
 
           {/* Order Summary */}
           <div className="hidden lg:block lg:col-start-2 lg:row-start-1 lg:row-span-2">
-            <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
+            <div className="bg-secondary/30 rounded-3xl px-8 pb-8 sticky top-32">
               {/* Promo Code Accordion */}
               <div className="mb-6">
                 <button
