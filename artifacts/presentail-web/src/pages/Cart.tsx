@@ -589,11 +589,7 @@ export default function Cart() {
                       }
                     </span>
                   </div>
-                  {expressSurcharge > 0 && locationCity?.expressAvailable !== false && deliveryMode !== "express" && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("cart.expressNote").replace("{{amount}}", formatPrice(expressSurcharge))}
-                    </p>
-                  )}
+
                   {couponApplied && couponDiscountUsd > 0 && (
                     <div className="flex justify-between text-emerald-600" data-testid="row-cart-coupon-discount">
                       <span className="flex items-center gap-1"><Tag className="w-3.5 h-3.5" />{couponInput}</span>
