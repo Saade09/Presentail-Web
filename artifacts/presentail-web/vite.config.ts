@@ -262,59 +262,7 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
   };
 }
 
-/**
- * Inject `<link rel="preconnect">` and `<link rel="dns-prefetch">` hints for
- * origins that are fetched unconditionally on the first page view, so the
- * browser can open the TCP/TLS connection while the entry JS is still executing.
- *
- * The most important origin is os.presentail.com — every page immediately
- * fetches product catalog data from it. Without a preconnect hint the browser
- * only discovers this origin after the JS bundle executes, adding a full
- * TCP+TLS round-trip (~100-300 ms on typical connections) to the critical path.
- */
-function preconnectPlugin(outDir: string): Plugin {
-  const PRECONNECT_ORIGINS = [
-    // Product catalog API — fetched on every page view.
-    "https://os.presentail.com",
-  ];
 
-  return {
-    name: "presentail-preconnect",
-    apply: "build",
-    async closeBundle() {
-      const htmlPath = path.join(outDir, "index.html");
-      if (!fs.existsSync(htmlPath)) return;
-
-      const html = fs.readFileSync(htmlPath, "utf8");
-
-      // Build hint tags for each origin, skipping any already present.
-      const tags: string[] = [];
-      for (const origin of PRECONNECT_ORIGINS) {
-        if (html.includes(origin)) continue; // already injected by another pass
-        tags.push(`  <link rel="preconnect" href="${origin}" crossorigin>`);
-        tags.push(`  <link rel="dns-prefetch" href="${origin}">`);
-      }
-
-      if (tags.length === 0) {
-        console.log("[preconnect] All preconnect hints already present — skipping.");
-        return;
-      }
-
-      // Inject as the very first children of <head> so the browser sees them
-      // before any other resource hints or scripts.
-      const patched = html.replace("<head>", `<head>\n${tags.join("\n")}`);
-      if (patched === html) {
-        console.warn("[preconnect] Could not find <head> tag — skipping preconnect injection.");
-        return;
-      }
-
-      fs.writeFileSync(htmlPath, patched, "utf8");
-      console.log(
-        `[preconnect] Injected ${tags.length / 2} preconnect+dns-prefetch hint(s) for: ${PRECONNECT_ORIGINS.join(", ")}`,
-      );
-    },
-  };
-}
 
 /**
  * Convert every hashed CSS asset link in the built index.html from a
@@ -444,7 +392,6 @@ export default defineConfig(async ({ command }) => {
       runtimeErrorOverlay(),
       seoInjectPlugin(basePath),
       logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
-      preconnectPlugin(path.resolve(import.meta.dirname, "dist/public")),
       lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       ...(process.env.NODE_ENV !== "production" &&
