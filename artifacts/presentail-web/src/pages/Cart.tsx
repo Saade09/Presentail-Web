@@ -393,7 +393,7 @@ export default function Cart() {
                 className="mb-6"
               />
             )}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 mb-6">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
             {items.map((item, index) => (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -614,7 +614,7 @@ export default function Cart() {
           {/* Cart Items – card message + upsells */}
           <div className="min-w-0 lg:col-start-1 lg:row-start-2">
             {/* Card Message Panel */}
-            <div className="pt-2 pb-6">
+            <div className="pb-6">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
                 <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
                   {t("checkout.cardMessageSection")}
