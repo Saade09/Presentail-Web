@@ -78,6 +78,7 @@ type WcProduct = {
   brandNames?: string[];
   hasInputField?: boolean;
   hasLetterField?: boolean;
+  personalisationRequired?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
 };
@@ -192,6 +193,7 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     brandNames: p.brands.map((b) => decodeHtmlEntities(b.name)),
     hasInputField: p.hasInputField ?? false,
     hasLetterField: p.hasLetterField ?? LETTER_INPUT_PRODUCT_NAMES.includes(p.name.toLowerCase().trim()),
+    personalisationRequired: p.personalisationRequired ?? false,
     discountPriceValue,
     discountPriceAed: parseDiscountField(p.discount_price_aed),
   };
@@ -383,6 +385,7 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
     popularity: typeof p.total_sales === "number" ? p.total_sales : 0,
     hasInputField: p.hasInputField ?? false,
     hasLetterField: p.hasLetterField ?? false,
+    personalisationRequired: p.personalisationRequired ?? false,
     discountPriceValue: p.discountPriceValue ?? null,
     discountPriceAed: p.discountPriceAed ?? null,
   };

@@ -463,6 +463,12 @@ export const GetFrequentlyBoughtTogetherResponse = zod
               .number()
               .nullish()
               .describe("Discounted price in AED, or null if no discount."),
+            personalisationRequired: zod
+              .boolean()
+              .nullish()
+              .describe(
+                "When true, the personalisation note input is mandatory — the shopper must fill it before adding to cart (e.g. letter boxes, engraved items, printing products). Defaults to false (optional) when not yet classified by AI inference.\n",
+              ),
           })
           .describe(
             "A product returned in the frequently bought together list.",

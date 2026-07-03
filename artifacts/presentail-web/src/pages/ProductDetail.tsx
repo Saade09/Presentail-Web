@@ -415,7 +415,9 @@ export default function ProductDetail() {
             {product.hasInputField && (
               <div className="space-y-3">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 block">
-                  {t("product.customNote.label")}
+                  {product.personalisationRequired
+                    ? t("product.customNote.labelRequired")
+                    : t("product.customNote.label")}
                 </label>
                 <div className="relative">
                   <Input
@@ -432,6 +434,11 @@ export default function ProductDetail() {
                     {t("product.customNote.counter").replace("{count}", String(customNote.length))}
                   </span>
                 </div>
+                {product.personalisationRequired && customNote.trim().length === 0 && (
+                  <p className="text-xs text-destructive" data-testid="personalisation-required-error">
+                    {t("product.customNote.labelRequired")}
+                  </p>
+                )}
               </div>
             )}
 
@@ -464,7 +471,7 @@ export default function ProductDetail() {
                 size="lg"
                 className="flex-1 h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
                 onClick={handleAdd}
-                disabled={!vm.inStock}
+                disabled={!vm.inStock || (product.personalisationRequired && customNote.trim().length === 0)}
                 data-testid="button-add-to-cart"
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
@@ -514,7 +521,7 @@ export default function ProductDetail() {
           size="lg"
           className="w-full h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
           onClick={handleAdd}
-          disabled={!vm.inStock}
+          disabled={!vm.inStock || (product.personalisationRequired && customNote.trim().length === 0)}
           data-testid="button-add-to-cart-sticky"
         >
           <ShoppingCart className="w-5 h-5 mr-2" />

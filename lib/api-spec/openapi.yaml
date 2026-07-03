@@ -3746,6 +3746,14 @@ components:
           type: number
           nullable: true
           description: Discounted price in AED, or null if no discount.
+        personalisationRequired:
+          type: boolean
+          nullable: true
+          description: >
+            When true, the personalisation note input is mandatory — the shopper
+            must fill it before adding to cart (e.g. letter boxes, engraved
+            items, printing products). Defaults to false (optional) when not yet
+            classified by AI inference.
       required: [slug, id, name, price, category, inStock, images]
     FrequentlyBoughtTogetherResponse:
       type: object

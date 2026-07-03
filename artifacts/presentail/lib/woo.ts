@@ -17,6 +17,7 @@ export type WooProduct = {
   popularity?: number;
   hasInputField?: boolean;
   hasLetterField?: boolean;
+  personalisationRequired?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
 };

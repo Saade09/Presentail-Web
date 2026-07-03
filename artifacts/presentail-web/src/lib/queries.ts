@@ -58,6 +58,7 @@ export type Product = {
   popularity?: number;
   hasInputField?: boolean;
   hasLetterField?: boolean;
+  personalisationRequired?: boolean;
 };
 
 export type CategoryProductsResponse = { ok: boolean; products: Product[]; count: number; categoryName?: string };

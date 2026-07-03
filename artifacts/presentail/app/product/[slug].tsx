@@ -428,6 +428,7 @@ function ProductDetail() {
         }}
       >
         <Pressable
+          disabled={product.personalisationRequired && customNote.trim().length === 0}
           onPress={() => {
             add(product.id, 1, customNote || undefined);
             if (cc) {
@@ -450,7 +451,7 @@ function ProductDetail() {
               alignItems: "center",
               justifyContent: "center",
               gap: 10,
-              opacity: pressed ? 0.9 : 1,
+              opacity: (product.personalisationRequired && customNote.trim().length === 0) ? 0.4 : pressed ? 0.9 : 1,
             },
           ]}
         >
@@ -715,7 +716,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       {product.hasInputField && (
         <View style={{ marginTop: 16, paddingHorizontal: 0 }}>
           <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 14 }}>
-            {t.customNoteLabel}
+            {product.personalisationRequired ? t.customNoteRequiredLabel : t.customNoteLabel}
           </AppText>
           <View style={{ position: "relative" }}>
             <TextInput

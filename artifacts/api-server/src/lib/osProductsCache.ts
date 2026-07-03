@@ -41,6 +41,7 @@ import type {
 } from "@workspace/presentail-os";
 import { db, osPriceSnapshotsTable, osPriceAlertsTable } from "@workspace/db";
 import { gt, lt, sql } from "drizzle-orm";
+import { inferPersonalisationRequirements } from "./personalisationRequirementInference";
 import type { StoreKey } from "./wooStore";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
@@ -1036,6 +1037,60 @@ async function fetchAndStore(): Promise<void> {
       cachedBrands = cachedBrands.filter(
         (b) => (cachedBrandProductCounts.get(b.slug) ?? 0) > 0,
       );
+    }
+
+    // ── Personalisation requirement inference ─────────────────────────────
+    // Collect unique products with hasInputField=true across all stores,
+    // run inference (DB cache + optional LLM), then annotate each in-memory
+    // product with personalisationRequired so it flows through to clients.
+    {
+      const seenNumericIds = new Set<string>();
+      const toInfer: { osNumericId: string; name: string; description?: string; categories?: string[]; hasLetterField?: boolean }[] = [];
+      const productsByNumericId = new Map<string, OSProduct[]>();
+
+      for (const spec of OS_STORE_SPECS) {
+        const entry = storeCache.get(spec.storeKey);
+        if (!entry) continue;
+        for (const p of entry.products) {
+          if (!p.hasInputField) continue;
+          const numericId = String(p.osNumericId ?? p.id);
+          const list = productsByNumericId.get(numericId);
+          if (list) {
+            list.push(p);
+          } else {
+            productsByNumericId.set(numericId, [p]);
+          }
+          if (!seenNumericIds.has(numericId)) {
+            seenNumericIds.add(numericId);
+            toInfer.push({
+              osNumericId: numericId,
+              name: p.name,
+              description: p.description,
+              categories: (p.categories ?? []).map((c) => c.name),
+              hasLetterField: p.hasLetterField ?? false,
+            });
+          }
+        }
+      }
+
+      if (toInfer.length > 0) {
+        try {
+          const requirementMap = await inferPersonalisationRequirements(toInfer);
+          for (const [numericId, required] of Object.entries(requirementMap)) {
+            const products = productsByNumericId.get(numericId);
+            if (products) {
+              for (const p of products) {
+                p.personalisationRequired = required;
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn(
+            { err: err instanceof Error ? err.message : String(err) },
+            "osProductsCache: personalisation requirement inference failed",
+          );
+        }
+      }
     }
 
     // ── IndexNow: ping for new taxonomy and product slugs ─────────────────

@@ -204,6 +204,13 @@ export type OSProduct = {
    * product at checkout (e.g. letter boxes).
    */
   hasLetterField?: boolean;
+  /**
+   * When true, the personalisation input is mandatory — the shopper must
+   * fill it before adding to cart. Set by AI inference in the OS products
+   * cache (e.g. letter boxes, engraved items, printing products).
+   * Defaults to false (optional) when not yet classified.
+   */
+  personalisationRequired?: boolean;
 };
 
 export type OSProductsResponse = {
