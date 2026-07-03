@@ -62,6 +62,9 @@ type WcProductCategory = {
 type WcProduct = {
   id: number;
   slug: string;
+  /** Raw OS numeric DB primary key. Passed through so the web app can call the
+   *  single-product pricing proxy without a VITE_OS_API_KEY in the browser. */
+  osNumericId?: number | string;
   name?: string;
   price?: string;
   short_description?: string;
@@ -168,6 +171,7 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     id: p.wcId ?? 0,
     // p.id is the slug (normalised by fetchOsProducts in lib/presentail-os).
     slug: p.id,
+    osNumericId: p.osNumericId,
     name: decodeHtmlEntities(p.name),
     price: String(basePrice),
     short_description: p.description,
@@ -349,6 +353,7 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
     : `${currencySymbol}${price.toLocaleString()}`;
   return {
     id: p.slug,
+    osNumericId: p.osNumericId,
     wcId: p.id,
     name: p.name ? decodeHtmlEntities(p.name) : "",
     price: formattedPrice,
@@ -608,6 +613,91 @@ router.get("/woo/product", (req, res) => {
     ok: true,
     product: transformProduct(wcProduct, store.currencySymbol),
   });
+});
+
+// GET /api/woo/product-pricing/:osId
+//
+// Server-side proxy for the OS single-product pricing endpoint.
+// The browser cannot call OS directly when VITE_OS_API_KEY is absent
+// (no browser-side API key), so the web app routes through here instead.
+// Returns only the pricing fields needed for the slash-price display:
+//   { ok, regularPriceUsd, discountPriceUsd, discountPriceAed }
+// regularPriceUsd is non-null only when the modern regular_price/sale_price
+// scheme is active (i.e. the product has an OS-configured sale with a
+// crossed-out "was" price).
+router.get("/woo/product-pricing/:osId", async (req, res) => {
+  const { osId } = req.params;
+  if (!osId || !/^\d+$/.test(osId)) {
+    return res.status(400).json({ ok: false, message: "Invalid osId" }); // i18n-ignore
+  }
+
+  const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
+  const baseUrl = process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com";
+  const workspace = process.env.PRESENTAIL_OS_WORKSPACE ?? "presentail";
+
+  if (!apiKey) {
+    return res.status(503).json({ ok: false, message: "OS API key not configured" }); // i18n-ignore
+  }
+
+  try {
+    const url = new URL(`${baseUrl}/api/products/${osId}`);
+    url.searchParams.set("workspace", workspace);
+    url.searchParams.set("apiKey", apiKey);
+
+    const osRes = await fetch(url.toString(), {
+      headers: { Accept: "application/json", "x-api-key": apiKey },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!osRes.ok) {
+      return res.status(osRes.status).json({ ok: false, message: `OS returned ${osRes.status}` }); // i18n-ignore
+    }
+
+    const body = (await osRes.json()) as {
+      product?: {
+        price?: string | number | null;
+        discount_price_usd?: string | number | null;
+        discount_price_aed?: string | number | null;
+        regular_price?: string | number | null;
+        sale_price?: string | number | null;
+      };
+    };
+
+    function parseP(v: unknown): number | null {
+      if (v == null || v === "" || v === "0" || v === 0) return null;
+      const n = parseFloat(String(v));
+      return isFinite(n) && n > 0 ? n : null;
+    }
+
+    const p = body.product ?? {};
+    const regularPriceRaw = parseP(p.regular_price);
+    const salePriceRaw = parseP(p.sale_price);
+    const priceRaw = parseP(p.price);
+
+    let regularPriceUsd: number | null = null;
+    let discountPriceUsd: number | null = null;
+
+    if (regularPriceRaw != null && regularPriceRaw > 0) {
+      regularPriceUsd = regularPriceRaw;
+      if (salePriceRaw != null && salePriceRaw > 0 && salePriceRaw < regularPriceRaw) {
+        discountPriceUsd = salePriceRaw;
+      } else if (priceRaw != null && priceRaw > 0 && priceRaw < regularPriceRaw) {
+        discountPriceUsd = priceRaw;
+      }
+    } else {
+      discountPriceUsd = parseP(p.discount_price_usd);
+    }
+
+    return res.json({
+      ok: true,
+      regularPriceUsd,
+      discountPriceUsd,
+      discountPriceAed: parseP(p.discount_price_aed),
+    });
+  } catch (err) {
+    req.log.warn({ err }, "product-pricing proxy: OS fetch failed"); // i18n-ignore
+    return res.status(502).json({ ok: false, message: "OS fetch failed" }); // i18n-ignore
+  }
 });
 
 // GET /api/woo/brand?slug=...

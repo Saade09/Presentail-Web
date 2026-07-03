@@ -113,13 +113,19 @@ function parseOsPrice(v: unknown): number | null {
 
 /**
  * Fetch discount pricing for a single OS product by its numeric DB ID.
- * The list endpoint may omit discount_price_usd/aed; this single-product call
- * fills in those fields so the product detail page can show the slash price.
+ * The list endpoint omits regular_price / sale_price; this call fills them in
+ * so the product detail page can show the slash price.
+ *
+ * Two paths:
+ *  - When VITE_OS_API_KEY is set: calls OS directly (fastest).
+ *  - When it is absent: routes through the API server proxy at
+ *    /api/woo/product-pricing/:osId which uses the server-side key.
  *
  * Handles both pricing schemes:
  *  - Legacy: discount_price_usd / discount_price_aed  (explicit discount field)
- *  - Modern: regular_price + sale_price pair (OS-native; sale_price or price < regular_price
- *    is treated as the active (discounted) price; regular_price becomes the crossed-out price)
+ *  - Modern: regular_price + sale_price pair (OS-native; sale_price or price <
+ *    regular_price is treated as the active (discounted) price; regular_price
+ *    becomes the crossed-out price)
  *
  * Returns regularPriceUsd when the modern scheme is active so callers can
  * override product.priceValue (the base/crossed-out price).
@@ -132,6 +138,24 @@ export async function fetchOsProductPricing(
   /** Non-null only when the modern regular_price/sale_price scheme is active. */
   regularPriceUsd: number | null;
 }> {
+  // When there is no browser-side OS API key, call the API server proxy instead
+  // of hitting OS directly (which would fail with 401).
+  if (!OS_API_KEY) {
+    const res = await fetch(`/api/woo/product-pricing/${encodeURIComponent(String(osId))}`);
+    if (!res.ok) throw new Error(`product-pricing proxy returned HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      ok: boolean;
+      regularPriceUsd?: number | null;
+      discountPriceUsd?: number | null;
+      discountPriceAed?: number | null;
+    };
+    return {
+      regularPriceUsd: data.regularPriceUsd ?? null,
+      discountPriceUsd: data.discountPriceUsd ?? null,
+      discountPriceAed: data.discountPriceAed ?? null,
+    };
+  }
+
   const res = await fetch(osUrl(`/api/products/${osId}`), { headers: osHeaders() });
   if (!res.ok) throw new Error(`OS product detail returned HTTP ${res.status}`);
   const body = (await res.json()) as OsProductDetail;
