@@ -11,7 +11,17 @@ export type UpsellTabId =
 
 export type UpsellTabDef = {
   id: UpsellTabId;
-  productNames: string[];
+  /**
+   * Hardcoded product names to include in this tab. Matched
+   * case-insensitively with whitespace normalised.
+   */
+  productNames?: string[];
+  /**
+   * Optional catalog category slug. All products whose `category` matches
+   * this value are included in the tab. Results are merged with any
+   * `productNames` matches and deduplicated by product id.
+   */
+  categoryId?: string;
   /**
    * Optional list of product names within this tab that do NOT support
    * express delivery (e.g. items that need lead time to prepare). Names
@@ -68,10 +78,7 @@ export const UPSELL_TABS: UpsellTabDef[] = [
   },
   {
     id: "chocolate",
-    productNames: [
-      "Carré Mix Sablés + Chocolate Box",
-      "Sweet Love",
-    ],
+    categoryId: "chocolate",
   },
   {
     id: "plants",
@@ -129,7 +136,8 @@ export function resolveUpsellTabs(
     );
     const seen = new Set<string>();
     const products: ResolvedUpsellProduct[] = [];
-    for (const name of tab.productNames) {
+
+    for (const name of tab.productNames ?? []) {
       const key = normalizeName(name);
       const found = byName.get(key);
       if (!found) continue;
@@ -137,6 +145,17 @@ export function resolveUpsellTabs(
       seen.add(found.id);
       products.push({ ...found, supportsExpress: !noExpress.has(key) });
     }
+
+    if (tab.categoryId) {
+      for (const p of catalog) {
+        if (!p?.id) continue;
+        if (p.category !== tab.categoryId) continue;
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        products.push({ ...p, supportsExpress: true });
+      }
+    }
+
     if (products.length > 0) result.push({ id: tab.id, products });
   }
   return result;
