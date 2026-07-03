@@ -333,6 +333,7 @@ function RootLayoutNav() {
       <Stack.Screen name="personal-information" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="saved-addresses/index" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="saved-addresses/[id]" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="cart-added" options={{ presentation: "card", animation: "slide_from_bottom", headerShown: false }} />
     </Stack>
     <CartNavigationHandler />
     </>

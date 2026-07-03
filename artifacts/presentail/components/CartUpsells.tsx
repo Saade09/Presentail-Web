@@ -135,7 +135,7 @@ export function CartUpsells() {
 
   const handleAdd = React.useCallback(
     (productId: string, productName: string) => {
-      add(productId, 1);
+      add(productId, 1, undefined, { suppressNavigation: true });
       trackEvent({
         name: "upsell_item_added",
         surface: "upsell_cart",

@@ -22,7 +22,7 @@ export type CartContextValue = {
   items: CartItem[];
   count: number;
   total: number;
-  add: (productId: string, qty?: number, customNote?: string) => void;
+  add: (productId: string, qty?: number, customNote?: string, options?: { suppressNavigation?: boolean }) => void;
   remove: (productId: string) => void;
   setQty: (productId: string, qty: number) => void;
   setCustomNote: (productId: string, note: string) => void;
@@ -239,13 +239,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const clearPendingNavigation = useCallback(() => setPendingNavigation(null), []);
 
-  const add = useCallback((productId: string, qty = 1, customNote?: string) => {
+  const add = useCallback((productId: string, qty = 1, customNote?: string, options?: { suppressNavigation?: boolean }) => {
     if (!hydrated.current) {
       pending.current.push({ type: "add", productId, qty, customNote });
     } else {
       setItems((prev) => applyMutation(prev, { type: "add", productId, qty, customNote }));
     }
-    setIsCartOpen(true);
+    if (!options?.suppressNavigation) {
+      // Use the same pendingNavigation mechanism as CartDrawer so navigation
+      // is handled inside the Stack navigator (CartNavigationHandler), keeping
+      // router out of this context entirely and preserving testability.
+      setPendingNavigation("/cart-added");
+    }
   }, []);
 
   const setCustomNote = useCallback((productId: string, note: string) => {
