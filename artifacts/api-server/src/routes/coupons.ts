@@ -1,19 +1,19 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { db, couponsTable, couponRedemptionsTable } from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
 import { validateCoupon, redeemCoupon, type CartItemForCoupon } from "../lib/couponValidation";
 
 const router = Router();
 
-function requireAdmin(req: Request, res: Response): boolean {
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const expected = process.env.PUSH_ADMIN_TOKEN;
   const provided =
     req.header("x-push-admin-token") ?? req.header("x-admin-token");
   if (!expected || !provided || provided !== expected) {
     res.status(401).json({ ok: false, message: "Unauthorized" }); // i18n-ignore
-    return false;
+    return;
   }
-  return true;
+  next();
 }
 
 // ── Public: validate a coupon code ──────────────────────────────────────────
@@ -70,7 +70,7 @@ type RedeemBody = {
   discountAmountUsd: number;
 };
 
-router.post("/coupons/redeem", async (req, res) => {
+router.post("/coupons/redeem", requireAdmin, async (req, res) => {
   const body = req.body as RedeemBody;
   const code = (body.code ?? "").trim();
   const customerEmail = (body.customerEmail ?? "").trim();
