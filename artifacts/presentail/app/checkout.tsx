@@ -3218,6 +3218,8 @@ function SecurityNote({ colors }: { colors: any }) {
 function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef, walletSupported, isAuthenticated, saveCard, setSaveCard, savedPaymentMethods, selectedSavedCardId, setSelectedSavedCardId, onRemoveSavedCard }: any) {
   const { currencyCode } = useCurrency();
   const t = useT();
+  const { isRTL } = useLanguage();
+  const [noteOpen, setNoteOpen] = useState(false);
   const cardErrorViewRef = useRef<View>(null);
   const cardFieldRef = useRef<CardFieldInput.Methods>(null);
 
@@ -3258,9 +3260,57 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
 
   return (
     <View testID="payment-options" style={{ gap: 18 }}>
-      <Card colors={colors} title={t.noteForTeamTitle}>
-        <Field colors={colors} label={t.orderNotesLabel} value={orderNotes} onChangeText={setOrderNotes} placeholder={t.anySpecialRequests} multiline />
-      </Card>
+      {/* Collapsible "Leave a note for the team" section */}
+      <View
+        style={{
+          backgroundColor: "#fff",
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: colors.border,
+          overflow: "hidden",
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => setNoteOpen((v) => !v)}
+          activeOpacity={0.7}
+          style={{
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 18,
+            paddingVertical: 16,
+          }}
+        >
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 15, color: colors.primary, flex: 1 }}>
+            {t.leaveANoteForTeam}
+          </AppText>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+            {!noteOpen && orderNotes.trim().length > 0 ? (
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} />
+            ) : null}
+            <Feather name={noteOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+          </View>
+        </TouchableOpacity>
+        {noteOpen ? (
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 18, gap: 14 }}>
+            <Field colors={colors} label={t.orderNotesLabel} value={orderNotes} onChangeText={setOrderNotes} placeholder={t.anySpecialRequests} multiline />
+            <TouchableOpacity
+              onPress={() => setNoteOpen(false)}
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 10,
+                paddingVertical: 12,
+                alignItems: "center",
+              }}
+            >
+              <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" }}>
+                {t.accountOccasionsSave}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
 
       <Card colors={colors} title={t.waysToPayTitle}>
         <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: -4 }}>
