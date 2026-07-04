@@ -24,8 +24,6 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { buildCategorySeo, buildOccasionSeo } from "@/lib/seo";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
-import { ShimmerImage } from "@/components/ShimmerImage";
-import { buildOccasionHeroSrcset, buildCategoryHeroSrcset, OCCASION_HERO_SIZES } from "@/lib/imageUtils";
 
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { roundToNearestFive } from "@workspace/display-currency";
@@ -423,23 +421,6 @@ export default function Shop() {
   const categoryLabelKey = CATEGORIES.find((c) => c.slug === category)?.labelKey;
   const occasionLabelKey = OCCASIONS.find((o) => o.slug === occasion)?.labelKey;
 
-  // Hero image URL for the occasion/category banner — null until catalogMetadata resolves.
-  const heroImgUrl: string | null = useMemo(() => {
-    if (isOccasionRoute && catalogOccasion?.image) {
-      return catalogOccasion.image.uri ?? catalogOccasion.image.asset ?? null;
-    }
-    if (isCategoryRoute && catalogCategory?.image) {
-      return catalogCategory.image.uri ?? catalogCategory.image.asset ?? null;
-    }
-    return null;
-  }, [isOccasionRoute, isCategoryRoute, catalogOccasion, catalogCategory]);
-
-  const heroSrcsetData = useMemo(() => {
-    if (!heroImgUrl) return null;
-    return isOccasionRoute
-      ? buildOccasionHeroSrcset(heroImgUrl)
-      : buildCategoryHeroSrcset(heroImgUrl);
-  }, [heroImgUrl, isOccasionRoute]);
 
   const entityName = category
     ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) || catalogCategory?.name || ""
@@ -543,29 +524,6 @@ export default function Shop() {
         </div>
       ) : null}
 
-      {/* Hero banner — container always rendered on occasion/category routes so layout height is
-          reserved on first paint (prevents CLS). The ShimmerImage only mounts once heroImgUrl
-          is available; when the catalog has no image the bg-secondary/30 div acts as a placeholder. */}
-      {(isOccasionRoute || isCategoryRoute) && (
-        <div className="container mx-auto max-w-content px-page pt-4">
-          <div className={`relative rounded-2xl overflow-hidden h-40 md:h-52 bg-secondary/30${!heroImgUrl ? " animate-shimmer" : ""}`}>
-            {heroImgUrl && (
-              <>
-                <ShimmerImage
-                  src={heroSrcsetData?.src ?? heroImgUrl}
-                  alt=""
-                  containerClassName="absolute inset-0"
-                  className="object-cover object-center"
-                  srcset={heroSrcsetData?.srcset}
-                  sizes={heroSrcsetData?.sizes ?? OCCASION_HERO_SIZES}
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/10 to-transparent" />
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className={`container mx-auto max-w-content px-page${(breadcrumbCrumbs.length > 0 || isOccasionRoute || isCategoryRoute) ? " pt-4" : ""}`}>
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
