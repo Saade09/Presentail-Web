@@ -112,7 +112,7 @@ describe("ProductCard — image alt text (WCAG 1.1.1)", () => {
       ...osStorageProduct,
       id: "mystery-box",
       name: "Mystery Box",
-      image: undefined,
+      image: null,
     };
     const { container } = render(
       <ProductCard product={noImageProduct} index={0} />,
