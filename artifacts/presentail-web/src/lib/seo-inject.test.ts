@@ -4708,6 +4708,65 @@ describe("JSON-LD — WebPage / ContactPage on static pages", () => {
   });
 });
 
+describe("JSON-LD — FAQPage on /brands listing page", () => {
+  it("emits a FAQPage with 3 EN Question/Answer pairs with city substituted", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/brands", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(Array.isArray(faq.mainEntity)).toBe(true);
+    expect(faq.mainEntity).toHaveLength(3);
+    const first = faq.mainEntity[0];
+    expect(first["@type"]).toBe("Question");
+    expect(first.name).toBe("Which gift brands deliver in Dubai?");
+    expect(first.acceptedAnswer["@type"]).toBe("Answer");
+    expect(first.acceptedAnswer.text).toContain("Dubai");
+    const third = faq.mainEntity[2];
+    expect(third.name).toBe("Do all brands offer same-day delivery in Dubai?");
+    expect(third.acceptedAnswer.text).toContain("Dubai");
+  });
+
+  it("emits a FAQPage in Arabic for an ar-locale /brands page", () => {
+    const { headSnippet } = buildSeoHead("/ar-ae/dubai/brands", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(3);
+    expect(faq.mainEntity[0].name).toContain("دبي");
+  });
+
+  it("emits a FAQPage in French for a fr-locale /brands page", () => {
+    const { headSnippet } = buildSeoHead("/fr-ae/dubai/brands", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(3);
+    expect(faq.mainEntity[0].name).toContain("Dubaï");
+    expect(faq.mainEntity[0].name).toContain("livrent");
+  });
+
+  it("does not emit a FAQPage on /brands?category=<slug> filter pages (those use buildBrandsFilterHead)", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, category: { name: "Tulips", image: null } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/brands", {
+      ...OPTS,
+      search: "?category=tulips",
+    });
+    const blocks = extractJsonLd(out);
+    const faq = byType(blocks, "FAQPage");
+    expect(faq).toBeUndefined();
+  });
+});
+
 describe("JSON-LD — FAQPage on /faqs", () => {
   it("emits a FAQPage with Question/Answer pairs", () => {
     const { headSnippet } = buildSeoHead("/en-ae/dubai/faqs", {

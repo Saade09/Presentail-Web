@@ -1,9 +1,10 @@
-// Server-side FAQ copy for category, occasion, and brand shop pages.
+// Server-side FAQ copy for category, occasion, brand, and brands-listing shop pages.
 // These strings mirror the translation keys in src/locales/shop.ts:
 //   seo.content.cat.faq.{1,2,3}.{q,a}
 //   seo.content.occ.faq.{1,2,3}.{q,a}
 //   seo.content.brand.faq.{1,2,3}.{q,a}
-// They use {name} and {city} as template placeholders — fill them with
+//   seo.content.brands.faq.{1,2,3}.{q,a}
+// They use {name} and/or {city} as template placeholders — fill them with
 // formatTemplate() from src/lib/seo.mjs before emitting JSON-LD.
 //
 // KEEP IN SYNC with src/locales/shop.ts. When copy in shop.ts changes,
@@ -102,6 +103,52 @@ export const BRAND_FAQ_COPY = /** @type {FaqCopy} */ ({
     {
       q: "Puis-je inclure un message personnalisé avec ma commande {name} ?",
       a: "Absolument. Lors du paiement, vous pouvez ajouter une carte personnalisée avec un message sur mesure. Vous pouvez également ajouter des chocolats, ballons, bougies parfumées et d'autres extras pour compléter votre cadeau {name}.",
+    },
+  ],
+});
+
+/** FAQ copy for the /brands listing page. Uses {city} only (no {name}). */
+export const BRANDS_FAQ_COPY = /** @type {FaqCopy} */ ({
+  en: [
+    {
+      q: "Which gift brands deliver in {city}?",
+      a: "Presentail works with a curated selection of premium brands in {city}, including florists, chocolatiers, cake studios and lifestyle gift brands. The full list is shown above and is updated regularly as we onboard new partners.",
+    },
+    {
+      q: "Can I order from multiple brands in one delivery?",
+      a: "Yes — you can add items from different brands to a single cart and check out in one transaction. Presentail coordinates delivery so everything arrives together.",
+    },
+    {
+      q: "Do all brands offer same-day delivery in {city}?",
+      a: "Most of our brand partners offer same-day delivery in {city} when you order before midday. Delivery availability by brand and time slot is shown at checkout.",
+    },
+  ],
+  ar: [
+    {
+      q: "ما علامات الهدايا التي توصّل في {city}؟",
+      a: "تتعاون Presentail مع تشكيلة مختارة من العلامات الراقية في {city}، تشمل محلات الزهور وصنّاع الشوكولاتة واستوديوهات الكيك وعلامات هدايا الأسلوب الحياتي. القائمة الكاملة تظهر أعلاه وتُحدَّث باستمرار مع انضمام شركاء جدد.",
+    },
+    {
+      q: "هل يمكنني الطلب من علامات متعددة في توصيلة واحدة؟",
+      a: "نعم — يمكنك إضافة منتجات من علامات مختلفة إلى سلة واحدة والدفع في معاملة واحدة. تنسّق Presentail التوصيل لتصل جميع الطلبات معاً.",
+    },
+    {
+      q: "هل تقدم جميع العلامات توصيلاً في اليوم نفسه في {city}؟",
+      a: "معظم شركائنا من العلامات يقدمون التوصيل في اليوم نفسه في {city} عند الطلب قبل الظهيرة. يتم عرض توفر التوصيل حسب العلامة والفترة الزمنية عند الدفع.",
+    },
+  ],
+  fr: [
+    {
+      q: "Quelles marques cadeaux livrent à {city} ?",
+      a: "Presentail collabore avec une sélection de marques premium à {city}, notamment des fleuristes, chocolatiers, ateliers de gâteaux et marques cadeaux lifestyle. La liste complète est affichée ci-dessus et mise à jour régulièrement au fil des nouveaux partenariats.",
+    },
+    {
+      q: "Puis-je commander auprès de plusieurs marques en une seule livraison ?",
+      a: "Oui — vous pouvez ajouter des articles de différentes marques à un seul panier et passer commande en une seule transaction. Presentail coordonne la livraison pour que tout arrive ensemble.",
+    },
+    {
+      q: "Toutes les marques proposent-elles la livraison le jour même à {city} ?",
+      a: "La plupart de nos marques partenaires proposent la livraison le jour même à {city} pour toute commande passée avant midi. La disponibilité de livraison par marque et créneau horaire est indiquée lors du paiement.",
     },
   ],
 });

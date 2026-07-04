@@ -86,7 +86,7 @@ import {
   formatTemplate,
 } from "./src/lib/seo.mjs";
 
-import { BRAND_FAQ_COPY, CATEGORY_FAQ_COPY, OCCASION_FAQ_COPY } from "./src/lib/seo-shop-faqs.mjs";
+import { BRAND_FAQ_COPY, BRANDS_FAQ_COPY, CATEGORY_FAQ_COPY, OCCASION_FAQ_COPY } from "./src/lib/seo-shop-faqs.mjs";
 
 
 // Localised SEO strings for shared wishlist pages.
@@ -485,6 +485,34 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
         description,
       }),
     );
+  }
+
+  // FAQPage JSON-LD: emit structured Q&A markup for the /brands listing page so
+  // search engines can show expandable FAQ rich results. Mirrors the pattern used
+  // for individual brand/category/occasion pages. Uses {city} substitution only
+  // (no {name} — the brands listing is not scoped to a single entity).
+  if (emitJsonLd && routeKey === "brands") {
+    const pickLangFaq = (/** @type {string} */ l) => {
+      if (l === "ar" || l === "fr") return l;
+      return "en";
+    };
+    const faqItems = BRANDS_FAQ_COPY[pickLangFaq(lang)] ?? BRANDS_FAQ_COPY.en;
+    const params = { city: cityLabel || "" };
+    const mainEntity = faqItems.map(({ q, a }) => ({
+      "@type": "Question",
+      name: formatTemplate(q, params),
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: formatTemplate(a, params),
+      },
+    }));
+    if (mainEntity.length > 0) {
+      jsonLdNodes.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity,
+      });
+    }
   }
 
   // FAQPage JSON-LD: emit structured Q&A markup for the /faqs route so search
