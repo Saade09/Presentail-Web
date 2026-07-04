@@ -2078,3 +2078,97 @@ test.describe("SEO content section — all-occasions listing page with occasions
     expect(count).toBeGreaterThanOrEqual(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 24. Brands listing page (/brands) — SEO heading updates when language is
+//     switched EN→FR mid-session (no hard page reload — Wouter client-side)
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — brands listing page FR language-switch regression guard", () => {
+  /**
+   * Regression guard (language-switcher UI path, FR branch): switching EN→FR
+   * via the LanguageSwitcher calls setLanguage() → navigate() via Wouter
+   * (history.pushState) — there is NO hard page reload. The URL changes from
+   * /en-lb/beirut/brands to /fr-lb/beirut/brands, and LocaleContext's
+   * `language` state updates to "fr". SEOContentSection must re-render the H2
+   * with the FR heading template ("Marques cadeaux disponibles à {city}")
+   * rather than the EN one ("Gift Brands Available in {city}").
+   *
+   * The FR code path through STRINGS_FR / tSeo() is a separate branch from
+   * the AR path; a regression there (e.g. a missing STRINGS_FR lookup for the
+   * brands key) would only be caught by a FR-specific test.
+   *
+   * Flow:
+   *   1. Land on /en-lb/beirut/brands → heading shows EN template
+   *      ("Gift Brands Available in Beirut").
+   *   2. Click the LanguageSwitcher trigger (first instance, in the nav).
+   *   3. Click the FR option (data-testid="button-lang-fr").
+   *   4. LocaleContext calls navigate("/fr-lb/beirut/brands") via Wouter —
+   *      client-side only, no hard reload.
+   *   5. Assert heading now contains "Marques cadeaux" (the FR-specific marker)
+   *      and no longer contains "Gift Brands Available" (the EN template marker).
+   */
+  test("SEO heading updates to FR template after switching language without a page reload", async ({ page }) => {
+    await stubCatalogMetadataWithBrands(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: load brands listing page in EN (Beirut) ─────────────────────
+    await page.goto("/en-lb/beirut/brands");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+
+    const initialText = (await heading.textContent()) ?? "";
+    // EN template: "Gift Brands Available in {city}"
+    expect(initialText).toContain("Gift Brands Available");
+    expect(initialText).toContain("Beirut");
+
+    // ── Step 2: open the language switcher ──────────────────────────────────
+    // There are two instances (TopUtilityBar + footer); pick the first (navbar) one.
+    const langSwitcher = page.getByTestId("language-switcher").first();
+    await expect(langSwitcher).toBeVisible({ timeout: 5_000 });
+    await langSwitcher.click();
+
+    // ── Step 3: select French ────────────────────────────────────────────────
+    // DropdownMenuItem portals to <body>; use page-level locator (not section).
+    const frButton = page.getByTestId("button-lang-fr");
+    await expect(frButton).toBeVisible({ timeout: 5_000 });
+
+    // Capture the current navigation count so we can verify Wouter navigated
+    // client-side (pushState) without triggering a hard reload.
+    const navCountBefore = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+
+    await frButton.click();
+
+    // ── Step 4: assert the URL updated to FR locale without a hard reload ────
+    // switchLanguage() changes /en-lb/… → /fr-lb/…; Wouter calls pushState.
+    await page.waitForURL(/\/fr-lb\/beirut\/brands/, { timeout: 10_000 });
+
+    const navCountAfter = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+    // Both will be 0 because __playwrightNavCount is only incremented on a
+    // hard navigation frame; equality proves no hard reload occurred.
+    expect(navCountAfter).toBe(navCountBefore);
+
+    // ── Step 5: assert SEO heading reflects the FR template ──────────────────
+    // FR template: "Marques cadeaux disponibles à {city}"
+    // "Marques cadeaux" is the FR-specific marker — absent from every EN template.
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+    // "Marques cadeaux" must appear (proves the FR brands template was rendered).
+    expect(updatedText).toContain("Marques cadeaux");
+    // The EN marker "Gift Brands Available" must be gone.
+    expect(updatedText).not.toContain("Gift Brands Available");
+  });
+});
+  });
+});
