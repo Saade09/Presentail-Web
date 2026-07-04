@@ -142,3 +142,115 @@ describe("SEOContentSection – RTL layout (Arabic)", () => {
     expect(openPanel!.className).not.toContain("text-left");
   });
 });
+
+describe("SEOContentSection — brand page type", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the section with data-testid for brand pageType", () => {
+    renderWithProviders(
+      <SEOContentSection
+        {...SHARED_PROPS}
+        pageType="brand"
+        entityName="Hallab 1881"
+        entitySlug="hallab-1881"
+        availableOccasionIds={["birthday", "love-romance"]}
+      />,
+      { locale: EN_LOCALE },
+    );
+    expect(screen.getByTestId("seo-content-section")).toBeDefined();
+  });
+
+  it("heading contains the brand name and city for brand pageType", () => {
+    renderWithProviders(
+      <SEOContentSection
+        pageType="brand"
+        entityName="Hallab 1881"
+        entitySlug="hallab-1881"
+        cityLabel="Beirut"
+        lang="en"
+        countryCode="LB"
+        availableOccasionIds={["birthday"]}
+      />,
+      { locale: EN_LOCALE },
+    );
+    const section = screen.getByTestId("seo-content-section");
+    expect(section.textContent).toContain("Hallab 1881");
+    expect(section.textContent).toContain("Beirut");
+  });
+
+  it("renders brand-listing pageType without crashing", () => {
+    renderWithProviders(
+      <SEOContentSection
+        pageType="brand-listing"
+        entityName=""
+        entitySlug=""
+        cityLabel="Beirut"
+        lang="en"
+        countryCode="LB"
+      />,
+      { locale: EN_LOCALE },
+    );
+    expect(screen.getByTestId("seo-content-section")).toBeDefined();
+  });
+
+  it("FAQPage JSON-LD is injected into <head> for brand pageType", () => {
+    renderWithProviders(
+      <SEOContentSection
+        pageType="brand"
+        entityName="Hallab 1881"
+        entitySlug="hallab-1881"
+        cityLabel="Beirut"
+        lang="en"
+        countryCode="LB"
+        availableOccasionIds={["birthday"]}
+      />,
+      { locale: EN_LOCALE },
+    );
+    const script = document.head.querySelector(
+      'script[type="application/ld+json"][data-seo-faq-ld]',
+    );
+    expect(script).not.toBeNull();
+    const schema = JSON.parse(script!.textContent ?? "{}");
+    expect(schema["@type"]).toBe("FAQPage");
+    expect(Array.isArray(schema.mainEntity)).toBe(true);
+    expect(schema.mainEntity.length).toBeGreaterThan(0);
+  });
+
+  it("FAQ accordion opens on click for brand pageType", () => {
+    renderWithProviders(
+      <SEOContentSection
+        pageType="brand"
+        entityName="Test Brand"
+        entitySlug="test-brand"
+        cityLabel="Beirut"
+        lang="en"
+        countryCode="LB"
+        availableOccasionIds={[]}
+      />,
+      { locale: EN_LOCALE },
+    );
+    const [firstBtn] = Array.from(document.querySelectorAll("button[aria-expanded]"));
+    expect(firstBtn).toBeDefined();
+    expect(firstBtn.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(firstBtn);
+    expect(firstBtn.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("does not render when overrides.is_active is false (brand pageType)", () => {
+    renderWithProviders(
+      <SEOContentSection
+        pageType="brand"
+        entityName="Hidden Brand"
+        entitySlug="hidden-brand"
+        cityLabel="Beirut"
+        lang="en"
+        countryCode="LB"
+        overrides={{ is_active: false }}
+      />,
+      { locale: EN_LOCALE },
+    );
+    expect(screen.queryByTestId("seo-content-section")).toBeNull();
+  });
+});

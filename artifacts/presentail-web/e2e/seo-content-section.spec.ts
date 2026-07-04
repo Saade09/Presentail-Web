@@ -455,3 +455,118 @@ test.describe("SEO content section — FAQPage JSON-LD structured data", () => {
     expect(jsonLdContent).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 6. Brand detail page — section renders with products
+// ---------------------------------------------------------------------------
+
+const BRAND_SLUG = "e2e-test-brand";
+
+/** Stub /api/woo/brands so BrandDetail resolves the brand name deterministically. */
+async function stubWooBrands(page: Page): Promise<void> {
+  await page.route(/\/api\/woo\/brands(?!\-products)/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        brands: [{ id: BRAND_SLUG, name: "E2E Test Brand", slug: BRAND_SLUG, image: null }],
+      }),
+    }),
+  );
+}
+
+/** Stub the brand products endpoint used by BrandDetail. */
+async function stubBrandProducts(page: Page, products = [STUB_PRODUCT]): Promise<void> {
+  await page.route(/\/api\/woo\/brand-products/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, products }),
+    }),
+  );
+}
+
+test.describe("SEO content section — brand detail page with products", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubWooBrands(page);
+    await stubBrandProducts(page);
+    await seedLocation(page);
+    await page.goto(`/en-lb/beirut/brand/${BRAND_SLUG}`);
+  });
+
+  test("SEO section is visible on a brand page with products", async ({ page }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("H2 heading contains the brand name and city", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+    const text = (await heading.textContent()) ?? "";
+    // Brand name from /api/woo/brands stub: "E2E Test Brand"
+    // City from seedLocation delivery_location: cityId "lb-beirut" → label "Beirut"
+    // EN template: "{name} Delivery in {city}" → must contain both tokens.
+    expect(text).toContain("E2E Test Brand");
+    expect(text).toContain("Beirut");
+  });
+
+  test("renders exactly 4 benefit cards on brand page", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const cards = section.locator("div.grid > div.flex.flex-col");
+    await expect(cards).toHaveCount(4);
+  });
+
+  test("FAQ items are rendered on brand page", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test("FAQPage JSON-LD is injected into <head> on brand page", async ({ page }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const jsonLdContent = await page.evaluate(() => {
+      const script = document.head.querySelector(
+        'script[type="application/ld+json"][data-seo-faq-ld]',
+      );
+      return script?.textContent ?? null;
+    });
+
+    expect(jsonLdContent).not.toBeNull();
+    const schema = JSON.parse(jsonLdContent!);
+    expect(schema["@type"]).toBe("FAQPage");
+    expect(Array.isArray(schema.mainEntity)).toBe(true);
+    expect(schema.mainEntity.length).toBeGreaterThan(0);
+    expect(schema.mainEntity[0]["@type"]).toBe("Question");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. Brand detail page — section absent when no products
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — brand page section absent when no products", () => {
+  test("section does not render on a brand page with zero products", async ({ page }) => {
+    await stubWooBrands(page);
+    await stubBrandProducts(page, []);
+    await seedLocation(page);
+    await page.goto(`/en-lb/beirut/brand/${BRAND_SLUG}`);
+
+    // Wait for the empty-state element to confirm the page loaded fully.
+    await page.waitForSelector('[data-testid="empty-state-no-brand-products"]', {
+      timeout: 15_000,
+      state: "visible",
+    });
+
+    await expect(page.getByTestId("seo-content-section")).not.toBeVisible();
+  });
+});

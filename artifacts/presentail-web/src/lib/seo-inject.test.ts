@@ -5083,27 +5083,32 @@ describe("Client-side SEO builders — return shape (title, ogTitle, twitterTitl
     expect(seo.twitterTitle).toBe(seo.title);
   });
 
-  it("buildBrandSeo returns brand-specific title for EN (no city in template)", () => {
+  it("buildBrandSeo returns brand-specific title with city for EN", () => {
     const seo = buildBrandSeo({ lang: "en", brandName: "Acme Florals", city: "Beirut", country: "Lebanon" });
+    expect(seo.title).toBe("Acme Florals Delivery in Beirut | Presentail");
+    expect(seo.ogTitle).toBe("Acme Florals Delivery in Beirut | Presentail");
+    expect(seo.twitterTitle).toBe("Acme Florals Delivery in Beirut | Presentail");
+    expect(seo.description).toBe("Shop Acme Florals gifts online in Beirut. Send curated Acme Florals products with reliable delivery from Presentail.");
+  });
+
+  it("buildBrandSeo falls back to brand-name-only title when no city is provided", () => {
+    const seo = buildBrandSeo({ lang: "en", brandName: "Acme Florals", city: "", country: "Lebanon" });
     expect(seo.title).toBe("Acme Florals | Presentail");
-    expect(seo.ogTitle).toBe("Acme Florals | Presentail");
-    expect(seo.twitterTitle).toBe("Acme Florals | Presentail");
-    expect(typeof seo.description).toBe("string");
-    expect(seo.description.length).toBeGreaterThan(0);
+    expect(seo.description).toBe("Shop Acme Florals gifts online. Send curated Acme Florals products with reliable delivery from Presentail.");
   });
 
-  it("buildBrandSeo returns brand-specific title for AR", () => {
+  it("buildBrandSeo returns brand-specific title with city for AR", () => {
     const seo = buildBrandSeo({ lang: "ar", brandName: "علامة رائعة", city: "بيروت", country: "لبنان" });
-    expect(seo.title).toBe("علامة رائعة | Presentail");
-    expect(seo.ogTitle).toBe("علامة رائعة | Presentail");
-    expect(seo.twitterTitle).toBe("علامة رائعة | Presentail");
+    expect(seo.title).toBe("توصيل علامة رائعة في بيروت | Presentail");
+    expect(seo.ogTitle).toBe("توصيل علامة رائعة في بيروت | Presentail");
+    expect(seo.twitterTitle).toBe("توصيل علامة رائعة في بيروت | Presentail");
   });
 
-  it("buildBrandSeo returns brand-specific title for FR", () => {
+  it("buildBrandSeo returns brand-specific title with city for FR", () => {
     const seo = buildBrandSeo({ lang: "fr", brandName: "Marque Luxe", city: "Beyrouth", country: "Liban" });
-    expect(seo.title).toBe("Marque Luxe | Presentail");
-    expect(seo.ogTitle).toBe("Marque Luxe | Presentail");
-    expect(seo.twitterTitle).toBe("Marque Luxe | Presentail");
+    expect(seo.title).toBe("Livraison Marque Luxe à Beyrouth | Presentail");
+    expect(seo.ogTitle).toBe("Livraison Marque Luxe à Beyrouth | Presentail");
+    expect(seo.twitterTitle).toBe("Livraison Marque Luxe à Beyrouth | Presentail");
   });
 });
 

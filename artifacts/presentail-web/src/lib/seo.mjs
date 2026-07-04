@@ -454,6 +454,11 @@ export const ENTITY_DESCRIPTIONS = {
     ar: "أرسل زهور وكعك وبالونات وهدايا {name} في {city}. اطلب أونلاين مع Presentail لتوصيل سريع في نفس اليوم.",
     fr: "Envoyez fleurs, gâteaux, ballons et cadeaux {name} à {city}. Commandez en ligne avec Presentail pour une livraison express le jour même.",
   },
+  brand: {
+    en: "Shop {name} gifts online in {city}. Send curated {name} products with reliable delivery from Presentail.",
+    ar: "تسوّق هدايا {name} أونلاين في {city}. أرسل منتجات {name} المنتقاة مع توصيل موثوق من Presentail.",
+    fr: "Achetez les cadeaux {name} en ligne à {city}. Envoyez des produits {name} sélectionnés avec une livraison fiable de Presentail.",
+  },
 };
 
 // No-city fallback descriptions.
@@ -472,6 +477,11 @@ export const ENTITY_DESCRIPTIONS_NO_CITY = {
     en: "Send {name} flowers, cakes, balloons and gifts. Order online with Presentail for express same-day delivery.",
     ar: "أرسل زهور وكعك وبالونات وهدايا {name}. اطلب أونلاين مع Presentail لتوصيل سريع في نفس اليوم.",
     fr: "Envoyez fleurs, gâteaux, ballons et cadeaux {name}. Commandez en ligne avec Presentail pour une livraison express le jour même.",
+  },
+  brand: {
+    en: "Shop {name} gifts online. Send curated {name} products with reliable delivery from Presentail.",
+    ar: "تسوّق هدايا {name} أونلاين. أرسل منتجات {name} المنتقاة مع توصيل موثوق من Presentail.",
+    fr: "Achetez les cadeaux {name} en ligne. Envoyez des produits {name} sélectionnés avec une livraison fiable de Presentail.",
   },
 };
 
@@ -621,7 +631,7 @@ export function buildBrandSeo({ lang, brandName, city, country } = {}) {
   const titleTpl = city
     ? { en: "{name} Delivery in {city} | Presentail", ar: "توصيل {name} في {city} | Presentail", fr: "Livraison {name} à {city} | Presentail" }[l]
     : `${name} | Presentail`;
-  const descTpl = city ? DESCRIPTIONS[l].brand : DESCRIPTIONS[l].brand;
+  const descTpl = city ? ENTITY_DESCRIPTIONS.brand[l] : ENTITY_DESCRIPTIONS_NO_CITY.brand[l];
   return meta({
     title: typeof titleTpl === "string" && titleTpl.includes("{") ? formatTemplate(titleTpl, params) : titleTpl ?? `${name} | Presentail`,
     description: formatTemplate(descTpl, params),
