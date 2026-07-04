@@ -48,8 +48,8 @@ vi.mock("./attribution", () => ({
   readAttribution: vi.fn().mockReturnValue(null),
 }));
 
-// Import the test export after mocks are in place.
-import { __mergeProductsPricingForTest as merge } from "@/lib/queries";
+// Import the test exports after mocks are in place.
+import { __mergeProductsPricingForTest as merge, __fetchProductsPricingForTest as fetchPricing } from "@/lib/queries";
 import type { Product } from "@/lib/queries";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -226,5 +226,82 @@ describe("mergeProductsPricing — passthrough cases", () => {
     expect(result[0].category).toBe("bouquets");
     expect(result[0].inStock).toBe(true);
     expect(result[0].occasions).toEqual(["birthday"]);
+  });
+});
+
+// ── fetchProductsPricing ──────────────────────────────────────────────────────
+//
+// The fetch helper calls /api/catalog/products-pricing and returns a
+// ProductsPricingMap keyed by osNumericId string.  Tests use vi.stubGlobal to
+// replace global fetch so they never hit the network.
+
+describe("fetchProductsPricing — returns a non-empty map from a successful response", () => {
+  it("returns the pricing map when the server responds with ok:true and a populated pricing object", async () => {
+    const pricingPayload = {
+      "101": { discountPriceUsd: 45, discountPriceAed: 165, regularPriceUsd: 60 },
+      "202": { discountPriceUsd: null, discountPriceAed: 110, regularPriceUsd: null },
+    };
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, pricing: pricingPayload }),
+    }));
+
+    const result = await fetchPricing();
+
+    expect(Object.keys(result).length).toBeGreaterThan(0);
+    expect(result["101"]).toEqual({ discountPriceUsd: 45, discountPriceAed: 165, regularPriceUsd: 60 });
+    expect(result["202"]).toEqual({ discountPriceUsd: null, discountPriceAed: 110, regularPriceUsd: null });
+
+    vi.unstubAllGlobals();
+  });
+
+  it("returns an empty map when the server response has ok:false", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: false }),
+    }));
+
+    const result = await fetchPricing();
+
+    expect(result).toEqual({});
+
+    vi.unstubAllGlobals();
+  });
+
+  it("returns an empty map when the server response has no pricing field", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    }));
+
+    const result = await fetchPricing();
+
+    expect(result).toEqual({});
+
+    vi.unstubAllGlobals();
+  });
+
+  it("returns an empty map when the HTTP response is not ok (e.g. 503)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    }));
+
+    const result = await fetchPricing();
+
+    expect(result).toEqual({});
+
+    vi.unstubAllGlobals();
+  });
+
+  it("returns an empty map when fetch throws (network error)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network error")));
+
+    const result = await fetchPricing();
+
+    expect(result).toEqual({});
+
+    vi.unstubAllGlobals();
   });
 });

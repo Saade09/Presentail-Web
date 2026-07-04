@@ -211,10 +211,11 @@ function mergeProductsPricing(products: Product[], pricing: ProductsPricingMap):
   });
 }
 
-// Test-only export — not part of the public API surface.
-// Allows unit tests to exercise the pure merge logic without setting up
-// full React/TanStack Query machinery.
+// Test-only exports — not part of the public API surface.
+// Allows unit tests to exercise the pure fetch + merge logic without setting
+// up full React/TanStack Query machinery.
 export { mergeProductsPricing as __mergeProductsPricingForTest };
+export { fetchProductsPricing as __fetchProductsPricingForTest };
 
 // ── Base OS products hook ──────────────────────────────────────────────────
 //
