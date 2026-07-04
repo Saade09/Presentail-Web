@@ -1,7 +1,8 @@
-// Server-side FAQ copy for category and occasion shop pages.
+// Server-side FAQ copy for category, occasion, and brand shop pages.
 // These strings mirror the translation keys in src/locales/shop.ts:
 //   seo.content.cat.faq.{1,2,3}.{q,a}
 //   seo.content.occ.faq.{1,2,3}.{q,a}
+//   seo.content.brand.faq.{1,2,3}.{q,a}
 // They use {name} and {city} as template placeholders — fill them with
 // formatTemplate() from src/lib/seo.mjs before emitting JSON-LD.
 //
@@ -55,6 +56,52 @@ export const CATEGORY_FAQ_COPY = /** @type {FaqCopy} */ ({
     {
       q: "Quels extras puis-je ajouter à ma commande de {name} ?",
       a: "Lors de la commande de {name} à {city}, vous pouvez ajouter une carte personnalisée, des chocolats, des ballons, des bougies parfumées et bien plus encore. Consultez la section extras lors du paiement pour voir tout ce qui est disponible pour votre commande.",
+    },
+  ],
+});
+
+/** FAQ copy for /brand/<slug> pages. */
+export const BRAND_FAQ_COPY = /** @type {FaqCopy} */ ({
+  en: [
+    {
+      q: "How do I order {name} delivery in {city}?",
+      a: "Browse the {name} collection above and add items to your cart. At checkout, enter your delivery address in {city}, choose a date and two-hour time window, and complete your payment. {name} orders are fulfilled by Presentail and delivered same-day or on your scheduled date.",
+    },
+    {
+      q: "Is same-day {name} delivery available in {city}?",
+      a: "Yes — same-day delivery is available in {city} when you order before midday. You can also schedule delivery up to 30 days in advance for birthdays, anniversaries and other special occasions.",
+    },
+    {
+      q: "Can I include a personalised message with my {name} order?",
+      a: "Absolutely. At checkout you can add a personalised card with a custom message. You can also add chocolates, balloons, scented candles and other extras to complete your {name} gift.",
+    },
+  ],
+  ar: [
+    {
+      q: "كيف أطلب توصيل {name} في {city}؟",
+      a: "تصفّح مجموعة {name} أعلاه وأضف المنتجات إلى سلتك. عند الدفع، أدخل عنوان التوصيل في {city} واختر تاريخاً ونافذة زمنية مدتها ساعتان، ثم أكمل الدفع. تُنفَّذ طلبات {name} من قِبل Presentail وتُوصَّل في اليوم نفسه أو في التاريخ المجدول.",
+    },
+    {
+      q: "هل يتوفر توصيل {name} في اليوم نفسه في {city}؟",
+      a: "نعم — يتوفر التوصيل في اليوم نفسه في {city} عند الطلب قبل الظهيرة. كما يمكنك جدولة التوصيل قبل 30 يوماً لأعياد الميلاد والذكريات السنوية والمناسبات الخاصة الأخرى.",
+    },
+    {
+      q: "هل يمكنني إرفاق رسالة شخصية مع طلب {name}؟",
+      a: "بالتأكيد. يمكنك عند الدفع إضافة بطاقة شخصية مع رسالة مخصصة. كما يمكنك إضافة شوكولاتة وبالونات وشموع عطرية وغيرها من الإضافات لإتمام هدية {name}.",
+    },
+  ],
+  fr: [
+    {
+      q: "Comment commander la livraison {name} à {city} ?",
+      a: "Parcourez la collection {name} ci-dessus et ajoutez des articles à votre panier. Lors du paiement, saisissez votre adresse de livraison à {city}, choisissez une date et un créneau de deux heures, puis finalisez votre paiement. Les commandes {name} sont traitées par Presentail et livrées le jour même ou à la date programmée.",
+    },
+    {
+      q: "La livraison {name} le jour même est-elle disponible à {city} ?",
+      a: "Oui — la livraison le jour même est disponible à {city} pour toute commande passée avant midi. Vous pouvez également programmer la livraison jusqu'à 30 jours à l'avance pour les anniversaires, fêtes et autres occasions spéciales.",
+    },
+    {
+      q: "Puis-je inclure un message personnalisé avec ma commande {name} ?",
+      a: "Absolument. Lors du paiement, vous pouvez ajouter une carte personnalisée avec un message sur mesure. Vous pouvez également ajouter des chocolats, ballons, bougies parfumées et d'autres extras pour compléter votre cadeau {name}.",
     },
   ],
 });

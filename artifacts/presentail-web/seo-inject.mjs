@@ -86,7 +86,7 @@ import {
   formatTemplate,
 } from "./src/lib/seo.mjs";
 
-import { CATEGORY_FAQ_COPY, OCCASION_FAQ_COPY } from "./src/lib/seo-shop-faqs.mjs";
+import { BRAND_FAQ_COPY, CATEGORY_FAQ_COPY, OCCASION_FAQ_COPY } from "./src/lib/seo-shop-faqs.mjs";
 
 
 // Localised SEO strings for shared wishlist pages.
@@ -2080,7 +2080,7 @@ function buildBrandsFilterHead({
   };
 }
 
-export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname }) {
+export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
@@ -2090,6 +2090,44 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     typeof brand.image === "string" && brand.image ? brand.image : null;
   // BreadcrumbList JSON-LD — Home > Brands > Brand Name.
   const locBase = localeBaseUrl(pathname, origin, basePath);
+  const extraLines = [
+    jsonLdTag(
+      buildBreadcrumbListSchema([
+        { name: "Home", url: locBase },
+        { name: "Brands", url: `${locBase}/brands` },
+        { name: rawName || "Brand" },
+      ]),
+    ),
+  ];
+  // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
+  // expandable FAQ rich results for brand detail pages. Mirrors the pattern
+  // used for category and occasion pages. Only emitted when the brand has a
+  // name to substitute into the {name} template placeholders.
+  if (rawName) {
+    const pickLangFaq = (/** @type {string} */ l) => {
+      if (l === "ar" || l === "fr") return l;
+      return "en";
+    };
+    const faqItems = BRAND_FAQ_COPY[pickLangFaq(lang)] ?? BRAND_FAQ_COPY.en;
+    const params = { name: rawName, city: cityLabel || "" };
+    const mainEntity = faqItems.map(({ q, a }) => ({
+      "@type": "Question",
+      name: formatTemplate(q, params),
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: formatTemplate(a, params),
+      },
+    }));
+    if (mainEntity.length > 0) {
+      extraLines.push(
+        jsonLdTag({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity,
+        }),
+      );
+    }
+  }
   const bodyHtml = buildSimpleEntityBodyHtml(brand, { title, description, localeBase: locBase });
   return {
     ...buildEntityHead({
@@ -2105,15 +2143,7 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       pathname,
       search: "",
       lang,
-      extraLines: [
-        jsonLdTag(
-          buildBreadcrumbListSchema([
-            { name: "Home", url: locBase },
-            { name: "Brands", url: `${locBase}/brands` },
-            { name: rawName || "Brand" },
-          ]),
-        ),
-      ],
+      extraLines,
     }),
     bodyHtml,
   };

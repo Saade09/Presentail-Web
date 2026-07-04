@@ -155,6 +155,47 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
     );
     expect(out).toContain("<title>Brand Collection in Dubai | Presentail</title>");
   });
+
+  it("emits FAQPage JSON-LD with brand name and city substituted", async () => {
+    mockFetchOnce({
+      ok: true,
+      brand: {
+        name: "Acme Florals",
+        description: "Hand-tied bouquets and gifts.",
+        image: null,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/brand/acme-florals",
+      OPTS,
+    );
+    expect(out).toContain('"@type":"FAQPage"');
+    expect(out).toContain('"How do I order Acme Florals delivery in Dubai?"');
+    expect(out).toContain('"Is same-day Acme Florals delivery available in Dubai?"');
+    expect(out).toContain('"Can I include a personalised message with my Acme Florals order?"');
+    expect(out).toContain("Browse the Acme Florals collection above");
+    expect(out).toContain("same-day delivery is available in Dubai");
+  });
+
+  it("emits FAQPage JSON-LD in Arabic for ar locale brand pages", async () => {
+    mockFetchOnce({
+      ok: true,
+      brand: {
+        name: "بستان فلاورز",
+        description: "زهور طازجة.",
+        image: null,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/ar-ae/dubai/brand/bustan-flowers",
+      OPTS,
+    );
+    expect(out).toContain('"@type":"FAQPage"');
+    expect(out).toContain("كيف أطلب توصيل");
+    expect(out).toContain("بستان فلاورز");
+  });
 });
 
 describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
