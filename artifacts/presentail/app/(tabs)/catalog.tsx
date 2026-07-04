@@ -69,7 +69,7 @@ const OCC_NAME_KEY: Record<string, string> = {
 };
 
 function CatalogScreen() {
-  const { gridCardWidth, listCardWidth } = useGridCardWidth({
+  const { gridCardWidth, listCardWidth, numColumns } = useGridCardWidth({
     paddingH: CATALOG_GRID_PADDING_H,
     columnGap: CATALOG_GRID_COLUMN_GAP,
     numColumns: GRID_NUM_COLUMNS,
@@ -409,11 +409,11 @@ function CatalogScreen() {
         filterSectionLabel={t.categoriesTitle}
       />
       <FlatList
-        key={gridView ? "grid" : "list"}
+        key={gridView ? `grid-${numColumns}` : "list"}
         style={{ flex: 1, backgroundColor: colors.background }}
         data={filtered}
         keyExtractor={(p) => p.id}
-        numColumns={gridView ? CATALOG_GRID_FLATLIST_CONFIG.numColumns : 1}
+        numColumns={gridView ? numColumns : 1}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         columnWrapperStyle={

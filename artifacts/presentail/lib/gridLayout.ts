@@ -24,6 +24,13 @@ const { width: SCREEN_W } = Dimensions.get("window");
 /** Number of columns in the two-column product grid (home + catalog). */
 export const GRID_NUM_COLUMNS = 2 as const;
 
+/**
+ * Screen-width breakpoint (dp) at which the catalog/category/brand grids
+ * switch from 2 columns to 3 columns.  Matches the smallest tablet/landscape
+ * width where a third column is comfortable.
+ */
+export const GRID_THREE_COLUMN_BREAKPOINT = 600;
+
 // ---------------------------------------------------------------------------
 // Home screen
 // ---------------------------------------------------------------------------
@@ -137,6 +144,11 @@ export const OCCASION_LIST_CARD_W = SCREEN_W - OCCASION_GRID_PADDING_H * 2;
  * params.  Passing the same args used by the exported constants must always
  * reproduce those constants — if it doesn't, the constants have drifted from
  * their formula.
+ *
+ * `columnGap` is the total inter-column spacing (i.e. the gap value multiplied
+ * by the number of gaps, which is `numColumns - 1`).  For two columns with a
+ * 10 dp gap, pass `columnGap = 10`; for three columns with a 10 dp gap per
+ * seam, pass `columnGap = 20`.
  */
 export function computeGridCardWidth(
   screenWidth: number,
@@ -145,6 +157,21 @@ export function computeGridCardWidth(
   numColumns: number,
 ): number {
   return (screenWidth - paddingH * 2 - columnGap) / numColumns;
+}
+
+/**
+ * Return the number of grid columns appropriate for a given screen width.
+ *
+ * - Screens narrower than `breakpoint` dp → 2 columns (portrait phone)
+ * - Screens ≥ `breakpoint` dp            → 3 columns (landscape phone / tablet)
+ *
+ * The `breakpoint` parameter defaults to {@link GRID_THREE_COLUMN_BREAKPOINT}.
+ */
+export function computeNumColumns(
+  screenWidth: number,
+  breakpoint: number = GRID_THREE_COLUMN_BREAKPOINT,
+): 2 | 3 {
+  return screenWidth >= breakpoint ? 3 : 2;
 }
 
 /**
@@ -186,15 +213,24 @@ export type OccasionLayoutConfig = {
 };
 
 /**
- * Hook that returns reactive grid card widths, recalculated whenever the
- * window dimensions change (foldables, iPads, split-screen windows).
+ * Hook that returns reactive grid card widths and column count, recalculated
+ * whenever the window dimensions change (foldables, iPads, split-screen
+ * windows, phone rotation).
+ *
+ * `numColumns` is derived adaptively from the current screen width using
+ * {@link computeNumColumns}: 2 columns on portrait phones (< 600 dp) and
+ * 3 columns on landscape phones / tablets (≥ 600 dp).  The `numColumns` field
+ * in `config` is retained for typing compatibility but is not used — callers
+ * should read the returned `numColumns` and pass it directly to their FlatList.
  *
  * @returns `gridCardWidth` — width for a card in multi-column grid mode.
  * @returns `listCardWidth` — full-bleed card width in single-column list mode.
+ * @returns `numColumns`    — adaptive column count (2 or 3) for the FlatList.
  */
 export function useGridCardWidth(config: GridLayoutConfig): {
   gridCardWidth: number;
   listCardWidth: number;
+  numColumns: 2 | 3;
 } {
   const [screenW, setScreenW] = useState(() => Dimensions.get("window").width);
 
@@ -205,9 +241,13 @@ export function useGridCardWidth(config: GridLayoutConfig): {
     return () => sub.remove();
   }, []);
 
+  const numColumns = computeNumColumns(screenW);
+  const totalColumnGap = config.columnGap * (numColumns - 1);
+
   return {
-    gridCardWidth: computeGridCardWidth(screenW, config.paddingH, config.columnGap, config.numColumns),
+    gridCardWidth: computeGridCardWidth(screenW, config.paddingH, totalColumnGap, numColumns),
     listCardWidth: screenW - config.paddingH * 2,
+    numColumns,
   };
 }
 

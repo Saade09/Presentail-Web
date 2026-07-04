@@ -43,7 +43,7 @@ import {
 } from "@/lib/gridLayout";
 
 function CategoryScreen() {
-  const { gridCardWidth: CATALOG_GRID_CARD_W, listCardWidth: CATALOG_LIST_CARD_W } = useGridCardWidth({
+  const { gridCardWidth: CATALOG_GRID_CARD_W, listCardWidth: CATALOG_LIST_CARD_W, numColumns } = useGridCardWidth({
     paddingH: CATALOG_GRID_PADDING_H,
     columnGap: CATALOG_GRID_COLUMN_GAP,
     numColumns: GRID_NUM_COLUMNS,
@@ -360,10 +360,10 @@ function CategoryScreen() {
         onSortChange={setSort}
       />
       <FlatList
-        key={gridView ? "grid" : "list"}
+        key={gridView ? `grid-${numColumns}` : "list"}
         data={products}
         keyExtractor={(p) => p.id}
-        numColumns={gridView ? 2 : 1}
+        numColumns={gridView ? numColumns : 1}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         ListFooterComponent={footer}

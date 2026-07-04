@@ -48,10 +48,20 @@
  *   - returns a smaller width when paddingH increases
  *   - returns a larger width when screenWidth increases
  *
+ * computeNumColumns helper
+ *   - returns 2 for a typical portrait phone width (375 dp)
+ *   - returns 2 for a screen just below the 600 dp breakpoint (599 dp)
+ *   - returns 3 at exactly the 600 dp breakpoint
+ *   - returns 3 for a landscape phone width (768 dp)
+ *   - returns 3 for a large tablet width (1024 dp)
+ *   - respects a custom breakpoint parameter
+ *   - GRID_THREE_COLUMN_BREAKPOINT constant is 600
+ *
  * useGridCardWidth hook (reactivity)
  *   - returns correct initial gridCardWidth for HOME_GRID_CONFIG params
  *   - returns correct initial listCardWidth for HOME_GRID_CONFIG params
- *   - updates gridCardWidth and listCardWidth when window dimensions change
+ *   - updates gridCardWidth and listCardWidth when window dimensions change (stays 2 columns below breakpoint)
+ *   - switches to 3 columns and recalculates card width when screen width reaches the breakpoint
  *   - removes the Dimensions listener on unmount
  *
  * useOccasionCardWidth hook (reactivity)
@@ -74,6 +84,7 @@ import {
   CATALOG_GRID_PADDING_H,
   CATALOG_LIST_CARD_W,
   GRID_NUM_COLUMNS,
+  GRID_THREE_COLUMN_BREAKPOINT,
   HOME_CARD_W,
   HOME_GRID_COLUMN_GAP,
   HOME_GRID_CONFIG,
@@ -84,6 +95,7 @@ import {
   OCCASION_GRID_PADDING_H,
   OCCASION_LIST_CARD_W,
   computeGridCardWidth,
+  computeNumColumns,
   computeOccasionCardWidth,
   useGridCardWidth,
   useOccasionCardWidth,
@@ -454,6 +466,41 @@ describe("computeGridCardWidth helper", () => {
 });
 
 // ---------------------------------------------------------------------------
+// computeNumColumns pure helper
+// ---------------------------------------------------------------------------
+
+describe("computeNumColumns helper", () => {
+  it("returns 2 for a typical portrait phone width (375 dp)", () => {
+    expect(computeNumColumns(375)).toBe(2);
+  });
+
+  it("returns 2 for a screen just below the 600 dp breakpoint (599 dp)", () => {
+    expect(computeNumColumns(599)).toBe(2);
+  });
+
+  it("returns 3 at exactly the 600 dp breakpoint", () => {
+    expect(computeNumColumns(600)).toBe(3);
+  });
+
+  it("returns 3 for a landscape phone width (768 dp)", () => {
+    expect(computeNumColumns(768)).toBe(3);
+  });
+
+  it("returns 3 for a large tablet width (1024 dp)", () => {
+    expect(computeNumColumns(1024)).toBe(3);
+  });
+
+  it("respects a custom breakpoint parameter", () => {
+    expect(computeNumColumns(500, 500)).toBe(3);
+    expect(computeNumColumns(499, 500)).toBe(2);
+  });
+
+  it("GRID_THREE_COLUMN_BREAKPOINT constant is 600", () => {
+    expect(GRID_THREE_COLUMN_BREAKPOINT).toBe(600);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // useGridCardWidth hook — reactivity tests
 //
 // These tests verify that the hook correctly reflects the initial screen width
@@ -471,7 +518,7 @@ describe("useGridCardWidth hook", () => {
    * which we read after each act().
    */
   function renderGridHook(config: Parameters<typeof useGridCardWidth>[0]) {
-    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0 };
+    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
     function HookCapture() {
       captured = useGridCardWidth(config);
       return null;
@@ -498,8 +545,8 @@ describe("useGridCardWidth hook", () => {
     expect(getCaptured().listCardWidth).toBe(MOCK_SCREEN_W - HOME_GRID_PADDING_H * 2);
   });
 
-  it("updates gridCardWidth and listCardWidth when window dimensions change", () => {
-    const WIDE_W = 768;
+  it("updates gridCardWidth and listCardWidth when window dimensions change (stays 2 columns below breakpoint)", () => {
+    const MEDIUM_W = 420;
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     const removeSpy = vi.fn();
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
@@ -514,15 +561,46 @@ describe("useGridCardWidth hook", () => {
     });
 
     expect(getCaptured().gridCardWidth).toBe(
-      computeGridCardWidth(MOCK_SCREEN_W, CATALOG_GRID_PADDING_H, CATALOG_GRID_COLUMN_GAP, GRID_NUM_COLUMNS),
+      computeGridCardWidth(MOCK_SCREEN_W, CATALOG_GRID_PADDING_H, CATALOG_GRID_COLUMN_GAP * (2 - 1), 2),
     );
+    expect(getCaptured().numColumns).toBe(2);
+
+    act(() => {
+      capturedListener!({ window: { width: MEDIUM_W, height: 844 } });
+    });
+
+    // MEDIUM_W (420) is below the 600 dp breakpoint → still 2 columns
+    expect(getCaptured().numColumns).toBe(2);
+    expect(getCaptured().gridCardWidth).toBe(
+      computeGridCardWidth(MEDIUM_W, CATALOG_GRID_PADDING_H, CATALOG_GRID_COLUMN_GAP * (2 - 1), 2),
+    );
+    expect(getCaptured().listCardWidth).toBe(MEDIUM_W - CATALOG_GRID_PADDING_H * 2);
+  });
+
+  it("switches to 3 columns and recalculates card width when screen width reaches the breakpoint", () => {
+    const WIDE_W = 768;
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() };
+    });
+
+    const { getCaptured } = renderGridHook({
+      paddingH: CATALOG_GRID_PADDING_H,
+      columnGap: CATALOG_GRID_COLUMN_GAP,
+      numColumns: GRID_NUM_COLUMNS,
+    });
+
+    expect(getCaptured().numColumns).toBe(2);
 
     act(() => {
       capturedListener!({ window: { width: WIDE_W, height: 1024 } });
     });
 
+    // WIDE_W (768) ≥ 600 dp breakpoint → 3 columns, 2 inter-column gaps
+    expect(getCaptured().numColumns).toBe(3);
     expect(getCaptured().gridCardWidth).toBe(
-      computeGridCardWidth(WIDE_W, CATALOG_GRID_PADDING_H, CATALOG_GRID_COLUMN_GAP, GRID_NUM_COLUMNS),
+      computeGridCardWidth(WIDE_W, CATALOG_GRID_PADDING_H, CATALOG_GRID_COLUMN_GAP * (3 - 1), 3),
     );
     expect(getCaptured().listCardWidth).toBe(WIDE_W - CATALOG_GRID_PADDING_H * 2);
   });

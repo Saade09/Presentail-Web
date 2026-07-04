@@ -34,7 +34,7 @@ const LOGO_SIZE = 76;
 const LOGO_OFFSET = LOGO_SIZE / 2;
 
 function BrandScreen() {
-  const { gridCardWidth: CATALOG_GRID_CARD_W } = useGridCardWidth({
+  const { gridCardWidth: CATALOG_GRID_CARD_W, numColumns } = useGridCardWidth({
     paddingH: CATALOG_GRID_PADDING_H,
     columnGap: CATALOG_GRID_COLUMN_GAP,
     numColumns: GRID_NUM_COLUMNS,
@@ -260,9 +260,10 @@ function BrandScreen() {
         </View>
       ) : (
         <FlatList
+          key={`grid-${numColumns}`}
           data={enrichedProducts}
           keyExtractor={(item) => item.id}
-          numColumns={2}
+          numColumns={numColumns}
           columnWrapperStyle={{ gap: 10, paddingHorizontal: 24 }}
           contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 18 }}
           showsVerticalScrollIndicator={false}
