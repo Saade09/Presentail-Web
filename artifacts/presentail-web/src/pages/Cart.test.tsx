@@ -579,3 +579,93 @@ describe("Cart — UAE express surcharge ($4.90)", () => {
     expect(totals.length).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: Cyprus express surcharge ($15 — falls through to LB_EXPRESS_SURCHARGE)
+// CY uses the same surcharge as LB. These tests pin that behaviour so a
+// future CY-specific constant or expressSurchargeForCountry("CY") change
+// would immediately surface here as a failing assertion.
+// ---------------------------------------------------------------------------
+
+const CY_DELIVERY_CONFIG = {
+  freeDeliveryEnabled: true,
+  freeDeliveryThreshold: "€120",
+  freeDeliveryThresholdUsd: 120,
+  expressDeliveryTimeLabel: "Arrives in 90 minutes",
+  currency: "USD",
+  cityFeeUsd: 10,
+  expressSurchargeUsd: 15, // expressSurchargeForCountry("CY") → LB_EXPRESS_SURCHARGE
+};
+
+// CY free-delivery threshold is $120 USD.
+const CY_CART_BELOW_THRESHOLD = { items: [FAKE_ITEM], subtotal: 75, itemCount: 1 };
+const CY_CART_ABOVE_THRESHOLD = { items: [FAKE_ITEM], subtotal: 130, itemCount: 1 };
+
+describe("Cart — Cyprus express surcharge ($15, same as LB fallback)", () => {
+  beforeEach(() => {
+    vi.mocked(useDeliveryConfig).mockReturnValue(CY_DELIVERY_CONFIG);
+    vi.mocked(useLocationSelection).mockReturnValue({
+      countryCode: "CY",
+      city: null,
+      country: null,
+      cityId: null,
+      isLoading: false,
+      isPickerOpen: false,
+      openPicker: vi.fn(),
+      closePicker: vi.fn(),
+      setLocation: vi.fn(),
+    });
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "express",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.mocked(useLocationSelection).mockReturnValue({
+      countryCode: "LB",
+      city: null,
+      country: null,
+      cityId: null,
+      isLoading: false,
+      isPickerOpen: false,
+      openPicker: vi.fn(),
+      closePicker: vi.fn(),
+      setLocation: vi.fn(),
+    });
+  });
+
+  it("express + below threshold → shows city fee and CY express surcharge ($15)", () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CY_CART_BELOW_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("$15")).toBeTruthy();
+    expect(screen.getByText("$10")).toBeTruthy();
+    // AE-specific surcharge must not appear
+    expect(screen.queryByText("$4.9")).toBeNull();
+  });
+
+  it("express + above threshold → shows 'Free' delivery and CY express surcharge ($15); total = subtotal + surcharge only", () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CY_CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
+    expect(screen.getByText("$15")).toBeTruthy();
+    expect(screen.queryByText("$4.9")).toBeNull();
+    // Total = 130 (subtotal) + 15 (surcharge) = 145
+    const totals = screen.getAllByText("$145");
+    expect(totals.length).toBeGreaterThan(0);
+  });
+});
