@@ -83,7 +83,10 @@ import {
   buildOccasionSeo,
   buildFaqsSeo,
   buildContactSeo,
+  formatTemplate,
 } from "./src/lib/seo.mjs";
+
+import { CATEGORY_FAQ_COPY, OCCASION_FAQ_COPY } from "./src/lib/seo-shop-faqs.mjs";
 
 
 // Localised SEO strings for shared wishlist pages.
@@ -2242,6 +2245,38 @@ function buildShopEntityHead({
     graphNodes.push(buildItemListSchema(items, rawName || altText, locBase));
   }
   const extraLines = [jsonLdGraphTag(graphNodes)];
+  // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
+  // expandable FAQ rich results for category and occasion listing pages.
+  // Emitted as a standalone <script> (not in the @graph above) so validators
+  // see a clean FAQPage root. Only emitted when the entity has a name to
+  // substitute into the {name} template placeholders.
+  if (rawName) {
+    const faqCopyMap =
+      entityKind === "occasion" ? OCCASION_FAQ_COPY : CATEGORY_FAQ_COPY;
+    const pickLangFaq = (/** @type {string} */ l) => {
+      if (l === "ar" || l === "fr") return l;
+      return "en";
+    };
+    const faqItems = faqCopyMap[pickLangFaq(lang)] ?? faqCopyMap.en;
+    const params = { name: rawName, city: cityLabel || "" };
+    const mainEntity = faqItems.map(({ q, a }) => ({
+      "@type": "Question",
+      name: formatTemplate(q, params),
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: formatTemplate(a, params),
+      },
+    }));
+    if (mainEntity.length > 0) {
+      extraLines.push(
+        jsonLdTag({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity,
+        }),
+      );
+    }
+  }
   const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
   // When a pre-generated branded OG image URL is provided use fixed 1200×630
   // dimensions (no need to probe the URL with a Range request).

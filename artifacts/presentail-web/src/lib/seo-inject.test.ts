@@ -4442,6 +4442,137 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
   });
 });
 
+describe("JSON-LD — FAQPage on category and occasion listing pages", () => {
+  it("emits a FAQPage with 3 EN Question/Answer pairs substituted with name and city on a category page", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 5, products: [] }) };
+      }
+      if (u.includes("/api/woo/category")) {
+        return { ok: true, json: async () => ({ ok: true, category: { name: "Hand Bouquets", description: "Fresh hand bouquets." } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/category/hand-bouquets-faq-fixture", OPTS);
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(Array.isArray(faq.mainEntity)).toBe(true);
+    expect(faq.mainEntity).toHaveLength(3);
+    const first = faq.mainEntity[0];
+    expect(first["@type"]).toBe("Question");
+    expect(first.name).toContain("Hand Bouquets");
+    expect(first.name).toContain("Dubai");
+    expect(first.acceptedAnswer["@type"]).toBe("Answer");
+    expect(typeof first.acceptedAnswer.text).toBe("string");
+    expect(first.acceptedAnswer.text.length).toBeGreaterThan(10);
+  });
+
+  it("emits a FAQPage with 3 EN Question/Answer pairs substituted with name and city on an occasion page", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion")) {
+        return { ok: true, json: async () => ({ ok: true, occasion: { name: "Birthday", description: "Birthday gifts." } }) };
+      }
+      if (u.includes("/api/woo/products")) {
+        return { ok: true, json: async () => ({ ok: true, products: [] }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/occasion/birthday-faq-fixture", OPTS);
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(3);
+    const first = faq.mainEntity[0];
+    expect(first.name).toContain("Birthday");
+    expect(first.name).toContain("Dubai");
+    expect(first.acceptedAnswer["@type"]).toBe("Answer");
+  });
+
+  it("emits Arabic FAQ copy when lang is ar on a category page", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 2, products: [] }) };
+      }
+      if (u.includes("/api/woo/category")) {
+        return { ok: true, json: async () => ({ ok: true, category: { name: "باقات يدوية", description: "" } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/ar-ae/dubai/category/hand-bouquets-ar-faq-fixture", OPTS);
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(3);
+    expect(faq.mainEntity[0].name).toContain("باقات يدوية");
+  });
+
+  it("does not emit a FAQPage when the entity has no name", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 0, products: [] }) };
+      }
+      if (u.includes("/api/woo/category")) {
+        return { ok: true, json: async () => ({ ok: true, category: { name: "", description: "" } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/category/noname-faq-fixture", OPTS);
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeFalsy();
+  });
+
+  it("emits FAQPage for the legacy /shop?category=<slug> query-param route", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 3, products: [] }) };
+      }
+      if (u.includes("/api/woo/category")) {
+        return { ok: true, json: async () => ({ ok: true, category: { name: "Flower Boxes", description: "Beautiful flower boxes." } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?category=flower-boxes",
+    });
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(3);
+    expect(faq.mainEntity[0].name).toContain("Flower Boxes");
+  });
+
+  it("emits FAQPage for the legacy /shop?occasion=<slug> query-param route", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion")) {
+        return { ok: true, json: async () => ({ ok: true, occasion: { name: "Anniversary", description: "Anniversary gifts." } }) };
+      }
+      if (u.includes("/api/woo/products")) {
+        return { ok: true, json: async () => ({ ok: true, products: [] }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?occasion=anniversary",
+    });
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(3);
+    expect(faq.mainEntity[0].name).toContain("Anniversary");
+    expect(faq.mainEntity[0].name).toContain("Dubai");
+  });
+});
+
 describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
   it("emits Organization and WebSite on a locale homepage", () => {
     const { headSnippet } = buildSeoHead("/en-ae/dubai", {
