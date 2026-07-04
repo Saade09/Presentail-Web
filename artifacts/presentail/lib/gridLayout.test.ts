@@ -47,11 +47,25 @@
  *   - returns a smaller width when columnGap increases
  *   - returns a smaller width when paddingH increases
  *   - returns a larger width when screenWidth increases
+ *
+ * useGridCardWidth hook (reactivity)
+ *   - returns correct initial gridCardWidth for HOME_GRID_CONFIG params
+ *   - returns correct initial listCardWidth for HOME_GRID_CONFIG params
+ *   - updates gridCardWidth and listCardWidth when window dimensions change
+ *   - removes the Dimensions listener on unmount
+ *
+ * useOccasionCardWidth hook (reactivity)
+ *   - returns correct initial cardWidth for occasion params
+ *   - returns correct initial listCardWidth for occasion params
+ *   - applies the maxW cap on wide screens (cardWidth never exceeds maxW)
+ *   - updates cardWidth and listCardWidth when window dimensions change
+ *   - removes the Dimensions listener on unmount
  */
 
-import React from "react";
-import { View } from "react-native";
-import { describe, expect, it } from "vitest";
+import React, { act } from "react";
+import * as ReactTestRenderer from "react-test-renderer";
+import { Dimensions, View } from "react-native";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CATALOG_GRID_CARD_W,
@@ -71,6 +85,8 @@ import {
   OCCASION_LIST_CARD_W,
   computeGridCardWidth,
   computeOccasionCardWidth,
+  useGridCardWidth,
+  useOccasionCardWidth,
 } from "./gridLayout";
 import { renderWithProviders } from "../tests/test-utils";
 
@@ -434,5 +450,190 @@ describe("computeGridCardWidth helper", () => {
     const narrow = computeGridCardWidth(320, 24, 10, 2);
     const wide = computeGridCardWidth(430, 24, 10, 2);
     expect(wide).toBeGreaterThan(narrow);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useGridCardWidth hook — reactivity tests
+//
+// These tests verify that the hook correctly reflects the initial screen width
+// AND updates both gridCardWidth and listCardWidth when the Dimensions
+// "change" event fires (foldable open/close, split-screen resize, iPad
+// multitasking).  We spy on Dimensions.addEventListener to capture the
+// registered listener and fire it manually inside `act()`.
+// ---------------------------------------------------------------------------
+
+describe("useGridCardWidth hook", () => {
+  /**
+   * Render the hook by wrapping it in a minimal function component so we can
+   * use react-test-renderer (RNTL is incompatible with Vitest in this repo).
+   * The component calls the hook and stores the latest result in `captured`,
+   * which we read after each act().
+   */
+  function renderGridHook(config: Parameters<typeof useGridCardWidth>[0]) {
+    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0 };
+    function HookCapture() {
+      captured = useGridCardWidth(config);
+      return null;
+    }
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HookCapture));
+    });
+    return {
+      getCaptured: () => captured,
+      unmount: () => act(() => { instance.unmount(); }),
+    };
+  }
+
+  it("returns correct initial gridCardWidth for HOME_GRID_CONFIG params", () => {
+    const { getCaptured } = renderGridHook(HOME_GRID_CONFIG);
+    expect(getCaptured().gridCardWidth).toBe(
+      computeGridCardWidth(MOCK_SCREEN_W, HOME_GRID_PADDING_H, HOME_GRID_COLUMN_GAP, GRID_NUM_COLUMNS),
+    );
+  });
+
+  it("returns correct initial listCardWidth for HOME_GRID_CONFIG params", () => {
+    const { getCaptured } = renderGridHook(HOME_GRID_CONFIG);
+    expect(getCaptured().listCardWidth).toBe(MOCK_SCREEN_W - HOME_GRID_PADDING_H * 2);
+  });
+
+  it("updates gridCardWidth and listCardWidth when window dimensions change", () => {
+    const WIDE_W = 768;
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    const removeSpy = vi.fn();
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: removeSpy };
+    });
+
+    const { getCaptured } = renderGridHook({
+      paddingH: CATALOG_GRID_PADDING_H,
+      columnGap: CATALOG_GRID_COLUMN_GAP,
+      numColumns: GRID_NUM_COLUMNS,
+    });
+
+    expect(getCaptured().gridCardWidth).toBe(
+      computeGridCardWidth(MOCK_SCREEN_W, CATALOG_GRID_PADDING_H, CATALOG_GRID_COLUMN_GAP, GRID_NUM_COLUMNS),
+    );
+
+    act(() => {
+      capturedListener!({ window: { width: WIDE_W, height: 1024 } });
+    });
+
+    expect(getCaptured().gridCardWidth).toBe(
+      computeGridCardWidth(WIDE_W, CATALOG_GRID_PADDING_H, CATALOG_GRID_COLUMN_GAP, GRID_NUM_COLUMNS),
+    );
+    expect(getCaptured().listCardWidth).toBe(WIDE_W - CATALOG_GRID_PADDING_H * 2);
+  });
+
+  it("removes the Dimensions listener on unmount", () => {
+    const removeSpy = vi.fn();
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce(() => ({ remove: removeSpy }));
+
+    const { unmount } = renderGridHook(HOME_GRID_CONFIG);
+    unmount();
+    expect(removeSpy).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useOccasionCardWidth hook — reactivity tests
+// ---------------------------------------------------------------------------
+
+describe("useOccasionCardWidth hook", () => {
+  function renderOccasionHook(config: Parameters<typeof useOccasionCardWidth>[0]) {
+    let captured: ReturnType<typeof useOccasionCardWidth> = { cardWidth: 0, listCardWidth: 0 };
+    function HookCapture() {
+      captured = useOccasionCardWidth(config);
+      return null;
+    }
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HookCapture));
+    });
+    return {
+      getCaptured: () => captured,
+      unmount: () => act(() => { instance.unmount(); }),
+    };
+  }
+
+  it("returns correct initial cardWidth for occasion params", () => {
+    const { getCaptured } = renderOccasionHook({
+      paddingH: OCCASION_GRID_PADDING_H,
+      divisor: OCCASION_CARD_DIVISOR,
+      maxW: OCCASION_CARD_MAX_W,
+    });
+    expect(getCaptured().cardWidth).toBe(
+      computeOccasionCardWidth(MOCK_SCREEN_W, OCCASION_GRID_PADDING_H, OCCASION_CARD_DIVISOR, OCCASION_CARD_MAX_W),
+    );
+  });
+
+  it("returns correct initial listCardWidth for occasion params", () => {
+    const { getCaptured } = renderOccasionHook({
+      paddingH: OCCASION_GRID_PADDING_H,
+      divisor: OCCASION_CARD_DIVISOR,
+      maxW: OCCASION_CARD_MAX_W,
+    });
+    expect(getCaptured().listCardWidth).toBe(MOCK_SCREEN_W - OCCASION_GRID_PADDING_H * 2);
+  });
+
+  it("applies the maxW cap on wide screens (cardWidth never exceeds maxW)", () => {
+    const WIDE_W = 768;
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() };
+    });
+
+    const { getCaptured } = renderOccasionHook({
+      paddingH: OCCASION_GRID_PADDING_H,
+      divisor: OCCASION_CARD_DIVISOR,
+      maxW: OCCASION_CARD_MAX_W,
+    });
+
+    act(() => {
+      capturedListener!({ window: { width: WIDE_W, height: 1024 } });
+    });
+
+    expect(getCaptured().cardWidth).toBe(OCCASION_CARD_MAX_W);
+    expect(getCaptured().listCardWidth).toBe(WIDE_W - OCCASION_GRID_PADDING_H * 2);
+  });
+
+  it("updates cardWidth and listCardWidth when window dimensions change", () => {
+    const MEDIUM_W = 420;
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() };
+    });
+
+    const { getCaptured } = renderOccasionHook({
+      paddingH: OCCASION_GRID_PADDING_H,
+      divisor: OCCASION_CARD_DIVISOR,
+      maxW: OCCASION_CARD_MAX_W,
+    });
+
+    act(() => {
+      capturedListener!({ window: { width: MEDIUM_W, height: 900 } });
+    });
+
+    expect(getCaptured().cardWidth).toBe(
+      computeOccasionCardWidth(MEDIUM_W, OCCASION_GRID_PADDING_H, OCCASION_CARD_DIVISOR, OCCASION_CARD_MAX_W),
+    );
+    expect(getCaptured().listCardWidth).toBe(MEDIUM_W - OCCASION_GRID_PADDING_H * 2);
+  });
+
+  it("removes the Dimensions listener on unmount", () => {
+    const removeSpy = vi.fn();
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce(() => ({ remove: removeSpy }));
+
+    const { unmount } = renderOccasionHook({
+      paddingH: OCCASION_GRID_PADDING_H,
+      divisor: OCCASION_CARD_DIVISOR,
+      maxW: OCCASION_CARD_MAX_W,
+    });
+    unmount();
+    expect(removeSpy).toHaveBeenCalledOnce();
   });
 });

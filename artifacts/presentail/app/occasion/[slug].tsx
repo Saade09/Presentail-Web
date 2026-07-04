@@ -31,9 +31,19 @@ import { fetchOccasionProducts, fetchBrandProducts, applyPricingToProducts, type
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
-import { OCCASION_CARD_W, OCCASION_LIST_CARD_W } from "@/lib/gridLayout";
+import {
+  OCCASION_CARD_DIVISOR,
+  OCCASION_CARD_MAX_W,
+  OCCASION_GRID_PADDING_H,
+  useOccasionCardWidth,
+} from "@/lib/gridLayout";
 
 function OccasionScreen() {
+  const { cardWidth: OCCASION_CARD_W, listCardWidth: OCCASION_LIST_CARD_W } = useOccasionCardWidth({
+    paddingH: OCCASION_GRID_PADDING_H,
+    divisor: OCCASION_CARD_DIVISOR,
+    maxW: OCCASION_CARD_MAX_W,
+  });
   const { slug, brand: brandParam, brandName: brandNameParam } = useLocalSearchParams<{
     slug: string;
     brand?: string;
@@ -401,6 +411,11 @@ function CategorySection({
   onSeeAll: () => void;
 }) {
   const headingFontMedium = useHeadingFont("500Medium");
+  const { cardWidth: OCCASION_CARD_W } = useOccasionCardWidth({
+    paddingH: OCCASION_GRID_PADDING_H,
+    divisor: OCCASION_CARD_DIVISOR,
+    maxW: OCCASION_CARD_MAX_W,
+  });
   return (
     <View style={{ marginTop: 28 }}>
       <View

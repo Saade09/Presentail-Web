@@ -53,8 +53,7 @@ import {
 } from "@/services/notifications";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { trackScreenTTID } from "@/lib/analytics";
-import { HOME_GRID_CONFIG } from "@/lib/gridLayout";
-const CARD_W = HOME_GRID_CONFIG.cardWidth;
+import { HOME_GRID_CONFIG, useGridCardWidth } from "@/lib/gridLayout";
 
 // Captured at module-load time so it includes the JS bundle evaluation and
 // context-bootstrap cost that precedes the first HomeScreen mount.
@@ -788,6 +787,7 @@ function ProductCardSkeleton({ width }: { width: number }) {
 }
 
 function BestSellers() {
+  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
   const router = useRouter();
   const colors = useColors();
   const t = useT();
@@ -861,6 +861,7 @@ function BestSellers() {
 const FLOWER_CATS = new Set(["hand-bouquets", "flower-boxes", "flower-baskets", "lux-arrangements", "flower-vases", "dried-flowers", "preserved-flowers"]);
 
 function FlowersSection() {
+  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
   const colors = useColors();
   const router = useRouter();
   const t = useT();
@@ -913,6 +914,7 @@ function FlowersSection() {
 }
 
 function SummerCollectionSection() {
+  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
   const colors = useColors();
   const router = useRouter();
   const t = useT();
@@ -995,6 +997,7 @@ function SummerCollectionSection() {
 }
 
 function BundlesSection() {
+  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
   const colors = useColors();
   const router = useRouter();
   const t = useT();

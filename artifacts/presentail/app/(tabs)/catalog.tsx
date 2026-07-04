@@ -29,7 +29,13 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-import { CATALOG_GRID_FLATLIST_CONFIG } from "@/lib/gridLayout";
+import {
+  CATALOG_GRID_COLUMN_GAP,
+  CATALOG_GRID_FLATLIST_CONFIG,
+  CATALOG_GRID_PADDING_H,
+  GRID_NUM_COLUMNS,
+  useGridCardWidth,
+} from "@/lib/gridLayout";
 
 const ALL = "all";
 
@@ -63,6 +69,11 @@ const OCC_NAME_KEY: Record<string, string> = {
 };
 
 function CatalogScreen() {
+  const { gridCardWidth, listCardWidth } = useGridCardWidth({
+    paddingH: CATALOG_GRID_PADDING_H,
+    columnGap: CATALOG_GRID_COLUMN_GAP,
+    numColumns: GRID_NUM_COLUMNS,
+  });
   const colors = useColors();
   const headingFontRegular = useHeadingFont("400Regular");
   const insets = useSafeAreaInsets();
@@ -377,9 +388,7 @@ function CatalogScreen() {
     </View>
   );
 
-  const activeCardW = gridView
-    ? CATALOG_GRID_FLATLIST_CONFIG.gridCardWidth
-    : CATALOG_GRID_FLATLIST_CONFIG.listCardWidth;
+  const activeCardW = gridView ? gridCardWidth : listCardWidth;
 
   const categoryFilterPills: FilterPill[] = [
     { id: ALL, label: t.catalogAll },

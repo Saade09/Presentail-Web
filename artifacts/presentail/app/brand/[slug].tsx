@@ -22,13 +22,23 @@ import { fetchBrandProducts, applyPricingToProducts, type WooProduct } from "@/l
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
-import { CATALOG_GRID_CARD_W } from "@/lib/gridLayout";
+import {
+  CATALOG_GRID_COLUMN_GAP,
+  CATALOG_GRID_PADDING_H,
+  GRID_NUM_COLUMNS,
+  useGridCardWidth,
+} from "@/lib/gridLayout";
 
 const COVER_HEIGHT = 200;
 const LOGO_SIZE = 76;
 const LOGO_OFFSET = LOGO_SIZE / 2;
 
 function BrandScreen() {
+  const { gridCardWidth: CATALOG_GRID_CARD_W } = useGridCardWidth({
+    paddingH: CATALOG_GRID_PADDING_H,
+    columnGap: CATALOG_GRID_COLUMN_GAP,
+    numColumns: GRID_NUM_COLUMNS,
+  });
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colors = useColors();
   const router = useRouter();

@@ -16,6 +16,7 @@
  * wrapping container styles.
  */
 
+import { useEffect, useState } from "react";
 import { Dimensions } from "react-native";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -158,4 +159,80 @@ export function computeOccasionCardWidth(
   maxW: number,
 ): number {
   return Math.min(maxW, (screenWidth - paddingH * 2) / divisor);
+}
+
+// ---------------------------------------------------------------------------
+// Reactive hooks — subscribe to Dimensions changes for foldables / iPads
+// ---------------------------------------------------------------------------
+
+/**
+ * Config accepted by {@link useGridCardWidth}.
+ * Compatible with HOME_GRID_CONFIG and CATALOG_GRID_FLATLIST_CONFIG so either
+ * object can be spread/passed directly.
+ */
+export type GridLayoutConfig = {
+  paddingH: number;
+  columnGap: number;
+  numColumns: number;
+};
+
+/**
+ * Config accepted by {@link useOccasionCardWidth}.
+ */
+export type OccasionLayoutConfig = {
+  paddingH: number;
+  divisor: number;
+  maxW: number;
+};
+
+/**
+ * Hook that returns reactive grid card widths, recalculated whenever the
+ * window dimensions change (foldables, iPads, split-screen windows).
+ *
+ * @returns `gridCardWidth` — width for a card in multi-column grid mode.
+ * @returns `listCardWidth` — full-bleed card width in single-column list mode.
+ */
+export function useGridCardWidth(config: GridLayoutConfig): {
+  gridCardWidth: number;
+  listCardWidth: number;
+} {
+  const [screenW, setScreenW] = useState(() => Dimensions.get("window").width);
+
+  useEffect(() => {
+    const sub = Dimensions.addEventListener("change", ({ window }) => {
+      setScreenW(window.width);
+    });
+    return () => sub.remove();
+  }, []);
+
+  return {
+    gridCardWidth: computeGridCardWidth(screenW, config.paddingH, config.columnGap, config.numColumns),
+    listCardWidth: screenW - config.paddingH * 2,
+  };
+}
+
+/**
+ * Hook that returns reactive occasion card widths, recalculated whenever the
+ * window dimensions change (foldables, iPads, split-screen windows).
+ *
+ * @returns `cardWidth` — peeking-scroll card width (capped at `maxW`).
+ * @returns `listCardWidth` — full-bleed card width in single-column list mode.
+ */
+export function useOccasionCardWidth(config: OccasionLayoutConfig): {
+  cardWidth: number;
+  listCardWidth: number;
+} {
+  const [screenW, setScreenW] = useState(() => Dimensions.get("window").width);
+
+  useEffect(() => {
+    const sub = Dimensions.addEventListener("change", ({ window }) => {
+      setScreenW(window.width);
+    });
+    return () => sub.remove();
+  }, []);
+
+  return {
+    cardWidth: computeOccasionCardWidth(screenW, config.paddingH, config.divisor, config.maxW),
+    listCardWidth: screenW - config.paddingH * 2,
+  };
 }

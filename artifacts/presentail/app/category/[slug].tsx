@@ -35,9 +35,19 @@ import { fetchCategoryProducts, applyPricingToProducts, type WooProduct } from "
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
-import { CATALOG_GRID_CARD_W, CATALOG_LIST_CARD_W } from "@/lib/gridLayout";
+import {
+  CATALOG_GRID_COLUMN_GAP,
+  CATALOG_GRID_PADDING_H,
+  GRID_NUM_COLUMNS,
+  useGridCardWidth,
+} from "@/lib/gridLayout";
 
 function CategoryScreen() {
+  const { gridCardWidth: CATALOG_GRID_CARD_W, listCardWidth: CATALOG_LIST_CARD_W } = useGridCardWidth({
+    paddingH: CATALOG_GRID_PADDING_H,
+    columnGap: CATALOG_GRID_COLUMN_GAP,
+    numColumns: GRID_NUM_COLUMNS,
+  });
   const headingFontMedium = useHeadingFont("500Medium");
   const headingFontRegular = useHeadingFont("400Regular");
   const { slug: routeSlug } = useLocalSearchParams<{ slug: string }>();
