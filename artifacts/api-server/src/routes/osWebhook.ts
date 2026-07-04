@@ -564,42 +564,49 @@ export async function handleOrderStatusUpdated(
   // — skip silently.  This eliminates the read-then-write race that two
   // concurrent webhook deliveries could otherwise both win.
   if (state === "confirmed") {
-    const claimed = await db
-      .update(appOrdersTable)
-      .set({ gadsConversionUploadedAt: new Date() })
-      .where(
-        and(
-          eq(appOrdersTable.appOrderId, resolvedAppOrderId),
-          isNull(appOrdersTable.gadsConversionUploadedAt),
-        ),
-      )
-      .returning({ id: appOrdersTable.id });
+    try {
+      const claimed = await db
+        .update(appOrdersTable)
+        .set({ gadsConversionUploadedAt: new Date() })
+        .where(
+          and(
+            eq(appOrdersTable.appOrderId, resolvedAppOrderId),
+            isNull(appOrdersTable.gadsConversionUploadedAt),
+          ),
+        )
+        .returning({ id: appOrdersTable.id });
 
-    if (claimed.length === 0) {
-      req.log.info?.(
-        { appOrderId: resolvedAppOrderId },
-        "osWebhook: Google Ads conversion already uploaded for this order — skipping duplicate",
-      );
-    } else {
-      let attribution: MarketingAttribution = {};
-      if (row.marketingAttributionJson) {
-        try {
-          attribution = JSON.parse(row.marketingAttributionJson) as MarketingAttribution;
-        } catch {
-          // Malformed JSON — proceed with empty attribution; upload will no-op.
-        }
-      }
-      uploadGoogleAdsConversion({
-        appOrderId: resolvedAppOrderId,
-        attribution,
-        conversionTimeMs: Date.now(),
-        totalUsdCents: row.totalUsdCents,
-      }).catch((err: unknown) => {
-        req.log.warn?.(
-          { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
-          "osWebhook: Google Ads conversion upload failed unexpectedly (non-fatal)",
+      if (claimed.length === 0) {
+        req.log.info?.(
+          { appOrderId: resolvedAppOrderId },
+          "osWebhook: Google Ads conversion already uploaded for this order — skipping duplicate",
         );
-      });
+      } else {
+        let attribution: MarketingAttribution = {};
+        if (row.marketingAttributionJson) {
+          try {
+            attribution = JSON.parse(row.marketingAttributionJson) as MarketingAttribution;
+          } catch {
+            // Malformed JSON — proceed with empty attribution; upload will no-op.
+          }
+        }
+        uploadGoogleAdsConversion({
+          appOrderId: resolvedAppOrderId,
+          attribution,
+          conversionTimeMs: Date.now(),
+          totalUsdCents: row.totalUsdCents,
+        }).catch((err: unknown) => {
+          req.log.warn?.(
+            { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
+            "osWebhook: Google Ads conversion upload failed unexpectedly (non-fatal)",
+          );
+        });
+      }
+    } catch (err: unknown) {
+      req.log.warn?.(
+        { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
+        "osWebhook: Google Ads conversion claim failed (non-fatal) — email/SMS will still be sent",
+      );
     }
   }
 

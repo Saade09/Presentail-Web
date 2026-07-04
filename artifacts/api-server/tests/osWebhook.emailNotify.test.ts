@@ -20,15 +20,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // The update chain must support both:
 //   await db.update().set().where()                   — used for the state update
 //   await db.update().set().where().returning(...)    — used for the gads conversion claim
-const { limitMock, updateWhereMock, dbMock } = vi.hoisted(() => {
+const { limitMock, updateWhereMock, returningMock, dbMock } = vi.hoisted(() => {
   const limitMock = vi.fn();
+  // returningMock is the .returning() at the end of the gads claim chain.
+  // Exported so individual tests can override it to simulate a DB error.
+  const returningMock = vi.fn().mockResolvedValue([]);
   // updateWhereMock returns an object that is both awaitable (resolves to
   // undefined) and has a .returning() method (resolves to [] — meaning zero
   // rows were claimed, so the gads upload is skipped silently).
   const updateWhereMock = vi.fn().mockReturnValue({
     then: (res: (v: unknown) => void, rej: (e: unknown) => void) =>
       Promise.resolve(undefined).then(res, rej),
-    returning: vi.fn().mockResolvedValue([]),
+    returning: returningMock,
   });
   const setMock = vi.fn().mockReturnValue({ where: updateWhereMock });
   const updateMock = vi.fn().mockReturnValue({ set: setMock });
@@ -47,7 +50,7 @@ const { limitMock, updateWhereMock, dbMock } = vi.hoisted(() => {
   const insertMock = vi.fn().mockReturnValue(insertChain);
 
   const dbMock = { select: selectMock, update: updateMock, insert: insertMock };
-  return { limitMock, updateWhereMock, dbMock };
+  return { limitMock, updateWhereMock, returningMock, dbMock };
 });
 
 vi.mock("@workspace/db", () => ({
@@ -123,6 +126,7 @@ vi.mock("pino-http", () => ({
 // ---------------------------------------------------------------------------
 
 import osWebhookRouter from "../src/routes/osWebhook";
+import { sendOrderEventSms } from "../src/lib/smsNotify";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -448,5 +452,42 @@ describe("handleOrderStatusUpdated — status mapping", () => {
     expect(sendOrderEventEmailMock).toHaveBeenCalledOnce();
     const arg = sendOrderEventEmailMock.mock.calls[0][0] as Record<string, unknown>;
     expect(arg.customerEmail).toBe("via-os-id@example.com");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Google Ads claim resilience — email and SMS must still fire when the DB
+// UPDATE that atomically claims the conversion slot throws an error.
+// ---------------------------------------------------------------------------
+
+describe("handleOrderStatusUpdated — gads claim resilience", () => {
+  it("still sends email when the gads conversion claim (db.update().returning()) throws", async () => {
+    // Make the gads claim's .returning() reject to simulate a DB error.
+    returningMock.mockRejectedValueOnce(new Error("DB connection lost"));
+
+    limitMock
+      .mockResolvedValueOnce([makeOrderRow({ customerId: 10 })])
+      .mockResolvedValueOnce([makeCustomerRow("resilience@example.com", "en")]);
+
+    await sendStatusUpdated({ app_order_id: APP_ORDER_ID, status: "confirmed" });
+
+    expect(sendOrderEventEmailMock).toHaveBeenCalledOnce();
+    const arg = sendOrderEventEmailMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg.customerEmail).toBe("resilience@example.com");
+    expect(arg.state).toBe("confirmed");
+  });
+
+  it("still sends SMS when the gads conversion claim throws", async () => {
+    returningMock.mockRejectedValueOnce(new Error("DB timeout"));
+
+    limitMock
+      .mockResolvedValueOnce([makeOrderRow({ customerId: 11, senderPhone: "+9611234567" })])
+      .mockResolvedValueOnce([makeCustomerRow("sms-resilience@example.com")]);
+
+    await sendStatusUpdated({ app_order_id: APP_ORDER_ID, status: "confirmed" });
+
+    expect(sendOrderEventSms).toHaveBeenCalledOnce();
+    // Email is also still dispatched.
+    expect(sendOrderEventEmailMock).toHaveBeenCalledOnce();
   });
 });
