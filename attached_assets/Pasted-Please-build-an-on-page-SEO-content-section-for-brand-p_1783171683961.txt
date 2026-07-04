@@ -1,0 +1,345 @@
+Please build an on-page SEO content section for brand pages on Presentail.
+
+Context:
+We already built a clean SEO content section for category and occasion pages. Now we need to extend the same concept to brand pages.
+
+Goal:
+Add a helpful visible SEO content section to brand pages to improve search relevance while keeping the shopping experience clean and premium.
+
+Important:
+Do not place SEO text above the products. Products should remain the priority. The SEO content should appear after the brand product grid and before the footer, similar to the category and occasion SEO section.
+
+Example brand page structure should become:
+
+* Header
+* Breadcrumb
+* H1: {Brand Name}
+* Product grid for that brand
+* Brand SEO content section
+* Footer
+
+1. Placement
+
+On brand pages, render the SEO content section:
+
+* after the final product row
+* before the footer
+* inside the full-width SEO band style already used for category and occasion pages
+* with the inner content aligned to the main page container
+* only if the brand page has products
+
+Do not show this section on:
+
+* empty brand pages
+* noindex pages
+* cart
+* checkout
+* login
+* account
+* search pages
+
+2. Reuse existing SEO section design
+
+Please reuse the same component/style used for category and occasion pages if possible.
+
+The design should match:
+
+* full-width light background band
+* centered content container
+* elegant H2
+* short intro paragraph
+* benefit cards
+* related link chips
+* FAQ accordion
+
+Do not create a totally different design for brand pages unless necessary.
+
+3. Brand page SEO content template
+
+Use a dynamic template based on:
+
+* brand name
+* city
+* country/language
+* available products/categories for that brand
+
+H2 format:
+{Brand Name} Delivery in {City}
+
+Example:
+Sable Gourmet Delivery in Beirut
+Hallab Delivery in Beirut
+Patchi Delivery in Dubai
+
+Intro paragraph format:
+Shop {Brand Name} gifts online in {City} with Presentail. Browse curated products from {Brand Name} and send thoughtful gifts with reliable delivery options across {City}.
+
+If the brand mostly sells cakes/sweets/chocolates, use:
+Order {Brand Name} sweets and gifts online in {City} with Presentail. Choose from curated treats and gift options, with reliable delivery available across {City}.
+
+If the brand mostly sells flowers/plants, use:
+Shop {Brand Name} flowers and gifts online in {City} with Presentail. Choose from curated arrangements and thoughtful gift options, with reliable delivery across {City}.
+
+4. Benefit cards for brand pages
+
+Add 3–4 lightweight benefit cards.
+
+Default brand benefits:
+
+* Curated Brand Gifts
+  Thoughtful products selected from {Brand Name}.
+
+* Same-day & Scheduled Delivery
+  Choose the delivery option that suits your order.
+
+* Recipient Address Collection
+  We can collect the delivery address for you.
+
+* Gift Extras Available
+  Add flowers, balloons, chocolates or a personal card.
+
+If the brand category is food/sweets/cakes:
+
+* Curated Treats & Gifts
+* Reliable Delivery
+* Recipient Address Collection
+* Add Flowers & Extras
+
+If the brand category is flowers:
+
+* Fresh Floral Gifts
+* Same-day & Scheduled Delivery
+* Recipient Address Collection
+* Elegant Presentation
+
+5. Related link chips
+
+Add a row of related internal links.
+
+Title:
+Popular gifts in {City}
+
+Suggested links:
+
+* Flower Bouquets
+* Flower Boxes
+* Cakes
+* Chocolates
+* Birthday Gifts
+* Anniversary Gifts
+
+Rules:
+
+* Use current city and language.
+* Link to canonical URLs.
+* Hide links if the target category/occasion does not exist.
+* Do not show broken links.
+* Keep chips subtle and clean.
+
+Alternative if brand has known product categories:
+Title:
+Explore more from {Brand Name}
+
+Links:
+
+* {Brand category 1}
+* {Brand category 2}
+* {Brand category 3}
+
+Use this only if brand/category relationships already exist.
+
+6. FAQ accordion for brand pages
+
+Add 3 FAQ questions.
+
+Default brand FAQ:
+
+Q1:
+Can I order {Brand Name} gifts in {City}?
+A:
+Yes, you can order selected {Brand Name} products online through Presentail and send them across {City}, subject to availability.
+
+Q2:
+Can I schedule {Brand Name} delivery?
+A:
+Yes, available delivery dates and time slots are shown during checkout based on the selected product and city.
+
+Q3:
+Can I add flowers or extras to a {Brand Name} gift?
+A:
+Yes, where available, you can add flowers, balloons, chocolates or a personal card to make your gift more special.
+
+For food/cake/sweets brands, use:
+
+Q1:
+Can I order {Brand Name} sweets in {City}?
+A:
+Yes, you can order selected {Brand Name} sweets and gifts online with Presentail, subject to availability in {City}.
+
+Q2:
+Does Presentail deliver {Brand Name} on the same day?
+A:
+Delivery options depend on the selected product, date, time and city. Available options are shown during checkout.
+
+Q3:
+Can I send {Brand Name} as a gift?
+A:
+Yes, {Brand Name} products can be sent as gifts with optional extras such as flowers, balloons or a personal card where available.
+
+7. FAQ schema
+
+Only add FAQPage structured data if the FAQs are visibly rendered on the page.
+
+Rules:
+
+* FAQ schema must exactly match the visible FAQ questions and answers.
+* Do not add FAQPage schema if FAQ content is hidden or disabled.
+* Keep existing Product, ItemList, BreadcrumbList schema behavior unchanged.
+
+8. SEO metadata alignment
+
+This task is mostly on-page content, but please make sure the brand page SEO content aligns with the existing metadata.
+
+Brand page title should follow:
+{Brand Name} Delivery in {City} | Presentail
+
+Meta description should follow:
+Shop {Brand Name} gifts online in {City}. Send curated products from {Brand Name} with reliable delivery from Presentail.
+
+Do not change global SEO logic unless brand pages are missing proper metadata.
+
+9. Multilingual support
+
+Prepare this for English, French and Arabic.
+
+For now:
+
+* English must be implemented cleanly.
+* French and Arabic should use the existing translation/i18n structure if available.
+* If translations are not yet ready, structure the text keys so they can be translated later.
+* Arabic layout must support RTL.
+
+Do not show broken or mixed-language content.
+
+10. Mobile behavior
+
+The brand SEO section must work well on mobile.
+
+Mobile requirements:
+
+* full-width background section
+* inner content with comfortable padding
+* benefit cards stack or use 2-column layout if clean
+* chips wrap nicely
+* FAQ rows are easy to tap
+* no horizontal overflow
+* section remains below product grid and above footer
+
+11. Performance
+
+The section should not affect page speed.
+
+Rules:
+
+* no heavy images
+* use lightweight icons
+* reuse existing components/styles where possible
+* FAQ accordion should be lightweight
+* content should be present in initial HTML where possible for SEO
+
+12. Future admin/CMS compatibility
+
+Please structure this so we can later manage custom brand SEO content from Presentail OS.
+
+Suggested future data shape:
+
+* page_type: brand
+* brand_id
+* brand_slug
+* brand_name
+* language
+* country_code
+* city_slug
+* heading
+* intro_text
+* benefits
+* internal_links
+* faqs
+* is_active
+* updated_at
+
+For now:
+
+* use dynamic fallback templates
+* do not require an admin CMS before launching
+
+13. Pages to test
+
+Please test several brand pages across cities.
+
+Test examples:
+
+* /en-lb/beirut/brands
+* an individual brand page in Beirut if the route exists
+* an individual brand page in Dubai if the route exists
+* any brand page that has food/sweets/cakes products
+* any brand page that has flowers/plants products
+
+If the site currently only has a brands listing page and not individual brand pages, please implement the SEO section for the brands listing page first and confirm whether individual brand pages exist.
+
+14. Brands listing page
+
+If there is a general brands page, add a lighter SEO content section there as well.
+
+H2:
+Gift Brands Available in {City}
+
+Paragraph:
+Discover gift brands available in {City} with Presentail. Browse curated flowers, cakes, chocolates, sweets and thoughtful gifts from trusted partners, all available to order online.
+
+Benefits:
+
+* Curated Partner Brands
+* Flowers, Cakes & Gifts
+* Reliable Delivery
+* Easy Online Ordering
+
+FAQ:
+Q: Can I order gifts from different brands in {City}?
+A:
+Yes, you can browse available brands and products in {City} through Presentail.
+
+Q: Are all brands available in every city?
+A:
+Brand availability depends on the selected city and product availability.
+
+Q: Can I combine brand gifts with flowers?
+A:
+Where available, you can add flowers, balloons, chocolates or a personal card to your gift.
+
+15. Acceptance criteria
+
+This task is complete when:
+
+* Brand pages have an on-page SEO content section below products and above footer.
+* The design matches the existing category/occasion SEO section.
+* Brand content is dynamic using brand name and city.
+* Brand listing page has a lighter SEO section if applicable.
+* Benefit cards render cleanly.
+* Related internal link chips work and use canonical URLs.
+* FAQ accordion works.
+* FAQPage schema is added only when FAQs are visible.
+* Empty/noindex brand pages do not show the section.
+* Mobile layout is clean.
+* No product grid, routing, cart, checkout, or account behavior is affected.
+
+Please return:
+
+1. Files/components changed
+2. Whether individual brand pages exist
+3. Whether brands listing page was updated
+4. Example generated content for one brand page
+5. Example generated content for brands listing page
+6. URLs tested
+7. Confirmation FAQ schema matches visible FAQs
+8. Screenshots or notes for desktop and mobile
