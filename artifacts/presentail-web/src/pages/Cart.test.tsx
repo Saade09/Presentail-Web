@@ -115,6 +115,7 @@ vi.mock("@/contexts/DeliverySelectionContext", () => ({
 
 import Cart, { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY } from "./Cart";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
 // ---------------------------------------------------------------------------
 // Shared fixture
@@ -488,6 +489,93 @@ describe("Cart — coupon discount display and total calculation", () => {
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
     expect(screen.getByText("cart.expressLabel")).toBeTruthy();
     const totals = screen.getAllByText("$100");
+    expect(totals.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: UAE express surcharge ($4.90) — AE shopper sees the correct amount
+// in both the below-threshold and above-threshold states.
+// ---------------------------------------------------------------------------
+
+const AE_DELIVERY_CONFIG = {
+  freeDeliveryEnabled: true,
+  freeDeliveryThreshold: "AED 330",
+  freeDeliveryThresholdUsd: 89.84,
+  expressDeliveryTimeLabel: "Arrives in 90 minutes",
+  currency: "USD",
+  cityFeeUsd: 10,
+  expressSurchargeUsd: 4.9,
+};
+
+// AE free-delivery threshold is ~$89.84 USD.
+const AE_CART_BELOW_THRESHOLD = { items: [FAKE_ITEM], subtotal: 75, itemCount: 1 };
+const AE_CART_ABOVE_THRESHOLD = { items: [FAKE_ITEM], subtotal: 95, itemCount: 1 };
+
+describe("Cart — UAE express surcharge ($4.90)", () => {
+  beforeEach(() => {
+    vi.mocked(useDeliveryConfig).mockReturnValue(AE_DELIVERY_CONFIG);
+    vi.mocked(useLocationSelection).mockReturnValue({
+      countryCode: "AE",
+      city: null,
+      country: null,
+      cityId: null,
+      isLoading: false,
+      isPickerOpen: false,
+      openPicker: vi.fn(),
+      closePicker: vi.fn(),
+      setLocation: vi.fn(),
+    });
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "express",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.mocked(useLocationSelection).mockReturnValue({
+      countryCode: "LB",
+      city: null,
+      country: null,
+      cityId: null,
+      isLoading: false,
+      isPickerOpen: false,
+      openPicker: vi.fn(),
+      closePicker: vi.fn(),
+      setLocation: vi.fn(),
+    });
+  });
+
+  it("express + below threshold → shows city fee and AE express surcharge ($4.9), not LB surcharge ($15)", () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: AE_CART_BELOW_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("$4.9")).toBeTruthy();
+    expect(screen.getByText("$10")).toBeTruthy();
+    expect(screen.queryByText("$15")).toBeNull();
+  });
+
+  it("express + above threshold → shows 'Free' delivery and AE express surcharge ($4.9); total = subtotal + surcharge only", () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: AE_CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
+    expect(screen.getByText("$4.9")).toBeTruthy();
+    expect(screen.queryByText("$15")).toBeNull();
+    // Total = 95 (subtotal) + 4.9 (surcharge) = 99.9
+    const totals = screen.getAllByText("$99.9");
     expect(totals.length).toBeGreaterThan(0);
   });
 });
