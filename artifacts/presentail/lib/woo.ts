@@ -4,6 +4,7 @@ import { API_BASE } from "./stripe";
 export type WooProduct = {
   id: string;
   wcId: number;
+  osNumericId?: number | string | null;
   name: string;
   price: string;
   priceValue: number;
@@ -21,6 +22,46 @@ export type WooProduct = {
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
 };
+
+export type ProductPricingEntry = {
+  discountPriceUsd: number | null;
+  discountPriceAed: number | null;
+  regularPriceUsd: number | null;
+};
+
+export type ProductPricingMap = Record<string, ProductPricingEntry>;
+
+export async function fetchProductsPricing(): Promise<ProductPricingMap> {
+  try {
+    const res = await fetch(`${API_BASE}/api/catalog/products-pricing`);
+    if (!res.ok) return {};
+    const json = await res.json();
+    if (json.ok && json.pricing && typeof json.pricing === "object") {
+      return json.pricing as ProductPricingMap;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+export function applyPricingToProducts<T extends Pick<WooProduct, "osNumericId" | "discountPriceValue" | "discountPriceAed" | "priceValue">>(
+  products: T[],
+  pricingMap: ProductPricingMap,
+): T[] {
+  if (Object.keys(pricingMap).length === 0) return products;
+  return products.map((p) => {
+    const key = p.osNumericId != null ? String(p.osNumericId) : null;
+    if (!key) return p;
+    const entry = pricingMap[key];
+    if (!entry) return p;
+    return {
+      ...p,
+      discountPriceValue: entry.discountPriceUsd ?? p.discountPriceValue ?? null,
+      discountPriceAed: entry.discountPriceAed ?? p.discountPriceAed ?? null,
+    };
+  });
+}
 
 export type OccasionGroup = {
   slug: string;

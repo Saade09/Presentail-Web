@@ -32,7 +32,8 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
+import { fetchCategoryProducts, applyPricingToProducts, type WooProduct } from "@/lib/woo";
+import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -83,6 +84,7 @@ function CategoryScreen() {
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
   const category = getCategory(String(slug));
+  const pricingMap = usePricingMap();
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +106,9 @@ function CategoryScreen() {
     return () => { cancelled = true; };
   }, [slug, countryCode, cityId]);
 
-  const sourceProducts = wcProducts;
+  const enrichedWcProducts = applyPricingToProducts(wcProducts, pricingMap);
+
+  const sourceProducts = enrichedWcProducts;
   const products = useMemo(() => {
     if (sort === "bestSeller") return [...sourceProducts].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
     if (sort === "priceUp") return [...sourceProducts].sort((a, b) => a.priceValue - b.priceValue);
@@ -381,6 +385,7 @@ function mergeWithStatic(wp: WooProduct): Product {
   return {
     id: wp.id,
     wcId: wp.wcId,
+    osNumericId: wp.osNumericId ?? null,
     name: wp.name,
     price: wp.price,
     priceValue: wp.priceValue,

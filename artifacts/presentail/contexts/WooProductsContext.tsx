@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState, type AppStateStatus } from "react-native";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { fetchWooProducts, type WooProduct } from "@/lib/woo";
+import { fetchWooProducts, fetchProductsPricing, applyPricingToProducts, type WooProduct } from "@/lib/woo";
 
 type AnyProduct = WooProduct;
 
@@ -47,7 +47,10 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
       // Forward the selected delivery country / city to the API server,
       // which filters the WooCommerce catalogue by per-product
       // deliverability meta before returning it.
-      const result = await fetchWooProducts({ countryCode, cityId });
+      const [result, pricingMap] = await Promise.all([
+        fetchWooProducts({ countryCode, cityId }),
+        fetchProductsPricing(),
+      ]);
       // Drop the result if a newer sync started or the provider unmounted.
       if (unmounted.current || seq !== syncSeq.current) return;
       // Bail out on transport / API failure so a network blip doesn't wipe
@@ -66,7 +69,7 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
       // selected store, out of stock, or hidden by category, so it must
       // not leak through the static fallback.
       const merged = mergeProducts([], woo, true);
-      setProducts(merged);
+      setProducts(applyPricingToProducts(merged, pricingMap));
       setLastSync(new Date());
     } finally {
       isSyncing.current = false;
@@ -185,6 +188,7 @@ function mergeProducts(
     result.push({
       id: wp.id,
       wcId: wp.wcId,
+      osNumericId: wp.osNumericId ?? null,
       name: wp.name,
       price: wp.price,
       priceValue: wp.priceValue,

@@ -27,6 +27,7 @@ export type Product = {
   occasions?: string[];
   description?: string;
   wcId?: number;
+  osNumericId?: number | string | null;
   popularity?: number;
   hasInputField?: boolean;
   discountPriceValue?: number | null;

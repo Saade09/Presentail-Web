@@ -28,7 +28,8 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchOccasionProducts, fetchBrandProducts, type OccasionGroup, type WooProduct } from "@/lib/woo";
+import { fetchOccasionProducts, fetchBrandProducts, applyPricingToProducts, type OccasionGroup, type WooProduct } from "@/lib/woo";
+import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -69,6 +70,7 @@ function OccasionScreen() {
   const [loading, setLoading] = useState(true);
   const [coverLoaded, setCoverLoaded] = useState(false);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const pricingMap = usePricingMap();
   // Capture mount time so the TTID includes the async product fetch.
   const mountMsRef = useRef(Date.now());
 
@@ -120,21 +122,34 @@ function OccasionScreen() {
       .slice(0, 6);
   }, [wooCatalog]);
 
+  const enrichedBrandProducts = useMemo(
+    () => applyPricingToProducts(brandProducts, pricingMap),
+    [brandProducts, pricingMap],
+  );
+
+  const enrichedGroups = useMemo(
+    () => groups.map((g) => ({
+      ...g,
+      products: applyPricingToProducts(g.products, pricingMap),
+    })),
+    [groups, pricingMap],
+  );
+
   const sortedBrandProducts = useMemo(() => {
-    if (sort === "featured") return brandProducts;
-    const list = [...brandProducts];
+    if (sort === "featured") return enrichedBrandProducts;
+    const list = [...enrichedBrandProducts];
     if (sort === "bestSeller") list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
     else if (sort === "priceUp") list.sort((a, b) => a.priceValue - b.priceValue);
     else if (sort === "priceDown") list.sort((a, b) => b.priceValue - a.priceValue);
     else if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     return list;
-  }, [brandProducts, sort]);
+  }, [enrichedBrandProducts, sort]);
 
   const flatSortedGroupProducts = useMemo(() => {
     if (sort === "featured") return null;
     const seen = new Set<string>();
     const flat: WooProduct[] = [];
-    for (const g of groups) {
+    for (const g of enrichedGroups) {
       for (const p of g.products) {
         if (seen.has(p.id)) continue;
         seen.add(p.id);
@@ -147,7 +162,7 @@ function OccasionScreen() {
     else if (sort === "priceDown") list.sort((a, b) => b.priceValue - a.priceValue);
     else if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     return list;
-  }, [groups, sort]);
+  }, [enrichedGroups, sort]);
 
   const hasProducts = activeBrandSlug ? brandProducts.length > 0 : groups.length > 0;
 
@@ -358,7 +373,7 @@ function OccasionScreen() {
           </View>
         ) : (
           <View style={{ marginTop: 10 }}>
-            {groups.map((group) => (
+            {enrichedGroups.map((group) => (
               <CategorySection
                 key={group.slug}
                 group={group}

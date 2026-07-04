@@ -19,7 +19,8 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchBrandProducts, type WooProduct } from "@/lib/woo";
+import { fetchBrandProducts, applyPricingToProducts, type WooProduct } from "@/lib/woo";
+import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -48,7 +49,10 @@ function BrandScreen() {
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
+  const pricingMap = usePricingMap();
   const mountMsRef = useRef(Date.now());
+
+  const enrichedProducts = applyPricingToProducts(products, pricingMap);
 
   useEffect(() => {
     if (loading || Platform.OS === "web") return;
@@ -248,7 +252,7 @@ function BrandScreen() {
         </View>
       ) : (
         <FlatList
-          data={products}
+          data={enrichedProducts}
           keyExtractor={(item) => item.id}
           numColumns={2}
           columnWrapperStyle={{ gap: 10, paddingHorizontal: 24 }}

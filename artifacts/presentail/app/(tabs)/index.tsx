@@ -40,7 +40,8 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { localizedCountryName } from "@/data/countryNamesLocalized";
-import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
+import { fetchCategoryProducts, applyPricingToProducts, type WooProduct } from "@/lib/woo";
+import { usePricingMap } from "@/hooks/usePricingMap";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -917,6 +918,7 @@ function SummerCollectionSection() {
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
+  const pricingMap = usePricingMap();
   const [products, setProducts] = useState<WooProduct[]>([]);
   // true only until the very first fetch settles — subsequent location-change
   // re-fetches leave this false so existing cards stay visible (SWR).
@@ -946,6 +948,8 @@ function SummerCollectionSection() {
       cancelled = true;
     };
   }, [countryCode, cityId]);
+
+  const enrichedProducts = applyPricingToProducts(products, pricingMap);
 
   if (!loading && products.length === 0) return null;
 
@@ -977,11 +981,11 @@ function SummerCollectionSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
-        {loading && products.length === 0
+        {loading && enrichedProducts.length === 0
           ? Array.from({ length: 4 }).map((_, i) => (
               <ProductCardSkeleton key={i} width={CARD_W} />
             ))
-          : products.map((p) => (
+          : enrichedProducts.map((p) => (
               <ProductCard key={p.id} product={p as any} width={CARD_W} />
             ))}
       </ScrollView>
