@@ -17,7 +17,7 @@ import request from "supertest";
 // ── Hoisted mock references ──────────────────────────────────────────────────
 
 const { getOsProductPricingMapMock } = vi.hoisted(() => ({
-  getOsProductPricingMapMock: vi.fn<[], ReadonlyMap<string, { discountPriceUsd: number | null; discountPriceAed: number | null; regularPriceUsd: number | null }>>(),
+  getOsProductPricingMapMock: vi.fn(),
 }));
 
 // ── Module mocks ─────────────────────────────────────────────────────────────
