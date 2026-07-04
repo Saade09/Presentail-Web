@@ -14,6 +14,9 @@
  *   /brands         — Brand listing
  *   /occasions      — Occasions listing
  *   /contact        — Contact
+ *   /brand/:slug    — Brand detail (pageType="brand"; rendered only when brand has
+ *                     products — API routes are stubbed to guarantee a non-empty
+ *                     product list without relying on a live OS/WooCommerce backend)
  *
  * Each suite:
  *   1. Navigates to the page and waits for the SEO section to mount.
@@ -316,3 +319,144 @@ describePageFaqRichResults("Occasions listing", "/occasions");
 // ---------------------------------------------------------------------------
 
 describePageFaqRichResults("Contact page", "/contact");
+
+// ---------------------------------------------------------------------------
+// Brand detail page — /brand/:slug
+//
+// SEOContentSection is rendered with pageType="brand" only when the brand has
+// at least one product (BrandDetail gates on `hasProducts`). We stub the three
+// relevant API endpoints so the test runs without a live backend:
+//   - /api/woo/brands        → returns one brand whose slug matches the URL
+//   - /api/woo/brand-products → returns one product so hasProducts is true
+//   - /api/catalog/metadata  → returns empty occasions list (avoids a 500)
+// All other /api/* calls receive a generic { ok: true } stub.
+// ---------------------------------------------------------------------------
+
+const BRAND_DETAIL_SLUG = "test-brand";
+const BRAND_DETAIL_PATH = `/brand/${BRAND_DETAIL_SLUG}`;
+
+const STUB_BRAND = {
+  id: BRAND_DETAIL_SLUG,
+  name: "Test Brand",
+  slug: BRAND_DETAIL_SLUG,
+  image: null,
+};
+
+const STUB_BRAND_PRODUCT = {
+  id: "stub-product",
+  name: "Stub Product",
+  slug: "stub-product",
+  priceValue: 50,
+  image: { uri: "https://example.com/stub.jpg" },
+  category: "hand-bouquets",
+  description: "A stub product for testing.",
+};
+
+test.describe(`FAQ rich results — Brand detail page (${BRAND_DETAIL_PATH})`, () => {
+  test.beforeEach(async ({ page }) => {
+    await seedLocation(page);
+
+    await page.route("**/api/woo/brands**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, brands: [STUB_BRAND] }),
+      }),
+    );
+
+    await page.route("**/api/woo/brand-products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          products: [STUB_BRAND_PRODUCT],
+          count: 1,
+          brandName: STUB_BRAND.name,
+        }),
+      }),
+    );
+
+    await page.route("**/api/catalog/metadata**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, occasions: [], categories: [] }),
+      }),
+    );
+
+    await page.route("**/api/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      }),
+    );
+
+    await page.goto(BRAND_DETAIL_PATH);
+  });
+
+  test("SEOContentSection is visible on the Brand detail page", async ({ page }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("FAQPage JSON-LD <script data-seo-faq-ld> is injected into <head> exactly once", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const { content, count } = await page.evaluate(() => {
+      const scripts = document.head.querySelectorAll(
+        'script[type="application/ld+json"][data-seo-faq-ld]',
+      );
+      return {
+        content: scripts[0]?.textContent ?? null,
+        count: scripts.length,
+      };
+    });
+
+    expect(content, "<script data-seo-faq-ld> not found in document.head").not.toBeNull();
+    expect(count, "expected exactly one data-seo-faq-ld script tag in <head>").toBe(1);
+  });
+
+  test('parsed JSON-LD has @type "FAQPage" and exactly 3 mainEntity entries', async ({
+    page,
+  }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const schema = await getFaqLdJson(page);
+    expect(schema).not.toBeNull();
+    expect(schema!["@type"]).toBe("FAQPage");
+    const mainEntity = schema!.mainEntity as unknown[];
+    expect(Array.isArray(mainEntity)).toBe(true);
+    expect(mainEntity.length).toBe(3);
+  });
+
+  test('each mainEntity entry has @type "Question" with a non-empty name and a well-formed acceptedAnswer', async ({
+    page,
+  }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const schema = await getFaqLdJson(page);
+    expect(schema).not.toBeNull();
+    const mainEntity = schema!.mainEntity as Array<Record<string, unknown>>;
+    for (const entry of mainEntity) {
+      expect(entry["@type"]).toBe("Question");
+      expect(typeof entry.name).toBe("string");
+      expect((entry.name as string).length).toBeGreaterThan(0);
+      const answer = entry.acceptedAnswer as Record<string, unknown>;
+      expect(answer).toBeTruthy();
+      expect(answer["@type"]).toBe("Answer");
+      expect(typeof answer.text).toBe("string");
+      expect((answer.text as string).length).toBeGreaterThan(0);
+    }
+  });
+});
