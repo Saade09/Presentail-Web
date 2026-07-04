@@ -301,6 +301,15 @@ function transformOsResponse(
 ): CachedCountry[] {
   const osCodes = new Set(resp.countries.map((c) => c.code.toUpperCase()));
 
+  // Track the number of formerly-inactive cities that OS now returns without
+  // an explicit isActive:false, per country (uppercase code → count).
+  // This is the signal that OS may have stopped using the "absent = inactive"
+  // convention and started including previously-disabled cities in its response.
+  // Only meaningful for the non-zero-city path; absent (0 by default) for
+  // the zero-city fallback paths. The regression alert fires when this count
+  // is ≥1 and the prior cache had at least one inactive city.
+  const formerlyInactiveByCode = new Map<string, number>();
+
   const fromOs: CachedCountry[] = resp.countries.map((osCountry) => {
     const code = osCountry.code.toUpperCase();
     const hardcoded = HARDCODED_BY_CODE.get(code);
@@ -320,6 +329,11 @@ function transformOsResponse(
     // false). The OS only returns active cities — a known city that OS
     // omits has been disabled in the OS admin panel and should appear
     // greyed out rather than vanishing entirely.
+    // Count of formerly-inactive cities that OS now returns without isActive:false.
+    // Incremented inside the per-city map below (via closure) and stored in
+    // formerlyInactiveByCode after the IIFE. Used by the regression alert check.
+    let _formerlyInactiveReturnedCount = 0;
+
     const cities: CachedCity[] = (() => {
       if (osCountry.cities.length === 0) {
         // Prefer the prior cache for this country so last-known OS
@@ -407,6 +421,13 @@ function transformOsResponse(
         const priorCity = previousCountries
           ?.find((p) => p.code === code)
           ?.cities.find((pc) => pc.id === canonicalId);
+
+        // Regression signal: OS returned this city without isActive:false but
+        // the prior cache had it as inactive (the sticky-inactive guard will keep
+        // it inactive, but ops need to know OS stopped using the absence heuristic).
+        if (c.isActive === undefined && priorCity?.isActive === false) {
+          _formerlyInactiveReturnedCount++;
+        }
 
         // Warn when a webhook payload omits express_available for a city
         // that was previously express-enabled. The prior value is preserved
@@ -496,14 +517,14 @@ function transformOsResponse(
           // city before defaulting. This prevents a partial webhook
           // (e.g. slot-only or free-delivery-threshold update that omits
           // express_available) from silently turning off express delivery.
-          // Fall back to true (opt-out model): express is on by default and
-          // only disabled for cities that explicitly send expressAvailable: false
-          // (e.g. Akkar). This ensures express shows immediately after a server
-          // restart without waiting for a delivery_config.updated webhook.
+          // Fall back to false on a clean cold-start: a city with no prior
+          // cache and no explicit OS field is unknown, so we conservatively
+          // default to no express rather than silently enabling it. The first
+          // real delivery_config.updated webhook or poll will set the correct value.
           expressAvailable:
             c.expressAvailable ??
             priorCity?.expressAvailable ??
-            true,
+            false,
           expressDeliveryLabel: c.expressDeliveryLabel ?? "",
           sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
           // Effective flat slot list: if OS only configured slotsByDay (e.g.
@@ -571,6 +592,10 @@ function transformOsResponse(
       });
     })();
 
+    // Store the count of formerly-inactive cities OS now returns without
+    // isActive:false for this country. Used by the regression alert below.
+    formerlyInactiveByCode.set(code, _formerlyInactiveReturnedCount);
+
     return {
       id: osCountry.id ?? osCountry.code.toLowerCase(),
       name: osCountry.name,
@@ -620,12 +645,16 @@ function transformOsResponse(
   }));
 
   // ── All-active regression check ──────────────────────────────────────────
-  // For each country we received from OS, compare the inactive city count
-  // against what was in the prior cache. If a country that previously had ≥1
-  // inactive city now has zero, it likely means the OS API stopped omitting
-  // inactive cities from its response and the "absent = inactive" supplement
-  // never fired. Emit one Slack alert per country per UTC day so ops can
-  // investigate before shoppers see incorrectly available cities.
+  // For each country we received from OS, detect whether OS has started
+  // returning formerly-inactive cities without explicit isActive:false.
+  // This signals that OS may have stopped using the "absent = inactive"
+  // convention. We use formerlyInactiveByCode (the count of cities the
+  // sticky-inactive guard handled per country) rather than counting
+  // inactive cities in the result, because the sticky-inactive guard keeps
+  // those cities at isActive:false even when OS returns them — so a plain
+  // inactive-count comparison would never transition to zero and the alert
+  // would never fire. Emit one Slack alert per country per UTC day so ops
+  // can investigate before any sticky-inactive guard is relaxed.
   //
   // Only fires when there is a prior cache (previousCountries is non-null) so
   // the very first successful fetch never triggers a false alarm for genuinely
@@ -637,9 +666,13 @@ function transformOsResponse(
       if (!priorCountry) continue; // New country added to OS — not a regression.
 
       const priorInactiveCount = priorCountry.cities.filter((c) => !c.isActive).length;
-      const newInactiveCount = newCountry.cities.filter((c) => !c.isActive).length;
+      // Count formerly-inactive cities OS now returns without isActive:false.
+      // A count ≥1 means OS started including previously-disabled cities in its
+      // response without marking them inactive — the regression signal.
+      // When absent (zero-city fallback path), treat as no regression.
+      const formerlyInactiveReturned = formerlyInactiveByCode.get(newCountry.code) ?? 0;
 
-      if (priorInactiveCount >= 1 && newInactiveCount === 0) {
+      if (priorInactiveCount >= 1 && formerlyInactiveReturned >= 1) {
         const alertKey = `${newCountry.code}:${today}`;
         if (!allActiveRegressionAlertSentKeys.has(alertKey)) {
           allActiveRegressionAlertSentKeys.add(alertKey);

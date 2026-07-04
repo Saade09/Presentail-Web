@@ -66,6 +66,10 @@ function loadLbCities(osCities: OSCity[]): ReturnType<typeof getLocations>[numbe
 // ---------------------------------------------------------------------------
 
 describe("osLocationsCache — inactive city supplementation", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+  });
+
   it("marks a city as isActive:false when OS omits it from the response", () => {
     // OS returns Beirut and Metn only — all other LB cities are absent.
     const cities = loadLbCities([
