@@ -13,6 +13,8 @@ export default defineConfig({
       "lib/**/*.test.ts",
       "tests/**/*.test.ts",
       "tests/**/*.test.tsx",
+      "components/**/*.test.ts",
+      "components/**/*.test.tsx",
     ],
   },
   resolve: {
