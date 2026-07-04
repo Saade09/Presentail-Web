@@ -1467,7 +1467,7 @@ function CheckoutForm() {
     noAddress,
     deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
-    deliverySlot: deliveryMode === "express" ? t("checkout.expressDeliveryLabel") : deliverySlot,
+    deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
     deliverySlotTime: deliveryMode === "express" ? undefined : slotTimeRangeForLabel(deliverySlot, timeSlots),
     cardMessage: recipient.cardMessage,
     cardTo: recipient.cardTo.trim() || undefined,
