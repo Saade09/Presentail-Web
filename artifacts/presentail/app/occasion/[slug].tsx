@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Platform,
   Pressable,
@@ -32,9 +31,7 @@ import { fetchOccasionProducts, fetchBrandProducts, applyPricingToProducts, type
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
-
-const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_W = Math.min(160, (SCREEN_W - 48) / 2.3);
+import { OCCASION_CARD_W, OCCASION_LIST_CARD_W } from "@/lib/gridLayout";
 
 function OccasionScreen() {
   const { slug, brand: brandParam, brandName: brandNameParam } = useLocalSearchParams<{
@@ -300,7 +297,7 @@ function OccasionScreen() {
                 <ProductCard
                   key={p.id}
                   product={p as any}
-                  width={gridView ? CARD_W : SCREEN_W - 48}
+                  width={gridView ? OCCASION_CARD_W : OCCASION_LIST_CARD_W}
                   onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: p.id } })}
                 />
               ))}
@@ -354,7 +351,7 @@ function OccasionScreen() {
                   }}
                 >
                   {popularPicks.map((p) => (
-                    <ProductCard key={p.id} product={p} width={CARD_W} />
+                    <ProductCard key={p.id} product={p} width={OCCASION_CARD_W} />
                   ))}
                 </View>
               </View>
@@ -366,7 +363,7 @@ function OccasionScreen() {
               <ProductCard
                 key={p.id}
                 product={p as any}
-                width={gridView ? CARD_W : SCREEN_W - 48}
+                width={gridView ? OCCASION_CARD_W : OCCASION_LIST_CARD_W}
                 onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: p.id } })}
               />
             ))}
@@ -451,7 +448,7 @@ function CategorySection({
         renderItem={({ item }) => (
           <ProductCard
             product={item as any}
-            width={CARD_W}
+            width={OCCASION_CARD_W}
             onPress={() => onProduct(item.id)}
           />
         )}

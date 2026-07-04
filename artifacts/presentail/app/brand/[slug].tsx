@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Platform,
   Pressable,
@@ -23,9 +22,8 @@ import { fetchBrandProducts, applyPricingToProducts, type WooProduct } from "@/l
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { CATALOG_GRID_CARD_W } from "@/lib/gridLayout";
 
-const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 const COVER_HEIGHT = 200;
 const LOGO_SIZE = 76;
 const LOGO_OFFSET = LOGO_SIZE / 2;
@@ -262,7 +260,7 @@ function BrandScreen() {
           renderItem={({ item }) => (
             <ProductCard
               product={item as any}
-              width={CARD_W}
+              width={CATALOG_GRID_CARD_W}
               onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: item.id } })}
             />
           )}

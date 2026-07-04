@@ -91,7 +91,44 @@ export const CATALOG_GRID_FLATLIST_CONFIG = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Pure formula helper (used by tests to compute expected values independently)
+// Occasion screen
+// ---------------------------------------------------------------------------
+
+/** Horizontal padding applied on each side of the occasion screen container. */
+export const OCCASION_GRID_PADDING_H = 24;
+
+/**
+ * Divisor used to compute the occasion card width.
+ * The occasion screen uses 2.3 rather than the integer column count used by
+ * the catalog grid — the extra 0.3 intentionally reveals the leading edge of
+ * a third card to signal horizontal scrollability.
+ */
+export const OCCASION_CARD_DIVISOR = 2.3;
+
+/** Maximum pixel width of a single ProductCard on the occasion screen. */
+export const OCCASION_CARD_MAX_W = 160;
+
+/**
+ * Pixel width of each ProductCard on the occasion screen.
+ * Formula: min(OCCASION_CARD_MAX_W, (screenWidth - paddingH*2) / OCCASION_CARD_DIVISOR)
+ *
+ * The cap ensures cards are never taller than a comfortable browse height on
+ * extra-wide devices (≥ ~416 px screen width).
+ */
+export const OCCASION_CARD_W = Math.min(
+  OCCASION_CARD_MAX_W,
+  (SCREEN_W - OCCASION_GRID_PADDING_H * 2) / OCCASION_CARD_DIVISOR,
+);
+
+/**
+ * Pixel width of a ProductCard in the full-width (list) mode on the occasion
+ * screen.
+ * Formula: screenWidth - paddingH*2
+ */
+export const OCCASION_LIST_CARD_W = SCREEN_W - OCCASION_GRID_PADDING_H * 2;
+
+// ---------------------------------------------------------------------------
+// Pure formula helpers (used by tests to compute expected values independently)
 // ---------------------------------------------------------------------------
 
 /**
@@ -107,4 +144,18 @@ export function computeGridCardWidth(
   numColumns: number,
 ): number {
   return (screenWidth - paddingH * 2 - columnGap) / numColumns;
+}
+
+/**
+ * Compute the occasion card width given explicit params.  The formula mirrors
+ * OCCASION_CARD_W — passing the same constants must always reproduce that
+ * exported value.
+ */
+export function computeOccasionCardWidth(
+  screenWidth: number,
+  paddingH: number,
+  divisor: number,
+  maxW: number,
+): number {
+  return Math.min(maxW, (screenWidth - paddingH * 2) / divisor);
 }

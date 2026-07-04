@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Platform,
   Pressable,
@@ -36,10 +35,7 @@ import { fetchCategoryProducts, applyPricingToProducts, type WooProduct } from "
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
-
-const { width: SCREEN_W } = Dimensions.get("window");
-const GRID_CARD_W = (SCREEN_W - 24 * 2 - 10) / 2;
-const LIST_CARD_W = SCREEN_W - 48;
+import { CATALOG_GRID_CARD_W, CATALOG_LIST_CARD_W } from "@/lib/gridLayout";
 
 function CategoryScreen() {
   const headingFontMedium = useHeadingFont("500Medium");
@@ -253,7 +249,7 @@ function CategoryScreen() {
     </>
   );
 
-  const activeCardW = gridView ? GRID_CARD_W : LIST_CARD_W;
+  const activeCardW = gridView ? CATALOG_GRID_CARD_W : CATALOG_LIST_CARD_W;
 
   const empty = wcLoading ? (
     <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
@@ -299,7 +295,7 @@ function CategoryScreen() {
             }}
           >
             {popularPicks.map((p) => (
-              <ProductCard key={p.id} product={p} width={GRID_CARD_W} />
+              <ProductCard key={p.id} product={p} width={CATALOG_GRID_CARD_W} />
             ))}
           </View>
         </View>

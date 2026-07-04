@@ -64,7 +64,13 @@ import {
   HOME_GRID_COLUMN_GAP,
   HOME_GRID_CONFIG,
   HOME_GRID_PADDING_H,
+  OCCASION_CARD_DIVISOR,
+  OCCASION_CARD_MAX_W,
+  OCCASION_CARD_W,
+  OCCASION_GRID_PADDING_H,
+  OCCASION_LIST_CARD_W,
   computeGridCardWidth,
+  computeOccasionCardWidth,
 } from "./gridLayout";
 import { renderWithProviders } from "../tests/test-utils";
 
@@ -175,6 +181,98 @@ describe("Home vs catalog column gap", () => {
   it("home gap (14) is wider than catalog gap (10), making home cards slightly narrower", () => {
     expect(HOME_GRID_COLUMN_GAP).toBeGreaterThan(CATALOG_GRID_COLUMN_GAP);
     expect(HOME_CARD_W).toBeLessThan(CATALOG_GRID_CARD_W);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Occasion screen grid
+// ---------------------------------------------------------------------------
+
+describe("Occasion screen grid", () => {
+  it("OCCASION_CARD_W matches computeOccasionCardWidth with documented params", () => {
+    // *** INTENTIONAL HARD-CODED SPEC ***
+    // These numbers are the authoritative layout contract for the occasion
+    // screen product card width.  If you change OCCASION_GRID_PADDING_H,
+    // OCCASION_CARD_DIVISOR, or OCCASION_CARD_MAX_W in gridLayout.ts, this
+    // test will fail — update the expected values here to document the new
+    // intended layout.
+    expect(OCCASION_GRID_PADDING_H).toBe(24);
+    expect(OCCASION_CARD_DIVISOR).toBe(2.3);
+    expect(OCCASION_CARD_MAX_W).toBe(160);
+
+    const expected = computeOccasionCardWidth(
+      MOCK_SCREEN_W,
+      OCCASION_GRID_PADDING_H,
+      OCCASION_CARD_DIVISOR,
+      OCCASION_CARD_MAX_W,
+    );
+    expect(OCCASION_CARD_W).toBe(expected);
+  });
+
+  it("OCCASION_CARD_W is positive for a typical phone screen width", () => {
+    expect(OCCASION_CARD_W).toBeGreaterThan(0);
+  });
+
+  it("OCCASION_CARD_W does not exceed OCCASION_CARD_MAX_W on any screen width", () => {
+    // On a 375px mock screen the uncapped value is (375-48)/2.3 ≈ 142 px,
+    // well below the 160 px cap.  Verify the cap would engage at a wider width.
+    const narrowUncapped = (MOCK_SCREEN_W - OCCASION_GRID_PADDING_H * 2) / OCCASION_CARD_DIVISOR;
+    expect(narrowUncapped).toBeLessThan(OCCASION_CARD_MAX_W);
+
+    // On a 432 px screen (iPad mini / Plus-class phones) the uncapped value
+    // exceeds 160 px — the max cap must apply.
+    const wideUncapped = (432 - OCCASION_GRID_PADDING_H * 2) / OCCASION_CARD_DIVISOR;
+    expect(wideUncapped).toBeGreaterThan(OCCASION_CARD_MAX_W);
+    expect(computeOccasionCardWidth(432, OCCASION_GRID_PADDING_H, OCCASION_CARD_DIVISOR, OCCASION_CARD_MAX_W)).toBe(OCCASION_CARD_MAX_W);
+  });
+
+  it("OCCASION_LIST_CARD_W matches screenWidth - paddingH*2 (full-width minus margins)", () => {
+    const expected = MOCK_SCREEN_W - OCCASION_GRID_PADDING_H * 2;
+    expect(OCCASION_LIST_CARD_W).toBe(expected);
+  });
+
+  it("OCCASION_CARD_W is narrower than OCCASION_LIST_CARD_W (grid card fits beside a peek of the next card)", () => {
+    expect(OCCASION_CARD_W).toBeLessThan(OCCASION_LIST_CARD_W);
+  });
+
+  it("OCCASION_CARD_W is narrower than CATALOG_GRID_CARD_W (occasion uses 2.3 divisor, not 2)", () => {
+    // The 2.3 divisor intentionally reveals the leading edge of a third card.
+    expect(OCCASION_CARD_W).toBeLessThan(CATALOG_GRID_CARD_W);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Category screen grid — delegates to catalog constants
+// ---------------------------------------------------------------------------
+
+describe("Category screen grid", () => {
+  it("CATALOG_GRID_CARD_W covers the category screen grid formula (padding=24, gap=10, 2-col)", () => {
+    // The category screen previously duplicated: (SCREEN_W - 24*2 - 10) / 2
+    // It now imports CATALOG_GRID_CARD_W which encodes the same formula.
+    const categoryInlineFormula = (MOCK_SCREEN_W - 24 * 2 - 10) / 2;
+    expect(CATALOG_GRID_CARD_W).toBe(categoryInlineFormula);
+  });
+
+  it("CATALOG_LIST_CARD_W covers the category screen list formula (SCREEN_W - 48)", () => {
+    // The category screen previously duplicated: SCREEN_W - 48
+    const categoryListInline = MOCK_SCREEN_W - 48;
+    expect(CATALOG_LIST_CARD_W).toBe(categoryListInline);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Brand screen grid — delegates to catalog constants
+// ---------------------------------------------------------------------------
+
+describe("Brand screen grid", () => {
+  it("CATALOG_GRID_CARD_W covers the brand screen grid formula (padding=24, gap=10, 2-col)", () => {
+    // The brand screen FlatList uses columnWrapperStyle={{ gap: 10, paddingHorizontal: 24 }}
+    // and now imports CATALOG_GRID_CARD_W (padding=24, gap=10) rather than the old
+    // inline formula that incorrectly used gap=14.
+    expect(CATALOG_GRID_PADDING_H).toBe(24);
+    expect(CATALOG_GRID_COLUMN_GAP).toBe(10);
+    const brandGridFormula = (MOCK_SCREEN_W - CATALOG_GRID_PADDING_H * 2 - CATALOG_GRID_COLUMN_GAP) / GRID_NUM_COLUMNS;
+    expect(CATALOG_GRID_CARD_W).toBe(brandGridFormula);
   });
 });
 
