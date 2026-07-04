@@ -159,6 +159,58 @@ function groupOccasionProducts(
   }));
 }
 
+// ── Pricing enrichment ─────────────────────────────────────────────────────
+//
+// Fetches the server's pricing enrichment map once (cached 60 s by the
+// server) and merges discount/regular-price fields into mapped products.
+// This gives collection pages (Shop, category, occasion, brand) the same
+// slash-price treatment that the PDP gets via per-product OS calls.
+//
+// The OS list endpoint omits regular_price / sale_price / discount_price_*.
+// The API server batch-fetches single-product OS data after every cache
+// refresh and exposes the results via GET /api/catalog/products-pricing.
+// We call it once alongside (or after) the product list fetch so the round-
+// trip happens at most once per staleTime window, not per product card.
+
+type ProductsPricingMap = Record<string, {
+  discountPriceUsd: number | null;
+  discountPriceAed: number | null;
+  regularPriceUsd: number | null;
+}>;
+
+async function fetchProductsPricing(): Promise<ProductsPricingMap> {
+  try {
+    const res = await fetch("/api/catalog/products-pricing");
+    if (!res.ok) return {};
+    const data = (await res.json()) as { ok: boolean; pricing?: ProductsPricingMap };
+    return data.ok && data.pricing ? data.pricing : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Merge pricing enrichment into a list of already-mapped Product objects.
+ * Matches on product.osNumericId (string). Only overrides pricing when the
+ * enrichment map has a non-null discount for that product.
+ */
+function mergeProductsPricing(products: Product[], pricing: ProductsPricingMap): Product[] {
+  if (Object.keys(pricing).length === 0) return products;
+  return products.map((p) => {
+    if (p.osNumericId == null) return p;
+    const entry = pricing[String(p.osNumericId)];
+    if (!entry) return p;
+    return {
+      ...p,
+      // regularPriceUsd is the crossed-out "was" price when the modern
+      // regular_price/sale_price scheme is active on this product.
+      priceValue: entry.regularPriceUsd != null ? entry.regularPriceUsd : p.priceValue,
+      discountPriceValue: entry.discountPriceUsd,
+      discountPriceAed: entry.discountPriceAed,
+    };
+  });
+}
+
 // ── Base OS products hook ──────────────────────────────────────────────────
 //
 // Fetches all products from Presentail OS for a given country+city+lang,
@@ -171,6 +223,10 @@ function groupOccasionProducts(
 // the same OS data from its in-process cache. apiFetch sends the stored
 // x-store-country / x-store-city headers automatically so the country/city
 // context is preserved in the fallback path.
+//
+// After products are fetched and mapped, a single call to
+// /api/catalog/products-pricing merges sale pricing (slash prices, sale
+// badges) so collection pages show the same treatment as the PDP.
 
 function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
   return useQuery<Product[]>({
@@ -179,16 +235,19 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
       const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
       if (osKey) {
         try {
-          const raw = await fetchOsProducts({
-            countryCode: params.countryCode,
-            cityId: params.cityId,
-            lang: params.lang,
-          });
+          const [raw, pricing] = await Promise.all([
+            fetchOsProducts({
+              countryCode: params.countryCode,
+              cityId: params.cityId,
+              lang: params.lang,
+            }),
+            fetchProductsPricing(),
+          ]);
           // Filter by country only — city-level restrictions are enforced at
           // checkout, not at browse time, because OS city IDs may not match
           // the web app's city slug format.
           const brandAllowlist = await getOsBrandAllowlist();
-          return raw
+          const mapped = raw
             .filter(isVisibleOsProduct)
             .filter((p) =>
               isDeliverableOsProduct(p, params.countryCode ?? null, null),
@@ -198,14 +257,20 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
               (Array.isArray(p.brands) && p.brands.some((b) => brandAllowlist.has(b.slug))),
             )
             .map(mapOsProduct);
+          return mergeProductsPricing(mapped, pricing);
         } catch {
           // CORS / network failure — fall through to API server proxy below
         }
       }
       // Fallback: API server (already caches OS products; country/city resolved
       // via x-store-country / x-store-city headers injected by apiFetch).
-      const data = await apiFetch<{ ok: boolean; products: Product[] }>("/woo/products");
-      return data.products ?? [];
+      // Fetch pricing in parallel with the product list so collection pages
+      // get slash prices on the fallback path too.
+      const [data, pricing] = await Promise.all([
+        apiFetch<{ ok: boolean; products: Product[] }>("/woo/products"),
+        fetchProductsPricing(),
+      ]);
+      return mergeProductsPricing(data.products ?? [], pricing);
     },
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -277,13 +342,16 @@ export const useBrandProducts = (
       const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
       if (osKey) {
         try {
-          const raw = await fetchOsProducts({
-            countryCode: params.countryCode,
-            cityId: params.cityId,
-            lang: params.lang,
-          });
+          const [raw, pricing] = await Promise.all([
+            fetchOsProducts({
+              countryCode: params.countryCode,
+              cityId: params.cityId,
+              lang: params.lang,
+            }),
+            fetchProductsPricing(),
+          ]);
           const brandAllowlist = await getOsBrandAllowlist();
-          const products = raw
+          const mapped = raw
             .filter(isVisibleOsProduct)
             .filter((p) =>
               isDeliverableOsProduct(p, params.countryCode ?? null, params.cityId ?? null),
@@ -294,6 +362,7 @@ export const useBrandProducts = (
             )
             .filter((p) => p.brands.some((b) => b.slug === slug))
             .map(mapOsProduct);
+          const products = mergeProductsPricing(mapped, pricing);
           const brandEntry = raw.flatMap((p) => p.brands).find((b) => b.slug === slug);
           const brandName = brandEntry?.name ?? slug;
           return { ok: true, products, count: products.length, brandName };
@@ -302,10 +371,14 @@ export const useBrandProducts = (
         }
       }
       // Fallback: API server brand-products endpoint
-      const data = await apiFetch<{ ok: boolean; products: Product[]; count: number; brandName?: string }>(
-        `/woo/brand-products?slug=${encodeURIComponent(slug)}`,
-      );
-      return data;
+      const [data, pricing] = await Promise.all([
+        apiFetch<{ ok: boolean; products: Product[]; count: number; brandName?: string }>(
+          `/woo/brand-products?slug=${encodeURIComponent(slug)}`,
+        ),
+        fetchProductsPricing(),
+      ]);
+      const products = mergeProductsPricing(data.products ?? [], pricing);
+      return { ...data, products, count: products.length };
     },
     enabled: !!slug,
     staleTime: 5 * 60 * 1000,

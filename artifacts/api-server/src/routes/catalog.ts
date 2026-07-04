@@ -11,7 +11,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap } from "../lib/osProductsCache";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
 
 const router: IRouter = Router();
@@ -594,6 +594,31 @@ router.get("/catalog/brand-allowlist", (_req, res) => {
     ? allowlistStr.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
   res.json({ ok: true, slugs });
+});
+
+// GET /api/catalog/products-pricing
+//
+// Returns a JSON map of osNumericId → { discountPriceUsd, discountPriceAed,
+// regularPriceUsd } for all products that have an active discount.
+// Reads from the in-memory pricing enrichment cache populated after each
+// OS product cache refresh. This is a fast cache-read with no OS calls at
+// request time.
+//
+// Web collection pages (Shop, category, occasion, brand) call this once after
+// loading the product list and merge the pricing data by osNumericId so that
+// sale badges and strikethrough prices appear everywhere, not just on the PDP.
+router.get("/catalog/products-pricing", (_req, res) => {
+  const pricingMap = getOsProductPricingMap();
+  const pricing: Record<string, { discountPriceUsd: number | null; discountPriceAed: number | null; regularPriceUsd: number | null }> = {};
+  for (const [id, entry] of pricingMap) {
+    pricing[id] = {
+      discountPriceUsd: entry.discountPriceUsd,
+      discountPriceAed: entry.discountPriceAed,
+      regularPriceUsd: entry.regularPriceUsd,
+    };
+  }
+  res.setHeader("Cache-Control", "public, max-age=60");
+  res.json({ ok: true, pricing });
 });
 
 export default router;

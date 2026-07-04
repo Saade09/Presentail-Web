@@ -159,6 +159,22 @@ let cachedBrandNameToCanonicalSlug: Map<string, string> = new Map();
  */
 let cachedCategoryProductCounts: Map<string, number> = new Map();
 let cachedOccasionProductCounts: Map<string, number> = new Map();
+
+// ── Product pricing enrichment cache ───────────────────────────────────────
+//
+// Populated after every successful fetch cycle by batch-fetching the
+// single-product OS endpoint for each unique product. Only products with an
+// active discount are stored (to keep the map small). Keyed by osNumericId
+// (string). Consumers read this via getOsProductPricingMap().
+
+export type ProductPricingEntry = {
+  discountPriceUsd: number | null;
+  discountPriceAed: number | null;
+  /** Non-null when the modern regular_price/sale_price scheme is active. */
+  regularPriceUsd: number | null;
+};
+
+let cachedProductPricing: Map<string, ProductPricingEntry> = new Map();
 /**
  * Unique OSProductOccasion objects collected from product tags across all
  * stores, keyed by slug. Populated in the same post-fetch loop that builds
@@ -398,6 +414,7 @@ export function __resetBrandFilterStateForTest(): void {
   cachedCategoryProductCounts = new Map();
   cachedOccasionProductCounts = new Map();
   cachedProductOccasions = new Map();
+  cachedProductPricing = new Map();
 }
 
 /**
@@ -752,6 +769,100 @@ function detectAndAlertPriceChanges(products: OSProduct[]): void {
   }
 }
 
+// ── Product pricing enrichment ─────────────────────────────────────────────
+
+function parseOsPriceField(v: unknown): number | null {
+  if (v == null || v === "" || v === "0" || v === 0) return null;
+  const n = parseFloat(String(v));
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * After each successful store-cache refresh, batch-fetches the single-product
+ * OS endpoint for every unique product (by osNumericId) across all stores to
+ * retrieve `regular_price`, `sale_price`, `discount_price_usd`, and
+ * `discount_price_aed` — fields that the list endpoint omits.
+ *
+ * Results are stored in `cachedProductPricing` (keyed by osNumericId string).
+ * Only products with an active discount are stored. Requests are fired in
+ * parallel batches of up to PRICING_CONCURRENCY concurrent fetches to avoid
+ * overwhelming the OS API.
+ *
+ * This is best-effort: a failure here does not affect the store product caches.
+ */
+async function enrichProductPricingFromOs(config: PresentailOsConfig): Promise<void> {
+  // Collect unique osNumericIds from all stores
+  const idSet = new Set<string>();
+  for (const entry of storeCache.values()) {
+    for (const p of entry.products) {
+      if (p.osNumericId != null) {
+        idSet.add(String(p.osNumericId));
+      }
+    }
+  }
+  if (idSet.size === 0) return;
+
+  const ids = [...idSet];
+  const CONCURRENCY = 10;
+  const newPricing = new Map<string, ProductPricingEntry>();
+
+  for (let i = 0; i < ids.length; i += CONCURRENCY) {
+    const batch = ids.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (id) => {
+        const url = new URL(`${config.baseUrl ?? "https://os.presentail.com"}/api/products/${encodeURIComponent(id)}`);
+        url.searchParams.set("workspace", config.workspace ?? "presentail");
+        url.searchParams.set("apiKey", config.apiKey);
+        const res = await fetch(url.toString(), {
+          headers: { Accept: "application/json", "x-api-key": config.apiKey },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = (await res.json()) as {
+          product?: Record<string, unknown>;
+        };
+        const p = body.product ?? {};
+        const regularPriceRaw = parseOsPriceField(p["regular_price"]);
+        const salePriceRaw = parseOsPriceField(p["sale_price"]);
+        const priceRaw = parseOsPriceField(p["price"]);
+
+        let regularPriceUsd: number | null = null;
+        let discountPriceUsd: number | null = null;
+
+        if (regularPriceRaw != null && regularPriceRaw > 0) {
+          regularPriceUsd = regularPriceRaw;
+          if (salePriceRaw != null && salePriceRaw > 0 && salePriceRaw < regularPriceRaw) {
+            discountPriceUsd = salePriceRaw;
+          } else if (priceRaw != null && priceRaw > 0 && priceRaw < regularPriceRaw) {
+            discountPriceUsd = priceRaw;
+          }
+        } else {
+          discountPriceUsd = parseOsPriceField(p["discount_price_usd"]);
+        }
+        const discountPriceAed = parseOsPriceField(p["discount_price_aed"]);
+
+        return { id, regularPriceUsd, discountPriceUsd, discountPriceAed };
+      }),
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        const { id, discountPriceUsd, discountPriceAed, regularPriceUsd } = r.value;
+        // Only store when there is an active discount (keeps the map small).
+        if (discountPriceUsd != null || discountPriceAed != null) {
+          newPricing.set(id, { discountPriceUsd, discountPriceAed, regularPriceUsd });
+        }
+      }
+    }
+  }
+
+  cachedProductPricing = newPricing;
+  logger.info(
+    { enrichedCount: newPricing.size, totalProducts: ids.length },
+    "osProductsCache: product pricing enrichment complete",
+  );
+}
+
 // ── Index helpers ──────────────────────────────────────────────────────────
 
 function buildStoreCache(products: OSProduct[]): StoreProductCache {
@@ -1093,6 +1204,18 @@ async function fetchAndStore(): Promise<void> {
       }
     }
 
+    // ── Product pricing enrichment (best-effort, background) ─────────────
+    // Batch-fetch single-product OS endpoints to retrieve regular_price /
+    // sale_price / discount_price_usd / discount_price_aed — fields the list
+    // endpoint omits. Runs asynchronously so it doesn't delay the cache
+    // refresh or block the first-population callback.
+    enrichProductPricingFromOs(config).catch((err: unknown) => {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "osProductsCache: product pricing enrichment failed",
+      );
+    });
+
     // ── IndexNow: ping for new taxonomy and product slugs ─────────────────
     // Fires when any of categories, brands, occasions, or products were
     // successfully fetched this cycle. On the first fetch all current slugs
@@ -1313,6 +1436,17 @@ export function getOsOccasionProductCounts(): ReadonlyMap<string, number> {
  */
 export function getOsProductOccasions(): ReadonlyMap<string, OSProductOccasion> {
   return cachedProductOccasions;
+}
+
+/**
+ * Returns the product pricing enrichment map: osNumericId (string) →
+ * { discountPriceUsd, discountPriceAed, regularPriceUsd }. Only products
+ * with an active discount have an entry. Populated asynchronously after
+ * each successful cache refresh. Returns an empty map before the first
+ * enrichment cycle completes.
+ */
+export function getOsProductPricingMap(): ReadonlyMap<string, ProductPricingEntry> {
+  return cachedProductPricing;
 }
 
 /**
