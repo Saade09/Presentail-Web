@@ -795,9 +795,13 @@ function parseOsPriceField(v: unknown): number | null {
  * `discount_price_aed` — fields that the list endpoint omits.
  *
  * Results are stored in `cachedProductPricing` (keyed by osNumericId string).
- * Only products with an active discount are stored. Requests are fired in
- * parallel batches of up to PRICING_CONCURRENCY concurrent fetches to avoid
- * overwhelming the OS API.
+ * Only products with an active discount are stored.
+ *
+ * Concurrency is controlled by a promise pool (≤PRICING_CONCURRENCY requests
+ * in-flight at any moment) so there is no per-batch serial overhead. A hard
+ * overall wall-clock timeout (PRICING_OVERALL_TIMEOUT_MS) is enforced via
+ * AbortSignal.any() so a hung OS response can never overlap the next 15-minute
+ * refresh cycle. Partial results collected before the timeout are committed.
  *
  * This is best-effort: a failure here does not affect the store product caches.
  */
@@ -815,18 +819,40 @@ async function enrichProductPricingFromOs(config: PresentailOsConfig): Promise<v
 
   const ids = [...idSet];
   const CONCURRENCY = 10;
+  const OVERALL_TIMEOUT_MS = 60_000;
+  const PER_REQUEST_TIMEOUT_MS = 8_000;
   const newPricing = new Map<string, ProductPricingEntry>();
 
-  for (let i = 0; i < ids.length; i += CONCURRENCY) {
-    const batch = ids.slice(i, i + CONCURRENCY);
-    const results = await Promise.allSettled(
-      batch.map(async (id) => {
-        const url = new URL(`${config.baseUrl ?? "https://os.presentail.com"}/api/products/${encodeURIComponent(id)}`);
+  // Hard wall-clock cap: all in-flight fetches are aborted when this fires.
+  const overallSignal = AbortSignal.timeout(OVERALL_TIMEOUT_MS);
+
+  // Promise pool: spawn CONCURRENCY workers that each drain the shared id queue.
+  // This keeps ≤CONCURRENCY requests in-flight at all times without per-batch
+  // serial overhead (no waiting for the slowest in each batch before starting
+  // the next one).
+  let queueIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (queueIndex < ids.length) {
+      if (overallSignal.aborted) break;
+      const id = ids[queueIndex++];
+      try {
+        const url = new URL(
+          `${config.baseUrl ?? "https://os.presentail.com"}/api/products/${encodeURIComponent(id)}`,
+        );
         url.searchParams.set("workspace", config.workspace ?? "presentail");
         url.searchParams.set("apiKey", config.apiKey);
+
+        // Combine the per-request timeout with the overall budget so whichever
+        // fires first aborts this individual fetch.
+        const signal = AbortSignal.any([
+          AbortSignal.timeout(PER_REQUEST_TIMEOUT_MS),
+          overallSignal,
+        ]);
+
         const res = await fetch(url.toString(), {
           headers: { Accept: "application/json", "x-api-key": config.apiKey },
-          signal: AbortSignal.timeout(8000),
+          signal,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = (await res.json()) as {
@@ -852,19 +878,24 @@ async function enrichProductPricingFromOs(config: PresentailOsConfig): Promise<v
         }
         const discountPriceAed = parseOsPriceField(p["discount_price_aed"]);
 
-        return { id, regularPriceUsd, discountPriceUsd, discountPriceAed };
-      }),
-    );
-
-    for (const r of results) {
-      if (r.status === "fulfilled") {
-        const { id, discountPriceUsd, discountPriceAed, regularPriceUsd } = r.value;
         // Only store when there is an active discount (keeps the map small).
         if (discountPriceUsd != null || discountPriceAed != null) {
           newPricing.set(id, { discountPriceUsd, discountPriceAed, regularPriceUsd });
         }
+      } catch {
+        // Individual failures are silently skipped; the overall error handler at
+        // the call site logs a warn if the entire enrichment step fails.
       }
     }
+  }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  if (overallSignal.aborted) {
+    logger.warn(
+      { enrichedCount: newPricing.size, totalProducts: ids.length },
+      "osProductsCache: product pricing enrichment timed out — partial results applied",
+    );
   }
 
   cachedProductPricing = newPricing;
