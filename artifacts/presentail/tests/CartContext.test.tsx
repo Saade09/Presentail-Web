@@ -184,14 +184,14 @@ describe("CartContext — add()", () => {
     expect(cart().items).toContainEqual({ productId: "gift-box", qty: 2 });
   });
 
-  it("opening the cart is a side-effect of add()", async () => {
+  it("navigating to cart-added is a side-effect of add()", async () => {
     const { cart } = await renderCart();
 
     await act(async () => {
       cart().add("rose-bouquet");
     });
 
-    expect(cart().isCartOpen).toBe(true);
+    expect(cart().pendingNavigation).toBe("/cart-added");
   });
 });
 
