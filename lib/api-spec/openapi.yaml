@@ -3030,10 +3030,6 @@ components:
           type: string
         icon:
           type: string
-        image:
-          oneOf:
-            - $ref: "#/components/schemas/CatalogImageRef"
-            - type: "null"
         description:
           type: string
           nullable: true

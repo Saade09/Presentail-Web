@@ -504,26 +504,12 @@ router.get("/catalog/metadata", (_req, res) => {
     // Hardcoded categories: show when featured in OS, OR when OS doesn't know
     // about the slug at all but products are tagged with it (product-embedded
     // fallback for categories not yet on the OS endpoint).
-    const OS_STORAGE_PREFIX_META = "https://os.presentail.com/api/storage/";
-    function osHasImage(slug: string, osCat: { imagePublicUrl?: string | null; image?: string | null } | undefined): boolean {
-      if (!osCat) return false;
-      const raw = typeof osCat.image === "string" ? osCat.image : null;
-      // Only route through the proxy when we have a URL that's actually fetchable.
-      // CATEGORY_IMAGE_OVERRIDES entries for private /objects/ paths are held in
-      // the proxy as a prepared path; don't use them here until the OS exposes
-      // the image via imagePublicUrl (a public-objects URL).
-      return !!(osCat.imagePublicUrl ?? (raw?.startsWith(OS_STORAGE_PREFIX_META) ? raw : null));
-    }
     const filteredHardcoded = categories
       .filter((c) => featuredOsCategorySlugs.has(c.id) || (!allOsCategorySlugs.has(c.id) && productEmbeddedCategories.has(c.id)))
       .map((c) => {
         const osCat = featuredOsCategoryBySlug.get(c.id);
-        // Prefer OS image (proxied) over the static asset when available —
-        // OS admins can update category images without a code deploy.
-        const image = osHasImage(c.id, osCat) ? `/api/catalog/category-image/${c.id}` : c.image;
         return {
           ...c,
-          image,
           description: osCat?.description ?? productEmbeddedCategories.get(c.id)?.description ?? null,
           count: categoryCountMap.get(c.id) ?? 0,
         };
@@ -531,14 +517,12 @@ router.get("/catalog/metadata", (_req, res) => {
     const filteredSlugs = new Set(filteredHardcoded.map((c) => c.id));
 
     // Extra featured OS categories that have no hardcoded entry.
-    // Route their image through the proxy when a public CDN URL is available.
     const extraOsCategories = featuredOsCategories
       .filter((c) => !filteredSlugs.has(c.slug))
       .map((c) => ({
         id: c.slug,
         name: c.name,
         icon: OS_CATEGORY_ICONS[c.slug] ?? "tag",
-        image: c.imagePublicUrl ? `/api/catalog/category-image/${c.slug}` : null,
         description: c.description ?? null,
         count: categoryCountMap.get(c.slug) ?? 0,
       }));
@@ -547,10 +531,6 @@ router.get("/catalog/metadata", (_req, res) => {
     // Inject product-embedded categories only for slugs OS doesn't know about
     // at all. If OS has the slug but it isn't featured, that's an explicit
     // hide decision — do not re-surface it via the product-embedded path.
-    const PUBLIC_OBJECTS_PREFIX = "https://os.presentail.com/api/storage/public-objects/";
-    function hasFetchableImage(cat: { imagePublicUrl?: string | null; image?: string | null }): boolean {
-      return !!(cat.imagePublicUrl ?? (cat.image?.startsWith(PUBLIC_OBJECTS_PREFIX) ? cat.image : null));
-    }
     const existingSlugs = new Set(mergedCategories.map((c) => c.id));
     for (const [slug, cat] of productEmbeddedCategories) {
       if (existingSlugs.has(slug)) continue;
@@ -563,7 +543,6 @@ router.get("/catalog/metadata", (_req, res) => {
           id: slug,
           name: cat.name,
           icon: OS_CATEGORY_ICONS[slug] ?? "tag",
-          image: hasFetchableImage(cat) ? `/api/catalog/category-image/${slug}` : null,
           description: cat.description ?? null,
           count,
         },

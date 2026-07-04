@@ -970,7 +970,6 @@ export interface CatalogCategory {
   id: string;
   name: string;
   icon: string;
-  image?: CatalogImageRef | null;
   description?: string | null;
   /** Number of in-stock products in this category across all supported countries. */
   count: number;

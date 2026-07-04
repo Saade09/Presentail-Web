@@ -1533,19 +1533,6 @@ export const GetCatalogMetadataResponse = zod.object({
       id: zod.string(),
       name: zod.string(),
       icon: zod.string(),
-      image: zod
-        .union([
-          zod
-            .object({
-              asset: zod.string().optional(),
-              uri: zod.string().optional(),
-            })
-            .describe(
-              "Reference to an image asset. Either `asset` (relative path under\nthe client's bundled `catalog\/` tree) or `uri` (hosted URL) is\npresent.\n",
-            ),
-          zod.null(),
-        ])
-        .optional(),
       description: zod.string().nullish(),
       count: zod
         .number()
