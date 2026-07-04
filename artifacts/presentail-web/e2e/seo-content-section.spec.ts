@@ -10,9 +10,11 @@
  *
  * Coverage:
  *   1. Category page (/category/hand-bouquets) with products → section present,
- *      H2 non-empty, 4 benefit cards, occasion chips, FAQ items exist.
+ *      H2 non-empty, 4 benefit cards, occasion chips, FAQ items exist,
+ *      FAQ count >= 3 (guards against accidentally emptied copy).
  *   2. Occasion page (/occasion/birthday) with products → section present,
- *      H2 non-empty, intro paragraph, category chips, FAQ items exist.
+ *      H2 non-empty, intro paragraph, category chips, FAQ items exist,
+ *      FAQ count >= 3 (guards against accidentally emptied copy).
  *   3. Zero-product category page → section absent.
  *   4. FAQ accordion: aria-expanded toggles correctly on open/close.
  *   5. FAQPage JSON-LD <script data-seo-faq-ld> injected into <head>.
@@ -187,6 +189,17 @@ test.describe("SEO content section — category page with products", () => {
     const count = await faqButtons.count();
     expect(count).toBeGreaterThan(0);
   });
+
+  test("hand-bouquets FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
+    page,
+  }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -260,6 +273,17 @@ test.describe("SEO content section — occasion page with products", () => {
     const faqButtons = section.locator("button[aria-expanded]");
     const count = await faqButtons.count();
     expect(count).toBeGreaterThan(0);
+  });
+
+  test("birthday FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
+    page,
+  }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 });
 
