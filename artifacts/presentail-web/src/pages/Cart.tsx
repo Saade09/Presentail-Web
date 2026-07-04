@@ -597,11 +597,11 @@ export default function Cart() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t("cart.deliveryCharges")}</span>
                     <span className="font-medium">
-                      {effectiveDeliveryFeeUsd === null
+                      {deliveryFeeUsd === null
                         ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
-                        : effectiveDeliveryFeeUsd === 0
+                        : deliveryFeeUsd === 0
                           ? <span className="text-emerald-600">{t("cart.deliveryFree")}</span>
-                          : <FormattedPrice usdValue={effectiveDeliveryFeeUsd} />
+                          : <FormattedPrice usdValue={deliveryFeeUsd} />
                       }
                     </span>
                   </div>
