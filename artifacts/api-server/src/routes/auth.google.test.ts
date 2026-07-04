@@ -7,23 +7,23 @@ import request from "supertest";
 // ---------------------------------------------------------------------------
 
 const mocks = vi.hoisted(() => ({
-  jwtVerify: vi.fn<any, any>(),
-  upsertCustomer: vi.fn<any, any>(),
-  signServerToken: vi.fn<any, any>(),
-  isWcAuthEnabled: vi.fn<any, any>(),
-  isClerkConfigured: vi.fn<any, any>(),
-  ensureClerkUserInBackground: vi.fn<any, any>(),
-  ensureClerkUserForCustomer: vi.fn<any, any>(),
-  resolveStoreFromRequest: vi.fn<any, any>(),
-  resolveStore: vi.fn<any, any>(),
-  wooAuthHeader: vi.fn<any, any>(),
-  authenticate: vi.fn<any, any>(),
-  decodeJwtPayload: vi.fn<any, any>(),
-  classifyAuthExists: vi.fn<any, any>(),
-  normalizeAuthExistsEmail: vi.fn<any, any>(),
-  recordAuthExistsOutcome: vi.fn<any, any>(),
+  jwtVerify: vi.fn(),
+  upsertCustomer: vi.fn(),
+  signServerToken: vi.fn(),
+  isWcAuthEnabled: vi.fn(),
+  isClerkConfigured: vi.fn(),
+  ensureClerkUserInBackground: vi.fn(),
+  ensureClerkUserForCustomer: vi.fn(),
+  resolveStoreFromRequest: vi.fn(),
+  resolveStore: vi.fn(),
+  wooAuthHeader: vi.fn(),
+  authenticate: vi.fn(),
+  decodeJwtPayload: vi.fn(),
+  classifyAuthExists: vi.fn(),
+  normalizeAuthExistsEmail: vi.fn(),
+  recordAuthExistsOutcome: vi.fn(),
   // global fetch used by the accessToken two-step flow
-  fetch: vi.fn<any, any>(),
+  fetch: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
