@@ -66,11 +66,9 @@ describe("buildBrandHeroSrcset", () => {
       );
     });
 
-    it("works for occasion-image and category-image proxy URLs too", () => {
+    it("works for occasion-image proxy URLs too", () => {
       const occasionUrl = "/api/catalog/occasion-image/birthday";
-      const categoryUrl = "/api/catalog/category-image/flowers";
       expect(buildBrandHeroSrcset(occasionUrl)).not.toBeNull();
-      expect(buildBrandHeroSrcset(categoryUrl)).not.toBeNull();
     });
   });
 

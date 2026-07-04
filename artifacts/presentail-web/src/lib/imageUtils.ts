@@ -8,7 +8,6 @@ const OS_SRCSET_WIDTHS = [400, 800, 1200] as const;
 // Catalog proxy URL path prefixes (relative, served by the API server).
 const CATALOG_IMAGE_PREFIXES = [
   "/api/catalog/occasion-image/",
-  "/api/catalog/category-image/",
   "/api/catalog/brand-image/",
 ] as const;
 
@@ -93,7 +92,7 @@ export function isOsStorageUrl(url: string): boolean {
 
 /**
  * Returns true when the given URL is a relative catalog image proxy path
- * (one of the three `/api/catalog/*-image/…` endpoints).
+ * (one of the two `/api/catalog/*-image/…` endpoints).
  */
 export function isCatalogProxyUrl(url: string): boolean {
   return CATALOG_IMAGE_PREFIXES.some((prefix) => url.startsWith(prefix));
@@ -133,9 +132,9 @@ export function buildOsImageSrcset(
 }
 
 /**
- * Given a catalog image proxy URL (`/api/catalog/occasion-image/…`,
- * `/api/catalog/category-image/…`, or `/api/catalog/brand-image/…`), returns
- * `{ srcset, sizes, src }` for a responsive `<img>` element:
+ * Given a catalog image proxy URL (`/api/catalog/occasion-image/…` or
+ * `/api/catalog/brand-image/…`), returns `{ srcset, sizes, src }` for a
+ * responsive `<img>` element:
  *
  * - `srcset`: three entries at 144w, 288w, 480w appending `?w=…&f=webp`.
  * - `sizes`: caller-supplied or the default card hint.

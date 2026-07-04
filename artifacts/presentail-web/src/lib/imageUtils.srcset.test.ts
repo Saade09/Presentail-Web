@@ -60,17 +60,6 @@ describe("buildCatalogImageSrcset", () => {
     );
   });
 
-  it("generates a srcset at 144w, 288w, and 480w for a category-image proxy URL", () => {
-    const url = "/api/catalog/category-image/flowers";
-    const result = buildCatalogImageSrcset(url);
-    expect(result).not.toBeNull();
-    expect(result!.srcset).toBe(
-      "/api/catalog/category-image/flowers?w=144&f=webp 144w, " +
-        "/api/catalog/category-image/flowers?w=288&f=webp 288w, " +
-        "/api/catalog/category-image/flowers?w=480&f=webp 480w",
-    );
-  });
-
   it("generates a srcset at 144w, 288w, and 480w for a brand-image proxy URL", () => {
     const url = "/api/catalog/brand-image/acme";
     const result = buildCatalogImageSrcset(url);
@@ -124,17 +113,6 @@ describe("buildCatalogHeroImageSrcset", () => {
       "/api/catalog/occasion-image/valentines-day?w=800&f=webp 800w, " +
         "/api/catalog/occasion-image/valentines-day?w=1200&f=webp 1200w, " +
         "/api/catalog/occasion-image/valentines-day?w=1600&f=webp 1600w",
-    );
-  });
-
-  it("generates a srcset at 800w, 1200w, and 1600w for a category-image proxy URL", () => {
-    const url = "/api/catalog/category-image/seasonal";
-    const result = buildCatalogHeroImageSrcset(url);
-    expect(result).not.toBeNull();
-    expect(result!.srcset).toBe(
-      "/api/catalog/category-image/seasonal?w=800&f=webp 800w, " +
-        "/api/catalog/category-image/seasonal?w=1200&f=webp 1200w, " +
-        "/api/catalog/category-image/seasonal?w=1600&f=webp 1600w",
     );
   });
 

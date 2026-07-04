@@ -13,61 +13,12 @@ import {
 // updated the test will catch any accidental regression in which URL types get
 // which srcset strategy.
 
-const CATALOG_URL = "/api/catalog/category-image/hand-bouquets";
 const OS_URL = "https://os.presentail.com/api/storage/categories/bouquets.webp";
 const STATIC_URL = "/assets/category-bouquets.png";  // bundled static asset
 const ENCODED_OS = encodeURIComponent(OS_URL);
 
 describe("buildCategoryHeroSrcset", () => {
-  // ── Branch 1: catalog proxy URL ─────────────────────────────────────────
-
-  describe("catalog proxy URL → buildCatalogHeroImageSrcset with hero sizes", () => {
-    it("returns a non-null result", () => {
-      expect(buildCategoryHeroSrcset(CATALOG_URL)).not.toBeNull();
-    });
-
-    it("srcset contains 800w, 1200w, and 1600w entries (catalog hero widths)", () => {
-      const result = buildCategoryHeroSrcset(CATALOG_URL)!;
-      expect(result.srcset).toContain("800w");
-      expect(result.srcset).toContain("1200w");
-      expect(result.srcset).toContain("1600w");
-    });
-
-    it("srcset entries use ?w=…&f=webp (catalog proxy params)", () => {
-      const result = buildCategoryHeroSrcset(CATALOG_URL)!;
-      for (const entry of result.srcset.split(", ")) {
-        expect(entry).toContain("f=webp");
-        expect(entry.startsWith(CATALOG_URL)).toBe(true);
-      }
-    });
-
-    it("src is the 1200w proxy URL", () => {
-      const result = buildCategoryHeroSrcset(CATALOG_URL)!;
-      expect(result.src).toBe(`${CATALOG_URL}?w=1200&f=webp`);
-    });
-
-    it("sizes defaults to CATEGORY_CARD_HERO_SIZES", () => {
-      const result = buildCategoryHeroSrcset(CATALOG_URL)!;
-      expect(result.sizes).toBe(CATEGORY_CARD_HERO_SIZES);
-    });
-
-    it("passes a custom sizes override through to the result", () => {
-      const custom = "(max-width: 640px) 50vw, 800px";
-      const result = buildCategoryHeroSrcset(CATALOG_URL, custom)!;
-      expect(result.sizes).toBe(custom);
-    });
-
-    it("produces the exact srcset string for a category-image URL", () => {
-      const result = buildCategoryHeroSrcset(CATALOG_URL)!;
-      expect(result.srcset).toBe(
-        `${CATALOG_URL}?w=800&f=webp 800w, ` +
-          `${CATALOG_URL}?w=1200&f=webp 1200w, ` +
-          `${CATALOG_URL}?w=1600&f=webp 1600w`,
-      );
-    });
-  });
-
-  // ── Branch 2: OS storage URL ─────────────────────────────────────────────
+  // ── Branch 1: OS storage URL ─────────────────────────────────────────────
 
   describe("OS storage URL → buildOsImageSrcset with hero sizes", () => {
     it("returns a non-null result", () => {

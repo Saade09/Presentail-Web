@@ -10,10 +10,6 @@ describe("isCatalogProxyUrl", () => {
     expect(isCatalogProxyUrl("/api/catalog/occasion-image/123")).toBe(true);
   });
 
-  it("returns true for category-image URLs", () => {
-    expect(isCatalogProxyUrl("/api/catalog/category-image/flowers")).toBe(true);
-  });
-
   it("returns true for brand-image URLs", () => {
     expect(isCatalogProxyUrl("/api/catalog/brand-image/brand-logo.jpg")).toBe(true);
   });
@@ -49,7 +45,6 @@ describe("isCatalogProxyUrl", () => {
 
 const CATALOG_URLS = [
   "/api/catalog/occasion-image/123",
-  "/api/catalog/category-image/flowers",
   "/api/catalog/brand-image/brand-logo.jpg",
 ] as const;
 
@@ -138,16 +133,6 @@ describe("buildCatalogImageSrcset", () => {
       "/api/catalog/occasion-image/42?w=144&f=webp 144w, " +
       "/api/catalog/occasion-image/42?w=288&f=webp 288w, " +
       "/api/catalog/occasion-image/42?w=480&f=webp 480w",
-    );
-  });
-
-  it("produces the exact srcset string for a category-image URL", () => {
-    const url = "/api/catalog/category-image/hand-bouquets";
-    const result = buildCatalogImageSrcset(url)!;
-    expect(result.srcset).toBe(
-      "/api/catalog/category-image/hand-bouquets?w=144&f=webp 144w, " +
-      "/api/catalog/category-image/hand-bouquets?w=288&f=webp 288w, " +
-      "/api/catalog/category-image/hand-bouquets?w=480&f=webp 480w",
     );
   });
 

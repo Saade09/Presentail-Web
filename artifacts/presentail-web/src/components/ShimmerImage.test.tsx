@@ -26,14 +26,6 @@ describe("ShimmerImage — catalog proxy URL auto-srcset", () => {
     );
   });
 
-  it("auto-applies card srcset for a category-image proxy URL", () => {
-    const src = "/api/catalog/category-image/flowers";
-    const img = renderImage({ src, alt: "Flowers" });
-    expect(img.srcset).toBe(
-      `${src}?w=144&f=webp 144w, ${src}?w=288&f=webp 288w, ${src}?w=480&f=webp 480w`,
-    );
-  });
-
   it("auto-applies card srcset for a brand-image proxy URL", () => {
     const src = "/api/catalog/brand-image/acme";
     const img = renderImage({ src, alt: "Acme" });

@@ -23,7 +23,7 @@ describe("isOsStorageUrl", () => {
   });
 
   it("returns false for a relative catalog proxy URL", () => {
-    expect(isOsStorageUrl("/api/catalog/category-image/flowers")).toBe(false);
+    expect(isOsStorageUrl("/api/catalog/occasion-image/birthday")).toBe(false);
   });
 
   it("returns false for an empty string", () => {
@@ -70,7 +70,7 @@ describe("buildOsImageSrcset", () => {
   });
 
   it("returns null for a relative catalog proxy URL", () => {
-    expect(buildOsImageSrcset("/api/catalog/category-image/flowers")).toBeNull();
+    expect(buildOsImageSrcset("/api/catalog/occasion-image/birthday")).toBeNull();
   });
 
   it("returns null for an empty string", () => {

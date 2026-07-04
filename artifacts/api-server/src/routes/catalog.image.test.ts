@@ -1,8 +1,7 @@
 /**
- * Unit/integration tests for the three catalog image proxy handlers in catalog.ts:
+ * Unit/integration tests for the two catalog image proxy handlers in catalog.ts:
  *   GET /catalog/brand-image/:filename
  *   GET /catalog/occasion-image/:id
- *   GET /catalog/category-image/:id
  *
  * Verifies:
  *   1. w/f/q query params are accepted and forwarded to transformImage.
@@ -21,10 +20,9 @@ import request from "supertest";
 // Hoisted mock references
 // ---------------------------------------------------------------------------
 
-const { transformImageMock, getOsOccasionsMock, getOsCategoriesMock, fetchMock } = vi.hoisted(() => ({
+const { transformImageMock, getOsOccasionsMock, fetchMock } = vi.hoisted(() => ({
   transformImageMock: vi.fn(),
   getOsOccasionsMock: vi.fn(),
-  getOsCategoriesMock: vi.fn(),
   fetchMock: vi.fn(),
 }));
 
@@ -51,7 +49,7 @@ vi.mock("../lib/imageTransform", () => ({
 
 vi.mock("../lib/osProductsCache", () => ({
   getOsOccasions: getOsOccasionsMock,
-  getOsCategories: getOsCategoriesMock,
+  getOsCategories: vi.fn().mockReturnValue([]),
   getOsBrands: vi.fn().mockReturnValue([]),
   getOsRawCatalogBrands: vi.fn().mockReturnValue([]),
   getOsBrandProductCounts: vi.fn().mockReturnValue(new Map()),
@@ -372,126 +370,3 @@ describe("GET /api/catalog/occasion-image/:id", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// category-image handler
-// ---------------------------------------------------------------------------
-
-describe("GET /api/catalog/category-image/:id", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.PRESENTAIL_OS_API_KEY = "test-api-key";
-    transformImageMock.mockImplementation(fakeTransformWebp);
-    fetchMock.mockImplementation(() => makeFakeImageFetchResponse("image/jpeg"));
-    getOsCategoriesMock.mockReturnValue([
-      {
-        id: "cat-uuid-flowers",
-        slug: "flowers",
-        name: "Flowers",
-        is_featured: true,
-        imagePublicUrl: "https://os.presentail.com/api/storage/public-objects/categories/flowers.jpg",
-        image: "https://os.presentail.com/api/storage/public-objects/categories/flowers.jpg",
-      },
-    ]);
-  });
-
-  afterEach(() => {
-    vi.resetModules();
-    vi.unstubAllGlobals();
-    delete process.env.PRESENTAIL_OS_API_KEY;
-  });
-
-  it("returns 400 for an id with a dot (invalid pattern)", async () => {
-    const app = await buildApp();
-    const res = await request(app).get("/api/catalog/category-image/bad.id");
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 503 when PRESENTAIL_OS_API_KEY is not set", async () => {
-    delete process.env.PRESENTAIL_OS_API_KEY;
-    const app = await buildApp();
-    const res = await request(app).get("/api/catalog/category-image/flowers");
-    expect(res.status).toBe(503);
-  });
-
-  it("returns 404 when category is not in the OS cache", async () => {
-    getOsCategoriesMock.mockReturnValue([]);
-    const app = await buildApp();
-    const res = await request(app).get("/api/catalog/category-image/unknown-cat");
-    expect(res.status).toBe(404);
-  });
-
-  it("returns image/webp and 200 for a known category slug with f=webp", async () => {
-    const app = await buildApp();
-    const res = await request(app).get("/api/catalog/category-image/flowers?w=288&f=webp");
-    expect(res.status).toBe(200);
-    expect(res.headers["content-type"]).toContain("image/webp");
-  });
-
-  it("passes w/f/q params to transformImage", async () => {
-    const app = await buildApp();
-    await request(app).get("/api/catalog/category-image/flowers?w=144&f=webp&q=80");
-    expect(transformImageMock).toHaveBeenCalledWith(
-      expect.any(Buffer),
-      expect.objectContaining({ width: 144, format: "webp", quality: 80 }),
-    );
-  });
-
-  it("returns X-Cache: MISS on first request and HIT on second for same params", async () => {
-    const app = await buildApp();
-    const url = "/api/catalog/category-image/flowers?w=288&f=webp&q=82";
-
-    const first = await request(app).get(url);
-    expect(first.headers["x-cache"]).toBe("MISS");
-
-    const second = await request(app).get(url);
-    expect(second.headers["x-cache"]).toBe("HIT");
-
-    expect(transformImageMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("stores separate cache entries for different widths", async () => {
-    const app = await buildApp();
-
-    const r144 = await request(app).get("/api/catalog/category-image/flowers?w=144&f=webp");
-    const r288 = await request(app).get("/api/catalog/category-image/flowers?w=288&f=webp");
-    const r480 = await request(app).get("/api/catalog/category-image/flowers?w=480&f=webp");
-
-    expect(r144.headers["x-cache"]).toBe("MISS");
-    expect(r288.headers["x-cache"]).toBe("MISS");
-    expect(r480.headers["x-cache"]).toBe("MISS");
-    expect(transformImageMock).toHaveBeenCalledTimes(3);
-  });
-
-  it("stores separate cache entries for different formats", async () => {
-    transformImageMock
-      .mockImplementationOnce(fakeTransformWebp)
-      .mockImplementationOnce(fakeTransformJpeg);
-
-    const app = await buildApp();
-
-    const rWebp = await request(app).get("/api/catalog/category-image/flowers?w=288&f=webp");
-    const rJpeg = await request(app).get("/api/catalog/category-image/flowers?w=288&f=jpeg");
-
-    expect(rWebp.headers["x-cache"]).toBe("MISS");
-    expect(rJpeg.headers["x-cache"]).toBe("MISS");
-    expect(transformImageMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("also matches by UUID id (legacy compat)", async () => {
-    const app = await buildApp();
-    const res = await request(app).get("/api/catalog/category-image/cat-uuid-flowers?w=288&f=webp");
-    expect(res.status).toBe(200);
-  });
-
-  it("stores separate cache entries for different quality values", async () => {
-    const app = await buildApp();
-
-    const r82 = await request(app).get("/api/catalog/category-image/flowers?w=288&f=webp&q=82");
-    const r60 = await request(app).get("/api/catalog/category-image/flowers?w=288&f=webp&q=60");
-
-    expect(r82.headers["x-cache"]).toBe("MISS");
-    expect(r60.headers["x-cache"]).toBe("MISS");
-    expect(transformImageMock).toHaveBeenCalledTimes(2);
-  });
-});
