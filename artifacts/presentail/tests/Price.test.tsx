@@ -8,7 +8,7 @@
  * Covered scenarios
  * -----------------
  * - USD: left symbol, no space, 2 decimal places
- * - EUR: left symbol, space between, 0 decimal places (rounded)
+ * - EUR: left symbol, no space, 0 decimal places (rounded)
  * - AED: DirhamSymbol SVG (mocked), numeric text only — no "AED" text prefix
  * - `native` prop: skips FX conversion; value is already in the active currency
  * - Zero and near-zero amounts
@@ -40,7 +40,7 @@ const EUR_CURRENCY: Currency = {
   flag: "🇪🇺",
   symbol: "€",
   symbolPosition: "left",
-  spaceBetween: true,
+  spaceBetween: false,
   rate: 0.855,
   decimals: 0,
 };
@@ -102,24 +102,24 @@ describe("Price — EUR (Cyprus)", () => {
     },
   };
 
-  it("renders the Euro symbol to the left with a space, no decimals", () => {
+  it("renders the Euro symbol to the left with no space, no decimals", () => {
     const { getByText } = renderWithProviders(<Price value={100} />, eurCurrency);
-    expect(getByText("€ 86")).toBeTruthy();
+    expect(getByText("€86")).toBeTruthy();
   });
 
-  it("renders zero as '€ 0'", () => {
+  it("renders zero as '€0'", () => {
     const { getByText } = renderWithProviders(<Price value={0} />, eurCurrency);
-    expect(getByText("€ 0")).toBeTruthy();
+    expect(getByText("€0")).toBeTruthy();
   });
 
   it("native=true: skips conversion — raw value formatted with EUR rules", () => {
     const { getByText } = renderWithProviders(<Price value={50} native />, eurCurrency);
-    expect(getByText("€ 50")).toBeTruthy();
+    expect(getByText("€50")).toBeTruthy();
   });
 
   it("rounds converted EUR amounts (no decimal places)", () => {
     const { getByText } = renderWithProviders(<Price value={50} />, eurCurrency);
-    const node = getByText("€ 43");
+    const node = getByText("€43");
     expect(node).toBeTruthy();
   });
 });

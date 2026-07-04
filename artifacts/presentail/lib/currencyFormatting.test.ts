@@ -114,7 +114,7 @@ describe("UAE / AED (rate ≈ 3.673, spaceBetween + left symbol)", () => {
 // Cyprus — EUR (fractional conversion, < 1×)
 // ---------------------------------------------------------------------------
 
-describe("Cyprus / EUR (rate ≈ 0.855, spaceBetween + left symbol)", () => {
+describe("Cyprus / EUR (rate ≈ 0.855, no space, left symbol)", () => {
   const eur = getCurrency("EUR");
 
   it("has a positive rate less than 1", () => {
@@ -122,39 +122,39 @@ describe("Cyprus / EUR (rate ≈ 0.855, spaceBetween + left symbol)", () => {
     expect(eur.rate).toBeLessThan(1);
   });
 
-  it("symbol is '€' with left position and a space", () => {
+  it("symbol is '€' with left position and no space", () => {
     expect(eur.symbol).toBe("€");
     expect(eur.symbolPosition).toBe("left");
-    expect(eur.spaceBetween).toBe(true);
+    expect(eur.spaceBetween).toBe(false);
   });
 
-  it("formatCurrencyPrice(100) converts USD → EUR and is NOT '€ 100'", () => {
+  it("formatCurrencyPrice(100) converts USD → EUR and is NOT '€100'", () => {
     const result = formatCurrencyPrice(eur, 100);
-    expect(result).not.toBe("€ 100");
+    expect(result).not.toBe("€100");
     // Must be less than 100 in absolute value (rate < 1)
     const numeric = parseInt(result.replace(/[^0-9]/g, ""), 10);
     expect(numeric).toBeLessThan(100);
   });
 
-  it("formatCurrencyPrice(100) produces '€ 85' (static rate 0.855 × 100 = 85.5 → roundToNearestFive → 85)", () => {
-    expect(formatCurrencyPrice(eur, 100)).toBe("€ 85");
+  it("formatCurrencyPrice(100) produces '€85' (static rate 0.855 × 100 = 85.5 → roundToNearestFive → 85)", () => {
+    expect(formatCurrencyPrice(eur, 100)).toBe("€85");
   });
 
-  it("formatCurrencyPrice(50) → '€ 45'", () => {
+  it("formatCurrencyPrice(50) → '€45'", () => {
     // 0.855 × 50 = 42.75 → roundToNearestFive → 45
-    expect(formatCurrencyPrice(eur, 50)).toBe("€ 45");
+    expect(formatCurrencyPrice(eur, 50)).toBe("€45");
   });
 
-  it("formatCurrencyPrice(0) → '€ 0'", () => {
-    expect(formatCurrencyPrice(eur, 0)).toBe("€ 0");
+  it("formatCurrencyPrice(0) → '€0'", () => {
+    expect(formatCurrencyPrice(eur, 0)).toBe("€0");
   });
 
   it("convertCurrency(100) → 85 (nearest-5 rounded)", () => {
     expect(convertCurrency(eur, 100)).toBe(85);
   });
 
-  it("formatNativeAmount(86) → '€ 86'", () => {
-    expect(formatNativeAmount(eur, 86)).toBe("€ 86");
+  it("formatNativeAmount(86) → '€86'", () => {
+    expect(formatNativeAmount(eur, 86)).toBe("€86");
   });
 });
 
@@ -170,7 +170,7 @@ describe("cross-currency regression — formatCurrencyPrice must apply rate (not
     shouldNotEqual: string;
   }> = [
     { code: "AED", usdInput: 100, shouldNotEqual: "AED 100" },
-    { code: "EUR", usdInput: 100, shouldNotEqual: "€ 100" },
+    { code: "EUR", usdInput: 100, shouldNotEqual: "€100" },
   ];
 
   for (const { code, usdInput, shouldNotEqual } of cases) {
@@ -268,8 +268,8 @@ describe("applyFxRates", () => {
   it("round-trip: updated EUR rate changes formatted output", () => {
     applyFxRates({ EUR: 0.9 });
     const eur = getCurrency("EUR");
-    // 100 USD × 0.9 = 90 EUR → '€ 90'
-    expect(formatCurrencyPrice(eur, 100)).toBe("€ 90");
+    // 100 USD × 0.9 = 90 EUR → '€90'
+    expect(formatCurrencyPrice(eur, 100)).toBe("€90");
   });
 
   it("round-trip: invalid rate leaves static fallback in effect", () => {
