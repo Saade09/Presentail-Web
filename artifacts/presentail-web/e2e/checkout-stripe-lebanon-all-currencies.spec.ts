@@ -38,14 +38,20 @@ const LOCATION = { countryCode: "LB", cityId: "lb-beirut" };
 const VALID_LB_PHONE = "+96170000000";
 
 /**
- * Display currencies to test. Lebanon always uses the MAIN Stripe account,
- * so all of these should initialise Stripe and render the card iframe.
+ * All display currencies supported by Presentail (see displayCurrencyStorage.ts
+ * SUPPORTED_CODES). Lebanon always uses the MAIN Stripe account, so every
+ * currency here should initialise Stripe and render the card iframe.
  */
 const CURRENCIES = [
   { code: "USD", symbol: "$",   symbolPosition: "left",  spaceBetween: false, decimals: 2, rate: 1     },
   { code: "AED", symbol: "AED", symbolPosition: "right", spaceBetween: true,  decimals: 2, rate: 3.67  },
   { code: "EUR", symbol: "€",   symbolPosition: "left",  spaceBetween: false, decimals: 2, rate: 0.92  },
   { code: "GBP", symbol: "£",   symbolPosition: "left",  spaceBetween: false, decimals: 2, rate: 0.79  },
+  { code: "CAD", symbol: "CA$", symbolPosition: "left",  spaceBetween: false, decimals: 2, rate: 1.36  },
+  { code: "AUD", symbol: "A$",  symbolPosition: "left",  spaceBetween: false, decimals: 2, rate: 1.53  },
+  { code: "QAR", symbol: "QAR", symbolPosition: "right", spaceBetween: true,  decimals: 2, rate: 3.64  },
+  { code: "SAR", symbol: "SAR", symbolPosition: "right", spaceBetween: true,  decimals: 2, rate: 3.75  },
+  { code: "CHF", symbol: "CHF", symbolPosition: "right", spaceBetween: true,  decimals: 2, rate: 0.90  },
 ] as const;
 
 // localStorage key for the persistent manual currency override (see displayCurrencyStorage.ts).
