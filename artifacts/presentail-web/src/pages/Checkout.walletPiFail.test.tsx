@@ -327,12 +327,14 @@ vi.mock("@/assets/payment-logos/western-union.svg", () => ({ default: "" }));
 // ---------------------------------------------------------------------------
 
 import Checkout from "./Checkout";
+import type { ShimUser } from "@/contexts/AuthContext";
+import type { CartItem } from "@/contexts/CartContext";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const FAKE_ITEM = {
+const FAKE_ITEM: CartItem = {
   product: {
     id: "p1",
     name: "Red Roses",
@@ -344,13 +346,12 @@ const FAKE_ITEM = {
     inStock: true,
     occasions: [],
     wcId: 99,
-    slug: "red-roses",
   },
   quantity: 1,
 };
 
-const SIGNED_IN_USER = {
-  id: 1,
+const SIGNED_IN_USER: ShimUser = {
+  id: "1",
   firstName: "Jane",
   lastName: "Doe",
   email: "jane@example.com",
@@ -360,7 +361,7 @@ const SIGNED_IN_USER = {
 function renderCheckout() {
   return renderWithProviders(<Checkout />, {
     auth: {
-      user: SIGNED_IN_USER as any,
+      user: SIGNED_IN_USER,
       token: "fake-token",
       isLoading: false,
     },
