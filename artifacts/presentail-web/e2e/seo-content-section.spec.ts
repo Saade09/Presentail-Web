@@ -31,8 +31,10 @@
  *  17. Occasion page language-switch (EN→AR via LanguageSwitcher, no hard reload) → heading uses AR template.
  *  18. Brand page EN→AR language-switch (picker mid-session) → heading uses AR template.
  *  19. Brand page EN→FR language-switch (picker mid-session) → heading uses FR template ("Livraison").
- *  20. Category page EN→FR language-switch (picker mid-session) → heading uses FR template ("Livraison de").
- *  21. Occasion page EN→FR language-switch (picker mid-session) → heading uses FR template ("Envoyez").
+ *  20. Shop page (/shop) city-switch (URL navigation path) → heading updates to new city.
+ *  21. Shop page (/shop) city-switch (picker mid-session, no hard reload) → heading updates.
+ *  22. Category page EN→FR language-switch (picker mid-session) → heading uses FR template ("Livraison de").
+ *  23. Occasion page EN→FR language-switch (picker mid-session) → heading uses FR template ("Envoyez").
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -1455,6 +1457,155 @@ test.describe("SEO content section — brand page FR language-switch regression 
 });
 
 // ---------------------------------------------------------------------------
+// 20. Shop page (/shop) — SEO heading updates when the shopper switches cities
+//     (URL navigation path)
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — shop page city-switch regression guard", () => {
+  /**
+   * Regression guard (URL navigation path): if a shopper changes their
+   * delivery city on the plain shop page (/shop, no category or occasion
+   * filter), the SEO heading ("Shop Flowers, Cakes & Gifts in {city}") must
+   * reflect the new city — not the city active on first load.
+   *
+   * We simulate the city-picker's setLocation() call by driving the browser
+   * directly to the Dubai-prefixed URL, which is exactly what the picker does
+   * via navigate(buildLocalePath(…)).
+   */
+  test("SEO heading contains the new city name after navigating to a Dubai URL", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: Beirut ──────────────────────────────────────────────────────
+    await page.goto("/en-lb/beirut/shop");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+    const initialText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "lb-beirut" → name "Beirut".
+    // EN template: "Shop Flowers, Cakes & Gifts in {city}".
+    expect(initialText).toContain("Beirut");
+    expect(initialText).toContain("Shop");
+
+    // ── Step 2: switch to Dubai ─────────────────────────────────────────────
+    // Navigate to the Dubai-prefixed shop URL — this is exactly what the city
+    // picker does via setLocation() → navigate(buildLocalePath(...)).
+    await page.goto("/en-ae/dubai/shop");
+
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "ae-dubai" → name "Dubai"; the heading
+    // must now show "Dubai" and must NOT still show "Beirut".
+    expect(updatedText).toContain("Dubai");
+    expect(updatedText).not.toContain("Beirut");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 21. Shop page (/shop) — SEO heading updates when the city picker is used
+//     mid-session (no hard page reload — Wouter client-side navigation)
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — shop page city-switch via picker mid-session", () => {
+  /**
+   * Regression guard (city-picker UI path): the city picker calls
+   * setLocation(), which navigates via Wouter (history.pushState) — there is
+   * NO hard page reload. React must propagate the new cityLabel into
+   * SEOContentSection reactively.
+   *
+   * Flow:
+   *   1. Land on /en-lb/beirut/shop → heading shows "Beirut".
+   *   2. Open the city picker via the top utility bar button.
+   *   3. Select UAE → Dubai inside the picker dialog.
+   *   4. LocationContext calls navigate("/en-ae/dubai/shop") via Wouter —
+   *      client-side only, no reload.
+   *   5. Assert heading now shows "Dubai" and no longer shows "Beirut".
+   */
+  test("SEO heading updates to new city after using the picker without a page reload", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: load shop page at Beirut ─────────────────────────────────────
+    await page.goto("/en-lb/beirut/shop");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+
+    const initialText = (await heading.textContent()) ?? "";
+    // EN template: "Shop Flowers, Cakes & Gifts in {city}"
+    expect(initialText).toContain("Beirut");
+    expect(initialText).toContain("Shop");
+
+    // ── Step 2: open the city picker from the top utility bar ─────────────────
+    // `button-country-selector` lives in TopUtilityBar (always visible, no
+    // breakpoint hide). The Navbar also has `button-open-location-picker` but
+    // it is hidden on narrower viewports (hidden lg:flex).
+    const pickerButton = page.getByTestId("button-country-selector");
+    await expect(pickerButton).toBeVisible({ timeout: 5_000 });
+    await pickerButton.click();
+
+    // ── Step 3: select UAE then Dubai inside the picker dialog ────────────────
+    // The picker opens pre-navigated to Lebanon's city list because
+    // `initialCountryCode` is "LB" (set from the current URL/stored location).
+    // Go back to the country list via `button-picker-back`, then select UAE.
+    const backButton = page.getByTestId("button-picker-back");
+    await expect(backButton).toBeVisible({ timeout: 8_000 });
+    await backButton.click();
+
+    const uaeButton = page.getByTestId("button-country-ae");
+    await expect(uaeButton).toBeVisible({ timeout: 5_000 });
+    await uaeButton.click();
+
+    const dubaiButton = page.getByTestId("button-city-ae-dubai");
+    await expect(dubaiButton).toBeVisible({ timeout: 5_000 });
+
+    // Capture the current navigation count so we can verify Wouter navigated
+    // client-side (pushState) without triggering a hard reload.
+    const navCountBefore = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+
+    await dubaiButton.click();
+
+    // ── Step 4: assert the URL updated to Dubai without a hard reload ─────────
+    // Wouter calls history.pushState → the URL changes but no DOMContentLoaded
+    // fires. Playwright's page.waitForURL() waits for the pushState to settle.
+    await page.waitForURL(/\/en-ae\/dubai\/shop/, { timeout: 10_000 });
+
+    // The nav count was not incremented by a real navigation — confirms we are
+    // still in the same page session (soft-nav via Wouter).
+    const navCountAfter = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+    // Both will be 0 because `__playwrightNavCount` is only set by a hard
+    // navigation frame; equality proves no hard reload occurred.
+    expect(navCountAfter).toBe(navCountBefore);
+
+    // ── Step 5: assert SEO heading reflects the new city ─────────────────────
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+    expect(updatedText).toContain("Dubai");
+    expect(updatedText).not.toContain("Beirut");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 17. Occasion page — SEO heading updates when language is switched EN→AR
 // ---------------------------------------------------------------------------
 
@@ -1543,7 +1694,7 @@ test.describe("SEO content section — occasion page language-switch regression 
 });
 
 // ---------------------------------------------------------------------------
-// 20. Category page — SEO heading updates when language is switched EN→FR
+// 22. Category page — SEO heading updates when language is switched EN→FR
 //     mid-session (no hard page reload — Wouter client-side navigation)
 // ---------------------------------------------------------------------------
 
@@ -1635,7 +1786,7 @@ test.describe("SEO content section — category page FR language-switch regressi
 });
 
 // ---------------------------------------------------------------------------
-// 21. Occasion page — SEO heading updates when language is switched EN→FR
+// 23. Occasion page — SEO heading updates when language is switched EN→FR
 //     mid-session (no hard page reload — Wouter client-side navigation)
 // ---------------------------------------------------------------------------
 
