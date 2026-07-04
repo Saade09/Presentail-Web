@@ -3,7 +3,6 @@ import { getWooSearchQueryKey, useWooSearch, type WooSearchBrand } from "@worksp
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Dimensions,
   FlatList,
   Platform,
   Pressable,
@@ -30,9 +29,7 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-const { width: SCREEN_W } = Dimensions.get("window");
-const GRID_CARD_W = (SCREEN_W - 24 * 2 - 10) / 2;
-const LIST_CARD_W = SCREEN_W - 48;
+import { CATALOG_GRID_FLATLIST_CONFIG } from "@/lib/gridLayout";
 
 const ALL = "all";
 
@@ -380,7 +377,9 @@ function CatalogScreen() {
     </View>
   );
 
-  const activeCardW = gridView ? GRID_CARD_W : LIST_CARD_W;
+  const activeCardW = gridView
+    ? CATALOG_GRID_FLATLIST_CONFIG.gridCardWidth
+    : CATALOG_GRID_FLATLIST_CONFIG.listCardWidth;
 
   const categoryFilterPills: FilterPill[] = [
     { id: ALL, label: t.catalogAll },
@@ -405,10 +404,17 @@ function CatalogScreen() {
         style={{ flex: 1, backgroundColor: colors.background }}
         data={filtered}
         keyExtractor={(p) => p.id}
-        numColumns={gridView ? 2 : 1}
+        numColumns={gridView ? CATALOG_GRID_FLATLIST_CONFIG.numColumns : 1}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
-        columnWrapperStyle={gridView ? { paddingHorizontal: 24, gap: 10 } : undefined}
+        columnWrapperStyle={
+          gridView
+            ? {
+                paddingHorizontal: CATALOG_GRID_FLATLIST_CONFIG.columnWrapperPaddingH,
+                gap: CATALOG_GRID_FLATLIST_CONFIG.columnGap,
+              }
+            : undefined
+        }
         contentContainerStyle={{ paddingBottom: 120, rowGap: 18 }}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews
@@ -416,7 +422,13 @@ function CatalogScreen() {
         maxToRenderPerBatch={6}
         windowSize={5}
         renderItem={({ item }) => (
-          <View style={gridView ? undefined : { paddingHorizontal: 24 }}>
+          <View
+            style={
+              gridView
+                ? undefined
+                : { paddingHorizontal: CATALOG_GRID_FLATLIST_CONFIG.listPaddingH }
+            }
+          >
             <ProductCard product={item} width={activeCardW} />
           </View>
         )}

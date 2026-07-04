@@ -53,13 +53,14 @@ import {
 } from "@/services/notifications";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { trackScreenTTID } from "@/lib/analytics";
+import { HOME_GRID_CONFIG } from "@/lib/gridLayout";
+const CARD_W = HOME_GRID_CONFIG.cardWidth;
 
 // Captured at module-load time so it includes the JS bundle evaluation and
 // context-bootstrap cost that precedes the first HomeScreen mount.
 const HOME_SCREEN_START_MS = Date.now();
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
-const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 const HERO_HEIGHT = Math.round(SCREEN_H * 0.88);
 const AUTO_ADVANCE_MS = 4500;
 
@@ -897,7 +898,7 @@ function FlowersSection() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+        contentContainerStyle={{ paddingHorizontal: HOME_GRID_CONFIG.paddingH, gap: HOME_GRID_CONFIG.columnGap }}
       >
         {loading && flowerProducts.length === 0
           ? Array.from({ length: 4 }).map((_, i) => (
@@ -979,7 +980,7 @@ function SummerCollectionSection() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+        contentContainerStyle={{ paddingHorizontal: HOME_GRID_CONFIG.paddingH, gap: HOME_GRID_CONFIG.columnGap }}
       >
         {loading && enrichedProducts.length === 0
           ? Array.from({ length: 4 }).map((_, i) => (
