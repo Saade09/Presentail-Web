@@ -93,6 +93,22 @@ vi.mock("@/components/cart/CheckoutLoginDialog", () => ({
   },
 }));
 
+const { mockUseDeliverySelection } = vi.hoisted(() => ({
+  mockUseDeliverySelection: vi.fn(() => ({
+    mode: null as string | null,
+    date: null,
+    slotLabel: null,
+    hasSelection: false,
+    setSelection: vi.fn(),
+    clear: vi.fn(),
+  })),
+}));
+
+vi.mock("@/contexts/DeliverySelectionContext", () => ({
+  useDeliverySelection: mockUseDeliverySelection,
+  DeliverySelectionProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
+}));
+
 // ---------------------------------------------------------------------------
 // Import the component under test AFTER all vi.mock() declarations.
 // ---------------------------------------------------------------------------
@@ -242,5 +258,131 @@ describe("Cart — FreeDeliveryBanner visibility", () => {
     });
 
     expect(screen.queryByTestId("free-delivery-banner")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: delivery fee display states in the Order Summary sidebar
+// Covers all four combinations of delivery mode (standard / express) ×
+// whether the subtotal meets the free-delivery threshold.
+// ---------------------------------------------------------------------------
+
+const DELIVERY_CONFIG_WITH_FEE = {
+  freeDeliveryEnabled: true,
+  freeDeliveryThreshold: "$90",
+  freeDeliveryThresholdUsd: 90,
+  expressDeliveryTimeLabel: "Arrives in 90 minutes",
+  currency: "USD",
+  cityFeeUsd: 10,
+  expressSurchargeUsd: 15,
+};
+
+const CART_BELOW_THRESHOLD = {
+  items: [FAKE_ITEM],
+  subtotal: 75,
+  itemCount: 1,
+};
+
+const CART_ABOVE_THRESHOLD = {
+  items: [FAKE_ITEM],
+  subtotal: 95,
+  itemCount: 1,
+};
+
+describe("Cart — delivery fee display states", () => {
+  beforeEach(() => {
+    vi.mocked(useDeliveryConfig).mockReturnValue(DELIVERY_CONFIG_WITH_FEE);
+    mockUseDeliverySelection.mockReturnValue({
+      mode: null,
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+  });
+
+  it("standard + below threshold → shows city fee amount, no express row", () => {
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "schedule",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_BELOW_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("$10")).toBeTruthy();
+    expect(screen.queryByText("cart.deliveryFree")).toBeNull();
+    expect(screen.queryByText("cart.expressLabel")).toBeNull();
+  });
+
+  it("standard + above threshold → shows 'Free', no express row", () => {
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "schedule",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
+    expect(screen.queryByText("$10")).toBeNull();
+    expect(screen.queryByText("cart.expressLabel")).toBeNull();
+  });
+
+  it("express + below threshold → shows city fee amount and express surcharge row", () => {
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "express",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_BELOW_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("$10")).toBeTruthy();
+    expect(screen.queryByText("cart.deliveryFree")).toBeNull();
+    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("$15")).toBeTruthy();
+  });
+
+  it("express + above threshold → shows 'Free', express surcharge row; total = subtotal + surcharge only", () => {
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "express",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
+    expect(screen.queryByText("$10")).toBeNull();
+    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("$15")).toBeTruthy();
+    const totals = screen.getAllByText("$110");
+    expect(totals.length).toBeGreaterThan(0);
   });
 });
