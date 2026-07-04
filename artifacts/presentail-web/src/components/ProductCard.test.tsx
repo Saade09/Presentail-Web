@@ -96,3 +96,27 @@ describe("ProductCard — image sizes attribute", () => {
     );
   });
 });
+
+describe("ProductCard — image alt text (WCAG 1.1.1)", () => {
+  it("renders an <img> whose alt matches the product name", () => {
+    const { container } = render(
+      <ProductCard product={osStorageProduct} index={0} />,
+    );
+    const img = container.querySelector("img");
+    expect(img).toBeTruthy();
+    expect(img!.alt).toBe(osStorageProduct.name);
+  });
+
+  it("renders no <img> element when the product has no image URL", () => {
+    const noImageProduct: Product = {
+      ...osStorageProduct,
+      id: "mystery-box",
+      name: "Mystery Box",
+      image: undefined,
+    };
+    const { container } = render(
+      <ProductCard product={noImageProduct} index={0} />,
+    );
+    expect(container.querySelector("img")).toBeNull();
+  });
+});
