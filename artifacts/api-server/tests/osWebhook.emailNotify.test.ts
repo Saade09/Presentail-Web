@@ -17,9 +17,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 // DB: supports select().from().where().limit() and update().set().where()
+// The update chain must support both:
+//   await db.update().set().where()                   — used for the state update
+//   await db.update().set().where().returning(...)    — used for the gads conversion claim
 const { limitMock, updateWhereMock, dbMock } = vi.hoisted(() => {
   const limitMock = vi.fn();
-  const updateWhereMock = vi.fn().mockResolvedValue(undefined);
+  // updateWhereMock returns an object that is both awaitable (resolves to
+  // undefined) and has a .returning() method (resolves to [] — meaning zero
+  // rows were claimed, so the gads upload is skipped silently).
+  const updateWhereMock = vi.fn().mockReturnValue({
+    then: (res: (v: unknown) => void, rej: (e: unknown) => void) =>
+      Promise.resolve(undefined).then(res, rej),
+    returning: vi.fn().mockResolvedValue([]),
+  });
   const setMock = vi.fn().mockReturnValue({ where: updateWhereMock });
   const updateMock = vi.fn().mockReturnValue({ set: setMock });
 
@@ -94,6 +104,9 @@ vi.mock("../src/lib/fxRateCache", () => ({
 }));
 vi.mock("../src/lib/customers", () => ({
   upsertCustomer: vi.fn(),
+}));
+vi.mock("../src/lib/googleAdsConversions", () => ({
+  uploadGoogleAdsConversion: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../src/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },

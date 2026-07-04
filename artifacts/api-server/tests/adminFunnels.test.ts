@@ -520,11 +520,12 @@ describe("upsell per-store local-currency prices", () => {
   const PRODUCT_USD = 10;
 
   // Known FX rates (matches the mock installed at the top of the file).
-  // roundForCurrency(10 * 3.673, "AED") = 36.73
-  // roundForCurrency(10 * 0.92,  "EUR") = 9.20
-  // roundForCurrency(10 * 89500, "LBP") = 895000
-  const EXPECTED_AED = 36.73;
-  const EXPECTED_EUR = 9.20;
+  // roundForCurrency rounds AED/EUR to the nearest 5 (not to 2 dp):
+  //   roundForCurrency(10 * 3.673, "AED") = roundToNearestFive(36.73) = 35
+  //   roundForCurrency(10 * 0.92,  "EUR") = roundToNearestFive(9.20)  = 10
+  //   roundForCurrency(10 * 89500, "LBP") = roundToNearestFive(895000, "LBP") = 895000
+  const EXPECTED_AED = 35;
+  const EXPECTED_EUR = 10;
   const EXPECTED_LBP = 895_000;
 
   function makeProduct(overrides: Partial<{ id: string; name: string; price: number }> = {}) {

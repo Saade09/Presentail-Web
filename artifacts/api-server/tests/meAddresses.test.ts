@@ -19,8 +19,10 @@ vi.mock("../src/lib/auth", () => ({
 }));
 
 const getCustomerByWcIdMock = vi.fn();
+const getCustomerByIdMock = vi.fn();
 vi.mock("../src/lib/customers", () => ({
   getCustomerByWcId: (...args: unknown[]) => getCustomerByWcIdMock(...args),
+  getCustomerById: (...args: unknown[]) => getCustomerByIdMock(...args),
   upsertCustomer: vi.fn(),
 }));
 
@@ -189,6 +191,7 @@ beforeEach(async () => {
 
   authenticateMock.mockResolvedValue({ ok: true, customerId: 1001, token: "tkn" });
   getCustomerByWcIdMock.mockResolvedValue({ id: 42 });
+  getCustomerByIdMock.mockResolvedValue(null);
 
   const mod = await import("../src/routes/meAddresses");
   app = express();
