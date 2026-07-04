@@ -51,6 +51,9 @@ jobs:
       - name: Check non-product rich-result (Breadcrumb/FAQ/Org/Article/...) JSON-LD required fields
         run: pnpm --filter @workspace/presentail-web run check-nonproduct-jsonld-schema
 
+      - name: Check FAQ copy is in sync (seo-shop-faqs.mjs matches shop.ts)
+        run: pnpm --filter @workspace/scripts run check-faq-sync
+
       - name: Check contact page SEO title lengths (30–65 chars)
         run: pnpm --filter @workspace/presentail-web run check-contact-title-length
 
