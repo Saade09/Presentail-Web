@@ -427,6 +427,17 @@ export async function fetchAndStoreForTesting(): Promise<void> {
 }
 
 /**
+ * Run the pricing enrichment step directly (awaited) with a controlled config.
+ * Reads from storeCache, which must be populated first via fetchAndStoreForTesting().
+ * Only call from tests.
+ */
+export async function __enrichProductPricingForTest(
+  config: PresentailOsConfig,
+): Promise<void> {
+  return enrichProductPricingFromOs(config);
+}
+
+/**
  * Simulate the first-populated event in tests without a real OS fetch.
  * Fires the registered callback (if any) exactly once and marks the state
  * as having fired.
