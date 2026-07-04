@@ -491,10 +491,13 @@ function CheckoutForm() {
   }, [user]);
 
   // Fetch saved payment methods (cards) when the authenticated user is on step 2.
+  // Pass ?currency so the API reads from the correct Stripe account (Gulf for
+  // AED, main for all other currencies).
   useEffect(() => {
     if (!user || step !== 2) return;
     let cancelled = false;
-    apiFetch<{ ok: boolean; paymentMethods: { id: string; brand: string; last4: string; expMonth: number; expYear: number }[] }>("/checkout/payment-methods")
+    const currencyParam = currencyCode ? `?currency=${encodeURIComponent(currencyCode)}` : "";
+    apiFetch<{ ok: boolean; paymentMethods: { id: string; brand: string; last4: string; expMonth: number; expYear: number }[] }>(`/checkout/payment-methods${currencyParam}`)
       .then((r) => {
         if (cancelled) return;
         setSavedPaymentMethods(r.paymentMethods ?? []);
@@ -502,17 +505,18 @@ function CheckoutForm() {
       .catch(() => {});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, step]);
+  }, [user, step, currencyCode]);
 
   const handleRemoveSavedCard = useCallback(async (pmId: string) => {
     try {
-      await apiFetch(`/checkout/payment-methods/${pmId}`, { method: "DELETE" });
+      const currencyParam = currencyCode ? `?currency=${encodeURIComponent(currencyCode)}` : "";
+      await apiFetch(`/checkout/payment-methods/${pmId}${currencyParam}`, { method: "DELETE" });
       setSavedPaymentMethods((prev) => prev.filter((pm) => pm.id !== pmId));
       setSelectedSavedCardId((prev) => (prev === pmId ? null : prev));
     } catch {
       // Silently ignore — the card will still show up but the shopper can retry
     }
-  }, []);
+  }, [currencyCode]);
 
   // Fetch saved addresses for signed-in shoppers so we can offer pre-fill.
   // Silently no-ops for guests — the addresses endpoint returns 401 which
