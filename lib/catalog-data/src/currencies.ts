@@ -29,7 +29,7 @@ export const CURRENCIES: Currency[] = [
     flag: "🇪🇺",
     symbol: "€",
     symbolPosition: "left",
-    spaceBetween: true,
+    spaceBetween: false,
     rate: 0.855,
     decimals: 0,
   },
