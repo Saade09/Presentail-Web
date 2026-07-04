@@ -392,6 +392,19 @@ function CheckoutForm() {
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
 
+  // For countries with a fixed billing currency (AE → AED, CY → EUR), the
+  // payment PI and wallet sheet MUST use that fixed currency regardless of
+  // what the shopper's IP-geo resolved display currency is. Without this, a
+  // Lebanon-IP shopper who selects a UAE delivery address would see USD prices
+  // in the Apple/Google Pay sheet but be charged AED — a confusing mismatch
+  // that can also cause the PI to fail if the server enforces the country's
+  // native currency. For all other delivery countries (LB, etc.) the display
+  // currency is the billing currency, so we keep `currencyCode` as-is.
+  const checkoutCurrency =
+    countryCode === "AE" ? "AED" :
+    countryCode === "CY" ? "EUR" :
+    currencyCode;
+
   // ── Lazy Stripe state ──────────────────────────────────────────────────────
   // @stripe/react-stripe-js is dynamically imported via LazyStripeSection so
   // js.stripe.com is never fetched for Mamo, PayPal, Whish, or Western Union.
@@ -1198,7 +1211,7 @@ function CheckoutForm() {
 
     const sig = walletPiSignature({
       items: mappedItems,
-      currency: currencyCode,
+      currency: checkoutCurrency,
       email: sender.email || undefined,
       deliveryFeeUsd,
       expressDelivery: deliveryMode === "express",
@@ -1235,7 +1248,7 @@ function CheckoutForm() {
           data: {
             items: mappedItems,
             orderId,
-            currency: currencyCode,
+            currency: checkoutCurrency,
             email: sender.email || undefined,
             deliveryFeeUsd,
             district: recipient.district || undefined,
@@ -1312,7 +1325,7 @@ function CheckoutForm() {
     stripe,
     walletSupported,
     countryCode,
-    currencyCode,
+    checkoutCurrency,
     isHydrated,
     itemCount,
     subtotal,
@@ -1397,7 +1410,7 @@ function CheckoutForm() {
   // never opened with a client estimate.
   const currentWalletSig = walletPiSignature({
     items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
-    currency: currencyCode,
+    currency: checkoutCurrency,
     email: sender.email || undefined,
     deliveryFeeUsd: districtFee + expressFee + slotFee,
     expressDelivery: deliveryMode === "express",
@@ -1624,7 +1637,7 @@ function CheckoutForm() {
       // the pre-creation effect computed.
       const walletSig = walletPiSignature({
         items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
-        currency: currencyCode,
+        currency: checkoutCurrency,
         email: sender.email || undefined,
         deliveryFeeUsd: districtFee + expressFee + slotFee,
         expressDelivery: deliveryMode === "express",
@@ -1855,7 +1868,7 @@ function CheckoutForm() {
             data: {
               items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
               orderId,
-              currency: currencyCode,
+              currency: checkoutCurrency,
               email: sender.email || undefined,
               deliveryFeeUsd: districtFee + expressFee + slotFee,
               district: _selectedDistrict,
@@ -1988,7 +2001,7 @@ function CheckoutForm() {
           district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",
           noAddress,
-          currency: currencyCode,
+          currency: checkoutCurrency,
           returnUrl,
           cancelUrl: failureUrl,
           orderId,
@@ -2015,7 +2028,7 @@ function CheckoutForm() {
           district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",
           noAddress,
-          currency: currencyCode,
+          currency: checkoutCurrency,
           title: t("checkout.payment.orderTitle"),
           description: t("checkout.payment.orderDesc", { name: `${sender.firstName} ${sender.lastName}`.trim() }),
           email: sender.email,
