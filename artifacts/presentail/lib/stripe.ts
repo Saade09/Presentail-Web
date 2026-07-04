@@ -121,6 +121,14 @@ export async function createPaymentIntent(payload: {
   saveCard?: boolean;
   /** Bearer token for authenticated requests. Required when saveCard is true. */
   authToken?: string | null;
+  /** Selected delivery time-slot label. Pass empty string or omit for express
+   *  delivery or when no slot has been selected yet. Stored in the PI snapshot
+   *  so the order-finalization guard can compare it to the submitted slot. */
+  deliverySlot?: string;
+  /** OS city ID — used server-side to look up the slot's extraFee from the
+   *  locations cache. Required when deliverySlot is non-empty and a slot
+   *  surcharge applies. */
+  cityId?: string;
 }): Promise<
   | { ok: true; clientSecret: string; orderId: string; amount: number; currency: string }
   | { ok: false; code?: string; message: string }

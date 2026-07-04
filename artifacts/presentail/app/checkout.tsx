@@ -1202,6 +1202,8 @@ function CheckoutScreen() {
         ...(authToken ? { authToken } : {}),
         // Request card saving only when the shopper opted in and isn't using a saved card.
         ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
+        deliverySlot: deliveryMode === "express" ? "" : slotLabel,
+        ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
       });
       if (!intentResult.ok) {
         if (intentResult.code === "already_paid") {
@@ -1297,6 +1299,8 @@ function CheckoutScreen() {
           slot: slotLabel,
         },
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        deliverySlot: deliveryMode === "express" ? "" : slotLabel,
+        ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });

@@ -2443,6 +2443,18 @@ export const CreateCheckoutPaymentIntentBody = zod.object({
     .describe(
       'True when the shopper chose \"no address\". Stored in the snapshot for audit.',
     ),
+  deliverySlot: zod
+    .string()
+    .optional()
+    .describe(
+      'Selected delivery time-slot label (e.g. \"Morning 9am-1pm\"). Stored in the payment intent snapshot so the order-finalization guard can compare it to the submitted order\'s slot. Pass an empty string (or omit) when no slot is selected or for express delivery.',
+    ),
+  cityId: zod
+    .string()
+    .optional()
+    .describe(
+      "OS city ID used server-side to look up the slot's extraFee from the locations cache. Required when deliverySlot is set and a slot surcharge applies.",
+    ),
   couponCode: zod
     .string()
     .optional()

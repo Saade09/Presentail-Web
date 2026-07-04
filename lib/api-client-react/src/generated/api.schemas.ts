@@ -42,6 +42,10 @@ export interface CheckoutPaymentIntentRequest {
   expressDelivery?: boolean;
   /** True when the shopper chose "no address". Stored in the snapshot for audit. */
   noAddress?: boolean;
+  /** Selected delivery time-slot label (e.g. "Morning 9am-1pm"). Stored in the payment intent snapshot so the order-finalization guard can compare it to the submitted order's slot. Pass an empty string (or omit) when no slot is selected or for express delivery. */
+  deliverySlot?: string;
+  /** OS city ID used server-side to look up the slot's extraFee from the locations cache. Required when deliverySlot is set and a slot surcharge applies. */
+  cityId?: string;
   /** Promo/coupon code to apply. The server re-validates the code and deducts the discount from the charged amount. Client-supplied discount amounts are never trusted. */
   couponCode?: string;
   /** When true and the request is authenticated, the server creates/retrieves a Stripe Customer for this shopper and sets setup_future_usage=off_session so Stripe saves the card for future use. Ignored for unauthenticated requests. */

@@ -350,6 +350,7 @@ type WalletPiSignatureInput = {
   expressDelivery: boolean;
   noAddress: boolean;
   couponCode?: string;
+  deliverySlot?: string;
 };
 function walletPiSignature(input: WalletPiSignatureInput): string {
   return JSON.stringify({
@@ -360,6 +361,7 @@ function walletPiSignature(input: WalletPiSignatureInput): string {
     expressDelivery: input.expressDelivery,
     noAddress: input.noAddress,
     couponCode: input.couponCode ?? "",
+    deliverySlot: input.deliverySlot ?? "",
   });
 }
 
@@ -1182,6 +1184,15 @@ function CheckoutForm() {
       osSlug: i.product.id,
       quantity: i.quantity,
     }));
+    // Guard: if slots have loaded but none is selected yet, wait until the
+    // state resolves rather than pre-creating a PI with deliverySlot:"".
+    // This prevents the server snapshot from recording a blank slot that
+    // would cause a 402 mismatch when the order body carries the real slot.
+    if (deliveryMode !== "express" && !deliverySlot && timeSlots.length > 0) {
+      if (walletReadySig !== null) setWalletReadySig(null);
+      return;
+    }
+
     const sig = walletPiSignature({
       items: mappedItems,
       currency: currencyCode,
@@ -1190,6 +1201,7 @@ function CheckoutForm() {
       expressDelivery: deliveryMode === "express",
       noAddress,
       couponCode,
+      deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
     });
 
     // A fresh PaymentIntent for these exact inputs already exists — make sure
@@ -1226,6 +1238,8 @@ function CheckoutForm() {
             expressDelivery: deliveryMode === "express",
             noAddress,
             ...(couponCode ? { couponCode } : {}),
+            deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+            ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
           } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
         });
         if (cancelled) return;
@@ -1385,6 +1399,7 @@ function CheckoutForm() {
     expressDelivery: deliveryMode === "express",
     noAddress,
     couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
+    deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
   });
   const isWalletMethodSelected =
     paymentMethod === "apple_pay" || paymentMethod === "google_pay";
@@ -1843,6 +1858,8 @@ function CheckoutForm() {
               ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
               // Only request card saving when using a new card (not a saved one)
               ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
+              deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+              ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
             } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
           });
         } catch (err: unknown) {

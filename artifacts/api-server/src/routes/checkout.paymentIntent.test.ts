@@ -19,12 +19,18 @@ const {
   retrieveMock,
   updateMock,
   searchMock,
+  computeDistrictFeeUsdMock,
+  expressSurchargeUsdMock,
+  countryForDistrictMock,
 } = vi.hoisted(() => {
   const createMock = vi.fn();
   const retrieveMock = vi.fn();
   const updateMock = vi.fn();
   const searchMock = vi.fn();
-  return { createMock, retrieveMock, updateMock, searchMock };
+  const computeDistrictFeeUsdMock = vi.fn().mockReturnValue(0);
+  const expressSurchargeUsdMock = vi.fn().mockReturnValue(0);
+  const countryForDistrictMock = vi.fn().mockReturnValue("LB");
+  return { createMock, retrieveMock, updateMock, searchMock, computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock };
 });
 
 vi.mock("stripe", () => {
@@ -55,6 +61,9 @@ vi.mock("../lib/catalog", () => ({
     subtotalUsd: 10,
     items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 10, name: "Rose", description: "", image: "" }],
   }),
+  computeDistrictFeeUsd: computeDistrictFeeUsdMock,
+  expressSurchargeUsd: expressSurchargeUsdMock,
+  countryForDistrict: countryForDistrictMock,
 }));
 
 // ---------------------------------------------------------------------------
@@ -65,6 +74,7 @@ vi.mock("../lib/fx", () => ({
   normalizeCurrency: (c: string) => (c ?? "USD").toUpperCase(),
   convertFromUsd: vi.fn().mockImplementation(async (usd: number) => usd),
   roundToWholeUnit: (amount: number) => Math.round(amount),
+  roundToNearestFive: (amount: number) => Math.round(amount),
   toStripeMinorUnits: vi.fn().mockImplementation((amount: number) => Math.round(amount * 100)),
 }));
 
@@ -350,7 +360,7 @@ describe("POST /checkout/payment-intent — idempotency", () => {
   it("(c) prior PI with different amount: calls stripe.paymentIntents.update and returns updated clientSecret", async () => {
     const orderId = "LB-DIFF-AMT";
 
-    // First request seeds the store with pi_old
+    // First request seeds the store with pi_old (no district fee → total $10 = 1000 minor units)
     createMock.mockResolvedValueOnce({
       id: "pi_old",
       client_secret: "pi_old_secret",
@@ -361,8 +371,10 @@ describe("POST /checkout/payment-intent — idempotency", () => {
     const app = await buildApp();
     await request(app).post("/checkout/payment-intent").send({ ...BASE_BODY, orderId });
 
-    // Reset create; simulate a delivery fee that changes the total
+    // Reset create; add a $5 district fee for the second request so the
+    // server-computed total changes from $10 (1000) to $15 (1500).
     createMock.mockReset();
+    computeDistrictFeeUsdMock.mockReturnValueOnce(5);
     retrieveMock.mockResolvedValueOnce({
       id: "pi_old",
       client_secret: "pi_old_secret",
@@ -378,10 +390,10 @@ describe("POST /checkout/payment-intent — idempotency", () => {
       currency: "usd",
     });
 
-    // Second request adds a $5 delivery fee → new totalMinorUnits = 1500
+    // Second request: server sees a $5 district fee → totalMinorUnits = 1500
     const res = await request(app)
       .post("/checkout/payment-intent")
-      .send({ ...BASE_BODY, orderId, deliveryFeeUsd: 5 });
+      .send({ ...BASE_BODY, orderId });
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
@@ -392,5 +404,96 @@ describe("POST /checkout/payment-intent — idempotency", () => {
       "pi_old",
       expect.objectContaining({ amount: 1500, currency: "usd" }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deliverySlot snapshot — verifyCartMatchesSnapshot slot-mismatch scenarios
+// ---------------------------------------------------------------------------
+// These tests exercise the pure helper directly rather than going through the
+// full HTTP stack, which keeps them fast and free of Stripe/catalog mocks.
+
+import { verifyCartMatchesSnapshot, type CartSnapshot } from "../lib/checkoutIntents";
+
+describe("verifyCartMatchesSnapshot — delivery slot", () => {
+  const baseSnapshot: CartSnapshot = {
+    items: [{ wcId: 42, quantity: 1, priceUsd: 10 }],
+    district: "Beirut",
+    expressDelivery: false,
+    noAddress: false,
+    deliverySlot: "",
+  };
+  const submittedItems = [{ wcId: 42, quantity: 1 }];
+
+  it("returns a slot-mismatch error when PI was created with empty slot but order submits a real slot", () => {
+    const result = verifyCartMatchesSnapshot(submittedItems, baseSnapshot, {
+      checkDelivery: true,
+      submittedDistrict: "Beirut",
+      submittedExpressDelivery: false,
+      submittedNoAddress: false,
+      submittedDeliverySlot: "Afternoon",
+    });
+    expect(result).toMatch(/Delivery slot mismatch/);
+    expect(result).toContain('"Afternoon"');
+    expect(result).toContain('""');
+  });
+
+  it("passes when the submitted slot matches the PI snapshot slot", () => {
+    const snapshotWithSlot: CartSnapshot = { ...baseSnapshot, deliverySlot: "Afternoon" };
+    const result = verifyCartMatchesSnapshot(submittedItems, snapshotWithSlot, {
+      checkDelivery: true,
+      submittedDistrict: "Beirut",
+      submittedExpressDelivery: false,
+      submittedNoAddress: false,
+      submittedDeliverySlot: "Afternoon",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("passes when both snapshot and submitted slot are empty (no slot selected)", () => {
+    const result = verifyCartMatchesSnapshot(submittedItems, baseSnapshot, {
+      checkDelivery: true,
+      submittedDistrict: "Beirut",
+      submittedExpressDelivery: false,
+      submittedNoAddress: false,
+      submittedDeliverySlot: "",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("returns a mismatch error when snapshot has a real slot but order submits empty (slot cleared)", () => {
+    const snapshotWithSlot: CartSnapshot = { ...baseSnapshot, deliverySlot: "Morning 9am-1pm" };
+    const result = verifyCartMatchesSnapshot(submittedItems, snapshotWithSlot, {
+      checkDelivery: true,
+      submittedDistrict: "Beirut",
+      submittedExpressDelivery: false,
+      submittedNoAddress: false,
+      submittedDeliverySlot: "",
+    });
+    expect(result).toMatch(/Delivery slot mismatch/);
+    expect(result).toContain('"Morning 9am-1pm"');
+  });
+
+  it("skips slot check when checkDelivery is false", () => {
+    const result = verifyCartMatchesSnapshot(submittedItems, baseSnapshot, {
+      checkDelivery: false,
+      submittedDeliverySlot: "Afternoon",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("snapshot with undefined deliverySlot is treated as empty when comparing", () => {
+    const snapshotNoSlotField: CartSnapshot = {
+      items: [{ wcId: 42, quantity: 1, priceUsd: 10 }],
+      district: "Beirut",
+      expressDelivery: false,
+    };
+    const result = verifyCartMatchesSnapshot(submittedItems, snapshotNoSlotField, {
+      checkDelivery: true,
+      submittedDistrict: "Beirut",
+      submittedExpressDelivery: false,
+      submittedDeliverySlot: "",
+    });
+    expect(result).toBeNull();
   });
 });
