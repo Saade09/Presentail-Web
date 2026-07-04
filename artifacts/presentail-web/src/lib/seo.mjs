@@ -617,12 +617,14 @@ export function buildProductSeo({ lang, productName, city, country, shortDescrip
 export function buildBrandSeo({ lang, brandName, city, country } = {}) {
   const l = pickLang(lang);
   const name = brandName ?? "";
-  // Brand title copy is not centrally re-templated (kept as "{name} | Presentail").
-  const title = `${name} | Presentail`;
-  const params = { city: city ?? "", country: country ?? "" };
+  const params = { name, city: city ?? "", country: country ?? "" };
+  const titleTpl = city
+    ? { en: "{name} Delivery in {city} | Presentail", ar: "توصيل {name} في {city} | Presentail", fr: "Livraison {name} à {city} | Presentail" }[l]
+    : `${name} | Presentail`;
+  const descTpl = city ? DESCRIPTIONS[l].brand : DESCRIPTIONS[l].brand;
   return meta({
-    title,
-    description: formatTemplate(DESCRIPTIONS[l].brand, params),
+    title: typeof titleTpl === "string" && titleTpl.includes("{") ? formatTemplate(titleTpl, params) : titleTpl ?? `${name} | Presentail`,
+    description: formatTemplate(descTpl, params),
   });
 }
 

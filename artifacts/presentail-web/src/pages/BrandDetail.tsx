@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRoute, Link } from "wouter";
 import { ProductCard } from "@/components/ProductCard";
-import { useBrands, useBrandProducts } from "@/lib/queries";
+import { useBrands, useBrandProducts, useCatalogMetadata } from "@/lib/queries";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin } from "lucide-react";
@@ -12,6 +12,7 @@ import { buildBrandSeo } from "@/lib/seo";
 import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
 import { ShimmerImage } from "@/components/ShimmerImage";
 import { buildBrandHeroSrcset, BRAND_HERO_SIZES } from "@/lib/imageUtils";
+import { SEOContentSection, type BrandCategory } from "@/components/SEOContentSection";
 
 const SEO_ATTR = "data-seo-managed";
 
@@ -23,6 +24,17 @@ const BRAND_COVER_IMAGES: Record<string, string> = {
   "sables-gourmets": "/brand-covers/sables-gourmets.png",
   "salma": "/brand-covers/salma.png",
 };
+
+const FLOWER_CATEGORY_SLUGS = new Set([
+  "hand-bouquets",
+  "flower-boxes",
+  "flower-baskets",
+]);
+
+const FOOD_CATEGORY_SLUGS = new Set([
+  "cakes",
+  "chocolate",
+]);
 
 function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
   let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
@@ -46,6 +58,8 @@ export default function BrandDetail() {
   if (countryCode) brandQueryParams.countryCode = countryCode;
   if (cityId) brandQueryParams.cityId = cityId;
   const { data, isLoading } = useBrandProducts(slug ?? "", brandQueryParams);
+
+  const { data: catalogMetadata } = useCatalogMetadata();
 
   const brandName = brand?.name || slug || "";
 
@@ -86,6 +100,26 @@ export default function BrandDetail() {
   //  - static /brand-covers/… paths → null (raw src used as-is)
   const heroImgSrc = coverImage ?? brand?.image ?? null;
   const heroSrcsetData = heroImgSrc ? buildBrandHeroSrcset(heroImgSrc) : null;
+
+  const products = data?.products ?? [];
+  const hasProducts = products.length > 0;
+
+  // Infer brand category from the product catalogue.
+  // Priority: flowers > food > general
+  const brandCategory = useMemo((): BrandCategory => {
+    if (!hasProducts) return "general";
+    const categories = products.map((p) => (p as { category?: string }).category ?? "");
+    if (categories.some((c) => FLOWER_CATEGORY_SLUGS.has(c))) return "flowers";
+    if (categories.some((c) => FOOD_CATEGORY_SLUGS.has(c))) return "food";
+    return "general";
+  }, [products, hasProducts]);
+
+  const cityLabel = city ? cityName(city.id, city.name) : "";
+
+  const availableOccasionIds = useMemo(
+    () => (catalogMetadata?.occasions ?? []).map((o) => o.id),
+    [catalogMetadata],
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -215,6 +249,20 @@ export default function BrandDetail() {
           </div>
         )}
       </div>
+
+      {/* ── SEO content section — only when brand has products ── */}
+      {hasProducts && (
+        <SEOContentSection
+          pageType="brand"
+          entityName={brandName}
+          entitySlug={slug ?? ""}
+          cityLabel={cityLabel}
+          lang={language}
+          countryCode={countryCode ?? ""}
+          brandCategory={brandCategory}
+          availableOccasionIds={availableOccasionIds}
+        />
+      )}
     </div>
   );
 }

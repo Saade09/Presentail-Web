@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useState } from "react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { SEOContentSection } from "@/components/SEOContentSection";
 
 interface BrandCardProps {
   brand: { id: number | string; slug: string; name: string; image?: string | null; count?: number };
@@ -62,8 +64,9 @@ function BrandCard({ brand, index }: BrandCardProps) {
 }
 
 export default function Brands() {
-  const { t } = useLocale();
+  const { t, language, cityName } = useLocale();
   const { data: catalogMetadata, isLoading } = useCatalogMetadata();
+  const { countryCode, cityId, city } = useLocationSelection();
 
   const brands = [...(catalogMetadata?.brands ?? [])].sort((a, b) => {
     const aOrder = (a.sort_order ?? null) !== null ? a.sort_order! : Infinity;
@@ -76,6 +79,9 @@ export default function Brands() {
     { label: t("nav.home"), href: "/" },
     { label: t("brandsPage.title") },
   ];
+
+  const cityLabel = city ? cityName(city.id, city.name) : "";
+  const hasBrands = brands.length > 0;
 
   return (
     <div className="min-h-screen pt-6 bg-background">
@@ -106,6 +112,18 @@ export default function Brands() {
           </div>
         )}
       </div>
+
+      {/* ── SEO content section — only when listing is not empty ── */}
+      {!isLoading && hasBrands && (
+        <SEOContentSection
+          pageType="brand-listing"
+          entityName=""
+          entitySlug=""
+          cityLabel={cityLabel}
+          lang={language}
+          countryCode={countryCode ?? ""}
+        />
+      )}
     </div>
   );
 }

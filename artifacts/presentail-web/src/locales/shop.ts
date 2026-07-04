@@ -296,6 +296,78 @@ export const shopStrings: Dict = {
   "seo.content.benefit.occ.4.title": { en: "Hassle-free, start to finish", ar: "تجربة سهلة من البداية إلى النهاية" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "seo.content.benefit.occ.4.body": { en: "Order in minutes, track in real time, delivered with care.", ar: "اطلب في دقائق، تابع في الوقت الفعلي، يُوصَّل باهتمام." },
+
+  // SEO content section — individual brand pages
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.heading": { en: "{name} Delivery in {city}", ar: "توصيل {name} في {city}" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.intro.flowers": {
+    en: "Discover {name}'s freshest arrangements delivered straight to your door in {city}. Presentail partners with {name} to bring you hand-crafted bouquets, flower boxes and floral gifts — all with same-day delivery when you order before midday. Schedule up to 30 days ahead and add chocolates, balloons or a personalised card to complete the send.",
+    ar: "اكتشف أحدث تنسيقات {name} تُوصَّل مباشرةً إلى بابك في {city}. تتشارك Presentail مع {name} لتقديم باقات مصنوعة يدوياً وصناديق زهور وهدايا زهرية — مع توصيل في اليوم نفسه عند الطلب قبل الظهيرة. جدوِل قبل 30 يوماً وأضف شوكولاتة أو بالونات أو بطاقة شخصية لإتمام الإرسالية.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.intro.food": {
+    en: "Order from {name}'s full collection in {city} through Presentail. From signature chocolates and artisan cakes to indulgent gift sets, every {name} item is quality-checked and delivered in our premium packaging. Same-day delivery is available when you order before midday, with flexible scheduling up to 30 days ahead.",
+    ar: "اطلب من المجموعة الكاملة لـ {name} في {city} عبر Presentail. من الشوكولاتة المميزة والكيك الحرفي إلى مجموعات الهدايا الفاخرة، كل منتج من {name} يخضع لفحص الجودة ويُوصَّل في تغليفنا الفاخر. التوصيل في اليوم نفسه متاح عند الطلب قبل الظهيرة مع جدولة مرنة تصل إلى 30 يوماً.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.intro.general": {
+    en: "Shop {name}'s complete collection in {city} with Presentail. Our curated {name} range covers flowers, gourmet treats and luxury gifts — all available with same-day or scheduled delivery. Add a personalised card or extra treats at checkout to create the perfect send.",
+    ar: "تسوّق المجموعة الكاملة لـ {name} في {city} مع Presentail. تشمل تشكيلتنا المختارة من {name} الزهور والأطعمة الراقية والهدايا الفاخرة — جميعها متاحة مع التوصيل في اليوم نفسه أو المجدول. أضف بطاقة شخصية أو مزيداً من الإضافات عند الدفع لتقديم الهدية المثالية.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.linksLabel": { en: "Popular occasions in {city}", ar: "المناسبات الشهيرة في {city}" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.faq.1.q": { en: "How do I order {name} delivery in {city}?", ar: "كيف أطلب توصيل {name} في {city}؟" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.faq.1.a": {
+    en: "Browse the {name} collection above and add items to your cart. At checkout, enter your delivery address in {city}, choose a date and two-hour time window, and complete your payment. {name} orders are fulfilled by Presentail and delivered same-day or on your scheduled date.",
+    ar: "تصفّح مجموعة {name} أعلاه وأضف المنتجات إلى سلتك. عند الدفع، أدخل عنوان التوصيل في {city} واختر تاريخاً ونافذة زمنية مدتها ساعتان، ثم أكمل الدفع. تُنفَّذ طلبات {name} من قِبل Presentail وتُوصَّل في اليوم نفسه أو في التاريخ المجدول.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.faq.2.q": { en: "Is same-day {name} delivery available in {city}?", ar: "هل يتوفر توصيل {name} في اليوم نفسه في {city}؟" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.faq.2.a": {
+    en: "Yes — same-day delivery is available in {city} when you order before midday. You can also schedule delivery up to 30 days in advance for birthdays, anniversaries and other special occasions.",
+    ar: "نعم — يتوفر التوصيل في اليوم نفسه في {city} عند الطلب قبل الظهيرة. كما يمكنك جدولة التوصيل قبل 30 يوماً لأعياد الميلاد والذكريات السنوية والمناسبات الخاصة الأخرى.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.faq.3.q": { en: "Can I include a personalised message with my {name} order?", ar: "هل يمكنني إرفاق رسالة شخصية مع طلب {name}؟" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brand.faq.3.a": {
+    en: "Absolutely. At checkout you can add a personalised card with a custom message. You can also add chocolates, balloons, scented candles and other extras to complete your {name} gift.",
+    ar: "بالتأكيد. يمكنك عند الدفع إضافة بطاقة شخصية مع رسالة مخصصة. كما يمكنك إضافة شوكولاتة وبالونات وشموع عطرية وغيرها من الإضافات لإتمام هدية {name}.",
+  },
+
+  // SEO content section — brands listing page
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.heading": { en: "Gift Brands Available in {city}", ar: "علامات الهدايا المتاحة في {city}" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.intro": {
+    en: "Presentail brings you a hand-picked selection of luxury gift brands delivering in {city}. From artisan chocolatiers and premium florists to gourmet bakers and lifestyle brands, every partner is chosen for quality, freshness and reliable same-day delivery.",
+    ar: "تقدم لك Presentail مجموعة مختارة بعناية من علامات الهدايا الفاخرة التي توصّل في {city}. من صنّاع الشوكولاتة الحرفيين والمحلات الزهرية الراقية إلى المخابز الراقية وعلامات الأسلوب الحياتي، كل شريك مختار للجودة والنضارة والتوصيل الموثوق في اليوم نفسه.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.faq.1.q": { en: "Which gift brands deliver in {city}?", ar: "ما علامات الهدايا التي توصّل في {city}؟" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.faq.1.a": {
+    en: "Presentail works with a curated selection of premium brands in {city}, including florists, chocolatiers, cake studios and lifestyle gift brands. The full list is shown above and is updated regularly as we onboard new partners.",
+    ar: "تتعاون Presentail مع تشكيلة مختارة من العلامات الراقية في {city}، تشمل محلات الزهور وصنّاع الشوكولاتة واستوديوهات الكيك وعلامات هدايا الأسلوب الحياتي. القائمة الكاملة تظهر أعلاه وتُحدَّث باستمرار مع انضمام شركاء جدد.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.faq.2.q": { en: "Can I order from multiple brands in one delivery?", ar: "هل يمكنني الطلب من علامات متعددة في توصيلة واحدة؟" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.faq.2.a": {
+    en: "Yes — you can add items from different brands to a single cart and check out in one transaction. Presentail coordinates delivery so everything arrives together.",
+    ar: "نعم — يمكنك إضافة منتجات من علامات مختلفة إلى سلة واحدة والدفع في معاملة واحدة. تنسّق Presentail التوصيل لتصل جميع الطلبات معاً.",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.faq.3.q": { en: "Do all brands offer same-day delivery in {city}?", ar: "هل تقدم جميع العلامات توصيلاً في اليوم نفسه في {city}؟" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "seo.content.brands.faq.3.a": {
+    en: "Most of our brand partners offer same-day delivery in {city} when you order before midday. Delivery availability by brand and time slot is shown at checkout.",
+    ar: "معظم شركائنا من العلامات يقدمون التوصيل في اليوم نفسه في {city} عند الطلب قبل الظهيرة. يتم عرض توفر التوصيل حسب العلامة والفترة الزمنية عند الدفع.",
+  },
 };
 
 export const shopStringsFr: Record<string, string> = {
@@ -487,4 +559,27 @@ export const shopStringsFr: Record<string, string> = {
   "seo.content.benefit.occ.3.body": "Rejoignez une communauté de passionnés du cadeau qui font confiance à Presentail pour chaque moment important.",
   "seo.content.benefit.occ.4.title": "Simple de bout en bout",
   "seo.content.benefit.occ.4.body": "Commandez en minutes, suivez en temps réel, livré avec soin.",
+
+  // SEO content section — individual brand pages (FR)
+  "seo.content.brand.heading": "Livraison {name} à {city}",
+  "seo.content.brand.intro.flowers": "Découvrez les compositions les plus fraîches de {name} livrées directement chez vous à {city}. Presentail s'associe à {name} pour vous proposer des bouquets faits main, des boîtes de fleurs et des cadeaux floraux — tous avec livraison le jour même pour toute commande passée avant midi. Planifiez jusqu'à 30 jours à l'avance et ajoutez chocolats, ballons ou carte personnalisée pour compléter votre envoi.",
+  "seo.content.brand.intro.food": "Commandez la collection complète de {name} à {city} via Presentail. Des chocolats signatures aux gâteaux artisanaux en passant par les coffrets cadeaux gourmands, chaque article {name} est contrôlé qualité et livré dans notre emballage premium. La livraison le jour même est disponible pour toute commande passée avant midi, avec une planification flexible jusqu'à 30 jours à l'avance.",
+  "seo.content.brand.intro.general": "Découvrez la collection complète de {name} à {city} avec Presentail. Notre gamme {name} couvre fleurs, gourmandises et cadeaux de luxe — tous disponibles en livraison le jour même ou planifiée. Ajoutez une carte personnalisée ou des extras lors du paiement pour créer l'envoi parfait.",
+  "seo.content.brand.linksLabel": "Occasions populaires à {city}",
+  "seo.content.brand.faq.1.q": "Comment commander la livraison {name} à {city} ?",
+  "seo.content.brand.faq.1.a": "Parcourez la collection {name} ci-dessus et ajoutez des articles à votre panier. Lors du paiement, saisissez votre adresse de livraison à {city}, choisissez une date et un créneau de deux heures, puis finalisez votre paiement. Les commandes {name} sont traitées par Presentail et livrées le jour même ou à la date programmée.",
+  "seo.content.brand.faq.2.q": "La livraison {name} le jour même est-elle disponible à {city} ?",
+  "seo.content.brand.faq.2.a": "Oui — la livraison le jour même est disponible à {city} pour toute commande passée avant midi. Vous pouvez également programmer la livraison jusqu'à 30 jours à l'avance pour les anniversaires, fêtes et autres occasions spéciales.",
+  "seo.content.brand.faq.3.q": "Puis-je inclure un message personnalisé avec ma commande {name} ?",
+  "seo.content.brand.faq.3.a": "Absolument. Lors du paiement, vous pouvez ajouter une carte personnalisée avec un message sur mesure. Vous pouvez également ajouter des chocolats, ballons, bougies parfumées et d'autres extras pour compléter votre cadeau {name}.",
+
+  // SEO content section — brands listing page (FR)
+  "seo.content.brands.heading": "Marques cadeaux disponibles à {city}",
+  "seo.content.brands.intro": "Presentail vous propose une sélection soigneuse de marques cadeaux de luxe livrant à {city}. Des chocolatiers artisans aux fleuristes premium, des boulangers gastronomiques aux marques lifestyle, chaque partenaire est choisi pour sa qualité, sa fraîcheur et sa fiabilité en livraison le jour même.",
+  "seo.content.brands.faq.1.q": "Quelles marques cadeaux livrent à {city} ?",
+  "seo.content.brands.faq.1.a": "Presentail collabore avec une sélection de marques premium à {city}, notamment des fleuristes, chocolatiers, ateliers de gâteaux et marques cadeaux lifestyle. La liste complète est affichée ci-dessus et mise à jour régulièrement au fil des nouveaux partenariats.",
+  "seo.content.brands.faq.2.q": "Puis-je commander auprès de plusieurs marques en une seule livraison ?",
+  "seo.content.brands.faq.2.a": "Oui — vous pouvez ajouter des articles de différentes marques à un seul panier et passer commande en une seule transaction. Presentail coordonne la livraison pour que tout arrive ensemble.",
+  "seo.content.brands.faq.3.q": "Toutes les marques proposent-elles la livraison le jour même à {city} ?",
+  "seo.content.brands.faq.3.a": "La plupart de nos marques partenaires proposent la livraison le jour même à {city} pour toute commande passée avant midi. La disponibilité de livraison par marque et créneau horaire est indiquée lors du paiement.",
 };
