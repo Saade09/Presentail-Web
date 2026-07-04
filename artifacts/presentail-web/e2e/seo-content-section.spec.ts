@@ -19,7 +19,8 @@
  *   4. FAQ accordion: aria-expanded toggles correctly on open/close.
  *   5. FAQPage JSON-LD <script data-seo-faq-ld> injected into <head>.
  *   6. Brand detail page (/brand/:slug) with products → section present,
- *      H2 contains brand name + city, 4 benefit cards, FAQ items, JSON-LD.
+ *      H2 contains brand name + city, 4 benefit cards, FAQ items, JSON-LD,
+ *      FAQ count >= 3 (guards against accidentally emptied copy).
  *   7. Brand page with zero products → section absent.
  *   8. Brand page city-switch (URL navigation path) → heading updates to new city.
  *   9. Brand page city-switch (picker mid-session, no hard reload) → heading updates.
@@ -38,6 +39,9 @@
  *  22. Brands listing page EN→FR language-switch (picker mid-session) → heading uses FR template ("Marques").
  *  23. Category page EN→FR language-switch (picker mid-session) → heading uses FR template ("Livraison de").
  *  24. Occasion page EN→FR language-switch (picker mid-session) → heading uses FR template ("Envoyez").
+ *  25. Brands listing page (/brands) with brands → FAQ count >= 3 guard.
+ *  26. All-occasions listing page (/occasions) with occasions → FAQ count >= 3 guard.
+ *  27. Shop page (/shop) with products → FAQ count >= 3 guard.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -612,6 +616,17 @@ test.describe("SEO content section — brand detail page with products", () => {
     expect(count).toBeGreaterThan(0);
   });
 
+  test("brand FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
+    page,
+  }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+
   test("FAQPage JSON-LD is injected into <head> on brand page", async ({ page }) => {
     await expect(
       page.getByTestId("seo-content-section"),
@@ -983,6 +998,29 @@ test.describe("SEO content section — occasion page city-switch regression guar
     // Delivery-locations stub maps "ae-dubai" → name "Dubai".
     expect(updatedText).toContain("Dubai");
     expect(updatedText).not.toContain("Beirut");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 25. Brands listing page (/brands) — FAQ count >= 3 guard
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — brands listing page with brands", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubCatalogMetadataWithBrands(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/brands");
+  });
+
+  test("brands listing FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
+    page,
+  }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -1478,6 +1516,30 @@ test.describe("SEO content section — brand page FR language-switch regression 
     expect(updatedText).not.toContain("Delivery in");
     // The brand name must still be present in the heading.
     expect(updatedText).toContain("E2E Test Brand");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 27. Shop page (/shop) — FAQ count >= 3 guard
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — shop page with products", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/shop");
+  });
+
+  test("shop FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
+    page,
+  }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -1991,5 +2053,28 @@ test.describe("SEO content section — occasion page FR language-switch regressi
     expect(updatedText).not.toContain("Send");
     // The occasion name must still be present in the heading.
     expect(updatedText).toContain("Birthday");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 26. All-occasions listing page (/occasions) — FAQ count >= 3 guard
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — all-occasions listing page with occasions", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubCatalogMetadata(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/occasions");
+  });
+
+  test("occasions listing FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
+    page,
+  }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 });
