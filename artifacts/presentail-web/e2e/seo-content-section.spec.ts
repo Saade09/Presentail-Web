@@ -16,6 +16,15 @@
  *   3. Zero-product category page → section absent.
  *   4. FAQ accordion: aria-expanded toggles correctly on open/close.
  *   5. FAQPage JSON-LD <script data-seo-faq-ld> injected into <head>.
+ *   6. Brand detail page (/brand/:slug) with products → section present,
+ *      H2 contains brand name + city, 4 benefit cards, FAQ items, JSON-LD.
+ *   7. Brand page with zero products → section absent.
+ *   8. Brand page city-switch (URL navigation path) → heading updates to new city.
+ *   9. Brand page city-switch (picker mid-session, no hard reload) → heading updates.
+ *  10. Category page city-switch (URL navigation path) → heading updates to new city.
+ *  11. Category page city-switch (picker mid-session, no hard reload) → heading updates.
+ *  12. Occasion page city-switch (URL navigation path) → heading updates to new city.
+ *  13. Occasion page city-switch (picker mid-session, no hard reload) → heading updates.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -671,6 +680,7 @@ test.describe("SEO content section — brand page city-switch regression guard",
 // 9. Brand detail page — SEO heading updates when the city picker is used
 //    mid-session (no hard page reload — Wouter client-side navigation)
 // ---------------------------------------------------------------------------
+// (see section 10 and 11 below for equivalent category and occasion guards)
 
 test.describe("SEO content section — brand page city-switch via picker mid-session", () => {
   /**
@@ -762,5 +772,256 @@ test.describe("SEO content section — brand page city-switch via picker mid-ses
     expect(updatedText).toContain("Dubai");
     expect(updatedText).not.toContain("Beirut");
     expect(updatedText).toContain("E2E Test Brand");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. Category page — SEO heading updates when the shopper switches cities
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — category page city-switch regression guard", () => {
+  /**
+   * Regression guard (URL navigation path): if a shopper changes their
+   * delivery city on a category page, the SEO heading ({name} Delivery in
+   * {city}) must reflect the new city — not the city active on first load.
+   *
+   * We simulate the city-picker's setLocation() call by driving the browser
+   * directly to the Dubai-prefixed URL, which is exactly what the picker does
+   * via navigate(buildLocalePath(…)).
+   */
+  test("SEO heading contains the new city name after navigating to a Dubai URL", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: Beirut ──────────────────────────────────────────────────────
+    await page.goto("/en-lb/beirut/category/hand-bouquets");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+    const initialText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "lb-beirut" → name "Beirut".
+    // Category name from catalogMetadata stub: "Hand Bouquets".
+    // EN template: "{name} Delivery in {city}".
+    expect(initialText).toContain("Beirut");
+    expect(initialText).toContain("Hand Bouquets");
+
+    // ── Step 2: switch to Dubai ─────────────────────────────────────────────
+    await page.goto("/en-ae/dubai/category/hand-bouquets");
+
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "ae-dubai" → name "Dubai".
+    expect(updatedText).toContain("Dubai");
+    expect(updatedText).not.toContain("Beirut");
+  });
+});
+
+test.describe("SEO content section — category page city-switch via picker mid-session", () => {
+  /**
+   * Regression guard (city-picker UI path): the city picker calls
+   * setLocation(), which navigates via Wouter (history.pushState) — there is
+   * NO hard page reload. React must propagate the new cityLabel into
+   * SEOContentSection reactively.
+   *
+   * Flow:
+   *   1. Land on /en-lb/beirut/category/hand-bouquets → heading shows "Beirut".
+   *   2. Open the city picker via the navbar button.
+   *   3. Select UAE → Dubai inside the picker dialog.
+   *   4. LocationContext calls navigate("/en-ae/dubai/category/…") via Wouter.
+   *   5. Assert heading now shows "Dubai" and no longer shows "Beirut".
+   */
+  test("SEO heading updates to new city after using the picker without a page reload", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: load category page at Beirut ─────────────────────────────────
+    await page.goto("/en-lb/beirut/category/hand-bouquets");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+
+    const initialText = (await heading.textContent()) ?? "";
+    expect(initialText).toContain("Beirut");
+    expect(initialText).toContain("Hand Bouquets");
+
+    // ── Step 2: open the city picker from the top utility bar ─────────────────
+    const pickerButton = page.getByTestId("button-country-selector");
+    await expect(pickerButton).toBeVisible({ timeout: 5_000 });
+    await pickerButton.click();
+
+    // ── Step 3: select UAE then Dubai inside the picker dialog ────────────────
+    const backButton = page.getByTestId("button-picker-back");
+    await expect(backButton).toBeVisible({ timeout: 8_000 });
+    await backButton.click();
+
+    const uaeButton = page.getByTestId("button-country-ae");
+    await expect(uaeButton).toBeVisible({ timeout: 5_000 });
+    await uaeButton.click();
+
+    const dubaiButton = page.getByTestId("button-city-ae-dubai");
+    await expect(dubaiButton).toBeVisible({ timeout: 5_000 });
+
+    const navCountBefore = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+
+    await dubaiButton.click();
+
+    // ── Step 4: assert the URL updated to Dubai without a hard reload ─────────
+    await page.waitForURL(/\/en-ae\/dubai\/category\//, { timeout: 10_000 });
+
+    const navCountAfter = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+    expect(navCountAfter).toBe(navCountBefore);
+
+    // ── Step 5: assert SEO heading reflects the new city ─────────────────────
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+    expect(updatedText).toContain("Dubai");
+    expect(updatedText).not.toContain("Beirut");
+    expect(updatedText).toContain("Hand Bouquets");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Occasion page — SEO heading updates when the shopper switches cities
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — occasion page city-switch regression guard", () => {
+  /**
+   * Regression guard (URL navigation path): if a shopper changes their
+   * delivery city on an occasion page, the SEO heading (Send {name} Flowers &
+   * Gifts in {city}) must reflect the new city — not the city active on first
+   * load.
+   *
+   * We simulate the city-picker's setLocation() call by driving the browser
+   * directly to the Dubai-prefixed URL, which is exactly what the picker does
+   * via navigate(buildLocalePath(…)).
+   */
+  test("SEO heading contains the new city name after navigating to a Dubai URL", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: Beirut ──────────────────────────────────────────────────────
+    await page.goto("/en-lb/beirut/occasion/birthday");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+    const initialText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "lb-beirut" → name "Beirut".
+    // Occasion name from catalogMetadata stub: "Birthday".
+    // EN template: "Send {name} Flowers & Gifts in {city}".
+    expect(initialText).toContain("Beirut");
+    expect(initialText).toContain("Birthday");
+
+    // ── Step 2: switch to Dubai ─────────────────────────────────────────────
+    await page.goto("/en-ae/dubai/occasion/birthday");
+
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "ae-dubai" → name "Dubai".
+    expect(updatedText).toContain("Dubai");
+    expect(updatedText).not.toContain("Beirut");
+  });
+});
+
+test.describe("SEO content section — occasion page city-switch via picker mid-session", () => {
+  /**
+   * Regression guard (city-picker UI path): the city picker calls
+   * setLocation(), which navigates via Wouter (history.pushState) — there is
+   * NO hard page reload. React must propagate the new cityLabel into
+   * SEOContentSection reactively.
+   *
+   * Flow:
+   *   1. Land on /en-lb/beirut/occasion/birthday → heading shows "Beirut".
+   *   2. Open the city picker via the navbar button.
+   *   3. Select UAE → Dubai inside the picker dialog.
+   *   4. LocationContext calls navigate("/en-ae/dubai/occasion/…") via Wouter.
+   *   5. Assert heading now shows "Dubai" and no longer shows "Beirut".
+   */
+  test("SEO heading updates to new city after using the picker without a page reload", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: load occasion page at Beirut ─────────────────────────────────
+    await page.goto("/en-lb/beirut/occasion/birthday");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+
+    const initialText = (await heading.textContent()) ?? "";
+    expect(initialText).toContain("Beirut");
+    expect(initialText).toContain("Birthday");
+
+    // ── Step 2: open the city picker from the top utility bar ─────────────────
+    const pickerButton = page.getByTestId("button-country-selector");
+    await expect(pickerButton).toBeVisible({ timeout: 5_000 });
+    await pickerButton.click();
+
+    // ── Step 3: select UAE then Dubai inside the picker dialog ────────────────
+    const backButton = page.getByTestId("button-picker-back");
+    await expect(backButton).toBeVisible({ timeout: 8_000 });
+    await backButton.click();
+
+    const uaeButton = page.getByTestId("button-country-ae");
+    await expect(uaeButton).toBeVisible({ timeout: 5_000 });
+    await uaeButton.click();
+
+    const dubaiButton = page.getByTestId("button-city-ae-dubai");
+    await expect(dubaiButton).toBeVisible({ timeout: 5_000 });
+
+    const navCountBefore = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+
+    await dubaiButton.click();
+
+    // ── Step 4: assert the URL updated to Dubai without a hard reload ─────────
+    await page.waitForURL(/\/en-ae\/dubai\/occasion\//, { timeout: 10_000 });
+
+    const navCountAfter = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+    expect(navCountAfter).toBe(navCountBefore);
+
+    // ── Step 5: assert SEO heading reflects the new city ─────────────────────
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+    expect(updatedText).toContain("Dubai");
+    expect(updatedText).not.toContain("Beirut");
+    expect(updatedText).toContain("Birthday");
   });
 });
