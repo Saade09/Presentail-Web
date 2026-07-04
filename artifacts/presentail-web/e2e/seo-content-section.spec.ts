@@ -462,6 +462,45 @@ test.describe("SEO content section — FAQPage JSON-LD structured data", () => {
 
 const BRAND_SLUG = "e2e-test-brand";
 
+/**
+ * Minimal delivery-locations payload with one city in LB (Beirut) and one in
+ * AE (Dubai). Lets LocationContext resolve `city` → the `cityName()` helper
+ * can then produce a real label string ("Beirut" / "Dubai") that ends up in
+ * the SEO heading.
+ */
+const STUB_DELIVERY_LOCATIONS = {
+  countries: [
+    {
+      code: "LB",
+      name: "Lebanon",
+      isActive: true,
+      cities: [
+        { id: "lb-beirut", name: "Beirut", isActive: true, fee: 0 },
+        { id: "lb-tripoli", name: "Tripoli", isActive: true, fee: 0 },
+      ],
+    },
+    {
+      code: "AE",
+      name: "UAE",
+      isActive: true,
+      cities: [
+        { id: "ae-dubai", name: "Dubai", isActive: true, fee: 0 },
+        { id: "ae-abudhabi", name: "Abu Dhabi", isActive: true, fee: 0 },
+      ],
+    },
+  ],
+};
+
+async function stubDeliveryLocations(page: Page): Promise<void> {
+  await page.route(/\/api\/delivery-locations/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_DELIVERY_LOCATIONS),
+    }),
+  );
+}
+
 /** Stub /api/woo/brands so BrandDetail resolves the brand name deterministically. */
 async function stubWooBrands(page: Page): Promise<void> {
   await page.route(/\/api\/woo\/brands(?!\-products)/, (route) =>
@@ -568,5 +607,62 @@ test.describe("SEO content section — brand page section absent when no product
     });
 
     await expect(page.getByTestId("seo-content-section")).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. Brand detail page — SEO heading updates when the shopper switches cities
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — brand page city-switch regression guard", () => {
+  /**
+   * Regression guard: if a shopper changes their delivery city, the SEO
+   * heading ({name} Delivery in {city}) must reflect the new city — not the
+   * city that was active when the page first loaded.
+   *
+   * The `setLocation()` call in LocationContext navigates to a new locale-
+   * prefixed URL (e.g. /en-ae/dubai/brand/…). We simulate that by driving
+   * the browser to the Dubai-prefixed URL directly, which is exactly the path
+   * the city-picker takes after the shopper confirms their new selection.
+   */
+  test("SEO heading contains the new city name after navigating to a Dubai URL", async ({ page }) => {
+    // Stub all API endpoints before the first navigation so the stubs are in
+    // place for both the Beirut and the Dubai page loads.
+    await stubWooBrands(page);
+    await stubBrandProducts(page);
+    await stubDeliveryLocations(page);
+    // Seed localStorage with an initial Beirut location so the context starts
+    // from a known state even before the URL prefix is parsed.
+    await seedLocation(page);
+
+    // ── Step 1: Beirut ──────────────────────────────────────────────────────
+    await page.goto(`/en-lb/beirut/brand/${BRAND_SLUG}`);
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+    const initialText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "lb-beirut" → name "Beirut"; the SEO
+    // template for brands is "{name} Delivery in {city}".
+    expect(initialText).toContain("Beirut");
+    expect(initialText).toContain("E2E Test Brand");
+
+    // ── Step 2: switch to Dubai ─────────────────────────────────────────────
+    // Navigate to the Dubai-prefixed brand URL — this is exactly what the city
+    // picker does via setLocation() → navigate(buildLocalePath(...)).
+    await page.goto(`/en-ae/dubai/brand/${BRAND_SLUG}`);
+
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+
+    // Delivery-locations stub maps "ae-dubai" → name "Dubai"; the heading
+    // must now show "Dubai" and must NOT still show "Beirut".
+    expect(updatedText).toContain("Dubai");
+    expect(updatedText).not.toContain("Beirut");
   });
 });
