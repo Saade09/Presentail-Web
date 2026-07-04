@@ -375,7 +375,7 @@ const PAYMENT_INTENT_RES = {
 function renderCheckout() {
   return renderWithProviders(<Checkout />, {
     auth: {
-      user: SIGNED_IN_USER as any,
+      user: SIGNED_IN_USER as NonNullable<Parameters<typeof renderWithProviders>[1]>["auth"] extends infer T ? T extends { user: infer U } ? U : never : never,
       token: "fake-token",
       isLoading: false,
     },
