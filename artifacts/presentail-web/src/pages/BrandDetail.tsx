@@ -88,7 +88,7 @@ export default function BrandDetail() {
   const heroSrcsetData = heroImgSrc ? buildBrandHeroSrcset(heroImgSrc) : null;
 
   return (
-    <div className="min-h-screen pb-24 bg-background">
+    <div className="min-h-screen bg-background">
       {/* ── Breadcrumb + back link ── */}
       <div className="container mx-auto max-w-content px-page pt-6">
         <PageBreadcrumb crumbs={breadcrumbCrumbs} />

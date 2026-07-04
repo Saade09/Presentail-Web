@@ -80,7 +80,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
     : null;
 
   return (
-    <main className="min-h-screen pb-24">
+    <main className="min-h-screen">
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-4 flex items-center gap-3">
         <Link href="/" className="font-serif text-xl tracking-wide hover:opacity-70 transition-opacity">
           {t("nav.logoAria")}
