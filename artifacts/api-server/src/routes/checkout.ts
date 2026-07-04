@@ -30,29 +30,13 @@ function isGulfStore(storeKey: StoreKey): boolean {
 }
 
 /**
- * Returns true when the payment should be processed through the Gulf Stripe
- * account. This covers both UAE delivery stores (dubai/abudhabi) and any
- * store where the shopper has selected AED as their payment currency —
- * the main Lebanon Stripe account does not support AED, so AED payments must
- * always go through the Gulf account regardless of delivery location.
- *
- * This mirrors the frontend logic in Checkout.tsx:
- *   if (currency === "AED") { loadStripe(VITE_STRIPE_PUBLISHABLE_KEY_GULF) }
- * Both sides must agree on which account is used or the client secret will
- * be issued by a different account than the one Stripe.js is initialised with,
- * causing confirmCardPayment to fail immediately.
+ * Resolves the correct Stripe secret key for a given store.
+ * UAE stores (dubai, abudhabi) use the Gulf account key; all others use the
+ * main key. Display currency (e.g. AED on Lebanon) does NOT affect account
+ * selection — the delivery location is the sole routing signal.
  */
-function isGulfPayment(storeKey: StoreKey, currency?: string): boolean {
-  return isGulfStore(storeKey) || currency === "AED";
-}
-
-/**
- * Resolves the correct Stripe secret key for a given store and payment currency.
- * UAE stores (dubai, abudhabi) and AED-currency payments use the Gulf account
- * key; all others use the main key.
- */
-function resolveStripeKey(storeKey: StoreKey, currency?: string): string | null {
-  if (isGulfPayment(storeKey, currency)) {
+function resolveStripeKey(storeKey: StoreKey): string | null {
+  if (isGulfStore(storeKey)) {
     return process.env.STRIPE_SECRET_KEY_GULF ?? null;
   }
   return process.env.STRIPE_SECRET_KEY ?? null;
@@ -143,8 +127,8 @@ router.post("/checkout/session", async (req, res) => {
 
   // Resolve catalog prices server-side. Client-supplied amounts are ignored.
   const store = resolveStoreFromRequest(req);
-  const isGulf = isGulfPayment(store.storeKey, currency);
-  const key = resolveStripeKey(store.storeKey, currency);
+  const isGulf = isGulfStore(store.storeKey);
+  const key = resolveStripeKey(store.storeKey);
   if (!key) {
     return res.status(503).json({
       ok: false,
@@ -395,8 +379,8 @@ router.post("/checkout/payment-intent", async (req, res) => {
   const currency = normalizeCurrency(rawCurrency ?? "USD");
 
   const store = resolveStoreFromRequest(req);
-  const isGulf = isGulfPayment(store.storeKey, currency);
-  const key = resolveStripeKey(store.storeKey, currency);
+  const isGulf = isGulfStore(store.storeKey);
+  const key = resolveStripeKey(store.storeKey);
   if (!key) {
     return res.status(503).json({
       ok: false,
@@ -719,11 +703,8 @@ router.get("/checkout/payment-methods", async (req, res) => {
   }
 
   const store = resolveStoreFromRequest(req);
-  // Accept an optional ?currency query param so the frontend can signal which
-  // Stripe account to read saved cards from (Gulf for AED, main for others).
-  const queryCurrency = typeof req.query.currency === "string" ? req.query.currency : undefined;
-  const gulf = isGulfPayment(store.storeKey, queryCurrency);
-  const stripeKey = resolveStripeKey(store.storeKey, queryCurrency);
+  const gulf = isGulfStore(store.storeKey);
+  const stripeKey = resolveStripeKey(store.storeKey);
   if (!stripeKey) return res.json({ ok: true, paymentMethods: [] });
 
   try {
@@ -776,9 +757,8 @@ router.delete("/checkout/payment-methods/:id", async (req, res) => {
   }
 
   const store = resolveStoreFromRequest(req);
-  const queryCurrency = typeof req.query.currency === "string" ? req.query.currency : undefined;
-  const gulf = isGulfPayment(store.storeKey, queryCurrency);
-  const stripeKey = resolveStripeKey(store.storeKey, queryCurrency);
+  const gulf = isGulfStore(store.storeKey);
+  const stripeKey = resolveStripeKey(store.storeKey);
   if (!stripeKey) {
     return res.status(503).json({ ok: false, message: "Stripe not configured" }); // i18n-ignore
   }
