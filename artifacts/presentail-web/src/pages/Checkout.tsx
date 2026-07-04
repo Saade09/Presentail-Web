@@ -339,9 +339,10 @@ type CreateOrderResponse =
 
 // Stable signature of the inputs that determine the server-computed wallet
 // charge. Used to decide whether a pre-created PaymentIntent is still valid for
-// the current cart/delivery/coupon state. Only fields that affect the charged
-// amount are included (the `district` string is omitted — the server charges
-// the client-supplied delivery fee, not the district label).
+// the current cart/delivery/coupon state. All fields that affect the charged
+// amount or the server's cart snapshot are included — `district` is included
+// so a country/district change always forces a fresh PI even when the delivery
+// fee happens to be the same (fee-neutral country switch).
 type WalletPiSignatureInput = {
   items: { wcId?: number; osSlug?: string; quantity: number }[];
   currency: string;
@@ -351,6 +352,7 @@ type WalletPiSignatureInput = {
   noAddress: boolean;
   couponCode?: string;
   deliverySlot?: string;
+  district?: string;
 };
 function walletPiSignature(input: WalletPiSignatureInput): string {
   return JSON.stringify({
@@ -362,6 +364,7 @@ function walletPiSignature(input: WalletPiSignatureInput): string {
     noAddress: input.noAddress,
     couponCode: input.couponCode ?? "",
     deliverySlot: input.deliverySlot ?? "",
+    district: input.district ?? "",
   });
 }
 
@@ -1202,6 +1205,7 @@ function CheckoutForm() {
       noAddress,
       couponCode,
       deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+      district: recipient.district || undefined,
     });
 
     // A fresh PaymentIntent for these exact inputs already exists — make sure
@@ -1400,6 +1404,7 @@ function CheckoutForm() {
     noAddress,
     couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
     deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+    district: _selectedDistrict || undefined,
   });
   const isWalletMethodSelected =
     paymentMethod === "apple_pay" || paymentMethod === "google_pay";
@@ -1625,6 +1630,7 @@ function CheckoutForm() {
         expressDelivery: deliveryMode === "express",
         noAddress,
         couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
+        district: _selectedDistrict || undefined,
       });
       const prefetchedIntent =
         walletIntentRef.current && walletIntentRef.current.signature === walletSig

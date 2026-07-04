@@ -497,3 +497,66 @@ describe("verifyCartMatchesSnapshot — delivery slot", () => {
     expect(result).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// district-change scenario — verifyCartMatchesSnapshot district-mismatch
+// ---------------------------------------------------------------------------
+// Covers the case where a shopper changes their delivery country/district after
+// a wallet PI has been pre-created. The server snapshot records the original
+// district; if the order is submitted with a different district the snapshot
+// check must catch the mismatch and prevent the stale intent from being used.
+
+describe("verifyCartMatchesSnapshot — district change", () => {
+  const submittedItems = [{ wcId: 42, quantity: 1 }];
+
+  it("returns a district-mismatch error when PI was created for Beirut but order submits Metn", () => {
+    const snapshot: CartSnapshot = {
+      items: [{ wcId: 42, quantity: 1, priceUsd: 10 }],
+      district: "Beirut",
+      expressDelivery: false,
+      noAddress: false,
+      deliverySlot: "",
+    };
+    const result = verifyCartMatchesSnapshot(submittedItems, snapshot, {
+      checkDelivery: true,
+      submittedDistrict: "Metn",
+      submittedExpressDelivery: false,
+      submittedNoAddress: false,
+      submittedDeliverySlot: "",
+    });
+    expect(result).toMatch(/District mismatch/);
+    expect(result).toContain('"Metn"');
+    expect(result).toContain('"Beirut"');
+  });
+
+  it("passes when the submitted district matches the PI snapshot district", () => {
+    const snapshot: CartSnapshot = {
+      items: [{ wcId: 42, quantity: 1, priceUsd: 10 }],
+      district: "Beirut",
+      expressDelivery: false,
+      noAddress: false,
+      deliverySlot: "",
+    };
+    const result = verifyCartMatchesSnapshot(submittedItems, snapshot, {
+      checkDelivery: true,
+      submittedDistrict: "Beirut",
+      submittedExpressDelivery: false,
+      submittedNoAddress: false,
+      submittedDeliverySlot: "",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("skips the district check when checkDelivery is false (legacy no-address flow)", () => {
+    const snapshot: CartSnapshot = {
+      items: [{ wcId: 42, quantity: 1, priceUsd: 10 }],
+      district: "Beirut",
+      expressDelivery: false,
+    };
+    const result = verifyCartMatchesSnapshot(submittedItems, snapshot, {
+      checkDelivery: false,
+      submittedDeliverySlot: "",
+    });
+    expect(result).toBeNull();
+  });
+});
