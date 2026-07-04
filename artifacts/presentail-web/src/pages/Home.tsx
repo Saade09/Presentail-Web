@@ -7,6 +7,7 @@ import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SEOContentSection } from "@/components/SEOContentSection";
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
@@ -84,6 +85,13 @@ export default function Home() {
         <TrustpilotCarousel />
         <TrustpilotBrandsRow />
       </div>
+
+      <SEOContentSection
+        pageType="homepage"
+        cityLabel={cityLabel}
+        lang={language}
+        countryCode={countryCode ?? ""}
+      />
     </div>
   );
 }

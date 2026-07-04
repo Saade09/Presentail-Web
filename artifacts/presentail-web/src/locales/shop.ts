@@ -339,6 +339,144 @@ export const shopStrings: Dict = {
     ar: "بالتأكيد. يمكنك عند الدفع إضافة بطاقة شخصية مع رسالة مخصصة. كما يمكنك إضافة شوكولاتة وبالونات وشموع عطرية وغيرها من الإضافات لإتمام هدية {name}.",
   },
 
+  // SEO content section — homepage
+  "seo.content.homepage.heading": { en: "Flowers & Gifts in {city}", ar: "أزهار وهدايا في {city}" },
+  "seo.content.homepage.intro": {
+    en: "Presentail is {city}'s destination for luxury flower and gift delivery. Browse hand-bouquets, flower boxes, cakes, chocolates and curated gift sets — all available with same-day or scheduled delivery to any address in {city}.",
+    ar: "Presentail هي وجهتك في {city} لتوصيل الزهور والهدايا الفاخرة. تصفّح الباقات اليدوية وصناديق الزهور والكعك والشوكولاتة ومجموعات الهدايا المنتقاة — جميعها متاحة للتوصيل في اليوم نفسه أو في موعد مجدول إلى أي عنوان في {city}.",
+  },
+  "seo.content.homepage.linksLabel": { en: "Shop by occasion", ar: "تسوّق حسب المناسبة" },
+  "seo.content.homepage.faq.1.q": { en: "Do you offer same-day flower delivery in {city}?", ar: "هل تقدمون توصيل الزهور في اليوم نفسه في {city}؟" },
+  "seo.content.homepage.faq.1.a": {
+    en: "Yes — order before midday and your flowers or gifts can be delivered the same day anywhere in {city}. You can also schedule delivery up to 30 days in advance and choose your preferred two-hour window.",
+    ar: "نعم — اطلب قبل منتصف النهار ويمكن توصيل زهورك أو هداياك في اليوم نفسه في أي مكان في {city}. يمكنك أيضاً جدولة التوصيل قبل 30 يوماً واختيار النافذة الزمنية المفضلة لديك.",
+  },
+  "seo.content.homepage.faq.2.q": { en: "What gifts can I order in {city}?", ar: "ما الهدايا التي يمكنني طلبها في {city}؟" },
+  "seo.content.homepage.faq.2.a": {
+    en: "Presentail delivers fresh flowers, flower boxes, cakes, chocolates, plants, balloons, gift baskets and curated bundles in {city}. Every order can be personalised with a card message, and most products support same-day delivery.",
+    ar: "يوصّل Presentail الزهور الطازجة وصناديق الزهور والكعك والشوكولاتة والنباتات والبالونات وسلال الهدايا والمجموعات المنتقاة في {city}. يمكن تخصيص كل طلب برسالة بطاقة، وتدعم معظم المنتجات التوصيل في اليوم نفسه.",
+  },
+  "seo.content.homepage.faq.3.q": { en: "How do I track my order in {city}?", ar: "كيف أتابع طلبي في {city}؟" },
+  "seo.content.homepage.faq.3.a": {
+    en: "Once your order is confirmed you receive a tracking link by SMS and email. You can check delivery status in real time from your account or via the link — no app required.",
+    ar: "بمجرد تأكيد طلبك، ستتلقى رابط تتبع عبر الرسائل القصيرة والبريد الإلكتروني. يمكنك التحقق من حالة التوصيل في الوقت الفعلي من حسابك أو عبر الرابط — بدون الحاجة إلى تطبيق.",
+  },
+
+  // SEO content section — shop listing page (plain /shop, no filter)
+  "seo.content.shop.heading": { en: "Shop Flowers, Cakes & Gifts in {city}", ar: "تسوّق الزهور والكعك والهدايا في {city}" },
+  "seo.content.shop.intro": {
+    en: "Explore Presentail's full catalogue of flowers, cakes, chocolates, plants and luxury gift sets available for delivery in {city}. Filter by occasion, category or price to find the perfect gift — then check out in minutes with same-day or scheduled delivery.",
+    ar: "استكشف الكتالوج الكامل لـ Presentail من الزهور والكعك والشوكولاتة والنباتات ومجموعات الهدايا الفاخرة المتاحة للتوصيل في {city}. صفّح حسب المناسبة أو الفئة أو السعر للعثور على الهدية المثالية — ثم اشترِ في دقائق مع التوصيل في اليوم نفسه أو في موعد مجدول.",
+  },
+  "seo.content.shop.linksLabel": { en: "Shop by occasion", ar: "تسوّق حسب المناسبة" },
+  "seo.content.shop.faq.1.q": { en: "What is the best-selling gift in {city}?", ar: "ما أكثر الهدايا مبيعاً في {city}؟" },
+  "seo.content.shop.faq.1.a": {
+    en: "Our hand-bouquets, flower boxes and signature chocolate boxes consistently top sales in {city}. Use the 'Best Seller' sort on this page to browse what shoppers love most right now.",
+    ar: "تتصدر باقاتنا اليدوية وصناديق الزهور وعلب الشوكولاتة المميزة المبيعات باستمرار في {city}. استخدم خيار الترتيب 'الأكثر مبيعاً' في هذه الصفحة للتصفح بما يحبه المتسوقون الآن.",
+  },
+  "seo.content.shop.faq.2.q": { en: "Can I add a personalised card to any order in {city}?", ar: "هل يمكنني إضافة بطاقة شخصية إلى أي طلب في {city}؟" },
+  "seo.content.shop.faq.2.a": {
+    en: "Yes — every Presentail order includes the option to add a personalised card with a custom message. You can also add chocolates, balloons or scented candles at checkout to create the perfect gift bundle.",
+    ar: "نعم — كل طلب من Presentail يتضمن خيار إضافة بطاقة شخصية برسالة مخصصة. يمكنك أيضاً إضافة شوكولاتة أو بالونات أو شموع عطرية عند الدفع لإنشاء مجموعة الهدايا المثالية.",
+  },
+  "seo.content.shop.faq.3.q": { en: "What delivery options are available in {city}?", ar: "ما خيارات التوصيل المتاحة في {city}؟" },
+  "seo.content.shop.faq.3.a": {
+    en: "We offer same-day delivery (order before midday), express 90-minute delivery in select zones, and scheduled delivery up to 30 days ahead. Choose your preferred date and two-hour time window at checkout.",
+    ar: "نقدم التوصيل في اليوم نفسه (اطلب قبل منتصف النهار)، والتوصيل السريع خلال 90 دقيقة في مناطق مختارة، والتوصيل المجدول حتى 30 يوماً مقدماً. اختر التاريخ المفضل ونافذة الساعتين عند الدفع.",
+  },
+
+  // SEO content section — corporate page
+  "seo.content.corporate.heading": { en: "Corporate Gifting in {city}", ar: "الإهداء للشركات في {city}" },
+  "seo.content.corporate.intro": {
+    en: "Presentail handles corporate gifting for teams of any size in {city} — from curated client gifts and branded packaging to bulk orders with recipient-list upload and consolidated invoicing. Tell us your occasion and we'll take care of everything.",
+    ar: "يتولى Presentail الإهداء للشركات لفرق من أي حجم في {city} — من هدايا العملاء المنتقاة والتغليف المخصص بالعلامة إلى الطلبات بالجملة مع رفع قائمة المستلمين والفوترة الموحدة. أخبرنا بمناسبتك وسنهتم بكل شيء.",
+  },
+  "seo.content.corporate.faq.1.q": { en: "What is the minimum order for corporate gifts in {city}?", ar: "ما الحد الأدنى للطلب في خدمة هدايا الشركات في {city}؟" },
+  "seo.content.corporate.faq.1.a": {
+    en: "Volume pricing starts from 10 gifts. For smaller quantities, you can order standard products through the Presentail shop and add a personalised card. Contact our corporate team for tailored packages.",
+    ar: "تبدأ أسعار الجملة من 10 هدايا. بالنسبة للكميات الأصغر، يمكنك طلب المنتجات العادية عبر متجر Presentail وإضافة بطاقة شخصية. تواصل مع فريق الشركات للحصول على باقات مخصصة.",
+  },
+  "seo.content.corporate.faq.2.q": { en: "Can you brand the packaging with our company logo in {city}?", ar: "هل يمكنكم وضع شعار شركتنا على التغليف في {city}؟" },
+  "seo.content.corporate.faq.2.a": {
+    en: "Yes — we offer custom ribbons, cards, sleeves and inserts printed with your logo or brand message. Our corporate team will walk you through the branding options when you submit your brief.",
+    ar: "نعم — نقدم أشرطة وبطاقات وأكمام وإدراجات مخصصة مطبوعة بشعارك أو رسالة علامتك التجارية. سيطلعك فريق الشركات على خيارات العلامة التجارية عند تقديم موجزك.",
+  },
+  "seo.content.corporate.faq.3.q": { en: "Do you deliver corporate gifts on the same day in {city}?", ar: "هل توصلون هدايا الشركات في اليوم نفسه في {city}؟" },
+  "seo.content.corporate.faq.3.a": {
+    en: "Yes — same-day delivery is available in {city} for corporate orders placed before midday. For large campaigns with multiple recipients we recommend scheduling at least 48 hours ahead to ensure smooth coordination.",
+    ar: "نعم — يتوفر التوصيل في اليوم نفسه في {city} للطلبات المؤسسية المقدَّمة قبل منتصف النهار. بالنسبة للحملات الكبيرة ذات المستلمين المتعددين، ننصح بالجدولة قبل 48 ساعة على الأقل لضمان التنسيق السلس.",
+  },
+
+  // SEO content section — weddings page
+  "seo.content.weddings.heading": { en: "Wedding Flowers in {city}", ar: "أزهار الأعراس في {city}" },
+  "seo.content.weddings.intro": {
+    en: "Presentail's events team designs bespoke floral arrangements and guest gifts for weddings and private events in {city}. From ceremony arches and centrepieces to bridal bouquets and welcome boxes, every detail is designed around your day.",
+    ar: "يصمم فريق المناسبات في Presentail تنسيقات زهور مخصصة وهدايا للضيوف لحفلات الأعراس والمناسبات الخاصة في {city}. من أقواس حفل الزفاف والقطع المركزية إلى باقات العروس وصناديق الترحيب، كل تفصيل مصمم حول يومك.",
+  },
+  "seo.content.weddings.faq.1.q": { en: "How far in advance should I book wedding flowers in {city}?", ar: "قبل كم من الوقت يجب أن أحجز أزهار الزفاف في {city}؟" },
+  "seo.content.weddings.faq.1.a": {
+    en: "We recommend reaching out at least 4–6 weeks before your wedding date in {city}. For peak seasons (spring and autumn) earlier booking is preferred to ensure availability of your preferred flowers and colour palette.",
+    ar: "ننصح بالتواصل قبل 4-6 أسابيع على الأقل من تاريخ زفافك في {city}. في مواسم الذروة (الربيع والخريف)، يُفضَّل الحجز المبكر لضمان توافر الزهور المفضلة لديك ولوحة الألوان.",
+  },
+  "seo.content.weddings.faq.2.q": { en: "Do you design bridal bouquets in {city}?", ar: "هل تصممون باقات العروس في {city}؟" },
+  "seo.content.weddings.faq.2.a": {
+    en: "Yes — our florists create hand-tied bridal bouquets, bridesmaid posies, boutonnières and flower crowns. All pieces are made on the morning of the event and delivered to your venue or hotel in {city}.",
+    ar: "نعم — يصنع خبراء التزيين لدينا باقات العروس اليدوية وباقات الوصيفات والبوتونيير وأكاليل الأزهار. جميع القطع تُصنع في صباح يوم الحفل وتُوصَّل إلى مكان حفلك أو فندقك في {city}.",
+  },
+  "seo.content.weddings.faq.3.q": { en: "Can you handle both flowers and guest gifts for our wedding in {city}?", ar: "هل يمكنكم التعامل مع الأزهار وهدايا الضيوف معاً لزفافنا في {city}؟" },
+  "seo.content.weddings.faq.3.a": {
+    en: "Absolutely. Many couples choose Presentail to handle the complete gifting experience in {city} — ceremony and reception florals alongside curated welcome boxes, chocolates and personalised notes for each guest. Ask about our combined event packages.",
+    ar: "بالتأكيد. يختار كثير من الأزواج Presentail للإشراف على تجربة الإهداء الكاملة في {city} — أزهار المراسم والاستقبال إلى جانب صناديق ترحيب منتقاة وشوكولاتة ورسائل شخصية لكل ضيف. اسأل عن باقاتنا المشتركة للمناسبات.",
+  },
+
+  // SEO content section — all occasions listing page
+  "seo.content.occasions.heading": { en: "Flowers & Gifts for Every Occasion in {city}", ar: "أزهار وهدايا لكل مناسبة في {city}" },
+  "seo.content.occasions.intro": {
+    en: "Whether you're celebrating a birthday, anniversary, graduation or simply saying thank you, Presentail has the perfect gift for every occasion in {city}. Browse our curated collections for each special moment and enjoy same-day delivery anywhere in the city.",
+    ar: "سواء كنت تحتفل بعيد ميلاد أو ذكرى سنوية أو تخرج أو تريد فقط قول شكراً، لدى Presentail الهدية المثالية لكل مناسبة في {city}. تصفّح مجموعاتنا المنتقاة لكل لحظة مميزة واستمتع بالتوصيل في اليوم نفسه في أي مكان في المدينة.",
+  },
+  "seo.content.occasions.linksLabel": { en: "Browse occasions", ar: "تصفّح المناسبات" },
+  "seo.content.occasions.faq.1.q": { en: "What are the most popular gift occasions in {city}?", ar: "ما أكثر مناسبات الإهداء شعبية في {city}؟" },
+  "seo.content.occasions.faq.1.a": {
+    en: "Birthdays, anniversaries and Valentine's Day are among our busiest occasions in {city}. We also see strong demand for Mother's Day, Eid, graduations and newborn gifts. Every occasion has a curated collection on Presentail.",
+    ar: "أعياد الميلاد والذكريات السنوية وعيد الحب من أكثر مناسباتنا ازدحاماً في {city}. كما نشهد طلباً كبيراً في عيد الأم والعيد والتخرج وهدايا المولودين الجدد. لكل مناسبة مجموعة منتقاة على Presentail.",
+  },
+  "seo.content.occasions.faq.2.q": { en: "Can I send a last-minute gift for any occasion in {city}?", ar: "هل يمكنني إرسال هدية في اللحظة الأخيرة لأي مناسبة في {city}؟" },
+  "seo.content.occasions.faq.2.a": {
+    en: "Yes — same-day delivery is available in {city} for orders placed before midday. In select areas we offer express 90-minute delivery so you can send a thoughtful gift even when time is short.",
+    ar: "نعم — يتوفر التوصيل في اليوم نفسه في {city} للطلبات المقدَّمة قبل منتصف النهار. في مناطق مختارة نقدم التوصيل السريع خلال 90 دقيقة حتى تتمكن من إرسال هدية مدروسة حتى عندما يكون الوقت ضيقاً.",
+  },
+  "seo.content.occasions.faq.3.q": { en: "Do you create custom gift sets for special occasions in {city}?", ar: "هل تصنعون مجموعات هدايا مخصصة للمناسبات الخاصة في {city}؟" },
+  "seo.content.occasions.faq.3.a": {
+    en: "Yes — at checkout you can personalise any order with a card message and extras like chocolates, balloons or scented candles. For fully bespoke gift sets or large event orders, reach out to our concierge team directly.",
+    ar: "نعم — عند الدفع يمكنك تخصيص أي طلب برسالة بطاقة وإضافات مثل الشوكولاتة والبالونات أو الشموع العطرية. لمجموعات الهدايا المصممة بالكامل أو طلبات المناسبات الكبيرة، تواصل مع فريق الكونسيرج لدينا مباشرة.",
+  },
+
+  // SEO content section — contact page
+  "seo.content.contact.heading": { en: "Contact Presentail in {city}", ar: "تواصل مع Presentail في {city}" },
+  "seo.content.contact.intro": {
+    en: "Have a question about your order, delivery, or a custom request? Our concierge team in {city} is here to help every day of the week — reach us instantly on WhatsApp or by email.",
+    ar: "هل لديك سؤال حول طلبك أو التوصيل أو طلب مخصص؟ فريق الكونسيرج لدينا في {city} موجود للمساعدة كل يوم في الأسبوع — تواصل معنا على الفور عبر واتساب أو البريد الإلكتروني.",
+  },
+  "seo.content.contact.chip.orders": { en: "Browse all gifts", ar: "تصفّح جميع الهدايا" },
+  "seo.content.contact.chip.faqs": { en: "Delivery & FAQs", ar: "التوصيل والأسئلة الشائعة" },
+  "seo.content.contact.chip.corporate": { en: "Corporate gifting", ar: "الإهداء للشركات" },
+  "seo.content.contact.faq.1.q": { en: "How quickly does the Presentail team respond in {city}?", ar: "ما مدى سرعة رد فريق Presentail في {city}؟" },
+  "seo.content.contact.faq.1.a": {
+    en: "Our concierge team is available every day from 8 AM to midnight (Beirut time) and typically replies on WhatsApp within minutes. Email responses are within 24 hours for detailed or corporate enquiries.",
+    ar: "يتوفر فريق الكونسيرج لدينا كل يوم من الساعة 8 صباحاً حتى منتصف الليل (بتوقيت بيروت) ويرد عادةً على واتساب في غضون دقائق. تكون ردود البريد الإلكتروني في غضون 24 ساعة للاستفسارات التفصيلية أو المؤسسية.",
+  },
+  "seo.content.contact.faq.2.q": { en: "Can I change or cancel my order after placing it?", ar: "هل يمكنني تغيير طلبي أو إلغاؤه بعد تقديمه؟" },
+  "seo.content.contact.faq.2.a": {
+    en: "If your order has not yet been prepared, contact us as soon as possible and we'll do our best to amend or cancel it. Once an order is in production, changes may not be possible — so reach out early via WhatsApp for the fastest response.",
+    ar: "إذا لم يُعدَّ طلبك بعد، تواصل معنا في أقرب وقت ممكن وسنبذل قصارى جهدنا لتعديله أو إلغائه. بمجرد بدء تنفيذ الطلب، قد لا تكون التغييرات ممكنة — لذا تواصل مبكراً عبر واتساب للحصول على أسرع رد.",
+  },
+  "seo.content.contact.faq.3.q": { en: "How do I report an issue with my delivery in {city}?", ar: "كيف أُبلّغ عن مشكلة في توصيلتي في {city}؟" },
+  "seo.content.contact.faq.3.a": {
+    en: "Contact us on WhatsApp or by email with your order number and a brief description of the issue. We investigate all delivery concerns promptly and will work with you to find the best resolution.",
+    ar: "تواصل معنا عبر واتساب أو البريد الإلكتروني مع رقم طلبك ووصف مختصر للمشكلة. نتحقق من جميع مخاوف التوصيل على الفور وسنعمل معك للوصول إلى أفضل حل.",
+  },
+
   // SEO content section — brands listing page
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "seo.content.brands.heading": { en: "Gift Brands Available in {city}", ar: "علامات الهدايا المتاحة في {city}" },
@@ -572,6 +710,72 @@ export const shopStringsFr: Record<string, string> = {
   "seo.content.brand.faq.2.a": "Oui — la livraison le jour même est disponible à {city} pour toute commande passée avant midi. Vous pouvez également programmer la livraison jusqu'à 30 jours à l'avance pour les anniversaires, fêtes et autres occasions spéciales.",
   "seo.content.brand.faq.3.q": "Puis-je inclure un message personnalisé avec ma commande {name} ?",
   "seo.content.brand.faq.3.a": "Absolument. Lors du paiement, vous pouvez ajouter une carte personnalisée avec un message sur mesure. Vous pouvez également ajouter des chocolats, ballons, bougies parfumées et d'autres extras pour compléter votre cadeau {name}.",
+
+  // SEO content section — homepage (FR)
+  "seo.content.homepage.heading": "Fleurs et cadeaux à {city}",
+  "seo.content.homepage.intro": "Presentail est LA destination de {city} pour la livraison de fleurs et cadeaux de luxe. Parcourez bouquets à la main, boîtes de fleurs, gâteaux, chocolats et coffrets cadeaux soigneusement sélectionnés — tous disponibles en livraison le jour même ou programmée à n'importe quelle adresse de {city}.",
+  "seo.content.homepage.linksLabel": "Acheter par occasion",
+  "seo.content.homepage.faq.1.q": "Proposez-vous la livraison de fleurs le jour même à {city} ?",
+  "seo.content.homepage.faq.1.a": "Oui — commandez avant midi et vos fleurs ou cadeaux peuvent être livrés le jour même partout à {city}. Vous pouvez également programmer la livraison jusqu'à 30 jours à l'avance et choisir votre créneau de deux heures préféré.",
+  "seo.content.homepage.faq.2.q": "Quels cadeaux puis-je commander à {city} ?",
+  "seo.content.homepage.faq.2.a": "Presentail livre des fleurs fraîches, des boîtes de fleurs, des gâteaux, des chocolats, des plantes, des ballons, des paniers cadeaux et des coffrets à {city}. Chaque commande peut être personnalisée avec un message de carte, et la plupart des produits bénéficient de la livraison le jour même.",
+  "seo.content.homepage.faq.3.q": "Comment suivre ma commande à {city} ?",
+  "seo.content.homepage.faq.3.a": "Une fois votre commande confirmée, vous recevez un lien de suivi par SMS et e-mail. Vous pouvez vérifier le statut de la livraison en temps réel depuis votre compte ou via le lien — sans application nécessaire.",
+
+  // SEO content section — shop listing page (FR)
+  "seo.content.shop.heading": "Boutique fleurs, gâteaux et cadeaux à {city}",
+  "seo.content.shop.intro": "Explorez le catalogue complet Presentail de fleurs, gâteaux, chocolats, plantes et coffrets cadeaux de luxe disponibles à la livraison à {city}. Filtrez par occasion, catégorie ou prix pour trouver le cadeau parfait — puis commandez en quelques minutes avec livraison le jour même ou programmée.",
+  "seo.content.shop.linksLabel": "Acheter par occasion",
+  "seo.content.shop.faq.1.q": "Quel est le cadeau le plus vendu à {city} ?",
+  "seo.content.shop.faq.1.a": "Nos bouquets à la main, boîtes de fleurs et coffrets chocolats signatures figurent régulièrement en tête des ventes à {city}. Utilisez le tri 'Meilleures ventes' sur cette page pour découvrir ce que les clients adorent en ce moment.",
+  "seo.content.shop.faq.2.q": "Puis-je ajouter une carte personnalisée à n'importe quelle commande à {city} ?",
+  "seo.content.shop.faq.2.a": "Oui — chaque commande Presentail offre la possibilité d'ajouter une carte personnalisée avec un message sur mesure. Vous pouvez également ajouter des chocolats, ballons ou bougies parfumées lors du paiement pour créer l'association cadeau parfaite.",
+  "seo.content.shop.faq.3.q": "Quelles options de livraison sont disponibles à {city} ?",
+  "seo.content.shop.faq.3.a": "Nous proposons la livraison le jour même (commande avant midi), la livraison express en 90 minutes dans certaines zones, et la livraison programmée jusqu'à 30 jours à l'avance. Choisissez votre date et créneau de deux heures préférés lors du paiement.",
+
+  // SEO content section — corporate page (FR)
+  "seo.content.corporate.heading": "Cadeaux d'entreprise à {city}",
+  "seo.content.corporate.intro": "Presentail gère les cadeaux d'entreprise pour des équipes de toutes tailles à {city} — des cadeaux clients sélectionnés et emballages personnalisés aux commandes en volume avec import de listes de destinataires et facturation consolidée. Décrivez-nous votre occasion et nous nous occupons de tout.",
+  "seo.content.corporate.faq.1.q": "Quel est le minimum de commande pour des cadeaux d'entreprise à {city} ?",
+  "seo.content.corporate.faq.1.a": "Les tarifs volume démarrent à partir de 10 cadeaux. Pour des quantités moindres, vous pouvez commander des produits standards via la boutique Presentail et ajouter une carte personnalisée. Contactez notre équipe corporate pour des packages sur mesure.",
+  "seo.content.corporate.faq.2.q": "Pouvez-vous personnaliser l'emballage avec notre logo d'entreprise à {city} ?",
+  "seo.content.corporate.faq.2.a": "Oui — nous proposons des rubans, cartes, fourreaux et inserts personnalisés imprimés avec votre logo ou message de marque. Notre équipe corporate vous présentera les options de personnalisation lorsque vous soumettez votre brief.",
+  "seo.content.corporate.faq.3.q": "Livrez-vous les cadeaux d'entreprise le jour même à {city} ?",
+  "seo.content.corporate.faq.3.a": "Oui — la livraison le jour même est disponible à {city} pour les commandes corporate passées avant midi. Pour les grandes campagnes avec plusieurs destinataires, nous recommandons de planifier au moins 48 heures à l'avance pour une coordination fluide.",
+
+  // SEO content section — weddings page (FR)
+  "seo.content.weddings.heading": "Fleurs de mariage à {city}",
+  "seo.content.weddings.intro": "L'équipe événements de Presentail conçoit des compositions florales sur mesure et des cadeaux invités pour les mariages et événements privés à {city}. Des arches de cérémonie et centres de table aux bouquets de mariée et welcome boxes, chaque détail est pensé autour de votre journée.",
+  "seo.content.weddings.faq.1.q": "Combien de temps à l'avance dois-je réserver des fleurs de mariage à {city} ?",
+  "seo.content.weddings.faq.1.a": "Nous recommandons de nous contacter au moins 4 à 6 semaines avant votre date de mariage à {city}. En haute saison (printemps et automne), une réservation anticipée est préférable pour garantir la disponibilité de vos fleurs et de votre palette de couleurs préférées.",
+  "seo.content.weddings.faq.2.q": "Créez-vous des bouquets de mariée à {city} ?",
+  "seo.content.weddings.faq.2.a": "Oui — nos fleuristes réalisent des bouquets de mariée liés à la main, des bouquets de demoiselles d'honneur, des boutonnières et des couronnes de fleurs. Toutes les pièces sont confectionnées le matin de l'événement et livrées à votre lieu de réception ou hôtel à {city}.",
+  "seo.content.weddings.faq.3.q": "Pouvez-vous gérer à la fois les fleurs et les cadeaux invités pour notre mariage à {city} ?",
+  "seo.content.weddings.faq.3.a": "Absolument. De nombreux couples choisissent Presentail pour gérer l'expérience cadeau complète à {city} — fleurs de cérémonie et réception avec welcome boxes sélectionnées, chocolats et notes personnalisées pour chaque invité. Renseignez-vous sur nos formules événementielles combinées.",
+
+  // SEO content section — all occasions listing page (FR)
+  "seo.content.occasions.heading": "Fleurs et cadeaux pour chaque occasion à {city}",
+  "seo.content.occasions.intro": "Que vous fêtiez un anniversaire, une fête ou que vous souhaitiez simplement dire merci, Presentail a le cadeau parfait pour chaque occasion à {city}. Parcourez nos collections soigneusement sélectionnées pour chaque moment spécial et profitez de la livraison le jour même partout dans la ville.",
+  "seo.content.occasions.linksLabel": "Parcourir les occasions",
+  "seo.content.occasions.faq.1.q": "Quelles sont les occasions de cadeaux les plus populaires à {city} ?",
+  "seo.content.occasions.faq.1.a": "Les anniversaires, les fêtes de mariage et la Saint-Valentin comptent parmi nos occasions les plus chargées à {city}. La fête des Mères, l'Aïd, les remises de diplômes et les cadeaux pour nouveau-nés sont également très demandés. Chaque occasion dispose d'une collection soigneusement sélectionnée sur Presentail.",
+  "seo.content.occasions.faq.2.q": "Puis-je envoyer un cadeau de dernière minute pour n'importe quelle occasion à {city} ?",
+  "seo.content.occasions.faq.2.a": "Oui — la livraison le jour même est disponible à {city} pour les commandes passées avant midi. Dans certaines zones, nous proposons une livraison express en 90 minutes, pour envoyer un cadeau attentionné même quand le temps manque.",
+  "seo.content.occasions.faq.3.q": "Créez-vous des coffrets cadeaux personnalisés pour les occasions spéciales à {city} ?",
+  "seo.content.occasions.faq.3.a": "Oui — lors du paiement, vous pouvez personnaliser toute commande avec un message de carte et des extras comme des chocolats, ballons ou bougies parfumées. Pour des coffrets entièrement sur mesure ou de grandes commandes pour événements, contactez directement notre équipe conciergerie.",
+
+  // SEO content section — contact page (FR)
+  "seo.content.contact.heading": "Contacter Presentail à {city}",
+  "seo.content.contact.intro": "Vous avez une question sur votre commande, la livraison ou une demande personnalisée ? Notre équipe conciergerie à {city} est là pour vous aider chaque jour de la semaine — contactez-nous instantanément sur WhatsApp ou par e-mail.",
+  "seo.content.contact.chip.orders": "Parcourir tous les cadeaux",
+  "seo.content.contact.chip.faqs": "Livraison & FAQ",
+  "seo.content.contact.chip.corporate": "Cadeaux d'entreprise",
+  "seo.content.contact.faq.1.q": "Dans quel délai l'équipe Presentail répond-elle à {city} ?",
+  "seo.content.contact.faq.1.a": "Notre équipe conciergerie est disponible tous les jours de 8h à minuit (heure de Beyrouth) et répond généralement sur WhatsApp en quelques minutes. Les réponses par e-mail sont sous 24 heures pour les demandes détaillées ou corporate.",
+  "seo.content.contact.faq.2.q": "Puis-je modifier ou annuler ma commande après l'avoir passée ?",
+  "seo.content.contact.faq.2.a": "Si votre commande n'a pas encore été préparée, contactez-nous dès que possible et nous ferons notre possible pour la modifier ou l'annuler. Une fois la commande en cours de production, les modifications peuvent ne plus être possibles — contactez-nous tôt via WhatsApp pour une réponse la plus rapide.",
+  "seo.content.contact.faq.3.q": "Comment signaler un problème avec ma livraison à {city} ?",
+  "seo.content.contact.faq.3.a": "Contactez-nous sur WhatsApp ou par e-mail avec votre numéro de commande et une brève description du problème. Nous traitons rapidement toutes les réclamations de livraison et travaillerons avec vous pour trouver la meilleure solution.",
 
   // SEO content section — brands listing page (FR)
   "seo.content.brands.heading": "Marques cadeaux disponibles à {city}",

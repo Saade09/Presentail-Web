@@ -2,6 +2,7 @@ import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
+import { SEOContentSection } from "@/components/SEOContentSection";
 
 type Copy = {
   eyebrow: string;
@@ -135,7 +136,7 @@ const COPY: Record<Language, Copy> = {
 
 export default function Corporate() {
   const { language } = useLocale();
-  const { cityId } = useLocationSelection();
+  const { cityId, countryCode } = useLocationSelection();
   const c = COPY[language] ?? COPY.en;
   const mailto = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(c.ctaSubject)}`;
   const cityDisplay = cityId
@@ -204,6 +205,13 @@ export default function Corporate() {
           <p className="mt-4 text-sm opacity-80">{CORPORATE_EMAIL}</p>
         </div>
       </section>
+
+      <SEOContentSection
+        pageType="corporate"
+        cityLabel={cityDisplay}
+        lang={language}
+        countryCode={countryCode ?? ""}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { CITY_NAMES, buildContactSeo } from "@/lib/seo";
+import { SEOContentSection } from "@/components/SEOContentSection";
 import { Mail, MessageCircle, Phone, MapPin, ArrowRight, ExternalLink } from "lucide-react";
 
 type Copy = {
@@ -149,7 +150,7 @@ function useBeirutOpen() {
 
 export default function Contact() {
   const { language } = useLocale();
-  const { cityId } = useLocationSelection();
+  const { cityId, countryCode } = useLocationSelection();
   const c = COPY[language] ?? COPY.en;
   const isOpen = useBeirutOpen();
   const isRtl = language === "ar";
@@ -362,6 +363,13 @@ export default function Contact() {
           </a>
         </div>
       </section>
+
+      <SEOContentSection
+        pageType="contact"
+        cityLabel={cityDisplay}
+        lang={language}
+        countryCode={countryCode ?? ""}
+      />
     </div>
   );
 }

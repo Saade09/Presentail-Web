@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { CITY_NAMES, buildFaqsSeo } from "@/lib/seo";
@@ -19,6 +20,8 @@ type Copy = {
 
 const COPY = FAQ_COPY as Record<Language, Copy>;
 
+const SEO_LD_ATTR = "data-seo-faq-ld";
+
 export default function Faqs() {
   const { language } = useLocale();
   const { cityId } = useLocationSelection();
@@ -27,6 +30,30 @@ export default function Faqs() {
     ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
     : "";
   const h1 = buildFaqsSeo({ lang: language, city: cityDisplay }).title.split(" | ")[0];
+
+  useEffect(() => {
+    const allItems = c.groups.flatMap((g) => g.items);
+    const existing = document.head.querySelector(`[${SEO_LD_ATTR}]`);
+    if (existing) existing.parentElement?.removeChild(existing);
+    const schema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: allItems.map((item) => ({
+        "@type": "Question",
+        name: item.q,
+        acceptedAnswer: { "@type": "Answer", text: item.a },
+      })),
+    };
+    const script = document.createElement("script");
+    script.setAttribute("type", "application/ld+json");
+    script.setAttribute(SEO_LD_ATTR, "true");
+    script.textContent = JSON.stringify(schema);
+    document.head.appendChild(script);
+    return () => {
+      const el = document.head.querySelector(`[${SEO_LD_ATTR}]`);
+      if (el) el.parentElement?.removeChild(el);
+    };
+  }, [language]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="bg-background" data-testid="faqs-page" lang={language}>

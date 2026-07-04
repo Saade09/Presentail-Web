@@ -5,6 +5,8 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { SEOContentSection } from "@/components/SEOContentSection";
 import { useState } from "react";
 import {
   Baby,
@@ -181,9 +183,11 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
 }
 
 export default function AllOccasions() {
-  const { t } = useLocale();
+  const { t, language, cityName } = useLocale();
+  const { city, countryCode } = useLocationSelection();
   const { data, isLoading } = useCatalogMetadata();
   const occasions = data?.occasions ?? [];
+  const cityLabel = city ? cityName(city.id, city.name) : "";
 
   return (
     <div className="min-h-screen pt-12">
@@ -215,6 +219,13 @@ export default function AllOccasions() {
           </div>
         )}
       </div>
+
+      <SEOContentSection
+        pageType="occasions-listing"
+        cityLabel={cityLabel}
+        lang={language}
+        countryCode={countryCode ?? ""}
+      />
     </div>
   );
 }

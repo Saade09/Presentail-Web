@@ -775,22 +775,35 @@ export default function Shop() {
           </div>
         </div>
       </div>
-      {(category || occasion) && products.length > 0 && (() => {
+      {(() => {
         const cityLabel = city ? cityName(city.id, city.name) : "";
         const availableCategoryIds = catalogMetadata?.categories.map((c) => c.id) ?? [];
         const availableOccasionIds = catalogMetadata?.occasions.map((o) => o.id) ?? [];
-        return (
-          <SEOContentSection
-            pageType={category ? "category" : "occasion"}
-            entityName={entityName}
-            entitySlug={category || occasion}
-            cityLabel={cityLabel}
-            lang={language}
-            countryCode={countryCode ?? ""}
-            availableCategoryIds={availableCategoryIds}
-            availableOccasionIds={availableOccasionIds}
-          />
-        );
+        if ((category || occasion) && products.length > 0) {
+          return (
+            <SEOContentSection
+              pageType={category ? "category" : "occasion"}
+              entityName={entityName}
+              entitySlug={category || occasion}
+              cityLabel={cityLabel}
+              lang={language}
+              countryCode={countryCode ?? ""}
+              availableCategoryIds={availableCategoryIds}
+              availableOccasionIds={availableOccasionIds}
+            />
+          );
+        }
+        if (!category && !occasion && products.length > 0) {
+          return (
+            <SEOContentSection
+              pageType="shop"
+              cityLabel={cityLabel}
+              lang={language}
+              countryCode={countryCode ?? ""}
+            />
+          );
+        }
+        return null;
       })()}
 
       <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>

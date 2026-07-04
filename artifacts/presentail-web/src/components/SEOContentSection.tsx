@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { Truck, Clock, Gift, Sparkles, Star, Shield, Heart, Package, Flower2, Award, ShoppingBag } from "lucide-react";
+import { Truck, Clock, Gift, Sparkles, Star, Shield, Heart, Package, Flower2, Award, ShoppingBag, Users, Building2 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { STRINGS, STRINGS_FR } from "@/locales/index";
 
@@ -62,6 +62,20 @@ const BRAND_LISTING_BENEFITS: BenefitDef[] = [
   { icon: ShoppingBag, titleKey: "seo.content.benefit.gift.4.title", bodyKey: "seo.content.benefit.gift.4.body" },
 ];
 
+const CORPORATE_BENEFITS: BenefitDef[] = [
+  { icon: Building2, titleKey: "seo.content.benefit.gift.2.title", bodyKey: "seo.content.benefit.gift.2.body" },
+  { icon: Truck, titleKey: "seo.content.benefit.gift.1.title", bodyKey: "seo.content.benefit.gift.1.body" },
+  { icon: Clock, titleKey: "seo.content.benefit.gift.3.title", bodyKey: "seo.content.benefit.gift.3.body" },
+  { icon: Users, titleKey: "seo.content.benefit.gift.4.title", bodyKey: "seo.content.benefit.gift.4.body" },
+];
+
+const WEDDING_BENEFITS: BenefitDef[] = [
+  { icon: Flower2, titleKey: "seo.content.benefit.flower.2.title", bodyKey: "seo.content.benefit.flower.2.body" },
+  { icon: Truck, titleKey: "seo.content.benefit.flower.1.title", bodyKey: "seo.content.benefit.flower.1.body" },
+  { icon: Clock, titleKey: "seo.content.benefit.flower.3.title", bodyKey: "seo.content.benefit.flower.3.body" },
+  { icon: Heart, titleKey: "seo.content.benefit.flower.4.title", bodyKey: "seo.content.benefit.flower.4.body" },
+];
+
 const CATEGORY_OCCASION_CHIPS = [
   { slug: "birthday", labelKey: "shop.occ.birthday" },
   { slug: "love-romance", labelKey: "shop.occ.loveRomance" },
@@ -86,6 +100,14 @@ const BRAND_OCCASION_CHIPS = [
   { slug: "anniversary", labelKey: "seo.content.occ.anniversary" },
 ];
 
+const TOP_OCCASION_CHIPS = [
+  { slug: "birthday", labelKey: "shop.occ.birthday" },
+  { slug: "love-romance", labelKey: "shop.occ.loveRomance" },
+  { slug: "anniversary", labelKey: "seo.content.occ.anniversary" },
+  { slug: "congratulations", labelKey: "shop.occ.congratulations" },
+  { slug: "thank-you", labelKey: "shop.occ.thankYou" },
+];
+
 export type SEOContentOverrides = {
   heading?: string;
   intro_text?: string;
@@ -98,9 +120,19 @@ export type SEOContentOverrides = {
 export type BrandCategory = "flowers" | "food" | "general";
 
 interface SEOContentSectionProps {
-  pageType: "category" | "occasion" | "brand" | "brand-listing";
-  entityName: string;
-  entitySlug: string;
+  pageType:
+    | "category"
+    | "occasion"
+    | "brand"
+    | "brand-listing"
+    | "homepage"
+    | "shop"
+    | "corporate"
+    | "weddings"
+    | "occasions-listing"
+    | "contact";
+  entityName?: string;
+  entitySlug?: string;
   cityLabel: string;
   lang: string;
   countryCode: string;
@@ -122,8 +154,8 @@ export function SEOContentSection(props: SEOContentSectionProps) {
 
 function SEOContentSectionInner({
   pageType,
-  entityName,
-  entitySlug,
+  entityName = "",
+  entitySlug = "",
   cityLabel,
   lang,
   overrides,
@@ -151,17 +183,21 @@ function SEOContentSectionInner({
 
   const p = { name: entityName, city: cityLabel };
 
-  const heading = overrides?.heading
-    ?? tSeo(
-        pageType === "category"
-          ? "seo.content.cat.heading"
-          : pageType === "occasion"
-            ? "seo.content.occ.heading"
-            : pageType === "brand"
-              ? "seo.content.brand.heading"
-              : "seo.content.brands.heading",
-        p,
-      );
+  const headingKey = (() => {
+    switch (pageType) {
+      case "category": return "seo.content.cat.heading";
+      case "occasion": return "seo.content.occ.heading";
+      case "brand": return "seo.content.brand.heading";
+      case "brand-listing": return "seo.content.brands.heading";
+      case "homepage": return "seo.content.homepage.heading";
+      case "shop": return "seo.content.shop.heading";
+      case "corporate": return "seo.content.corporate.heading";
+      case "weddings": return "seo.content.weddings.heading";
+      case "occasions-listing": return "seo.content.occasions.heading";
+      case "contact": return "seo.content.contact.heading";
+    }
+  })();
+  const heading = overrides?.heading ?? tSeo(headingKey, p);
 
   let introKey: string;
   if (pageType === "occasion") {
@@ -176,6 +212,18 @@ function SEOContentSectionInner({
     }
   } else if (pageType === "brand-listing") {
     introKey = "seo.content.brands.intro";
+  } else if (pageType === "homepage") {
+    introKey = "seo.content.homepage.intro";
+  } else if (pageType === "shop") {
+    introKey = "seo.content.shop.intro";
+  } else if (pageType === "corporate") {
+    introKey = "seo.content.corporate.intro";
+  } else if (pageType === "weddings") {
+    introKey = "seo.content.weddings.intro";
+  } else if (pageType === "occasions-listing") {
+    introKey = "seo.content.occasions.intro";
+  } else if (pageType === "contact") {
+    introKey = "seo.content.contact.intro";
   } else if (isFlowerCategory(entitySlug)) {
     introKey = "seo.content.cat.introFlower";
   } else {
@@ -184,12 +232,16 @@ function SEOContentSectionInner({
   const intro = overrides?.intro_text ?? tSeo(introKey, p);
 
   let benefitDefs: BenefitDef[];
-  if (pageType === "occasion") {
+  if (pageType === "occasion" || pageType === "occasions-listing") {
     benefitDefs = OCCASION_BENEFITS;
   } else if (pageType === "brand") {
     benefitDefs = brandCategory === "flowers" ? BRAND_FLOWER_BENEFITS : GIFT_BENEFITS;
   } else if (pageType === "brand-listing") {
     benefitDefs = BRAND_LISTING_BENEFITS;
+  } else if (pageType === "corporate") {
+    benefitDefs = CORPORATE_BENEFITS;
+  } else if (pageType === "weddings") {
+    benefitDefs = WEDDING_BENEFITS;
   } else if (isFlowerCategory(entitySlug)) {
     benefitDefs = FLOWER_BENEFITS;
   } else {
@@ -204,36 +256,52 @@ function SEOContentSectionInner({
         body: tSeo(def.bodyKey),
       }));
 
-  let linkChipDefs: typeof CATEGORY_OCCASION_CHIPS;
-  let availableIds: string[];
-  let basePath: string;
-
-  if (pageType === "category") {
-    linkChipDefs = CATEGORY_OCCASION_CHIPS;
-    availableIds = availableOccasionIds;
-    basePath = "/occasion";
+  let internalLinks: { label: string; href: string }[];
+  if (overrides?.internal_links) {
+    internalLinks = overrides.internal_links;
+  } else if (pageType === "category") {
+    internalLinks = CATEGORY_OCCASION_CHIPS
+      .filter((chip) => availableOccasionIds.includes(chip.slug))
+      .map((chip) => ({ label: tSeo(chip.labelKey), href: `/occasion/${chip.slug}` }));
   } else if (pageType === "occasion") {
-    linkChipDefs = OCCASION_CATEGORY_CHIPS;
-    availableIds = availableCategoryIds;
-    basePath = "/category";
+    internalLinks = OCCASION_CATEGORY_CHIPS
+      .filter((chip) => availableCategoryIds.includes(chip.slug))
+      .map((chip) => ({ label: tSeo(chip.labelKey), href: `/category/${chip.slug}` }));
   } else if (pageType === "brand") {
-    linkChipDefs = BRAND_OCCASION_CHIPS;
-    availableIds = availableOccasionIds;
-    basePath = "/occasion";
+    internalLinks = BRAND_OCCASION_CHIPS
+      .filter((chip) => availableOccasionIds.includes(chip.slug))
+      .map((chip) => ({ label: tSeo(chip.labelKey), href: `/occasion/${chip.slug}` }));
+  } else if (pageType === "homepage" || pageType === "shop") {
+    internalLinks = TOP_OCCASION_CHIPS.map((chip) => ({
+      label: tSeo(chip.labelKey),
+      href: `/occasion/${chip.slug}`,
+    }));
+  } else if (pageType === "occasions-listing") {
+    internalLinks = TOP_OCCASION_CHIPS.map((chip) => ({
+      label: tSeo(chip.labelKey),
+      href: `/occasion/${chip.slug}`,
+    }));
+  } else if (pageType === "corporate") {
+    internalLinks = [
+      { label: tSeo("seo.content.contact.chip.orders"), href: "/shop" },
+      { label: tSeo("seo.content.contact.chip.faqs"), href: "/faqs" },
+      { label: tSeo("seo.content.contact.chip.corporate"), href: "/corporate" },
+    ];
+  } else if (pageType === "weddings") {
+    internalLinks = [
+      { label: tSeo("seo.content.contact.chip.orders"), href: "/shop" },
+      { label: tSeo("seo.content.contact.chip.faqs"), href: "/faqs" },
+      { label: tSeo("seo.content.contact.chip.corporate"), href: "/corporate" },
+    ];
+  } else if (pageType === "contact") {
+    internalLinks = [
+      { label: tSeo("seo.content.contact.chip.orders"), href: "/shop" },
+      { label: tSeo("seo.content.contact.chip.faqs"), href: "/faqs" },
+      { label: tSeo("seo.content.contact.chip.corporate"), href: "/corporate" },
+    ];
   } else {
-    linkChipDefs = [];
-    availableIds = [];
-    basePath = "/occasion";
+    internalLinks = [];
   }
-
-  const internalLinks = overrides?.internal_links
-    ? overrides.internal_links
-    : linkChipDefs
-        .filter((chip) => availableIds.includes(chip.slug))
-        .map((chip) => ({
-          label: tSeo(chip.labelKey),
-          href: `${basePath}/${chip.slug}`,
-        }));
 
   let faqKeys: { q: string; a: string }[];
   if (pageType === "category") {
@@ -254,11 +322,47 @@ function SEOContentSectionInner({
       { q: "seo.content.brand.faq.2.q", a: "seo.content.brand.faq.2.a" },
       { q: "seo.content.brand.faq.3.q", a: "seo.content.brand.faq.3.a" },
     ];
-  } else {
+  } else if (pageType === "brand-listing") {
     faqKeys = [
       { q: "seo.content.brands.faq.1.q", a: "seo.content.brands.faq.1.a" },
       { q: "seo.content.brands.faq.2.q", a: "seo.content.brands.faq.2.a" },
       { q: "seo.content.brands.faq.3.q", a: "seo.content.brands.faq.3.a" },
+    ];
+  } else if (pageType === "homepage") {
+    faqKeys = [
+      { q: "seo.content.homepage.faq.1.q", a: "seo.content.homepage.faq.1.a" },
+      { q: "seo.content.homepage.faq.2.q", a: "seo.content.homepage.faq.2.a" },
+      { q: "seo.content.homepage.faq.3.q", a: "seo.content.homepage.faq.3.a" },
+    ];
+  } else if (pageType === "shop") {
+    faqKeys = [
+      { q: "seo.content.shop.faq.1.q", a: "seo.content.shop.faq.1.a" },
+      { q: "seo.content.shop.faq.2.q", a: "seo.content.shop.faq.2.a" },
+      { q: "seo.content.shop.faq.3.q", a: "seo.content.shop.faq.3.a" },
+    ];
+  } else if (pageType === "corporate") {
+    faqKeys = [
+      { q: "seo.content.corporate.faq.1.q", a: "seo.content.corporate.faq.1.a" },
+      { q: "seo.content.corporate.faq.2.q", a: "seo.content.corporate.faq.2.a" },
+      { q: "seo.content.corporate.faq.3.q", a: "seo.content.corporate.faq.3.a" },
+    ];
+  } else if (pageType === "weddings") {
+    faqKeys = [
+      { q: "seo.content.weddings.faq.1.q", a: "seo.content.weddings.faq.1.a" },
+      { q: "seo.content.weddings.faq.2.q", a: "seo.content.weddings.faq.2.a" },
+      { q: "seo.content.weddings.faq.3.q", a: "seo.content.weddings.faq.3.a" },
+    ];
+  } else if (pageType === "occasions-listing") {
+    faqKeys = [
+      { q: "seo.content.occasions.faq.1.q", a: "seo.content.occasions.faq.1.a" },
+      { q: "seo.content.occasions.faq.2.q", a: "seo.content.occasions.faq.2.a" },
+      { q: "seo.content.occasions.faq.3.q", a: "seo.content.occasions.faq.3.a" },
+    ];
+  } else {
+    faqKeys = [
+      { q: "seo.content.contact.faq.1.q", a: "seo.content.contact.faq.1.a" },
+      { q: "seo.content.contact.faq.2.q", a: "seo.content.contact.faq.2.a" },
+      { q: "seo.content.contact.faq.3.q", a: "seo.content.contact.faq.3.a" },
     ];
   }
 
@@ -297,11 +401,16 @@ function SEOContentSectionInner({
     };
   }, [faqs.map((f) => f.question + f.answer).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const linksLabelKey = pageType === "category"
-    ? "seo.content.cat.linksLabel"
-    : pageType === "brand"
-      ? "seo.content.brand.linksLabel"
-      : "seo.content.occ.linksLabel";
+  const linksLabelKey = (() => {
+    switch (pageType) {
+      case "category": return "seo.content.cat.linksLabel";
+      case "brand": return "seo.content.brand.linksLabel";
+      case "homepage":
+      case "shop": return "seo.content.homepage.linksLabel";
+      case "occasions-listing": return "seo.content.occasions.linksLabel";
+      default: return "seo.content.occ.linksLabel";
+    }
+  })();
 
   return (
     <section
