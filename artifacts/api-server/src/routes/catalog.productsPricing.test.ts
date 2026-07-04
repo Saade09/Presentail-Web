@@ -156,6 +156,29 @@ describe("GET /api/catalog/products-pricing", () => {
     expect(res.headers["cache-control"]).toContain("max-age=60");
   });
 
+  it("returns a non-empty pricing map when the OS product cache is warmed", async () => {
+    getOsProductPricingMapMock.mockReturnValue(
+      new Map([
+        ["501", { discountPriceUsd: 55, discountPriceAed: 202, regularPriceUsd: 75 }],
+        ["502", { discountPriceUsd: 30, discountPriceAed: null, regularPriceUsd: 50 }],
+        ["503", { discountPriceUsd: null, discountPriceAed: 148, regularPriceUsd: null }],
+      ]),
+    );
+
+    const res = await request(app).get("/api/catalog/products-pricing");
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    const keys = Object.keys(res.body.pricing);
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys).toEqual(expect.arrayContaining(["501", "502", "503"]));
+    expect(res.body.pricing["501"].discountPriceUsd).toBe(55);
+    expect(res.body.pricing["501"].discountPriceAed).toBe(202);
+    expect(res.body.pricing["501"].regularPriceUsd).toBe(75);
+    expect(res.body.pricing["503"].discountPriceUsd).toBeNull();
+    expect(res.body.pricing["503"].discountPriceAed).toBe(148);
+  });
+
   it("includes all entries from a map with many products", async () => {
     const entries: [string, { discountPriceUsd: number | null; discountPriceAed: number | null; regularPriceUsd: number | null }][] = Array.from(
       { length: 5 },
