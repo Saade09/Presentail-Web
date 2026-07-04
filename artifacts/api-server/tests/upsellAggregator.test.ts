@@ -61,7 +61,7 @@ describe("buildUpsellToOrderBySession — SQL contract", () => {
   it("filters session_id IS NOT NULL in the adds CTE so legacy null-session events are excluded", async () => {
     h.executeQueue.push({ rows: [] });
     await buildUpsellToOrderBySession(START, END);
-    const captured = h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1][0];
+    const captured = (h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1] as unknown as [unknown])[0];
     const queryText = extractQueryText(captured);
     // The adds CTE must guard against NULL session IDs
     expect(queryText).toContain("session_id IS NOT NULL");
@@ -72,7 +72,7 @@ describe("buildUpsellToOrderBySession — SQL contract", () => {
   it("filters session_id IS NOT NULL in the orders CTE as well", async () => {
     h.executeQueue.push({ rows: [] });
     await buildUpsellToOrderBySession(START, END);
-    const captured = h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1][0];
+    const captured = (h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1] as unknown as [unknown])[0];
     const queryText = extractQueryText(captured);
     // Both CTEs must exclude NULL — the count should be >= 2
     const nullGuardCount = (queryText.match(/session_id IS NOT NULL/g) ?? []).length;
@@ -84,7 +84,7 @@ describe("buildUpsellToOrderBySession — SQL contract", () => {
   it("uses a LEFT JOIN so sessions with no matching order are still counted in sessionsWithAdd", async () => {
     h.executeQueue.push({ rows: [] });
     await buildUpsellToOrderBySession(START, END);
-    const captured = h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1][0];
+    const captured = (h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1] as unknown as [unknown])[0];
     const queryText = extractQueryText(captured);
     expect(queryText).toContain("LEFT JOIN");
   });
@@ -92,7 +92,7 @@ describe("buildUpsellToOrderBySession — SQL contract", () => {
   it("uses WITH…CTEs so the conversion join is a single pass over pre-deduplicated sessions", async () => {
     h.executeQueue.push({ rows: [] });
     await buildUpsellToOrderBySession(START, END);
-    const captured = h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1][0];
+    const captured = (h.executeSpy.mock.calls[h.executeSpy.mock.calls.length - 1] as unknown as [unknown])[0];
     const queryText = extractQueryText(captured);
     // CTE names both appear in the query text
     expect(queryText).toContain("WITH");

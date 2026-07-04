@@ -395,7 +395,7 @@ describe("sendRevenuePctDropAlert", () => {
     await sendRevenuePctDropAlert(TODAY, [breach("ios", 5.3, 17.8, 7)]);
     const { fields } = mockSendAlert().mock.calls[0]![0];
     expect(fields).toHaveLength(1);
-    const field = fields[0];
+    const field = fields![0];
     expect(field.title).toBe("ios");
     // currentPct formatted to 1 dp
     expect(field.value).toContain("5.3%");
@@ -414,12 +414,12 @@ describe("sendRevenuePctDropAlert", () => {
     const { fields } = mockSendAlert().mock.calls[0]![0];
     expect(fields).toHaveLength(2);
 
-    const iosField = fields.find((f: { title: string }) => f.title === "ios")!;
+    const iosField = fields!.find((f: { title: string }) => f.title === "ios")!;
     expect(iosField.value).toContain("3.0%");
     expect(iosField.value).toContain("20.0%");
     expect(iosField.value).toContain("↓ 17.0 pp");
 
-    const androidField = fields.find(
+    const androidField = fields!.find(
       (f: { title: string }) => f.title === "android",
     )!;
     expect(androidField.value).toContain("8.0%");
@@ -448,7 +448,7 @@ describe("sendRevenuePctDropAlert", () => {
   it("uses the correct baselineDays count in the field value", async () => {
     await sendRevenuePctDropAlert(TODAY, [breach("ios", 5, 15, 3)]);
     const { fields } = mockSendAlert().mock.calls[0]![0];
-    expect(fields[0].value).toContain("3-day avg");
-    expect(fields[0].value).not.toContain("7-day avg");
+    expect(fields![0].value).toContain("3-day avg");
+    expect(fields![0].value).not.toContain("7-day avg");
   });
 });

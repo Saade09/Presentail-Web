@@ -39,6 +39,7 @@ type PageResult = Parameters<typeof classifyResult>[0];
 const base: PageResult = {
   label: "Homepage (LB)",
   url: "https://presentail.com/en-lb/beirut",
+  locale: "en-lb",
   ok: true,
   fetchFailed: false,
   ogImage: "https://presentail.com/img/product.jpg",

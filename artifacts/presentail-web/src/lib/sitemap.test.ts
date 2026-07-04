@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { JSDOM } from "jsdom";
 
-// @ts-expect-error - mjs module without type declarations.
 import {
   buildSitemapXml,
   generateSitemap,
   resolveSitemap,
   SITEMAP_RETRY_WINDOW_MS,
+// @ts-expect-error - mjs module without type declarations.
 } from "../../sitemap.mjs";
 
 const { DOMParser } = new JSDOM().window;
@@ -29,8 +29,7 @@ const MOCK = {
 };
 
 function parse(xml: string): Document {
-  // @ts-expect-error - xmldom Document is structurally compatible for our use.
-  return new DOMParser().parseFromString(xml, "text/xml");
+  return new DOMParser().parseFromString(xml, "text/xml") as Document;
 }
 
 describe("buildSitemapXml", () => {
@@ -221,7 +220,7 @@ describe("resolveSitemap — /sitemap.xml route resilience", () => {
       ttlMs: TTL,
       generateFull: fullThrows,
       generateStatic: staticBuilder,
-      onError: (err, mode) => warnings.push([err, mode]),
+      onError: (err: unknown, mode: string) => warnings.push([err, mode]),
     });
     expect(result.mode).toBe("stale");
     expect(result.value).toBe("WARM-SITEMAP"); // last good copy reused, not empty
@@ -237,7 +236,7 @@ describe("resolveSitemap — /sitemap.xml route resilience", () => {
       ttlMs: TTL,
       generateFull: fullThrows,
       generateStatic: staticBuilder,
-      onError: (err, mode) => warnings.push([err, mode]),
+      onError: (err: unknown, mode: string) => warnings.push([err, mode]),
     });
     expect(result.mode).toBe("static-fallback");
     // Never empty / never throws — and the fallback is itself well-formed XML

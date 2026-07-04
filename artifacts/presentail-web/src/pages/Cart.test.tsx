@@ -520,11 +520,14 @@ describe("Cart — UAE express surcharge ($4.90)", () => {
       city: null,
       country: null,
       cityId: null,
-      isLoading: false,
+      countries: [],
+      isLoadingCountries: false,
       isPickerOpen: false,
+      pickerForceCountryStep: false,
       openPicker: vi.fn(),
       closePicker: vi.fn(),
       setLocation: vi.fn(),
+      clearLocation: vi.fn(),
     });
     mockUseDeliverySelection.mockReturnValue({
       mode: "express",
@@ -542,11 +545,14 @@ describe("Cart — UAE express surcharge ($4.90)", () => {
       city: null,
       country: null,
       cityId: null,
-      isLoading: false,
+      countries: [],
+      isLoadingCountries: false,
       isPickerOpen: false,
+      pickerForceCountryStep: false,
       openPicker: vi.fn(),
       closePicker: vi.fn(),
       setLocation: vi.fn(),
+      clearLocation: vi.fn(),
     });
   });
 

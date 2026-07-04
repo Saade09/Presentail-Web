@@ -26,11 +26,11 @@ vi.mock("../src/lib/logger", () => ({
   },
 }));
 
-const hasOsProductsMock = vi.fn<[], boolean>();
-const getOsProductsMock = vi.fn<[], Array<{ id: string }> | null>();
-const getOsBrandsMock = vi.fn<[], Array<{ slug: string }>>();
-const getOsCategoriesMock = vi.fn<[], Array<{ slug: string }>>();
-const getOsOccasionsMock = vi.fn<[], Array<{ slug: string }>>();
+const hasOsProductsMock = vi.fn<() => boolean>();
+const getOsProductsMock = vi.fn<() => Array<{ id: string }> | null>();
+const getOsBrandsMock = vi.fn<() => Array<{ slug: string }>>();
+const getOsCategoriesMock = vi.fn<() => Array<{ slug: string }>>();
+const getOsOccasionsMock = vi.fn<() => Array<{ slug: string }>>();
 
 vi.mock("../src/lib/osProductsCache", () => ({
   hasOsProducts: () => hasOsProductsMock(),

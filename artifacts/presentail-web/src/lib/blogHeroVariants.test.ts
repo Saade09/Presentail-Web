@@ -3,13 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 // @ts-expect-error - plain ESM module (no bundled types)
-import {
-  BLOG_HERO_VARIANT_WIDTHS,
-  isVariantFile,
-  listHeroSlugs,
-  variantFileName,
-  variantSuffixRegex,
-} from "../../blog-hero-variants.mjs";
+import { BLOG_HERO_VARIANT_WIDTHS, isVariantFile, listHeroSlugs, variantFileName, variantSuffixRegex } from "../../blog-hero-variants.mjs";
 
 describe("blog-hero-variants shared module", () => {
   it("exposes the 480/768 variant widths used by buildSrcSet callers", () => {

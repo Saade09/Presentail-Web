@@ -5,7 +5,7 @@ import type { FxStatus } from "../src/lib/fx";
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 const sendAlertMock = vi.fn();
-const getFxStatusMock = vi.fn<[], FxStatus>();
+const getFxStatusMock = vi.fn<() => FxStatus>();
 
 vi.mock("../src/lib/alerts", () => ({
   sendAlert: (...args: any[]) => sendAlertMock(...args),

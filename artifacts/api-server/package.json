@@ -8,6 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "pnpm -w run typecheck:libs && tsc -p tsconfig.json --noEmit",
+    "typecheck:tests": "pnpm -w run typecheck:libs && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "test": "vitest run",

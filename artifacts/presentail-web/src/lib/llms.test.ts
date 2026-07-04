@@ -1,14 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 // @ts-expect-error - mjs module without type declarations.
-import {
-  generateLlmsTxt,
-  buildLlmsFullTxt,
-  generateLlmsFullTxt,
-  resolveLlmsFullTxt,
-  LLMS_FULL_TXT_RETRY_WINDOW_MS,
-  FEATURED_LIMIT,
-} from "../../llms.mjs";
+import { generateLlmsTxt, buildLlmsFullTxt, generateLlmsFullTxt, resolveLlmsFullTxt, LLMS_FULL_TXT_RETRY_WINDOW_MS, FEATURED_LIMIT } from "../../llms.mjs";
 
 const ORIGIN = "https://new.presentail.com";
 
@@ -253,7 +246,7 @@ describe("resolveLlmsFullTxt — /llms-full.txt route resilience", () => {
       ttlMs: TTL,
       generateFull: fullThrows,
       generateIndex: indexBuilder,
-      onError: (err, mode) => warnings.push([err, mode]),
+      onError: (err: unknown, mode: string) => warnings.push([err, mode]),
     });
     expect(result.mode).toBe("stale");
     expect(result.value).toBe("WARM-RICH"); // last good copy reused, not empty
@@ -269,7 +262,7 @@ describe("resolveLlmsFullTxt — /llms-full.txt route resilience", () => {
       ttlMs: TTL,
       generateFull: fullThrows,
       generateIndex: indexBuilder,
-      onError: (err, mode) => warnings.push([err, mode]),
+      onError: (err: unknown, mode: string) => warnings.push([err, mode]),
     });
     expect(result.mode).toBe("index-fallback");
     expect(result.value).toBe(INDEX); // never empty / never throws

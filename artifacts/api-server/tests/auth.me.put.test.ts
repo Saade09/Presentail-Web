@@ -368,7 +368,7 @@ describe("PUT /api/auth/me — birthday rejection", () => {
     // return 200 with the locally-saved profile — losing the WC
     // round-trip should never lose the user's profile edit.
     fetchSpy.mockReset();
-    fetchSpy.mockImplementation(async (url, init) => {
+    fetchSpy.mockImplementation(async (url: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]) => {
       wcCalls.push({ url: String(url), init });
       return new Response(
         JSON.stringify({ message: "WC down" }),

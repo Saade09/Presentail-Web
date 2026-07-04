@@ -50,11 +50,11 @@ vi.mock("../src/lib/logger", () => ({
 // the catalog-query functions used by validateKeyPageSlugs so tests can control
 // which entity types appear populated.
 
-const hasOsProductsMock = vi.fn<[], boolean>();
-const getOsProductsMock = vi.fn<[], Array<{ id: string }> | null>();
-const getOsBrandsMock = vi.fn<[], Array<{ slug: string }> | null>();
-const getOsCategoriesMock = vi.fn<[], Array<{ slug: string }> | null>();
-const getOsOccasionsMock = vi.fn<[], Array<{ slug: string }> | null>();
+const hasOsProductsMock = vi.fn<() => boolean>();
+const getOsProductsMock = vi.fn<() => Array<{ id: string }> | null>();
+const getOsBrandsMock = vi.fn<() => Array<{ slug: string }> | null>();
+const getOsCategoriesMock = vi.fn<() => Array<{ slug: string }> | null>();
+const getOsOccasionsMock = vi.fn<() => Array<{ slug: string }> | null>();
 
 vi.mock("../src/lib/osProductsCache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/lib/osProductsCache")>();

@@ -28,13 +28,13 @@ vi.mock("../src/lib/logger", () => ({
 // Controlled DB rows — mutated via setMockRows() between tests.
 // The type intentionally allows `metric: string | null` to exercise the
 // null-filtering logic in loadWebVitalSummaries.
-type DbRow = WebVitalSummary & { metric: string | null };
+type DbRow = Omit<WebVitalSummary, "metric"> & { metric: string | null };
 
 // Mobile TTID rows use platform/screen instead of metric.
 // loadWebVitalSummaries filters these out (no `metric` field) while
 // loadMobileTtidSummaries keeps them — so tests can use `setMockRows` with
 // mobile rows to isolate the mobile code path without touching the web path.
-type MobileDbRow = MobileTtidSummary & { platform: string | null; screen: string | null };
+type MobileDbRow = Omit<MobileTtidSummary, "platform" | "screen"> & { platform: string | null; screen: string | null };
 
 let mockDbRows: Array<DbRow | MobileDbRow> = [];
 

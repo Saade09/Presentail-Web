@@ -351,6 +351,7 @@ describe("Replay-attack prevention — POST /api/woo/order with a card paymentRe
       orderId,
       paymentRef,
       provider: "stripe",
+      currency: "USD",
       totalUsd: 50,
       snapshot: {
         items: [{ wcId: 99, quantity: 1, priceUsd: 50 }],

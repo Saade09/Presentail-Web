@@ -174,7 +174,7 @@ describe("PUT /api/auth/me — Clerk customer path: valid phone update", () => {
 
     // db.update must have been called with the normalised phone.
     expect(dbSetMock).toHaveBeenCalledOnce();
-    const patch = dbSetMock.mock.calls[0]![0] as Record<string, unknown>;
+    const patch = (dbSetMock.mock.calls[0]! as unknown as [unknown])[0] as unknown as Record<string, unknown>;
     expect(patch).toMatchObject({ phoneE164: "+96170999999" });
   });
 
@@ -290,7 +290,7 @@ describe("PUT /api/auth/me — Clerk customer path: no-op (empty body)", () => {
 
     // fetchSpy should not have been called with a WC PUT.
     const wcPut = fetchSpy.mock.calls.find(
-      ([, init]) => (init as RequestInit)?.method === "PUT",
+      ([, init]: Parameters<typeof fetch>) => (init as RequestInit)?.method === "PUT",
     );
     expect(wcPut).toBeUndefined();
   });
@@ -329,7 +329,7 @@ describe("PUT /api/auth/me — Clerk customer path: WC mirror non-2xx → still 
     ]);
 
     // Make the WC mirror PUT return a server error.
-    fetchSpy.mockImplementation(async (_url, init) => {
+    fetchSpy.mockImplementation(async (_url: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]) => {
       if ((init as RequestInit)?.method === "PUT") {
         return new Response(JSON.stringify({ code: "wc_error" }), {
           status: 500,

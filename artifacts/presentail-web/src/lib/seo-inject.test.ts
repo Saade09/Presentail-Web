@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
 import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems } from "../../seo-inject.mjs";
-// @ts-expect-error - mjs import without types; plain JS module.
 import { buildProductSeo, buildCategorySeo, buildOccasionSeo, buildBrandSeo } from "../../src/lib/seo.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
@@ -4810,6 +4809,7 @@ describe("Product Offer JSON-LD — Google Merchant Listing required fields", ()
   it("extractProductSchema pulls the Product node out of a @graph head snippet", async () => {
     // @ts-expect-error - mjs import without types; plain JS module.
     const mod = await import("../../scripts/check-product-jsonld-schema.mjs");
+    // @ts-expect-error - mjs import without types; the module is plain JS.
     const headMod = await import("../../seo-inject.mjs");
     const { headSnippet } = headMod.buildProductHead({
       product: {
@@ -5352,6 +5352,7 @@ describe("Non-product JSON-LD — Breadcrumb/FAQ/Org/Article rich-result require
   it("extractAllJsonLd flattens a @graph head snippet into individual nodes", async () => {
     // @ts-expect-error - mjs import without types; plain JS module.
     const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    // @ts-expect-error - mjs import without types; the module is plain JS.
     const headMod = await import("../../seo-inject.mjs");
     const { headSnippet } = headMod.buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
@@ -5456,7 +5457,6 @@ describe("Canonical tag — trailing-slash stripping", () => {
 
 describe("STATIC_PAGE_GROUP exports", () => {
   it("Group A contains exactly contact, faqs, corporate, weddings", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { STATIC_PAGE_GROUP } = await import("../../src/lib/seo.mjs");
     expect(STATIC_PAGE_GROUP.A.has("contact")).toBe(true);
     expect(STATIC_PAGE_GROUP.A.has("faqs")).toBe(true);
@@ -5466,7 +5466,6 @@ describe("STATIC_PAGE_GROUP exports", () => {
   });
 
   it("Group B contains exactly privacy, terms, careers, partner, blog", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { STATIC_PAGE_GROUP } = await import("../../src/lib/seo.mjs");
     expect(STATIC_PAGE_GROUP.B.has("privacy")).toBe(true);
     expect(STATIC_PAGE_GROUP.B.has("terms")).toBe(true);
@@ -5477,7 +5476,6 @@ describe("STATIC_PAGE_GROUP exports", () => {
   });
 
   it("NONINDEX_ROUTE_KEYS includes all Group B keys", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { NONINDEX_ROUTE_KEYS, STATIC_PAGE_GROUP } = await import("../../src/lib/seo.mjs");
     for (const key of STATIC_PAGE_GROUP.B) {
       expect(NONINDEX_ROUTE_KEYS.has(key)).toBe(true);
@@ -5496,13 +5494,12 @@ describe("buildContactSeo — title-length guardrail", () => {
   ];
 
   it("all 19 real city × 3 lang combinations produce titles between 30 and 65 chars", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo, CITY_NAMES } = await import("../../src/lib/seo.mjs");
     const langs = ["en", "ar", "fr"];
     for (const lang of langs) {
       for (const cityKey of CITY_KEYS) {
         const country = cityKey.split("-")[0];
-        const cityLabel = CITY_NAMES[lang]?.[cityKey] ?? CITY_NAMES.en[cityKey] ?? cityKey;
+        const cityLabel = CITY_NAMES[lang as "en" | "ar" | "fr"]?.[cityKey] ?? CITY_NAMES.en[cityKey] ?? cityKey;
         const result = buildContactSeo({ lang, city: cityLabel, country });
         expect(
           result.title.length,
@@ -5517,7 +5514,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("the longest French city name (Oumm al Qaïwaïn) fits the preferred template and stays within bounds", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "fr", city: "Oumm al Qaïwaïn", country: "ae" });
     // "Contacter Presentail à Oumm al Qaïwaïn | Aide livraison" = 55 chars ≤ 65,
@@ -5528,7 +5524,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("the long French city name Ras el Khaïmah falls back to the short template and still passes", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "fr", city: "Ras el Khaïmah", country: "ae" });
     expect(result.title.length).toBeGreaterThanOrEqual(30);
@@ -5536,7 +5531,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("a very short city name (e.g. 'Al') uses the preferred template since it fits within 65 chars", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     // "Contact Presentail in Al | Gift Delivery Help" = 45 chars ≤ 65,
     // so the preferred template is used (not medium).
@@ -5549,7 +5543,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("a normal EN city (Dubai) uses the preferred template", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "en", city: "Dubai", country: "ae" });
     expect(result.title).toBe("Contact Presentail in Dubai | Gift Delivery Help");
@@ -5558,7 +5551,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("a normal AR city (بيروت) uses the preferred template and stays within bounds", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "ar", city: "بيروت", country: "lb" });
     expect(result.title).toContain("دعم التوصيل");
@@ -5567,7 +5559,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("non-contact buildStaticSeo calls are not affected", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildStaticSeo } = await import("../../src/lib/seo.mjs");
     const home = buildStaticSeo({ lang: "en", routeKey: "home", city: "Dubai", country: "ae" });
     expect(home.title).toBe("Flower & Gift Delivery in Dubai | Presentail");
@@ -5608,7 +5599,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("no city — EN title is 'Contact Presentail | Gift Delivery Help' (no trailing 'in')", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({});
     expect(result.title).toBe("Contact Presentail | Gift Delivery Help");
@@ -5616,7 +5606,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("no city — explicit empty string produces city-less title", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "en", city: "", country: "ae" });
     expect(result.title).toBe("Contact Presentail | Gift Delivery Help");
@@ -5624,7 +5613,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("no city — whitespace-only city produces city-less title", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "en", city: "   ", country: "ae" });
     expect(result.title).toBe("Contact Presentail | Gift Delivery Help");
@@ -5632,7 +5620,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("no city — AR title has no dangling في", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "ar" });
     expect(result.title).toBe("تواصل مع Presentail | دعم التوصيل");
@@ -5640,7 +5627,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("no city — FR title has no dangling à", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "fr" });
     expect(result.title).toBe("Contacter Presentail | Aide livraison");
@@ -5648,7 +5634,6 @@ describe("buildContactSeo — title-length guardrail", () => {
   });
 
   it("with a city — EN title still includes the city and preposition", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildContactSeo } = await import("../../src/lib/seo.mjs");
     const result = buildContactSeo({ lang: "en", city: "Dubai", country: "ae" });
     expect(result.title).toBe("Contact Presentail in Dubai | Gift Delivery Help");
@@ -5666,13 +5651,12 @@ describe("buildFaqsSeo — title-length guardrail", () => {
   ];
 
   it("all 19 real city × 3 lang combinations produce titles between 30 and 65 chars", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildFaqsSeo, CITY_NAMES } = await import("../../src/lib/seo.mjs");
     const langs = ["en", "ar", "fr"];
     for (const lang of langs) {
       for (const cityKey of CITY_KEYS) {
         const country = cityKey.split("-")[0];
-        const cityLabel = CITY_NAMES[lang]?.[cityKey] ?? CITY_NAMES.en[cityKey] ?? cityKey;
+        const cityLabel = CITY_NAMES[lang as "en"|"ar"|"fr"]?.[cityKey] ?? CITY_NAMES.en[cityKey] ?? cityKey;
         const result = buildFaqsSeo({ lang, city: cityLabel, country });
         expect(
           result.title.length,
@@ -5687,7 +5671,6 @@ describe("buildFaqsSeo — title-length guardrail", () => {
   });
 
   it("the longest French city name (Oumm al Qaïwaïn) fits the preferred template", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
     const result = buildFaqsSeo({ lang: "fr", city: "Oumm al Qaïwaïn", country: "ae" });
     // "FAQ livraison de fleurs à Oumm al Qaïwaïn | Presentail" = 54 chars ≤ 65
@@ -5697,7 +5680,6 @@ describe("buildFaqsSeo — title-length guardrail", () => {
   });
 
   it("a normal EN city (Dubai) uses the preferred template", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
     const result = buildFaqsSeo({ lang: "en", city: "Dubai", country: "ae" });
     expect(result.title).toBe("Flower Delivery FAQs in Dubai | Presentail");
@@ -5706,7 +5688,6 @@ describe("buildFaqsSeo — title-length guardrail", () => {
   });
 
   it("a normal AR city (بيروت) uses the preferred template and stays within bounds", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
     const result = buildFaqsSeo({ lang: "ar", city: "بيروت", country: "lb" });
     expect(result.title).toBe("أسئلة توصيل الزهور في بيروت | Presentail");
@@ -5715,7 +5696,6 @@ describe("buildFaqsSeo — title-length guardrail", () => {
   });
 
   it("a very short city name uses the medium tier (preferred fits ≤65 so preferred wins)", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
     // Even a tiny city fits in the preferred template (44 base chars << 65)
     const result = buildFaqsSeo({ lang: "en", city: "Al", country: "ae" });
@@ -5725,7 +5705,6 @@ describe("buildFaqsSeo — title-length guardrail", () => {
   });
 
   it("non-faqs buildStaticSeo calls are not affected", async () => {
-    // @ts-expect-error - mjs import without types; plain JS module.
     const { buildStaticSeo } = await import("../../src/lib/seo.mjs");
     const home = buildStaticSeo({ lang: "en", routeKey: "home", city: "Dubai", country: "ae" });
     expect(home.title).toBe("Flower & Gift Delivery in Dubai | Presentail");
