@@ -1,0 +1,41 @@
+name: Type-check tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/**"
+      - "lib/**"
+      - "scripts/**"
+      - "pnpm-lock.yaml"
+      - "tsconfig*.json"
+      - ".github/workflows/typecheck-tests.yml"
+  pull_request:
+
+jobs:
+  typecheck-tests:
+    name: Type-check test files
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build composite libs
+        run: pnpm run typecheck:libs
+
+      - name: Type-check test files
+        run: pnpm run typecheck:tests
