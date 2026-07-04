@@ -787,7 +787,7 @@ function ProductCardSkeleton({ width }: { width: number }) {
 }
 
 function BestSellers() {
-  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
+  const { gridCardWidth: CARD_W, numColumns } = useGridCardWidth(HOME_GRID_CONFIG);
   const router = useRouter();
   const colors = useColors();
   const t = useT();
@@ -806,7 +806,8 @@ function BestSellers() {
     () => seededShuffle(wooProducts, homepageShuffleSeed("best-sellers", selectedCountry?.code, selectedCity?.id)),
     [wooProducts, selectedCountry?.code, selectedCity?.id],
   );
-  const displayProducts = shuffledWooProducts.slice(0, 4);
+  // Show two full rows of cards regardless of column count.
+  const displayProducts = shuffledWooProducts.slice(0, numColumns * 2);
 
   if (!loading && displayProducts.length === 0) return null;
 
@@ -839,15 +840,15 @@ function BestSellers() {
       </View>
       <View
         style={{
-          paddingHorizontal: 24,
+          paddingHorizontal: HOME_GRID_CONFIG.paddingH,
           flexDirection: "row",
           flexWrap: "wrap",
-          gap: 10,
+          columnGap: HOME_GRID_CONFIG.columnGap,
           rowGap: 18,
         }}
       >
         {loading && displayProducts.length === 0
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: numColumns * 2 }).map((_, i) => (
               <ProductCardSkeleton key={i} width={CARD_W} />
             ))
           : displayProducts.map((p) => (
@@ -861,7 +862,7 @@ function BestSellers() {
 const FLOWER_CATS = new Set(["hand-bouquets", "flower-boxes", "flower-baskets", "lux-arrangements", "flower-vases", "dried-flowers", "preserved-flowers"]);
 
 function FlowersSection() {
-  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
+  const { gridCardWidth: CARD_W, numColumns } = useGridCardWidth(HOME_GRID_CONFIG);
   const colors = useColors();
   const router = useRouter();
   const t = useT();
@@ -873,36 +874,73 @@ function FlowersSection() {
   }, [wooProducts, selectedCountry?.code, selectedCity?.id]);
 
   if (!loading && !flowerProducts.length) return null;
+
+  // On wide screens (≥ 600 dp / landscape phone / tablet) switch from a
+  // horizontal carousel to a wrapped grid so 3 columns are visible at once
+  // without scrolling.  On narrow screens keep the horizontal peeking carousel.
+  const isWide = numColumns >= 3;
+
+  const header = (
+    <View
+      style={{
+        paddingHorizontal: 24,
+        marginBottom: 18,
+        flexDirection: "row",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <SectionTitle
+          eyebrow={t.flowersEyebrowHome}
+          title={t.flowersTitleHome}
+        />
+      </View>
+      <Pressable onPress={() => router.push("/category/hand-bouquets")}>
+        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+          {t.viewAll}
+        </AppText>
+      </Pressable>
+    </View>
+  );
+
+  if (isWide) {
+    // Grid layout: show two full rows at 3 columns.
+    const displayProducts = loading ? [] : flowerProducts.slice(0, numColumns * 2);
+    return (
+      <View style={{ marginTop: 44 }}>
+        {header}
+        <View
+          style={{
+            paddingHorizontal: HOME_GRID_CONFIG.paddingH,
+            flexDirection: "row",
+            flexWrap: "wrap",
+            columnGap: HOME_GRID_CONFIG.columnGap,
+            rowGap: 18,
+          }}
+        >
+          {loading
+            ? Array.from({ length: numColumns * 2 }).map((_, i) => (
+                <ProductCardSkeleton key={i} width={CARD_W} />
+              ))
+            : displayProducts.map((p) => (
+                <ProductCard key={p.id} product={p as any} width={CARD_W} />
+              ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ marginTop: 44 }}>
-      <View
-        style={{
-          paddingHorizontal: 24,
-          marginBottom: 18,
-          flexDirection: "row",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <SectionTitle
-            eyebrow={t.flowersEyebrowHome}
-            title={t.flowersTitleHome}
-          />
-        </View>
-        <Pressable onPress={() => router.push("/category/hand-bouquets")}>
-          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
-            {t.viewAll}
-          </AppText>
-        </Pressable>
-      </View>
+      {header}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: HOME_GRID_CONFIG.paddingH, gap: HOME_GRID_CONFIG.columnGap }}
       >
         {loading && flowerProducts.length === 0
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: numColumns * 2 }).map((_, i) => (
               <ProductCardSkeleton key={i} width={CARD_W} />
             ))
           : flowerProducts.map((p) => (
@@ -914,7 +952,7 @@ function FlowersSection() {
 }
 
 function SummerCollectionSection() {
-  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
+  const { gridCardWidth: CARD_W, numColumns } = useGridCardWidth(HOME_GRID_CONFIG);
   const colors = useColors();
   const router = useRouter();
   const t = useT();
@@ -956,36 +994,72 @@ function SummerCollectionSection() {
 
   if (!loading && products.length === 0) return null;
 
+  // On wide screens (≥ 600 dp / landscape phone / tablet) switch from a
+  // horizontal carousel to a wrapped grid so 3 columns are visible at once
+  // without scrolling.  On narrow screens keep the horizontal peeking carousel.
+  const isWide = numColumns >= 3;
+
+  const header = (
+    <View
+      style={{
+        paddingHorizontal: 24,
+        marginBottom: 18,
+        flexDirection: "row",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <SectionTitle
+          eyebrow={t.summerEyebrowHome}
+          title={t.summerTitleHome}
+        />
+      </View>
+      <Pressable onPress={() => router.push("/category/summer")}>
+        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+          {t.viewAll}
+        </AppText>
+      </Pressable>
+    </View>
+  );
+
+  if (isWide) {
+    // Grid layout: show two full rows at 3 columns.
+    const displayProducts = loading ? [] : enrichedProducts.slice(0, numColumns * 2);
+    return (
+      <View style={{ marginTop: 44 }}>
+        {header}
+        <View
+          style={{
+            paddingHorizontal: HOME_GRID_CONFIG.paddingH,
+            flexDirection: "row",
+            flexWrap: "wrap",
+            columnGap: HOME_GRID_CONFIG.columnGap,
+            rowGap: 18,
+          }}
+        >
+          {loading
+            ? Array.from({ length: numColumns * 2 }).map((_, i) => (
+                <ProductCardSkeleton key={i} width={CARD_W} />
+              ))
+            : displayProducts.map((p) => (
+                <ProductCard key={p.id} product={p as any} width={CARD_W} />
+              ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ marginTop: 44 }}>
-      <View
-        style={{
-          paddingHorizontal: 24,
-          marginBottom: 18,
-          flexDirection: "row",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <SectionTitle
-            eyebrow={t.summerEyebrowHome}
-            title={t.summerTitleHome}
-          />
-        </View>
-        <Pressable onPress={() => router.push("/category/summer")}>
-          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
-            {t.viewAll}
-          </AppText>
-        </Pressable>
-      </View>
+      {header}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: HOME_GRID_CONFIG.paddingH, gap: HOME_GRID_CONFIG.columnGap }}
       >
         {loading && enrichedProducts.length === 0
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: numColumns * 2 }).map((_, i) => (
               <ProductCardSkeleton key={i} width={CARD_W} />
             ))
           : enrichedProducts.map((p) => (
@@ -997,7 +1071,7 @@ function SummerCollectionSection() {
 }
 
 function BundlesSection() {
-  const { gridCardWidth: CARD_W } = useGridCardWidth(HOME_GRID_CONFIG);
+  const { gridCardWidth: CARD_W, numColumns } = useGridCardWidth(HOME_GRID_CONFIG);
   const colors = useColors();
   const router = useRouter();
   const t = useT();
@@ -1005,8 +1079,9 @@ function BundlesSection() {
   const { products: wooProducts, loading } = useWooProducts();
   const bundleProducts = useMemo(() => {
     const pool = wooProducts.filter((p) => p.category === "bundles");
-    return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id)).slice(0, 6);
-  }, [wooProducts, selectedCountry?.code, selectedCity?.id]);
+    // Show two full rows of cards regardless of column count.
+    return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id)).slice(0, numColumns * 2);
+  }, [wooProducts, selectedCountry?.code, selectedCity?.id, numColumns]);
 
   if (!loading && !bundleProducts.length) return null;
   return (
@@ -1032,9 +1107,17 @@ function BundlesSection() {
           </AppText>
         </Pressable>
       </View>
-      <View style={{ paddingHorizontal: 24, flexDirection: "row", flexWrap: "wrap", gap: 10, rowGap: 18 }}>
+      <View
+        style={{
+          paddingHorizontal: HOME_GRID_CONFIG.paddingH,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          columnGap: HOME_GRID_CONFIG.columnGap,
+          rowGap: 18,
+        }}
+      >
         {loading && bundleProducts.length === 0
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: numColumns * 2 }).map((_, i) => (
               <ProductCardSkeleton key={i} width={CARD_W} />
             ))
           : bundleProducts.map((p) => (

@@ -616,6 +616,287 @@ describe("useGridCardWidth hook", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Home screen 3-column layout at 600 dp
+//
+// These tests document and protect the concrete layout contract for the home
+// section grids (BestSellers, BundlesSection) when a phone is rotated to
+// landscape or run on a tablet (screen width ≥ 600 dp).
+// ---------------------------------------------------------------------------
+
+describe("Home screen 3-column layout at 600 dp", () => {
+  const LANDSCAPE_W = 600;
+
+  it("useGridCardWidth returns numColumns=3 for HOME_GRID_CONFIG at 600 dp", () => {
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() } as any;
+    });
+
+    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
+    function HookCapture() {
+      captured = useGridCardWidth(HOME_GRID_CONFIG);
+      return null;
+    }
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HookCapture));
+    });
+
+    act(() => {
+      capturedListener!({ window: { width: LANDSCAPE_W, height: 375 } });
+    });
+
+    expect(captured.numColumns).toBe(3);
+    act(() => { instance.unmount(); });
+  });
+
+  it("gridCardWidth at 600 dp matches (600 - paddingH*2 - columnGap*2) / 3", () => {
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() } as any;
+    });
+
+    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
+    function HookCapture() {
+      captured = useGridCardWidth(HOME_GRID_CONFIG);
+      return null;
+    }
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HookCapture));
+    });
+
+    act(() => {
+      capturedListener!({ window: { width: LANDSCAPE_W, height: 375 } });
+    });
+
+    const expectedCardW = computeGridCardWidth(
+      LANDSCAPE_W,
+      HOME_GRID_PADDING_H,
+      HOME_GRID_COLUMN_GAP * 2,
+      3,
+    );
+    expect(captured.gridCardWidth).toBe(expectedCardW);
+    act(() => { instance.unmount(); });
+  });
+
+  it("at 600 dp: 3 cards + 2 gaps + paddingH*2 fill the screen width exactly", () => {
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() } as any;
+    });
+
+    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
+    function HookCapture() {
+      captured = useGridCardWidth(HOME_GRID_CONFIG);
+      return null;
+    }
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HookCapture));
+    });
+
+    act(() => {
+      capturedListener!({ window: { width: LANDSCAPE_W, height: 375 } });
+    });
+
+    const totalWidth =
+      captured.numColumns * captured.gridCardWidth +
+      HOME_GRID_CONFIG.columnGap * (captured.numColumns - 1) +
+      HOME_GRID_CONFIG.paddingH * 2;
+    expect(totalWidth).toBeCloseTo(LANDSCAPE_W);
+    act(() => { instance.unmount(); });
+  });
+
+  it("at 599 dp: still 2 columns (just below the breakpoint)", () => {
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() } as any;
+    });
+
+    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
+    function HookCapture() {
+      captured = useGridCardWidth(HOME_GRID_CONFIG);
+      return null;
+    }
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HookCapture));
+    });
+
+    act(() => {
+      capturedListener!({ window: { width: 599, height: 844 } });
+    });
+
+    expect(captured.numColumns).toBe(2);
+    act(() => { instance.unmount(); });
+  });
+
+  it("home grid section switches from 2 to 3 columns when Dimensions fires a 600 dp width event", () => {
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() } as any;
+    });
+
+    let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
+    function HookCapture() {
+      captured = useGridCardWidth(HOME_GRID_CONFIG);
+      return null;
+    }
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HookCapture));
+    });
+
+    expect(captured.numColumns).toBe(2);
+
+    act(() => {
+      capturedListener!({ window: { width: LANDSCAPE_W, height: 375 } });
+    });
+
+    expect(captured.numColumns).toBe(3);
+    // Card width in 3-col landscape must match the 3-column formula exactly.
+    expect(captured.gridCardWidth).toBe(
+      computeGridCardWidth(LANDSCAPE_W, HOME_GRID_PADDING_H, HOME_GRID_COLUMN_GAP * 2, 3),
+    );
+    act(() => { instance.unmount(); });
+  });
+
+  // -------------------------------------------------------------------------
+  // Behavioral tests — rendered item count in home sections
+  //
+  // BestSellers, BundlesSection, FlowersSection, and SummerCollectionSection
+  // all render `numColumns * 2` items (two rows) so the visible count scales
+  // from 4 items (2-col portrait) to 6 items (3-col landscape).
+  // -------------------------------------------------------------------------
+
+  it("home section renders 4 skeleton items (2 cols × 2 rows) on a 375 dp portrait screen", () => {
+    /**
+     * Minimal component that mirrors BestSellers / BundlesSection loading state:
+     * renders exactly numColumns * 2 skeleton placeholders in a flexWrap grid.
+     */
+    function HomeSectionSkeleton() {
+      const { gridCardWidth, numColumns: cols } = useGridCardWidth(HOME_GRID_CONFIG);
+      return React.createElement(
+        View,
+        {
+          style: {
+            paddingHorizontal: HOME_GRID_CONFIG.paddingH,
+            flexDirection: "row" as const,
+            flexWrap: "wrap" as const,
+            columnGap: HOME_GRID_CONFIG.columnGap,
+            rowGap: 18,
+          },
+        },
+        ...Array.from({ length: cols * 2 }).map((_, i) =>
+          React.createElement(View, { key: i, style: { width: gridCardWidth } }),
+        ),
+      );
+    }
+
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HomeSectionSkeleton));
+    });
+
+    const root = instance.toJSON() as unknown as { children: unknown[] };
+    // Portrait phone (375 dp) → numColumns=2 → 2*2=4 skeleton cards
+    expect(root.children).toHaveLength(4);
+    act(() => { instance.unmount(); });
+  });
+
+  it("home section renders 6 skeleton items (3 cols × 2 rows) after rotating to 600 dp landscape", () => {
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() } as any;
+    });
+
+    function HomeSectionSkeleton() {
+      const { gridCardWidth, numColumns: cols } = useGridCardWidth(HOME_GRID_CONFIG);
+      return React.createElement(
+        View,
+        {
+          style: {
+            paddingHorizontal: HOME_GRID_CONFIG.paddingH,
+            flexDirection: "row" as const,
+            flexWrap: "wrap" as const,
+            columnGap: HOME_GRID_CONFIG.columnGap,
+            rowGap: 18,
+          },
+        },
+        ...Array.from({ length: cols * 2 }).map((_, i) =>
+          React.createElement(View, { key: i, style: { width: gridCardWidth } }),
+        ),
+      );
+    }
+
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HomeSectionSkeleton));
+    });
+
+    // Simulate rotation to landscape (600 dp width)
+    act(() => {
+      capturedListener!({ window: { width: LANDSCAPE_W, height: 375 } });
+    });
+
+    const root = instance.toJSON() as unknown as { children: unknown[] };
+    // Landscape phone (600 dp) → numColumns=3 → 3*2=6 skeleton cards
+    expect(root.children).toHaveLength(6);
+    act(() => { instance.unmount(); });
+  });
+
+  it("home section card width narrows proportionally when switching from 2 to 3 columns at 600 dp", () => {
+    let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
+      capturedListener = listener as typeof capturedListener;
+      return { remove: vi.fn() } as any;
+    });
+
+    let capturedWidth = 0;
+    function HomeSectionSkeleton() {
+      const { gridCardWidth, numColumns: cols } = useGridCardWidth(HOME_GRID_CONFIG);
+      capturedWidth = gridCardWidth;
+      return React.createElement(
+        View,
+        null,
+        React.createElement(View, { style: { width: gridCardWidth } }),
+        React.createElement(View, { style: { width: cols } }), // capture numColumns
+      );
+    }
+
+    let instance!: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      instance = ReactTestRenderer.create(React.createElement(HomeSectionSkeleton));
+    });
+
+    const portraitWidth = capturedWidth;
+
+    act(() => {
+      capturedListener!({ window: { width: LANDSCAPE_W, height: 375 } });
+    });
+
+    const landscapeWidth = capturedWidth;
+
+    // In landscape (600dp, 3 cols), per-card width uses formula (600-48-28)/3
+    const expectedLandscapeW = computeGridCardWidth(LANDSCAPE_W, HOME_GRID_PADDING_H, HOME_GRID_COLUMN_GAP * 2, 3);
+    expect(landscapeWidth).toBe(expectedLandscapeW);
+
+    // In portrait (375dp, 2 cols), per-card width uses formula (375-48-14)/2
+    const expectedPortraitW = computeGridCardWidth(MOCK_SCREEN_W, HOME_GRID_PADDING_H, HOME_GRID_COLUMN_GAP, 2);
+    expect(portraitWidth).toBe(expectedPortraitW);
+
+    act(() => { instance.unmount(); });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // useOccasionCardWidth hook — reactivity tests
 // ---------------------------------------------------------------------------
 
