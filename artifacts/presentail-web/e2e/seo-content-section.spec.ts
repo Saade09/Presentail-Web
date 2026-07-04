@@ -1025,3 +1025,90 @@ test.describe("SEO content section — occasion page city-switch via picker mid-
     expect(updatedText).toContain("Birthday");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 12. Brand detail page — SEO heading updates when language is switched mid-session
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — brand page language-switch regression guard", () => {
+  /**
+   * Regression guard (language-switcher UI path): switching EN→AR via the
+   * LanguageSwitcher calls setLanguage() → navigate() via Wouter (history.pushState)
+   * — there is NO hard page reload. The URL changes from /en-lb/beirut/brand/…
+   * to /ar-lb/beirut/brand/…, and LocaleContext's `language` state updates to "ar".
+   * SEOContentSection must re-render the H2 with the AR heading template
+   * ("توصيل {name} في {city}") rather than the EN one ("{name} Delivery in {city}").
+   *
+   * Flow:
+   *   1. Land on /en-lb/beirut/brand/… → heading shows EN template ("Delivery in").
+   *   2. Click the LanguageSwitcher trigger in the nav.
+   *   3. Click the AR option (data-testid="button-lang-ar").
+   *   4. LocaleContext calls navigate("/ar-lb/beirut/brand/…") via Wouter — client-side only.
+   *   5. Assert heading now contains "توصيل" (the Arabic word from the AR template)
+   *      and no longer contains "Delivery in" (the EN template marker).
+   */
+  test("SEO heading updates to AR template after switching language without a page reload", async ({ page }) => {
+    await stubWooBrands(page);
+    await stubBrandProducts(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: load brand page in EN (Beirut) ─────────────────────────────
+    await page.goto(`/en-lb/beirut/brand/${BRAND_SLUG}`);
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+
+    const initialText = (await heading.textContent()) ?? "";
+    // EN template: "{name} Delivery in {city}"
+    expect(initialText).toContain("E2E Test Brand");
+    expect(initialText).toContain("Delivery in");
+
+    // ── Step 2: open the language switcher ────────────────────────────────
+    // There are two instances (navbar + footer); pick the first (navbar) one.
+    const langSwitcher = page.getByTestId("language-switcher").first();
+    await expect(langSwitcher).toBeVisible({ timeout: 5_000 });
+    await langSwitcher.click();
+
+    // ── Step 3: select Arabic ─────────────────────────────────────────────
+    // DropdownMenuItem portals to <body>; use page-level locator (not section).
+    const arButton = page.getByTestId("button-lang-ar");
+    await expect(arButton).toBeVisible({ timeout: 5_000 });
+
+    // Capture the current navigation count so we can verify Wouter navigated
+    // client-side (pushState) without triggering a hard reload.
+    const navCountBefore = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+
+    await arButton.click();
+
+    // ── Step 4: assert the URL updated to AR locale without a hard reload ──
+    // switchLanguage() changes /en-lb/… → /ar-lb/…; Wouter calls pushState.
+    await page.waitForURL(/\/ar-lb\/beirut\/brand\//, { timeout: 10_000 });
+
+    const navCountAfter = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+    // Both will be 0 because __playwrightNavCount is only incremented on a
+    // hard navigation frame; equality proves no hard reload occurred.
+    expect(navCountAfter).toBe(navCountBefore);
+
+    // ── Step 5: assert SEO heading reflects the AR template ───────────────
+    // AR template: "توصيل {name} في {city}"
+    // "توصيل" is the Arabic word for "delivery" — present only in the AR template.
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+    // The AR word "توصيل" must appear (proves the AR template was rendered).
+    expect(updatedText).toContain("توصيل");
+    // The EN marker "Delivery in" must be gone.
+    expect(updatedText).not.toContain("Delivery in");
+    // The brand name must still be present in the heading.
+    expect(updatedText).toContain("E2E Test Brand");
+  });
+});
