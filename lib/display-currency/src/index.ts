@@ -227,6 +227,27 @@ export function roundToWholeUnit(amount: number): number {
 }
 
 /**
+ * Compute the final cart total in USD, applying a coupon discount and clamping
+ * to zero so the result is never negative.
+ *
+ * This is the single source of truth used by Cart.tsx and Checkout.tsx.
+ * Both pages must use this helper rather than their own inline formula to
+ * guarantee that a coupon whose discount exceeds the order value produces $0
+ * rather than a negative amount that would cause a payment-provider error.
+ *
+ * @param subtotalUsd       Sum of all item prices × quantities, in USD.
+ * @param deliveryFeeUsd    Total delivery fee (district + express + slot), in USD. Pass 0 when not yet known.
+ * @param couponDiscountUsd Discount granted by an applied coupon, in USD. Pass 0 when no coupon is active.
+ */
+export function computeCartTotal(
+  subtotalUsd: number,
+  deliveryFeeUsd: number,
+  couponDiscountUsd: number,
+): number {
+  return Math.max(0, subtotalUsd + deliveryFeeUsd - couponDiscountUsd);
+}
+
+/**
  * Convert an amount already expressed in `currency` into the smallest unit
  * Stripe expects. Handles zero-decimal currencies (LBP) and standard
  * two-decimal currencies.

@@ -21,6 +21,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { expressSurchargeForCountry, freeDeliveryThresholdUsd } from "@workspace/delivery";
+import { computeCartTotal } from "@workspace/display-currency";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
@@ -156,7 +157,7 @@ export default function Cart() {
     try { return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0; } catch { return 0; }
   });
 
-  const cartTotal = Math.max(0, (effectiveDeliveryFeeUsd !== null ? subtotal + effectiveDeliveryFeeUsd : subtotal) - couponDiscountUsd);
+  const cartTotal = computeCartTotal(subtotal, effectiveDeliveryFeeUsd ?? 0, couponDiscountUsd);
 
   const handleCouponToggle = () => {
     const next = !couponOpen;

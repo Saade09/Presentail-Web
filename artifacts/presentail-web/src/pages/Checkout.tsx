@@ -66,6 +66,7 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
+import { computeCartTotal } from "@workspace/display-currency";
 
 // Lazily loaded — @stripe/react-stripe-js (and therefore js.stripe.com) are
 // never bundled into the instant checkout chunk and are only fetched when the
@@ -1514,7 +1515,7 @@ function CheckoutForm() {
     })(),
     identitySecret,
     currencyCode: "USD",
-    totalUsd: total,
+    totalUsd: computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount),
     shippingCountry: (countryCode ?? "LB").toUpperCase().slice(0, 2),
     ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
@@ -2662,7 +2663,7 @@ function CheckoutForm() {
                   <h3 className="text-sm font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("checkout.summary")}</h3>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold lg:hidden" style={{ color: "hsl(var(--primary))" }}>
-                      <FormattedPrice usdValue={Math.max(0, total - confirmedCouponDiscount)} />
+                      <FormattedPrice usdValue={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} />
                     </span>
                     <ChevronDown
                       className={`w-4 h-4 lg:hidden transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
@@ -2763,7 +2764,7 @@ function CheckoutForm() {
                   {/* Total */}
                   <div className="flex justify-between font-semibold text-base pt-4 mt-3 border-t border-gray-100">
                     <span style={{ color: "hsl(var(--primary))" }}>{t("cart.total")}</span>
-                    <span style={{ color: "hsl(var(--primary))" }} data-testid="text-total"><FormattedPrice usdValue={Math.max(0, total - confirmedCouponDiscount)} /></span>
+                    <span style={{ color: "hsl(var(--primary))" }} data-testid="text-total"><FormattedPrice usdValue={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} /></span>
                   </div>
 
                   {effectiveFreeDeliveryEnabled !== false && (
