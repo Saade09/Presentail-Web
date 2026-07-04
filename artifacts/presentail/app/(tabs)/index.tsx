@@ -11,13 +11,13 @@ import {
   Animated,
   AppState,
   type AppStateStatus,
-  Dimensions,
   FlatList,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
@@ -59,8 +59,6 @@ import { HOME_GRID_CONFIG, useGridCardWidth } from "@/lib/gridLayout";
 // context-bootstrap cost that precedes the first HomeScreen mount.
 const HOME_SCREEN_START_MS = Date.now();
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
-const HERO_HEIGHT = Math.round(SCREEN_H * 0.88);
 const AUTO_ADVANCE_MS = 4500;
 
 // Map the shared generic icon names to MaterialCommunityIcons glyphs so
@@ -302,6 +300,8 @@ function HomeHeader({
 }
 
 function HomeScreen() {
+  const { height: screenH } = useWindowDimensions();
+  const heroHeight = Math.round(screenH * 0.88);
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { isRTL } = useLanguage();
@@ -325,7 +325,7 @@ function HomeScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const headerOpacity = scrollY.interpolate({
-    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
+    inputRange: [0, heroHeight * 0.6, heroHeight * 0.85],
     outputRange: [0, 0, 1],
     extrapolate: "clamp",
   });
@@ -433,6 +433,8 @@ type HeroSlide = {
 };
 
 function Hero() {
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const heroHeight = Math.round(screenH * 0.88);
   const colors = useColors();
   const router = useRouter();
   const t = useT();
@@ -596,7 +598,7 @@ function Hero() {
     ({ item }: { item: HeroSlide }) => (
       <Pressable
         onPress={() => { if (item.route) router.push(item.route); }}
-        style={{ width: SCREEN_W, height: HERO_HEIGHT }}
+        style={{ width: screenW, height: heroHeight }}
       >
         <Image
           source={typeof item.image === "string" ? { uri: item.image } : item.image}
@@ -659,11 +661,11 @@ function Hero() {
         </View>
       </Pressable>
     ),
-    [ta, isRTL, alignSelf, colors.primary, router],
+    [ta, isRTL, alignSelf, colors.primary, router, screenW, heroHeight],
   );
 
   return (
-    <View style={{ height: HERO_HEIGHT, overflow: "hidden" }}>
+    <View style={{ height: heroHeight, overflow: "hidden" }}>
       <FlatList
         ref={flatListRef}
         data={displaySlides}
@@ -675,8 +677,8 @@ function Hero() {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         getItemLayout={(_, index) => ({
-          length: SCREEN_W,
-          offset: SCREEN_W * index,
+          length: screenW,
+          offset: screenW * index,
           index,
         })}
         bounces={false}
@@ -1201,6 +1203,12 @@ function CategoryTile({ item, tileWidth, imageSize, imageToLabelGap, onPress }: 
 }
 
 function CategoryRail() {
+  const { width: screenW } = useWindowDimensions();
+  // Tile width scales gently with screen width so portrait, landscape, and
+  // split-screen layouts all look balanced. Clamped to [72, 88] to stay
+  // within the existing design range.
+  const TILE_WIDTH = Math.round(Math.min(88, Math.max(72, screenW * 0.185)));
+  const TILE_IMAGE_SIZE = Math.round(TILE_WIDTH * (64 / 72));
   const colors = useColors();
   const router = useRouter();
   const t = useT();
@@ -1230,8 +1238,6 @@ function CategoryRail() {
 
   if (!isLoading && items.length === 0) return null;
 
-  const TILE_WIDTH = 72;
-  const TILE_IMAGE_SIZE = 64;
   const TILE_IMAGE_TO_LABEL_GAP = 10;
   const TILE_LABEL_HEIGHT = 14 * 2; // lineHeight 14 * 2 lines
   const TILE_TOTAL_HEIGHT = TILE_IMAGE_SIZE + TILE_IMAGE_TO_LABEL_GAP + TILE_LABEL_HEIGHT;
