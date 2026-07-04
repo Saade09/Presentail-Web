@@ -8,13 +8,13 @@ import request from "supertest";
 
 const mocks = vi.hoisted(() => ({
   dbRows: [] as any[],
-  fetchOsOrderStatus: vi.fn<any, any>(),
-  authenticate: vi.fn<any, any>(),
-  getCustomerById: vi.fn<any, any>(),
-  getCustomerByWcId: vi.fn<any, any>(),
-  resolveStoreFromRequest: vi.fn<any, any>(),
-  wooAuthHeader: vi.fn<any, any>(),
-  fetch: vi.fn<any, any>(),
+  fetchOsOrderStatus: vi.fn(),
+  authenticate: vi.fn(),
+  getCustomerById: vi.fn(),
+  getCustomerByWcId: vi.fn(),
+  resolveStoreFromRequest: vi.fn(),
+  wooAuthHeader: vi.fn(),
+  fetch: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -37,6 +37,7 @@ vi.mock("@workspace/db", () => ({
       from: () => ({
         where: () => ({
           orderBy: () => Promise.resolve(mocks.dbRows),
+          limit: () => Promise.resolve([]),
         }),
       }),
     }),
@@ -44,6 +45,10 @@ vi.mock("@workspace/db", () => ({
   appOrdersTable: {
     customerId: "customer_id",
     createdAt: "created_at",
+  },
+  customersTable: {
+    id: "id",
+    emailVerified: "email_verified",
   },
 }));
 

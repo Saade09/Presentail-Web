@@ -30,9 +30,9 @@ const {
   getOsProductOccasionsMock,
   getOsProductsMock,
 } = vi.hoisted(() => ({
-  getOsOccasionsMock: vi.fn<[], OSProductOccasion[] | null>(),
-  getOsProductOccasionsMock: vi.fn<[], ReadonlyMap<string, OSProductOccasion>>(),
-  getOsProductsMock: vi.fn<[string], OSProduct[] | null>(),
+  getOsOccasionsMock: vi.fn<() => OSProductOccasion[] | null>(),
+  getOsProductOccasionsMock: vi.fn<() => ReadonlyMap<string, OSProductOccasion>>(),
+  getOsProductsMock: vi.fn<(storeKey: string) => OSProduct[] | null>(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ function makeRamadanProduct(overrides: Partial<OSProduct> = {}): OSProduct {
     price: 45,
     images: [{ url: "https://example.com/img.jpg" }],
     inStock: true,
-    categories: [{ slug: "flowers", name: "Flowers" }],
+    categories: [{ id: "cat-flowers", slug: "flowers", name: "Flowers" }],
     occasions: [RAMADAN_OCCASION],
     brands: [],
     ...overrides,
