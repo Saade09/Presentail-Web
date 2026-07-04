@@ -27,6 +27,8 @@
  *  13. Occasion page city-switch (picker mid-session, no hard reload) → heading updates.
  *  14. Brands listing page (/brands) city-switch (URL navigation path) → heading updates.
  *  15. Brands listing page (/brands) city-switch (picker mid-session, no hard reload) → heading updates.
+ *  16. Category page language-switch (EN→AR via LanguageSwitcher, no hard reload) → heading uses AR template.
+ *  17. Occasion page language-switch (EN→AR via LanguageSwitcher, no hard reload) → heading uses AR template.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -1265,5 +1267,180 @@ test.describe("SEO content section — brand page language-switch regression gua
     expect(updatedText).not.toContain("Delivery in");
     // The brand name must still be present in the heading.
     expect(updatedText).toContain("E2E Test Brand");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 16. Category page — SEO heading updates when language is switched EN→AR
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — category page language-switch regression guard", () => {
+  /**
+   * Regression guard (language-switcher UI path): switching EN→AR via the
+   * LanguageSwitcher calls setLanguage() → navigate() via Wouter (history.pushState)
+   * — there is NO hard page reload. The URL changes from /en-lb/beirut/category/…
+   * to /ar-lb/beirut/category/…, and LocaleContext's `language` state updates to "ar".
+   * SEOContentSection must re-render the H2 with the AR heading template
+   * ("توصيل {name} في {city}") rather than the EN one ("{name} Delivery in {city}").
+   *
+   * Flow:
+   *   1. Land on /en-lb/beirut/category/hand-bouquets → heading shows EN template.
+   *   2. Click the LanguageSwitcher trigger (first instance).
+   *   3. Click the AR option (data-testid="button-lang-ar").
+   *   4. LocaleContext calls navigate("/ar-lb/beirut/category/…") via Wouter — client-side only.
+   *   5. Assert heading now contains "توصيل" (the Arabic delivery word) and no
+   *      longer contains "Delivery in" (the EN template marker).
+   */
+  test("SEO heading updates to AR template after switching language without a page reload", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: load category page in EN (Beirut) ───────────────────────────
+    await page.goto("/en-lb/beirut/category/hand-bouquets");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+
+    const initialText = (await heading.textContent()) ?? "";
+    // EN template: "{name} Delivery in {city}"
+    expect(initialText).toContain("Hand Bouquets");
+    expect(initialText).toContain("Delivery in");
+
+    // ── Step 2: open the language switcher ──────────────────────────────────
+    // There are two instances (TopUtilityBar + footer); pick the first (navbar) one.
+    const langSwitcher = page.getByTestId("language-switcher").first();
+    await expect(langSwitcher).toBeVisible({ timeout: 5_000 });
+    await langSwitcher.click();
+
+    // ── Step 3: select Arabic ────────────────────────────────────────────────
+    // DropdownMenuItem portals to <body>; use page-level locator (not section).
+    const arButton = page.getByTestId("button-lang-ar");
+    await expect(arButton).toBeVisible({ timeout: 5_000 });
+
+    // Capture the current navigation count so we can verify Wouter navigated
+    // client-side (pushState) without triggering a hard reload.
+    const navCountBefore = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+
+    await arButton.click();
+
+    // ── Step 4: assert the URL updated to AR locale without a hard reload ────
+    // switchLanguage() changes /en-lb/… → /ar-lb/…; Wouter calls pushState.
+    await page.waitForURL(/\/ar-lb\/beirut\/category\/hand-bouquets/, { timeout: 10_000 });
+
+    const navCountAfter = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+    // Both will be 0 because __playwrightNavCount is only incremented on a
+    // hard navigation frame; equality proves no hard reload occurred.
+    expect(navCountAfter).toBe(navCountBefore);
+
+    // ── Step 5: assert SEO heading reflects the AR template ──────────────────
+    // AR template: "توصيل {name} في {city}"
+    // "توصيل" is the Arabic word for "delivery" — present only in the AR template.
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+    // The AR word "توصيل" must appear (proves the AR template was rendered).
+    expect(updatedText).toContain("توصيل");
+    // The EN marker "Delivery in" must be gone.
+    expect(updatedText).not.toContain("Delivery in");
+    // The category name must still be present in the heading.
+    expect(updatedText).toContain("Hand Bouquets");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 17. Occasion page — SEO heading updates when language is switched EN→AR
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — occasion page language-switch regression guard", () => {
+  /**
+   * Regression guard (language-switcher UI path): switching EN→AR via the
+   * LanguageSwitcher calls setLanguage() → navigate() via Wouter (history.pushState)
+   * — there is NO hard page reload. The URL changes from /en-lb/beirut/occasion/…
+   * to /ar-lb/beirut/occasion/…, and LocaleContext's `language` state updates to "ar".
+   * SEOContentSection must re-render the H2 with the AR heading template
+   * ("أرسل زهوراً وهدايا {name} في {city}") rather than the EN one
+   * ("Send {name} Flowers & Gifts in {city}").
+   *
+   * Flow:
+   *   1. Land on /en-lb/beirut/occasion/birthday → heading shows EN template.
+   *   2. Click the LanguageSwitcher trigger (first instance).
+   *   3. Click the AR option (data-testid="button-lang-ar").
+   *   4. LocaleContext calls navigate("/ar-lb/beirut/occasion/…") via Wouter — client-side only.
+   *   5. Assert heading now contains "أرسل" (the Arabic "send" word) and no
+   *      longer contains "Send" (the EN template marker).
+   */
+  test("SEO heading updates to AR template after switching language without a page reload", async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+
+    // ── Step 1: load occasion page in EN (Beirut) ───────────────────────────
+    await page.goto("/en-lb/beirut/occasion/birthday");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+
+    const initialText = (await heading.textContent()) ?? "";
+    // EN template: "Send {name} Flowers & Gifts in {city}"
+    expect(initialText).toContain("Birthday");
+    expect(initialText).toContain("Send");
+
+    // ── Step 2: open the language switcher ──────────────────────────────────
+    // There are two instances (TopUtilityBar + footer); pick the first (navbar) one.
+    const langSwitcher = page.getByTestId("language-switcher").first();
+    await expect(langSwitcher).toBeVisible({ timeout: 5_000 });
+    await langSwitcher.click();
+
+    // ── Step 3: select Arabic ────────────────────────────────────────────────
+    // DropdownMenuItem portals to <body>; use page-level locator (not section).
+    const arButton = page.getByTestId("button-lang-ar");
+    await expect(arButton).toBeVisible({ timeout: 5_000 });
+
+    // Capture the current navigation count so we can verify Wouter navigated
+    // client-side (pushState) without triggering a hard reload.
+    const navCountBefore = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+
+    await arButton.click();
+
+    // ── Step 4: assert the URL updated to AR locale without a hard reload ────
+    // switchLanguage() changes /en-lb/… → /ar-lb/…; Wouter calls pushState.
+    await page.waitForURL(/\/ar-lb\/beirut\/occasion\/birthday/, { timeout: 10_000 });
+
+    const navCountAfter = await page.evaluate(
+      () => (window as Window & { __playwrightNavCount?: number }).__playwrightNavCount ?? 0,
+    );
+    // Both will be 0 because __playwrightNavCount is only incremented on a
+    // hard navigation frame; equality proves no hard reload occurred.
+    expect(navCountAfter).toBe(navCountBefore);
+
+    // ── Step 5: assert SEO heading reflects the AR template ──────────────────
+    // AR template: "أرسل زهوراً وهدايا {name} في {city}"
+    // "أرسل" is the Arabic word for "send" — present only in the AR template.
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible();
+
+    const updatedText = (await heading.textContent()) ?? "";
+    // The AR word "أرسل" must appear (proves the AR template was rendered).
+    expect(updatedText).toContain("أرسل");
+    // The EN marker "Send" must be gone (note: "أرسل" does not contain "Send").
+    expect(updatedText).not.toContain("Send");
+    // The occasion name must still be present in the heading.
+    expect(updatedText).toContain("Birthday");
   });
 });
