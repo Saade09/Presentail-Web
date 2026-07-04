@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
@@ -113,7 +113,7 @@ vi.mock("@/contexts/DeliverySelectionContext", () => ({
 // Import the component under test AFTER all vi.mock() declarations.
 // ---------------------------------------------------------------------------
 
-import Cart from "./Cart";
+import Cart, { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY } from "./Cart";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 
 // ---------------------------------------------------------------------------
@@ -383,6 +383,111 @@ describe("Cart — delivery fee display states", () => {
     expect(screen.getByText("cart.expressLabel")).toBeTruthy();
     expect(screen.getByText("$15")).toBeTruthy();
     const totals = screen.getAllByText("$110");
+    expect(totals.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: coupon discount display and total calculation
+// Covers the four scenarios called out in the task:
+//   1. No coupon → discount row absent
+//   2. Coupon applied → discount row shows correct amount
+//   3. Coupon + free-delivery threshold met → total = subtotal - discount (no fee)
+//   4. Coupon + express mode → total = subtotal + express surcharge - discount
+//
+// The coupon state is initialised from localStorage (same path Cart.tsx uses
+// in its useState initialisers), so seeding localStorage before render is the
+// minimal way to exercise these branches without touching internal state.
+// ---------------------------------------------------------------------------
+
+describe("Cart — coupon discount display and total calculation", () => {
+  beforeEach(() => {
+    vi.mocked(useDeliveryConfig).mockReturnValue(DELIVERY_CONFIG_WITH_FEE);
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "schedule",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("1. no coupon → discount row is absent", () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_BELOW_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.queryByTestId("row-cart-coupon-discount")).toBeNull();
+  });
+
+  it("2. coupon applied → discount row appears with the correct code and amount", () => {
+    localStorage.setItem(COUPON_STORAGE_KEY, "SAVE10");
+    localStorage.setItem(COUPON_DISCOUNT_KEY, "10");
+
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_BELOW_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    const row = screen.getByTestId("row-cart-coupon-discount");
+    expect(row).toBeTruthy();
+    expect(row.textContent).toContain("SAVE10");
+    expect(row.textContent).toContain("$10");
+  });
+
+  it("3. coupon + free-delivery threshold met → total = subtotal − discount (no delivery fee)", () => {
+    // subtotal=95 ≥ threshold=90 → deliveryFeeUsd=0 (Free)
+    // cartTotal = 95 + 0 − 10 = 85
+    localStorage.setItem(COUPON_STORAGE_KEY, "SAVE10");
+    localStorage.setItem(COUPON_DISCOUNT_KEY, "10");
+
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByTestId("row-cart-coupon-discount")).toBeTruthy();
+    expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
+    const totals = screen.getAllByText("$85");
+    expect(totals.length).toBeGreaterThan(0);
+  });
+
+  it("4. coupon + express mode → total = subtotal + express surcharge − discount", () => {
+    // subtotal=95 ≥ threshold=90 → deliveryFeeUsd=0 (Free), express surcharge=15
+    // effectiveDeliveryFeeUsd = 0 + 15 = 15
+    // cartTotal = 95 + 15 − 10 = 100
+    localStorage.setItem(COUPON_STORAGE_KEY, "SAVE10");
+    localStorage.setItem(COUPON_DISCOUNT_KEY, "10");
+
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "express",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByTestId("row-cart-coupon-discount")).toBeTruthy();
+    expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
+    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    const totals = screen.getAllByText("$100");
     expect(totals.length).toBeGreaterThan(0);
   });
 });
