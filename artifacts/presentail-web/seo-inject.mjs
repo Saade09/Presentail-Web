@@ -1792,6 +1792,46 @@ function localeBaseUrl(pathname, origin, basePath) {
   return `${origin}${cleanBase}${pfx}`;
 }
 
+const TRACKING_PARAMS = new Set([
+  "srsltid",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "utm_id",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "fbclid",
+  "msclkid",
+  "gad_source",
+  "gad_campaignid",
+  "ttclid",
+  "twclid",
+  "li_fat_id",
+  "mc_cid",
+  "mc_eid",
+]);
+
+/**
+ * Remove known tracking/analytics query parameters from a raw query string.
+ * Returns a clean query string (e.g. "?foo=bar") or an empty string when
+ * nothing remains after stripping. Non-tracking params are preserved.
+ *
+ * @param {string} search - Raw query string, e.g. "?srsltid=abc&foo=bar"
+ * @returns {string}
+ */
+export function stripTrackingParams(search) {
+  if (!search) return "";
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  for (const key of TRACKING_PARAMS) {
+    params.delete(key);
+  }
+  const cleaned = params.toString();
+  return cleaned ? "?" + cleaned : "";
+}
+
 function buildEntityHead({
   ogType,
   title,
@@ -1809,7 +1849,7 @@ function buildEntityHead({
   extraLines = [],
 }) {
   const cleanBase = basePath.replace(/\/$/, "");
-  const canonicalHref = origin + cleanBase + pathname + (search || "");
+  const canonicalHref = origin + cleanBase + pathname + stripTrackingParams(search || "");
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);

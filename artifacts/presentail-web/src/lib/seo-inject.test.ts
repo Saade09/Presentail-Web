@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams } from "../../seo-inject.mjs";
 import { buildProductSeo, buildCategorySeo, buildOccasionSeo, buildBrandSeo } from "../../src/lib/seo.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
@@ -5894,5 +5894,81 @@ describe("injectSeoTagsAsync — banner LCP preload tag", () => {
     // no stale preload tag from a prior test leaks in.
     const out = await injectSeoTagsAsync(HTML, "/", OPTS);
     expect(out).not.toContain('rel="preload" as="image"');
+  });
+});
+
+describe("stripTrackingParams", () => {
+  it("removes srsltid and utm_source from a query string", () => {
+    expect(stripTrackingParams("?srsltid=abc&utm_source=google")).toBe("");
+  });
+
+  it("removes all known tracking params while preserving unknown ones", () => {
+    const result = stripTrackingParams(
+      "?srsltid=abc&utm_source=google&utm_medium=cpc&utm_campaign=spring&utm_term=flowers&utm_content=ad1&utm_id=123&gclid=Cj0&gbraid=x&wbraid=y&fbclid=fb&msclkid=ms&gad_source=1&gad_campaignid=2&ttclid=tt&twclid=tw&li_fat_id=li&mc_cid=mc&mc_eid=me&ref=homepage",
+    );
+    expect(result).toBe("?ref=homepage");
+  });
+
+  it("returns empty string when all params are tracking params", () => {
+    expect(stripTrackingParams("?gclid=abc&fbclid=xyz")).toBe("");
+  });
+
+  it("returns empty string for an empty input", () => {
+    expect(stripTrackingParams("")).toBe("");
+  });
+
+  it("preserves a query string with no tracking params unchanged", () => {
+    expect(stripTrackingParams("?ref=email&foo=bar")).toBe("?ref=email&foo=bar");
+  });
+});
+
+describe("injectSeoTagsAsync — canonical strips tracking params on entity pages", () => {
+  it("emits a canonical href without srsltid and utm_source on a product page", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Rose Bouquet",
+        description: "Beautiful roses.",
+        image: { uri: "https://cdn.test/roses.jpg" },
+        priceValue: 50,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/rose-bouquet",
+      { ...OPTS, search: "?srsltid=abc&utm_source=google" },
+    );
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-ae/dubai/product/rose-bouquet"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/product/rose-bouquet"',
+    );
+    expect(out).not.toContain("srsltid");
+    expect(out).not.toContain("utm_source");
+  });
+
+  it("preserves non-tracking params while stripping tracking ones on the brands filter page", async () => {
+    mockFetchOnce({
+      ok: true,
+      category: {
+        name: "Roses",
+        description: "Long-stem roses.",
+        image: null,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/brands",
+      { ...OPTS, search: "?category=roses&gclid=abc&fbclid=xyz" },
+    );
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-ae/dubai/brands?category=roses"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/brands?category=roses"',
+    );
+    expect(out).not.toContain("gclid");
+    expect(out).not.toContain("fbclid");
   });
 });
