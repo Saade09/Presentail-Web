@@ -101,6 +101,7 @@ import {
   useOccasionCardWidth,
 } from "./gridLayout";
 import { renderWithProviders } from "../tests/test-utils";
+import { makeDimensionsSubscription } from "./testHelpers";
 
 // The react-native mock (tests/__mocks__/react-native.ts) returns 375 for
 // Dimensions.get("window").width, which is what gridLayout.ts picks up at
@@ -551,7 +552,7 @@ describe("useGridCardWidth hook", () => {
     const removeSpy = vi.fn();
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: removeSpy } as any;
+      return makeDimensionsSubscription(removeSpy);
     });
 
     const { getCaptured } = renderGridHook({
@@ -582,7 +583,7 @@ describe("useGridCardWidth hook", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     const { getCaptured } = renderGridHook({
@@ -607,7 +608,7 @@ describe("useGridCardWidth hook", () => {
 
   it("removes the Dimensions listener on unmount", () => {
     const removeSpy = vi.fn();
-    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce(() => ({ remove: removeSpy } as any));
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce(() => makeDimensionsSubscription(removeSpy));
 
     const { unmount } = renderGridHook(HOME_GRID_CONFIG);
     unmount();
@@ -630,7 +631,7 @@ describe("Home screen 3-column layout at 600 dp", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
@@ -655,7 +656,7 @@ describe("Home screen 3-column layout at 600 dp", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
@@ -686,7 +687,7 @@ describe("Home screen 3-column layout at 600 dp", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
@@ -715,7 +716,7 @@ describe("Home screen 3-column layout at 600 dp", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
@@ -740,7 +741,7 @@ describe("Home screen 3-column layout at 600 dp", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     let captured: ReturnType<typeof useGridCardWidth> = { gridCardWidth: 0, listCardWidth: 0, numColumns: 2 };
@@ -814,7 +815,7 @@ describe("Home screen 3-column layout at 600 dp", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     function HomeSectionSkeleton() {
@@ -856,7 +857,7 @@ describe("Home screen 3-column layout at 600 dp", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     let capturedWidth = 0;
@@ -942,7 +943,7 @@ describe("useOccasionCardWidth hook", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     const { getCaptured } = renderOccasionHook({
@@ -964,7 +965,7 @@ describe("useOccasionCardWidth hook", () => {
     let capturedListener: ((e: { window: { width: number; height: number } }) => void) | null = null;
     vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce((_event, listener) => {
       capturedListener = listener as typeof capturedListener;
-      return { remove: vi.fn() } as any;
+      return makeDimensionsSubscription(vi.fn());
     });
 
     const { getCaptured } = renderOccasionHook({
@@ -985,7 +986,7 @@ describe("useOccasionCardWidth hook", () => {
 
   it("removes the Dimensions listener on unmount", () => {
     const removeSpy = vi.fn();
-    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce(() => ({ remove: removeSpy } as any));
+    vi.spyOn(Dimensions, "addEventListener").mockImplementationOnce(() => makeDimensionsSubscription(removeSpy));
 
     const { unmount } = renderOccasionHook({
       paddingH: OCCASION_GRID_PADDING_H,
