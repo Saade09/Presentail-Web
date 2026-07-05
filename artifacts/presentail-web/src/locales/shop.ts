@@ -506,6 +506,12 @@ export const shopStrings: Dict = {
     en: "Most of our brand partners offer same-day delivery in {city} when you order before midday. Delivery availability by brand and time slot is shown at checkout.",
     ar: "معظم شركائنا من العلامات يقدمون التوصيل في اليوم نفسه في {city} عند الطلب قبل الظهيرة. يتم عرض توفر التوصيل حسب العلامة والفترة الزمنية عند الدفع.",
   },
+
+  "landing.serviceDescription": {
+    en: "Premium flower & gift delivery to Lebanon, UAE, and Cyprus.",
+    ar: "توصيل الزهور والهدايا المميزة إلى لبنان والإمارات وقبرص.",
+  },
+  "landing.popularDestinations": { en: "Popular destinations", ar: "الوجهات الشائعة" },
 };
 
 export const shopStringsFr: Record<string, string> = {
@@ -786,4 +792,7 @@ export const shopStringsFr: Record<string, string> = {
   "seo.content.brands.faq.2.a": "Oui — vous pouvez ajouter des articles de différentes marques à un seul panier et passer commande en une seule transaction. Presentail coordonne la livraison pour que tout arrive ensemble.",
   "seo.content.brands.faq.3.q": "Toutes les marques proposent-elles la livraison le jour même à {city} ?",
   "seo.content.brands.faq.3.a": "La plupart de nos marques partenaires proposent la livraison le jour même à {city} pour toute commande passée avant midi. La disponibilité de livraison par marque et créneau horaire est indiquée lors du paiement.",
+
+  "landing.serviceDescription": "Livraison premium de fleurs et cadeaux au Liban, aux Émirats arabes unis et à Chypre.",
+  "landing.popularDestinations": "Destinations populaires",
 };

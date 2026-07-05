@@ -70,6 +70,8 @@ export const footerStrings: Dict = {
   },
   "footer.terms": { en: "Terms of Use", ar: "شروط الاستخدام" },
   "footer.privacy": { en: "Privacy Policy", ar: "سياسة الخصوصية" },
+  "footer.shippingPolicy": { en: "Shipping Policy", ar: "سياسة الشحن" },
+  "footer.returnPolicy": { en: "Return Policy", ar: "سياسة الإرجاع" },
 };
 
 export const footerStringsFr: Record<string, string> = {
@@ -107,4 +109,6 @@ export const footerStringsFr: Record<string, string> = {
   "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ème étage, Bureau 403-405 1076, Nicosie, Chypre",
   "footer.terms": "Conditions d'utilisation",
   "footer.privacy": "Politique de confidentialité",
+  "footer.shippingPolicy": "Politique de livraison",
+  "footer.returnPolicy": "Politique de retour",
 };

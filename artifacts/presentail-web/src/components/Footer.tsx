@@ -349,13 +349,21 @@ export function Footer() {
           </div>
 
           {/* Legal links — centered column */}
-          <div className="flex items-center justify-center gap-4 text-xs text-center">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-center">
             <InLink href="/terms" testId="footer-link-terms">
               {t("footer.terms")}
             </InLink>
             <span className="text-white/30" aria-hidden>|</span>
             <InLink href="/privacy" testId="footer-link-privacy">
               {t("footer.privacy")}
+            </InLink>
+            <span className="text-white/30" aria-hidden>|</span>
+            <InLink href="/shipping-policy" testId="footer-link-shipping-policy">
+              {t("footer.shippingPolicy")}
+            </InLink>
+            <span className="text-white/30" aria-hidden>|</span>
+            <InLink href="/return-policy" testId="footer-link-return-policy">
+              {t("footer.returnPolicy")}
             </InLink>
           </div>
 

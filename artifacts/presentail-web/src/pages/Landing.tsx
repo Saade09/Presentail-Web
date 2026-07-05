@@ -9,6 +9,12 @@ import {
 } from "@/contexts/LocationContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { CountryFlag } from "@/components/CountryFlag";
+import {
+  buildLocalePath,
+  cityIdToSlug,
+  countryCodeToSlug,
+  type CountrySlug,
+} from "@/lib/locale-route";
 
 const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = [
   { code: "LB", name: "Lebanon", flag: "🇱🇧" },
@@ -67,41 +73,57 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   }: {
     cities: DeliveryCity[];
     countryCode: string;
-  }) => (
-    <div className="flex flex-col">
-      {[...cities].sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0)).map((city, idx) => {
-        const inactive = city.isActive === false;
-        return (
-          <button
-            key={city.id}
-            type="button"
-            onClick={inactive ? undefined : () => handleCitySelect(countryCode, city.id)}
-            disabled={inactive}
-            className={`w-full flex items-center justify-between px-5 py-3.5 min-h-[48px] text-start transition-colors ${
-              idx > 0 ? "border-t border-stone-200/70" : ""
-            } ${inactive ? "cursor-not-allowed opacity-40" : "hover:bg-stone-100/60"}`}
-            data-testid={`button-city-${city.id}`}
-          >
-            {/* contrast-ok: disabled city option (cursor-not-allowed + opacity-40 on parent) – WCAG 1.4.3 inactive UI exception */}
-            <span className={`text-sm font-medium ${inactive ? "text-foreground/40" : "text-foreground"}`}>
-              {cityName(city.id, city.name)}
-              {inactive && (
-                // contrast-ok: disabled city label – WCAG 1.4.3 inactive UI exception
-                <span className="ml-1.5 text-xs font-normal text-foreground/35">
-                  {t("location.cityUnavailable")}
+  }) => {
+    const countrySlug = countryCodeToSlug(countryCode) as CountrySlug;
+    return (
+      <div className="flex flex-col">
+        {[...cities].sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0)).map((city, idx) => {
+          const inactive = city.isActive === false;
+          const citySlug = cityIdToSlug(city.id);
+          const href = buildLocalePath({ lang: "en", country: countrySlug, city: citySlug });
+          const rowClass = `w-full flex items-center justify-between px-5 py-3.5 min-h-[48px] text-start transition-colors ${
+            idx > 0 ? "border-t border-stone-200/70" : ""
+          }`;
+          if (inactive) {
+            return (
+              <button
+                key={city.id}
+                type="button"
+                disabled
+                className={`${rowClass} cursor-not-allowed opacity-40`}
+                data-testid={`button-city-${city.id}`}
+              >
+                {/* contrast-ok: disabled city option (cursor-not-allowed + opacity-40 on parent) – WCAG 1.4.3 inactive UI exception */}
+                <span className="text-sm font-medium text-foreground/40">
+                  {cityName(city.id, city.name)}
+                  {/* contrast-ok: disabled city label – WCAG 1.4.3 inactive UI exception */}
+                  <span className="ml-1.5 text-xs font-normal text-foreground/35">
+                    {t("location.cityUnavailable")}
+                  </span>
                 </span>
-              )}
-            </span>
-            {!inactive && (
+              </button>
+            );
+          }
+          return (
+            <a
+              key={city.id}
+              href={href}
+              onClick={(e) => { e.preventDefault(); handleCitySelect(countryCode, city.id); }}
+              className={`${rowClass} hover:bg-stone-100/60`}
+              data-testid={`button-city-${city.id}`}
+            >
+              <span className="text-sm font-medium text-foreground">
+                {cityName(city.id, city.name)}
+              </span>
               <ChevronRight
                 className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
               />
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
+            </a>
+          );
+        })}
+      </div>
+    );
+  };
 
   const skeletonRows = Array.from({ length: 3 }).map((_, i) => (
     <div key={i} className="h-14 my-0.5 rounded-lg bg-stone-200/50 animate-pulse" />
@@ -139,6 +161,9 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
             </h1>
             <p className="text-sm text-muted-foreground font-medium mt-1.5 text-center">
               {t("locationPicker.selectRecipientCountry")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 text-center">
+              {t("landing.serviceDescription")}
             </p>
           </div>
 
@@ -186,6 +211,41 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                   );
                 })}
           </div>
+
+          {/* Key destinations — always in the DOM for crawlers and AI agents.
+              Uses static /en-* hrefs so bots see real links even without JS. */}
+          <nav aria-label={t("landing.popularDestinations")} className="pb-2">
+            <p className="text-xs text-muted-foreground text-center mb-2 font-medium">
+              {t("landing.popularDestinations")}
+            </p>
+            <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1.5">
+              <li>
+                <a href="/en-lb/beirut" onClick={(e) => { e.preventDefault(); setLocation("LB", "lb-beirut"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
+                  {cityName("lb-beirut", "Beirut")}
+                </a>
+              </li>
+              <li>
+                <a href="/en-ae/dubai" onClick={(e) => { e.preventDefault(); setLocation("AE", "ae-dubai"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
+                  {cityName("ae-dubai", "Dubai")}
+                </a>
+              </li>
+              <li>
+                <a href="/en-ae/abu-dhabi" onClick={(e) => { e.preventDefault(); setLocation("AE", "ae-abu-dhabi"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
+                  {cityName("ae-abu-dhabi", "Abu Dhabi")}
+                </a>
+              </li>
+              <li>
+                <a href="/en-cy/nicosia" onClick={(e) => { e.preventDefault(); setLocation("CY", "cy-nicosia"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
+                  {cityName("cy-nicosia", "Nicosia")}
+                </a>
+              </li>
+              <li>
+                <a href="/en-cy/limassol" onClick={(e) => { e.preventDefault(); setLocation("CY", "cy-limassol"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
+                  {cityName("cy-limassol", "Limassol")}
+                </a>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
     </main>
