@@ -67,11 +67,14 @@ vi.mock("@/contexts/LocationContext", async (importOriginal) => {
       city: null,
       country: null,
       cityId: null,
-      isLoading: false,
+      countries: [],
+      isLoadingCountries: false,
       isPickerOpen: false,
+      pickerForceCountryStep: false,
       openPicker: vi.fn(),
       closePicker: vi.fn(),
       setLocation: vi.fn(),
+      clearLocation: vi.fn(),
     })),
   };
 });
@@ -615,11 +618,14 @@ describe("Cart — Cyprus express surcharge ($15, same as LB fallback)", () => {
       city: null,
       country: null,
       cityId: null,
-      isLoading: false,
+      countries: [],
+      isLoadingCountries: false,
       isPickerOpen: false,
+      pickerForceCountryStep: false,
       openPicker: vi.fn(),
       closePicker: vi.fn(),
       setLocation: vi.fn(),
+      clearLocation: vi.fn(),
     });
     mockUseDeliverySelection.mockReturnValue({
       mode: "express",
@@ -637,11 +643,14 @@ describe("Cart — Cyprus express surcharge ($15, same as LB fallback)", () => {
       city: null,
       country: null,
       cityId: null,
-      isLoading: false,
+      countries: [],
+      isLoadingCountries: false,
       isPickerOpen: false,
+      pickerForceCountryStep: false,
       openPicker: vi.fn(),
       closePicker: vi.fn(),
       setLocation: vi.fn(),
+      clearLocation: vi.fn(),
     });
   });
 
