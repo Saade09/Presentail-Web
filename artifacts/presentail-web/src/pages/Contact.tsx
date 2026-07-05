@@ -369,6 +369,7 @@ export default function Contact() {
         cityLabel={cityDisplay}
         lang={language}
         countryCode={countryCode ?? ""}
+        suppressFaqJsonLd
       />
     </div>
   );

@@ -122,6 +122,7 @@ export default function Brands() {
           cityLabel={cityLabel}
           lang={language}
           countryCode={countryCode ?? ""}
+          suppressFaqJsonLd
         />
       )}
     </div>

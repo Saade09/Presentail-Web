@@ -211,6 +211,7 @@ export default function Corporate() {
         cityLabel={cityDisplay}
         lang={language}
         countryCode={countryCode ?? ""}
+        suppressFaqJsonLd
       />
     </div>
   );

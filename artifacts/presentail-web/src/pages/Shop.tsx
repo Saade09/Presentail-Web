@@ -790,6 +790,7 @@ export default function Shop() {
               countryCode={countryCode ?? ""}
               availableCategoryIds={availableCategoryIds}
               availableOccasionIds={availableOccasionIds}
+              suppressFaqJsonLd
             />
           );
         }
@@ -800,6 +801,7 @@ export default function Shop() {
               cityLabel={cityLabel}
               lang={language}
               countryCode={countryCode ?? ""}
+              suppressFaqJsonLd
             />
           );
         }

@@ -91,6 +91,7 @@ export default function Home() {
         cityLabel={cityLabel}
         lang={language}
         countryCode={countryCode ?? ""}
+        suppressFaqJsonLd
       />
     </div>
   );

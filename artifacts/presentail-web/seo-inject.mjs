@@ -100,6 +100,12 @@ import {
   OCCASION_FAQ_COPY,
   OCCASION_HEADING_COPY,
   OCCASION_INTRO_COPY,
+  HOMEPAGE_FAQ_COPY,
+  SHOP_FAQ_COPY,
+  CORPORATE_FAQ_COPY,
+  WEDDINGS_FAQ_COPY,
+  OCCASIONS_FAQ_COPY,
+  CONTACT_FAQ_COPY,
 } from "./src/lib/seo-shop-faqs.mjs";
 
 
@@ -501,25 +507,50 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     );
   }
 
+  // Helper: build a FAQPage mainEntity array from a copy map (en/ar/fr),
+  // substituting {city} and optionally {name} template placeholders.
+  const buildFaqMainEntity = (copyMap, params) => {
+    const pickLang = (/** @type {string} */ l) =>
+      (l === "ar" || l === "fr") ? l : "en";
+    const items = copyMap[pickLang(lang)] ?? copyMap.en;
+    return (items ?? []).map(({ q, a }) => ({
+      "@type": "Question",
+      name: formatTemplate(q, params),
+      acceptedAnswer: { "@type": "Answer", text: formatTemplate(a, params) },
+    }));
+  };
+
+  // FAQPage JSON-LD for generic public routes whose FAQ section is rendered by
+  // SEOContentSection. Emitting this in the initial HTML means AI crawlers and
+  // bots that don't execute JS (GPTBot, ClaudeBot, PerplexityBot, social
+  // preview fetchers) see the same Q&A signals that the rendered page shows.
+  const genericFaqRoutes = {
+    home:      HOMEPAGE_FAQ_COPY,
+    shop:      SHOP_FAQ_COPY,
+    corporate: CORPORATE_FAQ_COPY,
+    weddings:  WEDDINGS_FAQ_COPY,
+    occasions: OCCASIONS_FAQ_COPY,
+    contact:   CONTACT_FAQ_COPY,
+  };
+  if (emitJsonLd && genericFaqRoutes[routeKey]) {
+    const params = { city: cityLabel || "" };
+    const mainEntity = buildFaqMainEntity(genericFaqRoutes[routeKey], params);
+    if (mainEntity.length > 0) {
+      jsonLdNodes.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity,
+      });
+    }
+  }
+
   // FAQPage JSON-LD: emit structured Q&A markup for the /brands listing page so
   // search engines can show expandable FAQ rich results. Mirrors the pattern used
   // for individual brand/category/occasion pages. Uses {city} substitution only
   // (no {name} — the brands listing is not scoped to a single entity).
   if (emitJsonLd && routeKey === "brands") {
-    const pickLangFaq = (/** @type {string} */ l) => {
-      if (l === "ar" || l === "fr") return l;
-      return "en";
-    };
-    const faqItems = BRANDS_FAQ_COPY[pickLangFaq(lang)] ?? BRANDS_FAQ_COPY.en;
     const params = { city: cityLabel || "" };
-    const mainEntity = faqItems.map(({ q, a }) => ({
-      "@type": "Question",
-      name: formatTemplate(q, params),
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: formatTemplate(a, params),
-      },
-    }));
+    const mainEntity = buildFaqMainEntity(BRANDS_FAQ_COPY, params);
     if (mainEntity.length > 0) {
       jsonLdNodes.push({
         "@context": "https://schema.org",
@@ -1391,6 +1422,35 @@ function fetchBrandForSeo(opts) {
   });
 }
 
+/**
+ * Fetch the deliverable product count for a brand page. Used to gate FAQ
+ * structured data — the UI only shows the FAQ section when hasProducts is true,
+ * so the server must apply the same check. Best-effort: returns null on any
+ * failure so the page still renders without a count (FAQ will be suppressed
+ * rather than risk emitting it for an empty page).
+ */
+async function fetchBrandProductCountForSeo({ slug, countryCode, cityId, apiBaseUrl }) {
+  if (!slug || !apiBaseUrl) return null;
+  const params = new URLSearchParams({ slug });
+  if (countryCode) params.set("countryCode", countryCode);
+  if (cityId) params.set("cityId", cityId);
+  const url = `${apiBaseUrl.replace(/\/$/, "")}/api/woo/brand-products?${params.toString()}`;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const body = await res.json();
+    if (!body || body.ok !== true) return null;
+    const count = typeof body.count === "number" ? body.count : null;
+    return count !== null ? { count } : null;
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
 function fetchCategoryForSeo(opts) {
   return fetchEntityForSeo({
     endpoint: "/api/woo/category",
@@ -2191,7 +2251,7 @@ function buildBrandsFilterHead({
   };
 }
 
-export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel }) {
+export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, productCount }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
@@ -2213,8 +2273,9 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
   // expandable FAQ rich results for brand detail pages. Mirrors the pattern
   // used for category and occasion pages. Only emitted when the brand has a
-  // name to substitute into the {name} template placeholders.
-  if (rawName) {
+  // name AND has deliverable products — the UI suppresses the FAQ section on
+  // empty brand pages so the schema must match what the visitor actually sees.
+  if (rawName && productCount > 0) {
     const pickLangFaq = (/** @type {string} */ l) => {
       if (l === "ar" || l === "fr") return l;
       return "en";
@@ -2419,9 +2480,10 @@ function buildShopEntityHead({
   // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
   // expandable FAQ rich results for category and occasion listing pages.
   // Emitted as a standalone <script> (not in the @graph above) so validators
-  // see a clean FAQPage root. Only emitted when the entity has a name to
-  // substitute into the {name} template placeholders.
-  if (rawName) {
+  // see a clean FAQPage root. Only emitted when the entity has a name AND the
+  // page has deliverable products — a listing with no products never renders
+  // the FAQ section in the UI, so the schema would not match visible content.
+  if (rawName && productCount > 0) {
     const faqCopyMap =
       entityKind === "occasion" ? OCCASION_FAQ_COPY : CATEGORY_FAQ_COPY;
     const pickLangFaq = (/** @type {string} */ l) => {
@@ -2903,8 +2965,16 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     });
     if (brand) {
       const brandImageUrl = typeof brand.image === "string" && brand.image ? brand.image : null;
-      const brandImageDims = await fetchImageDimensions(brandImageUrl);
-      result = buildBrandHead({ brand, imageDimensions: brandImageDims, ...headOpts });
+      const [brandImageDims, brandListing] = await Promise.all([
+        fetchImageDimensions(brandImageUrl),
+        fetchBrandProductCountForSeo({ slug: brandSlug, ...fetchOpts }),
+      ]);
+      result = buildBrandHead({
+        brand,
+        imageDimensions: brandImageDims,
+        productCount: brandListing?.count,
+        ...headOpts,
+      });
     }
   } else if (categorySlug) {
     const category = await fetchEntityForSeoCached(

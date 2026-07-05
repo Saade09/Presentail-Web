@@ -140,6 +140,7 @@ interface SEOContentSectionProps {
   availableCategoryIds?: string[];
   availableOccasionIds?: string[];
   brandCategory?: BrandCategory;
+  suppressFaqJsonLd?: boolean;
 }
 
 function format(template: string, params?: Record<string, string>): string {
@@ -162,6 +163,7 @@ function SEOContentSectionInner({
   availableCategoryIds = [],
   availableOccasionIds = [],
   brandCategory = "general",
+  suppressFaqJsonLd = false,
 }: SEOContentSectionProps) {
   const { t, language, dir } = useLocale();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -374,6 +376,13 @@ function SEOContentSectionInner({
       }));
 
   useEffect(() => {
+    // When the server-side injector (seo-inject.mjs) has already emitted a
+    // FAQPage JSON-LD block for this route, skip client-side injection to
+    // avoid two competing FAQPage blocks in the DOM. The server block is the
+    // authoritative source of truth; the client block is only needed as a
+    // fallback on routes the injector does not cover.
+    if (suppressFaqJsonLd) return;
+
     const existing = document.head.querySelector(`[${SEO_LD_ATTR}]`);
     if (existing) existing.parentElement?.removeChild(existing);
 
@@ -399,7 +408,7 @@ function SEOContentSectionInner({
       const el = document.head.querySelector(`[${SEO_LD_ATTR}]`);
       if (el) el.parentElement?.removeChild(el);
     };
-  }, [faqs.map((f) => f.question + f.answer).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [suppressFaqJsonLd, faqs.map((f) => f.question + f.answer).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const linksLabelKey = (() => {
     switch (pageType) {

@@ -4512,11 +4512,12 @@ describe("JSON-LD — FAQPage on category and occasion listing pages", () => {
   it("emits a FAQPage with 3 EN Question/Answer pairs substituted with name and city on an occasion page", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
+      // occasion-products must be checked BEFORE occasion to avoid false match
+      if (u.includes("/api/woo/occasion-products")) {
+        return { ok: true, json: async () => ({ ok: true, total: 2, groups: [{ count: 2, products: [{ name: "Birthday Bouquet", id: "birthday-bouquet" }] }] }) };
+      }
       if (u.includes("/api/woo/occasion")) {
         return { ok: true, json: async () => ({ ok: true, occasion: { name: "Birthday", description: "Birthday gifts." } }) };
-      }
-      if (u.includes("/api/woo/products")) {
-        return { ok: true, json: async () => ({ ok: true, products: [] }) };
       }
       return { ok: true, json: async () => ({ ok: true }) };
     });
@@ -4592,11 +4593,12 @@ describe("JSON-LD — FAQPage on category and occasion listing pages", () => {
   it("emits FAQPage for the legacy /shop?occasion=<slug> query-param route", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
+      // occasion-products must be checked BEFORE occasion to avoid false match
+      if (u.includes("/api/woo/occasion-products")) {
+        return { ok: true, json: async () => ({ ok: true, total: 3, groups: [{ count: 3, products: [{ name: "Anniversary Bouquet", id: "anniversary-bouquet" }] }] }) };
+      }
       if (u.includes("/api/woo/occasion")) {
         return { ok: true, json: async () => ({ ok: true, occasion: { name: "Anniversary", description: "Anniversary gifts." } }) };
-      }
-      if (u.includes("/api/woo/products")) {
-        return { ok: true, json: async () => ({ ok: true, products: [] }) };
       }
       return { ok: true, json: async () => ({ ok: true }) };
     });

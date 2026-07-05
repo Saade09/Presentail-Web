@@ -261,6 +261,7 @@ export default function BrandDetail() {
           countryCode={countryCode ?? ""}
           brandCategory={brandCategory}
           availableOccasionIds={availableOccasionIds}
+          suppressFaqJsonLd
         />
       )}
     </div>

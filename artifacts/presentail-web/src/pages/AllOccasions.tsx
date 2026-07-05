@@ -225,6 +225,7 @@ export default function AllOccasions() {
         cityLabel={cityLabel}
         lang={language}
         countryCode={countryCode ?? ""}
+        suppressFaqJsonLd
       />
     </div>
   );

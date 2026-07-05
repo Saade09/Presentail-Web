@@ -249,6 +249,7 @@ export default function Weddings() {
         cityLabel={cityDisplay}
         lang={language}
         countryCode={countryCode ?? ""}
+        suppressFaqJsonLd
       />
     </div>
   );
