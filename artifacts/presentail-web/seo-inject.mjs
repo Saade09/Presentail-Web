@@ -86,7 +86,21 @@ import {
   formatTemplate,
 } from "./src/lib/seo.mjs";
 
-import { BRAND_FAQ_COPY, BRANDS_FAQ_COPY, CATEGORY_FAQ_COPY, OCCASION_FAQ_COPY } from "./src/lib/seo-shop-faqs.mjs";
+import {
+  BRAND_FAQ_COPY,
+  BRAND_HEADING_COPY,
+  BRAND_INTRO_FLOWERS_COPY,
+  BRAND_INTRO_FOOD_COPY,
+  BRAND_INTRO_GENERAL_COPY,
+  BRANDS_FAQ_COPY,
+  CATEGORY_FAQ_COPY,
+  CATEGORY_HEADING_COPY,
+  CATEGORY_INTRO_FLOWER_COPY,
+  CATEGORY_INTRO_NONFLOWER_COPY,
+  OCCASION_FAQ_COPY,
+  OCCASION_HEADING_COPY,
+  OCCASION_INTRO_COPY,
+} from "./src/lib/seo-shop-faqs.mjs";
 
 
 // Localised SEO strings for shared wishlist pages.
@@ -627,6 +641,15 @@ function assembleHtml(html, { lang, dir, headSnippet, titleTag, bodyHtml = null 
 // server-side.  The content is picked up by AI crawlers and other no-JS bots;
 // React replaces it on mount for regular users.
 // ---------------------------------------------------------------------------
+
+// Mirrors FLOWER_CATEGORY_SLUGS in src/components/SEOContentSection.tsx.
+// Must be kept in sync — both lists drive the introFlower vs introNonFlower
+// selection so the server-rendered body and the React-rendered copy agree.
+const FLOWER_CATEGORY_SLUGS_SERVER = new Set([
+  "hand-bouquets",
+  "flower-boxes",
+  "flower-baskets",
+]);
 
 // Static descriptive copy for each generic route type (English only — the SEO
 // meta description is already localised; the body copy supplements it for
@@ -2156,7 +2179,37 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       );
     }
   }
-  const bodyHtml = buildSimpleEntityBodyHtml(brand, { title, description, localeBase: locBase });
+  // Body HTML: include the localised heading + intro (general variant, since
+  // brand category type is not available at server render time) so AI crawlers
+  // see the real SEO section content without executing JS.
+  const pickBodyLangBrand = (/** @type {string} */ l) =>
+    (l === "ar" || l === "fr") ? l : "en";
+  const brandBodyLang = pickBodyLangBrand(lang);
+  const brandParams = { name: rawName, city: cityLabel || "" };
+  const brandHeadingTpl = BRAND_HEADING_COPY[brandBodyLang];
+  const brandIntroTpl = BRAND_INTRO_GENERAL_COPY[brandBodyLang];
+  const brandSeoHeading = brandHeadingTpl
+    ? formatTemplate(brandHeadingTpl, brandParams)
+    : "";
+  const brandSeoIntro = brandIntroTpl
+    ? formatTemplate(brandIntroTpl, brandParams)
+    : "";
+  const safeBrandTitle = escapeHtml(rawName || title);
+  const safeBrandDesc = escapeHtml(description);
+  const safeBrandHeading = escapeHtml(brandSeoHeading);
+  const safeBrandIntro = escapeHtml(brandSeoIntro);
+  const brandNav = locBase
+    ? `<nav><a href="${locBase}/">Home</a> › <a href="${locBase}/brands">Brands</a></nav>` // i18n-ignore — breadcrumb labels
+    : "";
+  const bodyHtml = (
+    `<div style="display:none">` +
+    `<h1>${safeBrandTitle}</h1>` +
+    (safeBrandDesc ? `<p>${safeBrandDesc}</p>` : "") +
+    (safeBrandHeading ? `<h2>${safeBrandHeading}</h2>` : "") +
+    (safeBrandIntro ? `<p>${safeBrandIntro}</p>` : "") +
+    brandNav +
+    `</div>`
+  );
   return {
     ...buildEntityHead({
       ogType: "website",
@@ -2335,7 +2388,45 @@ function buildShopEntityHead({
       );
     }
   }
-  const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
+  // Body HTML: include the localised heading + intro template text so AI
+  // crawlers (GPTBot, ClaudeBot, etc.) see the real SEO section content
+  // without executing JS. The strings mirror SEOContentSection.tsx.
+  const pickBodyLang = (/** @type {string} */ l) =>
+    (l === "ar" || l === "fr") ? l : "en";
+  const bodyLang = pickBodyLang(lang);
+  const headingTpl =
+    entityKind === "occasion"
+      ? OCCASION_HEADING_COPY[bodyLang]
+      : CATEGORY_HEADING_COPY[bodyLang];
+  const catSlug = entityKind === "category"
+    ? extractCategorySlugFromSearch(search)
+    : null;
+  const introTpl =
+    entityKind === "occasion"
+      ? OCCASION_INTRO_COPY[bodyLang]
+      : FLOWER_CATEGORY_SLUGS_SERVER.has(catSlug ?? "")
+        ? CATEGORY_INTRO_FLOWER_COPY[bodyLang]
+        : CATEGORY_INTRO_NONFLOWER_COPY[bodyLang];
+  const entityParams = { name: rawName, city: cityLabel || "" };
+  const seoHeading = headingTpl ? formatTemplate(headingTpl, entityParams) : "";
+  const seoIntro = introTpl ? formatTemplate(introTpl, entityParams) : "";
+  const rawEntityDesc = entity.description ? stripHtml(entity.description) : "";
+  const safeEntityTitle = escapeHtml(rawName || title);
+  const safeEntityDesc = escapeHtml(clampDescription(rawEntityDesc) || description);
+  const safeSeoHeading = escapeHtml(seoHeading);
+  const safeSeoIntro = escapeHtml(seoIntro);
+  const entityNav = locBase
+    ? `<nav><a href="${locBase}/">Home</a> › <a href="${locBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
+    : "";
+  const bodyHtml = (
+    `<div style="display:none">` +
+    `<h1>${safeEntityTitle}</h1>` +
+    (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
+    (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
+    (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +
+    entityNav +
+    `</div>`
+  );
   // When a pre-generated branded OG image URL is provided use fixed 1200×630
   // dimensions (no need to probe the URL with a Range request).
   const effectiveImageWidth = ogImageUrl ? 1200 : imageDimensions?.width;
