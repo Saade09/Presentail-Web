@@ -1260,6 +1260,39 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Non-locale path guard: return a real 404 for bare paths that are not
+    // recognised entry points. Only "/" (the root landing page) and
+    // "/favorites/share/:token" (shared wishlist links) are valid non-locale
+    // SPA entry points. Every other bare path (e.g. "/does-not-exist") is not
+    // a real app route — it would receive the homepage shell with HTTP 200,
+    // which search engines treat as a soft 404 and waste crawl budget on.
+    //
+    // Paths already handled above and therefore never reaching this point:
+    //   • /sitemap.xml, /llms.txt, /llms-full.txt  (explicit route handlers)
+    //   • /product/:slug  (301 redirect)
+    //   • /:lang-:country/:city/...  (locale-aware SPA fallback + 404 guard)
+    //   • Static files in dist/public  (file-exists check above)
+    //   • /.well-known/*, apple-developer-domain-association  (earlier handlers)
+    if (
+      pathname !== "/" &&
+      !pathname.match(/^\/favorites\/share\/[A-Za-z0-9_-]{8,}\/?$/) &&
+      !pathname.match(/^\/[a-z]{2}-[a-z]{2}\//)
+    ) {
+      res.writeHead(404, {
+        "content-type": "text/html; charset=utf-8",
+        "x-robots-tag": "noindex",
+        "cache-control": "no-cache",
+        "expires": "0",
+      });
+      res.end(
+        // i18n-ignore — server-side HTTP 404 response; not a UI string
+        `<!doctype html><html lang="en"><head><title>404 Not Found – Presentail</title></head>` + // i18n-ignore
+        `<body><h1>Page Not Found</h1><p>The requested page does not exist.</p>` + // i18n-ignore
+        `<p><a href="/">Return to homepage</a></p></body></html>`, // i18n-ignore
+      );
+      return;
+    }
+
     // SPA fallback: rewrite to index.html with locale-aware SEO.
     const seoOut = await injectSeoTagsAsync(indexHtml, pathname, {
       basePath: BASE_PATH,

@@ -738,6 +738,59 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
   return `<div style="display:none"><h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
 }
 
+/**
+ * Build the prerendered body fragment for a blog article page.
+ * Includes the headline, publish date, and all article sections so
+ * non-rendering crawlers (GPTBot, ClaudeBot, PerplexityBot, etc.) can
+ * read the full article copy without executing JavaScript.
+ */
+function buildBlogPostBodyHtml(article, { localeBase }) {
+  const safeTitle = escapeHtml(article.title ?? "");
+  const sections = Array.isArray(article.sections) ? article.sections : [];
+  let inner = `<h1>${safeTitle}</h1>`;
+  if (article.datePublished) {
+    inner += `<time datetime="${escapeAttr(article.datePublished)}">${escapeHtml(article.datePublished)}</time>`;
+  }
+  for (const sec of sections) {
+    if (sec.heading) inner += `<h2>${escapeHtml(sec.heading)}</h2>`;
+    if (sec.body) inner += `<p>${escapeHtml(sec.body)}</p>`;
+  }
+  const nav = localeBase
+    ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/blog">Journal</a></nav>` // i18n-ignore — breadcrumb labels
+    : "";
+  return `<div style="display:none">${inner}${nav}</div>`;
+}
+
+/**
+ * Build the prerendered body fragment for a shared wishlist page.
+ * Lists the item count and product links so non-rendering crawlers can
+ * read the wishlist content without executing JavaScript.
+ *
+ * @param {object} opts
+ * @param {number}   opts.count    - Number of wishlist items.
+ * @param {Array}    opts.items    - Array of { productSlug, countryCode? }.
+ * @param {string}   opts.title    - Localised page title.
+ * @param {string}   opts.origin   - Site origin, e.g. "https://presentail.com".
+ * @param {string}   opts.basePath - Artifact base prefix.
+ */
+function buildWishlistBodyHtml({ count, items, title, origin, basePath }) {
+  const cleanBase = (basePath ?? "").replace(/\/$/, "");
+  const safeTitle = escapeHtml(title ?? "");
+  let inner = `<h1>${safeTitle}</h1>`;
+  if (count > 0) {
+    inner += `<ul>`;
+    for (const item of items ?? []) {
+      if (!item?.productSlug) continue;
+      const country = (item.countryCode ?? "LB").toLowerCase();
+      const city = country === "lb" ? "beirut" : country === "ae" ? "dubai" : "nicosia";
+      const href = `${origin}${cleanBase}/en-${country}/${city}/product/${encodeURIComponent(item.productSlug)}`;
+      inner += `<li><a href="${escapeAttr(href)}">${escapeHtml(item.productSlug)}</a></li>`;
+    }
+    inner += `</ul>`;
+  }
+  return `<div style="display:none">${inner}</div>`;
+}
+
 // ---------------------------------------------------------------------------
 // Per-product / brand / category Open Graph / Twitter Card injection
 //
@@ -2051,21 +2104,28 @@ export function buildBlogPostHead({ article, lang, basePath, origin, pathname })
     ),
   );
 
-  return buildEntityHead({
-    ogType: "article",
-    title,
-    description,
-    imageUrl,
-    imageAlt: rawTitle || "Presentail",
-    imageWidth,
-    imageHeight,
-    basePath,
-    origin,
-    pathname,
-    search: "",
-    lang,
-    extraLines,
-  });
+  // Prerendered body fragment — includes the h1, publish date, and all
+  // article sections so non-rendering crawlers can read the full copy.
+  const bodyHtml = buildBlogPostBodyHtml(article, { localeBase: locBase || null });
+
+  return {
+    ...buildEntityHead({
+      ogType: "article",
+      title,
+      description,
+      imageUrl,
+      imageAlt: rawTitle || "Presentail",
+      imageWidth,
+      imageHeight,
+      basePath,
+      origin,
+      pathname,
+      search: "",
+      lang,
+      extraLines,
+    }),
+    bodyHtml,
+  };
 }
 
 const BRANDS_FILTER_TITLES = {
@@ -2563,7 +2623,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
                 null;
             }
           }
-          wishlistResult = { count, imageUrl };
+          // Store minimal item data (slug + country) for bodyHtml link
+          // generation, capped at 20 so the cached entry stays small.
+          const cachedItems = favorites.slice(0, 20).map((f) => ({
+            productSlug: f.productSlug ?? null,
+            countryCode: f.countryCode ?? null,
+          }));
+          wishlistResult = { count, imageUrl, items: cachedItems };
           // Evict image-dims only when the hero product was freshly fetched
           // (200 response). When the product came back 304 (unchanged), its
           // image URL has not changed so the cached dimensions remain accurate
@@ -2584,11 +2650,19 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           pathname,
           lang: wishlistLang,
         });
+        const wishlistBodyHtml = buildWishlistBodyHtml({
+          count: wishlistResult.count,
+          items: wishlistResult.items ?? [],
+          title: result.title,
+          origin: rest.origin ?? "",
+          basePath: rest.basePath ?? "",
+        });
         return assembleHtml(html, {
           lang: wishlistLang,
           dir: wishlistLang === "ar" ? "rtl" : "ltr",
           headSnippet: result.headSnippet,
           titleTag: `<title>${escapeHtml(result.title)}</title>`,
+          bodyHtml: wishlistBodyHtml,
         });
       }
     }
@@ -2690,6 +2764,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             dir: bareBlogLang === "ar" ? "rtl" : "ltr",
             headSnippet: result.headSnippet,
             titleTag: `<title>${escapeHtml(result.title)}</title>`,
+            bodyHtml: result.bodyHtml ?? null,
           });
         }
       }
@@ -2734,6 +2809,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         dir: generic.dir,
         headSnippet: result.headSnippet,
         titleTag: `<title>${escapeHtml(result.title)}</title>`,
+        bodyHtml: result.bodyHtml ?? null,
       });
     }
   }

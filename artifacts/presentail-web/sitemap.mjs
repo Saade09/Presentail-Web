@@ -6,6 +6,8 @@
 // async wrapper that fetches the catalog (products, brands, occasions,
 // categories) and delegates to the pure builder.
 
+import { BLOG_POSTS } from "@workspace/blog-content";
+
 // All cities per country — must mirror CITY_SLUGS_BY_COUNTRY in seo-inject.mjs.
 export const SITEMAP_CITIES = {
   lb: [
@@ -62,6 +64,7 @@ export function buildSitemapXml({
   brands = [],
   occasions = [],
   categories = [],
+  blogPosts: blogPostsArg = null,
   lastmod = new Date().toISOString().slice(0, 10),
 } = {}) {
   const cleanBase = (basePath ?? "/").replace(/\/$/, "");
@@ -150,6 +153,20 @@ export function buildSitemapXml({
     const encoded = encodeURIComponent(category.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
+    }
+  }
+
+  // 6. Blog article pages — one canonical-city URL per country × all
+  // languages. Uses the module-level BLOG_POSTS source unless a caller
+  // overrides it via blogPostsArg (useful in unit tests with mock data).
+  // Blog *article* pages carry Article structured data and are meant to be
+  // indexed; only the blog index (a Group-B noindex page) is excluded.
+  const blogPostsSource = blogPostsArg ?? BLOG_POSTS ?? {};
+  for (const slug of Object.keys(blogPostsSource)) {
+    if (!slug) continue;
+    const encoded = encodeURIComponent(slug);
+    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      urls.push(urlEntryWithAlternates("0.6", "monthly", country, city, `/blog/${encoded}`));
     }
   }
 
