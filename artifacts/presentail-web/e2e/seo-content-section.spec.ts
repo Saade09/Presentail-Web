@@ -54,6 +54,10 @@
  *  35. Shop page (/shop) FR locale → FAQ count >= 3 guard.
  *  36. Shop page (/shop) EN→AR language-switch (picker mid-session) → heading uses AR template ("تسوّق").
  *  37. Shop page (/shop) EN→FR language-switch (picker mid-session) → heading uses FR template ("Boutique").
+ *  38. Category page (/category/hand-bouquets) AR locale → FAQ count >= 3 guard (catches silently empty AR copy).
+ *  39. Category page (/category/hand-bouquets) FR locale → FAQ count >= 3 guard (catches silently empty FR copy).
+ *  40. Occasion page (/occasion/birthday) AR locale → FAQ count >= 3 guard (catches silently empty AR copy).
+ *  41. Occasion page (/occasion/birthday) FR locale → FAQ count >= 3 guard (catches silently empty FR copy).
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -217,6 +221,30 @@ test.describe("SEO content section — category page with products", () => {
     const count = await faqButtons.count();
     expect(count).toBeGreaterThanOrEqual(3);
   });
+
+  test("hand-bouquets FAQ has at least 3 items in Arabic (guards against silently empty AR copy)", async ({
+    page,
+  }) => {
+    await page.goto("/ar-lb/beirut/category/hand-bouquets");
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+
+  test("hand-bouquets FAQ has at least 3 items in French (guards against silently empty FR copy)", async ({
+    page,
+  }) => {
+    await page.goto("/fr-lb/beirut/category/hand-bouquets");
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -295,6 +323,30 @@ test.describe("SEO content section — occasion page with products", () => {
   test("birthday FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
     page,
   }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+
+  test("birthday FAQ has at least 3 items in Arabic (guards against silently empty AR copy)", async ({
+    page,
+  }) => {
+    await page.goto("/ar-lb/beirut/occasion/birthday");
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+
+  test("birthday FAQ has at least 3 items in French (guards against silently empty FR copy)", async ({
+    page,
+  }) => {
+    await page.goto("/fr-lb/beirut/occasion/birthday");
     const section = page.getByTestId("seo-content-section");
     await expect(section).toBeVisible({ timeout: 15_000 });
     const faqButtons = section.locator("button[aria-expanded]");
