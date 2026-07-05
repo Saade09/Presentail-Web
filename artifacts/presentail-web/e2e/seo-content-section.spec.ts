@@ -42,6 +42,10 @@
  *  25. Brands listing page (/brands) with brands → FAQ count >= 3 guard.
  *  26. All-occasions listing page (/occasions) with occasions → FAQ count >= 3 guard.
  *  27. Shop page (/shop) with products → FAQ count >= 3 guard.
+ *  28. Arabic category page direct navigation (/ar-lb/beirut/category/hand-bouquets) → section visible,
+ *      H2 non-empty, FAQ button present, dir="rtl" on section container.
+ *  29. French occasion page direct navigation (/fr-lb/beirut/occasion/birthday) → section visible,
+ *      H2 non-empty, FAQ button present.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -2057,30 +2061,7 @@ test.describe("SEO content section — occasion page FR language-switch regressi
 });
 
 // ---------------------------------------------------------------------------
-// 26. All-occasions listing page (/occasions) — FAQ count >= 3 guard
-// ---------------------------------------------------------------------------
-
-test.describe("SEO content section — all-occasions listing page with occasions", () => {
-  test.beforeEach(async ({ page }) => {
-    await stubCatalogMetadata(page);
-    await seedLocation(page);
-    await page.goto("/en-lb/beirut/occasions");
-  });
-
-  test("occasions listing FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
-    page,
-  }) => {
-    const section = page.getByTestId("seo-content-section");
-    await expect(section).toBeVisible({ timeout: 15_000 });
-    const faqButtons = section.locator("button[aria-expanded]");
-    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
-    const count = await faqButtons.count();
-    expect(count).toBeGreaterThanOrEqual(3);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 24. Brands listing page (/brands) — SEO heading updates when language is
+// 22. Brands listing page (/brands) — SEO heading updates when language is
 //     switched EN→FR mid-session (no hard page reload — Wouter client-side)
 // ---------------------------------------------------------------------------
 
@@ -2170,5 +2151,131 @@ test.describe("SEO content section — brands listing page FR language-switch re
     expect(updatedText).not.toContain("Gift Brands Available");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 26. All-occasions listing page (/occasions) — FAQ count >= 3 guard
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — all-occasions listing page with occasions", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubCatalogMetadata(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/occasions");
+  });
+
+  test("occasions listing FAQ has at least 3 items (guards against accidentally emptied copy)", async ({
+    page,
+  }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    await expect(faqButtons.first()).toBeVisible({ timeout: 10_000 });
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 28. Arabic category page — direct navigation to /ar-lb/beirut/category/hand-bouquets
+//     Confirms the SEO section renders correctly when landing on the AR locale
+//     URL directly (not via mid-session language switching).
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — Arabic category page (direct navigation)", () => {
+  /**
+   * These tests navigate directly to the /ar-lb/ locale URL, bypassing the
+   * LanguageSwitcher UI. This exercises the path a user takes when opening a
+   * shared AR link or when the browser's stored language is Arabic.
+   *
+   * Checked requirements:
+   *   - [data-testid="seo-content-section"] is visible
+   *   - The H2 heading is non-empty (AR translation was applied, not blank)
+   *   - At least one FAQ accordion button is present
+   *   - The section container carries dir="rtl" (RTL layout is active)
+   */
+  test.beforeEach(async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/ar-lb/beirut/category/hand-bouquets");
+  });
+
+  test("section is visible on the Arabic category page", async ({ page }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("H2 heading is non-empty in Arabic locale", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+    const text = (await heading.textContent()) ?? "";
+    expect(text.trim().length).toBeGreaterThan(0);
+  });
+
+  test("at least one FAQ button is present on the Arabic category page", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test("section container has dir=rtl on the Arabic page", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    await expect(section).toHaveAttribute("dir", "rtl");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 29. French occasion page — direct navigation to /fr-lb/beirut/occasion/birthday
+//     Confirms the SEO section renders correctly when landing on the FR locale
+//     URL directly (not via mid-session language switching).
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — French occasion page (direct navigation)", () => {
+  /**
+   * These tests navigate directly to the /fr-lb/ locale URL, bypassing the
+   * LanguageSwitcher UI. This exercises the path a user takes when opening a
+   * shared FR link or when the browser's stored language is French.
+   *
+   * Checked requirements:
+   *   - [data-testid="seo-content-section"] is visible
+   *   - The H2 heading is non-empty (FR translation was applied, not blank)
+   *   - At least one FAQ accordion button is present
+   */
+  test.beforeEach(async ({ page }) => {
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/fr-lb/beirut/occasion/birthday");
+  });
+
+  test("section is visible on the French occasion page", async ({ page }) => {
+    await expect(
+      page.getByTestId("seo-content-section"),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("H2 heading is non-empty in French locale", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const heading = section.locator("h2").first();
+    await expect(heading).toBeVisible();
+    const text = (await heading.textContent()) ?? "";
+    expect(text.trim().length).toBeGreaterThan(0);
+  });
+
+  test("at least one FAQ button is present on the French occasion page", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    const faqButtons = section.locator("button[aria-expanded]");
+    const count = await faqButtons.count();
+    expect(count).toBeGreaterThan(0);
   });
 });
