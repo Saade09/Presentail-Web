@@ -58,12 +58,18 @@ function setMeta(
   attrs: Record<string, string>,
   parent: HTMLElement,
 ) {
+  // Prefer an already-managed element (post-cleanup on re-renders). If none
+  // exists, claim an existing server-injected element so we don't append a
+  // duplicate alongside the server-rendered tag on the initial page load.
   let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
   if (!el) {
+    el = parent.querySelector<HTMLElement>(selector);
+  }
+  if (!el) {
     el = document.createElement(selector.split("[")[0]);
-    el.setAttribute(SEO_ATTR, "true");
     parent.appendChild(el);
   }
+  el.setAttribute(SEO_ATTR, "true");
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
 }
 
@@ -227,14 +233,28 @@ export function SeoHead() {
     const basePrefix = (
       (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/"
     ).replace(/\/$/, "");
-    const search = typeof window !== "undefined" ? window.location.search : "";
 
     // For the root landing page the server injects canonical using CANONICAL_ORIGIN
     // (which may differ from window.location.origin in production). Skip the
     // client-side rewrite so we don't accidentally revert the canonical to the
     // deployment hostname after hydration. The server-rendered value is correct.
     if (!isLanding) {
-      const canonicalPath = inLocale ? path : "/";
+      // Mirror the server's isUnknownSubRoute guard: soft-404 locale URLs
+      // (routeKey fell back to "home" with a non-empty unrecognised rest)
+      // must canonicalize to the locale home, not self-canonicalize the
+      // unknown URL. This prevents these pages from producing self-canonicals
+      // that conflict with the server-rendered canonical pointing at locale home.
+      let canonicalPath: string;
+      if (!inLocale) {
+        canonicalPath = "/";
+      } else if (isUnknownSubRoute) {
+        // Strip the unrecognised subroute suffix to get the locale home path.
+        const restLen = parsed.rest?.length ?? 0;
+        canonicalPath =
+          restLen > 0 ? path.slice(0, path.length - restLen) || "/" : path;
+      } else {
+        canonicalPath = path;
+      }
       // Canonical / og:url must never carry a query string — they always point
       // at the clean, indexable URL (mirrors the server-side injector).
       const canonicalHref = origin + basePrefix + canonicalPath;
@@ -286,22 +306,35 @@ export function SeoHead() {
     const alternates = inLocale ? buildLanguageAlternates(path) : [];
     if (alternates.length && parsed.country) {
       for (const alt of alternates) {
-        const href = origin + basePrefix + alt.path + search;
-        const link = document.createElement("link");
+        // hreflang hrefs must never carry a query string — they should point at
+        // the clean, canonical URL so search engines don't cluster distinct
+        // filtered or tracking-parameter URLs into the hreflang group.
+        const href = origin + basePrefix + alt.path;
+        const code = hreflangCode(alt.lang, parsed.country);
+        // Claim an existing server-injected alternate before creating a new one
+        // to avoid duplicate <link rel="alternate"> elements in the DOM.
+        const existing = head.querySelector<HTMLElement>(
+          `link[rel="alternate"][hreflang="${code}"]`,
+        );
+        const link = existing ?? document.createElement("link");
+        if (!existing) head.appendChild(link);
         link.setAttribute(SEO_ATTR, "true");
         link.setAttribute("rel", "alternate");
-        link.setAttribute("hreflang", hreflangCode(alt.lang, parsed.country));
+        link.setAttribute("hreflang", code);
         link.setAttribute("href", href);
-        head.appendChild(link);
       }
       // x-default points at the English variant.
       const en = alternates.find((a) => a.lang === "en") ?? alternates[0];
-      const xDefault = document.createElement("link");
+      const existingXDefault = head.querySelector<HTMLElement>(
+        'link[rel="alternate"][hreflang="x-default"]',
+      );
+      const xDefault =
+        existingXDefault ?? document.createElement("link");
+      if (!existingXDefault) head.appendChild(xDefault);
       xDefault.setAttribute(SEO_ATTR, "true");
       xDefault.setAttribute("rel", "alternate");
       xDefault.setAttribute("hreflang", "x-default");
-      xDefault.setAttribute("href", origin + basePrefix + en.path + search);
-      head.appendChild(xDefault);
+      xDefault.setAttribute("href", origin + basePrefix + en.path);
     }
   }, [path, language, country, city, t, countryName, cityName]);
 

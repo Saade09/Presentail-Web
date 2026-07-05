@@ -3,7 +3,7 @@
  * generate-og-image.mjs
  *
  * Generates the default Open Graph share image for Presentail.com.
- * Output: public/opengraph.jpg  (1200×630, JPEG quality 85)
+ * Output: public/opengraph.jpg  (1280×720, JPEG quality 85)
  *
  * Design: deep forest-green background (#1a2e1e), centred white wordmark,
  * elegant italic tagline, subtle botanical corner flourishes, and a country
@@ -24,8 +24,8 @@ import fs from "node:fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
-const W = 1200;
-const H = 630;
+const W = 1280;
+const H = 720;
 const BG = "#1a2e1e";
 const GOLD = "#c9a96e";
 const CREAM = "#f5ede0";

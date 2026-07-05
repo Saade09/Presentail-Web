@@ -746,27 +746,35 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
     expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
       expectedDesc,
     );
+    // Canonical must point to the locale home, NOT the unknown subroute.
+    // The client SeoHead mirrors this guard via isUnknownSubRoute.
+    expect(headSnippet).toContain(
+      'rel="canonical" href="https://presentail.test/en-lb/beirut"',
+    );
+    // The canonical link specifically must not contain the unknown subroute.
+    const canonicalMatch = headSnippet.match(/<link[^>]+rel="canonical"[^>]*>/);
+    expect(canonicalMatch?.[0]).not.toContain("/some-unknown-route");
   });
 
-  it("shop route (/en-lb/beirut/shop) reuses the page title/description for OG/Twitter copy", () => {
+  it("shop route (/en-lb/beirut/shop) uses the dedicated shorter GENERIC_OG share copy", () => {
     const { headSnippet, title } = buildSeoHead(
       "/en-lb/beirut/shop",
       ORIGIN_OPTS,
     );
-    // Shop has no dedicated GENERIC_OG entry: it intentionally reuses its page
-    // title/description for og:/twitter: (see the note in src/lib/seo.mjs that
-    // Shop, Brands and All Occasions deliberately mirror the page copy).
+    // Shop now has a dedicated GENERIC_OG entry so OG/Twitter use shorter,
+    // more share-friendly copy — matching the client-side SeoHead behaviour
+    // and eliminating the server/client metadata divergence.
     expect(title).toBe("Shop Flowers & Gifts in Beirut | Presentail");
     const expectedTitle = "Shop Flowers &amp; Gifts in Beirut | Presentail";
     expect(getMeta(headSnippet, 'property="og:title"')).toBe(expectedTitle);
     expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(expectedTitle);
-    // og:/twitter: descriptions mirror the page description (identical to each
-    // other), not a dedicated shorter share string.
-    const expectedDesc =
-      "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in Beirut, Lebanon.";
-    expect(getMeta(headSnippet, 'property="og:description"')).toBe(expectedDesc);
+    // OG description uses the dedicated shorter share copy.
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(
+      "Browse curated bouquets, cakes and luxury gifts in Beirut with same-day delivery from Presentail.",
+    );
+    // Twitter description uses its own shorter variant.
     expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
-      expectedDesc,
+      "Shop flowers, cakes and gifts in Beirut — same-day delivery by Presentail.",
     );
   });
 

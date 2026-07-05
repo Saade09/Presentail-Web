@@ -267,15 +267,54 @@ export const HOME_TWITTER = {
 // Separate OG and Twitter copy for the generic browse routes (Shop, Brands,
 // All Occasions, Category). Shorter, more share-friendly than the page
 // title/description. Keyed by routeKey, then lang. Uses {city} placeholders
-// Dedicated OG and Twitter copy for the category fallback head. Shorter and
-// more share-friendly than the page title/description. Keyed by routeKey
-// ("category"), then lang, with {city} placeholders resolved via format().
-// This only applies when the per-entity category lookup fails and
-// computeSeoHead falls back to the generic head — category routes always carry
-// a slug, so the success path uses buildCategoryHead with entity-specific copy.
-// Other browse routes (Shop, Brands, All Occasions) intentionally reuse their
-// page title/description for og:/twitter: (see seo-inject.test.ts).
+// resolved via format(). Server routeKey for /occasions is "occasions";
+// client routeKey is "allOccasions" — both read from seo.ts where keys are
+// consistent. The category entry only applies when the per-entity category
+// lookup fails and computeSeoHead falls back to the generic head — category
+// routes always carry a slug, so the success path uses buildCategoryHead.
 export const GENERIC_OG = {
+  shop: {
+    en: {
+      title: "Shop Flowers & Gifts in {city} | Presentail",
+      description: "Browse curated bouquets, cakes and luxury gifts in {city} with same-day delivery from Presentail.",
+    },
+    ar: {
+      title: "تسوّق الأزهار والهدايا في {city} | Presentail",
+      description: "تصفّح الباقات المنتقاة والكعك والهدايا الفاخرة في {city} مع توصيل في نفس اليوم من Presentail.",
+    },
+    fr: {
+      title: "Boutique fleurs et cadeaux à {city} | Presentail",
+      description: "Parcourez bouquets, gâteaux et cadeaux de luxe à {city} avec la livraison le jour même par Presentail.",
+    },
+  },
+  brands: {
+    en: {
+      title: "Partner Brands in {city} | Presentail",
+      description: "Discover Presentail's hand-picked partner brands delivering in {city}.",
+    },
+    ar: {
+      title: "العلامات الشريكة في {city} | Presentail",
+      description: "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}.",
+    },
+    fr: {
+      title: "Marques partenaires à {city} | Presentail",
+      description: "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à {city}.",
+    },
+  },
+  occasions: {
+    en: {
+      title: "Shop by Occasion in {city} | Presentail",
+      description: "Find the perfect gift for any occasion in {city} with same-day delivery from Presentail.",
+    },
+    ar: {
+      title: "تسوّق حسب المناسبة في {city} | Presentail",
+      description: "اعثر على الهدية المثالية لكل مناسبة في {city} مع توصيل في نفس اليوم من Presentail.",
+    },
+    fr: {
+      title: "Acheter par occasion à {city} | Presentail",
+      description: "Trouvez le cadeau idéal pour chaque occasion à {city} avec la livraison le jour même par Presentail.",
+    },
+  },
   category: {
     en: {
       title: "Shop Gifts by Category in {city} | Presentail",
@@ -293,6 +332,48 @@ export const GENERIC_OG = {
 };
 
 export const GENERIC_TWITTER = {
+  shop: {
+    en: {
+      title: "Shop Flowers & Gifts in {city} | Presentail",
+      description: "Shop flowers, cakes and gifts in {city} — same-day delivery by Presentail.",
+    },
+    ar: {
+      title: "تسوّق الأزهار والهدايا في {city} | Presentail",
+      description: "تسوّق الأزهار والكعك والهدايا في {city} — توصيل في نفس اليوم من Presentail.",
+    },
+    fr: {
+      title: "Boutique fleurs et cadeaux à {city} | Presentail",
+      description: "Fleurs, gâteaux et cadeaux à {city} — livraison le jour même par Presentail.",
+    },
+  },
+  brands: {
+    en: {
+      title: "Partner Brands in {city} | Presentail",
+      description: "Explore our hand-picked partner brands in {city} — delivered by Presentail.",
+    },
+    ar: {
+      title: "العلامات الشريكة في {city} | Presentail",
+      description: "استكشف علاماتنا الشريكة المنتقاة في {city} — توصيل من Presentail.",
+    },
+    fr: {
+      title: "Marques partenaires à {city} | Presentail",
+      description: "Explorez nos marques partenaires à {city} — livrées par Presentail.",
+    },
+  },
+  occasions: {
+    en: {
+      title: "Shop by Occasion in {city} | Presentail",
+      description: "Gifts for every occasion in {city} — same-day delivery by Presentail.",
+    },
+    ar: {
+      title: "تسوّق حسب المناسبة في {city} | Presentail",
+      description: "هدايا لكل مناسبة في {city} — توصيل في نفس اليوم من Presentail.",
+    },
+    fr: {
+      title: "Acheter par occasion à {city} | Presentail",
+      description: "Des cadeaux pour chaque occasion à {city} — livraison le jour même par Presentail.",
+    },
+  },
   category: {
     en: {
       title: "Shop Gifts by Category in {city} | Presentail",
