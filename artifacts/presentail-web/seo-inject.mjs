@@ -2622,8 +2622,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           )
           .join(", ");
         const sizes = "(max-width: 1280px) 100vw, 1280px";
+        const href = `/api/img/proxy?url=${encodeURIComponent(firstBannerImageUrl)}&w=800&f=webp`;
         preloadTag =
           `<link rel="preload" as="image" fetchpriority="high"` +
+          ` href="${escapeAttr(href)}"` +
           ` imagesrcset="${escapeAttr(srcset)}"` +
           ` imagesizes="${escapeAttr(sizes)}">`;
       } else {

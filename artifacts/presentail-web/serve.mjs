@@ -762,16 +762,15 @@ async function refreshFirstBannerImageUrl() {
   }
 }
 
-// Initial fetch after 10 s so startup I/O is not blocked, then refresh every
-// 5 minutes when the cache has gone stale.
-setTimeout(() => {
-  refreshFirstBannerImageUrl();
-  setInterval(() => {
-    if (Date.now() - firstBannerFetchedAt >= BANNER_CACHE_TTL_MS) {
-      refreshFirstBannerImageUrl();
-    }
-  }, BANNER_CACHE_TTL_MS).unref();
-}, 10_000).unref();
+// Fetch immediately at startup so the first incoming request always gets a
+// preload tag (the API server is already up when the web server starts).
+// Then refresh every 5 minutes when the cache has gone stale.
+refreshFirstBannerImageUrl();
+setInterval(() => {
+  if (Date.now() - firstBannerFetchedAt >= BANNER_CACHE_TTL_MS) {
+    refreshFirstBannerImageUrl();
+  }
+}, BANNER_CACHE_TTL_MS).unref();
 
 // ---------------------------------------------------------------------------
 // Dynamic sitemap.xml
