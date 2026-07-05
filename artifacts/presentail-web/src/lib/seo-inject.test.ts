@@ -403,6 +403,28 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
+
+  it("strips tracking params from the canonical when /shop?occasion=<slug>&gclid=<id>", async () => {
+    mockFetchOnce({
+      ok: true,
+      occasion: {
+        name: "Birthday Gifts",
+        description: "<p>Make every birthday memorable.</p>",
+        image: null,
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?occasion=birthday&gclid=abc123",
+    });
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-ae/dubai/occasion/birthday"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday"',
+    );
+    expect(out).not.toContain("gclid");
+  });
 });
 
 describe("injectSeoTagsAsync — /occasion/:slug (clean path)", () => {
@@ -516,6 +538,50 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
     expect(out).toContain(
       'rel="canonical" href="https://presentail.test/en-lb/beirut/category/hand-bouquets-legacy-unique"',
     );
+  });
+
+  it("strips tracking params from the canonical when /shop?category=<slug>&gclid=<id>", async () => {
+    mockFetchOnce({
+      ok: true,
+      category: {
+        name: "Hand Bouquets",
+        description: "Beautiful bouquets.",
+        image: null,
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
+      ...CLEAN_PATH_OPTS,
+      search: "?category=hand-bouquets-tracking-unique&gclid=xyz789",
+    });
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-lb/beirut/category/hand-bouquets-tracking-unique"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-lb/beirut/category/hand-bouquets-tracking-unique"',
+    );
+    expect(out).not.toContain("gclid");
+  });
+
+  it("strips tracking params from the canonical when /shop?n=<slug>&gclid=<id>", async () => {
+    mockFetchOnce({
+      ok: true,
+      category: {
+        name: "Hand Bouquets",
+        description: "Beautiful bouquets.",
+        image: null,
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
+      ...CLEAN_PATH_OPTS,
+      search: "?n=hand-bouquets-n-tracking-unique&gclid=xyz789",
+    });
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-lb/beirut/category/hand-bouquets-n-tracking-unique"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-lb/beirut/category/hand-bouquets-n-tracking-unique"',
+    );
+    expect(out).not.toContain("gclid");
   });
 });
 
