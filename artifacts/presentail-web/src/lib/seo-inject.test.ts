@@ -6038,3 +6038,94 @@ describe("injectSeoTagsAsync — canonical strips tracking params on entity page
     expect(out).not.toContain("fbclid");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Homepage LCP preload tag
+// ---------------------------------------------------------------------------
+
+describe("injectSeoTagsAsync — homepage LCP preload tag", () => {
+  const OS_IMAGE_URL =
+    "https://os.presentail.com/api/storage/banners/hero-1.jpg";
+
+  beforeEach(() => {
+    genericSeoCache.clear();
+  });
+
+  it("emits <link rel=preload as=image> on the root homepage when firstBannerImageUrl is an OS storage URL", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/", {
+      ...OPTS,
+      firstBannerImageUrl: OS_IMAGE_URL,
+    });
+    expect(out).toContain('<link rel="preload" as="image"');
+  });
+
+  it("preload href points to /api/img/proxy with w=800 and f=webp", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/", {
+      ...OPTS,
+      firstBannerImageUrl: OS_IMAGE_URL,
+    });
+    const match = out.match(/<link rel="preload" as="image"[^>]*href="([^"]+)"/);
+    expect(match).not.toBeNull();
+    const href = match![1];
+    expect(href).toContain("/api/img/proxy?");
+    expect(href).toContain("w=800");
+    expect(href).toContain("f=webp");
+  });
+
+  it("preload tag has imagesrcset attribute with 400w, 800w, and 1200w entries", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/", {
+      ...OPTS,
+      firstBannerImageUrl: OS_IMAGE_URL,
+    });
+    const match = out.match(/imagesrcset="([^"]+)"/);
+    expect(match).not.toBeNull();
+    const srcset = match![1];
+    expect(srcset).toContain("w=400");
+    expect(srcset).toContain("w=800");
+    expect(srcset).toContain("w=1200");
+  });
+
+  it("preload tag has imagesizes attribute", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/", {
+      ...OPTS,
+      firstBannerImageUrl: OS_IMAGE_URL,
+    });
+    expect(out).toContain("imagesizes=");
+  });
+
+  it("emits preload tag on a locale-prefixed homepage (/en-lb/beirut)", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", {
+      ...OPTS,
+      firstBannerImageUrl: OS_IMAGE_URL,
+    });
+    expect(out).toContain('<link rel="preload" as="image"');
+    const match = out.match(/<link rel="preload" as="image"[^>]*href="([^"]+)"/);
+    expect(match![1]).toContain("/api/img/proxy?");
+    expect(match![1]).toContain("w=800");
+  });
+
+  it("does NOT emit a preload tag on a non-homepage route (/en-lb/beirut/product/rose)", async () => {
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/rose",
+      { ...OPTS, firstBannerImageUrl: OS_IMAGE_URL },
+    );
+    expect(out).not.toContain('<link rel="preload" as="image"');
+  });
+
+  it("emits a plain href preload (no imagesrcset) for a non-OS banner URL", async () => {
+    const unsplashUrl = "https://images.unsplash.com/photo-123?w=800";
+    const out = await injectSeoTagsAsync(HTML, "/", {
+      ...OPTS,
+      firstBannerImageUrl: unsplashUrl,
+    });
+    expect(out).toContain('<link rel="preload" as="image"');
+    expect(out).toContain(`href="${unsplashUrl}"`);
+    expect(out).not.toContain("imagesrcset=");
+  });
+
+  it("does NOT emit a preload tag when firstBannerImageUrl is absent", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/", { ...OPTS });
+    expect(out).not.toContain('<link rel="preload" as="image"');
+  });
+});

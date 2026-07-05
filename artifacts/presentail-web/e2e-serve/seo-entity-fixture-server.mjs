@@ -237,8 +237,22 @@ const server = http.createServer((req, res) => {
       const groups = [{ count: products.length, products }];
       return sendJson(res, 200, { ok: true, groups, total: products.length });
     }
+    case "/api/homepage/banners": {
+      // Provides a real OS storage banner URL so serve.mjs's startup fetch
+      // warms firstBannerImageUrl and the homepage LCP preload tag appears.
+      return sendJson(res, 200, {
+        ok: true,
+        banners: [
+          {
+            mediaType: "image",
+            mediaUrl:
+              "https://os.presentail.com/api/storage/banners/fixture-hero.jpg",
+          },
+        ],
+      });
+    }
     default:
-      // Banners, sitemap, and any other upstream calls degrade gracefully.
+      // Sitemap and any other upstream calls degrade gracefully.
       return notFound(res);
   }
 });
