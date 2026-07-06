@@ -75,7 +75,7 @@ export function SuggestedMessagesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0 sm:rounded-2xl overflow-hidden">
+      <DialogContent className="w-full max-w-full sm:max-w-2xl p-0 sm:rounded-2xl overflow-hidden mx-0 sm:mx-auto">
         <div className="px-6 pt-6 pb-2">
           <DialogTitle className="text-center text-2xl font-serif tracking-[0.2em] uppercase">
             {t("suggestedMessages.title")}
@@ -150,7 +150,7 @@ export function SuggestedMessagesDialog({
           id="suggested-msg-panel"
           role="tabpanel"
           aria-labelledby={`suggested-msg-cat-btn-${activeCategory}`}
-          className="px-6 py-4 space-y-3 max-h-[60vh] overflow-y-auto"
+          className="px-6 py-4 space-y-3 max-h-[40vh] sm:max-h-[60vh] overflow-y-auto"
           dir={isAr ? "rtl" : "ltr"}
         >
           {messages.map((msg) => (
