@@ -104,7 +104,7 @@ export function HeroBannerCarousel({
             onClick={goPrev}
             aria-label={t("carousel.prev")}
             data-testid="button-carousel-prev"
-            className="absolute z-20 top-1/2 -translate-y-1/2 start-3 md:start-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md flex items-center justify-center backdrop-blur transition"
+            className="absolute z-20 top-1/2 -translate-y-1/2 start-3 md:start-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md hidden sm:flex items-center justify-center backdrop-blur transition"
           >
             <PrevIcon className="w-5 h-5" />
           </button>
@@ -113,7 +113,7 @@ export function HeroBannerCarousel({
             onClick={goNext}
             aria-label={t("carousel.next")}
             data-testid="button-carousel-next"
-            className="absolute z-20 top-1/2 -translate-y-1/2 end-3 md:end-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md flex items-center justify-center backdrop-blur transition"
+            className="absolute z-20 top-1/2 -translate-y-1/2 end-3 md:end-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md hidden sm:flex items-center justify-center backdrop-blur transition"
           >
             <NextIcon className="w-5 h-5" />
           </button>
