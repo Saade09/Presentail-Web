@@ -427,7 +427,7 @@ function SEOContentSectionInner({
       className="w-full bg-gray-100 mt-12 md:mt-16 py-10 md:py-16"
       data-testid="seo-content-section"
     >
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 md:px-10">
+      <div className="px-4 sm:px-6 md:px-10">
         <h2 className="font-serif text-2xl md:text-3xl text-foreground mb-4 leading-snug">
           {heading}
         </h2>
