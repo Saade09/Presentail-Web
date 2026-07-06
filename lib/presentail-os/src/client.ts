@@ -126,6 +126,8 @@ type RawOSProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   /** OS API sends snake_case; some versions send camelCase — handle both. */
   has_input_field?: boolean;
   hasInputField?: boolean;
+  has_letter_field?: boolean;
+  hasLetterField?: boolean;
 };
 
 type RawOSProductsResponse = Omit<OSProductsResponse, "products"> & {
@@ -161,6 +163,7 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
     id,
     _rawNumericId: raw.id,
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
+    hasLetterField: raw.has_letter_field ?? raw.hasLetterField ?? false,
   };
 }
 

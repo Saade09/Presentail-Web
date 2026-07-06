@@ -46,6 +46,7 @@ type RawOsProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   /** OS API sends snake_case; some versions send camelCase — handle both. */
   has_input_field?: boolean;
   hasInputField?: boolean;
+  has_letter_field?: boolean;
   hasLetterField?: boolean;
 };
 
@@ -78,6 +79,7 @@ function normaliseProduct(raw: RawOsProduct): OSProduct {
     // endpoints (which expose discount_price_usd / discount_price_aed).
     osNumericId: raw.id,
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
+    hasLetterField: raw.has_letter_field ?? raw.hasLetterField ?? false,
   };
 }
 

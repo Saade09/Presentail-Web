@@ -19,6 +19,7 @@
 - [SEO generic share copy](seo-generic-share-copy.md) — only category has GENERIC_OG; shop/brands/all-occasions intentionally reuse page title/description; seo-inject tests can be cache-masked (verify in isolation)
 - [hasOsProducts vs getOsProducts](os-products-disabled-guard.md) — hasOsProducts() 503s when OS_PRODUCTS_DISABLED=1; read-only catalog endpoints must use getOsProducts() instead
 - [Bear size inference](bear-size-inference.md) — OS descriptions embed "N cm Height"; parse it for size tabs (45/120cm thresholds), don't trust the LLM; restart real API workflow to clear cache
+- [OS boolean field snake_case pattern](os-snake-case-fields.md) — OS API may return any boolean as snake_case (has_letter_field, has_input_field); both normaliseProduct functions (lib/presentail-os + web osClient) must handle raw.has_X_field ?? raw.hasXField ?? false
 - [Stale-chunk blank-page recovery](chunk-reload-recovery.md) — web force-reloads on lazy import() 404s (stale index.html after deploy); dual loop guards cap at 2, storage-fail path must fail closed, don't match plain "Load failed"
 - [Display currency vs delivery country](display-currency-delivery-country.md) — delivery country must NOT feed savedCountry in resolveDisplayCurrency; IP geo is the source of truth for display currency; delivery location only affects delivery options
 - [Banner AI translation](banner-ai-translation.md) — banner text always fetched in English from OS; ar/fr translated via OpenAI in one batched call; max_completion_tokens must be ≥4096 or Arabic output truncates to invalid JSON
