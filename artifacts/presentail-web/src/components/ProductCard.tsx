@@ -23,6 +23,11 @@ export function ProductCard({
   const isPriority = index < 4;
   const onSale = isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed);
 
+  const discountPct =
+    onSale && product.discountPriceValue != null && product.priceValue > 0
+      ? Math.min(99, Math.max(1, Math.round((1 - product.discountPriceValue / product.priceValue) * 100)))
+      : null;
+
   return (
     <motion.div
       initial={isPriority ? false : { opacity: 0, y: 20 }}
@@ -59,9 +64,9 @@ export function ProductCard({
                 {tag}
               </div>
             )}
-            {onSale && (
-              <div className="bg-rose-500 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
-                Sale
+            {onSale && discountPct != null && (
+              <div className="text-white text-xs font-semibold px-3 py-1 rounded-full tracking-wider" style={{ backgroundColor: "#00414e" }}>
+                -{discountPct}%
               </div>
             )}
           </div>
