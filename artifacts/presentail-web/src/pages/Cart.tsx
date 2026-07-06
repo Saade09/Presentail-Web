@@ -769,7 +769,7 @@ export default function Cart() {
               </div>
 
               {/* Delivery Date */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+              <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
                 <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
                   {t("cart.deliverySummary")}
                 </p>
