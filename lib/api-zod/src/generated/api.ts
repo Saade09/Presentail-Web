@@ -1868,6 +1868,9 @@ export const WooSearchResponse = zod.object({
         ])
         .optional(),
       price: zod.string(),
+      priceValue: zod.number().nullish(),
+      discountPriceValue: zod.number().nullish(),
+      discountPriceAed: zod.number().nullish(),
     }),
   ),
   categories: zod.array(

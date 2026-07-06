@@ -1063,6 +1063,9 @@ export interface WooSearchProduct {
   name: string;
   image?: WooSearchProductImage;
   price: string;
+  priceValue?: number | null;
+  discountPriceValue?: number | null;
+  discountPriceAed?: number | null;
 }
 
 export interface WooSearchCategory {

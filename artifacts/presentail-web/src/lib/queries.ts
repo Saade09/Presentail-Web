@@ -683,6 +683,8 @@ export type SearchProduct = {
   image: { uri: string } | null;
   price: string;
   priceValue: number;
+  discountPriceValue: number | null;
+  discountPriceAed: number | null;
 };
 
 export type SearchCategory = {
@@ -803,6 +805,8 @@ export const useSearch = (q: string, params: LocalizedParams = {}) => {
         image: p.image,
         price: p.price,
         priceValue: p.priceValue,
+        discountPriceValue: p.discountPriceValue ?? null,
+        discountPriceAed: p.discountPriceAed ?? null,
       }));
 
     const categories: SearchCategory[] = (catalogMetadata.data?.categories ?? [])

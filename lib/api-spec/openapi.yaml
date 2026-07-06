@@ -3221,6 +3221,15 @@ components:
             - type: "null"
         price:
           type: string
+        priceValue:
+          type: number
+          nullable: true
+        discountPriceValue:
+          type: number
+          nullable: true
+        discountPriceAed:
+          type: number
+          nullable: true
       required: [slug, name, price]
     WooSearchCategory:
       type: object

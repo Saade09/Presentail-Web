@@ -27,6 +27,8 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
+import { usePricingMap } from "@/hooks/usePricingMap";
+import { applyPricingToProducts } from "@/lib/woo";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 import {
@@ -88,7 +90,10 @@ function CatalogScreen() {
   const activeBrandName = params.brandName ?? "";
 
   const categories = useOsCategories();
-  const { products } = useWooProducts();
+  const { products: rawProducts } = useWooProducts();
+  // usePricingMap shares a single TanStack Query cache entry across all callers — zero extra requests.
+  const pricingMap = usePricingMap();
+  const products = useMemo(() => applyPricingToProducts(rawProducts, pricingMap), [rawProducts, pricingMap]);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { lang } = useLanguage();
   const [activeCat, setActiveCat] = useState<string>(params.category ?? ALL);

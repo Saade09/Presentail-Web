@@ -6,7 +6,7 @@ import { Command } from "cmdk";
 import { useSearch } from "@/lib/queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { ArrowUpRight, CalendarHeart, Loader2, Search, Store, Tag, TrendingUp, X } from "lucide-react";
-import { FormattedPrice } from "@/components/FormattedPrice";
+import { SalePrice } from "@/components/SalePrice";
 
 interface Props {
   open: boolean;
@@ -349,7 +349,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                         <span className="truncate text-sm font-medium text-primary/85">
                           {product.name}
                         </span>
-                        <span className="text-xs text-primary/45 mt-0.5"><FormattedPrice usdValue={product.priceValue} /></span>
+                        <span className="text-xs text-primary/45 mt-0.5"><SalePrice priceValue={product.priceValue} discountPriceValue={product.discountPriceValue} discountPriceAed={product.discountPriceAed} /></span>
                       </div>
                       <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-primary/25 shrink-0" />
                     </Command.Item>

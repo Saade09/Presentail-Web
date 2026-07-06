@@ -1637,6 +1637,8 @@ router.get("/woo/search", (req, res) => {
         image: transformed.image,
         price: transformed.price,
         priceValue: transformed.priceValue,
+        discountPriceValue: transformed.discountPriceValue ?? null,
+        discountPriceAed: transformed.discountPriceAed ?? null,
       };
     });
 

@@ -796,6 +796,9 @@ function BestSellers() {
   const { lang } = useLanguage();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { products: wooProducts, loading } = useWooProducts();
+  // usePricingMap shares a single TanStack Query cache entry across all callers — zero extra requests.
+  const pricingMap = usePricingMap();
+  const enrichedWooProducts = useMemo(() => applyPricingToProducts(wooProducts, pricingMap), [wooProducts, pricingMap]);
   const countryName = localizedCountryName(
     lang,
     selectedCountry?.code,
@@ -805,8 +808,8 @@ function BestSellers() {
   // Reshuffle the candidate pool once per UTC day per store so repeat visitors
   // see a fresh order without items jumping around mid-session.
   const shuffledWooProducts = useMemo(
-    () => seededShuffle(wooProducts, homepageShuffleSeed("best-sellers", selectedCountry?.code, selectedCity?.id)),
-    [wooProducts, selectedCountry?.code, selectedCity?.id],
+    () => seededShuffle(enrichedWooProducts, homepageShuffleSeed("best-sellers", selectedCountry?.code, selectedCity?.id)),
+    [enrichedWooProducts, selectedCountry?.code, selectedCity?.id],
   );
   // Show two full rows of cards regardless of column count.
   const displayProducts = shuffledWooProducts.slice(0, numColumns * 2);
@@ -870,10 +873,13 @@ function FlowersSection() {
   const t = useT();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { products: wooProducts, loading } = useWooProducts();
+  // usePricingMap shares a single TanStack Query cache entry across all callers — zero extra requests.
+  const pricingMap = usePricingMap();
   const flowerProducts = useMemo(() => {
-    const pool = wooProducts.filter((p) => FLOWER_CATS.has(p.category));
+    const enriched = applyPricingToProducts(wooProducts, pricingMap);
+    const pool = enriched.filter((p) => FLOWER_CATS.has(p.category));
     return seededShuffle(pool, homepageShuffleSeed("flowers", selectedCountry?.code, selectedCity?.id)).slice(0, 10);
-  }, [wooProducts, selectedCountry?.code, selectedCity?.id]);
+  }, [wooProducts, pricingMap, selectedCountry?.code, selectedCity?.id]);
 
   if (!loading && !flowerProducts.length) return null;
 
@@ -1079,11 +1085,14 @@ function BundlesSection() {
   const t = useT();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { products: wooProducts, loading } = useWooProducts();
+  // usePricingMap shares a single TanStack Query cache entry across all callers — zero extra requests.
+  const pricingMap = usePricingMap();
   const bundleProducts = useMemo(() => {
-    const pool = wooProducts.filter((p) => p.category === "bundles");
+    const enriched = applyPricingToProducts(wooProducts, pricingMap);
+    const pool = enriched.filter((p) => p.category === "bundles");
     // Show two full rows of cards regardless of column count.
     return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id)).slice(0, numColumns * 2);
-  }, [wooProducts, selectedCountry?.code, selectedCity?.id, numColumns]);
+  }, [wooProducts, pricingMap, selectedCountry?.code, selectedCity?.id, numColumns]);
 
   if (!loading && !bundleProducts.length) return null;
   return (
