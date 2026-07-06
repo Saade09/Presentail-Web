@@ -21,6 +21,7 @@ import {
   dayLabels,
   firstAvailableDay,
   firstAvailableSlot,
+  formatSlotTimeRange,
   getCountryHour,
   nearestSlotForHour,
   timeSlotsForCountry,
@@ -402,9 +403,7 @@ export function RescheduleDeliverySheet({
                         textDecorationLine: past ? "line-through" : "none",
                       }}
                     >
-                      {s.startHour !== undefined && s.endHour !== undefined
-                        ? `${String(s.startHour).padStart(2, "0")}:00–${String(s.endHour).padStart(2, "0")}:00`
-                        : s.label}
+                      {formatSlotTimeRange(s) ?? s.label}
                     </AppText>
                   </Pressable>
                 );
