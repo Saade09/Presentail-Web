@@ -511,7 +511,6 @@ export const shopStrings: Dict = {
     en: "Premium flower & gift delivery to Lebanon, UAE, and Cyprus.",
     ar: "توصيل الزهور والهدايا المميزة إلى لبنان والإمارات وقبرص.",
   },
-  "landing.popularDestinations": { en: "Popular destinations", ar: "الوجهات الشائعة" },
 };
 
 export const shopStringsFr: Record<string, string> = {
@@ -794,5 +793,4 @@ export const shopStringsFr: Record<string, string> = {
   "seo.content.brands.faq.3.a": "La plupart de nos marques partenaires proposent la livraison le jour même à {city} pour toute commande passée avant midi. La disponibilité de livraison par marque et créneau horaire est indiquée lors du paiement.",
 
   "landing.serviceDescription": "Livraison premium de fleurs et cadeaux au Liban, aux Émirats arabes unis et à Chypre.",
-  "landing.popularDestinations": "Destinations populaires",
 };

@@ -67,6 +67,17 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     setLocation(code, cityId);
   };
 
+  const PINNED_LB = [
+    "lb-beirut",
+    "lb-metn",
+    "lb-kesserwan",
+    "lb-baabda",
+    "lb-aley",
+    "lb-tripoli",
+    "lb-jbeil",
+    "lb-chouf",
+  ];
+
   const CityList = ({
     cities,
     countryCode,
@@ -75,9 +86,23 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     countryCode: string;
   }) => {
     const countrySlug = countryCodeToSlug(countryCode) as CountrySlug;
+    const sortedCities = [...cities].sort((a, b) => {
+      const aInactive = a.isActive === false;
+      const bInactive = b.isActive === false;
+      if (aInactive !== bInactive) return aInactive ? 1 : -1;
+      if (!aInactive && !bInactive && countryCode === "LB") {
+        const aPin = PINNED_LB.indexOf(a.id);
+        const bPin = PINNED_LB.indexOf(b.id);
+        if (aPin !== -1 && bPin !== -1) return aPin - bPin;
+        if (aPin !== -1) return -1;
+        if (bPin !== -1) return 1;
+        return cityName(a.id, a.name).localeCompare(cityName(b.id, b.name));
+      }
+      return 0;
+    });
     return (
       <div className="flex flex-col">
-        {[...cities].sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0)).map((city, idx) => {
+        {sortedCities.map((city, idx) => {
           const inactive = city.isActive === false;
           const citySlug = cityIdToSlug(city.id);
           const href = buildLocalePath({ lang: "en", country: countrySlug, city: citySlug });
@@ -212,40 +237,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                 })}
           </div>
 
-          {/* Key destinations — always in the DOM for crawlers and AI agents.
-              Uses static /en-* hrefs so bots see real links even without JS. */}
-          <nav aria-label={t("landing.popularDestinations")} className="pb-2">
-            <p className="text-xs text-muted-foreground text-center mb-2 font-medium">
-              {t("landing.popularDestinations")}
-            </p>
-            <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1.5">
-              <li>
-                <a href="/en-lb/beirut" onClick={(e) => { e.preventDefault(); setLocation("LB", "lb-beirut"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
-                  {cityName("lb-beirut", "Beirut")}
-                </a>
-              </li>
-              <li>
-                <a href="/en-ae/dubai" onClick={(e) => { e.preventDefault(); setLocation("AE", "ae-dubai"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
-                  {cityName("ae-dubai", "Dubai")}
-                </a>
-              </li>
-              <li>
-                <a href="/en-ae/abu-dhabi" onClick={(e) => { e.preventDefault(); setLocation("AE", "ae-abu-dhabi"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
-                  {cityName("ae-abu-dhabi", "Abu Dhabi")}
-                </a>
-              </li>
-              <li>
-                <a href="/en-cy/nicosia" onClick={(e) => { e.preventDefault(); setLocation("CY", "cy-nicosia"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
-                  {cityName("cy-nicosia", "Nicosia")}
-                </a>
-              </li>
-              <li>
-                <a href="/en-cy/limassol" onClick={(e) => { e.preventDefault(); setLocation("CY", "cy-limassol"); }} className="text-xs text-primary/70 hover:text-primary underline underline-offset-2 transition-colors">
-                  {cityName("cy-limassol", "Limassol")}
-                </a>
-              </li>
-            </ul>
-          </nav>
         </div>
       </div>
     </main>
