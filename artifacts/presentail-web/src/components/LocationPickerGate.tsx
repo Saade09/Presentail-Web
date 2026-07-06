@@ -30,23 +30,24 @@ export function LocationPickerGate({ children }: Props) {
       >
         <DialogPrimitive.Portal>
           {/*
-           * The Overlay is the full-screen flex container — this avoids Radix's
-           * default transform-based centering (top:50% + translateY(-50%)) which
-           * misbehaves inside iframes where vh ≠ visible viewport height.
+           * Mobile: bottom-sheet layout — overlay anchors to the bottom edge
+           * so the card always reaches 100dvh regardless of Radix internals.
+           * Desktop (sm+): centred card with 90dvh cap.
            */}
           <DialogPrimitive.Overlay
-            className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/55
+            className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55
+                       md:items-center md:p-4
                        data-[state=open]:animate-in data-[state=closed]:animate-out
                        data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
           >
             <DialogPrimitive.Content
               aria-describedby={undefined}
-              className="relative w-full max-w-[480px] bg-gray-50 rounded-[18px] shadow-xl
-                         flex flex-col overflow-hidden
+              className="w-full bg-gray-50 shadow-xl flex flex-col overflow-hidden
+                         h-[calc(100dvh-185px)] max-h-none rounded-t-2xl
+                         md:h-auto md:max-h-[90dvh] md:max-w-[480px] md:rounded-[18px]
                          data-[state=open]:animate-in data-[state=closed]:animate-out
                          data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0
                          data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
-              style={{ maxHeight: "min(90vh, 640px)" }}
             >
               <DialogPrimitive.Title className="sr-only">
                 {t("locationPickerGate.dialogTitle")}
@@ -55,8 +56,8 @@ export function LocationPickerGate({ children }: Props) {
                 {t("locationPickerGate.dialogDesc")}
               </DialogPrimitive.Description>
 
-              {/* Scrollable inner area */}
-              <div className="flex flex-col flex-1 min-h-0 overflow-y-auto p-6">
+              {/* Header + list — list handles its own scroll */}
+              <div className="flex flex-col flex-1 min-h-0 p-6">
                 <LocationPicker
                   initialCountryCode={countryCode}
                   forceCountryStep={pickerForceCountryStep}
