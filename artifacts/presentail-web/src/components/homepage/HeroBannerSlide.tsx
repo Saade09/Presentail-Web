@@ -122,10 +122,10 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
       <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent hidden md:block" />
 
       {hasText && (
-        <div className={`absolute inset-0 flex items-start md:items-end${language === "ar" ? " justify-end" : ""}`}>
+        <div className={`absolute inset-0 flex items-end${language === "ar" ? " justify-end" : ""}`}>
           {language === "ar" ? (
             <motion.div
-              className="px-7 pt-10 pb-7 md:px-14 md:py-14 md:pt-0 max-w-sm text-right"
+              className="px-7 pt-0 pb-10 md:px-14 md:py-14 md:pt-0 max-w-sm text-right"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: active ? 1 : 0, y: active ? 0 : 16 }}
               transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
@@ -156,7 +156,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
           ) : (
             <div className="w-full max-w-content mx-auto">
               <motion.div
-                className="px-7 pt-10 pb-7 md:px-14 md:py-14 md:pt-0 max-w-2xl mx-auto md:mx-0 text-center md:text-left"
+                className="px-7 pt-0 pb-10 md:px-14 md:py-14 md:pt-0 max-w-2xl mx-0 text-left"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: active ? 1 : 0, y: active ? 0 : 16 }}
                 transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
@@ -172,12 +172,12 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
                   </p>
                 )}
                 {banner.subtitle && (
-                  <p className="text-sm md:text-lg text-[#00414e] md:text-white/85 mb-6 md:mb-8 max-w-md leading-relaxed mx-auto md:mx-0">
+                  <p className="text-sm md:text-lg text-[#00414e] md:text-white/85 mb-6 md:mb-8 max-w-md leading-relaxed mx-0">
                     {banner.subtitle}
                   </p>
                 )}
                 {banner.ctaText && (
-                  <div className="flex justify-center md:justify-start">
+                  <div className="flex justify-start">
                     <span className="inline-flex items-center bg-[#00414e] text-white md:bg-white md:text-primary font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:opacity-90 md:hover:opacity-100 md:hover:bg-white/90 transition-colors">
                       {banner.ctaText}
                     </span>
