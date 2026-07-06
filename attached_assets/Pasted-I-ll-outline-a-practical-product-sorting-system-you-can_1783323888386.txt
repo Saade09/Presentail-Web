@@ -1,0 +1,543 @@
+I’ll outline a practical product-sorting system you can ship in stages: a first score formula, key ranking signals, business and quality factors, then personalization and testing as data grows.
+
+Thought for 1m 35s
+
+Here’s a practical product-sorting algorithm you can build for your website.
+
+The core idea: filter first, then rank, then let users override with explicit sort options. Product lists, category pages, filters, and sorting are central to whether shoppers can actually find products, and Baymard’s ecommerce UX research shows many sites still underperform badly on product-list usability. Nielsen Norman Group similarly treats search results, product listing pages, and category pages as key “routing pages” that help shoppers decide what to buy.
+
+1. Use this structure
+
+For every product request, run this pipeline:
+
+1. Apply hard filters
+2. Calculate product score
+3. Apply merchandising rules
+4. Sort products
+5. Log impressions, clicks, add-to-carts, and purchases
+6. Improve weights over time
+2. Hard filters first
+
+Before scoring, remove products that should not appear.
+
+Examples:
+
+Exclude if:
+- product is out of stock
+- product is not available in the shopper’s country
+- product is hidden, discontinued, or unpublished
+- product does not match selected filters
+- product violates category constraints
+
+This prevents a high-scoring but unavailable item from appearing near the top.
+
+3. Default “Recommended” ranking formula
+
+For your default sort, use a weighted score:
+
+recommended_score =
+  0.25 * relevance_score
++ 0.20 * popularity_score
++ 0.15 * conversion_score
++ 0.10 * rating_score
++ 0.10 * margin_score
++ 0.08 * inventory_score
++ 0.07 * freshness_score
++ 0.05 * delivery_score
+- 0.10 * return_rate_penalty
+
+Each score should be normalized from 0 to 1.
+
+For category pages, relevance_score means “how well this product belongs in this category.”
+For search results, relevance_score means “how well this product matches the user’s query.” Search platforms commonly separate matching from ranking; Algolia, for example, describes custom ranking as a way to influence order using attributes like popularity, rating, sales, or release date after relevance criteria are applied.
+
+4. Define each signal
+relevance_score
+
+For category pages:
+
+1.0 = primary category match
+0.7 = related subcategory match
+0.4 = weak related category match
+0.0 = no match
+
+For search:
+
+relevance_score =
+  title_match * 0.45
++ brand_match * 0.20
++ category_match * 0.20
++ attribute_match * 0.15
+
+Example: a search for “black leather wallet” should heavily reward products with “wallet” in the title, “black” as a color attribute, and “leather” as a material attribute.
+
+popularity_score
+
+Use recent demand, not all-time demand.
+
+popularity_score = normalize(
+  views_7d * 0.1
++ clicks_7d * 0.2
++ add_to_carts_30d * 0.3
++ purchases_30d * 0.4
+)
+
+This keeps the ranking fresh.
+
+conversion_score
+conversion_score = purchases / product_page_views
+
+But protect against low sample sizes:
+
+adjusted_conversion =
+  (purchases + category_avg_conversion * 50)
+  / (views + 50)
+
+This avoids ranking a product first just because it had 1 sale from 2 views.
+
+rating_score
+
+Do not use raw average rating alone. A product with 5.0 stars from 2 reviews should not outrank a product with 4.7 stars from 800 reviews.
+
+Use a Bayesian-style rating:
+
+rating_score =
+  (review_count / (review_count + 25)) * product_rating
++ (25 / (review_count + 25)) * category_avg_rating
+
+Then normalize to 0–1.
+
+margin_score
+
+Use margin carefully. It should influence ranking, not dominate it.
+
+margin_score = normalize(gross_margin_percentage)
+
+Cap its effect so you do not bury better customer choices.
+
+inventory_score
+
+Reward products that are in stock and healthy.
+
+inventory_score =
+  1.0 if inventory is healthy
+  0.6 if low stock
+  0.2 if very low stock
+  0.0 if out of stock
+
+You may want the opposite for clearance products: if your goal is liquidation, low stock or aged inventory can get a controlled boost.
+
+freshness_score
+
+Useful for fashion, electronics, beauty, seasonal goods, media, and trend-driven categories.
+
+freshness_score = exp(-days_since_launch / 45)
+
+This gives newer products a boost that fades over time.
+
+delivery_score
+delivery_score =
+  1.0 for same-day / next-day delivery
+  0.7 for 2–3 days
+  0.4 for 4–7 days
+  0.1 for slow or uncertain delivery
+return_rate_penalty
+
+Penalize products that create bad customer outcomes.
+
+return_rate_penalty = normalize(product_return_rate - category_avg_return_rate)
+
+Also consider penalties for:
+
+- high cancellation rate
+- high defect rate
+- low review sentiment
+- many customer support complaints
+5. Add business rules, but keep them bounded
+
+After scoring, you can apply merchandising rules.
+
+Good examples:
+
+- Pin sponsored product to position 3, not position 1
+- Boost private-label items by up to 5%
+- Boost seasonal campaign products by up to 10%
+- Demote products with high return rates
+- Limit one brand to max 3 products in the first 12 results
+- Avoid showing near-duplicate variants repeatedly
+
+Important: do not let manual rules completely override relevance. Shoppers notice when the first results are clearly not what they wanted.
+
+Baymard specifically warns that product variations shown separately can clutter product lists and make it harder for users to understand the actual product range, so it is often better to combine variants into one list item with visible swatches or options.
+
+6. Support explicit sort options
+
+Your default should be Recommended, but users should be able to choose alternatives.
+
+Recommended sort options:
+
+Recommended
+Best Sellers
+Newest
+Price: Low to High
+Price: High to Low
+Highest Rated
+Most Reviewed
+Discount
+Fastest Delivery
+
+When the user chooses an explicit sort, respect it.
+
+For example:
+
+Price: Low to High
+
+should sort by price, not by your recommended score. You can still use the recommended score as a tie-breaker.
+
+sort by price ascending, then recommended_score descending
+7. TypeScript example
+
+Here is a simple implementation you can adapt.
+
+type Product = {
+  id: string;
+  title: string;
+  brand: string;
+  categoryIds: string[];
+  price: number;
+  grossMarginPct: number;
+  rating: number; // 0 to 5
+  reviewCount: number;
+  inventoryCount: number;
+  isPublished: boolean;
+  isDiscontinued: boolean;
+  availableCountries: string[];
+  views7d: number;
+  clicks7d: number;
+  addToCarts30d: number;
+  purchases30d: number;
+  pageViews30d: number;
+  returnRate: number;
+  launchedAt: string;
+  deliveryDays: number;
+};
+
+type SortMode =
+  | "recommended"
+  | "price_asc"
+  | "price_desc"
+  | "newest"
+  | "best_sellers"
+  | "highest_rated";
+
+type RankingContext = {
+  country: string;
+  categoryId?: string;
+  query?: string;
+  categoryAvgRating: number;
+  categoryAvgConversion: number;
+  categoryAvgReturnRate: number;
+  maxPopularityRaw: number;
+  maxMarginPct: number;
+};
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function safeDivide(numerator: number, denominator: number): number {
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+function daysSince(dateString: string): number {
+  const launched = new Date(dateString).getTime();
+  const now = Date.now();
+  return Math.max(0, (now - launched) / (1000 * 60 * 60 * 24));
+}
+
+function isEligible(product: Product, ctx: RankingContext): boolean {
+  if (!product.isPublished) return false;
+  if (product.isDiscontinued) return false;
+  if (product.inventoryCount <= 0) return false;
+  if (!product.availableCountries.includes(ctx.country)) return false;
+
+  if (ctx.categoryId && !product.categoryIds.includes(ctx.categoryId)) {
+    return false;
+  }
+
+  return true;
+}
+
+function relevanceScore(product: Product, ctx: RankingContext): number {
+  if (!ctx.query) {
+    return ctx.categoryId && product.categoryIds.includes(ctx.categoryId) ? 1 : 0.5;
+  }
+
+  const q = ctx.query.toLowerCase();
+  const title = product.title.toLowerCase();
+  const brand = product.brand.toLowerCase();
+
+  let score = 0;
+
+  if (title.includes(q)) score += 0.6;
+  if (brand.includes(q)) score += 0.2;
+
+  const queryTokens = q.split(/\s+/).filter(Boolean);
+  const titleTokenMatches = queryTokens.filter(token => title.includes(token)).length;
+  score += 0.2 * safeDivide(titleTokenMatches, queryTokens.length);
+
+  return clamp01(score);
+}
+
+function popularityScore(product: Product, ctx: RankingContext): number {
+  const raw =
+    product.views7d * 0.1 +
+    product.clicks7d * 0.2 +
+    product.addToCarts30d * 0.3 +
+    product.purchases30d * 0.4;
+
+  return clamp01(safeDivide(raw, ctx.maxPopularityRaw));
+}
+
+function conversionScore(product: Product, ctx: RankingContext): number {
+  const smoothingViews = 50;
+  const adjusted =
+    (product.purchases30d + ctx.categoryAvgConversion * smoothingViews) /
+    (product.pageViews30d + smoothingViews);
+
+  // Example cap: 20% conversion becomes max score.
+  return clamp01(adjusted / 0.2);
+}
+
+function ratingScore(product: Product, ctx: RankingContext): number {
+  const priorWeight = 25;
+
+  const adjustedRating =
+    (product.reviewCount / (product.reviewCount + priorWeight)) * product.rating +
+    (priorWeight / (product.reviewCount + priorWeight)) * ctx.categoryAvgRating;
+
+  return clamp01(adjustedRating / 5);
+}
+
+function inventoryScore(product: Product): number {
+  if (product.inventoryCount > 20) return 1.0;
+  if (product.inventoryCount > 5) return 0.6;
+  if (product.inventoryCount > 0) return 0.2;
+  return 0;
+}
+
+function freshnessScore(product: Product): number {
+  return Math.exp(-daysSince(product.launchedAt) / 45);
+}
+
+function deliveryScore(product: Product): number {
+  if (product.deliveryDays <= 1) return 1.0;
+  if (product.deliveryDays <= 3) return 0.7;
+  if (product.deliveryDays <= 7) return 0.4;
+  return 0.1;
+}
+
+function marginScore(product: Product, ctx: RankingContext): number {
+  return clamp01(safeDivide(product.grossMarginPct, ctx.maxMarginPct));
+}
+
+function returnRatePenalty(product: Product, ctx: RankingContext): number {
+  const excessReturnRate = product.returnRate - ctx.categoryAvgReturnRate;
+
+  if (excessReturnRate <= 0) return 0;
+
+  // Example: 30 percentage points above category average = max penalty.
+  return clamp01(excessReturnRate / 0.3);
+}
+
+function recommendedScore(product: Product, ctx: RankingContext): number {
+  return (
+    0.25 * relevanceScore(product, ctx) +
+    0.20 * popularityScore(product, ctx) +
+    0.15 * conversionScore(product, ctx) +
+    0.10 * ratingScore(product, ctx) +
+    0.10 * marginScore(product, ctx) +
+    0.08 * inventoryScore(product) +
+    0.07 * freshnessScore(product) +
+    0.05 * deliveryScore(product) -
+    0.10 * returnRatePenalty(product, ctx)
+  );
+}
+
+function sortProducts(
+  products: Product[],
+  ctx: RankingContext,
+  sortMode: SortMode = "recommended"
+): Product[] {
+  const eligibleProducts = products.filter(product => isEligible(product, ctx));
+
+  return eligibleProducts.sort((a, b) => {
+    const scoreA = recommendedScore(a, ctx);
+    const scoreB = recommendedScore(b, ctx);
+
+    switch (sortMode) {
+      case "price_asc":
+        return a.price - b.price || scoreB - scoreA;
+
+      case "price_desc":
+        return b.price - a.price || scoreB - scoreA;
+
+      case "newest":
+        return new Date(b.launchedAt).getTime() - new Date(a.launchedAt).getTime() || scoreB - scoreA;
+
+      case "best_sellers":
+        return b.purchases30d - a.purchases30d || scoreB - scoreA;
+
+      case "highest_rated":
+        return ratingScore(b, ctx) - ratingScore(a, ctx) || scoreB - scoreA;
+
+      case "recommended":
+      default:
+        return scoreB - scoreA;
+    }
+  });
+}
+8. Start with these weights
+
+For a general ecommerce store:
+
+Relevance:       25%
+Popularity:      20%
+Conversion:      15%
+Rating:          10%
+Margin:          10%
+Inventory:        8%
+Freshness:        7%
+Delivery speed:   5%
+Return penalty: -10%
+
+For a fashion store:
+
+Increase freshness and visual/category relevance.
+Lower rating weight if reviews are sparse.
+
+For electronics:
+
+Increase rating, review count, delivery speed, and availability.
+Lower freshness unless new models matter a lot.
+
+For groceries or consumables:
+
+Increase availability, delivery speed, repeat purchases, and price competitiveness.
+Lower freshness.
+
+For marketplace products:
+
+Add seller quality, cancellation rate, shipping reliability, and dispute rate.
+9. Track the right metrics
+
+Do not optimize only for clicks. A clickbait product can get clicks but not sales.
+
+Track:
+
+Impression
+Click
+Add to cart
+Purchase
+Revenue
+Gross profit
+Return
+Cancellation
+Search refinement
+Filter use
+No-result searches
+
+Primary metrics:
+
+conversion rate
+revenue per visitor
+gross profit per visitor
+add-to-cart rate
+search-to-purchase rate
+
+Guardrail metrics:
+
+return rate
+cancellation rate
+customer support complaints
+out-of-stock clicks
+page speed
+brand/category diversity
+10. Improve it in phases
+Phase 1: Rules-based ranking
+
+Build the formula above. This is fast, explainable, and good enough for most early ecommerce sites.
+
+Phase 2: A/B testing
+
+Test different weights:
+
+Version A: higher popularity
+Version B: higher conversion
+Version C: higher margin
+Version D: higher freshness
+
+Pick winners by gross profit per visitor, conversion, and return-adjusted revenue.
+
+Phase 3: Personalization
+
+Once you have enough traffic, add user-level signals:
+
+preferred brands
+preferred price range
+preferred sizes
+previous purchases
+browsing history
+wishlist items
+location
+delivery preference
+
+Then modify the score:
+
+final_score =
+  recommended_score * 0.85
++ personalization_score * 0.15
+
+Start small. Personalization should improve relevance without creating a strange or overly narrow product list.
+
+11. SEO and product data
+
+Sorting is mostly an on-site UX/conversion issue, but product data quality also matters for search engines and external shopping surfaces. Google’s ecommerce product structured-data documentation says product pages can expose price, availability, review ratings, shipping, returns, and variant information to help Google understand and display product information.
+
+So your product data model should include:
+
+title
+brand
+category
+price
+sale price
+availability
+rating
+review count
+shipping details
+return policy
+product variants
+GTIN / SKU / MPN where applicable
+My recommended default
+
+Use this as your first production version:
+
+Default sort: Recommended
+
+1. Remove unavailable products
+2. Match category/search intent
+3. Rank by:
+   - relevance
+   - popularity
+   - conversion rate
+   - rating quality
+   - inventory health
+   - freshness
+   - delivery speed
+   - margin
+   - return-rate penalty
+4. Add bounded merchandising boosts
+5. Respect user-selected sort options
+6. A/B test weights monthly
+
+This gives you a sorting system that balances customer relevance, sales performance, and business profitability without making the site feel manipulated.
