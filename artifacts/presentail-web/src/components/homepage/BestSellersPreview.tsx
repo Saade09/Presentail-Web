@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useCategoryProducts, useOccasionFlatProducts } from "@/lib/queries";
+import { useCategoryProducts, useOccasionFlatProducts, type Product } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
@@ -22,6 +22,14 @@ type Props = {
   /** Maximum number of cards to show. */
   limit?: number;
   testId?: string;
+  /**
+   * When provided, bypasses the internal category/occasion fetch and shuffle
+   * and renders these products directly. Used by the Best Sellers section to
+   * display API-ranked products without the seeded-shuffle path.
+   */
+  products?: Product[];
+  /** When `products` is provided, whether the data is still loading. */
+  isLoadingExternal?: boolean;
 };
 
 /**
@@ -30,6 +38,9 @@ type Props = {
  * occasionSlug props. If the category/occasion has no products and loading is
  * complete, the section is hidden entirely. The candidate pool is reshuffled
  * once per UTC day per (rail, store) so the featured items rotate over time.
+ *
+ * Pass `products` to bypass the internal fetch entirely and render a
+ * pre-ranked list (e.g. from the /api/homepage/best-sellers endpoint).
  */
 export function BestSellersPreview({
   categorySlug = "hand-bouquets",
@@ -39,6 +50,8 @@ export function BestSellersPreview({
   viewAllHref,
   limit = 8,
   testId = "section-best-sellers",
+  products: externalProducts,
+  isLoadingExternal = false,
 }: Props) {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
@@ -46,17 +59,25 @@ export function BestSellersPreview({
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
 
-  const catQuery = useCategoryProducts(occasionSlug ? "" : categorySlug, locParams);
-  const occQuery = useOccasionFlatProducts(occasionSlug ?? "", locParams);
+  const catQuery = useCategoryProducts(
+    externalProducts !== undefined || occasionSlug ? "" : categorySlug,
+    locParams,
+  );
+  const occQuery = useOccasionFlatProducts(
+    externalProducts !== undefined ? "" : (occasionSlug ?? ""),
+    locParams,
+  );
   const activeQuery = occasionSlug ? occQuery : catQuery;
-  const isLoading = activeQuery.isLoading;
-  const catProducts = activeQuery.data?.products ?? [];
 
-  const products = useMemo(() => {
+  const shuffledProducts = useMemo(() => {
+    if (externalProducts !== undefined) return externalProducts.slice(0, limit);
+    const catProducts = activeQuery.data?.products ?? [];
     return seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
-  }, [catProducts, countryCode, cityId, railKey, limit]);
+  }, [externalProducts, activeQuery.data?.products, countryCode, cityId, railKey, limit]);
 
-  if (!isLoading && catProducts.length === 0) {
+  const isLoading = externalProducts !== undefined ? isLoadingExternal : activeQuery.isLoading;
+
+  if (!isLoading && shuffledProducts.length === 0) {
     return null;
   }
 
@@ -68,7 +89,7 @@ export function BestSellersPreview({
     <ProductCollectionCarousel
       title={t(titleKey)}
       viewAllHref={href}
-      products={products}
+      products={shuffledProducts}
       isLoading={isLoading}
       testId={testId}
     />

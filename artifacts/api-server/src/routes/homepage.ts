@@ -7,9 +7,10 @@ import {
 } from "@workspace/api-zod";
 import type { HomepageCollectionItem } from "@workspace/api-zod";
 import { translateBanners, type BannerLang } from "../lib/bannerTranslation";
+import { db, appOrdersTable } from "@workspace/db";
+import { inArray } from "drizzle-orm";
 
 import {
-  hasOsProducts,
   getOsProducts,
   getOsCategories,
   getOsOccasions,
@@ -326,7 +327,7 @@ router.get("/homepage/occasions", (_req, res) => {
   return res.json(data);
 });
 
-const BEST_SELLERS_LIMIT = 12;
+const BEST_SELLERS_LIMIT = 20;
 
 // ── Best-sellers cache ────────────────────────────────────────────────────
 //
@@ -354,65 +355,185 @@ registerOsProductsRefreshListener(() => {
   bestSellersCache.clear();
 });
 
-router.get("/homepage/best-sellers", (req, res) => {
-  const store = resolveStoreFromRequest(req);
+// ── Local sales fetcher ───────────────────────────────────────────────────
+//
+// Queries app_orders for all confirmed/out_for_delivery/delivered rows and
+// tallies sold quantities per normalised product name.
+// Shape of line_items_json: [{name: string, quantity: number, priceUsdCents: number}]
+//
+// Returns a map of normalised-name → { count, priceUsdCents, originalName }
+// so the route can build product entries even when the OS cache is cold.
 
-  if (!hasOsProducts(store.storeKey)) {
-    return res.json({ ok: true, products: [] });
+type LocalSaleEntry = {
+  count: number;
+  priceUsdCents: number;
+  originalName: string;
+};
+
+async function fetchLocalSales(): Promise<Map<string, LocalSaleEntry>> {
+  const tally = new Map<string, LocalSaleEntry>();
+  const rows = await db
+    .select({ lineItemsJson: appOrdersTable.lineItemsJson })
+    .from(appOrdersTable)
+    .where(inArray(appOrdersTable.state, ["confirmed", "out_for_delivery", "delivered"]));
+  for (const row of rows) {
+    if (!row.lineItemsJson) continue;
+    let items: unknown;
+    try { items = JSON.parse(row.lineItemsJson); } catch { continue; }
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (typeof item !== "object" || item === null || !("name" in item)) continue;
+      const rec = item as { name: string; quantity?: unknown; priceUsdCents?: unknown };
+      if (typeof rec.name !== "string" || !rec.name.trim()) continue;
+      const key = rec.name.toLowerCase().trim();
+      const qty = typeof rec.quantity === "number" && rec.quantity > 0 ? rec.quantity : 1;
+      const price = typeof rec.priceUsdCents === "number" && rec.priceUsdCents > 0
+        ? rec.priceUsdCents : 0;
+      const existing = tally.get(key);
+      if (existing) {
+        existing.count += qty;
+        if (price > 0) existing.priceUsdCents = price;
+      } else {
+        tally.set(key, { count: qty, priceUsdCents: price, originalName: rec.name.trim() });
+      }
+    }
   }
+  return tally;
+}
+
+function decodeName(name: string): string {
+  return name.replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/&#8217;/g, "'");
+}
+
+// ── Best-sellers route ────────────────────────────────────────────────────
+//
+// DB-first: always ranks from app_orders so the endpoint returns real sales
+// data even when the OS products cache has not yet been populated.
+// OS cache is used for enrichment (images, stock status, deliverability)
+// when available. Products not found in the OS cache are included using
+// price data from the order line items and a null image.
+
+router.get("/homepage/best-sellers", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
 
   const countryCode =
     typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
-  const cityId = typeof req.query.cityId === "string" ? req.query.cityId || null : null;
   const currencySymbol = store.currencySymbol ?? "$";
 
-  const cacheKey = `${store.storeKey}::${countryCode ?? ""}::${cityId ?? ""}::${currencySymbol}`;
+  // Cache key: storeKey already encodes city for UAE (ae-dubai → "dubai" store,
+  // ae-abu-dhabi → "abudhabi" store), so cityId is not needed here.
+  const cacheKey = `${store.storeKey}::${countryCode ?? ""}::${currencySymbol}`;
   const now = Date.now();
   const cached = bestSellersCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
     return res.json(cached.body);
   }
 
-  const osProducts = getOsProducts(store.storeKey)!;
+  // Fetch local sales first — this is the primary data source and works even
+  // when the OS cache is cold.
+  let localSales: Map<string, LocalSaleEntry>;
+  try {
+    localSales = await fetchLocalSales();
+  } catch {
+    localSales = new Map();
+  }
 
-  const filtered = osProducts
-    .filter((p) => p.inStock)
-    .filter((p) => {
-      if (countryCode && p.deliverableCountries && p.deliverableCountries.length > 0) {
-        if (!p.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) return false;
-      }
-      if (cityId && p.deliverableCities && p.deliverableCities.length > 0) {
-        if (!p.deliverableCities.some((c) => c === cityId)) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0))
-    .slice(0, BEST_SELLERS_LIMIT);
+  // OS cache enrichment — available in production, may be cold in dev.
+  const osProducts = getOsProducts(store.storeKey) ?? [];
 
-  const products = filtered.map((p) => {
-    const price = p.price;
-    const imageList = p.images
-      .map((img) => ({ uri: img.url }))
-      .filter((img) => img.uri.length > 0);
-    const image = imageList[0] ?? null;
-    const formattedPrice =
-      currencySymbol.length > 1
-        ? `${price.toLocaleString()} ${currencySymbol}`
-        : `${currencySymbol}${price.toLocaleString()}`;
-    return {
-      id: p.id,
-      name: p.name.replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/&#8217;/g, "'"),
-      price: formattedPrice,
-      priceValue: price,
-      image,
+  // Build a normalised-name → OS product map for O(1) lookups.
+  const osProductByName = new Map(osProducts.map((p) => [p.name.toLowerCase().trim(), p]));
+
+  function formatPrice(usdValue: number): string {
+    return currencySymbol.length > 1
+      ? `${usdValue.toLocaleString()} ${currencySymbol}`
+      : `${currencySymbol}${usdValue.toLocaleString()}`;
+  }
+
+  type ScoredEntry = {
+    id: string;
+    name: string;
+    price: string;
+    priceValue: number;
+    image: { uri: string } | null;
+    images: { uri: string }[];
+    inStock: boolean;
+    popularity: number;
+    blendedScore: number;
+  };
+
+  const seen = new Set<string>();
+  const entries: ScoredEntry[] = [];
+
+  // ── Step 1: DB-sourced products (always present) ─────────────────────
+  for (const [key, sale] of localSales) {
+    const osP = osProductByName.get(key);
+
+    // Country-level deliverability filter (matching the browse filter in woo.ts
+    // which also sets cityId: null — city is already encoded in the storeKey).
+    if (osP) {
+      if (countryCode && osP.deliverableCountries && osP.deliverableCountries.length > 0) {
+        if (!osP.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) continue;
+      }
+    }
+
+    const id = osP ? osP.id : key.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const priceValue = osP ? osP.price : sale.priceUsdCents / 100;
+    const imageList = osP
+      ? osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0)
+      : [];
+
+    entries.push({
+      id,
+      name: decodeName(osP ? osP.name : sale.originalName),
+      price: formatPrice(priceValue),
+      priceValue,
+      image: imageList[0] ?? null,
       images: imageList,
-      inStock: p.inStock,
-      popularity: p.totalSales ?? 0,
-    };
-  });
+      inStock: osP ? osP.inStock : true,
+      popularity: (osP?.totalSales ?? 0) + sale.count,
+      blendedScore: (osP?.totalSales ?? 0) + sale.count,
+    });
+  }
+
+  // ── Step 2: OS-only products (sold but not in DB orders, or new stock) ─
+  // Only add these when the OS cache is available so we don't pad with zeros.
+  if (osProducts.length > 0) {
+    for (const osP of osProducts) {
+      if (!osP.inStock) continue;
+      if (countryCode && osP.deliverableCountries && osP.deliverableCountries.length > 0) {
+        if (!osP.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) continue;
+      }
+      if (seen.has(osP.id)) continue;
+      seen.add(osP.id);
+
+      const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+      entries.push({
+        id: osP.id,
+        name: decodeName(osP.name),
+        price: formatPrice(osP.price),
+        priceValue: osP.price,
+        image: imageList[0] ?? null,
+        images: imageList,
+        inStock: true,
+        popularity: osP.totalSales ?? 0,
+        blendedScore: osP.totalSales ?? 0,
+      });
+    }
+  }
+
+  // Sort by blended score descending, take top 20.
+  entries.sort((a, b) => b.blendedScore - a.blendedScore);
+  const products = entries.slice(0, BEST_SELLERS_LIMIT).map(({ blendedScore: _, ...rest }) => rest);
 
   const body = { ok: true, products };
-  bestSellersCache.set(cacheKey, { fetchedAt: now, body });
+  // Only cache when we have products (avoid caching empty cold-start responses).
+  if (products.length > 0) {
+    bestSellersCache.set(cacheKey, { fetchedAt: now, body });
+  }
   return res.json(body);
 });
 

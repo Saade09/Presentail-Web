@@ -5,6 +5,7 @@ export const homeStrings: Dict = {
   "carousel.next": { en: "Next slide", ar: "الشريحة التالية" },
   "bestSellers.title": { en: "Best Sellers", ar: "الأكثر مبيعاً" },
   "bestSellers.viewAll": { en: "View All", ar: "عرض الكل" },
+  "bestSellers.empty": { en: "No products available right now.", ar: "لا توجد منتجات متاحة الآن." },
 
   "collections.summer.title": { en: "Summer Picks", ar: "مختارات الصيف" },
   "collections.boxes.title": { en: "Flower Boxes", ar: "صناديق الزهور" },
@@ -81,6 +82,7 @@ export const homeStringsFr: Record<string, string> = {
   "carousel.next": "Diapositive suivante",
   "bestSellers.title": "Meilleures ventes",
   "bestSellers.viewAll": "Tout voir",
+  "bestSellers.empty": "Aucun produit disponible pour le moment.",
 
   "collections.summer.title": "Sélections estivales",
   "collections.boxes.title": "Coffrets de fleurs",

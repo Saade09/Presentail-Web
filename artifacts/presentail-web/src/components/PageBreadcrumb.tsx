@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link } from "wouter";
 import {
   Breadcrumb,
@@ -30,26 +31,33 @@ export function PageBreadcrumb({ crumbs }: PageBreadcrumbProps) {
             const isLast = i === crumbs.length - 1;
             if ("skeleton" in crumb) {
               return (
-                <BreadcrumbItem key={i}>
-                  <Skeleton className="h-3 w-20 rounded" />
-                </BreadcrumbItem>
+                <Fragment key={i}>
+                  <BreadcrumbItem>
+                    <Skeleton className="h-3 w-20 rounded" />
+                  </BreadcrumbItem>
+                  {!isLast && (
+                    <BreadcrumbSeparator className="text-xs text-neutral-500">{separator}</BreadcrumbSeparator>
+                  )}
+                </Fragment>
               );
             }
             return (
-              <BreadcrumbItem key={i}>
-                {isLast ? (
-                  <BreadcrumbPage className="text-xs font-normal text-neutral-600">
-                    {crumb.label}
-                  </BreadcrumbPage>
-                ) : (
-                  <>
+              <Fragment key={i}>
+                <BreadcrumbItem>
+                  {isLast ? (
+                    <BreadcrumbPage className="text-xs font-normal text-neutral-600">
+                      {crumb.label}
+                    </BreadcrumbPage>
+                  ) : (
                     <BreadcrumbLink asChild className="text-xs text-neutral-600 hover:text-neutral-800">
                       <Link href={crumb.href ?? "/"}>{crumb.label}</Link>
                     </BreadcrumbLink>
-                    <BreadcrumbSeparator className="text-xs text-neutral-500">{separator}</BreadcrumbSeparator>
-                  </>
+                  )}
+                </BreadcrumbItem>
+                {!isLast && (
+                  <BreadcrumbSeparator className="text-xs text-neutral-500">{separator}</BreadcrumbSeparator>
                 )}
-              </BreadcrumbItem>
+              </Fragment>
             );
           })}
         </BreadcrumbList>

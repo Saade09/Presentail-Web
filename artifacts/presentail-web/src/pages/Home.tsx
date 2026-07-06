@@ -8,6 +8,8 @@ import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SEOContentSection } from "@/components/SEOContentSection";
+import { useGetHomepageBestSellers } from "@workspace/api-client-react";
+import type { Product } from "@/lib/queries";
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
@@ -16,6 +18,31 @@ export default function Home() {
   const countryCode = country?.code ?? undefined;
   const device = isMobile ? "mobile" as const : "desktop" as const;
   const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device, language);
+
+  const { data: bestSellersData, isLoading: isBestSellersLoading } = useGetHomepageBestSellers({
+    ...(countryCode ? { countryCode } : {}),
+    ...(cityId ? { cityId } : {}),
+  });
+  // Only pass products when the API has resolved with real data.
+  // When undefined (loading, error, or empty cache), BestSellersPreview falls
+  // back to its default seeded-shuffle hand-bouquets path so the rail is never blank.
+  const bestSellerProducts: Product[] | undefined =
+    bestSellersData !== undefined && bestSellersData.products.length > 0
+      ? bestSellersData.products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          priceValue: p.priceValue,
+          image: p.image ? { uri: p.image.uri } : null,
+          images: p.images?.map((img) => ({ uri: img.uri })) ?? [],
+          inStock: p.inStock,
+          popularity: p.popularity,
+          wcId: 0,
+          category: "",
+          categories: [],
+          occasions: [],
+        }))
+      : undefined;
 
   const cityLabel = city
     ? cityName(city.id, city.name)
@@ -51,10 +78,14 @@ export default function Home() {
         testId="section-collection-summer"
       />
 
+      {/* Best Sellers rail — 10 products ranked by real sales data from the API */}
       <BestSellersPreview
         titleKey="bestSellers.title"
         railKey="best-sellers"
-        viewAllHref="/shop"
+        viewAllHref="/best-sellers"
+        products={bestSellerProducts}
+        isLoadingExternal={isBestSellersLoading}
+        limit={10}
       />
 
       <HomepageCollections />
