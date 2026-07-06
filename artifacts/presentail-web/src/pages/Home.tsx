@@ -61,6 +61,7 @@ export default function Home() {
       : "Lebanese Expats, By Lebanese Expats";
 
   return (
+    <>
     <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
       {h1Text && (
         <h1 className="sr-only">{h1Text}</h1>
@@ -117,13 +118,15 @@ export default function Home() {
         <TrustpilotBrandsRow />
       </div>
 
-      <SEOContentSection
-        pageType="homepage"
-        cityLabel={cityLabel}
-        lang={language}
-        countryCode={countryCode ?? ""}
-        suppressFaqJsonLd
-      />
     </div>
+
+    <SEOContentSection
+      pageType="homepage"
+      cityLabel={cityLabel}
+      lang={language}
+      countryCode={countryCode ?? ""}
+      suppressFaqJsonLd
+    />
+    </>
   );
 }
