@@ -2425,13 +2425,13 @@ function CheckoutForm() {
                   )}
                 </div>
 
-                {/* Letter Input — shown only when a cart item has hasLetterField */}
-                {items.some((i) => i.product.hasLetterField) && (
+                {/* Letter Input — shown only when a cart item has hasInputField */}
+                {items.some((i) => i.product.hasInputField) && (
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
                     <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.letterInput")}</p>
-                    {items.filter((i) => i.product.hasLetterField).map((item) => (
+                    {items.filter((i) => i.product.hasInputField).map((item) => (
                       <div key={item.product.id} className="flex flex-col gap-2">
-                        {items.filter((i) => i.product.hasLetterField).length > 1 && (
+                        {items.filter((i) => i.product.hasInputField).length > 1 && (
                           <p className="text-sm text-muted-foreground">{item.product.name}</p>
                         )}
                         <div className="flex items-center gap-4">
