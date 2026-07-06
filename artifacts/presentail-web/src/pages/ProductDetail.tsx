@@ -417,7 +417,9 @@ export default function ProductDetail() {
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 block">
                   {product.personalisationRequired
                     ? t("product.customNote.labelRequired")
-                    : t("product.customNote.label")}
+                    : product.category === "cakes"
+                      ? t("product.customNote.label")
+                      : t("product.customNote.labelPlain")}
                 </label>
                 <div className="relative">
                   <Input

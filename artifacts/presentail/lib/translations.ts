@@ -261,6 +261,7 @@ const EN = {
   includedDelivery: "Climate-controlled delivery",
   addLabel: "Add to Cart",
   customNoteLabel: "Personalisation (optional)",
+  customNoteLabelPlain: "Personalisation",
   customNoteRequiredLabel: "Personalisation (required)",
   customNotePlaceholder: "e.g. Happy Birthday, Anna!", // no-translate — example name
   letterNoteLabel: "Your letter",
@@ -1168,6 +1169,7 @@ const AR: typeof EN = {
   includedDelivery: "توصيل بتحكم مناخي",
   addLabel: "أضف إلى السلة",
   customNoteLabel: "تخصيص (اختياري)",
+  customNoteLabelPlain: "تخصيص",
   customNoteRequiredLabel: "تخصيص (مطلوب)",
   customNotePlaceholder: "مثال: عيد ميلاد سعيد، آنا!",
   letterNoteLabel: "حرفك",
@@ -2069,6 +2071,7 @@ const FR: typeof EN = {
   includedDelivery: "Livraison climatisée",
   addLabel: "Ajouter au panier",
   customNoteLabel: "Personnalisation (facultatif)",
+  customNoteLabelPlain: "Personnalisation",
   customNoteRequiredLabel: "Personnalisation (obligatoire)",
   customNotePlaceholder: "ex. : Joyeux anniversaire, Anna !",
   letterNoteLabel: "Votre lettre",
