@@ -120,6 +120,10 @@ export {
 } from "@workspace/pay-methods";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
+function toTitleCase(s: string): string {
+  return s.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 const APP_SCHEME = "presentail";
 
 function buildReturnUrls(orderId: string) {
@@ -2633,11 +2637,13 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         </Modal>
         <View ref={recipientNamesRef} style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required error={showFieldErrors && !recipientFirst.trim()}
+            <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={(v: string) => setRecipientFirst(toTitleCase(v))} placeholder="" required error={showFieldErrors && !recipientFirst.trim()}
+              autoCapitalize="words"
               onSubmitEditing={() => focusAndScroll(recipientLastInputRef, recipientNamesRef)} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required error={showFieldErrors && !recipientLast.trim()}
+            <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={(v: string) => setRecipientLast(toTitleCase(v))} placeholder="" required error={showFieldErrors && !recipientLast.trim()}
+              autoCapitalize="words"
               inputRef={recipientLastInputRef}
               returnKeyType="next"
               onSubmitEditing={() => focusAndScroll(recipientPhoneInputRef, recipientPhoneRef)} />

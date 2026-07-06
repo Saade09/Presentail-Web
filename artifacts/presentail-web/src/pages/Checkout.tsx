@@ -76,6 +76,10 @@ const LazyStripeSection = lazy(() =>
 );
 
 // Maps known Stripe decline codes to plain-language, actionable messages.
+function toTitleCase(s: string): string {
+  return s.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 // Returns null for unrecognised codes so the caller falls back to the
 // generic message or the raw Stripe message.
 function stripeDeclineMsg(
@@ -2255,11 +2259,11 @@ function CheckoutForm() {
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
-                      <Input ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} onKeyDown={focusNextOnEnter(recipientLastNameRef)} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
+                      <Input ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(recipientLastNameRef)} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" autoCapitalize="words" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
-                      <Input ref={recipientLastNameRef} value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} onKeyDown={(e) => {
+                      <Input ref={recipientLastNameRef} value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: toTitleCase(e.target.value) })} autoCapitalize="words" onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
                           // PhoneInput renders the <input> with data-testid directly on it.
