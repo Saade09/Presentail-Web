@@ -156,7 +156,7 @@ function MegaMenuPanel({
       transition={{ duration: 0.16, ease: "easeOut" }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="absolute top-full left-0 right-0 z-[70] bg-[#fafaf9] border-t border-border shadow-2xl"
+      className="absolute top-full left-0 right-0 z-[70] bg-gray-100 border-t border-border shadow-2xl"
     >
       <div className="container mx-auto max-w-content px-page pt-5 pb-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">

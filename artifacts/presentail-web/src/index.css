@@ -237,7 +237,7 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 40 46% 95%;
+  --input: 220 13% 95%;
   --ring: 190 100% 15%;
 
   /* gold — remapped to dark teal for WCAG AA contrast on light backgrounds */
@@ -251,7 +251,7 @@
   --chart-2: 171 77% 64%;
   --chart-3: 45 54% 54%;
   --chart-4: 19 66% 89%;
-  --chart-5: 40 46% 95%;
+  --chart-5: 220 13% 95%;
 
   --app-font-sans: 'Inter', 'Noto Naskh Arabic', sans-serif;
   --app-font-serif: 'Playfair Display', 'Noto Naskh Arabic', Georgia, serif;

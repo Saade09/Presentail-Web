@@ -93,12 +93,12 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
 
           <Command
             shouldFilter={false}
-            className="w-full max-w-[700px] overflow-hidden rounded-[20px] border border-[#E8E3DC]
-                       bg-[#FAFAF8]
+            className="w-full max-w-[700px] overflow-hidden rounded-[20px] border border-[#e5e7eb]
+                       bg-[#f5f5f5]
                        shadow-[0_16px_64px_rgba(0,0,0,0.13),0_2px_12px_rgba(0,0,0,0.07)]"
           >
             {/* ── Input row ─────────────────────────────────────────────── */}
-            <div className="flex items-center gap-3 px-5 h-[60px] border-b border-[#EDE9E3]">
+            <div className="flex items-center gap-3 px-5 h-[60px] border-b border-[#e5e7eb]">
               <Search className="w-[18px] h-[18px] text-primary/40 shrink-0" />
               <Command.Input
                 ref={inputRef}
@@ -156,7 +156,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                         type="button"
                         onClick={() => { setQ(term); inputRef.current?.focus(); }}
                         className="inline-flex items-center gap-1.5 text-[13px] font-medium
-                                   text-primary/65 bg-[#EDE9E3] hover:bg-[#E4DFD8]
+                                   text-primary/65 bg-[#e5e7eb] hover:bg-[#d1d5db]
                                    rounded-full px-3.5 py-1.5 transition-colors
                                    focus-visible:outline-none focus-visible:ring-2
                                    focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -205,8 +205,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                       onSelect={() => handleSelect(`/category/${cat.slug}`)}
                       className="mx-2 flex items-center gap-3 px-3 py-2.5 rounded-xl
                                  text-sm cursor-pointer select-none outline-none
-                                 aria-selected:bg-[#EDE9E3] hover:bg-[#EDE9E3]
-                                 data-[selected=true]:bg-[#EDE9E3]
+                                 aria-selected:bg-[#e5e7eb] hover:bg-[#e5e7eb]
+                                 data-[selected=true]:bg-[#e5e7eb]
                                  transition-colors"
                     >
                       <div className="w-8 h-8 rounded-lg bg-primary/[0.07] flex items-center
@@ -249,8 +249,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                       }
                       className="mx-2 flex items-center gap-3 px-3 py-2.5 rounded-xl
                                  text-sm cursor-pointer select-none outline-none
-                                 aria-selected:bg-[#EDE9E3] hover:bg-[#EDE9E3]
-                                 data-[selected=true]:bg-[#EDE9E3]
+                                 aria-selected:bg-[#e5e7eb] hover:bg-[#e5e7eb]
+                                 data-[selected=true]:bg-[#e5e7eb]
                                  transition-colors"
                     >
                       <div className="w-8 h-8 rounded-lg bg-primary/[0.07] flex items-center
@@ -290,8 +290,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                       onSelect={() => handleSelect(`/brand/${brand.slug}`)}
                       className="mx-2 flex items-center gap-3 px-3 py-2.5 rounded-xl
                                  text-sm cursor-pointer select-none outline-none
-                                 aria-selected:bg-[#EDE9E3] hover:bg-[#EDE9E3]
-                                 data-[selected=true]:bg-[#EDE9E3]
+                                 aria-selected:bg-[#e5e7eb] hover:bg-[#e5e7eb]
+                                 data-[selected=true]:bg-[#e5e7eb]
                                  transition-colors"
                     >
                       <div className="w-8 h-8 rounded-lg bg-primary/[0.07] flex items-center
@@ -332,8 +332,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                       onSelect={() => handleSelect(`/product/${product.slug}`)}
                       className="mx-2 flex items-center gap-3.5 px-3 py-2.5 rounded-xl
                                  cursor-pointer select-none outline-none
-                                 aria-selected:bg-[#EDE9E3] hover:bg-[#EDE9E3]
-                                 data-[selected=true]:bg-[#EDE9E3]
+                                 aria-selected:bg-[#e5e7eb] hover:bg-[#e5e7eb]
+                                 data-[selected=true]:bg-[#e5e7eb]
                                  transition-colors"
                     >
                       {product.image?.uri ? (

@@ -424,7 +424,7 @@ function SEOContentSectionInner({
   return (
     <section
       dir={dir}
-      className="w-full bg-[#FAF8F5] mt-12 md:mt-16 py-10 md:py-16"
+      className="w-full bg-gray-100 mt-12 md:mt-16 py-10 md:py-16"
       data-testid="seo-content-section"
     >
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 md:px-10">

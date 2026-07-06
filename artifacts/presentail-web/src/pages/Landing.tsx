@@ -134,7 +134,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
               key={city.id}
               href={href}
               onClick={(e) => { e.preventDefault(); handleCitySelect(countryCode, city.id); }}
-              className={`${rowClass} hover:bg-stone-100/60`}
+              className={`${rowClass} hover:bg-gray-100/60`}
               data-testid={`button-city-${city.id}`}
             >
               <span className="text-sm font-medium text-foreground">
@@ -151,7 +151,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   };
 
   const skeletonRows = Array.from({ length: 3 }).map((_, i) => (
-    <div key={i} className="h-14 my-0.5 rounded-lg bg-stone-200/50 animate-pulse" />
+    <div key={i} className="h-14 my-0.5 rounded-lg bg-gray-200/50 animate-pulse" />
   ));
 
   return (
@@ -193,7 +193,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
           </div>
 
           {/* Country accordion */}
-          <div className="rounded-2xl overflow-hidden border border-stone-200/80 bg-white/70 backdrop-blur-sm shadow-sm">
+          <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm">
             {isLoadingCountries && countries.length === 0
               ? skeletonRows
               : rows.filter((row) => !selectedCountryCode || selectedCountryCode === row.code).map((row, idx) => {
@@ -201,14 +201,14 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                   return (
                     <div
                       key={row.code}
-                      className={idx > 0 ? "border-t border-stone-200/70" : ""}
+                      className={idx > 0 ? "border-t border-gray-200/70" : ""}
                     >
                       <button
                         type="button"
                         onClick={() => handleCountryClick(row.code, row.ready)}
                         disabled={!row.ready}
                         className={`w-full flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors disabled:opacity-50 ${
-                          isOpen ? "bg-stone-100/60" : "hover:bg-stone-50/80"
+                          isOpen ? "bg-gray-100/60" : "hover:bg-gray-50/80"
                         }`}
                         data-testid={`button-country-${row.code.toLowerCase()}`}
                       >
@@ -228,7 +228,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                       </button>
 
                       {isOpen && row.cities.length > 0 && (
-                        <div className="border-t border-stone-200/70 bg-stone-50/60 overflow-y-auto" style={{ maxHeight: "calc(100svh - 22rem)" }}>
+                        <div className="border-t border-gray-200/70 bg-gray-50/60 overflow-y-auto" style={{ maxHeight: "calc(100svh - 22rem)" }}>
                           <CityList cities={row.cities} countryCode={row.code} />
                         </div>
                       )}
