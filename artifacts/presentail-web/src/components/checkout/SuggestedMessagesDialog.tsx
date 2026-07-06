@@ -75,7 +75,7 @@ export function SuggestedMessagesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-full sm:max-w-2xl p-0 sm:rounded-2xl overflow-hidden mx-0 sm:mx-auto">
+      <DialogContent className="inset-x-0 translate-x-0 sm:left-[50%] sm:right-auto sm:-translate-x-1/2 w-full sm:max-w-3xl p-0 sm:rounded-2xl overflow-hidden">
         <div className="px-6 pt-6 pb-2">
           <DialogTitle className="text-center text-2xl font-serif tracking-[0.2em] uppercase">
             {t("suggestedMessages.title")}
@@ -117,7 +117,7 @@ export function SuggestedMessagesDialog({
           <div
             role="tablist"
             aria-label={t("suggestedMessages.catLabel")}
-            className="flex gap-5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin"
+            className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin"
           >
             {SUGGESTED_MESSAGE_CATEGORIES.map((id) => {
               const active = activeCategory === id;
