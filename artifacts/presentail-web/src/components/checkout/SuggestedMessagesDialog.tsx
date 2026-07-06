@@ -151,6 +151,7 @@ export function SuggestedMessagesDialog({
           role="tabpanel"
           aria-labelledby={`suggested-msg-cat-btn-${activeCategory}`}
           className="px-6 py-4 space-y-3 max-h-[40vh] sm:max-h-[60vh] overflow-y-auto"
+          style={{ scrollbarGutter: "stable both-edges" }}
           dir={isAr ? "rtl" : "ltr"}
         >
           {messages.map((msg) => (
