@@ -4,6 +4,11 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   SUGGESTED_MESSAGE_CATEGORIES,
@@ -13,6 +18,7 @@ import {
 } from "@workspace/suggested-messages";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type Props = {
   open: boolean;
@@ -39,6 +45,7 @@ export function SuggestedMessagesDialog({
   maxLength,
 }: Props) {
   const { t, language } = useLocale();
+  const isMobile = useIsMobile();
   const initialLang: SuggestedMessageLang =
     language === "ar" ? "ar" : language === "fr" ? "fr" : "en";
 
@@ -46,8 +53,6 @@ export function SuggestedMessagesDialog({
   const [activeCategory, setActiveCategory] =
     useState<SuggestedMessageCategoryId>("general");
 
-  // Reset to defaults whenever the dialog opens so the popup mirrors the
-  // page's current language and never lingers on a previous selection.
   useEffect(() => {
     if (open) {
       setActiveLang(initialLang);
@@ -65,110 +70,132 @@ export function SuggestedMessagesDialog({
 
   const handlePick = (msg: string) => {
     const trimmed = maxLength && msg.length > maxLength ? msg.slice(0, maxLength) : msg;
-    // Track which category the shopper picked from. Category-only by
-    // design — we never log the message body to keep the event payload
-    // bounded and free of anything that could be mistaken for PII.
     trackEvent({ name: "suggested_message_picked", action: activeCategory });
     onSelect(trimmed);
     onOpenChange(false);
   };
 
+  const titleId = "suggested-messages-title";
+
+  const inner = (
+    <>
+      {/* Language toggle */}
+      <div className="px-5 pb-3">
+        <div
+          role="group"
+          aria-label={t("suggestedMessages.langLabel")}
+          className="flex gap-1 rounded-full bg-muted p-1"
+        >
+          {(["en", "ar", "fr"] as const).map((l) => {
+            const active = activeLang === l;
+            return (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setActiveLang(l)}
+                aria-pressed={active}
+                className={cn(
+                  "flex-1 rounded-full px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                data-testid={`suggested-msg-lang-${l}`}
+              >
+                {t(`suggestedMessages.lang.${l}`)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Category tabs */}
+      <div className="px-5 border-b" dir={isAr ? "rtl" : "ltr"}>
+        <div
+          role="tablist"
+          aria-label={t("suggestedMessages.catLabel")}
+          className="flex gap-3 overflow-x-auto pb-2 scrollbar-none"
+        >
+          {SUGGESTED_MESSAGE_CATEGORIES.map((id) => {
+            const active = activeCategory === id;
+            return (
+              <button
+                key={id}
+                id={`suggested-msg-cat-btn-${id}`}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-controls="suggested-msg-panel"
+                onClick={() => setActiveCategory(id)}
+                className={cn(
+                  "whitespace-nowrap text-sm pb-2 -mb-px transition-colors border-b-2 shrink-0",
+                  active
+                    ? "border-primary text-foreground font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+                data-testid={`suggested-msg-cat-${id}`}
+              >
+                {t(CATEGORY_KEYS[id])}
+            </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Messages list */}
+      <div
+        id="suggested-msg-panel"
+        role="tabpanel"
+        aria-labelledby={`suggested-msg-cat-btn-${activeCategory}`}
+        className="px-5 py-4 space-y-3 max-h-[45vh] sm:max-h-[55vh] overflow-y-auto"
+        style={{ scrollbarGutter: "stable both-edges" }}
+        dir={isAr ? "rtl" : "ltr"}
+      >
+        {messages.map((msg) => (
+          <button
+            key={msg}
+            type="button"
+            onClick={() => handlePick(msg)}
+            className={cn(
+              "w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground hover:border-foreground/30 hover:bg-accent/40 transition-colors",
+              isAr ? "text-right" : "text-left",
+            )}
+            data-testid="suggested-msg-card"
+          >
+            {msg}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="p-0 rounded-t-2xl max-h-[90svh] flex flex-col overflow-hidden"
+        >
+          <div className="px-5 pt-5 pb-3 shrink-0">
+            <SheetTitle className="text-center text-xl font-serif tracking-[0.2em] uppercase">
+              {t("suggestedMessages.title")}
+            </SheetTitle>
+          </div>
+          {inner}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="inset-x-0 translate-x-0 sm:left-[50%] sm:right-auto sm:-translate-x-1/2 w-full sm:max-w-3xl p-0 sm:rounded-2xl overflow-hidden">
-        <div className="px-6 pt-6 pb-2">
+      <DialogContent className="w-full sm:max-w-3xl p-0 rounded-2xl overflow-hidden">
+        <div className="px-5 pt-6 pb-3 pr-14">
           <DialogTitle className="text-center text-2xl font-serif tracking-[0.2em] uppercase">
             {t("suggestedMessages.title")}
           </DialogTitle>
         </div>
-
-        {/* Language toggle */}
-        <div className="px-6 pb-3">
-          <div
-            role="group"
-            aria-label={t("suggestedMessages.langLabel")}
-            className="flex gap-1 rounded-full bg-muted p-1"
-          >
-            {(["en", "ar", "fr"] as const).map((l) => {
-              const active = activeLang === l;
-              return (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setActiveLang(l)}
-                  aria-pressed={active}
-                  className={cn(
-                    "flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                  data-testid={`suggested-msg-lang-${l}`}
-                >
-                  {t(`suggestedMessages.lang.${l}`)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Category tabs */}
-        <div className="px-6 border-b" dir={isAr ? "rtl" : "ltr"}>
-          <div
-            role="tablist"
-            aria-label={t("suggestedMessages.catLabel")}
-            className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin"
-          >
-            {SUGGESTED_MESSAGE_CATEGORIES.map((id) => {
-              const active = activeCategory === id;
-              return (
-                <button
-                  key={id}
-                  id={`suggested-msg-cat-btn-${id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  aria-controls="suggested-msg-panel"
-                  onClick={() => setActiveCategory(id)}
-                  className={cn(
-                    "whitespace-nowrap text-sm pb-2 -mb-px transition-colors border-b-2",
-                    active
-                      ? "border-primary text-foreground font-semibold"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
-                  )}
-                  data-testid={`suggested-msg-cat-${id}`}
-                >
-                  {t(CATEGORY_KEYS[id])}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Messages list */}
-        <div
-          id="suggested-msg-panel"
-          role="tabpanel"
-          aria-labelledby={`suggested-msg-cat-btn-${activeCategory}`}
-          className="px-6 py-4 space-y-3 max-h-[40vh] sm:max-h-[60vh] overflow-y-auto"
-          style={{ scrollbarGutter: "stable both-edges" }}
-          dir={isAr ? "rtl" : "ltr"}
-        >
-          {messages.map((msg) => (
-            <button
-              key={msg}
-              type="button"
-              onClick={() => handlePick(msg)}
-              className={cn(
-                "w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground hover:border-foreground/30 hover:bg-accent/40 transition-colors",
-                isAr ? "text-right" : "text-left",
-              )}
-              data-testid="suggested-msg-card"
-            >
-              {msg}
-            </button>
-          ))}
-        </div>
+        {inner}
       </DialogContent>
     </Dialog>
   );
