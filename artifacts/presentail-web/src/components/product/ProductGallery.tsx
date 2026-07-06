@@ -51,7 +51,7 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
                   <img
                     src={buildOsProxyUrl(img.uri, 160)}
                     alt={`${productName} — image ${i + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <div className="w-full h-full" />
@@ -67,7 +67,7 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
             <img
               src={mainImageResponsive?.src ?? current.uri}
               alt={productName}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               loading="eager"
               fetchPriority="high"
               data-testid="product-gallery-main-image"
