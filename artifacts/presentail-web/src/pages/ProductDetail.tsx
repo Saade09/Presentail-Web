@@ -412,7 +412,32 @@ export default function ProductDetail() {
               rewardPoints={vm.rewardPoints}
             />
 
-            {product.hasInputField && (
+            {product.hasLetterField ? (
+              /* Single-character letter input — for letter box products */
+              <div className="space-y-3">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 block">
+                  {t("checkout.section.letterInput")}
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="relative w-20">
+                    <Input
+                      value={customNote}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 1).toUpperCase();
+                        setCustomNote(v);
+                      }}
+                      placeholder={t("checkout.letterInput.placeholder")}
+                      maxLength={1}
+                      className="h-14 text-2xl text-center uppercase tracking-widest font-serif"
+                      aria-label={t("checkout.letterInput.label")}
+                      data-testid="input-custom-note"
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground flex-1">{t("checkout.letterInput.label")}</p>
+                </div>
+              </div>
+            ) : product.hasInputField ? (
+              /* General personalisation text input — for cakes, etc. */
               <div className="space-y-3">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 block">
                   {product.personalisationRequired
@@ -442,7 +467,7 @@ export default function ProductDetail() {
                   </p>
                 )}
               </div>
-            )}
+            ) : null}
 
             <DeliveryOptions
               value={deliveryChoice}

@@ -166,6 +166,10 @@ export function mapOsProduct(p: OSProduct): Product {
     brandNames: p.brands.map((b) => b.name),
     popularity: p.totalSales ?? 0,
     hasInputField: p.hasInputField ?? false,
-    hasLetterField: p.hasLetterField ?? false,
+    // Name-based fallback mirrors the API server: OS does not yet send has_letter_field
+    // for these products, so we derive it from the product name.
+    hasLetterField:
+      p.hasLetterField ||
+      ["pink letter box", "red letter box"].includes(p.name.toLowerCase().trim()),
   };
 }
