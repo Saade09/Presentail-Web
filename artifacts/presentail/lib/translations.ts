@@ -795,8 +795,10 @@ const EN = {
   popularPicksLabel: "Popular picks",
 
   // ── Sort labels ──
+  sortRecommended: "Recommended",
   sortFeatured: "Featured",
   sortBestSeller: "Best Seller",
+  sortNewest: "Newest",
   sortPriceUp: "Price: Low to High",
   sortPriceDown: "Price: High to Low",
   sortName: "Name: A–Z",
@@ -1682,8 +1684,10 @@ const AR: typeof EN = {
   popularPicksLabel: "اختيارات شائعة",
 
   // ── Sort labels ──
+  sortRecommended: "موصى به",
   sortFeatured: "مميّز",
   sortBestSeller: "الأكثر مبيعاً",
+  sortNewest: "الأحدث",
   sortPriceUp: "السعر: من الأقل إلى الأعلى",
   sortPriceDown: "السعر: من الأعلى إلى الأقل",
   sortName: "الاسم: أ–ي",
@@ -2572,8 +2576,10 @@ const FR: typeof EN = {
   popularPicksLabel: "Coups de cœur",
 
   // ── Sort labels ──
+  sortRecommended: "Recommandé",
   sortFeatured: "À l'honneur",
   sortBestSeller: "Meilleures ventes",
+  sortNewest: "Nouveautés",
   sortPriceUp: "Prix : croissant",
   sortPriceDown: "Prix : décroissant",
   sortName: "Nom : A–Z",

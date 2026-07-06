@@ -1,6 +1,7 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { z } from "zod";
 import { authenticate } from "../lib/auth";
+import { sortProducts, type ProductSortMode } from "../lib/productRanking";
 import {
   WooOrderSchema,
   attemptCreateOsOrder,
@@ -363,6 +364,38 @@ function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
   return true;
 }
 
+const VALID_SORT_MODES = new Set<ProductSortMode>([
+  "recommended", "best_sellers", "newest", "price_asc", "price_desc",
+]);
+
+function readSortMode(req: Request): ProductSortMode {
+  const raw = typeof req.query.sort === "string" ? req.query.sort : "";
+  return VALID_SORT_MODES.has(raw as ProductSortMode)
+    ? (raw as ProductSortMode)
+    : "recommended";
+}
+
+/**
+ * Sort WC-shaped products (after mapOsProductToWcShape + visibility/delivery
+ * filters, before transformProduct) using the composite ranking engine.
+ *
+ * WcProduct uses `total_sales` (number) and `price` (string) so we adapt
+ * before delegating to sortProducts, then map back to original WcProduct
+ * references by building a sorted-index list.
+ */
+function sortOsShapedProducts(products: WcProduct[], mode: ProductSortMode): WcProduct[] {
+  if (products.length === 0) return products;
+  const adaptable = products.map((p, originalIndex) => ({
+    totalSales: p.total_sales,
+    osNumericId: p.osNumericId,
+    featured: p.featured,
+    price: parseFloat(p.price ?? "") || 0,
+    _originalIndex: originalIndex,
+  }));
+  const sorted = sortProducts(adaptable, mode);
+  return sorted.map((a) => products[a._originalIndex]!);
+}
+
 export function transformProduct(p: WcProduct, currencySymbol = "$") {
   const price = parseFloat(p.price ?? "") || 0;
   const imageList = (p.images ?? [])
@@ -439,12 +472,14 @@ router.get("/woo/brand-products", (req, res) => {
   const brandCoverImage: string | null =
     rawBrandEntry?.cover_image ?? rawBrandEntry?.image_public_url ?? null;
 
+  const sortMode = readSortMode(req);
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
-  const products = osProducts
+  const eligible = osProducts
     .filter((p) => p.brands.some((b) => b.slug === brandSlug))
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, browseFilter))
+    .filter((p) => isDeliverable(p, browseFilter));
+  const products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length, brandName, brandImage, brandDescription, brandCoverImage });
 });
@@ -521,16 +556,18 @@ router.get("/woo/category-products", (req, res) => {
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
+  const sortMode = readSortMode(req);
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const osCategories = getOsCategories();
   const catEntry = osCategories?.find((c) => c.slug === slug);
   const catName = catEntry?.name ?? slug;
 
-  const products = osProducts
+  const eligible = osProducts
     .filter((p) => p.categories.some((c) => c.slug === slug))
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, browseFilter))
+    .filter((p) => isDeliverable(p, browseFilter));
+  const products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length, categoryName: catName });
 });
@@ -557,6 +594,7 @@ router.get("/woo/occasion-products", (req, res) => {
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
   const lang = readLang(req);
+  const sortMode = readSortMode(req);
 
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const deliverable = osProducts
@@ -565,12 +603,15 @@ router.get("/woo/occasion-products", (req, res) => {
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter));
 
+  // Apply sort before grouping so ranking is consistent within each group.
+  const ranked = sortOsShapedProducts(deliverable, sortMode);
+
   type TransformedProduct = ReturnType<typeof transformProduct>;
   const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
   const assigned = new Set<string>();
 
   for (const typecat of OCCASION_TYPE_CATEGORIES) {
-    for (const p of deliverable) {
+    for (const p of ranked) {
       if (assigned.has(p.slug)) continue;
       const slugs = (p.categories ?? []).map((c) => c.slug);
       if (slugs.includes(typecat.slug)) {
@@ -598,15 +639,17 @@ router.get("/woo/products", (req, res) => {
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
+  const sortMode = readSortMode(req);
   // Product listings filter by country only. City-level delivery restrictions
   // are enforced at checkout — not at browse time — because OS city IDs may not
   // match the web app's city slug format, which would incorrectly exclude all
   // products for unrecognised city slugs (e.g. "lb-akkar").
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
-  const products = osProducts
+  const eligible = osProducts
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, browseFilter))
+    .filter((p) => isDeliverable(p, browseFilter));
+  const products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length });
 });

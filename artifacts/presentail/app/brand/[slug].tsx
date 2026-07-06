@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -12,13 +12,15 @@ import {
 import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FilterSortBar } from "@/components/FilterSortBar";
+import { FilterSortSheet, type SortKey } from "@/components/FilterSortSheet";
 import { ProductCard } from "@/components/ProductCard";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchBrandProducts, applyPricingToProducts, type WooProduct } from "@/lib/woo";
+import { fetchBrandProducts, applyPricingToProducts, sortKeyToApiSort, type WooProduct } from "@/lib/woo";
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -54,6 +56,9 @@ function BrandScreen() {
   const [brandDescription, setBrandDescription] = useState<string | null>(null);
   const [brandCoverImage, setBrandCoverImage] = useState<string | null>(null);
   const [coverLoaded, setCoverLoaded] = useState(false);
+  const [sort, setSort] = useState<SortKey>("recommended");
+  const apiSort = sortKeyToApiSort(sort);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
@@ -61,6 +66,21 @@ function BrandScreen() {
   const mountMsRef = useRef(Date.now());
 
   const enrichedProducts = applyPricingToProducts(products, pricingMap);
+
+  const SORTS: { key: SortKey; label: string }[] = [
+    { key: "recommended", label: t.sortRecommended },
+    { key: "bestSeller", label: t.sortBestSeller },
+    { key: "newest", label: t.sortNewest },
+    { key: "priceUp", label: t.sortPriceUp },
+    { key: "priceDown", label: t.sortPriceDown },
+    { key: "name", label: t.sortName },
+  ];
+
+  // All sort modes except "name" are handled server-side; apply name sort client-side only
+  const sortedProducts = useMemo(() => {
+    if (sort === "name") return [...enrichedProducts].sort((a, b) => a.name.localeCompare(b.name));
+    return enrichedProducts;
+  }, [enrichedProducts, sort]);
 
   useEffect(() => {
     if (loading || Platform.OS === "web") return;
@@ -76,7 +96,7 @@ function BrandScreen() {
     setBrandDescription(null);
     setBrandCoverImage(null);
     setCoverLoaded(false);
-    fetchBrandProducts(String(slug), { countryCode, cityId }).then((res) => {
+    fetchBrandProducts(String(slug), { countryCode, cityId }, apiSort).then((res) => {
       if (!cancelled) {
         setProducts(res.products.filter((p) => p.image));
         setBrandImage(res.brandImage);
@@ -87,7 +107,7 @@ function BrandScreen() {
       }
     });
     return () => { cancelled = true; };
-  }, [slug, countryCode, cityId]);
+  }, [slug, countryCode, cityId, apiSort]);
 
   const hasCover = !!brandCoverImage;
 
@@ -259,9 +279,18 @@ function BrandScreen() {
           </Pressable>
         </View>
       ) : (
-        <FlatList
+        <>
+          {!loading && products.length > 0 && (
+            <FilterSortBar
+              onPress={() => setSheetOpen(true)}
+              activeCount={sort !== "recommended" ? 1 : 0}
+              gridView={true}
+              onToggleGrid={() => {}}
+            />
+          )}
+          <FlatList
           key={`grid-${numColumns}`}
-          data={enrichedProducts}
+          data={sortedProducts}
           keyExtractor={(item) => item.id}
           numColumns={numColumns}
           columnWrapperStyle={{ gap: 10, paddingHorizontal: 24 }}
@@ -276,7 +305,15 @@ function BrandScreen() {
             />
           )}
         />
+        </>
       )}
+      <FilterSortSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        sortOptions={SORTS}
+        activeSort={sort}
+        onSortChange={(key) => { setSort(key); setSheetOpen(false); }}
+      />
     </View>
   );
 }

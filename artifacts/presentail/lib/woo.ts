@@ -81,6 +81,17 @@ function appendDeliveryParams(params: URLSearchParams, filter?: DeliveryFilter) 
   if (filter.cityId) params.set("cityId", filter.cityId);
 }
 
+export function sortKeyToApiSort(key: string): string {
+  const MAP: Record<string, string> = {
+    recommended: "recommended",
+    bestSeller: "best_sellers",
+    newest: "newest",
+    priceUp: "price_asc",
+    priceDown: "price_desc",
+  };
+  return MAP[key] ?? "recommended";
+}
+
 function storeHeaders(filter?: DeliveryFilter): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   if (filter?.countryCode) h["x-store-country"] = filter.countryCode;
@@ -91,10 +102,12 @@ function storeHeaders(filter?: DeliveryFilter): Record<string, string> {
 export async function fetchCategoryProducts(
   slug: string,
   filter?: DeliveryFilter,
+  sort?: string,
 ): Promise<{ products: WooProduct[]; categoryName: string }> {
   try {
     const params = new URLSearchParams({ slug });
     appendDeliveryParams(params, filter);
+    if (sort) params.set("sort", sort);
     const res = await fetch(
       `${API_BASE}/api/woo/category-products?${params.toString()}`,
       { headers: storeHeaders(filter) }
@@ -112,10 +125,12 @@ export async function fetchCategoryProducts(
 export async function fetchOccasionProducts(
   slug: string,
   filter?: DeliveryFilter,
+  sort?: string,
 ): Promise<OccasionGroup[]> {
   try {
     const params = new URLSearchParams({ slug });
     appendDeliveryParams(params, filter);
+    if (sort) params.set("sort", sort);
     const res = await fetch(
       `${API_BASE}/api/woo/occasion-products?${params.toString()}`,
       { headers: storeHeaders(filter) }
@@ -139,10 +154,12 @@ export type BrandProductsResult = {
 export async function fetchBrandProducts(
   slug: string,
   filter?: DeliveryFilter,
+  sort?: string,
 ): Promise<BrandProductsResult> {
   try {
     const params = new URLSearchParams({ slug });
     appendDeliveryParams(params, filter);
+    if (sort) params.set("sort", sort);
     const res = await fetch(
       `${API_BASE}/api/woo/brand-products?${params.toString()}`,
       { headers: storeHeaders(filter) }

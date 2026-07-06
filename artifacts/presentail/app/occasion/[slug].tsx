@@ -27,7 +27,7 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchOccasionProducts, fetchBrandProducts, applyPricingToProducts, type OccasionGroup, type WooProduct } from "@/lib/woo";
+import { fetchOccasionProducts, fetchBrandProducts, applyPricingToProducts, sortKeyToApiSort, type OccasionGroup, type WooProduct } from "@/lib/woo";
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -61,12 +61,14 @@ function OccasionScreen() {
   const activeBrandSlug = Array.isArray(brandParam) ? brandParam[0] : (brandParam ?? "");
   const activeBrandName = Array.isArray(brandNameParam) ? brandNameParam[0] : (brandNameParam ?? "");
 
-  const [sort, setSort] = useState<SortKey>("featured");
+  const [sort, setSort] = useState<SortKey>("recommended");
+  const apiSort = sortKeyToApiSort(sort);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [gridView, setGridView] = useState(true);
   const SORTS: { key: SortKey; label: string }[] = [
-    { key: "featured", label: t.sortFeatured },
+    { key: "recommended", label: t.sortRecommended },
     { key: "bestSeller", label: t.sortBestSeller },
+    { key: "newest", label: t.sortNewest },
     { key: "priceUp", label: t.sortPriceUp },
     { key: "priceDown", label: t.sortPriceDown },
     { key: "name", label: t.sortName },
@@ -100,7 +102,7 @@ function OccasionScreen() {
     setGroups([]);
     setBrandProducts([]);
     if (activeBrandSlug) {
-      fetchBrandProducts(activeBrandSlug, { countryCode, cityId }).then((res) => {
+      fetchBrandProducts(activeBrandSlug, { countryCode, cityId }, apiSort).then((res) => {
         if (!cancelled) {
           const occSlug = String(slug);
           const filtered = res.products.filter(
@@ -111,7 +113,7 @@ function OccasionScreen() {
         }
       });
     } else {
-      fetchOccasionProducts(String(slug), { countryCode, cityId }).then((g) => {
+      fetchOccasionProducts(String(slug), { countryCode, cityId }, apiSort).then((g) => {
         if (!cancelled) {
           setGroups(g.filter((gr) => gr.products.length > 0));
           setLoading(false);
@@ -119,7 +121,7 @@ function OccasionScreen() {
       });
     }
     return () => { cancelled = true; };
-  }, [slug, countryCode, cityId, activeBrandSlug]);
+  }, [slug, countryCode, cityId, activeBrandSlug, apiSort]);
 
   const { products: wooCatalog } = useWooProducts();
   const popularPicks = useMemo(() => {
@@ -142,18 +144,14 @@ function OccasionScreen() {
     [groups, pricingMap],
   );
 
+  // All sort modes except "name" are handled server-side; apply name sort client-side only
   const sortedBrandProducts = useMemo(() => {
-    if (sort === "featured") return enrichedBrandProducts;
-    const list = [...enrichedBrandProducts];
-    if (sort === "bestSeller") list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-    else if (sort === "priceUp") list.sort((a, b) => a.priceValue - b.priceValue);
-    else if (sort === "priceDown") list.sort((a, b) => b.priceValue - a.priceValue);
-    else if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
-    return list;
+    if (sort === "name") return [...enrichedBrandProducts].sort((a, b) => a.name.localeCompare(b.name));
+    return enrichedBrandProducts;
   }, [enrichedBrandProducts, sort]);
 
   const flatSortedGroupProducts = useMemo(() => {
-    if (sort === "featured") return null;
+    if (sort === "recommended") return null;
     const seen = new Set<string>();
     const flat: WooProduct[] = [];
     for (const g of enrichedGroups) {
@@ -163,12 +161,9 @@ function OccasionScreen() {
         flat.push(p);
       }
     }
-    const list = [...flat];
-    if (sort === "bestSeller") list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-    else if (sort === "priceUp") list.sort((a, b) => a.priceValue - b.priceValue);
-    else if (sort === "priceDown") list.sort((a, b) => b.priceValue - a.priceValue);
-    else if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
-    return list;
+    // Products within each group come pre-sorted from the server; apply name sort client-side only
+    if (sort === "name") return [...flat].sort((a, b) => a.name.localeCompare(b.name));
+    return flat;
   }, [enrichedGroups, sort]);
 
   const hasProducts = activeBrandSlug ? brandProducts.length > 0 : groups.length > 0;
@@ -276,7 +271,7 @@ function OccasionScreen() {
         {!loading && hasProducts && (
           <FilterSortBar
             onPress={() => setSheetOpen(true)}
-            activeCount={sort !== "featured" ? 1 : 0}
+            activeCount={sort !== "recommended" ? 1 : 0}
             gridView={gridView}
             onToggleGrid={() => setGridView((v) => !v)}
           />

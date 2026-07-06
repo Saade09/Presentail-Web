@@ -5,7 +5,7 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
-export type SortKey = "featured" | "bestSeller" | "priceUp" | "priceDown" | "name";
+export type SortKey = "recommended" | "featured" | "bestSeller" | "newest" | "priceUp" | "priceDown" | "name";
 
 export type FilterPill = {
   id: string;

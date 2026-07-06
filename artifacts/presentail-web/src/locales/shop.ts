@@ -12,8 +12,9 @@ export const shopStrings: Dict = {
   "locationPickerGate.dialogDesc": { en: "Select the country and city you want your gift delivered to.", ar: "اختر البلد والمدينة التي تريد توصيل هديتك إليها." },
 
   "shop.sortPlaceholder": { en: "Sort by", ar: "ترتيب حسب" },
-  "shop.sort.featured": { en: "Featured", ar: "المميزة" },
+  "shop.sort.recommended": { en: "Recommended", ar: "موصى به" },
   "shop.sort.bestSeller": { en: "Best Seller", ar: "الأكثر مبيعاً" },
+  "shop.sort.newest": { en: "Newest", ar: "الأحدث" },
   "shop.sort.priceAsc": { en: "Price: Low to High", ar: "السعر: من الأقل إلى الأعلى" },
   "shop.sort.priceDesc": { en: "Price: High to Low", ar: "السعر: من الأعلى إلى الأقل" },
   "shop.filterAndSort": { en: "Filter & Sort", ar: "تصفية وترتيب" },
@@ -525,8 +526,9 @@ export const shopStringsFr: Record<string, string> = {
   "locationPickerGate.dialogDesc": "Sélectionnez le pays et la ville où vous souhaitez livrer votre cadeau.",
 
   "shop.sortPlaceholder": "Trier par",
-  "shop.sort.featured": "À la une",
+  "shop.sort.recommended": "Recommandé",
   "shop.sort.bestSeller": "Meilleures ventes",
+  "shop.sort.newest": "Nouveautés",
   "shop.sort.priceAsc": "Prix : croissant",
   "shop.sort.priceDesc": "Prix : décroissant",
   "shop.filterAndSort": "Filtrer & Trier",

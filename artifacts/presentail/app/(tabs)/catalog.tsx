@@ -98,7 +98,7 @@ function CatalogScreen() {
   const { lang } = useLanguage();
   const [activeCat, setActiveCat] = useState<string>(params.category ?? ALL);
   const [query, setQuery] = useState<string>(params.q ?? "");
-  const [sort, setSort] = useState<SortKey>("featured");
+  const [sort, setSort] = useState<SortKey>("recommended");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [gridView, setGridView] = useState(true);
 
@@ -118,8 +118,9 @@ function CatalogScreen() {
   });
 
   const sortOptions: { id: SortKey; label: string }[] = [
-    { id: "featured", label: t.sortFeatured },
+    { id: "recommended", label: t.sortRecommended },
     { id: "bestSeller", label: t.sortBestSeller },
+    { id: "newest", label: t.sortNewest },
     { id: "priceUp", label: t.sortPriceUp },
     { id: "priceDown", label: t.sortPriceDown },
     { id: "name", label: t.sortName },
@@ -132,20 +133,41 @@ function CatalogScreen() {
       const q = query.toLowerCase();
       list = list.filter((p) => p.name.toLowerCase().includes(q));
     }
-    if (sort !== "featured") {
-      const sorted = [...list];
-      if (sort === "bestSeller") {
-        sorted.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-      } else if (sort === "priceUp") {
-        sorted.sort((a, b) => (a.priceValue ?? 0) - (b.priceValue ?? 0));
-      } else if (sort === "priceDown") {
-        sorted.sort((a, b) => (b.priceValue ?? 0) - (a.priceValue ?? 0));
-      } else if (sort === "name") {
-        sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-      }
-      list = sorted;
+    const sorted = [...list];
+    if (sort === "recommended") {
+      const salesArr = sorted.map((x) => x.popularity ?? 0);
+      const maxSales = Math.max(0, ...salesArr);
+      const C = Math.max(1, maxSales * 0.1);
+      const ids = sorted.map((x) => (typeof x.osNumericId === "number" ? x.osNumericId : 0));
+      const minId = Math.min(0, ...ids);
+      const maxId = Math.max(0, ...ids);
+      sorted.sort((a, b) => {
+        const score = (x: typeof sorted[0]) => {
+          const s = x.popularity ?? 0;
+          const popScore = (s / (s + C)) * 100;
+          const id = typeof x.osNumericId === "number" ? x.osNumericId : 0;
+          const freshScore = maxId > minId ? ((id - minId) / (maxId - minId)) * 100 : 50;
+          const featScore = x.tag === "Featured" ? 100 : 0;
+          return 0.5 * popScore + 0.3 * freshScore + 0.2 * featScore;
+        };
+        return score(b) - score(a);
+      });
+    } else if (sort === "bestSeller") {
+      sorted.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    } else if (sort === "newest") {
+      sorted.sort((a, b) => {
+        const aId = typeof a.osNumericId === "number" ? a.osNumericId : 0;
+        const bId = typeof b.osNumericId === "number" ? b.osNumericId : 0;
+        return bId - aId;
+      });
+    } else if (sort === "priceUp") {
+      sorted.sort((a, b) => (a.priceValue ?? 0) - (b.priceValue ?? 0));
+    } else if (sort === "priceDown") {
+      sorted.sort((a, b) => (b.priceValue ?? 0) - (a.priceValue ?? 0));
+    } else if (sort === "name") {
+      sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
     }
-    return list;
+    return sorted;
   }, [products, activeCat, query, sort]);
 
   const tRecord = t as unknown as Record<string, string>;
@@ -260,7 +282,7 @@ function CatalogScreen() {
 
       <FilterSortBar
         onPress={() => setSheetOpen(true)}
-        activeCount={(sort !== "featured" ? 1 : 0) + (activeCat !== ALL ? 1 : 0)}
+        activeCount={(sort !== "recommended" ? 1 : 0) + (activeCat !== ALL ? 1 : 0)}
         gridView={gridView}
         onToggleGrid={() => setGridView((v) => !v)}
       />

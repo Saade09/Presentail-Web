@@ -31,7 +31,7 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchCategoryProducts, applyPricingToProducts, type WooProduct } from "@/lib/woo";
+import { fetchCategoryProducts, applyPricingToProducts, sortKeyToApiSort, type WooProduct } from "@/lib/woo";
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -61,12 +61,14 @@ function CategoryScreen() {
   const insets = useSafeAreaInsets();
   const t = useT();
   const { count } = useCart();
-  const [sort, setSort] = useState<SortKey>("featured");
+  const [sort, setSort] = useState<SortKey>("recommended");
+  const apiSort = sortKeyToApiSort(sort);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [gridView, setGridView] = useState(true);
   const SORTS: { key: SortKey; label: string }[] = [
-    { key: "featured", label: t.sortFeatured },
+    { key: "recommended", label: t.sortRecommended },
     { key: "bestSeller", label: t.sortBestSeller },
+    { key: "newest", label: t.sortNewest },
     { key: "priceUp", label: t.sortPriceUp },
     { key: "priceDown", label: t.sortPriceDown },
     { key: "name", label: t.sortName },
@@ -100,7 +102,7 @@ function CategoryScreen() {
     // virtualized list shows the loading state instead of flashing the
     // previous category's products while the new fetch is in flight.
     setWcProducts([]);
-    fetchCategoryProducts(String(slug), { countryCode, cityId }).then(({ products, categoryName }) => {
+    fetchCategoryProducts(String(slug), { countryCode, cityId }, apiSort).then(({ products, categoryName }) => {
       if (cancelled) return;
       const merged = products
         .map((wp) => mergeWithStatic(wp))
@@ -110,15 +112,13 @@ function CategoryScreen() {
       setWcLoading(false);
     });
     return () => { cancelled = true; };
-  }, [slug, countryCode, cityId]);
+  }, [slug, countryCode, cityId, apiSort]);
 
   const enrichedWcProducts = applyPricingToProducts(wcProducts, pricingMap);
 
   const sourceProducts = enrichedWcProducts;
+  // All sort modes except "name" are handled server-side; apply name sort client-side only
   const products = useMemo(() => {
-    if (sort === "bestSeller") return [...sourceProducts].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-    if (sort === "priceUp") return [...sourceProducts].sort((a, b) => a.priceValue - b.priceValue);
-    if (sort === "priceDown") return [...sourceProducts].sort((a, b) => b.priceValue - a.priceValue);
     if (sort === "name") return [...sourceProducts].sort((a, b) => a.name.localeCompare(b.name));
     return sourceProducts;
   }, [sourceProducts, sort]);
@@ -252,7 +252,7 @@ function CategoryScreen() {
 
         <FilterSortBar
           onPress={() => setSheetOpen(true)}
-          activeCount={sort !== "featured" ? 1 : 0}
+          activeCount={sort !== "recommended" ? 1 : 0}
           gridView={gridView}
           onToggleGrid={() => setGridView((v) => !v)}
         />

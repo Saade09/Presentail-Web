@@ -310,7 +310,7 @@ export default function Shop() {
     navigate(location + (qs ? `?${qs}` : ""), { replace: true });
   }
 
-  const [sort, setSort] = useState("featured");
+  const [sort, setSort] = useState("recommended");
   const [selectedPriceBucket, setSelectedPriceBucket] = useState<PriceBucket | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -391,9 +391,37 @@ export default function Shop() {
 
   const products = useMemo(() => {
     const p = [...filteredProducts];
-    if (sort === "best-seller") p.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-    if (sort === "price-asc") p.sort((a, b) => a.priceValue - b.priceValue);
-    if (sort === "price-desc") p.sort((a, b) => b.priceValue - a.priceValue);
+    if (sort === "recommended") {
+      const salesArr = p.map((x) => x.popularity ?? 0);
+      const maxSales = Math.max(0, ...salesArr);
+      const C = Math.max(1, maxSales * 0.1);
+      const ids = p.map((x) => (typeof x.osNumericId === "number" ? x.osNumericId : 0));
+      const minId = Math.min(0, ...ids);
+      const maxId = Math.max(0, ...ids);
+      p.sort((a, b) => {
+        const scoreOf = (x: (typeof p)[0]) => {
+          const s = x.popularity ?? 0;
+          const popScore = (s / (s + C)) * 100;
+          const id = typeof x.osNumericId === "number" ? x.osNumericId : 0;
+          const freshScore = maxId > minId ? ((id - minId) / (maxId - minId)) * 100 : 50;
+          const featScore = x.tag === "Featured" ? 100 : 0;
+          return 0.5 * popScore + 0.3 * freshScore + 0.2 * featScore;
+        };
+        return scoreOf(b) - scoreOf(a);
+      });
+    } else if (sort === "best-seller") {
+      p.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    } else if (sort === "newest") {
+      p.sort((a, b) => {
+        const aId = typeof a.osNumericId === "number" ? a.osNumericId : 0;
+        const bId = typeof b.osNumericId === "number" ? b.osNumericId : 0;
+        return bId - aId;
+      });
+    } else if (sort === "price-asc") {
+      p.sort((a, b) => a.priceValue - b.priceValue);
+    } else if (sort === "price-desc") {
+      p.sort((a, b) => b.priceValue - a.priceValue);
+    }
     return p;
   }, [filteredProducts, sort]);
 
@@ -557,8 +585,9 @@ export default function Shop() {
                 <SelectValue placeholder={t("shop.sortPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="featured">{t("shop.sort.featured")}</SelectItem>
+                <SelectItem value="recommended">{t("shop.sort.recommended")}</SelectItem>
                 <SelectItem value="best-seller">{t("shop.sort.bestSeller")}</SelectItem>
+                <SelectItem value="newest">{t("shop.sort.newest")}</SelectItem>
                 <SelectItem value="price-asc">{t("shop.sort.priceAsc")}</SelectItem>
                 <SelectItem value="price-desc">{t("shop.sort.priceDesc")}</SelectItem>
               </SelectContent>
@@ -600,9 +629,9 @@ export default function Shop() {
           >
             <Filter className="w-4 h-4 mr-2" />
             {t("shop.filterAndSort")}
-            {(hasActiveFilters || sort !== "featured") && (
+            {(hasActiveFilters || sort !== "recommended") && (
               <span className="absolute -top-1.5 right-3 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium">
-                {(selectedPriceBucket ? 1 : 0) + selectedColors.length + (sort !== "featured" ? 1 : 0)}
+                {(selectedPriceBucket ? 1 : 0) + selectedColors.length + (sort !== "recommended" ? 1 : 0)}
               </span>
             )}
           </Button>
@@ -830,8 +859,9 @@ export default function Shop() {
               <div className="flex flex-wrap gap-2">
                 {(
                   [
-                    { value: "featured", label: t("shop.sort.featured") },
+                    { value: "recommended", label: t("shop.sort.recommended") },
                     { value: "best-seller", label: t("shop.sort.bestSeller") },
+                    { value: "newest", label: t("shop.sort.newest") },
                     { value: "price-asc", label: t("shop.sort.priceAsc") },
                     { value: "price-desc", label: t("shop.sort.priceDesc") },
                   ] as const
