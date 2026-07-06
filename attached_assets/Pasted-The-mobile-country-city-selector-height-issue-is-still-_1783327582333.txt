@@ -1,0 +1,54 @@
+The mobile country/city selector height issue is still not fixed. Stop patching random list styles.
+
+Find the actual component and CSS controlling the selector card height on the landing/country selection page. Trace the DOM from the page wrapper down to the country selector, including any Radix/shadcn ScrollArea, Dialog, Command, Select, Accordion, or custom wrapper.
+
+Problem:
+On mobile, the white selector card ends too high. It should stretch close to the bottom of the viewport. The list scrolls, but the card itself is not tall enough.
+
+Required behavior:
+- Mobile only.
+- The selector card should extend from its current top position down to about 16–24px above the viewport bottom.
+- The country row stays fixed at the top of the card.
+- The cities/districts list fills the remaining space.
+- Only the list scrolls internally.
+- Do not change city order.
+- Do not auto-scroll the list.
+- Do not make disabled cities appear just to fill space.
+- Do not change desktop.
+
+Implementation:
+Inspect the real rendered DOM and remove the actual limiting height/max-height. Likely causes:
+- parent wrapper using content height
+- `max-height`
+- `h-auto`
+- `max-h-*`
+- ScrollArea viewport fixed height
+- Radix viewport/content wrapper limiting height
+- `overflow-hidden` on the wrong element
+- `items-start` / flex parent not allowing child to stretch
+
+Use mobile CSS equivalent to:
+
+.selector-card {
+  height: calc(100dvh - var(--selector-top-offset) - 20px);
+  max-height: none !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.country-row {
+  flex: 0 0 auto;
+}
+
+.city-list,
+.scroll-area,
+[data-radix-scroll-area-viewport] {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: none !important;
+  overflow-y: auto;
+}
+
+Do not claim fixed until verified in browser devtools at 393x852 mobile viewport. Screenshot must show the white card bottom near the screen bottom, not stopping halfway with blank space below.

@@ -173,11 +173,13 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
         </div>
       </div>
 
-      {/* Main content — single centered column, shifted slightly above center */}
-      <div className="flex-1 flex items-start justify-center px-6 pt-6 overflow-hidden">
-        <div className="w-full max-w-md flex flex-col gap-5">
+      {/* Main content — single centered column.
+          When a country is expanded: stretch to fill height so the city list
+          reaches the viewport bottom. When collapsed: content-sized. */}
+      <div className={`flex-1 flex justify-center px-6 pt-6 overflow-hidden ${selectedCountryCode ? "items-stretch" : "items-start"}`}>
+        <div className={`w-full max-w-md flex flex-col gap-5 ${selectedCountryCode ? "flex-1 min-h-0" : ""}`}>
           {/* Headline */}
-          <div>
+          <div className="shrink-0">
             <h1
               className="text-3xl xl:text-4xl font-serif text-foreground leading-tight text-center"
               data-testid="text-heading"
@@ -193,7 +195,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
           </div>
 
           {/* Country accordion */}
-          <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm">
+          <div className={`rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm ${selectedCountryCode ? "flex flex-col flex-1 min-h-0" : ""}`}>
             {isLoadingCountries && countries.length === 0
               ? skeletonRows
               : rows.filter((row) => !selectedCountryCode || selectedCountryCode === row.code).map((row, idx) => {
@@ -201,13 +203,13 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                   return (
                     <div
                       key={row.code}
-                      className={idx > 0 ? "border-t border-gray-200/70" : ""}
+                      className={`${idx > 0 ? "border-t border-gray-200/70" : ""} ${isOpen ? "flex flex-col flex-1 min-h-0" : ""}`}
                     >
                       <button
                         type="button"
                         onClick={() => handleCountryClick(row.code, row.ready)}
                         disabled={!row.ready}
-                        className={`w-full flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors disabled:opacity-50 ${
+                        className={`w-full shrink-0 flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors disabled:opacity-50 ${
                           isOpen ? "bg-gray-100/60" : "hover:bg-gray-50/80"
                         }`}
                         data-testid={`button-country-${row.code.toLowerCase()}`}
@@ -228,7 +230,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                       </button>
 
                       {isOpen && row.cities.length > 0 && (
-                        <div className="border-t border-gray-200/70 bg-gray-50/60 overflow-y-auto" style={{ maxHeight: "calc(100svh - 22rem)" }}>
+                        <div className="border-t border-gray-200/70 bg-gray-50/60 flex-1 min-h-0 overflow-y-auto">
                           <CityList cities={row.cities} countryCode={row.code} />
                         </div>
                       )}
