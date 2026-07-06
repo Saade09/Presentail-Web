@@ -6,7 +6,7 @@ import { useCreateOrder } from "@/lib/queries";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { fireAdsPurchaseConversion } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
@@ -330,6 +330,11 @@ export default function OrderConfirmed() {
             name: "order_placed",
             surface: "checkout",
             ...(chosenMethod ? { action: chosenMethod } : {}),
+          });
+          trackWebEvent({
+            type: "payment_completed",
+            value: typeof payload.totalUsd === "number" ? payload.totalUsd : undefined,
+            currency: (payload.currencyCode as string | undefined) ?? "USD",
           });
           const orderRef = String(payload.orderId ?? res.osOrderId ?? res.wcOrderId);
           const conversionKey = `${ADS_CONVERSION_KEY_PREFIX}${orderRef}`;

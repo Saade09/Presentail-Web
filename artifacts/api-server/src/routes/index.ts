@@ -41,6 +41,7 @@ import adminPixelDiagnosticsRouter from "./adminPixelDiagnostics";
 import seoQaRouter from "./seoQa";
 import { merchantFeedDebugRouter } from "./merchantFeed";
 import ogImageRouter from "./ogImage";
+import webEventsRouter from "./webEvents";
 
 const router: IRouter = Router();
 
@@ -86,5 +87,6 @@ router.use(adminPixelDiagnosticsRouter);
 router.use(seoQaRouter);
 router.use(merchantFeedDebugRouter);
 router.use(ogImageRouter);
+router.use(webEventsRouter);
 
 export default router;

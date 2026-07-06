@@ -86,4 +86,11 @@ export const AnalyticsEventName = {
   browse_category_selected_city_clicked:
     "browse_category_selected_city_clicked",
   recommended_product_clicked: "recommended_product_clicked",
+  product_view: "product_view",
+  add_to_cart: "add_to_cart",
+  checkout_step: "checkout_step",
+  payment_started: "payment_started",
+  payment_completed: "payment_completed",
+  promo_applied: "promo_applied",
+  promo_failed: "promo_failed",
 } as const;

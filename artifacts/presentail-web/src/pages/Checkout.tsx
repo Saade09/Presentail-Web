@@ -43,7 +43,7 @@ import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -898,6 +898,23 @@ function CheckoutForm() {
     checkoutStartedRef.current = true;
     trackEvent({ name: "checkout_started", surface: "checkout" });
     trackFbEvent("InitiateCheckout", user?.email ? { userData: { em: user.email } } : undefined);
+    trackWebEvent({
+      type: "checkout_step",
+      items: items.map((i) => ({
+        productId: i.product.id,
+        name: i.product.name,
+        price: i.product.priceValue,
+        quantity: i.quantity,
+      })),
+      value: subtotal,
+      currency: checkoutCurrency,
+      city: locationCity?.name ?? locationCity?.id ?? undefined,
+      properties: {
+        slot: deliverySlot || undefined,
+        deliveryFee: districtFee + expressFee + slotFee,
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, showLoginGate]);
 
   // Reflect any in-checkout edits to the delivery mode / date / slot back
@@ -1544,6 +1561,12 @@ function CheckoutForm() {
         surface: "checkout",
         action: paymentMethod,
       });
+      trackWebEvent({
+        type: "payment_completed",
+        value: total,
+        currency: checkoutCurrency,
+        city: locationCity?.name ?? locationCity?.id ?? undefined,
+      });
       try {
         sessionStorage.setItem(
           PENDING_ORDER_KEY,
@@ -1621,6 +1644,24 @@ function CheckoutForm() {
           return;
         }
       }
+
+      trackWebEvent({
+        type: "payment_started",
+        items: items.map((i) => ({
+          productId: i.product.id,
+          name: i.product.name,
+          price: i.product.priceValue,
+          quantity: i.quantity,
+        })),
+        value: total,
+        currency: checkoutCurrency,
+        city: locationCity?.name ?? locationCity?.id ?? undefined,
+        properties: {
+          slot: deliverySlot || undefined,
+          deliveryFee: districtFee + expressFee + slotFee,
+          paymentMethod,
+        },
+      });
 
       // Fire-and-forget before any redirect so the address is saved even
       // for hosted-payment flows where we never return to this page.

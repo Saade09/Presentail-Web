@@ -1,3 +1,58 @@
+type WebEventType =
+  | "product_view"
+  | "add_to_cart"
+  | "checkout_step"
+  | "payment_started"
+  | "payment_completed"
+  | "promo_applied"
+  | "promo_failed";
+
+export type WebEventItem = {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+};
+
+export type WebEvent = {
+  type: WebEventType;
+  sessionId?: string;
+  value?: number;
+  currency?: string;
+  brand?: string;
+  city?: string;
+  items?: WebEventItem[];
+  properties?: Record<string, unknown>;
+};
+
+const WEB_EVENTS_API_KEY = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
+
+/**
+ * Post a web funnel event to `/api/web-events`. Uses the same
+ * sessionId managed by this module so the server can correlate
+ * web funnel events with the existing purchase-funnel monitors.
+ * Best-effort: failures are swallowed silently.
+ */
+export function trackWebEvent(event: WebEvent): void {
+  if (typeof window === "undefined") return;
+  SESSION_ID = getOrCreateSessionId();
+  const payload = JSON.stringify({ ...event, sessionId: SESSION_ID });
+  try {
+    void fetch("/api/web-events", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": WEB_EVENTS_API_KEY,
+      },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
+    touchSession();
+  } catch {
+    // best-effort; never block UI on analytics
+  }
+}
+
 type AnalyticsEventName =
   | "checkout_login_prompt_viewed"
   | "checkout_login_prompt_action"

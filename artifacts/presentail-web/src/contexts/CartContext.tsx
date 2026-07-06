@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Product } from "@/lib/queries";
 import { trackFbEvent } from "@/lib/fbPixel";
+import { trackWebEvent } from "@/lib/analytics";
 import { AuthOverrideContext } from "@/contexts/AuthContext";
+import { LocationContext } from "@/contexts/LocationContext";
 import { getStartupItem } from "@/lib/startupState";
 
 export type CartItem = {
@@ -26,6 +28,7 @@ export const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useContext(AuthOverrideContext);
+  const locationCtx = useContext(LocationContext);
   const [items, setItems] = useState<CartItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -83,6 +86,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       value: product.priceValue,
       currency: "USD",
       ...(user?.email ? { userData: { em: user.email } } : {}),
+    });
+    // Compute post-add items from current closure snapshot (items is always
+    // fresh because addItem is re-created on every render without useCallback).
+    const existing = items.find(i => i.product.id === product.id);
+    const newItems = existing
+      ? items.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + quantity } : i)
+      : [...items, { product, quantity }];
+    const newSubtotal = newItems.reduce((acc, item) => acc + item.product.priceValue * item.quantity, 0);
+    const cityName = locationCtx?.city?.name ?? locationCtx?.city?.id ?? undefined;
+    const brandName = product.brandNames?.[0] ?? undefined;
+    trackWebEvent({
+      type: "add_to_cart",
+      items: newItems.map(i => ({
+        productId: i.product.id,
+        name: i.product.name,
+        price: i.product.priceValue,
+        quantity: i.quantity,
+      })),
+      value: newSubtotal,
+      currency: "USD",
+      ...(brandName ? { brand: brandName } : {}),
+      ...(cityName ? { city: cityName } : {}),
     });
   };
 

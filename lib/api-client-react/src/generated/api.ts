@@ -76,6 +76,8 @@ import type {
   PhoneOtpSendResponse,
   PhoneOtpVerifyRequest,
   PhoneOtpVerifyResponse,
+  PostWebEventsBody,
+  PostWebEventsResponse,
   ProductColorHintsRequest,
   ProductColorHintsResponse,
   ProxyOsImageParams,
@@ -1311,6 +1313,100 @@ export const useRecordAnalyticsEvent = <
   TContext
 > => {
   return useMutation(getRecordAnalyticsEventMutationOptions(options));
+};
+
+/**
+ * Accepts a single web funnel event or a batch of up to 500 events from
+the web storefront. Authenticated by `x-api-key` (the Presentail OS API
+key — same key the storefront already holds). Events without a
+`sessionId` are silently dropped. Stored in the existing
+`analytics_events` table so the funnel monitors pick them up
+automatically. Rate-limited per IP (120 req / 5 min). DB writes are
+best-effort — a transient DB hiccup never returns a 5xx.
+
+ * @summary Ingest cart and checkout funnel events from the web storefront
+ */
+export const getRecordWebEventsUrl = () => {
+  return `/api/web-events`;
+};
+
+export const recordWebEvents = async (
+  postWebEventsBody: PostWebEventsBody,
+  options?: RequestInit,
+): Promise<PostWebEventsResponse> => {
+  return customFetch<PostWebEventsResponse>(getRecordWebEventsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(postWebEventsBody),
+  });
+};
+
+export const getRecordWebEventsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordWebEvents>>,
+    TError,
+    { data: BodyType<PostWebEventsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof recordWebEvents>>,
+  TError,
+  { data: BodyType<PostWebEventsBody> },
+  TContext
+> => {
+  const mutationKey = ["recordWebEvents"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof recordWebEvents>>,
+    { data: BodyType<PostWebEventsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return recordWebEvents(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RecordWebEventsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recordWebEvents>>
+>;
+export type RecordWebEventsMutationBody = BodyType<PostWebEventsBody>;
+export type RecordWebEventsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Ingest cart and checkout funnel events from the web storefront
+ */
+export const useRecordWebEvents = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordWebEvents>>,
+    TError,
+    { data: BodyType<PostWebEventsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof recordWebEvents>>,
+  TError,
+  { data: BodyType<PostWebEventsBody> },
+  TContext
+> => {
+  return useMutation(getRecordWebEventsMutationOptions(options));
 };
 
 /**

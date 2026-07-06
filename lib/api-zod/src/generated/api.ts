@@ -579,6 +579,13 @@ export const RecordAnalyticsEventBody = zod.object({
       "switch_back_city_clicked",
       "browse_category_selected_city_clicked",
       "recommended_product_clicked",
+      "product_view",
+      "add_to_cart",
+      "checkout_step",
+      "payment_started",
+      "payment_completed",
+      "promo_applied",
+      "promo_failed",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n\n`payment_wallet_opened` is emitted when the native wallet sheet\n(Apple Pay \/ Google Pay) successfully opens on web or mobile. The\n`action` field carries `apple_pay` or `google_pay` on mobile and\n`wallet` on web (browser determines which wallet is active).\n\n`payment_wallet_fallback` is emitted when the wallet sheet could\nnot be opened and the checkout silently falls back to the card\nform. The `errorCode` field carries the reason:\n`constructor_failed` (web — PaymentRequest constructor threw),\n`show_failed` (web — pr.show() threw synchronously), or\n`not_available` (mobile — isPlatformPaySupported returned false).\n",
@@ -742,6 +749,223 @@ export const RecordAnalyticsEventBody = zod.object({
 
 export const RecordAnalyticsEventResponse = zod.object({
   ok: zod.boolean(),
+});
+
+/**
+ * Accepts a single web funnel event or a batch of up to 500 events from
+the web storefront. Authenticated by `x-api-key` (the Presentail OS API
+key — same key the storefront already holds). Events without a
+`sessionId` are silently dropped. Stored in the existing
+`analytics_events` table so the funnel monitors pick them up
+automatically. Rate-limited per IP (120 req / 5 min). DB writes are
+best-effort — a transient DB hiccup never returns a 5xx.
+
+ * @summary Ingest cart and checkout funnel events from the web storefront
+ */
+export const recordWebEventsBodyOneSessionIdMax = 36;
+
+export const recordWebEventsBodyOneCurrencyMax = 8;
+
+export const recordWebEventsBodyOneBrandMax = 128;
+
+export const recordWebEventsBodyOneCityMax = 128;
+
+export const recordWebEventsBodyOneItemsItemProductIdMax = 128;
+
+export const recordWebEventsBodyOneItemsItemNameMax = 256;
+
+export const recordWebEventsBodyOneItemsMax = 100;
+
+export const recordWebEventsBodyTwoEventsItemSessionIdMax = 36;
+
+export const recordWebEventsBodyTwoEventsItemCurrencyMax = 8;
+
+export const recordWebEventsBodyTwoEventsItemBrandMax = 128;
+
+export const recordWebEventsBodyTwoEventsItemCityMax = 128;
+
+export const recordWebEventsBodyTwoEventsItemItemsItemProductIdMax = 128;
+
+export const recordWebEventsBodyTwoEventsItemItemsItemNameMax = 256;
+
+export const recordWebEventsBodyTwoEventsItemItemsMax = 100;
+
+export const recordWebEventsBodyTwoEventsMax = 500;
+
+export const RecordWebEventsBody = zod.union([
+  zod
+    .object({
+      type: zod
+        .enum([
+          "product_view",
+          "add_to_cart",
+          "checkout_step",
+          "payment_started",
+          "payment_completed",
+          "promo_applied",
+          "promo_failed",
+        ])
+        .describe(
+          "Allowlisted event type names for the POST \/web-events endpoint.\nOnly these 7 values are accepted; the server rejects any other string.\n",
+        ),
+      sessionId: zod
+        .string()
+        .max(recordWebEventsBodyOneSessionIdMax)
+        .optional()
+        .describe(
+          "Client session UUID. Events without this are silently dropped.",
+        ),
+      value: zod
+        .number()
+        .optional()
+        .describe(
+          "Monetary value associated with the event (e.g. cart total in USD).",
+        ),
+      currency: zod
+        .string()
+        .max(recordWebEventsBodyOneCurrencyMax)
+        .optional()
+        .describe('ISO 4217 currency code (e.g. \"USD\", \"AED\").'),
+      brand: zod
+        .string()
+        .max(recordWebEventsBodyOneBrandMax)
+        .optional()
+        .describe(
+          "Brand name of the primary product (for add_to_cart events).",
+        ),
+      city: zod
+        .string()
+        .max(recordWebEventsBodyOneCityMax)
+        .optional()
+        .describe("Delivery city selected by the shopper."),
+      items: zod
+        .array(
+          zod
+            .object({
+              productId: zod
+                .string()
+                .max(recordWebEventsBodyOneItemsItemProductIdMax)
+                .describe("OS product slug or identifier."),
+              name: zod
+                .string()
+                .max(recordWebEventsBodyOneItemsItemNameMax)
+                .describe("Product display name."),
+              price: zod.number().describe("Unit price in USD."),
+              quantity: zod
+                .number()
+                .min(1)
+                .describe("Quantity of this product."),
+            })
+            .describe("A single line item in a cart or checkout event."),
+        )
+        .max(recordWebEventsBodyOneItemsMax)
+        .optional()
+        .describe("Line items for add_to_cart and checkout_step events."),
+      properties: zod
+        .record(zod.string(), zod.unknown())
+        .optional()
+        .describe(
+          "Arbitrary structured metadata for the event. For checkout_step:\n`slot` (delivery slot label), `deliveryFee` (total delivery fee in USD).\n",
+        ),
+    })
+    .describe("A single web funnel event."),
+  zod.object({
+    events: zod
+      .array(
+        zod
+          .object({
+            type: zod
+              .enum([
+                "product_view",
+                "add_to_cart",
+                "checkout_step",
+                "payment_started",
+                "payment_completed",
+                "promo_applied",
+                "promo_failed",
+              ])
+              .describe(
+                "Allowlisted event type names for the POST \/web-events endpoint.\nOnly these 7 values are accepted; the server rejects any other string.\n",
+              ),
+            sessionId: zod
+              .string()
+              .max(recordWebEventsBodyTwoEventsItemSessionIdMax)
+              .optional()
+              .describe(
+                "Client session UUID. Events without this are silently dropped.",
+              ),
+            value: zod
+              .number()
+              .optional()
+              .describe(
+                "Monetary value associated with the event (e.g. cart total in USD).",
+              ),
+            currency: zod
+              .string()
+              .max(recordWebEventsBodyTwoEventsItemCurrencyMax)
+              .optional()
+              .describe('ISO 4217 currency code (e.g. \"USD\", \"AED\").'),
+            brand: zod
+              .string()
+              .max(recordWebEventsBodyTwoEventsItemBrandMax)
+              .optional()
+              .describe(
+                "Brand name of the primary product (for add_to_cart events).",
+              ),
+            city: zod
+              .string()
+              .max(recordWebEventsBodyTwoEventsItemCityMax)
+              .optional()
+              .describe("Delivery city selected by the shopper."),
+            items: zod
+              .array(
+                zod
+                  .object({
+                    productId: zod
+                      .string()
+                      .max(
+                        recordWebEventsBodyTwoEventsItemItemsItemProductIdMax,
+                      )
+                      .describe("OS product slug or identifier."),
+                    name: zod
+                      .string()
+                      .max(recordWebEventsBodyTwoEventsItemItemsItemNameMax)
+                      .describe("Product display name."),
+                    price: zod.number().describe("Unit price in USD."),
+                    quantity: zod
+                      .number()
+                      .min(1)
+                      .describe("Quantity of this product."),
+                  })
+                  .describe("A single line item in a cart or checkout event."),
+              )
+              .max(recordWebEventsBodyTwoEventsItemItemsMax)
+              .optional()
+              .describe("Line items for add_to_cart and checkout_step events."),
+            properties: zod
+              .record(zod.string(), zod.unknown())
+              .optional()
+              .describe(
+                "Arbitrary structured metadata for the event. For checkout_step:\n`slot` (delivery slot label), `deliveryFee` (total delivery fee in USD).\n",
+              ),
+          })
+          .describe("A single web funnel event."),
+      )
+      .min(1)
+      .max(recordWebEventsBodyTwoEventsMax),
+  }),
+]);
+
+export const RecordWebEventsResponse = zod.object({
+  ok: zod.boolean(),
+  accepted: zod
+    .number()
+    .describe(
+      "Number of events accepted for storage (excludes dropped events).",
+    ),
+  dropped: zod
+    .number()
+    .describe("Number of events dropped (missing sessionId)."),
 });
 
 /**

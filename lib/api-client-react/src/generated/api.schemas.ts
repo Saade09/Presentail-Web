@@ -282,6 +282,13 @@ export const AnalyticsEventName = {
   browse_category_selected_city_clicked:
     "browse_category_selected_city_clicked",
   recommended_product_clicked: "recommended_product_clicked",
+  product_view: "product_view",
+  add_to_cart: "add_to_cart",
+  checkout_step: "checkout_step",
+  payment_started: "payment_started",
+  payment_completed: "payment_completed",
+  promo_applied: "promo_applied",
+  promo_failed: "promo_failed",
 } as const;
 
 /**
@@ -1537,6 +1544,110 @@ export type NewbornGenderResponseGenders = {
 export interface NewbornGenderResponse {
   /** Map of product ID (string) to gender bucket. */
   genders: NewbornGenderResponseGenders;
+}
+
+/**
+ * A single line item in a cart or checkout event.
+ */
+export interface WebEventItem {
+  /**
+   * OS product slug or identifier.
+   * @maxLength 128
+   */
+  productId: string;
+  /**
+   * Product display name.
+   * @maxLength 256
+   */
+  name: string;
+  /** Unit price in USD. */
+  price: number;
+  /**
+   * Quantity of this product.
+   * @minimum 1
+   */
+  quantity: number;
+}
+
+/**
+ * Allowlisted event type names for the POST /web-events endpoint.
+Only these 7 values are accepted; the server rejects any other string.
+
+ */
+export type WebEventTypeName =
+  (typeof WebEventTypeName)[keyof typeof WebEventTypeName];
+
+export const WebEventTypeName = {
+  product_view: "product_view",
+  add_to_cart: "add_to_cart",
+  checkout_step: "checkout_step",
+  payment_started: "payment_started",
+  payment_completed: "payment_completed",
+  promo_applied: "promo_applied",
+  promo_failed: "promo_failed",
+} as const;
+
+/**
+ * Arbitrary structured metadata for the event. For checkout_step:
+`slot` (delivery slot label), `deliveryFee` (total delivery fee in USD).
+
+ */
+export type WebEventBodyProperties = { [key: string]: unknown };
+
+/**
+ * A single web funnel event.
+ */
+export interface WebEventBody {
+  type: WebEventTypeName;
+  /**
+   * Client session UUID. Events without this are silently dropped.
+   * @maxLength 36
+   */
+  sessionId?: string;
+  /** Monetary value associated with the event (e.g. cart total in USD). */
+  value?: number;
+  /**
+   * ISO 4217 currency code (e.g. "USD", "AED").
+   * @maxLength 8
+   */
+  currency?: string;
+  /**
+   * Brand name of the primary product (for add_to_cart events).
+   * @maxLength 128
+   */
+  brand?: string;
+  /**
+   * Delivery city selected by the shopper.
+   * @maxLength 128
+   */
+  city?: string;
+  /**
+   * Line items for add_to_cart and checkout_step events.
+   * @maxItems 100
+   */
+  items?: WebEventItem[];
+  /** Arbitrary structured metadata for the event. For checkout_step:
+`slot` (delivery slot label), `deliveryFee` (total delivery fee in USD).
+ */
+  properties?: WebEventBodyProperties;
+}
+
+export type PostWebEventsBody =
+  | WebEventBody
+  | {
+      /**
+       * @minItems 1
+       * @maxItems 500
+       */
+      events: WebEventBody[];
+    };
+
+export interface PostWebEventsResponse {
+  ok: boolean;
+  /** Number of events accepted for storage (excludes dropped events). */
+  accepted: number;
+  /** Number of events dropped (missing sessionId). */
+  dropped: number;
 }
 
 export interface NextOrderIdRequest {

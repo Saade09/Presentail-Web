@@ -30,6 +30,8 @@ export const analyticsEventsTable = pgTable(
     linkKind: text("link_kind"),
     linkSlug: text("link_slug"),
     linkUrl: text("link_url"),
+    itemsJson: text("items_json"),
+    propertiesJson: text("properties_json"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

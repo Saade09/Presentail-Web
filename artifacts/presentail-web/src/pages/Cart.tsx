@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,14 +194,17 @@ export default function Cart() {
         setCouponInput(code);
         setCouponApplied(true);
         setCouponDiscountUsd(discount);
+        trackWebEvent({ type: "promo_applied", value: discount, currency: "USD" });
       } else {
         setCouponError(res.message ?? t("cart.promoCodeInvalid"));
         setCouponApplied(false);
         setCouponDiscountUsd(0);
         try { localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
+        trackWebEvent({ type: "promo_failed" });
       }
     } catch {
       setCouponError(t("cart.promoCodeError"));
+      trackWebEvent({ type: "promo_failed" });
     } finally {
       setCouponValidating(false);
     }
