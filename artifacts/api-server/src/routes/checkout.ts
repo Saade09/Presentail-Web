@@ -230,6 +230,11 @@ router.post("/checkout/session", async (req, res) => {
       // payment_intent_data — SessionCreateParams has no top-level description.
       payment_intent_data: {
         description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`, // i18n-ignore
+        // Suppress Stripe's automatic receipt email — the app sends its own
+        // order confirmation via SMTP so a duplicate Stripe receipt adds noise.
+        // Stripe accepts null at runtime to explicitly clear the field, but the
+        // SDK type is string | undefined, so we cast.
+        receipt_email: null as unknown as string,
       },
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       success_url: successUrl,
@@ -640,7 +645,8 @@ router.post("/checkout/payment-intent", async (req, res) => {
       automatic_payment_methods: { enabled: true },
       description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`, // i18n-ignore
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
-      ...(email ? { receipt_email: email } : {}),
+      // receipt_email is intentionally omitted — the app sends its own order
+      // confirmation via SMTP so a duplicate Stripe receipt adds noise.
       // Attach Stripe Customer when the shopper is authenticated.
       // setup_future_usage is only set when the shopper explicitly opted in to
       // saving their card — this tells Stripe to store the card for off-session
