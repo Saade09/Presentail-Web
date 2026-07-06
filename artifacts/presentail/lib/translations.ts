@@ -894,21 +894,6 @@ const EN = {
   authBack: "Back",
 
   // ── Phone verification (sign-up OTP flow) ──
-  authPhoneTitle: "Lastly, Your Phone Number",
-  authPhoneSubtitle: "We will send a one time code to verify your phone number.",
-  authPhoneLabel: "Phone number",
-  authPhoneDisclaimer: "Standard messaging rates may apply.",
-  authOtpTitle: "Enter the code",
-  authOtpSubtitle: "We sent a 6-digit code to {{phone}}.",
-  authOtpLabel: "Verification code",
-  authOtpPlaceholder: "000000",
-  authOtpVerify: "Verify",
-  authOtpResend: "Resend code",
-  authOtpResendIn: "Resend in {{seconds}}s",
-  authOtpInvalid: "Incorrect code. Please try again.",
-  authOtpExpired: "This code has expired. Please request a new one.",
-  authOtpTooManyAttempts: "Too many incorrect attempts. Please request a new code.",
-  authOtpTooManyRequests: "Too many requests. Please wait a moment and try again.",
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "Privacy Policy",
@@ -1796,21 +1781,6 @@ const AR: typeof EN = {
   authBack: "رجوع",
 
   // ── Phone verification (sign-up OTP flow) ──
-  authPhoneTitle: "وأخيراً، رقم هاتفك",
-  authPhoneSubtitle: "سنرسل لك رمزاً لمرة واحدة للتحقق من رقم هاتفك.",
-  authPhoneLabel: "رقم الهاتف",
-  authPhoneDisclaimer: "قد تُطبَّق رسوم الرسائل القياسية.",
-  authOtpTitle: "أدخل الرمز",
-  authOtpSubtitle: "أرسلنا رمزاً مكوناً من 6 أرقام إلى {{phone}}.",
-  authOtpLabel: "رمز التحقق",
-  authOtpPlaceholder: "000000",
-  authOtpVerify: "تحقق",
-  authOtpResend: "إعادة إرسال الرمز",
-  authOtpResendIn: "إعادة الإرسال خلال {{seconds}}ث",
-  authOtpInvalid: "رمز غير صحيح. يرجى المحاولة مرة أخرى.",
-  authOtpExpired: "انتهت صلاحية هذا الرمز. يرجى طلب رمز جديد.",
-  authOtpTooManyAttempts: "عدد محاولات خاطئة كثيرة. يرجى طلب رمز جديد.",
-  authOtpTooManyRequests: "طلبات كثيرة جداً. يرجى الانتظار لحظة والمحاولة مرة أخرى.",
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "سياسة الخصوصية",
@@ -2701,21 +2671,6 @@ const FR: typeof EN = {
   authBack: "Retour",
 
   // ── Phone verification (sign-up OTP flow) ──
-  authPhoneTitle: "Enfin, votre numéro de téléphone",
-  authPhoneSubtitle: "Nous vous enverrons un code unique pour vérifier votre numéro de téléphone.",
-  authPhoneLabel: "Numéro de téléphone",
-  authPhoneDisclaimer: "Des frais de messagerie standard peuvent s'appliquer.",
-  authOtpTitle: "Saisissez le code",
-  authOtpSubtitle: "Nous avons envoyé un code à 6 chiffres au {{phone}}.",
-  authOtpLabel: "Code de vérification",
-  authOtpPlaceholder: "000000",
-  authOtpVerify: "Vérifier",
-  authOtpResend: "Renvoyer le code",
-  authOtpResendIn: "Renvoyer dans {{seconds}}s",
-  authOtpInvalid: "Code incorrect. Veuillez réessayer.",
-  authOtpExpired: "Ce code a expiré. Veuillez en demander un nouveau.",
-  authOtpTooManyAttempts: "Trop de tentatives incorrectes. Veuillez demander un nouveau code.",
-  authOtpTooManyRequests: "Trop de requêtes. Veuillez patienter un moment et réessayer.",
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "Politique de confidentialité",

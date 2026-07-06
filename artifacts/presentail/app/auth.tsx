@@ -16,7 +16,6 @@ import { ForgotPasswordSentStep } from "@/components/auth/ForgotPasswordSentStep
 import { ForgotPasswordStep } from "@/components/auth/ForgotPasswordStep";
 import { PasswordLoginStep } from "@/components/auth/PasswordLoginStep";
 import { SignupStep } from "@/components/auth/SignupStep";
-import { PhoneVerificationStep } from "@/components/auth/PhoneVerificationStep";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -24,12 +23,11 @@ import { useT } from "@/hooks/useT";
 import {
   AuthError,
   checkEmailExists,
+  createAccountWithEmail,
   requestPasswordReset,
   signInWithApple,
   signInWithEmail,
   signInWithGoogle,
-  sendOtp,
-  verifyOtpAndRegister,
 } from "@/services/authService";
 import { isValidEmail } from "@/utils/validation";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -39,7 +37,6 @@ type Step =
   | "email"
   | "passwordLogin"
   | "signup"
-  | "signupPhone"
   | "forgot"
   | "forgotSent"
   | "forgotPasteLink";
@@ -135,10 +132,6 @@ function AuthScreen() {
       setStep("passwordLogin");
       return;
     }
-    if (step === "signupPhone") {
-      setStep("signup");
-      return;
-    }
     setStep("email");
   };
 
@@ -178,9 +171,22 @@ function AuthScreen() {
     close();
   };
 
-  const onSubmitSignup = () => {
+  const onSubmitSignup = async () => {
+    setSignupBusy(true);
+    setSignupError(null);
+    const r = await createAccountWithEmail(register, {
+      email,
+      password,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+    });
+    setSignupBusy(false);
+    if (!r.ok) {
+      setSignupError(errorText(r));
+      return;
+    }
     trackEvent({ name: "signup_step_completed", action: "namePassword" });
-    setStep("signupPhone");
+    close();
   };
 
   const onApple = async () => {
@@ -275,30 +281,6 @@ function AuthScreen() {
     } catch {
       setPasteLinkError(t.authForgotPasteLinkInvalid);
     }
-  };
-
-  const onSendOtp = async (phone: string): Promise<{ ok: true } | { ok: false; code: string }> => {
-    return sendOtp(phone);
-  };
-
-  const onVerifyOtp = async (
-    phone: string,
-    code: string,
-  ): Promise<{ ok: true } | { ok: false; code: string }> => {
-    const r = await verifyOtpAndRegister(applySession, {
-      phone,
-      code,
-      email,
-      password,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-    });
-    if (r.ok) {
-      trackEvent({ name: "signup_step_completed", action: "otp" });
-      close();
-      return { ok: true };
-    }
-    return r;
   };
 
   const isFirstStep = step === "email";
@@ -448,14 +430,6 @@ function AuthScreen() {
             />
           ) : null}
 
-          {step === "signupPhone" ? (
-            <PhoneVerificationStep
-              email={email}
-              onVerified={() => {}}
-              onSendOtp={onSendOtp}
-              onVerifyOtp={onVerifyOtp}
-            />
-          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
