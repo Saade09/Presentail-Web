@@ -34,12 +34,20 @@ const router: IRouter = Router();
 const AFFINITY_CATEGORY_SLUGS: Set<string> = new Set(
   (
     process.env.AFFINITY_CATEGORY_SLUGS ?? // i18n-ignore — internal category slug config, not user-visible copy
-    "cakes"
+    "cakes,flowers,flowers-plants"
   )
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
 );
+
+// Complementary category slugs used when cold-start fill is needed.
+// Keys are any anchor category slug; values are the slugs to pull suggestions from.
+const COMPLEMENTARY_CATEGORIES: Record<string, string[]> = {
+  flowers: ["chocolates", "balloons", "teddy-bears", "cakes", "gift-cards"],
+  "flowers-plants": ["chocolates", "balloons", "teddy-bears", "cakes", "gift-cards"],
+  cakes: ["flowers", "flowers-plants", "balloons", "chocolates", "teddy-bears"],
+};
 
 const MAX_RESULTS = 4;
 
@@ -131,8 +139,20 @@ router.get("/products/frequently-bought-together", async (req, res) => {
   }
 
   // Cold-start fill: if we have fewer than 2 affinity matches, pad with
-  // top-selling in-stock products from the same category.
+  // top-selling in-stock products from complementary categories.
   if (resolved.length < 2) {
+    // Build the set of complementary slugs for this anchor.
+    const complementarySlugs = new Set<string>();
+    for (const catSlug of anchorCategories) {
+      for (const compSlug of COMPLEMENTARY_CATEGORIES[catSlug] ?? []) {
+        complementarySlugs.add(compSlug);
+      }
+    }
+    // Fall back to same-category fill if no complementary map is defined.
+    if (complementarySlugs.size === 0) {
+      for (const catSlug of anchorCategories) complementarySlugs.add(catSlug);
+    }
+
     const allProducts = getOsProducts(storeKey) ?? [];
     const topSellers = allProducts
       .filter(
@@ -140,8 +160,8 @@ router.get("/products/frequently-bought-together", async (req, res) => {
           p.inStock &&
           !seenIds.has(p.id) &&
           p.categories.some((c) => {
-            const catSlug = c.slug ?? c.id;
-            return anchorCategories.includes(catSlug) || AFFINITY_CATEGORY_SLUGS.has(catSlug);
+            const catSlug = c.slug ?? c.id ?? "";
+            return complementarySlugs.has(catSlug);
           }),
       )
       .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0));

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   useGetFrequentlyBoughtTogether,
   getGetFrequentlyBoughtTogetherQueryKey,
@@ -9,6 +10,8 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import { Button } from "@/components/ui/button";
 import type { Product } from "@/lib/queries";
 import type { FrequentlyBoughtTogetherProduct } from "@workspace/api-client-react";
+import { Minus, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function countryToStore(
   countryCode: string | null | undefined,
@@ -42,6 +45,15 @@ function adaptProduct(p: FrequentlyBoughtTogetherProduct): Product {
   };
 }
 
+function effectivePrice(p: Product): number {
+  return p.discountPriceValue ?? p.priceValue;
+}
+
+interface FBTItemState {
+  checked: boolean;
+  qty: number;
+}
+
 interface Props {
   slug: string;
   anchor: Product;
@@ -63,86 +75,171 @@ export function FrequentlyBoughtTogether({ slug, anchor }: Props) {
   });
 
   const complements = (data?.products ?? []).map(adaptProduct);
+
+  const [selections, setSelections] = useState<Record<string, FBTItemState>>({});
+
+  useEffect(() => {
+    if (complements.length === 0) return;
+    const initial: Record<string, FBTItemState> = {};
+    for (const c of complements) {
+      initial[c.id] = { checked: true, qty: 1 };
+    }
+    setSelections(initial);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   if (complements.length === 0) return null;
 
+  const anchorPrice = effectivePrice(anchor);
   const anchorImage = anchor.image?.uri ?? anchor.images?.[0]?.uri;
-  const anchorPrice = anchor.discountPriceValue ?? anchor.priceValue;
+
+  const selectedComplements = complements.filter((c) => selections[c.id]?.checked && c.inStock);
+  const total =
+    anchorPrice +
+    selectedComplements.reduce((sum, c) => sum + effectivePrice(c) * (selections[c.id]?.qty ?? 1), 0);
+  const totalItems = 1 + selectedComplements.reduce((sum, c) => sum + (selections[c.id]?.qty ?? 1), 0);
+
+  function toggle(id: string) {
+    setSelections((prev) => ({
+      ...prev,
+      [id]: { checked: !prev[id]?.checked, qty: prev[id]?.qty ?? 1 },
+    }));
+  }
+
+  function changeQty(id: string, delta: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelections((prev) => {
+      const current = prev[id] ?? { checked: true, qty: 1 };
+      return { ...prev, [id]: { ...current, qty: Math.max(1, current.qty + delta) } };
+    });
+  }
+
+  function handleAddSelected() {
+    addItem(anchor, 1);
+    for (const c of selectedComplements) {
+      addItem(c, selections[c.id]?.qty ?? 1);
+    }
+  }
 
   return (
-    <section className="container mx-auto px-page max-w-content pt-8 pb-4">
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-6">
+    <section className="container mx-auto px-page max-w-content pt-8 pb-6">
+      <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-5">
         {t("product.frequentlyBoughtTogether")}
       </h2>
 
-      <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
-        {complements.map((complement) => {
-          const complementImage = complement.image?.uri ?? complement.images?.[0]?.uri;
-          const complementPrice = complement.discountPriceValue ?? complement.priceValue;
-          const combinedPrice = anchorPrice + complementPrice;
+      {/* Scrollable card row */}
+      <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 snap-x snap-mandatory scroll-smooth scrollbar-none">
 
+        {/* Anchor card — always selected, qty locked at 1 */}
+        <div className="snap-start shrink-0 w-36 sm:w-40 flex flex-col items-center gap-2 rounded-2xl border-2 border-foreground bg-card p-3">
+          <div className="relative w-full">
+            <div className="aspect-square rounded-xl overflow-hidden bg-secondary/40 w-full">
+              {anchorImage ? (
+                <img src={anchorImage} alt={anchor.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full" />
+              )}
+            </div>
+            <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-foreground flex items-center justify-center">
+              <svg viewBox="0 0 12 12" className="w-3 h-3 fill-none stroke-background stroke-[2.5]">
+                <polyline points="1.5,6 4.5,9 10.5,3" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-xs font-medium text-foreground text-center leading-tight line-clamp-2 w-full min-h-[2.5rem]">
+            {anchor.name}
+          </p>
+          <FormattedPrice usdValue={anchorPrice} className="text-xs font-semibold text-foreground" />
+          <div className="flex items-center gap-1.5 opacity-30">
+            <div className="w-6 h-6 rounded-full border border-border flex items-center justify-center"><Minus className="w-3 h-3" /></div>
+            <span className="text-xs font-medium w-4 text-center">1</span>
+            <div className="w-6 h-6 rounded-full border border-border flex items-center justify-center"><Plus className="w-3 h-3" /></div>
+          </div>
+        </div>
+
+        {/* Complement cards */}
+        {complements.map((c) => {
+          const sel = selections[c.id] ?? { checked: true, qty: 1 };
+          const img = c.image?.uri ?? c.images?.[0]?.uri;
           return (
             <div
-              key={complement.id}
-              className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:max-w-sm w-full"
+              key={c.id}
+              onClick={() => { if (c.inStock) toggle(c.id); }}
+              className={cn(
+                "snap-start shrink-0 w-36 sm:w-40 flex flex-col items-center gap-2 rounded-2xl border-2 p-3 transition-all select-none",
+                c.inStock ? "cursor-pointer" : "cursor-not-allowed opacity-50",
+                sel.checked && c.inStock ? "border-foreground bg-card" : "border-border bg-card/60",
+              )}
             >
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
-                  {anchorImage ? (
-                    <img
-                      src={anchorImage}
-                      alt={anchor.name}
-                      className="w-20 h-20 object-cover rounded-xl"
-                    />
+              <div className="relative w-full">
+                <div className="aspect-square rounded-xl overflow-hidden bg-secondary/40 w-full">
+                  {img ? (
+                    <img src={img} alt={c.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-20 h-20 rounded-xl bg-muted" />
+                    <div className="w-full h-full" />
                   )}
-                  <span className="text-xs text-foreground font-medium text-center leading-tight line-clamp-2 w-20">
-                    {anchor.name}
-                  </span>
                 </div>
-
-                <span className="text-lg font-bold text-muted-foreground flex-shrink-0">+</span>
-
-                <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
-                  {complementImage ? (
-                    <img
-                      src={complementImage}
-                      alt={complement.name}
-                      className="w-20 h-20 object-cover rounded-xl"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-xl bg-muted" />
+                <div className={cn(
+                  "absolute top-1.5 left-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+                  sel.checked && c.inStock ? "bg-foreground border-foreground" : "bg-background border-border",
+                )}>
+                  {sel.checked && c.inStock && (
+                    <svg viewBox="0 0 12 12" className="w-3 h-3 fill-none stroke-background stroke-[2.5]">
+                      <polyline points="1.5,6 4.5,9 10.5,3" />
+                    </svg>
                   )}
-                  <span className="text-xs text-foreground font-medium text-center leading-tight line-clamp-2 w-20">
-                    {complement.name}
-                  </span>
                 </div>
+                {!c.inStock && (
+                  <div className="absolute inset-0 rounded-xl bg-background/50 flex items-center justify-center">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 text-center">{t("product.outOfStock")}</span>
+                  </div>
+                )}
               </div>
-
-              <Button
-                size="sm"
-                className="w-full text-xs tracking-wide"
-                disabled={!anchor.inStock || !complement.inStock}
-                onClick={() => {
-                  addItem(anchor, 1);
-                  addItem(complement, 1);
-                }}
-              >
-                {(() => {
-                  const label = t("product.addBothToCart");
-                  const [before, after] = label.split("{price}");
-                  return (
-                    <>
-                      {before}
-                      <FormattedPrice usdValue={combinedPrice} className="mx-0.5" />
-                      {after}
-                    </>
-                  );
-                })()}
-              </Button>
+              <p className="text-xs font-medium text-foreground text-center leading-tight line-clamp-2 w-full min-h-[2.5rem]">
+                {c.name}
+              </p>
+              <FormattedPrice usdValue={effectivePrice(c)} className="text-xs font-semibold text-foreground" />
+              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={(e) => changeQty(c.id, -1, e)}
+                  disabled={!sel.checked || sel.qty <= 1}
+                  className="w-6 h-6 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                  aria-label="decrease"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span className="text-xs font-medium w-4 text-center">{sel.qty}</span>
+                <button
+                  onClick={(e) => changeQty(c.id, 1, e)}
+                  disabled={!sel.checked}
+                  className="w-6 h-6 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                  aria-label="increase"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           );
         })}
+      </div>
+
+      {/* Footer: total + CTA */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 pt-4 border-t border-border">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground uppercase tracking-widest">{t("product.fbt.total")}</span>
+          <FormattedPrice usdValue={total} className="text-lg font-serif font-medium text-foreground" />
+          <span className="text-xs text-muted-foreground">
+            ({totalItems} {t("product.fbt.items")})
+          </span>
+        </div>
+        <Button
+          size="lg"
+          className="sm:ml-auto"
+          disabled={!anchor.inStock}
+          onClick={handleAddSelected}
+        >
+          {t("product.fbt.addSelected")}
+        </Button>
       </div>
     </section>
   );
