@@ -36,6 +36,8 @@ type OrderItem = { name: string; quantity: number; price: number; image?: string
 type ConfirmedOrder = {
   items?: OrderItem[];
   cardMessage?: string;
+  cardTo?: string;
+  cardFrom?: string;
   deliveryDate?: string;
   deliverySlot?: string;
   deliverySlotTime?: string;
@@ -145,16 +147,28 @@ function OrderSummary({ order, t, language }: OrderSummaryProps) {
         </div>
       )}
 
-      {order.cardMessage && order.cardMessage.trim() !== "" && (
+      {(order.cardMessage?.trim() || order.cardTo?.trim() || order.cardFrom?.trim()) && (
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.cardMessage")}</p>
           <div className="relative rounded-xl overflow-hidden shadow-sm border border-primary/10">
-            <div className="absolute inset-0 bg-[#fdf8f2]" />
+            <div className="absolute inset-0 bg-gray-50" />
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary/60 to-primary/30" />
-            <div className="relative px-5 py-4">
-              <p className="font-serif text-sm leading-relaxed text-neutral-700 whitespace-pre-wrap">
-                {order.cardMessage}
-              </p>
+            <div className="relative px-5 py-4 space-y-2">
+              {order.cardTo?.trim() && (
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("order.summary.cardTo")}: <span className="text-foreground">{order.cardTo}</span>
+                </p>
+              )}
+              {order.cardMessage?.trim() && (
+                <p className="font-serif text-sm leading-relaxed text-neutral-700 whitespace-pre-wrap">
+                  {order.cardMessage}
+                </p>
+              )}
+              {order.cardFrom?.trim() && (
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("order.summary.cardFrom")}: <span className="text-foreground">{order.cardFrom}</span>
+                </p>
+              )}
             </div>
           </div>
         </div>
