@@ -488,6 +488,33 @@ function applyBrandAllowlist(products: OSProduct[]): OSProduct[] {
   );
 }
 
+/**
+ * Filter products by the OS availability matrix (deliverableCountries /
+ * deliverableCities). When a product has no deliverableCountries set it is
+ * available everywhere and passes through unchanged. When the list IS set the
+ * product must include the store's country code; when deliverableCities is also
+ * set and the store targets a specific city, the product must include that city.
+ *
+ * This mirrors the per-country / per-city checkboxes in the OS admin "Availability"
+ * panel and acts as a client-side guard in case the OS API's own country_code
+ * filter does not exclude the product from the response.
+ */
+function filterByAvailability(products: OSProduct[], spec: StoreOsFetchSpec): OSProduct[] {
+  return products.filter((p) => {
+    const countries = p.deliverableCountries;
+    // No availability restriction → always visible.
+    if (!countries || countries.length === 0) return true;
+    // Country must be in the allowed list.
+    if (!countries.includes(spec.countryCode.toUpperCase())) return false;
+    // City-level check: only when both the store and the product have cities set.
+    const cities = p.deliverableCities;
+    if (spec.cityId && cities && cities.length > 0) {
+      return cities.includes(spec.cityId);
+    }
+    return true;
+  });
+}
+
 // ── Startup price snapshot helpers ─────────────────────────────────────────
 
 /**
@@ -1009,7 +1036,7 @@ async function fetchAndStore(): Promise<void> {
         }
         continue;
       }
-      const filtered = applyBrandAllowlist(products);
+      const filtered = applyBrandAllowlist(filterByAvailability(products, spec));
       if (filtered.length > 0) {
         maybeRecordStartupSnapshot(filtered, spec.storeKey);
         detectAndAlertPriceChanges(filtered);
