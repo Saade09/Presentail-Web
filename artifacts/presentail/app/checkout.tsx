@@ -326,6 +326,10 @@ function CheckoutScreen() {
   const [qrLink, setQrLink] = useState("");
   const [coupon, setCoupon] = useState("");
   const [couponOpen, setCouponOpen] = useState(false);
+  const [couponDiscountUsd, setCouponDiscountUsd] = useState(0);
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponValidating, setCouponValidating] = useState(false);
 
   // Seed coupon from the cart-page AsyncStorage key so a code entered on
   // the cart screen survives navigation into checkout without re-entry.
@@ -822,9 +826,9 @@ function CheckoutScreen() {
     const baseDeliveryFee = noAddress ? 35 : (district?.fee ?? 0);
     const districtFee = (isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryFee;
     const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
-    const grand = subtotal + districtFee + expressFee;
+    const grand = Math.max(0, subtotal + districtFee + expressFee - couponDiscountUsd);
     return { subtotal, districtFee, expressFee, grand };
-  }, [total, deliveryMode, district, freeDeliveryThreshold, isFreeDeliveryEnabled, expressSurcharge, noAddress]);
+  }, [total, deliveryMode, district, freeDeliveryThreshold, isFreeDeliveryEnabled, expressSurcharge, noAddress, couponDiscountUsd]);
 
   const isSignedIn = !!authUser;
   const senderNameRequired = !isSignedIn;
@@ -876,6 +880,53 @@ function CheckoutScreen() {
   useEffect(() => {
     setShowFieldErrors(false);
   }, [step]);
+
+  const handleCouponApply = async () => {
+    const code = coupon.trim().toUpperCase();
+    if (!code || couponValidating) return;
+    setCouponError(null);
+    setCouponValidating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coupons/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          cartItems: detailed.map(({ product, qty }) => ({
+            osSlug: product.id,
+            priceUsd: product.priceValue,
+            quantity: qty,
+          })),
+          cartTotalUsd: total,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCouponApplied(true);
+        setCouponDiscountUsd(data.discountAmountUsd ?? 0);
+        AsyncStorage.setItem("@presentail/coupon_v1", code).catch(() => {});
+      } else {
+        setCouponError(data.message ?? t.checkoutCouponInvalid);
+        setCouponApplied(false);
+        setCouponDiscountUsd(0);
+      }
+    } catch {
+      setCouponError(t.checkoutCouponError);
+      setCouponApplied(false);
+      setCouponDiscountUsd(0);
+    } finally {
+      setCouponValidating(false);
+    }
+  };
+
+  const handleCouponRemove = () => {
+    setCoupon("");
+    setCouponApplied(false);
+    setCouponDiscountUsd(0);
+    setCouponError(null);
+    setCouponOpen(false);
+    AsyncStorage.removeItem("@presentail/coupon_v1").catch(() => {});
+  };
 
   const next = () => {
     if (!stepValid(step)) {
@@ -956,6 +1007,7 @@ function CheckoutScreen() {
     // NOTE: WooCommerce may not honor non-USD totals automatically; the
     // server should treat this as informational unless explicitly handled.
     currencyCode,
+    ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
   });
 
   // Await WooCommerce order creation with a sensible timeout and a single
@@ -1208,6 +1260,7 @@ function CheckoutScreen() {
         ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
         ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
+        ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
       });
       if (!intentResult.ok) {
         if (intentResult.code === "already_paid") {
@@ -1305,6 +1358,7 @@ function CheckoutScreen() {
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
         ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
+        ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
@@ -1367,6 +1421,7 @@ function CheckoutScreen() {
           // to the Stripe charge, preventing slot-upgrade attacks after payment.
           deliverySlot: deliveryMode === "express" ? "" : (slot?.label ?? ""),
           cityId: selectedCity?.id,
+          ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
         });
         if (session.ok) {
           const deferredStartedAt = Date.now();
@@ -1643,9 +1698,22 @@ function CheckoutScreen() {
           setQty={setQty}
           remove={remove}
           coupon={coupon}
-          setCoupon={setCoupon}
+          setCoupon={(val: string) => {
+            setCoupon(val);
+            if (couponApplied) {
+              setCouponApplied(false);
+              setCouponDiscountUsd(0);
+              setCouponError(null);
+            }
+          }}
           couponOpen={couponOpen}
           setCouponOpen={setCouponOpen}
+          couponApplied={couponApplied}
+          couponDiscountUsd={couponDiscountUsd}
+          couponError={couponError}
+          couponValidating={couponValidating}
+          onCouponApply={handleCouponApply}
+          onCouponRemove={handleCouponRemove}
           showDeliveryFee={step > 0}
           initialOpen={false}
         />
@@ -3653,7 +3721,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
 
 // =============== Collapsible Order Summary ===============
 
-function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee, initialOpen = false }: any) {
+function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, couponApplied, couponDiscountUsd, couponError, couponValidating, onCouponApply, onCouponRemove, showDeliveryFee, initialOpen = false }: any) {
   const { formatPrice, currencyCode } = useCurrency();
   const { isRTL } = useLanguage();
   const headingFontMedium = useHeadingFont("500Medium");
@@ -3749,13 +3817,41 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
             </View>
           ))}
 
-          <Pressable onPress={() => setCouponOpen(!couponOpen)}>
-            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
-              {t.checkoutHaveCoupon} <AppText style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</AppText>
-            </AppText>
-          </Pressable>
-          {couponOpen ? (
-            <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder={t.checkoutCouponPlaceholder} />
+          {!couponApplied ? (
+            <Pressable onPress={() => setCouponOpen(!couponOpen)}>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
+                {t.checkoutHaveCoupon} <AppText style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</AppText>
+              </AppText>
+            </Pressable>
+          ) : null}
+          {couponOpen && !couponApplied ? (
+            <View style={{ gap: 6 }}>
+              <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder={t.checkoutCouponPlaceholder} />
+              {couponError ? (
+                <AppText style={{ fontSize: 12, color: colors.destructive ?? "#e53e3e" }}>{couponError}</AppText>
+              ) : null}
+              <Pressable
+                onPress={onCouponApply}
+                disabled={!coupon.trim() || couponValidating}
+                style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, alignSelf: "flex-start", opacity: (!coupon.trim() || couponValidating) ? 0.5 : 1 }}
+              >
+                <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primaryForeground ?? "#fff" }}>
+                  {couponValidating ? "..." : t.checkoutCouponApply}
+                </AppText>
+              </Pressable>
+            </View>
+          ) : null}
+          {couponApplied ? (
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
+                {coupon.trim()}
+              </AppText>
+              <Pressable onPress={onCouponRemove} hitSlop={8}>
+                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground, textDecorationLine: "underline" }}>
+                  {t.checkoutCouponRemove}
+                </AppText>
+              </Pressable>
+            </View>
           ) : null}
 
           <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
@@ -3772,6 +3868,9 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
                 <SummaryRow label={t.checkoutExpressUpgradeLabel} value={formatPrice(fees.expressFee)} colors={colors} />
               ) : null}
             </>
+          ) : null}
+          {couponApplied && couponDiscountUsd > 0 ? (
+            <SummaryRow label={t.checkoutCouponDiscount} value={`- ${formatPrice(couponDiscountUsd)}`} colors={colors} highlight />
           ) : null}
           <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
           <SummaryRow label={t.checkoutTotalLabel} value={formatPrice(fees.grand)} colors={colors} bold />

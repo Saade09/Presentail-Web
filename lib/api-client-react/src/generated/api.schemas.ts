@@ -562,6 +562,18 @@ export interface LoyaltyTier {
   discountPercent: number;
 }
 
+export interface OsCoupon {
+  id: string | number;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  description?: string | null;
+  minOrderUsd?: number | null;
+  usageLimit?: number | null;
+  expiresAt?: string | null;
+  active?: boolean;
+}
+
 export type LoyaltyCouponStatus =
   (typeof LoyaltyCouponStatus)[keyof typeof LoyaltyCouponStatus];
 
@@ -1920,6 +1932,11 @@ export type GetGeoCurrencyByCoordsParams = {
    * WGS84 longitude in decimal degrees, range -180..180.
    */
   lng: number;
+};
+
+export type GetCoupons200 = {
+  ok: boolean;
+  coupons: OsCoupon[];
 };
 
 export type CreateWooOrder200 = {

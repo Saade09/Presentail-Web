@@ -129,6 +129,10 @@ export async function createPaymentIntent(payload: {
    *  locations cache. Required when deliverySlot is non-empty and a slot
    *  surcharge applies. */
   cityId?: string;
+  /** Applied promo/coupon code. Only included when the shopper pressed Apply
+   *  and the code was validated client-side. The server re-validates it and
+   *  deducts the discount from the PaymentIntent amount. */
+  couponCode?: string;
 }): Promise<
   | { ok: true; clientSecret: string; orderId: string; amount: number; currency: string }
   | { ok: false; code?: string; message: string }
@@ -195,6 +199,8 @@ export async function createStripeCheckoutSession(payload: {
   // Slot context — required when the shopper selected a premium delivery slot.
   deliverySlot?: string;
   cityId?: string;
+  /** Applied promo/coupon code. Only included when the shopper pressed Apply. */
+  couponCode?: string;
 }): Promise<
   | { ok: true; url: string; id: string }
   | { ok: false; code?: string; message: string }

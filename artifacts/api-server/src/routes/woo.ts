@@ -36,6 +36,7 @@ import {
   getCustomerByWcId,
 } from "../lib/customers";
 import { creditReferralRedemption } from "../lib/loyalty";
+import { validateCoupon } from "../lib/couponValidation";
 import { sendCapiPurchase } from "../lib/fbConversions";
 import {
   resolveStoreFromRequest,
@@ -1162,8 +1163,31 @@ router.post("/woo/order", async (req, res) => {
             })();
             const recoveredTotalUsd =
               cartResolution.subtotalUsd + recoveredDistrictFeeUsd + recoveredExpressFeeUsd + recoveredSlotFeeUsd;
+            // Subtract coupon discount so a coupon-paid order isn't falsely
+            // rejected because the received amount is less than the full total.
+            const REFERRAL_CODE_RE_RECOVERY = /^PT[A-Z0-9]+$/;
+            let recoveredCouponDiscountUsd = 0;
+            if (
+              body.couponCode &&
+              !REFERRAL_CODE_RE_RECOVERY.test(body.couponCode.trim().toUpperCase())
+            ) {
+              const recoveredCouponItems = cartResolution.items.map((i) => ({
+                osSlug: i.osSlug ?? "",
+                priceUsd: i.priceUsd,
+                quantity: i.quantity,
+              }));
+              const recoveredCouponResult = await validateCoupon(body.couponCode.trim(), {
+                customerEmail: body.billing.email ?? "",
+                cartItems: recoveredCouponItems,
+                cartTotalUsd: cartResolution.subtotalUsd,
+              }).catch(() => null);
+              if (recoveredCouponResult?.valid) {
+                recoveredCouponDiscountUsd = recoveredCouponResult.discountAmountUsd;
+              }
+            }
+            const recoveredNetTotalUsd = Math.max(0, recoveredTotalUsd - recoveredCouponDiscountUsd);
             const requiredMinorUnits = toStripeMinorUnits(
-              roundToNearestFive(await convertFromUsd(recoveredTotalUsd, piCurrency), piCurrency),
+              roundToNearestFive(await convertFromUsd(recoveredNetTotalUsd, piCurrency), piCurrency),
               piCurrency,
             );
             if (recoveredPiDetails.amountReceived < requiredMinorUnits) {
@@ -1467,6 +1491,66 @@ router.post("/woo/order", async (req, res) => {
     typeof body.couponCode === "string" &&
     REFERRAL_CODE_RE.test(body.couponCode.trim().toUpperCase());
 
+  // ── Coupon validation (non-referral codes only) ──────────────────────────
+  // Re-validate the coupon server-side so we can pass the OS coupon ID and
+  // verified discount amount to the order. The payment was already captured at
+  // the discounted amount during PI creation, so a validation failure here does
+  // not block the order — we simply record no discount.
+  let couponValidated:
+    | { couponId: string | number; couponDiscountUsd: number }
+    | undefined;
+  if (body.couponCode && !isReferralCoupon) {
+    // Build cart items from authoritative snapshot prices when available.
+    // Fall back to OS catalog resolution when the snapshot was lost (restart).
+    // Never use client-supplied body.items[i].price — it is untrusted.
+    let authoritativeCartItems: Array<{ osSlug: string; priceUsd: number; quantity: number }> | null =
+      null;
+    if (snapshotItems) {
+      authoritativeCartItems = snapshotItems.map((si) => {
+        const bodyItem = body.items.find(
+          (bi) =>
+            (si.wcId && si.wcId !== 0 && bi.wcId === si.wcId) ||
+            (si.osSlug && bi.osSlug === si.osSlug),
+        );
+        return {
+          osSlug: si.osSlug ?? "",
+          priceUsd: si.priceUsd,
+          quantity: bodyItem?.quantity ?? 1,
+        };
+      });
+    } else {
+      // Snapshot unavailable — resolve from OS catalog (authoritative prices).
+      const catalogFallback = await resolveCartItems(
+        body.items.map((i) => ({ wcId: i.wcId ?? 0, osSlug: i.osSlug, quantity: i.quantity })),
+        store,
+      );
+      if (catalogFallback.ok) {
+        authoritativeCartItems = catalogFallback.items.map((i) => ({
+          osSlug: i.osSlug ?? "",
+          priceUsd: i.priceUsd,
+          quantity: i.quantity,
+        }));
+      }
+    }
+    if (authoritativeCartItems) {
+      const authoritativeCartTotal = authoritativeCartItems.reduce(
+        (sum, i) => sum + i.priceUsd * i.quantity,
+        0,
+      );
+      const couponResult = await validateCoupon(body.couponCode.trim(), {
+        customerEmail: body.billing.email ?? "",
+        cartItems: authoritativeCartItems,
+        cartTotalUsd: authoritativeCartTotal,
+      }).catch(() => null);
+      if (couponResult?.valid) {
+        couponValidated = {
+          couponId: couponResult.couponId,
+          couponDiscountUsd: couponResult.discountAmountUsd,
+        };
+      }
+    }
+  }
+
   // ── Submit order to Presentail OS ────────────────────────────────────────
   // For Stripe/Mamo/PayPal-verified payments, snapshotItems holds the catalog
   // prices from when the payment intent was created — those prices are already
@@ -1478,6 +1562,7 @@ router.post("/woo/order", async (req, res) => {
     platform: requestPlatform,
     preVerifiedItems: snapshotItems,
     verifiedCurrency,
+    couponValidated,
   });
 
   if (!result.ok) {
@@ -1522,7 +1607,7 @@ router.post("/woo/order", async (req, res) => {
         wcOrderId: null,
         osOrderId: null,
         queued: true,
-        couponDiscount: 0,
+        couponDiscount: couponValidated?.couponDiscountUsd ?? 0,
       });
     }
 
@@ -1609,8 +1694,7 @@ router.post("/woo/order", async (req, res) => {
     ok: true,
     wcOrderId: null,
     osOrderId: result.osOrderId,
-    // Coupon discount not yet supported by OS — always zero.
-    couponDiscount: 0,
+    couponDiscount: result.couponDiscountUsd,
     // Echo validated items (including personalisation notes) back to the
     // client so confirmation screens can display them without a separate fetch.
     items: body.items.map((i) => ({

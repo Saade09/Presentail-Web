@@ -2101,6 +2101,27 @@ export const GetCatalogMetadataResponse = zod.object({
 });
 
 /**
+ * Returns the list of active coupons from Presentail OS. Clients can use this to pre-populate a coupon picker UI.
+ * @summary List available OS-backed coupons
+ */
+export const GetCouponsResponse = zod.object({
+  ok: zod.boolean(),
+  coupons: zod.array(
+    zod.object({
+      id: zod.union([zod.string(), zod.number()]),
+      code: zod.string(),
+      discountType: zod.string(),
+      discountValue: zod.number(),
+      description: zod.string().nullish(),
+      minOrderUsd: zod.number().nullish(),
+      usageLimit: zod.number().nullish(),
+      expiresAt: zod.string().nullish(),
+      active: zod.boolean().optional(),
+    }),
+  ),
+});
+
+/**
  * Returns the current points balance, tier, progress to the next tier
 and any active tier coupons for the signed-in customer.
 

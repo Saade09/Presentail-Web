@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { db, couponsTable, couponRedemptionsTable } from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
 import { validateCoupon, redeemCoupon, type CartItemForCoupon } from "../lib/couponValidation";
+import { fetchOsCoupons } from "@workspace/presentail-os";
 
 const router = Router();
 
@@ -15,6 +16,23 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   }
   next();
 }
+
+// ── Public: list available OS coupons ───────────────────────────────────────
+
+router.get("/coupons", async (_req, res) => {
+  const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
+  const baseUrl =
+    process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com";
+  if (!apiKey) {
+    return res.status(503).json({ ok: false, coupons: [] });
+  }
+  try {
+    const coupons = await fetchOsCoupons({ apiKey, baseUrl });
+    return res.json({ ok: true, coupons });
+  } catch {
+    return res.status(502).json({ ok: false, coupons: [] });
+  }
+});
 
 // ── Public: validate a coupon code ──────────────────────────────────────────
 

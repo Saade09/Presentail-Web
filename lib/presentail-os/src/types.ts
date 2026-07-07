@@ -367,6 +367,10 @@ export type OSCreateOrderPayload = {
   /** Normalised platform string: "ios" | "android" | "web" | null. */
   platform?: string | null;
   couponCode?: string;
+  /** OS-assigned coupon ID returned by the coupon validate endpoint. */
+  couponId?: string | number;
+  /** Discount amount in USD already applied to totalUsd. */
+  couponDiscountUsd?: number;
 };
 
 export type OSCreateOrderResponse = {

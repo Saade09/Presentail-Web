@@ -30,6 +30,8 @@ tags:
     description: Account profile operations for the signed-in customer
   - name: meAddresses
     description: Saved delivery addresses owned by the signed-in customer
+  - name: coupons
+    description: OS-backed promo code validation and listing
   - name: loyalty
     description: Loyalty points and tier coupons for the signed-in customer
   - name: favorites
@@ -1090,6 +1092,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CatalogMetadataResponse"
+  /coupons:
+    get:
+      operationId: getCoupons
+      tags: [coupons]
+      summary: List available OS-backed coupons
+      description: Returns the list of active coupons from Presentail OS. Clients can use this to pre-populate a coupon picker UI.
+      responses:
+        "200":
+          description: Coupon list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  coupons:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OsCoupon"
+                required:
+                  - ok
+                  - coupons
+        "503":
+          description: OS API not configured
   /loyalty/me:
     get:
       operationId: getLoyaltyMe
@@ -2417,6 +2444,38 @@ components:
         - label
         - threshold
         - discountPercent
+    OsCoupon:
+      type: object
+      properties:
+        id:
+          oneOf:
+            - type: string
+            - type: integer
+        code:
+          type: string
+        discountType:
+          type: string
+        discountValue:
+          type: number
+        description:
+          type: string
+          nullable: true
+        minOrderUsd:
+          type: number
+          nullable: true
+        usageLimit:
+          type: integer
+          nullable: true
+        expiresAt:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+      required:
+        - id
+        - code
+        - discountType
+        - discountValue
     LoyaltyCoupon:
       type: object
       properties:

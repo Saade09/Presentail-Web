@@ -755,6 +755,7 @@ export type OsOrderAttemptResult =
       totalUsdCents: number;
       totalPaymentCents: number;
       lineItems: OrderLineItemSnapshot[];
+      couponDiscountUsd: number;
     }
   | {
       ok: false;
@@ -795,6 +796,14 @@ export async function attemptCreateOsOrder(
      * Only absent on the server-restart recovery path (no intent in memory).
      */
     verifiedCurrency?: string;
+    /**
+     * Validated coupon data. When provided, the coupon discount is subtracted
+     * from the order total and the coupon ID is passed to OS for redemption tracking.
+     */
+    couponValidated?: {
+      couponId: string | number;
+      couponDiscountUsd: number;
+    };
   } = {},
 ): Promise<OsOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
@@ -979,12 +988,14 @@ export async function attemptCreateOsOrder(
     }
   }
 
-  const totalUsd =
+  const preCouponTotalUsd =
     catalogSubtotalUsd +
     nonCatalogFeesUsd +
     serverDistrictFeeUsd +
     expressSurchargeAppliedUsd +
     slotFeeAppliedUsd;
+  const couponDeduction = opts.couponValidated?.couponDiscountUsd ?? 0;
+  const totalUsd = Math.max(0, preCouponTotalUsd - couponDeduction);
   const totalUsdCents = Math.max(0, Math.round(totalUsd * 100));
   // Convert the USD total to the payment currency so OS receives the amount
   // the customer actually paid, not a USD equivalent.
@@ -1104,6 +1115,12 @@ export async function attemptCreateOsOrder(
     },
     platform: opts.platform ?? undefined,
     couponCode: body.couponCode || undefined,
+    ...(opts.couponValidated
+      ? {
+          couponId: opts.couponValidated.couponId,
+          couponDiscountUsd: opts.couponValidated.couponDiscountUsd,
+        }
+      : {}),
     ...(body.marketing_attribution
       ? { metadata: { marketing_attribution: body.marketing_attribution } }
       : {}),
@@ -1139,6 +1156,7 @@ export async function attemptCreateOsOrder(
         priceUsdCents: Math.round(d.priceUsd * 100),
         osSlug: d.osProductId || undefined,
       })),
+      couponDiscountUsd: opts.couponValidated?.couponDiscountUsd ?? 0,
     };
   } catch (err: any) {
     return {

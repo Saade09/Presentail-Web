@@ -89,6 +89,7 @@ type Body = {
   // cityId is used to look up the slot's extraFee from the OS locations cache.
   deliverySlot?: string;
   cityId?: string;
+  couponCode?: string;
 };
 
 router.post("/checkout/session", async (req, res) => {
@@ -105,6 +106,7 @@ router.post("/checkout/session", async (req, res) => {
     noAddress: rawNoAddress,
     deliverySlot: rawDeliverySlot,
     cityId: rawCityId,
+    couponCode: sessionCouponCode,
   } = req.body as Body;
 
   if (!orderId) {
@@ -172,6 +174,32 @@ router.post("/checkout/session", async (req, res) => {
   const sessionTotalUsd = sessionSubtotalUsd + sessionDeliveryFeeUsd;
 
   try {
+    // Validate coupon server-side and compute the discount amount.
+    // Never trust a client-supplied discount — the server re-validates via OS.
+    let sessionCouponDiscountUsd = 0;
+    let sessionCouponDiscountMinorUnits = 0;
+    if (sessionCouponCode && sessionCouponCode.trim()) {
+      const cartItemsForCoupon = catalogResult.items.map((i) => ({
+        osSlug: i.osSlug ?? "",
+        priceUsd: i.priceUsd,
+        quantity: i.quantity,
+      }));
+      const couponResult = await validateCoupon(sessionCouponCode.trim(), {
+        customerEmail: email ?? "",
+        cartItems: cartItemsForCoupon,
+        cartTotalUsd: sessionSubtotalUsd,
+      });
+      if (couponResult.valid) {
+        sessionCouponDiscountUsd = couponResult.discountAmountUsd;
+        sessionCouponDiscountMinorUnits = toStripeMinorUnits(
+          roundToNearestFive(await convertFromUsd(sessionCouponDiscountUsd, currency), currency),
+          currency,
+        );
+      }
+    }
+    // The session totalUsd after coupon deduction — used for the intent snapshot.
+    const sessionFinalTotalUsd = Math.max(0, sessionTotalUsd - sessionCouponDiscountUsd);
+
     const convertedItems = await Promise.all(
       catalogResult.items.map(async (i) => {
         const convertedUnit = roundToNearestFive(await convertFromUsd(i.priceUsd, currency), currency);
@@ -203,6 +231,17 @@ router.post("/checkout/session", async (req, res) => {
     }
 
     const stripe = new Stripe(key);
+    // If a promo code was validated above, create a one-time Stripe coupon so
+    // the hosted Checkout session charges the shopper the discounted amount.
+    let stripeDiscountCouponId: string | undefined;
+    if (sessionCouponDiscountMinorUnits > 0) {
+      const stripeCoupon = await stripe.coupons.create({
+        amount_off: sessionCouponDiscountMinorUnits,
+        currency: stripeCurrency,
+        duration: "once",
+      });
+      stripeDiscountCouponId = stripeCoupon.id;
+    }
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       // Omitting payment_method_types lets Stripe use all payment methods
@@ -236,6 +275,9 @@ router.post("/checkout/session", async (req, res) => {
         // SDK type is string | undefined, so we cast.
         receipt_email: null as unknown as string,
       },
+      // Apply promo coupon when one was validated above (creates a discount
+      // on the hosted Checkout page so the charged amount matches the UI).
+      ...(stripeDiscountCouponId ? { discounts: [{ coupon: stripeDiscountCouponId }] } : {}),
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -252,7 +294,7 @@ router.post("/checkout/session", async (req, res) => {
       provider: "stripe",
       stripeAccount: isGulf ? "gulf" : "main",
       currency,
-      totalUsd: sessionTotalUsd,
+      totalUsd: sessionFinalTotalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,
@@ -494,6 +536,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
     }
 
     const totalMinorUnits = Math.max(0, subtotalMinorUnits + deliveryFeeMinorUnits - couponDiscountMinorUnits);
+    // Post-coupon total in USD — the canonical amount the shopper is charged.
+    // All storePaymentIntent calls use this so the snapshot's totalUsd reflects
+    // what was actually collected, not the pre-discount subtotal.
+    const postCouponTotalUsd = Math.max(0, totalUsd - couponDiscountUsd);
 
     const stripe = new Stripe(key);
 
@@ -519,7 +565,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               provider: "stripe",
               stripeAccount: isGulf ? "gulf" : "main",
               currency,
-              totalUsd,
+              totalUsd: postCouponTotalUsd,
               snapshot: {
                 items: catalogResult.items.map((i) => ({
                   wcId: i.wcId,
@@ -553,7 +599,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             provider: "stripe",
             stripeAccount: isGulf ? "gulf" : "main",
             currency,
-            totalUsd,
+            totalUsd: postCouponTotalUsd,
             snapshot: {
               items: catalogResult.items.map((i) => ({
                 wcId: i.wcId,
@@ -609,7 +655,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             provider: "stripe",
             stripeAccount: isGulf ? "gulf" : "main",
             currency,
-            totalUsd,
+            totalUsd: postCouponTotalUsd,
             snapshot: {
               items: catalogResult.items.map((i) => ({
                 wcId: i.wcId,
@@ -666,7 +712,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       provider: "stripe",
       stripeAccount: isGulf ? "gulf" : "main",
       currency,
-      totalUsd,
+      totalUsd: postCouponTotalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,

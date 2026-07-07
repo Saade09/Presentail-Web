@@ -53,6 +53,7 @@ import type {
   FbWebEventResponse,
   FrequentlyBoughtTogetherResponse,
   GeoCurrencyResponse,
+  GetCoupons200,
   GetDeliveryConfigParams,
   GetFrequentlyBoughtTogetherParams,
   GetGeoCurrencyByCoordsParams,
@@ -3094,6 +3095,82 @@ export function useGetCatalogMetadata<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetCatalogMetadataQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the list of active coupons from Presentail OS. Clients can use this to pre-populate a coupon picker UI.
+ * @summary List available OS-backed coupons
+ */
+export const getGetCouponsUrl = () => {
+  return `/api/coupons`;
+};
+
+export const getCoupons = async (
+  options?: RequestInit,
+): Promise<GetCoupons200> => {
+  return customFetch<GetCoupons200>(getGetCouponsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCouponsQueryKey = () => {
+  return [`/api/coupons`] as const;
+};
+
+export const getGetCouponsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCoupons>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCoupons>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCouponsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoupons>>> = ({
+    signal,
+  }) => getCoupons({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCoupons>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCouponsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCoupons>>
+>;
+export type GetCouponsQueryError = ErrorType<void>;
+
+/**
+ * @summary List available OS-backed coupons
+ */
+
+export function useGetCoupons<
+  TData = Awaited<ReturnType<typeof getCoupons>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCoupons>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCouponsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

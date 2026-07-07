@@ -545,3 +545,112 @@ export async function createOsOrder(
   const body = (await res.json().catch(() => ({}))) as OSCreateOrderResponse;
   return body;
 }
+
+// ── Coupons ──────────────────────────────────────────────────────────────────
+
+export type OsCoupon = {
+  id: string | number;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  description?: string | null;
+  minOrderUsd?: number | null;
+  usageLimit?: number | null;
+  expiresAt?: string | null;
+  active?: boolean;
+};
+
+export type OsCouponValidateResult =
+  | {
+      valid: true;
+      couponId: string | number;
+      discountType: string;
+      discountValue: number;
+      discountAmountUsd: number;
+      finalTotalUsd: number;
+    }
+  | { valid: false; error: string; message: string };
+
+export async function fetchOsCoupons(
+  config: PresentailOsConfig,
+): Promise<OsCoupon[]> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } =
+    config;
+  const url = new URL(`${baseUrl}/api/coupons`);
+  url.searchParams.set("workspace", workspace);
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      Authorization: `Bearer ${apiKey}`,
+      "x-api-key": apiKey,
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(`[presentail-os] fetchOsCoupons HTTP ${res.status}`); // i18n-ignore
+  }
+  const data = (await res.json().catch(() => ({}))) as {
+    coupons?: OsCoupon[];
+  };
+  return Array.isArray(data.coupons) ? data.coupons : [];
+}
+
+export async function validateOsCoupon(
+  config: PresentailOsConfig,
+  code: string,
+  cartItems: { osSlug: string; priceUsd: number; quantity: number }[],
+  cartTotalUsd: number,
+): Promise<OsCouponValidateResult> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } =
+    config;
+  const url = new URL(`${baseUrl}/api/coupons/validate`);
+  url.searchParams.set("workspace", workspace);
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      Authorization: `Bearer ${apiKey}`,
+      "x-api-key": apiKey,
+    },
+    body: JSON.stringify({ code, cartItems, cartTotalUsd }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {}
+    const message =
+      (typeof parsed["message"] === "string" && parsed["message"]) ||
+      text ||
+      `OS coupon validation HTTP ${res.status}`; // i18n-ignore
+    return { valid: false, error: "os_error", message }; // i18n-ignore
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!data["valid"]) {
+    return {
+      valid: false,
+      error:
+        typeof data["error"] === "string" ? data["error"] : "invalid", // i18n-ignore
+      message:
+        typeof data["message"] === "string"
+          ? data["message"]
+          : "Coupon code is not valid.", // i18n-ignore
+    };
+  }
+  return {
+    valid: true,
+    couponId: (data["couponId"] ?? data["id"] ?? "") as string | number,
+    discountType:
+      typeof data["discountType"] === "string"
+        ? data["discountType"]
+        : "fixed_cart", // i18n-ignore
+    discountValue: Number(data["discountValue"] ?? 0),
+    discountAmountUsd: Number(data["discountAmountUsd"] ?? 0),
+    finalTotalUsd: Number(data["finalTotalUsd"] ?? 0),
+  };
+}
