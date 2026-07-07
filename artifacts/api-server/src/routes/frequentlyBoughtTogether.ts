@@ -22,7 +22,6 @@ import { or, eq, desc } from "drizzle-orm";
 import {
   getOsProducts,
   getOsProductBySlug,
-  hasOsProducts,
 } from "../lib/osProductsCache";
 import type { StoreKey } from "../lib/wooStore";
 
@@ -42,11 +41,11 @@ const AFFINITY_CATEGORY_SLUGS: Set<string> = new Set(
 );
 
 // Complementary category slugs used when cold-start fill is needed.
-// Keys are any anchor category slug; values are the slugs to pull suggestions from.
+// Keys are any anchor category slug; values are the OS catalog category slugs to draw from.
 const COMPLEMENTARY_CATEGORIES: Record<string, string[]> = {
-  flowers: ["chocolates", "balloons", "teddy-bears", "cakes", "gift-cards"],
-  "flowers-plants": ["chocolates", "balloons", "teddy-bears", "cakes", "gift-cards"],
-  cakes: ["flowers", "flowers-plants", "balloons", "chocolates", "teddy-bears"],
+  flowers: ["chocolate", "balloons", "stuffed-animals", "cakes", "arabic-sweets"],
+  "flowers-plants": ["chocolate", "balloons", "stuffed-animals", "cakes", "arabic-sweets"],
+  cakes: ["flowers", "flowers-plants", "balloons", "chocolate", "stuffed-animals"],
 };
 
 const MAX_RESULTS = 4;
@@ -69,9 +68,11 @@ router.get("/products/frequently-bought-together", async (req, res) => {
   const { slug: anchorSlug, store } = parsed.data;
   const storeKey = store as StoreKey;
 
-  if (!hasOsProducts(storeKey)) {
-    // Cache not yet warm — return empty gracefully so the section stays hidden
-    // without logging a client error (503 would cause retry noise).
+  // Use getOsProducts (not hasOsProducts) — read-only catalog endpoint;
+  // hasOsProducts can transiently return false while the cache is still
+  // warming (see os-products-disabled-guard memory note).
+  const allCatalogProducts = getOsProducts(storeKey);
+  if (!allCatalogProducts) {
     res.json({ products: [] });
     return;
   }
@@ -153,8 +154,7 @@ router.get("/products/frequently-bought-together", async (req, res) => {
       for (const catSlug of anchorCategories) complementarySlugs.add(catSlug);
     }
 
-    const allProducts = getOsProducts(storeKey) ?? [];
-    const topSellers = allProducts
+    const topSellers = allCatalogProducts
       .filter(
         (p) =>
           p.inStock &&
