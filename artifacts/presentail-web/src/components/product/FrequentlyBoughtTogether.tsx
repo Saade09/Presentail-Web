@@ -124,9 +124,9 @@ export function FrequentlyBoughtTogether({ slug, anchor }: Props) {
   return (
     <section className="container mx-auto px-page max-w-content pt-8 pb-6">
       <div className="rounded-2xl border border-border bg-secondary/20 px-5 py-6">
-      <h2 className="py-3 text-sm font-semibold uppercase tracking-[0.14em] text-foreground border-b-2 border-foreground mb-5 self-start inline-block">
+      <div className="py-3 text-sm font-sans font-semibold uppercase tracking-[0.14em] text-foreground border-b-2 border-foreground mb-5 self-start inline-block">
         {t("product.frequentlyBoughtTogether")}
-      </h2>
+      </div>
 
       {/* Scrollable card row — centered when cards fit, scrollable when they don't */}
       <div className="flex gap-3 overflow-x-auto pb-3 justify-center snap-x snap-mandatory scroll-smooth scrollbar-none">
