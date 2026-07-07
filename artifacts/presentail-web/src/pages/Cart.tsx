@@ -643,7 +643,7 @@ export default function Cart() {
                     className="flex items-center gap-2"
                   >
                     <span className="flex-1 text-start">{t("cart.proceed")}</span>
-                    <span className="font-normal opacity-80 shrink-0"><FormattedPrice usdValue={cartTotal} /></span>
+                    <span className="font-normal opacity-80 shrink-0 text-current"><FormattedPrice usdValue={cartTotal} /></span>
                     <ArrowRight className={`w-4 h-4 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
                   </Link>
                 </Button>
@@ -795,7 +795,7 @@ export default function Cart() {
             className="flex items-center gap-2"
           >
             <span className="flex-1 text-start">{t("cart.proceed")}</span>
-            <span className="font-normal opacity-80 shrink-0"><FormattedPrice usdValue={cartTotal} /></span>
+            <span className="font-normal opacity-80 shrink-0 text-current"><FormattedPrice usdValue={cartTotal} /></span>
             <ArrowRight className={`w-4 h-4 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
           </Link>
         </Button>
