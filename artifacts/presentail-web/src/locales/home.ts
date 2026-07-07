@@ -35,6 +35,8 @@ export const homeStrings: Dict = {
   "allOccasions.empty": { en: "No occasions available.", ar: "لا توجد مناسبات متاحة." },
   "brands.eyebrow": { en: "Maison Partners", ar: "شركاؤنا" },
   "brands.featuredEyebrow": { en: "Featured Brands", ar: "العلامات المميزة" },
+  "home.trustpilot.titleLB": { en: "The Modern Flower Delivery Company", ar: "شركة توصيل الزهور العصرية" },
+  "home.trustpilot.titleExpat": { en: "Made For Lebanese Expats, By Lebanese Expats", ar: "صُنعت للمغتربين اللبنانيين، من المغتربين اللبنانيين" },
   "brands.title": { en: "Brands We Love", ar: "علامات نحبّها" },
   "brands.subtitle": {
     en: "Hand-selected ateliers and chocolatiers, paired with our florals.",
@@ -106,6 +108,8 @@ export const homeStringsFr: Record<string, string> = {
   "allOccasions.empty": "Aucune occasion disponible.",
   "brands.eyebrow": "Maisons partenaires",
   "brands.featuredEyebrow": "Marques en vedette",
+  "home.trustpilot.titleLB": "La société de livraison de fleurs moderne",
+  "home.trustpilot.titleExpat": "Fait pour les expatriés libanais, par les expatriés libanais",
   "brands.title": "Marques que nous aimons",
   "brands.subtitle": "Ateliers et chocolatiers triés sur le volet, associés à nos compositions florales.",
   "brands.viewAll": "Découvrir toutes les marques",

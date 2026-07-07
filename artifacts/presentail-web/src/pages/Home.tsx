@@ -1,6 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useHomepageBanners } from "@/lib/banners";
+import { apiFetch } from "@/lib/api";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
@@ -18,6 +20,13 @@ export default function Home() {
   const countryCode = country?.code ?? undefined;
   const device = isMobile ? "mobile" as const : "desktop" as const;
   const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device, language);
+
+  const { data: geoData } = useQuery({
+    queryKey: ["geo-currency"],
+    queryFn: () => apiFetch<{ countryCode: string | null }>("/geo/currency"),
+    staleTime: 10 * 60 * 1000,
+  });
+  const ipCountry = geoData?.countryCode ?? null;
 
   const { data: bestSellersData, isLoading: isBestSellersLoading } = useGetHomepageBestSellers({
     ...(countryCode ? { countryCode } : {}),
@@ -57,9 +66,9 @@ export default function Home() {
   const h1Text = cityLabel ? t("home.h1", { city: cityLabel }) : "";
 
   const trustpilotTitle =
-    countryCode === "LB"
-      ? "The Modern Flower Delivery Company"
-      : "Lebanese Expats, By Lebanese Expats";
+    ipCountry === "LB"
+      ? t("home.trustpilot.titleLB")
+      : t("home.trustpilot.titleExpat");
 
   return (
     <>
