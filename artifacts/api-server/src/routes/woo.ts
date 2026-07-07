@@ -95,6 +95,7 @@ type WcProduct = {
   personalisationRequired?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
+  isBestSeller?: boolean;
 };
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
@@ -210,6 +211,7 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     personalisationRequired: p.personalisationRequired ?? false,
     discountPriceValue,
     discountPriceAed: parseDiscountField(p.discount_price_aed),
+    isBestSeller: p.isBestSeller ?? false,
   };
 }
 
@@ -434,6 +436,7 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
     personalisationRequired: p.personalisationRequired ?? false,
     discountPriceValue: p.discountPriceValue ?? null,
     discountPriceAed: p.discountPriceAed ?? null,
+    isBestSeller: p.isBestSeller ?? false,
   };
 }
 

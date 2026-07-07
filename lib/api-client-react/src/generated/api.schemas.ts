@@ -819,6 +819,8 @@ export interface HomepageBestSellerProduct {
   inStock: boolean;
   /** Total sales count used for ranking. Zero when not available. */
   popularity: number;
+  /** Whether this product is in the top 20 by total sales across all stores. */
+  isBestSeller?: boolean;
 }
 
 export interface HomepageBestSellersResponse {
@@ -1073,6 +1075,8 @@ export interface WooSearchProduct {
   priceValue?: number | null;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
+  /** Whether this product is in the top 20 by total sales across all stores. */
+  isBestSeller?: boolean;
 }
 
 export interface WooSearchCategory {
@@ -1439,6 +1443,8 @@ export interface FrequentlyBoughtTogetherProduct {
   /** When true, the personalisation note input is mandatory — the shopper must fill it before adding to cart (e.g. letter boxes, engraved items, printing products). Defaults to false (optional) when not yet classified by AI inference.
    */
   personalisationRequired?: boolean | null;
+  /** Whether this product is in the top 20 by total sales across all stores. */
+  isBestSeller?: boolean;
 }
 
 /**

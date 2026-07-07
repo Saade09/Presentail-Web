@@ -28,4 +28,6 @@ export interface HomepageBestSellerProduct {
   inStock: boolean;
   /** Total sales count used for ranking. Zero when not available. */
   popularity: number;
+  /** Whether this product is in the top 20 by total sales across all stores. */
+  isBestSeller?: boolean;
 }

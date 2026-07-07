@@ -469,6 +469,12 @@ export const GetFrequentlyBoughtTogetherResponse = zod
               .describe(
                 "When true, the personalisation note input is mandatory — the shopper must fill it before adding to cart (e.g. letter boxes, engraved items, printing products). Defaults to false (optional) when not yet classified by AI inference.\n",
               ),
+            isBestSeller: zod
+              .boolean()
+              .optional()
+              .describe(
+                "Whether this product is in the top 20 by total sales across all stores.",
+              ),
           })
           .describe(
             "A product returned in the frequently bought together list.",
@@ -1215,6 +1221,12 @@ export const GetHomepageBestSellersResponse = zod.object({
           .number()
           .describe(
             "Total sales count used for ranking. Zero when not available.",
+          ),
+        isBestSeller: zod
+          .boolean()
+          .optional()
+          .describe(
+            "Whether this product is in the top 20 by total sales across all stores.",
           ),
       })
       .describe(
@@ -2095,6 +2107,12 @@ export const WooSearchResponse = zod.object({
       priceValue: zod.number().nullish(),
       discountPriceValue: zod.number().nullish(),
       discountPriceAed: zod.number().nullish(),
+      isBestSeller: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether this product is in the top 20 by total sales across all stores.",
+        ),
     }),
   ),
   categories: zod.array(

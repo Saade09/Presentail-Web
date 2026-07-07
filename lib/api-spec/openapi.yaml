@@ -2767,6 +2767,9 @@ components:
         popularity:
           type: integer
           description: Total sales count used for ranking. Zero when not available.
+        isBestSeller:
+          type: boolean
+          description: Whether this product is in the top 20 by total sales across all stores.
       required:
         - id
         - name
@@ -3275,6 +3278,9 @@ components:
         discountPriceAed:
           type: number
           nullable: true
+        isBestSeller:
+          type: boolean
+          description: Whether this product is in the top 20 by total sales across all stores.
       required: [slug, name, price]
     WooSearchCategory:
       type: object
@@ -3810,6 +3816,9 @@ components:
             must fill it before adding to cart (e.g. letter boxes, engraved
             items, printing products). Defaults to false (optional) when not yet
             classified by AI inference.
+        isBestSeller:
+          type: boolean
+          description: Whether this product is in the top 20 by total sales across all stores.
       required: [slug, id, name, price, category, inStock, images]
     FrequentlyBoughtTogetherResponse:
       type: object

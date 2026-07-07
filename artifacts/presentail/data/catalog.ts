@@ -32,6 +32,7 @@ export type Product = {
   hasInputField?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
+  isBestSeller?: boolean;
 };
 
 export type Category = { id: string; name: string; icon: string; image: any; description?: string | null };

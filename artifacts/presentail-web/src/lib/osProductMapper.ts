@@ -171,5 +171,6 @@ export function mapOsProduct(p: OSProduct): Product {
     hasLetterField:
       p.hasLetterField ||
       ["pink letter box", "red letter box"].includes(p.name.toLowerCase().trim()),
+    isBestSeller: p.isBestSeller ?? false,
   };
 }

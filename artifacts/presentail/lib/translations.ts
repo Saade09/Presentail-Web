@@ -232,6 +232,7 @@ const EN = {
 
   // ── Product page ──
   saleBadge: "Sale", // no-translate — same in EN/FR
+  bestSellerBadge: "Best Seller",
   productNotFound: "Product not found",
   goBack: "Go back",
   shareProductAria: "Share product link",
@@ -1127,6 +1128,7 @@ const AR: typeof EN = {
 
   // ── Product page ──
   saleBadge: "تخفيض",
+  bestSellerBadge: "الأكثر مبيعاً",
   productNotFound: "المنتج غير موجود",
   goBack: "رجوع",
   shareProductAria: "مشاركة رابط المنتج",
@@ -2016,6 +2018,7 @@ const FR: typeof EN = {
 
   // ── Product page ──
   saleBadge: "Sale", // no-translate — same in EN/FR
+  bestSellerBadge: "Meilleures ventes",
   productNotFound: "Produit introuvable",
   goBack: "Retour",
   shareProductAria: "Partager le lien du produit",

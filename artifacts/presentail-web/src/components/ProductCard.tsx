@@ -6,6 +6,7 @@ import { SalePrice, isDiscountActive } from "./SalePrice";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { prefetchProps } from "@/lib/prefetch";
 import { loadProductDetail } from "@/lib/pageLoaders";
+import { useLocale } from "@/contexts/LocaleContext";
 
 export function ProductCard({
   product,
@@ -19,6 +20,7 @@ export function ProductCard({
   const imageUrl = product.image?.uri;
   const tag = product.tag;
   const { currencyCode } = useDisplayCurrency();
+  const { t } = useLocale();
 
   const isPriority = index < 4;
   const onSale = isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed);
@@ -67,6 +69,11 @@ export function ProductCard({
             {onSale && discountPct != null && (
               <div className="text-white text-xs font-semibold px-3 py-1 rounded-full tracking-wider" style={{ backgroundColor: "#00414e" }}>
                 -{discountPct}%
+              </div>
+            )}
+            {product.isBestSeller && (
+              <div className="text-white text-xs font-semibold px-3 py-1 rounded-full tracking-wider" style={{ backgroundColor: "#00414e" }}>
+                {t("product.badge.bestSeller")}
               </div>
             )}
           </div>

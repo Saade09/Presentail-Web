@@ -1180,6 +1180,42 @@ async function fetchAndStore(): Promise<void> {
       cachedOccasionProductCounts = occasionCounts;
     }
 
+    // ── Best-seller flag ──────────────────────────────────────────────────
+    // Compute the top-20 products by totalSales across all stores (deduplicated
+    // by product id) and annotate each in-memory product with isBestSeller.
+    // Run after every successful fetch so the flag stays in sync with the cache.
+    {
+      const BEST_SELLER_COUNT = 20;
+      // Collect unique products across all stores.
+      const seen = new Set<string>();
+      const uniqueProducts: OSProduct[] = [];
+      for (const spec of OS_STORE_SPECS) {
+        const entry = storeCache.get(spec.storeKey);
+        if (!entry) continue;
+        for (const p of entry.products) {
+          if (!seen.has(p.id)) {
+            seen.add(p.id);
+            uniqueProducts.push(p);
+          }
+        }
+      }
+      // Rank by totalSales descending.
+      const sorted = [...uniqueProducts].sort(
+        (a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0),
+      );
+      const bestSellerIds = new Set(
+        sorted.slice(0, BEST_SELLER_COUNT).map((p) => p.id),
+      );
+      // Annotate every product in every store cache in-place.
+      for (const spec of OS_STORE_SPECS) {
+        const entry = storeCache.get(spec.storeKey);
+        if (!entry) continue;
+        for (const p of entry.products) {
+          p.isBestSeller = bestSellerIds.has(p.id);
+        }
+      }
+    }
+
     // ── Filter zero-product brands from cachedBrands ──────────────────────
     // Remove brands that have no in-stock products in any store. This prevents
     // zero-product brands from leaking into search metadata and brand listings.

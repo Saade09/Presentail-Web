@@ -211,6 +211,12 @@ export type OSProduct = {
    * Defaults to false (optional) when not yet classified.
    */
   personalisationRequired?: boolean;
+  /**
+   * Whether this product is in the top 20 by total sales across all stores.
+   * Computed server-side after every OS cache refresh; false for all other products.
+   * Used to render a "Best Seller" badge on product cards.
+   */
+  isBestSeller?: boolean;
 };
 
 export type OSProductsResponse = {

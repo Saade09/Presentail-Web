@@ -59,6 +59,7 @@ export type Product = {
   hasInputField?: boolean;
   hasLetterField?: boolean;
   personalisationRequired?: boolean;
+  isBestSeller?: boolean;
 };
 
 export type CategoryProductsResponse = { ok: boolean; products: Product[]; count: number; categoryName?: string };
@@ -253,7 +254,18 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
           // checkout, not at browse time, because OS city IDs may not match
           // the web app's city slug format.
           const brandAllowlist = await getOsBrandAllowlist();
-          const mapped = raw
+          // Compute best-seller flag from the FULL global product list (all
+          // stores, before deliverability / brand filtering) so the top-20
+          // matches what the API server computes server-side after each cache
+          // refresh. Individual products are then filtered for the shopper's
+          // locale, but the badge is awarded relative to the global catalog.
+          const sortedByPopularity = [...raw].sort(
+            (a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0),
+          );
+          const bestSellerIds = new Set(
+            sortedByPopularity.slice(0, 20).map((p) => p.id),
+          );
+          const filtered = raw
             .filter(isVisibleOsProduct)
             .filter((p) =>
               isDeliverableOsProduct(p, params.countryCode ?? null, null),
@@ -262,7 +274,8 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
               brandAllowlist === null ||
               (Array.isArray(p.brands) && p.brands.some((b) => brandAllowlist.has(b.slug))),
             )
-            .map(mapOsProduct);
+            .map((p) => ({ ...p, isBestSeller: bestSellerIds.has(p.id) }));
+          const mapped = filtered.map(mapOsProduct);
           return mergeProductsPricing(mapped, pricing);
         } catch {
           // CORS / network failure — fall through to API server proxy below

@@ -107,6 +107,11 @@ export function ProductCard({ product, width, onPress }: Props) {
             <AppText style={[styles.tagText, { fontFamily: typo.medium }]}>{product.tag}</AppText>
           </View>
         ) : null}
+        {product.isBestSeller && (
+          <View style={[styles.bestSellerTag]}>
+            <AppText style={[styles.tagText, { fontFamily: typo.medium }]}>{t.bestSellerBadge}</AppText>
+          </View>
+        )}
       </View>
       <View style={{ paddingTop: 12, gap: 4 }}>
         <AppText
@@ -173,6 +178,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
+  },
+  bestSellerTag: {
+    position: "absolute",
+    top: 44,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "#00414e",
   },
   tagText: {
     color: "#fff",

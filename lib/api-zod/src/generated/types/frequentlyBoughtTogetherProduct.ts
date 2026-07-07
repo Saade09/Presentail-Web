@@ -34,4 +34,6 @@ export interface FrequentlyBoughtTogetherProduct {
   /** When true, the personalisation note input is mandatory — the shopper must fill it before adding to cart (e.g. letter boxes, engraved items, printing products). Defaults to false (optional) when not yet classified by AI inference.
    */
   personalisationRequired?: boolean | null;
+  /** Whether this product is in the top 20 by total sales across all stores. */
+  isBestSeller?: boolean;
 }

@@ -21,6 +21,7 @@ export type WooProduct = {
   personalisationRequired?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
+  isBestSeller?: boolean;
 };
 
 export type ProductPricingEntry = {

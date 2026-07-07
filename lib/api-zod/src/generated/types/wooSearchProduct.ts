@@ -15,4 +15,6 @@ export interface WooSearchProduct {
   priceValue?: number | null;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
+  /** Whether this product is in the top 20 by total sales across all stores. */
+  isBestSeller?: boolean;
 }
