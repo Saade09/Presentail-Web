@@ -60,7 +60,7 @@ export function ProductCard({
               P
             </div>
           )}
-          <div className="absolute top-4 left-4 flex flex-col gap-1">
+          <div className="absolute top-4 left-4 flex flex-col gap-1 items-start">
             {tag && (
               <div className="bg-background/90 backdrop-blur text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider">
                 {tag}
