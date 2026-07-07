@@ -32,6 +32,7 @@ export default function BestSellers() {
         images: p.images?.map((img) => ({ uri: img.uri })) ?? [],
         inStock: p.inStock,
         popularity: p.popularity,
+        isBestSeller: true,
         wcId: 0,
         category: "",
         categories: [],
