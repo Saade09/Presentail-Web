@@ -34,7 +34,7 @@ const router: IRouter = Router();
 const AFFINITY_CATEGORY_SLUGS: Set<string> = new Set(
   (
     process.env.AFFINITY_CATEGORY_SLUGS ?? // i18n-ignore — internal category slug config, not user-visible copy
-    "flowers,hand-bouquets,flower-boxes,flower-baskets,flower-vases,preserved-flowers,lux-arrangements,cakes"
+    "cakes"
   )
     .split(",")
     .map((s) => s.trim())

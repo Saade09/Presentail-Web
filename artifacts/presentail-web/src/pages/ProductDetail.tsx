@@ -535,7 +535,7 @@ export default function ProductDetail() {
         />
       </div>
 
-      {slug && <FrequentlyBoughtTogether slug={slug} />}
+      {slug && product && <FrequentlyBoughtTogether slug={slug} anchor={product} />}
 
       <AddToCartUpsellModal
         open={upsellOpen}
