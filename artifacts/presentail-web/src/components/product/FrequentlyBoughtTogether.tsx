@@ -205,7 +205,7 @@ export function FrequentlyBoughtTogether({ slug, anchor }: Props) {
                   onClick={(e) => changeQty(c.id, -1, e)}
                   disabled={!sel.checked || sel.qty <= 1}
                   className="w-6 h-6 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                  aria-label="decrease"
+                  aria-label="decrease" // i18n-ignore
                 >
                   <Minus className="w-3 h-3" />
                 </button>
@@ -214,7 +214,7 @@ export function FrequentlyBoughtTogether({ slug, anchor }: Props) {
                   onClick={(e) => changeQty(c.id, 1, e)}
                   disabled={!sel.checked}
                   className="w-6 h-6 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                  aria-label="increase"
+                  aria-label="increase" // i18n-ignore
                 >
                   <Plus className="w-3 h-3" />
                 </button>

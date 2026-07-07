@@ -1,11 +1,17 @@
+import { readAttribution } from "@/lib/attribution";
+
 type WebEventType =
+  | "page_view"
   | "product_view"
   | "add_to_cart"
   | "checkout_step"
   | "payment_started"
   | "payment_completed"
+  | "payment_failed"
   | "promo_applied"
-  | "promo_failed";
+  | "promo_failed"
+  | "search"
+  | "search_no_result";
 
 export type WebEventItem = {
   productId: string;
@@ -17,33 +23,101 @@ export type WebEventItem = {
 export type WebEvent = {
   type: WebEventType;
   sessionId?: string;
+  visitorId?: string;
+  occurredAt?: string;
   value?: number;
   currency?: string;
   brand?: string;
   city?: string;
   items?: WebEventItem[];
   properties?: Record<string, unknown>;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmTerm?: string;
+  utmContent?: string;
+  referrer?: string;
+  trafficSource?: string;
+  deviceType?: string;
+  language?: string;
+  url?: string;
+  path?: string;
 };
 
-const WEB_EVENTS_API_KEY = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
+const VISITOR_ID_KEY = "@presentail/analytics-visitor-id";
+
+function getOrCreateVisitorId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const existing = localStorage.getItem(VISITOR_ID_KEY);
+    if (existing) return existing;
+    const next = generateSessionId();
+    localStorage.setItem(VISITOR_ID_KEY, next);
+    return next;
+  } catch {
+    return "";
+  }
+}
+
+function deriveTrafficSource(utmSource?: string, referrer?: string): string | undefined {
+  if (utmSource) return utmSource;
+  if (!referrer) return "direct";
+  try {
+    const ref = new URL(referrer);
+    const host = ref.hostname.replace(/^www\./, "");
+    if (/google\.|bing\.|yahoo\.|duckduckgo\./.test(host)) return "organic_search";
+    if (/facebook\.|instagram\.|twitter\.|tiktok\.|linkedin\.|snapchat\./.test(host)) return "social";
+    return host || "referral";
+  } catch {
+    return "referral";
+  }
+}
 
 /**
  * Post a web funnel event to `/api/web-events`. Uses the same
  * sessionId managed by this module so the server can correlate
  * web funnel events with the existing purchase-funnel monitors.
+ * Auto-populates visitorId, occurredAt, attribution/UTM fields,
+ * deviceType, language, url, and path from the browser environment.
  * Best-effort: failures are swallowed silently.
  */
 export function trackWebEvent(event: WebEvent): void {
   if (typeof window === "undefined") return;
   SESSION_ID = getOrCreateSessionId();
-  const payload = JSON.stringify({ ...event, sessionId: SESSION_ID });
+  const visitorId = getOrCreateVisitorId();
+  const referrer = document.referrer || undefined;
+  const attribution = readAttribution();
+  const lastTouch = attribution?.last_touch;
+  const utmSource = lastTouch?.utm_source;
+  const utmMedium = lastTouch?.utm_medium;
+  const utmCampaign = lastTouch?.utm_campaign;
+  const utmTerm = lastTouch?.utm_term;
+  const utmContent = lastTouch?.utm_content;
+  const trafficSource = deriveTrafficSource(utmSource, referrer);
+  const deviceType = detectWebPlatform();
+  const lang = (typeof navigator !== "undefined" ? navigator.language : undefined) ?? undefined;
+  const enriched: WebEvent = {
+    ...event,
+    sessionId: SESSION_ID,
+    visitorId,
+    occurredAt: new Date().toISOString(),
+    referrer,
+    ...(utmSource ? { utmSource } : {}),
+    ...(utmMedium ? { utmMedium } : {}),
+    ...(utmCampaign ? { utmCampaign } : {}),
+    ...(utmTerm ? { utmTerm } : {}),
+    ...(utmContent ? { utmContent } : {}),
+    ...(trafficSource ? { trafficSource } : {}),
+    deviceType,
+    ...(lang ? { language: lang } : {}),
+    url: window.location.href,
+    path: window.location.pathname,
+  };
+  const payload = JSON.stringify(enriched);
   try {
     void fetch("/api/web-events", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": WEB_EVENTS_API_KEY,
-      },
+      headers: { "Content-Type": "application/json" },
       body: payload,
       keepalive: true,
     }).catch(() => {});

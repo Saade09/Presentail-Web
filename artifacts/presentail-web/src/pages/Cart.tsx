@@ -194,7 +194,7 @@ export default function Cart() {
         setCouponInput(code);
         setCouponApplied(true);
         setCouponDiscountUsd(discount);
-        trackWebEvent({ type: "promo_applied", value: discount, currency: "USD" });
+        trackWebEvent({ type: "promo_applied", value: discount, currency: "USD", properties: { code } });
       } else {
         setCouponError(res.message ?? t("cart.promoCodeInvalid"));
         setCouponApplied(false);

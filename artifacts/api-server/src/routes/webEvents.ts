@@ -1,17 +1,20 @@
 import { Router, type IRouter } from "express";
-import { timingSafeEqual } from "node:crypto";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { db, analyticsEventsTable } from "@workspace/db";
 
 const WEB_EVENT_TYPES = [
+  "page_view",
   "product_view",
   "add_to_cart",
   "checkout_step",
   "payment_started",
   "payment_completed",
+  "payment_failed",
   "promo_applied",
   "promo_failed",
+  "search",
+  "search_no_result",
 ] as const;
 
 const webEventItemSchema = z.object({
@@ -24,12 +27,25 @@ const webEventItemSchema = z.object({
 const webEventBodySchema = z.object({
   type: z.enum(WEB_EVENT_TYPES),
   sessionId: z.string().max(36).optional(),
+  visitorId: z.string().max(64).optional(),
+  occurredAt: z.string().max(64).optional(),
   value: z.number().finite().nonnegative().optional(),
   currency: z.string().max(8).optional(),
   brand: z.string().max(128).optional(),
   city: z.string().max(128).optional(),
   items: z.array(webEventItemSchema).max(100).optional(),
   properties: z.record(z.unknown()).optional(),
+  utmSource: z.string().max(256).optional(),
+  utmMedium: z.string().max(256).optional(),
+  utmCampaign: z.string().max(256).optional(),
+  utmTerm: z.string().max(256).optional(),
+  utmContent: z.string().max(256).optional(),
+  referrer: z.string().max(1024).optional(),
+  trafficSource: z.string().max(256).optional(),
+  deviceType: z.string().max(32).optional(),
+  language: z.string().max(16).optional(),
+  url: z.string().max(2048).optional(),
+  path: z.string().max(1024).optional(),
 });
 
 const batchBodySchema = z.object({
@@ -57,25 +73,18 @@ function clip(value: string | undefined, max: number): string | undefined {
   return value.length > max ? `${value.slice(0, max)}…[truncated]` : value;
 }
 
-function safeKeyCompare(a: string, b: string): boolean {
-  try {
-    const aBuf = Buffer.from(a);
-    const bBuf = Buffer.from(b);
-    if (aBuf.length !== bBuf.length) {
-      timingSafeEqual(aBuf, aBuf);
-      return false;
-    }
-    return timingSafeEqual(aBuf, bBuf);
-  } catch {
-    return false;
-  }
-}
 
 function mapEventToRow(event: WebEventBody): typeof analyticsEventsTable.$inferInsert {
   const propertiesMeta: Record<string, unknown> = {};
   if (event.currency) propertiesMeta.currency = event.currency;
   if (event.brand) propertiesMeta.brand = event.brand;
   if (event.city) propertiesMeta.city = event.city;
+  if (event.deviceType) propertiesMeta.deviceType = event.deviceType;
+  if (event.trafficSource) propertiesMeta.trafficSource = event.trafficSource;
+  if (event.utmSource) propertiesMeta.utmSource = event.utmSource;
+  if (event.utmMedium) propertiesMeta.utmMedium = event.utmMedium;
+  if (event.utmCampaign) propertiesMeta.utmCampaign = event.utmCampaign;
+  if (event.path) propertiesMeta.path = event.path;
   if (event.properties) Object.assign(propertiesMeta, event.properties);
   return {
     name: event.type,
@@ -91,6 +100,36 @@ function mapEventToRow(event: WebEventBody): typeof analyticsEventsTable.$inferI
   };
 }
 
+/**
+ * Best-effort forward of web events to the OS ingestion endpoint.
+ * Fires async after the local DB insert — never blocks the 200 response.
+ */
+function forwardToOs(events: WebEventBody[], log: { warn: (obj: unknown, msg: string) => void }): void {
+  const osApiUrl = process.env.PRESENTAIL_OS_API_URL;
+  const osApiKey = process.env.PRESENTAIL_OS_API_KEY;
+  if (!osApiUrl || !osApiKey) return;
+
+  const endpoint = `${osApiUrl}/api/web-events`;
+  const body = events.length === 1 ? JSON.stringify(events[0]) : JSON.stringify({ events });
+
+  void fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": osApiKey,
+    },
+    body,
+  }).then(async (res) => {
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      log.warn({ status: res.status, body: text.slice(0, 256) }, "web-events: OS forward failed");
+    }
+  }).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    log.warn({ err: message }, "web-events: OS forward error");
+  });
+}
+
 router.post(
   "/web-events",
   webEventsLimiter,
@@ -103,14 +142,6 @@ router.post(
     next();
   },
   (req, res): void => {
-    const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
-    const clientKey = (req.header("x-api-key") ?? "").trim();
-
-    if (!apiKey || !clientKey || !safeKeyCompare(clientKey, apiKey)) {
-      res.status(401).json({ ok: false, message: "Unauthorized" }); // i18n-ignore
-      return;
-    }
-
     const body = req.body as unknown;
 
     let events: WebEventBody[];
@@ -145,6 +176,8 @@ router.post(
             "web-events: failed to persist events",
           );
         });
+
+      forwardToOs(toInsert, req.log);
     }
 
     req.log.info(

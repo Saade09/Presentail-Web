@@ -5,6 +5,7 @@ import { trackWebEvent } from "@/lib/analytics";
 import { AuthOverrideContext } from "@/contexts/AuthContext";
 import { LocationContext } from "@/contexts/LocationContext";
 import { getStartupItem } from "@/lib/startupState";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 
 export type CartItem = {
   product: Product;
@@ -29,6 +30,7 @@ export const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useContext(AuthOverrideContext);
   const locationCtx = useContext(LocationContext);
+  const { currencyCode } = useDisplayCurrency();
   const [items, setItems] = useState<CartItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -105,7 +107,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         quantity: i.quantity,
       })),
       value: newSubtotal,
-      currency: "USD",
+      currency: currencyCode,
       ...(brandName ? { brand: brandName } : {}),
       ...(cityName ? { city: cityName } : {}),
     });

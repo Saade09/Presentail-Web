@@ -7,6 +7,7 @@ import {
 } from "wouter";
 import { lazy, Suspense, useEffect, useRef, startTransition } from "react";
 import { captureAttribution } from "@/lib/attribution";
+import { trackWebEvent } from "@/lib/analytics";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
@@ -451,6 +452,15 @@ function AttributionTracker() {
   return null;
 }
 
+function PageViewTracker() {
+  const [path] = useLocation();
+  useEffect(() => {
+    trackWebEvent({ type: "page_view" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
+  return null;
+}
+
 // The following chunks are intentionally excluded from idle prefetch — they
 // must not appear in the home-page critical waterfall on throttled connections.
 // Each is instead prefetched on the user-interaction that signals intent:
@@ -501,6 +511,7 @@ function App() {
                       <CurrencyDataLoader />
                       <DocumentMeta />
                       <AttributionTracker />
+                      <PageViewTracker />
                       <FbPixelTracker />
                       <SeoHead />
                       <RootRouter />

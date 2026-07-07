@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocation } from "wouter";
+import { trackWebEvent } from "@/lib/analytics";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import { useSearch } from "@/lib/queries";
@@ -66,6 +67,18 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
   const hasOccasions = (data?.occasions?.length ?? 0) > 0;
   const hasBrands = (data?.brands?.length ?? 0) > 0;
   const showEmpty = q.length >= 2 && !isFetching && !hasProducts && !hasCategories && !hasOccasions && !hasBrands;
+
+  useEffect(() => {
+    if (isFetching || q.length < 2) return;
+    const hasAnyResult = hasProducts || hasCategories || hasOccasions || hasBrands;
+    if (hasAnyResult) {
+      trackWebEvent({ type: "search", properties: { searchQuery: q, resultCount: (data?.products?.length ?? 0) + (data?.categories?.length ?? 0) + (data?.occasions?.length ?? 0) + (data?.brands?.length ?? 0) } });
+    } else {
+      trackWebEvent({ type: "search_no_result", properties: { searchQuery: q } });
+    }
+  // Intentionally depend only on isFetching to fire once per completed fetch
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFetching]);
   const showTrending = q.length < 2;
 
   return (

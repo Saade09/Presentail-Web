@@ -910,7 +910,8 @@ function CheckoutForm() {
       currency: checkoutCurrency,
       city: locationCity?.name ?? locationCity?.id ?? undefined,
       properties: {
-        slot: deliverySlot || undefined,
+        city: locationCity?.name ?? locationCity?.id ?? undefined,
+        deliverySlot: deliverySlot || undefined,
         deliveryFee: districtFee + expressFee + slotFee,
       },
     });
@@ -1657,7 +1658,8 @@ function CheckoutForm() {
         currency: checkoutCurrency,
         city: locationCity?.name ?? locationCity?.id ?? undefined,
         properties: {
-          slot: deliverySlot || undefined,
+          city: locationCity?.name ?? locationCity?.id ?? undefined,
+          deliverySlot: deliverySlot || undefined,
           deliveryFee: districtFee + expressFee + slotFee,
           paymentMethod,
         },
@@ -1809,6 +1811,7 @@ function CheckoutForm() {
               if (stripeError) {
                 ev.complete("fail");
                 trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
+                trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: paymentMethod, errorCode: stripeError.code ?? undefined } });
                 setPaymentMethodState("card");
                 setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
                 resolve();
@@ -1823,6 +1826,7 @@ function CheckoutForm() {
                 if (actionError) {
                   ev.complete("fail");
                   trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
+                  trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: paymentMethod, errorCode: actionError.code ?? undefined } });
                   setPaymentMethodState("card");
                   setStripeCardError(stripeDeclineMsg(actionError, t) ?? actionError.message ?? t("checkout.toast.cardPaymentFailed"));
                   resolve();
@@ -1833,6 +1837,7 @@ function CheckoutForm() {
 
               if (finalIntent?.status !== "succeeded") {
                 ev.complete("fail");
+                trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: paymentMethod } });
                 setPaymentMethodState("card");
                 setStripeCardError(t("checkout.toast.cardPaymentFailed"));
                 resolve();
@@ -1997,6 +2002,7 @@ function CheckoutForm() {
           }
           if (stripeError) {
             trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
+            trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "card", errorCode: stripeError.code ?? undefined } });
             setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
             return;
           }
@@ -2010,6 +2016,7 @@ function CheckoutForm() {
             });
             if (actionError) {
               trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
+              trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "card", errorCode: actionError.code ?? undefined } });
               setStripeCardError(stripeDeclineMsg(actionError, t) ?? actionError.message ?? t("checkout.toast.cardPaymentFailed"));
               return;
             }
@@ -2118,6 +2125,7 @@ function CheckoutForm() {
         variant: "destructive",
       });
       trackEvent({ name: "payment_error", surface: "checkout", action: isNetworkFailure ? "network" : isColdCache ? "catalog_cold" : "provider" });
+      trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: paymentMethod } });
     }
   };
 

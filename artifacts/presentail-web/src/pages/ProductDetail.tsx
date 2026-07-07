@@ -42,6 +42,7 @@ import {
 import { useNow } from "@/lib/useNow";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
+import { trackWebEvent } from "@/lib/analytics";
 import { buildProductSeo } from "@/lib/seo";
 import { FrequentlyBoughtTogether } from "@/components/product/FrequentlyBoughtTogether";
 
@@ -170,6 +171,14 @@ export default function ProductDetail() {
       content_type: "product",
       value: product.priceValue,
       currency: "USD",
+    });
+    trackWebEvent({
+      type: "product_view",
+      brand: product.brandNames?.[0] ?? undefined,
+      properties: {
+        category: product.category ?? undefined,
+        occasion: product.occasions?.[0] ?? undefined,
+      },
     });
   }, [product?.id]); // i18n-ignore
 
