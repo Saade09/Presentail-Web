@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { _HomepageCollectionItemRankingDebug } from "./_homepageCollectionItemRankingDebug";
 
 /**
  * A single item shown in a homepage circular-card carousel. The shape
@@ -26,4 +27,9 @@ export interface HomepageCollectionItem {
   sortOrder: number;
   /** Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews. */
   isActive: boolean;
+  /** Present only when the request includes `?debug=1` with a valid
+`x-push-admin-token` header. Contains per-item scoring breakdown
+for the smart-ranking engine.
+ */
+  _rankingDebug?: _HomepageCollectionItemRankingDebug;
 }

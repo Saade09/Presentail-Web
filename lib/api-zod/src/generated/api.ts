@@ -1096,6 +1096,39 @@ export const GetHomepageCategoriesResponse = zod.object({
           .describe(
             "Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews.",
           ),
+        _rankingDebug: zod
+          .object({
+            performanceScore: zod
+              .number()
+              .describe("Bayesian-smoothed sales performance score in [0, 1)."),
+            seasonalBoost: zod
+              .number()
+              .describe("Additive boost from active seasonal windows."),
+            manualBoost: zod
+              .number()
+              .describe(
+                "Operator-configured additive boost from the DB config.",
+              ),
+            availabilityPenalty: zod
+              .number()
+              .describe(
+                "Penalty subtracted when in-stock product count is below the floor.",
+              ),
+            finalScore: zod
+              .number()
+              .describe(
+                "performanceScore + seasonalBoost + manualBoost − availabilityPenalty.",
+              ),
+            productCount: zod
+              .number()
+              .describe(
+                "Number of in-stock OS products tagged with this slug.",
+              ),
+          })
+          .nullish()
+          .describe(
+            "Present only when the request includes `?debug=1` with a valid\n`x-push-admin-token` header. Contains per-item scoring breakdown\nfor the smart-ranking engine.\n",
+          ),
       })
       .describe(
         'A single item shown in a homepage circular-card carousel. The shape\nis intentionally generic so it can back both the \"Categories\" and\n\"Occasions\" rows, and a future DB-backed implementation without a\nbreaking change.\n',
@@ -1105,17 +1138,29 @@ export const GetHomepageCategoriesResponse = zod.object({
 
 /**
  * Returns the curated list of items for the homepage "Occasions"
-carousel. The list is sourced from WooCommerce product categories
-whose parent has slug `home-occasions`, mapped into the shared
-`HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
-If WooCommerce credentials are unset or the parent category does
-not yet exist in WP admin, a sensible hand-rolled default set is
-returned. On a WooCommerce network/HTTP failure the endpoint
-instead returns an empty `items` array (still 200) so the client
-hides the section rather than rendering stale defaults.
+carousel. Items are sorted by a composite score (performance + seasonal
+boost + manual boost - availability penalty) so the most relevant
+occasions appear first. When no scoring data is available the list falls
+back to the DEFAULT_OCCASION_SLUGS order. Append `?debug=1` with the
+`x-push-admin-token` header to receive per-item score breakdowns.
 
  * @summary Get curated homepage Occasions carousel items
  */
+export const GetHomepageOccasionsQueryParams = zod.object({
+  countryCode: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "ISO 3166-1 alpha-2 country code (case-insensitive) used to apply\ncountry-specific ranking config rows. When omitted, global config\nrows apply.\n",
+    ),
+  cityId: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'City identifier (e.g. \"ae-dubai\", \"ae-abu-dhabi\") used to resolve\nthe correct OS product store for availability scoring.\n',
+    ),
+});
+
 export const GetHomepageOccasionsResponse = zod.object({
   items: zod.array(
     zod
@@ -1144,11 +1189,227 @@ export const GetHomepageOccasionsResponse = zod.object({
           .describe(
             "Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews.",
           ),
+        _rankingDebug: zod
+          .object({
+            performanceScore: zod
+              .number()
+              .describe("Bayesian-smoothed sales performance score in [0, 1)."),
+            seasonalBoost: zod
+              .number()
+              .describe("Additive boost from active seasonal windows."),
+            manualBoost: zod
+              .number()
+              .describe(
+                "Operator-configured additive boost from the DB config.",
+              ),
+            availabilityPenalty: zod
+              .number()
+              .describe(
+                "Penalty subtracted when in-stock product count is below the floor.",
+              ),
+            finalScore: zod
+              .number()
+              .describe(
+                "performanceScore + seasonalBoost + manualBoost − availabilityPenalty.",
+              ),
+            productCount: zod
+              .number()
+              .describe(
+                "Number of in-stock OS products tagged with this slug.",
+              ),
+          })
+          .nullish()
+          .describe(
+            "Present only when the request includes `?debug=1` with a valid\n`x-push-admin-token` header. Contains per-item scoring breakdown\nfor the smart-ranking engine.\n",
+          ),
       })
       .describe(
         'A single item shown in a homepage circular-card carousel. The shape\nis intentionally generic so it can back both the \"Categories\" and\n\"Occasions\" rows, and a future DB-backed implementation without a\nbreaking change.\n',
       ),
   ),
+});
+
+/**
+ * Returns every row in the `collection_ranking_config` table. Protected
+by the `x-push-admin-token` header (PUSH_ADMIN_TOKEN env var).
+
+ * @summary List all collection ranking config rows (admin)
+ */
+export const GetCollectionRankingConfigHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const GetCollectionRankingConfigResponse = zod.object({
+  ok: zod.boolean(),
+  rows: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        kind: zod.enum(["category", "occasion"]),
+        slug: zod.string(),
+        countryCode: zod
+          .string()
+          .nullish()
+          .describe("ISO 3166-1 alpha-2 country code. Null = global default."),
+        manualBoost: zod
+          .number()
+          .describe("Additive score bonus applied at all times."),
+        pinnedPosition: zod
+          .number()
+          .nullish()
+          .describe(
+            "1-based position to force the item into after scoring. Null = no pin.",
+          ),
+        hiddenOverride: zod
+          .boolean()
+          .describe(
+            "When true the item is excluded from the carousel regardless of score.",
+          ),
+        seasonalBoosts: zod.array(
+          zod
+            .object({
+              label: zod
+                .string()
+                .describe('Human-readable label (e.g. \"Valentine\'s Day\").'),
+              startMmDd: zod
+                .string()
+                .describe(
+                  'Start of the window as MM-DD (e.g. \"02-01\"). Wrap-around supported (e.g. \"12-25\" → \"01-07\").',
+                ),
+              endMmDd: zod
+                .string()
+                .describe(
+                  'End of the window as MM-DD (e.g. \"02-14\"), inclusive.',
+                ),
+              boost: zod
+                .number()
+                .describe(
+                  "Additive score bonus applied within the window (e.g. 0.4).",
+                ),
+            })
+            .describe(
+              "A date-window boost applied to a collection item when today falls within the window.",
+            ),
+        ),
+      })
+      .describe(
+        "Per-slug ranking configuration for a homepage category or occasion.",
+      ),
+  ),
+});
+
+/**
+ * Creates or updates the ranking config for a single category or occasion
+slug. Invalidates the in-process ranking cache immediately so the next
+`/homepage/categories` or `/homepage/occasions` request reflects the
+change. Protected by the `x-push-admin-token` header.
+
+ * @summary Upsert a collection ranking config row (admin)
+ */
+export const UpsertCollectionRankingConfigParams = zod.object({
+  kind: zod.enum(["category", "occasion"]),
+  slug: zod.coerce.string(),
+});
+
+export const UpsertCollectionRankingConfigHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const UpsertCollectionRankingConfigBody = zod
+  .object({
+    countryCode: zod.string().nullish(),
+    manualBoost: zod.number().optional(),
+    pinnedPosition: zod.number().nullish(),
+    hiddenOverride: zod.boolean().optional(),
+    seasonalBoosts: zod
+      .array(
+        zod
+          .object({
+            label: zod
+              .string()
+              .describe('Human-readable label (e.g. \"Valentine\'s Day\").'),
+            startMmDd: zod
+              .string()
+              .describe(
+                'Start of the window as MM-DD (e.g. \"02-01\"). Wrap-around supported (e.g. \"12-25\" → \"01-07\").',
+              ),
+            endMmDd: zod
+              .string()
+              .describe(
+                'End of the window as MM-DD (e.g. \"02-14\"), inclusive.',
+              ),
+            boost: zod
+              .number()
+              .describe(
+                "Additive score bonus applied within the window (e.g. 0.4).",
+              ),
+          })
+          .describe(
+            "A date-window boost applied to a collection item when today falls within the window.",
+          ),
+      )
+      .optional(),
+  })
+  .describe(
+    "Fields to set on a collection ranking config row. All fields are optional — omitted fields are left unchanged on update.",
+  );
+
+export const UpsertCollectionRankingConfigResponse = zod.object({
+  ok: zod.boolean(),
+  row: zod
+    .object({
+      id: zod.number(),
+      kind: zod.enum(["category", "occasion"]),
+      slug: zod.string(),
+      countryCode: zod
+        .string()
+        .nullish()
+        .describe("ISO 3166-1 alpha-2 country code. Null = global default."),
+      manualBoost: zod
+        .number()
+        .describe("Additive score bonus applied at all times."),
+      pinnedPosition: zod
+        .number()
+        .nullish()
+        .describe(
+          "1-based position to force the item into after scoring. Null = no pin.",
+        ),
+      hiddenOverride: zod
+        .boolean()
+        .describe(
+          "When true the item is excluded from the carousel regardless of score.",
+        ),
+      seasonalBoosts: zod.array(
+        zod
+          .object({
+            label: zod
+              .string()
+              .describe('Human-readable label (e.g. \"Valentine\'s Day\").'),
+            startMmDd: zod
+              .string()
+              .describe(
+                'Start of the window as MM-DD (e.g. \"02-01\"). Wrap-around supported (e.g. \"12-25\" → \"01-07\").',
+              ),
+            endMmDd: zod
+              .string()
+              .describe(
+                'End of the window as MM-DD (e.g. \"02-14\"), inclusive.',
+              ),
+            boost: zod
+              .number()
+              .describe(
+                "Additive score bonus applied within the window (e.g. 0.4).",
+              ),
+          })
+          .describe(
+            "A date-window boost applied to a collection item when today falls within the window.",
+          ),
+      ),
+    })
+    .optional()
+    .describe(
+      "Per-slug ranking configuration for a homepage category or occasion.",
+    ),
 });
 
 /**

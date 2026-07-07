@@ -7,7 +7,8 @@ import {
 } from "@workspace/api-zod";
 import type { HomepageCollectionItem } from "@workspace/api-zod";
 import { translateBanners, type BannerLang } from "../lib/bannerTranslation";
-import { db, appOrdersTable } from "@workspace/db";
+import { db, appOrdersTable, collectionRankingConfigTable } from "@workspace/db";
+import type { CollectionRankingConfigRow } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
 import {
@@ -16,8 +17,36 @@ import {
   getOsOccasions,
   registerOsProductsRefreshListener,
 } from "../lib/osProductsCache";
+import { scoreCollections } from "../lib/collectionRanking";
 import { categories as staticCategories } from "@workspace/catalog-data";
 import { resolveStoreFromRequest } from "../lib/wooStore";
+
+// ── Ranking config cache ───────────────────────────────────────────────────
+//
+// The collection_ranking_config table is tiny and rarely changes, so we cache
+// the full result set in-process with a 5-minute TTL. The admin PUT endpoint
+// calls invalidateRankingConfigCache() to force an immediate reload.
+
+const RANKING_CONFIG_TTL_MS = 5 * 60 * 1000;
+let rankingConfigCache: { rows: CollectionRankingConfigRow[]; fetchedAt: number } | null = null;
+
+export function invalidateRankingConfigCache(): void {
+  rankingConfigCache = null;
+}
+
+async function getRankingConfig(): Promise<CollectionRankingConfigRow[]> {
+  const now = Date.now();
+  if (rankingConfigCache && now - rankingConfigCache.fetchedAt < RANKING_CONFIG_TTL_MS) {
+    return rankingConfigCache.rows;
+  }
+  try {
+    const rows = await db.select().from(collectionRankingConfigTable);
+    rankingConfigCache = { rows, fetchedAt: now };
+    return rows;
+  } catch {
+    return rankingConfigCache?.rows ?? [];
+  }
+}
 
 const router: IRouter = Router();
 
@@ -230,7 +259,7 @@ const FORCE_INCLUDE_CATEGORY_SLUGS = new Set(["electronics"]);
 // eliminates the WC network round-trips for every homepage load and makes the
 // navigation data consistent with the OS-sourced product listings.
 
-function buildOsCategories(): HomepageCollectionItem[] | null {
+function buildOsCategoriesRaw(): HomepageCollectionItem[] | null {
   const osCategories = getOsCategories();
   if (osCategories && osCategories.length > 0) {
     return osCategories
@@ -277,14 +306,33 @@ function buildOsCategories(): HomepageCollectionItem[] | null {
     });
 }
 
-function buildOsOccasions(): HomepageCollectionItem[] | null {
+async function buildOsCategories(
+  countryCode?: string | null,
+  cityId?: string | null,
+): Promise<{ items: HomepageCollectionItem[] | null; debugMap: Map<string, import("../lib/collectionRanking").ScoreDebug> }> {
+  const raw = buildOsCategoriesRaw();
+  if (!raw) return { items: null, debugMap: new Map() };
+  const configRows = await getRankingConfig();
+  const osProducts = getOsProducts(cityId === "ae-dubai" ? "dubai" : cityId === "ae-abu-dhabi" ? "abudhabi" : countryCode === "AE" ? "dubai" : countryCode === "CY" ? "cyprus" : "lebanon") ?? [];
+  const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
+    kind: "category",
+    countryCode,
+    cityId,
+    configRows,
+    osProducts,
+    defaultOrder: [],
+    availabilityFloor: 3,
+  });
+  return { items: items.map((item, i) => ({ ...item, sortOrder: i })), debugMap };
+}
+
+function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
   const osOccasions = getOsOccasions();
   if (!osOccasions || osOccasions.length === 0) return null;
   // Only surface occasions that OS has flagged as featured.
   const featured = osOccasions.filter((o) => o.featured === true);
   if (featured.length === 0) return null;
-  // Preserve DEFAULT_OCCASION_SLUGS ordering for known occasions;
-  // append any featured occasions not in the list at the end.
+  // Collect all featured occasions into a flat list; scoring will apply ordering.
   const bySlug = new Map(featured.map((o) => [o.slug, o]));
   const result: HomepageCollectionItem[] = [];
   for (const slug of DEFAULT_OCCASION_SLUGS) {
@@ -315,14 +363,71 @@ function buildOsOccasions(): HomepageCollectionItem[] | null {
   return result.length > 0 ? result : null;
 }
 
-router.get("/homepage/categories", (_req, res) => {
-  const items = buildOsCategories() ?? [];
+async function buildOsOccasions(
+  countryCode?: string | null,
+  cityId?: string | null,
+): Promise<{ items: HomepageCollectionItem[] | null; debugMap: Map<string, import("../lib/collectionRanking").ScoreDebug> }> {
+  const raw = buildOsOccasionsRaw();
+  if (!raw) return { items: null, debugMap: new Map() };
+  const configRows = await getRankingConfig();
+  const osProducts = getOsProducts(cityId === "ae-dubai" ? "dubai" : cityId === "ae-abu-dhabi" ? "abudhabi" : countryCode === "AE" ? "dubai" : countryCode === "CY" ? "cyprus" : "lebanon") ?? [];
+  const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
+    kind: "occasion",
+    countryCode,
+    cityId,
+    configRows,
+    osProducts,
+    defaultOrder: DEFAULT_OCCASION_SLUGS,
+    availabilityFloor: 3,
+  });
+  return { items: items.map((item, i) => ({ ...item, sortOrder: i })), debugMap };
+}
+
+function isDebugRequest(req: import("express").Request): boolean {
+  const expected = process.env.PUSH_ADMIN_TOKEN;
+  const supplied = req.header("x-push-admin-token") ?? req.header("x-admin-token");
+  const debugParam = req.query.debug === "1" || req.query.debug === "true";
+  return debugParam && Boolean(expected) && supplied === expected;
+}
+
+router.get("/homepage/categories", async (req, res) => {
+  const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
+  const cityId = typeof req.query.cityId === "string" ? req.query.cityId : null;
+  const debug = isDebugRequest(req);
+
+  const { items: scored, debugMap } = await buildOsCategories(countryCode, cityId);
+  const items = scored ?? [];
+
+  if (debug) {
+    return res.json({
+      items: items.map((item) => ({
+        ...item,
+        _rankingDebug: debugMap.get(item.slug),
+      })),
+    });
+  }
+
   const data = GetHomepageCategoriesResponse.parse({ items });
   return res.json(data);
 });
 
-router.get("/homepage/occasions", (_req, res) => {
-  const items = buildOsOccasions() ?? [];
+router.get("/homepage/occasions", async (req, res) => {
+  const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
+  const cityId = typeof req.query.cityId === "string" ? req.query.cityId : null;
+  const debug = isDebugRequest(req);
+
+  const { items: scored, debugMap } = await buildOsOccasions(countryCode, cityId);
+  const items = scored ?? [];
+
+  if (debug) {
+    return res.json({
+      items: items.map((item) => ({
+        ...item,
+        _rankingDebug: debugMap.get(item.slug),
+      })),
+    });
+  }
+
   const data = GetHomepageOccasionsResponse.parse({ items });
   return res.json(data);
 });
@@ -540,13 +645,14 @@ router.get("/homepage/best-sellers", async (req, res) => {
 // Return the current homepage Categories + Occasions from the OS cache.
 // Used by the scheduled wooSync tick to obtain the latest collection
 // snapshot for change detection (data_refresh push). Both collections
-// are synchronous OS reads — no WC calls are made.
+// are synchronous OS reads — no WC calls are made. Uses raw builders
+// (no scoring) so this remains synchronous and zero-latency.
 export function refreshHomepageCollectionsForStore(): {
   categories: HomepageCollectionItem[];
   occasions: HomepageCollectionItem[];
 } {
-  const categories = buildOsCategories() ?? [];
-  const occasions = buildOsOccasions() ?? [];
+  const categories = buildOsCategoriesRaw() ?? [];
+  const occasions = buildOsOccasionsRaw() ?? [];
   return { categories, occasions };
 }
 

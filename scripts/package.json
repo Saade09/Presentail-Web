@@ -34,6 +34,7 @@
     "check-faq-sync": "tsx ./src/checkFaqSync.ts",
     "check-low-contrast-text": "tsx ./src/checkLowContrastText.ts",
     "check-low-contrast-text-mobile": "tsx ./src/checkLowContrastTextMobile.ts",
+    "seed-collection-ranking": "tsx ./src/seedCollectionRanking.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

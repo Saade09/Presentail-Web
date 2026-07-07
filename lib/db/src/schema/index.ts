@@ -22,3 +22,4 @@ export * from "./coupons";
 export * from "./productPairAffinity";
 export * from "./checkoutAttempts";
 export * from "./personalisationRequirementCache";
+export * from "./collectionRankingConfig";

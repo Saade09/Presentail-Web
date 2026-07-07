@@ -619,14 +619,29 @@ paths:
       summary: Get curated homepage Occasions carousel items
       description: |
         Returns the curated list of items for the homepage "Occasions"
-        carousel. The list is sourced from WooCommerce product categories
-        whose parent has slug `home-occasions`, mapped into the shared
-        `HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
-        If WooCommerce credentials are unset or the parent category does
-        not yet exist in WP admin, a sensible hand-rolled default set is
-        returned. On a WooCommerce network/HTTP failure the endpoint
-        instead returns an empty `items` array (still 200) so the client
-        hides the section rather than rendering stale defaults.
+        carousel. Items are sorted by a composite score (performance + seasonal
+        boost + manual boost - availability penalty) so the most relevant
+        occasions appear first. When no scoring data is available the list falls
+        back to the DEFAULT_OCCASION_SLUGS order. Append `?debug=1` with the
+        `x-push-admin-token` header to receive per-item score breakdowns.
+      parameters:
+        - name: countryCode
+          in: query
+          required: false
+          description: |
+            ISO 3166-1 alpha-2 country code (case-insensitive) used to apply
+            country-specific ranking config rows. When omitted, global config
+            rows apply.
+          schema:
+            type: string
+        - name: cityId
+          in: query
+          required: false
+          description: |
+            City identifier (e.g. "ae-dubai", "ae-abu-dhabi") used to resolve
+            the correct OS product store for availability scoring.
+          schema:
+            type: string
       responses:
         "200":
           description: Occasions carousel items
@@ -634,6 +649,87 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HomepageCollectionResponse"
+  /admin/collection-ranking:
+    get:
+      operationId: getCollectionRankingConfig
+      x-admin: true
+      tags: [homepage]
+      summary: List all collection ranking config rows (admin)
+      description: |
+        Returns every row in the `collection_ranking_config` table. Protected
+        by the `x-push-admin-token` header (PUSH_ADMIN_TOKEN env var).
+      parameters:
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All ranking config rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionRankingConfigListResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/collection-ranking/{kind}/{slug}:
+    put:
+      operationId: upsertCollectionRankingConfig
+      x-admin: true
+      tags: [homepage]
+      summary: Upsert a collection ranking config row (admin)
+      description: |
+        Creates or updates the ranking config for a single category or occasion
+        slug. Invalidates the in-process ranking cache immediately so the next
+        `/homepage/categories` or `/homepage/occasions` request reflects the
+        change. Protected by the `x-push-admin-token` header.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [category, occasion]
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionRankingConfigUpsertRequest"
+      responses:
+        "200":
+          description: Upserted row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionRankingConfigUpsertResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /homepage/best-sellers:
     get:
       operationId: getHomepageBestSellers
@@ -2710,6 +2806,39 @@ components:
         isActive:
           type: boolean
           description: Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews.
+        _rankingDebug:
+          type: object
+          nullable: true
+          description: |
+            Present only when the request includes `?debug=1` with a valid
+            `x-push-admin-token` header. Contains per-item scoring breakdown
+            for the smart-ranking engine.
+          properties:
+            performanceScore:
+              type: number
+              description: Bayesian-smoothed sales performance score in [0, 1).
+            seasonalBoost:
+              type: number
+              description: Additive boost from active seasonal windows.
+            manualBoost:
+              type: number
+              description: Operator-configured additive boost from the DB config.
+            availabilityPenalty:
+              type: number
+              description: Penalty subtracted when in-stock product count is below the floor.
+            finalScore:
+              type: number
+              description: performanceScore + seasonalBoost + manualBoost − availabilityPenalty.
+            productCount:
+              type: integer
+              description: Number of in-stock OS products tagged with this slug.
+          required:
+            - performanceScore
+            - seasonalBoost
+            - manualBoost
+            - availabilityPenalty
+            - finalScore
+            - productCount
       required:
         - id
         - name
@@ -4036,6 +4165,89 @@ components:
         - ok
         - accepted
         - dropped
+    SeasonalBoost:
+      type: object
+      description: A date-window boost applied to a collection item when today falls within the window.
+      properties:
+        label:
+          type: string
+          description: Human-readable label (e.g. "Valentine's Day").
+        startMmDd:
+          type: string
+          description: Start of the window as MM-DD (e.g. "02-01"). Wrap-around supported (e.g. "12-25" → "01-07").
+        endMmDd:
+          type: string
+          description: End of the window as MM-DD (e.g. "02-14"), inclusive.
+        boost:
+          type: number
+          description: Additive score bonus applied within the window (e.g. 0.4).
+      required: [label, startMmDd, endMmDd, boost]
+    CollectionRankingConfigRow:
+      type: object
+      description: Per-slug ranking configuration for a homepage category or occasion.
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [category, occasion]
+        slug:
+          type: string
+        countryCode:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code. Null = global default.
+        manualBoost:
+          type: number
+          description: Additive score bonus applied at all times.
+        pinnedPosition:
+          type: integer
+          nullable: true
+          description: 1-based position to force the item into after scoring. Null = no pin.
+        hiddenOverride:
+          type: boolean
+          description: When true the item is excluded from the carousel regardless of score.
+        seasonalBoosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeasonalBoost"
+      required: [id, kind, slug, manualBoost, hiddenOverride, seasonalBoosts]
+    CollectionRankingConfigUpsertRequest:
+      type: object
+      description: Fields to set on a collection ranking config row. All fields are optional — omitted fields are left unchanged on update.
+      properties:
+        countryCode:
+          type: string
+          nullable: true
+        manualBoost:
+          type: number
+        pinnedPosition:
+          type: integer
+          nullable: true
+        hiddenOverride:
+          type: boolean
+        seasonalBoosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeasonalBoost"
+    CollectionRankingConfigUpsertResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        row:
+          $ref: "#/components/schemas/CollectionRankingConfigRow"
+      required: [ok]
+    CollectionRankingConfigListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CollectionRankingConfigRow"
+      required: [ok, rows]
     NextOrderIdRequest:
       type: object
       properties:

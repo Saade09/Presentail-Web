@@ -763,6 +763,27 @@ export interface HomepageBannersResponse {
 }
 
 /**
+ * Present only when the request includes `?debug=1` with a valid
+`x-push-admin-token` header. Contains per-item scoring breakdown
+for the smart-ranking engine.
+
+ */
+export type _HomepageCollectionItemRankingDebug = {
+  /** Bayesian-smoothed sales performance score in [0, 1). */
+  performanceScore: number;
+  /** Additive boost from active seasonal windows. */
+  seasonalBoost: number;
+  /** Operator-configured additive boost from the DB config. */
+  manualBoost: number;
+  /** Penalty subtracted when in-stock product count is below the floor. */
+  availabilityPenalty: number;
+  /** performanceScore + seasonalBoost + manualBoost − availabilityPenalty. */
+  finalScore: number;
+  /** Number of in-stock OS products tagged with this slug. */
+  productCount: number;
+} | null;
+
+/**
  * A single item shown in a homepage circular-card carousel. The shape
 is intentionally generic so it can back both the "Categories" and
 "Occasions" rows, and a future DB-backed implementation without a
@@ -782,6 +803,11 @@ export interface HomepageCollectionItem {
   sortOrder: number;
   /** Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews. */
   isActive: boolean;
+  /** Present only when the request includes `?debug=1` with a valid
+`x-push-admin-token` header. Contains per-item scoring breakdown
+for the smart-ranking engine.
+ */
+  _rankingDebug?: _HomepageCollectionItemRankingDebug;
 }
 
 export interface HomepageCollectionResponse {
@@ -1656,6 +1682,67 @@ export interface PostWebEventsResponse {
   dropped: number;
 }
 
+/**
+ * A date-window boost applied to a collection item when today falls within the window.
+ */
+export interface SeasonalBoost {
+  /** Human-readable label (e.g. "Valentine's Day"). */
+  label: string;
+  /** Start of the window as MM-DD (e.g. "02-01"). Wrap-around supported (e.g. "12-25" → "01-07"). */
+  startMmDd: string;
+  /** End of the window as MM-DD (e.g. "02-14"), inclusive. */
+  endMmDd: string;
+  /** Additive score bonus applied within the window (e.g. 0.4). */
+  boost: number;
+}
+
+export type CollectionRankingConfigRowKind =
+  (typeof CollectionRankingConfigRowKind)[keyof typeof CollectionRankingConfigRowKind];
+
+export const CollectionRankingConfigRowKind = {
+  category: "category",
+  occasion: "occasion",
+} as const;
+
+/**
+ * Per-slug ranking configuration for a homepage category or occasion.
+ */
+export interface CollectionRankingConfigRow {
+  id: number;
+  kind: CollectionRankingConfigRowKind;
+  slug: string;
+  /** ISO 3166-1 alpha-2 country code. Null = global default. */
+  countryCode?: string | null;
+  /** Additive score bonus applied at all times. */
+  manualBoost: number;
+  /** 1-based position to force the item into after scoring. Null = no pin. */
+  pinnedPosition?: number | null;
+  /** When true the item is excluded from the carousel regardless of score. */
+  hiddenOverride: boolean;
+  seasonalBoosts: SeasonalBoost[];
+}
+
+/**
+ * Fields to set on a collection ranking config row. All fields are optional — omitted fields are left unchanged on update.
+ */
+export interface CollectionRankingConfigUpsertRequest {
+  countryCode?: string | null;
+  manualBoost?: number;
+  pinnedPosition?: number | null;
+  hiddenOverride?: boolean;
+  seasonalBoosts?: SeasonalBoost[];
+}
+
+export interface CollectionRankingConfigUpsertResponse {
+  ok: boolean;
+  row?: CollectionRankingConfigRow;
+}
+
+export interface CollectionRankingConfigListResponse {
+  ok: boolean;
+  rows: CollectionRankingConfigRow[];
+}
+
 export interface NextOrderIdRequest {
   /** ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB. */
   countryCode: string;
@@ -1777,6 +1864,22 @@ from. When omitted, the server falls back to Lebanon.
  * City identifier (e.g. "ae-dubai", "ae-abu-dhabi") used to
 resolve a city-specific WooCommerce store when the country
 alone is ambiguous.
+
+ */
+  cityId?: string;
+};
+
+export type GetHomepageOccasionsParams = {
+  /**
+ * ISO 3166-1 alpha-2 country code (case-insensitive) used to apply
+country-specific ranking config rows. When omitted, global config
+rows apply.
+
+ */
+  countryCode?: string;
+  /**
+ * City identifier (e.g. "ae-dubai", "ae-abu-dhabi") used to resolve
+the correct OS product store for availability scoring.
 
  */
   cityId?: string;

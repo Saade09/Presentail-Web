@@ -30,6 +30,9 @@ import type {
   CheckoutPaymentIntentResponse,
   ClientErrorReportRequest,
   ClientErrorReportResponse,
+  CollectionRankingConfigListResponse,
+  CollectionRankingConfigUpsertRequest,
+  CollectionRankingConfigUpsertResponse,
   CreateWooOrder200,
   CurrenciesResponse,
   CustomerAddressDeleteResponse,
@@ -56,6 +59,7 @@ import type {
   GetHomepageBannersParams,
   GetHomepageBestSellersParams,
   GetHomepageCategoriesParams,
+  GetHomepageOccasionsParams,
   HealthStatus,
   HomepageBannersResponse,
   HomepageBestSellersResponse,
@@ -1630,52 +1634,74 @@ export function useGetHomepageCategories<
 
 /**
  * Returns the curated list of items for the homepage "Occasions"
-carousel. The list is sourced from WooCommerce product categories
-whose parent has slug `home-occasions`, mapped into the shared
-`HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
-If WooCommerce credentials are unset or the parent category does
-not yet exist in WP admin, a sensible hand-rolled default set is
-returned. On a WooCommerce network/HTTP failure the endpoint
-instead returns an empty `items` array (still 200) so the client
-hides the section rather than rendering stale defaults.
+carousel. Items are sorted by a composite score (performance + seasonal
+boost + manual boost - availability penalty) so the most relevant
+occasions appear first. When no scoring data is available the list falls
+back to the DEFAULT_OCCASION_SLUGS order. Append `?debug=1` with the
+`x-push-admin-token` header to receive per-item score breakdowns.
 
  * @summary Get curated homepage Occasions carousel items
  */
-export const getGetHomepageOccasionsUrl = () => {
-  return `/api/homepage/occasions`;
+export const getGetHomepageOccasionsUrl = (
+  params?: GetHomepageOccasionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/homepage/occasions?${stringifiedParams}`
+    : `/api/homepage/occasions`;
 };
 
 export const getHomepageOccasions = async (
+  params?: GetHomepageOccasionsParams,
   options?: RequestInit,
 ): Promise<HomepageCollectionResponse> => {
-  return customFetch<HomepageCollectionResponse>(getGetHomepageOccasionsUrl(), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<HomepageCollectionResponse>(
+    getGetHomepageOccasionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
-export const getGetHomepageOccasionsQueryKey = () => {
-  return [`/api/homepage/occasions`] as const;
+export const getGetHomepageOccasionsQueryKey = (
+  params?: GetHomepageOccasionsParams,
+) => {
+  return [`/api/homepage/occasions`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetHomepageOccasionsQueryOptions = <
   TData = Awaited<ReturnType<typeof getHomepageOccasions>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getHomepageOccasions>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetHomepageOccasionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageOccasions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetHomepageOccasionsQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHomepageOccasionsQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getHomepageOccasions>>
-  > = ({ signal }) => getHomepageOccasions({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getHomepageOccasions(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getHomepageOccasions>>,
@@ -1696,15 +1722,18 @@ export type GetHomepageOccasionsQueryError = ErrorType<unknown>;
 export function useGetHomepageOccasions<
   TData = Awaited<ReturnType<typeof getHomepageOccasions>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getHomepageOccasions>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetHomepageOccasionsQueryOptions(options);
+>(
+  params?: GetHomepageOccasionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageOccasions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomepageOccasionsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -1712,6 +1741,209 @@ export function useGetHomepageOccasions<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns every row in the `collection_ranking_config` table. Protected
+by the `x-push-admin-token` header (PUSH_ADMIN_TOKEN env var).
+
+ * @summary List all collection ranking config rows (admin)
+ */
+export const getGetCollectionRankingConfigUrl = () => {
+  return `/api/admin/collection-ranking`;
+};
+
+export const getCollectionRankingConfig = async (
+  options?: RequestInit,
+): Promise<CollectionRankingConfigListResponse> => {
+  return customFetch<CollectionRankingConfigListResponse>(
+    getGetCollectionRankingConfigUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCollectionRankingConfigQueryKey = () => {
+  return [`/api/admin/collection-ranking`] as const;
+};
+
+export const getGetCollectionRankingConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCollectionRankingConfig>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCollectionRankingConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCollectionRankingConfigQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCollectionRankingConfig>>
+  > = ({ signal }) => getCollectionRankingConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCollectionRankingConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCollectionRankingConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCollectionRankingConfig>>
+>;
+export type GetCollectionRankingConfigQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List all collection ranking config rows (admin)
+ */
+
+export function useGetCollectionRankingConfig<
+  TData = Awaited<ReturnType<typeof getCollectionRankingConfig>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCollectionRankingConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCollectionRankingConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Creates or updates the ranking config for a single category or occasion
+slug. Invalidates the in-process ranking cache immediately so the next
+`/homepage/categories` or `/homepage/occasions` request reflects the
+change. Protected by the `x-push-admin-token` header.
+
+ * @summary Upsert a collection ranking config row (admin)
+ */
+export const getUpsertCollectionRankingConfigUrl = (
+  kind: "category" | "occasion",
+  slug: string,
+) => {
+  return `/api/admin/collection-ranking/${kind}/${slug}`;
+};
+
+export const upsertCollectionRankingConfig = async (
+  kind: "category" | "occasion",
+  slug: string,
+  collectionRankingConfigUpsertRequest: CollectionRankingConfigUpsertRequest,
+  options?: RequestInit,
+): Promise<CollectionRankingConfigUpsertResponse> => {
+  return customFetch<CollectionRankingConfigUpsertResponse>(
+    getUpsertCollectionRankingConfigUrl(kind, slug),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(collectionRankingConfigUpsertRequest),
+    },
+  );
+};
+
+export const getUpsertCollectionRankingConfigMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertCollectionRankingConfig>>,
+    TError,
+    {
+      kind: "category" | "occasion";
+      slug: string;
+      data: BodyType<CollectionRankingConfigUpsertRequest>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertCollectionRankingConfig>>,
+  TError,
+  {
+    kind: "category" | "occasion";
+    slug: string;
+    data: BodyType<CollectionRankingConfigUpsertRequest>;
+  },
+  TContext
+> => {
+  const mutationKey = ["upsertCollectionRankingConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertCollectionRankingConfig>>,
+    {
+      kind: "category" | "occasion";
+      slug: string;
+      data: BodyType<CollectionRankingConfigUpsertRequest>;
+    }
+  > = (props) => {
+    const { kind, slug, data } = props ?? {};
+
+    return upsertCollectionRankingConfig(kind, slug, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertCollectionRankingConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertCollectionRankingConfig>>
+>;
+export type UpsertCollectionRankingConfigMutationBody =
+  BodyType<CollectionRankingConfigUpsertRequest>;
+export type UpsertCollectionRankingConfigMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upsert a collection ranking config row (admin)
+ */
+export const useUpsertCollectionRankingConfig = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertCollectionRankingConfig>>,
+    TError,
+    {
+      kind: "category" | "occasion";
+      slug: string;
+      data: BodyType<CollectionRankingConfigUpsertRequest>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertCollectionRankingConfig>>,
+  TError,
+  {
+    kind: "category" | "occasion";
+    slug: string;
+    data: BodyType<CollectionRankingConfigUpsertRequest>;
+  },
+  TContext
+> => {
+  return useMutation(getUpsertCollectionRankingConfigMutationOptions(options));
+};
 
 /**
  * Returns up to 12 in-stock products from the Presentail OS cache,
