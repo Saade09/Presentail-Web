@@ -248,18 +248,17 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
         <div className="px-6 pb-2 pt-4 border-t border-primary/10 shrink-0">
           <DeliveryDateRow className="mb-3" />
         </div>
-        <div className="px-6 py-4 shrink-0 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex gap-2 sm:gap-3">
+        <div className="px-6 py-4 shrink-0 flex items-center gap-2 sm:gap-3">
             <Button
               variant="outline"
-              className="flex-1 sm:flex-none rounded-xl"
+              className="flex-1 rounded-xl"
               onClick={onClose}
               data-testid="upsell-modal-continue-shopping"
             >
               {t("cart.upsells.modal.continueShopping")}
             </Button>
             <Button
-              className="flex-1 sm:flex-none rounded-xl"
+              className="flex-1 rounded-xl"
               onClick={() => {
                 trackEvent({
                   name: "upsell_checkout_proceeded",
@@ -272,7 +271,6 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
             >
               {t("cart.viewCart")}
             </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
