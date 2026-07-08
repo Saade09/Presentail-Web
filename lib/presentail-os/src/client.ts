@@ -1,5 +1,8 @@
 import type {
   OSLocationsResponse,
+  OSCountry,
+  OSCity,
+  OSTimeSlot,
   OSProduct,
   OSProductBrand,
   OSProductCategory,
@@ -23,6 +26,142 @@ export type PresentailOsConfig = {
   /** Workspace slug to pass to the public endpoint. Defaults to "presentail". */
   workspace?: string;
 };
+
+// ── Legacy /api/delivery-locations normalisation ────────────────────────────
+//
+// The legacy endpoint predates the "-ext" endpoint and is the only one that
+// currently returns some countries (e.g. Cyprus) — the ext endpoint has not
+// been rolled out for every country yet. Its wire format uses snake_case
+// field names and a per-day-of-week slot shape rather than the ext
+// endpoint's camelCase/flat-timeSlots shape, so it must be normalised into
+// the same OSCountry/OSCity shape before it can be merged with (or used in
+// place of) the ext response.
+
+type RawLegacyTimeSlot = {
+  day_of_week?: number;
+  label?: string;
+  start_time?: string;
+  end_time?: string;
+  fee_override?: number | null;
+  cutoff_time?: string | null;
+};
+
+type RawLegacyCity = {
+  id: string | number;
+  name: string;
+  slug?: string;
+  is_active?: boolean;
+  isActive?: boolean;
+  delivery_fee?: number;
+  free_delivery_enabled?: boolean;
+  free_delivery_threshold?: number;
+  express_delivery_enabled?: boolean;
+  express_delivery_fee?: number;
+  express_delivery_cutoff_time?: string | null;
+  delivery_slots?: RawLegacyTimeSlot[];
+};
+
+type RawLegacyCountry = {
+  id?: string;
+  code: string;
+  name: string;
+  isActive?: boolean;
+  is_active?: boolean;
+  flag_emoji?: string;
+  currency?: string;
+  cities: RawLegacyCity[];
+};
+
+type RawLegacyLocationsResponse = { countries?: RawLegacyCountry[] };
+
+const WEEKDAY_NAMES = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
+
+/** Parse "HH:MM" or "HH:MM:SS" → hour integer (0–23). Returns undefined if invalid. */
+function parseLegacyHour(timeStr?: string | null): number | undefined {
+  if (!timeStr) return undefined;
+  const h = parseInt(timeStr.split(":")[0] ?? "", 10);
+  return Number.isFinite(h) && h >= 0 && h <= 23 ? h : undefined;
+}
+
+function mapLegacySlots(raw: RawLegacyTimeSlot[] | undefined): {
+  timeSlots: OSTimeSlot[];
+  slotsByDay?: Record<string, OSTimeSlot[]>;
+} {
+  if (!Array.isArray(raw) || raw.length === 0) return { timeSlots: [] };
+
+  const slotsByDay: Record<string, OSTimeSlot[]> = {};
+  for (const s of raw) {
+    const dayName = WEEKDAY_NAMES[s.day_of_week ?? -1];
+    if (!dayName) continue;
+    const slot: OSTimeSlot = {
+      label: s.label ?? "",
+      startHour: parseLegacyHour(s.start_time),
+      endHour: parseLegacyHour(s.end_time),
+      cutoffHour: parseLegacyHour(s.cutoff_time) ?? parseLegacyHour(s.start_time) ?? 0,
+      extraFee: s.fee_override ?? undefined,
+    };
+    (slotsByDay[dayName] ??= []).push(slot);
+  }
+
+  // Flat fallback list: dedupe by label across all days so callers that only
+  // read the flat `timeSlots` array (rather than `slotsByDay`) still see a
+  // representative set of slots.
+  const seenLabels = new Set<string>();
+  const timeSlots: OSTimeSlot[] = [];
+  for (const daySlots of Object.values(slotsByDay)) {
+    for (const slot of daySlots) {
+      if (!slot.label || seenLabels.has(slot.label)) continue;
+      seenLabels.add(slot.label);
+      timeSlots.push(slot);
+    }
+  }
+
+  return { timeSlots, slotsByDay };
+}
+
+function normaliseLegacyCity(raw: RawLegacyCity): OSCity {
+  const { timeSlots, slotsByDay } = mapLegacySlots(raw.delivery_slots);
+  return {
+    // OSCity.id is nominally numeric, but the legacy endpoint uses string
+    // slugs (e.g. "nicosia") as both id and slug. Downstream code always
+    // prefers `slug` over `id` (falling back to String(id)), so a numeric
+    // placeholder here is safe as long as slug is always populated.
+    id: typeof raw.id === "number" ? raw.id : 0,
+    slug: raw.slug ?? String(raw.id),
+    name: raw.name,
+    // The legacy endpoint sends both `isActive` and `is_active` on every
+    // city; prefer the camelCase field but fall back to snake_case for
+    // robustness against older OS deployments that only send one.
+    isActive: raw.isActive ?? raw.is_active,
+    deliveryFee: raw.delivery_fee,
+    expressAvailable: raw.express_delivery_enabled,
+    sameDayCutoffHour: parseLegacyHour(raw.express_delivery_cutoff_time),
+    timeSlots,
+    slotsByDay,
+    freeDeliveryThreshold: raw.free_delivery_threshold,
+    freeDeliveryEnabled: raw.free_delivery_enabled,
+  };
+}
+
+function normaliseLegacyCountry(raw: RawLegacyCountry): OSCountry {
+  return {
+    id: raw.id ?? raw.code,
+    name: raw.name,
+    code: raw.code,
+    flag: raw.flag_emoji,
+    currency: raw.currency,
+    isActive: raw.isActive ?? raw.is_active ?? true,
+    cities: (raw.cities ?? []).map(normaliseLegacyCity),
+  };
+}
 
 /**
  * Fetch the full locations + delivery config from Presentail OS.
@@ -60,19 +199,55 @@ export async function fetchOsLocations(
     });
   }
 
-  // Primary: /api/delivery-locations-ext (enriched endpoint with slug, expressFeeTotal,
-  // expressSurcharge, and freeDeliveryThreshold fields). Fall back to the
-  // plain /api/delivery-locations for older OS instances that haven't deployed
-  // the ext endpoint yet. A non-ok response from both is a hard failure.
-  const primaryRes = await tryFetch("/api/delivery-locations-ext");
-  if (primaryRes.ok) {
-    return primaryRes.json() as Promise<OSLocationsResponse>;
+  /**
+   * Best-effort fetch of the legacy endpoint, normalised into the canonical
+   * OSCountry shape. Returns an empty list on any failure (network error,
+   * non-ok status, or unexpected body shape) — callers treat this as "no
+   * supplemental data available" rather than a hard failure, since the
+   * legacy endpoint is only ever used to fill gaps in the primary response.
+   */
+  async function fetchLegacyCountries(): Promise<OSCountry[]> {
+    try {
+      const res = await tryFetch("/api/delivery-locations");
+      if (!res.ok) return [];
+      const body = (await res.json()) as RawLegacyLocationsResponse;
+      if (!Array.isArray(body.countries)) return [];
+      return body.countries.map(normaliseLegacyCountry);
+    } catch {
+      return [];
+    }
   }
 
-  // Primary failed — try the legacy endpoint.
+  // Primary: /api/delivery-locations-ext (enriched endpoint with slug, expressFeeTotal,
+  // expressSurcharge, and freeDeliveryThreshold fields).
+  //
+  // The ext endpoint is not yet deployed for every country (e.g. Cyprus is
+  // only available from the legacy /api/delivery-locations endpoint). Rather
+  // than an all-or-nothing fallback, fetch both endpoints and merge in any
+  // country present in the legacy response but absent from the ext response
+  // — this lets each country flow through the same live isActive sync path
+  // regardless of which endpoint currently serves it, and requires no
+  // per-country special-casing here or in the cache transform layer.
+  const primaryRes = await tryFetch("/api/delivery-locations-ext");
+  if (primaryRes.ok) {
+    const primaryBody = (await primaryRes.json()) as OSLocationsResponse;
+    const primaryCodes = new Set(
+      (primaryBody.countries ?? []).map((c) => c.code.toLowerCase()),
+    );
+    const legacyCountries = await fetchLegacyCountries();
+    const supplemental = legacyCountries.filter(
+      (c) => !primaryCodes.has(c.code.toLowerCase()),
+    );
+    return {
+      countries: [...(primaryBody.countries ?? []), ...supplemental],
+    };
+  }
+
+  // Primary failed entirely — use the legacy endpoint as the full response.
   const legacyRes = await tryFetch("/api/delivery-locations");
   if (legacyRes.ok) {
-    return legacyRes.json() as Promise<OSLocationsResponse>;
+    const legacyBody = (await legacyRes.json()) as RawLegacyLocationsResponse;
+    return { countries: (legacyBody.countries ?? []).map(normaliseLegacyCountry) };
   }
 
   // Both endpoints failed — try the oldest legacy path as a last resort.

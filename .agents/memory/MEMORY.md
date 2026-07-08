@@ -24,3 +24,4 @@
 - [Display currency vs delivery country](display-currency-delivery-country.md) — delivery country must NOT feed savedCountry in resolveDisplayCurrency; IP geo is the source of truth for display currency; delivery location only affects delivery options
 - [Banner AI translation](banner-ai-translation.md) — banner text always fetched in English from OS; ar/fr translated via OpenAI in one batched call; max_completion_tokens must be ≥4096 or Arabic output truncates to invalid JSON
 - [Deployment failure on schema migration](deploy-migration-failure.md) — ALTER TABLE customers during push-force takes ACCESS EXCLUSIVE lock → deployer sees live server as unresponsive → promote fails; retry (no pending changes) always succeeds
+- [OS delivery-locations legacy/ext merge](os-delivery-locations-legacy-merge.md) — ext endpoint doesn't cover every country (e.g. Cyprus); merge in legacy endpoint data rather than falling back to hardcoded values

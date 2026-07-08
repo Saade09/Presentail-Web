@@ -8,10 +8,16 @@
  *   - If OS is unreachable at startup → warn + serve hardcoded data.
  *   - If OS returns a non-empty response → use it as-is; hardcoded data
  *     supplements countries that are entirely absent from the OS response
- *     (e.g. Cyprus not yet configured in OS) AND countries that OS returns
- *     with zero cities (data not yet published to the OS API). A per-country
- *     WARN is emitted when the city-level fallback fires so ops can see the
- *     gap without the app serving empty pickers to shoppers.
+ *     (e.g. a country not yet configured in either OS locations endpoint)
+ *     AND countries that OS returns with zero cities (data not yet
+ *     published to the OS API). A per-country WARN is emitted when the
+ *     city-level fallback fires so ops can see the gap without the app
+ *     serving empty pickers to shoppers. Note: fetchOsLocations() (in
+ *     @workspace/presentail-os) already merges the legacy
+ *     /api/delivery-locations response into the primary -ext response for
+ *     any country the ext endpoint doesn't yet serve (e.g. Cyprus), so this
+ *     "entirely absent" path is now a last-resort fallback rather than the
+ *     normal path for Cyprus.
  *   - Once a successful OS response has been stored, a later fetch failure
  *     retains the last good cache rather than falling back to hardcoded data.
  *
@@ -616,7 +622,12 @@ function transformOsResponse(
     };
   });
 
-  // Append countries entirely missing from OS (e.g. Cyprus not yet in OS).
+  // Append countries entirely missing from OS. fetchOsLocations() already
+  // merges the legacy /api/delivery-locations response into the primary -ext
+  // response for countries the ext endpoint doesn't yet serve (e.g. Cyprus),
+  // so a country only reaches this hardcoded-only path when it is absent
+  // from *both* OS endpoints (a genuine outage or a country not configured
+  // in OS at all).
   const hardcodedOnly = HARDCODED_COUNTRIES.filter(
     (c) => !osCodes.has(c.code.toUpperCase()),
   ).map((c) => ({
