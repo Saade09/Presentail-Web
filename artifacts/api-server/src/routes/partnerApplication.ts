@@ -95,7 +95,9 @@ async function sendNotificationEmail(data: {
   const host = process.env.SMTP_HOST;
   if (!host) return;
 
-  const notifyTo = process.env.PARTNER_NOTIFY_EMAIL ?? "partners@presentail.com"; // i18n-ignore
+  const notifyTo =
+    process.env.PARTNER_NOTIFY_EMAIL ??
+    "adnan@presentail.com,ahmad@presentail.com,bassel@presentail.com"; // i18n-ignore
   const transport = createTransport({
     host,
     port: Number(process.env.SMTP_PORT ?? 587),
