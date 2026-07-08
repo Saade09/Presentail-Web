@@ -1226,10 +1226,11 @@ async function fetchAndStore(): Promise<void> {
           }
         }
       }
-      // Rank by totalSales descending.
-      const sorted = [...uniqueProducts].sort(
-        (a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0),
-      );
+      // Rank by totalSales descending. Products with no recorded sales must
+      // never be flagged as best sellers, regardless of how they sort.
+      const sorted = [...uniqueProducts]
+        .filter((p) => (p.totalSales ?? 0) > 0)
+        .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0));
       const bestSellerIds = new Set(
         sorted.slice(0, BEST_SELLER_COUNT).map((p) => p.id),
       );

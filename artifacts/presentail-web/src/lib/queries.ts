@@ -259,9 +259,11 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
           // matches what the API server computes server-side after each cache
           // refresh. Individual products are then filtered for the shopper's
           // locale, but the badge is awarded relative to the global catalog.
-          const sortedByPopularity = [...raw].sort(
-            (a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0),
-          );
+          // Products with no recorded sales must never be flagged as best
+          // sellers, regardless of how they sort.
+          const sortedByPopularity = [...raw]
+            .filter((p) => (p.totalSales ?? 0) > 0)
+            .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0));
           const bestSellerIds = new Set(
             sortedByPopularity.slice(0, 20).map((p) => p.id),
           );
