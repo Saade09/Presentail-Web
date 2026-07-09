@@ -31,7 +31,7 @@ export function DeliveryOptions({
   const { t } = useLocale();
   if (!expressAvailable) return null;
   return (
-    <div className="space-y-3" data-testid="delivery-options">
+    <div className="space-y-3 lg:space-y-2" data-testid="delivery-options">
       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
         {t("product.deliveryOptions")}
       </p>
@@ -100,7 +100,7 @@ function DeliveryRow({
       disabled={disabled}
       aria-disabled={disabled}
       className={cn(
-        "w-full flex items-center gap-3 rounded-2xl border bg-card text-left p-4 transition-colors",
+        "w-full flex items-center gap-3 rounded-2xl border bg-card text-left p-4 lg:p-3 transition-colors",
         active ? "border-primary bg-secondary/60" : "border-border hover:border-foreground/20",
         disabled && "opacity-50 cursor-not-allowed hover:border-border",
       )}
@@ -108,7 +108,7 @@ function DeliveryRow({
     >
       <span
         className={cn(
-          "w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+          "w-9 h-9 lg:w-8 lg:h-8 rounded-full flex items-center justify-center shrink-0",
           active ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground",
         )}
       >

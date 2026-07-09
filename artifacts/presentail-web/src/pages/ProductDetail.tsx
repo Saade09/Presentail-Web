@@ -407,7 +407,7 @@ export default function ProductDetail() {
             />
           </div>
 
-          <div className="flex flex-col gap-6 sm:gap-7 h-full">
+          <div className="flex flex-col gap-6 sm:gap-7 lg:gap-3 h-full">
             <ProductInfo
               name={product.name}
               price={
