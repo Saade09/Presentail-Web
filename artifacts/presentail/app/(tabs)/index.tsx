@@ -1346,15 +1346,28 @@ function OccasionTile({
   item,
   index,
   onPress,
+  staticFallback,
 }: {
   item: OccasionTileItem;
   index: number;
   onPress: () => void;
+  staticFallback?: number;
 }) {
   const colors = useColors();
   const [imageLoaded, setImageLoaded] = React.useState(
     () => typeof item.imageUrl === "string" && occasionImageLoadedCache.has(item.imageUrl),
   );
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  // Prefer the remote URL; after a load error, fall back to the bundled static asset.
+  const remoteAvailable = !imageFailed && item.imageUrl != null && item.imageUrl !== "";
+  const resolvedSource: number | { uri: string } | null = remoteAvailable
+    ? typeof item.imageUrl === "number"
+      ? item.imageUrl
+      : { uri: item.imageUrl as string }
+    : staticFallback != null
+    ? staticFallback
+    : null;
 
   return (
     <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 80 }}>
@@ -1369,10 +1382,10 @@ function OccasionTile({
           borderColor: colors.border,
         }}
       >
-        {item.imageUrl != null ? (
+        {resolvedSource != null ? (
           <>
             <Image
-              source={typeof item.imageUrl === "number" ? item.imageUrl : { uri: item.imageUrl }}
+              source={resolvedSource}
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
               priority={index < 4 ? "high" : "normal"}
@@ -1381,11 +1394,14 @@ function OccasionTile({
                 setImageLoaded(true);
               }}
               onError={() => {
-                if (typeof item.imageUrl === "string") occasionImageLoadedCache.add(item.imageUrl);
-                setImageLoaded(true);
+                if (remoteAvailable) {
+                  setImageFailed(true);
+                } else {
+                  setImageLoaded(true);
+                }
               }}
             />
-            {!imageLoaded && typeof item.imageUrl !== "number" && <ShimmerPlaceholder />}
+            {!imageLoaded && typeof resolvedSource !== "number" && <ShimmerPlaceholder />}
           </>
         ) : (
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -1466,7 +1482,8 @@ function OccasionsCarousel() {
               return (
                 <OccasionTile
                   key={item.id}
-                  item={{ ...item, imageUrl: item.imageUrl || staticFallback }}
+                  item={item}
+                  staticFallback={staticFallback}
                   index={idx}
                   onPress={() =>
                     router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })

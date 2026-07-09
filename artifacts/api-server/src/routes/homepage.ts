@@ -342,7 +342,7 @@ function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
       id: o.id,
       name: o.name,
       slug: o.slug,
-      imageUrl: o.image || o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
+      imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
       sortOrder: result.length,
       isActive: true,
     });
@@ -354,7 +354,7 @@ function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
         id: o.id,
         name: o.name,
         slug: o.slug,
-        imageUrl: o.image || o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
+        imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
         sortOrder: result.length,
         isActive: true,
       });
