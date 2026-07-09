@@ -1912,6 +1912,25 @@ export type GetHomepageBestSellersParams = {
   lang?: string;
 };
 
+export type GetHomepageCollectionBestSellersParams = {
+  /**
+   * Category slug to filter by (e.g. "balloons", "flower-boxes").
+   */
+  categorySlug?: string;
+  /**
+   * Occasion slug to filter by (e.g. "summer", "birthday").
+   */
+  occasionSlug?: string;
+  /**
+   * ISO 3166-1 alpha-2 country code used to filter deliverable products.
+   */
+  countryCode?: string;
+  /**
+   * City identifier (e.g. "ae-dubai") used to resolve the correct store.
+   */
+  cityId?: string;
+};
+
 export type GetDeliveryConfigParams = {
   /**
    * ISO 3166-1 alpha-2 country code (case-insensitive).

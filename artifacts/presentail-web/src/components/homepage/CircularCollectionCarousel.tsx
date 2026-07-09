@@ -99,8 +99,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
   };
 
   return (
-    <section className="py-6 md:py-14" data-testid={testId}>
-      <div className="container mx-auto px-4">
+    <section className="py-6 md:py-14 px-4 md:px-0" data-testid={testId}>
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
           <div className="hidden md:flex items-center gap-2">
@@ -127,7 +126,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
 
         <div
           ref={trackRef}
-          className="flex gap-3 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 -mr-4 pr-4 md:mr-0 md:pr-0 [&::-webkit-scrollbar]:hidden"
+          className="flex gap-3 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {isLoading
@@ -199,7 +198,6 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
                 </Link>
               ))}
         </div>
-      </div>
     </section>
   );
 }

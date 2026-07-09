@@ -1,47 +1,55 @@
 import { useMemo } from "react";
-import { useCategoryProducts, useOccasionFlatProducts, type Product } from "@/lib/queries";
+import { useCategoryProducts, useOccasionFlatProducts, useMyOrders, type Product } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { ProductCollectionCarousel } from "./ProductCollectionCarousel";
+import {
+  useGetHomepageCollectionBestSellers,
+  getGetHomepageCollectionBestSellersQueryKey,
+} from "@workspace/api-client-react";
 
 type Props = {
-  /** Catalog category slug to feature; hidden when the category has no products. */
   categorySlug?: string;
-  /**
-   * Occasion slug to feature instead of a category. When set, products are
-   * filtered by occasion rather than category (use for OS occasions like "summer").
-   */
   occasionSlug?: string;
-  /** Optional override for the section title locale key. */
   titleKey?: string;
-  /** Distinct seed key so multiple rails on the same page rotate independently. */
   railKey?: string;
-  /** Where the "View All" link points. */
   viewAllHref?: string;
-  /** Maximum number of cards to show. */
   limit?: number;
   testId?: string;
-  /**
-   * When provided, bypasses the internal category/occasion fetch and shuffle
-   * and renders these products directly. Used by the Best Sellers section to
-   * display API-ranked products without the seeded-shuffle path.
-   */
   products?: Product[];
-  /** When `products` is provided, whether the data is still loading. */
   isLoadingExternal?: boolean;
 };
 
-/**
- * Themed product collection rail (e.g. "Summer Collection" on the live site).
- * Supports both category-based and occasion-based filtering via categorySlug /
- * occasionSlug props. If the category/occasion has no products and loading is
- * complete, the section is hidden entirely. The candidate pool is reshuffled
- * once per UTC day per (rail, store) so the featured items rotate over time.
- *
- * Pass `products` to bypass the internal fetch entirely and render a
- * pre-ranked list (e.g. from the /api/homepage/best-sellers endpoint).
- */
+function toBestSellerProduct(p: {
+  id: string;
+  name: string;
+  price: string;
+  priceValue: number;
+  image?: { uri: string } | null;
+  images: { uri: string }[];
+  inStock: boolean;
+  popularity: number;
+  isBestSeller?: boolean;
+}): Product {
+  return {
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    priceValue: p.priceValue,
+    image: p.image ? { uri: p.image.uri } : null,
+    images: p.images.map((img) => ({ uri: img.uri })),
+    inStock: p.inStock,
+    popularity: p.popularity,
+    isBestSeller: p.isBestSeller ?? false,
+    wcId: 0,
+    category: "",
+    categories: [],
+    occasions: [],
+  };
+}
+
 export function BestSellersPreview({
   categorySlug = "hand-bouquets",
   occasionSlug,
@@ -55,31 +63,103 @@ export function BestSellersPreview({
 }: Props) {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
+  const { user } = useAuth();
+  const isSignedIn = !!user;
+
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
 
+  // ── Ranked collection endpoint (for themed rails) ──────────────────────
+  // Only used when there's no externalProducts override (i.e. the themed Balloons,
+  // Flower Boxes, Summer rails — not the main Best Sellers rail which passes products directly).
+  const isThemedRail = externalProducts === undefined;
+  const collectionParams = useMemo(() => {
+    const p: Record<string, string> = {};
+    if (categorySlug && !occasionSlug) p.categorySlug = categorySlug;
+    if (occasionSlug) p.occasionSlug = occasionSlug;
+    if (countryCode) p.countryCode = countryCode;
+    if (cityId) p.cityId = cityId;
+    return p;
+  }, [categorySlug, occasionSlug, countryCode, cityId]);
+
+  const rankedQueryKey = getGetHomepageCollectionBestSellersQueryKey(collectionParams);
+  const { data: rankedData, isLoading: isRankedLoading } = useGetHomepageCollectionBestSellers(
+    collectionParams,
+    {
+      query: {
+        queryKey: rankedQueryKey,
+        enabled: isThemedRail,
+        staleTime: 5 * 60 * 1000,
+      },
+    },
+  );
+
+  // ── Purchased product names (for deprioritization) ─────────────────────
+  // Only fetch when signed in — anonymous visitors have no history.
+  const { data: ordersData } = useMyOrders(isSignedIn);
+  const purchasedNames = useMemo(() => {
+    if (!ordersData?.orders) return new Set<string>();
+    const names = new Set<string>();
+    for (const order of ordersData.orders) {
+      for (const item of order.items) {
+        names.add(item.name.toLowerCase().trim());
+      }
+    }
+    return names;
+  }, [ordersData]);
+
+  // ── Legacy OS fetch (fallback when ranked endpoint is cold/empty) ───────
   const catQuery = useCategoryProducts(
-    externalProducts !== undefined || occasionSlug ? "" : categorySlug,
+    isThemedRail && !occasionSlug && (rankedData?.products.length ?? 0) === 0 && !isRankedLoading
+      ? categorySlug
+      : "",
     locParams,
   );
   const occQuery = useOccasionFlatProducts(
-    externalProducts !== undefined ? "" : (occasionSlug ?? ""),
+    isThemedRail && !!occasionSlug && (rankedData?.products.length ?? 0) === 0 && !isRankedLoading
+      ? occasionSlug
+      : "",
     locParams,
   );
-  const activeQuery = occasionSlug ? occQuery : catQuery;
 
-  const shuffledProducts = useMemo(() => {
-    if (externalProducts !== undefined) return externalProducts.slice(0, limit);
+  // ── Final product list ─────────────────────────────────────────────────
+  const finalProducts = useMemo(() => {
+    if (externalProducts !== undefined) {
+      // Caller-provided list (main Best Sellers rail) — just deprioritize purchased items
+      return deprioritizePurchased(externalProducts.slice(0, limit), purchasedNames);
+    }
+
+    if (rankedData && rankedData.products.length > 0) {
+      // Sales-ranked from new endpoint
+      const ranked = rankedData.products.map(toBestSellerProduct).slice(0, limit);
+      return deprioritizePurchased(ranked, purchasedNames);
+    }
+
+    // Fallback: OS flat list with daily shuffle (same as before)
+    const activeQuery = occasionSlug ? occQuery : catQuery;
     const catProducts = activeQuery.data?.products ?? [];
-    return seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
-  }, [externalProducts, activeQuery.data?.products, countryCode, cityId, railKey, limit]);
+    const shuffled = seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
+    return deprioritizePurchased(shuffled, purchasedNames);
+  }, [
+    externalProducts,
+    rankedData,
+    catQuery.data,
+    occQuery.data,
+    purchasedNames,
+    countryCode,
+    cityId,
+    railKey,
+    limit,
+    occasionSlug,
+  ]);
 
-  const isLoading = externalProducts !== undefined ? isLoadingExternal : activeQuery.isLoading;
+  const rankedProducts = (rankedData as { products: unknown[] } | undefined)?.products;
+  const isLoading = externalProducts !== undefined
+    ? isLoadingExternal
+    : isRankedLoading && (rankedProducts?.length ?? 0) === 0;
 
-  if (!isLoading && shuffledProducts.length === 0) {
-    return null;
-  }
+  if (!isLoading && finalProducts.length === 0) return null;
 
   const href = viewAllHref ?? (occasionSlug
     ? `/occasion/${encodeURIComponent(occasionSlug)}`
@@ -89,9 +169,23 @@ export function BestSellersPreview({
     <ProductCollectionCarousel
       title={t(titleKey)}
       viewAllHref={href}
-      products={shuffledProducts}
+      products={finalProducts}
       isLoading={isLoading}
       testId={testId}
     />
   );
+}
+
+function deprioritizePurchased(products: Product[], purchasedNames: Set<string>): Product[] {
+  if (purchasedNames.size === 0) return products;
+  const fresh: Product[] = [];
+  const bought: Product[] = [];
+  for (const p of products) {
+    if (purchasedNames.has(p.name.toLowerCase().trim())) {
+      bought.push(p);
+    } else {
+      fresh.push(p);
+    }
+  }
+  return [...fresh, ...bought];
 }

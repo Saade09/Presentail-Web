@@ -86,6 +86,7 @@ export * from "./getHomepageBannersLang";
 export * from "./getHomepageBannersParams";
 export * from "./getHomepageBestSellersParams";
 export * from "./getHomepageCategoriesParams";
+export * from "./getHomepageCollectionBestSellersParams";
 export * from "./getHomepageOccasionsParams";
 export * from "./healthStatus";
 export * from "./homepageBanner";

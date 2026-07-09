@@ -17,7 +17,7 @@ import {
   getOsOccasions,
   registerOsProductsRefreshListener,
 } from "../lib/osProductsCache";
-import { scoreCollections } from "../lib/collectionRanking";
+import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { categories as staticCategories } from "@workspace/catalog-data";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 
@@ -34,7 +34,7 @@ export function invalidateRankingConfigCache(): void {
   rankingConfigCache = null;
 }
 
-async function getRankingConfig(): Promise<CollectionRankingConfigRow[]> {
+export async function getRankingConfig(): Promise<CollectionRankingConfigRow[]> {
   const now = Date.now();
   if (rankingConfigCache && now - rankingConfigCache.fetchedAt < RANKING_CONFIG_TTL_MS) {
     return rankingConfigCache.rows;
@@ -259,7 +259,7 @@ const FORCE_INCLUDE_CATEGORY_SLUGS = new Set(["electronics"]);
 // eliminates the WC network round-trips for every homepage load and makes the
 // navigation data consistent with the OS-sourced product listings.
 
-function buildOsCategoriesRaw(): HomepageCollectionItem[] | null {
+export function buildOsCategoriesRaw(): HomepageCollectionItem[] | null {
   const osCategories = getOsCategories();
   if (osCategories && osCategories.length > 0) {
     return osCategories
@@ -314,19 +314,21 @@ async function buildOsCategories(
   if (!raw) return { items: null, debugMap: new Map() };
   const configRows = await getRankingConfig();
   const osProducts = getOsProducts(cityId === "ae-dubai" ? "dubai" : cityId === "ae-abu-dhabi" ? "abudhabi" : countryCode === "AE" ? "dubai" : countryCode === "CY" ? "cyprus" : "lebanon") ?? [];
+  const clickScores = await getCollectionClickScores("category", countryCode).catch(() => new Map<string, number>());
   const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
     kind: "category",
     countryCode,
     cityId,
     configRows,
     osProducts,
+    clickScores,
     defaultOrder: [],
     availabilityFloor: 3,
   });
   return { items: items.map((item, i) => ({ ...item, sortOrder: i })), debugMap };
 }
 
-function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
+export function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
   const osOccasions = getOsOccasions();
   if (!osOccasions || osOccasions.length === 0) return null;
   // Only surface occasions that OS has flagged as featured.
@@ -371,12 +373,14 @@ async function buildOsOccasions(
   if (!raw) return { items: null, debugMap: new Map() };
   const configRows = await getRankingConfig();
   const osProducts = getOsProducts(cityId === "ae-dubai" ? "dubai" : cityId === "ae-abu-dhabi" ? "abudhabi" : countryCode === "AE" ? "dubai" : countryCode === "CY" ? "cyprus" : "lebanon") ?? [];
+  const clickScores = await getCollectionClickScores("occasion", countryCode).catch(() => new Map<string, number>());
   const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
     kind: "occasion",
     countryCode,
     cityId,
     configRows,
     osProducts,
+    clickScores,
     defaultOrder: DEFAULT_OCCASION_SLUGS,
     availabilityFloor: 3,
   });
@@ -638,6 +642,173 @@ router.get("/homepage/best-sellers", async (req, res) => {
   // Only cache when we have products (avoid caching empty cold-start responses).
   if (products.length > 0) {
     bestSellersCache.set(cacheKey, { fetchedAt: now, body });
+  }
+  return res.json(body);
+});
+
+// ── Collection best-sellers cache ────────────────────────────────────────
+//
+// Same pattern as bestSellersCache but keyed by (categorySlug or occasionSlug,
+// storeKey, countryCode, currencySymbol). Cleared on OS products refresh.
+// Cache key: `${filterKind}:${slug}::${storeKey}::${countryCode}::${currencySymbol}`
+
+const collectionBestSellersCache = new Map<string, BestSellersEntry>();
+
+registerOsProductsRefreshListener(() => {
+  collectionBestSellersCache.clear();
+});
+
+// Returns in-stock products filtered to the given category or occasion slug,
+// ranked by blended sales score (local app_orders tally + OS totalSales).
+// Structured identically to /homepage/best-sellers so the same client Product
+// type can be used.
+router.get("/homepage/collection-best-sellers", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
+  const countryCode =
+    typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
+  const currencySymbol = store.currencySymbol ?? "$";
+  const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug.trim() : null;
+  const occasionSlug = typeof req.query.occasionSlug === "string" ? req.query.occasionSlug.trim() : null;
+
+  if (!categorySlug && !occasionSlug) {
+    return res.status(400).json({ ok: false, message: "categorySlug or occasionSlug is required" }); // i18n-ignore
+  }
+
+  const filterKind = categorySlug ? "category" : "occasion";
+  const filterSlug = (categorySlug ?? occasionSlug)!;
+
+  const cacheKey = `${filterKind}:${filterSlug}::${store.storeKey}::${countryCode ?? ""}::${currencySymbol}`;
+  const now = Date.now();
+  const cached = collectionBestSellersCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
+    return res.json(cached.body);
+  }
+
+  let localSales: Map<string, LocalSaleEntry>;
+  try {
+    localSales = await fetchLocalSales();
+  } catch {
+    localSales = new Map();
+  }
+
+  const osProducts = getOsProducts(store.storeKey) ?? [];
+
+  // Filter OS products to those belonging to the requested category or occasion.
+  const slugNorm = filterSlug.toLowerCase().trim();
+  const filteredOsProducts = osProducts.filter((p) => {
+    if (categorySlug) {
+      return (p.categories ?? []).some(
+        (c) => (typeof c === "string" ? c : (c as { slug?: string }).slug ?? "").toLowerCase() === slugNorm
+          || (typeof c !== "string" && (c as { name?: string }).name?.toLowerCase() === slugNorm),
+      );
+    }
+    return (p.occasions ?? []).some(
+      (o) => (typeof o === "string" ? o : (o as { slug?: string }).slug ?? "").toLowerCase() === slugNorm
+        || (typeof o !== "string" && (o as { name?: string }).name?.toLowerCase() === slugNorm),
+    );
+  });
+
+  // Build a normalised-name → OS product map from the *filtered* set only.
+  const osProductByName = new Map(filteredOsProducts.map((p) => [p.name.toLowerCase().trim(), p]));
+  const filteredOsIds = new Set(filteredOsProducts.map((p) => p.id));
+
+  function formatPrice(usdValue: number): string {
+    return currencySymbol.length > 1
+      ? `${usdValue.toLocaleString()} ${currencySymbol}`
+      : `${currencySymbol}${usdValue.toLocaleString()}`;
+  }
+
+  type ScoredEntry = {
+    id: string;
+    name: string;
+    price: string;
+    priceValue: number;
+    image: { uri: string } | null;
+    images: { uri: string }[];
+    inStock: boolean;
+    popularity: number;
+    blendedScore: number;
+  };
+
+  const seen = new Set<string>();
+  const entries: ScoredEntry[] = [];
+
+  // Step 1: DB-sourced sales, enriched from filtered OS products
+  for (const [key, sale] of localSales) {
+    const osP = osProductByName.get(key);
+    if (!osP) continue; // only include products in this category/occasion
+
+    if (countryCode && osP.deliverableCountries && osP.deliverableCountries.length > 0) {
+      if (!osP.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) continue;
+    }
+
+    if (seen.has(osP.id)) continue;
+    seen.add(osP.id);
+
+    const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    entries.push({
+      id: osP.id,
+      name: decodeName(osP.name),
+      price: formatPrice(osP.price),
+      priceValue: osP.price,
+      image: imageList[0] ?? null,
+      images: imageList,
+      inStock: osP.inStock,
+      popularity: (osP.totalSales ?? 0) + sale.count,
+      blendedScore: (osP.totalSales ?? 0) + sale.count,
+    });
+  }
+
+  // Step 2: OS-only products in this collection (in-stock, not yet seen)
+  for (const osP of filteredOsProducts) {
+    if (!osP.inStock) continue;
+    if (countryCode && osP.deliverableCountries && osP.deliverableCountries.length > 0) {
+      if (!osP.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) continue;
+    }
+    if (seen.has(osP.id)) continue;
+    seen.add(osP.id);
+
+    const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    entries.push({
+      id: osP.id,
+      name: decodeName(osP.name),
+      price: formatPrice(osP.price),
+      priceValue: osP.price,
+      image: imageList[0] ?? null,
+      images: imageList,
+      inStock: true,
+      popularity: osP.totalSales ?? 0,
+      blendedScore: osP.totalSales ?? 0,
+    });
+  }
+
+  // Out-of-stock products in this collection, appended after in-stock ranked results
+  for (const osP of filteredOsProducts) {
+    if (osP.inStock) continue;
+    if (!filteredOsIds.has(osP.id)) continue;
+    if (seen.has(osP.id)) continue;
+    seen.add(osP.id);
+
+    const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    entries.push({
+      id: osP.id,
+      name: decodeName(osP.name),
+      price: formatPrice(osP.price),
+      priceValue: osP.price,
+      image: imageList[0] ?? null,
+      images: imageList,
+      inStock: false,
+      popularity: osP.totalSales ?? 0,
+      blendedScore: -1, // always sorted below in-stock
+    });
+  }
+
+  entries.sort((a, b) => b.blendedScore - a.blendedScore);
+  const products = entries.map(({ blendedScore: _, ...rest }) => rest);
+
+  const body = { ok: true, products };
+  if (products.length > 0) {
+    collectionBestSellersCache.set(cacheKey, { fetchedAt: now, body });
   }
   return res.json(body);
 });

@@ -776,6 +776,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /homepage/collection-best-sellers:
+    get:
+      operationId: getHomepageCollectionBestSellers
+      tags: [homepage]
+      summary: Get best-selling products for a specific category or occasion
+      description: |
+        Returns in-stock products belonging to a single category or occasion slug,
+        ranked by blended sales score (local order history + OS totalSales).
+        Identical product shape to /homepage/best-sellers. Results are cached
+        5 minutes per (slug, store, country). Pass exactly one of categorySlug
+        or occasionSlug.
+      parameters:
+        - name: categorySlug
+          in: query
+          required: false
+          description: Category slug to filter by (e.g. "balloons", "flower-boxes").
+          schema:
+            type: string
+        - name: occasionSlug
+          in: query
+          required: false
+          description: Occasion slug to filter by (e.g. "summer", "birthday").
+          schema:
+            type: string
+        - name: countryCode
+          in: query
+          required: false
+          description: ISO 3166-1 alpha-2 country code used to filter deliverable products.
+          schema:
+            type: string
+        - name: cityId
+          in: query
+          required: false
+          description: City identifier (e.g. "ae-dubai") used to resolve the correct store.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ranked products for the collection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomepageBestSellersResponse"
+        "400":
+          description: Neither categorySlug nor occasionSlug provided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /delivery-config:
     get:
       operationId: getDeliveryConfig

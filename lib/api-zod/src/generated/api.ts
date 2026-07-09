@@ -1497,6 +1497,93 @@ export const GetHomepageBestSellersResponse = zod.object({
 });
 
 /**
+ * Returns in-stock products belonging to a single category or occasion slug,
+ranked by blended sales score (local order history + OS totalSales).
+Identical product shape to /homepage/best-sellers. Results are cached
+5 minutes per (slug, store, country). Pass exactly one of categorySlug
+or occasionSlug.
+
+ * @summary Get best-selling products for a specific category or occasion
+ */
+export const GetHomepageCollectionBestSellersQueryParams = zod.object({
+  categorySlug: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'Category slug to filter by (e.g. \"balloons\", \"flower-boxes\").',
+    ),
+  occasionSlug: zod.coerce
+    .string()
+    .optional()
+    .describe('Occasion slug to filter by (e.g. \"summer\", \"birthday\").'),
+  countryCode: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "ISO 3166-1 alpha-2 country code used to filter deliverable products.",
+    ),
+  cityId: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'City identifier (e.g. \"ae-dubai\") used to resolve the correct store.',
+    ),
+});
+
+export const GetHomepageCollectionBestSellersResponse = zod.object({
+  ok: zod.boolean(),
+  products: zod.array(
+    zod
+      .object({
+        id: zod
+          .string()
+          .describe(
+            "Product slug used as the stable identifier and URL segment.",
+          ),
+        name: zod.string().describe("Display name of the product."),
+        price: zod
+          .string()
+          .describe('Formatted price string, e.g. \"$45\" or \"100 LBP\".'),
+        priceValue: zod
+          .number()
+          .describe("Numeric price in the store's base currency (USD)."),
+        image: zod
+          .object({
+            uri: zod.string(),
+          })
+          .nullish()
+          .describe(
+            "Primary product image URI, or null when no image is available.",
+          ),
+        images: zod
+          .array(
+            zod.object({
+              uri: zod.string(),
+            }),
+          )
+          .describe("All product images in display order."),
+        inStock: zod
+          .boolean()
+          .describe("Whether the product is currently in stock."),
+        popularity: zod
+          .number()
+          .describe(
+            "Total sales count used for ranking. Zero when not available.",
+          ),
+        isBestSeller: zod
+          .boolean()
+          .optional()
+          .describe(
+            "Whether this product is in the top 20 by total sales across all stores.",
+          ),
+      })
+      .describe(
+        "A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).",
+      ),
+  ),
+});
+
+/**
  * Returns the express-delivery time label, the free-delivery threshold
 copy and the currency code Presentail uses for the given country and
 (optionally) city. Values are sourced from a server-side config so

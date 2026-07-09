@@ -2,11 +2,15 @@
  * Scoring engine for homepage category and occasion carousels.
  *
  * Computes a composite score for each item and returns a sorted list:
- *   finalScore = performanceScore + seasonalBoost + manualBoost - availabilityPenalty
+ *   finalScore = (performanceScore + clickScore) + seasonalBoost + manualBoost - availabilityPenalty
  *
  * Scoring signals:
  *   - Performance (Bayesian-smoothed, same pattern as productRanking.ts):
  *     sum of totalSales for all OS products tagged with the slug, normalised to [0, 1).
+ *   - Click score: recency-weighted count of category/occasion view events from
+ *     the local analytics_events table (last 30 days), normalised to [0, 1].
+ *     Events in the last 7 days count double. Capped at 0.5 to avoid overriding
+ *     strong manual boosts or pinned positions. Returns 0 on cold start (no rows).
  *   - Seasonal boost: additive value when today's MM-DD falls inside the window.
  *   - Manual boost: operator-set additive value from the DB config row.
  *   - Availability penalty: linear penalty when in-stock product count < floor;
@@ -18,6 +22,8 @@
  * defaultOrder array (same behaviour as the existing DEFAULT_OCCASION_SLUGS logic).
  */
 
+import { and, eq, gte, isNotNull, or } from "drizzle-orm";
+import { db, analyticsEventsTable } from "@workspace/db";
 import type { CollectionRankingConfigRow } from "@workspace/db";
 import type { OSProduct } from "@workspace/presentail-os";
 
@@ -32,6 +38,7 @@ export type ScoredItem = {
 
 export type ScoreDebug = {
   performanceScore: number;
+  clickScore: number;
   seasonalBoost: number;
   manualBoost: number;
   availabilityPenalty: number;
@@ -45,6 +52,12 @@ export type ScoreCollectionsOpts = {
   cityId?: string | null;
   configRows: CollectionRankingConfigRow[];
   osProducts: OSProduct[];
+  /**
+   * Pre-computed click scores keyed by slug (normalised to [0, 1]).
+   * When omitted, click score is treated as 0 for all items.
+   * Use `getCollectionClickScores()` to compute this async before scoring.
+   */
+  clickScores?: Map<string, number>;
   /**
    * Default slug order used as fallback when scoring produces ties or when no
    * scoring data is available. Items present in this list are stable-sorted to
@@ -63,6 +76,129 @@ export type ScoreCollectionsOpts = {
 const POPULARITY_PRIOR = 20;
 const ZERO_STOCK_PENALTY = 2.0;
 const DEFAULT_AVAILABILITY_FLOOR = 3;
+/** Maximum contribution of click score to the final score. */
+const CLICK_SCORE_CAP = 0.5;
+
+// ── Click-score cache ─────────────────────────────────────────────────────────
+//
+// Caches the DB query result per (kind, countryCode) for the same 5-minute TTL
+// used by the ranking config cache so the analytics query doesn't run on every
+// homepage request.
+
+const CLICK_SCORE_TTL_MS = 5 * 60 * 1000;
+const clickScoreCache = new Map<
+  string,
+  { scores: Map<string, number>; fetchedAt: number }
+>();
+
+/**
+ * Query the analytics_events table for the last 30 days and compute a
+ * recency-weighted click score for each collection slug. Returns a
+ * Map<slug, normalizedScore> where the score is in [0, 1].
+ *
+ * Signals included:
+ *  - Events with `link_kind = kind` and `link_slug` set (banner clicks /
+ *    navigation events tagged with a collection kind).
+ *  - Future-named events `category_viewed` / `occasion_viewed` with
+ *    `link_slug` set (forward-compatible for when clients emit them).
+ *
+ * Events in the last 7 days count 2× to reward recent demand spikes.
+ * The result is normalised to [0, 1] relative to the highest-scoring slug.
+ * Returns an empty Map on cold start (no matching rows) or on DB error,
+ * so the ranking formula degrades gracefully to clickScore = 0.
+ */
+export async function getCollectionClickScores(
+  kind: CollectionKind,
+  countryCode?: string | null,
+): Promise<Map<string, number>> {
+  const cacheKey = `${kind}::${countryCode ?? ""}`;
+  const now = Date.now();
+  const cached = clickScoreCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < CLICK_SCORE_TTL_MS) {
+    return cached.scores;
+  }
+
+  try {
+    const cutoff30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const cutoff7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    const viewEventName =
+      kind === "category" ? "category_viewed" : "occasion_viewed";
+
+    // Demand signals captured for this collection kind:
+    //   1. Any event that explicitly carries link_kind = kind (banner clicks,
+    //      navigation tiles, add-to-cart events sent with collection context, …)
+    //   2. Explicit page-view events (category_viewed / occasion_viewed)
+    //   3. Add-to-cart demand signals named "add_to_cart" or
+    //      "product_added_to_cart" that carry collection context via link_kind
+    //
+    // Country scoping: when countryCode is supplied we filter by the `state`
+    // column, which clients populate with the selected delivery country (LB / AE /
+    // CY). This ensures per-country cache entries reflect distinct click distributions
+    // rather than silently returning identical global data under different cache keys.
+    const rows = await db
+      .select({
+        slug: analyticsEventsTable.linkSlug,
+        createdAt: analyticsEventsTable.createdAt,
+      })
+      .from(analyticsEventsTable)
+      .where(
+        and(
+          gte(analyticsEventsTable.createdAt, cutoff30),
+          isNotNull(analyticsEventsTable.linkSlug),
+          or(
+            // Banner clicks and any navigation event with collection context
+            eq(analyticsEventsTable.linkKind, kind),
+            // Explicit collection page view events
+            eq(analyticsEventsTable.name, viewEventName),
+            // Add-to-cart demand signals that carry collection context
+            and(
+              or(
+                eq(analyticsEventsTable.name, "add_to_cart"),
+                eq(analyticsEventsTable.name, "product_added_to_cart"),
+              ),
+              eq(analyticsEventsTable.linkKind, kind),
+            ),
+          ),
+          // Country scoping via the `state` column (delivery country sent by client)
+          countryCode ? eq(analyticsEventsTable.state, countryCode) : undefined,
+        ),
+      );
+
+    if (rows.length === 0) {
+      clickScoreCache.set(cacheKey, { scores: new Map(), fetchedAt: now });
+      return new Map();
+    }
+
+    const weighted = new Map<string, number>();
+    for (const row of rows) {
+      if (!row.slug) continue;
+      const isRecent = row.createdAt >= cutoff7;
+      const weight = isRecent ? 2 : 1;
+      weighted.set(row.slug, (weighted.get(row.slug) ?? 0) + weight);
+    }
+
+    if (weighted.size === 0) {
+      clickScoreCache.set(cacheKey, { scores: new Map(), fetchedAt: now });
+      return new Map();
+    }
+
+    const maxRaw = Math.max(...weighted.values());
+    const scores = new Map<string, number>();
+    for (const [slug, rawScore] of weighted) {
+      scores.set(slug, rawScore / maxRaw);
+    }
+
+    clickScoreCache.set(cacheKey, { scores, fetchedAt: now });
+    return scores;
+  } catch {
+    return clickScoreCache.get(cacheKey)?.scores ?? new Map();
+  }
+}
+
+/** Invalidate click score cache (e.g. after config changes). */
+export function invalidateClickScoreCache(): void {
+  clickScoreCache.clear();
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -127,7 +263,15 @@ export function scoreCollections<T extends ScoredItem>(
   items: T[],
   opts: ScoreCollectionsOpts,
 ): { items: T[]; debugMap: Map<string, ScoreDebug> } {
-  const { kind, countryCode, configRows, osProducts, defaultOrder = [], availabilityFloor = DEFAULT_AVAILABILITY_FLOOR } = opts;
+  const {
+    kind,
+    countryCode,
+    configRows,
+    osProducts,
+    clickScores = new Map(),
+    defaultOrder = [],
+    availabilityFloor = DEFAULT_AVAILABILITY_FLOOR,
+  } = opts;
 
   if (items.length === 0) {
     return { items: [], debugMap: new Map() };
@@ -171,6 +315,7 @@ export function scoreCollections<T extends ScoredItem>(
 
   // ── Determine whether the dataset has any real signal ────────────────────
   const hasSalesData = [...slugScores.values()].some((s) => s > 0);
+  const hasClickData = clickScores.size > 0;
   const hasConfig = configRows.some((r) => r.kind === kind);
 
   // ── Compute final scores ──────────────────────────────────────────────────
@@ -185,6 +330,8 @@ export function scoreCollections<T extends ScoredItem>(
     if (cfg?.hiddenOverride) continue;
 
     const performanceScore = slugScores.get(slug) ?? 0;
+    const rawClickScore = clickScores.get(slug) ?? 0;
+    const clickScore = Math.min(rawClickScore, CLICK_SCORE_CAP);
 
     let seasonalBoost = 0;
     const boosts = cfg?.seasonalBoosts ?? [];
@@ -204,10 +351,12 @@ export function scoreCollections<T extends ScoredItem>(
       availabilityPenalty = ((availabilityFloor - inStockCount) / availabilityFloor) * 0.5;
     }
 
-    const finalScore = performanceScore + seasonalBoost + manualBoost - availabilityPenalty;
+    const finalScore =
+      performanceScore + clickScore + seasonalBoost + manualBoost - availabilityPenalty;
 
     debugMap.set(slug, {
       performanceScore,
+      clickScore,
       seasonalBoost,
       manualBoost,
       availabilityPenalty,
@@ -225,7 +374,7 @@ export function scoreCollections<T extends ScoredItem>(
   // When there is no scoring signal and no config, fall back entirely to
   // defaultOrder so behaviour is identical to the pre-scoring code paths.
 
-  if (!hasSalesData && !hasConfig) {
+  if (!hasSalesData && !hasClickData && !hasConfig) {
     scored.sort((a, b) => {
       const ai = a.defaultIdx >= 0 ? a.defaultIdx : Infinity;
       const bi = b.defaultIdx >= 0 ? b.defaultIdx : Infinity;

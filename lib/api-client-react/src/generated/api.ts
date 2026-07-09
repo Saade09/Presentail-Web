@@ -60,6 +60,7 @@ import type {
   GetHomepageBannersParams,
   GetHomepageBestSellersParams,
   GetHomepageCategoriesParams,
+  GetHomepageCollectionBestSellersParams,
   GetHomepageOccasionsParams,
   HealthStatus,
   HomepageBannersResponse,
@@ -2048,6 +2049,123 @@ export function useGetHomepageBestSellers<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetHomepageBestSellersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns in-stock products belonging to a single category or occasion slug,
+ranked by blended sales score (local order history + OS totalSales).
+Identical product shape to /homepage/best-sellers. Results are cached
+5 minutes per (slug, store, country). Pass exactly one of categorySlug
+or occasionSlug.
+
+ * @summary Get best-selling products for a specific category or occasion
+ */
+export const getGetHomepageCollectionBestSellersUrl = (
+  params?: GetHomepageCollectionBestSellersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/homepage/collection-best-sellers?${stringifiedParams}`
+    : `/api/homepage/collection-best-sellers`;
+};
+
+export const getHomepageCollectionBestSellers = async (
+  params?: GetHomepageCollectionBestSellersParams,
+  options?: RequestInit,
+): Promise<HomepageBestSellersResponse> => {
+  return customFetch<HomepageBestSellersResponse>(
+    getGetHomepageCollectionBestSellersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetHomepageCollectionBestSellersQueryKey = (
+  params?: GetHomepageCollectionBestSellersParams,
+) => {
+  return [
+    `/api/homepage/collection-best-sellers`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetHomepageCollectionBestSellersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHomepageCollectionBestSellers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetHomepageCollectionBestSellersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageCollectionBestSellers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetHomepageCollectionBestSellersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHomepageCollectionBestSellers>>
+  > = ({ signal }) =>
+    getHomepageCollectionBestSellers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageCollectionBestSellers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHomepageCollectionBestSellersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHomepageCollectionBestSellers>>
+>;
+export type GetHomepageCollectionBestSellersQueryError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get best-selling products for a specific category or occasion
+ */
+
+export function useGetHomepageCollectionBestSellers<
+  TData = Awaited<ReturnType<typeof getHomepageCollectionBestSellers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetHomepageCollectionBestSellersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageCollectionBestSellers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomepageCollectionBestSellersQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

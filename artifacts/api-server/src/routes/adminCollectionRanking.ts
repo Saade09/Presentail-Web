@@ -1,23 +1,36 @@
 /**
- * Admin API for collection ranking config CRUD.
+ * Admin API for collection ranking config CRUD + scored-list view.
  *
  * Endpoints:
- *   GET  /api/admin/collection-ranking           → all config rows
- *   PUT  /api/admin/collection-ranking/:kind/:slug → upsert a row
+ *   GET  /api/admin/collection-ranking              → HTML admin dashboard (browser-accessible)
+ *   GET  /api/admin/collection-ranking/ranked       → JSON scored+ranked list (auth-gated)
+ *   PUT  /api/admin/collection-ranking/:kind/:slug  → upsert a config row (auth-gated)
  *
- * Auth: same x-push-admin-token / x-admin-token header used by all admin
- * endpoints (PUSH_ADMIN_TOKEN env). No session, no cookie.
+ * Auth: x-push-admin-token / x-admin-token header (PUSH_ADMIN_TOKEN env).
+ * The HTML page is served without auth — it prompts for the token in-page and
+ * caches it in localStorage, matching the /api/admin/funnels pattern.
  *
- * After a successful PUT the ranking config cache is invalidated so the
- * next GET /homepage/categories or /homepage/occasions reflects the change
- * within one request cycle (no wait for the 5-min TTL to expire).
+ * After a successful PUT the ranking config cache is invalidated so the next
+ * homepage request reflects the change without waiting for the 5-min TTL.
  */
 
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { collectionRankingConfigTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
-import { invalidateRankingConfigCache } from "./homepage";
+import {
+  invalidateRankingConfigCache,
+  getRankingConfig,
+  buildOsCategoriesRaw,
+  buildOsOccasionsRaw,
+} from "./homepage";
+import { getOsProducts } from "../lib/osProductsCache";
+import {
+  scoreCollections,
+  getCollectionClickScores,
+  type CollectionKind,
+} from "../lib/collectionRanking";
+import type { ScoreDebug } from "../lib/collectionRanking";
 
 const router: IRouter = Router();
 
@@ -31,14 +44,107 @@ function requireAdmin(req: Request, res: Response): boolean {
   return true;
 }
 
-// GET /api/admin/collection-ranking — list all config rows
-router.get("/admin/collection-ranking", async (req, res) => {
+/** Resolve store key from countryCode, matching homepage.ts logic. */
+function resolveStoreKey(countryCode?: string | null): string {
+  if (countryCode === "AE") return "dubai";
+  if (countryCode === "CY") return "cyprus";
+  return "lebanon";
+}
+
+const DEFAULT_OCCASION_SLUGS = [
+  "birthday", "love-romance", "thank-you", "get-well-soon", "anniversary",
+  "congratulations", "graduation", "funeral", "newborn", "im-sorry", "wedding",
+];
+
+// GET /api/admin/collection-ranking — HTML admin dashboard (no auth required; token entered in-page)
+router.get("/admin/collection-ranking", (_req, res) => {
+  res.type("html").send(ADMIN_UI_HTML);
+});
+
+// GET /api/admin/collection-ranking/ranked?kind=category|occasion&countryCode=LB|AE|CY
+// Returns the full scored+ranked list with debug info and inStockCount.
+router.get("/admin/collection-ranking/ranked", async (req, res) => {
   if (!requireAdmin(req, res)) return;
+
+  const kind = req.query.kind === "occasion" ? "occasion" : "category";
+  const countryCode =
+    typeof req.query.countryCode === "string"
+      ? req.query.countryCode.toUpperCase()
+      : "LB";
+
   try {
-    const rows = await db.select().from(collectionRankingConfigTable);
-    return res.json({ ok: true, rows });
+    const raw =
+      kind === "category" ? buildOsCategoriesRaw() : buildOsOccasionsRaw();
+
+    if (!raw || raw.length === 0) {
+      return res.json({ ok: true, kind, countryCode, items: [] });
+    }
+
+    const [configRows, clickScores] = await Promise.all([
+      getRankingConfig(),
+      getCollectionClickScores(kind as CollectionKind, countryCode).catch(
+        () => new Map<string, number>(),
+      ),
+    ]);
+
+    const storeKey = resolveStoreKey(countryCode);
+    const osProducts = getOsProducts(storeKey) ?? [];
+
+    const { items, debugMap } = scoreCollections(raw, {
+      kind: kind as CollectionKind,
+      countryCode,
+      configRows,
+      osProducts,
+      clickScores,
+      defaultOrder: kind === "occasion" ? DEFAULT_OCCASION_SLUGS : [],
+      availabilityFloor: 3,
+    });
+
+    // Find config row for each item to expose editable fields.
+    const configBySlug = new Map(
+      configRows
+        .filter((r) => r.kind === kind)
+        .map((r) => [`${r.slug}::${r.countryCode ?? ""}`, r]),
+    );
+
+    function getConfig(slug: string) {
+      return (
+        configBySlug.get(`${slug}::${countryCode}`) ??
+        configBySlug.get(`${slug}::`) ??
+        null
+      );
+    }
+
+    const ranked = items.map((item, idx) => {
+      const debug: ScoreDebug | undefined = debugMap.get(item.slug);
+      const cfg = getConfig(item.slug);
+      return {
+        rank: idx + 1,
+        id: item.id,
+        name: item.name,
+        slug: item.slug,
+        imageUrl: item.imageUrl,
+        inStockCount: debug?.productCount ?? 0,
+        debug: debug ?? null,
+        config: cfg
+          ? {
+              id: cfg.id,
+              manualBoost: cfg.manualBoost,
+              pinnedPosition: cfg.pinnedPosition ?? null,
+              hiddenOverride: cfg.hiddenOverride,
+              seasonalBoosts: cfg.seasonalBoosts ?? [],
+              countryCode: cfg.countryCode ?? null,
+            }
+          : null,
+      };
+    });
+
+    return res.json({ ok: true, kind, countryCode, items: ranked });
   } catch (err: unknown) {
-    req.log.error({ err: (err as Error)?.message }, "admin/collection-ranking: DB read failed");
+    req.log.error(
+      { err: (err as Error)?.message },
+      "admin/collection-ranking/ranked: failed",
+    );
     return res.status(500).json({ ok: false, message: "Internal error" }); // i18n-ignore
   }
 });
@@ -63,6 +169,31 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
     seasonalBoosts?: Array<{ label: string; startMmDd: string; endMmDd: string; boost: number }>;
   };
 
+  // Validate seasonal boost date formats
+  if (Array.isArray(body.seasonalBoosts)) {
+    const mmDdRe = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+    for (const sb of body.seasonalBoosts) {
+      if (!mmDdRe.test(sb.startMmDd) || !mmDdRe.test(sb.endMmDd)) {
+        return res.status(400).json({
+          ok: false,
+          message: `Invalid seasonal boost date format; expected MM-DD (e.g. 02-14): ${sb.startMmDd} / ${sb.endMmDd}`, // i18n-ignore
+        });
+      }
+      if (typeof sb.boost !== "number" || !Number.isFinite(sb.boost) || sb.boost <= 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "Seasonal boost value must be a positive finite number", // i18n-ignore
+        });
+      }
+      if (!sb.label || typeof sb.label !== "string" || sb.label.trim() === "") {
+        return res.status(400).json({
+          ok: false,
+          message: "Seasonal boost label is required", // i18n-ignore
+        });
+      }
+    }
+  }
+
   const manualBoost = typeof body.manualBoost === "number" ? body.manualBoost : undefined;
   const pinnedPosition =
     body.pinnedPosition === null || body.pinnedPosition === undefined
@@ -76,7 +207,6 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
   const seasonalBoosts = Array.isArray(body.seasonalBoosts) ? body.seasonalBoosts : undefined;
 
   try {
-    // Check if a row already exists for this (kind, slug, countryCode) combination.
     const existing = await db
       .select()
       .from(collectionRankingConfigTable)
@@ -122,8 +252,6 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
       row = inserted[0];
     }
 
-    // Invalidate the in-process ranking config cache so the next homepage
-    // request immediately picks up the new config.
     invalidateRankingConfigCache();
 
     return res.json({ ok: true, row });
@@ -137,3 +265,509 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
 });
 
 export default router;
+
+// ── HTML admin dashboard ───────────────────────────────────────────────────
+
+const ADMIN_UI_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Collection Ranking Admin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; background: #f5f5f5; color: #222; }
+  h1 { font-size: 18px; font-weight: 600; }
+  h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 20px 16px; }
+  .header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .auth-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type=text], input[type=password], input[type=number] {
+    border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; font-size: 13px;
+  }
+  input[type=text]:focus, input[type=password]:focus, input[type=number]:focus {
+    outline: none; border-color: #0078d4;
+  }
+  button {
+    padding: 5px 12px; border-radius: 4px; font-size: 13px; cursor: pointer;
+    border: 1px solid #ccc; background: #fff; transition: background 0.1s;
+  }
+  button:hover { background: #f0f0f0; }
+  button.primary { background: #0078d4; color: #fff; border-color: #0078d4; }
+  button.primary:hover { background: #006abc; }
+  button.danger { background: #c42b1c; color: #fff; border-color: #c42b1c; }
+  button.danger:hover { background: #a82315; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .status { font-size: 12px; }
+  .status.err { color: #c42b1c; }
+  .status.ok { color: #107c10; }
+  .status.muted { color: #888; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 2px solid #ddd; }
+  .tab {
+    padding: 8px 18px; cursor: pointer; border-radius: 4px 4px 0 0;
+    border: 1px solid transparent; border-bottom: none; font-size: 13px;
+    background: transparent; color: #555;
+  }
+  .tab:hover { background: #f0f0f0; }
+  .tab.active { background: #fff; border-color: #ddd; color: #0078d4; font-weight: 600; margin-bottom: -2px; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 6px 8px; background: #f0f0f0; border-bottom: 1px solid #ddd; font-weight: 600; white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.zero-stock td { background: #fff5f5; }
+  tr.zero-stock td:first-child { border-left: 3px solid #c42b1c; }
+  tr.hidden-item { opacity: 0.5; }
+  .badge { display: inline-block; padding: 1px 5px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .badge-red { background: #fde8e6; color: #c42b1c; border: 1px solid #f4b8b3; }
+  .badge-blue { background: #ddeeff; color: #0052a3; border: 1px solid #b3d4f7; }
+  .badge-green { background: #e6f4ea; color: #107c10; border: 1px solid #afd8b2; }
+  .badge-grey { background: #eee; color: #666; border: 1px solid #ddd; }
+  .score-breakdown { font-size: 11px; color: #555; white-space: nowrap; }
+  .score-breakdown span { margin-right: 6px; }
+  .score-breakdown .pos { color: #107c10; }
+  .score-breakdown .neg { color: #c42b1c; }
+  .score-breakdown .neutral { color: #555; }
+  .editor { background: #fafafa; border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-top: 6px; }
+  .editor-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; }
+  .editor-row label { font-weight: 600; min-width: 120px; padding-top: 5px; font-size: 12px; }
+  .editor-row .field { display: flex; flex-direction: column; gap: 3px; }
+  .editor-hint { font-size: 10px; color: #888; }
+  .seasonal-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  .seasonal-table th { font-size: 11px; padding: 3px 6px; background: #eee; }
+  .seasonal-table td { padding: 3px 6px; }
+  .seasonal-table input { width: 100%; font-size: 11px; }
+  .editor-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .empty { color: #888; font-style: italic; }
+  .rank-num { font-weight: 700; color: #333; min-width: 24px; display: inline-block; text-align: right; }
+  .pinned-indicator { font-size: 10px; color: #0078d4; margin-left: 4px; }
+  .name-cell { max-width: 160px; }
+  .name-cell strong { display: block; }
+  .name-cell small { color: #888; font-size: 11px; }
+  .loader { text-align: center; padding: 24px; color: #888; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Collection Ranking Admin</h1>
+    <div class="auth-row">
+      <input type="password" id="tokenEl" placeholder="Admin token" size="28">
+      <button class="primary" id="loadBtn">Load</button>
+      <span class="status muted" id="statusEl"></span>
+    </div>
+  </div>
+
+  <!-- Country tabs -->
+  <div class="tabs" id="countryTabs">
+    <button class="tab active" data-country="LB">Lebanon</button>
+    <button class="tab" data-country="AE">UAE</button>
+    <button class="tab" data-country="CY">Cyprus</button>
+  </div>
+
+  <!-- Kind tabs -->
+  <div class="tabs" id="kindTabs">
+    <button class="tab active" data-kind="category">Categories</button>
+    <button class="tab" data-kind="occasion">Occasions</button>
+  </div>
+
+  <div class="card">
+    <div id="tableContainer"><div class="loader">Enter the admin token to load.</div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var TOKEN_KEY = 'presentail_admin_token';
+  var tokenEl = document.getElementById('tokenEl');
+  var loadBtn = document.getElementById('loadBtn');
+  var statusEl = document.getElementById('statusEl');
+  var tableContainer = document.getElementById('tableContainer');
+
+  // Item list populated on every load — editors reference by index, avoiding
+  // JSON serialization inside HTML onclick attributes.
+  var ITEMS = [];
+
+  var state = { country: 'LB', kind: 'category', token: '' };
+  var openPanelId = null;
+
+  try { tokenEl.value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+
+  document.getElementById('countryTabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-country]');
+    if (!btn) return;
+    document.querySelectorAll('#countryTabs .tab').forEach(function (t) { t.classList.remove('active'); });
+    btn.classList.add('active');
+    state.country = btn.dataset.country;
+    load();
+  });
+
+  document.getElementById('kindTabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-kind]');
+    if (!btn) return;
+    document.querySelectorAll('#kindTabs .tab').forEach(function (t) { t.classList.remove('active'); });
+    btn.classList.add('active');
+    state.kind = btn.dataset.kind;
+    load();
+  });
+
+  loadBtn.addEventListener('click', load);
+  tokenEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+
+  if (tokenEl.value.trim()) setTimeout(load, 0);
+
+  function load() {
+    var token = tokenEl.value.trim();
+    if (!token) { setStatus('Enter the admin token.', 'err'); return; }
+    state.token = token;
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
+
+    setStatus('Loading\u2026', 'muted');
+    tableContainer.innerHTML = '<div class="loader">Loading\u2026</div>';
+
+    fetch('/api/admin/collection-ranking/ranked?kind=' + encodeURIComponent(state.kind) + '&countryCode=' + encodeURIComponent(state.country), {
+      headers: { 'x-push-admin-token': token }
+    })
+      .then(function (r) {
+        if (r.status === 401) throw new Error('Invalid admin token');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.message || 'Load failed');
+        ITEMS = data.items || [];
+        renderTable(ITEMS);
+        setStatus('Loaded ' + ITEMS.length + ' ' + state.kind + 's for ' + countryLabel(state.country) + '.', 'ok');
+      })
+      .catch(function (err) {
+        setStatus('Error: ' + err.message, 'err');
+        tableContainer.innerHTML = '<div class="loader" style="color:#c42b1c">' + escapeHtml(err.message) + '</div>';
+      });
+  }
+
+  function countryLabel(cc) {
+    return cc === 'LB' ? 'Lebanon' : cc === 'AE' ? 'UAE' : cc === 'CY' ? 'Cyprus' : cc;
+  }
+
+  function setStatus(msg, cls) {
+    statusEl.textContent = msg;
+    statusEl.className = 'status ' + (cls || 'muted');
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function fmt(n, decimals) {
+    if (n == null) return '<span style="color:#ccc">\u2014</span>';
+    return Number(n).toFixed(decimals != null ? decimals : 3);
+  }
+
+  function renderTable(items) {
+    if (!items.length) {
+      tableContainer.innerHTML = '<div class="empty" style="padding:16px">No collections found. The OS cache may be cold.</div>';
+      return;
+    }
+
+    var html = '<table><thead><tr>' +
+      '<th>#</th><th>Collection</th><th>In\u00a0Stock</th><th>Final\u00a0Score</th>' +
+      '<th>Score Breakdown</th><th>Config</th><th>Actions</th>' +
+      '</tr></thead><tbody>';
+
+    items.forEach(function (item, idx) {
+      var cfg = item.config || {};
+      var isZero = item.inStockCount === 0;
+      var isHidden = cfg.hiddenOverride === true;
+      var isPinned = cfg.pinnedPosition != null;
+      var rowCls = isZero ? ' class="zero-stock"' : isHidden ? ' class="hidden-item"' : '';
+
+      var rankCell = '<span class="rank-num">' + item.rank + '</span>';
+      if (isPinned) rankCell += '<span class="pinned-indicator" title="Pinned to position ' + cfg.pinnedPosition + '">\uD83D\uDCCC</span>';
+
+      var stockBadge = isZero
+        ? '<span class="badge badge-red">0 in stock</span>'
+        : '<span class="badge badge-green">' + item.inStockCount + '</span>';
+
+      var nameCell = '<div class="name-cell"><strong>' + escapeHtml(item.name) + '</strong><small>' + escapeHtml(item.slug) + '</small></div>';
+
+      var d = item.debug || {};
+      var finalScore = d.finalScore != null ? fmt(d.finalScore) : '\u2014';
+      var breakdown = d.finalScore != null
+        ? '<div class="score-breakdown">' +
+            '<span class="neutral" title="Bayesian performance score">Perf:\u00a0' + fmt(d.performanceScore) + '</span>' +
+            '<span class="pos" title="Recency-weighted click score">Clicks:\u00a0+' + fmt(d.clickScore) + '</span>' +
+            (d.seasonalBoost ? '<span class="pos" title="Active seasonal boost">Season:\u00a0+' + fmt(d.seasonalBoost) + '</span>' : '') +
+            (d.manualBoost ? '<span class="pos" title="Manual boost">Manual:\u00a0+' + fmt(d.manualBoost) + '</span>' : '') +
+            (d.availabilityPenalty ? '<span class="neg" title="Availability penalty">Avail:\u00a0\u2212' + fmt(d.availabilityPenalty) + '</span>' : '') +
+            (isPinned ? '\u00a0<span class="badge badge-blue" title="Pinned position overrides sort">Pin\u00a0' + cfg.pinnedPosition + '</span>' : '') +
+          '</div>'
+        : '<span class="empty">no data</span>';
+
+      var configSummary = [];
+      if (cfg.manualBoost) configSummary.push('boost:' + cfg.manualBoost);
+      if (isPinned) configSummary.push('pin:' + cfg.pinnedPosition);
+      if (isHidden) configSummary.push('<span class="badge badge-grey">hidden</span>');
+      var seasonalCount = (cfg.seasonalBoosts || []).length;
+      if (seasonalCount) configSummary.push(seasonalCount + ' seasonal');
+      var configCell = configSummary.length ? configSummary.join(' \u00a0 ') : '<span class="empty">default</span>';
+
+      var panelId = 'panel-' + idx;
+      // Use data-idx attribute on the Edit button; click is handled via delegation below
+      var actionsCell = '<button class="edit-btn" data-idx="' + idx + '">Edit</button>';
+      if (!isHidden) {
+        actionsCell += ' <button class="danger hide-btn" data-slug="' + escapeHtml(item.slug) + '" title="Hide this collection">Hide</button>';
+      } else {
+        actionsCell += ' <button class="show-btn" data-slug="' + escapeHtml(item.slug) + '" title="Show this collection">Show</button>';
+      }
+
+      html += '<tr' + rowCls + '>' +
+        '<td>' + rankCell + '</td><td>' + nameCell + '</td><td>' + stockBadge + '</td>' +
+        '<td>' + finalScore + '</td><td>' + breakdown + '</td><td>' + configCell + '</td>' +
+        '<td>' + actionsCell + '</td>' +
+        '</tr>' +
+        '<tr id="' + panelId + '" style="display:none"><td colspan="7" style="padding:0 8px 8px">' +
+          '<div class="editor" id="editor-' + idx + '"></div>' +
+        '</td></tr>';
+    });
+
+    html += '</tbody></table>';
+    tableContainer.innerHTML = html;
+    bindTableEvents();
+  }
+
+  // Delegated event binding — avoids any JS inside HTML onclick attributes
+  function bindTableEvents() {
+    tableContainer.addEventListener('click', function (e) {
+      var editBtn = e.target.closest('.edit-btn');
+      if (editBtn) { toggleEditor(parseInt(editBtn.dataset.idx, 10)); return; }
+
+      var hideBtn = e.target.closest('.hide-btn');
+      if (hideBtn) { quickHide(hideBtn.dataset.slug); return; }
+
+      var showBtn = e.target.closest('.show-btn');
+      if (showBtn) { quickUnhide(showBtn.dataset.slug); return; }
+
+      var addSbBtn = e.target.closest('.add-sb-btn');
+      if (addSbBtn) { addSeasonalRow(parseInt(addSbBtn.dataset.idx, 10)); return; }
+
+      var rmSbBtn = e.target.closest('.rm-sb-btn');
+      if (rmSbBtn) { rmSbBtn.closest('tr').remove(); return; }
+
+      var saveBtn = e.target.closest('.save-editor-btn');
+      if (saveBtn) { saveEditor(parseInt(saveBtn.dataset.idx, 10)); return; }
+
+      var cancelBtn = e.target.closest('.cancel-editor-btn');
+      if (cancelBtn) {
+        var idx = parseInt(cancelBtn.dataset.idx, 10);
+        var panelId = 'panel-' + idx;
+        var row = document.getElementById(panelId);
+        if (row) row.style.display = 'none';
+        openPanelId = null;
+        return;
+      }
+    });
+  }
+
+  function toggleEditor(idx) {
+    var panelId = 'panel-' + idx;
+    var panelRow = document.getElementById(panelId);
+    if (!panelRow) return;
+
+    // Close any previously open editor
+    if (openPanelId && openPanelId !== panelId) {
+      var prev = document.getElementById(openPanelId);
+      if (prev) prev.style.display = 'none';
+    }
+
+    if (panelRow.style.display === 'none' || panelRow.style.display === '') {
+      panelRow.style.display = '';
+      openPanelId = panelId;
+      renderEditor(idx);
+    } else {
+      panelRow.style.display = 'none';
+      openPanelId = null;
+    }
+  }
+
+  function renderEditor(idx) {
+    var item = ITEMS[idx];
+    if (!item) return;
+    var editorEl = document.getElementById('editor-' + idx);
+    if (!editorEl) return;
+
+    var cfg = item.config || {};
+    var seasonalBoosts = cfg.seasonalBoosts || [];
+    var manualBoost = cfg.manualBoost != null ? cfg.manualBoost : 0;
+    var pinnedPos = cfg.pinnedPosition != null ? cfg.pinnedPosition : '';
+    var hiddenOverride = cfg.hiddenOverride === true;
+
+    var seasonalRows = seasonalBoosts.map(function (b, i) {
+      return '<tr>' +
+        '<td><input type="text" class="sb-label" data-i="' + i + '" value="' + escapeHtml(b.label || '') + '" placeholder="e.g. Valentines" size="14"></td>' +
+        '<td><input type="text" class="sb-start" data-i="' + i + '" value="' + escapeHtml(b.startMmDd || '') + '" placeholder="02-10" size="6"></td>' +
+        '<td><input type="text" class="sb-end" data-i="' + i + '" value="' + escapeHtml(b.endMmDd || '') + '" placeholder="02-18" size="6"></td>' +
+        '<td><input type="number" class="sb-boost" data-i="' + i + '" value="' + (b.boost || 0) + '" step="0.1" size="5"></td>' +
+        '<td><button type="button" class="rm-sb-btn">\u2715</button></td>' +
+        '</tr>';
+    }).join('');
+
+    editorEl.innerHTML =
+      '<h2>Edit: ' + escapeHtml(item.slug) + ' <small style="font-weight:normal;color:#888">(' + countryLabel(state.country) + ')</small></h2>' +
+      '<div class="editor-row">' +
+        '<label>Manual Boost</label>' +
+        '<div class="field">' +
+          '<input type="number" id="mb-' + idx + '" value="' + manualBoost + '" step="0.1" style="width:80px">' +
+          '<span class="editor-hint">Additive score bonus (e.g. 0.5 = moderate boost)</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="editor-row">' +
+        '<label>Pin Position</label>' +
+        '<div class="field">' +
+          '<input type="number" id="pp-' + idx + '" value="' + pinnedPos + '" min="1" step="1" style="width:80px" placeholder="\u2014">' +
+          '<span class="editor-hint">1-based position. Leave blank to remove pin.</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="editor-row">' +
+        '<label>Hidden</label>' +
+        '<div class="field">' +
+          '<label style="display:flex;align-items:center;gap:6px;font-weight:normal">' +
+            '<input type="checkbox" id="ho-' + idx + '"' + (hiddenOverride ? ' checked' : '') + '> Hide this collection entirely' +
+          '</label>' +
+          '<span class="editor-hint">When checked, excluded from homepage regardless of score.</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="editor-row">' +
+        '<label>Country Scope</label>' +
+        '<div class="field">' +
+          '<label style="display:flex;align-items:center;gap:6px;font-weight:normal">' +
+            '<input type="checkbox" id="cs-' + idx + '"' + (cfg.countryCode ? ' checked' : '') + '> Apply to ' + countryLabel(state.country) + ' only' +
+          '</label>' +
+          '<span class="editor-hint">Unchecked = global override (all countries).</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="margin-top:10px">' +
+        '<h2>Seasonal Boosts <button type="button" class="add-sb-btn" data-idx="' + idx + '" style="font-size:11px;margin-left:6px">+ Add</button></h2>' +
+        '<table class="seasonal-table">' +
+          '<thead><tr><th>Label</th><th>Start (MM-DD)</th><th>End (MM-DD)</th><th>Boost</th><th></th></tr></thead>' +
+          '<tbody id="sb-body-' + idx + '">' + seasonalRows + '</tbody>' +
+        '</table>' +
+      '</div>' +
+      '<div class="editor-actions">' +
+        '<button type="button" class="primary save-editor-btn" data-idx="' + idx + '">Save</button>' +
+        '<button type="button" class="cancel-editor-btn" data-idx="' + idx + '">Cancel</button>' +
+        '<span class="status muted" id="save-status-' + idx + '"></span>' +
+      '</div>';
+  }
+
+  function addSeasonalRow(idx) {
+    var tbody = document.getElementById('sb-body-' + idx);
+    if (!tbody) return;
+    var i = tbody.querySelectorAll('tr').length;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="text" class="sb-label" data-i="' + i + '" placeholder="e.g. Valentines" size="14"></td>' +
+      '<td><input type="text" class="sb-start" data-i="' + i + '" placeholder="02-10" size="6"></td>' +
+      '<td><input type="text" class="sb-end" data-i="' + i + '" placeholder="02-18" size="6"></td>' +
+      '<td><input type="number" class="sb-boost" data-i="' + i + '" value="0.3" step="0.1" size="5"></td>' +
+      '<td><button type="button" class="rm-sb-btn">\u2715</button></td>';
+    tbody.appendChild(tr);
+  }
+
+  function saveEditor(idx) {
+    var item = ITEMS[idx];
+    if (!item) return;
+
+    var saveStatus = document.getElementById('save-status-' + idx);
+    var saveBtn = document.querySelector('.save-editor-btn[data-idx="' + idx + '"]');
+
+    var mbEl = document.getElementById('mb-' + idx);
+    var ppEl = document.getElementById('pp-' + idx);
+    var hoEl = document.getElementById('ho-' + idx);
+    var csEl = document.getElementById('cs-' + idx);
+
+    var manualBoost = mbEl ? parseFloat(mbEl.value) || 0 : 0;
+    var rawPp = ppEl ? ppEl.value.trim() : '';
+    var pinnedPosition = rawPp !== '' && !isNaN(parseInt(rawPp, 10)) ? parseInt(rawPp, 10) : null;
+    var hiddenOverride = hoEl ? hoEl.checked : false;
+    var countryScoped = csEl ? csEl.checked : false;
+
+    var tbody = document.getElementById('sb-body-' + idx);
+    var seasonalBoosts = [];
+    if (tbody) {
+      tbody.querySelectorAll('tr').forEach(function (tr) {
+        var label = tr.querySelector('.sb-label');
+        var start = tr.querySelector('.sb-start');
+        var end = tr.querySelector('.sb-end');
+        var boost = tr.querySelector('.sb-boost');
+        if (!start || !end || !boost) return;
+        var startVal = (start.value || '').trim();
+        var endVal = (end.value || '').trim();
+        var boostVal = parseFloat(boost.value) || 0;
+        if (startVal && endVal) {
+          seasonalBoosts.push({
+            label: (label ? label.value.trim() : '') || startVal,
+            startMmDd: startVal,
+            endMmDd: endVal,
+            boost: boostVal,
+          });
+        }
+      });
+    }
+
+    var body = {
+      manualBoost: manualBoost,
+      pinnedPosition: pinnedPosition,
+      hiddenOverride: hiddenOverride,
+      seasonalBoosts: seasonalBoosts,
+      countryCode: countryScoped ? state.country : null,
+    };
+
+    if (saveBtn) saveBtn.disabled = true;
+    if (saveStatus) { saveStatus.textContent = 'Saving\u2026'; saveStatus.className = 'status muted'; }
+
+    fetch('/api/admin/collection-ranking/' + encodeURIComponent(state.kind) + '/' + encodeURIComponent(item.slug), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-push-admin-token': state.token },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) {
+        return r.json().then(function (b) {
+          if (!r.ok || !b.ok) throw new Error(b.message || 'HTTP ' + r.status);
+          return b;
+        });
+      })
+      .then(function () {
+        if (saveStatus) { saveStatus.textContent = 'Saved!'; saveStatus.className = 'status ok'; }
+        setTimeout(function () {
+          var row = document.getElementById('panel-' + idx);
+          if (row) row.style.display = 'none';
+          openPanelId = null;
+          load();
+        }, 600);
+      })
+      .catch(function (err) {
+        if (saveStatus) { saveStatus.textContent = 'Error: ' + err.message; saveStatus.className = 'status err'; }
+        if (saveBtn) saveBtn.disabled = false;
+      });
+  }
+
+  function quickHide(slug) {
+    if (!confirm('Hide "' + slug + '" from the homepage for ' + countryLabel(state.country) + '?')) return;
+    fetch('/api/admin/collection-ranking/' + encodeURIComponent(state.kind) + '/' + encodeURIComponent(slug), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-push-admin-token': state.token },
+      body: JSON.stringify({ hiddenOverride: true, countryCode: state.country }),
+    }).then(function () { load(); }).catch(function (err) { setStatus('Error: ' + err.message, 'err'); });
+  }
+
+  function quickUnhide(slug) {
+    fetch('/api/admin/collection-ranking/' + encodeURIComponent(state.kind) + '/' + encodeURIComponent(slug), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-push-admin-token': state.token },
+      body: JSON.stringify({ hiddenOverride: false, countryCode: state.country }),
+    }).then(function () { load(); }).catch(function (err) { setStatus('Error: ' + err.message, 'err'); });
+  }
+})();
+</script>
+</body>
+</html>`;
