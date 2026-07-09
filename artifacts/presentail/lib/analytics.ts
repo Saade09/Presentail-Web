@@ -68,8 +68,7 @@ type AnalyticsAction =
   | "occasion"
   | "network"
   | "provider"
-  | "namePassword"
-  | "otp";
+  | "namePassword";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;

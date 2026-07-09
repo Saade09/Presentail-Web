@@ -901,8 +901,6 @@ const EN = {
   authClose: "Close",
   authBack: "Back",
 
-  // ── Phone verification (sign-up OTP flow) ──
-
   // ── Privacy & Terms placeholders ──
   privacyTitle: "Privacy Policy",
   splashTagline: "Gifts made personal",
@@ -1843,8 +1841,6 @@ const AR: typeof EN = {
   authHidePassword: "إخفاء كلمة المرور",
   authClose: "إغلاق",
   authBack: "رجوع",
-
-  // ── Phone verification (sign-up OTP flow) ──
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "سياسة الخصوصية",
@@ -2789,8 +2785,6 @@ const FR: typeof EN = {
   authHidePassword: "Masquer le mot de passe",
   authClose: "Fermer",
   authBack: "Retour",
-
-  // ── Phone verification (sign-up OTP flow) ──
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "Politique de confidentialité",
