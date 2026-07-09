@@ -811,8 +811,9 @@ function BestSellers() {
     () => seededShuffle(enrichedWooProducts, homepageShuffleSeed("best-sellers", selectedCountry?.code, selectedCity?.id)),
     [enrichedWooProducts, selectedCountry?.code, selectedCity?.id],
   );
-  // Show two full rows of cards regardless of column count.
-  const displayProducts = shuffledWooProducts.slice(0, numColumns * 2);
+  // Filter out products with no image, then show two full rows of cards.
+  // Applied after shuffle so the pool reduction doesn't affect seed stability.
+  const displayProducts = shuffledWooProducts.filter((p) => !!p.image).slice(0, numColumns * 2);
 
   if (!loading && displayProducts.length === 0) return null;
 
@@ -878,7 +879,9 @@ function FlowersSection() {
   const flowerProducts = useMemo(() => {
     const enriched = applyPricingToProducts(wooProducts, pricingMap);
     const pool = enriched.filter((p) => FLOWER_CATS.has(p.category));
-    return seededShuffle(pool, homepageShuffleSeed("flowers", selectedCountry?.code, selectedCity?.id)).slice(0, 10);
+    return seededShuffle(pool, homepageShuffleSeed("flowers", selectedCountry?.code, selectedCity?.id))
+      .filter((p) => !!p.image)
+      .slice(0, 10);
   }, [wooProducts, pricingMap, selectedCountry?.code, selectedCity?.id]);
 
   if (!loading && !flowerProducts.length) return null;
@@ -1090,8 +1093,11 @@ function BundlesSection() {
   const bundleProducts = useMemo(() => {
     const enriched = applyPricingToProducts(wooProducts, pricingMap);
     const pool = enriched.filter((p) => p.category === "bundles");
-    // Show two full rows of cards regardless of column count.
-    return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id)).slice(0, numColumns * 2);
+    // Filter out products with no image, then show two full rows of cards.
+    // Applied after shuffle so the pool reduction doesn't affect seed stability.
+    return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id))
+      .filter((p) => !!p.image)
+      .slice(0, numColumns * 2);
   }, [wooProducts, pricingMap, selectedCountry?.code, selectedCity?.id, numColumns]);
 
   if (!loading && !bundleProducts.length) return null;

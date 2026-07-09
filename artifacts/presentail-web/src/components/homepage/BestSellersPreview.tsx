@@ -126,20 +126,23 @@ export function BestSellersPreview({
   // ── Final product list ─────────────────────────────────────────────────
   const finalProducts = useMemo(() => {
     if (externalProducts !== undefined) {
-      // Caller-provided list (main Best Sellers rail) — just deprioritize purchased items
-      return deprioritizePurchased(externalProducts.slice(0, limit), purchasedNames);
+      // Caller-provided list (main Best Sellers rail) — filter image-less products then deprioritize purchased
+      return deprioritizePurchased(externalProducts.filter((p) => !!p.image).slice(0, limit), purchasedNames);
     }
 
     if (rankedData && rankedData.products.length > 0) {
-      // Sales-ranked from new endpoint
-      const ranked = rankedData.products.map(toBestSellerProduct).slice(0, limit);
+      // Sales-ranked from new endpoint — filter image-less products
+      const ranked = rankedData.products.map(toBestSellerProduct).filter((p) => !!p.image).slice(0, limit);
       return deprioritizePurchased(ranked, purchasedNames);
     }
 
-    // Fallback: OS flat list with daily shuffle (same as before)
+    // Fallback: OS flat list with daily shuffle — filter image-less products after shuffle
+    // so the pool reduction doesn't affect seed stability.
     const activeQuery = occasionSlug ? occQuery : catQuery;
     const catProducts = activeQuery.data?.products ?? [];
-    const shuffled = seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
+    const shuffled = seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId))
+      .filter((p) => !!p.image)
+      .slice(0, limit);
     return deprioritizePurchased(shuffled, purchasedNames);
   }, [
     externalProducts,
