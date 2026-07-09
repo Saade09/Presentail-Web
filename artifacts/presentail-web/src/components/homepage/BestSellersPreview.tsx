@@ -6,8 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { ProductCollectionCarousel } from "./ProductCollectionCarousel";
 import {
-  useGetHomepageBestSellers,
-  getGetHomepageBestSellersQueryKey,
+  useGetHomepageCollectionBestSellers,
+  getGetHomepageCollectionBestSellersQueryKey,
 } from "@workspace/api-client-react";
 
 type Props = {
@@ -83,8 +83,8 @@ export function BestSellersPreview({
     return p;
   }, [categorySlug, occasionSlug, countryCode, cityId]);
 
-  const rankedQueryKey = getGetHomepageBestSellersQueryKey(collectionParams);
-  const { data: rankedData, isLoading: isRankedLoading } = useGetHomepageBestSellers(
+  const rankedQueryKey = getGetHomepageCollectionBestSellersQueryKey(collectionParams);
+  const { data: rankedData, isLoading: isRankedLoading } = useGetHomepageCollectionBestSellers(
     collectionParams,
     {
       query: {
