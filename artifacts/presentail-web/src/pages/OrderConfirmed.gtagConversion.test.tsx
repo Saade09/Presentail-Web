@@ -4,9 +4,8 @@
 //
 // Verifies that fireAdsPurchaseConversion (i.e. window.gtag "conversion") fires
 // with the correct send_to label, transaction_id, value, and currency on every
-// successful purchase — for BOTH configured Google Ads accounts — and fires
-// exactly once per account per mount, even under React Strict Mode's
-// double-invocation of effects.
+// successful purchase, and fires exactly once per mount, even under React Strict
+// Mode's double-invocation of effects.
 //
 // Two code paths are exercised:
 //
@@ -87,7 +86,6 @@ import OrderConfirmed from "./OrderConfirmed";
 // ---------------------------------------------------------------------------
 
 const EXPECTED_SEND_TO = "AW-18281774261/XYi_CNabpMccELX5to1E";
-const EXPECTED_SEND_TO_2 = "AW-18306046187/XAOLCKLftMwcEOuxgJlE";
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
 // ---------------------------------------------------------------------------
@@ -134,13 +132,6 @@ function conversionCalls(gtag: ReturnType<typeof vi.fn>) {
   );
 }
 
-/** Return the conversion call for a specific Ads account (matched by send_to). */
-function conversionCallFor(gtag: ReturnType<typeof vi.fn>, sendTo: string) {
-  return conversionCalls(gtag).find(
-    ([, , params]: unknown[]) => (params as Record<string, unknown>)?.send_to === sendTo,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Test environment setup
 // ---------------------------------------------------------------------------
@@ -182,26 +173,6 @@ describe("OrderConfirmed — inline-payment path (?ref= on URL)", () => {
 
     const [, , params] = conversionCalls(mockGtag)[0] as [unknown, unknown, Record<string, unknown>];
     expect(params.send_to).toBe(EXPECTED_SEND_TO);
-  });
-
-  it("also fires a conversion for the second Google Ads account, without affecting the first", async () => {
-    renderWithProviders(<OrderConfirmed />, {
-      auth: { user: SIGNED_IN_USER, token: "fake-token", isLoading: false },
-    });
-
-    await waitFor(() => {
-      expect(conversionCalls(mockGtag).length).toBeGreaterThan(0);
-    });
-
-    const originalCall = conversionCallFor(mockGtag, EXPECTED_SEND_TO);
-    const secondCall = conversionCallFor(mockGtag, EXPECTED_SEND_TO_2);
-    expect(originalCall).toBeDefined();
-    expect(secondCall).toBeDefined();
-
-    const [, , secondParams] = secondCall as [unknown, unknown, Record<string, unknown>];
-    expect(secondParams.transaction_id).toBe("order-abc-123");
-    expect(secondParams.value).toBe(80);
-    expect(secondParams.currency).toBe("EUR");
   });
 
   it("passes the order ref as transaction_id", async () => {
@@ -378,7 +349,7 @@ describe("OrderConfirmed — redirect/finalizing path (createOrder.mutate)", () 
 
     // Allow any subsequent effects to settle
     await new Promise<void>((resolve) => setTimeout(resolve, 80));
-    expect(conversionCalls(mockGtag).length).toBe(2);
+    expect(conversionCalls(mockGtag).length).toBe(1);
   });
 
   it("does NOT fire the conversion when mutate returns ok:false", async () => {
@@ -561,7 +532,7 @@ describe("OrderConfirmed — React Strict Mode double-invocation guard", () => {
 
       // Allow all Strict Mode effect re-runs to settle before asserting count.
       await new Promise<void>((resolve) => setTimeout(resolve, 80));
-      expect(conversionCalls(mockGtag).length).toBe(2);
+      expect(conversionCalls(mockGtag).length).toBe(1);
     });
   });
 
@@ -594,7 +565,7 @@ describe("OrderConfirmed — React Strict Mode double-invocation guard", () => {
 
       // Allow all Strict Mode effect re-runs to settle before asserting count.
       await new Promise<void>((resolve) => setTimeout(resolve, 80));
-      expect(conversionCalls(mockGtag).length).toBe(2);
+      expect(conversionCalls(mockGtag).length).toBe(1);
     });
   });
 });
