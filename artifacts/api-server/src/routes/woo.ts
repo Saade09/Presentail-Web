@@ -447,14 +447,22 @@ router.get("/woo/brands", (_req, res) => {
   if (!osBrands) {
     return res.status(503).json({ ok: false, message: "OS catalog not yet available" }); // i18n-ignore
   }
+  const rawBrands = getOsRawCatalogBrands();
   return res.json({
     ok: true,
-    brands: osBrands.map((b) => ({
-      id: b.slug,
-      name: decodeHtmlEntities(b.name),
-      slug: b.slug,
-      image: b.image ?? null,
-    })),
+    brands: osBrands.map((b) => {
+      const rawBrandEntry = rawBrands?.find((rb: OSCatalogAttributeBrand) => rb.slug === b.slug);
+      // OS API returns banner_image_url (absolute CDN URL); cover_image is a
+      // forward-compat alias kept for potential future OS API versions.
+      const cover_image = rawBrandEntry?.banner_image_url ?? rawBrandEntry?.cover_image ?? null;
+      return {
+        id: b.slug,
+        name: decodeHtmlEntities(b.name),
+        slug: b.slug,
+        image: b.image ?? null,
+        cover_image,
+      };
+    }),
   });
 });
 
@@ -473,7 +481,7 @@ router.get("/woo/brand-products", (req, res) => {
   const brandImage = brandEntry?.image ?? null;
   const brandDescription = brandEntry?.description ? decodeHtmlEntities(brandEntry.description) : null;
   const brandCoverImage: string | null =
-    rawBrandEntry?.cover_image ?? rawBrandEntry?.image_public_url ?? null;
+    rawBrandEntry?.banner_image_url ?? rawBrandEntry?.cover_image ?? rawBrandEntry?.image_public_url ?? null;
 
   const sortMode = readSortMode(req);
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };

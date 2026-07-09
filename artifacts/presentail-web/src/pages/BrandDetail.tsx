@@ -91,14 +91,17 @@ export default function BrandDetail() {
     isBrandsLoading && !brand ? ({ skeleton: true } as const) : { label: brandName },
   ];
 
-  const coverImage = slug ? BRAND_COVER_IMAGES[slug] ?? null : null;
-  const hasCover = !!coverImage || !!brand?.image;
+  const staticCoverImage = slug ? BRAND_COVER_IMAGES[slug] ?? null : null;
+  const hasCover = !!brand?.cover_image || !!staticCoverImage || !!brand?.image;
 
-  // Compute srcset for the hero cover. buildBrandHeroSrcset branches on URL type:
+  // Priority: (1) OS cover_image (source of truth from the admin), (2) local static file fallback,
+  // (3) brand logo blurred/scaled as a last resort.
+  // buildBrandHeroSrcset branches on URL type:
   //  - /api/catalog/brand-image/… → catalog proxy widths (800/1200/1600w)
   //  - os.presentail.com/api/storage/… → OS img-proxy widths (400/800/1200w)
   //  - static /brand-covers/… paths → null (raw src used as-is)
-  const heroImgSrc = coverImage ?? brand?.image ?? null;
+  const heroImgSrc = brand?.cover_image ?? staticCoverImage ?? brand?.image ?? null;
+  const isLogoFallback = !brand?.cover_image && !staticCoverImage && !!brand?.image;
   const heroSrcsetData = heroImgSrc ? buildBrandHeroSrcset(heroImgSrc) : null;
 
   const products = data?.products ?? [];
@@ -154,7 +157,7 @@ export default function BrandDetail() {
                     src={heroSrcsetData?.src ?? heroImgSrc ?? ""}
                     alt=""
                     containerClassName="absolute inset-0"
-                    className={`object-cover${coverImage ? "" : " scale-110 blur-sm"}`}
+                    className={`object-cover${isLogoFallback ? " scale-110 blur-sm" : ""}`}
                     srcset={heroSrcsetData?.srcset}
                     sizes={heroSrcsetData?.sizes ?? BRAND_HERO_SIZES}
                     priority

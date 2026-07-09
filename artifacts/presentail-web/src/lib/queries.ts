@@ -500,11 +500,11 @@ export const useBrands = (_params: LocalizedParams = {}) => {
     queryFn: async () => {
       const data = await apiFetch<{
         ok: boolean;
-        brands: { id: string; name: string; slug: string; image: string | null }[];
+        brands: { id: string; name: string; slug: string; image: string | null; cover_image?: string | null }[];
       }>("/woo/brands");
       return {
         ok: true as const,
-        brands: (data.brands ?? []).map((b) => ({ ...b, count: 0 })),
+        brands: (data.brands ?? []).map((b) => ({ ...b, cover_image: b.cover_image ?? null, count: 0 })),
       };
     },
     staleTime: 10 * 60 * 1000,

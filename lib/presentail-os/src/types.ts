@@ -242,9 +242,15 @@ export type OSCatalogAttributeBrand = {
   image_url?: string | null;
   image_public_url?: string | null;
   /**
-   * Wide cover photo URL for the brand storefront header.
+   * Wide banner/cover photo URL for the brand storefront header.
+   * Returned by the OS API as `banner_image_url` (absolute public CDN URL).
    * Distinct from the brand logo (image_url/image_public_url).
-   * Null or absent when the OS admin has not set a cover photo for this brand.
+   * Null or absent when the OS admin has not set a banner photo for this brand.
+   */
+  banner_image_url?: string | null;
+  /**
+   * Legacy alias — kept for forward-compatibility in case a future OS version
+   * renames the field. Prefer `banner_image_url` for new code.
    */
   cover_image?: string | null;
   sort_order?: number;
