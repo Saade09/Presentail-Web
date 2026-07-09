@@ -1316,14 +1316,18 @@ function CheckoutForm() {
             submitPr.canMakePayment().then((result) => {
               if (!cancelled) {
                 paymentRequestRef.current = result ? submitPr : null;
+                setWalletReadySig(sig);
               }
             }).catch(() => {
-              if (!cancelled) paymentRequestRef.current = null;
+              if (!cancelled) {
+                paymentRequestRef.current = null;
+                setWalletReadySig(sig);
+              }
             });
           } catch {
             paymentRequestRef.current = null;
+            setWalletReadySig(sig);
           }
-          setWalletReadySig(sig);
         }
       } catch {
         if (cancelled) return;
@@ -1709,6 +1713,11 @@ function CheckoutForm() {
       // tappable again once the matching intent lands. No estimate is ever
       // shown, and wallet availability is unaffected (the tiles stay visible).
       if (isWalletMethod && !prefetchedIntent) {
+        toast({
+          title: t("checkout.toast.walletPrepareFailTitle"),
+          description: t("checkout.toast.walletPrepareFailDesc"),
+          variant: "destructive",
+        });
         return;
       }
 
