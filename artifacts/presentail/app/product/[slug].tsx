@@ -844,15 +844,15 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         <View
           style={{
             flexDirection: "row",
-            flexWrap: "wrap",
+            flexWrap: "nowrap",
             alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
+            justifyContent: "flex-start",
+            gap: 6,
             backgroundColor: colors.card,
             borderWidth: 1,
             borderColor: colors.border,
             borderRadius: 16,
-            paddingHorizontal: 14,
+            paddingHorizontal: 10,
             paddingVertical: 10,
           }}
         >
