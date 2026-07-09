@@ -705,7 +705,14 @@ function CheckoutForm() {
   // Initialized from localStorage (set by Cart.tsx validate flow) so the
   // sidebar shows the discounted total before payment, not just after order.
   const [confirmedCouponDiscount, setConfirmedCouponDiscount] = useState(() => {
-    try { return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0; } catch { return 0; }
+    try {
+      // Only restore a stored discount when a coupon code is also stored.
+      // COUPON_DISCOUNT_KEY can outlive COUPON_STORAGE_KEY when an order
+      // completes and only the code key is cleared, causing a silent discount
+      // on the next unrelated checkout session.
+      if (!(localStorage.getItem(COUPON_STORAGE_KEY) ?? "")) return 0;
+      return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0;
+    } catch { return 0; }
   });
   const [cardProcessing, setCardProcessing] = useState(false);
   const couponInputRef = useRef<HTMLInputElement>(null);
@@ -1557,9 +1564,10 @@ function CheckoutForm() {
       // the deduction before the redirect (and WC returns it in the response).
       if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
       clearCart();
-      // Clear the coupon code after a successful order so it doesn't
-      // persist into the next checkout session.
-      try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+      // Clear the coupon after a successful order so it doesn't persist into
+      // the next checkout session. Remove both keys together — discount key
+      // must not outlive the code key or the next session silently deducts.
+      try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
       // Fire-and-forget — runs after the order is confirmed in WC so a
       // profile-update failure never blocks order completion.
       void maybeSaveProfilePhone();
@@ -1870,7 +1878,7 @@ function CheckoutForm() {
               } catch { /* storage unavailable */ }
               if (walletStashed) {
                 clearCart();
-                try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+                try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
                 setLocation(`/order-confirmed?status=success`);
               } else {
                 // Storage failed — call the order API directly. The payload
@@ -1881,7 +1889,7 @@ function CheckoutForm() {
                 try {
                   const r = await createOrder.mutateAsync(payload) as CreateOrderResponse;
                   clearCart();
-                  try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+                  try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
                   if (r.ok) {
                     setLocation(`/order-confirmed?status=success&ref=${encodeURIComponent(payload.orderId)}`);
                   }
@@ -2842,10 +2850,10 @@ function CheckoutForm() {
                       <span>{t("checkout.deliveryLabel")}</span>
                       <span>{districtFee === 0 ? t("checkout.deliveryFree") : <FormattedPrice usdValue={districtFee} />}</span>
                     </div>
-                    {expressFee > 0 && (
+                    {deliveryMode === "express" && (
                       <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
                         <span>{t("checkout.expressUpgradeLabel")}</span>
-                        <span><FormattedPrice usdValue={expressFee} /></span>
+                        <span>{expressFee > 0 ? <FormattedPrice usdValue={expressFee} /> : t("checkout.deliveryFree")}</span>
                       </div>
                     )}
                     {slotFee > 0 && (
