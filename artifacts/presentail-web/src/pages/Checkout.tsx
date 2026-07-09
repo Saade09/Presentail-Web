@@ -1326,35 +1326,19 @@ function CheckoutForm() {
               disableWallets: ["link", "browserCard"],
             });
             submitPr.canMakePayment().then((result) => {
-              if (cancelled) return;
-              if (result) {
-                paymentRequestRef.current = submitPr;
+              if (!cancelled) {
+                // Store the PR only when the device has a wallet configured.
+                // When result is null the tile stays visible (mobile browsers
+                // can transiently return null before the wallet service
+                // initialises); handleSubmit shows a clear error if the user
+                // taps while the PR is still null.
+                paymentRequestRef.current = result ? submitPr : null;
                 setWalletReadySig(sig);
-              } else {
-                // canMakePayment() returned null — the device has no wallet
-                // configured or the browser doesn't support it. Hide the
-                // wallet tiles for this session and auto-switch to card so
-                // the shopper isn't left clicking a button that will fail.
-                paymentRequestRef.current = null;
-                setWalletSupported(false);
-                setPaymentMethodState("card");
-                toast({
-                  title: t("checkout.toast.walletUnavailable"),
-                  description: t("checkout.toast.walletUnavailableDesc"),
-                  variant: "destructive",
-                });
               }
             }).catch(() => {
               if (!cancelled) {
-                // canMakePayment() threw — treat same as unavailable.
                 paymentRequestRef.current = null;
-                setWalletSupported(false);
-                setPaymentMethodState("card");
-                toast({
-                  title: t("checkout.toast.walletUnavailable"),
-                  description: t("checkout.toast.walletUnavailableDesc"),
-                  variant: "destructive",
-                });
+                setWalletReadySig(sig);
               }
             });
           } catch {
@@ -1732,6 +1716,7 @@ function CheckoutForm() {
         expressDelivery: deliveryMode === "express",
         noAddress,
         couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
+        deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
         district: _selectedDistrict || undefined,
       });
       const prefetchedIntent =
