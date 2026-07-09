@@ -67,7 +67,7 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
             <img
               src={mainImageResponsive?.src ?? current.uri}
               alt={productName}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover"
               loading="eager"
               fetchPriority="high"
               data-testid="product-gallery-main-image"
