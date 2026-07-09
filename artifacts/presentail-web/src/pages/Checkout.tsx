@@ -26,6 +26,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { useIpDetectedCountry } from "@/lib/useIpDetectedCountry";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
@@ -396,6 +397,7 @@ function CheckoutForm() {
   const { t, dir, cityName } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
+  const ipCountry = useIpDetectedCountry();
 
   // For countries with a fixed billing currency (AE → AED, CY → EUR), the
   // payment PI and wallet sheet MUST use that fixed currency regardless of
@@ -2455,7 +2457,7 @@ function CheckoutForm() {
                         label={t("checkout.phoneNumber")}
                         value={sender.phone}
                         onChange={(v) => setSender({ ...sender, phone: v })}
-                        defaultCountry="LB"
+                        defaultCountry={ipCountry ?? "LB"}
                         required
                         showError={phoneSubmitAttempted}
                         errorMessage={t("checkout.phoneInvalidNumber")}
