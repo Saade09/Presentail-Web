@@ -1326,14 +1326,35 @@ function CheckoutForm() {
               disableWallets: ["link", "browserCard"],
             });
             submitPr.canMakePayment().then((result) => {
-              if (!cancelled) {
-                paymentRequestRef.current = result ? submitPr : null;
+              if (cancelled) return;
+              if (result) {
+                paymentRequestRef.current = submitPr;
                 setWalletReadySig(sig);
+              } else {
+                // canMakePayment() returned null — the device has no wallet
+                // configured or the browser doesn't support it. Hide the
+                // wallet tiles for this session and auto-switch to card so
+                // the shopper isn't left clicking a button that will fail.
+                paymentRequestRef.current = null;
+                setWalletSupported(false);
+                setPaymentMethodState("card");
+                toast({
+                  title: t("checkout.toast.walletUnavailable"),
+                  description: t("checkout.toast.walletUnavailableDesc"),
+                  variant: "destructive",
+                });
               }
             }).catch(() => {
               if (!cancelled) {
+                // canMakePayment() threw — treat same as unavailable.
                 paymentRequestRef.current = null;
-                setWalletReadySig(sig);
+                setWalletSupported(false);
+                setPaymentMethodState("card");
+                toast({
+                  title: t("checkout.toast.walletUnavailable"),
+                  description: t("checkout.toast.walletUnavailableDesc"),
+                  variant: "destructive",
+                });
               }
             });
           } catch {
