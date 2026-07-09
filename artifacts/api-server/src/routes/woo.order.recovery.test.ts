@@ -41,6 +41,7 @@ const {
 
 vi.mock("../lib/auth", () => ({
   authenticate: vi.fn().mockResolvedValue({ ok: false }),
+  resolveAuthenticatedCustomer: vi.fn().mockResolvedValue({ ok: false }),
 }));
 
 vi.mock("../lib/wooOrders", () => ({

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { desc, eq } from "drizzle-orm";
-import { db, appOrdersTable, customersTable } from "@workspace/db";
+import { db, appOrdersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { getCustomerById, getCustomerByWcId } from "../lib/customers";
@@ -86,6 +86,16 @@ async function resolveCustomerId(
 // guest and authenticated purchases through `upsertCustomer` — matching by
 // email and phone — orders placed before the customer signed up are stitched
 // onto the same canonical row and surface here automatically.
+//
+// Unverified-account guard: `appOrdersTable.customerId` is ONLY ever set by
+// the checkout route (see /woo/order's `isOwnAuthenticatedOrder` check) when
+// either (a) the account is emailVerified, or (b) the order was placed while
+// authenticated as that exact customer (proven by session, not by email/phone
+// matching). A fraudulent registration with someone else's email therefore
+// can never cause a pre-existing guest order to be linked to the attacker's
+// unverified row — the checkout route leaves `customerId` null for that case
+// — so no additional emailVerified gate is needed here: every row returned
+// below is either verified or was placed by this exact authenticated caller.
 router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res) => {
   const resolved = await resolveCustomerId(req, req.header("authorization"));
   if (!resolved.ok) {
@@ -95,19 +105,6 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
     }
     // Customer profile not found — return an empty list rather than an error.
     res.json({ ok: true, orders: [] });
-    return;
-  }
-
-  // Guard: do not return order history for unverified accounts.
-  // A fraudulent registration with someone else's email must not be able to
-  // read orders that were linked to that email before verification.
-  const [customerRow] = await db
-    .select({ emailVerified: customersTable.emailVerified })
-    .from(customersTable)
-    .where(eq(customersTable.id, resolved.customerId))
-    .limit(1);
-  if (customerRow && !customerRow.emailVerified) {
-    res.json({ ok: true, orders: [], needsEmailVerification: true });
     return;
   }
 

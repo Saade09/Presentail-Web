@@ -5,10 +5,10 @@ import { isUserType } from "@workspace/clerk-types";
 import { eq } from "drizzle-orm";
 
 import { resolveStore, resolveStoreFromRequest } from "./wooStore";
-import { upsertCustomer, getCustomerById } from "./customers";
+import { upsertCustomer, getCustomerById, getCustomerByWcId } from "./customers";
 import { syncCustomerToWoo } from "./customers";
 import { logger } from "./logger";
-import { db, analyticsEventsTable, customersTable } from "@workspace/db";
+import { db, analyticsEventsTable, customersTable, type Customer } from "@workspace/db";
 
 const SERVER_JWT_ISSUER = "presentail-api";
 const SERVER_JWT_AUDIENCE = "presentail-app";
@@ -458,4 +458,44 @@ export async function authenticate(
   }
 
   return { ok: true, customerId: id, token };
+}
+
+// Resolve the canonical `customers` row for an authenticated request, proven
+// by the caller's own session (not by email/phone matching). Priority order
+// mirrors `authenticate()`'s identity resolution:
+//   (a) localCustomerId claim — Clerk / native JWT / web auth; direct lookup.
+//   (b) WC customer ID — legacy mobile WordPress JWT; lookup by wcCustomerId.
+//   (c) Final fallback — local-only JWT where customerId IS the local row id.
+// Used to prove "this order belongs to the same customer who is currently
+// authenticated" independent of the account's emailVerified status, since an
+// authenticated session is itself proof of ownership — unlike email/phone
+// matching, which an attacker could trigger by registering with a victim's
+// email (see threat_model.md's anti-takeover requirement for guest orders).
+export async function resolveAuthenticatedCustomer(
+  authHeader: string | undefined,
+  req?: Request | { query: any; headers: any },
+): Promise<
+  | { ok: true; customer: Customer }
+  | { ok: false; status: number; message: string }
+> {
+  const auth = await authenticate(authHeader, req);
+  if (!auth.ok) return auth;
+  if (auth.localCustomerId) {
+    const local = await getCustomerById(auth.localCustomerId);
+    if (local) {
+      if (local.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+      return { ok: true, customer: local };
+    }
+  }
+  const byWc = await getCustomerByWcId(auth.customerId);
+  if (byWc) {
+    if (byWc.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+    return { ok: true, customer: byWc };
+  }
+  const byId = await getCustomerById(auth.customerId);
+  if (byId) {
+    if (byId.deletedAt) return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
+    return { ok: true, customer: byId };
+  }
+  return { ok: false, status: 404, message: "Customer profile not found" }; // i18n-ignore
 }

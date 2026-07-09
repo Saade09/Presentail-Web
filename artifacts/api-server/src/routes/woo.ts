@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { z } from "zod";
-import { authenticate } from "../lib/auth";
+import { authenticate, resolveAuthenticatedCustomer } from "../lib/auth";
 import { sortProducts, type ProductSortMode } from "../lib/productRanking";
 import {
   WooOrderSchema,
@@ -33,7 +33,6 @@ import { consumePaymentIntent, verifyCartMatchesSnapshot } from "../lib/checkout
 import {
   upsertCustomer,
   syncCustomerToWoo,
-  getCustomerByWcId,
 } from "../lib/customers";
 import { creditReferralRedemption } from "../lib/loyalty";
 import { validateCoupon } from "../lib/couponValidation";
@@ -968,11 +967,19 @@ router.post("/woo/order", async (req, res) => {
   // compatibility); the new `customerId` column points at the canonical
   // local customer row in `customers` and is populated below.
   let resolvedUserId: number | null = null;
+  // Local customer row resolved from the caller's own session (proof of
+  // ownership independent of the account's emailVerified status). Null for
+  // guest checkouts or when the Authorization header is missing/invalid.
+  let authenticatedCustomerId: number | null = null;
   const authHeader = req.header("authorization");
   if (authHeader) {
     const auth = await authenticate(authHeader, req);
     if (auth.ok) {
       resolvedUserId = auth.customerId;
+    }
+    const resolvedAuth = await resolveAuthenticatedCustomer(authHeader, req);
+    if (resolvedAuth.ok) {
+      authenticatedCustomerId = resolvedAuth.customer.id;
     }
   }
 
@@ -984,13 +991,9 @@ router.post("/woo/order", async (req, res) => {
   let wcCustomerId: number | null = null;
   try {
     // For authenticated requests, prefer the existing local row tied to
-    // the auth identity (looked up via wcCustomerId) so we patch it rather
-    // than creating a duplicate via email lookup.
-    let preferredCustomerId: number | null = null;
-    if (resolvedUserId != null) {
-      const existing = await getCustomerByWcId(resolvedUserId);
-      if (existing) preferredCustomerId = existing.id;
-    }
+    // the auth identity so we patch it rather than creating a duplicate via
+    // email lookup.
+    const preferredCustomerId = authenticatedCustomerId;
 
     const upserted = await upsertCustomer({
       email: body.billing.email,
@@ -1002,13 +1005,21 @@ router.post("/woo/order", async (req, res) => {
       source: "presentail.com",
       preferredCustomerId,
     });
-    // Do not attach the order to an unverified account. An attacker who
-    // registered with the victim's email before they could claim it must not
-    // gain read access to subsequent orders via /me/orders. We still create
-    // the order record — it just won't have a customerId foreign key until
-    // the legitimate owner verifies and the order is later reconciled by email.
+    // Do not attach the order to an unverified account UNLESS the request is
+    // authenticated as that very customer — i.e. the caller's own session
+    // proves ownership, the same guarantee an emailVerified check exists to
+    // provide. This keeps the anti-takeover protection intact for the guest/
+    // email-matching case: an attacker who registers with the victim's email
+    // (unverified, unauthenticated as the victim) still cannot get orders
+    // attached to that row, since they can only reach this code path with
+    // their own — not the victim's — session. We still create the order
+    // record in the unverified+unauthenticated case — it just won't have a
+    // customerId foreign key until the legitimate owner verifies and the
+    // order is later reconciled by email.
     const upsertedRow = await getCustomerById(upserted.customer.id);
-    if (upsertedRow && !upsertedRow.emailVerified) {
+    const isOwnAuthenticatedOrder =
+      authenticatedCustomerId != null && authenticatedCustomerId === upserted.customer.id;
+    if (upsertedRow && !upsertedRow.emailVerified && !isOwnAuthenticatedOrder) {
       resolvedCustomerId = null;
     } else {
       resolvedCustomerId = upserted.customer.id;
