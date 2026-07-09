@@ -1241,6 +1241,11 @@ function CheckoutForm() {
       return;
     }
 
+    // Mirror _selectedDistrict: fall back to the first active city when the
+    // shopper hasn't explicitly chosen a district. currentWalletSig uses the
+    // same logic so the two signatures stay byte-for-byte identical.
+    const effectFirstActiveCity = activeCities.find((c) => c.isActive !== false);
+    const effectDistrict = recipient.district || effectFirstActiveCity?.name || "";
     const sig = walletPiSignature({
       items: mappedItems,
       currency: checkoutCurrency,
@@ -1250,7 +1255,7 @@ function CheckoutForm() {
       noAddress,
       couponCode,
       deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
-      district: recipient.district || undefined,
+      district: effectDistrict || undefined,
     });
 
     // A fresh PaymentIntent for these exact inputs already exists — make sure
@@ -1375,6 +1380,7 @@ function CheckoutForm() {
     couponInput,
     sender.email,
     recipient.district,
+    activeCities,
     items,
     walletRetryNonce,
   ]);
