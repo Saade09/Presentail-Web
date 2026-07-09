@@ -6,3 +6,4 @@ export * from "./deliveryLocations";
 export * from "./countryCodes";
 export * from "./phoneLengths";
 export * from "./catalog";
+export * from "./careTips";

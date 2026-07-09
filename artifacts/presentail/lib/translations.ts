@@ -983,6 +983,54 @@ const EN = {
   loyaltyTiersExplainer: "Earn 1 point for every $1 you spend at Presentail. Points are credited once your order is delivered. Reach a tier and we'll mint a personal discount coupon you can use on your next order.",
   loyaltyNoPointsYet: "You haven't earned any points yet. Place your first order to start earning!",
 
+  // ── Care tips — flowers (also used for preserved-flowers) ──
+  careTipFlower1: "Trim 2 cm off stems at a 45° angle every 2–3 days.",
+  careTipFlower2: "Refresh the water daily; keep away from direct sunlight.",
+  careTipFlower3: "Remove any leaves below the waterline to prevent bacteria.",
+  careTipFlower4: "Display in a cool spot, away from fruit bowls and AC vents.",
+
+  // ── Care tips — balloons ──
+  careTipBalloon1: "Keep away from sharp objects to prevent punctures.",
+  careTipBalloon2: "Avoid extreme heat and direct sunlight to preserve buoyancy.",
+  careTipBalloon3: "Keep indoors in a cool environment for the longest float time.",
+  careTipBalloon4: "Handle gently — latex balloons can be sensitive to oils on skin.",
+
+  // ── Care tips — cakes ──
+  careTipCake1: "Refrigerate promptly and consume within 24 hours for best freshness.",
+  careTipCake2: "Remove from the fridge 20–30 minutes before serving for the best flavour.",
+  careTipCake3: "Keep away from strong odours — cakes absorb scents easily.",
+  careTipCake4: "Cover loosely to maintain moisture without trapping condensation.",
+
+  // ── Care tips — plants ──
+  careTipPlant1: "Water when the top 2–3 cm of soil feels dry to the touch.",
+  careTipPlant2: "Place in bright, indirect light — avoid harsh midday sun.",
+  careTipPlant3: "Ensure the pot has drainage; never let roots sit in standing water.",
+  careTipPlant4: "Wipe leaves gently with a damp cloth to keep them dust-free.",
+
+  // ── Care tips — chocolate / arabic sweets ──
+  careTipChocolate1: "Store in a cool, dry place away from direct sunlight.",
+  careTipChocolate2: "Keep away from strong odours — chocolate absorbs scents easily.",
+  careTipChocolate3: "Consume within the date printed on the packaging.",
+  careTipChocolate4: "Avoid refrigerating unless directed; condensation affects texture.",
+
+  // ── Care tips — stuffed animals ──
+  careTipStuffed1: "Surface clean with a slightly damp cloth; avoid soaking the filling.",
+  careTipStuffed2: "Air dry completely before storing or displaying.",
+  careTipStuffed3: "Keep away from damp environments to prevent mould.",
+  careTipStuffed4: "For a deep clean, follow the care label sewn into the toy.",
+
+  // ── Care tips — bundles ──
+  careTipBundle1: "Each item in this bundle has its own care needs — check the individual pieces.",
+  careTipBundle2: "Refrigerate any perishable items promptly upon receipt.",
+  careTipBundle3: "Store non-perishable items in a cool, dry place.",
+  careTipBundle4: "Handle with care — the bundle may include delicate or fragile pieces.",
+
+  // ── Care tips — electronics ──
+  careTipElectronics1: "Keep away from moisture and extreme temperatures.",
+  careTipElectronics2: "Use only the supplied or recommended charger to protect the battery.",
+  careTipElectronics3: "Handle screens and connectors with care to avoid scratches or damage.",
+  careTipElectronics4: "Store in its original packaging when not in use.",
+
   // ── Error boundaries ──
   errorSomethingWrong: "Something went wrong",
   errorReloadApp: "Please reload the app to continue.",
@@ -1877,6 +1925,54 @@ const AR: typeof EN = {
   loyaltyTopTierThankYou: "أنت في أعلى مستوياتنا — شكراً لكونك من VIP Presentail.",
   loyaltyTiersExplainer: "اكسب نقطة واحدة مقابل كل دولار تنفقه في Presentail. تُضاف النقاط بمجرد تسليم طلبك. بلّغ مستوى معيناً ونمنحك قسيمة خصم شخصية لاستخدامها في طلبك التالي.",
   loyaltyNoPointsYet: "لم تكسب أي نقاط بعد. قدّم طلبك الأول لتبدأ في جمع النقاط!",
+
+  // ── Care tips — flowers (also used for preserved-flowers) ──
+  careTipFlower1: "قصّ قدر ٢ سم من السيقان بزاوية ٤٥ درجة كل يومين إلى ثلاثة أيام.",
+  careTipFlower2: "غيّر الماء يومياً وابعد الزهور عن أشعة الشمس المباشرة.",
+  careTipFlower3: "أزِل الأوراق التي تحت خط الماء لمنع تكاثر البكتيريا.",
+  careTipFlower4: "ضعها في مكان بارد بعيداً عن الفواكه ومصادر تيار الهواء.",
+
+  // ── Care tips — balloons ──
+  careTipBalloon1: "ابعدها عن الأشياء الحادة لتجنب الثقب.",
+  careTipBalloon2: "تجنب الحرارة الشديدة وأشعة الشمس المباشرة للحفاظ على الطفو.",
+  careTipBalloon3: "اتركها في بيئة داخلية باردة للحصول على أطول وقت طفو ممكن.",
+  careTipBalloon4: "تعامل برفق — البالونات اللاتكس حساسة لزيوت الجلد.",
+
+  // ── Care tips — cakes ──
+  careTipCake1: "ضعه في الثلاجة فور استلامه وتناوله خلال ٢٤ ساعة للحصول على أفضل طعم.",
+  careTipCake2: "أخرجه من الثلاجة قبل ٢٠ إلى ٣٠ دقيقة من التقديم لأفضل نكهة.",
+  careTipCake3: "ابعده عن الروائح القوية — الكيك يمتص الروائح بسهولة.",
+  careTipCake4: "غطّه بشكل خفيف للحفاظ على الرطوبة دون حبس التكاثف.",
+
+  // ── Care tips — plants ──
+  careTipPlant1: "اسقِها عندما تبدو الطبقة العلوية من التربة جافة للمس.",
+  careTipPlant2: "ضعها في ضوء ساطع غير مباشر — تجنب أشعة الشمس الحارقة.",
+  careTipPlant3: "تأكد من وجود تصريف للماء في الأصيص؛ لا تترك الجذور في ماء راكد.",
+  careTipPlant4: "امسح الأوراق برفق بقطعة قماش مبللة للحفاظ على نظافتها.",
+
+  // ── Care tips — chocolate / arabic sweets ──
+  careTipChocolate1: "احفظها في مكان بارد وجاف بعيداً عن الشمس.",
+  careTipChocolate2: "ابعدها عن الروائح القوية — الشوكولاتة تمتص الروائح بسهولة.",
+  careTipChocolate3: "تناولها قبل التاريخ المطبوع على العبوة.",
+  careTipChocolate4: "تجنب وضعها في الثلاجة ما لم يُذكر ذلك — التكاثف يؤثر على القوام.",
+
+  // ── Care tips — stuffed animals ──
+  careTipStuffed1: "نظّفه سطحياً بقطعة قماش مبللة قليلاً؛ تجنب إبلال الحشوة.",
+  careTipStuffed2: "اتركه يجف تماماً في الهواء قبل التخزين أو العرض.",
+  careTipStuffed3: "ابعده عن الأماكن الرطبة لمنع تشكّل العفن.",
+  careTipStuffed4: "للتنظيف العميق، اتبع تعليمات العناية المخيطة على الدمية.",
+
+  // ── Care tips — bundles ──
+  careTipBundle1: "كل منتج في هذه الباقة له احتياجات عناية خاصة — راجع كل قطعة على حدة.",
+  careTipBundle2: "ضع المنتجات القابلة للتلف في الثلاجة فور استلامها.",
+  careTipBundle3: "احفظ المنتجات غير القابلة للتلف في مكان بارد وجاف.",
+  careTipBundle4: "تعامل بحذر — قد تحتوي الباقة على قطع دقيقة أو هشة.",
+
+  // ── Care tips — electronics ──
+  careTipElectronics1: "ابعده عن الرطوبة ودرجات الحرارة القصوى.",
+  careTipElectronics2: "استخدم فقط الشاحن المرفق أو الموصى به لحماية البطارية.",
+  careTipElectronics3: "تعامل مع الشاشات والموصلات بعناية لتجنب الخدش أو التلف.",
+  careTipElectronics4: "احفظه في عبوته الأصلية عند عدم الاستخدام.",
 
   // ── Error boundaries ──
   errorSomethingWrong: "حدث خطأ ما",
@@ -2775,6 +2871,54 @@ const FR: typeof EN = {
   loyaltyTopTierThankYou: "Vous êtes à notre palier le plus élevé — merci d'être un VIP Presentail.",
   loyaltyTiersExplainer: "Gagnez 1 point pour chaque dollar dépensé chez Presentail. Les points sont crédités dès la livraison de votre commande. Atteignez un palier et nous vous offrirons un bon de réduction personnel à utiliser sur votre prochaine commande.",
   loyaltyNoPointsYet: "Vous n'avez pas encore de points. Passez votre première commande pour commencer à en gagner !",
+
+  // ── Care tips — flowers (also used for preserved-flowers) ──
+  careTipFlower1: "Coupez 2 cm des tiges en biais à 45° tous les 2 à 3 jours.",
+  careTipFlower2: "Changez l'eau chaque jour et éloignez les fleurs de la lumière directe du soleil.",
+  careTipFlower3: "Retirez les feuilles sous la ligne d'eau pour éviter la prolifération bactérienne.",
+  careTipFlower4: "Exposez dans un endroit frais, loin des fruits et des bouches de climatisation.",
+
+  // ── Care tips — balloons ──
+  careTipBalloon1: "Éloignez des objets tranchants pour éviter les crevaisons.",
+  careTipBalloon2: "Évitez la chaleur intense et la lumière directe du soleil pour conserver la flottaison.",
+  careTipBalloon3: "Gardez à l'intérieur dans un endroit frais pour une durée de flottaison maximale.",
+  careTipBalloon4: "Manipulez avec délicatesse — les ballons en latex sont sensibles aux huiles cutanées.",
+
+  // ── Care tips — cakes ──
+  careTipCake1: "Réfrigérez immédiatement et consommez dans les 24 heures pour une fraîcheur optimale.",
+  careTipCake2: "Sortez du réfrigérateur 20 à 30 minutes avant de servir pour une meilleure saveur.",
+  careTipCake3: "Éloignez des odeurs fortes — les gâteaux absorbent facilement les parfums.",
+  careTipCake4: "Couvrez légèrement pour maintenir l'humidité sans emprisonner la condensation.",
+
+  // ── Care tips — plants ──
+  careTipPlant1: "Arrosez lorsque les 2 à 3 cm supérieurs de terre semblent secs au toucher.",
+  careTipPlant2: "Placez dans une lumière vive et indirecte — évitez le soleil de midi.",
+  careTipPlant3: "Assurez un bon drainage ; ne laissez jamais les racines tremper dans l'eau.",
+  careTipPlant4: "Essuyez délicatement les feuilles avec un chiffon humide pour les garder propres.",
+
+  // ── Care tips — chocolate / arabic sweets ──
+  careTipChocolate1: "Conservez dans un endroit frais et sec à l'abri du soleil.",
+  careTipChocolate2: "Éloignez des odeurs fortes — le chocolat absorbe facilement les parfums.",
+  careTipChocolate3: "Consommez avant la date indiquée sur l'emballage.",
+  careTipChocolate4: "Évitez de réfrigérer sauf indication contraire ; la condensation altère la texture.",
+
+  // ── Care tips — stuffed animals ──
+  careTipStuffed1: "Nettoyez en surface avec un chiffon légèrement humide ; évitez de détremper le rembourrage.",
+  careTipStuffed2: "Laissez sécher complètement à l'air avant de ranger ou d'exposer.",
+  careTipStuffed3: "Tenez à l'écart des environnements humides pour prévenir la moisissure.",
+  careTipStuffed4: "Pour un nettoyage en profondeur, suivez les instructions cousues sur l'étiquette.",
+
+  // ── Care tips — bundles ──
+  careTipBundle1: "Chaque article du coffret a ses propres besoins — consultez les instructions de chaque pièce.",
+  careTipBundle2: "Réfrigérez rapidement tout article périssable dès réception.",
+  careTipBundle3: "Conservez les articles non périssables dans un endroit frais et sec.",
+  careTipBundle4: "Manipulez avec précaution — le coffret peut contenir des pièces délicates ou fragiles.",
+
+  // ── Care tips — electronics ──
+  careTipElectronics1: "Protégez de l'humidité et des températures extrêmes.",
+  careTipElectronics2: "Utilisez uniquement le chargeur fourni ou recommandé pour préserver la batterie.",
+  careTipElectronics3: "Manipulez écrans et connecteurs avec soin pour éviter rayures et dommages.",
+  careTipElectronics4: "Rangez dans son emballage d'origine lorsqu'il n'est pas utilisé.",
 
   // ── Error boundaries ──
   errorSomethingWrong: "Une erreur s'est produite",

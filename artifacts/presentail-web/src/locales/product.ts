@@ -69,6 +69,54 @@ export const productStrings: Dict = {
   "productUnavailable.helpWhatsApp": { en: "Chat on WhatsApp", ar: "تواصل عبر واتساب" },
   "productUnavailable.helpPhone": { en: "Call Us", ar: "اتصل بنا" },
   "productUnavailable.helpEmail": { en: "Email Us", ar: "راسلنا بالبريد الإلكتروني" },
+
+  // ── Care tips — flowers (also used for preserved-flowers) ──
+  "product.care.flowers.tip1": { en: "Trim 2 cm off stems at a 45° angle every 2–3 days.", ar: "قصّ قدر ٢ سم من السيقان بزاوية ٤٥ درجة كل يومين إلى ثلاثة أيام." },
+  "product.care.flowers.tip2": { en: "Refresh the water daily; keep away from direct sunlight.", ar: "غيّر الماء يومياً وابعد الزهور عن أشعة الشمس المباشرة." },
+  "product.care.flowers.tip3": { en: "Remove any leaves below the waterline to prevent bacteria.", ar: "أزِل الأوراق التي تحت خط الماء لمنع تكاثر البكتيريا." },
+  "product.care.flowers.tip4": { en: "Display in a cool spot, away from fruit bowls and AC vents.", ar: "ضعها في مكان بارد بعيداً عن الفواكه ومصادر تيار الهواء." },
+
+  // ── Care tips — balloons ──
+  "product.care.balloons.tip1": { en: "Keep away from sharp objects to prevent punctures.", ar: "ابعدها عن الأشياء الحادة لتجنب الثقب." },
+  "product.care.balloons.tip2": { en: "Avoid extreme heat and direct sunlight to preserve buoyancy.", ar: "تجنب الحرارة الشديدة وأشعة الشمس المباشرة للحفاظ على الطفو." },
+  "product.care.balloons.tip3": { en: "Keep indoors in a cool environment for the longest float time.", ar: "اتركها في بيئة داخلية باردة للحصول على أطول وقت طفو ممكن." },
+  "product.care.balloons.tip4": { en: "Handle gently — latex balloons can be sensitive to oils on skin.", ar: "تعامل برفق — البالونات اللاتكس حساسة لزيوت الجلد." },
+
+  // ── Care tips — cakes ──
+  "product.care.cakes.tip1": { en: "Refrigerate promptly and consume within 24 hours for best freshness.", ar: "ضعه في الثلاجة فور استلامه وتناوله خلال ٢٤ ساعة للحصول على أفضل طعم." },
+  "product.care.cakes.tip2": { en: "Remove from the fridge 20–30 minutes before serving for the best flavour.", ar: "أخرجه من الثلاجة قبل ٢٠ إلى ٣٠ دقيقة من التقديم لأفضل نكهة." },
+  "product.care.cakes.tip3": { en: "Keep away from strong odours — cakes absorb scents easily.", ar: "ابعده عن الروائح القوية — الكيك يمتص الروائح بسهولة." },
+  "product.care.cakes.tip4": { en: "Cover loosely to maintain moisture without trapping condensation.", ar: "غطّه بشكل خفيف للحفاظ على الرطوبة دون حبس التكاثف." },
+
+  // ── Care tips — plants ──
+  "product.care.plants.tip1": { en: "Water when the top 2–3 cm of soil feels dry to the touch.", ar: "اسقِها عندما تبدو الطبقة العلوية من التربة جافة للمس." },
+  "product.care.plants.tip2": { en: "Place in bright, indirect light — avoid harsh midday sun.", ar: "ضعها في ضوء ساطع غير مباشر — تجنب أشعة الشمس الحارقة." },
+  "product.care.plants.tip3": { en: "Ensure the pot has drainage; never let roots sit in standing water.", ar: "تأكد من وجود تصريف للماء في الأصيص؛ لا تترك الجذور في ماء راكد." },
+  "product.care.plants.tip4": { en: "Wipe leaves gently with a damp cloth to keep them dust-free.", ar: "امسح الأوراق برفق بقطعة قماش مبللة للحفاظ على نظافتها." },
+
+  // ── Care tips — chocolate / arabic sweets ──
+  "product.care.chocolate.tip1": { en: "Store in a cool, dry place away from direct sunlight.", ar: "احفظها في مكان بارد وجاف بعيداً عن الشمس." },
+  "product.care.chocolate.tip2": { en: "Keep away from strong odours — chocolate absorbs scents easily.", ar: "ابعدها عن الروائح القوية — الشوكولاتة تمتص الروائح بسهولة." },
+  "product.care.chocolate.tip3": { en: "Consume within the date printed on the packaging.", ar: "تناولها قبل التاريخ المطبوع على العبوة." },
+  "product.care.chocolate.tip4": { en: "Avoid refrigerating unless directed; condensation affects texture.", ar: "تجنب وضعها في الثلاجة ما لم يُذكر ذلك — التكاثف يؤثر على القوام." },
+
+  // ── Care tips — stuffed animals ──
+  "product.care.stuffed.tip1": { en: "Surface clean with a slightly damp cloth; avoid soaking the filling.", ar: "نظّفه سطحياً بقطعة قماش مبللة قليلاً؛ تجنب إبلال الحشوة." },
+  "product.care.stuffed.tip2": { en: "Air dry completely before storing or displaying.", ar: "اتركه يجف تماماً في الهواء قبل التخزين أو العرض." },
+  "product.care.stuffed.tip3": { en: "Keep away from damp environments to prevent mould.", ar: "ابعده عن الأماكن الرطبة لمنع تشكّل العفن." },
+  "product.care.stuffed.tip4": { en: "For a deep clean, follow the care label sewn into the toy.", ar: "للتنظيف العميق، اتبع تعليمات العناية المخيطة على الدمية." },
+
+  // ── Care tips — bundles ──
+  "product.care.bundles.tip1": { en: "Each item in this bundle has its own care needs — check the individual pieces.", ar: "كل منتج في هذه الباقة له احتياجات عناية خاصة — راجع كل قطعة على حدة." },
+  "product.care.bundles.tip2": { en: "Refrigerate any perishable items promptly upon receipt.", ar: "ضع المنتجات القابلة للتلف في الثلاجة فور استلامها." },
+  "product.care.bundles.tip3": { en: "Store non-perishable items in a cool, dry place.", ar: "احفظ المنتجات غير القابلة للتلف في مكان بارد وجاف." },
+  "product.care.bundles.tip4": { en: "Handle with care — the bundle may include delicate or fragile pieces.", ar: "تعامل بحذر — قد تحتوي الباقة على قطع دقيقة أو هشة." },
+
+  // ── Care tips — electronics ──
+  "product.care.electronics.tip1": { en: "Keep away from moisture and extreme temperatures.", ar: "ابعده عن الرطوبة ودرجات الحرارة القصوى." },
+  "product.care.electronics.tip2": { en: "Use only the supplied or recommended charger to protect the battery.", ar: "استخدم فقط الشاحن المرفق أو الموصى به لحماية البطارية." },
+  "product.care.electronics.tip3": { en: "Handle screens and connectors with care to avoid scratches or damage.", ar: "تعامل مع الشاشات والموصلات بعناية لتجنب الخدش أو التلف." },
+  "product.care.electronics.tip4": { en: "Store in its original packaging when not in use.", ar: "احفظه في عبوته الأصلية عند عدم الاستخدام." },
 };
 
 export const productStringsFr: Record<string, string> = {
@@ -134,4 +182,52 @@ export const productStringsFr: Record<string, string> = {
   "productUnavailable.helpWhatsApp": "Chatter sur WhatsApp",
   "productUnavailable.helpPhone": "Nous appeler",
   "productUnavailable.helpEmail": "Nous écrire",
+
+  // ── Care tips — flowers (also used for preserved-flowers) ──
+  "product.care.flowers.tip1": "Coupez 2 cm des tiges en biais à 45° tous les 2 à 3 jours.",
+  "product.care.flowers.tip2": "Changez l'eau chaque jour et éloignez les fleurs de la lumière directe du soleil.",
+  "product.care.flowers.tip3": "Retirez les feuilles sous la ligne d'eau pour éviter la prolifération bactérienne.",
+  "product.care.flowers.tip4": "Exposez dans un endroit frais, loin des fruits et des bouches de climatisation.",
+
+  // ── Care tips — balloons ──
+  "product.care.balloons.tip1": "Éloignez des objets tranchants pour éviter les crevaisons.",
+  "product.care.balloons.tip2": "Évitez la chaleur intense et la lumière directe du soleil pour conserver la flottaison.",
+  "product.care.balloons.tip3": "Gardez à l'intérieur dans un endroit frais pour une durée de flottaison maximale.",
+  "product.care.balloons.tip4": "Manipulez avec délicatesse — les ballons en latex sont sensibles aux huiles cutanées.",
+
+  // ── Care tips — cakes ──
+  "product.care.cakes.tip1": "Réfrigérez immédiatement et consommez dans les 24 heures pour une fraîcheur optimale.",
+  "product.care.cakes.tip2": "Sortez du réfrigérateur 20 à 30 minutes avant de servir pour une meilleure saveur.",
+  "product.care.cakes.tip3": "Éloignez des odeurs fortes — les gâteaux absorbent facilement les parfums.",
+  "product.care.cakes.tip4": "Couvrez légèrement pour maintenir l'humidité sans emprisonner la condensation.",
+
+  // ── Care tips — plants ──
+  "product.care.plants.tip1": "Arrosez lorsque les 2 à 3 cm supérieurs de terre semblent secs au toucher.",
+  "product.care.plants.tip2": "Placez dans une lumière vive et indirecte — évitez le soleil de midi.",
+  "product.care.plants.tip3": "Assurez un bon drainage ; ne laissez jamais les racines tremper dans l'eau.",
+  "product.care.plants.tip4": "Essuyez délicatement les feuilles avec un chiffon humide pour les garder propres.",
+
+  // ── Care tips — chocolate / arabic sweets ──
+  "product.care.chocolate.tip1": "Conservez dans un endroit frais et sec à l'abri du soleil.",
+  "product.care.chocolate.tip2": "Éloignez des odeurs fortes — le chocolat absorbe facilement les parfums.",
+  "product.care.chocolate.tip3": "Consommez avant la date indiquée sur l'emballage.",
+  "product.care.chocolate.tip4": "Évitez de réfrigérer sauf indication contraire ; la condensation altère la texture.",
+
+  // ── Care tips — stuffed animals ──
+  "product.care.stuffed.tip1": "Nettoyez en surface avec un chiffon légèrement humide ; évitez de détremper le rembourrage.",
+  "product.care.stuffed.tip2": "Laissez sécher complètement à l'air avant de ranger ou d'exposer.",
+  "product.care.stuffed.tip3": "Tenez à l'écart des environnements humides pour prévenir la moisissure.",
+  "product.care.stuffed.tip4": "Pour un nettoyage en profondeur, suivez les instructions cousues sur l'étiquette.",
+
+  // ── Care tips — bundles ──
+  "product.care.bundles.tip1": "Chaque article du coffret a ses propres besoins — consultez les instructions de chaque pièce.",
+  "product.care.bundles.tip2": "Réfrigérez rapidement tout article périssable dès réception.",
+  "product.care.bundles.tip3": "Conservez les articles non périssables dans un endroit frais et sec.",
+  "product.care.bundles.tip4": "Manipulez avec précaution — le coffret peut contenir des pièces délicates ou fragiles.",
+
+  // ── Care tips — electronics ──
+  "product.care.electronics.tip1": "Protégez de l'humidité et des températures extrêmes.",
+  "product.care.electronics.tip2": "Utilisez uniquement le chargeur fourni ou recommandé pour préserver la batterie.",
+  "product.care.electronics.tip3": "Manipulez écrans et connecteurs avec soin pour éviter rayures et dommages.",
+  "product.care.electronics.tip4": "Rangez dans son emballage d'origine lorsqu'il n'est pas utilisé.",
 };

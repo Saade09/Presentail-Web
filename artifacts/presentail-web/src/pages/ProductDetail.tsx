@@ -540,7 +540,8 @@ export default function ProductDetail() {
         <ProductTabs
           description={effectiveDescription}
           bouquetIncludes={vm.bouquetIncludes}
-          careTips={vm.careTips}
+          careGroup={vm.careGroup}
+          careIconName={vm.careIconName}
         />
       </div>
 

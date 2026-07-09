@@ -1,17 +1,42 @@
 import { useState } from "react";
-import { Flower2 } from "lucide-react";
+import {
+  Flower2,
+  Sparkles,
+  Cake,
+  Leaf,
+  Cookie,
+  Heart,
+  Package,
+  Cpu,
+  type LucideProps,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
   description: string;
   bouquetIncludes: string[];
-  careTips: string[];
+  careGroup: string;
+  careIconName: string;
 };
 
 type Tab = "description" | "care";
 
-export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
+const CARE_ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
+  "flower-tulip": Flower2,
+  flower: Flower2,
+  "flower-poppy": Flower2,
+  balloon: Sparkles,
+  "cake-variant": Cake,
+  leaf: Leaf,
+  candy: Cookie,
+  "candy-outline": Cookie,
+  "teddy-bear": Heart,
+  gift: Package,
+  devices: Cpu,
+};
+
+export function ProductTabs({ description, bouquetIncludes, careGroup, careIconName }: Props) {
   const [tab, setTab] = useState<Tab>("description");
   const { t } = useLocale();
 
@@ -19,6 +44,8 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
     { id: "description" as const, label: t("product.tab.description") },
     { id: "care" as const, label: t("product.tab.careTips") },
   ];
+
+  const CareIcon = CARE_ICON_MAP[careIconName] ?? Flower2;
 
   return (
     <div className="mt-12" data-testid="product-tabs">
@@ -84,10 +111,10 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
           </div>
         ) : (
           <ul className="space-y-3">
-            {careTips.map((c) => (
-              <li key={c} className="flex gap-3 text-sm text-foreground">
-                <Flower2 className="w-4 h-4 text-gold mt-0.5 shrink-0" aria-hidden="true" />
-                <span className="flex-1 leading-6">{c}</span>
+            {([1, 2, 3, 4] as const).map((n) => (
+              <li key={n} className="flex gap-3 text-sm text-foreground">
+                <CareIcon className="w-4 h-4 text-gold mt-0.5 shrink-0" aria-hidden="true" />
+                <span className="flex-1 leading-6">{t(`product.care.${careGroup}.tip${n}`)}</span>
               </li>
             ))}
           </ul>

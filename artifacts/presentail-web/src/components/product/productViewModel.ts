@@ -1,21 +1,16 @@
 import { calcRewardPoints } from "@workspace/display-currency";
+import { CATEGORY_CARE_GROUP, CATEGORY_CARE_ICON } from "@workspace/catalog-data";
 import type { Product } from "@/lib/queries";
 
 export type ProductViewModel = {
   galleryImages: { uri: string }[];
   bouquetIncludes: string[];
   description: string;
-  careTips: string[];
+  careGroup: string;
+  careIconName: string;
   rewardPoints: number;
   inStock: boolean;
 };
-
-const DEFAULT_CARE_TIPS = [
-  "Trim 2cm off stems at a 45° angle every 2–3 days.",
-  "Refresh the water daily; keep away from direct sunlight.",
-  "Remove any leaves below the waterline to prevent bacteria.",
-  "Display in a cool spot, away from fruit bowls and AC vents.",
-];
 
 const DEFAULT_INCLUDES = [
   "Hand-arranged seasonal stems",
@@ -28,12 +23,9 @@ function parseDescriptionParts(desc: string): {
   intro: string;
   items: string[];
 } {
-  // Only bullet characters and newlines are recognised as list delimiters.
-  // Semicolons and other punctuation are treated as ordinary prose.
   const match = desc.match(/[•\u2022\n\r]/);
 
   if (!match || match.index === undefined) {
-    // No bullets or newlines — pure prose, behaviour unchanged.
     return { intro: desc.trim(), items: [] };
   }
 
@@ -67,11 +59,16 @@ export function buildProductViewModel(product: Product): ProductViewModel {
 
   const rewardPoints = calcRewardPoints(product.priceValue);
 
+  const categorySlug = product.category ?? "";
+  const careGroup = CATEGORY_CARE_GROUP[categorySlug] ?? "flowers";
+  const careIconName = CATEGORY_CARE_ICON[categorySlug] ?? "flower-tulip";
+
   return {
     galleryImages,
     bouquetIncludes,
     description,
-    careTips: DEFAULT_CARE_TIPS,
+    careGroup,
+    careIconName,
     rewardPoints,
     inStock: product.inStock,
   };

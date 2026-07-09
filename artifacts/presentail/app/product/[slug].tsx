@@ -33,6 +33,7 @@ import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getCategory } from "@/data/catalog";
+import { CATEGORY_CARE_GROUP, CATEGORY_CARE_ICON, type CareTipGroup } from "@workspace/catalog-data";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
@@ -660,12 +661,22 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   )!.label;
   const [rescheduleVisible, setRescheduleVisible] = useState(false);
 
-  const careTips: string[] = [
-    "Trim 2cm off stems at a 45° angle every 2–3 days.",
-    "Refresh the water daily; keep away from direct sunlight.",
-    "Remove any leaves below the waterline to prevent bacteria.",
-    "Display in a cool spot, away from fruit bowls and AC vents.",
-  ];
+  const categorySlug = product.category ?? "";
+  const careTipGroup: CareTipGroup = CATEGORY_CARE_GROUP[categorySlug] ?? "flowers";
+  const careIconName = CATEGORY_CARE_ICON[categorySlug] ?? "flower-tulip";
+
+  const careTips: string[] = (() => {
+    switch (careTipGroup) {
+      case "balloons":  return [t.careTipBalloon1, t.careTipBalloon2, t.careTipBalloon3, t.careTipBalloon4];
+      case "cakes":     return [t.careTipCake1, t.careTipCake2, t.careTipCake3, t.careTipCake4];
+      case "plants":    return [t.careTipPlant1, t.careTipPlant2, t.careTipPlant3, t.careTipPlant4];
+      case "chocolate": return [t.careTipChocolate1, t.careTipChocolate2, t.careTipChocolate3, t.careTipChocolate4];
+      case "stuffed":   return [t.careTipStuffed1, t.careTipStuffed2, t.careTipStuffed3, t.careTipStuffed4];
+      case "bundles":   return [t.careTipBundle1, t.careTipBundle2, t.careTipBundle3, t.careTipBundle4];
+      case "electronics": return [t.careTipElectronics1, t.careTipElectronics2, t.careTipElectronics3, t.careTipElectronics4];
+      default:          return [t.careTipFlower1, t.careTipFlower2, t.careTipFlower3, t.careTipFlower4];
+    }
+  })();
 
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 14 }}>
@@ -905,7 +916,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
           <View style={{ paddingTop: 16, gap: 10 }}>
             {careTips.map((c) => (
               <View key={c} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-                <MaterialCommunityIcons name="flower-tulip" size={14} color={colors.gold} style={{ marginTop: 3 }} />
+                <MaterialCommunityIcons name={careIconName as any} size={14} color={colors.gold} style={{ marginTop: 3 }} />
                 <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 20 }}>
                   {c}
                 </AppText>
