@@ -20,6 +20,7 @@ type Props = {
   testId?: string;
   products?: Product[];
   isLoadingExternal?: boolean;
+  sortBy?: "popularity" | "price-asc";
 };
 
 function toBestSellerProduct(p: {
@@ -60,6 +61,7 @@ export function BestSellersPreview({
   testId = "section-best-sellers",
   products: externalProducts,
   isLoadingExternal = false,
+  sortBy = "popularity",
 }: Props) {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
@@ -125,14 +127,17 @@ export function BestSellersPreview({
 
   // ── Final product list ─────────────────────────────────────────────────
   const finalProducts = useMemo(() => {
+    const sortProducts = (ps: Product[]) =>
+      sortBy === "price-asc" ? [...ps].sort((a, b) => a.priceValue - b.priceValue) : ps;
+
     if (externalProducts !== undefined) {
       // Caller-provided list (main Best Sellers rail) — filter image-less products then deprioritize purchased
-      return deprioritizePurchased(externalProducts.filter((p) => !!p.image).slice(0, limit), purchasedNames);
+      return deprioritizePurchased(sortProducts(externalProducts.filter((p) => !!p.image).slice(0, limit)), purchasedNames);
     }
 
     if (rankedData && rankedData.products.length > 0) {
-      // Sales-ranked from new endpoint — filter image-less products
-      const ranked = rankedData.products.map(toBestSellerProduct).filter((p) => !!p.image).slice(0, limit);
+      // Sales-ranked from new endpoint — filter image-less products, then optionally sort by price
+      const ranked = sortProducts(rankedData.products.map(toBestSellerProduct).filter((p) => !!p.image).slice(0, limit));
       return deprioritizePurchased(ranked, purchasedNames);
     }
 
@@ -140,9 +145,11 @@ export function BestSellersPreview({
     // so the pool reduction doesn't affect seed stability.
     const activeQuery = occasionSlug ? occQuery : catQuery;
     const catProducts = activeQuery.data?.products ?? [];
-    const shuffled = seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId))
-      .filter((p) => !!p.image)
-      .slice(0, limit);
+    const shuffled = sortProducts(
+      seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId))
+        .filter((p) => !!p.image)
+        .slice(0, limit),
+    );
     return deprioritizePurchased(shuffled, purchasedNames);
   }, [
     externalProducts,
@@ -155,6 +162,7 @@ export function BestSellersPreview({
     railKey,
     limit,
     occasionSlug,
+    sortBy,
   ]);
 
   const rankedProducts = (rankedData as { products: unknown[] } | undefined)?.products;

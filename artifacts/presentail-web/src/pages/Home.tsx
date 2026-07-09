@@ -102,12 +102,14 @@ export default function Home() {
       <HomepageCollections />
 
       {/* Second themed rail — Flower Boxes. Not shown in Cyprus (category doesn't exist there). */}
+      {/* sortBy="price-asc" surfaces the cheaper, fast-moving options first within the ranked set. */}
       {countryCode !== "CY" && (
         <BestSellersPreview
           categorySlug="flower-boxes"
           titleKey="collections.boxes.title"
           railKey="rail-boxes"
           testId="section-collection-boxes"
+          sortBy="price-asc"
         />
       )}
 
