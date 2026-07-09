@@ -2730,7 +2730,7 @@ function CheckoutForm() {
 
                 <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:relative lg:bottom-auto lg:inset-x-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none lg:border-none lg:shadow-none lg:px-0 lg:py-0 lg:mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                  <PaymentSubmitButton paymentMethod={paymentMethod} total={total} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
+                  <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
                 </div>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
