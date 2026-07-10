@@ -353,10 +353,18 @@ export default function SignInPage() {
         // If the lookup found an account but can't proceed (e.g. Clerk not
         // configured, or provisioning failed), surface an error — the user
         // already has an account so we must not silently route them to sign-up.
+        // Exception: when the server included a social-provider hint, show the
+        // named-provider redirect instead of the generic error toast.
         if (
           bridgeJson.code === "lookup_failed" ||
           bridgeJson.code === "lookup_unavailable"
         ) {
+          const hintedProvider = bridgeJson.socialProvider;
+          if (hintedProvider === "google" || hintedProvider === "apple") {
+            setSocialProvider(hintedProvider);
+            setStep("social-redirect");
+            return;
+          }
           toast({
             title: t("auth.toast.error"),
             description: t("auth.checkFailed"),

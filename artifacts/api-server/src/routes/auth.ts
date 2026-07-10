@@ -367,11 +367,23 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
     return;
   }
   if (!isClerkConfigured()) {
-    // We confirmed the WP user exists but cannot provision Clerk. Surface as
-    // a hard error so the UI shows "try again later" rather than silently
-    // failing on the next step.
-    req.log?.warn?.("auth.web-bridge: Clerk not configured");
-    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_unavailable", passwordLoginAvailable: isWcAuthEnabled() });
+    // We confirmed the account exists but cannot provision Clerk. Include
+    // socialProvider so the UI can show a provider-specific hint rather than
+    // a generic error even when Clerk is unavailable.
+    let socialProvider: "google" | "apple" | null = null;
+    try {
+      const provRows = await db
+        .select({ authProvider: customersTable.authProvider })
+        .from(customersTable)
+        .where(eq(customersTable.email, email))
+        .limit(1);
+      const p = provRows[0]?.authProvider;
+      if (p === "google" || p === "apple") socialProvider = p;
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.web-bridge: socialProvider lookup failed (non-fatal)");
+    }
+    req.log?.warn?.({ socialProvider }, "auth.web-bridge: Clerk not configured");
+    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_unavailable", passwordLoginAvailable: isWcAuthEnabled(), socialProvider });
     return;
   }
 
@@ -429,13 +441,27 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
     // page will advance the shopper to a Clerk email-code step against
     // a Clerk user that doesn't exist.
     if (!ensure.ok) {
+      // Look up the social provider so the UI can show a named-provider hint
+      // (e.g. "Please sign in with Google") even when Clerk provisioning fails.
+      let socialProvider: "google" | "apple" | null = null;
+      try {
+        const provRows = await db
+          .select({ authProvider: customersTable.authProvider })
+          .from(customersTable)
+          .where(eq(customersTable.email, email))
+          .limit(1);
+        const p = provRows[0]?.authProvider;
+        if (p === "google" || p === "apple") socialProvider = p;
+      } catch (e: any) {
+        req.log?.warn?.({ err: e?.message }, "auth.web-bridge: socialProvider lookup failed (non-fatal)");
+      }
       req.log?.warn?.(
-        { reason: ensure.reason, message: (ensure as any).message },
+        { reason: ensure.reason, message: (ensure as any).message, socialProvider },
         "auth.web-bridge: ensureClerkUserForCustomer returned not-ok",
       );
       const code: "lookup_failed" | "lookup_unavailable" =
         ensure.reason === "not_configured" ? "lookup_unavailable" : "lookup_failed";
-      res.json({ ok: true, exists: true, clerkReady: false, code, passwordLoginAvailable: isWcAuthEnabled() });
+      res.json({ ok: true, exists: true, clerkReady: false, code, passwordLoginAvailable: isWcAuthEnabled(), socialProvider });
       return;
     }
     let socialProvider: "google" | "apple" | null = null;
