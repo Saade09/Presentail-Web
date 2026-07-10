@@ -49,6 +49,7 @@ import { sendOrderEventPush } from "../lib/orderEvents";
 import { sendOrderEventSms } from "../lib/smsNotify";
 import { sendOrderEventEmail } from "../lib/emailNotify";
 import { uploadGoogleAdsConversion, type MarketingAttribution } from "../lib/googleAdsConversions";
+import { creditDeliveredOrder, reverseDeliveredOrder } from "../lib/loyalty";
 import { upsertCustomer } from "../lib/customers";
 import type { OrderState } from "../lib/orderEvents";
 import type { OSLocationsResponse, OSTimeSlot } from "@workspace/presentail-os";
@@ -496,6 +497,7 @@ export async function handleOrderStatusUpdated(
       lineItemsJson: appOrdersTable.lineItemsJson,
       marketingAttributionJson: appOrdersTable.marketingAttributionJson,
       gadsConversionUploadedAt: appOrdersTable.gadsConversionUploadedAt,
+      state: appOrdersTable.state,
     })
     .from(appOrdersTable)
     .where(where)
@@ -511,6 +513,7 @@ export async function handleOrderStatusUpdated(
   }
 
   const resolvedAppOrderId = row.appOrderId;
+  const previousState = row.state;
 
   // Update the stored state.
   await db
@@ -663,6 +666,55 @@ export async function handleOrderStatusUpdated(
     },
     "osWebhook: order status push + SMS + email dispatched",
   );
+
+  // Loyalty side-effects: credit on first delivery, reverse on cancel/refund.
+  // Best-effort and idempotent — never fail the webhook response.
+  // Source key: `os:{osOrderId}` so it cannot collide with WooCommerce sources.
+  if (row.customerId != null) {
+    const loyaltySource = `os:${osOrderId ?? resolvedAppOrderId}`;
+    try {
+      if (state === "delivered" && previousState !== "delivered") {
+        await creditDeliveredOrder({
+          customerId: row.customerId,
+          source: loyaltySource,
+          totalUsdCents: row.totalUsdCents ?? 0,
+          storeKey: row.storeKey ?? null,
+          log: req.log,
+        });
+        req.log.info?.(
+          { appOrderId: resolvedAppOrderId, loyaltySource },
+          "osWebhook: loyalty points credited for delivered order",
+        );
+      } else if (
+        (state === "cancelled" || state === "refunded") &&
+        previousState === "delivered"
+      ) {
+        await reverseDeliveredOrder({
+          customerId: row.customerId,
+          source: loyaltySource,
+          storeKey: row.storeKey ?? null,
+          reason: state as "cancelled" | "refunded",
+          log: req.log,
+        });
+        req.log.info?.(
+          { appOrderId: resolvedAppOrderId, loyaltySource, reason: state },
+          "osWebhook: loyalty points reversed for cancelled/refunded order",
+        );
+      }
+    } catch (err: unknown) {
+      req.log.warn?.(
+        { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
+        "osWebhook: loyalty hook failed (non-fatal)",
+      );
+    }
+  } else {
+    if (state === "delivered") {
+      req.log.warn?.(
+        { appOrderId: resolvedAppOrderId },
+        "osWebhook: delivered order has no customerId — loyalty points skipped",
+      );
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

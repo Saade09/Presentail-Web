@@ -479,7 +479,14 @@ export async function syncActiveCouponsForCustomer(input: {
 
 export type CreditOrderInput = {
   customerId: number;
-  wcOrderId: number;
+  /** WooCommerce order ID. Optional when `source` is provided directly (e.g. OS-native orders). */
+  wcOrderId?: number | null;
+  /**
+   * Explicit idempotency source key. When provided, overrides the computed
+   * `orderSourceKey(storeKey, wcOrderId)`. Use `os:{osOrderId}` for OS-native
+   * orders so they cannot collide with WooCommerce sources (`store:{wcOrderId}`).
+   */
+  source?: string;
   totalUsdCents: number;
   storeKey?: StoreKey | string | null;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
@@ -497,7 +504,7 @@ export async function creditDeliveredOrder(
 ): Promise<CreditOrderResult> {
   const { customerId, wcOrderId, totalUsdCents, storeKey, log } = input;
   const points = usdCentsToPoints(totalUsdCents);
-  const source = orderSourceKey(storeKey, wcOrderId);
+  const source = input.source ?? orderSourceKey(storeKey, wcOrderId ?? 0);
 
   const before = await getCustomerPoints(customerId);
   const beforeUnlocked = unlockedCouponTiers(before).map((t) => t.key);
@@ -666,7 +673,14 @@ export async function creditReferralRedemption(
 
 export type ReverseOrderInput = {
   customerId: number;
-  wcOrderId: number;
+  /** WooCommerce order ID. Optional when `source` is provided directly (e.g. OS-native orders). */
+  wcOrderId?: number | null;
+  /**
+   * Explicit idempotency source key. Must match the `source` used when crediting
+   * the order, so the reversal can look up the original credit row. For OS-native
+   * orders use `os:{osOrderId}`.
+   */
+  source?: string;
   storeKey?: StoreKey | string | null;
   reason?: "cancelled" | "refunded";
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
@@ -676,7 +690,7 @@ export async function reverseDeliveredOrder(
   input: ReverseOrderInput,
 ): Promise<{ reversed: boolean; pointsReversed: number; totalPoints: number }> {
   const { customerId, wcOrderId, storeKey } = input;
-  const source = orderSourceKey(storeKey, wcOrderId);
+  const source = input.source ?? orderSourceKey(storeKey, wcOrderId ?? 0);
 
   const credit = await db
     .select()
