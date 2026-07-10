@@ -375,7 +375,7 @@ function walletPiSignature(input: WalletPiSignatureInput): string {
 }
 
 function CheckoutForm() {
-  const { items, subtotal, clearCart, itemCount, isHydrated, updateCustomNote } = useCart();
+  const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   // Mirror the cart-button gate for direct visits to /checkout: signed-out
@@ -2504,37 +2504,6 @@ function CheckoutForm() {
                     <p className="text-xs text-gray-500 mt-1 ml-7" data-testid="identity-secret-hint">{t("checkout.keepIdentitySecretHint")}</p>
                   )}
                 </div>
-
-                {/* Letter Input — shown only when a cart item has hasInputField */}
-                {items.some((i) => i.product.hasInputField) && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-                    <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.letterInput")}</p>
-                    {items.filter((i) => i.product.hasInputField).map((item) => (
-                      <div key={item.product.id} className="flex flex-col gap-2">
-                        {items.filter((i) => i.product.hasInputField).length > 1 && (
-                          <p className="text-sm text-muted-foreground">{item.product.name}</p>
-                        )}
-                        <div className="flex items-center gap-4">
-                          <div className="relative w-20">
-                            <Input
-                              value={item.customNote ?? ""}
-                              onChange={(e) => {
-                                const v = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 1).toUpperCase();
-                                updateCustomNote(item.product.id, v);
-                              }}
-                              placeholder={t("checkout.letterInput.placeholder")}
-                              maxLength={1}
-                              className="h-14 text-2xl text-center uppercase tracking-widest font-serif"
-                              aria-label={t("checkout.letterInput.label")}
-                              data-testid={`input-checkout-letter-${item.product.id}`}
-                            />
-                          </div>
-                          <p className="text-sm text-muted-foreground flex-1">{t("checkout.letterInput.label")}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {/* Delivery Time */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
