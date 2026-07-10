@@ -283,11 +283,24 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
   }
   recordAuthExistsOutcome(result.outcome, platformHeader);
 
-  const body: { ok: true; exists: boolean; code?: string } = {
+  const body: { ok: true; exists: boolean; code?: string; socialProvider?: "google" | "apple" | null } = {
     ok: true,
     exists: result.exists,
   };
   if (result.code) body.code = result.code;
+  if (result.exists && !result.code) {
+    try {
+      const provRows = await db
+        .select({ authProvider: customersTable.authProvider })
+        .from(customersTable)
+        .where(eq(customersTable.email, email))
+        .limit(1);
+      const p = provRows[0]?.authProvider;
+      if (p === "google" || p === "apple") body.socialProvider = p;
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.exists: socialProvider lookup failed (non-fatal)");
+    }
+  }
   res.json(body);
 });
 
@@ -425,7 +438,19 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
       res.json({ ok: true, exists: true, clerkReady: false, code, passwordLoginAvailable: isWcAuthEnabled() });
       return;
     }
-    res.json({ ok: true, exists: true, clerkReady: true, passwordLoginAvailable: isWcAuthEnabled() });
+    let socialProvider: "google" | "apple" | null = null;
+    try {
+      const provRows = await db
+        .select({ authProvider: customersTable.authProvider })
+        .from(customersTable)
+        .where(eq(customersTable.email, email))
+        .limit(1);
+      const p = provRows[0]?.authProvider;
+      if (p === "google" || p === "apple") socialProvider = p;
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.web-bridge: socialProvider lookup failed (non-fatal)");
+    }
+    res.json({ ok: true, exists: true, clerkReady: true, passwordLoginAvailable: isWcAuthEnabled(), socialProvider });
   } catch (e: any) {
     // Defensive: helper shouldn't throw, but if it does (e.g. unexpected
     // sync error during construction), still surface a hard error.

@@ -119,6 +119,7 @@ function AuthScreen() {
     setLoginError(null);
     setSignupError(null);
     setForgotError(null);
+    setSocialError(null);
     setPassword("");
     if (step === "forgotPasteLink") {
       setStep("forgotSent");
@@ -149,7 +150,14 @@ function AuthScreen() {
     setEmailBusy(false);
     setEmail(trimmed);
     if (r.ok && r.exists) {
-      setStep("passwordLogin");
+      const sp = r.socialProvider;
+      if (sp === "google" || sp === "apple") {
+        setSocialError(
+          sp === "google" ? t.authSocialProviderGoogle : t.authSocialProviderApple,
+        );
+      } else {
+        setStep("passwordLogin");
+      }
     } else {
       setStep("signup");
     }

@@ -19,6 +19,7 @@ export * from "./authMeUpdateRequest";
 export * from "./authWebBridgeRequest";
 export * from "./authWebBridgeResponse";
 export * from "./authWebBridgeResponseCode";
+export * from "./authWebBridgeResponseSocialProvider";
 export * from "./catalogBrand";
 export * from "./catalogCategory";
 export * from "./catalogImageRef";

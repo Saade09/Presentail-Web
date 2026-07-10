@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AuthWebBridgeResponseCode } from "./authWebBridgeResponseCode";
+import type { AuthWebBridgeResponseSocialProvider } from "./authWebBridgeResponseSocialProvider";
 
 /**
  * Result of the /auth/web-bridge email lookup. When `exists` is `true`
@@ -28,6 +29,15 @@ clients should skip the password field and show social sign-in
 alternatives instead.
  */
   passwordLoginAvailable?: boolean;
+  /** The social identity provider the account was originally created
+with. Only present when `exists` is `true` and the customer row
+has `authProvider` set to `"google"` or `"apple"`. Null when the
+account was created with a password, via WooCommerce, or when no
+local row exists yet. Clients should use this to name the exact
+provider in the sign-in prompt rather than showing a generic
+"please use one of the options below" message.
+ */
+  socialProvider?: AuthWebBridgeResponseSocialProvider;
   /** Error code explaining a failed or degraded lookup. */
   code?: AuthWebBridgeResponseCode;
 }

@@ -2538,6 +2538,12 @@ export const CheckAuthWebBridgeResponse = zod
       .describe(
         "Whether legacy password login is available for this account.\nFalse (the default) when `WC_AUTH_ENABLED` is unset or false —\nclients should skip the password field and show social sign-in\nalternatives instead.\n",
       ),
+    socialProvider: zod
+      .enum(["google", "apple"])
+      .nullish()
+      .describe(
+        'The social identity provider the account was originally created\nwith. Only present when `exists` is `true` and the customer row\nhas `authProvider` set to `\"google\"` or `\"apple\"`. Null when the\naccount was created with a password, via WooCommerce, or when no\nlocal row exists yet. Clients should use this to name the exact\nprovider in the sign-in prompt rather than showing a generic\n\"please use one of the options below\" message.\n',
+      ),
     code: zod
       .enum(["lookup_failed", "lookup_unavailable"])
       .optional()

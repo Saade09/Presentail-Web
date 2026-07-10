@@ -1525,6 +1525,25 @@ export interface AuthWebBridgeRequest {
 }
 
 /**
+ * The social identity provider the account was originally created
+with. Only present when `exists` is `true` and the customer row
+has `authProvider` set to `"google"` or `"apple"`. Null when the
+account was created with a password, via WooCommerce, or when no
+local row exists yet. Clients should use this to name the exact
+provider in the sign-in prompt rather than showing a generic
+"please use one of the options below" message.
+
+ */
+export type AuthWebBridgeResponseSocialProvider =
+  | (typeof AuthWebBridgeResponseSocialProvider)[keyof typeof AuthWebBridgeResponseSocialProvider]
+  | null;
+
+export const AuthWebBridgeResponseSocialProvider = {
+  google: "google",
+  apple: "apple",
+} as const;
+
+/**
  * Error code explaining a failed or degraded lookup.
  */
 export type AuthWebBridgeResponseCode =
@@ -1556,6 +1575,15 @@ clients should skip the password field and show social sign-in
 alternatives instead.
  */
   passwordLoginAvailable?: boolean;
+  /** The social identity provider the account was originally created
+with. Only present when `exists` is `true` and the customer row
+has `authProvider` set to `"google"` or `"apple"`. Null when the
+account was created with a password, via WooCommerce, or when no
+local row exists yet. Clients should use this to name the exact
+provider in the sign-in prompt rather than showing a generic
+"please use one of the options below" message.
+ */
+  socialProvider?: AuthWebBridgeResponseSocialProvider;
   /** Error code explaining a failed or degraded lookup. */
   code?: AuthWebBridgeResponseCode;
 }

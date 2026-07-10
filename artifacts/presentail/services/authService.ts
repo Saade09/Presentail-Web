@@ -35,7 +35,7 @@ export type AuthResult<T = {}> = ({ ok: true } & T) | AuthError;
 
 export async function checkEmailExists(
   email: string,
-): Promise<AuthResult<{ exists: boolean }>> {
+): Promise<AuthResult<{ exists: boolean; socialProvider?: "google" | "apple" | null }>> {
   const trimmed = email.trim();
   if (!trimmed) return { ok: false, code: "email_required" };
   try {
@@ -56,6 +56,7 @@ export async function checkEmailExists(
       exists?: boolean;
       code?: string;
       message?: string;
+      socialProvider?: "google" | "apple" | null;
     };
     if (!res.ok || !data?.ok) {
       return { ok: false, code: "server", serverMessage: data?.message };
@@ -71,7 +72,12 @@ export async function checkEmailExists(
     if (data?.code === "lookup_unavailable") {
       return { ok: false, code: "lookup_unavailable" };
     }
-    return { ok: true, exists: Boolean(data.exists) };
+    const sp = data.socialProvider;
+    return {
+      ok: true,
+      exists: Boolean(data.exists),
+      socialProvider: sp === "google" || sp === "apple" ? sp : null,
+    };
   } catch {
     return { ok: false, code: "network" };
   }

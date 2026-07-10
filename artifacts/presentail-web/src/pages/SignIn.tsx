@@ -114,6 +114,7 @@ export default function SignInPage() {
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<"google" | "apple" | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -329,6 +330,7 @@ export default function SignInPage() {
         exists?: boolean;
         code?: "lookup_failed" | "lookup_unavailable";
         passwordLoginAvailable?: boolean;
+        socialProvider?: "google" | "apple" | null;
       } | null;
       if (
         !bridgeJson ||
@@ -365,6 +367,7 @@ export default function SignInPage() {
         if (bridgeJson.passwordLoginAvailable === true) {
           setStep("password");
         } else {
+          setSocialProvider(bridgeJson.socialProvider ?? null);
           setStep("social-redirect");
         }
         return;
@@ -478,11 +481,15 @@ export default function SignInPage() {
               className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-foreground"
               data-testid="text-signin-social-prompt"
             >
-              {t("auth.existingAccountSocialPrompt")}
+              {socialProvider === "google"
+                ? t("auth.existingAccountSocialPromptGoogle")
+                : socialProvider === "apple"
+                ? t("auth.existingAccountSocialPromptApple")
+                : t("auth.existingAccountSocialPrompt")}
             </div>
             <div className="space-y-2">
               <Button
-                variant="outline"
+                variant={socialProvider === "apple" ? "default" : "outline"}
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuthApple()}
@@ -495,7 +502,7 @@ export default function SignInPage() {
                   : t("auth.continueApple")}
               </Button>
               <Button
-                variant="outline"
+                variant={socialProvider === "google" ? "default" : "outline"}
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuthGoogle()}
