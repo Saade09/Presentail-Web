@@ -27,6 +27,12 @@ export type CartContextType = {
 
 export const CartContext = createContext<CartContextType | null>(null);
 
+function effectivePrice(product: Product): number {
+  return product.discountPriceValue != null && product.discountPriceValue > 0
+    ? product.discountPriceValue
+    : product.priceValue;
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useContext(AuthOverrideContext);
   const locationCtx = useContext(LocationContext);
@@ -85,7 +91,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     trackFbEvent("AddToCart", {
       content_ids: [product.id],
       content_type: "product",
-      value: product.priceValue,
+      value: effectivePrice(product),
       currency: "USD",
       ...(user?.email ? { userData: { em: user.email } } : {}),
     });
@@ -95,7 +101,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const newItems = existing
       ? items.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + quantity } : i)
       : [...items, { product, quantity }];
-    const newSubtotal = newItems.reduce((acc, item) => acc + item.product.priceValue * item.quantity, 0);
+    const newSubtotal = newItems.reduce((acc, item) => acc + effectivePrice(item.product) * item.quantity, 0);
     const cityName = locationCtx?.city?.name ?? locationCtx?.city?.id ?? undefined;
     const brandName = product.brandNames?.[0] ?? undefined;
     trackWebEvent({
@@ -103,7 +109,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items: newItems.map(i => ({
         productId: i.product.id,
         name: i.product.name,
-        price: i.product.priceValue,
+        price: effectivePrice(i.product),
         quantity: i.quantity,
       })),
       value: newSubtotal,
@@ -139,7 +145,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
-  const subtotal = items.reduce((acc, item) => acc + (item.product.priceValue * item.quantity), 0);
+  const subtotal = items.reduce((acc, item) => acc + (effectivePrice(item.product) * item.quantity), 0);
   const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (

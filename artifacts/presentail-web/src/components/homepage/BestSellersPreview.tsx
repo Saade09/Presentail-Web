@@ -28,6 +28,8 @@ function toBestSellerProduct(p: {
   name: string;
   price: string;
   priceValue: number;
+  discountPriceValue?: number | null;
+  discountPriceAed?: number | null;
   image?: { uri: string } | null;
   images: { uri: string }[];
   inStock: boolean;
@@ -39,6 +41,8 @@ function toBestSellerProduct(p: {
     name: p.name,
     price: p.price,
     priceValue: p.priceValue,
+    discountPriceValue: p.discountPriceValue ?? null,
+    discountPriceAed: p.discountPriceAed ?? null,
     image: p.image ? { uri: p.image.uri } : null,
     images: p.images.map((img) => ({ uri: img.uri })),
     inStock: p.inStock,

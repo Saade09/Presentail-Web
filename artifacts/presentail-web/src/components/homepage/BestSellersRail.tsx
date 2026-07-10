@@ -12,6 +12,8 @@ type BestSellerProduct = {
   name: string;
   price: string;
   priceValue: number;
+  discountPriceValue?: number | null;
+  discountPriceAed?: number | null;
   image: { uri: string } | null;
   images: { uri: string }[];
   inStock: boolean;
@@ -25,6 +27,8 @@ function toProduct(p: BestSellerProduct): Product {
     name: p.name,
     price: p.price,
     priceValue: p.priceValue,
+    discountPriceValue: p.discountPriceValue ?? null,
+    discountPriceAed: p.discountPriceAed ?? null,
     image: p.image,
     images: p.images,
     category: "",

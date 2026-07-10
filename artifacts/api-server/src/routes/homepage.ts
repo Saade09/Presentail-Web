@@ -514,6 +514,31 @@ function decodeName(name: string): string {
   return name.replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/&#8217;/g, "'");
 }
 
+function parseDiscountField(raw: string | number | null | undefined): number | null {
+  if (raw == null || raw === "" || raw === "0" || raw === 0) return null;
+  const n = typeof raw === "number" ? raw : parseFloat(raw);
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+function computeOsDiscountPriceValue(osP: {
+  price: number;
+  regular_price?: string | null;
+  sale_price?: string | null;
+  discount_price_usd?: string | null;
+}): number | null {
+  const regularPriceValue = parseDiscountField(osP.regular_price);
+  const salePriceField = parseDiscountField(osP.sale_price);
+  if (regularPriceValue != null && regularPriceValue > 0) {
+    if (salePriceField != null && salePriceField > 0 && salePriceField < regularPriceValue) {
+      return salePriceField;
+    } else if (osP.price > 0 && osP.price < regularPriceValue) {
+      return osP.price;
+    }
+    return null;
+  }
+  return parseDiscountField(osP.discount_price_usd);
+}
+
 // ── Best-sellers route ────────────────────────────────────────────────────
 //
 // DB-first: always ranks from app_orders so the endpoint returns real sales
@@ -564,6 +589,8 @@ router.get("/homepage/best-sellers", async (req, res) => {
     name: string;
     price: string;
     priceValue: number;
+    discountPriceValue: number | null;
+    discountPriceAed: number | null;
     image: { uri: string } | null;
     images: { uri: string }[];
     inStock: boolean;
@@ -600,6 +627,8 @@ router.get("/homepage/best-sellers", async (req, res) => {
       name: decodeName(osP ? osP.name : sale.originalName),
       price: formatPrice(priceValue),
       priceValue,
+      discountPriceValue: osP ? computeOsDiscountPriceValue(osP) : null,
+      discountPriceAed: osP ? parseDiscountField(osP.discount_price_aed) : null,
       image: imageList[0] ?? null,
       images: imageList,
       inStock: osP ? osP.inStock : true,
@@ -625,6 +654,8 @@ router.get("/homepage/best-sellers", async (req, res) => {
         name: decodeName(osP.name),
         price: formatPrice(osP.price),
         priceValue: osP.price,
+        discountPriceValue: computeOsDiscountPriceValue(osP),
+        discountPriceAed: parseDiscountField(osP.discount_price_aed),
         image: imageList[0] ?? null,
         images: imageList,
         inStock: true,
@@ -723,6 +754,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     name: string;
     price: string;
     priceValue: number;
+    discountPriceValue: number | null;
+    discountPriceAed: number | null;
     image: { uri: string } | null;
     images: { uri: string }[];
     inStock: boolean;
@@ -751,6 +784,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       name: decodeName(osP.name),
       price: formatPrice(osP.price),
       priceValue: osP.price,
+      discountPriceValue: computeOsDiscountPriceValue(osP),
+      discountPriceAed: parseDiscountField(osP.discount_price_aed),
       image: imageList[0] ?? null,
       images: imageList,
       inStock: osP.inStock,
@@ -774,6 +809,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       name: decodeName(osP.name),
       price: formatPrice(osP.price),
       priceValue: osP.price,
+      discountPriceValue: computeOsDiscountPriceValue(osP),
+      discountPriceAed: parseDiscountField(osP.discount_price_aed),
       image: imageList[0] ?? null,
       images: imageList,
       inStock: true,
@@ -795,6 +832,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       name: decodeName(osP.name),
       price: formatPrice(osP.price),
       priceValue: osP.price,
+      discountPriceValue: computeOsDiscountPriceValue(osP),
+      discountPriceAed: parseDiscountField(osP.discount_price_aed),
       image: imageList[0] ?? null,
       images: imageList,
       inStock: false,
