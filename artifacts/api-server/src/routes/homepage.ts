@@ -520,6 +520,21 @@ function parseDiscountField(raw: string | number | null | undefined): number | n
   return isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * Returns the display base price (crossed-out "was" price) for a product.
+ * When `regular_price` is explicitly set and > 0, it is used as the display
+ * price so the sale price can be shown alongside it. Falls back to `price`
+ * (the current selling price) when no regular_price is configured.
+ * Mirrors the `basePrice` logic in woo.ts / transformOsProduct.
+ */
+function computeOsDisplayPrice(osP: {
+  price: number;
+  regular_price?: string | null;
+}): number {
+  const rp = parseDiscountField(osP.regular_price);
+  return rp != null && rp > 0 ? rp : osP.price;
+}
+
 function computeOsDiscountPriceValue(osP: {
   price: number;
   regular_price?: string | null;
@@ -617,7 +632,7 @@ router.get("/homepage/best-sellers", async (req, res) => {
     if (seen.has(id)) continue;
     seen.add(id);
 
-    const priceValue = osP ? osP.price : sale.priceUsdCents / 100;
+    const priceValue = osP ? computeOsDisplayPrice(osP) : sale.priceUsdCents / 100;
     const imageList = osP
       ? osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0)
       : [];
@@ -649,11 +664,12 @@ router.get("/homepage/best-sellers", async (req, res) => {
       seen.add(osP.id);
 
       const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+      const displayPrice = computeOsDisplayPrice(osP);
       entries.push({
         id: osP.id,
         name: decodeName(osP.name),
-        price: formatPrice(osP.price),
-        priceValue: osP.price,
+        price: formatPrice(displayPrice),
+        priceValue: displayPrice,
         discountPriceValue: computeOsDiscountPriceValue(osP),
         discountPriceAed: parseDiscountField(osP.discount_price_aed),
         image: imageList[0] ?? null,
@@ -779,11 +795,12 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    const displayPrice = computeOsDisplayPrice(osP);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
-      price: formatPrice(osP.price),
-      priceValue: osP.price,
+      price: formatPrice(displayPrice),
+      priceValue: displayPrice,
       discountPriceValue: computeOsDiscountPriceValue(osP),
       discountPriceAed: parseDiscountField(osP.discount_price_aed),
       image: imageList[0] ?? null,
@@ -804,11 +821,12 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    const displayPrice = computeOsDisplayPrice(osP);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
-      price: formatPrice(osP.price),
-      priceValue: osP.price,
+      price: formatPrice(displayPrice),
+      priceValue: displayPrice,
       discountPriceValue: computeOsDiscountPriceValue(osP),
       discountPriceAed: parseDiscountField(osP.discount_price_aed),
       image: imageList[0] ?? null,
@@ -827,11 +845,12 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    const displayPrice = computeOsDisplayPrice(osP);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
-      price: formatPrice(osP.price),
-      priceValue: osP.price,
+      price: formatPrice(displayPrice),
+      priceValue: displayPrice,
       discountPriceValue: computeOsDiscountPriceValue(osP),
       discountPriceAed: parseDiscountField(osP.discount_price_aed),
       image: imageList[0] ?? null,
