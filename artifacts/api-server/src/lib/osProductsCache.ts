@@ -353,6 +353,31 @@ export function registerOsProductsRefreshListener(fn: () => void): void {
   osRefreshListeners.push(fn);
 }
 
+// ── Pricing-enrichment completion listeners ─────────────────────────────────
+
+/**
+ * Callbacks registered via `registerPricingEnrichmentListener`.
+ * Each is invoked after every successful `enrichProductPricingFromOs` run
+ * (including partial runs that timed out but still committed results) so
+ * dependent caches that embed pricing data can be invalidated as soon as
+ * fresh discount data is available.
+ *
+ * This is especially important on cold start: the OS refresh fires first,
+ * clearing dependent caches. If a request arrives before enrichment
+ * completes, it may cache a null-discount snapshot. These listeners ensure
+ * the dependent caches are busted again once enrichment finishes.
+ */
+const pricingEnrichmentListeners: Array<() => void> = [];
+
+/**
+ * Register a function to be called after every pricing enrichment cycle
+ * completes (both full and partial/timed-out runs that committed results).
+ * Listeners are called in registration order; errors are caught and logged.
+ */
+export function registerPricingEnrichmentListener(fn: () => void): void {
+  pricingEnrichmentListeners.push(fn);
+}
+
 // ── First-population callback ───────────────────────────────────────────────
 
 /**
@@ -930,6 +955,16 @@ async function enrichProductPricingFromOs(config: PresentailOsConfig): Promise<v
     { enrichedCount: newPricing.size, totalProducts: ids.length },
     "osProductsCache: product pricing enrichment complete",
   );
+
+  // Notify listeners (e.g. homepage caches) so they can bust stale
+  // null-discount snapshots captured before enrichment completed.
+  for (const fn of pricingEnrichmentListeners) {
+    try {
+      fn();
+    } catch (err) {
+      logger.warn({ err }, "osProductsCache: pricingEnrichmentListener threw");
+    }
+  }
 }
 
 // ── Index helpers ──────────────────────────────────────────────────────────

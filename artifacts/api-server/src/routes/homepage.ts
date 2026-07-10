@@ -15,7 +15,10 @@ import {
   getOsProducts,
   getOsCategories,
   getOsOccasions,
+  getOsProductPricingMap,
   registerOsProductsRefreshListener,
+  registerPricingEnrichmentListener,
+  type ProductPricingEntry,
 } from "../lib/osProductsCache";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { categories as staticCategories } from "@workspace/catalog-data";
@@ -464,6 +467,13 @@ registerOsProductsRefreshListener(() => {
   bestSellersCache.clear();
 });
 
+// Also bust the best-sellers cache when pricing enrichment completes so that
+// any null-discount snapshot cached during the cold-start window (between OS
+// refresh completing and enrichment finishing) is replaced with fresh data.
+registerPricingEnrichmentListener(() => {
+  bestSellersCache.clear();
+});
+
 // ── Local sales fetcher ───────────────────────────────────────────────────
 //
 // Queries app_orders for all confirmed/out_for_delivery/delivered rows and
@@ -554,6 +564,38 @@ function computeOsDiscountPriceValue(osP: {
   return parseDiscountField(osP.discount_price_usd);
 }
 
+type OsPricingInput = {
+  osNumericId?: number | string;
+  price: number;
+  regular_price?: string | null;
+  sale_price?: string | null;
+  discount_price_usd?: string | null;
+  discount_price_aed?: string | null;
+};
+
+/**
+ * Primary pricing resolver for homepage product entries.
+ *
+ * The OS list endpoint DOES NOT return sale_price / regular_price / discount_price_*
+ * fields — those are only available on the per-product detail endpoint, fetched
+ * asynchronously by the pricing enrichment step and stored in cachedProductPricing
+ * (keyed by osNumericId). This function reads from that enrichment map first and
+ * falls back to computing from raw product fields (which are always null from the
+ * list endpoint, but kept as a safety net for cold-start / enrichment-not-yet-run).
+ */
+function resolveProductPricing(
+  osP: OsPricingInput,
+  pricingMap: ReadonlyMap<string, ProductPricingEntry>,
+): { displayPrice: number; discountPriceValue: number | null; discountPriceAed: number | null } {
+  const key = osP.osNumericId != null ? String(osP.osNumericId) : "";
+  const entry = key ? pricingMap.get(key) : undefined;
+  return {
+    displayPrice: entry?.regularPriceUsd ?? computeOsDisplayPrice(osP),
+    discountPriceValue: entry?.discountPriceUsd ?? computeOsDiscountPriceValue(osP),
+    discountPriceAed: entry?.discountPriceAed ?? parseDiscountField(osP.discount_price_aed),
+  };
+}
+
 // ── Best-sellers route ────────────────────────────────────────────────────
 //
 // DB-first: always ranks from app_orders so the endpoint returns real sales
@@ -589,6 +631,11 @@ router.get("/homepage/best-sellers", async (req, res) => {
 
   // OS cache enrichment — available in production, may be cold in dev.
   const osProducts = getOsProducts(store.storeKey) ?? [];
+
+  // Pricing enrichment map (keyed by osNumericId string).
+  // The OS list endpoint omits sale_price / regular_price / discount_price_* —
+  // those are fetched per-product by the background enrichment step.
+  const pricingMap = getOsProductPricingMap();
 
   // Build a normalised-name → OS product map for O(1) lookups.
   const osProductByName = new Map(osProducts.map((p) => [p.name.toLowerCase().trim(), p]));
@@ -632,18 +679,19 @@ router.get("/homepage/best-sellers", async (req, res) => {
     if (seen.has(id)) continue;
     seen.add(id);
 
-    const priceValue = osP ? computeOsDisplayPrice(osP) : sale.priceUsdCents / 100;
     const imageList = osP
       ? osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0)
       : [];
+    const pricing = osP ? resolveProductPricing(osP, pricingMap) : null;
+    const priceValue = pricing ? pricing.displayPrice : sale.priceUsdCents / 100;
 
     entries.push({
       id,
       name: decodeName(osP ? osP.name : sale.originalName),
       price: formatPrice(priceValue),
       priceValue,
-      discountPriceValue: osP ? computeOsDiscountPriceValue(osP) : null,
-      discountPriceAed: osP ? parseDiscountField(osP.discount_price_aed) : null,
+      discountPriceValue: pricing ? pricing.discountPriceValue : null,
+      discountPriceAed: pricing ? pricing.discountPriceAed : null,
       image: imageList[0] ?? null,
       images: imageList,
       inStock: osP ? osP.inStock : true,
@@ -664,14 +712,14 @@ router.get("/homepage/best-sellers", async (req, res) => {
       seen.add(osP.id);
 
       const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
-      const displayPrice = computeOsDisplayPrice(osP);
+      const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
       entries.push({
         id: osP.id,
         name: decodeName(osP.name),
         price: formatPrice(displayPrice),
         priceValue: displayPrice,
-        discountPriceValue: computeOsDiscountPriceValue(osP),
-        discountPriceAed: parseDiscountField(osP.discount_price_aed),
+        discountPriceValue,
+        discountPriceAed,
         image: imageList[0] ?? null,
         images: imageList,
         inStock: true,
@@ -702,6 +750,11 @@ router.get("/homepage/best-sellers", async (req, res) => {
 const collectionBestSellersCache = new Map<string, BestSellersEntry>();
 
 registerOsProductsRefreshListener(() => {
+  collectionBestSellersCache.clear();
+});
+
+// Same cold-start bust for the collection cache.
+registerPricingEnrichmentListener(() => {
   collectionBestSellersCache.clear();
 });
 
@@ -739,6 +792,9 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   }
 
   const osProducts = getOsProducts(store.storeKey) ?? [];
+
+  // Pricing enrichment map — OS list endpoint omits sale/regular price fields.
+  const pricingMap = getOsProductPricingMap();
 
   // Filter OS products to those belonging to the requested category or occasion.
   const slugNorm = filterSlug.toLowerCase().trim();
@@ -795,14 +851,14 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
-    const displayPrice = computeOsDisplayPrice(osP);
+    const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
       price: formatPrice(displayPrice),
       priceValue: displayPrice,
-      discountPriceValue: computeOsDiscountPriceValue(osP),
-      discountPriceAed: parseDiscountField(osP.discount_price_aed),
+      discountPriceValue,
+      discountPriceAed,
       image: imageList[0] ?? null,
       images: imageList,
       inStock: osP.inStock,
@@ -821,14 +877,14 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
-    const displayPrice = computeOsDisplayPrice(osP);
+    const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
       price: formatPrice(displayPrice),
       priceValue: displayPrice,
-      discountPriceValue: computeOsDiscountPriceValue(osP),
-      discountPriceAed: parseDiscountField(osP.discount_price_aed),
+      discountPriceValue,
+      discountPriceAed,
       image: imageList[0] ?? null,
       images: imageList,
       inStock: true,
@@ -845,14 +901,14 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
-    const displayPrice = computeOsDisplayPrice(osP);
+    const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
       price: formatPrice(displayPrice),
       priceValue: displayPrice,
-      discountPriceValue: computeOsDiscountPriceValue(osP),
-      discountPriceAed: parseDiscountField(osP.discount_price_aed),
+      discountPriceValue,
+      discountPriceAed,
       image: imageList[0] ?? null,
       images: imageList,
       inStock: false,
