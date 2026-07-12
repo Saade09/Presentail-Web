@@ -534,7 +534,12 @@ function filterByAvailability(products: OSProduct[], spec: StoreOsFetchSpec): OS
     // City-level check: only when both the store and the product have cities set.
     const cities = p.deliverableCities;
     if (spec.cityId && cities && cities.length > 0) {
-      return cities.includes(spec.cityId);
+      // OS city slugs omit the two-letter country prefix that our internal city
+      // IDs carry (e.g. OS returns "dubai", spec.cityId is "ae-dubai").  The
+      // fetchOsProducts call already strips the prefix before querying OS
+      // (see client.ts line ~389).  Accept either form so both formats work.
+      const bareCitySlug = spec.cityId.replace(/^[a-z]{2}-/, "");
+      return cities.some((c) => c === spec.cityId || c === bareCitySlug);
     }
     return true;
   });
