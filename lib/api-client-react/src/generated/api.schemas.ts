@@ -859,6 +859,10 @@ export interface HomepageBestSellerProduct {
   popularity: number;
   /** Whether this product is in the top 20 by total sales across all stores. */
   isBestSeller?: boolean;
+  /** Active sale price in USD. Null when no discount is active. */
+  discountPriceValue?: number | null;
+  /** Active sale price in AED. Null when no AED discount is set. */
+  discountPriceAed?: number | null;
 }
 
 export interface HomepageBestSellersResponse {

@@ -42,6 +42,8 @@ export default function Home() {
           name: p.name,
           price: p.price,
           priceValue: p.priceValue,
+          discountPriceValue: p.discountPriceValue ?? null,
+          discountPriceAed: p.discountPriceAed ?? null,
           image: p.image ? { uri: p.image.uri } : null,
           images: p.images?.map((img) => ({ uri: img.uri })) ?? [],
           inStock: p.inStock,

@@ -3007,6 +3007,14 @@ components:
         isBestSeller:
           type: boolean
           description: Whether this product is in the top 20 by total sales across all stores.
+        discountPriceValue:
+          type: number
+          nullable: true
+          description: Active sale price in USD. Null when no discount is active.
+        discountPriceAed:
+          type: number
+          nullable: true
+          description: Active sale price in AED. Null when no AED discount is set.
       required:
         - id
         - name

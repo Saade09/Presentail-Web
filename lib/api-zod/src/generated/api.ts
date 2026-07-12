@@ -1489,6 +1489,18 @@ export const GetHomepageBestSellersResponse = zod.object({
           .describe(
             "Whether this product is in the top 20 by total sales across all stores.",
           ),
+        discountPriceValue: zod
+          .number()
+          .nullish()
+          .describe(
+            "Active sale price in USD. Null when no discount is active.",
+          ),
+        discountPriceAed: zod
+          .number()
+          .nullish()
+          .describe(
+            "Active sale price in AED. Null when no AED discount is set.",
+          ),
       })
       .describe(
         "A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).",
@@ -1575,6 +1587,18 @@ export const GetHomepageCollectionBestSellersResponse = zod.object({
           .optional()
           .describe(
             "Whether this product is in the top 20 by total sales across all stores.",
+          ),
+        discountPriceValue: zod
+          .number()
+          .nullish()
+          .describe(
+            "Active sale price in USD. Null when no discount is active.",
+          ),
+        discountPriceAed: zod
+          .number()
+          .nullish()
+          .describe(
+            "Active sale price in AED. Null when no AED discount is set.",
           ),
       })
       .describe(
