@@ -2,7 +2,7 @@
 // The client is never trusted as the source of truth for prices or fees.
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
-import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
+import { getOsProductBySlug, getOsProductByWcId, getOsProductPricingMap, hasOsProducts } from "./osProductsCache";
 import {
   getOsCountryFreeDeliveryThresholdUsd,
   getOsCountryFreeDeliveryEnabled,
@@ -129,14 +129,38 @@ type CatalogProduct = { price: number; name: string };
 //      successful OS poll). Once OS data is available, this path is bypassed.
 //
 // Returns null if the product is not found in the active source.
+/**
+ * Resolve the effective USD price for an OS product, consulting the pricing
+ * enrichment map first.
+ *
+ * The OS list endpoint omits sale_price / regular_price / discount_price_* —
+ * those are fetched per-product by the background enrichment step and stored in
+ * cachedProductPricing (keyed by osNumericId string).
+ *
+ * Rule: if the enrichment map has a discountPriceUsd for this product, that IS
+ * the price the customer should be charged. The raw osProduct.price is the
+ * regular/list price and must NOT be used when a sale is active.
+ */
+function resolveOsEffectivePrice(osProduct: { osNumericId?: number | string; price: number }): number {
+  const key = osProduct.osNumericId != null ? String(osProduct.osNumericId) : "";
+  if (key) {
+    const entry = getOsProductPricingMap().get(key);
+    if (entry?.discountPriceUsd != null && entry.discountPriceUsd > 0) {
+      return entry.discountPriceUsd;
+    }
+  }
+  return osProduct.price;
+}
+
 export async function fetchWcProductPrice(wcId: number, store?: WooStoreConfig): Promise<CatalogProduct | null> {
   const s = store ?? resolveStore();
 
   // Primary: Presentail OS cache (O(1) lookup by wcId, country-scoped).
   const osProduct = getOsProductByWcId(wcId, s.storeKey);
   if (osProduct) {
-    if (osProduct.price > 0) {
-      return { price: osProduct.price, name: osProduct.name };
+    const effectivePrice = resolveOsEffectivePrice(osProduct);
+    if (effectivePrice > 0) {
+      return { price: effectivePrice, name: osProduct.name };
     }
     // OS has the product but price is zero/invalid — treat as not orderable.
     return null;
@@ -220,9 +244,12 @@ export async function resolveCartItems(
       const osProduct =
         getOsProductBySlug(item.osSlug, s.storeKey) ??
         getOsProductBySlug(item.osSlug);
-      if (osProduct && osProduct.price > 0) {
-        catalog = { price: osProduct.price, name: osProduct.name };
-        resolvedSlug = osProduct.id;
+      if (osProduct) {
+        const effectivePrice = resolveOsEffectivePrice(osProduct);
+        if (effectivePrice > 0) {
+          catalog = { price: effectivePrice, name: osProduct.name };
+          resolvedSlug = osProduct.id;
+        }
       }
     }
     if (!catalog) {
