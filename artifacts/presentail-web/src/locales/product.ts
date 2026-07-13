@@ -18,6 +18,10 @@ export const productStrings: Dict = {
   "product.scheduleDelivery": { en: "Select date and time of delivery", ar: "اختر تاريخ ووقت التوصيل" },
   "product.scheduledSubtitle": { en: "Pick a window that works for you", ar: "اختر الوقت المناسب لك" },
   "product.calendarAria": { en: "Pick a date from the calendar", ar: "اختر تاريخاً من التقويم" },
+  "product.otherDate": { en: "Other date", ar: "تاريخ آخر" },
+  "product.deliveryConfirmation": { en: "Delivery: {date} · {slot}", ar: "التوصيل: {date} · {slot}" },
+  "product.deliveryFree": { en: "Free", ar: "مجاناً" },
+  "product.deliveryExtraFee": { en: "+{fee}", ar: "+{fee}" }, // no-translate — fee amount placeholder
   "product.prevMonth": { en: "Previous month", ar: "الشهر السابق" },
   "product.nextMonth": { en: "Next month", ar: "الشهر التالي" },
   "product.expandImage": { en: "Expand image", ar: "توسيع الصورة" },
@@ -137,6 +141,10 @@ export const productStringsFr: Record<string, string> = {
   "product.scheduleDelivery": "Choisir la date et l'heure de livraison",
   "product.scheduledSubtitle": "Choisissez un créneau qui vous convient",
   "product.calendarAria": "Choisir une date dans le calendrier",
+  "product.otherDate": "Autre date",
+  "product.deliveryConfirmation": "Livraison : {date} · {slot}",
+  "product.deliveryFree": "Gratuit",
+  "product.deliveryExtraFee": "+{fee}", // no-translate — fee amount placeholder
   "product.prevMonth": "Mois précédent",
   "product.nextMonth": "Mois suivant",
   "product.expandImage": "Agrandir l'image",

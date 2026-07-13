@@ -226,6 +226,17 @@ export function fmt12h(h: number): string {
 }
 
 /**
+ * Format an hour (0–23) as a concise 12-hour label, e.g. 9 → "9 AM",
+ * 14 → "2 PM", 0 → "12 AM", 12 → "12 PM". Drops the ":00" for brevity.
+ */
+export function fmt12hShort(h: number): string {
+  if (h === 0) return "12 AM";
+  if (h < 12) return `${h} AM`;
+  if (h === 12) return "12 PM";
+  return `${h - 12} PM`;
+}
+
+/**
  * Returns "H:00 AM–H:00 PM" (12hr) for a slot that has `startHour` and
  * `endHour` defined (OS-configured slots), or `undefined` for legacy slots
  * that only carry a label.
@@ -249,6 +260,54 @@ export function slotTimeRangeForLabel(
   const slot = slots.find((s) => s.label === slotLabel);
   if (!slot) return undefined;
   return formatSlotTimeRange(slot);
+}
+
+/** Parse "9:00 AM" or "2:00 PM" style strings → hour (0–23). Returns null on failure. */
+function parseLabel12h(s: string): number | null {
+  const m = /^(\d+)(?::\d+)?\s*(AM|PM)$/i.exec(s.trim());
+  if (!m) return null;
+  let h = parseInt(m[1]!, 10);
+  const period = m[2]!.toUpperCase();
+  if (period === "AM") {
+    if (h === 12) h = 0;
+  } else {
+    if (h !== 12) h += 12;
+  }
+  return h;
+}
+
+/**
+ * Returns a concise "9 AM–2 PM" range for a slot. Uses `startHour`/`endHour`
+ * when present (OS-configured slots); for legacy label-only slots, parses the
+ * existing "9:00 AM – 2:00 PM" label and reformats it. Falls back to the raw
+ * label when parsing fails.
+ */
+export function formatSlotTimeRangeShort(slot: TimeSlot): string {
+  if (slot.startHour !== undefined && slot.endHour !== undefined) {
+    return `${fmt12hShort(slot.startHour)}–${fmt12hShort(slot.endHour)}`;
+  }
+  const parts = slot.label.split("–").map((p) => p.trim());
+  if (parts.length === 2) {
+    const from = parseLabel12h(parts[0] ?? "");
+    const to = parseLabel12h(parts[1] ?? "");
+    if (from !== null && to !== null) return `${fmt12hShort(from)}–${fmt12hShort(to)}`;
+  }
+  return slot.label;
+}
+
+/**
+ * Looks up `slotLabel` in `slots` and returns the concise time range (e.g.
+ * "9 AM–2 PM") using `formatSlotTimeRangeShort`.
+ * Returns `undefined` when the slot is not found.
+ */
+export function slotTimeRangeShortForLabel(
+  slotLabel: string | null | undefined,
+  slots: TimeSlot[],
+): string | undefined {
+  if (!slotLabel) return undefined;
+  const slot = slots.find((s) => s.label === slotLabel);
+  if (!slot) return undefined;
+  return formatSlotTimeRangeShort(slot);
 }
 
 /**

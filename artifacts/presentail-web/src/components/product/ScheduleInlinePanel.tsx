@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import {
   dayLabels,
   firstAvailableSlot,
+  formatSlotTimeRangeShort,
   getCountryHour,
   getLocalIso,
   timeSlotsForCountry,
@@ -24,6 +26,13 @@ type Props = {
    * Falls back to the flat `timeSlots` when the day key is absent or this prop is omitted.
    */
   slotsByDay?: Record<string, TimeSlot[]>;
+  /**
+   * When true the standard district delivery fee is waived for this order (cart
+   * total meets the free-delivery threshold and freeDeliveryEnabled is on). Used
+   * to determine whether zero-extraFee slots are labelled "Free" or remain silent.
+   * Defaults to false so the label is conservative when data hasn't loaded yet.
+   */
+  freeDeliveryMet?: boolean;
   onChange: (args: {
     mode: "today_slot" | "schedule";
     date: string;
@@ -41,9 +50,11 @@ export function ScheduleInlinePanel({
   initialSlotLabel,
   timeSlots: propTimeSlots,
   slotsByDay: propSlotsByDay,
+  freeDeliveryMet = false,
   onChange,
 }: Props) {
   const { t } = useLocale();
+  const { formatPrice } = useDisplayCurrency();
   const code = (countryCode ?? "LB").toUpperCase();
   // Pass the country code so dayLabels() uses the local timezone (not UTC)
   // when computing which calendar day is "today".
@@ -209,6 +220,19 @@ export function ScheduleInlinePanel({
   // Whether the current date selection falls outside the visible chip strip.
   const dateInStrip = days.some((d) => d.iso === date);
 
+  // Build the confirmation line: shown once both date and slot are selected.
+  const confirmationLine = useMemo(() => {
+    if (!slotLabel) return null;
+    const dayEntry = days.find((d) => d.iso === date);
+    const dayLabel = dayEntry ? dayEntry.label : weekdayShort(date);
+    const dateStr = `${dayOfMonth(date)} ${monthShort(date)}`;
+    const slot = timeSlots.find((s) => s.label === slotLabel);
+    const slotRange = slot ? formatSlotTimeRangeShort(slot) : slotLabel;
+    return t("product.deliveryConfirmation")
+      .replace("{date}", `${dayLabel}, ${dateStr}`)
+      .replace("{slot}", slotRange);
+  }, [slotLabel, date, days, timeSlots, t]);
+
   return (
     <div
       className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-5"
@@ -227,12 +251,13 @@ export function ScheduleInlinePanel({
                 <button
                   key={d.iso}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => {
                     setDate(d.iso);
                     setCalendarOpen(false);
                   }}
                   className={cn(
-                    "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors",
+                    "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors relative",
                     active
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background text-foreground border-border hover:border-foreground/30",
@@ -253,8 +278,9 @@ export function ScheduleInlinePanel({
             {!dateInStrip && (
               <button
                 type="button"
+                aria-pressed={true}
                 className={cn(
-                  "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors",
+                  "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors relative",
                   "bg-primary text-primary-foreground border-primary",
                 )}
                 data-testid={`schedule-day-${date}`}
@@ -285,7 +311,7 @@ export function ScheduleInlinePanel({
               data-testid="schedule-calendar-toggle"
             >
               <CalendarDays className="w-4 h-4" />
-              <span className="block text-[10px] leading-tight">More</span>
+              <span className="block text-[10px] leading-tight">{t("product.otherDate")}</span>
             </button>
 
             {/* Desktop: absolute popover anchored to the button */}
@@ -339,17 +365,25 @@ export function ScheduleInlinePanel({
             const isToday = date === todayIso;
             const past = isToday && localHour >= s.cutoffHour;
             const active = slotLabel === s.label;
-            const hasHours = s.startHour !== undefined && s.endHour !== undefined;
-            const fromLabel = hasHours ? fmtHour(s.startHour ?? 0) : s.label.split("–")[0]?.trim() ?? s.label;
-            const toLabel = hasHours ? fmtHour(s.endHour ?? 0) : (s.label.split("–")[1]?.trim() ?? null);
+            const rangeLabel = formatSlotTimeRangeShort(s);
+            const hasExtraFee = typeof s.extraFee === "number" && s.extraFee > 0;
+            // "Free" label: only shown when this slot has no extra surcharge AND the
+            // district delivery fee is also waived (cart meets the free-delivery threshold).
+            // "+fee" label: always shown when extraFee > 0 regardless of threshold.
+            const feeLabel = hasExtraFee
+              ? t("product.deliveryExtraFee").replace("{fee}", formatPrice(s.extraFee!))
+              : freeDeliveryMet
+                ? t("product.deliveryFree")
+                : null;
             return (
               <button
                 key={s.label}
                 type="button"
                 disabled={past}
+                aria-pressed={active}
                 onClick={() => setSlotLabel(s.label)}
                 className={cn(
-                  "rounded-xl border px-3 py-2 text-center transition-colors min-w-[88px]",
+                  "rounded-xl border px-3 py-2 text-center transition-colors min-w-[88px] relative",
                   active
                     ? "bg-primary text-primary-foreground border-primary"
                     : past
@@ -358,29 +392,29 @@ export function ScheduleInlinePanel({
                 )}
                 data-testid={`schedule-slot-${s.cutoffHour}`}
               >
-                <span className="block text-xs leading-tight">{fromLabel}</span>
-                {toLabel ? (
-                  <span className="block text-xs leading-tight">{toLabel}</span>
-                ) : null}
-                {s.extraFee && s.extraFee > 0 ? (
-                  <span className="block text-[10px] leading-tight mt-0.5 opacity-80">
-                    +${s.extraFee}
+                <span className="block text-xs font-medium leading-tight">{rangeLabel}</span>
+                {feeLabel && (
+                  <span className={cn(
+                    "block text-[10px] leading-tight mt-0.5",
+                    active ? "opacity-80" : "text-muted-foreground",
+                  )}>
+                    {feeLabel}
                   </span>
-                ) : null}
+                )}
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* Confirmation line — shown once both a date and a time slot are selected */}
+      {confirmationLine && (
+        <p className="text-xs text-muted-foreground border-t border-border pt-3 leading-snug">
+          {confirmationLine}
+        </p>
+      )}
     </div>
   );
-}
-
-function fmtHour(h: number): string {
-  if (h === 0) return "12:00 AM";
-  if (h < 12) return `${h}:00 AM`;
-  if (h === 12) return "12:00 PM";
-  return `${h - 12}:00 PM`;
 }
 
 function monthShort(iso: string): string {

@@ -34,8 +34,9 @@ import {
   dayLabels,
   expressSurchargeForCountry,
   formatDeliveryRow,
+  freeDeliveryThresholdUsd,
   isExpressDeliveryAvailable,
-  slotTimeRangeForLabel,
+  slotTimeRangeShortForLabel,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -63,11 +64,11 @@ export default function ProductDetail() {
   const slug = params?.slug;
   const { t, language, cityName, countryName } = useLocale();
   const { toast } = useToast();
-  const { addItem } = useCart();
+  const { addItem, subtotal: cartSubtotal } = useCart();
   const { user } = useAuth();
   const isSignedIn = !!user;
   const { isFavorited, toggleFavorite } = useFavorites();
-  const { countryCode: locationCountry } = useLocationSelection();
+  const { countryCode, cityId, city, country } = useLocationSelection();
   const [currentPath, setLocation] = useLocation();
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [customNote, setCustomNote] = useState("");
@@ -77,7 +78,6 @@ export default function ProductDetail() {
   const deliverySelection = useDeliverySelection();
 
   const { currencyCode } = useDisplayCurrency();
-  const { countryCode, cityId, city, country } = useLocationSelection();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = {
     lang: language,
   };
@@ -246,7 +246,7 @@ export default function ProductDetail() {
             mode: deliverySelection.mode,
             date: deliverySelection.date,
             slotLabel: deliverySelection.slotLabel,
-            slotTimeRange: slotTimeRangeForLabel(deliverySelection.slotLabel, cityTimeSlots),
+            slotTimeRange: slotTimeRangeShortForLabel(deliverySelection.slotLabel, cityTimeSlots),
             days,
             expressLabel: delivery.expressDeliveryTimeLabel,
           })
@@ -260,6 +260,14 @@ export default function ProductDetail() {
     days,
     delivery.expressDeliveryTimeLabel,
   ]);
+
+  // Whether the cart total currently meets the free-delivery threshold so
+  // that the ScheduleInlinePanel can show "Free" on zero-extraFee slots.
+  const freeDeliveryMet = useMemo(() => {
+    if (!delivery.freeDeliveryEnabled) return false;
+    const threshold = delivery.freeDeliveryThresholdUsd ?? freeDeliveryThresholdUsd(countryCode);
+    return cartSubtotal >= threshold;
+  }, [delivery.freeDeliveryEnabled, delivery.freeDeliveryThresholdUsd, countryCode, cartSubtotal]);
 
   const handleSelectExpress = () => {
     if (!expressAvailable) return;
@@ -398,7 +406,7 @@ export default function ProductDetail() {
               onShare={handleShare}
               onFavorite={product ? () => {
                 if (isSignedIn) {
-                  void toggleFavorite(product.id, locationCountry ?? null);
+                  void toggleFavorite(product.id, countryCode ?? null);
                 } else {
                   setLocation(`/sign-in?return_to=${encodeURIComponent(currentPath)}`);
                 }
@@ -496,6 +504,7 @@ export default function ProductDetail() {
                 slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
                 initialDate={deliverySelection.date}
                 initialSlotLabel={deliverySelection.slotLabel}
+                freeDeliveryMet={freeDeliveryMet}
                 onChange={({ mode, date, slotLabel }) => {
                   deliverySelection.setSelection({ mode, date, slotLabel });
                 }}
