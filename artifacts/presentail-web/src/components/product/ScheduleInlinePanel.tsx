@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -141,9 +141,23 @@ export function ScheduleInlinePanel({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  // Close the calendar popover when clicking outside of it.
+  // Track whether the viewport is narrower than the sm breakpoint (640 px).
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    if (!calendarOpen) return;
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const closeCalendar = useCallback(() => setCalendarOpen(false), []);
+
+  // Close the calendar popover when clicking outside of it (desktop only —
+  // on mobile the backdrop onClick handles dismissal).
+  useEffect(() => {
+    if (!calendarOpen || isMobile) return;
     const handler = (e: MouseEvent) => {
       if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
         setCalendarOpen(false);
@@ -151,6 +165,16 @@ export function ScheduleInlinePanel({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [calendarOpen, isMobile]);
+
+  // Dismiss the calendar with the Escape key in both mobile and desktop modes.
+  useEffect(() => {
+    if (!calendarOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCalendarOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, [calendarOpen]);
 
   // Push the parent every time the local selection changes — there's no
@@ -264,19 +288,45 @@ export function ScheduleInlinePanel({
               <span className="block text-[10px] leading-tight">More</span>
             </button>
 
-            {calendarOpen && (
+            {/* Desktop: absolute popover anchored to the button */}
+            {calendarOpen && !isMobile && (
               <div className="absolute z-50 top-full right-0 mt-2">
                 <CalendarPopover
                   selectedIso={date}
                   todayIso={todayIso}
                   onSelect={(iso) => {
                     setDate(iso);
-                    setCalendarOpen(false);
+                    closeCalendar();
                   }}
                 />
               </div>
             )}
           </div>
+
+          {/* Mobile: full-screen dimmed backdrop with the calendar centred */}
+          {calendarOpen && isMobile && (
+            <div
+              className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center"
+              onClick={closeCalendar}
+              onKeyDown={(e) => { if (e.key === "Escape") closeCalendar(); }}
+              role="dialog"
+              aria-modal="true"
+              tabIndex={-1}
+              data-testid="calendar-modal-backdrop"
+            >
+              {/* Stop clicks on the calendar itself from bubbling to the backdrop */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <CalendarPopover
+                  selectedIso={date}
+                  todayIso={todayIso}
+                  onSelect={(iso) => {
+                    setDate(iso);
+                    closeCalendar();
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

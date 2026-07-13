@@ -1,10 +1,30 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduleInlinePanel } from "./ScheduleInlinePanel";
 import { renderWithProviders } from "@/test-utils";
+
+// jsdom does not implement window.matchMedia. Provide a configurable mock so
+// individual tests can simulate mobile (matches=true) or desktop (matches=false).
+function mockMatchMedia(matches: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+// Default to desktop (non-mobile) so existing tests are unaffected.
+beforeEach(() => mockMatchMedia(false));
+afterEach(() => vi.restoreAllMocks());
 
 // Pin getCountryHour to 10 AM so time-slot availability is stable regardless
 // of when the test suite runs. Without this, tests that rely on "today" having
@@ -389,6 +409,22 @@ describe("ScheduleInlinePanel — interactions", () => {
     expect(lastCall.slotLabel).toBe("Morning");
   });
 
+  it("shows the desktop popover (not the modal backdrop) when viewport is wide", async () => {
+    // matchMedia already mocked to matches=false (desktop) in beforeEach.
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    await user.click(screen.getByTestId("schedule-calendar-toggle"));
+    expect(screen.getByTestId("calendar-popover")).toBeTruthy();
+    expect(screen.queryByTestId("calendar-modal-backdrop")).toBeNull();
+  });
+
   it("picking a date from the CalendarPopover creates a synthetic chip and closes the popover", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -430,6 +466,115 @@ describe("ScheduleInlinePanel — interactions", () => {
       mode: string;
       date: string;
     };
+    expect(lastCall.date).toBe(FAR_DATE_ISO);
+    expect(lastCall.mode).toBe("schedule");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mobile modal — viewport < 640 px (matchMedia mocked to matches=true)
+// ---------------------------------------------------------------------------
+
+describe("ScheduleInlinePanel — mobile modal (viewport < 640 px)", () => {
+  beforeEach(() => mockMatchMedia(true));
+
+  it("shows the modal backdrop (not the desktop popover) when viewport is mobile", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    expect(screen.queryByTestId("calendar-modal-backdrop")).toBeNull();
+    await user.click(screen.getByTestId("schedule-calendar-toggle"));
+    expect(screen.getByTestId("calendar-modal-backdrop")).toBeTruthy();
+    expect(screen.getByTestId("calendar-popover")).toBeTruthy();
+  });
+
+  it("closes the modal when the backdrop is clicked", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    await user.click(screen.getByTestId("schedule-calendar-toggle"));
+    expect(screen.getByTestId("calendar-modal-backdrop")).toBeTruthy();
+
+    // Click the backdrop itself (not the inner calendar).
+    await user.click(screen.getByTestId("calendar-modal-backdrop"));
+    expect(screen.queryByTestId("calendar-modal-backdrop")).toBeNull();
+  });
+
+  it("closes the modal when the Escape key is pressed", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    await user.click(screen.getByTestId("schedule-calendar-toggle"));
+    expect(screen.getByTestId("calendar-modal-backdrop")).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("calendar-modal-backdrop")).toBeNull();
+  });
+
+  it("keeps the modal open when the calendar itself is clicked", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    await user.click(screen.getByTestId("schedule-calendar-toggle"));
+    // Click the CalendarPopover container — should NOT close the modal.
+    await user.click(screen.getByTestId("calendar-popover"));
+    expect(screen.getByTestId("calendar-modal-backdrop")).toBeTruthy();
+  });
+
+  it("closes the modal and creates a synthetic chip after picking a date", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+    await user.click(screen.getByTestId("schedule-calendar-toggle"));
+
+    // Navigate forward enough months so FAR_DATE_ISO is visible.
+    const farYear = parseInt(FAR_DATE_ISO.slice(0, 4));
+    const farMonth = parseInt(FAR_DATE_ISO.slice(5, 7)) - 1;
+    const todayYear = new Date().getFullYear();
+    const todayMonth = new Date().getMonth();
+    const monthsAhead = (farYear - todayYear) * 12 + (farMonth - todayMonth);
+    for (let i = 0; i < monthsAhead; i++) {
+      await user.click(screen.getByLabelText("Next month"));
+    }
+    await user.click(screen.getByTestId(`cal-day-${FAR_DATE_ISO}`));
+
+    // Modal closes after picking.
+    expect(screen.queryByTestId("calendar-modal-backdrop")).toBeNull();
+    // Synthetic chip appears.
+    expect(screen.getByTestId(`schedule-day-${FAR_DATE_ISO}`)).toBeTruthy();
+    // onChange carries the picked date.
+    const lastCall = onChange.mock.calls.at(-1)![0] as { mode: string; date: string };
     expect(lastCall.date).toBe(FAR_DATE_ISO);
     expect(lastCall.mode).toBe("schedule");
   });
