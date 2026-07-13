@@ -91,7 +91,7 @@ import {
   type TimeSlot,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
-import { createMamoPayment, createPayPalOrder, finalizeHostedPayment } from "@/lib/payments";
+import { createMamoPayment, createPayPalOrder, createTabbyPayment, finalizeHostedPayment } from "@/lib/payments";
 import {
   isPayMethodSupported,
   nextPayMethodForCurrency,
@@ -1540,6 +1540,42 @@ function CheckoutScreen() {
       trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       Alert.alert(t.checkoutMamoErrorTitle, session.code === "mamo_not_configured"
         ? t.checkoutMamoNotConfigured
+        : t.checkoutPaymentNetworkError);
+      setPaying(false);
+      return;
+    }
+
+    if (payMethod === "tabby") {
+      const session = await createTabbyPayment({
+        items: detailed
+          .filter(({ product }) => product.wcId != null)
+          .map(({ product, qty }) => ({ wcId: product.wcId!, quantity: qty })),
+        orderId,
+        district: district?.name ?? "",
+        expressDelivery: deliveryMode === "express",
+        noAddress,
+        currency: currencyCode,
+        email: senderEmail || undefined,
+        firstName: senderFirst || undefined,
+        lastName: senderLast || undefined,
+        returnUrl: successUrl,
+        failureReturnUrl: cancelUrl,
+        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+      });
+      if (session.ok) {
+        const deferredStartedAt = Date.now();
+        const outcome = await runHostedCheckout(session.url, deeplinkBase);
+        if (outcome === "success") {
+          await finishAfterPayment(session.id, deferredStartedAt);
+        } else {
+          Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledGeneric);
+        }
+        setPaying(false);
+        return;
+      }
+      trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+      Alert.alert(t.checkoutTabbyErrorTitle, session.code === "tabby_not_configured"
+        ? t.checkoutTabbyNotConfigured
         : t.checkoutPaymentNetworkError);
       setPaying(false);
       return;
@@ -3427,6 +3463,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
             apple_pay: supports("apple_pay") && walletRowVisible,
             google_pay: supports("google_pay") && walletRowVisible,
             paypal: supports("paypal"),
+            tabby: supports("tabby"),
             whish: supports("whish"),
             western: supports("western"),
           };
@@ -3478,6 +3515,17 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                   payIcons="card"
                 >
                   {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
+                </PayOption>
+              ) : null}
+              {visible.tabby ? (
+                <PayOption
+                  colors={colors}
+                  active={payMethod === "tabby"}
+                  onPress={() => tap("tabby")}
+                  title={t.checkoutPayTabby}
+                  payIcons="tabby"
+                >
+                  {payMethod === "tabby" ? <SecurityNote colors={colors} /> : null}
                 </PayOption>
               ) : null}
               {visible.card ? (

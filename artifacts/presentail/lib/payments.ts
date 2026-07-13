@@ -103,6 +103,33 @@ export async function createMamoPayment(payload: {
   }
 }
 
+export async function createTabbyPayment(payload: {
+  items: CartItem[];
+  orderId: string;
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  currency?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  returnUrl: string;
+  failureReturnUrl: string;
+  storeContext?: StoreContext;
+}): Promise<PayResult> {
+  try {
+    const { storeContext, ...body } = payload;
+    const res = await fetch(`${API_BASE}/api/payment/tabby`, {
+      method: "POST",
+      headers: storeHeadersFromCtx(storeContext),
+      body: JSON.stringify(body),
+    });
+    return await res.json();
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
+  }
+}
+
 export async function createPayPalOrder(payload: {
   items: CartItem[];
   orderId: string;

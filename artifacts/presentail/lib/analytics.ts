@@ -44,6 +44,7 @@ type AnalyticsAction =
   | "google_pay"
   | "paypal"
   | "mamo"
+  | "tabby"
   | "whish"
   | "western"
   | "general"

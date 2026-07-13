@@ -481,4 +481,332 @@ router.post("/payment/paypal", async (req, res) => {
   }
 });
 
+// ── Tabby BNPL ───────────────────────────────────────────────────────────────
+// Pay-in-4 installments, AED only, UAE shoppers only.
+// Secrets: TABBY_SECRET_KEY (required), TABBY_PUBLIC_KEY (optional, served to
+// frontend promo snippets via /api/payment/tabby/public-key).
+//
+// Route overview:
+//   POST /payment/tabby          → create Tabby checkout session, return hosted URL
+//   POST /payment/tabby/webhook  → receive authorized-payment event, capture funds
+//   POST /payment/tabby/refund   → admin-only partial/full refund
+
+const TABBY_API_BASE = "https://api.tabby.ai/api/v2";
+
+router.post("/payment/tabby", async (req, res) => {
+  const key = process.env.TABBY_SECRET_KEY;
+  if (!key) {
+    return res.status(503).json({
+      ok: false,
+      code: "tabby_not_configured",
+      message: "Tabby is not configured. Add TABBY_SECRET_KEY to enable.", // i18n-ignore
+    });
+  }
+
+  const {
+    items,
+    orderId,
+    district,
+    expressDelivery,
+    noAddress,
+    currency: rawCurrency,
+    email,
+    firstName,
+    lastName,
+    returnUrl,
+    failureReturnUrl,
+  } = req.body as {
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    orderId: string;
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    currency?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    returnUrl: string;
+    failureReturnUrl: string;
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!returnUrl || !failureReturnUrl) {
+    return res.status(400).json({ ok: false, message: "returnUrl and failureReturnUrl are required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  // Resolve catalog prices server-side.
+  const tabbyStore = resolveStoreFromRequest(req);
+  const catalogResult = await resolveCartItems(items, tabbyStore);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Dubai";
+  const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtCountry = countryForDistrict(resolvedDistrict);
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
+
+  // Tabby settles in AED only — convert the server-computed USD total.
+  const aedAmount = roundForCurrency(await convertFromUsd(totalUsd, "AED"), "AED");
+
+  // Tabby minimum is 1.00 AED.
+  if (aedAmount < 1) {
+    return res.status(422).json({
+      ok: false,
+      code: "tabby_amount_too_small",
+      message: `Tabby requires a minimum of 1.00 AED. Your order total is ${aedAmount.toFixed(2)} AED.`, // i18n-ignore
+    });
+  }
+
+  const buyerName = [firstName, lastName].filter(Boolean).join(" ") || "Guest"; // i18n-ignore
+
+  // Pre-convert per-item and shipping amounts to AED in parallel.
+  const [shippingAed, ...itemAedPrices] = await Promise.all([
+    convertFromUsd(districtFeeUsd, "AED"),
+    ...catalogResult.items.map((i) => convertFromUsd(i.priceUsd, "AED")),
+  ]);
+
+  // Build Tabby checkout request.
+  const outgoing = {
+    payment: {
+      amount: aedAmount.toFixed(2),
+      currency: "AED",
+      description: `Presentail order ${orderId}`, // i18n-ignore
+      buyer: {
+        phone: "",
+        email: email ?? "",
+        name: buyerName,
+        dob: null,
+      },
+      buyer_history: {
+        registered_since: new Date().toISOString(),
+        loyalty_level: 0,
+        is_phone_number_verified: false,
+        is_id_verified: false,
+      },
+      order: {
+        tax_amount: "0.00",
+        shipping_amount: roundForCurrency(shippingAed, "AED").toFixed(2),
+        discount_amount: "0.00",
+        updated_at: new Date().toISOString(),
+        reference_id: orderId,
+        items: catalogResult.items.map((i, idx) => ({
+          title: i.name,
+          description: i.name,
+          sku: i.osSlug ?? String(i.wcId),
+          quantity: i.quantity,
+          unit_price: roundForCurrency(itemAedPrices[idx] ?? 0, "AED").toFixed(2),
+          discount_amount: "0.00",
+          reference_id: i.osSlug ?? String(i.wcId),
+          image_url: "",
+        })),
+      },
+      order_history: [],
+      shipping_address: {
+        city: "Dubai",
+        address: resolvedDistrict,
+        zip: "",
+      },
+      meta: {
+        order_id: orderId,
+        customer: email ?? orderId,
+      },
+    },
+    lang: "en",
+    merchant_urls: {
+      success: returnUrl,
+      cancel: failureReturnUrl,
+      failure: failureReturnUrl,
+    },
+  };
+
+  try {
+    const r = await fetch(`${TABBY_API_BASE}/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify(outgoing),
+    });
+
+    const rawBody = await r.text();
+    let data: any = null;
+    try {
+      data = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!r.ok) {
+      const msg =
+        (typeof data?.error === "string" && data.error) ||
+        (typeof data?.message === "string" && data.message) ||
+        `Tabby rejected the request (HTTP ${r.status}).`; // i18n-ignore
+      req.log.warn({ tabbyStatus: r.status, tabbyBody: rawBody.slice(0, 1000) }, "Tabby checkout creation failed"); // i18n-ignore
+      return res.status(r.status >= 500 ? 502 : 422).json({ ok: false, code: "tabby_error", message: msg });
+    }
+
+    // Tabby v2 checkout response: status "created" | "rejected"
+    if (data?.status === "rejected") {
+      return res.status(422).json({
+        ok: false,
+        code: "tabby_rejected",
+        message: data?.rejection_reason ?? "Tabby rejected this payment request.", // i18n-ignore
+      });
+    }
+
+    // Extract the installments web URL from the response.
+    const webUrl: string | undefined =
+      data?.payment?.web_url ??
+      data?.configuration?.available_products?.installments?.[0]?.web_url;
+
+    if (!webUrl) {
+      req.log.warn({ tabbyData: JSON.stringify(data).slice(0, 500) }, "Tabby response missing web_url"); // i18n-ignore
+      return res.status(502).json({ ok: false, code: "tabby_no_url", message: "Tabby did not return a checkout URL." }); // i18n-ignore
+    }
+
+    const paymentId: string = data?.payment?.id ?? data?.id ?? orderId;
+
+    storePaymentIntent({
+      orderId,
+      paymentRef: paymentId,
+      provider: "tabby",
+      currency: "AED",
+      totalUsd,
+      snapshot: {
+        items: catalogResult.items.map((i) => ({
+          wcId: i.wcId,
+          osSlug: i.osSlug,
+          quantity: i.quantity,
+          priceUsd: i.priceUsd,
+        })),
+        district: resolvedDistrict,
+        expressDelivery: isExpress,
+        noAddress: isNoAddress,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      url: webUrl,
+      id: paymentId,
+      amount: aedAmount,
+      currency: "AED",
+    });
+  } catch (e: any) {
+    req.log.error({ err: e }, "Tabby checkout request threw"); // i18n-ignore
+    return res.status(500).json({ ok: false, code: "tabby_error", message: e?.message ?? "Tabby error" }); // i18n-ignore
+  }
+});
+
+// Expose public key for frontend promo snippets (no secret leakage).
+router.get("/payment/tabby/public-key", (_req, res) => {
+  const pub = process.env.TABBY_PUBLIC_KEY;
+  if (!pub) return res.status(503).json({ ok: false, message: "Tabby public key not configured." }); // i18n-ignore
+  return res.json({ ok: true, publicKey: pub });
+});
+
+// Tabby sends a webhook with {id, status} when a payment is authorized.
+// We re-fetch the payment to verify status, then capture funds.
+router.post("/payment/tabby/webhook", async (req, res) => {
+  const key = process.env.TABBY_SECRET_KEY;
+  if (!key) {
+    return res.status(503).json({ ok: false, message: "Tabby not configured." }); // i18n-ignore
+  }
+
+  const { id: paymentId } = req.body as { id?: string; status?: string };
+  if (!paymentId) {
+    return res.status(400).json({ ok: false, message: "Missing payment id in webhook body." }); // i18n-ignore
+  }
+
+  try {
+    // Verify payment status directly with Tabby before capturing.
+    const verify = await fetch(`${TABBY_API_BASE}/payments/${paymentId}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    const payment = (await verify.json()) as any;
+
+    if (!verify.ok || payment?.status?.toUpperCase() !== "AUTHORIZED") {
+      req.log.info({ paymentId, status: payment?.status }, "Tabby webhook: payment not AUTHORIZED, skipping capture"); // i18n-ignore
+      // Acknowledge without error so Tabby does not retry.
+      return res.json({ ok: true, captured: false });
+    }
+
+    // Capture the authorized payment.
+    const capture = await fetch(`${TABBY_API_BASE}/payments/${paymentId}/captures`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({ amount: payment.amount }),
+    });
+
+    if (!capture.ok) {
+      const body = await capture.text();
+      req.log.error({ paymentId, captureStatus: capture.status, body: body.slice(0, 500) }, "Tabby capture failed"); // i18n-ignore
+      return res.status(502).json({ ok: false, message: "Tabby capture failed." }); // i18n-ignore
+    }
+
+    req.log.info({ paymentId }, "Tabby payment captured"); // i18n-ignore
+    return res.json({ ok: true, captured: true });
+  } catch (e: any) {
+    req.log.error({ err: e }, "Tabby webhook handler threw"); // i18n-ignore
+    return res.status(500).json({ ok: false, message: e?.message ?? "Tabby webhook error" }); // i18n-ignore
+  }
+});
+
+// Admin-only refund endpoint. Protected by PUSH_ADMIN_TOKEN.
+router.post("/payment/tabby/refund", async (req, res) => {
+  const adminToken = process.env.PUSH_ADMIN_TOKEN;
+  const provided = req.headers["x-push-admin-token"] ?? req.body?.adminToken;
+  if (!adminToken || !provided || provided !== adminToken) {
+    return res.status(401).json({ ok: false, message: "Unauthorized." }); // i18n-ignore
+  }
+
+  const key = process.env.TABBY_SECRET_KEY;
+  if (!key) {
+    return res.status(503).json({ ok: false, message: "Tabby not configured." }); // i18n-ignore
+  }
+
+  const { paymentId, amount } = req.body as { paymentId?: string; amount?: string };
+  if (!paymentId || !amount) {
+    return res.status(400).json({ ok: false, message: "paymentId and amount are required." }); // i18n-ignore
+  }
+
+  try {
+    const r = await fetch(`${TABBY_API_BASE}/payments/${paymentId}/refunds`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({ amount }),
+    });
+
+    const data = (await r.json()) as any;
+    if (!r.ok) {
+      return res.status(r.status >= 500 ? 502 : 422).json({
+        ok: false,
+        message: data?.message ?? `Tabby refund failed (HTTP ${r.status}).`, // i18n-ignore
+      });
+    }
+
+    req.log.info({ paymentId, amount }, "Tabby refund issued"); // i18n-ignore
+    return res.json({ ok: true, refund: data });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, message: e?.message ?? "Tabby refund error" }); // i18n-ignore
+  }
+});
+
 export default router;

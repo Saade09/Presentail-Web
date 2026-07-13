@@ -14,7 +14,8 @@ export type PayMethodId =
   | "whish"
   | "western"
   | "mamo"
-  | "paypal";
+  | "paypal"
+  | "tabby";
 
 export const PAY_METHOD_CURRENCIES: Record<
   PayMethodId,
@@ -39,6 +40,8 @@ export const PAY_METHOD_CURRENCIES: Record<
   // Manual cash flows operate in USD locally.
   whish: ["USD"],
   western: ["USD"],
+  // Tabby Buy-Now-Pay-Later — AED only, UAE shoppers only.
+  tabby: ["AED"],
 };
 
 /**
@@ -47,10 +50,12 @@ export const PAY_METHOD_CURRENCIES: Record<
  *
  * Whish Money and Western Union are local Lebanon-only flows: even when the
  * shopper is browsing in USD from UAE/Cyprus they should not see them.
+ * Tabby is UAE-only (AE): the service is limited to UAE at this time.
  */
 export const PAY_METHOD_COUNTRIES: Partial<Record<PayMethodId, readonly string[]>> = {
   whish: ["LB"],
   western: ["LB"],
+  tabby: ["AE"],
 };
 
 /**
@@ -148,6 +153,7 @@ export function payMethodAvailability(
     "western",
     "mamo",
     "paypal",
+    "tabby",
   ];
   const out = {} as Record<PayMethodId, { enabled: boolean }>;
   for (const id of ids) {

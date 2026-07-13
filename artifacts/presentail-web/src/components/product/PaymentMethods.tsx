@@ -7,6 +7,7 @@ import mastercardLogo from "@/assets/payment-logos/mastercard.svg";
 import amexLogo from "@/assets/payment-logos/amex.svg";
 import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
+import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 
 type Logo = { name: string; src: string; maxH?: string; fill?: boolean };
 
@@ -52,8 +53,9 @@ export function PaymentMethods({
     isPayMethodSupported("google_pay", currency, ctx);
   const showWhish = isPayMethodSupported("whish", currency, ctx);
   const showPayPal = isPayMethodSupported("paypal", currency, ctx);
+  const showTabby = isPayMethodSupported("tabby", currency, ctx);
 
-  // Ordered: Amex → GPay → Apple Pay → Visa → MC → Whish → PayPal
+  // Ordered: Amex → GPay → Apple Pay → Visa → MC → Whish → PayPal → Tabby
   const logos: Logo[] = [
     ...(showCards
       ? [
@@ -74,6 +76,7 @@ export function PaymentMethods({
       : []),
     ...(showWhish ? [{ name: "Whish Money", src: whishLogo, fill: true }] : []),
     ...(showPayPal ? [{ name: "PayPal", src: paypalLogo, fill: true }] : []),
+    ...(showTabby ? [{ name: "Tabby", src: tabbyLogo, fill: true }] : []),
   ];
 
   return (

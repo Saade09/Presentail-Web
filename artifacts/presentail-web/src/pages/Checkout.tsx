@@ -15,6 +15,7 @@ import {
   useStripeCheckoutSession,
   useMamoPayment,
   usePaypalPayment,
+  useTabbyPayment,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag, Loader2 } from "lucide-react";
@@ -446,6 +447,7 @@ function CheckoutForm() {
   const createPaymentIntent = useCreateCheckoutPaymentIntent();
   const mamoPayment = useMamoPayment();
   const paypalPayment = usePaypalPayment();
+  const tabbyPayment = useTabbyPayment();
   const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
@@ -1500,6 +1502,7 @@ function CheckoutForm() {
     createPaymentIntent.isPending ||
     mamoPayment.isPending ||
     paypalPayment.isPending ||
+    tabbyPayment.isPending ||
     cardProcessing;
 
   // Active display currency derived from the active country. Used both
@@ -2130,6 +2133,44 @@ function CheckoutForm() {
           return;
         }
         stashAndRedirect(res.url, orderId, finalizedPaymentMethod);
+        return;
+      }
+
+      if (payMethod === "tabby") {
+        let tabbyRes: { ok: boolean; url?: string; message?: string; code?: string } | null = null;
+        try {
+          tabbyRes = await tabbyPayment.mutateAsync({
+            items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
+            orderId,
+            district: _selectedDistrict,
+            expressDelivery: deliveryMode === "express",
+            noAddress,
+            currency: checkoutCurrency,
+            email: sender.email,
+            firstName: sender.firstName,
+            lastName: sender.lastName,
+            returnUrl,
+            failureReturnUrl: failureUrl,
+          });
+        } catch (tabbyErr: any) {
+          // apiFetch throws on non-2xx — surface a useful message instead of
+          // the generic outer catch.
+          toast({
+            title: t("checkout.toast.tabbyUnavailable"),
+            description: tabbyErr?.message || t("checkout.toast.tabbyUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!tabbyRes?.ok || !tabbyRes?.url) {
+          toast({
+            title: t("checkout.toast.tabbyUnavailable"),
+            description: tabbyRes?.message || t("checkout.toast.tabbyUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+        stashAndRedirect(tabbyRes.url, orderId, "tabby");
         return;
       }
 

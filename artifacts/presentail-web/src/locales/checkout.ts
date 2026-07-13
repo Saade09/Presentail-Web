@@ -91,6 +91,8 @@ export const checkoutStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.paypal": { en: "PayPal", ar: "PayPal" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
+  "checkout.pay.tabby": { en: "Pay in 4 · Tabby", ar: "ادفع على 4 · Tabby" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.whish": { en: "Whish Money", ar: "ويش موني" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.western": { en: "Western Union", ar: "ويسترن يونيون" },
@@ -132,6 +134,8 @@ export const checkoutStrings: Dict = {
   "checkout.toast.paypalUnavailableDesc": { en: "PayPal isn't available right now.", ar: "PayPal غير متوفر حالياً." },
   "checkout.toast.mamoUnavailable": { en: "Mamo unavailable", ar: "مامو غير متوفر" },
   "checkout.toast.mamoUnavailableDesc": { en: "Mamo isn't available right now.", ar: "مامو غير متوفر حالياً." },
+  "checkout.toast.tabbyUnavailable": { en: "Tabby unavailable", ar: "Tabby غير متوفر" },
+  "checkout.toast.tabbyUnavailableDesc": { en: "Tabby isn't available right now.", ar: "Tabby غير متوفر حالياً." },
   "checkout.toast.walletUnavailable": { en: "Wallet payment unavailable", ar: "الدفع بالمحفظة غير متوفر" },
   "checkout.toast.walletUnavailableDesc": { en: "Apple Pay / Google Pay could not be opened on this device. Please choose another payment method.", ar: "تعذّر فتح Apple Pay / Google Pay على هذا الجهاز. يرجى اختيار طريقة دفع أخرى." },
   "checkout.toast.walletPrepareFailTitle": { en: "Unable to prepare payment", ar: "تعذّر تجهيز الدفع" },
@@ -282,6 +286,8 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.paypalUnavailableDesc": "PayPal n'est pas disponible pour le moment.",
   "checkout.toast.mamoUnavailable": "Mamo indisponible",
   "checkout.toast.mamoUnavailableDesc": "Mamo n'est pas disponible pour le moment.",
+  "checkout.toast.tabbyUnavailable": "Tabby indisponible",
+  "checkout.toast.tabbyUnavailableDesc": "Tabby n'est pas disponible pour le moment.",
   "checkout.toast.walletUnavailable": "Paiement par portefeuille indisponible",
   "checkout.toast.walletUnavailableDesc": "Apple Pay / Google Pay n'a pas pu s'ouvrir sur cet appareil. Veuillez choisir un autre mode de paiement.",
   "checkout.toast.walletPrepareFailTitle": "Impossible de préparer le paiement",
@@ -293,6 +299,7 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.pay.google_pay": "Google Pay",
   "checkout.pay.mamo": "Mamo",
   "checkout.pay.paypal": "PayPal",
+  "checkout.pay.tabby": "Payer en 4 fois · Tabby",
   "checkout.pay.whish": "Whish Money",
   "checkout.pay.western": "Western Union",
   "checkout.pay.payByCard": "Payer par carte",

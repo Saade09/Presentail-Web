@@ -705,6 +705,27 @@ export const usePaypalPayment = () => {
   });
 };
 
+export const useTabbyPayment = () => {
+  return useMutation({
+    mutationFn: (data: {
+      items: PayCartItem[];
+      orderId: string;
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
+      currency?: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      returnUrl: string;
+      failureReturnUrl: string;
+    }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/tabby", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
 // Search result types
 export type SearchProduct = {
   slug: string;
