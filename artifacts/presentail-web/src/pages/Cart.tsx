@@ -232,6 +232,20 @@ export default function Cart() {
   const [cardFrom, setCardFrom] = useState(() => {
     try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; }
   });
+
+  // When the user signs in and the "From" field is still blank (no value
+  // in localStorage from a prior session), seed it with their account name
+  // as a convenience default — they can still overwrite it freely.
+  useEffect(() => {
+    if (!user) return;
+    setCardFrom((prev) => {
+      if (prev.trim()) return prev;
+      const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+      if (!name) return prev;
+      try { localStorage.setItem(CARD_FROM_KEY, name); } catch { /* best-effort */ }
+      return name;
+    });
+  }, [user]);
   const [qrLink, setQrLink] = useState(() => {
     try { return localStorage.getItem(CARD_QR_LINK_KEY) ?? ""; } catch { return ""; }
   });
@@ -315,11 +329,7 @@ export default function Cart() {
     trackEvent({ name: "cart_viewed", surface: "cart-screen" });
   }, []);
 
-  // Derive the effective "From" name for the card preview:
-  // signed-in → profile name; guest → cardFrom input.
-  const previewCardFrom = user
-    ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || ""
-    : cardFrom;
+  const previewCardFrom = cardFrom;
 
   if (!isHydrated) {
     return <CartSkeleton />;
@@ -707,26 +717,11 @@ export default function Cart() {
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
                     {t("checkout.previewCardFrom")}
                   </label>
-                  {user ? (
-                    <div className={`flex items-center gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2.5 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
-                      <span className="text-sm text-foreground">
-                        {`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || "—"}
-                      </span>
-                      <Link
-                        href="/account/personal-information"
-                        className="text-xs text-primary underline underline-offset-2 ms-auto"
-                        data-testid="link-edit-account-from"
-                      >
-                        {t("checkout.editInAccount")}
-                      </Link>
-                    </div>
-                  ) : (
-                    <Input
-                      value={cardFrom}
-                      onChange={(e) => handleCardFromChange(e.target.value)}
-                      data-testid="input-cart-card-from"
-                    />
-                  )}
+                  <Input
+                    value={cardFrom}
+                    onChange={(e) => handleCardFromChange(e.target.value)}
+                    data-testid="input-cart-card-from"
+                  />
                 </div>
 
                 {/* QR Link */}
