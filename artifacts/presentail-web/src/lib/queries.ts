@@ -452,7 +452,7 @@ export const useDeliveryLocations = () => {
 // the session. Type matches `CatalogMetadataResponse` in OpenAPI.
 export type CatalogImageRef = { asset?: string; uri?: string } | null;
 
-export type CatalogCategory = { id: string; name: string; icon: string; description?: string | null };
+export type CatalogCategory = { id: string; name: string; icon: string; description?: string | null; count: number };
 export type CatalogOccasion = { id: string; name: string; icon: string; description?: string; image?: CatalogImageRef };
 export type CatalogBrand = { name: string; slug: string; image: string | null; count: number; sort_order?: number | null };
 export type CatalogMetadataResponse = {
@@ -461,11 +461,29 @@ export type CatalogMetadataResponse = {
   brands: CatalogBrand[];
 };
 
-export const useCatalogMetadata = () => {
+export const useCatalogMetadata = (countryCode?: string | null) => {
   return useQuery({
-    queryKey: ["catalog-metadata"],
-    queryFn: () => apiFetch<CatalogMetadataResponse>("/catalog/metadata"),
+    queryKey: ["catalog-metadata", countryCode ?? null],
+    queryFn: () => {
+      const url = countryCode ? `/catalog/metadata?countryCode=${encodeURIComponent(countryCode)}` : "/catalog/metadata";
+      return apiFetch<CatalogMetadataResponse>(url);
+    },
     staleTime: 5 * 60 * 1000,
+  });
+};
+
+export type CatalogOccasionsResponse = {
+  occasions: { slug: string; name: string; image: string | null; count: number }[];
+};
+
+export const useCatalogOccasions = (countryCode?: string | null) => {
+  return useQuery({
+    queryKey: ["catalog-occasions", countryCode ?? null],
+    queryFn: () => {
+      const url = countryCode ? `/catalog/occasions?countryCode=${encodeURIComponent(countryCode)}` : "/catalog/occasions";
+      return apiFetch<CatalogOccasionsResponse>(url);
+    },
+    staleTime: 15 * 60 * 1000,
   });
 };
 

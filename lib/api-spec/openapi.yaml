@@ -3432,9 +3432,13 @@ components:
           oneOf:
             - type: string
             - type: "null"
+        count:
+          type: integer
+          description: Number of in-stock products tagged with this occasion across all supported countries.
       required:
         - slug
         - name
+        - count
     CatalogOccasionsResponse:
       type: object
       properties:

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -8,16 +9,22 @@ import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
+import { ProductCollectionCarousel } from "@/components/homepage/ProductCollectionCarousel";
+import { ProductCard } from "@/components/ProductCard";
+import { Link } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { useGetHomepageBestSellers } from "@workspace/api-client-react";
-import type { Product } from "@/lib/queries";
+import { useProducts, type Product } from "@/lib/queries";
+
+const LABEL_FLOWER_COLLECTION = "Flower Collection"; // i18n-ignore
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
   const { t, cityName, language } = useLocale();
   const isMobile = useIsMobile();
   const countryCode = country?.code ?? undefined;
+  const isCyprus = countryCode === "CY";
   const device = isMobile ? "mobile" as const : "desktop" as const;
   const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device, language);
 
@@ -56,6 +63,23 @@ export default function Home() {
         }))
       : undefined;
 
+  // ── Cyprus: fetch all products for the Flower Collection rail ─────────────
+  const { data: allProductsData, isLoading: isAllProductsLoading } = useProducts(
+    { countryCode: countryCode ?? undefined, cityId: cityId ?? undefined, lang: language },
+    isCyprus,
+  );
+
+  const flowerCollectionProducts = useMemo<Product[]>(() => {
+    if (!isCyprus || !allProductsData?.products) return [];
+    // Sort by effective display price (sale price when active, otherwise regular price).
+    return [...allProductsData.products]
+      .sort(
+        (a, b) =>
+          (a.discountPriceValue ?? a.priceValue) -
+          (b.discountPriceValue ?? b.priceValue),
+      );
+  }, [isCyprus, allProductsData]);
+
   const cityLabel = city
     ? cityName(city.id, city.name)
     : cityId
@@ -81,51 +105,85 @@ export default function Home() {
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
-      {/* Summer Picks rail — shown above Best Sellers so seasonal products are seen first.
-          Summer is an OS occasion (not a category), so occasionSlug is used. */}
-      <BestSellersPreview
-        occasionSlug="summer"
-        titleKey="collections.summer.title"
-        railKey="rail-summer"
-        viewAllHref="/occasion/summer"
-        viewAllLabel={t("collections.summer.viewAll")}
-        testId="section-collection-summer"
-      />
+      {isCyprus ? (
+        /* ── Cyprus: 4×4 grid of the first 16 products sorted by display price asc ── */
+        <section className="py-6 md:py-10 px-4 md:px-0" data-testid="section-flower-collection">
+          <div className="flex items-center justify-between mb-6 md:mb-8">
+            <h2 className="font-serif text-2xl md:text-4xl text-primary">
+              {LABEL_FLOWER_COLLECTION}
+            </h2>
+            <Link
+              href="/shop"
+              className="text-sm font-medium text-primary hover:text-primary/70 transition-colors"
+            >
+              {t("bestSellers.viewAll")}
+            </Link>
+          </div>
+          {isAllProductsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
+              {Array(16).fill(0).map((_, i) => (
+                <div key={i}>
+                  <div className="aspect-square animate-shimmer rounded-lg mb-4" />
+                  <div className="h-5 animate-shimmer rounded w-2/3 mb-2" />
+                  <div className="h-4 animate-shimmer rounded w-1/3" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
+              {flowerCollectionProducts.slice(0, 16).map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} imageClassName="rounded-lg" />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          {/* Summer Picks rail — shown above Best Sellers so seasonal products are seen first.
+              Summer is an OS occasion (not a category), so occasionSlug is used. */}
+          <BestSellersPreview
+            occasionSlug="summer"
+            titleKey="collections.summer.title"
+            railKey="rail-summer"
+            viewAllHref="/occasion/summer"
+            viewAllLabel={t("collections.summer.viewAll")}
+            testId="section-collection-summer"
+          />
 
-      {/* Best Sellers rail — 10 products ranked by real sales data from the API */}
-      <BestSellersPreview
-        titleKey="bestSellers.title"
-        railKey="best-sellers"
-        viewAllHref="/best-sellers"
-        viewAllLabel={t("bestSellers.viewAll")}
-        products={bestSellerProducts}
-        isLoadingExternal={isBestSellersLoading}
-        limit={10}
-      />
+          {/* Best Sellers rail — 10 products ranked by real sales data from the API */}
+          <BestSellersPreview
+            titleKey="bestSellers.title"
+            railKey="best-sellers"
+            viewAllHref="/best-sellers"
+            viewAllLabel={t("bestSellers.viewAll")}
+            products={bestSellerProducts}
+            isLoadingExternal={isBestSellersLoading}
+            limit={10}
+          />
 
-      <HomepageCollections />
+          <HomepageCollections />
 
-      {/* Second themed rail — Flower Boxes. Not shown in Cyprus (category doesn't exist there). */}
-      {/* sortBy="price-asc" surfaces the cheaper, fast-moving options first within the ranked set. */}
-      {countryCode !== "CY" && (
-        <BestSellersPreview
-          categorySlug="flower-boxes"
-          titleKey="collections.boxes.title"
-          railKey="rail-boxes"
-          viewAllLabel={t("collections.boxes.viewAll")}
-          testId="section-collection-boxes"
-          sortBy="price-asc"
-        />
+          {/* Second themed rail — Flower Boxes. */}
+          {/* sortBy="price-asc" surfaces the cheaper, fast-moving options first within the ranked set. */}
+          <BestSellersPreview
+            categorySlug="flower-boxes"
+            titleKey="collections.boxes.title"
+            railKey="rail-boxes"
+            viewAllLabel={t("collections.boxes.viewAll")}
+            testId="section-collection-boxes"
+            sortBy="price-asc"
+          />
+
+          {/* Third themed rail — Balloons. */}
+          <BestSellersPreview
+            categorySlug="balloons"
+            titleKey="collections.balloons.title"
+            railKey="rail-balloons"
+            viewAllLabel={t("collections.balloons.viewAll")}
+            testId="section-collection-balloons"
+          />
+        </>
       )}
-
-      {/* Third themed rail — Balloons. */}
-      <BestSellersPreview
-        categorySlug="balloons"
-        titleKey="collections.balloons.title"
-        railKey="rail-balloons"
-        viewAllLabel={t("collections.balloons.viewAll")}
-        testId="section-collection-balloons"
-      />
 
       {/* Trustpilot review carousel — sits above the footer */}
       <div className="px-page py-10">
@@ -133,7 +191,7 @@ export default function Home() {
           {trustpilotTitle}
         </h2>
         <TrustpilotCarousel />
-        <TrustpilotBrandsRow />
+        {!isCyprus && <TrustpilotBrandsRow />}
       </div>
 
     </div>

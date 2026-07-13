@@ -2122,6 +2122,11 @@ export const GetCatalogOccasionsResponse = zod.object({
       slug: zod.string(),
       name: zod.string(),
       image: zod.union([zod.string(), zod.null()]).optional(),
+      count: zod
+        .number()
+        .describe(
+          "Number of in-stock products tagged with this occasion across all supported countries.",
+        ),
     }),
   ),
 });

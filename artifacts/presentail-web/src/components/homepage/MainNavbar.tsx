@@ -10,12 +10,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
-import { useBrands, useCatalogMetadata } from "@/lib/queries";
+import { useBrands, useCatalogMetadata, useCatalogOccasions } from "@/lib/queries";
 import { CATEGORY_SLUG_REMAP, CATEGORY_NAV_BLOCKLIST } from "@/lib/categoryGroups";
-import {
-  useGetCatalogOccasions,
-  getGetCatalogOccasionsQueryKey,
-} from "@workspace/api-client-react";
 import { OCCASION_OPTIONS } from "@/data/occasions";
 import { prefetchProps } from "@/lib/prefetch";
 import {
@@ -220,16 +216,20 @@ export function MainNavbar() {
     ? brandsData?.brands.find((b) => b.slug === activeBrandSlug)
     : null;
 
-  const { data: occasionsData, isPending: occasionsLoading } = useGetCatalogOccasions({
-    query: {
-      queryKey: getGetCatalogOccasionsQueryKey(),
-      staleTime: 15 * 60 * 1000,
-    },
-  });
+  const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode);
   const osOccasions = occasionsData?.occasions ?? [];
+  // Hide occasions with no in-stock products so shoppers never land on an empty page.
+  // Only fall back to the static OCCASION_OPTIONS list when the API has not returned
+  // any data yet (cache cold / loading). Once the API resolves, render only the
+  // occasions with count > 0 — even if that list is empty — so stale or zero-product
+  // occasions are never shown.
+  // Use API resolution state (not array length) to decide whether to fall back.
+  // An empty resolved response ([]) should show nothing, not the static list.
+  const hasOccasionApiData = occasionsData !== undefined;
+  const visibleOsOccasions = osOccasions.filter((o) => (o.count ?? 0) > 0);
   const occasionItems: MegaItem[] =
-    osOccasions.length > 0
-      ? osOccasions.map((o) => ({
+    hasOccasionApiData
+      ? visibleOsOccasions.map((o) => ({
           label: o.name,
           href: `/occasion/${o.slug}`,
           ...(o.image ? { img: o.image } : { emoji: "🎉" }),
@@ -252,9 +252,11 @@ export function MainNavbar() {
   // back to the unfiltered static list so the menu is never blank.
   // New OS categories not covered by STATIC_MENUS are appended automatically
   // to the appropriate group ("flowers" | "gifts") via CATEGORY_GROUPS.
-  const { data: catalogMetadata } = useCatalogMetadata();
+  // Categories with zero in-stock products are excluded so shoppers never
+  // land on an empty page.
+  const { data: catalogMetadata } = useCatalogMetadata(countryCode);
   const osCategorySlugs = catalogMetadata
-    ? new Set(catalogMetadata.categories.map((c) => c.id))
+    ? new Set(catalogMetadata.categories.filter((c) => c.count > 0).map((c) => c.id))
     : null;
 
   // Slugs already in STATIC_MENUS (pre-filter) — used to detect net-new OS categories.
@@ -264,14 +266,24 @@ export function MainNavbar() {
     ),
   );
 
+  // Inverse of CATEGORY_SLUG_REMAP: maps product-level slug → catalog-level slug.
+  // Used to check whether a static menu item's remap source has products.
+  // e.g. { "gift-baskets": "baskets", "summer": "summer-collection" }
+  const remapTargetToSource = Object.fromEntries(
+    Object.entries(CATEGORY_SLUG_REMAP).map(([src, tgt]) => [tgt, src]),
+  );
+
   const filteredStaticMenus: MegaMenuDef[] = STATIC_MENUS.map((menu) => {
     const filteredItems = osCategorySlugs
       ? menu.items.filter((item) => {
           const slug = item.href.split("/category/")[1] ?? "";
-          // Allow if no slug, if the slug is in OS catalog, or if it's a known
-          // product-level alias (e.g. gift-baskets) that maps from a catalog slug.
-          const remapValues = new Set(Object.values(CATEGORY_SLUG_REMAP));
-          return !slug || osCategorySlugs.has(slug) || remapValues.has(slug);
+          if (!slug) return true;
+          // Direct match: slug exists in OS catalog with products.
+          if (osCategorySlugs.has(slug)) return true;
+          // Remap: static item uses a product-level alias (e.g. gift-baskets).
+          // Only allow it when the source catalog slug (e.g. baskets) has products.
+          const sourceSlug = remapTargetToSource[slug];
+          return sourceSlug !== undefined && osCategorySlugs.has(sourceSlug);
         })
       : menu.items;
 
@@ -280,6 +292,7 @@ export function MainNavbar() {
       ? catalogMetadata.categories
           .filter(
             (c) =>
+              c.count > 0 &&
               !staticMenuSlugs.has(c.id) &&
               !CATEGORY_NAV_BLOCKLIST.has(c.id) &&
               // Also exclude catalog slugs whose remap target is already covered

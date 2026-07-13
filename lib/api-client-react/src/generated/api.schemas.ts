@@ -1072,6 +1072,8 @@ export interface FeaturedOccasion {
   slug: string;
   name: string;
   image?: string | null;
+  /** Number of in-stock products tagged with this occasion across all supported countries. */
+  count: number;
 }
 
 export interface CatalogOccasionsResponse {

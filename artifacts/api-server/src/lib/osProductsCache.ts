@@ -165,6 +165,10 @@ let cachedBrandNameToCanonicalSlug: Map<string, string> = new Map();
  */
 let cachedCategoryProductCounts: Map<string, number> = new Map();
 let cachedOccasionProductCounts: Map<string, number> = new Map();
+// Per-country versions of the above (countryCode → slug → count).
+// Populated alongside the global maps; AE stores are merged by deduplication.
+let cachedCategoryProductCountsByCountry: Map<string, Map<string, number>> = new Map();
+let cachedOccasionProductCountsByCountry: Map<string, Map<string, number>> = new Map();
 
 // ── Product pricing enrichment cache ───────────────────────────────────────
 //
@@ -1221,29 +1225,53 @@ async function fetchAndStore(): Promise<void> {
       const categoryCounts = new Map<string, number>();
       const occasionCounts = new Map<string, number>();
       const seenProductIds = new Set<string>();
+      // Per-country maps: countryCode → (slug → count), deduped within each country.
+      const perCountryCategory = new Map<string, Map<string, number>>();
+      const perCountryOccasion = new Map<string, Map<string, number>>();
+      const seenByCountry = new Map<string, Set<string>>();
       for (const spec of OS_STORE_SPECS) {
         const entry = storeCache.get(spec.storeKey);
         if (!entry) continue;
+        const cc = spec.countryCode.toUpperCase();
+        if (!perCountryCategory.has(cc)) perCountryCategory.set(cc, new Map());
+        if (!perCountryOccasion.has(cc)) perCountryOccasion.set(cc, new Map());
+        if (!seenByCountry.has(cc)) seenByCountry.set(cc, new Set());
+        const cCatMap = perCountryCategory.get(cc)!;
+        const cOccMap = perCountryOccasion.get(cc)!;
+        const cSeen = seenByCountry.get(cc)!;
         for (const p of entry.products) {
-          if (!p.inStock || seenProductIds.has(p.id)) continue;
-          seenProductIds.add(p.id);
-          for (const b of p.brands ?? []) {
-            // Resolve to the canonical catalog-attribute slug via name lookup.
-            // This handles the case where the product-embedded brand slug
-            // differs from the catalog-attribute slug (e.g. "hallab" vs
-            // "hallab-1881"). Falls back to the embedded slug when no match.
-            const canonicalSlug =
-              cachedBrandNameToCanonicalSlug.get(normaliseBrandName(b.name)) ??
-              b.slug;
-            counts.set(canonicalSlug, (counts.get(canonicalSlug) ?? 0) + 1);
+          if (!p.inStock) continue;
+          // Global deduplication.
+          if (!seenProductIds.has(p.id)) {
+            seenProductIds.add(p.id);
+            for (const b of p.brands ?? []) {
+              // Resolve to the canonical catalog-attribute slug via name lookup.
+              // This handles the case where the product-embedded brand slug
+              // differs from the catalog-attribute slug (e.g. "hallab" vs
+              // "hallab-1881"). Falls back to the embedded slug when no match.
+              const canonicalSlug =
+                cachedBrandNameToCanonicalSlug.get(normaliseBrandName(b.name)) ??
+                b.slug;
+              counts.set(canonicalSlug, (counts.get(canonicalSlug) ?? 0) + 1);
+            }
+            for (const c of p.categories ?? []) {
+              categoryCounts.set(c.slug, (categoryCounts.get(c.slug) ?? 0) + 1);
+            }
+            for (const o of p.occasions ?? []) {
+              occasionCounts.set(o.slug, (occasionCounts.get(o.slug) ?? 0) + 1);
+              if (!cachedProductOccasions.has(o.slug)) {
+                cachedProductOccasions.set(o.slug, o);
+              }
+            }
           }
-          for (const c of p.categories ?? []) {
-            categoryCounts.set(c.slug, (categoryCounts.get(c.slug) ?? 0) + 1);
-          }
-          for (const o of p.occasions ?? []) {
-            occasionCounts.set(o.slug, (occasionCounts.get(o.slug) ?? 0) + 1);
-            if (!cachedProductOccasions.has(o.slug)) {
-              cachedProductOccasions.set(o.slug, o);
+          // Per-country deduplication (AE has two stores; dedupe within AE).
+          if (!cSeen.has(p.id)) {
+            cSeen.add(p.id);
+            for (const c of p.categories ?? []) {
+              cCatMap.set(c.slug, (cCatMap.get(c.slug) ?? 0) + 1);
+            }
+            for (const o of p.occasions ?? []) {
+              cOccMap.set(o.slug, (cOccMap.get(o.slug) ?? 0) + 1);
             }
           }
         }
@@ -1251,6 +1279,8 @@ async function fetchAndStore(): Promise<void> {
       cachedBrandProductCounts = counts;
       cachedCategoryProductCounts = categoryCounts;
       cachedOccasionProductCounts = occasionCounts;
+      cachedCategoryProductCountsByCountry = perCountryCategory;
+      cachedOccasionProductCountsByCountry = perCountryOccasion;
     }
 
     // ── Best-seller flag ──────────────────────────────────────────────────
@@ -1628,6 +1658,24 @@ export function getOsCategoryProductCounts(): ReadonlyMap<string, number> {
  */
 export function getOsOccasionProductCounts(): ReadonlyMap<string, number> {
   return cachedOccasionProductCounts;
+}
+
+/**
+ * Returns the per-occasion in-stock product counts for a specific country
+ * (slug → count), deduplicated by product id within that country's stores.
+ * Falls back to an empty map when the country is unknown or the cache is cold.
+ */
+export function getOsOccasionProductCountsByCountry(countryCode: string): ReadonlyMap<string, number> {
+  return cachedOccasionProductCountsByCountry.get(countryCode.toUpperCase()) ?? new Map();
+}
+
+/**
+ * Returns the per-category in-stock product counts for a specific country
+ * (slug → count), deduplicated by product id within that country's stores.
+ * Falls back to an empty map when the country is unknown or the cache is cold.
+ */
+export function getOsCategoryProductCountsByCountry(countryCode: string): ReadonlyMap<string, number> {
+  return cachedCategoryProductCountsByCountry.get(countryCode.toUpperCase()) ?? new Map();
 }
 
 /**

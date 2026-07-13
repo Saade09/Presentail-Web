@@ -79,11 +79,7 @@ vi.mock("@/contexts/LocationContext", () => ({
 vi.mock("@/lib/queries", () => ({
   useBrands: vi.fn(() => ({ data: undefined, isPending: false })),
   useCatalogMetadata: vi.fn(() => ({ data: undefined })),
-}));
-
-vi.mock("@workspace/api-client-react", () => ({
-  useGetCatalogOccasions: vi.fn(() => ({ data: undefined, isPending: false })),
-  getGetCatalogOccasionsQueryKey: vi.fn(() => ["catalog", "occasions"]),
+  useCatalogOccasions: vi.fn(() => ({ data: undefined, isPending: false })),
 }));
 
 // Wouter: render Link as a plain anchor; useRoute always returns "not matched"

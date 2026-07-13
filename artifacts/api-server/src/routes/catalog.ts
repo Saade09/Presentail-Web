@@ -11,7 +11,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds } from "../lib/osProductsCache";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
 
 const router: IRouter = Router();
@@ -220,8 +220,12 @@ router.get("/currencies", (_req, res) => {
   res.json(data);
 });
 
-router.get("/catalog/occasions", (_req, res) => {
+router.get("/catalog/occasions", (req, res) => {
+  const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
   const osOccasions = getOsOccasions();
+  const occasionCountMap = countryCode
+    ? getOsOccasionProductCountsByCountry(countryCode)
+    : getOsOccasionProductCounts();
   const featured = osOccasions
     ? osOccasions
         .filter((o) => o.featured === true)
@@ -230,12 +234,14 @@ router.get("/catalog/occasions", (_req, res) => {
           name: o.name,
           // Route through our proxy so the browser never needs the OS API key.
           image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,
+          count: occasionCountMap.get(o.slug) ?? 0,
         }))
     : [];
   res.json({ occasions: featured });
 });
 
-router.get("/catalog/metadata", (_req, res) => {
+router.get("/catalog/metadata", (req, res) => {
+  const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
   const osBrands = getOsBrands();
   const osOccasions = getOsOccasions();
 
@@ -248,9 +254,15 @@ router.get("/catalog/metadata", (_req, res) => {
   // product counts from the cache. The cache layer recomputes counts after
   // every OS refresh cycle, so this is always consistent with the current
   // store caches without re-iterating over all products on every request.
+  // When a countryCode is provided, use per-country counts so that the mega
+  // menu only surfaces categories/occasions with products in the shopper's market.
   const brandCountMap = getOsBrandProductCounts();
-  const categoryCountMap = getOsCategoryProductCounts();
-  const occasionCountMap = getOsOccasionProductCounts();
+  const categoryCountMap = countryCode
+    ? getOsCategoryProductCountsByCountry(countryCode)
+    : getOsCategoryProductCounts();
+  const occasionCountMap = countryCode
+    ? getOsOccasionProductCountsByCountry(countryCode)
+    : getOsOccasionProductCounts();
 
   // Merge OS images into hardcoded occasions. The hardcoded list provides icons,
   // descriptions, and stable slugs; OS provides real photos. When OS has an image

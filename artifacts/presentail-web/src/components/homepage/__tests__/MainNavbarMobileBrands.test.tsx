@@ -13,11 +13,11 @@ import { renderWithProviders } from "@/test-utils";
 // Hoisted mock factories — declared before any import of the mocked modules
 // ---------------------------------------------------------------------------
 
-const { mockUseBrands, mockUseCatalogMetadata, mockUseGetCatalogOccasions } =
+const { mockUseBrands, mockUseCatalogMetadata, mockUseCatalogOccasions } =
   vi.hoisted(() => ({
     mockUseBrands: vi.fn(),
     mockUseCatalogMetadata: vi.fn(),
-    mockUseGetCatalogOccasions: vi.fn(),
+    mockUseCatalogOccasions: vi.fn(),
   }));
 
 // ---------------------------------------------------------------------------
@@ -30,13 +30,9 @@ vi.mock("@/lib/queries", async (importOriginal) => {
     ...actual,
     useBrands: mockUseBrands,
     useCatalogMetadata: mockUseCatalogMetadata,
+    useCatalogOccasions: mockUseCatalogOccasions,
   };
 });
-
-vi.mock("@workspace/api-client-react", () => ({
-  useGetCatalogOccasions: mockUseGetCatalogOccasions,
-  getGetCatalogOccasionsQueryKey: vi.fn(() => ["occasions"]),
-}));
 
 vi.mock("wouter", () => ({
   Link: ({
@@ -159,7 +155,7 @@ function setupDefaultMocks(brands: MockBrand[] = makeCatalogBrands(3)) {
       categories: [],
     },
   });
-  mockUseGetCatalogOccasions.mockReturnValue({
+  mockUseCatalogOccasions.mockReturnValue({
     data: { occasions: [] },
     isPending: false,
   });
