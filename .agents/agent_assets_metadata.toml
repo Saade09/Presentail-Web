@@ -323,3 +323,9 @@ id = "FI4QPuP0fxgoo3h9Ri8DY"
 uri = "file://attached_assets/card-stationery.png"
 type = "image"
 title = "Card stationery background (for OS printing)"
+
+[[outputs]]
+id = "Qpn-1wR7PqOCwAM68OA3w"
+uri = "file://artifacts/presentail-web/public/opengraph.jpg"
+type = "image"
+title = "Presentail OG Share Image (opengraph.jpg)"
