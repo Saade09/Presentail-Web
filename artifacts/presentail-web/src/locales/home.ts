@@ -4,12 +4,15 @@ export const homeStrings: Dict = {
   "carousel.prev": { en: "Previous slide", ar: "الشريحة السابقة" },
   "carousel.next": { en: "Next slide", ar: "الشريحة التالية" },
   "bestSellers.title": { en: "Best Sellers", ar: "الأكثر مبيعاً" },
-  "bestSellers.viewAll": { en: "View All", ar: "عرض الكل" },
+  "bestSellers.viewAll": { en: "View all Best Sellers →", ar: "عرض كل الأكثر مبيعاً →" },
   "bestSellers.empty": { en: "No products available right now.", ar: "لا توجد منتجات متاحة الآن." },
 
   "collections.summer.title": { en: "Summer Picks", ar: "مختارات الصيف" },
+  "collections.summer.viewAll": { en: "View all Summer Picks →", ar: "عرض كل مختارات الصيف →" },
   "collections.boxes.title": { en: "Flower Boxes", ar: "صناديق الزهور" },
+  "collections.boxes.viewAll": { en: "View all Flower Boxes →", ar: "عرض كل صناديق الزهور →" },
   "collections.balloons.title": { en: "Balloons", ar: "البالونات" },
+  "collections.balloons.viewAll": { en: "View all Balloons →", ar: "عرض كل البالونات →" },
 
   "categories.eyebrow": { en: "Curated Collections", ar: "تشكيلات مختارة" },
   "categories.title": { en: "Shop by Category", ar: "تسوّق حسب الفئة" },
@@ -83,12 +86,15 @@ export const homeStringsFr: Record<string, string> = {
   "carousel.prev": "Diapositive précédente",
   "carousel.next": "Diapositive suivante",
   "bestSellers.title": "Meilleures ventes",
-  "bestSellers.viewAll": "Tout voir",
+  "bestSellers.viewAll": "Voir tous les Best Sellers →",
   "bestSellers.empty": "Aucun produit disponible pour le moment.",
 
   "collections.summer.title": "Sélections estivales",
+  "collections.summer.viewAll": "Voir toutes les sélections estivales →",
   "collections.boxes.title": "Coffrets de fleurs",
+  "collections.boxes.viewAll": "Voir tous les coffrets de fleurs →",
   "collections.balloons.title": "Ballons",
+  "collections.balloons.viewAll": "Voir tous les ballons →",
 
   "categories.eyebrow": "Collections sélectionnées",
   "categories.title": "Acheter par catégorie",

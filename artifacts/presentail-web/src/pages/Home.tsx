@@ -88,6 +88,7 @@ export default function Home() {
         titleKey="collections.summer.title"
         railKey="rail-summer"
         viewAllHref="/occasion/summer"
+        viewAllLabel={t("collections.summer.viewAll")}
         testId="section-collection-summer"
       />
 
@@ -96,6 +97,7 @@ export default function Home() {
         titleKey="bestSellers.title"
         railKey="best-sellers"
         viewAllHref="/best-sellers"
+        viewAllLabel={t("bestSellers.viewAll")}
         products={bestSellerProducts}
         isLoadingExternal={isBestSellersLoading}
         limit={10}
@@ -110,6 +112,7 @@ export default function Home() {
           categorySlug="flower-boxes"
           titleKey="collections.boxes.title"
           railKey="rail-boxes"
+          viewAllLabel={t("collections.boxes.viewAll")}
           testId="section-collection-boxes"
           sortBy="price-asc"
         />
@@ -120,6 +123,7 @@ export default function Home() {
         categorySlug="balloons"
         titleKey="collections.balloons.title"
         railKey="rail-balloons"
+        viewAllLabel={t("collections.balloons.viewAll")}
         testId="section-collection-balloons"
       />
 

@@ -16,6 +16,7 @@ type Props = {
   titleKey?: string;
   railKey?: string;
   viewAllHref?: string;
+  viewAllLabel?: string;
   limit?: number;
   testId?: string;
   products?: Product[];
@@ -61,6 +62,7 @@ export function BestSellersPreview({
   titleKey = "bestSellers.title",
   railKey = "best-sellers",
   viewAllHref,
+  viewAllLabel,
   limit = 8,
   testId = "section-best-sellers",
   products: externalProducts,
@@ -184,6 +186,7 @@ export function BestSellersPreview({
     <ProductCollectionCarousel
       title={t(titleKey)}
       viewAllHref={href}
+      viewAllLabel={viewAllLabel}
       products={finalProducts}
       isLoading={isLoading}
       testId={testId}

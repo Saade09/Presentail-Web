@@ -8,6 +8,7 @@ import type { Product } from "@/lib/queries";
 type Props = {
   title: string;
   viewAllHref?: string;
+  viewAllLabel?: string;
   products: Product[];
   isLoading?: boolean;
   isError?: boolean;
@@ -17,6 +18,7 @@ type Props = {
 export function ProductCollectionCarousel({
   title,
   viewAllHref,
+  viewAllLabel,
   products,
   isLoading,
   isError,
@@ -88,40 +90,42 @@ export function ProductCollectionCarousel({
 
   if (!isLoading && !isError && products.length === 0) return null;
 
+  const linkLabel = viewAllLabel ?? t("bestSellers.viewAll");
+
   return (
     <section className="py-6 md:py-10 px-4 md:px-0" data-testid={testId}>
-      <div className="flex items-end justify-between mb-6 md:mb-8">
+      <div className="flex items-center justify-between mb-6 md:mb-8">
         <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
-        <div className="flex items-center gap-3 md:gap-4">
+        <div className="flex items-center gap-2">
           {viewAllHref && (
             <Link
               href={viewAllHref}
-              className="text-sm font-medium text-primary hover:text-gold transition-colors"
+              className="text-sm font-medium text-primary hover:text-primary/70 transition-colors"
               data-testid={`${testId ?? "collection"}-view-all`}
             >
-              {t("bestSellers.viewAll")}
+              {linkLabel}
             </Link>
           )}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => scrollByDir(-1)}
               aria-label={t("carousel.prev")}
               disabled={!canPrev}
-              className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
+              className="w-8 h-8 rounded-full border flex items-center justify-center transition-colors disabled:border-gray-200 disabled:text-gray-300 disabled:cursor-default border-primary/30 text-primary hover:border-primary/60"
               data-testid={`${testId ?? "collection"}-prev`}
             >
-              <PrevIcon className="w-5 h-5" />
+              <PrevIcon className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={() => scrollByDir(1)}
               aria-label={t("carousel.next")}
               disabled={!canNext}
-              className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
+              className="w-8 h-8 rounded-full border flex items-center justify-center transition-colors disabled:border-gray-200 disabled:text-gray-300 disabled:cursor-default border-primary/30 text-primary hover:border-primary/60"
               data-testid={`${testId ?? "collection"}-next`}
             >
-              <NextIcon className="w-5 h-5" />
+              <NextIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
