@@ -131,23 +131,23 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
               transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
             >
               {banner.title && (
-                <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-[#00414e] md:text-white mb-3 tracking-tight drop-shadow">
+                <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-white mb-3 tracking-tight drop-shadow">
                   {banner.title}
                 </h2>
               )}
               {banner.headline && (
-                <p className="font-serif text-2xl md:text-4xl text-[#00414e] md:text-white/90 mb-2 leading-tight">
+                <p className="font-serif text-2xl md:text-4xl text-white/90 mb-2 leading-tight">
                   {banner.headline}
                 </p>
               )}
               {banner.subtitle && (
-                <p className="text-sm md:text-lg text-[#00414e] md:text-white/85 mb-6 md:mb-8 leading-relaxed">
+                <p className="text-sm md:text-lg text-white/85 mb-6 md:mb-8 leading-relaxed">
                   {banner.subtitle}
                 </p>
               )}
               {banner.ctaText && (
                 <div className="flex justify-end">
-                  <span className="inline-flex items-center bg-[#00414e] text-white md:bg-white md:text-primary font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:opacity-90 md:hover:opacity-100 md:hover:bg-white/90 transition-colors">
+                  <span className="inline-flex items-center border border-white text-white bg-white/10 md:bg-white md:text-primary md:border-0 font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:opacity-90 md:hover:opacity-100 md:hover:bg-white/90 transition-colors">
                     {banner.ctaText}
                   </span>
                 </div>
@@ -162,23 +162,23 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
                 transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
               >
                 {banner.title && (
-                  <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-[#00414e] md:text-white mb-3 tracking-tight drop-shadow">
+                  <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-white mb-3 tracking-tight drop-shadow">
                     {banner.title}
                   </h2>
                 )}
                 {banner.headline && (
-                  <p className="font-serif text-2xl md:text-4xl text-[#00414e] md:text-white/90 mb-2 leading-tight">
+                  <p className="font-serif text-2xl md:text-4xl text-white/90 mb-2 leading-tight">
                     {banner.headline}
                   </p>
                 )}
                 {banner.subtitle && (
-                  <p className="text-sm md:text-lg text-[#00414e] md:text-white/85 mb-6 md:mb-8 max-w-md leading-relaxed mx-0">
+                  <p className="text-sm md:text-lg text-white/85 mb-6 md:mb-8 max-w-md leading-relaxed mx-0">
                     {banner.subtitle}
                   </p>
                 )}
                 {banner.ctaText && (
                   <div className="flex justify-start">
-                    <span className="inline-flex items-center bg-[#00414e] text-white md:bg-white md:text-primary font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:opacity-90 md:hover:opacity-100 md:hover:bg-white/90 transition-colors">
+                    <span className="inline-flex items-center border border-white text-white bg-white/10 md:bg-white md:text-primary md:border-0 font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:opacity-90 md:hover:opacity-100 md:hover:bg-white/90 transition-colors">
                       {banner.ctaText}
                     </span>
                   </div>
