@@ -4,7 +4,7 @@ export type BirthdayRecipient = {
   key: string;
   labelKey: string;
   preferredCategories: string[];
-  excludeColorKeywords: string[];
+  excludeNameKeywords: string[];
 };
 
 export const BIRTHDAY_RECIPIENTS: BirthdayRecipient[] = [
@@ -12,55 +12,55 @@ export const BIRTHDAY_RECIPIENTS: BirthdayRecipient[] = [
     key: "mom",
     labelKey: "shop.birthdayFor.mom",
     preferredCategories: ["hand-bouquets", "flower-boxes", "flower-baskets", "cakes", "chocolate", "bundles"],
-    excludeColorKeywords: [],
+    excludeNameKeywords: [],
   },
   {
     key: "dad",
     labelKey: "shop.birthdayFor.dad",
-    preferredCategories: ["chocolate", "spirits", "plants", "bundles", "gift-baskets"],
-    excludeColorKeywords: ["pink", "rose gold", "blush", "lilac", "lavender", "fuchsia", "magenta"],
+    preferredCategories: ["chocolate", "spirits", "plants", "bundles", "gift-baskets", "flower-boxes"],
+    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
   },
   {
     key: "teta",
     labelKey: "shop.birthdayFor.teta",
     preferredCategories: ["hand-bouquets", "flower-baskets", "flower-boxes", "plants", "cakes"],
-    excludeColorKeywords: [],
+    excludeNameKeywords: [],
   },
   {
     key: "jedo",
     labelKey: "shop.birthdayFor.jedo",
-    preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets"],
-    excludeColorKeywords: ["pink", "rose gold", "blush", "lilac", "lavender", "fuchsia", "magenta"],
+    preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets", "flower-boxes"],
+    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
   },
   {
     key: "girlfriend",
     labelKey: "shop.birthdayFor.girlfriend",
     preferredCategories: ["hand-bouquets", "flower-boxes", "chocolate", "cakes", "bundles"],
-    excludeColorKeywords: [],
+    excludeNameKeywords: [],
   },
   {
     key: "boyfriend",
     labelKey: "shop.birthdayFor.boyfriend",
     preferredCategories: ["plants", "chocolate", "bundles", "cakes", "gift-baskets"],
-    excludeColorKeywords: ["pink", "rose gold", "blush", "lilac", "lavender", "fuchsia", "magenta"],
+    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
   },
   {
     key: "wife",
     labelKey: "shop.birthdayFor.wife",
     preferredCategories: ["hand-bouquets", "flower-boxes", "flower-baskets", "chocolate", "bundles"],
-    excludeColorKeywords: [],
+    excludeNameKeywords: [],
   },
   {
     key: "husband",
     labelKey: "shop.birthdayFor.husband",
-    preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets", "hand-bouquets"],
-    excludeColorKeywords: ["pink", "rose gold", "blush", "lilac", "lavender", "fuchsia", "magenta"],
+    preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets", "hand-bouquets", "flower-boxes"],
+    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
   },
   {
     key: "kids",
     labelKey: "shop.birthdayFor.kids",
     preferredCategories: ["cakes", "chocolate", "bundles"],
-    excludeColorKeywords: [],
+    excludeNameKeywords: [],
   },
 ];
 
@@ -70,15 +70,15 @@ export function applyRecipientFilter(products: Product[], recipientKey: string):
   const recipient = BIRTHDAY_RECIPIENTS.find((r) => r.key === recipientKey);
   if (!recipient) return products;
 
-  const { preferredCategories, excludeColorKeywords } = recipient;
+  const { preferredCategories, excludeNameKeywords } = recipient;
   const preferredSet = new Set(preferredCategories);
 
   const filtered = products.filter((p) => {
     const productCategories = p.categories ?? [p.category];
     if (!productCategories.some((c) => preferredSet.has(c))) return false;
-    if (excludeColorKeywords.length > 0) {
+    if (excludeNameKeywords.length > 0) {
       const lower = p.name.toLowerCase();
-      if (excludeColorKeywords.some((kw) => lower.includes(kw))) return false;
+      if (excludeNameKeywords.some((kw) => lower.includes(kw))) return false;
     }
     return true;
   });
