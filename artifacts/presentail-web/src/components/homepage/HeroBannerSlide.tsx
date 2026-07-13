@@ -131,7 +131,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
               transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
             >
               {banner.title && (
-                <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-white mb-3 tracking-tight drop-shadow">
+                <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] !text-white mb-3 tracking-tight drop-shadow">
                   {banner.title}
                 </h2>
               )}
@@ -162,7 +162,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
                 transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
               >
                 {banner.title && (
-                  <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-white mb-3 tracking-tight drop-shadow">
+                  <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] !text-white mb-3 tracking-tight drop-shadow">
                     {banner.title}
                   </h2>
                 )}
