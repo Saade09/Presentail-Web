@@ -191,6 +191,25 @@ async function fetchProductsPricing(): Promise<ProductsPricingMap> {
 }
 
 /**
+ * Fetch the set of best-seller product IDs from the API server.
+ * The server computes this by blending app_orders DB counts with OS totalSales
+ * after each cache refresh — the same source as the homepage best-sellers rail.
+ * Used by the OS-direct path so badges are consistent regardless of whether
+ * the browser fetches products from OS directly or through the API proxy.
+ * Returns an empty Set on any failure so collection pages degrade gracefully.
+ */
+async function fetchBestSellerIds(): Promise<Set<string>> {
+  try {
+    const res = await fetch("/api/catalog/best-seller-ids");
+    if (!res.ok) return new Set();
+    const data = (await res.json()) as { ok: boolean; ids?: string[] };
+    return data.ok && Array.isArray(data.ids) ? new Set(data.ids) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+/**
  * Merge pricing enrichment into a list of already-mapped Product objects.
  * Matches on product.osNumericId (string). Only overrides pricing when the
  * enrichment map has a non-null discount for that product.
@@ -242,31 +261,22 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
       const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
       if (osKey) {
         try {
-          const [raw, pricing] = await Promise.all([
+          const [raw, pricing, bestSellerIds, brandAllowlist] = await Promise.all([
             fetchOsProducts({
               countryCode: params.countryCode,
               cityId: params.cityId,
               lang: params.lang,
             }),
             fetchProductsPricing(),
+            // Fetch best-seller IDs from the API server so the badge matches
+            // the homepage rail (app_orders DB + OS totalSales blend) even
+            // when the browser fetches products directly from OS.
+            fetchBestSellerIds(),
+            getOsBrandAllowlist(),
           ]);
           // Filter by country only — city-level restrictions are enforced at
           // checkout, not at browse time, because OS city IDs may not match
           // the web app's city slug format.
-          const brandAllowlist = await getOsBrandAllowlist();
-          // Compute best-seller flag from the FULL global product list (all
-          // stores, before deliverability / brand filtering) so the top-20
-          // matches what the API server computes server-side after each cache
-          // refresh. Individual products are then filtered for the shopper's
-          // locale, but the badge is awarded relative to the global catalog.
-          // Products with no recorded sales must never be flagged as best
-          // sellers, regardless of how they sort.
-          const sortedByPopularity = [...raw]
-            .filter((p) => (p.totalSales ?? 0) > 0)
-            .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0));
-          const bestSellerIds = new Set(
-            sortedByPopularity.slice(0, 20).map((p) => p.id),
-          );
           const filtered = raw
             .filter(isVisibleOsProduct)
             .filter((p) =>
@@ -363,15 +373,18 @@ export const useBrandProducts = (
       const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
       if (osKey) {
         try {
-          const [raw, pricing] = await Promise.all([
+          const [raw, pricing, bestSellerIds, brandAllowlist] = await Promise.all([
             fetchOsProducts({
               countryCode: params.countryCode,
               cityId: params.cityId,
               lang: params.lang,
             }),
             fetchProductsPricing(),
+            // Fetch best-seller IDs from the API server (app_orders + OS blend)
+            // so the badge matches the homepage rail even on the OS-direct path.
+            fetchBestSellerIds(),
+            getOsBrandAllowlist(),
           ]);
-          const brandAllowlist = await getOsBrandAllowlist();
           const mapped = raw
             .filter(isVisibleOsProduct)
             .filter((p) =>
@@ -382,6 +395,7 @@ export const useBrandProducts = (
               (Array.isArray(p.brands) && p.brands.some((b) => brandAllowlist.has(b.slug))),
             )
             .filter((p) => p.brands.some((b) => b.slug === slug))
+            .map((p) => ({ ...p, isBestSeller: bestSellerIds.has(p.id) }))
             .map(mapOsProduct);
           const products = mergeProductsPricing(mapped, pricing);
           const brandEntry = raw.flatMap((p) => p.brands).find((b) => b.slug === slug);

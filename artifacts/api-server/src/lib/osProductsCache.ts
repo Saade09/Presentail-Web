@@ -39,8 +39,8 @@ import type {
   OSProductBrand,
   OSProductOccasion,
 } from "@workspace/presentail-os";
-import { db, osPriceSnapshotsTable, osPriceAlertsTable } from "@workspace/db";
-import { gt, lt, sql } from "drizzle-orm";
+import { db, osPriceSnapshotsTable, osPriceAlertsTable, appOrdersTable } from "@workspace/db";
+import { gt, lt, sql, inArray } from "drizzle-orm";
 import { inferPersonalisationRequirements } from "./personalisationRequirementInference";
 import type { StoreKey } from "./wooStore";
 import { logger } from "./logger";
@@ -119,6 +119,12 @@ const PRICE_ALERT_DEDUPE_MS = 24 * 60 * 60 * 1000; // 24 h
 let cachedCategories: OSProductCategory[] | null = null;
 let cachedBrands: OSProductBrand[] | null = null;
 let cachedOccasions: OSProductOccasion[] | null = null;
+/**
+ * The most recent set of best-seller product IDs, computed from blended
+ * app_orders DB counts + OS totalSales after each cache refresh.
+ * Exposed via getCachedBestSellerIds() for the catalog/best-seller-ids route.
+ */
+let cachedBestSellerIdSet: ReadonlySet<string> = new Set();
 /**
  * Raw catalog-attribute brands as returned by the OS API, before the
  * zero-product-count filter is applied. Used by the catalog metadata endpoint
@@ -1248,8 +1254,15 @@ async function fetchAndStore(): Promise<void> {
     }
 
     // ── Best-seller flag ──────────────────────────────────────────────────
-    // Compute the top-20 products by totalSales across all stores (deduplicated
-    // by product id) and annotate each in-memory product with isBestSeller.
+    // Compute the top-20 products by blended score (OS totalSales + app_orders
+    // DB quantity) across all stores (deduplicated by product id) and annotate
+    // each in-memory product with isBestSeller.
+    //
+    // OS totalSales alone is unreliable in some environments (returns 0 for
+    // all products), so we blend it with actual order data from app_orders —
+    // the same source the homepage best-sellers rail uses. This ensures brand
+    // and catalog pages show the same badges as the homepage rail.
+    //
     // Run after every successful fetch so the flag stays in sync with the cache.
     {
       const BEST_SELLER_COUNT = 20;
@@ -1266,14 +1279,55 @@ async function fetchAndStore(): Promise<void> {
           }
         }
       }
-      // Rank by totalSales descending. Products with no recorded sales must
-      // never be flagged as best sellers, regardless of how they sort.
-      const sorted = [...uniqueProducts]
-        .filter((p) => (p.totalSales ?? 0) > 0)
-        .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0));
-      const bestSellerIds = new Set(
-        sorted.slice(0, BEST_SELLER_COUNT).map((p) => p.id),
+
+      // Build a normalised-name → product-id map for merging DB order data.
+      const productIdByName = new Map<string, string>(
+        uniqueProducts.map((p) => [p.name.toLowerCase().trim(), p.id]),
       );
+
+      // Fetch local sales counts from app_orders (best-effort; non-blocking
+      // failures leave localSalesById empty so OS totalSales still applies).
+      const localSalesById = new Map<string, number>();
+      try {
+        const rows = await db
+          .select({ lineItemsJson: appOrdersTable.lineItemsJson })
+          .from(appOrdersTable)
+          .where(inArray(appOrdersTable.state, ["confirmed", "out_for_delivery", "delivered"]));
+        for (const row of rows) {
+          if (!row.lineItemsJson) continue;
+          let items: unknown;
+          try { items = JSON.parse(row.lineItemsJson); } catch { continue; }
+          if (!Array.isArray(items)) continue;
+          for (const item of items) {
+            if (typeof item !== "object" || item === null || !("name" in item)) continue;
+            const rec = item as { name: string; quantity?: unknown };
+            if (typeof rec.name !== "string" || !rec.name.trim()) continue;
+            const key = rec.name.toLowerCase().trim();
+            const qty = typeof rec.quantity === "number" && rec.quantity > 0 ? rec.quantity : 1;
+            const id = productIdByName.get(key);
+            if (id) localSalesById.set(id, (localSalesById.get(id) ?? 0) + qty);
+          }
+        }
+      } catch {
+        // DB unavailable — fall through; OS totalSales is still used below.
+      }
+
+      // Rank by blended score (OS totalSales + DB order count) descending.
+      // Mirror the homepage best-sellers rail: sort all products by blended score
+      // and take the top BEST_SELLER_COUNT. Only populate the set when at least
+      // one product has actual sales data (blendedScore > 0) — this avoids
+      // flagging arbitrary products in a completely cold environment where all
+      // scores are 0. When at least one score is > 0, lower-ranked products
+      // (score 0) may be included to pad to 20, matching homepage rail behaviour.
+      const blendedScore = (p: OSProduct): number =>
+        (p.totalSales ?? 0) + (localSalesById.get(p.id) ?? 0);
+      const hasAnySales = uniqueProducts.some((p) => blendedScore(p) > 0);
+      const sorted = hasAnySales
+        ? [...uniqueProducts]
+            .sort((a, b) => blendedScore(b) - blendedScore(a))
+            .slice(0, BEST_SELLER_COUNT)
+        : [];
+      const bestSellerIds = new Set(sorted.map((p) => p.id));
       // Annotate every product in every store cache in-place.
       for (const spec of OS_STORE_SPECS) {
         const entry = storeCache.get(spec.storeKey);
@@ -1282,6 +1336,8 @@ async function fetchAndStore(): Promise<void> {
           p.isBestSeller = bestSellerIds.has(p.id);
         }
       }
+      // Persist so getCachedBestSellerIds() can serve the catalog route.
+      cachedBestSellerIdSet = bestSellerIds;
     }
 
     // ── Filter zero-product brands from cachedBrands ──────────────────────
@@ -1591,6 +1647,15 @@ export function getOsProductOccasions(): ReadonlyMap<string, OSProductOccasion> 
  * each successful cache refresh. Returns an empty map before the first
  * enrichment cycle completes.
  */
+/**
+ * Returns the current set of best-seller product IDs (OS slugs), computed
+ * from blended app_orders DB counts + OS totalSales after each cache refresh.
+ * Returns an empty Set before the first successful OS products fetch.
+ */
+export function getCachedBestSellerIds(): ReadonlySet<string> {
+  return cachedBestSellerIdSet;
+}
+
 export function getOsProductPricingMap(): ReadonlyMap<string, ProductPricingEntry> {
   return cachedProductPricing;
 }

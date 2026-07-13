@@ -28,3 +28,4 @@
 - [Session-proven ownership vs emailVerified gate](session-proven-ownership.md) — gate order/data visibility on "is this the authenticated caller's own row" (session proof), not just emailVerified, to unblock legit self-access while keeping anti-takeover intact
 - [OS brand banner field name](os-brand-banner-field.md) — OS /api/catalog-attributes/brands returns banner as `banner_image_url` (not `cover_image`); cover_image was a stale TypeScript anticipation
 - [Homepage rails sale pricing](homepage-pricing-enrichment.md) — OS list endpoint omits sale_price/regular_price/discount_price_*; homepage must read getOsProductPricingMap() (keyed by osNumericId) not raw product fields; also register a pricingEnrichmentListener to bust homepage caches after cold-start enrichment
+- [Best-seller badge annotation](best-seller-annotation.md) — OS totalSales is 0 for all products; must blend app_orders DB data for correct isBestSeller flag

@@ -11,7 +11,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds } from "../lib/osProductsCache";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
 
 const router: IRouter = Router();
@@ -487,6 +487,18 @@ router.get("/catalog/brand-allowlist", (_req, res) => {
 // OS product cache refresh. This is a fast cache-read with no OS calls at
 // request time.
 //
+// Returns the current set of best-seller product IDs (OS slugs), computed
+// from blended app_orders DB counts + OS totalSales on each cache refresh.
+// The web's OS-direct path fetches this alongside OS products so the badge
+// matches the homepage best-sellers rail even when VITE_OS_API_KEY is set
+// and the browser bypasses the API server for the product list.
+// 60-second cache — same TTL as products-pricing.
+router.get("/catalog/best-seller-ids", (_req, res) => {
+  const ids = Array.from(getCachedBestSellerIds());
+  res.setHeader("Cache-Control", "public, max-age=60");
+  res.json({ ok: true, ids });
+});
+
 // Web collection pages (Shop, category, occasion, brand) call this once after
 // loading the product list and merge the pricing data by osNumericId so that
 // sale badges and strikethrough prices appear everywhere, not just on the PDP.
