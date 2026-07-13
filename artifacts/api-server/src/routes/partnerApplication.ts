@@ -5,7 +5,8 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { db, partnerApplicationsTable } from "@workspace/db";
 import { objectStorageClient } from "../lib/objectStorage.js";
-import { createTransport } from "nodemailer";
+import { Resend } from "resend";
+import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -82,6 +83,49 @@ async function uploadToGcs(
   return `/objects/${objectName}`;
 }
 
+async function sendPartnerSlackNotification(data: {
+  id: number;
+  brandName: string;
+  contactName: string;
+  email: string;
+  country: string;
+  city: string;
+  website: string;
+  categories: string[];
+}): Promise<void> {
+  const webhookUrl =
+    process.env.PARTNER_NOTIFY_SLACK_WEBHOOK_URL ??
+    process.env.ALERTS_SLACK_WEBHOOK_URL;
+  if (!webhookUrl) {
+    logger.warn("partner-application: no Slack webhook configured (PARTNER_NOTIFY_SLACK_WEBHOOK_URL / ALERTS_SLACK_WEBHOOK_URL unset)"); // i18n-ignore
+    return;
+  }
+
+  const text = [
+    `:handshake: *New partner application #${data.id} — ${data.brandName}*`, // i18n-ignore
+    `• *Contact:* ${data.contactName} <${data.email}>`, // i18n-ignore
+    `• *Location:* ${data.city}, ${data.country}`, // i18n-ignore
+    `• *Website:* ${data.website}`, // i18n-ignore
+    `• *Categories:* ${data.categories.join(", ")}`, // i18n-ignore
+  ].join("\n");
+
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 5_000);
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Slack webhook responded ${res.status}`); // i18n-ignore
+    }
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function sendNotificationEmail(data: {
   id: number;
   brandName: string;
@@ -92,23 +136,23 @@ async function sendNotificationEmail(data: {
   website: string;
   categories: string[];
 }): Promise<void> {
-  const host = process.env.SMTP_HOST;
-  if (!host) return;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    logger.warn("partner-application: RESEND_API_KEY not set, skipping email notification"); // i18n-ignore
+    return;
+  }
 
-  const notifyTo =
+  const notifyTo = (
     process.env.PARTNER_NOTIFY_EMAIL ??
-    "adnan@presentail.com,ahmad@presentail.com,bassel@presentail.com"; // i18n-ignore
-  const transport = createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? "" }
-      : undefined,
-  });
+    "adnan@presentail.com,ahmad@presentail.com,bassel@presentail.com" // i18n-ignore
+  ).split(",").map((s) => s.trim()).filter(Boolean);
 
-  await transport.sendMail({
-    from: process.env.SMTP_USER ?? "noreply@presentail.com", // i18n-ignore
+  const from =
+    process.env.PARTNER_NOTIFY_FROM ?? "Presentail <partners@presentail.com>"; // i18n-ignore
+
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from,
     to: notifyTo,
     subject: `New partner application #${data.id} — ${data.brandName}`, // i18n-ignore
     text: [
@@ -121,6 +165,10 @@ async function sendNotificationEmail(data: {
       `Categories: ${data.categories.join(", ")}`, // i18n-ignore
     ].join("\n"),
   });
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`); // i18n-ignore
+  }
 }
 
 router.post(
@@ -210,7 +258,7 @@ router.post(
 
     const id = inserted[0]?.id ?? 0;
 
-    void sendNotificationEmail({
+    const notifyData = {
       id,
       brandName,
       contactName: `${contactFirstName} ${contactLastName}`,
@@ -219,9 +267,16 @@ router.post(
       city,
       website,
       categories,
-    }).catch((err: unknown) => {
-      req.log.warn({ err }, "partner-application: email notification failed");
-    });
+    };
+
+    void Promise.all([
+      sendPartnerSlackNotification(notifyData).catch((err: unknown) => {
+        req.log.warn({ err }, "partner-application: Slack notification failed");
+      }),
+      sendNotificationEmail(notifyData).catch((err: unknown) => {
+        req.log.warn({ err }, "partner-application: email notification failed");
+      }),
+    ]);
 
     req.log.info(
       { partnerApplicationId: id, country, brandName },
