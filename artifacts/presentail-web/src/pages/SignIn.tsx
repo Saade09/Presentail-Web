@@ -459,7 +459,7 @@ export default function SignInPage() {
       />
     ) : null}
     <div
-      className="min-h-[calc(100vh-130px)] flex flex-col items-center justify-center px-4 py-4 bg-[#F7F7F7] overflow-y-auto"
+      className="h-[calc(100vh-64px)] flex flex-col items-center justify-center px-4 py-2 bg-[#F7F7F7] overflow-hidden"
       dir={dir}
     >
       <div
