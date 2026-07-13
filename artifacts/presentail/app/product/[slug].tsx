@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  I18nManager,
   Platform,
   Pressable,
   ScrollView,
@@ -812,40 +813,54 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       />
 
       {/* Trust badges — informational, intentionally non-button */}
-      <View
-        style={{
-          marginTop: 14,
-          backgroundColor: "#fff",
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 16,
-          paddingHorizontal: 14,
-        }}
-      >
-        {[
+      {(() => {
+        const isRTL = I18nManager.isRTL;
+        const textAlign = isRTL ? "right" : "center";
+        const badges = [
           freeDeliveryEnabled ? { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(freeDeliveryThresholdNative)}.` } : null,
-          { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
+          { icon: "map-marker-question", title: t.noAddressHassle, sub: t.ifNeeded },
           { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
-        ].filter((b): b is NonNullable<typeof b> => b !== null).map((b, i, _arr) => (
+        ].filter((b): b is NonNullable<typeof b> => b !== null);
+        const columns = isRTL ? [...badges].reverse() : badges;
+        return (
           <View
-            key={b.title}
             style={{
+              marginTop: 14,
+              backgroundColor: "#fff",
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 16,
               flexDirection: "row",
-              alignItems: "center",
-              gap: 14,
-              paddingVertical: 14,
-              borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
-              borderTopColor: colors.border,
+              paddingVertical: 10,
             }}
           >
-            <MaterialCommunityIcons name={b.icon as any} size={20} color={colors.gold} />
-            <View style={{ flex: 1 }}>
-              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>{b.title}</AppText>
-              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>{b.sub}</AppText>
-            </View>
+            {columns.map((col, i) => (
+              <React.Fragment key={col.title}>
+                {i > 0 && (
+                  <View style={{ width: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: colors.border }} />
+                )}
+                <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 6 }}>
+                  <View
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 999,
+                      backgroundColor: colors.muted,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 5,
+                    }}
+                  >
+                    <MaterialCommunityIcons name={col.icon as any} size={15} color={colors.gold} />
+                  </View>
+                  <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.primary, textAlign }}>{col.title}</AppText>
+                  <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground, textAlign, marginTop: 1 }}>{col.sub}</AppText>
+                </View>
+              </React.Fragment>
+            ))}
           </View>
-        ))}
-      </View>
+        );
+      })()}
 
       {/* Payment methods */}
       <View style={{ marginTop: 6, gap: 8 }}>
