@@ -459,11 +459,11 @@ export default function SignInPage() {
       />
     ) : null}
     <div
-      className="h-[calc(100vh-130px)] flex flex-col items-center justify-center px-4 py-4 bg-[#F7F7F7] overflow-hidden"
+      className="min-h-[calc(100vh-130px)] flex flex-col items-center justify-center px-4 py-4 bg-[#F7F7F7] overflow-y-auto"
       dir={dir}
     >
       <div
-        className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm overflow-y-auto max-h-full"
+        className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm"
         data-testid="signin-card"
       >
         <div className="text-center mb-6">
