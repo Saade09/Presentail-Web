@@ -60,6 +60,7 @@ function CategoriesRow() {
       items={items}
       isLoading={isLoading}
       testId="section-home-categories"
+      className="pb-2 md:pb-4"
     />
   );
 }
@@ -83,6 +84,7 @@ function OccasionsRow({ title }: { title: string }) {
       items={items}
       isLoading={isLoading}
       testId="section-home-occasions"
+      className="pt-2 md:pt-4"
     />
   );
 }

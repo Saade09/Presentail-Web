@@ -59,6 +59,7 @@ type Props = {
   items: CircularCarouselItem[];
   isLoading?: boolean;
   testId?: string;
+  className?: string;
 };
 
 // Reusable circular-card carousel used by both the "Categories" and
@@ -66,7 +67,7 @@ type Props = {
 // scroll the track by roughly one card; mobile hides the arrows and relies
 // on native scroll-snap. While loading we render a row of skeleton circles
 // so the layout doesn't shift when data arrives.
-export function CircularCollectionCarousel({ title, items, isLoading, testId }: Props) {
+export function CircularCollectionCarousel({ title, items, isLoading, testId, className }: Props) {
   const { t } = useLocale();
   const trackRef = useRef<HTMLDivElement>(null);
   const cardWidthRef = useRef<number>(0);
@@ -99,7 +100,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
   };
 
   return (
-    <section className="py-6 md:py-14 px-4 md:px-0" data-testid={testId}>
+    <section className={`py-6 md:py-14 px-4 md:px-0${className ? ` ${className}` : ""}`} data-testid={testId}>
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
           <div className="hidden md:flex items-center gap-2">
