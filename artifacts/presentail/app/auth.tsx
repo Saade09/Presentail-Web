@@ -108,6 +108,8 @@ function AuthScreen() {
         return t.authWrongPassword;
       case "email_exists":
         return t.authEmailAlreadyExists;
+      case "email_exists_social":
+        return "";
       case "server":
         return t.authGenericError;
       default:
@@ -190,6 +192,19 @@ function AuthScreen() {
     });
     setSignupBusy(false);
     if (!r.ok) {
+      if (r.code === "email_exists_social") {
+        const provider = r.provider;
+        const msg =
+          provider === "google"
+            ? t.authSocialProviderGoogle
+            : provider === "apple"
+            ? t.authSocialProviderApple
+            : t.authEmailAlreadyExists;
+        setSignupError(null);
+        setStep("email");
+        setSocialError(msg);
+        return;
+      }
       setSignupError(errorText(r));
       return;
     }

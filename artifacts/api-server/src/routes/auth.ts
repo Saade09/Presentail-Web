@@ -818,11 +818,20 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
     try {
       // Check for existing account first so we return a clear error.
       const existing = await db
-        .select({ id: customersTable.id })
+        .select({ id: customersTable.id, authProvider: customersTable.authProvider })
         .from(customersTable)
         .where(eq(customersTable.email, normalizedEmail))
         .limit(1);
       if (existing.length > 0) {
+        const existingProvider = existing[0].authProvider;
+        if (existingProvider === "google" || existingProvider === "apple") {
+          return res.status(409).json({
+            ok: false,
+            code: "registration_failed_social_account",
+            provider: existingProvider,
+            message: `An account with this email is linked to ${existingProvider}.`, // i18n-ignore
+          });
+        }
         return res.status(409).json({
           ok: false,
           code: "registration_failed",

@@ -100,6 +100,20 @@ export default function SignUpPage() {
       const data = (await res.json()) as ApiAuthResponse;
       if (!res.ok || !data.ok) {
         const errCode = data.code ?? "";
+        if (errCode === "registration_failed_social_account") {
+          const provider = (data as any).provider as "google" | "apple" | undefined;
+          const description =
+            provider === "google"
+              ? t("auth.existingAccountSocialPromptGoogle")
+              : provider === "apple"
+              ? t("auth.existingAccountSocialPromptApple")
+              : t("auth.existingAccountSocialPrompt");
+          toast({ title: t("auth.toast.error"), description });
+          const qs = new URLSearchParams({ email_address: initial.email });
+          if (provider) qs.set("social_provider", provider);
+          setLocation(`/sign-in?${qs.toString()}`);
+          return;
+        }
         if (/form_identifier_exists|registration_failed/.test(errCode)) {
           toast({
             title: t("auth.toast.error"),

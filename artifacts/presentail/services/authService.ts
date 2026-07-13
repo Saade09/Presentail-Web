@@ -22,6 +22,7 @@ export type AuthErrorCode =
   | "lookup_unavailable"
   | "wrong_password"
   | "email_exists"
+  | "email_exists_social"
   | "too_many_requests"
   | "server";
 
@@ -29,6 +30,8 @@ export type AuthError = {
   ok: false;
   code: AuthErrorCode;
   serverMessage?: string;
+  /** Present when code is "email_exists_social" — identifies the social provider the address is linked to. */
+  provider?: "google" | "apple";
 };
 
 export type AuthResult<T = {}> = ({ ok: true } & T) | AuthError;
@@ -94,7 +97,7 @@ export type RegisterFn = (input: {
   firstName?: string;
   lastName?: string;
   phone?: string;
-}) => Promise<{ ok: true } | { ok: false; message: string }>;
+}) => Promise<{ ok: true } | { ok: false; message: string; code?: string; provider?: string }>;
 
 export type ApplySessionFn = (input: {
   token: string;
@@ -130,6 +133,14 @@ export async function createAccountWithEmail(
     lastName: input.lastName.trim(),
   });
   if (r.ok) return { ok: true };
+  // Server returns this code when the email belongs to a Google/Apple social account.
+  // Surface it with the provider so the UI can show a named-provider prompt.
+  if (r.code === "registration_failed_social_account") {
+    const p = r.provider;
+    const provider: "google" | "apple" | undefined =
+      p === "google" || p === "apple" ? p : undefined;
+    return { ok: false, code: "email_exists_social", provider };
+  }
   // WooCommerce returns "Sorry, that email address is already registered."
   // when the shopper tries to create an account with an existing email.
   // Surface this as a dedicated error code so the UI can show a helpful

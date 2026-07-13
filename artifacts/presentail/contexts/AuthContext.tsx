@@ -45,7 +45,7 @@ export type AuthState = {
     firstName?: string;
     lastName?: string;
     phone?: string;
-  }) => Promise<{ ok: true } | { ok: false; message: string }>;
+  }) => Promise<{ ok: true } | { ok: false; message: string; code?: string; provider?: string }>;
   applySession: (input: { token: string; user: AuthUser }) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<{ ok: true } | { ok: false; message: string }>;
@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        return { ok: false, message: data?.message ?? "Registration failed" }; // i18n-ignore
+        return { ok: false, message: data?.message ?? "Registration failed", code: data?.code, provider: data?.provider }; // i18n-ignore
       }
       if (data.token && data.user) {
         setToken(data.token);

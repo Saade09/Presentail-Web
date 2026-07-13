@@ -98,23 +98,27 @@ export default function SignInPage() {
   } | null>(null);
 
   const initial = useMemo(() => {
-    if (typeof window === "undefined") return { email: "", redirectTo: "", strategy: "" };
+    if (typeof window === "undefined") return { email: "", redirectTo: "", strategy: "", socialProvider: null as "google" | "apple" | null };
     const sp = new URLSearchParams(window.location.search);
+    const rawProvider = sp.get("social_provider");
     return {
       email: sp.get("email_address")?.trim() ?? "",
       redirectTo: sp.get("return_to") ?? sp.get("redirect_url") ?? "",
       strategy: sp.get("strategy") ?? "",
+      socialProvider: (rawProvider === "google" || rawProvider === "apple" ? rawProvider : null) as "google" | "apple" | null,
     };
   }, []);
 
   type Step = "email" | "password" | "social-redirect";
-  const [step, setStep] = useState<Step>("email");
+  const [step, setStep] = useState<Step>(
+    initial.email && initial.socialProvider ? "social-redirect" : "email"
+  );
   const [email, setEmail] = useState(initial.email);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [socialProvider, setSocialProvider] = useState<"google" | "apple" | null>(null);
+  const [socialProvider, setSocialProvider] = useState<"google" | "apple" | null>(initial.socialProvider);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
