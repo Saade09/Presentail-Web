@@ -21,10 +21,10 @@ import { Wordmark } from "@/components/Brand";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useOsCategories } from "@/hooks/useOsCategories";
+import { useOsOccasions } from "@/hooks/useOsOccasions";
 import { useT } from "@/hooks/useT";
 import type { Lang } from "@/lib/translations";
 
@@ -179,6 +179,7 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
   const isAE =
     selectedCountry?.code === "AE" || (!selectedCountry?.code && currencyCode === "AED");
   const categories = useOsCategories();
+  const occasions = useOsOccasions();
 
   // Overall menu open/close animation
   const anim = useRef(new Animated.Value(0)).current;

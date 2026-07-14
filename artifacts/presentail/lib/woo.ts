@@ -302,6 +302,38 @@ const OS_CATEGORY_ICONS_MOBILE: Record<string, string> = {
   sweets: "candy",
 };
 
+// fetchOsOccasions reads the OS-filtered occasion list from /api/catalog/metadata.
+// The server already applies isOccasionActive() so inactive occasions (e.g. Colleague,
+// Friend, Children) are absent from the response. Maps to the mobile Occasion shape:
+// icon and image are merged from the local static list where available; OS-only
+// occasions fall back to a "star" icon and a null image.
+// Returns the full static list on network failure so the screen is never blank.
+export async function fetchOsOccasions(): Promise<{ id: string; name: string; icon: string; image: any; description?: string }[]> {
+  const { occasions: staticOccasions } = await import("@/data/catalog");
+  try {
+    const res = await fetch(`${API_BASE}/api/catalog/metadata`);
+    if (!res.ok) return staticOccasions;
+    const json = await res.json();
+    if (!Array.isArray(json.occasions)) {
+      return staticOccasions;
+    }
+    if (json.occasions.length === 0) return [];
+    const localBySlug = new Map(staticOccasions.map((o: { id: string }) => [o.id, o]));
+    return json.occasions.map((o: { id: string; name: string; icon?: string; description?: string }) => {
+      const local = localBySlug.get(o.id) as { id: string; name: string; icon: string; image: any; description?: string } | undefined;
+      return {
+        id: o.id,
+        name: o.name,
+        icon: local?.icon ?? o.icon ?? "star",
+        image: local?.image ?? null,
+        ...(o.description !== undefined ? { description: o.description } : {}),
+      };
+    });
+  } catch {
+    return staticOccasions;
+  }
+}
+
 // fetchWcCategories reads the OS-filtered category list from
 // /api/catalog/metadata (same endpoint as fetchWcBrands).
 // Maps to the mobile Category shape: icon and image are merged from the

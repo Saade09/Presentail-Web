@@ -9,10 +9,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { occasions } from "@/data/catalog";
 import type { Occasion } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
+import { useOsOccasions } from "@/hooks/useOsOccasions";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
@@ -174,6 +174,7 @@ function OccasionsScreen() {
   const { count } = useCart();
   const t = useT();
   const { isRTL } = useLanguage();
+  const occasions = useOsOccasions();
 
   const ta = isRTL ? "right" : "left";
 

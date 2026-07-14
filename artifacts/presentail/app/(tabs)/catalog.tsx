@@ -21,8 +21,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { occasions } from "@/data/catalog";
 import { useOsCategories } from "@/hooks/useOsCategories";
+import { useOsOccasions } from "@/hooks/useOsOccasions";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -90,6 +90,7 @@ function CatalogScreen() {
   const activeBrandName = params.brandName ?? "";
 
   const categories = useOsCategories();
+  const occasions = useOsOccasions();
   const { products: rawProducts } = useWooProducts();
   // usePricingMap shares a single TanStack Query cache entry across all callers — zero extra requests.
   const pricingMap = usePricingMap();
@@ -185,7 +186,7 @@ function CatalogScreen() {
       }
       return false;
     });
-  }, [query, tRecord]);
+  }, [query, tRecord, occasions]);
 
   const matchingBrands: WooSearchBrand[] = (searchData as unknown as { brands?: WooSearchBrand[] })?.brands ?? [];
 
