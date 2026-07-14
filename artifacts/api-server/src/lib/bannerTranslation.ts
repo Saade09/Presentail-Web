@@ -90,9 +90,9 @@ export async function translateBanners(
 
   const langName = LANG_NAMES[lang];
   const systemPrompt =
-    `You are a professional translator for a luxury flower and gift delivery brand. ` +
-    `Translate the string values in the provided JSON array into ${langName}. ` +
-    `Each element is an object with some of these keys: title, headline, subtitle, ctaText. ` +
+    `You are a professional translator for a luxury flower and gift delivery brand. ` + // i18n-ignore
+    `Translate the string values in the provided JSON array into ${langName}. ` + // i18n-ignore
+    `Each element is an object with some of these keys: title, headline, subtitle, ctaText. ` + // i18n-ignore
     `Rules:\n` +
     `- Keep the elegant, warm tone of a luxury brand.\n` +
     `- Do NOT translate brand names (e.g. Presentail) or product category names.\n` +

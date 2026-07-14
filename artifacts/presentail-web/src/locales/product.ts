@@ -48,7 +48,6 @@ export const productStrings: Dict = {
   "product.customNote.cakePlaceholder": { en: "Cake Message", ar: "رسالة الكعكة" },
   "product.customNote.counter": { en: "{count}/22", ar: "{count}/22" }, // no-translate — counter pattern
   "product.frequentlyBoughtTogether": { en: "Frequently Bought Together", ar: "يُشترى معاً في الغالب" },
-  "product.addBothToCart": { en: "Add Both to Cart for {price}", ar: "أضف كليهما إلى السلة بـ {price}" },
   "product.fbt.addSelected": { en: "Add Selected to Cart", ar: "أضف المحدد إلى السلة" },
   "product.fbt.total": { en: "Total", ar: "المجموع" },
   "product.fbt.items": { en: "items", ar: "عناصر" },
@@ -171,7 +170,6 @@ export const productStringsFr: Record<string, string> = {
   "product.customNote.cakePlaceholder": "Message du gâteau",
   "product.customNote.counter": "{count}/22",
   "product.frequentlyBoughtTogether": "Souvent achetés ensemble",
-  "product.addBothToCart": "Ajouter les deux au panier pour {price}",
   "product.fbt.addSelected": "Ajouter la sélection au panier",
   "product.fbt.total": "Total",
   "product.fbt.items": "articles",

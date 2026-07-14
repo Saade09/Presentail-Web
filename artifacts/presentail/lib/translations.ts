@@ -265,7 +265,6 @@ const EN = {
   customNoteLabelPlain: "Personalisation",
   customNoteRequiredLabel: "Personalisation (required)",
   customNotePlaceholder: "e.g. Happy Birthday, Anna!", // no-translate — example name
-  letterNoteLabel: "Your letter",
   letterNotePlaceholder: "A", // i18n-ignore
   cakeNotePlaceholder: "Cake Message",
   customNoteCounter: "{count}/22 chars",
@@ -805,7 +804,6 @@ const EN = {
 
   // ── Sort labels ──
   sortRecommended: "Recommended",
-  sortFeatured: "Featured",
   sortBestSeller: "Best Seller",
   sortNewest: "Newest",
   sortPriceUp: "Price: Low to High",
@@ -1217,7 +1215,6 @@ const AR: typeof EN = {
   customNoteLabelPlain: "تخصيص",
   customNoteRequiredLabel: "تخصيص (مطلوب)",
   customNotePlaceholder: "مثال: عيد ميلاد سعيد، آنا!",
-  letterNoteLabel: "حرفك",
   letterNotePlaceholder: "أ",
   cakeNotePlaceholder: "رسالة الكعكة",
   customNoteCounter: "{count}/22 حرف",
@@ -1751,7 +1748,6 @@ const AR: typeof EN = {
 
   // ── Sort labels ──
   sortRecommended: "موصى به",
-  sortFeatured: "مميّز",
   sortBestSeller: "الأكثر مبيعاً",
   sortNewest: "الأحدث",
   sortPriceUp: "السعر: من الأقل إلى الأعلى",
@@ -2163,7 +2159,6 @@ const FR: typeof EN = {
   customNoteLabelPlain: "Personnalisation",
   customNoteRequiredLabel: "Personnalisation (obligatoire)",
   customNotePlaceholder: "ex. : Joyeux anniversaire, Anna !",
-  letterNoteLabel: "Votre lettre",
   letterNotePlaceholder: "A", // i18n-ignore
   cakeNotePlaceholder: "Message du gâteau",
   customNoteCounter: "{count}/22 car.",
@@ -2700,7 +2695,6 @@ const FR: typeof EN = {
 
   // ── Sort labels ──
   sortRecommended: "Recommandé",
-  sortFeatured: "À l'honneur",
   sortBestSeller: "Meilleures ventes",
   sortNewest: "Nouveautés",
   sortPriceUp: "Prix : croissant",
