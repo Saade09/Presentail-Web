@@ -130,8 +130,19 @@ export type OSProductOccasion = {
   slug: string;
   name: string;
   featured?: boolean;
-  /** false when the occasion is inactive in OS; undefined is treated as active. */
+  /**
+   * Boolean active flag — false means inactive, undefined or true means active.
+   * The OS API may also express this as `status: "inactive"` | `"active"`.
+   * Both representations are checked by isOccasionActive in catalog.ts so a
+   * field-name change on the OS side does not silently expose all occasions.
+   */
   isActive?: boolean;
+  /**
+   * String status alternative to `isActive`.  "inactive" means hidden; any
+   * other value (including absent) means active.  Both this and `isActive`
+   * are checked so the catalogue survives a field-convention change.
+   */
+  status?: string;
   /** Private storage URL (auth-gated). Use imagePublicUrl when available. */
   image?: string | null;
   /** Public CDN URL (e.g. /api/storage/public-objects/…). Preferred over image. */

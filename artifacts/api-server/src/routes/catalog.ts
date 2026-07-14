@@ -245,8 +245,13 @@ router.get("/catalog/metadata", (req, res) => {
   const osBrands = getOsBrands();
   const osOccasions = getOsOccasions();
 
-  function isOccasionActive(isActive?: boolean): boolean {
-    if (isActive === false) return false;
+  // Mirrors the brand-active convention so both boolean isActive and the
+  // string status field are accepted.  Either isActive===false or
+  // status==="inactive" marks an occasion as hidden.  This dual-field check
+  // means a future OS API field rename is caught immediately by the unit tests
+  // in catalog.occasions.test.ts rather than silently exposing all occasions.
+  function isOccasionActive(occ: { isActive?: boolean; status?: string }): boolean {
+    if (occ.isActive === false || occ.status === "inactive") return false;
     return true;
   }
 
@@ -257,7 +262,7 @@ router.get("/catalog/metadata", (req, res) => {
   );
   // Active-only map used for image overlays and OS-only appends.
   const osOccasionBySlug = new Map(
-    (osOccasions ?? []).filter((o) => isOccasionActive(o.isActive)).map((o) => [o.slug, o]),
+    (osOccasions ?? []).filter((o) => isOccasionActive(o)).map((o) => [o.slug, o]),
   );
 
   // Use the pre-computed per-brand / per-category / per-occasion in-stock
@@ -284,7 +289,7 @@ router.get("/catalog/metadata", (req, res) => {
     .filter((occ) => {
       // Skip hardcoded occasions whose OS counterpart is marked inactive.
       const osOccAll = osOccasionBySlugAll.get(occ.id);
-      return osOccAll === undefined || isOccasionActive(osOccAll.isActive);
+      return osOccAll === undefined || isOccasionActive(osOccAll);
     })
     .map((occ) => {
       const osOcc = osOccasionBySlug.get(occ.id); // hardcoded id === slug
@@ -329,7 +334,7 @@ router.get("/catalog/metadata", (req, res) => {
     allOsOccasions.set(osOcc.slug, osOcc);
   }
   for (const osOcc of allOsOccasions.values()) {
-    if (!hardcodedSlugs.has(osOcc.slug) && isOccasionActive(osOcc.isActive)) {
+    if (!hardcodedSlugs.has(osOcc.slug) && isOccasionActive(osOcc)) {
       mergedOccasions.push({
         id: osOcc.slug,
         name: osOcc.name,
