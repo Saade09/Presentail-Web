@@ -62,6 +62,7 @@ vi.mock("react-phone-number-input", () => ({
       {...rest}
     />
   ),
+  isValidPhoneNumber: vi.fn(() => true),
 }));
 
 // ---------------------------------------------------------------------------
@@ -111,7 +112,8 @@ describe("SignUp — phone step", () => {
 
   it("shows the phone step after completing the name-password step", async () => {
     await advanceToPhoneStep();
-    expect(screen.getByTestId("input-signup-phone")).toBeTruthy();
+    // LazyWebPhoneField resolves asynchronously (Suspense) — use findByTestId to wait.
+    expect(await screen.findByTestId("input-signup-phone")).toBeTruthy();
     expect(screen.getByTestId("button-signup-create")).toBeTruthy();
   });
 
@@ -219,5 +221,155 @@ describe("SignUp — phone step", () => {
     // Still on phone step — no redirect, no OTP.
     expect(screen.getByTestId("input-signup-phone")).toBeTruthy();
     expect(screen.queryByTestId("input-signup-code")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Social-conflict error: registration_failed_social_account
+// ---------------------------------------------------------------------------
+
+describe("SignUp — social-conflict registration error (registration_failed_social_account)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockSetLocation.mockClear();
+    Object.defineProperty(window, "location", {
+      value: { search: "?email_address=test%40example.com", href: "" },
+      writable: true,
+    });
+  });
+
+  it("shows the Google-specific toast description when provider is google", async () => {
+    const { useToast } = await import("@/hooks/use-toast");
+    const toastFn = vi.fn();
+    vi.mocked(useToast).mockReturnValue({ toast: toastFn } as any);
+
+    stubFetch(
+      { ok: false, code: "registration_failed_social_account", provider: "google" },
+      false,
+    );
+    const user = await advanceToPhoneStep();
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(toastFn).toHaveBeenCalled();
+    });
+
+    const toastArgs = toastFn.mock.calls[0][0] as { title: string; description: string };
+    // t() returns the key in tests — verify the Google-specific key was used.
+    expect(toastArgs.description).toBe("auth.existingAccountSocialPromptGoogle");
+  });
+
+  it("redirects to /sign-in with social_provider=google when provider is google", async () => {
+    const { useToast } = await import("@/hooks/use-toast");
+    vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
+
+    stubFetch(
+      { ok: false, code: "registration_failed_social_account", provider: "google" },
+      false,
+    );
+    const user = await advanceToPhoneStep();
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(mockSetLocation).toHaveBeenCalled();
+    });
+
+    const redirectUrl = mockSetLocation.mock.calls[0][0] as string;
+    expect(redirectUrl).toContain("/sign-in");
+    expect(redirectUrl).toContain("social_provider=google");
+    expect(redirectUrl).toContain("email_address=");
+  });
+
+  it("shows the Apple-specific toast description when provider is apple", async () => {
+    const { useToast } = await import("@/hooks/use-toast");
+    const toastFn = vi.fn();
+    vi.mocked(useToast).mockReturnValue({ toast: toastFn } as any);
+
+    stubFetch(
+      { ok: false, code: "registration_failed_social_account", provider: "apple" },
+      false,
+    );
+    const user = await advanceToPhoneStep();
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(toastFn).toHaveBeenCalled();
+    });
+
+    const toastArgs = toastFn.mock.calls[0][0] as { title: string; description: string };
+    expect(toastArgs.description).toBe("auth.existingAccountSocialPromptApple");
+  });
+
+  it("redirects to /sign-in with social_provider=apple when provider is apple", async () => {
+    const { useToast } = await import("@/hooks/use-toast");
+    vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
+
+    stubFetch(
+      { ok: false, code: "registration_failed_social_account", provider: "apple" },
+      false,
+    );
+    const user = await advanceToPhoneStep();
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(mockSetLocation).toHaveBeenCalled();
+    });
+
+    const redirectUrl = mockSetLocation.mock.calls[0][0] as string;
+    expect(redirectUrl).toContain("/sign-in");
+    expect(redirectUrl).toContain("social_provider=apple");
+  });
+});
+
+describe("SignUp — plain registration_failed error (no social provider)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockSetLocation.mockClear();
+    Object.defineProperty(window, "location", {
+      value: { search: "?email_address=test%40example.com", href: "" },
+      writable: true,
+    });
+  });
+
+  it("shows a generic toast when the response code is registration_failed", async () => {
+    const { useToast } = await import("@/hooks/use-toast");
+    const toastFn = vi.fn();
+    vi.mocked(useToast).mockReturnValue({ toast: toastFn } as any);
+
+    stubFetch({ ok: false, code: "registration_failed", message: "Email already in use" }, false);
+    const user = await advanceToPhoneStep();
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(toastFn).toHaveBeenCalled();
+    });
+
+    const toastArgs = toastFn.mock.calls[0][0] as { title: string; description: string };
+    // The generic fallback does NOT use the social-provider-specific key.
+    expect(toastArgs.description).not.toBe("auth.existingAccountSocialPromptGoogle");
+    expect(toastArgs.description).not.toBe("auth.existingAccountSocialPromptApple");
+  });
+
+  it("redirects to /sign-in WITHOUT social_provider when code is registration_failed", async () => {
+    const { useToast } = await import("@/hooks/use-toast");
+    vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
+
+    stubFetch({ ok: false, code: "registration_failed", message: "Email already in use" }, false);
+    const user = await advanceToPhoneStep();
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(mockSetLocation).toHaveBeenCalled();
+    });
+
+    const redirectUrl = mockSetLocation.mock.calls[0][0] as string;
+    expect(redirectUrl).toContain("/sign-in");
+    expect(redirectUrl).not.toContain("social_provider");
   });
 });
