@@ -574,6 +574,7 @@ export async function fetchOsOccasions(
       id: number | string;
       slug: string;
       name: string;
+      is_active?: boolean;
       is_featured?: boolean;
       image_url?: string | null;
       image_public_url?: string | null;
@@ -582,6 +583,7 @@ export async function fetchOsOccasions(
       id: string;
       slug: string;
       name: string;
+      isActive?: boolean;
       featured?: boolean;
       image?: string | null;
       imagePublicUrl?: string | null;
@@ -602,6 +604,7 @@ export async function fetchOsOccasions(
         id: String(item.id),
         slug: item.slug,
         name: item.name,
+        isActive: item.is_active,
         featured: item.is_featured ?? false,
         // imagePublicUrl is the public-objects CDN path (accessible with x-api-key via our proxy).
         // image is the raw upload path (private, not directly servable).

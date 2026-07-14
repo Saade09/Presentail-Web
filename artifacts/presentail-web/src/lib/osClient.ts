@@ -257,6 +257,7 @@ export async function fetchOsOccasions(): Promise<OSProductOccasion[]> {
       id: number | string;
       slug: string;
       name: string;
+      is_active?: boolean;
       is_featured?: boolean;
       image_url?: string | null;
       image_public_url?: string | null;
@@ -269,6 +270,7 @@ export async function fetchOsOccasions(): Promise<OSProductOccasion[]> {
     id: String(item.id),
     slug: item.slug,
     name: item.name,
+    isActive: item.is_active,
     featured: item.is_featured ?? false,
     imagePublicUrl: item.image_public_url ?? null,
     image: item.image_url ?? null,

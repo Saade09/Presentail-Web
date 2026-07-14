@@ -130,6 +130,8 @@ export type OSProductOccasion = {
   slug: string;
   name: string;
   featured?: boolean;
+  /** false when the occasion is inactive in OS; undefined is treated as active. */
+  isActive?: boolean;
   /** Private storage URL (auth-gated). Use imagePublicUrl when available. */
   image?: string | null;
   /** Public CDN URL (e.g. /api/storage/public-objects/…). Preferred over image. */

@@ -245,9 +245,19 @@ router.get("/catalog/metadata", (req, res) => {
   const osBrands = getOsBrands();
   const osOccasions = getOsOccasions();
 
-  // Build a slug → OS occasion map so we can overlay images onto hardcoded occasions.
-  const osOccasionBySlug = new Map(
+  function isOccasionActive(isActive?: boolean): boolean {
+    if (isActive === false) return false;
+    return true;
+  }
+
+  // Build a slug → OS occasion map (all statuses) so we can check whether a
+  // hardcoded occasion's OS counterpart is inactive.
+  const osOccasionBySlugAll = new Map(
     (osOccasions ?? []).map((o) => [o.slug, o]),
+  );
+  // Active-only map used for image overlays and OS-only appends.
+  const osOccasionBySlug = new Map(
+    (osOccasions ?? []).filter((o) => isOccasionActive(o.isActive)).map((o) => [o.slug, o]),
   );
 
   // Use the pre-computed per-brand / per-category / per-occasion in-stock
@@ -270,18 +280,24 @@ router.get("/catalog/metadata", (req, res) => {
   // never needs to supply the API key. `count` is the number of in-stock products
   // tagged with this occasion across all stores — consumers (e.g. the sitemap)
   // use it to skip empty pages.
-  const mergedOccasions = occasions.map((occ) => {
-    const osOcc = osOccasionBySlug.get(occ.id); // hardcoded id === slug
-    const count = occasionCountMap.get(occ.id) ?? 0;
-    if (osOcc?.image) {
-      return {
-        ...occ,
-        image: { uri: `/api/catalog/occasion-image/${osOcc.id}` },
-        count,
-      };
-    }
-    return { ...occ, count };
-  });
+  const mergedOccasions = occasions
+    .filter((occ) => {
+      // Skip hardcoded occasions whose OS counterpart is marked inactive.
+      const osOccAll = osOccasionBySlugAll.get(occ.id);
+      return osOccAll === undefined || isOccasionActive(osOccAll.isActive);
+    })
+    .map((occ) => {
+      const osOcc = osOccasionBySlug.get(occ.id); // hardcoded id === slug
+      const count = occasionCountMap.get(occ.id) ?? 0;
+      if (osOcc?.image) {
+        return {
+          ...occ,
+          image: { uri: `/api/catalog/occasion-image/${osOcc.id}` },
+          count,
+        };
+      }
+      return { ...occ, count };
+    });
 
   // Append OS-only occasions — occasions that exist in OS but are not in the
   // hardcoded list. These surface on the /occasions page automatically without
@@ -313,7 +329,7 @@ router.get("/catalog/metadata", (req, res) => {
     allOsOccasions.set(osOcc.slug, osOcc);
   }
   for (const osOcc of allOsOccasions.values()) {
-    if (!hardcodedSlugs.has(osOcc.slug)) {
+    if (!hardcodedSlugs.has(osOcc.slug) && isOccasionActive(osOcc.isActive)) {
       mergedOccasions.push({
         id: osOcc.slug,
         name: osOcc.name,
