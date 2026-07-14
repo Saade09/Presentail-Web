@@ -106,6 +106,10 @@ const CHECKERS: CheckerDef[] = [
     name: "Hardcoded API strings",
     script: "checkHardcodedApiStrings.ts",
   },
+  {
+    name: "Cross-platform copy sync",
+    script: "checkCrossPlatformCopySync.ts",
+  },
 ];
 
 type Result = {
