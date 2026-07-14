@@ -15,7 +15,7 @@ import {
 
 const CATALOG_URL = "/api/catalog/brand-image/hallab-1881";
 const OS_URL = "https://os.presentail.com/api/storage/brands/hallab-cover.webp";
-const STATIC_URL = "/brand-covers/hallab-1881.png";
+const STATIC_URL = "/brand-covers/hallab-1881.webp";
 const ENCODED_OS = encodeURIComponent(OS_URL);
 
 describe("buildBrandHeroSrcset", () => {

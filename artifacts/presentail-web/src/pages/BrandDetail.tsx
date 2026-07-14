@@ -19,10 +19,10 @@ const SEO_ATTR = "data-seo-managed";
 // AI-generated cover images per brand slug.
 // Add a new entry here whenever a new brand cover is placed in public/brand-covers/.
 const BRAND_COVER_IMAGES: Record<string, string> = {
-  "hallab-1881": "/brand-covers/hallab-1881.png",
-  "apple": "/brand-covers/apple.png",
-  "sables-gourmets": "/brand-covers/sables-gourmets.png",
-  "salma": "/brand-covers/salma.png",
+  "hallab-1881": "/brand-covers/hallab-1881.webp",
+  "apple": "/brand-covers/apple.webp",
+  "sables-gourmets": "/brand-covers/sables-gourmets.webp",
+  "salma": "/brand-covers/salma.webp",
 };
 
 const FLOWER_CATEGORY_SLUGS = new Set([
