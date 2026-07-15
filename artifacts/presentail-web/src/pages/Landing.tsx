@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   PICKER_COUNTRY_CODES,
@@ -257,49 +257,65 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
             )}
           </div>
 
-          {/* Country accordion */}
+          {/* Delivering to box */}
+          {selectedCountryCode && selectedRow && (
+            <div className="shrink-0" data-testid="delivering-to-row">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                {t("locationPicker.deliveringTo")}
+              </p>
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-white/80 shadow-sm">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CountryFlag code={selectedRow.code} className="w-[22px] aspect-[3/2] shrink-0" />
+                  <span className="text-sm font-semibold text-primary truncate">
+                    {selectedLabel}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCountryCode(null)}
+                  className="ms-3 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline underline-offset-2 transition-colors cursor-pointer shrink-0"
+                  data-testid="button-picker-change"
+                >
+                  {t("locationPicker.change")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Country list / city list card */}
           <div className={`rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm ${selectedCountryCode ? "flex flex-col flex-1 min-h-0" : ""}`}>
             {isLoadingCountries && countries.length === 0
               ? skeletonRows
-              : rows.filter((row) => !selectedCountryCode || selectedCountryCode === row.code).map((row, idx) => {
-                  const isOpen = selectedCountryCode === row.code;
-                  return (
-                    <div
-                      key={row.code}
-                      className={`${idx > 0 ? "border-t border-gray-200/70" : ""} ${isOpen ? "flex flex-col flex-1 min-h-0" : ""}`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleCountryClick(row.code, row.ready)}
-                        disabled={!row.ready}
-                        className={`w-full shrink-0 flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors disabled:opacity-50 ${
-                          isOpen ? "bg-gray-100/60" : "hover:bg-gray-50/80"
-                        }`}
-                        data-testid={`button-country-${row.code.toLowerCase()}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <CountryFlag code={row.code} className="w-6 aspect-[3/2] shrink-0" />
-                          <span className="text-sm font-medium leading-tight text-foreground">
-                            {countryName(row.code, row.name)}
-                          </span>
-                        </div>
-                        {isOpen ? (
-                          <ChevronDown className="w-4 h-4 text-primary shrink-0" />
-                        ) : (
-                          <ChevronRight
-                            className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
-                          />
-                        )}
-                      </button>
-
-                      {isOpen && row.cities.length > 0 && (
-                        <div className="border-t border-gray-200/70 bg-gray-50/60 flex-1 min-h-0 overflow-y-auto">
-                          <CityList cities={row.cities} countryCode={row.code} />
-                        </div>
-                      )}
+              : selectedCountryCode
+              ? (selectedRow && selectedRow.cities.length > 0
+                ? (
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <CityList cities={selectedRow.cities} countryCode={selectedRow.code} />
+                  </div>
+                ) : null)
+              : rows.map((row, idx) => (
+                  <button
+                    key={row.code}
+                    type="button"
+                    onClick={() => handleCountryClick(row.code, row.ready)}
+                    disabled={!row.ready}
+                    className={`w-full flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors hover:bg-gray-50/80 disabled:opacity-50 ${
+                      idx > 0 ? "border-t border-gray-200/70" : ""
+                    }`}
+                    data-testid={`button-country-${row.code.toLowerCase()}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <CountryFlag code={row.code} className="w-6 aspect-[3/2] shrink-0" />
+                      <span className="text-sm font-medium leading-tight text-foreground">
+                        {countryName(row.code, row.name)}
+                      </span>
                     </div>
-                  );
-                })}
+                    <ChevronRight
+                      className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                ))
+            }
           </div>
 
         </div>
