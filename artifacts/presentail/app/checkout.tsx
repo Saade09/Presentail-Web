@@ -3083,12 +3083,14 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         {!hideSenderName ? (
           <View ref={senderNamesRef} style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required error={showFieldErrors && !senderFirst.trim()}
+              <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={(v: string) => setSenderFirst(toTitleCase(v))} placeholder="" required error={showFieldErrors && !senderFirst.trim()}
+                autoCapitalize="words"
                 inputRef={senderFirstInputRef}
                 onSubmitEditing={() => focusAndScroll(senderLastInputRef, senderNamesRef)} />
             </View>
             <View style={{ flex: 1 }}>
-              <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required error={showFieldErrors && !senderLast.trim()}
+              <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={(v: string) => setSenderLast(toTitleCase(v))} placeholder="" required error={showFieldErrors && !senderLast.trim()}
+                autoCapitalize="words"
                 inputRef={senderLastInputRef}
                 returnKeyType={!hideSenderPhone || !hideSenderEmail ? "next" : "done"}
                 onSubmitEditing={

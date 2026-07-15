@@ -2572,11 +2572,11 @@ function CheckoutForm() {
                       <div className="grid grid-cols-2 gap-3 mb-4">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
-                          <Input ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" />
+                          <Input ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" autoCapitalize="words" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
-                          <Input ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" />
+                          <Input ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" autoCapitalize="words" />
                         </div>
                       </div>
                       <div className="space-y-2 mb-4">
