@@ -1,21 +1,31 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { isChunkLoadError, reloadForStaleChunk } from "@/lib/chunkReload";
 
-type State = { hasError: boolean };
+type State = { hasError: boolean; resetKey: string | undefined };
 
 type Props = {
   children: ReactNode;
   fallback: ReactNode;
+  resetKey?: string;
 };
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, resetKey: props.resetKey };
   }
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromProps(props: Props, state: State): State | null {
+    // When resetKey changes (e.g. the user navigated to a new route), clear
+    // the error so the incoming page can render fresh.
+    if (props.resetKey !== state.resetKey) {
+      return { hasError: false, resetKey: props.resetKey };
+    }
+    return null;
+  }
+
+  static getDerivedStateFromError(_error: Error): Partial<State> {
     return { hasError: true };
   }
 
@@ -109,9 +119,18 @@ export function CheckoutErrorBoundary({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Wraps route content in an ErrorBoundary that automatically resets whenever
+ * the user navigates to a different path. This prevents a "Something went
+ * wrong" fallback from persisting after the user clicks away to another page.
+ *
+ * CheckoutErrorBoundary intentionally does NOT use this pattern — it must stay
+ * in error state until the user manually goes back to cart.
+ */
 export function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const [path] = useLocation();
   return (
-    <ErrorBoundary fallback={<RouteFallback />}>
+    <ErrorBoundary fallback={<RouteFallback />} resetKey={path}>
       {children}
     </ErrorBoundary>
   );
