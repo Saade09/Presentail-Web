@@ -54,6 +54,15 @@ const mockUseIsMobile = vi.fn().mockReturnValue(true);
 vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => mockUseIsMobile(),
 }));
+
+const mockIsApplePayBrowser = vi.fn().mockReturnValue(false);
+vi.mock("./checkoutPayMethods", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./checkoutPayMethods")>();
+  return {
+    ...actual,
+    isApplePayBrowser: () => mockIsApplePayBrowser(),
+  };
+});
 const mockCardElement = {};
 
 vi.mock("@stripe/stripe-js", () => ({
@@ -420,6 +429,7 @@ describe("Checkout wallet PaymentIntent pre-creation failure", () => {
     vi.clearAllMocks();
     sessionStorage.clear();
     mockUseIsMobile.mockReturnValue(true);
+    mockIsApplePayBrowser.mockReturnValue(false);
     mockCanMakePayment.mockResolvedValue(null);
     mockPrShow.mockImplementation(() => {});
     for (const key of Object.keys(mockPrEventHandlers)) {
@@ -436,10 +446,43 @@ describe("Checkout wallet PaymentIntent pre-creation failure", () => {
 
   // ── 1. Toast is fired with the correct title/description ─────────────────
 
-  it("fires a destructive toast with the correct title and description when PI creation throws", async () => {
+  it("fires a destructive toast with the Google Pay description when PI creation throws for google_pay", async () => {
     mockCreatePaymentIntentMutate.mockRejectedValue(new Error("network error"));
 
     await driveToWalletPaymentStep(user);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "checkout.toast.walletPrepareFailTitle",
+          description: "checkout.toast.walletPrepareFailDescGoogle",
+          variant: "destructive",
+        }),
+      );
+    });
+  });
+
+  it("fires a destructive toast with the Apple Pay description when PI creation throws for apple_pay", async () => {
+    mockIsApplePayBrowser.mockReturnValue(true);
+    mockCreatePaymentIntentMutate.mockRejectedValue(new Error("network error"));
+
+    renderCheckout();
+
+    const noAddressSwitch = await screen.findByTestId("check-no-address");
+    await user.click(noAddressSwitch);
+    await user.type(screen.getByTestId("input-recipient-first-name"), "John");
+    await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
+    await user.click(screen.getByTestId("button-continue-to-payment"));
+
+    expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
+
+    await user.click(await screen.findByTestId("option-payment-apple_pay"));
+    await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
+
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+      { timeout: 3000 },
+    );
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith(

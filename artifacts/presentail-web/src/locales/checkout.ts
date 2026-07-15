@@ -148,7 +148,8 @@ export const checkoutStrings: Dict = {
   "checkout.toast.walletUnavailable": { en: "Wallet payment unavailable", ar: "الدفع بالمحفظة غير متوفر" },
   "checkout.toast.walletUnavailableDesc": { en: "Apple Pay / Google Pay could not be opened on this device. Please choose another payment method.", ar: "تعذّر فتح Apple Pay / Google Pay على هذا الجهاز. يرجى اختيار طريقة دفع أخرى." },
   "checkout.toast.walletPrepareFailTitle": { en: "Unable to prepare payment", ar: "تعذّر تجهيز الدفع" },
-  "checkout.toast.walletPrepareFailDesc": { en: "Unable to prepare wallet payment — please try again or use a different payment method.", ar: "تعذّر تجهيز الدفع بالمحفظة — يرجى المحاولة مرة أخرى أو اختيار طريقة دفع أخرى." },
+  "checkout.toast.walletPrepareFailDesc": { en: "Unable to prepare Apple Pay — please try again or use a different payment method.", ar: "تعذّر تجهيز Apple Pay — يرجى المحاولة مرة أخرى أو اختيار طريقة دفع أخرى." },
+  "checkout.toast.walletPrepareFailDescGoogle": { en: "Unable to prepare Google Pay — please try again or use a different payment method.", ar: "تعذّر تجهيز Google Pay — يرجى المحاولة مرة أخرى أو اختيار طريقة دفع أخرى." },
   "checkout.toast.errorTitle": { en: "Checkout Error", ar: "خطأ في الدفع" },
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError") in Checkout.tsx
   "checkout.toast.networkError": { en: "Something went wrong while contacting the payment provider. Please try again.", ar: "حدث خطأ أثناء الاتصال بمزوّد الدفع. يرجى المحاولة مرة أخرى." },
@@ -332,7 +333,9 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.walletUnavailable": "Paiement par portefeuille indisponible",
   "checkout.toast.walletUnavailableDesc": "Apple Pay / Google Pay n'a pas pu s'ouvrir sur cet appareil. Veuillez choisir un autre mode de paiement.",
   "checkout.toast.walletPrepareFailTitle": "Impossible de préparer le paiement",
-  "checkout.toast.walletPrepareFailDesc": "Impossible de préparer le paiement par portefeuille — veuillez réessayer ou choisir un autre mode de paiement.",
+  "checkout.toast.walletPrepareFailDesc": "Impossible de préparer Apple Pay — veuillez réessayer ou choisir un autre mode de paiement.",
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically in Checkout.tsx based on paymentMethod
+  "checkout.toast.walletPrepareFailDescGoogle": "Impossible de préparer Google Pay — veuillez réessayer ou choisir un autre mode de paiement.",
 
   // Payment method labels
   "checkout.pay.card": "Carte de crédit / débit",

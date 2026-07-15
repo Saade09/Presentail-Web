@@ -1275,6 +1275,12 @@ function CheckoutForm() {
       osSlug: i.product.id,
       quantity: i.quantity,
     }));
+    // Guard: cart not yet hydrated into mappedItems — wait rather than send an
+    // empty-items body that the server rejects with a fast 400.
+    if (mappedItems.length === 0) {
+      if (walletReadySig !== null) setWalletReadySig(null);
+      return;
+    }
     // Guard: if slots have loaded but none is selected yet, wait until the
     // state resolves rather than pre-creating a PI with deliverySlot:"".
     // This prevents the server snapshot from recording a blank slot that
@@ -1471,7 +1477,7 @@ function CheckoutForm() {
         setWalletPrepareFailed(true);
         toast({
           title: t("checkout.toast.walletPrepareFailTitle"),
-          description: t("checkout.toast.walletPrepareFailDesc"),
+          description: t(paymentMethod === "google_pay" ? "checkout.toast.walletPrepareFailDescGoogle" : "checkout.toast.walletPrepareFailDesc"),
           variant: "destructive",
         });
       }
@@ -1878,7 +1884,7 @@ function CheckoutForm() {
       if (isWalletMethod && !prefetchedIntent) {
         toast({
           title: t("checkout.toast.walletPrepareFailTitle"),
-          description: t("checkout.toast.walletPrepareFailDesc"),
+          description: t(paymentMethod === "google_pay" ? "checkout.toast.walletPrepareFailDescGoogle" : "checkout.toast.walletPrepareFailDesc"),
           variant: "destructive",
         });
         return;
