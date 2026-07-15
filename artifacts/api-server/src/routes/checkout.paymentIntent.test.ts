@@ -22,6 +22,7 @@ const {
   computeDistrictFeeUsdMock,
   expressSurchargeUsdMock,
   countryForDistrictMock,
+  sendAlertMock,
 } = vi.hoisted(() => {
   const createMock = vi.fn();
   const retrieveMock = vi.fn();
@@ -30,8 +31,13 @@ const {
   const computeDistrictFeeUsdMock = vi.fn().mockReturnValue(0);
   const expressSurchargeUsdMock = vi.fn().mockReturnValue(0);
   const countryForDistrictMock = vi.fn().mockReturnValue("LB");
-  return { createMock, retrieveMock, updateMock, searchMock, computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock };
+  const sendAlertMock = vi.fn().mockResolvedValue(undefined);
+  return { createMock, retrieveMock, updateMock, searchMock, computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, sendAlertMock };
 });
+
+vi.mock("../lib/alerts", () => ({
+  sendAlert: sendAlertMock,
+}));
 
 vi.mock("stripe", () => {
   class MockStripe {
@@ -558,5 +564,90 @@ describe("verifyCartMatchesSnapshot — district change", () => {
       submittedDeliverySlot: "",
     });
     expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gulf store (UAE / Abu Dhabi) — currency guard and error logging
+// ---------------------------------------------------------------------------
+// These tests use a Gulf store (abudhabi) so the isGulf branch fires.
+// The wooStore mock is overridden per-describe using vi.mocked() inside
+// beforeEach so it doesn't bleed into the Lebanon tests above.
+
+import { resolveStoreFromRequest } from "../lib/wooStore";
+
+describe("POST /checkout/payment-intent — Gulf store (UAE)", () => {
+  beforeEach(() => {
+    // Route the request to the Abu Dhabi store.
+    vi.mocked(resolveStoreFromRequest).mockReturnValue({ storeKey: "abudhabi" } as any);
+    // Provide a fake Gulf Stripe key so the key-guard passes.
+    process.env.STRIPE_SECRET_KEY_GULF = "sk_test_fake_gulf";
+    createMock.mockReset();
+    retrieveMock.mockReset();
+    updateMock.mockReset();
+    searchMock.mockReset();
+    // mockClear resets call counts without stripping the mockResolvedValue(undefined)
+    // implementation; mockReset would make sendAlertMock() return undefined (not a
+    // Promise), causing .catch() in the route handler to throw.
+    sendAlertMock.mockClear();
+    // Default: search returns empty results.
+    searchMock.mockResolvedValue({ data: [], has_more: false });
+  });
+
+  afterEach(() => {
+    // Restore Lebanon store for subsequent describe blocks.
+    vi.mocked(resolveStoreFromRequest).mockReturnValue({ storeKey: "lebanon" } as any);
+    delete process.env.STRIPE_SECRET_KEY_GULF;
+  });
+
+  it("(g) Gulf store with USD → 422 currency_mismatch (no Stripe call)", async () => {
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ orderId: "AE-CURRENCY-MISMATCH", items: [{ wcId: 42, quantity: 1 }], currency: "USD" });
+
+    expect(res.status).toBe(422);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("currency_mismatch");
+    expect(createMock).not.toHaveBeenCalled();
+    expect(searchMock).not.toHaveBeenCalled();
+  });
+
+  it("(h) Gulf store with AED + failing Stripe create → 500, error logged, Slack alert fired", async () => {
+    const stripeError = new Error("Your Stripe account does not support AED PaymentIntents in test mode");
+    createMock.mockRejectedValueOnce(stripeError);
+
+    // Capture req.log.error via a module-level spy injected into the log middleware.
+    const logErrorSpy = vi.fn();
+    const logMock = { warn: vi.fn(), info: vi.fn(), error: logErrorSpy };
+    const { default: checkoutRouter } = await import("./checkout");
+    const testApp = express();
+    testApp.use(express.json());
+    testApp.use((req, _res, next) => {
+      (req as any).log = logMock;
+      next();
+    });
+    testApp.use(checkoutRouter);
+
+    const res = await request(testApp)
+      .post("/checkout/payment-intent")
+      .send({ orderId: "AE-STRIPE-FAIL", items: [{ wcId: 42, quantity: 1 }], currency: "AED" });
+    expect(res.status).toBe(500);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("stripe_error");
+
+    // req.log.error must be called with the Stripe error and store context.
+    expect(logErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ storeKey: "abudhabi" }),
+      expect.stringContaining("Stripe PaymentIntent failed"),
+    );
+
+    // A best-effort Slack alert must be fired for Gulf failures.
+    expect(sendAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: "critical",
+        source: "checkout/payment-intent",
+      }),
+    );
   });
 });

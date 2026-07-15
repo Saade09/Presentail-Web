@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
+import { sendAlert } from "../lib/alerts";
 import {
   convertFromUsd,
   normalizeCurrency,
@@ -142,6 +143,21 @@ router.post("/checkout/session", async (req, res) => {
   }
 
   const stripeCurrency = currency.toLowerCase();
+
+  // Gulf Stripe account (AE) only accepts AED. Guard here so the failure is
+  // explicit and self-documenting rather than a cryptic Stripe rejection.
+  if (isGulf && stripeCurrency !== "aed") {
+    req.log.warn(
+      { storeKey: store.storeKey, currency },
+      "checkout: Gulf store requires AED but received different currency (session)", // i18n-ignore
+    );
+    return res.status(422).json({
+      ok: false,
+      code: "currency_mismatch",
+      message: `UAE checkout requires AED but received ${currency}. Please reload and try again.`, // i18n-ignore
+    });
+  }
+
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     req.log.warn(
@@ -328,6 +344,22 @@ router.post("/checkout/session", async (req, res) => {
       currency,
     });
   } catch (err: any) {
+    req.log.error(
+      { err, storeKey: store.storeKey, currency },
+      "checkout: Stripe session creation failed", // i18n-ignore
+    );
+    if (isGulf) {
+      sendAlert({
+        title: "Gulf Stripe checkout session failed",
+        body: `A Stripe Checkout session creation failed for a Gulf (UAE) store. Store: \`${store.storeKey}\`, currency: \`${currency}\`.`,
+        severity: "critical",
+        fields: [
+          { title: "error", value: err?.message ?? String(err) },
+          { title: "orderId", value: orderId ?? "unknown" },
+        ],
+        source: "checkout/session",
+      }).catch(() => {});
+    }
     return res
       .status(500)
       .json({ ok: false, code: "stripe_error", message: err?.message ?? "Stripe error" }); // i18n-ignore
@@ -504,6 +536,24 @@ router.post("/checkout/payment-intent", async (req, res) => {
     });
   }
 
+  const stripeCurrency = currency.toLowerCase();
+
+  // Gulf Stripe account (AE) only accepts AED. Guard here so the failure is
+  // explicit and self-documenting rather than a cryptic Stripe rejection.
+  // This also catches the case where checkoutCurrency failed to force AED
+  // (e.g. countryCode was transiently null in the PI creation effect).
+  if (isGulf && stripeCurrency !== "aed") {
+    req.log.warn(
+      { storeKey: store.storeKey, currency },
+      "checkout: Gulf store requires AED but received different currency (payment-intent)", // i18n-ignore
+    );
+    return res.status(422).json({
+      ok: false,
+      code: "currency_mismatch",
+      message: `UAE checkout requires AED but received ${currency}. Please reload and try again.`, // i18n-ignore
+    });
+  }
+
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     req.log.warn(
@@ -541,8 +591,6 @@ router.post("/checkout/payment-intent", async (req, res) => {
   })();
   const serverDeliveryFeeUsd = serverDistrictFeeUsd + serverExpressFeeUsd + serverSlotFeeUsd;
   const totalUsd = subtotalUsd + serverDeliveryFeeUsd;
-
-  const stripeCurrency = currency.toLowerCase();
 
   // Resolve Stripe Customer for any authenticated request.
   // - When saveCard=true: also sets setup_future_usage so the card is saved.
@@ -797,6 +845,22 @@ router.post("/checkout/payment-intent", async (req, res) => {
       currency,
     });
   } catch (err: any) {
+    req.log.error(
+      { err, storeKey: store.storeKey, currency },
+      "checkout: Stripe PaymentIntent failed", // i18n-ignore
+    );
+    if (isGulf) {
+      sendAlert({
+        title: "Gulf Stripe PaymentIntent failed",
+        body: `A Stripe PaymentIntent creation failed for a Gulf (UAE) store. Store: \`${store.storeKey}\`, currency: \`${currency}\`.`,
+        severity: "critical",
+        fields: [
+          { title: "error", value: err?.message ?? String(err) },
+          { title: "orderId", value: orderId ?? "unknown" },
+        ],
+        source: "checkout/payment-intent",
+      }).catch(() => {});
+    }
     return res
       .status(500)
       .json({ ok: false, code: "stripe_error", message: err?.message ?? "Stripe error" }); // i18n-ignore
