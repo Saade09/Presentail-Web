@@ -1,0 +1,108 @@
+Objective
+
+Reduce the vertical space used by payment-method and Trustpilot reassurance content on mobile product pages. Keep the three approved delivery reassurance cards unchanged, but combine the separate “Ways to Pay” card and standalone Trustpilot row into one compact component.
+
+Scope
+
+- Apply this change only to the mobile product-page layout.
+- Use the website’s existing mobile breakpoint. If a breakpoint must be defined, apply the new layout at viewport widths of 767px and below.
+- Do not change the desktop or tablet product-page layout.
+- Implement the component in the shared mobile product-page template so it applies consistently across all products.
+
+Elements that must remain unchanged
+
+Keep the existing three reassurance tiles exactly as they are:
+
+1. Free Standard Delivery
+2. No Address Hassle
+3. Live Order Tracking
+
+Do not change their wording, icons, size, order, styling or interaction.
+
+Approved mobile design
+
+Remove the following mobile elements:
+
+- The large standalone “Ways to Pay” card.
+- The separate standalone Trustpilot row beneath it.
+
+Replace them with one compact rounded white card directly beneath the three reassurance tiles.
+
+The new card should use:
+
+- A subtle light-grey border.
+- The existing border radius.
+- No heavy shadow.
+- Approximately 90–105px total height.
+- Comfortable internal spacing without creating unnecessary vertical height.
+
+First row: secure payments
+
+- Display a small lock icon on the left.
+- Display the label “Secure payments” beside the icon.
+- Use medium-weight dark neutral text.
+- Display the supported payment logos in a compact aligned group on the right:
+  - AMEX
+  - Google Pay
+  - Apple Pay
+  - Visa
+  - Mastercard
+  - Whish
+  - PayPal
+- Keep every payment logo recognizable.
+- Use consistent logo height and visual alignment.
+- Do not remove any currently supported payment method.
+- Prevent logos from overflowing, wrapping awkwardly or becoming unreadable on narrow screens.
+
+Second row: Trustpilot
+
+Add a subtle horizontal divider between the payment and Trustpilot rows.
+
+Center the following content on the second row:
+
+“Excellent   4.6 out of 5   ★ Trustpilot”
+
+- Keep “Excellent” visually prominent.
+- Use the Trustpilot green for the star.
+- Use dark neutral text for the remaining copy.
+- Preserve the current Trustpilot rating value and brand treatment.
+
+Responsive requirements
+
+- The compact component must fit correctly across all supported mobile widths.
+- Test narrow devices down to at least 320px.
+- Payment logos may reduce slightly in size or spacing on narrow devices, but must remain recognizable.
+- Do not allow horizontal page scrolling.
+- The component must not overlap the Description/Care Tips tabs or sticky Add to Cart bar.
+- Maintain suitable spacing above and below the component.
+
+Desktop and tablet protection
+
+- Do not modify the existing desktop layout.
+- Do not modify the existing tablet layout above the mobile breakpoint.
+- Ensure mobile-specific CSS or rendering does not leak into larger breakpoints.
+- Compare before and after screenshots at desktop and tablet widths to confirm there are no visual changes.
+
+Accessibility
+
+- The lock icon should be decorative unless it contains meaningful accessible text.
+- Payment logos must include suitable accessible labels where required.
+- Trustpilot content must remain readable by screen readers.
+- Text and borders must maintain appropriate contrast.
+- Do not reduce text to an unreadable size to force everything into one row.
+
+Acceptance criteria
+
+- On mobile, the separate Ways to Pay card and standalone Trustpilot row are removed.
+- On mobile, one compact card contains both secure-payment logos and Trustpilot reassurance.
+- The three delivery reassurance tiles remain completely unchanged.
+- All existing payment methods are represented.
+- The combined component is approximately 90–105px tall and materially reduces vertical page length.
+- No overflow, overlap or horizontal scrolling occurs at supported mobile widths.
+- The component works across every product page using the shared template.
+- Desktop and tablet layouts remain visually and functionally unchanged.
+- The sticky Add to Cart bar continues to work normally.
+
+Visual reference
+
+Follow the approved mobile mockup generated in ChatGPT, showing the single combined Secure payments and Trustpilot card directly beneath the three reassurance tiles.

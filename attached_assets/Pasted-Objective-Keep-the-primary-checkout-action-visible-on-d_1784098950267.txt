@@ -1,0 +1,400 @@
+Objective
+
+Keep the primary checkout action visible on desktop by moving “Continue to Payment” into the right-hand Order Summary panel, directly below the Delivery Summary editor.
+
+Scope
+
+- Apply this change to the desktop checkout only.
+- Preserve the existing mobile checkout CTA behavior.
+- Do not redesign the recipient form, sender form, pricing section, delivery selector, or other checkout content as part of this task.
+
+Approved desktop layout
+
+Use the approved design direction inside the right-hand Order Summary card:
+
+1. Product summary
+2. Promo-code control
+3. Subtotal, delivery fee, and total
+4. Free-delivery message
+5. Delivery Summary editor with the existing “Change” action
+6. Full-width primary CTA
+7. Compact secure-checkout reassurance
+
+CTA design
+
+- Place the CTA immediately below the Delivery Summary editor inside the same Order Summary card.
+- Use one full-width Presentail dark-teal button.
+- Button copy should be dynamic:
+- “Continue to Payment · $72” in the current example
+- Replace $72 with the customer’s live checkout total and active currency
+- Add a right-arrow icon aligned at the far right.
+- Keep the button approximately 56–60 px high with comfortable horizontal padding.
+- Use the existing Presentail border radius, typography, colors, and focus styles.
+- Directly below the button, show a small lock icon and “Secure checkout” in muted text.
+- Do not add a second CTA in the left form column on desktop.
+
+Sticky desktop behavior
+
+- Keep the entire Order Summary panel sticky while the customer scrolls through Recipient Details and Sender Details.
+- Use an appropriate top offset below the checkout header.
+- Ensure the card remains fully visible on common laptop and desktop viewport heights.
+- If the card is taller than the available viewport:
+- Keep the CTA accessible
+- Avoid covering content
+- Use a safe internal layout or scrolling approach without creating nested-scroll confusion
+- The sticky panel must stop before the page footer and must not overlap other components.
+
+Dynamic total behavior
+
+Update the amount inside the CTA immediately when any of the following changes:
+
+- Delivery method or delivery fee
+- Delivery district
+- Promo or gift-card code
+- Cart contents or quantity
+- Currency
+- Taxes or other checkout charges
+
+The amount displayed in the CTA must always match the Total shown immediately above it.
+
+Validation behavior
+
+- Keep the CTA enabled so customers can understand how to proceed.
+- When clicked:
+- Validate all required fields in the Delivery Details step
+- If information is missing or invalid, do not advance
+- Highlight the affected field
+- Scroll and focus the first invalid field
+- Show a clear inline error message
+- When all required information is valid, proceed to the Payment step using the existing checkout flow.
+- Preserve entered form data when validation fails.
+- During submission, show a loading state and prevent duplicate clicks.
+
+Delivery Summary interaction
+
+- Keep the existing Delivery Summary editor and “Change” action directly above the CTA.
+- If the delivery selection changes, update the delivery fee, Total, CTA amount, and displayed delivery summary together.
+- Do not allow stale totals or delivery details to remain visible while recalculation is in progress.
+
+Accessibility
+
+- Maintain accessible color contrast.
+- Give the button and arrow an appropriate accessible label.
+- Provide a clear keyboard focus state.
+- Announce validation errors and total updates appropriately to screen readers.
+- Ensure the button remains usable at increased browser zoom and text size.
+
+Localization
+
+- Support English, Arabic, and French.
+- Format currency according to Presentail’s existing currency rules.
+- Support RTL placement and text flow in Arabic.
+- Allow longer translated CTA copy to fit without clipping; reduce decorative spacing before reducing legibility.
+
+Acceptance criteria
+
+- On desktop, the CTA appears directly below the Delivery Summary editor in the right-hand Order Summary panel.
+- The right-hand summary remains visible while scrolling through the checkout form.
+- The CTA displays the live checkout total and active currency.
+- The amount inside the CTA always matches the Total in the summary.
+- Clicking with incomplete information scrolls to and focuses the first invalid field.
+- Clicking with valid information advances to Payment.
+- Loading behavior prevents duplicate submissions.
+- Delivery, promo, district, currency, and cart changes update the CTA total correctly.
+- The summary and CTA do not overlap the header, footer, or form content.
+- Mobile checkout remains unchanged.
+- English, Arabic, and French layouts work across supported desktop sizes.
+
+Objective
+
+Implement the checkout Order Summary state shown only when the customer has reached the configured free-standard-delivery threshold.
+
+Scope
+
+- Implement only the reached-threshold/unlocked state.
+- Do not implement the below-threshold progress card, remaining-amount calculation UI, progress bar, or “Add another gift” action as part of this task.
+- Apply the unlocked state anywhere the desktop checkout Order Summary displays delivery pricing.
+- Preserve the approved “Continue to Payment” placement below Delivery Summary.
+
+Trigger logic
+
+Show the unlocked state when the cart’s eligible subtotal is greater than or equal to the active city’s configured free-standard-delivery threshold.
+
+- Use the same backend eligibility and subtotal calculation used by checkout.
+- Do not create a separate frontend-only calculation that can disagree with the charged delivery fee.
+- Treat an order exactly at the threshold as eligible.
+- Recalculate eligibility after changes to:
+  - Cart items or quantities
+  - Promo/gift-card codes
+  - Delivery city or district
+  - Currency
+  - Any other adjustment that affects the eligible subtotal
+- If the order later falls below the threshold, remove the unlocked state and return to the website’s existing below-threshold behavior. Do not implement the newly proposed actionable below-threshold design in this task.
+
+Unlocked visual state
+
+Replace the current generic free-delivery message with a restrained success card:
+
+- Use a teal circular checkmark icon.
+- Headline: “Free standard delivery unlocked”
+- Supporting text: “You saved [standard delivery fee] on delivery.”
+- Example: “You saved $7 on delivery.”
+- Use a white rounded card with the existing subtle border/shadow.
+- Use Presentail teal for the icon and success emphasis.
+- Do not show a progress bar, threshold goal, orange progress color, confetti, or shopping link after the threshold is reached.
+
+Pricing summary behavior
+
+When standard delivery is selected and the threshold is reached:
+
+- Change the Standard delivery line to show the original fee struck through, followed by “Free” in teal.
+- Example: “Standard delivery   $7  Free”
+- Remove the standard-delivery fee from Total.
+- Ensure the Total shown in the summary and the amount inside “Continue to Payment” match exactly.
+- Format the original fee and all totals using the active currency and Presentail’s existing rounding rules.
+
+Express-delivery protection
+
+Reaching the threshold unlocks free standard delivery only.
+
+If Express delivery is selected:
+
+- Do not remove or reduce the Express surcharge.
+- Keep the Express delivery fee in the pricing summary and Total.
+- Do not state that the customer saved the Express fee.
+- Use clear supporting copy such as:
+  “Standard delivery is free. Express delivery includes an additional fee.”
+- The delivery method, delivery fee, Total, and payment CTA amount must remain consistent.
+
+Delivery Summary and CTA
+
+- Preserve the existing Delivery Summary editor and “Change” action.
+- Preserve the full-width desktop CTA directly below it.
+- Update the CTA amount whenever free standard delivery is applied.
+- Example after reaching a $90 threshold:
+  - Subtotal: $90
+  - Standard delivery: $7 struck through + Free
+  - Total: $90
+  - CTA: “Continue to Payment · $90”
+- Preserve the “Secure checkout” line below the CTA.
+
+Configuration and currencies
+
+- Read the free-standard-delivery threshold from the active city/country configuration.
+- Support locations with different thresholds and standard delivery fees.
+- Support all active Presentail currencies and existing formatting rules.
+- Do not assume the example values of $90 and $7 are universal.
+- If standard delivery is always free for a location, do not display a misleading “saved” amount unless there was an actual fee waived.
+
+Localization and accessibility
+
+- Support English, Arabic, and French.
+- Ensure RTL layout works correctly in Arabic.
+- Allow translated success copy to wrap without clipping.
+- Do not rely only on teal color to communicate success; retain the check icon and explicit unlocked wording.
+- Provide accessible text for the success icon and delivery-price change.
+- Maintain accessible color contrast and keyboard/screen-reader compatibility.
+
+Acceptance criteria
+
+- The unlocked card appears only when the eligible subtotal meets or exceeds the configured threshold.
+- With standard delivery selected, the original standard fee is struck through and “Free” is shown.
+- The waived standard-delivery fee is removed from Total.
+- The Total and Continue to Payment amount always match.
+- The success card displays the correct saved amount and currency.
+- Express delivery remains chargeable and is never incorrectly described as free.
+- Eligibility and totals update correctly after cart, promo, city, district, or currency changes.
+- Falling below the threshold removes the unlocked state and returns to the current existing behavior.
+- No below-threshold progress or “Add another gift” UI is introduced.
+- English, Arabic, and French render correctly on supported desktop sizes.
+- The existing mobile experience and unrelated checkout sections remain unchanged unless they already share this same pricing component and require the calculation fix.
+
+Objective
+
+Redesign the desktop checkout Order Summary into a clearer, more compact, premium sticky sidebar, following the approved full-page mockup.
+
+Project context
+
+This task covers the Order Summary structure and presentation. Reuse the free-standard-delivery eligibility and pricing logic from the related task:
+Checkout: Show free standard delivery unlocked state after threshold is reached
+
+Scope
+
+- Apply the approved redesign to the desktop checkout Order Summary.
+- Preserve the existing checkout form, Delivery Details/Payment stepper, Back to Cart, recipient details, sender details, and payment flow.
+- Keep the Order Summary in the right desktop column.
+- Mobile should retain its current layout unless shared components require non-visual data fixes.
+
+1. Sticky sidebar behavior
+
+- Keep the complete Order Summary card sticky while the customer scrolls through Recipient Details and Sender Details.
+- Use an appropriate top offset below the checkout header.
+- Prevent overlap with the header, footer, browser viewport edge, or form content.
+- The sidebar must remain usable on common laptop and desktop viewport heights.
+- If content becomes taller due to many cart products, use a controlled accessible solution that keeps the Total, delivery information, and Continue to Payment action reachable without creating confusing nested scrolling.
+
+2. Summary header
+
+- Show “Order summary” as the main panel heading.
+- Display the dynamic cart-item count underneath, using correct singular/plural wording:
+  - “1 item”
+  - “2 items”
+- Add a teal “Edit cart” action aligned to the top right.
+- Clicking Edit cart should return to the cart while preserving checkout data wherever the current application architecture supports it.
+
+3. Product rows
+
+Render each cart product as a compact, aligned row:
+
+- Rounded product thumbnail on the left.
+- Product name in the center.
+- “Qty: [number]” beneath the name in muted text.
+- Line-item price aligned at the far right in Presentail teal.
+- Use a subtle divider between products.
+- Populate image, name, quantity, selected options, currency, and line price dynamically.
+- Preserve relevant selected variants or add-ons without overwhelming the row.
+- Support long product names and multiple items without overlap.
+- Product rows should remain legible in English, Arabic, and French.
+
+Approved example:
+
+- Summer Daisy Garden
+- Qty: 1
+- $65
+
+- Red Heart Balloon
+- Qty: 1
+- $25
+
+4. Promo or gift-card control
+
+Replace the current underlined “Have a gift card or coupon?” link with one compact full-width outlined row:
+
+- Tag icon on the left.
+- Label: “Add promo or gift card”
+- Downward chevron on the right.
+- Keep the field collapsed by default.
+- Clicking the row should expand the promo/gift-card input inline.
+- Include Apply, loading, success, invalid-code, expired-code, and remove-code states.
+- Applying or removing a code must update Subtotal, delivery eligibility, delivery fee, Total, and CTA amount together.
+
+5. Price hierarchy
+
+Display a clean price breakdown:
+
+- Subtotal
+- Delivery method and fee
+- Any discounts or gift-card credits when applicable
+- Divider
+- Total
+
+Requirements:
+
+- Align all amounts consistently on the right.
+- Make Total larger and visually dominant.
+- Show the active currency code, such as USD, beside the total in subtle text.
+- Use Presentail’s existing currency formatting and no-decimal rules where configured.
+- Recalculate all values after cart, promo, delivery, district, city, tax, or currency changes.
+- Never display stale or mathematically inconsistent totals.
+
+Approved reached-threshold example:
+
+- Subtotal: $90
+- Standard delivery: original $7 struck through + “Free” in teal
+- Total: USD $90
+
+6. Free-standard-delivery unlocked state
+
+When the user meets or exceeds the configured threshold and Standard delivery is selected:
+
+- Show a compact pale-teal success strip.
+- Use a small teal circular checkmark icon.
+- Headline: “Free standard delivery unlocked”
+- Supporting text: “You saved [standard delivery fee] on delivery.”
+- Example: “You saved $7 on delivery.”
+- Do not show a progress bar, threshold goal, orange progress, confetti, or “Add another gift” action after the threshold is reached.
+- Ensure the original standard fee is struck through and “Free” is displayed in the pricing breakdown.
+- Use the shared eligibility logic from the related free-delivery task.
+
+Express protection:
+
+- Free delivery applies only to Standard delivery.
+- If Express is selected, retain the full Express surcharge.
+- Do not show that the customer saved the Express fee.
+- Keep the delivery label, fee, total, success copy, and CTA total consistent.
+
+7. Delivery section
+
+Replace the compressed delivery row with a clearer delivery-detail card under a “DELIVERY” heading.
+
+Display dynamically:
+
+- Selected delivery method, e.g. “Standard delivery”
+- Selected date and time, e.g. “Today · 6:00 PM–10:00 PM”
+- Delivery city or district, e.g. “Beirut”
+- Calendar/delivery icon
+- Teal “Change” action aligned right
+
+Interaction:
+
+- Clicking Change must open the existing delivery-selection experience.
+- After changes, update the displayed method, time, location, delivery fee, Total, free-delivery state, and CTA amount together.
+- Prevent stale information while recalculation is in progress.
+
+8. Continue to Payment CTA
+
+- Keep one full-width Presentail dark-teal CTA at the bottom of the Order Summary.
+- Copy format: “Continue to Payment · [live total]”
+- Approved example: “Continue to Payment · $90”
+- Add a white right-arrow aligned at the far right.
+- Keep the button approximately 56–60 px high.
+- Show a small lock icon and “Secure checkout” below it.
+- The CTA total must always equal the Total shown above.
+
+Validation behavior:
+
+- Keep the CTA enabled.
+- On click, validate all required Delivery Details fields.
+- If information is invalid or incomplete, remain on the step, highlight the fields, and scroll/focus the first invalid field.
+- If valid, continue to Payment through the existing checkout flow.
+- Show a loading state and prevent duplicate submissions.
+
+9. Visual styling
+
+Match the approved mockup and Presentail design system:
+
+- One rounded white sidebar card.
+- Deep teal primary color.
+- White and very pale-gray backgrounds.
+- Pale-teal success strip.
+- Subtle borders and restrained shadows.
+- Serif font only for the main panel title.
+- Clean sans-serif typography for UI content.
+- Compact spacing with clear separation between product, promo, pricing, delivery, and action sections.
+- Avoid gradients, heavy shadows, oversized icons, and unnecessary empty space.
+
+10. Accessibility and localization
+
+- Maintain accessible contrast and visible keyboard focus states.
+- Provide accessible labels for Edit cart, promo expansion, Change delivery, success state, and Continue to Payment.
+- Announce promo, pricing, delivery, and validation changes appropriately to screen readers.
+- Support English, Arabic, and French.
+- Support RTL layout in Arabic.
+- Ensure longer translated text wraps without clipping.
+- Verify behavior at increased browser zoom and text size.
+
+Acceptance criteria
+
+- The desktop checkout displays the approved compact sticky Order Summary.
+- Header includes dynamic item count and Edit cart.
+- Product rows show accurate images, names, quantities, selected options, and prices.
+- Promo/gift-card entry expands inline and updates all dependent totals.
+- Price rows and Total are accurate and use the active currency.
+- Reached-threshold Standard delivery shows the original fee struck through and Free.
+- The compact unlocked-delivery strip displays the correct saved amount.
+- Express delivery remains chargeable.
+- Delivery card shows the selected method, date/time, location, and working Change action.
+- Continue to Payment remains visible, displays the live Total, validates the form, and prevents duplicate submissions.
+- The sidebar does not overlap page content and works across supported desktop viewport sizes.
+- English, Arabic, and French layouts render correctly.
+- Mobile and unrelated checkout sections remain visually unchanged.
