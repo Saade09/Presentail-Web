@@ -34,8 +34,8 @@ export function SecurePaymentsTrustpilotCard({ countryCode, currencyCode }: Prop
     ...(showCards ? [{ name: "American Express", src: amexLogo }] : []),
     ...(showWallet
       ? [
-          { name: "Google Pay", src: googlePayLogo, padded: true, maxW: "max-w-[14px]" },
-          { name: "Apple Pay", src: applePayLogo, padded: true, maxW: "max-w-[14px]" },
+          { name: "Google Pay", src: googlePayLogo, padded: true, maxW: "max-w-[18px] sm:max-w-[14px]" },
+          { name: "Apple Pay", src: applePayLogo, padded: true, maxW: "max-w-[18px] sm:max-w-[14px]" },
         ]
       : []),
     ...(showCards
@@ -67,8 +67,8 @@ export function SecurePaymentsTrustpilotCard({ countryCode, currencyCode }: Prop
               title={logo.name}
               className={
                 logo.padded
-                  ? "inline-flex shrink-0 items-center justify-center bg-white rounded-[3px] shadow-sm overflow-hidden p-[2px] w-[22px] h-[14px]"
-                  : "inline-flex shrink-0 overflow-hidden rounded-[3px] shadow-sm w-[22px] h-[14px]"
+                  ? "inline-flex shrink-0 items-center justify-center bg-white rounded-[3px] shadow-sm overflow-hidden p-[2px] w-[28px] h-[18px] sm:w-[22px] sm:h-[14px]"
+                  : "inline-flex shrink-0 overflow-hidden rounded-[3px] shadow-sm w-[28px] h-[18px] sm:w-[22px] sm:h-[14px]"
               }
             >
               <img
