@@ -18,7 +18,7 @@ import {
   useTabbyPayment,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, ChevronDown, Tag, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, ChevronDown, Tag, Loader2, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,7 +32,6 @@ import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
-import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { DeliveryPickerModal, type DeliveryPickerSelection } from "@/components/delivery/DeliveryPickerModal";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import applePayLogo from "@/assets/payment-logos/applepay.svg";
@@ -45,6 +44,7 @@ import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
+import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
@@ -2673,51 +2673,16 @@ function CheckoutForm() {
 
             {/* ── STEP 2 · Payment ── */}
             {step === 2 && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-24 lg:pb-0">
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
                   <h2 className="text-2xl font-serif text-primary mb-1">{t("checkout.step3.title")}</h2>
-                  <p className="text-sm text-muted-foreground">{t("checkout.step3.desc")}</p>
-                </div>
-
-                {/* Note for team — collapsible on mobile, always expanded on desktop */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between lg:pointer-events-none"
-                    onClick={() => setNoteOpen((o) => !o)}
-                  >
-                    <p className="text-xs font-semibold text-primary uppercase tracking-widest">{t("checkout.noteForTeam")}</p>
-                    <ChevronDown
-                      className={`h-4 w-4 text-muted-foreground transition-transform duration-200 lg:hidden${noteOpen ? " rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {/* Desktop: always visible. Mobile: only when open */}
-                  <div className={`mt-3${!noteOpen ? " hidden lg:block" : ""}`}>
-                    <textarea
-                      value={orderNote}
-                      onChange={(e) => setOrderNote(e.target.value)}
-                      placeholder={t("checkout.noteForTeamPh")}
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
-                    />
-                    {/* Save button — mobile only, collapses the section */}
-                    <div className="flex justify-end mt-2 lg:hidden">
-                      <button
-                        type="button"
-                        onClick={() => setNoteOpen(false)}
-                        className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
-                      >
-                        {t("checkout.noteForTeamSave")}
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground">{t("checkout.step3.descNew")}</p>
                 </div>
 
                 {/* Payment methods */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
                   <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
-                  <div className="space-y-3">
+                  <div className="space-y-2 mb-5">
                     {(paymentOptions ?? []).map((m) => {
                       const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
                       type LogoSpec = { name: string; src: string; fill?: boolean; maxH?: string };
@@ -2814,19 +2779,67 @@ function CheckoutForm() {
                       );
                     })}
                   </div>
+
+                  {/* Payment CTA */}
+                  <div className="flex gap-3 mt-4">
+                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
+                  </div>
+
+                  {/* Secure payment badge */}
+                  <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-muted-foreground">
+                    <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{t("checkout.securePaymentBadge")}</span>
+                  </div>
                 </div>
 
-                <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:relative lg:bottom-auto lg:inset-x-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none lg:border-none lg:shadow-none lg:px-0 lg:py-0 lg:mb-4">
-                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                  <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
+                {/* Order instructions (collapsible, collapsed by default) */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between"
+                    onClick={() => setNoteOpen((o) => !o)}
+                    aria-expanded={noteOpen}
+                  >
+                    <p className="text-sm font-medium text-foreground">{t("checkout.orderInstructions.label")}</p>
+                    {noteOpen
+                      ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      : <Plus className="h-4 w-4 text-muted-foreground" />
+                    }
+                  </button>
+                  {noteOpen && (
+                    <div className="mt-3">
+                      <p className="text-xs text-muted-foreground mb-2">{t("checkout.orderInstructions.helper")}</p>
+                      <textarea
+                        value={orderNote}
+                        onChange={(e) => setOrderNote(e.target.value)}
+                        placeholder={t("checkout.orderInstructions.placeholder")}
+                        rows={3}
+                        className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
-                  <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                  </svg>
-                  {t("checkout.securePayments")}
-                </div>
+                {/* Delivery recap */}
+                <DeliveryRecap
+                  recipientFirstName={recipient.firstName}
+                  recipientLastName={recipient.lastName}
+                  district={_selectedDistrict}
+                  address={recipient.address}
+                  recipientWillProvideAddress={noAddress}
+                  selfRecipient={
+                    !noAddress &&
+                    !!recipient.firstName.trim() &&
+                    !!sender.firstName.trim() &&
+                    recipient.firstName.trim().toLowerCase() === sender.firstName.trim().toLowerCase() &&
+                    recipient.lastName.trim().toLowerCase() === sender.lastName.trim().toLowerCase() &&
+                    !!recipient.phone.trim() &&
+                    recipient.phone.trim() === sender.phone.trim()
+                  }
+                  deliveryMode={deliveryMode}
+                  deliveryRowText={deliveryRowText}
+                  onEdit={() => setStep(1)}
+                />
               </div>
             )}
           </div>
@@ -2961,13 +2974,6 @@ function CheckoutForm() {
                   )}
                 </div>
 
-                {/* Delivery Summary */}
-                <div className="border-t border-gray-100 px-6 py-5" style={{ backgroundColor: "#f4f4f5" }}>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "hsl(var(--primary))" }}>
-                    {t("checkout.deliverySummary")}
-                  </p>
-                  <DeliveryDateRow rowText={deliveryRowText} onChangeClick={() => setDeliveryPickerOpen(true)} />
-                </div>
                 </div>{/* end collapsible */}
 
                 {/* ── Desktop sidebar CTA — Step 1 only, hidden on mobile ── */}
