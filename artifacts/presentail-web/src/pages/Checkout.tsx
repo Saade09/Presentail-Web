@@ -497,7 +497,7 @@ function CheckoutForm() {
   });
 
   const [sender, setSender] = useState({
-    firstName: user?.firstName || (() => { try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; } })(),
+    firstName: user?.firstName ?? "",
     lastName: user?.lastName || "",
     email: user?.email || "",
     phone: user?.phone || "",

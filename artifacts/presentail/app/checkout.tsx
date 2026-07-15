@@ -324,15 +324,6 @@ function CheckoutScreen() {
   const [cardMessage, setCardMessage] = useState(cartMessageFromCart?.body ?? "");
   const [cardFrom, setCardFrom] = useState(cartMessageFromCart?.from ?? "");
 
-  // Pre-fill "From" with the signed-in user's account name when the field
-  // is still blank (no prior cart message). Runs once when authUser loads.
-  useEffect(() => {
-    if (!authUser) return;
-    setCardFrom((prev) => {
-      if (prev.trim()) return prev;
-      return `${authUser.firstName ?? ""} ${authUser.lastName ?? ""}`.trim();
-    });
-  }, [authUser]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const [qrLink, setQrLink] = useState("");
   const [coupon, setCoupon] = useState("");
@@ -1003,7 +994,7 @@ function CheckoutScreen() {
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
     deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
     cardMessage,
-    cardFrom: buildCardFrom(cardFrom, authUser),
+    cardFrom: buildCardFrom(cardFrom),
     cardTo,
     ...(/^https?:\/\/.+/.test((qrLink ?? "").trim()) ? { qrLink: qrLink.trim() } : {}),
     orderNotes,

@@ -233,19 +233,6 @@ export default function Cart() {
     try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; }
   });
 
-  // When the user signs in and the "From" field is still blank (no value
-  // in localStorage from a prior session), seed it with their account name
-  // as a convenience default — they can still overwrite it freely.
-  useEffect(() => {
-    if (!user) return;
-    setCardFrom((prev) => {
-      if (prev.trim()) return prev;
-      const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
-      if (!name) return prev;
-      try { localStorage.setItem(CARD_FROM_KEY, name); } catch { /* best-effort */ }
-      return name;
-    });
-  }, [user]);
   const [qrLink, setQrLink] = useState(() => {
     try { return localStorage.getItem(CARD_QR_LINK_KEY) ?? ""; } catch { return ""; }
   });
