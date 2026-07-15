@@ -1,4 +1,5 @@
 import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, usePageDescription, type Product } from "@/lib/queries";
+import { buildRichClientDescription } from "@/lib/pageDescriptionClient";
 import { applyRecipientFilter, BIRTHDAY_RECIPIENTS } from "@/lib/birthdayRecipients";
 import { applyAnniversaryGenderFilter } from "@/lib/anniversaryGender";
 import { applyLoveRomanceGenderFilter } from "@/lib/loveRomanceGender";
@@ -654,18 +655,20 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* Contextual description — server always returns either AI copy or a
-            deterministic fallback, so description is only undefined during
-            the initial load or on a network error. Show nothing while
-            loading; on error render a local client-side fallback so there
-            is always visible text for category/occasion pages. */}
-        {(pageDescriptionData?.description || pageDescriptionError) && pageDescriptionType && (
+        {/* Contextual description — server returns AI-generated copy or a
+            deterministic fallback. Show nothing while loading; on error
+            build a rich client-side description from the loaded products. */}
+        {(pageDescriptionData?.description || pageDescriptionError) && pageDescriptionType && pageDescriptionSlug && (
           <p className="text-sm font-medium text-muted-foreground max-w-[600px] mb-4 -mt-1"> {/* i18n-ignore */}
             {pageDescriptionData?.description
-              ?? t("shop.description.areaFallback", {
-                  pageName: pageTitle ?? pageDescriptionSlug ?? "",
-                  areaName: city?.name ?? "",
-                })}
+              ?? buildRichClientDescription(
+                  pageDescriptionType,
+                  pageDescriptionSlug,
+                  pageTitle ?? pageDescriptionSlug,
+                  sourceProducts,
+                  city?.name ?? "",
+                  city?.expressAvailable ?? true,
+                )}
           </p>
         )}
 

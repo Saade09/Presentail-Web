@@ -1,0 +1,366 @@
+Welcome to Asana
+Work
+My tasks
+Name
+Task name
+Does customer receive an email when partial refund is issued?
+Does customer receive an email when partial refund is issued?
+Tomorrow
+Why do these buttons show after partial refund is issued
+Why do these buttons show after partial refund is issued
+Tomorrow
+fix issue with clerk
+fix issue with clerk
+Order is Out For Delivery
+Order is Out For Delivery
+Tomorrow
+Improve checkout payment hierarchy, order instructions, and delivery recap
+Improve checkout payment hierarchy, order instructions, and delivery recap
+Improve E-commerce Analytics: KPI hierarchy, comparisons, financial definitions & executive insights
+Improve E-commerce Analytics: KPI hierarchy, comparisons, financial definitions & executive insights
+Tomorrow
+I want this to read data from google + meta ads for ad spend
+I want this to read data from google + meta ads for ad spend
+Today
+Lets add revenue per payment method
+Lets add revenue per payment method
+Today
+Fix bug conversion rate is obviosuly wrong
+Fix bug conversion rate is obviosuly wrong
+Today
+Add Product Image next to product name
+Add Product Image next to product name
+Today
+florist kds should be in arabic
+florist kds should be in arabic
+Today
+Presentail OS: Redesign Contact Detail page into a 360° contact profile
+Presentail OS: Redesign Contact Detail page into a 360° contact profile
+Tomorrow
+Presentail OS: Search and select existing customers and recipients when creating orders
+Presentail OS: Search and select existing customers and recipients when creating orders
+Tomorrow
+Desktop Checkout: Redesign and improve the Order Summary sidebar
+Desktop Checkout: Redesign and improve the Order Summary sidebar
+Today
+Checkout: Show free standard delivery unlocked state after threshold is reached
+Checkout: Show free standard delivery unlocked state after threshold is reached
+Today
+Desktop Checkout: Add sticky Continue to Payment CTA to Order Summary
+Desktop Checkout: Add sticky Continue to Payment CTA to Order Summary
+When sending a gift to Lebanon, Israel should not be an option
+When sending a gift to Lebanon, Israel should not be an option
+Today
+Coutry is incorrect.
+Coutry is incorrect.
+Today
+Add badge here similar for recepient 
+Add badge here similar for recepient 
+Today
+Mobile Cart: Clarify free-delivery progress and unlocked states
+Mobile Cart: Clarify free-delivery progress and unlocked states
+Mobile Cart: Improve product card hierarchy and controls
+Mobile Cart: Improve product card hierarchy and controls
+Mobile Cart: Strengthen the sticky checkout bar
+Mobile Cart: Strengthen the sticky checkout bar
+Show transparent dynamic delivery pricing on mobile product pages
+Show transparent dynamic delivery pricing on mobile product pages
+Compact the payment and Trustpilot reassurance section on mobile product pages
+Compact the payment and Trustpilot reassurance section on mobile product pages
+Generate dynamic contextual descriptions for all category and occasion pages
+Generate dynamic contextual descriptions for all category and occasion pages
+Yesterday
+Improve recipient filters on the Birthday collection page
+Improve recipient filters on the Birthday collection page
+When you switch from recomended to best seller nothing happens
+When you switch from recomended to best seller nothing happens
+Yesterday
+Improve how unavailable delivery areas are displayed
+Improve how unavailable delivery areas are displayed
+Yesterday
+Use “delivery area” instead of “city” on the location selection page
+Use “delivery area” instead of “city” on the location selection page
+Yesterday
+Fix oversized country panels on the location selection page
+Fix oversized country panels on the location selection page
+Yesterday
+Make the Selected Country Compact on the Location Page
+Make the Selected Country Compact on the Location Page
+Yesterday
+Update the heading and supporting copy on the country and delivery-area selection page so they reflect the user’s current step.
+Update the heading and supporting copy on the country and delivery-area selection page so they reflect the user’s current step.
+Yesterday
+Unnecessary
+Unnecessary
+Why fi pink stuff? Why no sunflower? 
+Why fi pink stuff? Why no sunflower? 
+Yesterday
+Why no beautiful image?
+Why no beautiful image?
+Jul 13
+Payment links should trigger meta and google pixels
+Payment links should trigger meta and google pixels
+Jul 10
+Paypal should not be centered it should be on far right
+Paypal should not be centered it should be on far right
+Jul 9
+Build Product sorting Algorithm
+Build Product sorting Algorithm
+Jul 6
+Remove this from mobile app
+Remove this from mobile app
+Jul 5
+During checkout when user types recepient name
+During checkout when user types recepient name
+Jul 4
+Improve Customers Page into CRM-Style Contact Management Page
+Improve Customers Page into CRM-Style Contact Management Page
+Jul 3
+Please build monday email digest
+Please build monday email digest
+Jul 3
+Add Presentail OS to app store
+Add Presentail OS to app store
+Implement AI-Based Sorting for Homepage Categories & Occasions
+Implement AI-Based Sorting for Homepage Categories & Occasions
+Jul 7
+Add Tabby to Dubai Website
+Add Tabby to Dubai Website
+Jun 30
+Integrate Google Merchant Center
+Integrate Google Merchant Center
+Jun 30
+Cancel Kinsta
+Cancel Kinsta
+Jun 30
+Build Florist KDS
+Build Florist KDS
+Jun 30
+Currently walk in sales are a seperate module
+Currently walk in sales are a seperate module
+Jun 18
+Fix bug - currency not in AED even though i am in dubai
+Fix bug - currency not in AED even though i am in dubai
+May 23
+Sender phone number should auto detect current user location 
+Sender phone number should auto detect current user location 
+May 12
+When loggin in request location permission
+When loggin in request location permission
+May 8
+Contact Osama to prepare agreement between Lebanon and  UAE in regards to revenue (out of scope)
+Contact Osama to prepare agreement between Lebanon and  UAE in regards to revenue (out of scope)
+Find all presentail legal documents here
+Find all presentail legal documents here
+Order Cake Candles
+Order Cake Candles
+Card Board Machine Suppliers
+Card Board Machine Suppliers
+Add task…
+Task name
+Add task…
+Task name
+Add task…
+Task name
+Add task…
+Task name
+Add task…
+Mobile Cart: Improve product card hierarchy and controls
+This task is visible to its collaborators.
+Mobile Cart: Improve product card hierarchy and controls
+Assignee
+Saade
+Due date
+No due date
+Dependencies
+Projects
+Description
+Objective
+
+
+
+Improve the product card on the mobile cart so the product image, name, price, quantity, and removal action are immediately clear and easy to use.
+
+
+
+Approved design direction
+
+
+
+Redesign each cart product card using the approved mobile mockup:
+
+
+
+- Keep the card white with the existing rounded corners, subtle border, and restrained shadow.
+
+- Increase the product image significantly so the customer can clearly verify what they are purchasing.
+
+- Use a square image area with rounded corners and preserve the original product-image aspect ratio without distortion.
+
+- Group the product name and price together on the right side:
+
+  - Product name first, using the existing product-title styling.
+
+  - Price directly below in bold Presentail teal.
+
+- Add a small “Quantity” label above the quantity selector.
+
+- Increase the size of the quantity stepper and its tap targets.
+
+- Show a clear “Remove” text action with a trash icon below the quantity control.
+
+- Keep the Remove action away from the card edge and visually secondary to quantity changes.
+
+- Allow the card to become slightly taller to achieve comfortable spacing.
+
+
+
+Content rules
+
+
+
+- Product name, image, unit price, quantity, and currency must be populated dynamically.
+
+- Do not add generic variant or product-detail text when no such data exists.
+
+- If a product has a customer-selected option that already appears in the cart, preserve that information without crowding the core hierarchy.
+
+- Prices must follow the selected currency and existing Presentail price-formatting rules.
+
+
+
+Quantity interaction
+
+
+
+- The minus and plus controls must each have a minimum 44 × 44 px tap target.
+
+- Tapping plus or minus must update:
+
+  - Item quantity
+
+  - Item price where applicable
+
+  - Cart total
+
+  - Free-delivery progress
+
+  - Sticky checkout total
+
+- Prevent duplicate rapid updates while a quantity request is processing.
+
+- Show a lightweight loading or disabled state during updates.
+
+- At quantity 1, tapping minus must follow the product’s existing removal behavior; do not create an inconsistent second flow.
+
+- If an item cannot be increased due to stock limits, disable plus and show the existing inventory message.
+
+
+
+Remove interaction
+
+
+
+- Tapping “Remove” must use the existing cart-removal behavior.
+
+- Ensure removal updates the cart count, totals, delivery threshold, recommendations, and sticky checkout bar.
+
+- Keep the action accessible to keyboard and screen-reader users.
+
+- Avoid relying on the trash icon alone; the “Remove” label must remain visible.
+
+
+
+Mobile layout
+
+
+
+- Apply the redesign to mobile cart product cards.
+
+- Maintain consistent card padding and spacing across all products.
+
+- Support multiple cart items without overlap or inconsistent card heights.
+
+- Long product names may wrap to two lines while keeping the price and controls aligned.
+
+- Ensure the layout works on narrow mobile screens and at increased text sizes.
+
+- Preserve sufficient spacing between the product card, free-delivery progress, and card-message section.
+
+
+
+Visual requirements
+
+
+
+- Match the current Presentail design system and approved mockup.
+
+- Use the existing white, pale gray, and dark teal palette.
+
+- Keep shadows subtle and avoid gradients or heavy borders.
+
+- Product imagery should remain the strongest visual element.
+
+- Do not duplicate the product price in multiple places inside the card.
+
+- Preserve the existing page header, promo-code control, delivery-progress component, card-message section, and sticky checkout component.
+
+
+
+Accessibility
+
+
+
+- Maintain WCAG-compliant text and control contrast.
+
+- Provide accessible labels for decrease quantity, increase quantity, and remove product.
+
+- Ensure the visible focus state is clear.
+
+- Do not use color alone to communicate disabled or loading states.
+
+
+
+Acceptance criteria
+
+
+
+- Product image is visibly larger and remains sharp and undistorted.
+
+- Product name and price appear together with clear hierarchy.
+
+- Quantity label and stepper are easy to scan and tap.
+
+- Remove is displayed as an icon plus text and is separated from the card edge.
+
+- Quantity changes update all dependent cart totals and delivery-threshold messaging in real time.
+
+- Loading, stock-limit, minimum-quantity, and removal states work correctly.
+
+- Multiple product cards render consistently.
+
+- Long names and English, Arabic, and French text do not break the layout.
+
+- Desktop and unrelated cart components remain unchanged.
+
+- Test on supported iPhone and Android viewport sizes.
+
+Subtasks
+Type to add a subtask…
+Attachments
+1
+
+Comments
+All activity
+Adnan Ammache created this task · Yesterday at 9:12am
+Adnan Ammache assigned to you · Yesterday at 9:12am
+Adnan Ammache  attached · Yesterday at 9:13am
+
+07A2BD2E-E47C-4A48-B3EF-D97949883267.png
+ · Download
+👍
+👀
+🙌
+
+
+Adnan Ammache will be notified

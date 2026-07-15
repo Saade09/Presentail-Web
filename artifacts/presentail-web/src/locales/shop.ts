@@ -16,11 +16,6 @@ export const shopStrings: Dict = {
   "locationPickerGate.dialogTitle": { en: "Choose delivery location", ar: "اختر موقع التوصيل" },
   "locationPickerGate.dialogDesc": { en: "Select the country and delivery area you want your gift delivered to.", ar: "اختر البلد ومنطقة التوصيل التي تريد توصيل هديتك إليها." },
 
-  "shop.description.areaFallback": {
-    en: "{pageName} flowers and gifts, delivered to {areaName}.",
-    ar: "زهور وهدايا {pageName}، مع التوصيل إلى {areaName}.",
-  },
-
   "shop.sortPlaceholder": { en: "Sort by", ar: "ترتيب حسب" },
   "shop.sort.recommended": { en: "Recommended", ar: "موصى به" },
   "shop.sort.bestSeller": { en: "Best Seller", ar: "الأكثر مبيعاً" },
@@ -540,8 +535,6 @@ export const shopStringsFr: Record<string, string> = {
   "locationPicker.close": "Fermer",
   "locationPickerGate.dialogTitle": "Choisir le lieu de livraison",
   "locationPickerGate.dialogDesc": "Sélectionnez le pays et la zone de livraison où vous souhaitez livrer votre cadeau.",
-
-  "shop.description.areaFallback": "{pageName} — fleurs et cadeaux livrés à {areaName}.",
 
   "shop.sortPlaceholder": "Trier par",
   "shop.sort.recommended": "Recommandé",
