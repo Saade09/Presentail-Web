@@ -18,6 +18,13 @@ import type {
 
 import type {
   AddFavoriteRequest,
+  AdminPageDescriptionGenerateAllRequest,
+  AdminPageDescriptionGenerateAllResponse,
+  AdminPageDescriptionGenerateRequest,
+  AdminPageDescriptionGenerateResponse,
+  AdminPageDescriptionUpdateRequest,
+  AdminPageDescriptionUpdateResponse,
+  AdminPageDescriptionsListResponse,
   AnalyticsEventRequest,
   AnalyticsEventResponse,
   AuthMeResponse,
@@ -53,6 +60,7 @@ import type {
   FbWebEventResponse,
   FrequentlyBoughtTogetherResponse,
   GeoCurrencyResponse,
+  GetAdminPageDescriptionsParams,
   GetCoupons200,
   GetDeliveryConfigParams,
   GetFrequentlyBoughtTogetherParams,
@@ -62,6 +70,7 @@ import type {
   GetHomepageCategoriesParams,
   GetHomepageCollectionBestSellersParams,
   GetHomepageOccasionsParams,
+  GetPageDescriptionsParams,
   HealthStatus,
   HomepageBannersResponse,
   HomepageBestSellersResponse,
@@ -76,6 +85,7 @@ import type {
   OccasionInput,
   OccasionListResponse,
   OccasionResponse,
+  PageDescriptionResponse,
   PartnerApplicationInput,
   PartnerApplicationResponse,
   PhoneOtpSendRequest,
@@ -5418,4 +5428,486 @@ export const useGetNextOrderId = <
   TContext
 > => {
   return useMutation(getGetNextOrderIdMutationOptions(options));
+};
+
+/**
+ * @summary Get contextual description for a category or occasion page
+ */
+export const getGetPageDescriptionsUrl = (
+  params: GetPageDescriptionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/page-descriptions?${stringifiedParams}`
+    : `/api/page-descriptions`;
+};
+
+export const getPageDescriptions = async (
+  params: GetPageDescriptionsParams,
+  options?: RequestInit,
+): Promise<PageDescriptionResponse> => {
+  return customFetch<PageDescriptionResponse>(
+    getGetPageDescriptionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPageDescriptionsQueryKey = (
+  params?: GetPageDescriptionsParams,
+) => {
+  return [`/api/page-descriptions`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPageDescriptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPageDescriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetPageDescriptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPageDescriptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPageDescriptionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPageDescriptions>>
+  > = ({ signal }) =>
+    getPageDescriptions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPageDescriptions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPageDescriptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPageDescriptions>>
+>;
+export type GetPageDescriptionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get contextual description for a category or occasion page
+ */
+
+export function useGetPageDescriptions<
+  TData = Awaited<ReturnType<typeof getPageDescriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetPageDescriptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPageDescriptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPageDescriptionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all contextual description rows for a slug
+ */
+export const getGetAdminPageDescriptionsUrl = (
+  params: GetAdminPageDescriptionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/page-descriptions?${stringifiedParams}`
+    : `/api/admin/page-descriptions`;
+};
+
+export const getAdminPageDescriptions = async (
+  params: GetAdminPageDescriptionsParams,
+  options?: RequestInit,
+): Promise<AdminPageDescriptionsListResponse> => {
+  return customFetch<AdminPageDescriptionsListResponse>(
+    getGetAdminPageDescriptionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminPageDescriptionsQueryKey = (
+  params?: GetAdminPageDescriptionsParams,
+) => {
+  return [`/api/admin/page-descriptions`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAdminPageDescriptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminPageDescriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetAdminPageDescriptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminPageDescriptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminPageDescriptionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminPageDescriptions>>
+  > = ({ signal }) =>
+    getAdminPageDescriptions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminPageDescriptions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminPageDescriptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminPageDescriptions>>
+>;
+export type GetAdminPageDescriptionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all contextual description rows for a slug
+ */
+
+export function useGetAdminPageDescriptions<
+  TData = Awaited<ReturnType<typeof getAdminPageDescriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetAdminPageDescriptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminPageDescriptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminPageDescriptionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Manually set a description and mark as manual override
+ */
+export const getPutAdminPageDescriptionsIdUrl = (id: number) => {
+  return `/api/admin/page-descriptions/${id}`;
+};
+
+export const putAdminPageDescriptionsId = async (
+  id: number,
+  adminPageDescriptionUpdateRequest: AdminPageDescriptionUpdateRequest,
+  options?: RequestInit,
+): Promise<AdminPageDescriptionUpdateResponse> => {
+  return customFetch<AdminPageDescriptionUpdateResponse>(
+    getPutAdminPageDescriptionsIdUrl(id),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminPageDescriptionUpdateRequest),
+    },
+  );
+};
+
+export const getPutAdminPageDescriptionsIdMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putAdminPageDescriptionsId>>,
+    TError,
+    { id: number; data: BodyType<AdminPageDescriptionUpdateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof putAdminPageDescriptionsId>>,
+  TError,
+  { id: number; data: BodyType<AdminPageDescriptionUpdateRequest> },
+  TContext
+> => {
+  const mutationKey = ["putAdminPageDescriptionsId"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof putAdminPageDescriptionsId>>,
+    { id: number; data: BodyType<AdminPageDescriptionUpdateRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return putAdminPageDescriptionsId(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PutAdminPageDescriptionsIdMutationResult = NonNullable<
+  Awaited<ReturnType<typeof putAdminPageDescriptionsId>>
+>;
+export type PutAdminPageDescriptionsIdMutationBody =
+  BodyType<AdminPageDescriptionUpdateRequest>;
+export type PutAdminPageDescriptionsIdMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Manually set a description and mark as manual override
+ */
+export const usePutAdminPageDescriptionsId = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putAdminPageDescriptionsId>>,
+    TError,
+    { id: number; data: BodyType<AdminPageDescriptionUpdateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof putAdminPageDescriptionsId>>,
+  TError,
+  { id: number; data: BodyType<AdminPageDescriptionUpdateRequest> },
+  TContext
+> => {
+  return useMutation(getPutAdminPageDescriptionsIdMutationOptions(options));
+};
+
+/**
+ * @summary Enqueue a single description generation job
+ */
+export const getPostAdminPageDescriptionsGenerateUrl = () => {
+  return `/api/admin/page-descriptions/generate`;
+};
+
+export const postAdminPageDescriptionsGenerate = async (
+  adminPageDescriptionGenerateRequest: AdminPageDescriptionGenerateRequest,
+  options?: RequestInit,
+): Promise<AdminPageDescriptionGenerateResponse> => {
+  return customFetch<AdminPageDescriptionGenerateResponse>(
+    getPostAdminPageDescriptionsGenerateUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminPageDescriptionGenerateRequest),
+    },
+  );
+};
+
+export const getPostAdminPageDescriptionsGenerateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminPageDescriptionsGenerate>>,
+    TError,
+    { data: BodyType<AdminPageDescriptionGenerateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postAdminPageDescriptionsGenerate>>,
+  TError,
+  { data: BodyType<AdminPageDescriptionGenerateRequest> },
+  TContext
+> => {
+  const mutationKey = ["postAdminPageDescriptionsGenerate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postAdminPageDescriptionsGenerate>>,
+    { data: BodyType<AdminPageDescriptionGenerateRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return postAdminPageDescriptionsGenerate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostAdminPageDescriptionsGenerateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postAdminPageDescriptionsGenerate>>
+>;
+export type PostAdminPageDescriptionsGenerateMutationBody =
+  BodyType<AdminPageDescriptionGenerateRequest>;
+export type PostAdminPageDescriptionsGenerateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Enqueue a single description generation job
+ */
+export const usePostAdminPageDescriptionsGenerate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminPageDescriptionsGenerate>>,
+    TError,
+    { data: BodyType<AdminPageDescriptionGenerateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postAdminPageDescriptionsGenerate>>,
+  TError,
+  { data: BodyType<AdminPageDescriptionGenerateRequest> },
+  TContext
+> => {
+  return useMutation(
+    getPostAdminPageDescriptionsGenerateMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Bulk-seed description generation (all areas, all languages, optional filters)
+ */
+export const getPostAdminPageDescriptionsGenerateAllUrl = () => {
+  return `/api/admin/page-descriptions/generate-all`;
+};
+
+export const postAdminPageDescriptionsGenerateAll = async (
+  adminPageDescriptionGenerateAllRequest?: AdminPageDescriptionGenerateAllRequest,
+  options?: RequestInit,
+): Promise<AdminPageDescriptionGenerateAllResponse> => {
+  return customFetch<AdminPageDescriptionGenerateAllResponse>(
+    getPostAdminPageDescriptionsGenerateAllUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminPageDescriptionGenerateAllRequest),
+    },
+  );
+};
+
+export const getPostAdminPageDescriptionsGenerateAllMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminPageDescriptionsGenerateAll>>,
+    TError,
+    { data: BodyType<AdminPageDescriptionGenerateAllRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postAdminPageDescriptionsGenerateAll>>,
+  TError,
+  { data: BodyType<AdminPageDescriptionGenerateAllRequest> },
+  TContext
+> => {
+  const mutationKey = ["postAdminPageDescriptionsGenerateAll"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postAdminPageDescriptionsGenerateAll>>,
+    { data: BodyType<AdminPageDescriptionGenerateAllRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return postAdminPageDescriptionsGenerateAll(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostAdminPageDescriptionsGenerateAllMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postAdminPageDescriptionsGenerateAll>>
+>;
+export type PostAdminPageDescriptionsGenerateAllMutationBody =
+  BodyType<AdminPageDescriptionGenerateAllRequest>;
+export type PostAdminPageDescriptionsGenerateAllMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Bulk-seed description generation (all areas, all languages, optional filters)
+ */
+export const usePostAdminPageDescriptionsGenerateAll = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminPageDescriptionsGenerateAll>>,
+    TError,
+    { data: BodyType<AdminPageDescriptionGenerateAllRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postAdminPageDescriptionsGenerateAll>>,
+  TError,
+  { data: BodyType<AdminPageDescriptionGenerateAllRequest> },
+  TContext
+> => {
+  return useMutation(
+    getPostAdminPageDescriptionsGenerateAllMutationOptions(options),
+  );
 };

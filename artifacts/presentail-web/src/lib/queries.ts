@@ -487,6 +487,43 @@ export const useCatalogOccasions = (countryCode?: string | null) => {
   });
 };
 
+export type PageDescriptionResponse = {
+  ok: boolean;
+  description: string;
+  is_fallback: boolean;
+};
+
+/**
+ * Fetches or triggers generation of a contextual description sentence for a
+ * category or occasion page. Returns the stored AI-generated description, or
+ * a deterministic server-side fallback when generation is still pending.
+ *
+ * The query is disabled when any required parameter is missing (e.g. when the
+ * shopper hasn't selected a delivery area yet) so no stale fetch fires.
+ * Gracefully returns undefined while loading — callers should render nothing
+ * rather than leave an empty gap.
+ */
+export const usePageDescription = (
+  pageType: "category" | "occasion" | null,
+  slug: string | null,
+  deliveryAreaId: string | null,
+  language: string,
+) => {
+  return useQuery<PageDescriptionResponse>({
+    queryKey: ["page-description", pageType, slug, deliveryAreaId, language],
+    queryFn: () => {
+      return apiFetch<PageDescriptionResponse>(
+        `/page-descriptions?page_type=${encodeURIComponent(pageType!)}&slug=${encodeURIComponent(slug!)}&delivery_area_id=${encodeURIComponent(deliveryAreaId!)}&language=${encodeURIComponent(language)}`,
+      );
+    },
+    enabled: !!pageType && !!slug && !!deliveryAreaId,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    // Don't throw on error — the component handles the undefined state
+    throwOnError: false,
+  });
+};
+
 
 // Display-currency metadata served by `/currencies`. Mirrors the
 // CurrenciesResponse OpenAPI schema.

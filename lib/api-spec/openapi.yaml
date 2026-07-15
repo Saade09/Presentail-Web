@@ -1905,6 +1905,121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /page-descriptions:
+    get:
+      summary: Get contextual description for a category or occasion page
+      tags: [page-descriptions]
+      parameters:
+        - name: page_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [category, occasion]
+        - name: slug
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: delivery_area_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [en, ar, fr]
+            default: en
+      responses:
+        "200":
+          description: Description retrieved (or fallback returned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageDescriptionResponse"
+  /admin/page-descriptions:
+    get:
+      summary: List all contextual description rows for a slug
+      tags: [admin]
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [category, occasion]
+      responses:
+        "200":
+          description: Description rows for the slug
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPageDescriptionsListResponse"
+  /admin/page-descriptions/{id}:
+    put:
+      summary: Manually set a description and mark as manual override
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPageDescriptionUpdateRequest"
+      responses:
+        "200":
+          description: Updated description row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPageDescriptionUpdateResponse"
+  /admin/page-descriptions/generate:
+    post:
+      summary: Enqueue a single description generation job
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPageDescriptionGenerateRequest"
+      responses:
+        "200":
+          description: Job enqueued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPageDescriptionGenerateResponse"
+  /admin/page-descriptions/generate-all:
+    post:
+      summary: Bulk-seed description generation (all areas, all languages, optional filters)
+      tags: [admin]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPageDescriptionGenerateAllRequest"
+      responses:
+        "200":
+          description: Jobs enqueued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPageDescriptionGenerateAllResponse"
 components:
   schemas:
     CheckoutPaymentIntentCartItem:
@@ -4382,6 +4497,117 @@ components:
           items:
             $ref: "#/components/schemas/CollectionRankingConfigRow"
       required: [ok, rows]
+    PageDescriptionResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        description:
+          type: string
+        is_fallback:
+          type: boolean
+      required: [ok, description, is_fallback]
+    AdminPageDescriptionRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        pageType:
+          type: string
+          enum: [category, occasion]
+        pageSlug:
+          type: string
+        deliveryAreaId:
+          type: string
+        language:
+          type: string
+          enum: [en, ar, fr]
+        description:
+          type: string
+          nullable: true
+        isManualOverride:
+          type: boolean
+        generationStatus:
+          type: string
+          enum: [pending, generating, done, failed]
+        failureReason:
+          type: string
+          nullable: true
+        generatedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, pageType, pageSlug, deliveryAreaId, language, isManualOverride, generationStatus, createdAt, updatedAt]
+    AdminPageDescriptionsListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPageDescriptionRow"
+      required: [ok, rows]
+    AdminPageDescriptionUpdateRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 300
+      required: [description]
+    AdminPageDescriptionUpdateResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        row:
+          $ref: "#/components/schemas/AdminPageDescriptionRow"
+      required: [ok]
+    AdminPageDescriptionGenerateRequest:
+      type: object
+      properties:
+        page_type:
+          type: string
+          enum: [category, occasion]
+        slug:
+          type: string
+        delivery_area_id:
+          type: string
+        language:
+          type: string
+          enum: [en, ar, fr]
+        force:
+          type: boolean
+      required: [page_type, slug, delivery_area_id, language]
+    AdminPageDescriptionGenerateResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        status:
+          type: string
+      required: [ok, status]
+    AdminPageDescriptionGenerateAllRequest:
+      type: object
+      properties:
+        page_type:
+          type: string
+          enum: [category, occasion]
+        slug:
+          type: string
+    AdminPageDescriptionGenerateAllResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        status:
+          type: string
+        count:
+          type: integer
+      required: [ok, status, count]
     NextOrderIdRequest:
       type: object
       properties:

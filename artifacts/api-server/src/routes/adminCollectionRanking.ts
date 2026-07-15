@@ -656,7 +656,147 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
         '<button type="button" class="primary save-editor-btn" data-idx="' + idx + '">Save</button>' +
         '<button type="button" class="cancel-editor-btn" data-idx="' + idx + '">Cancel</button>' +
         '<span class="status muted" id="save-status-' + idx + '"></span>' +
+      '</div>' +
+      '<div style="margin-top:24px;border-top:1px solid #e8e8e8;padding-top:16px">' +
+        '<h2 style="font-size:15px;margin-bottom:8px">Contextual Descriptions</h2>' +
+        '<div id="desc-panel-' + idx + '"><em style="color:#888">Loading descriptions&hellip;</em></div>' +
       '</div>';
+
+    loadDescriptions(idx, item.slug, state.kind);
+  }
+
+  function loadDescriptions(idx, slug, kind) {
+    var panel = document.getElementById('desc-panel-' + idx);
+    if (!panel) return;
+
+    fetch('/api/admin/page-descriptions?page_type=' + encodeURIComponent(kind) + '&slug=' + encodeURIComponent(slug), {
+      headers: { 'x-push-admin-token': state.token },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (b) {
+        if (!b.ok || !Array.isArray(b.rows)) {
+          panel.innerHTML = '<em style="color:#888">No descriptions found.</em>';
+          return;
+        }
+        var rows = b.rows;
+        if (!rows.length) {
+          panel.innerHTML = '<em style="color:#888">No descriptions generated yet.</em>' +
+            '<br><button type="button" class="primary" style="margin-top:8px;font-size:12px" onclick="generateAll(' + idx + ',\'' + escapeHtml(slug) + '\',\'' + escapeHtml(kind) + '\')">Generate All</button>';
+          return;
+        }
+
+        // Group rows by language
+        var langOrder = ['en', 'ar', 'fr'];
+        var langLabels = { en: 'English', ar: 'Arabic', fr: 'French' };
+        var byLang = {};
+        rows.forEach(function (r) { (byLang[r.language] = byLang[r.language] || []).push(r); });
+
+        var html = '<button type="button" style="float:right;font-size:11px;margin-bottom:4px" onclick="generateAll(' + idx + ',\'' + escapeHtml(slug) + '\',\'' + escapeHtml(kind) + '\')">Regenerate All</button>';
+
+        langOrder.forEach(function (lang) {
+          var langRows = byLang[lang] || [];
+          if (!langRows.length) return;
+          html += '<div style="margin-bottom:12px"><strong style="font-size:12px">' + (langLabels[lang] || lang) + '</strong>';
+          langRows.forEach(function (r) {
+            var statusColor = r.generationStatus === 'done' ? '#2d7a2d' : r.generationStatus === 'failed' ? '#b00' : '#888';
+            var badges = '';
+            if (r.isManualOverride) badges += ' <span style="background:#fff3cd;border:1px solid #ffc107;color:#856404;border-radius:4px;font-size:10px;padding:1px 5px">Manual</span>';
+            if (r.failureReason === 'ai_unavailable') badges += ' <span style="background:#f8d7da;border:1px solid #f5c6cb;color:#721c24;border-radius:4px;font-size:10px;padding:1px 5px">AI Fallback</span>';
+
+            html += '<div style="margin:4px 0 8px;padding:8px;border:1px solid #e8e8e8;border-radius:6px;background:#fafafa">' +
+              '<div style="font-size:11px;color:#666;margin-bottom:4px">' +
+                escapeHtml(r.deliveryAreaId) +
+                ' <span style="color:' + statusColor + '">\u25cf ' + escapeHtml(r.generationStatus) + '</span>' +
+                badges +
+              '</div>' +
+              '<textarea id="desc-text-' + r.id + '" rows="2" style="width:100%;box-sizing:border-box;font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px">' + escapeHtml(r.description || '') + '</textarea>' +
+              '<div style="display:flex;gap:6px;margin-top:4px;align-items:center">' +
+                '<button type="button" style="font-size:11px;padding:2px 8px" onclick="saveDesc(' + r.id + ',' + idx + ')">Save</button>' +
+                '<button type="button" style="font-size:11px;padding:2px 8px" onclick="regenDesc(' + r.id + ',' + idx + ',\'' + escapeHtml(slug) + '\',\'' + escapeHtml(kind) + '\',\'' + escapeHtml(r.deliveryAreaId) + '\',\'' + lang + '\',' + (r.isManualOverride ? 'true' : 'false') + ')">Regen</button>' +
+                '<span id="desc-status-' + r.id + '" style="font-size:11px;color:#888"></span>' +
+              '</div>' +
+            '</div>';
+          });
+          html += '</div>';
+        });
+
+        panel.innerHTML = html;
+      })
+      .catch(function (err) {
+        if (panel) panel.innerHTML = '<em style="color:#b00">Failed to load: ' + escapeHtml(err.message) + '</em>';
+      });
+  }
+
+  function saveDesc(id, idx) {
+    var textarea = document.getElementById('desc-text-' + id);
+    var statusEl = document.getElementById('desc-status-' + id);
+    if (!textarea || !statusEl) return;
+    var text = textarea.value.trim();
+    if (!text) { statusEl.textContent = 'Cannot be empty'; statusEl.style.color = '#b00'; return; }
+    statusEl.textContent = 'Saving\u2026';
+    statusEl.style.color = '#888';
+
+    fetch('/api/admin/page-descriptions/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-push-admin-token': state.token },
+      body: JSON.stringify({ description: text }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (b) {
+        if (!b.ok) throw new Error(b.message || 'HTTP error');
+        statusEl.textContent = 'Saved!';
+        statusEl.style.color = '#2d7a2d';
+        setTimeout(function () {
+          var item = ITEMS[idx];
+          if (item) loadDescriptions(idx, item.slug, state.kind);
+        }, 800);
+      })
+      .catch(function (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.color = '#b00';
+      });
+  }
+
+  function regenDesc(id, idx, slug, kind, deliveryAreaId, lang, isManualOverride) {
+    if (isManualOverride && !confirm('This has a manual override. Regenerate anyway?')) return;
+    var statusEl = document.getElementById('desc-status-' + id);
+    if (statusEl) { statusEl.textContent = 'Queued\u2026'; statusEl.style.color = '#888'; }
+
+    fetch('/api/admin/page-descriptions/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-push-admin-token': state.token },
+      body: JSON.stringify({ page_type: kind, slug: slug, delivery_area_id: deliveryAreaId, language: lang, force: true }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (b) {
+        if (!b.ok) throw new Error(b.message || 'HTTP error');
+        setTimeout(function () {
+          loadDescriptions(idx, slug, kind);
+        }, 4000);
+      })
+      .catch(function (err) {
+        if (statusEl) { statusEl.textContent = 'Error: ' + err.message; statusEl.style.color = '#b00'; }
+      });
+  }
+
+  function generateAll(idx, slug, kind) {
+    fetch('/api/admin/page-descriptions/generate-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-push-admin-token': state.token },
+      body: JSON.stringify({ page_type: kind, slug: slug }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (b) {
+        if (!b.ok) throw new Error(b.message || 'HTTP error');
+        var panel = document.getElementById('desc-panel-' + idx);
+        if (panel) panel.innerHTML = '<em style="color:#888">Generation queued for ' + (b.count || 0) + ' combinations. Check back in a moment.</em>';
+        setTimeout(function () {
+          loadDescriptions(idx, slug, kind);
+        }, 6000);
+      })
+      .catch(function (err) {
+        alert('Error: ' + err.message);
+      });
   }
 
   function addSeasonalRow(idx) {

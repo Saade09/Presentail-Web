@@ -1789,6 +1789,118 @@ export interface CollectionRankingConfigListResponse {
   rows: CollectionRankingConfigRow[];
 }
 
+export interface PageDescriptionResponse {
+  ok: boolean;
+  description: string;
+  is_fallback: boolean;
+}
+
+export type AdminPageDescriptionRowPageType =
+  (typeof AdminPageDescriptionRowPageType)[keyof typeof AdminPageDescriptionRowPageType];
+
+export const AdminPageDescriptionRowPageType = {
+  category: "category",
+  occasion: "occasion",
+} as const;
+
+export type AdminPageDescriptionRowLanguage =
+  (typeof AdminPageDescriptionRowLanguage)[keyof typeof AdminPageDescriptionRowLanguage];
+
+export const AdminPageDescriptionRowLanguage = {
+  en: "en",
+  ar: "ar",
+  fr: "fr",
+} as const;
+
+export type AdminPageDescriptionRowGenerationStatus =
+  (typeof AdminPageDescriptionRowGenerationStatus)[keyof typeof AdminPageDescriptionRowGenerationStatus];
+
+export const AdminPageDescriptionRowGenerationStatus = {
+  pending: "pending",
+  generating: "generating",
+  done: "done",
+  failed: "failed",
+} as const;
+
+export interface AdminPageDescriptionRow {
+  id: number;
+  pageType: AdminPageDescriptionRowPageType;
+  pageSlug: string;
+  deliveryAreaId: string;
+  language: AdminPageDescriptionRowLanguage;
+  description?: string | null;
+  isManualOverride: boolean;
+  generationStatus: AdminPageDescriptionRowGenerationStatus;
+  failureReason?: string | null;
+  generatedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminPageDescriptionsListResponse {
+  ok: boolean;
+  rows: AdminPageDescriptionRow[];
+}
+
+export interface AdminPageDescriptionUpdateRequest {
+  /** @maxLength 300 */
+  description: string;
+}
+
+export interface AdminPageDescriptionUpdateResponse {
+  ok: boolean;
+  row?: AdminPageDescriptionRow;
+}
+
+export type AdminPageDescriptionGenerateRequestPageType =
+  (typeof AdminPageDescriptionGenerateRequestPageType)[keyof typeof AdminPageDescriptionGenerateRequestPageType];
+
+export const AdminPageDescriptionGenerateRequestPageType = {
+  category: "category",
+  occasion: "occasion",
+} as const;
+
+export type AdminPageDescriptionGenerateRequestLanguage =
+  (typeof AdminPageDescriptionGenerateRequestLanguage)[keyof typeof AdminPageDescriptionGenerateRequestLanguage];
+
+export const AdminPageDescriptionGenerateRequestLanguage = {
+  en: "en",
+  ar: "ar",
+  fr: "fr",
+} as const;
+
+export interface AdminPageDescriptionGenerateRequest {
+  page_type: AdminPageDescriptionGenerateRequestPageType;
+  slug: string;
+  delivery_area_id: string;
+  language: AdminPageDescriptionGenerateRequestLanguage;
+  force?: boolean;
+}
+
+export interface AdminPageDescriptionGenerateResponse {
+  ok: boolean;
+  status: string;
+}
+
+export type AdminPageDescriptionGenerateAllRequestPageType =
+  (typeof AdminPageDescriptionGenerateAllRequestPageType)[keyof typeof AdminPageDescriptionGenerateAllRequestPageType];
+
+export const AdminPageDescriptionGenerateAllRequestPageType = {
+  category: "category",
+  occasion: "occasion",
+} as const;
+
+export interface AdminPageDescriptionGenerateAllRequest {
+  page_type?: AdminPageDescriptionGenerateAllRequestPageType;
+  slug?: string;
+}
+
+export interface AdminPageDescriptionGenerateAllResponse {
+  ok: boolean;
+  status: string;
+  count: number;
+}
+
 export interface NextOrderIdRequest {
   /** ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB. */
   countryCode: string;
@@ -2009,3 +2121,40 @@ export type WooSearchParams = {
   cityId?: string;
   lang?: string;
 };
+
+export type GetPageDescriptionsParams = {
+  page_type: GetPageDescriptionsPageType;
+  slug: string;
+  delivery_area_id: string;
+  language?: GetPageDescriptionsLanguage;
+};
+
+export type GetPageDescriptionsPageType =
+  (typeof GetPageDescriptionsPageType)[keyof typeof GetPageDescriptionsPageType];
+
+export const GetPageDescriptionsPageType = {
+  category: "category",
+  occasion: "occasion",
+} as const;
+
+export type GetPageDescriptionsLanguage =
+  (typeof GetPageDescriptionsLanguage)[keyof typeof GetPageDescriptionsLanguage];
+
+export const GetPageDescriptionsLanguage = {
+  en: "en",
+  ar: "ar",
+  fr: "fr",
+} as const;
+
+export type GetAdminPageDescriptionsParams = {
+  slug: string;
+  page_type?: GetAdminPageDescriptionsPageType;
+};
+
+export type GetAdminPageDescriptionsPageType =
+  (typeof GetAdminPageDescriptionsPageType)[keyof typeof GetAdminPageDescriptionsPageType];
+
+export const GetAdminPageDescriptionsPageType = {
+  category: "category",
+  occasion: "occasion",
+} as const;

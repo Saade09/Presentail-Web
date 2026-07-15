@@ -1,4 +1,4 @@
-import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, type Product } from "@/lib/queries";
+import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, usePageDescription, type Product } from "@/lib/queries";
 import { applyRecipientFilter, BIRTHDAY_RECIPIENTS } from "@/lib/birthdayRecipients";
 import { applyAnniversaryGenderFilter } from "@/lib/anniversaryGender";
 import { applyLoveRomanceGenderFilter } from "@/lib/loveRomanceGender";
@@ -181,6 +181,28 @@ export default function Shop() {
   const occasion = isOccasionRoute ? (params.slug ?? "") : occasionFromSearch;
 
   const { countryCode, cityId, country, city, openPicker } = useLocationSelection();
+
+  // Contextual description: only on category / occasion pages
+  const pageDescriptionType: "category" | "occasion" | null = isCategoryRoute
+    ? "category"
+    : isOccasionRoute
+      ? "occasion"
+      : null;
+  const pageDescriptionSlug = isCategoryRoute
+    ? (params.slug ?? null)
+    : isOccasionRoute
+      ? (params.slug ?? null)
+      : null;
+  const {
+    data: pageDescriptionData,
+    isError: pageDescriptionError,
+  } = usePageDescription(
+    pageDescriptionType,
+    pageDescriptionSlug,
+    cityId ?? null,
+    language,
+  );
+
   const queryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) queryParams.countryCode = countryCode;
   if (cityId) queryParams.cityId = cityId;
@@ -631,6 +653,21 @@ export default function Shop() {
             </Select>
           </div>
         </div>
+
+        {/* Contextual description — server always returns either AI copy or a
+            deterministic fallback, so description is only undefined during
+            the initial load or on a network error. Show nothing while
+            loading; on error render a local client-side fallback so there
+            is always visible text for category/occasion pages. */}
+        {(pageDescriptionData?.description || pageDescriptionError) && pageDescriptionType && (
+          <p className="text-sm font-medium text-muted-foreground max-w-[600px] mb-4 -mt-1"> {/* i18n-ignore */}
+            {pageDescriptionData?.description
+              ?? t("shop.description.areaFallback", {
+                  pageName: pageTitle ?? pageDescriptionSlug ?? "",
+                  areaName: city?.name ?? "",
+                })}
+          </p>
+        )}
 
         {occasion === "birthday" && (
           <div className="mt-4">

@@ -43,6 +43,7 @@ import { merchantFeedDebugRouter } from "./merchantFeed";
 import ogImageRouter from "./ogImage";
 import webEventsRouter from "./webEvents";
 import adminCollectionRankingRouter from "./adminCollectionRanking";
+import pageDescriptionsRouter from "./pageDescriptions";
 
 const router: IRouter = Router();
 
@@ -88,6 +89,7 @@ router.use(adminPixelDiagnosticsRouter);
 router.use(seoQaRouter);
 router.use(merchantFeedDebugRouter);
 router.use(adminCollectionRankingRouter);
+router.use(pageDescriptionsRouter);
 router.use(ogImageRouter);
 router.use(webEventsRouter);
 

@@ -22,6 +22,8 @@ import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonito
 import { startGoogleAdsConversionMonitor } from "./lib/googleAdsConversionMonitor";
 import { startProductAffinityMonitor } from "./lib/productAffinityMonitor";
 import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
+import { registerOnFirstPopulatedCallback } from "./lib/osProductsCache";
+import { enqueueBulkSeed } from "./lib/pageDescriptionQueue";
 import { validateFbPixelEnv } from "./lib/fbConversions";
 // Prevent unhandled 'error' events on idle pg pool clients from crashing the
 // process. pg emits these when a connection is terminated unexpectedly (e.g. a
@@ -84,4 +86,13 @@ app.listen(port, (err) => {
   startGeoCurrencyFallbackMonitor();
   startGoogleAdsConversionMonitor();
   startProductAffinityMonitor();
+
+  // Seed contextual descriptions for all category/occasion × area × language
+  // combinations once the OS product catalog is first populated. Runs in the
+  // background — never blocks startup. Skips already-done and manual rows.
+  registerOnFirstPopulatedCallback(() => {
+    void enqueueBulkSeed().catch((err: unknown) => {
+      logger.warn({ err: (err as Error)?.message }, "startup: pageDescription bulk seed failed (non-fatal)");
+    });
+  });
 });

@@ -3175,3 +3175,114 @@ export const GetNextOrderIdResponse = zod.object({
     .string()
     .describe('The reserved sequential order ID (e.g. \"LB-1000\").'),
 });
+
+/**
+ * @summary Get contextual description for a category or occasion page
+ */
+export const getPageDescriptionsQueryLanguageDefault = `en`;
+
+export const GetPageDescriptionsQueryParams = zod.object({
+  page_type: zod.enum(["category", "occasion"]),
+  slug: zod.coerce.string(),
+  delivery_area_id: zod.coerce.string(),
+  language: zod
+    .enum(["en", "ar", "fr"])
+    .default(getPageDescriptionsQueryLanguageDefault),
+});
+
+export const GetPageDescriptionsResponse = zod.object({
+  ok: zod.boolean(),
+  description: zod.string(),
+  is_fallback: zod.boolean(),
+});
+
+/**
+ * @summary List all contextual description rows for a slug
+ */
+export const GetAdminPageDescriptionsQueryParams = zod.object({
+  slug: zod.coerce.string(),
+  page_type: zod.enum(["category", "occasion"]).optional(),
+});
+
+export const GetAdminPageDescriptionsResponse = zod.object({
+  ok: zod.boolean(),
+  rows: zod.array(
+    zod.object({
+      id: zod.number(),
+      pageType: zod.enum(["category", "occasion"]),
+      pageSlug: zod.string(),
+      deliveryAreaId: zod.string(),
+      language: zod.enum(["en", "ar", "fr"]),
+      description: zod.string().nullish(),
+      isManualOverride: zod.boolean(),
+      generationStatus: zod.enum(["pending", "generating", "done", "failed"]),
+      failureReason: zod.string().nullish(),
+      generatedAt: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Manually set a description and mark as manual override
+ */
+export const PutAdminPageDescriptionsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const putAdminPageDescriptionsIdBodyDescriptionMax = 300;
+
+export const PutAdminPageDescriptionsIdBody = zod.object({
+  description: zod.string().max(putAdminPageDescriptionsIdBodyDescriptionMax),
+});
+
+export const PutAdminPageDescriptionsIdResponse = zod.object({
+  ok: zod.boolean(),
+  row: zod
+    .object({
+      id: zod.number(),
+      pageType: zod.enum(["category", "occasion"]),
+      pageSlug: zod.string(),
+      deliveryAreaId: zod.string(),
+      language: zod.enum(["en", "ar", "fr"]),
+      description: zod.string().nullish(),
+      isManualOverride: zod.boolean(),
+      generationStatus: zod.enum(["pending", "generating", "done", "failed"]),
+      failureReason: zod.string().nullish(),
+      generatedAt: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Enqueue a single description generation job
+ */
+export const PostAdminPageDescriptionsGenerateBody = zod.object({
+  page_type: zod.enum(["category", "occasion"]),
+  slug: zod.string(),
+  delivery_area_id: zod.string(),
+  language: zod.enum(["en", "ar", "fr"]),
+  force: zod.boolean().optional(),
+});
+
+export const PostAdminPageDescriptionsGenerateResponse = zod.object({
+  ok: zod.boolean(),
+  status: zod.string(),
+});
+
+/**
+ * @summary Bulk-seed description generation (all areas, all languages, optional filters)
+ */
+export const PostAdminPageDescriptionsGenerateAllBody = zod.object({
+  page_type: zod.enum(["category", "occasion"]).optional(),
+  slug: zod.string().optional(),
+});
+
+export const PostAdminPageDescriptionsGenerateAllResponse = zod.object({
+  ok: zod.boolean(),
+  status: zod.string(),
+  count: zod.number(),
+});

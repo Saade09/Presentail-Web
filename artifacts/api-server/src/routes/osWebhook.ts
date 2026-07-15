@@ -53,6 +53,8 @@ import { creditDeliveredOrder, reverseDeliveredOrder } from "../lib/loyalty";
 import { upsertCustomer } from "../lib/customers";
 import type { OrderState } from "../lib/orderEvents";
 import type { OSLocationsResponse, OSTimeSlot } from "@workspace/presentail-os";
+import { enqueueDescriptionGeneration, enqueueBulkSeed } from "../lib/pageDescriptionQueue";
+import { DELIVERY_COUNTRIES } from "@workspace/catalog-data";
 
 const router: IRouter = Router();
 
@@ -439,6 +441,83 @@ router.post("/os/webhook", async (req, res) => {
         "osWebhook: customer upsert error (non-fatal)",
       );
     });
+    return res.json({ ok: true });
+  }
+
+  // category.updated / category.published / occasion.updated / occasion.published
+  // — enqueue description regeneration for the affected slug across all active
+  //   delivery areas and all three languages (skips manual overrides).
+  if (
+    event === "category.updated" ||
+    event === "category.published" ||
+    event === "occasion.updated" ||
+    event === "occasion.published"
+  ) {
+    const pageType: "category" | "occasion" = event.startsWith("category") ? "category" : "occasion";
+    const slug = typeof (data as Record<string, unknown>)?.slug === "string"
+      ? ((data as Record<string, unknown>).slug as string)
+      : null;
+
+    if (slug) {
+      void (async () => {
+        try {
+          const langs = ["en", "ar", "fr"] as const;
+          const jobs: Array<{ deliveryAreaId: string; language: "en" | "ar" | "fr" }> = [];
+
+          for (const country of DELIVERY_COUNTRIES) {
+            if (country.isActive === false) continue;
+            for (const city of country.cities) {
+              if (city.isActive === false) continue;
+              for (const lang of langs) {
+                jobs.push({ deliveryAreaId: city.id, language: lang });
+              }
+            }
+          }
+
+          for (const job of jobs) {
+            await enqueueDescriptionGeneration({
+              pageType,
+              pageSlug: slug,
+              deliveryAreaId: job.deliveryAreaId,
+              language: job.language,
+              force: false,
+            });
+          }
+
+          req.log.info(
+            { event, slug, jobCount: jobs.length },
+            "osWebhook: description regeneration enqueued for updated page",
+          );
+        } catch (err: unknown) {
+          req.log.warn(
+            { err: (err as Error)?.message, event, slug },
+            "osWebhook: description enqueue failed (non-fatal)",
+          );
+        }
+      })();
+    }
+    return res.json({ ok: true });
+  }
+
+  // delivery_area.updated / delivery_area.activated
+  // — a delivery area went live or its config changed; seed descriptions for
+  //   every category × occasion × language combination in that area so pages
+  //   are ready before the first customer hits them.
+  if (event === "delivery_area.updated" || event === "delivery_area.activated") {
+    const areaId = typeof (data as Record<string, unknown>)?.id === "string"
+      ? ((data as Record<string, unknown>).id as string)
+      : null;
+
+    if (areaId) {
+      void enqueueBulkSeed({ deliveryAreaId: areaId }).catch((err: unknown) => {
+        req.log.warn(
+          { err: (err as Error)?.message, event, areaId },
+          "osWebhook: description bulk seed for area failed (non-fatal)",
+        );
+      });
+      req.log.info({ event, areaId }, "osWebhook: description bulk seed enqueued for delivery area");
+    }
+
     return res.json({ ok: true });
   }
 
