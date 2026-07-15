@@ -29,6 +29,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useIpDetectedCountry } from "@/lib/useIpDetectedCountry";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { FreeDeliveryUnlockedStrip } from "@/components/cart/FreeDeliveryUnlockedStrip";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
@@ -54,6 +55,7 @@ import {
   expressSurchargeForCountry,
   firstAvailableDay,
   formatDeliveryRow,
+  freeDeliveryThresholdUsd,
   getCountryHour,
   isExpressDeliveryAvailable,
   slotTimeRangeForLabel,
@@ -1450,6 +1452,15 @@ function CheckoutForm() {
     freeDeliveryThresholdUsd: effectiveFreeDeliveryThresholdUsd,
     freeDeliveryEnabled: effectiveFreeDeliveryEnabled,
   });
+
+  // True when the shopper's subtotal meets the free-standard-delivery threshold.
+  // Uses exactly the same inputs and gate condition as calcCheckoutFees so the
+  // two can never disagree: (freeDeliveryEnabled && subtotal >= threshold).
+  const originalCityFee = selectedCity?.fee ?? 0;
+  const freeDeliveryThresholdForUnlock =
+    effectiveFreeDeliveryThresholdUsd ?? freeDeliveryThresholdUsd(countryCode ?? "LB");
+  const isFreeDeliveryUnlocked =
+    (effectiveFreeDeliveryEnabled !== false) && subtotal >= freeDeliveryThresholdForUnlock;
 
   // Signature of the current amount-affecting inputs, matching the one the
   // pre-creation effect computes. A wallet PaymentIntent is "ready" only when a
@@ -2945,7 +2956,23 @@ function CheckoutForm() {
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>{t("checkout.deliveryLabel")}</span>
-                      <span>{districtFee === 0 ? t("checkout.deliveryFree") : <FormattedPrice usdValue={districtFee} />}</span>
+                      {isFreeDeliveryUnlocked && deliveryMode !== "express" ? (
+                        <>
+                          {/* Mobile: unchanged — just show the translated "Free" text */}
+                          <span className="lg:hidden">
+                            {t("checkout.deliveryFree")}
+                          </span>
+                          {/* Desktop: struck-through original fee + teal "Free" label */}
+                          <span className="hidden lg:flex items-center gap-1.5">
+                            <s><FormattedPrice usdValue={originalCityFee} /></s>
+                            <span className="font-medium" style={{ color: "hsl(var(--primary))" }}>
+                              {t("checkout.freeDelivery.unlocked.freeLabel")}
+                            </span>
+                          </span>
+                        </>
+                      ) : (
+                        <span>{districtFee === 0 ? t("checkout.deliveryFree") : <FormattedPrice usdValue={districtFee} />}</span>
+                      )}
                     </div>
                     {deliveryMode === "express" && (
                       <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
@@ -2967,10 +2994,26 @@ function CheckoutForm() {
                     <span style={{ color: "hsl(var(--primary))" }} data-testid="text-total"><FormattedPrice usdValue={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} /></span>
                   </div>
 
-                  {effectiveFreeDeliveryEnabled !== false && (
-                  <div className="mt-4">
-                    <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
-                  </div>
+                  {isFreeDeliveryUnlocked ? (
+                    <>
+                      {/* Mobile: unchanged — keep the existing static banner.
+                          effectiveFreeDeliveryEnabled is guaranteed non-false in this
+                          branch because isFreeDeliveryUnlocked already gates on it. */}
+                      <div className="mt-4 lg:hidden">
+                        <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
+                      </div>
+                      {/* Desktop: unlocked success strip */}
+                      <div className="mt-4 hidden lg:block">
+                        <FreeDeliveryUnlockedStrip
+                          savedAmountUsd={deliveryMode !== "express" ? originalCityFee : undefined}
+                          expressSelected={deliveryMode === "express"}
+                        />
+                      </div>
+                    </>
+                  ) : effectiveFreeDeliveryEnabled !== false && (
+                    <div className="mt-4">
+                      <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
+                    </div>
                   )}
                 </div>
 

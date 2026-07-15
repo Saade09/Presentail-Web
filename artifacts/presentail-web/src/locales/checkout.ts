@@ -191,6 +191,16 @@ export const checkoutStrings: Dict = {
   "checkout.recap.edit": { en: "Edit", ar: "تعديل" },
   "checkout.recap.recipientProvidesAddress": { en: "Recipient will provide their address", ar: "سيُقدّم المستلم عنوانه" },
   "checkout.recap.selfDelivery": { en: "Delivering to yourself", ar: "التوصيل لنفسك" },
+
+  "checkout.freeDelivery.unlocked.iconLabel": { en: "Free delivery unlocked", ar: "تم إلغاء قفل التوصيل المجاني" },
+  "checkout.freeDelivery.unlocked.headline": { en: "Free standard delivery unlocked", ar: "تم إلغاء قفل التوصيل العادي المجاني" },
+  "checkout.freeDelivery.unlocked.saved.prefix": { en: "You saved ", ar: "وفّرت " },
+  "checkout.freeDelivery.unlocked.saved.suffix": { en: " on delivery.", ar: " على التوصيل." },
+  "checkout.freeDelivery.unlocked.expressNote": {
+    en: "Standard delivery is free. Express delivery includes an additional fee.",
+    ar: "التوصيل العادي مجاني. التوصيل السريع يتضمن رسوماً إضافية.",
+  },
+  "checkout.freeDelivery.unlocked.freeLabel": { en: "Free", ar: "مجاني" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -361,4 +371,11 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.recap.edit": "Modifier",
   "checkout.recap.recipientProvidesAddress": "Le destinataire fournira son adresse",
   "checkout.recap.selfDelivery": "Livraison à vous-même",
+
+  "checkout.freeDelivery.unlocked.iconLabel": "Livraison gratuite débloquée",
+  "checkout.freeDelivery.unlocked.headline": "Livraison standard gratuite débloquée",
+  "checkout.freeDelivery.unlocked.saved.prefix": "Vous avez économisé ",
+  "checkout.freeDelivery.unlocked.saved.suffix": " sur la livraison.",
+  "checkout.freeDelivery.unlocked.expressNote": "La livraison standard est gratuite. La livraison express inclut des frais supplémentaires.",
+  "checkout.freeDelivery.unlocked.freeLabel": "Gratuit",
 };
