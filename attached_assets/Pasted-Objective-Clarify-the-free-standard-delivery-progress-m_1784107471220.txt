@@ -1,0 +1,99 @@
+Objective
+
+Clarify the free-standard-delivery progress message on the mobile cart so customers immediately understand:
+
+- How much more they need to spend
+- The configured free-standard-delivery threshold
+- Their current eligible cart value
+- That express delivery fees still apply
+- When free standard delivery has been unlocked
+
+Approved states
+
+1. Threshold not yet reached
+
+Use the approved in-progress design:
+
+- Keep the rounded white delivery-progress card with the delivery-truck icon.
+- Headline example: “Add $10 more for free standard delivery”.
+- Helper text: “Express delivery fees still apply.”
+- Show an orange progress bar representing progress toward the threshold.
+- Under the bar:
+  - Left: current eligible cart value, e.g. “$90”
+  - Right: configured threshold, e.g. “$100 goal”
+- Allow the component to become slightly taller to support the extra context without crowding.
+
+2. Threshold reached
+
+Switch the same component to the approved success state:
+
+- Replace the truck icon with a teal circular checkmark.
+- Headline: “Free standard delivery unlocked”.
+- Helper text: “Express delivery remains available for an additional fee.”
+- Change the progress bar to a fully filled Presentail teal bar.
+- Under the bar:
+  - Left: current eligible cart value
+  - Right: “Goal reached”
+- Keep the success treatment restrained; do not add confetti, animation, or extra promotional graphics.
+
+Dynamic logic
+
+- Calculate the remaining amount using the existing city-specific free-standard-delivery threshold.
+- Use the same eligible subtotal rules already used by checkout; do not create a separate calculation that can disagree with the final delivery fee.
+- The displayed progress, remaining amount, and labels must update immediately when:
+  - Product quantities change
+  - Products or add-ons are added or removed
+  - Promo codes are applied or removed
+  - Currency changes
+  - Delivery city changes
+- If a promo code reduces the eligible subtotal below the threshold, return the component to the in-progress state.
+- Format all amounts using the customer’s selected currency and Presentail’s existing rounding rules.
+- Clamp the progress bar between 0% and 100%.
+- Never show negative remaining amounts.
+
+Delivery-method behavior
+
+- Free delivery applies only to standard delivery.
+- If express delivery is selected, reaching the threshold must not remove the express surcharge.
+- The unlocked state should confirm that free standard delivery is available, while the cart and checkout must continue to show the express fee when express remains selected.
+- If the customer changes from express to standard after unlocking the threshold, apply the free standard-delivery option correctly.
+- Ensure the wording and fee calculation remain consistent across cart, delivery selection, and checkout.
+
+Configuration and edge cases
+
+- Use the threshold configured for the active country/city.
+- If a location has no free-delivery program, do not show this progress component.
+- If standard delivery is always free for the active location, show the unlocked state without displaying a misleading spend goal.
+- Handle a cart exactly at the threshold as unlocked.
+- Preserve the existing eligible-subtotal definition for excluded items, taxes, discounts, or other special rules.
+- Do not display stale values while cart calculations are loading.
+
+Visual requirements
+
+- Match the approved mobile mockups and existing Presentail design system.
+- Use orange only for incomplete progress and Presentail teal for the completed state.
+- Keep the white card, pale-gray page background, subtle border/shadow, and rounded corners.
+- Maintain clear spacing between the icon, headline, helper text, progress bar, and amount labels.
+- Do not add buttons or make the component clickable unless the current product design already requires it.
+- Preserve the surrounding Cart title, promo control, product cards, and card-message section.
+
+Accessibility and localization
+
+- Provide accessible text for the progress state and icon.
+- Do not rely only on color to communicate whether the goal is reached.
+- Ensure contrast meets accessibility standards.
+- Support English, Arabic, and French.
+- Handle RTL layout correctly in Arabic.
+- Allow longer translated headlines and helper text to wrap without overlap or truncation.
+
+Acceptance criteria
+
+- Before the threshold, the exact remaining amount and goal are clear.
+- The message explicitly states that express delivery fees still apply.
+- At or above the threshold, the component switches to the teal unlocked state.
+- Progress and amounts update in real time after cart, promo, currency, or city changes.
+- Express charges remain accurate when free standard delivery is unlocked.
+- Cart, delivery selection, and checkout use the same eligibility calculation.
+- The component works correctly for no-threshold, always-free, exact-threshold, and above-threshold cases.
+- English, Arabic, and French layouts render correctly on supported mobile screen sizes.
+- Desktop and unrelated cart components remain unchanged.
