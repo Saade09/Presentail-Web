@@ -1,3 +1,5 @@
+export const PHONE_COUNTRY_BLOCKLIST = ["IL"] as const;
+
 export type CountryDialCode = {
   code: string;
   name: string;

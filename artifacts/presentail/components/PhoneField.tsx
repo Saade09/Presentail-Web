@@ -12,7 +12,7 @@ import { View, type TextInput, type TextInputProps } from "react-native";
 import PhoneInput from "react-native-phone-number-input";
 import { AppText } from "@/components/AppText";
 
-import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
+import { COUNTRY_DIAL_CODES, PHONE_COUNTRY_BLOCKLIST, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
@@ -173,7 +173,9 @@ export function PhoneField({
           ...(focusRef ? { ref: focusRef } : {}),
         } as TextInputProps}
         countryPickerProps={{
-          countryCodes: COUNTRY_DIAL_CODES.map((c) => c.code),
+          countryCodes: COUNTRY_DIAL_CODES.map((c) => c.code).filter(
+            (c) => !(PHONE_COUNTRY_BLOCKLIST as readonly string[]).includes(c),
+          ),
           withCloseButton: false,
         }}
       />

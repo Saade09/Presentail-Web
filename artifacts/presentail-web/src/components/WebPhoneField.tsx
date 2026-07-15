@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import { useEffect, useMemo, useState } from "react";
+import PhoneInput, { getCountries, isValidPhoneNumber } from "react-phone-number-input";
 import type { Value as PhoneValue } from "react-phone-number-input";
+import { PHONE_COUNTRY_BLOCKLIST } from "@workspace/catalog-data";
 
 export type Props = {
   value: string;
@@ -33,6 +34,11 @@ export function WebPhoneField({
   "data-testid": testId,
   onValidityChange,
 }: Props) {
+  const filteredCountries = useMemo(
+    () => getCountries().filter((c) => !(PHONE_COUNTRY_BLOCKLIST as readonly string[]).includes(c)),
+    [],
+  );
+
   const [touched, setTouched] = useState(false);
   // hasTyped tracks whether the user has actually typed into the text field.
   // It is set via the native onInput event on the wrapper, which only bubbles
@@ -81,6 +87,7 @@ export function WebPhoneField({
           defaultCountry={defaultCountry as any}
           value={(value as PhoneValue) || undefined}
           onChange={(v) => onChange(v ?? "")}
+          countries={filteredCountries}
           data-testid={testId}
         />
       </div>
