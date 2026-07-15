@@ -33,7 +33,7 @@ const SECTIONS: LegalSection[] = [
           "Cyprus — Nicosia and major urban areas.",
         ],
       },
-      "Delivery availability is confirmed at checkout based on your selected city and delivery address.",
+      "Delivery availability is confirmed at checkout based on your selected delivery area and address.",
     ],
   },
   {
@@ -47,7 +47,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "Delivery Fees",
     body: [
-      "Delivery fees are calculated at checkout based on your selected city and order value. Free delivery thresholds may apply in certain markets — the applicable threshold is displayed on the checkout page.",
+      "Delivery fees are calculated at checkout based on your selected delivery area and order value. Free delivery thresholds may apply in certain markets — the applicable threshold is displayed on the checkout page.",
       "During peak periods (Valentine's Day, Mother's Day, and similar occasions) or for deliveries to remote areas, an additional fee may apply. This will always be shown clearly before you confirm your order.",
     ],
   },
