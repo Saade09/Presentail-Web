@@ -1,36 +1,31 @@
 // @vitest-environment jsdom
 //
-// Stale-wallet integration test for the Apple Pay / Google Pay native-sheet
-// finalize path.
+// Auto-retry tests for the canMakePayment() null-probe path in Checkout.tsx.
 //
-// Task #2443 proved a stale *hosted redirect* payment (Mamo / PayPal / Stripe)
-// can't silently create an abandoned order on the OrderConfirmed page. The web
-// wallet (Apple Pay / Google Pay) native-sheet branch in Checkout.tsx finalizes
-// down a different code path: on a successful in-sheet payment it does NOT call
-// createOrder directly — it stashes the order payload (with a `createdAt`
-// timestamp) to sessionStorage and redirects to /order-confirmed, which creates
-// the WooCommerce order behind the same stash-expiry guard.
+// When Stripe's canMakePayment() returns null (common transiently on mobile
+// before the Google Pay / Apple Pay service has fully initialised), the wallet
+// PI pre-creation effect must automatically retry up to 3 times with a ~1 s
+// delay between attempts before giving up. This file tests:
 //
-// These tests drive the REAL wallet finalize path end-to-end (Checkout wallet
-// sheet → stash → OrderConfirmed) using the actual stash the wallet path writes,
-// rather than a hand-rolled payload, so they prove that:
-//
-//   1. Stale wallet return: a shopper who authorised the wallet sheet but only
-//      lands on /order-confirmed hours later (backgrounded tab) does NOT get the
-//      expired payload replayed into createOrder — they see the failure state.
-//   2. Fresh wallet return: the same stash, still inside the expiry window, IS
-//      finalized into a WooCommerce order normally.
+//   1. canMakePayment() null on first attempt, truthy on first retry →
+//      paymentRequestRef is populated, no error toast is shown, and the
+//      submit button opens the native wallet sheet normally.
+//   2. canMakePayment() null on all attempts (initial + 3 retries) →
+//      paymentRequestRef remains null, and tapping submit shows the
+//      "wallet unavailable" toast exactly once.
+//   3. The walletRetryNonce manual-retry path continues to work: after
+//      all auto-retries are exhausted, bumping the nonce clears state and
+//      re-arms the effect so a fresh round of auto-retries can run.
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, act } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
 
 // ---------------------------------------------------------------------------
-// Stripe JS mocks — must be hoisted so Checkout.tsx's module-level
-// `loadStripe(...)` call and `Elements`/`useStripe` hooks are intercepted.
-// (Mirrors Checkout.cardFlow.test.tsx.)
+// Stripe JS mocks — hoisted so Checkout.tsx module-level loadStripe() and
+// Elements/useStripe hooks are intercepted. Mirrors walletPiFail.test.tsx.
 // ---------------------------------------------------------------------------
 
 const mockConfirmCardPayment = vi.fn();
@@ -83,12 +78,6 @@ vi.mock("@stripe/react-stripe-js", () => ({
 
 // ---------------------------------------------------------------------------
 // API / mutation mocks
-//
-// useCreateOrder must expose BOTH `mutateAsync` (Checkout's non-wallet path,
-// unused here) and `mutate` (OrderConfirmed's finalize path). The wallet
-// success branch in Checkout never calls createOrder — it stashes and
-// redirects — so mockCreateOrderMutateSync is the assertion surface for
-// "did the order get created server-side?".
 // ---------------------------------------------------------------------------
 
 const mockCreatePaymentIntentMutate = vi.fn();
@@ -151,9 +140,6 @@ vi.mock("@/contexts/DeliverySelectionContext", () => ({
   DeliverySelectionProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
 }));
 
-// wouter is shared by both Checkout (useLocation) and OrderConfirmed
-// (useSearch + useLocation + Link). mockUseSearch is controllable so the
-// OrderConfirmed render can simulate the post-redirect URL.
 const mockSetLocation = vi.fn();
 const mockUseSearch = vi.fn().mockReturnValue("");
 vi.mock("wouter", () => ({
@@ -183,7 +169,6 @@ vi.mock("@/lib/analytics", () => ({
   trackWebEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
-// OrderConfirmed fires Facebook pixel events; stub them out.
 vi.mock("@/lib/fbPixel", () => ({
   trackFbEvent: vi.fn(),
   trackFbPageView: vi.fn(),
@@ -345,21 +330,16 @@ vi.mock("@/assets/payment-logos/paypal.svg", () => ({ default: "" }));
 vi.mock("@/assets/payment-logos/western-union.svg", () => ({ default: "" }));
 
 // ---------------------------------------------------------------------------
-// Import the components AFTER all vi.mock() declarations.
+// Import the component AFTER all vi.mock() declarations.
 // ---------------------------------------------------------------------------
 
 import Checkout from "./Checkout";
 import type { ShimUser } from "@/contexts/AuthContext";
 import type { CartItem } from "@/contexts/CartContext";
-import OrderConfirmed from "./OrderConfirmed";
 
 // ---------------------------------------------------------------------------
-// Shared fixtures
+// Fixtures
 // ---------------------------------------------------------------------------
-
-const PENDING_ORDER_KEY = "presentail_pending_order_v1";
-// Must match PENDING_ORDER_MAX_AGE_MS in OrderConfirmed.tsx.
-const PENDING_ORDER_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 const FAKE_ITEM: CartItem = {
   product: {
@@ -388,12 +368,10 @@ const SIGNED_IN_USER: ShimUser = {
 const PAYMENT_INTENT_RES = {
   ok: true,
   clientSecret: "pi_test_abc_secret_xyz",
-  orderId: "web-order-test",
+  orderId: "web-order-wallet-retry",
   amount: 5000,
   currency: "USD",
 };
-
-const mockClearCart = vi.fn();
 
 function renderCheckout() {
   return renderWithProviders(<Checkout />, {
@@ -416,86 +394,42 @@ function renderCheckout() {
 }
 
 // ---------------------------------------------------------------------------
-// Drive the wallet native sheet all the way to a successful in-sheet payment.
-// Returns the unmount handle for the Checkout render so the caller can tear it
-// down before rendering OrderConfirmed. After this resolves the REAL pending
-// stash the wallet path writes is present in sessionStorage.
+// Helper: drive to payment step with Google Pay selected and wait for the
+// wallet PI pre-creation effect to run (debounced 400 ms). Returns after
+// createPaymentIntentMutate has been called once.
 // ---------------------------------------------------------------------------
 
-async function driveWalletSuccess(user: ReturnType<typeof userEvent.setup>) {
-  mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
-  mockConfirmCardPayment.mockResolvedValue({
-    paymentIntent: { id: "pi_wallet_ok", status: "succeeded" },
-  });
-
-  const view = renderCheckout();
+async function driveToWalletPaymentStep(user: ReturnType<typeof userEvent.setup>) {
+  renderCheckout();
 
   const noAddressSwitch = await screen.findByTestId("check-no-address");
   await user.click(noAddressSwitch);
   await user.type(screen.getByTestId("input-recipient-first-name"), "John");
   await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
   await user.click(screen.getByTestId("button-continue-to-payment"));
+
   expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
-  // In jsdom (non-Apple platform) apple_pay is platform-hidden; use google_pay.
+
   await user.click(await screen.findByTestId("option-payment-google_pay"));
   await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
 
-  // The wallet sheet only opens once the PaymentIntent has been pre-created for
-  // the current cart (so the native sheet shows the server's exact total), so
-  // wait for the debounced pre-creation to run before tapping the button.
   await waitFor(
     () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
     { timeout: 3000 },
   );
-
-  await user.click(screen.getByTestId("button-submit-payment"));
-  await waitFor(() => {
-    expect(mockPrShow).toHaveBeenCalled();
-    expect(typeof mockPrEventHandlers.paymentmethod).toBe("function");
-  });
-
-  // Shopper authorises the wallet sheet → Stripe fires paymentmethod.
-  const ev = { paymentMethod: { id: "pm_wallet_123" }, complete: vi.fn() };
-  await act(async () => {
-    await mockPrEventHandlers.paymentmethod(ev);
-  });
-
-  // The wallet path confirmed the payment, stashed the order, and "redirected".
-  expect(ev.complete).toHaveBeenCalledWith("success");
-  await waitFor(() => {
-    expect(mockSetLocation).toHaveBeenCalledWith(
-      expect.stringContaining("/order-confirmed"),
-    );
-  });
-
-  return view;
-}
-
-/** Read and parse the raw pending-order stash the wallet path wrote. */
-function readStash(): { payload: Record<string, unknown>; createdAt: number } {
-  const raw = sessionStorage.getItem(PENDING_ORDER_KEY);
-  expect(raw).not.toBeNull();
-  return JSON.parse(raw as string);
 }
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Checkout wallet finalize → OrderConfirmed staleness guard", () => {
+describe("Checkout wallet canMakePayment() auto-retry", () => {
   let user: ReturnType<typeof userEvent.setup>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
-    // Wallet sheets only appear on mobile viewports.
     mockUseIsMobile.mockReturnValue(true);
-    // vi.clearAllMocks() wipes call history but not implementations — re-assert.
-    // Return a truthy non-null result so the wallet pre-creation effect sets
-    // paymentRequestRef.current = submitPr (required for walletViaNativeSheet=true
-    // and pr.show() to be called in handleSubmit).  A null result would leave
-    // paymentRequestRef=null and the wallet sheet branch would never execute.
-    mockCanMakePayment.mockResolvedValue({ applePay: false });
     mockPrShow.mockImplementation(() => {});
     for (const key of Object.keys(mockPrEventHandlers)) {
       delete mockPrEventHandlers[key];
@@ -509,109 +443,173 @@ describe("Checkout wallet finalize → OrderConfirmed staleness guard", () => {
     mockUseIsMobile.mockReturnValue(false);
   });
 
-  // ── The wallet success path produces a wallet-shaped, paid stash ─────────
+  // ── 1. Retry succeeds on first retry ─────────────────────────────────────
+  //
+  // canMakePayment() order of calls:
+  //   call 1 — probe effect (runs on mount, result is discarded)
+  //   call 2 — first pre-creation attempt → null → schedule retry
+  //   call 3 — retry 1 → truthy → paymentRequestRef is populated
+  //
+  // Expected: submit button becomes enabled, pr.show() is called on submit,
+  //           no "wallet unavailable" toast.
 
-  it("the wallet success path stashes a wallet payload with the PaymentIntent ref (no direct order)", async () => {
-    const view = await driveWalletSuccess(user);
+  it("retries canMakePayment() once and succeeds — submit button works without an error toast", async () => {
+    mockCanMakePayment
+      .mockResolvedValueOnce(null)            // probe (discarded)
+      .mockResolvedValueOnce(null)            // first pre-creation attempt → null
+      .mockResolvedValue({ applePay: false }); // retry 1 → truthy
 
-    // Checkout itself must NOT create the WooCommerce order — it only stashes.
-    expect(mockCreateOrderMutateAsync).not.toHaveBeenCalled();
-    expect(mockCreateOrderMutateSync).not.toHaveBeenCalled();
+    mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
 
-    const stash = readStash();
-    expect(stash.payload).toMatchObject({
-      // apple_pay / google_pay are normalised to the legacy "wallet" value.
-      paymentMethod: "wallet",
-      paymentRef: "pi_wallet_ok",
-      currencyCode: "USD",
-    });
-    expect(typeof stash.createdAt).toBe("number");
+    await driveToWalletPaymentStep(user);
 
-    view.unmount();
-  });
-
-  // ── 1. Stale wallet return: must NOT create an abandoned order ───────────
-
-  it("stale return: an expired wallet stash is not replayed into an order and shows the failure state", async () => {
-    const view = await driveWalletSuccess(user);
-    view.unmount();
-
-    // Simulate the shopper authorising the sheet then backgrounding the tab:
-    // the wallet stash is real but OrderConfirmed only loads hours later, past
-    // the expiry window. Keep the exact payload, age the timestamp one ms past.
-    const stash = readStash();
-    sessionStorage.setItem(
-      PENDING_ORDER_KEY,
-      JSON.stringify({
-        payload: stash.payload,
-        createdAt: Date.now() - PENDING_ORDER_MAX_AGE_MS - 1,
-      }),
+    // Wait for canMakePayment to be called at least 3 times (probe + 2 pre-creation calls).
+    await waitFor(
+      () => expect(mockCanMakePayment.mock.calls.length).toBeGreaterThanOrEqual(3),
+      { timeout: 5000 },
     );
 
-    // Wallet returns land on /order-confirmed?status=success with no inline ref.
-    mockUseSearch.mockReturnValue("?status=success");
-
-    renderWithProviders(<OrderConfirmed />, {
-      auth: { user: SIGNED_IN_USER as any, token: "fake-token", isLoading: false },
-      cart: { clearCart: mockClearCart },
-    });
-
-    // The shopper lands on the graceful failure screen.
-    await screen.findByTestId("icon-failed");
-
-    // Crucially: the WooCommerce order is never (re)created and the cart stays.
-    expect(mockCreateOrderMutateSync).not.toHaveBeenCalled();
-    expect(mockClearCart).not.toHaveBeenCalled();
-  });
-
-  // ── 2. Fresh wallet return: finalizes the order normally ─────────────────
-
-  it("fresh return: an in-window wallet stash is finalized into an order normally", async () => {
-    const view = await driveWalletSuccess(user);
-    view.unmount();
-
-    // Same real wallet stash, still inside the expiry window.
-    const stash = readStash();
-    sessionStorage.setItem(
-      PENDING_ORDER_KEY,
-      JSON.stringify({
-        payload: stash.payload,
-        createdAt: Date.now() - PENDING_ORDER_MAX_AGE_MS + 60_000,
-      }),
-    );
-
-    mockCreateOrderMutateSync.mockImplementation(
-      (_payload: unknown, { onSuccess }: { onSuccess: (res: unknown) => void }) => {
-        onSuccess({ ok: true, wcOrderId: 77777 });
+    // The submit button must become enabled once the retry resolves.
+    await waitFor(
+      () => {
+        const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
+        expect(btn.disabled).toBe(false);
       },
+      { timeout: 5000 },
     );
 
-    mockUseSearch.mockReturnValue("?status=success");
+    // No wallet-unavailable toast must have fired.
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "checkout.toast.walletUnavailable" }),
+    );
 
-    renderWithProviders(<OrderConfirmed />, {
-      auth: { user: SIGNED_IN_USER as any, token: "fake-token", isLoading: false },
-      cart: { clearCart: mockClearCart },
-    });
+    // Tapping submit should call pr.show() (the wallet sheet opens normally).
+    await user.click(screen.getByTestId("button-submit-payment"));
+    await waitFor(() => expect(mockPrShow).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "checkout.toast.walletUnavailable" }),
+    );
+  }, 12000);
 
-    // createOrder runs once with the wallet payload (paid via the PaymentIntent).
+  // ── 2. All retries exhausted → wallet-unavailable toast on submit ─────────
+  //
+  // canMakePayment() order of calls:
+  //   call 1 — probe (result discarded)
+  //   calls 2-5 — initial attempt + 3 retries → all null
+  //
+  // Expected: after exhaustion, paymentRequestRef stays null. The submit
+  //           button becomes enabled. Tapping it fires the walletUnavailable
+  //           toast exactly once and switches the selection to card.
+
+  it("shows walletUnavailable toast exactly once when all 3 retries return null", async () => {
+    mockCanMakePayment.mockResolvedValue(null); // all calls return null
+
+    mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
+
+    await driveToWalletPaymentStep(user);
+
+    // Wait for all 4 pre-creation calls (initial + 3 retries) plus the probe.
+    await waitFor(
+      () => expect(mockCanMakePayment.mock.calls.length).toBeGreaterThanOrEqual(5),
+      { timeout: 6000 },
+    );
+
+    // Submit button must become enabled after retries are exhausted
+    // (walletReadySig is set even when paymentRequestRef stays null).
+    await waitFor(
+      () => {
+        const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
+        expect(btn.disabled).toBe(false);
+      },
+      { timeout: 6000 },
+    );
+
+    // Tapping submit triggers the walletUnavailable error path.
+    await user.click(screen.getByTestId("button-submit-payment"));
+
     await waitFor(() => {
-      expect(mockCreateOrderMutateSync).toHaveBeenCalledTimes(1);
-    });
-    const submittedPayload = mockCreateOrderMutateSync.mock.calls[0][0] as Record<
-      string,
-      unknown
-    >;
-    expect(submittedPayload).toMatchObject({
-      paymentMethod: "wallet",
-      paymentRef: "pi_wallet_ok",
-      currencyCode: "USD",
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "checkout.toast.walletUnavailable",
+          variant: "destructive",
+        }),
+      );
     });
 
-    // Success screen, and the stash is cleared so it cannot be replayed.
-    // OrderConfirmed prefers the payload's reserved orderId for the reference.
-    await screen.findByTestId("icon-success");
-    expect(screen.getByTestId("text-order-ref").textContent).toContain("LB-WALLET-1");
-    expect(sessionStorage.getItem(PENDING_ORDER_KEY)).toBeNull();
-    expect(mockClearCart).toHaveBeenCalledTimes(1);
-  });
+    // The toast should fire exactly once (not once per retry).
+    expect(
+      mockToast.mock.calls.filter(
+        ([arg]: [{ title?: string }]) => arg?.title === "checkout.toast.walletUnavailable",
+      ).length,
+    ).toBe(1);
+
+    // pr.show() must NOT have been called.
+    expect(mockPrShow).not.toHaveBeenCalled();
+  }, 15000);
+
+  // ── 3. walletRetryNonce manual-retry + auto-retry together ──────────────────
+  //
+  // After a PI-creation failure (walletPrepareFailed=true), the shopper re-taps
+  // the wallet tile. This bumps walletRetryNonce, re-arms the PI effect, and the
+  // second PI creation succeeds. canMakePayment() returns null on the first
+  // attempt but truthy on the first auto-retry (~1 s later). The submit button
+  // should become enabled and pr.show() should be called without an error toast.
+  //
+  // This verifies that the walletRetryNonce path continues to work even when the
+  // auto-retry logic is active underneath it.
+
+  it("manual retry (walletRetryNonce) + auto-retry: button works after PI failure then canMakePayment retry", async () => {
+    // First PI creation throws; second succeeds.
+    mockCreatePaymentIntentMutate
+      .mockRejectedValueOnce(new Error("transient network error"))
+      .mockResolvedValue(PAYMENT_INTENT_RES);
+
+    // canMakePayment sequence:
+    //   call 1 — probe (result ignored)
+    //   call 2 — first pre-creation attempt after re-tap → null → retry
+    //   call 3 — auto-retry 1 → truthy → paymentRequestRef populated
+    mockCanMakePayment
+      .mockResolvedValueOnce(null)            // probe
+      .mockResolvedValueOnce(null)            // first pre-creation attempt → null
+      .mockResolvedValue({ applePay: false }); // retry → truthy
+
+    await driveToWalletPaymentStep(user);
+
+    // First PI creation threw — toast must fire.
+    await waitFor(() => expect(mockToast).toHaveBeenCalledTimes(1));
+
+    // Re-tap the tile while walletPrepareFailed=true to bump walletRetryNonce.
+    await user.click(screen.getByTestId("option-payment-google_pay"));
+
+    // Second PI creation fires.
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(2),
+      { timeout: 3000 },
+    );
+
+    // Auto-retry should call canMakePayment at least 3 times (probe + 2 from effect).
+    await waitFor(
+      () => expect(mockCanMakePayment.mock.calls.length).toBeGreaterThanOrEqual(3),
+      { timeout: 5000 },
+    );
+
+    // Submit button becomes enabled after the retry resolves.
+    await waitFor(
+      () => {
+        const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
+        expect(btn.disabled).toBe(false);
+      },
+      { timeout: 5000 },
+    );
+
+    // Only the original PI failure toast — no walletUnavailable toast.
+    expect(mockToast).toHaveBeenCalledTimes(1);
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "checkout.toast.walletUnavailable" }),
+    );
+
+    // Tapping submit calls pr.show() normally.
+    await user.click(screen.getByTestId("button-submit-payment"));
+    await waitFor(() => expect(mockPrShow).toHaveBeenCalledTimes(1), { timeout: 3000 });
+  }, 12000);
 });

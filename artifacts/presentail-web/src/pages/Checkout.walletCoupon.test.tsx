@@ -97,6 +97,7 @@ vi.mock("@/lib/queries", () => ({
   useStripeCheckoutSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useMamoPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePaypalPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeliveryLocations: () => ({
     data: { countries: [], cities: [] },
     isLoading: false,
@@ -162,6 +163,7 @@ vi.mock("@/lib/useNow", () => ({
 const mockTrackEvent = vi.fn();
 vi.mock("@/lib/analytics", () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  trackWebEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
 vi.mock("@/lib/fbPixel", () => ({

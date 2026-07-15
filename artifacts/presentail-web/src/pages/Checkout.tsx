@@ -1156,7 +1156,8 @@ function CheckoutForm() {
         // to checkout.link.com instead of showing the native payment sheet.
         disableWallets: ["link", "browserCard"],
       });
-    } catch {
+    } catch (constructErr) {
+      console.warn("Stripe paymentRequest() constructor failed:", constructErr, { country: countryCode === "AE" ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY });
       // paymentRequest() constructor failed — STRIPE_MERCHANT_COUNTRY
       // doesn't match the Stripe account's registered country, or the browser
       // doesn't support the PaymentRequest API at all. Hide wallet tiles
@@ -1317,9 +1318,61 @@ function CheckoutForm() {
           // the PR here (where the exact server-computed currency and amount
           // are known) and store it in paymentRequestRef so handleSubmit can
           // call show() synchronously inside the click gesture with no await.
+          const submitCountry = countryCode === "AE" ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY;
+          const WALLET_CAN_MAKE_PAYMENT_MAX_RETRIES = 3;
+          let canMakePaymentAttempts = 0;
+
+          // Attempt canMakePayment() on the given PR. When null is returned
+          // (common transiently on mobile before the wallet service has fully
+          // initialised), automatically create a fresh PR and retry up to
+          // WALLET_CAN_MAKE_PAYMENT_MAX_RETRIES times (~1 s apart) before
+          // giving up and leaving paymentRequestRef null — which causes
+          // handleSubmit to show the "wallet unavailable" error if tapped.
+          // A PR's currency is immutable so each retry creates a fresh instance.
+          function tryCanMakePayment(pr: import("@stripe/stripe-js").PaymentRequest): void {
+            pr.canMakePayment().then((result) => {
+              if (cancelled) return;
+              if (result) {
+                paymentRequestRef.current = pr;
+                setWalletReadySig(sig);
+              } else if (canMakePaymentAttempts < WALLET_CAN_MAKE_PAYMENT_MAX_RETRIES) {
+                canMakePaymentAttempts++;
+                setTimeout(() => {
+                  if (cancelled || !stripe) return;
+                  try {
+                    const retryPr = stripe.paymentRequest({
+                      country: submitCountry,
+                      currency: res.currency.toLowerCase(),
+                      total: {
+                        label: t("checkout.payment.orderTitle"),
+                        amount: res.amount,
+                      },
+                      requestPayerName: false,
+                      requestPayerEmail: false,
+                      disableWallets: ["link", "browserCard"],
+                    });
+                    tryCanMakePayment(retryPr);
+                  } catch (retryConstructErr) {
+                    console.warn("Stripe paymentRequest() constructor failed:", retryConstructErr, { country: submitCountry });
+                    paymentRequestRef.current = null;
+                    setWalletReadySig(sig);
+                  }
+                }, 1000);
+              } else {
+                paymentRequestRef.current = null;
+                setWalletReadySig(sig);
+              }
+            }).catch(() => {
+              if (!cancelled) {
+                paymentRequestRef.current = null;
+                setWalletReadySig(sig);
+              }
+            });
+          }
+
           try {
             const submitPr = stripe.paymentRequest({
-              country: countryCode === "AE" ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY,
+              country: submitCountry,
               currency: res.currency.toLowerCase(),
               total: {
                 label: t("checkout.payment.orderTitle"),
@@ -1329,23 +1382,9 @@ function CheckoutForm() {
               requestPayerEmail: false,
               disableWallets: ["link", "browserCard"],
             });
-            submitPr.canMakePayment().then((result) => {
-              if (!cancelled) {
-                // Store the PR only when the device has a wallet configured.
-                // When result is null the tile stays visible (mobile browsers
-                // can transiently return null before the wallet service
-                // initialises); handleSubmit shows a clear error if the user
-                // taps while the PR is still null.
-                paymentRequestRef.current = result ? submitPr : null;
-                setWalletReadySig(sig);
-              }
-            }).catch(() => {
-              if (!cancelled) {
-                paymentRequestRef.current = null;
-                setWalletReadySig(sig);
-              }
-            });
-          } catch {
+            tryCanMakePayment(submitPr);
+          } catch (constructErr) {
+            console.warn("Stripe paymentRequest() constructor failed:", constructErr, { country: submitCountry });
             paymentRequestRef.current = null;
             setWalletReadySig(sig);
           }

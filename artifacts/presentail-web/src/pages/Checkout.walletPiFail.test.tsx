@@ -95,6 +95,7 @@ vi.mock("@/lib/queries", () => ({
   useStripeCheckoutSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useMamoPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePaypalPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeliveryLocations: () => ({
     data: { countries: [], cities: [] },
     isLoading: false,
@@ -160,6 +161,7 @@ vi.mock("@/lib/useNow", () => ({
 const mockTrackEvent = vi.fn();
 vi.mock("@/lib/analytics", () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  trackWebEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
 vi.mock("@/lib/fbPixel", () => ({
@@ -498,12 +500,18 @@ describe("Checkout wallet PaymentIntent pre-creation failure", () => {
 
     // The second attempt succeeded — button should now be enabled (not
     // preparing), and no additional toast should have been fired.
-    await waitFor(() => {
-      const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
-      expect(btn.disabled).toBe(false);
-    });
+    // Use a longer timeout: when canMakePayment() returns null, the effect
+    // now auto-retries up to 3 times (~1 s apart) before setting walletReadySig
+    // and enabling the button.
+    await waitFor(
+      () => {
+        const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
+        expect(btn.disabled).toBe(false);
+      },
+      { timeout: 5000 },
+    );
     expect(mockToast).toHaveBeenCalledTimes(1);
-  });
+  }, 10000);
 
   // ── 4. Editing a form field (email) also clears the error and re-arms ────
 
@@ -531,7 +539,11 @@ describe("Checkout wallet PaymentIntent pre-creation failure", () => {
     // "any input change re-arms the preparation" behaviour. (The sender email
     // field is not editable for signed-in users, so the address toggle is the
     // most accessible dep that's visible on step 1.)
-    await user.click(screen.getByTestId("button-back-to-sender"));
+    // Click the DeliveryRecap "edit" button to navigate back to step 1,
+    // then toggle the "no address" switch. noAddress is a dep of the wallet
+    // PI effect — flipping it produces a different signature, clears
+    // walletPrepareFailed, and starts a fresh pre-creation attempt.
+    await user.click(screen.getByTestId("link-edit-delivery"));
     await user.click(screen.getByTestId("check-no-address"));
 
     await waitFor(
