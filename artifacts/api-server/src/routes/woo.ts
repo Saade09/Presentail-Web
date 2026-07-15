@@ -49,6 +49,7 @@ import {
   getOsOccasions,
   getOsProductOccasions,
   getOsProductBySlug,
+  getCachedBestSellerIds,
 } from "../lib/osProductsCache";
 import type { OSProduct, OSCatalogAttributeBrand } from "@workspace/presentail-os";
 import { getCustomerById } from "../lib/customers";
@@ -485,11 +486,24 @@ router.get("/woo/brand-products", (req, res) => {
 
   const sortMode = readSortMode(req);
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
+  // Use the persisted best-seller ID set rather than relying solely on the
+  // in-place p.isBestSeller annotation on each OSProduct.  The annotation is
+  // written during the cache-refresh cycle; between a fresh product fetch and
+  // the completion of the DB sales query, p.isBestSeller may still be
+  // undefined (defaulting to false in mapOsProductToWcShape).
+  // getCachedBestSellerIds() is a module-level Set that survives across refresh
+  // cycles — it retains the IDs from the previous cycle until the new
+  // annotation completes — so using it here ensures badges are correct even
+  // while a refresh is in-flight.
+  const bestSellerIds = getCachedBestSellerIds();
   const eligible = osProducts
     .filter((p) => p.brands.some((b) => b.slug === brandSlug))
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, browseFilter));
+    .filter((p) => isDeliverable(p, browseFilter))
+    // Override isBestSeller from the persistent set (keyed by OS product slug,
+    // same value that mapOsProductToWcShape writes to WcProduct.slug).
+    .map((p) => ({ ...p, isBestSeller: bestSellerIds.has(p.slug) }));
   const products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length, brandName, brandImage, brandDescription, brandCoverImage });
