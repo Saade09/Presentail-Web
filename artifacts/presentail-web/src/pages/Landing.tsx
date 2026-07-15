@@ -156,9 +156,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
         {active.length > 0 && (
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-0.5">
-              {hasBothGroups
-                ? t("locationPicker.availableNow")
-                : t("locationPicker.deliveryAreasIn", { country: selectedLabel })}
+              {t("locationPicker.deliveryAreasIn", { country: selectedLabel })}
             </p>
             <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 shadow-sm">
               {active.map((city, idx) => renderCityRow(city, idx, false))}
