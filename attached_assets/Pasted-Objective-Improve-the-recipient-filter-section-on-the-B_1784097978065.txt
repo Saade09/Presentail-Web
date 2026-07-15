@@ -1,0 +1,89 @@
+Objective
+
+Improve the recipient-filter section on the Birthday collection page so it feels friendlier, is easier to scan and helps customers quickly find appropriate birthday gifts without changing the existing premium visual style.
+
+Approved desktop design
+
+- Replace the uppercase label “SHOP BIRTHDAY GIFTS FOR:” with: “Who are you shopping for?”
+- Display the label in sentence case using a clean, medium-weight sans-serif style.
+- Rename the default “All” option to “Everyone.”
+- Show the recipient chips in this exact priority order:
+  1. Everyone
+  2. Mom
+  3. Wife
+  4. Girlfriend
+  5. Dad
+  6. Husband
+  7. Boyfriend
+  8. Kids
+  9. Teta
+  10. Jedo
+- Keep “Everyone” selected by default.
+- Use the existing dark teal fill and white text for the selected chip.
+- Use white backgrounds, subtle grey borders and dark grey text for unselected chips.
+- Keep chip height, internal padding and spacing consistent across all labels.
+- Add slightly more breathing room between the page heading, question and chip row.
+
+Filter behavior
+
+- Allow only one recipient filter to be selected at a time.
+- Update the displayed products immediately without a full-page refresh.
+- Update the product count after filtering.
+- Update the page heading contextually when a recipient is selected, for example:
+  - “Birthday Gifts for Mom”
+  - “Birthday Gifts for Dad”
+  - “Birthday Gifts for Wife”
+- Return to the standard “Birthday” heading when “Everyone” is selected.
+- Preserve the selected recipient when:
+  - Changing the product sort order
+  - Applying or removing category filters
+  - Opening a product and navigating back
+  - Paginating or loading additional products
+- Store the selected recipient in the URL so filtered pages can be shared and browser back/forward navigation works correctly.
+- Ensure each recipient filter returns only products explicitly assigned to that recipient, according to the existing catalog-recipient configuration.
+
+Responsive behavior
+
+- Desktop: Keep all chips on one horizontal row when sufficient space is available.
+- Tablet and mobile: Keep chips in a single horizontally scrollable row instead of wrapping them across multiple lines.
+- Make the selected chip visible when the page loads with a recipient already selected.
+- Use subtle edge fading or spacing to indicate that the chip row can scroll on smaller screens.
+- Maintain a minimum 44 px touch target for every chip.
+
+Accessibility
+
+- Implement the recipient options as an accessible single-select control.
+- Expose the selected state using the appropriate ARIA attribute.
+- Support keyboard navigation, selection and visible focus states.
+- Ensure selected and unselected states meet contrast requirements.
+- Do not rely on color alone to communicate keyboard focus.
+
+Languages
+
+- Apply the updated question and recipient labels in English, Arabic and French.
+- Ensure the Arabic layout follows RTL order and scrolling behavior correctly.
+- Confirm that longer translated labels do not overflow, truncate incorrectly or distort chip heights.
+
+Analytics
+
+Track the following events using the existing analytics setup:
+
+- Recipient filter viewed
+- Recipient selected
+- Recipient changed
+- Recipient cleared by selecting Everyone
+
+Include the recipient value, country, delivery area, language and resulting product count where available.
+
+Acceptance criteria
+
+- The heading reads “Who are you shopping for?” in English.
+- “Everyone” replaces “All” and is selected by default.
+- Chips appear in the approved order.
+- Only one recipient can be selected at a time.
+- Products, product count and contextual page heading update correctly without a full refresh.
+- The selected recipient persists through sorting, additional filters, product-page navigation and browser navigation.
+- Mobile chips scroll horizontally and remain easy to tap.
+- Keyboard and screen-reader interaction works correctly.
+- English, Arabic and French layouts display without overflow or visual regressions.
+- The existing header, sidebar, sorting control and product-card design remain unchanged.
