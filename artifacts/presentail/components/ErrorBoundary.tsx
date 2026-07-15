@@ -5,9 +5,15 @@ import { ErrorFallback, ErrorFallbackProps } from "@/components/ErrorFallback";
 export type ErrorBoundaryProps = PropsWithChildren<{
   FallbackComponent?: ComponentType<ErrorFallbackProps>;
   onError?: (error: Error, stackTrace: string) => void;
+  /**
+   * When this key changes (e.g. the user navigated to a different route),
+   * the boundary automatically resets so the new screen can render fresh
+   * instead of staying stuck on the error fallback.
+   */
+  resetKey?: string;
 }>;
 
-type ErrorBoundaryState = { error: Error | null };
+type ErrorBoundaryState = { error: Error | null; resetKey: string | undefined };
 
 /**
  * This is a special case for for using the class components. Error boundaries must be class components because React only provides error boundary functionality through lifecycle methods (componentDidCatch and getDerivedStateFromError) which are not available in functional components.
@@ -17,7 +23,7 @@ export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
-  state: ErrorBoundaryState = { error: null };
+  state: ErrorBoundaryState = { error: null, resetKey: this.props.resetKey };
 
   static defaultProps: {
     FallbackComponent: ComponentType<ErrorFallbackProps>;
@@ -25,7 +31,20 @@ export class ErrorBoundary extends Component<
     FallbackComponent: ErrorFallback,
   };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromProps(
+    props: ErrorBoundaryProps,
+    state: ErrorBoundaryState,
+  ): ErrorBoundaryState | null {
+    // When resetKey changes (e.g. the user navigated to a new route), clear
+    // the error so the incoming screen can render fresh instead of staying
+    // stuck on the error fallback.
+    if (props.resetKey !== state.resetKey) {
+      return { error: null, resetKey: props.resetKey };
+    }
+    return null;
+  }
+
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { error };
   }
 

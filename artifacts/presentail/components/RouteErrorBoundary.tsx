@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import React, { ComponentType, useState } from "react";
 import {
   Modal,
@@ -214,11 +214,18 @@ export function withRouteErrorBoundary<P extends object>(
     });
   }
 
-  const Wrapped: ComponentType<P> = (props) => (
-    <ErrorBoundary FallbackComponent={Fallback} onError={handleError}>
-      <Component {...props} />
-    </ErrorBoundary>
-  );
+  // Reads the current focused pathname and forwards it as resetKey so the
+  // boundary automatically clears when the user navigates to a different
+  // screen — preventing the error fallback from staying stuck after
+  // navigation (same pattern as the web RouteErrorBoundary).
+  const Wrapped: ComponentType<P> = (props) => {
+    const pathname = usePathname();
+    return (
+      <ErrorBoundary FallbackComponent={Fallback} onError={handleError} resetKey={pathname}>
+        <Component {...props} />
+      </ErrorBoundary>
+    );
+  };
 
   Wrapped.displayName = `withRouteErrorBoundary(${routeName})`;
   return Wrapped;
