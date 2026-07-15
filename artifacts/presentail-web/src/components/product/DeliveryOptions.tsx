@@ -16,6 +16,22 @@ type Props = {
   expressUnavailableLabel?: string;
   scheduledSubtitle?: string;
   infoFee?: ReactNode;
+  /** Right-side fee label for the express card (e.g. "$24 total"). */
+  expressFeeLabel?: string;
+  /** Secondary line under the express fee label (e.g. "$9 delivery + $15 express"). */
+  expressFeeSubLabel?: string;
+  /** When true the express card fee is styled in primary/green. */
+  expressIsFree?: boolean;
+  /** Right-side fee label for the scheduled card (e.g. "$9"). */
+  scheduledFeeLabel?: string;
+  /** Secondary line under the scheduled fee label (e.g. "Standard delivery"). */
+  scheduledFeeSubLabel?: string;
+  /** When true the scheduled card fee is styled in primary/green. */
+  scheduledIsFree?: boolean;
+  /** When true the helper message below cards is shown. */
+  showHelper?: boolean;
+  /** When true the helper uses the "qualified" (free) copy and green styling. */
+  helperIsQualified?: boolean;
 };
 
 export function DeliveryOptions({
@@ -27,6 +43,14 @@ export function DeliveryOptions({
   expressUnavailableLabel,
   scheduledSubtitle,
   infoFee,
+  expressFeeLabel,
+  expressFeeSubLabel,
+  expressIsFree,
+  scheduledFeeLabel,
+  scheduledFeeSubLabel,
+  scheduledIsFree,
+  showHelper,
+  helperIsQualified,
 }: Props) {
   const { t } = useLocale();
   if (!expressAvailable) return null;
@@ -48,6 +72,9 @@ export function DeliveryOptions({
             infoTitle={t("checkout.expressInfo.title")}
             infoBody={t("checkout.expressInfo.body")}
             infoFee={infoFee}
+            feeLabel={expressFeeLabel}
+            feeSubLabel={expressFeeSubLabel}
+            isFree={expressIsFree}
             testId="delivery-option-express"
           />
 
@@ -60,8 +87,32 @@ export function DeliveryOptions({
         icon={<Calendar className="w-4 h-4" />}
         title={t("product.scheduleDelivery")}
         subtitle={scheduledSubtitle ?? t("product.scheduledSubtitle")}
+        feeLabel={scheduledFeeLabel}
+        feeSubLabel={scheduledFeeSubLabel}
+        isFree={scheduledIsFree}
         testId="delivery-option-scheduled"
       />
+
+      {showHelper && (
+        <div className="flex items-center gap-1.5 px-0.5">
+          <Info
+            className={cn(
+              "w-3.5 h-3.5 shrink-0",
+              helperIsQualified ? "text-primary" : "text-muted-foreground",
+            )}
+          />
+          <span
+            className={cn(
+              "text-[11px] leading-relaxed",
+              helperIsQualified ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            {helperIsQualified
+              ? t("product.delivery.qualifiedHelper")
+              : t("product.delivery.feesHelper")}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -76,6 +127,9 @@ function DeliveryRow({
   infoTitle,
   infoBody,
   infoFee,
+  feeLabel,
+  feeSubLabel,
+  isFree,
   testId,
   disabled,
 }: {
@@ -88,6 +142,9 @@ function DeliveryRow({
   infoTitle?: string;
   infoBody?: string;
   infoFee?: ReactNode;
+  feeLabel?: string;
+  feeSubLabel?: string;
+  isFree?: boolean;
   testId?: string;
   disabled?: boolean;
 }) {
@@ -116,10 +173,27 @@ function DeliveryRow({
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-semibold text-foreground">{title}</span>
-        <span className="block text-xs text-muted-foreground mt-0.5 truncate">
+        <span className="block text-xs text-muted-foreground mt-0.5 whitespace-normal line-clamp-2">
           {subtitle}
         </span>
       </span>
+      {feeLabel && (
+        <span className="shrink-0 text-right max-w-[110px]">
+          <span
+            className={cn(
+              "block text-sm font-semibold",
+              isFree ? "text-primary" : "text-foreground",
+            )}
+          >
+            {feeLabel}
+          </span>
+          {feeSubLabel && (
+            <span className="block text-[11px] text-muted-foreground leading-tight mt-0.5 whitespace-normal">
+              {feeSubLabel}
+            </span>
+          )}
+        </span>
+      )}
       {showInfo && infoTitle && infoBody && (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>

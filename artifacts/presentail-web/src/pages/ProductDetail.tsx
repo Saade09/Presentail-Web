@@ -78,7 +78,7 @@ export default function ProductDetail() {
   const delivery = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();
 
-  const { currencyCode } = useDisplayCurrency();
+  const { currencyCode, formatPrice } = useDisplayCurrency();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = {
     lang: language,
   };
@@ -262,13 +262,75 @@ export default function ProductDetail() {
     delivery.expressDeliveryTimeLabel,
   ]);
 
-  // Whether the cart total currently meets the free-delivery threshold so
-  // that the ScheduleInlinePanel can show "Free" on zero-extraFee slots.
+  // USD price of the product currently being viewed — use sale price when on
+  // sale (matches what the cart will record), same as mobile useDeliveryPricing.
+  const productUsdForPricing =
+    osPricing?.discountPriceUsd ??
+    product?.discountPriceValue ??
+    product?.priceValue ??
+    0;
+
+  // Whether the projected cart total (existing cart + this product) meets the
+  // free-delivery threshold.  Includes the current product so a $450 item on
+  // an otherwise-empty cart still shows "Free" — mirrors mobile logic.
   const freeDeliveryMet = useMemo(() => {
     if (!delivery.freeDeliveryEnabled) return false;
     const threshold = delivery.freeDeliveryThresholdUsd ?? freeDeliveryThresholdUsd(countryCode);
-    return cartSubtotal >= threshold;
-  }, [delivery.freeDeliveryEnabled, delivery.freeDeliveryThresholdUsd, countryCode, cartSubtotal]);
+    return (cartSubtotal + productUsdForPricing) >= threshold;
+  }, [delivery.freeDeliveryEnabled, delivery.freeDeliveryThresholdUsd, countryCode, cartSubtotal, productUsdForPricing]);
+
+  // Delivery card fee labels — mirrors the mobile useDeliveryPricing logic.
+  // cityFeeUsd: null when no city is selected OR city fee is not yet configured.
+  const deliveryCardLabels = useMemo(() => {
+    const { cityFeeUsd } = delivery;
+    // Use the lib function (same source as the info-popover) so the surcharge
+    // always matches the OS-configured price ($15 for LB, etc.), not the
+    // possibly-stale value the /delivery-config endpoint echoes back.
+    const expressSurcharge = expressSurchargeForCountry(countryCode);
+    const fmt = (usd: number) => formatPrice(usd);
+
+    if (cityFeeUsd === null) {
+      // unknown_area: no city selected yet; from_min: city selected, fee unconfigured.
+      // Differentiate so the scheduled card copy is accurate.
+      const scheduleLabel = cityId
+        ? t("product.delivery.calculatedAtCheckout")   // from_min
+        : t("product.delivery.calculatedAfterArea");   // unknown_area
+      return {
+        expressFeeLabel: t("product.delivery.fromMin").replace("{amount}", fmt(expressSurcharge)),
+        expressFeeSubLabel: undefined as string | undefined,
+        expressIsFree: false,
+        scheduledFeeLabel: scheduleLabel,
+        scheduledFeeSubLabel: undefined as string | undefined,
+        scheduledIsFree: false,
+        helperIsQualified: false,
+      };
+    }
+
+    const isFree = freeDeliveryMet;
+    // When standard delivery is free the shopper pays $0 standard + surcharge.
+    // When not free: cityFee + surcharge.
+    // Mirrors the mobile useDeliveryPricing hook exactly.
+    const expressTotal = isFree
+      ? expressSurcharge
+      : cityFeeUsd + expressSurcharge;
+    const expressBreakdown = isFree
+      ? t("product.delivery.expressBreakdownFree").replace("{express}", fmt(expressSurcharge))
+      : t("product.delivery.expressBreakdown")
+          .replace("{standard}", fmt(cityFeeUsd))
+          .replace("{express}", fmt(expressSurcharge));
+
+    return {
+      expressFeeLabel: t("product.delivery.expressTotal").replace("{amount}", fmt(expressTotal)),
+      expressFeeSubLabel: expressBreakdown,
+      expressIsFree: false,
+      scheduledFeeLabel: isFree
+        ? t("product.deliveryFree")
+        : fmt(cityFeeUsd),
+      scheduledFeeSubLabel: t("product.delivery.standardDelivery"),
+      scheduledIsFree: isFree,
+      helperIsQualified: isFree,
+    };
+  }, [delivery, cityId, freeDeliveryMet, formatPrice, t]);
 
   const handleSelectExpress = () => {
     if (!expressAvailable) return;
@@ -496,6 +558,14 @@ export default function ProductDetail() {
               expressUnavailableLabel={t("checkout.expressUnavailable")}
               scheduledSubtitle={scheduledRowSubtitle}
               infoFee={<>+ <FormattedPrice usdValue={expressSurchargeForCountry(countryCode)} /></>}
+              expressFeeLabel={deliveryCardLabels.expressFeeLabel}
+              expressFeeSubLabel={deliveryCardLabels.expressFeeSubLabel}
+              expressIsFree={deliveryCardLabels.expressIsFree}
+              scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
+              scheduledFeeSubLabel={deliveryCardLabels.scheduledFeeSubLabel}
+              scheduledIsFree={deliveryCardLabels.scheduledIsFree}
+              showHelper
+              helperIsQualified={deliveryCardLabels.helperIsQualified}
             />
 
             {deliveryChoice === "scheduled" && (

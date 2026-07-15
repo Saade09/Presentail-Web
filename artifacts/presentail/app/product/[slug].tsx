@@ -40,7 +40,7 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { FrequentlyBoughtTogether } from "@/components/FrequentlyBoughtTogether";
-import { trackScreenTTID } from "@/lib/analytics";
+import { trackEvent, trackScreenTTID } from "@/lib/analytics";
 import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { buildProductShareUrl } from "@/lib/productShareUrl";
 import {
@@ -52,6 +52,7 @@ import {
   type TimeSlot,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
+import { useDeliveryPricing } from "@/hooks/useDeliveryPricing";
 import { calcRewardPoints } from "@workspace/display-currency";
 import { useNow } from "@/lib/useNow";
 
@@ -512,6 +513,8 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   const deliverySelection = useDeliverySelection();
   const { formatNative, currencyCode } = useCurrency();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
+  // RTL direction — used for pricing/helper layout and text-alignment guards.
+  const isRTL = I18nManager.isRTL;
   // Coerce to a string before `.toUpperCase()` / fallback comparisons so
   // a malformed delivery payload (e.g. `code: null`) can't synchronously
   // throw during render on the product detail screen.
@@ -590,7 +593,12 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     setDeliveryLocal(next);
     if (next === "express") {
       deliverySelection.setMode("express");
+      trackEvent({ name: "express_delivery_selected", action: "express" });
     } else {
+      // Note: scheduled_delivery_selected is intentionally NOT emitted here.
+      // The schedule card only opens the reschedule sheet; the actual selection
+      // commits in RescheduleDeliverySheet.onConfirm, which fires the event.
+      // Emitting here would double-count selections on the confirm path.
       // Seed a sensible default so adding to cart without opening the
       // reschedule sheet still produces a valid schedule selection. The
       // sheet overrides this with the shopper's pick on Confirm.
@@ -621,6 +629,133 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   const headingFontRegular = useHeadingFont("400Regular");
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
   const { freeDeliveryEnabled, freeDeliveryThresholdNative } = useDeliveryConfig();
+  const { formatNative: fmtNative } = useCurrency();
+
+  // Delivery pricing — projects the cart value after adding this product.
+  // This PDP always adds 1 unit at a time (no quantity selector on screen);
+  // update selectedQty here if a quantity picker is added in future.
+  const selectedQty = 1;
+  const productUsdForPricing = (() => {
+    const disc = product.discountPriceValue;
+    const discNum = disc != null ? parseFloat(String(disc)) : NaN;
+    return isFinite(discNum) && discNum > 0 ? discNum : priceValue;
+  })();
+  const deliveryPricing = useDeliveryPricing(productUsdForPricing, selectedQty);
+
+  // Fire delivery_pricing_viewed once when the delivery options section mounts
+  useEffect(() => {
+    if (!expressAvailable) return;
+    trackEvent({
+      name: "delivery_pricing_viewed",
+      action: deliveryPricing.pricingState,
+      // state encodes: country|city|isFreeStandard|threshold|surcharge
+      state: [
+        selectedCountry?.code ?? "",
+        selectedCity?.name ?? "",
+        String(deliveryPricing.isFreeStandard),
+        String(freeDeliveryThresholdNative),
+        String(deliveryPricing.expressSurcharge),
+      ].join("|"),
+      metricValue: deliveryPricing.standardFee ?? undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expressAvailable]);
+
+  // Detect isFreeStandard transitions and fire qualification events
+  const prevFreeRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (prevFreeRef.current === null) {
+      prevFreeRef.current = deliveryPricing.isFreeStandard;
+      return;
+    }
+    if (deliveryPricing.isFreeStandard && !prevFreeRef.current) {
+      trackEvent({ name: "free_standard_delivery_qualified", action: "qualify" });
+    } else if (!deliveryPricing.isFreeStandard && prevFreeRef.current) {
+      trackEvent({ name: "free_standard_delivery_qualification_lost", action: "disqualify" });
+    }
+    prevFreeRef.current = deliveryPricing.isFreeStandard;
+  }, [deliveryPricing.isFreeStandard]);
+
+  // Fire delivery_price_recalculated when computed fees change
+  const prevFeeSigRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sig = `${deliveryPricing.standardFee}|${deliveryPricing.expressSurcharge}|${deliveryPricing.expressTotal}|${deliveryPricing.isFreeStandard}|${deliveryPricing.pricingState}`;
+    if (prevFeeSigRef.current === null) {
+      prevFeeSigRef.current = sig;
+      return;
+    }
+    if (sig !== prevFeeSigRef.current) {
+      prevFeeSigRef.current = sig;
+      trackEvent({
+        name: "delivery_price_recalculated",
+        action: deliveryPricing.pricingState,
+        // state encodes: standardFee|expressTotal|isFreeStandard
+        state: [
+          String(deliveryPricing.standardFee ?? ""),
+          String(deliveryPricing.expressTotal ?? ""),
+          String(deliveryPricing.isFreeStandard),
+        ].join("|"),
+        metricValue: deliveryPricing.expressSurcharge,
+      });
+    }
+  }, [
+    deliveryPricing.standardFee,
+    deliveryPricing.expressSurcharge,
+    deliveryPricing.expressTotal,
+    deliveryPricing.isFreeStandard,
+    deliveryPricing.pricingState,
+  ]);
+
+  // Build display labels for delivery option cards
+  const { standardFee, expressSurcharge, expressTotal, isFreeStandard, pricingState } = deliveryPricing;
+
+  const expressCardFeeLabel = (() => {
+    if (pricingState === "error") return t.deliveryCalculatedAtCheckout;
+    if (pricingState === "unknown_area" || pricingState === "from_min") {
+      // Express surcharge is country-wide and reliable even when the exact
+      // area/standard-fee is unknown.  expressTotal = standard(≥0) + surcharge,
+      // so surcharge is the true lower-bound → "From {surcharge}" is the
+      // correct label per the task spec ("From $X when a reliable minimum exists").
+      return t.deliveryFromMin.replace("{amount}", fmtNative(expressSurcharge));
+    }
+    const total = expressTotal ?? expressSurcharge;
+    return t.deliveryExpressTotal.replace("{amount}", fmtNative(total));
+  })();
+
+  const expressCardFeeSubLabel = (() => {
+    if (pricingState === "error" || pricingState === "unknown_area" || pricingState === "from_min") return undefined;
+    if (isFreeStandard) {
+      return t.deliveryFreeBreakdown.replace("{express}", fmtNative(expressSurcharge));
+    }
+    if (standardFee !== null) {
+      return t.deliveryExpressBreakdown
+        .replace("{standard}", fmtNative(standardFee))
+        .replace("{express}", fmtNative(expressSurcharge));
+    }
+    return undefined;
+  })();
+
+  const scheduleCardFeeLabel = (() => {
+    if (pricingState === "error") return t.deliveryCalculatedAtCheckout;
+    if (pricingState === "unknown_area") {
+      // No city selected — area truly unknown.
+      return t.deliveryAreaUnknown;
+    }
+    if (pricingState === "from_min") {
+      // City IS selected but its standard delivery fee is not yet configured
+      // in the OS catalog. We can't show a reliable minimum for standard
+      // delivery, so show "calculated at checkout" (not "area unknown").
+      return t.deliveryCalculatedAtCheckout;
+    }
+    if (isFreeStandard) return t.deliveryFreeLabel;
+    if (standardFee !== null) return fmtNative(standardFee);
+    return t.deliveryCalculatedAtCheckout;
+  })();
+
+  const scheduleCardFeeSubLabel = (() => {
+    if (pricingState === "error" || pricingState === "unknown_area" || pricingState === "from_min") return undefined;
+    return t.deliveryStandardFee;
+  })();
 
   // Sale / discount price helpers
   function parseDiscountNum(raw: any): number | null {
@@ -777,6 +912,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
             title={t.expressDelivery}
             subtitle={t.arrivesIn90}
             badge={t.fastest}
+            feeLabel={expressCardFeeLabel}
+            feeSubLabel={expressCardFeeSubLabel}
+            isFree={false}
           />
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -791,7 +929,11 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
             colors={colors}
             active={delivery === "scheduled"}
             onPress={() => {
-              // Open the sheet first; only flip to scheduled on Confirm.
+              // Fire selection intent on tap (matches express_delivery_selected
+              // symmetry); the sheet confirm updates the time slot but the
+              // shopper has already expressed their intent here.
+              trackEvent({ name: "scheduled_delivery_selected", action: "schedule" });
+              // Open the sheet; only flip local state to "scheduled" on Confirm.
               // Dismissing the sheet leaves the current mode unchanged so
               // "Keep Express" really does keep express on the PDP.
               setRescheduleVisible(true);
@@ -803,13 +945,41 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
                 ? `${deliverySelection.date} · ${deliverySelection.slotLabel}`
                 : t.pickAWindow
             }
+            feeLabel={scheduleCardFeeLabel}
+            feeSubLabel={scheduleCardFeeSubLabel}
+            isFree={isFreeStandard}
           />
+
+          {/* Below-cards helper — reactive to free-delivery qualification */}
+          {pricingState !== "error" && (
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, paddingHorizontal: 2 }}>
+              <Feather
+                name={isFreeStandard ? "check-circle" : "info"}
+                size={13}
+                color={isFreeStandard ? colors.primary : colors.mutedForeground}
+              />
+              <AppText
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 11,
+                  color: isFreeStandard ? colors.primary : colors.mutedForeground,
+                  flex: 1,
+                  lineHeight: 16,
+                  textAlign: isRTL ? "right" : "left",
+                }}
+              >
+                {isFreeStandard ? t.deliveryQualifiedHelper : t.deliveryFeesUpdateHelper}
+              </AppText>
+            </View>
+          )}
         </View>
       )}
       <RescheduleDeliverySheet
         visible={rescheduleVisible}
         onClose={() => setRescheduleVisible(false)}
-        onConfirm={() => { userPickedScheduledRef.current = true; }}
+        onConfirm={() => {
+          userPickedScheduledRef.current = true;
+        }}
       />
 
       {/* Trust badges — informational, intentionally non-button */}
@@ -944,7 +1114,31 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   );
 }
 
-function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge, disabled }: any) {
+function DeliveryOption({
+  colors,
+  active,
+  onPress,
+  icon,
+  title,
+  subtitle,
+  badge,
+  disabled,
+  feeLabel,
+  feeSubLabel,
+  isFree,
+}: {
+  colors: any;
+  active: boolean;
+  onPress: () => void;
+  icon: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  disabled?: boolean;
+  feeLabel?: string;
+  feeSubLabel?: string;
+  isFree?: boolean;
+}) {
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -959,6 +1153,7 @@ function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge,
         borderColor: active ? colors.primary : colors.border,
         backgroundColor: "#fff",
         opacity: disabled ? 0.5 : 1,
+        minHeight: 44,
       }}
     >
       <View
@@ -971,7 +1166,7 @@ function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge,
           backgroundColor: active ? colors.primary : colors.background,
         }}
       >
-        <MaterialCommunityIcons name={icon} size={18} color={active ? colors.goldSoft : colors.primary} />
+        <MaterialCommunityIcons name={icon as any} size={18} color={active ? colors.goldSoft : colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -988,6 +1183,34 @@ function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge,
           {subtitle}
         </AppText>
       </View>
+      {feeLabel ? (
+        <View style={{ alignItems: "flex-end", marginEnd: 6, flexShrink: 0, maxWidth: 110 }}>
+          <AppText
+            style={{
+              fontFamily: "Inter_600SemiBold",
+              fontSize: 13,
+              color: isFree ? colors.primary : colors.text,
+              // In RTL the fee column sits at the left card edge; align text there.
+              textAlign: I18nManager.isRTL ? "left" : "right",
+            }}
+          >
+            {feeLabel}
+          </AppText>
+          {feeSubLabel ? (
+            <AppText
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 10,
+                color: colors.mutedForeground,
+                marginTop: 1,
+                textAlign: I18nManager.isRTL ? "left" : "right",
+              }}
+            >
+              {feeSubLabel}
+            </AppText>
+          ) : null}
+        </View>
+      ) : null}
       <Feather name={active ? "check-circle" : "circle"} size={20} color={active ? colors.gold : colors.border} />
     </Pressable>
   );

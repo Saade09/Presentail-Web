@@ -53,6 +53,17 @@ export const productStrings: Dict = {
   "product.fbt.items": { en: "items", ar: "عناصر" },
   "product.badge.bestSeller": { en: "Best Seller", ar: "الأكثر مبيعاً" },
 
+  // ── Delivery option fee labels ──
+  "product.delivery.expressTotal": { en: "{amount} total", ar: "المجموع {amount}" },
+  "product.delivery.expressBreakdown": { en: "{standard} delivery + {express} express", ar: "{standard} توصيل + {express} سريع" },
+  "product.delivery.expressBreakdownFree": { en: "Free delivery + {express} express", ar: "توصيل مجاني + {express} سريع" },
+  "product.delivery.fromMin": { en: "From {amount}", ar: "ابتداءً من {amount}" },
+  "product.delivery.standardDelivery": { en: "Standard delivery", ar: "توصيل قياسي" },
+  "product.delivery.calculatedAtCheckout": { en: "Calculated at checkout", ar: "يُحسب عند الدفع" },
+  "product.delivery.calculatedAfterArea": { en: "Calculated after selecting area", ar: "يُحسب بعد اختيار المنطقة" },
+  "product.delivery.feesHelper": { en: "Fees update based on your cart total and the recipient's area.", ar: "تتغيّر الرسوم بناءً على إجمالي سلّتك ومنطقة المستلم." },
+  "product.delivery.qualifiedHelper": { en: "Free standard delivery applied to your order.", ar: "تم تطبيق التوصيل القياسي المجاني على طلبك." },
+
   "productUnavailable.heading": { en: "Not Available in {city}", ar: "غير متاح في {city}" },
   "productUnavailable.subtitleWithAlts": {
     en: "This product is available in {altCity}. Switch back to shop it there, or browse our selection for {city} below.",
@@ -174,6 +185,17 @@ export const productStringsFr: Record<string, string> = {
   "product.fbt.total": "Total",
   "product.fbt.items": "articles",
   "product.badge.bestSeller": "Meilleures ventes",
+
+  // ── Delivery option fee labels ──
+  "product.delivery.expressTotal": "Total {amount}",
+  "product.delivery.expressBreakdown": "{standard} livraison + {express} express",
+  "product.delivery.expressBreakdownFree": "Livraison gratuite + {express} express",
+  "product.delivery.fromMin": "À partir de {amount}",
+  "product.delivery.standardDelivery": "Livraison standard",
+  "product.delivery.calculatedAtCheckout": "Calculé au paiement",
+  "product.delivery.calculatedAfterArea": "Calculé après sélection de la zone",
+  "product.delivery.feesHelper": "Les frais varient selon le total de votre panier et la zone du destinataire.",
+  "product.delivery.qualifiedHelper": "Livraison standard gratuite appliquée à votre commande.",
 
   "productUnavailable.heading": "Pas disponible à {city}",
   "productUnavailable.subtitleWithAlts": "Ce produit est disponible à {altCity}. Revenez à {altCity} pour l'acheter, ou parcourez notre sélection pour {city} ci-dessous.",

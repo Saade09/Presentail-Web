@@ -23,7 +23,13 @@ type AnalyticsEventName =
   | "payment_error"
   | "signup_step_completed"
   | "payment_wallet_opened"
-  | "payment_wallet_fallback";
+  | "payment_wallet_fallback"
+  | "delivery_pricing_viewed"
+  | "express_delivery_selected"
+  | "scheduled_delivery_selected"
+  | "free_standard_delivery_qualified"
+  | "free_standard_delivery_qualification_lost"
+  | "delivery_price_recalculated";
 
 type AnalyticsSurface =
   | "cart"
@@ -69,7 +75,15 @@ type AnalyticsAction =
   | "occasion"
   | "network"
   | "provider"
-  | "namePassword";
+  | "namePassword"
+  | "express"
+  | "schedule"
+  | "qualify"
+  | "disqualify"
+  | "known"
+  | "unknown_area"
+  | "from_min"
+  | "error";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;
