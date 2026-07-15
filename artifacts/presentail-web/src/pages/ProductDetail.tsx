@@ -24,6 +24,7 @@ import {
 import { ProductBenefits } from "@/components/product/ProductBenefits";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { TrustpilotMicroWidget } from "@/components/product/TrustpilotMicroWidget";
+import { SecurePaymentsTrustpilotCard } from "@/components/product/SecurePaymentsTrustpilotCard";
 import { ProductTabs } from "@/components/product/ProductTabs";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
@@ -533,7 +534,16 @@ export default function ProductDetail() {
               freeDeliveryEnabled={delivery.freeDeliveryEnabled}
             />
 
-            <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+            {/* Mobile: compact secure-payments + Trustpilot card */}
+            <div className="block md:hidden">
+              <SecurePaymentsTrustpilotCard
+                countryCode={countryCode}
+                currencyCode={currencyCode}
+              />
+            </div>
+
+            {/* Desktop/tablet: original Ways to Pay card + Trustpilot widget */}
+            <div className="hidden md:block rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
               <PaymentMethods
                 label={t("payments.waysToPay")}
                 countryCode={countryCode}
@@ -541,8 +551,10 @@ export default function ProductDetail() {
               />
             </div>
 
-            {/* Trustpilot Micro TrustScore widget */}
-            <TrustpilotMicroWidget />
+            {/* Trustpilot Micro TrustScore widget — desktop/tablet only */}
+            <div className="hidden md:block">
+              <TrustpilotMicroWidget />
+            </div>
           </div>
         </div>
 
