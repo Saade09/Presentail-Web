@@ -16,6 +16,7 @@ import {
   useMamoPayment,
   usePaypalPayment,
   useTabbyPayment,
+  useFxRates,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
@@ -70,7 +71,17 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
-import { computeCartTotal } from "@workspace/display-currency";
+import { computeCartTotal, toStripeMinorUnits, roundToNearestFive } from "@workspace/display-currency";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 // Lazily loaded — @stripe/react-stripe-js (and therefore js.stripe.com) are
 // never bundled into the instant checkout chunk and are only fetched when the
@@ -400,6 +411,7 @@ function CheckoutForm() {
   const { t, dir, cityName } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
+  const { data: fxRatesData } = useFxRates();
   const ipCountry = useIpDetectedCountry();
 
   // For countries with a fixed billing currency (AE → AED, CY → EUR), the
@@ -705,6 +717,32 @@ function CheckoutForm() {
   // Inline error shown below the coupon input when the order fails due to an
   // invalid/expired coupon code. Cleared when the shopper edits or re-applies.
   const [couponError, setCouponError] = useState<string | null>(null);
+  // State for the pre-payment prices-updated confirmation dialog.
+  // Holds the server-authoritative breakdown so the dialog can show each line.
+  const [pricesConfirmState, setPricesConfirmState] = useState<{
+    open: boolean;
+    subtotal: number;
+    districtFee: number;
+    expressFee: number;
+    slotFee: number;
+    couponDiscount: number;
+    newTotal: number;
+    currency: string;
+    resolve: ((ok: boolean) => void) | null;
+  }>({ open: false, subtotal: 0, districtFee: 0, expressFee: 0, slotFee: 0, couponDiscount: 0, newTotal: 0, currency: "USD", resolve: null });
+  // Server-authoritative USD fee override. Set when the pre-payment fee check
+  // (or the wallet PI pre-creation effect) confirms the server's exact breakdown.
+  // OrderSummaryPanel and PaymentSubmitButton read the display* variables derived
+  // below, which prefer this override over client-computed values so the visible
+  // total always equals what will be charged. Cleared when any fee-affecting
+  // input changes (deliveryMode, district, coupon, etc.) — see useEffect below.
+  const [serverFeesOverride, setServerFeesOverride] = useState<{
+    subtotalUsd: number;
+    districtFeeUsd: number;
+    expressFeeUsd: number;
+    slotFeeUsd: number;
+    couponDiscountUsd: number;
+  } | null>(null);
   // Discount amount confirmed by server coupon validation (display currency).
   // Initialized from localStorage (set by Cart.tsx validate flow) so the
   // sidebar shows the discounted total before payment, not just after order.
@@ -1310,6 +1348,41 @@ function CheckoutForm() {
             currency: res.currency.toLowerCase(),
             orderId,
           };
+          // Fire a /checkout/fees request in parallel with canMakePayment() to
+          // proactively hydrate the Order Summary with server-authoritative USD
+          // amounts. This ensures the displayed total matches the PI amount even
+          // before the shopper taps Pay. Best-effort: never blocks wallet readiness.
+          {
+            const _wBaseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
+            fetch(`${_wBaseUrl}/api/checkout/fees`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                items: mappedItems,
+                currency: checkoutCurrency,
+                email: sender.email || undefined,
+                district: effectDistrict || undefined,
+                expressDelivery: deliveryMode === "express",
+                noAddress,
+                deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+                ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+                ...(couponCode ? { couponCode } : {}),
+              }),
+            })
+              .then(r => (r.ok ? r.json() : null))
+              .then((fd: { ok?: boolean; subtotalUsd?: number; districtFeeUsd?: number; expressFeeUsd?: number; slotFeeUsd?: number; couponDiscountUsd?: number; } | null) => {
+                if (!cancelled && fd?.ok) {
+                  setServerFeesOverride({
+                    subtotalUsd: fd.subtotalUsd ?? 0,
+                    districtFeeUsd: fd.districtFeeUsd ?? 0,
+                    expressFeeUsd: fd.expressFeeUsd ?? 0,
+                    slotFeeUsd: fd.slotFeeUsd ?? 0,
+                    couponDiscountUsd: fd.couponDiscountUsd ?? 0,
+                  });
+                }
+              })
+              .catch(() => { /* best-effort — display falls back to computed values */ });
+          }
           // Pre-create and canMakePayment()-validate the submit-time
           // PaymentRequest now, while we are NOT in a user-gesture context.
           // Stripe requires canMakePayment() to be called on a PR instance
@@ -1491,6 +1564,23 @@ function CheckoutForm() {
     freeDeliveryThresholdUsd: effectiveFreeDeliveryThresholdUsd,
     freeDeliveryEnabled: effectiveFreeDeliveryEnabled,
   });
+
+  // Clear the server fee override whenever any fee-affecting input changes so a
+  // stale override never persists after the shopper modifies delivery settings.
+  useEffect(() => {
+    setServerFeesOverride(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, deliveryMode, _selectedDistrict, noAddress, confirmedCouponDiscount, deliverySlot]);
+
+  // Derived display values: prefer server-authoritative USD amounts when the
+  // override is set; fall back to client-computed fees otherwise. These drive
+  // OrderSummaryPanel and PaymentSubmitButton so the visible total always
+  // matches what the server will charge.
+  const displaySubtotal = serverFeesOverride?.subtotalUsd ?? subtotal;
+  const displayDistrictFee = serverFeesOverride?.districtFeeUsd ?? districtFee;
+  const displayExpressFee = serverFeesOverride?.expressFeeUsd ?? expressFee;
+  const displaySlotFee = serverFeesOverride?.slotFeeUsd ?? slotFee;
+  const displayCouponDiscount = serverFeesOverride?.couponDiscountUsd ?? confirmedCouponDiscount;
 
   // True when the shopper's subtotal meets the free-standard-delivery threshold.
   // Uses exactly the same inputs and gate condition as calcCheckoutFees so the
@@ -1830,6 +1920,25 @@ function CheckoutForm() {
 
         const pr = paymentRequestRef.current!;
 
+        // Synchronous parity check for wallet flows. walletIntentRef.current.amount
+        // is the server-authoritative minor-unit charge. Compare it against what the
+        // client currently expects based on loaded FX rates. If they diverge (FX-rate
+        // drift since PI creation), bail WITHOUT opening the sheet and clear the
+        // cached intent so the next tap re-creates the PI with the refreshed rates.
+        // No await is required — all inputs are already in memory.
+        {
+          const _wClientTotalUsd = computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount);
+          const _wClientRate = fxRatesData?.rates?.[checkoutCurrency] ?? 1;
+          const _wClientDisplay = roundToNearestFive(_wClientTotalUsd * _wClientRate, checkoutCurrency);
+          const _wClientMinorUnits = toStripeMinorUnits(_wClientDisplay, checkoutCurrency);
+          if (walletIntentRef.current && walletIntentRef.current.amount !== _wClientMinorUnits) {
+            walletIntentRef.current = null;
+            setWalletReadySig(null);
+            toast({ title: t("checkout.toast.pricesUpdatedTitle") });
+            return;
+          }
+        }
+
         // No pr.update() is needed: the PR was just constructed above with the
         // correct display currency and converted total.
 
@@ -1979,6 +2088,89 @@ function CheckoutForm() {
       // This call is intentionally placed after the wallet branch above so that
       // no await precedes pr.show() in the Apple Pay / Google Pay path.
       const orderId = await ensureOrderId();
+
+      // Pre-payment server fee verification for non-wallet methods.
+      // Wallets already use the server's exact PI amount; for card and Mamo
+      // the client computes the displayed total client-side, so we verify it
+      // against the server before creating the PaymentIntent.
+      if (payMethod !== "apple_pay" && payMethod !== "google_pay") {
+        try {
+          const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
+          const feeRes = await fetch(`${baseUrl}/api/checkout/fees`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+              currency: checkoutCurrency,
+              email: sender.email || undefined,
+              district: _selectedDistrict || undefined,
+              expressDelivery: deliveryMode === "express",
+              noAddress,
+              deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+              ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+              ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
+            }),
+          });
+          if (feeRes.ok) {
+            const feeData = await feeRes.json() as {
+              ok: boolean;
+              subtotalUsd?: number;
+              districtFeeUsd?: number;
+              expressFeeUsd?: number;
+              slotFeeUsd?: number;
+              couponDiscountUsd?: number;
+              totalUsd?: number;
+              total?: number;
+              subtotal?: number;
+              districtFee?: number;
+              expressFee?: number;
+              slotFee?: number;
+              couponDiscount?: number;
+              totalMinorUnits?: number;
+              currency?: string;
+            };
+            // Compare the server-authoritative charged amount (minor units) against
+            // what the client would compute from the currently-displayed total. This
+            // catches both catalog/fee changes and FX-rate drift (same USD total but
+            // converted amount in minor units has changed since the total was shown).
+            if (feeData.ok && typeof feeData.totalMinorUnits === "number") {
+              const clientTotalUsd = computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount);
+              const clientRate = fxRatesData?.rates?.[checkoutCurrency] ?? 1;
+              const clientDisplayTotal = roundToNearestFive(clientTotalUsd * clientRate, checkoutCurrency);
+              const clientMinorUnits = toStripeMinorUnits(clientDisplayTotal, checkoutCurrency);
+              if (feeData.totalMinorUnits !== clientMinorUnits) {
+                // Hydrate the Order Summary immediately with server-authoritative
+                // USD amounts so the displayed total reflects the actual charge
+                // BEFORE the user is asked to confirm.
+                setServerFeesOverride({
+                  subtotalUsd: feeData.subtotalUsd ?? 0,
+                  districtFeeUsd: feeData.districtFeeUsd ?? 0,
+                  expressFeeUsd: feeData.expressFeeUsd ?? 0,
+                  slotFeeUsd: feeData.slotFeeUsd ?? 0,
+                  couponDiscountUsd: feeData.couponDiscountUsd ?? 0,
+                });
+                const confirmed = await new Promise<boolean>((resolve) => {
+                  setPricesConfirmState({
+                    open: true,
+                    subtotal: feeData.subtotal ?? 0,
+                    districtFee: feeData.districtFee ?? 0,
+                    expressFee: feeData.expressFee ?? 0,
+                    slotFee: feeData.slotFee ?? 0,
+                    couponDiscount: feeData.couponDiscount ?? 0,
+                    newTotal: feeData.total ?? 0,
+                    currency: feeData.currency ?? checkoutCurrency,
+                    resolve,
+                  });
+                });
+                setPricesConfirmState((prev) => ({ ...prev, open: false, resolve: null }));
+                if (!confirmed) return;
+              }
+            }
+          }
+        } catch {
+          // Fee check is best-effort; proceed with payment if the network call fails
+        }
+      }
 
       if (payMethod === "card") {
         // Inline Stripe Elements flow — no redirect.
@@ -2832,7 +3024,7 @@ function CheckoutForm() {
 
                   {/* Payment CTA */}
                   <div className="flex gap-3 mt-4">
-                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
+                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(displaySubtotal, displayDistrictFee + displayExpressFee + displaySlotFee, displayCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
                   </div>
 
                   {/* Secure payment badge */}
@@ -2897,11 +3089,11 @@ function CheckoutForm() {
           {/* ── Order Summary Sidebar ── */}
           <OrderSummaryPanel
             items={items}
-            subtotal={subtotal}
-            districtFee={districtFee}
-            expressFee={expressFee}
-            slotFee={slotFee}
-            confirmedCouponDiscount={confirmedCouponDiscount}
+            subtotal={displaySubtotal}
+            districtFee={displayDistrictFee}
+            expressFee={displayExpressFee}
+            slotFee={displaySlotFee}
+            confirmedCouponDiscount={displayCouponDiscount}
             isFreeDeliveryUnlocked={isFreeDeliveryUnlocked}
             originalCityFee={originalCityFee}
             effectiveFreeDeliveryEnabled={effectiveFreeDeliveryEnabled}
@@ -2931,6 +3123,63 @@ function CheckoutForm() {
         </div>
       </div>
       {/* ── Dialogs ── */}
+      {/* Pre-payment prices-updated confirmation — shown when the server's
+          charged minor-unit amount differs from what the client last displayed.
+          Catches both catalog/fee changes and FX-rate drift. */}
+      <AlertDialog open={pricesConfirmState.open}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("checkout.toast.pricesUpdatedTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("checkout.toast.pricesUpdatedDesc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {/* Server-authoritative breakdown — shows the exact amounts for each
+              fee line so the shopper can confirm before payment proceeds. */}
+          <div className="py-2 space-y-1 text-sm border-t border-b my-1">
+            <div className="flex justify-between">
+              <span>{t("checkout.toast.pricesUpdatedSubtotal")}</span>
+              <span>{pricesConfirmState.currency} {pricesConfirmState.subtotal.toLocaleString()}</span>
+            </div>
+            {pricesConfirmState.districtFee > 0 && (
+              <div className="flex justify-between">
+                <span>{t("checkout.toast.pricesUpdatedDelivery")}</span>
+                <span>+ {pricesConfirmState.currency} {pricesConfirmState.districtFee.toLocaleString()}</span>
+              </div>
+            )}
+            {pricesConfirmState.expressFee > 0 && (
+              <div className="flex justify-between">
+                <span>{t("checkout.toast.pricesUpdatedExpress")}</span>
+                <span>+ {pricesConfirmState.currency} {pricesConfirmState.expressFee.toLocaleString()}</span>
+              </div>
+            )}
+            {pricesConfirmState.slotFee > 0 && (
+              <div className="flex justify-between">
+                <span>{t("checkout.toast.pricesUpdatedSlot")}</span>
+                <span>+ {pricesConfirmState.currency} {pricesConfirmState.slotFee.toLocaleString()}</span>
+              </div>
+            )}
+            {pricesConfirmState.couponDiscount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>{t("checkout.toast.pricesUpdatedCoupon")}</span>
+                <span>− {pricesConfirmState.currency} {pricesConfirmState.couponDiscount.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold pt-1 border-t">
+              <span>{t("checkout.toast.pricesUpdatedNewTotal")}</span>
+              <span>{pricesConfirmState.currency} {pricesConfirmState.newTotal.toLocaleString()}</span>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => pricesConfirmState.resolve?.(false)}>
+              {t("checkout.toast.pricesUpdatedGoBack")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => pricesConfirmState.resolve?.(true)}>
+              {t("checkout.toast.pricesUpdatedContinue")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <DeliveryPickerModal
         open={deliveryPickerOpen}
         onOpenChange={setDeliveryPickerOpen}

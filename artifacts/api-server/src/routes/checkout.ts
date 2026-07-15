@@ -6,6 +6,7 @@ import {
   normalizeCurrency,
   roundToNearestFive,
   toStripeMinorUnits,
+  type SupportedCurrency,
 } from "../lib/fx";
 import {
   resolveCartItems,
@@ -406,6 +407,64 @@ async function getOrCreateStripeCustomer(
   }
 }
 
+/**
+ * Shared minor-unit computation used by both /checkout/fees and
+ * /checkout/payment-intent. Both endpoints must use identical rounding so the
+ * amount quoted by /checkout/fees exactly equals what Stripe charges.
+ *
+ * Rounding rules (match Stripe best-practice):
+ *  - Subtotal: per-item roundToNearestFive then toStripeMinorUnits, summed
+ *  - Delivery: aggregate roundToNearestFive then toStripeMinorUnits
+ *  - Coupon:   aggregate roundToNearestFive then toStripeMinorUnits
+ */
+async function computeStripeAmounts({
+  catalogItems,
+  currency,
+  deliveryFeeUsd,
+  couponDiscountUsd,
+}: {
+  catalogItems: Array<{ priceUsd: number; quantity: number }>;
+  currency: SupportedCurrency;
+  deliveryFeeUsd: number;
+  couponDiscountUsd: number;
+}): Promise<{
+  subtotalMinorUnits: number;
+  deliveryFeeMinorUnits: number;
+  couponDiscountMinorUnits: number;
+  totalMinorUnits: number;
+}> {
+  const perItemMinorUnits = await Promise.all(
+    catalogItems.map(async (i) => {
+      const converted = roundToNearestFive(await convertFromUsd(i.priceUsd, currency), currency);
+      return toStripeMinorUnits(converted, currency) * i.quantity;
+    }),
+  );
+  const subtotalMinorUnits = perItemMinorUnits.reduce((s, n) => s + n, 0);
+
+  const deliveryFeeMinorUnits =
+    deliveryFeeUsd > 0
+      ? toStripeMinorUnits(
+          roundToNearestFive(await convertFromUsd(deliveryFeeUsd, currency), currency),
+          currency,
+        )
+      : 0;
+
+  const couponDiscountMinorUnits =
+    couponDiscountUsd > 0
+      ? toStripeMinorUnits(
+          roundToNearestFive(await convertFromUsd(couponDiscountUsd, currency), currency),
+          currency,
+        )
+      : 0;
+
+  const totalMinorUnits = Math.max(
+    0,
+    subtotalMinorUnits + deliveryFeeMinorUnits - couponDiscountMinorUnits,
+  );
+
+  return { subtotalMinorUnits, deliveryFeeMinorUnits, couponDiscountMinorUnits, totalMinorUnits };
+}
+
 router.post("/checkout/payment-intent", async (req, res) => {
   const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, cityId, couponCode, saveCard } =
     req.body as PaymentIntentBody;
@@ -493,49 +552,36 @@ router.post("/checkout/payment-intent", async (req, res) => {
     }
   }
 
-  try {
-    const convertedSubtotal = await Promise.all(
-      catalogResult.items.map(async (i) => {
-        const convertedUnit = roundToNearestFive(await convertFromUsd(i.priceUsd, currency), currency);
-        return { ...i, minorUnit: toStripeMinorUnits(convertedUnit, currency) };
-      }),
-    );
-
-    const subtotalMinorUnits = convertedSubtotal.reduce(
-      (sum, i) => sum + i.minorUnit * i.quantity,
-      0,
-    );
-
-    // Include the server-computed delivery fee in the Stripe charge amount.
-    const deliveryFeeMinorUnits = serverDeliveryFeeUsd > 0
-      ? toStripeMinorUnits(roundToNearestFive(await convertFromUsd(serverDeliveryFeeUsd, currency), currency), currency)
-      : 0;
-
-    // Apply coupon discount if a code is provided.
-    // The server re-validates the code (never trusts client-supplied discount amounts).
-    let couponDiscountUsd = 0;
-    let couponDiscountMinorUnits = 0;
-    if (couponCode && couponCode.trim()) {
-      const cartItemsForCoupon = catalogResult.items.map((i) => ({
-        osSlug: i.osSlug ?? "",
-        priceUsd: i.priceUsd,
-        quantity: i.quantity,
-      }));
-      const couponResult = await validateCoupon(couponCode.trim(), {
-        customerEmail: email ?? "",
-        cartItems: cartItemsForCoupon,
-        cartTotalUsd: subtotalUsd,
-      });
-      if (couponResult.valid) {
-        couponDiscountUsd = couponResult.discountAmountUsd;
-        couponDiscountMinorUnits = toStripeMinorUnits(
-          roundToNearestFive(await convertFromUsd(couponDiscountUsd, currency), currency),
-          currency,
-        );
-      }
+  // Apply coupon discount if a code is provided.
+  // The server re-validates the code (never trusts client-supplied discount amounts).
+  // Resolved before computeStripeAmounts so the helper receives the final discount.
+  let couponDiscountUsd = 0;
+  if (couponCode && couponCode.trim()) {
+    const cartItemsForCoupon = catalogResult.items.map((i) => ({
+      osSlug: i.osSlug ?? "",
+      priceUsd: i.priceUsd,
+      quantity: i.quantity,
+    }));
+    const couponResult = await validateCoupon(couponCode.trim(), {
+      customerEmail: email ?? "",
+      cartItems: cartItemsForCoupon,
+      cartTotalUsd: subtotalUsd,
+    });
+    if (couponResult.valid) {
+      couponDiscountUsd = couponResult.discountAmountUsd;
     }
+  }
 
-    const totalMinorUnits = Math.max(0, subtotalMinorUnits + deliveryFeeMinorUnits - couponDiscountMinorUnits);
+  try {
+    // Compute Stripe charge amounts using the shared helper. /checkout/fees uses
+    // the same helper so the pre-payment quote exactly matches the actual charge.
+    const { subtotalMinorUnits, deliveryFeeMinorUnits, couponDiscountMinorUnits, totalMinorUnits } =
+      await computeStripeAmounts({
+        catalogItems: catalogResult.items,
+        currency,
+        deliveryFeeUsd: serverDeliveryFeeUsd,
+        couponDiscountUsd,
+      });
     // Post-coupon total in USD — the canonical amount the shopper is charged.
     // All storePaymentIntent calls use this so the snapshot's totalUsd reflects
     // what was actually collected, not the pre-discount subtotal.
@@ -843,6 +889,143 @@ router.delete("/checkout/payment-methods/:id", async (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: err?.message ?? "Failed to delete payment method" }); // i18n-ignore
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /checkout/fees — server-authoritative fee breakdown
+//
+// Returns the exact subtotal, delivery fee components, coupon discount, and
+// grand total that the server would charge for the given cart/delivery context.
+// Clients should call this before opening the payment sheet and surface an
+// alert when the server total differs from the displayed total by more than a
+// rounding threshold. No Stripe or WooCommerce call is made — pure fee
+// computation and FX conversion.
+// ---------------------------------------------------------------------------
+router.post("/checkout/fees", async (req, res) => {
+  const {
+    items,
+    currency: rawCurrency,
+    email,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot,
+    cityId,
+    couponCode,
+  } = req.body as {
+    items?: LineItemInput[];
+    currency?: string;
+    email?: string;
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    cityId?: string;
+    couponCode?: string;
+  };
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "No items in cart" }); // i18n-ignore
+  }
+
+  const currency = normalizeCurrency(rawCurrency ?? "USD");
+  const store = resolveStoreFromRequest(req);
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, message: catalogResult.message });
+  }
+
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(
+    district ?? "Beirut",
+    subtotalUsd,
+    noAddress === true,
+  );
+  const expressFeeUsd =
+    expressDelivery === true
+      ? expressSurchargeUsd(countryForDistrict(district ?? "Beirut"))
+      : 0;
+  const slotFeeUsd = (() => {
+    if (expressDelivery === true || !deliverySlot || !cityId) return 0;
+    const citySlots = getDeliverySlots(cityId);
+    const bookedSlot = citySlots.find((s) => s.label === deliverySlot);
+    return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+  })();
+  const deliveryFeeUsd = districtFeeUsd + expressFeeUsd + slotFeeUsd;
+  const rawTotalUsd = subtotalUsd + deliveryFeeUsd;
+
+  let couponDiscountUsd = 0;
+  if (couponCode && couponCode.trim()) {
+    const cartItemsForCoupon = catalogResult.items.map((i) => ({
+      osSlug: i.osSlug ?? "",
+      priceUsd: i.priceUsd,
+      quantity: i.quantity,
+    }));
+    const couponResult = await validateCoupon(couponCode.trim(), {
+      customerEmail: email ?? "",
+      cartItems: cartItemsForCoupon,
+      cartTotalUsd: subtotalUsd,
+    });
+    if (couponResult.valid) {
+      couponDiscountUsd = couponResult.discountAmountUsd;
+    }
+  }
+
+  const totalUsd = Math.max(0, rawTotalUsd - couponDiscountUsd);
+
+  try {
+    const [districtFee, expressFee, slotFee, couponDiscount, total] = await Promise.all([
+      districtFeeUsd > 0
+        ? convertFromUsd(districtFeeUsd, currency).then((v) => roundToNearestFive(v, currency))
+        : Promise.resolve(0),
+      expressFeeUsd > 0
+        ? convertFromUsd(expressFeeUsd, currency).then((v) => roundToNearestFive(v, currency))
+        : Promise.resolve(0),
+      slotFeeUsd > 0
+        ? convertFromUsd(slotFeeUsd, currency).then((v) => roundToNearestFive(v, currency))
+        : Promise.resolve(0),
+      couponDiscountUsd > 0
+        ? convertFromUsd(couponDiscountUsd, currency).then((v) => roundToNearestFive(v, currency))
+        : Promise.resolve(0),
+      totalUsd > 0
+        ? convertFromUsd(totalUsd, currency).then((v) => roundToNearestFive(v, currency))
+        : Promise.resolve(0),
+    ]);
+
+    const subtotalConverted = await convertFromUsd(subtotalUsd, currency);
+    const subtotal = roundToNearestFive(subtotalConverted, currency);
+
+    // totalMinorUnits uses the shared helper (same per-item rounding path as
+    // /checkout/payment-intent) so the quoted amount exactly matches the charge.
+    const { totalMinorUnits } = await computeStripeAmounts({
+      catalogItems: catalogResult.items,
+      currency,
+      deliveryFeeUsd,
+      couponDiscountUsd,
+    });
+
+    return res.json({
+      ok: true,
+      subtotalUsd,
+      districtFeeUsd,
+      expressFeeUsd,
+      slotFeeUsd,
+      couponDiscountUsd,
+      totalUsd,
+      currency,
+      subtotal,
+      districtFee,
+      expressFee,
+      slotFee,
+      couponDiscount,
+      total,
+      totalMinorUnits,
+    });
+  } catch (err: any) {
+    req.log.warn({ err: err?.message }, "Failed to compute checkout fees"); // i18n-ignore
+    return res.status(500).json({ ok: false, message: "Failed to compute fees" }); // i18n-ignore
   }
 });
 

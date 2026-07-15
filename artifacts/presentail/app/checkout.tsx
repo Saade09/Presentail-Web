@@ -69,6 +69,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { toStripeMinorUnits, roundToNearestFive } from "@workspace/display-currency";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { feeForDistrict, type District } from "@/data/districts";
@@ -98,7 +99,7 @@ import {
   type PayMethodId,
 } from "@workspace/pay-methods";
 import { CardField, CardFieldInput, useStripe, PlatformPay } from "@stripe/stripe-react-native";
-import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePublishableKey, fetchSavedPaymentMethods, deleteSavedPaymentMethod } from "@/lib/stripe";
+import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePublishableKey, fetchSavedPaymentMethods, deleteSavedPaymentMethod, fetchCheckoutFees } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import { clearPendingOrder, savePendingOrder } from "@/lib/pendingOrder";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -246,7 +247,7 @@ function CheckoutScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const { items, detailed, total, clear, setQty, remove, cartMessage: cartMessageFromCart } = useCart();
   const { loading: productsLoading } = useWooProducts();
-  const { formatPrice, currencyCode } = useCurrency();
+  const { formatPrice, currencyCode, convert, formatNative } = useCurrency();
   const { token: authToken, user: authUser, updateProfile } = useAuth();
   const { selectedCountry, selectedCity, isLoading: locationsLoading } = useDeliveryLocation();
   const t = useT();
@@ -828,9 +829,30 @@ function CheckoutScreen() {
     const baseDeliveryFee = noAddress ? 35 : (district?.fee ?? 0);
     const districtFee = (isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryFee;
     const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
-    const grand = Math.max(0, subtotal + districtFee + expressFee - couponDiscountUsd);
-    return { subtotal, districtFee, expressFee, grand };
-  }, [total, deliveryMode, district, freeDeliveryThreshold, isFreeDeliveryEnabled, expressSurcharge, noAddress, couponDiscountUsd]);
+    const slotFee = deliveryMode !== "express" ? (slot?.extraFee ?? 0) : 0;
+    const grand = Math.max(0, subtotal + districtFee + expressFee + slotFee - couponDiscountUsd);
+    return { subtotal, districtFee, expressFee, slotFee, grand };
+  }, [total, deliveryMode, district, freeDeliveryThreshold, isFreeDeliveryEnabled, expressSurcharge, noAddress, couponDiscountUsd, slot]);
+
+  // Server-authoritative USD fee override: set when the pre-payment fee check
+  // detects a mismatch and hydrates the display summary from server breakdown.
+  // Uses same units as fees (USD) so formatPrice() conversion stays correct.
+  // Cleared when any fee-affecting input changes to prevent stale display.
+  const [serverFeesOverride, setServerFeesOverride] = useState<{
+    subtotal: number;
+    districtFee: number;
+    expressFee: number;
+    slotFee: number;
+    grand: number;
+  } | null>(null);
+  useEffect(() => {
+    setServerFeesOverride(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total, deliveryMode, district, noAddress, couponDiscountUsd, slot]);
+  // displayFees: used by CollapsibleOrderSummary and the Pay button label.
+  // Payment processing always reads the computed `fees` object (not display),
+  // so the override is display-only and does not affect what is charged.
+  const displayFees = serverFeesOverride ? { ...fees, ...serverFeesOverride } : fees;
 
   const isSignedIn = !!authUser;
   const senderNameRequired = !isSignedIn;
@@ -1063,6 +1085,74 @@ function CheckoutScreen() {
     const orderId = await ensureOrderId();
 
     const slotLabel = slot?.label ?? "";
+
+    // Pre-payment server total verification — detect any fee mismatch (FX tick,
+    // newly-activated slot surcharge, cache refresh) before the payment sheet
+    // opens so the shopper is never silently charged more than displayed.
+    const feesCheck = await fetchCheckoutFees({
+      items: detailed.map(({ product, qty }) => ({ wcId: product.wcId ?? 0, quantity: qty })),
+      currency: currencyCode,
+      email: senderEmail || undefined,
+      district: district?.name,
+      expressDelivery: deliveryMode === "express",
+      noAddress,
+      deliverySlot: deliveryMode === "express" ? "" : slotLabel,
+      ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+      ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
+      storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+    });
+    // Compare the server-authoritative charged amount (minor units) against what
+    // the client would compute from the currently-displayed total. This catches
+    // both catalog/fee changes (totalUsd differs) and FX-rate drift (same USD
+    // total but the converted amount in minor units has changed since display).
+    const localMinorUnits = toStripeMinorUnits(
+      roundToNearestFive(convert(fees.grand), currencyCode),
+      currencyCode,
+    );
+    if (feesCheck.ok && feesCheck.totalMinorUnits !== localMinorUnits) {
+      // Hydrate CollapsibleOrderSummary from server-authoritative USD amounts
+      // immediately so the visible total matches the actual charge BEFORE the
+      // user is asked to confirm. Uses USD fields so formatPrice() keeps working.
+      setServerFeesOverride({
+        subtotal: feesCheck.subtotalUsd,
+        districtFee: feesCheck.districtFeeUsd,
+        expressFee: feesCheck.expressFeeUsd,
+        slotFee: feesCheck.slotFeeUsd,
+        grand: feesCheck.totalUsd,
+      });
+      // Build a breakdown from the server-authoritative display-currency amounts
+      // so the shopper sees exactly what each line will cost before confirming.
+      const breakdownLines: string[] = [
+        `${t.checkoutSubtotalLabel}: ${formatNative(feesCheck.subtotal)}`,
+      ];
+      if (feesCheck.districtFee > 0)
+        breakdownLines.push(`${t.checkoutDeliveryFeeLabel}: ${formatNative(feesCheck.districtFee)}`);
+      if (feesCheck.expressFee > 0)
+        breakdownLines.push(`${t.checkoutExpressDeliveryLabel}: ${formatNative(feesCheck.expressFee)}`);
+      if (feesCheck.slotFee > 0)
+        breakdownLines.push(`${t.checkoutTimeWindowFeeLabel}: ${formatNative(feesCheck.slotFee)}`);
+      if (feesCheck.couponDiscount > 0)
+        breakdownLines.push(`-${formatNative(feesCheck.couponDiscount)}`);
+      // formatNative: formats a pre-converted display-currency amount (no FX re-conversion).
+      const newTotalLabel = formatNative(feesCheck.total);
+      const breakdownMsg = `${breakdownLines.join("\n")}\n\n${t.checkoutPricesUpdatedMsg}`;
+      let confirmed = false;
+      await new Promise<void>((resolve) => {
+        Alert.alert(
+          `${t.checkoutPricesUpdatedTitle}: ${newTotalLabel}`,
+          breakdownMsg,
+          [
+            { text: t.checkoutPricesUpdatedGoBack, style: "cancel", onPress: () => resolve() },
+            { text: t.checkoutPricesUpdatedContinue, onPress: () => { confirmed = true; resolve(); } },
+          ],
+        );
+      });
+      if (!confirmed) {
+        setPaying(false);
+        return;
+      }
+    }
+
     const buildResultPath = (status: "success" | "failed", paymentRef?: string) => {
       const params = new URLSearchParams({
         orderId,
@@ -1263,6 +1353,11 @@ function CheckoutScreen() {
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
         ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
         ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
+        // Delivery context — required so the server computes the authoritative
+        // district/express/slot fee and charges the correct amount.
+        district: district?.name,
+        expressDelivery: deliveryMode === "express",
+        noAddress,
       });
       if (!intentResult.ok) {
         if (intentResult.code === "already_paid") {
@@ -1361,6 +1456,9 @@ function CheckoutScreen() {
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
         ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
         ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
+        district: district?.name,
+        expressDelivery: deliveryMode === "express",
+        noAddress,
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
@@ -1732,7 +1830,7 @@ function CheckoutScreen() {
           key={step}
           colors={colors}
           detailed={detailed}
-          fees={fees}
+          fees={displayFees}
           setQty={setQty}
           remove={remove}
           coupon={coupon}
@@ -1949,7 +2047,7 @@ function CheckoutScreen() {
                   ? t.continueToPayment
                   : paying
                     ? t.processingOrder
-                    : `${t.payLabel} ${formatPrice(fees.grand)}`}
+                    : `${t.payLabel} ${formatPrice(displayFees.grand)}`}
             </AppText>
             <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
           </Pressable>
@@ -3918,6 +4016,9 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
               />
               {fees.expressFee > 0 ? (
                 <SummaryRow label={t.checkoutExpressUpgradeLabel} value={formatPrice(fees.expressFee)} colors={colors} />
+              ) : null}
+              {fees.slotFee > 0 ? (
+                <SummaryRow label={t.checkoutTimeWindowFeeLabel} value={formatPrice(fees.slotFee)} colors={colors} />
               ) : null}
             </>
           ) : null}

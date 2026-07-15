@@ -133,6 +133,15 @@ export async function createPaymentIntent(payload: {
    *  and the code was validated client-side. The server re-validates it and
    *  deducts the discount from the PaymentIntent amount. */
   couponCode?: string;
+  /** Delivery district name — used server-side to compute the authoritative
+   *  delivery fee. When omitted the server defaults to "Beirut". */
+  district?: string;
+  /** True when the shopper chose express delivery. */
+  expressDelivery?: boolean;
+  /** True when the shopper chose the no-address (pick-up / to-be-confirmed)
+   *  option; the server applies the flat no-address delivery fee instead of
+   *  the per-district fee. */
+  noAddress?: boolean;
 }): Promise<
   | { ok: true; clientSecret: string; orderId: string; amount: number; currency: string }
   | { ok: false; code?: string; message: string }
@@ -142,6 +151,58 @@ export async function createPaymentIntent(payload: {
     const headers = storeHeadersFromCtx(storeContext);
     if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
     const res = await fetch(`${API_BASE}/api/checkout/payment-intent`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    return json;
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
+  }
+}
+
+/**
+ * Fetch the server-authoritative fee breakdown for the given cart/delivery
+ * context. Call this before opening the payment sheet to detect any mismatch
+ * between the displayed total and what the server would charge (FX tick,
+ * newly-activated slot surcharge, cache refresh, etc.).
+ */
+export async function fetchCheckoutFees(payload: {
+  items: CheckoutLineItem[];
+  currency?: string;
+  email?: string;
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  deliverySlot?: string;
+  cityId?: string;
+  couponCode?: string;
+  storeContext?: StoreContext;
+}): Promise<
+  | {
+      ok: true;
+      subtotalUsd: number;
+      districtFeeUsd: number;
+      expressFeeUsd: number;
+      slotFeeUsd: number;
+      couponDiscountUsd: number;
+      totalUsd: number;
+      currency: string;
+      subtotal: number;
+      districtFee: number;
+      expressFee: number;
+      slotFee: number;
+      couponDiscount: number;
+      total: number;
+      totalMinorUnits: number;
+    }
+  | { ok: false; message: string }
+> {
+  try {
+    const { storeContext, ...body } = payload;
+    const headers = storeHeadersFromCtx(storeContext);
+    const res = await fetch(`${API_BASE}/api/checkout/fees`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
