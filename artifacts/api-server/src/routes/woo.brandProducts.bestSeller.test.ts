@@ -226,4 +226,29 @@ describe("GET /woo/brand-products — best-seller badge reliability", () => {
     expect(byId["rose-bouquet"]).toBe(true);
     expect(byId["lily-vase"]).toBe(false);
   });
+
+  it("exposes totalSales as popularity in the response so the Best Seller sort has non-zero values to rank by", async () => {
+    // Regression guard: OS returns totalSales=0 for every product.
+    // The best-seller annotation block writes the blended score (OS totalSales +
+    // DB order count) back onto p.totalSales. That value is then mapped to
+    // total_sales in mapOsProductToWcShape and finally to `popularity` in the
+    // API response. If this pipeline is broken the sort sees all-zeros and
+    // "Best Seller" produces no visible reordering.
+    const popular = makeProduct({ id: "rose-bouquet", totalSales: 42 });
+    const cold = makeProduct({ id: "lily-vase", totalSales: 0 });
+    getOsProductsMock.mockReturnValue([popular, cold]);
+    getCachedBestSellerIdsMock.mockReturnValue(new Set());
+
+    const app = await buildApp();
+    const res = await request(app).get("/woo/brand-products?slug=hallab");
+
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries(
+      res.body.products.map((p: { id: string; popularity: number }) => [p.id, p.popularity])
+    );
+    // The popular product must carry its totalSales through to popularity.
+    expect(byId["rose-bouquet"]).toBe(42);
+    // The cold product with no sales must have popularity 0, not undefined.
+    expect(byId["lily-vase"]).toBe(0);
+  });
 });

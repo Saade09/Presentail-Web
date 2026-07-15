@@ -1358,12 +1358,23 @@ async function fetchAndStore(): Promise<void> {
             .slice(0, BEST_SELLER_COUNT)
         : [];
       const bestSellerIds = new Set(sorted.map((p) => p.id));
+      // Build a per-product blended score map so totalSales can be written back
+      // onto each cached product — making the popularity sort field reflect
+      // actual order volume rather than the OS-returned 0.
+      const blendedScoreById = new Map<string, number>(
+        uniqueProducts.map((p) => [p.id, blendedScore(p)]),
+      );
       // Annotate every product in every store cache in-place.
       for (const spec of OS_STORE_SPECS) {
         const entry = storeCache.get(spec.storeKey);
         if (!entry) continue;
         for (const p of entry.products) {
           p.isBestSeller = bestSellerIds.has(p.id);
+          // Write the blended score back so downstream reads of totalSales
+          // (mapped to the `popularity` field in API responses) reflect actual
+          // order volume instead of the OS-returned 0. This makes the
+          // "Best Seller" sort option produce a visible, correct reordering.
+          p.totalSales = blendedScoreById.get(p.id) ?? p.totalSales ?? 0;
         }
       }
       // Persist so getCachedBestSellerIds() can serve the catalog route.
