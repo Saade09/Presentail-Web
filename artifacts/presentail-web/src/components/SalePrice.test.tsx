@@ -125,6 +125,20 @@ describe("isDiscountActive — AED currency", () => {
   it("returns false when discountPriceAed is zero and discountPriceValue is absent", () => {
     expect(isDiscountActive("AED", null, 0)).toBe(false);
   });
+
+  it("returns false when discountPriceValue is zero and discountPriceAed is absent (sale ended, no USD fallback)", () => {
+    // Zero is the OS API sentinel for 'no active discount'; must not be treated as $0 sale price.
+    expect(isDiscountActive("AED", 0, null)).toBe(false);
+  });
+
+  it("returns false when both discountPriceAed and discountPriceValue are zero (sale fully ended)", () => {
+    expect(isDiscountActive("AED", 0, 0)).toBe(false);
+  });
+
+  it("returns true when discountPriceAed is zero but discountPriceValue is positive (USD fallback active)", () => {
+    // Native AED discount ended (0) but the USD discount is still live → discount is active.
+    expect(isDiscountActive("AED", 40, 0)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -188,11 +202,11 @@ describe("SalePrice — AED with native AED discount price", () => {
   });
 
   it("renders the regular price with a strikethrough (converted via FX)", () => {
-    // priceValue=65 USD × 3.67 AED/USD ≈ 239 AED
+    // priceValue=65 USD × 3.67 AED/USD = 238.55 → roundToNearestFive → 240 AED
     renderAed(65, null, 140, 3.67);
     const strikethrough = document.querySelector(".line-through");
     expect(strikethrough).toBeTruthy();
-    expect(strikethrough!.textContent).toContain("239");
+    expect(strikethrough!.textContent).toContain("240");
   });
 
   it("does not show a dollar sign (all amounts are AED)", () => {

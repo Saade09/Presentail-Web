@@ -27,7 +27,7 @@ export type CartContextType = {
 
 export const CartContext = createContext<CartContextType | null>(null);
 
-function effectivePrice(product: Product): number {
+export function effectivePrice(product: Product): number {
   return product.discountPriceValue != null && product.discountPriceValue > 0
     ? product.discountPriceValue
     : product.priceValue;
