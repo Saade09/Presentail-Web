@@ -17,6 +17,7 @@ import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CartCardMessageSheet } from "@/components/CartCardMessageSheet";
+import { CartStickyBar } from "@/components/CartStickyBar";
 import { CartUpsells } from "@/components/CartUpsells";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { CheckoutLoginSheet } from "@/components/CheckoutLoginSheet";
@@ -300,6 +301,12 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
     days,
     expressLabel: t.expressDelivery,
   });
+
+  const stickyDeliveryContext = React.useMemo(() => {
+    if (deliverySelection.mode === "express") return t.cartStickyExpressToday;
+    if (deliverySelection.mode === "today_slot") return t.cartStickyStandardToday;
+    return deliveryRowValue ?? null;
+  }, [deliverySelection.mode, t.cartStickyExpressToday, t.cartStickyStandardToday, deliveryRowValue]);
 
   const goPickDeliveryTime = React.useCallback(() => {
     setRescheduleVisible(true);
@@ -823,7 +830,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             </View>
           </View>
 
-          {/* Sticky proceed-to-checkout pill bar */}
+          {/* Sticky checkout bar */}
           <View
             onLayout={(e) => setStickyBarHeight(e.nativeEvent.layout.height)}
             style={{
@@ -831,53 +838,15 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               left: 0,
               right: 0,
               bottom: overlay,
-              backgroundColor: "#fff",
-              paddingHorizontal: 20,
-              paddingTop: 10,
-              paddingBottom: Math.max(overlay - insets.bottom, 10),
-              shadowColor: "#000",
-              shadowOpacity: 0.06,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: -2 },
-              elevation: 6,
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: colors.border,
             }}
           >
-            <Pressable
-              onPress={handleProceed}
-              accessibilityRole="button"
-              accessibilityLabel={t.cartProceed}
-              style={({ pressed }) => ({
-                backgroundColor: colors.primary,
-                borderRadius: 999,
-                paddingVertical: 15,
-                paddingHorizontal: 22,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                opacity: pressed ? 0.9 : 1,
-                shadowColor: colors.primary,
-                shadowOpacity: 0.18,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 4,
-              })}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Feather name="lock" size={14} color="#fff" />
-                <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1.5, textTransform: "uppercase", fontSize: 12 }}>
-                  {t.cartProceed}
-                </AppText>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Price
-                  value={grandTotalUsd}
-                  style={{ fontFamily: headingFontMedium, color: "#fff", fontSize: 15 }}
-                />
-                <Feather name="chevron-right" size={16} color="#fff" />
-              </View>
-            </Pressable>
+            <CartStickyBar
+              itemCount={detailed.length}
+              deliveryContext={stickyDeliveryContext}
+              grandTotalUsd={grandTotalUsd}
+              onProceed={handleProceed}
+              bottomPadding={Math.max(overlay - insets.bottom, 12)}
+            />
           </View>
         </>
       )}

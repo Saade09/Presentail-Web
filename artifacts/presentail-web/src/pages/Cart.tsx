@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check, Trash2 } from "lucide-react";
+import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check, Trash2, Lock } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -781,17 +781,43 @@ export default function Cart() {
       </div>
 
       {/* Sticky bottom bar – visible on mobile only; desktop uses the sidebar button */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] p-3 lg:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-        <Button asChild size="lg" className="w-full h-14 text-base rounded-full px-5">
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white shadow-[0_-3px_12px_rgba(0,0,0,0.08)] rounded-t-2xl px-5 pt-3 pb-3 flex flex-col gap-2.5 lg:hidden"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        {/* Summary row */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[13px] text-primary truncate flex-1">
+            <span className="font-semibold">
+              {itemCount} {itemCount === 1 ? t("cart.sticky.itemSingular") : t("cart.sticky.itemPlural")}
+            </span>
+            {deliveryMode && (
+              <span className="text-muted-foreground">
+                {"  ·  "}
+                {deliveryMode === "express"
+                  ? t("cart.sticky.expressToday")
+                  : deliveryMode === "today_slot"
+                  ? t("cart.sticky.standardToday")
+                  : null}
+              </span>
+            )}
+          </p>
+          <div className="flex flex-col items-end gap-0.5 shrink-0">
+            <span className="text-[11px] text-muted-foreground leading-none">{t("cart.total")}</span>
+            <FormattedPrice usdValue={Math.max(0, cartTotal)} className="text-[17px] font-serif font-medium text-primary leading-none" />
+          </div>
+        </div>
+        {/* CTA button */}
+        <Button asChild size="lg" className="w-full h-[52px] text-sm rounded-2xl px-5">
           <Link
             href="/checkout"
             onClick={handleProceed}
             data-testid="link-proceed-to-checkout-sticky"
             className="flex items-center gap-2"
           >
+            <Lock className="w-3.5 h-3.5 shrink-0" />
             <span className="flex-1 text-start">{t("cart.proceed")}</span>
-            <FormattedPrice usdValue={cartTotal} className="font-semibold shrink-0 text-white" />
-            <ArrowRight className={`w-4 h-4 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
+            <ArrowRight className={`w-4.5 h-4.5 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
           </Link>
         </Button>
       </div>
