@@ -426,90 +426,185 @@ export default function Cart() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 key={item.product.id}
-                className="flex items-center gap-3 px-5 py-3"
               >
-                {/* Thumbnail — 72 px square, slightly rounded */}
-                <Link href={`/product/${item.product.id}`} className="w-[72px] h-[72px] bg-secondary/50 rounded-xl overflow-hidden shrink-0 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60">
-                  {item.product.image?.uri && (
-                    <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />
-                  )}
-                </Link>
-
-                {/* Name + compact stepper */}
-                <div className="flex flex-col flex-1 min-w-0 gap-2">
-                  <Link href={`/product/${item.product.id}`} className="cursor-pointer">
-                    <h3 className="font-serif text-xs leading-snug line-clamp-2 hover:opacity-70 transition-opacity">{item.product.name}</h3>
+                {/* ── Mobile card (below lg) — approved redesign ── */}
+                <div className="flex gap-4 px-5 py-4 lg:hidden">
+                  {/* Product image — 100 px square, rounded, no distortion */}
+                  <Link href={`/product/${item.product.id}`} className="w-[100px] h-[100px] shrink-0 bg-secondary/50 rounded-xl overflow-hidden cursor-pointer transition-opacity hover:opacity-80 active:opacity-60">
+                    {item.product.image?.uri && (
+                      <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />
+                    )}
                   </Link>
-                  {item.product.hasInputField && (
-                    <div className="relative">
-                      <Input
-                        value={item.customNote ?? ""}
-                        onChange={(e) => {
-                          if (e.target.value.length <= 22) updateCustomNote(item.product.id, e.target.value);
-                        }}
-                        placeholder={t("cart.customNote.placeholder")}
-                        maxLength={22}
-                        className="h-8 text-xs pr-10"
-                        aria-label={t("cart.customNote.label")}
-                        data-testid={`input-cart-note-${item.product.id}`}
+
+                  {/* Right column: name, price, optional notes, quantity stepper, remove */}
+                  <div className="flex flex-col flex-1 min-w-0 gap-2">
+                    {/* Name + price stacked */}
+                    <Link href={`/product/${item.product.id}`} className="cursor-pointer">
+                      <h3 className="font-serif text-sm leading-snug line-clamp-2 hover:opacity-70 transition-opacity">{item.product.name}</h3>
+                    </Link>
+                    <p className="font-semibold text-sm tabular-nums text-primary">
+                      <SalePrice
+                        priceValue={item.product.priceValue * item.quantity}
+                        discountPriceValue={item.product.discountPriceValue != null ? item.product.discountPriceValue * item.quantity : null}
+                        discountPriceAed={item.product.discountPriceAed != null ? item.product.discountPriceAed * item.quantity : null}
                       />
-                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums">
-                        {(item.customNote ?? "").length}/22
-                      </span>
+                    </p>
+
+                    {/* Optional personalisation inputs */}
+                    {item.product.hasInputField && (
+                      <div className="relative">
+                        <Input
+                          value={item.customNote ?? ""}
+                          onChange={(e) => {
+                            if (e.target.value.length <= 22) updateCustomNote(item.product.id, e.target.value);
+                          }}
+                          placeholder={t("cart.customNote.placeholder")}
+                          maxLength={22}
+                          className="h-8 text-xs pr-10"
+                          aria-label={t("cart.customNote.label")}
+                          data-testid={`input-cart-note-mobile-${item.product.id}`}
+                        />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums">
+                          {(item.customNote ?? "").length}/22
+                        </span>
+                      </div>
+                    )}
+                    {item.product.hasLetterField && (
+                      <div className="relative w-16">
+                        <Input
+                          value={item.customNote ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 1).toUpperCase();
+                            updateCustomNote(item.product.id, v);
+                          }}
+                          placeholder={t("cart.letterNote.placeholder")}
+                          maxLength={1}
+                          className="h-8 text-xs text-center uppercase tracking-widest"
+                          aria-label={t("cart.letterNote.label")}
+                          data-testid={`input-cart-letter-mobile-${item.product.id}`}
+                        />
+                      </div>
+                    )}
+
+                    {/* Quantity label + stepper */}
+                    <div className="flex flex-col gap-1 mt-1">
+                      <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{t("cart.quantityLabel")}</span>
+                      <div className="flex items-center border rounded-full overflow-hidden bg-background w-fit">
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          className="w-11 h-11 flex items-center justify-center hover:bg-secondary transition-colors"
+                          aria-label={t("cart.decreaseAria")}
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-8 text-center text-sm font-medium tabular-nums">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          className="w-11 h-11 flex items-center justify-center hover:bg-secondary transition-colors"
+                          aria-label={t("cart.increaseAria")}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  )}
-                  {item.product.hasLetterField && (
-                    <div className="relative w-16">
-                      <Input
-                        value={item.customNote ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 1).toUpperCase();
-                          updateCustomNote(item.product.id, v);
-                        }}
-                        placeholder={t("cart.letterNote.placeholder")}
-                        maxLength={1}
-                        className="h-8 text-xs text-center uppercase tracking-widest"
-                        aria-label={t("cart.letterNote.label")}
-                        data-testid={`input-cart-letter-${item.product.id}`}
-                      />
-                    </div>
-                  )}
-                  <div className="flex items-center border rounded-full overflow-hidden bg-background w-fit">
+
+                    {/* Remove button — icon + label */}
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                      className="px-2.5 py-1 hover:bg-secondary transition-colors"
-                      aria-label={t("cart.decreaseAria")}
+                      onClick={() => removeItem(item.product.id)}
+                      className="flex items-center gap-1.5 mt-0.5 w-fit text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label={t("cart.removeAria")}
                     >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-8 text-center text-xs font-medium">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      className="px-2.5 py-1 hover:bg-secondary transition-colors"
-                      aria-label={t("cart.increaseAria")}
-                    >
-                      <Plus className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                      <span className="text-xs font-medium">{t("cart.remove")}</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Price (top) + remove button (bottom) */}
-                <div className="flex flex-col items-end justify-between self-stretch shrink-0 py-0.5">
-                  <p className="font-medium text-xs tabular-nums">
-                    <SalePrice
-                      priceValue={item.product.priceValue * item.quantity}
-                      discountPriceValue={item.product.discountPriceValue != null ? item.product.discountPriceValue * item.quantity : null}
-                      discountPriceAed={item.product.discountPriceAed != null ? item.product.discountPriceAed * item.quantity : null}
-                    />
-                  </p>
-                  <button
-                    onClick={() => removeItem(item.product.id)}
-                    // contrast-ok: icon button (non-text); /70 → 3.08:1 passes WCAG 1.4.11 non-text contrast ≥3:1
-                    className="text-muted-foreground/70 hover:text-destructive transition-colors p-0.5"
-                    aria-label={t("cart.removeAria")}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                {/* ── Desktop card (lg+) — original layout, unchanged ── */}
+                <div className="hidden lg:flex items-center gap-3 px-5 py-3">
+                  {/* Thumbnail — 72 px square, slightly rounded */}
+                  <Link href={`/product/${item.product.id}`} className="w-[72px] h-[72px] bg-secondary/50 rounded-xl overflow-hidden shrink-0 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60">
+                    {item.product.image?.uri && (
+                      <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />
+                    )}
+                  </Link>
+
+                  {/* Name + compact stepper */}
+                  <div className="flex flex-col flex-1 min-w-0 gap-2">
+                    <Link href={`/product/${item.product.id}`} className="cursor-pointer">
+                      <h3 className="font-serif text-xs leading-snug line-clamp-2 hover:opacity-70 transition-opacity">{item.product.name}</h3>
+                    </Link>
+                    {item.product.hasInputField && (
+                      <div className="relative">
+                        <Input
+                          value={item.customNote ?? ""}
+                          onChange={(e) => {
+                            if (e.target.value.length <= 22) updateCustomNote(item.product.id, e.target.value);
+                          }}
+                          placeholder={t("cart.customNote.placeholder")}
+                          maxLength={22}
+                          className="h-8 text-xs pr-10"
+                          aria-label={t("cart.customNote.label")}
+                          data-testid={`input-cart-note-${item.product.id}`}
+                        />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums">
+                          {(item.customNote ?? "").length}/22
+                        </span>
+                      </div>
+                    )}
+                    {item.product.hasLetterField && (
+                      <div className="relative w-16">
+                        <Input
+                          value={item.customNote ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 1).toUpperCase();
+                            updateCustomNote(item.product.id, v);
+                          }}
+                          placeholder={t("cart.letterNote.placeholder")}
+                          maxLength={1}
+                          className="h-8 text-xs text-center uppercase tracking-widest"
+                          aria-label={t("cart.letterNote.label")}
+                          data-testid={`input-cart-letter-${item.product.id}`}
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center border rounded-full overflow-hidden bg-background w-fit">
+                      <button
+                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        className="px-2.5 py-1 hover:bg-secondary transition-colors"
+                        aria-label={t("cart.decreaseAria")}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="w-8 text-center text-xs font-medium">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                        className="px-2.5 py-1 hover:bg-secondary transition-colors"
+                        aria-label={t("cart.increaseAria")}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Price (top) + remove button (bottom) */}
+                  <div className="flex flex-col items-end justify-between self-stretch shrink-0 py-0.5">
+                    <p className="font-medium text-xs tabular-nums">
+                      <SalePrice
+                        priceValue={item.product.priceValue * item.quantity}
+                        discountPriceValue={item.product.discountPriceValue != null ? item.product.discountPriceValue * item.quantity : null}
+                        discountPriceAed={item.product.discountPriceAed != null ? item.product.discountPriceAed * item.quantity : null}
+                      />
+                    </p>
+                    <button
+                      onClick={() => removeItem(item.product.id)}
+                      // contrast-ok: icon button (non-text); /70 → 3.08:1 passes WCAG 1.4.11 non-text contrast ≥3:1
+                      className="text-muted-foreground/70 hover:text-destructive transition-colors p-0.5"
+                      aria-label={t("cart.removeAria")}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}
