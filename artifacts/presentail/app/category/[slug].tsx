@@ -30,6 +30,7 @@ import { useOsCategories } from "@/hooks/useOsCategories";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
+import { usePageDescription } from "@/hooks/usePageDescription";
 import { useT } from "@/hooks/useT";
 import { fetchCategoryProducts, applyPricingToProducts, sortKeyToApiSort, type WooProduct } from "@/lib/woo";
 import { usePricingMap } from "@/hooks/usePricingMap";
@@ -134,6 +135,8 @@ function CategoryScreen() {
       .slice(0, 6);
   }, [wooCatalog, slug]);
 
+  const pageDescription = usePageDescription("category", slug);
+
   const displayName = category?.name ?? wcCategoryName ?? String(slug);
 
   const header = (
@@ -203,6 +206,19 @@ function CategoryScreen() {
             >
               {displayName || t.categoryFallback}
             </AppText>
+            {pageDescription ? (
+              <AppText
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.82)",
+                  marginTop: 5,
+                  lineHeight: 18,
+                }}
+              >
+                {pageDescription}
+              </AppText>
+            ) : null}
             <AppText
               style={{
                 fontFamily: "Inter_400Regular",

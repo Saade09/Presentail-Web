@@ -26,6 +26,7 @@ import { getOccasion, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
+import { usePageDescription } from "@/hooks/usePageDescription";
 import { useT } from "@/hooks/useT";
 import { fetchOccasionProducts, fetchBrandProducts, applyPricingToProducts, sortKeyToApiSort, type OccasionGroup, type WooProduct } from "@/lib/woo";
 import { usePricingMap } from "@/hooks/usePricingMap";
@@ -168,6 +169,8 @@ function OccasionScreen() {
 
   const hasProducts = activeBrandSlug ? brandProducts.length > 0 : groups.length > 0;
 
+  const pageDescription = usePageDescription("occasion", String(slug));
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <FilterSortSheet
@@ -228,9 +231,9 @@ function OccasionScreen() {
             <AppText style={{ fontFamily: headingFontMedium, fontSize: 30, color: "#fff", marginTop: 6 }}>
               {occasion?.name ?? t.occasionFallback}
             </AppText>
-            {!activeBrandName && occasion?.description ? (
+            {!activeBrandName && pageDescription ? (
               <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.82)", marginTop: 6, lineHeight: 19 }}>
-                {occasion.description}
+                {pageDescription}
               </AppText>
             ) : null}
           </View>
