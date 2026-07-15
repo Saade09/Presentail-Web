@@ -195,11 +195,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   const hasBothGroups = activeCities.length > 0 && unavailableCities.length > 0;
 
   const description = selectedCountryCode
-    ? hasBothGroups
-      ? t("locationPicker.currentlyDeliverTo", {
-          areas: activeCities.map((c) => cityName(c.id, c.name)).join(", "),
-        })
-      : t("locationPicker.chooseAreaDescription")
+    ? t("locationPicker.chooseAreaDescription")
     : null;
 
   const skeletonRows = Array.from({ length: 3 }).map((_, i) => (

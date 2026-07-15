@@ -66,11 +66,7 @@ export function LocationPicker({
   const hasBothGroups = availableCities.length > 0 && unavailableCities.length > 0;
 
   const description = selectedCountry
-    ? hasBothGroups
-      ? t("locationPicker.currentlyDeliverTo", {
-          areas: availableCities.map((c) => cityName(c.id, c.name)).join(", "),
-        })
-      : t("locationPicker.chooseAreaDescription")
+    ? t("locationPicker.chooseAreaDescription")
     : "";
 
   const selectedCountryLabel = selectedCountry
