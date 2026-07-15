@@ -167,72 +167,79 @@ export function LocationPicker({
               </button>
             ))}
           </div>
+        ) : !hasBothGroups ? (
+          /* Single group (Lebanon, UAE) — label above, one card */
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5" data-testid="section-delivery-areas">
+              {t("locationPicker.deliveryAreasIn", { country: selectedCountryLabel })}
+            </p>
+            <div className="rounded-xl border border-border overflow-hidden">
+              {availableCities.map((city, idx) => (
+                <button
+                  key={city.id}
+                  type="button"
+                  onClick={() => handleCitySelect(city.id)}
+                  className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 cursor-pointer ${
+                    idx > 0 ? "border-t border-border" : ""
+                  }`}
+                  data-testid={`button-city-${city.id}`}
+                >
+                  <span className="text-base font-medium text-foreground">
+                    {cityName(city.id, city.name)}
+                  </span>
+                  <ChevronRight
+                    className={`w-4 h-4 shrink-0 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
-          <>
-            {availableCities.length > 0 && (
-              <div>
-                {hasBothGroups ? (
-                  <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5" data-testid="section-available-now">
-                    {t("locationPicker.availableNow")}
-                  </p>
-                ) : (
-                  <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5" data-testid="section-delivery-areas">
-                    {t("locationPicker.deliveryAreasIn", { country: selectedCountryLabel })}
-                  </p>
-                )}
-                <div className="rounded-xl border border-border overflow-hidden">
-                  {availableCities.map((city, idx) => (
-                    <button
-                      key={city.id}
-                      type="button"
-                      onClick={() => handleCitySelect(city.id)}
-                      className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 cursor-pointer ${
-                        idx > 0 ? "border-t border-border" : ""
-                      }`}
-                      data-testid={`button-city-${city.id}`}
-                    >
-                      <span className="text-base font-medium text-foreground">
-                        {cityName(city.id, city.name)}
-                      </span>
-                      <ChevronRight
-                        className={`w-4 h-4 shrink-0 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {unavailableCities.length > 0 && (
-              <div>
-                {hasBothGroups && (
-                  <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5" data-testid="section-coming-soon">
-                    {t("locationPicker.comingSoon")}
-                  </p>
-                )}
-                <div className="rounded-xl border border-border overflow-hidden">
-                  {unavailableCities.map((city, idx) => (
-                    <button
-                      key={city.id}
-                      type="button"
-                      disabled
-                      aria-disabled="true"
-                      tabIndex={-1}
-                      className={`w-full flex items-center px-5 min-h-[56px] py-3 text-start cursor-not-allowed ${
-                        idx > 0 ? "border-t border-border" : ""
-                      }`}
-                      data-testid={`button-city-${city.id}`}
-                    >
-                      {/* contrast-ok: disabled button – WCAG 1.4.3 inactive UI exception */}
-                      <span className="text-base font-medium text-muted-foreground">
-                        {cityName(city.id, city.name)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
+          /* Mixed availability (Cyprus) — one card, section labels inside as dividers */
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="px-5 pt-3.5 pb-1.5" data-testid="section-available-now">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("locationPicker.availableNow")}
+              </p>
+            </div>
+            {availableCities.map((city) => (
+              <button
+                key={city.id}
+                type="button"
+                onClick={() => handleCitySelect(city.id)}
+                className="w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 cursor-pointer border-t border-border"
+                data-testid={`button-city-${city.id}`}
+              >
+                <span className="text-base font-medium text-foreground">
+                  {cityName(city.id, city.name)}
+                </span>
+                <ChevronRight
+                  className={`w-4 h-4 shrink-0 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
+                />
+              </button>
+            ))}
+            <div className="px-5 pt-3.5 pb-1.5 border-t border-border" data-testid="section-coming-soon">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("locationPicker.comingSoon")}
+              </p>
+            </div>
+            {unavailableCities.map((city) => (
+              <button
+                key={city.id}
+                type="button"
+                disabled
+                aria-disabled="true"
+                tabIndex={-1}
+                className="w-full flex items-center px-5 min-h-[56px] py-3 text-start cursor-not-allowed border-t border-border"
+                data-testid={`button-city-${city.id}`}
+              >
+                {/* contrast-ok: disabled button – WCAG 1.4.3 inactive UI exception */}
+                <span className="text-base font-medium text-muted-foreground">
+                  {cityName(city.id, city.name)}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

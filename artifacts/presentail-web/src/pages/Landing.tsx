@@ -151,37 +151,31 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     };
 
     return (
-      <div className="flex flex-col">
-        {/* Section label */}
-        <div className="px-5 pt-3.5 pb-1">
-          {hasBothGroups ? (
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("locationPicker.availableNow")}
+      <div className="flex flex-col gap-3">
+        {/* Available now / Delivery areas card */}
+        {active.length > 0 && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-0.5">
+              {hasBothGroups
+                ? t("locationPicker.availableNow")
+                : t("locationPicker.deliveryAreasIn", { country: selectedLabel })}
             </p>
-          ) : (
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("locationPicker.deliveryAreasIn", { country: selectedLabel })}
-            </p>
-          )}
-        </div>
-
-        {/* Active areas */}
-        <div>
-          {active.map((city, idx) => renderCityRow(city, idx, false))}
-        </div>
-
-        {/* Coming soon section */}
-        {hasBothGroups && unavailable.length > 0 && (
-          <>
-            <div className="px-5 pt-4 pb-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t("locationPicker.comingSoon")}
-              </p>
+            <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 shadow-sm">
+              {active.map((city, idx) => renderCityRow(city, idx, false))}
             </div>
-            <div>
+          </div>
+        )}
+
+        {/* Coming soon card */}
+        {hasBothGroups && unavailable.length > 0 && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-0.5">
+              {t("locationPicker.comingSoon")}
+            </p>
+            <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 shadow-sm">
               {unavailable.map((city, idx) => renderCityRow(city, idx, true))}
             </div>
-          </>
+          </div>
         )}
       </div>
     );
@@ -283,18 +277,19 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
             </div>
           )}
 
-          {/* Country list / city list card */}
-          <div className={`rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm ${selectedCountryCode ? "flex flex-col flex-1 min-h-0" : ""}`}>
-            {isLoadingCountries && countries.length === 0
-              ? skeletonRows
-              : selectedCountryCode
-              ? (selectedRow && selectedRow.cities.length > 0
-                ? (
-                  <div className="flex-1 min-h-0 overflow-y-auto">
-                    <CityList cities={selectedRow.cities} countryCode={selectedRow.code} />
-                  </div>
-                ) : null)
-              : rows.map((row, idx) => (
+          {/* Country list OR city cards */}
+          {isLoadingCountries && countries.length === 0
+            ? <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm">{skeletonRows}</div>
+            : selectedCountryCode
+            ? (selectedRow && selectedRow.cities.length > 0
+              ? (
+                <div className="flex-1 min-h-0 overflow-y-auto pb-2">
+                  <CityList cities={selectedRow.cities} countryCode={selectedRow.code} />
+                </div>
+              ) : null)
+            : (
+              <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm">
+                {rows.map((row, idx) => (
                   <button
                     key={row.code}
                     type="button"
@@ -315,9 +310,10 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                       className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
                     />
                   </button>
-                ))
-            }
-          </div>
+                ))}
+              </div>
+            )
+          }
 
         </div>
       </div>
