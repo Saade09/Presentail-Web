@@ -273,7 +273,8 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                 <button
                   type="button"
                   onClick={() => setSelectedCountryCode(null)}
-                  className="ms-3 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline underline-offset-2 transition-colors cursor-pointer shrink-0"
+                  className="ms-3 text-xs font-semibold hover:underline underline-offset-2 transition-colors cursor-pointer shrink-0"
+                  style={{ color: "#00414e" }}
                   data-testid="button-picker-change"
                 >
                   {t("locationPicker.change")}

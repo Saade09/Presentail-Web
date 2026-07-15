@@ -124,7 +124,8 @@ export function LocationPicker({
               type="button"
               onClick={handleBackToCountries}
               data-testid="button-picker-change"
-              className="ms-3 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline underline-offset-2 transition-colors cursor-pointer shrink-0"
+              className="ms-3 text-xs font-semibold hover:underline underline-offset-2 transition-colors cursor-pointer shrink-0"
+              style={{ color: "#00414e" }}
             >
               {t("locationPicker.change")}
             </button>
