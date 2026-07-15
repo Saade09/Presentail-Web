@@ -358,7 +358,7 @@ export async function generateDescription(
 
   try {
     const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.6,
       max_tokens: 200,
