@@ -144,6 +144,14 @@ router.post("/checkout/session", async (req, res) => {
   const stripeCurrency = currency.toLowerCase();
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
+    req.log.warn(
+      {
+        storeKey: store.storeKey,
+        items: items.map((i) => ({ wcId: i.wcId, osSlug: i.osSlug })),
+        reason: catalogResult.message,
+      },
+      "checkout: resolveCartItems failed (Stripe Checkout)",
+    );
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
@@ -498,6 +506,14 @@ router.post("/checkout/payment-intent", async (req, res) => {
 
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
+    req.log.warn(
+      {
+        storeKey: store.storeKey,
+        items: items.map((i) => ({ wcId: i.wcId, osSlug: i.osSlug })),
+        reason: catalogResult.message,
+      },
+      "checkout: resolveCartItems failed (PaymentIntent)",
+    );
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
@@ -934,6 +950,14 @@ router.post("/checkout/fees", async (req, res) => {
 
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
+    req.log.warn(
+      {
+        storeKey: store.storeKey,
+        items: items.map((i) => ({ wcId: i.wcId, osSlug: i.osSlug })),
+        reason: catalogResult.message,
+      },
+      "checkout: resolveCartItems failed (Mamo/PayPal)",
+    );
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
