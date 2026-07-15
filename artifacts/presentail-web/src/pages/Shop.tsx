@@ -1,5 +1,5 @@
 import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, type Product } from "@/lib/queries";
-import { applyRecipientFilter } from "@/lib/birthdayRecipients";
+import { applyRecipientFilter, BIRTHDAY_RECIPIENTS } from "@/lib/birthdayRecipients";
 import { applyAnniversaryGenderFilter } from "@/lib/anniversaryGender";
 import { applyLoveRomanceGenderFilter } from "@/lib/loveRomanceGender";
 import { applyNewbornGenderFilter, useNewbornGenderMap, VALID_NEWBORN_GENDER_KEYS } from "@/lib/newbornGender";
@@ -12,8 +12,9 @@ import { VALID_BEAR_SIZE_KEYS, applyBearSizeFilter, useBearSizeMap } from "@/lib
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
+import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -232,7 +233,36 @@ export default function Shop() {
   const rawRecipientKey = searchParams.get("for") || "all";
   const recipientKey = VALID_BIRTHDAY_RECIPIENT_KEYS.has(rawRecipientKey) ? rawRecipientKey : "all";
 
+  const prevRecipientKeyRef = useRef<string>(recipientKey);
+  const birthdayFilterViewedRef = useRef(false);
+
+  useEffect(() => {
+    if (occasion !== "birthday") return;
+    if (birthdayFilterViewedRef.current) return;
+    birthdayFilterViewedRef.current = true;
+    trackEvent({ name: "birthday_recipient_filter_viewed" });
+  }, [occasion]);
+
   function handleRecipientSelect(key: string) {
+    const prev = prevRecipientKeyRef.current;
+    if (key === prev) return;
+    prevRecipientKeyRef.current = key;
+
+    if (occasion === "birthday") {
+      const nextFiltered = applyRecipientFilter(sourceProducts, key);
+      const count = nextFiltered.length;
+      const locale = language;
+      const country = countryCode ?? undefined;
+
+      if (key === "all" && prev !== "all") {
+        trackEvent({ name: "birthday_recipient_cleared", recipientKey: prev, productCount: count, locale, country });
+      } else if (prev === "all" && key !== "all") {
+        trackEvent({ name: "birthday_recipient_selected", recipientKey: key, productCount: count, locale, country });
+      } else if (prev !== "all" && key !== "all") {
+        trackEvent({ name: "birthday_recipient_changed", previousRecipientKey: prev, recipientKey: key, productCount: count, locale, country });
+      }
+    }
+
     const params = new URLSearchParams(searchString);
     if (key === "all") {
       params.delete("for");
@@ -498,6 +528,13 @@ export default function Shop() {
         : t("shop.allCollection");
 
   const brandDisplayName = brandProducts.data?.brandName ?? brand;
+
+  const birthdayContextTitle = useMemo(() => {
+    if (occasion !== "birthday" || recipientKey === "all") return null;
+    const recipient = BIRTHDAY_RECIPIENTS.find((r) => r.key === recipientKey);
+    if (!recipient) return null;
+    return t("shop.birthdayFor.contextHeading", { recipient: t(recipient.labelKey) });
+  }, [occasion, recipientKey, t]);
   const clearBrandHref = occasion
     ? `/occasion/${occasion}`
     : category
@@ -557,7 +594,7 @@ export default function Shop() {
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
-              {pageTitle}
+              {birthdayContextTitle ?? pageTitle}
               {isLoading ? (
                 <span className="hidden md:inline ml-4 align-middle">
                   <Skeleton className="inline-block h-4 w-16 rounded" />
@@ -596,7 +633,9 @@ export default function Shop() {
         </div>
 
         {occasion === "birthday" && (
-          <BirthdayRecipientTabs activeKey={recipientKey} onSelect={handleRecipientSelect} />
+          <div className="mt-4">
+            <BirthdayRecipientTabs activeKey={recipientKey} onSelect={handleRecipientSelect} />
+          </div>
         )}
 
         {occasion === "anniversary" && (

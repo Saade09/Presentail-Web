@@ -15,10 +15,40 @@ export const BIRTHDAY_RECIPIENTS: BirthdayRecipient[] = [
     excludeNameKeywords: [],
   },
   {
+    key: "wife",
+    labelKey: "shop.birthdayFor.wife",
+    preferredCategories: ["hand-bouquets", "flower-boxes", "flower-baskets", "chocolate", "bundles"],
+    excludeNameKeywords: [],
+  },
+  {
+    key: "girlfriend",
+    labelKey: "shop.birthdayFor.girlfriend",
+    preferredCategories: ["hand-bouquets", "flower-boxes", "chocolate", "cakes", "bundles"],
+    excludeNameKeywords: [],
+  },
+  {
     key: "dad",
     labelKey: "shop.birthdayFor.dad",
     preferredCategories: ["chocolate", "spirits", "plants", "bundles", "gift-baskets", "flower-boxes"],
     excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
+  },
+  {
+    key: "husband",
+    labelKey: "shop.birthdayFor.husband",
+    preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets", "hand-bouquets", "flower-boxes"],
+    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
+  },
+  {
+    key: "boyfriend",
+    labelKey: "shop.birthdayFor.boyfriend",
+    preferredCategories: ["plants", "chocolate", "bundles", "cakes", "gift-baskets"],
+    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
+  },
+  {
+    key: "kids",
+    labelKey: "shop.birthdayFor.kids",
+    preferredCategories: ["cakes", "chocolate", "bundles"],
+    excludeNameKeywords: [],
   },
   {
     key: "teta",
@@ -31,36 +61,6 @@ export const BIRTHDAY_RECIPIENTS: BirthdayRecipient[] = [
     labelKey: "shop.birthdayFor.jedo",
     preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets", "flower-boxes"],
     excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
-  },
-  {
-    key: "girlfriend",
-    labelKey: "shop.birthdayFor.girlfriend",
-    preferredCategories: ["hand-bouquets", "flower-boxes", "chocolate", "cakes", "bundles"],
-    excludeNameKeywords: [],
-  },
-  {
-    key: "boyfriend",
-    labelKey: "shop.birthdayFor.boyfriend",
-    preferredCategories: ["plants", "chocolate", "bundles", "cakes", "gift-baskets"],
-    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
-  },
-  {
-    key: "wife",
-    labelKey: "shop.birthdayFor.wife",
-    preferredCategories: ["hand-bouquets", "flower-boxes", "flower-baskets", "chocolate", "bundles"],
-    excludeNameKeywords: [],
-  },
-  {
-    key: "husband",
-    labelKey: "shop.birthdayFor.husband",
-    preferredCategories: ["plants", "chocolate", "bundles", "gift-baskets", "hand-bouquets", "flower-boxes"],
-    excludeNameKeywords: ["pink", "rose gold", "rosé", "blush", "lilac", "lavender", "fuchsia", "magenta", "plum", "heart", "hearts", "love", "romance", "romantic", "passionate", "promise", "her"],
-  },
-  {
-    key: "kids",
-    labelKey: "shop.birthdayFor.kids",
-    preferredCategories: ["cakes", "chocolate", "bundles"],
-    excludeNameKeywords: [],
   },
 ];
 

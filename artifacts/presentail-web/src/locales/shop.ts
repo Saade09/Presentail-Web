@@ -131,8 +131,9 @@ export const shopStrings: Dict = {
   "shop.newbornFor.babyBoy": { en: "Baby Boy", ar: "مولود ذكر" },
   "shop.newbornFor.babyGirl": { en: "Baby Girl", ar: "مولودة أنثى" },
 
-  "shop.birthdayFor.label": { en: "Shop Birthday Gifts For:", ar: "تسوّق هدايا عيد الميلاد لـ:" },
-  "shop.birthdayFor.all": { en: "All", ar: "الكل" },
+  "shop.birthdayFor.label": { en: "Who are you shopping for?", ar: "لمن تتسوّق؟" },
+  "shop.birthdayFor.all": { en: "Everyone", ar: "الجميع" },
+  "shop.birthdayFor.contextHeading": { en: "Birthday Gifts for {recipient}", ar: "هدايا عيد الميلاد لـ {recipient}" },
   "shop.birthdayFor.mom": { en: "Mom", ar: "الأم" },
   "shop.birthdayFor.dad": { en: "Dad", ar: "الأب" },
   "shop.birthdayFor.teta": { en: "Teta", ar: "تيتا" },
@@ -610,8 +611,9 @@ export const shopStringsFr: Record<string, string> = {
   "shop.newbornFor.babyBoy": "Bébé garçon",
   "shop.newbornFor.babyGirl": "Bébé fille",
 
-  "shop.birthdayFor.label": "Offrir pour l'anniversaire de :",
-  "shop.birthdayFor.all": "Tous",
+  "shop.birthdayFor.label": "Pour qui achetez-vous ?",
+  "shop.birthdayFor.all": "Tout le monde",
+  "shop.birthdayFor.contextHeading": "Cadeaux d'anniversaire pour {recipient}",
   "shop.birthdayFor.mom": "Maman",
   "shop.birthdayFor.dad": "Papa",
   "shop.birthdayFor.teta": "Teta",

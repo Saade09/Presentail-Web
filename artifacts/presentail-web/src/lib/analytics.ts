@@ -128,6 +128,10 @@ export function trackWebEvent(event: WebEvent): void {
 }
 
 type AnalyticsEventName =
+  | "birthday_recipient_filter_viewed"
+  | "birthday_recipient_selected"
+  | "birthday_recipient_changed"
+  | "birthday_recipient_cleared"
   | "checkout_login_prompt_viewed"
   | "checkout_login_prompt_action"
   | "cart_viewed"
@@ -218,6 +222,12 @@ export type AnalyticsEvent = {
   linkUrl?: string;
   /** recommended_product_clicked: 1-based position in the recommendations row */
   recommendationPosition?: number;
+  /** birthday_recipient_* events */
+  recipientKey?: string;
+  previousRecipientKey?: string;
+  productCount?: number;
+  locale?: string;
+  country?: string;
 };
 
 function generateSessionId(): string {
