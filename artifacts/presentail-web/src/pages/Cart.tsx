@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useCart } from "@/contexts/CartContext";
+import { useCart, effectivePrice } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
@@ -181,7 +181,7 @@ export default function Cart() {
         body: JSON.stringify({
           code,
           customerEmail: user?.email ?? "",
-          cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: i.product.priceValue, quantity: i.quantity })),
+          cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
           cartTotalUsd: subtotal,
         }),
       });
