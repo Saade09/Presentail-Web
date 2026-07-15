@@ -154,12 +154,11 @@ export const checkoutStrings: Dict = {
   "checkout.defaultLabel": { en: "Default", ar: "افتراضي" },
   "checkout.districtLoading": { en: "Loading areas…", ar: "جارٍ تحميل المناطق…" },
   "checkout.districtUnavailable": { en: "No delivery areas available", ar: "لا توجد مناطق توصيل متاحة" },
-  "checkout.coupon.toggle": { en: "Have a gift card or coupon?", ar: "هل لديك بطاقة هدايا أو كوبون؟" },
+  "checkout.coupon.addLabel": { en: "Add promo or gift card", ar: "أضف كوبون أو بطاقة هدايا" },
   "checkout.coupon.placeholder": { en: "Enter code", ar: "أدخل الرمز" },
   "checkout.coupon.apply": { en: "Apply", ar: "تطبيق" },
   "checkout.coupon.remove": { en: "Remove", ar: "إزالة" },
   "checkout.coupon.applied": { en: "Coupon applied", ar: "تم تطبيق الكوبون" },
-  "checkout.coupon.validating": { en: "Checking...", ar: "جارٍ التحقق..." },
   "checkout.coupon.invalid": { en: "This coupon is not valid.", ar: "هذا الكوبون غير صالح." },
   "checkout.coupon.error": { en: "Could not validate coupon. Please try again.", ar: "تعذّر التحقق من الكوبون. يرجى المحاولة مجدداً." },
   "checkout.coupon.invalidError": { en: "This coupon is invalid or has expired. Please check the code and try again.", ar: "هذا الكوبون غير صالح أو منتهي الصلاحية. يرجى التحقق من الرمز والمحاولة مجدداً." },
@@ -201,6 +200,12 @@ export const checkoutStrings: Dict = {
     ar: "التوصيل العادي مجاني. التوصيل السريع يتضمن رسوماً إضافية.",
   },
   "checkout.freeDelivery.unlocked.freeLabel": { en: "Free", ar: "مجاني" },
+
+  "checkout.summary.itemCount_one": { en: "1 item", ar: "عنصر واحد" },
+  "checkout.summary.itemCount_other": { en: "{n} items", ar: "{n} عناصر" },
+  "checkout.editCart": { en: "Edit cart", ar: "تعديل السلة" },
+  "checkout.delivery.sectionLabel": { en: "DELIVERY", ar: "التوصيل" },
+  "checkout.delivery.notSelected": { en: "Select delivery details", ar: "اختر تفاصيل التوصيل" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -334,12 +339,11 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.defaultLabel": "Par défaut",
   "checkout.districtLoading": "Chargement des zones…",
   "checkout.districtUnavailable": "Aucune zone de livraison disponible",
-  "checkout.coupon.toggle": "Vous avez un chèque-cadeau ou un coupon ?",
+  "checkout.coupon.addLabel": "Ajouter un code promo ou une carte cadeau",
   "checkout.coupon.placeholder": "Saisissez le code",
   "checkout.coupon.apply": "Appliquer",
   "checkout.coupon.remove": "Supprimer",
   "checkout.coupon.applied": "Coupon appliqué",
-  "checkout.coupon.validating": "Vérification...",
   "checkout.coupon.invalid": "Ce coupon n'est pas valide.",
   "checkout.coupon.error": "Impossible de valider le coupon. Veuillez réessayer.",
   "checkout.coupon.invalidError": "Ce coupon est invalide ou a expiré. Veuillez vérifier le code et réessayer.",
@@ -378,4 +382,10 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.freeDelivery.unlocked.saved.suffix": " sur la livraison.",
   "checkout.freeDelivery.unlocked.expressNote": "La livraison standard est gratuite. La livraison express inclut des frais supplémentaires.",
   "checkout.freeDelivery.unlocked.freeLabel": "Gratuit",
+
+  "checkout.summary.itemCount_one": "1 article",
+  "checkout.summary.itemCount_other": "{n} articles",
+  "checkout.editCart": "Modifier le panier",
+  "checkout.delivery.sectionLabel": "LIVRAISON",
+  "checkout.delivery.notSelected": "Sélectionner les détails de livraison",
 };

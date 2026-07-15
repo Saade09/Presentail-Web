@@ -18,7 +18,7 @@ import {
   useTabbyPayment,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, ChevronDown, Tag, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,8 +28,7 @@ import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useIpDetectedCountry } from "@/lib/useIpDetectedCountry";
-import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
-import { FreeDeliveryUnlockedStrip } from "@/components/cart/FreeDeliveryUnlockedStrip";
+
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
@@ -46,6 +45,7 @@ import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
+import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
@@ -2856,202 +2856,38 @@ function CheckoutForm() {
           </div>
 
           {/* ── Order Summary Sidebar ── */}
-          <div className="w-full lg:w-96 xl:w-[420px] shrink-0 order-first lg:order-last self-stretch">
-            <div className="sticky top-24">
-              {/* flex flex-col so the CTA sits below the scrollable summary area;
-                  lg:max-h limits height on short laptops so the CTA stays in view */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:max-h-[calc(100vh-6rem)]">
-                <button
-                  type="button"
-                  className="w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between lg:cursor-default shrink-0"
-                  style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
-                  onClick={() => setSummaryOpen((prev) => !prev)}
-                  aria-expanded={summaryOpen}
-                  data-testid="button-summary-toggle"
-                >
-                  <h3 className="text-sm font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("checkout.summary")}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold lg:hidden" style={{ color: "hsl(var(--primary))" }}>
-                      <FormattedPrice usdValue={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} />
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 lg:hidden transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
-                      style={{ color: "hsl(var(--primary))" }}
-                    />
-                  </div>
-                </button>
-                {/* On desktop, this area scrolls when the card exceeds the max-height.
-                    The CTA is rendered outside this div so it always stays visible. */}
-                <div className={`${summaryOpen ? "block" : "hidden"} lg:flex lg:flex-col lg:flex-1 lg:min-h-0 lg:overflow-y-auto`}>
-                <div className="px-6 py-5">
-                  {/* Items */}
-                  <div className="space-y-4 mb-5">
-                    {items.map((item) => (
-                      <div key={item.product.id} className="flex gap-3" data-testid={`row-summary-${item.product.id}`}>
-                        <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                          {item.product.image?.uri && <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium line-clamp-2 leading-snug">{item.product.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.qty")}: {item.quantity}</p>
-                          <p className="text-sm font-semibold mt-0.5" style={{ color: "hsl(var(--primary))" }} data-testid={`checkout-item-price-${item.product.id}`}>
-                            <SalePrice
-                              priceValue={item.product.priceValue * item.quantity}
-                              discountPriceValue={item.product.discountPriceValue != null ? item.product.discountPriceValue * item.quantity : null}
-                              discountPriceAed={item.product.discountPriceAed != null ? item.product.discountPriceAed * item.quantity : null}
-                            />
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Coupon */}
-                  <div className="border-t border-gray-100 pt-4 mb-4">
-                    {couponApplied ? (
-                      <>
-                        <div className="flex justify-between text-sm mb-1.5" style={{ color: "hsl(var(--primary))" }} data-testid="row-coupon-discount">
-                          <div className="flex items-center gap-1.5">
-                            <Tag className="w-3 h-3 shrink-0" />
-                            <span className="font-medium">{couponInput}</span>
-                            <span className="text-muted-foreground text-xs">· {t("checkout.coupon.applied")}</span>
-                          </div>
-                          <span className="font-medium">{confirmedCouponDiscount > 0 ? <>−<FormattedPrice usdValue={confirmedCouponDiscount} /></> : "—"}</span>
-                        </div>
-                        <button type="button" onClick={handleCouponRemove} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive transition-colors">{t("checkout.coupon.remove")}</button>
-                      </>
-                    ) : (
-                      <>
-                        <button type="button" onClick={handleCouponToggle} className="text-sm underline underline-offset-2 hover:opacity-70 transition-opacity font-medium" style={{ color: "hsl(var(--primary))" }} data-testid="button-coupon-toggle">
-                          {t("checkout.coupon.toggle")}
-                        </button>
-                        {couponOpen && (
-                          <div className="mt-3">
-                            <div className={`flex gap-2 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
-                              <Input
-                                ref={couponInputRef}
-                                value={couponInput}
-                                onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); if (couponError) setCouponError(null); }}
-                                onKeyDown={(e) => e.key === "Enter" && handleCouponApply()}
-                                placeholder={t("checkout.coupon.placeholder")}
-                                className={`h-10 text-sm uppercase${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
-                                data-testid="input-coupon-code-checkout"
-                              />
-                              <Button type="button" size="sm" variant="outline" className="h-10 shrink-0" onClick={handleCouponApply} disabled={!couponInput.trim() || couponValidating} data-testid="button-coupon-apply-checkout">
-                                {couponValidating ? t("checkout.coupon.validating") : t("checkout.coupon.apply")}
-                              </Button>
-                            </div>
-                            {couponError && <p className="mt-1.5 text-xs text-destructive" data-testid="text-coupon-error-checkout">{couponError}</p>}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Line items */}
-                  <div className="space-y-2.5 border-t border-gray-100 pt-4">
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{t("cart.subtotal")}</span>
-                      <span data-testid="text-subtotal"><FormattedPrice usdValue={subtotal} /></span>
-                    </div>
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{t("checkout.deliveryLabel")}</span>
-                      {isFreeDeliveryUnlocked && deliveryMode !== "express" ? (
-                        <>
-                          {/* Mobile: unchanged — just show the translated "Free" text */}
-                          <span className="lg:hidden">
-                            {t("checkout.deliveryFree")}
-                          </span>
-                          {/* Desktop: struck-through original fee + teal "Free" label */}
-                          <span className="hidden lg:flex items-center gap-1.5">
-                            <s><FormattedPrice usdValue={originalCityFee} /></s>
-                            <span className="font-medium" style={{ color: "hsl(var(--primary))" }}>
-                              {t("checkout.freeDelivery.unlocked.freeLabel")}
-                            </span>
-                          </span>
-                        </>
-                      ) : (
-                        <span>{districtFee === 0 ? t("checkout.deliveryFree") : <FormattedPrice usdValue={districtFee} />}</span>
-                      )}
-                    </div>
-                    {deliveryMode === "express" && (
-                      <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
-                        <span>{t("checkout.expressUpgradeLabel")}</span>
-                        <span>{expressFee > 0 ? <FormattedPrice usdValue={expressFee} /> : t("checkout.deliveryFree")}</span>
-                      </div>
-                    )}
-                    {slotFee > 0 && (
-                      <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-slot-fee">
-                        <span>{t("checkout.nightDeliverySurcharge") || "Night Delivery"}</span>
-                        <span><FormattedPrice usdValue={slotFee} /></span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Total */}
-                  <div className="flex justify-between font-semibold text-base pt-4 mt-3 border-t border-gray-100">
-                    <span style={{ color: "hsl(var(--primary))" }}>{t("cart.total")}</span>
-                    <span style={{ color: "hsl(var(--primary))" }} data-testid="text-total"><FormattedPrice usdValue={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} /></span>
-                  </div>
-
-                  {isFreeDeliveryUnlocked ? (
-                    <>
-                      {/* Mobile: unchanged — keep the existing static banner.
-                          effectiveFreeDeliveryEnabled is guaranteed non-false in this
-                          branch because isFreeDeliveryUnlocked already gates on it. */}
-                      <div className="mt-4 lg:hidden">
-                        <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
-                      </div>
-                      {/* Desktop: unlocked success strip */}
-                      <div className="mt-4 hidden lg:block">
-                        <FreeDeliveryUnlockedStrip
-                          savedAmountUsd={deliveryMode !== "express" ? originalCityFee : undefined}
-                          expressSelected={deliveryMode === "express"}
-                        />
-                      </div>
-                    </>
-                  ) : effectiveFreeDeliveryEnabled !== false && (
-                    <div className="mt-4">
-                      <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
-                    </div>
-                  )}
-                </div>
-
-                </div>{/* end collapsible */}
-
-                {/* ── Desktop sidebar CTA — Step 1 only, hidden on mobile ── */}
-                {step === 1 && (
-                  <div className="hidden lg:block shrink-0 border-t border-gray-100 px-6 py-5">
-                    <button
-                      type="button"
-                      onClick={handleValidateAndAdvance}
-                      data-testid="button-continue-to-payment-sidebar"
-                      aria-describedby="sidebar-cta-secure"
-                      className={`w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${step1CtaDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                      style={{ backgroundColor: "hsl(var(--primary))" }}
-                    >
-                      <span>
-                        {t("checkout.cta.continueToPayment")}
-                        {" · "}
-                        <span role="status" aria-live="polite">
-                          <FormattedPrice usdValue={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} />
-                        </span>
-                      </span>
-                      <ArrowRight
-                        className={`w-5 h-5 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`}
-                        aria-label={t("checkout.cta.arrowLabel")}
-                        aria-hidden={false}
-                      />
-                    </button>
-                    <div id="sidebar-cta-secure" className="flex items-center justify-center gap-1.5 mt-3 text-xs text-muted-foreground">
-                      <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                      <span>{t("checkout.cta.secureCheckout")}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <OrderSummaryPanel
+            items={items}
+            subtotal={subtotal}
+            districtFee={districtFee}
+            expressFee={expressFee}
+            slotFee={slotFee}
+            confirmedCouponDiscount={confirmedCouponDiscount}
+            isFreeDeliveryUnlocked={isFreeDeliveryUnlocked}
+            originalCityFee={originalCityFee}
+            effectiveFreeDeliveryEnabled={effectiveFreeDeliveryEnabled}
+            effectiveFreeDeliveryThresholdUsd={effectiveFreeDeliveryThresholdUsd}
+            deliveryMode={deliveryMode}
+            deliveryRowText={deliveryRowText}
+            selectedDistrict={_selectedDistrict}
+            couponApplied={couponApplied}
+            couponOpen={couponOpen}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            couponError={couponError}
+            setCouponError={setCouponError}
+            couponValidating={couponValidating}
+            couponInputRef={couponInputRef}
+            handleCouponToggle={handleCouponToggle}
+            handleCouponApply={handleCouponApply}
+            handleCouponRemove={handleCouponRemove}
+            onChangeDelivery={() => setDeliveryPickerOpen(true)}
+            step={step}
+            step1CtaDisabled={step1CtaDisabled}
+            handleValidateAndAdvance={handleValidateAndAdvance}
+            summaryOpen={summaryOpen}
+            setSummaryOpen={setSummaryOpen}
+          />
 
         </div>
       </div>
