@@ -86,69 +86,121 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     countryCode: string;
   }) => {
     const countrySlug = countryCodeToSlug(countryCode) as CountrySlug;
-    const sortedCities = [...cities].sort((a, b) => {
-      const aInactive = a.isActive === false;
-      const bInactive = b.isActive === false;
-      if (aInactive !== bInactive) return aInactive ? 1 : -1;
-      if (!aInactive && !bInactive && countryCode === "LB") {
-        const aPin = PINNED_LB.indexOf(a.id);
-        const bPin = PINNED_LB.indexOf(b.id);
-        if (aPin !== -1 && bPin !== -1) return aPin - bPin;
-        if (aPin !== -1) return -1;
-        if (bPin !== -1) return 1;
-        return cityName(a.id, a.name).localeCompare(cityName(b.id, b.name));
+
+    const active = [...cities]
+      .filter((c) => c.isActive !== false)
+      .sort((a, b) => {
+        if (countryCode === "LB") {
+          const aPin = PINNED_LB.indexOf(a.id);
+          const bPin = PINNED_LB.indexOf(b.id);
+          if (aPin !== -1 && bPin !== -1) return aPin - bPin;
+          if (aPin !== -1) return -1;
+          if (bPin !== -1) return 1;
+          return cityName(a.id, a.name).localeCompare(cityName(b.id, b.name));
+        }
+        return 0;
+      });
+
+    const unavailable = cities.filter((c) => c.isActive === false);
+    const hasBothGroups = active.length > 0 && unavailable.length > 0;
+
+    const selectedLabel = countryName(countryCode, rows.find((r) => r.code === countryCode)?.name ?? countryCode);
+
+    const renderCityRow = (city: DeliveryCity, idx: number, isInactive: boolean) => {
+      const citySlug = cityIdToSlug(city.id);
+      const href = buildLocalePath({ lang: "en", country: countrySlug, city: citySlug });
+      const rowClass = `w-full flex items-center justify-between px-5 py-3.5 min-h-[48px] text-start transition-colors ${
+        idx > 0 ? "border-t border-stone-200/70" : ""
+      }`;
+
+      if (isInactive) {
+        return (
+          <button
+            key={city.id}
+            type="button"
+            disabled
+            aria-disabled="true"
+            tabIndex={-1}
+            className={`${rowClass} cursor-not-allowed`}
+            data-testid={`button-city-${city.id}`}
+          >
+            {/* contrast-ok: disabled city option – WCAG 1.4.3 inactive UI exception */}
+            <span className="text-sm font-medium text-muted-foreground">
+              {cityName(city.id, city.name)}
+            </span>
+          </button>
+        );
       }
-      return 0;
-    });
+
+      return (
+        <a
+          key={city.id}
+          href={href}
+          onClick={(e) => { e.preventDefault(); handleCitySelect(countryCode, city.id); }}
+          className={`${rowClass} hover:bg-gray-100/60`}
+          data-testid={`button-city-${city.id}`}
+        >
+          <span className="text-sm font-medium text-foreground">
+            {cityName(city.id, city.name)}
+          </span>
+          <ChevronRight
+            className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
+          />
+        </a>
+      );
+    };
+
     return (
       <div className="flex flex-col">
-        {sortedCities.map((city, idx) => {
-          const inactive = city.isActive === false;
-          const citySlug = cityIdToSlug(city.id);
-          const href = buildLocalePath({ lang: "en", country: countrySlug, city: citySlug });
-          const rowClass = `w-full flex items-center justify-between px-5 py-3.5 min-h-[48px] text-start transition-colors ${
-            idx > 0 ? "border-t border-stone-200/70" : ""
-          }`;
-          if (inactive) {
-            return (
-              <button
-                key={city.id}
-                type="button"
-                disabled
-                className={`${rowClass} cursor-not-allowed opacity-40`}
-                data-testid={`button-city-${city.id}`}
-              >
-                {/* contrast-ok: disabled city option (cursor-not-allowed + opacity-40 on parent) – WCAG 1.4.3 inactive UI exception */}
-                <span className="text-sm font-medium text-foreground/40">
-                  {cityName(city.id, city.name)}
-                  {/* contrast-ok: disabled city label – WCAG 1.4.3 inactive UI exception */}
-                  <span className="ml-1.5 text-xs font-normal text-foreground/35">
-                    {t("location.cityUnavailable")}
-                  </span>
-                </span>
-              </button>
-            );
-          }
-          return (
-            <a
-              key={city.id}
-              href={href}
-              onClick={(e) => { e.preventDefault(); handleCitySelect(countryCode, city.id); }}
-              className={`${rowClass} hover:bg-gray-100/60`}
-              data-testid={`button-city-${city.id}`}
-            >
-              <span className="text-sm font-medium text-foreground">
-                {cityName(city.id, city.name)}
-              </span>
-              <ChevronRight
-                className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
-              />
-            </a>
-          );
-        })}
+        {/* Section label */}
+        <div className="px-5 pt-3.5 pb-1">
+          {hasBothGroups ? (
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("locationPicker.availableNow")}
+            </p>
+          ) : (
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("locationPicker.deliveryAreasIn", { country: selectedLabel })}
+            </p>
+          )}
+        </div>
+
+        {/* Active areas */}
+        <div>
+          {active.map((city, idx) => renderCityRow(city, idx, false))}
+        </div>
+
+        {/* Coming soon section */}
+        {hasBothGroups && unavailable.length > 0 && (
+          <>
+            <div className="px-5 pt-4 pb-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("locationPicker.comingSoon")}
+              </p>
+            </div>
+            <div>
+              {unavailable.map((city, idx) => renderCityRow(city, idx, true))}
+            </div>
+          </>
+        )}
       </div>
     );
   };
+
+  const selectedRow = selectedCountryCode ? rows.find((r) => r.code === selectedCountryCode) : null;
+  const selectedLabel = selectedRow ? countryName(selectedRow.code, selectedRow.name) : "";
+
+  const activeCities = selectedRow ? selectedRow.cities.filter((c) => c.isActive !== false) : [];
+  const unavailableCities = selectedRow ? selectedRow.cities.filter((c) => c.isActive === false) : [];
+  const hasBothGroups = activeCities.length > 0 && unavailableCities.length > 0;
+
+  const description = selectedCountryCode
+    ? hasBothGroups
+      ? t("locationPicker.currentlyDeliverTo", {
+          areas: activeCities.map((c) => cityName(c.id, c.name)).join(", "),
+        })
+      : t("locationPicker.chooseAreaDescription")
+    : null;
 
   const skeletonRows = Array.from({ length: 3 }).map((_, i) => (
     <div key={i} className="h-14 my-0.5 rounded-lg bg-gray-200/50 animate-pulse" />
@@ -173,25 +225,40 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
         </div>
       </div>
 
-      {/* Main content — single centered column.
-          When a country is expanded: stretch to fill height so the city list
-          reaches the viewport bottom. When collapsed: content-sized. */}
+      {/* Main content — single centered column. */}
       <div className={`flex-1 flex justify-center px-6 pt-6 overflow-hidden ${selectedCountryCode ? "items-stretch" : "items-start"}`}>
-        <div className={`w-full max-w-md flex flex-col gap-5 ${selectedCountryCode ? "flex-1 min-h-0" : ""}`}>
-          {/* Headline */}
+        <div className={`w-full max-w-md flex flex-col gap-4 ${selectedCountryCode ? "flex-1 min-h-0" : ""}`}>
+          {/* Headline — changes once a country is picked */}
           <div className="shrink-0">
             <h1
               className="text-3xl xl:text-4xl font-serif text-foreground leading-tight text-center"
               data-testid="text-heading"
             >
-              {t("locationPicker.sendGiftTo")}
+              {selectedCountryCode
+                ? t("locationPicker.whereInCountry", { country: selectedLabel })
+                : t("locationPicker.sendGiftTo")}
             </h1>
-            <p className="text-sm text-muted-foreground font-medium mt-1.5 text-center">
-              {t("locationPicker.selectRecipientCountry")}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 text-center">
-              {t("landing.serviceDescription")}
-            </p>
+            {selectedCountryCode ? (
+              <>
+                <p className="text-sm text-muted-foreground font-medium mt-1.5 text-center">
+                  {t("locationPicker.selectDeliveryArea")}
+                </p>
+                {description && (
+                  <p className="text-xs text-muted-foreground mt-1 text-center" data-testid="area-description">
+                    {description}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground font-medium mt-1.5 text-center">
+                  {t("locationPicker.selectRecipientCountry")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 text-center">
+                  {t("landing.serviceDescription")}
+                </p>
+              </>
+            )}
           </div>
 
           {/* Country accordion */}
