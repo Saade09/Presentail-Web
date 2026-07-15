@@ -184,6 +184,10 @@ export const checkoutStrings: Dict = {
   "checkout.saveAddressHint": { en: "Prefilled automatically next time you shop", ar: "يُملأ تلقائياً في مرة القادمة" },
   "checkout.phoneInvalidNumber": { en: "Please enter a valid phone number for this country", ar: "يرجى إدخال رقم هاتف صحيح لهذا البلد" },
   "checkout.qrPrintedOnCard": { en: "This QR code will be printed on your gift card", ar: "سيُطبع رمز QR هذا على بطاقة الهدية" },
+
+  "checkout.cta.continueToPayment": { en: "Continue to Payment", ar: "المتابعة إلى الدفع" },
+  "checkout.cta.secureCheckout": { en: "Secure checkout", ar: "دفع آمن" },
+  "checkout.cta.arrowLabel": { en: "Proceed to payment", ar: "تابع إلى الدفع" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -347,4 +351,8 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.saveAddressHint": "Préremplie automatiquement lors de votre prochaine commande",
   "checkout.phoneInvalidNumber": "Veuillez entrer un numéro de téléphone valide pour ce pays",
   "checkout.qrPrintedOnCard": "Ce QR code sera imprimé sur votre carte cadeau",
+
+  "checkout.cta.continueToPayment": "Continuer vers le paiement",
+  "checkout.cta.secureCheckout": "Paiement sécurisé",
+  "checkout.cta.arrowLabel": "Passer au paiement",
 };

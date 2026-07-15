@@ -18,7 +18,7 @@ import {
   useTabbyPayment,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, ChevronDown, Tag, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -2210,6 +2210,65 @@ function CheckoutForm() {
   // NOTE: payCtxCountry, paymentOptions, and the payment-method fallback
   // useEffect are computed above (before early returns) to satisfy Rules of Hooks.
 
+  // Shared disabled condition for the Step 1 "Continue to Payment" CTA —
+  // used by both the mobile fixed-bottom button and the desktop sidebar button
+  // so they stay in sync without duplicating the expression.
+  const step1CtaDisabled =
+    !recipient.firstName ||
+    !recipientPhoneValid ||
+    (!noAddress && !recipient.district) ||
+    (!noAddress && !recipient.address) ||
+    (!isSignedIn && (!sender.firstName || !sender.email)) ||
+    (!hasProfilePhone && !sender.phone.trim());
+
+  // Validate all required Step 1 fields, focus/scroll to the first invalid one,
+  // and advance to Step 2 only when all fields are valid.
+  // Used by both the desktop sidebar CTA (always-clickable) and the email
+  // field's Enter-key handler.
+  const handleValidateAndAdvance = () => {
+    // Trigger phone-error UI for both phone fields.
+    setPhoneSubmitAttempted(true);
+
+    // Helper: scroll + focus the first invalid field so the user sees what's wrong.
+    const focusInvalid = (el: HTMLElement | null) => {
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus();
+    };
+
+    // Walk required fields in top-to-bottom form order and bail on the first gap.
+    if (!recipient.firstName) {
+      focusInvalid(recipientFirstNameRef.current);
+      return;
+    }
+    if (!recipientPhoneValid) {
+      focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input'));
+      return;
+    }
+    if (!noAddress && !recipient.district) {
+      focusInvalid(document.querySelector<HTMLElement>('[data-testid="select-district"]'));
+      return;
+    }
+    if (!noAddress && !recipient.address) {
+      focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-recipient-address"]'));
+      return;
+    }
+    if (!isSignedIn && !sender.firstName) {
+      focusInvalid(senderFirstNameRef.current);
+      return;
+    }
+    if (!isSignedIn && !sender.email) {
+      focusInvalid(senderEmailRef.current);
+      return;
+    }
+    if (!hasProfilePhone && !senderPhoneValid) {
+      focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-sender-phone"] input'));
+      return;
+    }
+
+    setStep(2);
+  };
+
   const stepLabels = [
     t("checkout.step.deliveryDetails"),
     t("checkout.step3.title"),
@@ -2514,7 +2573,11 @@ function CheckoutForm() {
                         <Input ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            continueToPaymentRef.current?.focus();
+                            // Run the full validation handler directly so Enter in the
+                            // email field works the same way on both mobile and desktop
+                            // (desktop sidebar CTA is lg-only and may not be focusable
+                            // from mobile breakpoints).
+                            handleValidateAndAdvance();
                           }
                         }} data-testid="input-sender-email" />
                       </div>
@@ -2590,21 +2653,16 @@ function CheckoutForm() {
                   )}
                 </div>
 
-                <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:relative lg:bottom-auto lg:inset-x-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none lg:border-none lg:shadow-none lg:px-0 lg:py-0">
+                {/* Mobile fixed-bottom CTA — hidden on desktop (sidebar CTA takes over) */}
+                <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:hidden">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setLocation("/cart")} data-testid="button-back-to-cart-from-delivery">{t("checkout.back")}</Button>
                   <Button
                     ref={continueToPaymentRef}
                     size="lg"
                     className="flex-1 h-14 rounded-xl text-white font-semibold"
                     style={{ backgroundColor: "hsl(var(--primary))" }}
-                    onClick={() => {
-                      setPhoneSubmitAttempted(true);
-                      const recipientPhoneOk = recipientPhoneValid;
-                      const senderPhoneOk = hasProfilePhone || senderPhoneValid;
-                      if (!recipientPhoneOk || !senderPhoneOk) return;
-                      setStep(2);
-                    }}
-                    disabled={!recipient.firstName || !recipientPhoneValid || (!noAddress && !recipient.district) || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
+                    onClick={handleValidateAndAdvance}
+                    disabled={step1CtaDisabled}
                     data-testid="button-continue-to-payment"
                   >
                     {t("checkout.continuePayment")}
@@ -2776,10 +2834,12 @@ function CheckoutForm() {
           {/* ── Order Summary Sidebar ── */}
           <div className="w-full lg:w-96 xl:w-[420px] shrink-0 order-first lg:order-last self-stretch">
             <div className="sticky top-24">
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              {/* flex flex-col so the CTA sits below the scrollable summary area;
+                  lg:max-h limits height on short laptops so the CTA stays in view */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:max-h-[calc(100vh-6rem)]">
                 <button
                   type="button"
-                  className="w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between lg:cursor-default"
+                  className="w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between lg:cursor-default shrink-0"
                   style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
                   onClick={() => setSummaryOpen((prev) => !prev)}
                   aria-expanded={summaryOpen}
@@ -2796,7 +2856,9 @@ function CheckoutForm() {
                     />
                   </div>
                 </button>
-                <div className={`${summaryOpen ? "block" : "hidden"} lg:block`}>
+                {/* On desktop, this area scrolls when the card exceeds the max-height.
+                    The CTA is rendered outside this div so it always stays visible. */}
+                <div className={`${summaryOpen ? "block" : "hidden"} lg:flex lg:flex-col lg:flex-1 lg:min-h-0 lg:overflow-y-auto`}>
                 <div className="px-6 py-5">
                   {/* Items */}
                   <div className="space-y-4 mb-5">
@@ -2907,6 +2969,37 @@ function CheckoutForm() {
                   <DeliveryDateRow rowText={deliveryRowText} onChangeClick={() => setDeliveryPickerOpen(true)} />
                 </div>
                 </div>{/* end collapsible */}
+
+                {/* ── Desktop sidebar CTA — Step 1 only, hidden on mobile ── */}
+                {step === 1 && (
+                  <div className="hidden lg:block shrink-0 border-t border-gray-100 px-6 py-5">
+                    <button
+                      type="button"
+                      onClick={handleValidateAndAdvance}
+                      data-testid="button-continue-to-payment-sidebar"
+                      aria-describedby="sidebar-cta-secure"
+                      className={`w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${step1CtaDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                      style={{ backgroundColor: "hsl(var(--primary))" }}
+                    >
+                      <span>
+                        {t("checkout.cta.continueToPayment")}
+                        {" · "}
+                        <span role="status" aria-live="polite">
+                          <FormattedPrice usdValue={computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount)} />
+                        </span>
+                      </span>
+                      <ArrowRight
+                        className={`w-5 h-5 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`}
+                        aria-label={t("checkout.cta.arrowLabel")}
+                        aria-hidden={false}
+                      />
+                    </button>
+                    <div id="sidebar-cta-secure" className="flex items-center justify-center gap-1.5 mt-3 text-xs text-muted-foreground">
+                      <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                      <span>{t("checkout.cta.secureCheckout")}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
