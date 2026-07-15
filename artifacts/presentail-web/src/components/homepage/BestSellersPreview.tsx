@@ -138,12 +138,12 @@ export function BestSellersPreview({
 
     if (externalProducts !== undefined) {
       // Caller-provided list (main Best Sellers rail) — filter image-less products then deprioritize purchased
-      return deprioritizePurchased(sortProducts(externalProducts.filter((p) => !!p.image).slice(0, limit)), purchasedNames);
+      return deprioritizePurchased(sortProducts(externalProducts.filter((p) => p.inStock && !!p.image).slice(0, limit)), purchasedNames);
     }
 
     if (rankedData && rankedData.products.length > 0) {
       // Sales-ranked from new endpoint — filter image-less products, then optionally sort by price
-      const ranked = sortProducts(rankedData.products.map(toBestSellerProduct).filter((p) => !!p.image).slice(0, limit));
+      const ranked = sortProducts(rankedData.products.map(toBestSellerProduct).filter((p) => p.inStock && !!p.image).slice(0, limit));
       return deprioritizePurchased(ranked, purchasedNames);
     }
 
@@ -153,7 +153,7 @@ export function BestSellersPreview({
     const catProducts = activeQuery.data?.products ?? [];
     const shuffled = sortProducts(
       seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId))
-        .filter((p) => !!p.image)
+        .filter((p) => p.inStock && !!p.image)
         .slice(0, limit),
     );
     return deprioritizePurchased(shuffled, purchasedNames);

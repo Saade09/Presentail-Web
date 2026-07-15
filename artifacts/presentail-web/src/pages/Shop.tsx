@@ -222,13 +222,15 @@ export default function Shop() {
         : allProducts.isLoading;
 
   const sourceProducts: Product[] = useMemo(() => {
-    if (category) return categoryProducts.data?.products ?? [];
+    const visible = (list: Product[]) => list.filter((p) => p.inStock && !!p.image);
+    if (category) return visible(categoryProducts.data?.products ?? []);
     if (occasion) {
       const groups = occasionProducts.data?.groups ?? [];
       const seen = new Set<string>();
       const flat: Product[] = [];
       for (const g of groups) {
         for (const p of g.products) {
+          if (!p.inStock || !p.image) continue;
           if (seen.has(p.id)) continue;
           seen.add(p.id);
           flat.push(p);
@@ -240,8 +242,8 @@ export default function Shop() {
       }
       return flat;
     }
-    if (brand) return brandProducts.data?.products ?? [];
-    return allProducts.data?.products ?? [];
+    if (brand) return visible(brandProducts.data?.products ?? []);
+    return visible(allProducts.data?.products ?? []);
   }, [category, occasion, brand, categoryProducts.data, occasionProducts.data, allProducts.data, brandProducts.data]);
 
   const fallbackPool = useProducts(queryParams, true);

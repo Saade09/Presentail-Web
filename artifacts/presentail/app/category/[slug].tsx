@@ -106,7 +106,7 @@ function CategoryScreen() {
       if (cancelled) return;
       const merged = products
         .map((wp) => mergeWithStatic(wp))
-        .filter((p) => p.image);
+        .filter((p) => p.inStock && p.image);
       setWcProducts(merged);
       setWcCategoryName(categoryName);
       setWcLoading(false);

@@ -61,7 +61,7 @@ export function BestSellersRail() {
         return 10_000;
       },
       select: (raw) =>
-        ((raw?.products ?? []) as BestSellerProduct[]).map(toProduct),
+        ((raw?.products ?? []) as BestSellerProduct[]).map(toProduct).filter((p) => p.inStock && !!p.image),
     },
   });
 

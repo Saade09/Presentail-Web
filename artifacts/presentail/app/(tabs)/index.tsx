@@ -813,7 +813,7 @@ function BestSellers() {
   );
   // Filter out products with no image, then show two full rows of cards.
   // Applied after shuffle so the pool reduction doesn't affect seed stability.
-  const displayProducts = shuffledWooProducts.filter((p) => !!p.image).slice(0, numColumns * 2);
+  const displayProducts = shuffledWooProducts.filter((p) => p.inStock && !!p.image).slice(0, numColumns * 2);
 
   if (!loading && displayProducts.length === 0) return null;
 
@@ -880,7 +880,7 @@ function FlowersSection() {
     const enriched = applyPricingToProducts(wooProducts, pricingMap);
     const pool = enriched.filter((p) => FLOWER_CATS.has(p.category));
     return seededShuffle(pool, homepageShuffleSeed("flowers", selectedCountry?.code, selectedCity?.id))
-      .filter((p) => !!p.image)
+      .filter((p) => p.inStock && !!p.image)
       .slice(0, 10);
   }, [wooProducts, pricingMap, selectedCountry?.code, selectedCity?.id]);
 
@@ -986,7 +986,7 @@ function SummerCollectionSection() {
     fetchCategoryProducts("summer", { countryCode, cityId })
       .then(({ products }) => {
         if (cancelled) return;
-        const pool = products.filter((p) => p.image);
+        const pool = products.filter((p) => p.inStock && p.image);
         const shuffled = seededShuffle(pool, homepageShuffleSeed("summer", countryCode, cityId));
         setProducts(shuffled.slice(0, 10));
       })
@@ -1096,7 +1096,7 @@ function BundlesSection() {
     // Filter out products with no image, then show two full rows of cards.
     // Applied after shuffle so the pool reduction doesn't affect seed stability.
     return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id))
-      .filter((p) => !!p.image)
+      .filter((p) => p.inStock && !!p.image)
       .slice(0, numColumns * 2);
   }, [wooProducts, pricingMap, selectedCountry?.code, selectedCity?.id, numColumns]);
 
