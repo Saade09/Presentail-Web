@@ -1,5 +1,5 @@
 import React from "react";
-import { Truck } from "lucide-react";
+import { Truck, Check } from "lucide-react";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -24,6 +24,23 @@ function parseThresholdAmount(label: string): number {
   const match = label.match(/[\d.,]+/);
   if (!match) return Number.NaN;
   return parseFloat(match[0].replace(/,/g, ""));
+}
+
+/** Splits a translation string on the `{amount}` placeholder and renders a
+ * FormattedPrice component in its place. Falls back gracefully when the
+ * placeholder is absent. */
+function RemainingText({ template, usdValue }: { template: string; usdValue: number }) {
+  const parts = template.split("{amount}");
+  if (parts.length === 1) {
+    return <>{template} <FormattedPrice usdValue={usdValue} /></>;
+  }
+  return (
+    <>
+      {parts[0]}
+      <FormattedPrice usdValue={usdValue} />
+      {parts[1]}
+    </>
+  );
 }
 
 export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }: Props) {
@@ -61,28 +78,63 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
   return (
     <div
       data-testid="free-delivery-banner"
-      className={`flex items-center gap-3 rounded-2xl bg-white border border-gray-100 shadow-sm px-4 py-3 ${className ?? ""}`}
+      className={`flex items-start gap-3 rounded-2xl bg-white border border-gray-100 shadow-sm px-4 py-3 ${className ?? ""}`}
     >
-      <span className="w-9 h-9 rounded-full bg-secondary/40 flex items-center justify-center text-primary shrink-0">
-        <Truck className="w-4 h-4" />
+      {/* Icon — truck (in-progress) or teal checkmark (unlocked) */}
+      <span
+        role="img"
+        aria-label={unlocked ? t("cart.banner.unlockedAria") : t("cart.banner.truckAria")}
+        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+          unlocked ? "bg-primary" : "bg-secondary/40"
+        }`}
+      >
+        {unlocked
+          ? <Check className="w-4 h-4 text-white" aria-hidden="true" />
+          : <Truck className="w-4 h-4 text-primary" aria-hidden="true" />}
       </span>
+
       <div className="min-w-0 text-xs flex-1">
         {showProgress && hasThreshold ? (
           <>
-            <p className="font-semibold text-foreground">
+            {/* Headline */}
+            <p className="font-semibold text-foreground leading-snug">
               {unlocked
                 ? t("cart.banner.unlocked")
-                : <>{t("cart.banner.remaining.prefix")} <FormattedPrice usdValue={remaining} /> {t("cart.banner.remaining.suffix")}</>}
+                : <RemainingText template={t("cart.banner.remaining")} usdValue={remaining} />}
             </p>
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-[#d97706] transition-[width] duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <span className="font-semibold text-foreground text-[11px] shrink-0">
+
+            {/* Helper text */}
+            <p className="text-muted-foreground mt-0.5 leading-snug">
+              {unlocked
+                ? t("cart.banner.expressUnlockedHelper")
+                : t("cart.banner.expressStillApplies")}
+            </p>
+
+            {/* Progress bar */}
+            <div
+              role="progressbar"
+              aria-valuenow={Math.round(progressPct)}
+              aria-valuemax={100}
+              aria-label={unlocked ? t("cart.banner.unlockedAria") : t("cart.banner.truckAria")}
+              className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden"
+            >
+              <div
+                className={`h-full rounded-full transition-[width] duration-300 ${
+                  unlocked ? "bg-primary" : "bg-[#d97706]"
+                }`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+
+            {/* Bottom labels: current subtotal (left) and goal / goal reached (right) */}
+            <div className="flex justify-between mt-1.5 text-[11px] text-muted-foreground">
+              <span>
                 <FormattedPrice usdValue={subtotal!} />
+              </span>
+              <span>
+                {unlocked
+                  ? t("cart.banner.goalReached")
+                  : <><FormattedPrice usdValue={thresholdAmount} />{" "}{t("cart.banner.goal")}</>}
               </span>
             </div>
           </>

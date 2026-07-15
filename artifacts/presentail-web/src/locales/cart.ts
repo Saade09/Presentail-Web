@@ -54,9 +54,19 @@ export const cartStrings: Dict = {
   "cart.deliveryTbd": { en: "Calculated at checkout", ar: "يُحسب عند الدفع" },
   "cart.expressNote": { en: "Express delivery may incur an additional fee of {{amount}}", ar: "قد تستلزم التوصيل السريع رسوماً إضافية بقيمة {{amount}}" },
   "cart.expressLabel": { en: "Express fee", ar: "رسوم التوصيل السريع" },
-  "cart.banner.unlocked": { en: "You've unlocked Free Standard Delivery", ar: "لقد حصلت على التوصيل المجاني" },
-  "cart.banner.remaining.prefix": { en: "Only", ar: "فقط" },
-  "cart.banner.remaining.suffix": { en: "left to unlock Free Standard Delivery", ar: "تفصلك عن الشحن المجاني" },
+  // Banner — dynamic progress state (in-progress)
+  "cart.banner.remaining": { en: "Add {amount} more for free standard delivery", ar: "أضف {amount} للحصول على التوصيل العادي المجاني" },
+  "cart.banner.expressStillApplies": { en: "Express delivery fees still apply.", ar: "لا تزال رسوم التوصيل السريع سارية." },
+  // Banner — dynamic progress state (unlocked)
+  "cart.banner.unlocked": { en: "Free standard delivery unlocked", ar: "تم فتح التوصيل العادي المجاني" },
+  "cart.banner.expressUnlockedHelper": { en: "Express delivery remains available for an additional fee.", ar: "لا يزال التوصيل السريع متاحاً برسوم إضافية." },
+  // Banner — progress bar labels
+  "cart.banner.goal": { en: "goal", ar: "هدف" },
+  "cart.banner.goalReached": { en: "Goal reached", ar: "تم بلوغ الهدف" },
+  // Banner — icon aria labels
+  "cart.banner.truckAria": { en: "Delivery progress", ar: "تقدم التوصيل" },
+  "cart.banner.unlockedAria": { en: "Free delivery unlocked", ar: "تم فتح التوصيل المجاني" },
+  // Banner — static fallback (no subtotal prop)
   "cart.banner.staticAbove": { en: "Free delivery on orders above", ar: "توصيل مجاني على الطلبات فوق" },
   "cart.banner.withExpress": { en: "with express delivery.", ar: "مع التوصيل السريع." },
   "cart.banner.onOrdersAbove": { en: "On orders above", ar: "على الطلبات فوق" },
@@ -119,9 +129,19 @@ export const cartStringsFr: Record<string, string> = {
   "cart.deliveryTbd": "Calculé à la caisse",
   "cart.expressNote": "La livraison express peut entraîner des frais supplémentaires de {{amount}}",
   "cart.expressLabel": "Frais express",
-  "cart.banner.unlocked": "Vous avez débloqué la livraison standard gratuite",
-  "cart.banner.remaining.prefix": "Plus que",
-  "cart.banner.remaining.suffix": "pour débloquer la livraison standard gratuite",
+  // Banner — dynamic progress state (in-progress)
+  "cart.banner.remaining": "Ajoutez {amount} de plus pour bénéficier de la livraison standard gratuite",
+  "cart.banner.expressStillApplies": "Les frais de livraison express s'appliquent toujours.",
+  // Banner — dynamic progress state (unlocked)
+  "cart.banner.unlocked": "Livraison standard gratuite débloquée",
+  "cart.banner.expressUnlockedHelper": "La livraison express reste disponible moyennant des frais supplémentaires.",
+  // Banner — progress bar labels
+  "cart.banner.goal": "objectif",
+  "cart.banner.goalReached": "Objectif atteint",
+  // Banner — icon aria labels
+  "cart.banner.truckAria": "Progression de la livraison",
+  "cart.banner.unlockedAria": "Livraison gratuite débloquée",
+  // Banner — static fallback
   "cart.banner.staticAbove": "Livraison gratuite pour les commandes au-dessus de",
   "cart.banner.withExpress": "avec la livraison express.",
   "cart.banner.onOrdersAbove": "Pour les commandes au-dessus de",
