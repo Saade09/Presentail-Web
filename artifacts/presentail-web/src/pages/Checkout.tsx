@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
-import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY } from "./Cart";
+import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 import { buildCardFrom } from "@/lib/cardFrom";
 import {
   useCreateOrder,
@@ -476,8 +476,12 @@ function CheckoutForm() {
 
   const [step, setStep] = useState(1);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [orderNote, setOrderNote] = useState("");
-  const [noteOpen, setNoteOpen] = useState(false);
+  const [orderNote, setOrderNote] = useState(() => {
+    try { return localStorage.getItem(ORDER_NOTE_KEY) ?? ""; } catch { return ""; }
+  });
+  const [noteOpen, setNoteOpen] = useState(() => {
+    try { return (localStorage.getItem(ORDER_NOTE_KEY) ?? "").length > 0; } catch { return false; }
+  });
 
   // Saved addresses for signed-in shoppers
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -526,6 +530,16 @@ function CheckoutForm() {
   const profilePhone = (user?.phone ?? "").trim();
   const hasProfilePhone = isSignedIn && profilePhone.length > 0;
   const hadProfilePhoneOnMountRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    try {
+      if (orderNote) {
+        localStorage.setItem(ORDER_NOTE_KEY, orderNote);
+      } else {
+        localStorage.removeItem(ORDER_NOTE_KEY);
+      }
+    } catch { /* best-effort */ }
+  }, [orderNote]);
+
   useEffect(() => {
     if (!user) return;
     if (hadProfilePhoneOnMountRef.current === null) {
@@ -1727,7 +1741,7 @@ function CheckoutForm() {
       // Clear the coupon after a successful order so it doesn't persist into
       // the next checkout session. Remove both keys together — discount key
       // must not outlive the code key or the next session silently deducts.
-      try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
+      try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); localStorage.removeItem(ORDER_NOTE_KEY); } catch { /* best-effort */ }
       // Fire-and-forget — runs after the order is confirmed in WC so a
       // profile-update failure never blocks order completion.
       void maybeSaveProfilePhone();
@@ -2058,7 +2072,7 @@ function CheckoutForm() {
               } catch { /* storage unavailable */ }
               if (walletStashed) {
                 clearCart();
-                try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
+                try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); localStorage.removeItem(ORDER_NOTE_KEY); } catch { /* best-effort */ }
                 setLocation(`/order-confirmed?status=success`);
               } else {
                 // Storage failed — call the order API directly. The payload
@@ -2069,7 +2083,7 @@ function CheckoutForm() {
                 try {
                   const r = await createOrder.mutateAsync(payload) as CreateOrderResponse;
                   clearCart();
-                  try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
+                  try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); localStorage.removeItem(ORDER_NOTE_KEY); } catch { /* best-effort */ }
                   if (r.ok) {
                     setLocation(`/order-confirmed?status=success&ref=${encodeURIComponent(payload.orderId)}`);
                   }

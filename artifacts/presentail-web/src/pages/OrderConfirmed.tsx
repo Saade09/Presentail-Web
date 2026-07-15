@@ -10,6 +10,7 @@ import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { fireAdsPurchaseConversion } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
+import { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 const ADS_CONVERSION_KEY_PREFIX = "presentail_ads_conversion_fired_";
@@ -336,7 +337,7 @@ export default function OrderConfirmed() {
           // already have been charged for a card payment.
           sessionStorage.removeItem(PENDING_ORDER_KEY);
           clearCart();
-          try { localStorage.removeItem("presentail_coupon_v1"); } catch { /* best-effort */ }
+          try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); localStorage.removeItem(ORDER_NOTE_KEY); } catch { /* best-effort */ }
           // Funnel terminal: shoppers who completed a redirect-based
           // payment (Stripe / Mamo / PayPal) only land on order_placed
           // here, since the Checkout page emits it for the inline path.

@@ -37,6 +37,7 @@ export const CARD_FROM_KEY = "presentail_card_from_v1";
 export const CARD_QR_LINK_KEY = "presentail_card_qr_link_v1";
 export const COUPON_STORAGE_KEY = "presentail_coupon_v1";
 export const COUPON_DISCOUNT_KEY = "presentail_coupon_discount_v1";
+export const ORDER_NOTE_KEY = "presentail_order_note_v1";
 
 function isValidQrUrl(url: string): boolean {
   const trimmed = url.trim();
