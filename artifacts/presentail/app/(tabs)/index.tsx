@@ -1455,7 +1455,7 @@ function OccasionsCarousel() {
   if (!isLoading && items.length === 0) return null;
 
   return (
-    <View style={{ marginTop: 44 }}>
+    <View style={{ marginTop: 16 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
         <SectionTitle eyebrow={t.occasionsEyebrow} title={t.occasionsTitle} />
       </View>
