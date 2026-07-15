@@ -1,0 +1,725 @@
+Rebuild the homepage product sections and product cards to match the attached reference screenshot, while also implementing a data-driven product ranking system.
+
+CRITICAL RESTRICTION
+
+Do not rename, remove, merge, replace, or reorder any existing homepage section.
+
+Keep all current section names exactly unchanged, including:
+
+- Summer Picks
+- Best Sellers
+- Shop by Category
+- Shop by Occasion
+- Flower Boxes
+- Balloons
+- Every other existing homepage section
+
+Do not change section slugs, IDs, URLs, API references, translations, analytics names, or admin configuration.
+
+The section definitions must remain unchanged. Only improve:
+
+1. Product card design
+2. Carousel layout
+3. Product ordering inside eligible product sections
+4. Product-ranking data integration
+
+Do not apply product ranking to “Shop by Category” or “Shop by Occasion.” Their existing items and order must remain unchanged unless their current admin configuration explicitly controls their order.
+
+REFERENCE IMAGE
+
+Use the attached screenshot as the visual reference for:
+
+- Product-card proportions
+- Product image size
+- Four-card desktop layout
+- Section spacing
+- Product title and price placement
+- Circular category and occasion cards
+- View All links
+- Carousel controls
+- White-space distribution
+
+PART 1: PRODUCT CARD DESIGN
+
+Rebuild the shared product-card component to match the reference.
+
+Product card structure:
+
+- Optional product badge
+- Product image
+- Product name
+- Product price
+
+Image area:
+
+- Square or nearly square image container
+- Aspect ratio: 1 / 1
+- Light neutral background
+- Approximate background color: #f4f4f5
+- Border radius: 10px to 12px
+- No heavy border
+- No heavy shadow
+- Product image centered
+- Use object-fit: contain
+- Do not crop flower arrangements, balloons, boxes, cakes, bears, or packaging
+- Preserve lazy loading and image optimization
+- Reserve image space before loading to prevent layout shift
+
+Product text:
+
+- Left aligned
+- Product name directly below the image
+- Price directly below the name
+- Use the existing Presentail typography and dark green text colors
+- Product name may use a maximum of two lines
+- Use line clamp rather than modifying the product name
+- Reserve equal title height so prices align
+- Do not add ratings, descriptions, Add to Cart buttons, quantity selectors, or other content not shown in the reference
+
+Badge:
+
+- Preserve current badge rules and badge text
+- Position inside the top-left of the image
+- Small rounded pill
+- Dark green or teal background
+- White text
+- Do not invent badges for products that do not currently qualify
+
+Entire card:
+
+- Keep the current product URL
+- Keep the card clickable
+- Keep current analytics tracking
+- Keep keyboard accessibility
+- Use semantic links
+- Preserve existing hover behavior, or replace it only with a very subtle image scale no greater than 1.02
+
+PART 2: SECTION LAYOUT
+
+Desktop:
+
+- Center the homepage content
+- Use the existing site container where possible
+- Maximum content width approximately 1180px to 1240px
+- Display four product cards per visible row
+- Use equal card widths
+- Use consistent gaps of approximately 18px to 24px
+- Align section title, product carousel, and View All controls
+- Place the View All link and previous/next controls on the right
+- Each carousel control must affect only its own section
+
+Tablet:
+
+- Display approximately three product cards per visible row
+- Preserve square images and equal spacing
+
+Mobile:
+
+- Display approximately 2.1 product cards so part of the next card is visible
+- Enable horizontal touch scrolling
+- Use CSS scroll snapping
+- Use gaps of approximately 10px to 12px
+- Do not create page-level horizontal overflow
+- Product titles and prices must remain readable
+- Preserve section View All links
+
+PART 3: CIRCULAR CATEGORY SECTIONS
+
+“Shop by Category” and “Shop by Occasion” must remain circular carousels, as shown in the reference.
+
+Requirements:
+
+- Keep their existing names
+- Keep all existing items
+- Keep their existing order
+- Keep all current URLs and images
+- Do not apply the product ranking algorithm to these sections
+- Circular light-gray image background
+- Images centered with object-fit: contain
+- Label centered below each circle
+- Horizontal carousel
+- Approximately seven to eight visible items on desktop
+- Approximately three-and-a-half to four-and-a-half visible items on mobile
+- Preserve their current admin-managed order
+
+PART 4: DATA SOURCES
+
+Products are managed through an external system called OS.
+
+OS can provide product-level information including:
+
+- Product ID
+- SKU
+- Sales quantity
+- Order count
+- Revenue
+- Sales by time period
+- Sales by customer
+- Unique customer count
+- Repeat customer count
+- Cost of goods sold
+- Gross profit
+- Gross margin
+- Refunds
+- Cancellations
+- Stock or availability when available
+
+The website also has its own database.
+
+The website database may contain:
+
+- Product impressions
+- Product-card clicks
+- Product-page views
+- Add-to-cart events
+- Checkout events
+- Purchases
+- Search impressions
+- Search clicks
+- Customer sessions
+- Product conversion rate
+- Category conversion rate
+- Product click-through rate
+- Wishlist activity
+- Current website product information
+
+Use both data sources. Do not depend on one source for every metric.
+
+SOURCE PRIORITY BY METRIC
+
+Use OS as the primary source for:
+
+- Completed sales
+- Order count
+- Units sold
+- Revenue
+- Gross profit
+- COGS
+- Gross margin
+- Refunds
+- Cancellations
+- Customer purchase history
+- Repeat purchase information
+
+Use the website database as the primary source for:
+
+- Impressions
+- Clicks
+- Product-page views
+- Add-to-cart events
+- Search interactions
+- Click-through rate
+- Website conversion rate
+- Session-level activity
+
+For data that can exist in both systems:
+
+1. Prefer OS for confirmed financial and completed-order information.
+2. Prefer the website database for browsing and engagement information.
+3. Use the website database as a fallback when OS does not return the required product data.
+4. Use OS as a fallback when a completed-order record is missing locally.
+5. If neither system contains the metric, use a neutral default rather than excluding the product.
+
+Do not treat missing data as zero unless it is confirmed to be zero.
+
+PART 5: PRODUCT ID MATCHING
+
+Create a reliable mapping between website products and OS products.
+
+Match products using this priority:
+
+1. Stored OS product ID
+2. Website product ID mapped to OS product ID
+3. SKU
+4. Exact normalized SKU
+5. Existing integration mapping table
+
+Do not match products using title alone unless there is no other option.
+
+Create or reuse a mapping table similar to:
+
+product_data_source_mapping
+
+- website_product_id
+- os_product_id
+- sku
+- mapping_status
+- last_verified_at
+- created_at
+- updated_at
+
+Prevent duplicate mappings.
+
+Log unmatched products without breaking homepage rendering.
+
+PART 6: AGGREGATED PRODUCT METRICS
+
+Do not make one OS request for every product card.
+
+Create a server-side aggregation layer or ranking table that stores calculated product metrics.
+
+Suggested table:
+
+product_ranking_metrics
+
+- website_product_id
+- os_product_id
+- sales_7d
+- sales_30d
+- sales_90d
+- order_count_30d
+- revenue_30d
+- gross_profit_30d
+- gross_margin_percentage
+- unique_customers_30d
+- repeat_customers_90d
+- impressions_7d
+- impressions_30d
+- clicks_7d
+- clicks_30d
+- product_views_30d
+- add_to_carts_30d
+- purchases_30d
+- click_through_rate
+- conversion_rate
+- add_to_cart_rate
+- refund_rate
+- cancellation_rate
+- stock_score
+- freshness_score
+- last_os_sync_at
+- last_website_calculation_at
+- updated_at
+
+Calculate these metrics in a scheduled background job or batched synchronization process.
+
+Do not calculate all metrics from raw event tables on every homepage request.
+
+Homepage rendering must remain fast even when OS is slow or unavailable.
+
+PART 7: METRIC CALCULATIONS
+
+Click-through rate:
+
+click_through_rate =
+product_card_clicks / product_card_impressions
+
+Website conversion rate:
+
+conversion_rate =
+confirmed_purchases / product_page_views
+
+Add-to-cart rate:
+
+add_to_cart_rate =
+add_to_cart_events / product_page_views
+
+Refund rate:
+
+refund_rate =
+refunded_orders / completed_orders
+
+Cancellation rate:
+
+cancellation_rate =
+cancelled_orders / total_orders
+
+Gross profit:
+
+gross_profit =
+revenue - cost_of_goods_sold
+
+Gross margin percentage:
+
+gross_margin_percentage =
+gross_profit / revenue
+
+Protect every calculation against division by zero.
+
+Use smoothed rates to prevent products with tiny sample sizes from ranking first.
+
+Example smoothed conversion rate:
+
+smoothed_conversion_rate =
+(
+    product_purchases
+    + category_average_conversion_rate * minimum_sample_size
+)
+/
+(
+    product_views
+    + minimum_sample_size
+)
+
+Use a minimum sample size between 30 and 100. Start with 50.
+
+Apply similar smoothing to click-through rate, add-to-cart rate, refund rate, and cancellation rate.
+
+PART 8: NORMALIZATION
+
+Normalize ranking metrics to a value between 0 and 1 before applying weights.
+
+Use percentile-based or logarithmic normalization for metrics such as:
+
+- Sales
+- Revenue
+- Gross profit
+- Clicks
+- Impressions
+- Unique customers
+
+This prevents one unusually large product from dominating the ranking.
+
+Example:
+
+normalized_sales =
+log(1 + product_sales_30d) /
+log(1 + maximum_sales_30d)
+
+Calculate comparison values within a relevant product group or section where possible.
+
+PART 9: DEFAULT RECOMMENDED RANKING
+
+Create a reusable ranking service.
+
+Suggested default product score:
+
+recommended_score =
+    0.22 * sales_score
+  + 0.16 * conversion_score
+  + 0.12 * add_to_cart_score
+  + 0.10 * click_through_score
+  + 0.10 * unique_customer_score
+  + 0.08 * gross_profit_score
+  + 0.06 * gross_margin_score
+  + 0.06 * freshness_score
+  + 0.05 * stock_score
+  + 0.05 * repeat_purchase_score
+  - 0.05 * refund_penalty
+  - 0.05 * cancellation_penalty
+
+All input scores must be normalized between 0 and 1.
+
+The ranking algorithm must not move products between sections.
+
+It may only reorder the products already eligible for that section.
+
+PART 10: SECTION-SPECIFIC RANKING
+
+Keep every section name and eligibility rule unchanged.
+
+Apply section-specific ranking only after the existing section query has selected eligible products.
+
+SUMMER PICKS
+
+Do not rename or replace this section.
+
+Only rank products already assigned or eligible for Summer Picks.
+
+Suggested score:
+
+summer_picks_score =
+    0.30 * existing_summer_assignment_score
+  + 0.20 * sales_30d_score
+  + 0.15 * conversion_score
+  + 0.10 * click_through_score
+  + 0.10 * freshness_score
+  + 0.05 * gross_profit_score
+  + 0.05 * stock_score
+  + 0.05 * manual_merchandising_score
+
+Existing summer assignment or admin selection must remain the main eligibility requirement.
+
+Do not automatically place unrelated products into Summer Picks.
+
+BEST SELLERS
+
+Do not rename or replace this section.
+
+Suggested score:
+
+best_seller_score =
+    0.40 * units_sold_30d_score
+  + 0.20 * order_count_30d_score
+  + 0.15 * sales_7d_score
+  + 0.10 * unique_customer_score
+  + 0.10 * conversion_score
+  + 0.05 * repeat_purchase_score
+
+Do not rank only by lifetime sales. Recent demand must have stronger influence.
+
+FLOWER BOXES
+
+Do not rename or replace this section.
+
+First use the current Flower Boxes eligibility or category query.
+
+Then rank only those eligible products using:
+
+flower_boxes_score =
+    0.25 * sales_30d_score
+  + 0.20 * conversion_score
+  + 0.15 * add_to_cart_score
+  + 0.10 * click_through_score
+  + 0.10 * gross_profit_score
+  + 0.10 * freshness_score
+  + 0.10 * stock_score
+
+BALLOONS
+
+Do not rename or replace this section.
+
+First use the current Balloons eligibility or category query.
+
+Then rank only those eligible products using:
+
+balloons_score =
+    0.25 * sales_30d_score
+  + 0.20 * conversion_score
+  + 0.15 * add_to_cart_score
+  + 0.10 * click_through_score
+  + 0.10 * unique_customer_score
+  + 0.10 * freshness_score
+  + 0.10 * stock_score
+
+OTHER PRODUCT SECTIONS
+
+For every other existing product section:
+
+- Keep its name
+- Keep its current eligibility query
+- Keep its current View All destination
+- Keep its current category or collection assignment
+- Apply the default recommended score only to eligible products
+- Do not move products between sections
+
+PART 11: PERSONALIZATION
+
+OS can provide sales by customer. Use personalization only when the website has a safely identified logged-in customer.
+
+Do not expose one customer’s information to another customer.
+
+Create a limited personalization adjustment based on:
+
+- Categories previously purchased
+- Product types previously purchased
+- Typical customer price range
+- Repeated purchases
+- Preferred occasions
+- Previously viewed products
+- Previously added-to-cart products
+
+Do not show products already purchased repeatedly unless repeat purchasing makes sense.
+
+Limit personalization to a small portion of the score:
+
+final_score =
+    section_score * 0.90
+  + customer_preference_score * 0.10
+
+For anonymous users, use the normal section score.
+
+Do not let personalization move a product into a section where it is not eligible.
+
+PART 12: MANUAL MERCHANDISING CONTROLS
+
+Preserve any existing admin-controlled product order, pinned product, featured product, or section assignment.
+
+Support bounded manual controls:
+
+- pinned_position
+- ranking_boost
+- ranking_penalty
+- excluded_from_section
+- ranking_start_at
+- ranking_end_at
+
+Rules:
+
+- A pinned product may occupy a specified position.
+- A boost should modify the calculated score rather than replace it.
+- Excluded products must not appear in that section.
+- Expired boosts must stop automatically.
+- Manual controls must not change the section name or its underlying category.
+
+PART 13: STOCK AND AVAILABILITY
+
+Do not show unavailable products when the current site rules exclude them.
+
+Apply existing country, delivery zone, stock, publishing, and visibility restrictions before ranking.
+
+Processing order:
+
+1. Load section configuration.
+2. Fetch eligible products using the existing query.
+3. Exclude unpublished or unavailable products according to current rules.
+4. Join product ranking metrics.
+5. Calculate section score.
+6. Apply personalization when available.
+7. Apply manual merchandising controls.
+8. Sort products.
+9. Render the existing number of cards.
+
+Never rank an unavailable product above an available product merely because it has historical sales.
+
+PART 14: FALLBACK BEHAVIOR
+
+The homepage must still load when OS is unavailable.
+
+Fallback order:
+
+1. Use recently synchronized ranking metrics.
+2. Use website database metrics.
+3. Use existing admin product order.
+4. Use current product creation date or current default order as the final fallback.
+
+Do not return an empty section because ranking data is missing.
+
+Do not block homepage rendering while waiting for OS.
+
+Set strict OS request timeouts and retry only in background synchronization jobs.
+
+PART 15: DATA FRESHNESS
+
+Suggested synchronization frequency:
+
+- Website engagement metrics: update every 15 to 60 minutes
+- OS sales and financial metrics: update every 30 to 60 minutes
+- Historical aggregates: update nightly
+- Product mapping verification: update when products change and run nightly as backup
+
+Store timestamps so the application can identify stale data.
+
+If ranking data is stale, continue using it temporarily and trigger a background refresh.
+
+PART 16: EVENT TRACKING
+
+Verify that these website events exist and contain the product ID, section ID, position, session, and timestamp:
+
+- product_impression
+- product_card_click
+- product_view
+- add_to_cart
+- checkout_started
+- purchase_completed
+
+For product impressions, record:
+
+- website_product_id
+- section_key
+- displayed_position
+- ranking_score_version
+- page
+- session_id
+- customer_id when logged in
+- timestamp
+
+Do not record duplicate impressions continuously during the same page view.
+
+Preserve existing consent, privacy, and analytics behavior.
+
+PART 17: RANKING VERSIONING
+
+Add a ranking version identifier.
+
+Example:
+
+homepage-ranking-v1
+
+Store the ranking version with impression and click events.
+
+This is required so ranking changes can be compared later without losing historical context.
+
+PART 18: PERFORMANCE
+
+Do not call OS directly from the browser.
+
+Do not expose OS credentials, COGS, gross profit, customer sales information, or internal ranking inputs to frontend users.
+
+The frontend should receive only the final ordered products and public product fields.
+
+Keep all financial metrics and customer-level calculations server-side.
+
+Use:
+
+- Batched database queries
+- Precomputed ranking metrics
+- Cached section results
+- Short cache invalidation after product or stock changes
+- Safe stale-cache fallback
+
+Avoid N+1 database or API queries.
+
+PART 19: COMPONENT STRUCTURE
+
+Reuse existing components where possible.
+
+Suggested structure:
+
+- HomepageSection
+- SectionHeader
+- ProductCarousel
+- ProductCard
+- CircularCategoryCarousel
+- CircularCategoryCard
+- ProductRankingService
+- ProductMetricsRepository
+- OSProductMetricsClient
+- WebsiteAnalyticsRepository
+- ProductMappingRepository
+- HomepageRankingCache
+
+Do not create a second conflicting product-card system if a shared card already exists.
+
+PART 20: ACCEPTANCE REQUIREMENTS
+
+Before marking the task complete, verify all of the following:
+
+- Summer Picks name remains unchanged.
+- Best Sellers name remains unchanged.
+- Shop by Category name remains unchanged.
+- Shop by Occasion name remains unchanged.
+- Flower Boxes name remains unchanged.
+- Balloons name remains unchanged.
+- Every other existing section name remains unchanged.
+- Section order remains unchanged.
+- View All destinations remain unchanged.
+- Category and occasion item order remains unchanged.
+- Products are never moved into unrelated sections.
+- Product cards visually match the reference.
+- Four product cards appear on desktop.
+- Approximately three appear on tablet.
+- Approximately 2.1 appear on mobile.
+- Product images are not cropped.
+- Product titles and prices align consistently.
+- OS financial and confirmed sales data remains server-side.
+- Website clicks and conversion data are included in ranking.
+- Missing OS data falls back to the website database.
+- Missing website data falls back to synchronized OS data where relevant.
+- Missing metrics do not remove products.
+- OS downtime does not prevent homepage loading.
+- No OS request is made once per product card.
+- No credentials or internal financial data are exposed to the browser.
+- Existing analytics remain functional.
+- Existing localization and Arabic RTL layouts remain functional.
+- Existing stock, country, and delivery restrictions remain functional.
+- Existing admin merchandising controls remain functional.
+
+TESTING
+
+Test with:
+
+1. OS available and all products mapped.
+2. OS unavailable.
+3. A product missing from OS but present in the website database.
+4. A product present in OS but missing website engagement data.
+5. A product with no ranking data from either source.
+6. A product with high sales but high refunds.
+7. A product with one purchase from one page view.
+8. An out-of-stock bestseller.
+9. A logged-in customer with purchase history.
+10. An anonymous visitor.
+11. Desktop, tablet, and mobile screens.
+12. English and Arabic RTL layouts.
+
+Do not report completion based only on code compilation. Run the application, inspect the rendered homepage, inspect network requests, verify the fallback behavior, and confirm that all section names and eligibility rules remain unchanged.

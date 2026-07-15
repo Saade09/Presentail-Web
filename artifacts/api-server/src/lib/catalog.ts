@@ -237,6 +237,22 @@ export async function resolveCartItems(
         const osProduct = getOsProductByWcId(item.wcId, s.storeKey);
         resolvedSlug = osProduct?.id;
       }
+      // Fallback: if WC lookup failed (WC not configured or product not in the wcId
+      // index) AND the client provided an osSlug, try the OS slug cache directly.
+      // This handles the common production case where WC credentials are retired
+      // but the OS cache is fully populated and carries accurate prices.
+      if (!catalog && item.osSlug) {
+        const osProduct =
+          getOsProductBySlug(item.osSlug, s.storeKey) ??
+          getOsProductBySlug(item.osSlug);
+        if (osProduct) {
+          const effectivePrice = resolveOsEffectivePrice(osProduct);
+          if (effectivePrice > 0) {
+            catalog = { price: effectivePrice, name: osProduct.name };
+            resolvedSlug = osProduct.id;
+          }
+        }
+      }
     } else if (item.osSlug) {
       // OS-native product (wcId === 0): look up directly by slug in the OS cache.
       // Fall back to any-store lookup when the store-specific cache is cold so
