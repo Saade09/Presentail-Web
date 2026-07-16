@@ -686,7 +686,7 @@ export default function ProductDetail() {
           disabled={!vm.inStock || (product.personalisationRequired && customNote.trim().length === 0)}
           data-testid="button-add-to-cart-sticky"
         >
-          <span className="flex items-center justify-between w-full">
+          <span className="flex items-center justify-center gap-3 w-full">
             <span className="flex items-center">
               <ShoppingCart className="w-5 h-5 mr-2" />
               {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
