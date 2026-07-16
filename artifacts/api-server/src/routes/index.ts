@@ -45,6 +45,7 @@ import webEventsRouter from "./webEvents";
 import adminCollectionRankingRouter from "./adminCollectionRanking";
 import pageDescriptionsRouter from "./pageDescriptions";
 import adminRankingMetricsRouter from "./adminRankingMetrics";
+import adminPlantClassificationsRouter from "./adminPlantClassifications";
 
 const router: IRouter = Router();
 
@@ -92,6 +93,7 @@ router.use(merchantFeedDebugRouter);
 router.use(adminCollectionRankingRouter);
 router.use(pageDescriptionsRouter);
 router.use(adminRankingMetricsRouter);
+router.use(adminPlantClassificationsRouter);
 router.use(ogImageRouter);
 router.use(webEventsRouter);
 

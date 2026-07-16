@@ -386,6 +386,129 @@ export const GetStuffedAnimalsSizesResponse = zod
   .describe("AI-inferred size classification for stuffed-animals products.");
 
 /**
+ * Returns a map of OS product ID → environment classification ("indoor" | "outdoor")
+for all classified plant products. Products not yet classified are omitted from
+the map — the frontend treats missing entries as "indoor pending" and shows them
+under the Indoor Plants section until classification completes. No auth required.
+
+ * @summary Get AI-inferred indoor/outdoor classifications for plant products
+ */
+export const GetPlantClassificationsResponse = zod
+  .object({
+    ok: zod.boolean(),
+    classifications: zod
+      .record(zod.string(), zod.enum(["indoor", "outdoor"]))
+      .describe("Map of OS product ID (string) to environment classification."),
+  })
+  .describe("AI-inferred indoor\/outdoor classification for plant products.");
+
+/**
+ * Returns every row in the `plant_environment_cache` table, including source,
+needs_review flag, and content hash. Protected by the `x-push-admin-token` header.
+
+ * @summary List all plant product classifications (admin)
+ */
+export const ListPlantClassificationsHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const ListPlantClassificationsResponse = zod.object({
+  ok: zod.boolean(),
+  rows: zod.array(
+    zod
+      .object({
+        osProductId: zod.string(),
+        classification: zod.enum(["indoor", "outdoor"]),
+        source: zod.enum(["ai", "admin", "fallback"]),
+        needsReview: zod.boolean(),
+        contentHash: zod.string(),
+        classifiedAt: zod.string(),
+      })
+      .describe("A single row from the plant_environment_cache table."),
+  ),
+});
+
+/**
+ * Manually sets the environment classification for a single product. Sets
+`source = "admin"` and clears `needs_review`. Protected by the
+`x-push-admin-token` header.
+
+ * @summary Override the indoor/outdoor classification for a single plant product (admin)
+ */
+export const OverridePlantClassificationParams = zod.object({
+  osProductId: zod.coerce.string(),
+});
+
+export const OverridePlantClassificationHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const OverridePlantClassificationBody = zod.object({
+  classification: zod.enum(["indoor", "outdoor"]),
+});
+
+export const OverridePlantClassificationResponse = zod.object({
+  ok: zod.boolean(),
+  row: zod
+    .object({
+      osProductId: zod.string(),
+      classification: zod.enum(["indoor", "outdoor"]),
+      source: zod.enum(["ai", "admin", "fallback"]),
+      needsReview: zod.boolean(),
+      contentHash: zod.string(),
+      classifiedAt: zod.string(),
+    })
+    .optional()
+    .describe("A single row from the plant_environment_cache table."),
+});
+
+/**
+ * Wipes the stored classification and re-runs AI inference for the given
+product. Protected by the `x-push-admin-token` header.
+
+ * @summary Re-run AI classification for a single plant product (admin)
+ */
+export const ReclassifyPlantProductParams = zod.object({
+  osProductId: zod.coerce.string(),
+});
+
+export const ReclassifyPlantProductHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const ReclassifyPlantProductResponse = zod.object({
+  ok: zod.boolean(),
+  osProductId: zod.string(),
+  result: zod.object({}).passthrough().nullish(),
+});
+
+/**
+ * Wipes all stored classifications (or only non-admin overrides when
+`?keepManual=true`) and re-runs AI inference for all plant products.
+Protected by the `x-push-admin-token` header.
+
+ * @summary Bulk re-run AI classification for all plant products (admin)
+ */
+export const BulkReclassifyPlantsQueryParams = zod.object({
+  keepManual: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true, preserves admin-overridden classifications and only reclassifies AI\/fallback rows.",
+    ),
+});
+
+export const BulkReclassifyPlantsHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const BulkReclassifyPlantsResponse = zod.object({
+  ok: zod.boolean(),
+  classified: zod.number(),
+  keepManual: zod.boolean(),
+});
+
+/**
  * Returns a map of product ID → gender bucket (boy | girl | neutral)
 for all products in the new-born occasion. Gender is inferred from
 keyword heuristics first (blue/navy/boy → "boy"; pink/rose/girl → "girl";

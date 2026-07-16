@@ -25,12 +25,14 @@ import type {
   AdminPageDescriptionUpdateRequest,
   AdminPageDescriptionUpdateResponse,
   AdminPageDescriptionsListResponse,
+  AdminPlantClassificationsListResponse,
   AnalyticsEventRequest,
   AnalyticsEventResponse,
   AuthMeResponse,
   AuthMeUpdateRequest,
   AuthWebBridgeRequest,
   AuthWebBridgeResponse,
+  BulkReclassifyPlantsParams,
   CatalogMetadataResponse,
   CatalogOccasionsResponse,
   CheckoutPaymentIntentRequest,
@@ -92,6 +94,11 @@ import type {
   PhoneOtpSendResponse,
   PhoneOtpVerifyRequest,
   PhoneOtpVerifyResponse,
+  PlantBulkReclassifyResponse,
+  PlantClassificationOverrideRequest,
+  PlantClassificationOverrideResponse,
+  PlantClassificationsResponse,
+  PlantReclassifyResponse,
   PostWebEventsBody,
   PostWebEventsResponse,
   ProductColorHintsRequest,
@@ -938,6 +945,462 @@ export function useGetStuffedAnimalsSizes<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns a map of OS product ID → environment classification ("indoor" | "outdoor")
+for all classified plant products. Products not yet classified are omitted from
+the map — the frontend treats missing entries as "indoor pending" and shows them
+under the Indoor Plants section until classification completes. No auth required.
+
+ * @summary Get AI-inferred indoor/outdoor classifications for plant products
+ */
+export const getGetPlantClassificationsUrl = () => {
+  return `/api/catalog/plant-classifications`;
+};
+
+export const getPlantClassifications = async (
+  options?: RequestInit,
+): Promise<PlantClassificationsResponse> => {
+  return customFetch<PlantClassificationsResponse>(
+    getGetPlantClassificationsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPlantClassificationsQueryKey = () => {
+  return [`/api/catalog/plant-classifications`] as const;
+};
+
+export const getGetPlantClassificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPlantClassifications>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPlantClassifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPlantClassificationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPlantClassifications>>
+  > = ({ signal }) => getPlantClassifications({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPlantClassifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPlantClassificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPlantClassifications>>
+>;
+export type GetPlantClassificationsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get AI-inferred indoor/outdoor classifications for plant products
+ */
+
+export function useGetPlantClassifications<
+  TData = Awaited<ReturnType<typeof getPlantClassifications>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPlantClassifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPlantClassificationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns every row in the `plant_environment_cache` table, including source,
+needs_review flag, and content hash. Protected by the `x-push-admin-token` header.
+
+ * @summary List all plant product classifications (admin)
+ */
+export const getListPlantClassificationsUrl = () => {
+  return `/api/admin/plant-classifications`;
+};
+
+export const listPlantClassifications = async (
+  options?: RequestInit,
+): Promise<AdminPlantClassificationsListResponse> => {
+  return customFetch<AdminPlantClassificationsListResponse>(
+    getListPlantClassificationsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPlantClassificationsQueryKey = () => {
+  return [`/api/admin/plant-classifications`] as const;
+};
+
+export const getListPlantClassificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlantClassifications>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlantClassifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPlantClassificationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPlantClassifications>>
+  > = ({ signal }) => listPlantClassifications({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlantClassifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPlantClassificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlantClassifications>>
+>;
+export type ListPlantClassificationsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List all plant product classifications (admin)
+ */
+
+export function useListPlantClassifications<
+  TData = Awaited<ReturnType<typeof listPlantClassifications>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlantClassifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPlantClassificationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Manually sets the environment classification for a single product. Sets
+`source = "admin"` and clears `needs_review`. Protected by the
+`x-push-admin-token` header.
+
+ * @summary Override the indoor/outdoor classification for a single plant product (admin)
+ */
+export const getOverridePlantClassificationUrl = (osProductId: string) => {
+  return `/api/admin/plant-classifications/${osProductId}`;
+};
+
+export const overridePlantClassification = async (
+  osProductId: string,
+  plantClassificationOverrideRequest: PlantClassificationOverrideRequest,
+  options?: RequestInit,
+): Promise<PlantClassificationOverrideResponse> => {
+  return customFetch<PlantClassificationOverrideResponse>(
+    getOverridePlantClassificationUrl(osProductId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(plantClassificationOverrideRequest),
+    },
+  );
+};
+
+export const getOverridePlantClassificationMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof overridePlantClassification>>,
+    TError,
+    { osProductId: string; data: BodyType<PlantClassificationOverrideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof overridePlantClassification>>,
+  TError,
+  { osProductId: string; data: BodyType<PlantClassificationOverrideRequest> },
+  TContext
+> => {
+  const mutationKey = ["overridePlantClassification"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof overridePlantClassification>>,
+    { osProductId: string; data: BodyType<PlantClassificationOverrideRequest> }
+  > = (props) => {
+    const { osProductId, data } = props ?? {};
+
+    return overridePlantClassification(osProductId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type OverridePlantClassificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof overridePlantClassification>>
+>;
+export type OverridePlantClassificationMutationBody =
+  BodyType<PlantClassificationOverrideRequest>;
+export type OverridePlantClassificationMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Override the indoor/outdoor classification for a single plant product (admin)
+ */
+export const useOverridePlantClassification = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof overridePlantClassification>>,
+    TError,
+    { osProductId: string; data: BodyType<PlantClassificationOverrideRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof overridePlantClassification>>,
+  TError,
+  { osProductId: string; data: BodyType<PlantClassificationOverrideRequest> },
+  TContext
+> => {
+  return useMutation(getOverridePlantClassificationMutationOptions(options));
+};
+
+/**
+ * Wipes the stored classification and re-runs AI inference for the given
+product. Protected by the `x-push-admin-token` header.
+
+ * @summary Re-run AI classification for a single plant product (admin)
+ */
+export const getReclassifyPlantProductUrl = (osProductId: string) => {
+  return `/api/admin/plant-classifications/${osProductId}/reclassify`;
+};
+
+export const reclassifyPlantProduct = async (
+  osProductId: string,
+  options?: RequestInit,
+): Promise<PlantReclassifyResponse> => {
+  return customFetch<PlantReclassifyResponse>(
+    getReclassifyPlantProductUrl(osProductId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getReclassifyPlantProductMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reclassifyPlantProduct>>,
+    TError,
+    { osProductId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reclassifyPlantProduct>>,
+  TError,
+  { osProductId: string },
+  TContext
+> => {
+  const mutationKey = ["reclassifyPlantProduct"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reclassifyPlantProduct>>,
+    { osProductId: string }
+  > = (props) => {
+    const { osProductId } = props ?? {};
+
+    return reclassifyPlantProduct(osProductId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReclassifyPlantProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reclassifyPlantProduct>>
+>;
+
+export type ReclassifyPlantProductMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Re-run AI classification for a single plant product (admin)
+ */
+export const useReclassifyPlantProduct = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reclassifyPlantProduct>>,
+    TError,
+    { osProductId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reclassifyPlantProduct>>,
+  TError,
+  { osProductId: string },
+  TContext
+> => {
+  return useMutation(getReclassifyPlantProductMutationOptions(options));
+};
+
+/**
+ * Wipes all stored classifications (or only non-admin overrides when
+`?keepManual=true`) and re-runs AI inference for all plant products.
+Protected by the `x-push-admin-token` header.
+
+ * @summary Bulk re-run AI classification for all plant products (admin)
+ */
+export const getBulkReclassifyPlantsUrl = (
+  params?: BulkReclassifyPlantsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/plant-classifications/bulk-reclassify?${stringifiedParams}`
+    : `/api/admin/plant-classifications/bulk-reclassify`;
+};
+
+export const bulkReclassifyPlants = async (
+  params?: BulkReclassifyPlantsParams,
+  options?: RequestInit,
+): Promise<PlantBulkReclassifyResponse> => {
+  return customFetch<PlantBulkReclassifyResponse>(
+    getBulkReclassifyPlantsUrl(params),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getBulkReclassifyPlantsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkReclassifyPlants>>,
+    TError,
+    { params?: BulkReclassifyPlantsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkReclassifyPlants>>,
+  TError,
+  { params?: BulkReclassifyPlantsParams },
+  TContext
+> => {
+  const mutationKey = ["bulkReclassifyPlants"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkReclassifyPlants>>,
+    { params?: BulkReclassifyPlantsParams }
+  > = (props) => {
+    const { params } = props ?? {};
+
+    return bulkReclassifyPlants(params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkReclassifyPlantsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkReclassifyPlants>>
+>;
+
+export type BulkReclassifyPlantsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Bulk re-run AI classification for all plant products (admin)
+ */
+export const useBulkReclassifyPlants = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkReclassifyPlants>>,
+    TError,
+    { params?: BulkReclassifyPlantsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkReclassifyPlants>>,
+  TError,
+  { params?: BulkReclassifyPlantsParams },
+  TContext
+> => {
+  return useMutation(getBulkReclassifyPlantsMutationOptions(options));
+};
 
 /**
  * Returns a map of product ID → gender bucket (boy | girl | neutral)

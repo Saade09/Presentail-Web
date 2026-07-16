@@ -22,6 +22,7 @@ import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonito
 import { startGoogleAdsConversionMonitor } from "./lib/googleAdsConversionMonitor";
 import { startProductAffinityMonitor } from "./lib/productAffinityMonitor";
 import { startProductMetricsSyncJob } from "./lib/productMetricsSyncJob";
+import { startPlantClassificationJob } from "./lib/plantClassificationJob";
 import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
 import { registerOnFirstPopulatedCallback } from "./lib/osProductsCache";
 import { enqueueBulkSeed } from "./lib/pageDescriptionQueue";
@@ -88,6 +89,7 @@ app.listen(port, (err) => {
   startGoogleAdsConversionMonitor();
   startProductAffinityMonitor();
   startProductMetricsSyncJob();
+  startPlantClassificationJob();
 
   // Seed contextual descriptions for all category/occasion × area × language
   // combinations once the OS product catalog is first populated. Runs in the

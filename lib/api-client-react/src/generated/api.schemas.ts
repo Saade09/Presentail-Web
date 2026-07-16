@@ -1610,6 +1610,87 @@ provider in the sign-in prompt rather than showing a generic
 }
 
 /**
+ * Map of OS product ID (string) to environment classification.
+ */
+export type PlantClassificationsResponseClassifications = {
+  [key: string]: "indoor" | "outdoor";
+};
+
+/**
+ * AI-inferred indoor/outdoor classification for plant products.
+ */
+export interface PlantClassificationsResponse {
+  ok: boolean;
+  /** Map of OS product ID (string) to environment classification. */
+  classifications: PlantClassificationsResponseClassifications;
+}
+
+export type PlantClassificationRowClassification =
+  (typeof PlantClassificationRowClassification)[keyof typeof PlantClassificationRowClassification];
+
+export const PlantClassificationRowClassification = {
+  indoor: "indoor",
+  outdoor: "outdoor",
+} as const;
+
+export type PlantClassificationRowSource =
+  (typeof PlantClassificationRowSource)[keyof typeof PlantClassificationRowSource];
+
+export const PlantClassificationRowSource = {
+  ai: "ai",
+  admin: "admin",
+  fallback: "fallback",
+} as const;
+
+/**
+ * A single row from the plant_environment_cache table.
+ */
+export interface PlantClassificationRow {
+  osProductId: string;
+  classification: PlantClassificationRowClassification;
+  source: PlantClassificationRowSource;
+  needsReview: boolean;
+  contentHash: string;
+  classifiedAt: string;
+}
+
+export interface AdminPlantClassificationsListResponse {
+  ok: boolean;
+  rows: PlantClassificationRow[];
+}
+
+export type PlantClassificationOverrideRequestClassification =
+  (typeof PlantClassificationOverrideRequestClassification)[keyof typeof PlantClassificationOverrideRequestClassification];
+
+export const PlantClassificationOverrideRequestClassification = {
+  indoor: "indoor",
+  outdoor: "outdoor",
+} as const;
+
+export interface PlantClassificationOverrideRequest {
+  classification: PlantClassificationOverrideRequestClassification;
+}
+
+export interface PlantClassificationOverrideResponse {
+  ok: boolean;
+  row?: PlantClassificationRow;
+}
+
+export type PlantReclassifyResponseResult = { [key: string]: unknown } | null;
+
+export interface PlantReclassifyResponse {
+  ok: boolean;
+  osProductId: string;
+  result?: PlantReclassifyResponseResult;
+}
+
+export interface PlantBulkReclassifyResponse {
+  ok: boolean;
+  classified: number;
+  keepManual: boolean;
+}
+
+/**
  * Map of product ID (string) to size bucket.
  */
 export type StuffedAnimalsSizesResponseSizes = {
@@ -1952,6 +2033,13 @@ export const ProxyOsImageF = {
   webp: "webp",
   jpeg: "jpeg",
 } as const;
+
+export type BulkReclassifyPlantsParams = {
+  /**
+   * When true, preserves admin-overridden classifications and only reclassifies AI/fallback rows.
+   */
+  keepManual?: boolean;
+};
 
 export type GetFrequentlyBoughtTogetherParams = {
   /**

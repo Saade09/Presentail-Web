@@ -10,6 +10,7 @@ import { LoveRomanceGenderTabs } from "@/components/LoveRomanceGenderTabs";
 import { NewbornGenderTabs } from "@/components/NewbornGenderTabs";
 import { BearSizeTabs } from "@/components/BearSizeTabs";
 import { VALID_BEAR_SIZE_KEYS, applyBearSizeFilter, useBearSizeMap } from "@/lib/bearSizes";
+import { usePlantClassificationMap } from "@/lib/plantClassifications";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
@@ -49,6 +50,7 @@ const VALID_LOVE_ROMANCE_GENDER_KEYS = new Set(["all", "her", "him"]);
 const NEW_BORN_OCCASION_SLUG = "new-born";
 
 const STUFFED_ANIMALS_SLUG = "stuffed-animals";
+const PLANTS_SLUG = "plants";
 
 function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
   let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
@@ -353,6 +355,10 @@ export default function Shop() {
   const bearSizeKey = isStuffedAnimals && VALID_BEAR_SIZE_KEYS.has(rawBearSizeKey) ? rawBearSizeKey : "all";
 
   const bearSizeMap = useBearSizeMap(isStuffedAnimals);
+
+  const isPlants = category === PLANTS_SLUG;
+  const { classificationMap: plantClassificationMap, isLoading: plantClassificationsLoading } =
+    usePlantClassificationMap(isPlants);
 
   function handleBearSizeSelect(key: string) {
     const params = new URLSearchParams(searchString);
@@ -875,7 +881,47 @@ export default function Shop() {
                   )}
                 </div>
               )
-            ) : (
+            ) : isPlants ? (() => {
+              // For the plants category: partition products into indoor/outdoor sections.
+              // When classifications are still loading, show all products under "Indoor Plants"
+              // as a graceful fallback so the page is never blank.
+              const indoorProducts = plantClassificationsLoading
+                ? products
+                : products.filter(
+                    (p) =>
+                      (plantClassificationMap[String(p.osNumericId ?? p.id)] ?? "indoor") ===
+                      "indoor",
+                  );
+              const outdoorProducts = plantClassificationsLoading
+                ? []
+                : products.filter(
+                    (p) => plantClassificationMap[String(p.osNumericId ?? p.id)] === "outdoor",
+                  );
+              return (
+                <div className="space-y-10">
+                  {indoorProducts.length > 0 && (
+                    <section>
+                      <h2 className="font-serif text-2xl mb-6">{t("shop.plants.indoorSection")}</h2>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+                        {indoorProducts.map((product, i) => (
+                          <ProductCard key={product.id} product={product} index={i} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  {outdoorProducts.length > 0 && (
+                    <section>
+                      <h2 className="font-serif text-2xl mb-6">{t("shop.plants.outdoorSection")}</h2>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+                        {outdoorProducts.map((product, i) => (
+                          <ProductCard key={product.id} product={product} index={i} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              );
+            })() : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
                 {products.map((product, i) => (
                   <ProductCard key={product.id} product={product} index={i} />

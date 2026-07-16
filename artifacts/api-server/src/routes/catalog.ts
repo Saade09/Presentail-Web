@@ -13,6 +13,9 @@ import {
 } from "@workspace/catalog-data";
 import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds } from "../lib/osProductsCache";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
+import { db } from "@workspace/db";
+import { plantEnvironmentCacheTable } from "@workspace/db/schema";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -547,6 +550,24 @@ router.get("/catalog/products-pricing", (_req, res) => {
   }
   res.setHeader("Cache-Control", "public, max-age=60");
   res.json({ ok: true, pricing });
+});
+
+// Public endpoint: returns a map of osProductId → "indoor" | "outdoor" for all
+// classified plant products. Unclassified products are omitted (frontend treats
+// missing = indoor pending). No auth required — purely informational.
+router.get("/catalog/plant-classifications", async (_req, res) => {
+  try {
+    const rows = await db.select().from(plantEnvironmentCacheTable);
+    const classifications: Record<string, "indoor" | "outdoor"> = {};
+    for (const row of rows) {
+      classifications[row.osProductId] = row.classification as "indoor" | "outdoor";
+    }
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json({ ok: true, classifications });
+  } catch (err) {
+    logger.error({ err }, "catalog/plant-classifications: DB query failed");
+    res.status(500).json({ ok: false, message: "Failed to fetch plant classifications" }); // i18n-ignore
+  }
 });
 
 export default router;

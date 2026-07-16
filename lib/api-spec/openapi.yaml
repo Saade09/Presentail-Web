@@ -335,6 +335,195 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /catalog/plant-classifications:
+    get:
+      operationId: getPlantClassifications
+      tags: [catalog]
+      summary: Get AI-inferred indoor/outdoor classifications for plant products
+      description: |
+        Returns a map of OS product ID → environment classification ("indoor" | "outdoor")
+        for all classified plant products. Products not yet classified are omitted from
+        the map — the frontend treats missing entries as "indoor pending" and shows them
+        under the Indoor Plants section until classification completes. No auth required.
+      responses:
+        "200":
+          description: Plant classification map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlantClassificationsResponse"
+        "500":
+          description: Database query failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/plant-classifications:
+    get:
+      operationId: listPlantClassifications
+      x-admin: true
+      tags: [catalog]
+      summary: List all plant product classifications (admin)
+      description: |
+        Returns every row in the `plant_environment_cache` table, including source,
+        needs_review flag, and content hash. Protected by the `x-push-admin-token` header.
+      parameters:
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All plant classification rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPlantClassificationsListResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/plant-classifications/{osProductId}:
+    patch:
+      operationId: overridePlantClassification
+      x-admin: true
+      tags: [catalog]
+      summary: Override the indoor/outdoor classification for a single plant product (admin)
+      description: |
+        Manually sets the environment classification for a single product. Sets
+        `source = "admin"` and clears `needs_review`. Protected by the
+        `x-push-admin-token` header.
+      parameters:
+        - name: osProductId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlantClassificationOverrideRequest"
+      responses:
+        "200":
+          description: Updated classification row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlantClassificationOverrideResponse"
+        "400":
+          description: Invalid classification value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Product classification not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/plant-classifications/{osProductId}/reclassify:
+    post:
+      operationId: reclassifyPlantProduct
+      x-admin: true
+      tags: [catalog]
+      summary: Re-run AI classification for a single plant product (admin)
+      description: |
+        Wipes the stored classification and re-runs AI inference for the given
+        product. Protected by the `x-push-admin-token` header.
+      parameters:
+        - name: osProductId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reclassification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlantReclassifyResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Product not found in plants catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: OS product cache not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/plant-classifications/bulk-reclassify:
+    post:
+      operationId: bulkReclassifyPlants
+      x-admin: true
+      tags: [catalog]
+      summary: Bulk re-run AI classification for all plant products (admin)
+      description: |
+        Wipes all stored classifications (or only non-admin overrides when
+        `?keepManual=true`) and re-runs AI inference for all plant products.
+        Protected by the `x-push-admin-token` header.
+      parameters:
+        - name: keepManual
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: When true, preserves admin-overridden classifications and only reclassifies AI/fallback rows.
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bulk reclassification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlantBulkReclassifyResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: OS product cache not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /occasions/new-born/gender:
     get:
       operationId: getNewbornGender
@@ -4300,6 +4489,86 @@ components:
       required:
         - ok
         - exists
+    PlantClassificationsResponse:
+      type: object
+      description: AI-inferred indoor/outdoor classification for plant products.
+      properties:
+        ok:
+          type: boolean
+        classifications:
+          type: object
+          description: Map of OS product ID (string) to environment classification.
+          additionalProperties:
+            type: string
+            enum: [indoor, outdoor]
+      required:
+        - ok
+        - classifications
+    PlantClassificationRow:
+      type: object
+      description: A single row from the plant_environment_cache table.
+      properties:
+        osProductId:
+          type: string
+        classification:
+          type: string
+          enum: [indoor, outdoor]
+        source:
+          type: string
+          enum: [ai, admin, fallback]
+        needsReview:
+          type: boolean
+        contentHash:
+          type: string
+        classifiedAt:
+          type: string
+      required: [osProductId, classification, source, needsReview, contentHash, classifiedAt]
+    AdminPlantClassificationsListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlantClassificationRow"
+      required: [ok, rows]
+    PlantClassificationOverrideRequest:
+      type: object
+      properties:
+        classification:
+          type: string
+          enum: [indoor, outdoor]
+      required: [classification]
+    PlantClassificationOverrideResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        row:
+          $ref: "#/components/schemas/PlantClassificationRow"
+      required: [ok]
+    PlantReclassifyResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        osProductId:
+          type: string
+        result:
+          type: object
+          nullable: true
+      required: [ok, osProductId]
+    PlantBulkReclassifyResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        classified:
+          type: integer
+        keepManual:
+          type: boolean
+      required: [ok, classified, keepManual]
     StuffedAnimalsSizesResponse:
       type: object
       description: AI-inferred size classification for stuffed-animals products.

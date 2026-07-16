@@ -115,6 +115,9 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.katbKitab": { en: "Katb Kitab", ar: "كتب كتاب" },
 
+  "shop.plants.indoorSection": { en: "Indoor Plants", ar: "نباتات داخلية" },
+  "shop.plants.outdoorSection": { en: "Outdoor Plants", ar: "نباتات خارجية" },
+
   "shop.bearSize.label": { en: "Bear Size:", ar: "حجم الدب:" },
   "shop.bearSize.all": { en: "All Bears", ar: "كل الدببة" },
   "shop.bearSize.small": { en: "Small Bears", ar: "دببة صغيرة" },
@@ -599,6 +602,9 @@ export const shopStringsFr: Record<string, string> = {
   "shop.occ.fathersDay": "Fête des Pères",
   "shop.occ.christmas": "Noël",
   "shop.occ.katbKitab": "Katb Kitab",
+
+  "shop.plants.indoorSection": "Plantes d'intérieur",
+  "shop.plants.outdoorSection": "Plantes d'extérieur",
 
   "shop.bearSize.label": "Taille de l'ours :",
   "shop.bearSize.all": "Tous les ours",
