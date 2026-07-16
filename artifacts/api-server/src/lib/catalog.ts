@@ -8,6 +8,7 @@ import {
   getOsCountryFreeDeliveryEnabled,
   getOsCityFreeDeliveryThresholdUsd,
   getOsCityFreeDeliveryEnabled,
+  getOsCityDeliveryFeeUsd,
 } from "./osLocationsCache";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
@@ -110,7 +111,9 @@ export function computeDistrictFeeUsd(
     getOsCountryFreeDeliveryEnabled(country) ??
     true;
   if (freeDeliveryEnabled && subtotalUsd >= threshold) return 0;
-  return noAddress ? NO_ADDRESS_DELIVERY_FEE_USD : baseDistrictFeeUsd(district);
+  // OS city fee wins over hardcoded table; hardcoded table is the cold-start fallback.
+  const districtFee = getOsCityDeliveryFeeUsd(country, district) ?? baseDistrictFeeUsd(district);
+  return noAddress ? NO_ADDRESS_DELIVERY_FEE_USD : districtFee;
 }
 
 type CatalogProduct = { price: number; name: string };

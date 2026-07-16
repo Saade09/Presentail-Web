@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { storeLocationsFromWebhook, getLocations, resetCacheForTesting, fetchAndStoreForTesting } from "./osLocationsCache";
+import { storeLocationsFromWebhook, getLocations, resetCacheForTesting, fetchAndStoreForTesting, getOsCityDeliveryFeeUsd } from "./osLocationsCache";
 import type { OSLocationsResponse, OSCountry, OSCity } from "@workspace/presentail-os";
 
 // Mock the alerts module so Slack sends are captured without real HTTP.
@@ -873,5 +873,79 @@ describe("osLocationsCache — fetch failure paths", () => {
       hasbayaAfterFail!.isActive,
       "lb-hasbaya must remain inactive — prior good cache was retained after fetch failure",
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: getOsCityDeliveryFeeUsd
+// ---------------------------------------------------------------------------
+
+describe("getOsCityDeliveryFeeUsd", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+  });
+
+  it("returns the OS-provided city fee when deliveryFee is set, overriding the hardcoded table", () => {
+    // Beirut's hardcoded fee is $8. The OS dashboard configured $7.
+    // The OS deliveryFee field (in the country's display currency — USD for LB)
+    // must win over the hardcoded table so checkout reflects the dashboard value.
+    const payload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut", deliveryFee: 7 }),
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(payload);
+
+    const fee = getOsCityDeliveryFeeUsd("LB", "Beirut");
+    expect(fee).toBe(7); // OS value wins over hardcoded 8
+  });
+
+  it("falls back to the hardcoded table fee when the OS payload omits deliveryFee", () => {
+    // No deliveryFee on the city → cache stores feeForDistrict("LB", "Beirut") = 8.
+    const payload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(payload);
+
+    const fee = getOsCityDeliveryFeeUsd("LB", "Beirut");
+    expect(fee).toBe(8); // hardcoded table fallback
+  });
+
+  it("is case-insensitive for the city name", () => {
+    const payload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut", deliveryFee: 7 }),
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(payload);
+
+    expect(getOsCityDeliveryFeeUsd("LB", "beirut")).toBe(7);
+    expect(getOsCityDeliveryFeeUsd("LB", "BEIRUT")).toBe(7);
+  });
+
+  it("returns undefined when the cache is empty", () => {
+    // Cache was reset in beforeEach — no webhook has been called.
+    expect(getOsCityDeliveryFeeUsd("LB", "Beirut")).toBeUndefined();
+  });
+
+  it("returns undefined for an unknown city name", () => {
+    const payload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut", deliveryFee: 7 }),
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(payload);
+
+    expect(getOsCityDeliveryFeeUsd("LB", "NonExistentCity")).toBeUndefined();
   });
 });

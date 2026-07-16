@@ -1097,3 +1097,15 @@ export function getOsCityFreeDeliveryEnabled(
 ): boolean | undefined {
   return getCachedCityByName(countryCode, cityName)?.freeDeliveryEnabled;
 }
+
+/**
+ * Returns the per-city delivery fee in USD from the OS cache, or `undefined`
+ * when the city is absent or the cache is empty (caller should fall back to
+ * the hardcoded per-district fee table).
+ */
+export function getOsCityDeliveryFeeUsd(
+  countryCode: string,
+  cityName: string,
+): number | undefined {
+  return getCachedCityByName(countryCode, cityName)?.fee;
+}
