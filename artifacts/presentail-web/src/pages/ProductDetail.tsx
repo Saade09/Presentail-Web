@@ -45,7 +45,7 @@ import {
 import { useNow } from "@/lib/useNow";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
-import { trackWebEvent } from "@/lib/analytics";
+import { trackWebEvent, trackEvent } from "@/lib/analytics";
 import { buildProductSeo } from "@/lib/seo";
 import { FrequentlyBoughtTogether } from "@/components/product/FrequentlyBoughtTogether";
 
@@ -280,6 +280,17 @@ export default function ProductDetail() {
     return (cartSubtotal + productUsdForPricing) >= threshold;
   }, [delivery.freeDeliveryEnabled, delivery.freeDeliveryThresholdUsd, countryCode, cartSubtotal, productUsdForPricing]);
 
+  // Fire analytics once the first time freeDeliveryMet becomes true (after
+  // the delivery-config query resolves with real server data, not fallback).
+  const prevQualifiesRef = useRef(false);
+  useEffect(() => {
+    if (!delivery.isLoaded || !product) return;
+    if (freeDeliveryMet && !prevQualifiesRef.current) {
+      trackEvent({ name: "free_delivery_qualification_message_viewed" });
+    }
+    prevQualifiesRef.current = freeDeliveryMet;
+  }, [freeDeliveryMet, delivery.isLoaded, product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Delivery card fee labels — mirrors the mobile useDeliveryPricing logic.
   // cityFeeUsd: null when no city is selected OR city fee is not yet configured.
   const deliveryCardLabels = useMemo(() => {
@@ -491,6 +502,11 @@ export default function ProductDetail() {
               }
               taxLabel="TAX Inclusive"
               rewardPoints={vm.rewardPoints}
+              freeDeliveryBadge={
+                delivery.isLoaded && freeDeliveryMet
+                  ? t("product.delivery.qualifiedHelper")
+                  : undefined
+              }
             />
 
             {product.hasLetterField ? (
@@ -564,7 +580,7 @@ export default function ProductDetail() {
               scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
               scheduledFeeSubLabel={deliveryCardLabels.scheduledFeeSubLabel}
               scheduledIsFree={deliveryCardLabels.scheduledIsFree}
-              showHelper
+              showHelper={!deliveryCardLabels.helperIsQualified}
               helperIsQualified={deliveryCardLabels.helperIsQualified}
             />
 
@@ -582,19 +598,10 @@ export default function ProductDetail() {
               />
             )}
 
-            {!expressAvailable && (
+            {!expressAvailable && !deliveryCardLabels.helperIsQualified && (
               <div className="flex items-center gap-1.5 px-0.5">
-                <Info
-                  className={cn(
-                    "w-3.5 h-3.5 shrink-0",
-                    deliveryCardLabels.helperIsQualified ? "text-primary" : "text-muted-foreground",
-                  )}
-                />
-                {deliveryCardLabels.helperIsQualified ? (
-                  <span className="text-[11px] leading-relaxed text-primary">
-                    {t("product.delivery.qualifiedHelper")}
-                  </span>
-                ) : delivery.cityFeeUsd !== null ? (
+                <Info className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                {delivery.cityFeeUsd !== null ? (
                   <span className="text-[11px] leading-relaxed text-muted-foreground">
                     {deliveryCardLabels.scheduledFeeLabel}
                     {deliveryCardLabels.scheduledFeeSubLabel && (

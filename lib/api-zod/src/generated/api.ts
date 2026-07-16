@@ -592,6 +592,13 @@ export const RecordAnalyticsEventBody = zod.object({
       "payment_completed",
       "promo_applied",
       "promo_failed",
+      "delivery_pricing_viewed",
+      "express_delivery_selected",
+      "scheduled_delivery_selected",
+      "free_standard_delivery_qualified",
+      "free_standard_delivery_qualification_lost",
+      "delivery_price_recalculated",
+      "free_delivery_qualification_message_viewed",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n\n`payment_wallet_opened` is emitted when the native wallet sheet\n(Apple Pay \/ Google Pay) successfully opens on web or mobile. The\n`action` field carries `apple_pay` or `google_pay` on mobile and\n`wallet` on web (browser determines which wallet is active).\n\n`payment_wallet_fallback` is emitted when the wallet sheet could\nnot be opened and the checkout silently falls back to the card\nform. The `errorCode` field carries the reason:\n`constructor_failed` (web — PaymentRequest constructor threw),\n`show_failed` (web — pr.show() threw synchronously), or\n`not_available` (mobile — isPlatformPaySupported returned false).\n",

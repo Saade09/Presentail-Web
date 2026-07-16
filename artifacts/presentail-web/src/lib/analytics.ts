@@ -155,7 +155,8 @@ type AnalyticsEventName =
   | "shop_selected_city_clicked"
   | "switch_back_city_clicked"
   | "browse_category_selected_city_clicked"
-  | "recommended_product_clicked";
+  | "recommended_product_clicked"
+  | "free_delivery_qualification_message_viewed";
 
 type AnalyticsSurface =
   | "cart"

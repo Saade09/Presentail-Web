@@ -13,6 +13,8 @@ export type DeliveryConfig = {
   cityFeeUsd: number | null;
   /** Express surcharge for the country in USD. 0 when not applicable. */
   expressSurchargeUsd: number;
+  /** True once the delivery-config query has resolved with real server data (not fallback). */
+  isLoaded: boolean;
 };
 
 const FALLBACK: DeliveryConfig = {
@@ -23,6 +25,7 @@ const FALLBACK: DeliveryConfig = {
   freeDeliveryEnabled: true,
   cityFeeUsd: null,
   expressSurchargeUsd: 0,
+  isLoaded: false,
 };
 
 const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
@@ -75,5 +78,6 @@ export function useDeliveryConfig(): DeliveryConfig {
     refetchInterval: 10 * 60 * 1000,
   });
 
-  return data ?? fallbackFor(countryCode);
+  if (data) return { ...data, isLoaded: true };
+  return fallbackFor(countryCode);
 }

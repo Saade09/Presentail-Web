@@ -55,6 +55,7 @@ vi.mock("@/components/product/useDeliveryConfig", () => ({
     freeDeliveryThreshold: "$90",
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
     currency: "USD",
+    isLoaded: true,
   })),
 }));
 
@@ -225,6 +226,7 @@ describe("Cart — FreeDeliveryBanner visibility", () => {
       currency: "USD",
       cityFeeUsd: null,
       expressSurchargeUsd: 15,
+      isLoaded: true,
     });
   });
 
@@ -236,6 +238,7 @@ describe("Cart — FreeDeliveryBanner visibility", () => {
       currency: "USD",
       cityFeeUsd: null,
       expressSurchargeUsd: 15,
+      isLoaded: true,
     });
     renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
@@ -252,6 +255,7 @@ describe("Cart — FreeDeliveryBanner visibility", () => {
       freeDeliveryThreshold: "$90",
       expressDeliveryTimeLabel: "Arrives in 90 minutes",
       currency: "USD",
+      isLoaded: true,
       cityFeeUsd: null,
       expressSurchargeUsd: 15,
     });
@@ -279,6 +283,7 @@ const DELIVERY_CONFIG_WITH_FEE = {
   currency: "USD",
   cityFeeUsd: 10,
   expressSurchargeUsd: 15,
+  isLoaded: true,
 };
 
 const CART_BELOW_THRESHOLD = {
@@ -509,6 +514,7 @@ const AE_DELIVERY_CONFIG = {
   currency: "USD",
   cityFeeUsd: 10,
   expressSurchargeUsd: 4.9,
+  isLoaded: true,
 };
 
 // AE free-delivery threshold is ~$89.84 USD.
@@ -604,6 +610,7 @@ const CY_DELIVERY_CONFIG = {
   currency: "USD",
   cityFeeUsd: 10,
   expressSurchargeUsd: 15, // expressSurchargeForCountry("CY") → LB_EXPRESS_SURCHARGE
+  isLoaded: true,
 };
 
 // CY free-delivery threshold is $120 USD.

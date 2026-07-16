@@ -19,6 +19,12 @@ export type DeliveryConfig = {
    * and product detail screens.
    */
   freeDeliveryThresholdNative: number;
+  /**
+   * True once the remote `/api/delivery-config` response has been received.
+   * False while the fetch is in-flight (fallback values are active).
+   * Use this to suppress UI that should not appear during loading.
+   */
+  isLoaded: boolean;
 };
 
 /**
@@ -56,6 +62,7 @@ export function useDeliveryConfig(): DeliveryConfig {
       freeDeliveryEnabled: true,
       freeDeliveryThresholdUsd: fallbackUsd,
       freeDeliveryThresholdNative: convert(fallbackUsd),
+      isLoaded: false,
     };
   }
 
@@ -66,5 +73,6 @@ export function useDeliveryConfig(): DeliveryConfig {
     freeDeliveryEnabled: enabled,
     freeDeliveryThresholdUsd: thresholdUsd,
     freeDeliveryThresholdNative: enabled ? convert(thresholdUsd) : 0,
+    isLoaded: true,
   };
 }

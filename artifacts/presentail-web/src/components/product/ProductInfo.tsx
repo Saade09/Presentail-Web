@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import { LoyaltyInfoModal } from "@/components/loyalty/LoyaltyInfoModal";
 import { useLocale } from "@/contexts/LocaleContext";
 
@@ -9,9 +10,11 @@ type Props = {
   price: ReactNode;
   taxLabel: string;
   rewardPoints: number;
+  /** Badge shown between the price row and the product title when free delivery is earned. */
+  freeDeliveryBadge?: ReactNode;
 };
 
-export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
+export function ProductInfo({ name, price, taxLabel, rewardPoints, freeDeliveryBadge }: Props) {
   const [open, setOpen] = useState(false);
   const { t } = useLocale();
   return (
@@ -45,6 +48,15 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
           </span>
         </button>
       </div>
+
+      {freeDeliveryBadge && (
+        <div className="flex items-center gap-1.5 mb-2" data-testid="free-delivery-badge">
+          <CheckCircle className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+          <span className="text-[13px] font-medium text-primary leading-snug">
+            {freeDeliveryBadge}
+          </span>
+        </div>
+      )}
 
       <h1
         className="font-serif text-3xl md:text-4xl leading-tight text-foreground"

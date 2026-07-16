@@ -29,7 +29,8 @@ type AnalyticsEventName =
   | "scheduled_delivery_selected"
   | "free_standard_delivery_qualified"
   | "free_standard_delivery_qualification_lost"
-  | "delivery_price_recalculated";
+  | "delivery_price_recalculated"
+  | "free_delivery_qualification_message_viewed";
 
 type AnalyticsSurface =
   | "cart"

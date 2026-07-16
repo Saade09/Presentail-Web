@@ -641,8 +641,8 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   const headingFontMedium = useHeadingFont("500Medium");
   const headingFontRegular = useHeadingFont("400Regular");
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
-  const { freeDeliveryEnabled, freeDeliveryThresholdNative } = useDeliveryConfig();
-  const { formatNative: fmtNative } = useCurrency();
+  const { freeDeliveryEnabled, freeDeliveryThresholdNative, isLoaded: deliveryConfigLoaded } = useDeliveryConfig();
+  const { formatNative: fmtNative, convert } = useCurrency();
 
   // Delivery pricing — projects the cart value after adding this product.
   // This PDP always adds 1 unit at a time (no quantity selector on screen);
@@ -654,6 +654,15 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     return isFinite(discNum) && discNum > 0 ? discNum : priceValue;
   })();
   const deliveryPricing = useDeliveryPricing(productUsdForPricing, selectedQty);
+
+  // Active selling price in the shopper's native display currency — used to
+  // determine whether this single product meets the free-delivery threshold.
+  const activePrice = convert(productUsdForPricing);
+  const qualifiesForFreeDelivery =
+    deliveryConfigLoaded &&
+    freeDeliveryEnabled &&
+    freeDeliveryThresholdNative > 0 &&
+    activePrice >= freeDeliveryThresholdNative;
 
   // Fire delivery_pricing_viewed once when the delivery options section mounts
   useEffect(() => {
@@ -718,6 +727,44 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     deliveryPricing.isFreeStandard,
     deliveryPricing.pricingState,
   ]);
+
+  // Fire free_delivery_qualification_message_viewed once per qualifying
+  // state transition (false → true). A ref tracks the previous value so
+  // the event fires at most once per transition, never on every render.
+  const prevQualifiesRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (prevQualifiesRef.current === null) {
+      if (qualifiesForFreeDelivery) {
+        trackEvent({
+          name: "free_delivery_qualification_message_viewed",
+          productId: String(product.id ?? ""),
+          state: [
+            selectedCity?.id ?? "",
+            selectedCountry?.code ?? "",
+            currencyCode,
+            String(activePrice),
+            String(freeDeliveryThresholdNative),
+          ].join("|"),
+        });
+      }
+      prevQualifiesRef.current = qualifiesForFreeDelivery;
+      return;
+    }
+    if (qualifiesForFreeDelivery && !prevQualifiesRef.current) {
+      trackEvent({
+        name: "free_delivery_qualification_message_viewed",
+        productId: String(product.id ?? ""),
+        state: [
+          selectedCity?.id ?? "",
+          selectedCountry?.code ?? "",
+          currencyCode,
+          String(activePrice),
+          String(freeDeliveryThresholdNative),
+        ].join("|"),
+      });
+    }
+    prevQualifiesRef.current = qualifiesForFreeDelivery;
+  }, [qualifiesForFreeDelivery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build display labels for delivery option cards
   const { standardFee, expressSurcharge, expressTotal, isFreeStandard, pricingState } = deliveryPricing;
@@ -829,10 +876,6 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
 
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 14 }}>
-      <AppText style={{ fontFamily: headingFontMedium, fontSize: 28, color: colors.primary, lineHeight: 34 }}>
-        {product.name}
-      </AppText>
-
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, flexShrink: 1 }}>
           {onSale ? (
@@ -871,6 +914,28 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
           </AppText>
         </View>
       </View>
+
+      {/* Free delivery qualification confirmation badge — shown below price row, above product title */}
+      {qualifiesForFreeDelivery && (
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: -2 }}>
+          <MaterialCommunityIcons
+            name="check-circle"
+            size={16}
+            color={colors.primary}
+            accessible={false}
+            style={{ marginTop: 1 }}
+          />
+          <AppText
+            style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 18 }}
+          >
+            {t.freeDeliveryQualificationMessage}
+          </AppText>
+        </View>
+      )}
+
+      <AppText style={{ fontFamily: headingFontMedium, fontSize: 28, color: colors.primary, lineHeight: 34 }}>
+        {product.name}
+      </AppText>
 
       {/* Custom personalisation note */}
       {product.hasInputField && (

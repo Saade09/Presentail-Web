@@ -93,4 +93,13 @@ export const AnalyticsEventName = {
   payment_completed: "payment_completed",
   promo_applied: "promo_applied",
   promo_failed: "promo_failed",
+  delivery_pricing_viewed: "delivery_pricing_viewed",
+  express_delivery_selected: "express_delivery_selected",
+  scheduled_delivery_selected: "scheduled_delivery_selected",
+  free_standard_delivery_qualified: "free_standard_delivery_qualified",
+  free_standard_delivery_qualification_lost:
+    "free_standard_delivery_qualification_lost",
+  delivery_price_recalculated: "delivery_price_recalculated",
+  free_delivery_qualification_message_viewed:
+    "free_delivery_qualification_message_viewed",
 } as const;
