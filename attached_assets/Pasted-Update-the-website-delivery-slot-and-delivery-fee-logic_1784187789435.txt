@@ -1,0 +1,165 @@
+Update the website delivery-slot and delivery-fee logic to support the new OS slot rules.
+
+Current OS setup:
+- Two separate “Night” slots exist for 9:00 PM–11:00 PM.
+- One slot is enabled for same-day orders and has a $5 fee override.
+- The other slot is enabled for next-day orders and has no fee override.
+- The website already fetches delivery dates, time slots, availability, delivery type, fees, cutoff times, and related delivery data from OS.
+
+Required behavior:
+
+1. Read all slot configuration directly from OS
+For every delivery slot, read and respect:
+- slot ID
+- label
+- start time
+- end time
+- enabled status
+- same-day availability
+- next-day availability
+- delivery type
+- fee override
+- cutoff time
+- max-order capacity
+- selected delivery date
+
+Do not identify the slot only by its label or time because both Night slots have the same label and hours. Use the unique OS slot ID and its configuration.
+
+2. Filter slots by the selected delivery date
+Determine whether the selected date is:
+- today
+- tomorrow
+- a later date
+
+Then show only slots that apply:
+
+- If the selected date is today:
+  - Show only slots where `same-day orders` is enabled.
+  - Respect the slot cutoff time and capacity.
+  - For the Night 9:00 PM–11:00 PM same-day slot, apply its $5 fee override.
+
+- If the selected date is tomorrow:
+  - Show only slots where `next-day orders` is enabled.
+  - Do not show the separate same-day-only Night slot.
+  - The next-day Night slot must use the normal standard delivery fee rules because it has no override fee.
+
+- For dates after tomorrow:
+  - Use the normal slot eligibility and standard delivery-fee rules returned by OS.
+  - Do not apply the $5 same-day Night fee unless the actual selected OS slot contains that fee override and is valid for the selected date.
+
+3. Fee calculation priority
+Use this exact priority:
+
+A. If the selected OS slot has a valid fee override:
+- Use that override as the slot’s delivery charge.
+- For the same-day Night slot, this means adding/charging $5 according to the override configuration.
+
+B. If the selected slot has no fee override:
+- Run the existing standard delivery-fee logic.
+- This may result in free delivery or a delivery fee depending on the existing district, cart value, promotion, free-delivery threshold, delivery type, and other current rules.
+
+Do not automatically copy the $5 fee to the next-day Night slot just because it has the same label and hours.
+
+4. Clarify override handling in code
+Do not use truthy checks such as:
+
+`if (slot.feeOverride)`
+
+because a valid override may be `0`.
+
+Instead, detect whether an override is actually configured, for example:
+
+`slot.feeOverride !== null && slot.feeOverride !== undefined`
+
+Normalize the OS value safely if it arrives as a string.
+
+5. Checkout display
+When the customer selects a slot:
+- Recalculate the delivery fee immediately.
+- Update the order summary without requiring a page refresh.
+- Display the selected slot label and time.
+- Display the correct delivery fee.
+- If the override is $5, show the $5 delivery fee.
+- If there is no override, show the result of the existing standard fee calculation.
+- Prevent duplicate fee lines or adding the override on top of a standard fee unless OS explicitly defines the override as an additional surcharge.
+
+Treat the OS fee override as replacing the slot’s normal delivery fee, not as an extra surcharge, unless the existing OS API explicitly provides a separate surcharge field.
+
+6. Backend validation
+Do not rely only on the frontend.
+
+When creating or updating the order, the backend must:
+- Fetch or validate the selected slot using its OS slot ID.
+- Confirm it is valid for the selected date.
+- Confirm whether it supports same-day or next-day ordering.
+- Recheck cutoff time.
+- Recheck capacity if supported.
+- Recalculate the applicable fee.
+- Ignore any fee amount submitted directly by the browser.
+- Store the selected OS slot ID, selected date, and final delivery fee on the order.
+
+7. Timezone
+Use the delivery location’s configured timezone when determining:
+- today
+- tomorrow
+- cutoff time
+- slot availability
+
+Do not use the browser timezone or server UTC without conversion.
+
+8. Duplicate-looking slots
+Because the two OS slots both appear as “Night — 9:00 PM to 11:00 PM,” ensure the website does not merge, deduplicate, or overwrite them based on:
+- label
+- start time
+- end time
+
+They are separate records with different same-day/next-day and fee settings.
+
+9. Required test cases
+
+Test case 1:
+- Selected date: today
+- Selected slot: same-day Night, 9 PM–11 PM
+- OS override: $5
+- Expected: slot is available only before cutoff and final slot delivery fee is $5.
+
+Test case 2:
+- Selected date: tomorrow
+- Selected slot: next-day Night, 9 PM–11 PM
+- No override
+- Expected: normal delivery-fee rules apply. It may be free or paid depending on existing rules.
+
+Test case 3:
+- Selected date: tomorrow
+- Same-day-only Night slot
+- Expected: it is not shown and cannot be submitted manually.
+
+Test case 4:
+- Selected date: today
+- Next-day-only Night slot
+- Expected: it is not shown and cannot be submitted manually.
+
+Test case 5:
+- Same label and time on both slots
+- Expected: the correct slot is selected using its unique OS slot ID.
+
+Test case 6:
+- Slot override is explicitly 0
+- Expected: delivery fee is free and the website does not fall back to the standard fee.
+
+Test case 7:
+- Slot has no override
+- Expected: existing district, free-delivery, cart-threshold, delivery-type, and other fee rules continue to work unchanged.
+
+Before coding:
+- Trace the current OS delivery-slot API response.
+- Identify the exact field names for same-day, next-day, fee override, cutoff, capacity, delivery type, and slot ID.
+- Trace the current frontend and backend fee calculation paths.
+- Do not invent duplicate local configuration when OS already supplies the data.
+
+After coding:
+- Provide the files changed.
+- Provide the exact OS fields used.
+- Show the final fee-priority logic.
+- Show evidence from all seven test cases.
+- Do not mark the task complete based only on compilation.
