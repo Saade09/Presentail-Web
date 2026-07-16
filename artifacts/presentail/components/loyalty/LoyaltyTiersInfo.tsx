@@ -97,7 +97,7 @@ export function LoyaltyTiersExplainer({
                     marginTop: 2,
                   }}
                 >
-                  {tier.threshold} points
+                  {tier.threshold} {t.loyaltyPoints}
                 </AppText>
               </View>
               <AppText
@@ -107,7 +107,7 @@ export function LoyaltyTiersExplainer({
                   color: colors.primary,
                 }}
               >
-                {tier.discountPercent}% off
+                {t.loyaltyTierDiscount.replace("{n}", String(tier.discountPercent))}
               </AppText>
             </View>
           );
@@ -121,9 +121,7 @@ export function LoyaltyTiersExplainer({
           lineHeight: 18,
         }}
       >
-        Your tier coupon is single-use and personal to your account. If an
-        order is cancelled or refunded, the points credited for it are
-        reversed.
+        {t.loyaltyCouponNote}
       </AppText>
     </View>
   );

@@ -175,6 +175,11 @@ export const accountStrings: Dict = {
     en: "You haven't earned any points yet. Place your first order to start earning!",
     ar: "لم تكسب أي نقاط بعد. قدّم طلبك الأول لتبدأ في جمع النقاط!",
   },
+  "loyalty.tierDiscount": { en: "{n}% off", ar: "خصم {n}٪" },
+  "loyalty.couponNote": {
+    en: "Your tier coupon is single-use and personal to your account. If an order is cancelled or refunded, the points credited for it are reversed.",
+    ar: "كوبون مستواك للاستخدام مرة واحدة وخاص بحسابك. إذا تم إلغاء الطلب أو استرداد المبلغ، تُعكس النقاط المضافة له.",
+  },
 
   "account.shortcut.total": { en: "total", ar: "إجمالاً" },
 
@@ -391,6 +396,8 @@ export const accountStringsFr: Record<string, string> = {
   "loyalty.howTiersWork": "Comment fonctionnent les niveaux",
   "loyalty.earnDescFull": "Gagnez 1 point pour chaque dollar dépensé chez Presentail. Les points sont crédités une fois votre commande livrée. Atteignez un niveau et nous créerons un coupon de réduction personnel utilisable sur votre prochain achat.",
   "loyalty.noPointsYet": "Vous n'avez pas encore de points. Passez votre première commande pour commencer à en gagner !",
+  "loyalty.tierDiscount": "{n}% de réduction",
+  "loyalty.couponNote": "Votre coupon de niveau est à usage unique et personnel à votre compte. Si une commande est annulée ou remboursée, les points crédités pour celle-ci sont annulés.",
 
   "account.shortcut.total": "au total",
 

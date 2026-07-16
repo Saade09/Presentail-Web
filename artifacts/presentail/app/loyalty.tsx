@@ -324,7 +324,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
                 textTransform: "uppercase",
               }}
             >
-              points
+              {t.loyaltyPoints}
             </AppText>
           </View>
         </View>
@@ -378,8 +378,10 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
               marginTop: 8,
             }}
           >
-            {summary.pointsToNext} points to {summary.nextTier.label} (
-            {summary.nextTier.discountPercent}% off)
+            {t.loyaltyPointsToNext
+              .replace("{n}", String(summary.pointsToNext))
+              .replace("{tier}", summary.nextTier.label)
+              .replace("{d}", String(summary.nextTier.discountPercent))}
           </AppText>
         </View>
       ) : (
@@ -428,7 +430,7 @@ function CouponRow({
             color: colors.primary,
           }}
         >
-          {coupon.tierLabel} · {coupon.discountPercent}% off
+          {coupon.tierLabel} · {t.loyaltyTierDiscount.replace("{n}", String(coupon.discountPercent))}
         </AppText>
         <AppText
           style={{
@@ -461,7 +463,7 @@ function CouponRow({
             color: copied ? "#fff" : colors.primary,
           }}
         >
-          {copied ? "Copied" : "Copy"}
+          {copied ? t.loyaltyCopied : t.loyaltyCopy}
         </AppText>
       </Pressable>
     </View>

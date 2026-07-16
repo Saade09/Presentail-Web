@@ -164,7 +164,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
               >
                 <div className="min-w-0">
                   <div className="font-medium">
-                    {c.tierLabel} · {c.discountPercent}% off
+                    {c.tierLabel} · {t("loyalty.tierDiscount").replace("{n}", String(c.discountPercent))}
                   </div>
                   <div className="font-mono text-xs text-muted-foreground mt-1 truncate">
                     {c.code}

@@ -51,21 +51,19 @@ export function LoyaltyTiersExplainer({
                 <div className="min-w-0">
                   <div className="font-medium text-sm">{tier.label}</div>
                   <div className="text-xs text-muted-foreground">
-                    {tier.threshold} points
+                    {tier.threshold} {t("loyalty.points")}
                   </div>
                 </div>
               </div>
               <div className="text-sm font-medium text-right">
-                {tier.discountPercent}% off
+                {t("loyalty.tierDiscount").replace("{n}", String(tier.discountPercent))}
               </div>
             </div>
           );
         })}
       </div>
       <p className="text-xs text-muted-foreground leading-relaxed">
-        Your tier coupon is single-use and personal to your account. If an
-        order is cancelled or refunded, the points credited for it are
-        reversed.
+        {t("loyalty.couponNote")}
       </p>
     </div>
   );

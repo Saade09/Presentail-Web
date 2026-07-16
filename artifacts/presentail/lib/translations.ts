@@ -1003,6 +1003,12 @@ const EN = {
   loyaltyTopTierThankYou: "You're at our top tier — thank you for being a Presentail VIP.",
   loyaltyTiersExplainer: "Earn 1 point for every $1 you spend at Presentail. Points are credited once your order is delivered. Reach a tier and we'll mint a personal discount coupon you can use on your next order.",
   loyaltyNoPointsYet: "You haven't earned any points yet. Place your first order to start earning!",
+  loyaltyPoints: "points",
+  loyaltyPointsToNext: "{n} points to {tier} ({d}% off)",
+  loyaltyTierDiscount: "{n}% off",
+  loyaltyCopy: "Copy",
+  loyaltyCopied: "Copied",
+  loyaltyCouponNote: "Your tier coupon is single-use and personal to your account. If an order is cancelled or refunded, the points credited for it are reversed.",
 
   // ── Care tips — flowers (also used for preserved-flowers) ──
   careTipFlower1: "Trim 2 cm off stems at a 45° angle every 2–3 days.",
@@ -1967,6 +1973,12 @@ const AR: typeof EN = {
   loyaltyTopTierThankYou: "أنت في أعلى مستوياتنا — شكراً لكونك من VIP Presentail.",
   loyaltyTiersExplainer: "اكسب نقطة واحدة مقابل كل دولار تنفقه في Presentail. تُضاف النقاط بمجرد تسليم طلبك. بلّغ مستوى معيناً ونمنحك قسيمة خصم شخصية لاستخدامها في طلبك التالي.",
   loyaltyNoPointsYet: "لم تكسب أي نقاط بعد. قدّم طلبك الأول لتبدأ في جمع النقاط!",
+  loyaltyPoints: "نقاط",
+  loyaltyPointsToNext: "{n} نقطة للوصول إلى {tier} (خصم {d}٪)",
+  loyaltyTierDiscount: "خصم {n}٪",
+  loyaltyCopy: "نسخ",
+  loyaltyCopied: "تم النسخ",
+  loyaltyCouponNote: "كوبون مستواك للاستخدام مرة واحدة وخاص بحسابك. إذا تم إلغاء الطلب أو استرداد المبلغ، تُعكس النقاط المضافة له.",
 
   // ── Care tips — flowers (also used for preserved-flowers) ──
   careTipFlower1: "قصّ قدر ٢ سم من السيقان بزاوية ٤٥ درجة كل يومين إلى ثلاثة أيام.",
@@ -2934,6 +2946,12 @@ const FR: typeof EN = {
   loyaltyTopTierThankYou: "Vous êtes à notre palier le plus élevé — merci d'être un VIP Presentail.",
   loyaltyTiersExplainer: "Gagnez 1 point pour chaque dollar dépensé chez Presentail. Les points sont crédités dès la livraison de votre commande. Atteignez un palier et nous vous offrirons un bon de réduction personnel à utiliser sur votre prochaine commande.",
   loyaltyNoPointsYet: "Vous n'avez pas encore de points. Passez votre première commande pour commencer à en gagner !",
+  loyaltyPoints: "points",
+  loyaltyPointsToNext: "{n} points pour atteindre {tier} ({d}% de réduction)",
+  loyaltyTierDiscount: "{n}% de réduction",
+  loyaltyCopy: "Copier",
+  loyaltyCopied: "Copié",
+  loyaltyCouponNote: "Votre coupon de niveau est à usage unique et personnel à votre compte. Si une commande est annulée ou remboursée, les points crédités pour celle-ci sont annulés.",
 
   // ── Care tips — flowers (also used for preserved-flowers) ──
   careTipFlower1: "Coupez 2 cm des tiges en biais à 45° tous les 2 à 3 jours.",
