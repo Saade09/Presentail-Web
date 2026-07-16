@@ -558,7 +558,6 @@ export default function ProductDetail() {
               expressAvailable={expressAvailable}
               expressUnavailableLabel={t("checkout.expressUnavailable")}
               scheduledSubtitle={scheduledRowSubtitle}
-              infoFee={<>+ <FormattedPrice usdValue={expressSurchargeForCountry(countryCode)} /></>}
               expressFeeLabel={deliveryCardLabels.expressFeeLabel}
               expressFeeSubLabel={deliveryCardLabels.expressFeeSubLabel}
               expressIsFree={deliveryCardLabels.expressIsFree}
