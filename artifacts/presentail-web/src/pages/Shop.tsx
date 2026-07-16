@@ -84,7 +84,7 @@ const OCCASIONS = [
   { slug: "congratulations", labelKey: "shop.occ.congratulations" },
   { slug: "thank-you", labelKey: "shop.occ.thankYou" },
   { slug: "get-well-soon", labelKey: "shop.occ.getWellSoon" },
-  { slug: "newborn", labelKey: "shop.occ.newborn" },
+  { slug: "new-born", labelKey: "shop.occ.newborn" },
   { slug: "eid", labelKey: "shop.occ.eid" },
   { slug: "ramadan", labelKey: "shop.occ.ramadan" },
   { slug: "wedding", labelKey: "shop.occ.wedding" },
@@ -180,8 +180,18 @@ export default function Shop() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const category = isCategoryRoute ? (params.slug ?? "") : categoryFromSearch;
+  // Redirect old /occasion/newborn to the canonical /occasion/new-born
   const occasion = isOccasionRoute ? (params.slug ?? "") : occasionFromSearch;
+  useEffect(() => {
+    if (occasion === "newborn") {
+      // searchString from useSearch() already includes the leading "?" when
+      // query params are present, so append it directly (no extra "?").
+      navigate(`/occasion/new-born${searchString}`, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [occasion]);
+
+  const category = isCategoryRoute ? (params.slug ?? "") : categoryFromSearch;
 
   const { countryCode, cityId, country, city, openPicker } = useLocationSelection();
 

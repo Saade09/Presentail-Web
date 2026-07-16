@@ -51,7 +51,7 @@ const OCCASIONS = [
   { slug: "congratulations", labelKey: "shop.occ.congratulations" },
   { slug: "thank-you", labelKey: "shop.occ.thankYou" },
   { slug: "get-well-soon", labelKey: "shop.occ.getWellSoon" },
-  { slug: "newborn", labelKey: "shop.occ.newborn" },
+  { slug: "new-born", labelKey: "shop.occ.newborn" },
   { slug: "eid", labelKey: "shop.occ.eid" },
   { slug: "ramadan", labelKey: "shop.occ.ramadan" },
   { slug: "wedding", labelKey: "shop.occ.wedding" },

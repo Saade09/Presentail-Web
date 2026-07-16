@@ -98,6 +98,16 @@ interface OccasionCardProps {
   index: number;
 }
 
+/**
+ * Maps OS occasion ids that differ from the canonical URL slug we expose on
+ * the web storefront to their correct URL slug.  The OS id is kept as the
+ * key for `OCCASION_LABEL_KEYS` (label lookup) while only the href uses the
+ * remapped slug.
+ */
+const SLUG_REMAP: Record<string, string> = {
+  "newborn": "new-born",
+};
+
 const OCCASION_LABEL_KEYS: Record<string, string> = {
   "birthday": "shop.occ.birthday",
   "love-romance": "shop.occ.loveRomance",
@@ -142,7 +152,7 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
       transition={{ duration: 0.4, delay: Math.min(index * 0.03, 0.3) }}
     >
       <Link
-        href={`/occasion/${occasion.id}`}
+        href={`/occasion/${SLUG_REMAP[occasion.id] ?? occasion.id}`}
         className="group flex flex-col items-center justify-center text-center gap-3 py-6 md:py-8 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
         data-testid={`link-occasion-${occasion.id}`}
       >

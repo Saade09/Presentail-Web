@@ -202,6 +202,16 @@ if (!OS_API_KEY) {
   console.log("  added to the OS catalog will only show the hyphen-split fallback");
   console.log("  heading on the web storefront until a developer notices and adds them.\n");
 } else {
+  /**
+   * Some OS occasion ids differ from the canonical web URL slug we register in
+   * the OCCASIONS array.  Map OS slug → web slug so the coverage check
+   * recognises them as covered even after the rename.
+   * e.g. OS returns slug "newborn" but the web OCCASIONS entry uses "new-born".
+   */
+  const OS_SLUG_TO_WEB_SLUG: Record<string, string> = {
+    "newborn": "new-born",
+  };
+
   const slugToLabelKey = new Map(occasions.map((o) => [o.slug, o.labelKey]));
 
   let osOccasions: OSOccasion[];
@@ -218,7 +228,9 @@ if (!OS_API_KEY) {
     console.log(`  Found ${osOccasions.length} occasion(s) in the OS catalog\n`);
 
     for (const occ of osOccasions) {
-      const labelKey = slugToLabelKey.get(occ.slug);
+      // Resolve the OS slug to the canonical web slug if an alias exists.
+      const webSlug = OS_SLUG_TO_WEB_SLUG[occ.slug] ?? occ.slug;
+      const labelKey = slugToLabelKey.get(webSlug);
 
       if (!labelKey) {
         fail(
@@ -226,7 +238,7 @@ if (!OS_API_KEY) {
           `no entry in OCCASIONS array in Shop.tsx`,
         );
         console.error(
-          `       Fix: add { slug: "${occ.slug}", labelKey: "shop.occ.TODO" } to the OCCASIONS array\n` +
+          `       Fix: add { slug: "${webSlug}", labelKey: "shop.occ.TODO" } to the OCCASIONS array\n` +
           `            in artifacts/presentail-web/src/pages/Shop.tsx and add the translation\n` +
           `            key "shop.occ.TODO" to artifacts/presentail-web/src/locales/shop.ts.`,
         );
