@@ -44,6 +44,7 @@ import ogImageRouter from "./ogImage";
 import webEventsRouter from "./webEvents";
 import adminCollectionRankingRouter from "./adminCollectionRanking";
 import pageDescriptionsRouter from "./pageDescriptions";
+import adminRankingMetricsRouter from "./adminRankingMetrics";
 
 const router: IRouter = Router();
 
@@ -90,6 +91,7 @@ router.use(seoQaRouter);
 router.use(merchantFeedDebugRouter);
 router.use(adminCollectionRankingRouter);
 router.use(pageDescriptionsRouter);
+router.use(adminRankingMetricsRouter);
 router.use(ogImageRouter);
 router.use(webEventsRouter);
 

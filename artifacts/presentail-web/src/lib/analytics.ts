@@ -156,7 +156,11 @@ type AnalyticsEventName =
   | "switch_back_city_clicked"
   | "browse_category_selected_city_clicked"
   | "recommended_product_clicked"
-  | "free_delivery_qualification_message_viewed";
+  | "free_delivery_qualification_message_viewed"
+  /** Product card shown to the user within a homepage section. */
+  | "product_impression"
+  /** Product card clicked by the user within a homepage section. */
+  | "product_card_click";
 
 type AnalyticsSurface =
   | "cart"
@@ -229,6 +233,23 @@ export type AnalyticsEvent = {
   productCount?: number;
   locale?: string;
   country?: string;
+  /**
+   * Homepage section key the product belongs to (e.g. "best-sellers",
+   * "rail-summer", "rail-boxes"). Used by the ranking service for A/B analysis.
+   * Required for product_impression and product_card_click events.
+   */
+  sectionKey?: string;
+  /**
+   * 1-based position at which the product was displayed in its section rail.
+   * Required for product_impression and product_card_click events.
+   */
+  displayedPosition?: number;
+  /**
+   * Ranking score version string stored alongside the event for future A/B
+   * analysis. Should be set to the RANKING_SCORE_VERSION constant returned by
+   * the homepage API response (`rankingScoreVersion` field).
+   */
+  rankingScoreVersion?: string;
 };
 
 function generateSessionId(): string {

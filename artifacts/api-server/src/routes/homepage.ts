@@ -10,6 +10,7 @@ import { translateBanners, type BannerLang } from "../lib/bannerTranslation";
 import { db, appOrdersTable, collectionRankingConfigTable } from "@workspace/db";
 import type { CollectionRankingConfigRow } from "@workspace/db";
 import { inArray } from "drizzle-orm";
+import { rankWithCache, RANKING_SCORE_VERSION } from "../lib/productRankingService";
 
 import {
   getOsProducts,
@@ -729,11 +730,23 @@ router.get("/homepage/best-sellers", async (req, res) => {
     }
   }
 
-  // Sort by blended score descending, take top 20.
+  // Primary sort by blended score (fallback when metrics cache is empty).
   entries.sort((a, b) => b.blendedScore - a.blendedScore);
-  const products = entries.slice(0, BEST_SELLERS_LIMIT).map(({ blendedScore: _, ...rest }) => rest);
 
-  const body = { ok: true, products };
+  // Apply server-side ranking via precomputed metrics. The ranking service
+  // re-sorts the top-N pool using section-specific formula weights. When the
+  // metrics cache is empty (first boot), the blendedScore order is preserved
+  // unchanged because rankWithCache falls through to the fallback chain.
+  const rankableEntries = entries.map((e) => ({
+    ...e,
+    totalSales: e.blendedScore,
+  }));
+  const { products: rankedEntries } = rankWithCache(rankableEntries, "best-sellers");
+  const products = rankedEntries
+    .slice(0, BEST_SELLERS_LIMIT)
+    .map(({ blendedScore: _, totalSales: __, ...rest }) => rest);
+
+  const body = { ok: true, products, rankingScoreVersion: RANKING_SCORE_VERSION };
   // Only cache when we have products (avoid caching empty cold-start responses).
   if (products.length > 0) {
     bestSellersCache.set(cacheKey, { fetchedAt: now, body });
@@ -917,10 +930,24 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     });
   }
 
+  // Primary sort by blended score (fallback when metrics cache is empty).
   entries.sort((a, b) => b.blendedScore - a.blendedScore);
-  const products = entries.map(({ blendedScore: _, ...rest }) => rest);
 
-  const body = { ok: true, products };
+  // Map filter slug to a known homepage section key so section-specific
+  // formula weights are applied (e.g. Balloons gets its own engagement mix).
+  function toSectionKey(kind: "category" | "occasion", slug: string): string {
+    if (kind === "occasion" && slug === "summer") return "rail-summer";
+    if (kind === "category" && slug === "flower-boxes") return "rail-boxes";
+    if (kind === "category" && slug === "balloons") return "rail-balloons";
+    return `rail-${kind}-${slug}`;
+  }
+  const sectionKey = toSectionKey(filterKind, filterSlug);
+
+  const rankableEntries = entries.map((e) => ({ ...e, totalSales: e.blendedScore }));
+  const { products: rankedEntries } = rankWithCache(rankableEntries, sectionKey);
+  const products = rankedEntries.map(({ blendedScore: _, totalSales: __, ...rest }) => rest);
+
+  const body = { ok: true, products, rankingScoreVersion: RANKING_SCORE_VERSION };
   if (products.length > 0) {
     collectionBestSellersCache.set(cacheKey, { fetchedAt: now, body });
   }
