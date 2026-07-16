@@ -335,19 +335,6 @@ export const useCategoryProducts = (
   return { ...result, data };
 };
 
-/**
- * Maps canonical web URL slugs to the OS occasion id stored in products'
- * occasions arrays.  Needed when the slug we expose in URLs differs from the
- * id the OS API returns (e.g. "new-born" on the web → "newborn" in OS data).
- */
-const OCCASION_SLUG_ALIASES: Record<string, string> = {
-  "new-born": "newborn",
-};
-
-function resolveOccasionSlug(slug: string): string {
-  return OCCASION_SLUG_ALIASES[slug] ?? slug;
-}
-
 export const useOccasionFlatProducts = (
   slug: string,
   params: LocalizedParams = {},
@@ -355,8 +342,7 @@ export const useOccasionFlatProducts = (
   const result = useOsAllProducts(params, !!slug);
   const data = useMemo(() => {
     if (!result.data) return undefined;
-    const osSlug = resolveOccasionSlug(slug);
-    const products = result.data.filter((p) => p.occasions.includes(osSlug));
+    const products = result.data.filter((p) => p.occasions.includes(slug));
     return { ok: true as const, products, count: products.length } satisfies CategoryProductsResponse;
   }, [result.data, slug]);
   return { ...result, data };
@@ -369,8 +355,7 @@ export const useOccasionProducts = (
   const result = useOsAllProducts(params, !!slug);
   const data = useMemo(() => {
     if (!result.data) return undefined;
-    const osSlug = resolveOccasionSlug(slug);
-    const matching = result.data.filter((p) => p.occasions.includes(osSlug));
+    const matching = result.data.filter((p) => p.occasions.includes(slug));
     const groups = groupOccasionProducts(matching);
     return { ok: true as const, groups, total: matching.length } satisfies OccasionProductsResponse;
   }, [result.data, slug]);
