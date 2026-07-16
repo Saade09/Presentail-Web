@@ -220,6 +220,34 @@ export function ScheduleInlinePanel({
   // Whether the current date selection falls outside the visible chip strip.
   const dateInStrip = days.some((d) => d.iso === date);
 
+  // Build a unified, chronologically-sorted chip list. When the selected date
+  // was picked from the calendar and falls outside the 3-day strip we insert a
+  // synthetic entry at the correct sorted position rather than appending it at
+  // the end.
+  const visibleChips = useMemo(() => {
+    const chips = [...days];
+    if (!dateInStrip) {
+      // Build a synthetic entry that matches the DeliveryDay shape so the
+      // sorted array is fully typed.
+      const [y, mo, d] = date.split("-").map(Number) as [number, number, number];
+      const dt = new Date(y, mo - 1, d, 12, 0, 0);
+      chips.push({
+        iso: date,
+        label: weekdayShort(date),
+        day: dt.toLocaleDateString(undefined, { weekday: "short" }),
+        date: String(dt.getDate()),
+        full: dt.toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        }),
+      });
+    }
+    chips.sort((a, b) => (a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0));
+    return chips;
+  }, [days, dateInStrip, date]);
+
   // Build the confirmation line: shown once both date and slot are selected.
   const confirmationLine = useMemo(() => {
     if (!slotLabel) return null;
@@ -245,17 +273,22 @@ export function ScheduleInlinePanel({
         <div className="flex gap-2 items-start -mx-1 px-1">
           {/* Scrollable chip strip — overflow is contained here so it never clips the popover */}
           <div className="flex gap-2 overflow-x-auto pb-1 items-start flex-1 min-w-0">
-            {days.map((d) => {
+            {visibleChips.map((d) => {
               const active = d.iso === date;
+              const isStripDay = days.some((s) => s.iso === d.iso);
               return (
                 <button
                   key={d.iso}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => {
-                    setDate(d.iso);
-                    setCalendarOpen(false);
-                  }}
+                  onClick={
+                    isStripDay
+                      ? () => {
+                          setDate(d.iso);
+                          setCalendarOpen(false);
+                        }
+                      : undefined
+                  }
                   className={cn(
                     "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors relative",
                     active
@@ -273,26 +306,6 @@ export function ScheduleInlinePanel({
                 </button>
               );
             })}
-
-            {/* Synthetic chip for a calendar-picked date outside the strip */}
-            {!dateInStrip && (
-              <button
-                type="button"
-                aria-pressed={true}
-                className={cn(
-                  "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors relative",
-                  "bg-primary text-primary-foreground border-primary",
-                )}
-                data-testid={`schedule-day-${date}`}
-              >
-                <span className="block text-[11px] font-semibold leading-tight">
-                  {weekdayShort(date)}
-                </span>
-                <span className="block text-xs opacity-80 leading-tight">
-                  {dayOfMonth(date)} {monthShort(date)}
-                </span>
-              </button>
-            )}
           </div>
 
           {/* Calendar icon chip — sits outside the overflow-x-auto strip so its
