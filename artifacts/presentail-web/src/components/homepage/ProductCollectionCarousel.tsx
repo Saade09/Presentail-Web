@@ -80,7 +80,7 @@ export function ProductCollectionCarousel({
   const scrollByDir = (direction: 1 | -1) => {
     const track = trackRef.current;
     if (!track) return;
-    const step = (cardWidthRef.current > 0 ? cardWidthRef.current : 280) + 24;
+    const step = (cardWidthRef.current > 0 ? cardWidthRef.current : 280) + 20;
     const sign = dir === "rtl" ? -direction : direction;
     track.scrollBy({ left: sign * step, behavior: "smooth" });
   };
@@ -94,7 +94,7 @@ export function ProductCollectionCarousel({
 
   return (
     <section className="py-6 md:py-10 px-4 md:px-0" data-testid={testId}>
-      <div className="flex items-center justify-between mb-6 md:mb-8">
+      <div className="flex items-center justify-between mb-5 md:mb-7">
         <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
         <div className="flex items-center gap-2">
           {viewAllHref && (
@@ -133,7 +133,7 @@ export function ProductCollectionCarousel({
 
       <div
         ref={trackRef}
-        className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 [&::-webkit-scrollbar]:hidden"
+        className="flex gap-3 md:gap-5 overflow-x-auto snap-x snap-mandatory pb-2 [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
           {isLoading
@@ -143,9 +143,9 @@ export function ProductCollectionCarousel({
                   <div
                     key={i}
                     data-collection-card
-                    className="flex-shrink-0 snap-start w-[calc(40%-6px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
+                    className="flex-shrink-0 snap-start w-[45%] sm:w-[calc((100%-2.5rem)/3)] md:w-[calc((100%-3.75rem)/4)]"
                   >
-                    <div className="aspect-square animate-shimmer rounded-lg mb-4" />
+                    <div className="aspect-square animate-shimmer rounded-xl mb-3" />
                     <div className="h-5 animate-shimmer rounded w-2/3 mb-2" />
                     <div className="h-4 animate-shimmer rounded w-1/3" />
                   </div>
@@ -154,9 +154,9 @@ export function ProductCollectionCarousel({
                 <div
                   key={p.id}
                   data-collection-card
-                  className="flex-shrink-0 snap-start w-[calc(40%-6px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
+                  className="flex-shrink-0 snap-start w-[45%] sm:w-[calc((100%-2.5rem)/3)] md:w-[calc((100%-3.75rem)/4)]"
                 >
-                  <ProductCard product={p} index={i} imageClassName="rounded-lg" />
+                  <ProductCard product={p} index={i} imageClassName="rounded-xl" />
                 </div>
               ))}
       </div>

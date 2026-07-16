@@ -39,13 +39,16 @@ export function ProductCard({
       data-testid={`card-product-${product.id}`}
     >
       <Link href={`/product/${product.id}`} {...prefetchProps(loadProductDetail)}>
-        <div className={`aspect-square bg-secondary/50 overflow-hidden relative mb-4 ${imageClassName ?? "rounded-xl"}`}>
+        <div
+          className={`aspect-square overflow-hidden relative mb-3 ${imageClassName ?? "rounded-xl"}`}
+          style={{ backgroundColor: "#f4f4f5" }}
+        >
           {imageUrl ? (
             <ShimmerImage
               src={imageUrl}
               alt={product.name}
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-              sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover group-hover:scale-[1.02] transition-transform duration-500"
+              sizes="(max-width: 640px) 45vw, (max-width: 768px) 33vw, 25vw"
               priority={index < 4}
               fallback={
                 // contrast-ok: decorative placeholder shown only when image fails to load
@@ -60,9 +63,9 @@ export function ProductCard({
               P
             </div>
           )}
-          <div className="absolute top-3 left-3 flex flex-col gap-1 items-start">
+          <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
             {tag && (
-              <div className="bg-background/90 backdrop-blur text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider">
+              <div className="text-white text-xs font-semibold px-3 py-1 rounded-full tracking-wider" style={{ backgroundColor: "#00414e" }}>
                 {tag}
               </div>
             )}
@@ -78,8 +81,8 @@ export function ProductCard({
             )}
           </div>
         </div>
-        <div className="space-y-1">
-          <h3 className="font-serif text-lg line-clamp-1">{product.name}</h3>
+        <div className="space-y-0.5">
+          <h3 className="font-serif text-base line-clamp-2 min-h-[3rem] leading-snug">{product.name}</h3>
           <p className="text-muted-foreground text-sm font-medium">
             <SalePrice
               priceValue={product.priceValue}
