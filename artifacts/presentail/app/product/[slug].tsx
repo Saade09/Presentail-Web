@@ -166,7 +166,7 @@ function ProductDetail() {
   const { user } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
   const { selectedCountry } = useDeliveryLocation();
-  const { currencyCode } = useCurrency();
+  const { currencyCode, formatNative, formatPrice } = useCurrency();
   const cc = (selectedCountry?.code ?? "").toUpperCase();
   const headingFontRegular = useHeadingFont("400Regular");
   const [copiedVisible, setCopiedVisible] = useState(false);
@@ -293,7 +293,6 @@ function ProductDetail() {
   const safePriceValue = Number.isFinite(Number(product.priceValue))
     ? Number(product.priceValue)
     : 0;
-
   // Determine if a sale badge should be shown on the product image.
   function parseSaleNum(raw: any): number | null {
     if (raw == null) return null;
@@ -306,6 +305,20 @@ function ProductDetail() {
     currencyCode === "AED"
       ? saleDiscountAed != null || saleDiscountUsd != null
       : saleDiscountUsd != null;
+
+  // CTA price: mirrors the active selling price shown in the main price block.
+  // Sale + AED + native AED discount → format as-is (already in active currency).
+  // Sale + USD discount → convert from USD then format.
+  // No sale → convert regular USD price then format.
+  const ctaPrice = (() => {
+    if (currencyCode === "AED" && saleDiscountAed != null) {
+      return formatNative(saleDiscountAed);
+    }
+    if (saleDiscountUsd != null) {
+      return formatPrice(saleDiscountUsd);
+    }
+    return formatPrice(safePriceValue);
+  })();
 
   // Build the images array for the carousel. Prefer the full list from the
   // API; fall back to a single-item array from product.image so existing
@@ -468,7 +481,7 @@ function ProductDetail() {
               textTransform: "uppercase",
             }}
           >
-            {t.addLabel}
+            {t.addLabel} · {ctaPrice}
           </AppText>
         </Pressable>
       </View>
