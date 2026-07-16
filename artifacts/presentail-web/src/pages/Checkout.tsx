@@ -43,6 +43,7 @@ import amexLogo from "@/assets/payment-logos/amex.svg";
 import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
+import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
@@ -197,6 +198,8 @@ const ALT_PAYPAL = "PayPal"; // i18n-ignore
 const LABEL_PAY_PAYPAL = "Pay with PayPal"; // i18n-ignore
 const ALT_WHISH = "Whish"; // i18n-ignore
 const LABEL_PAY_WHISH = "Pay with Whish App"; // i18n-ignore
+const ALT_TABBY = "Tabby"; // i18n-ignore
+const LABEL_PAY_TABBY = "Pay in 4 with Tabby"; // i18n-ignore
 
 function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProcessing, walletPreparing }: PaymentSubmitButtonProps) {
   const { t } = useLocale();
@@ -275,6 +278,26 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
           : <>
               <img src={whishLogo} alt={ALT_WHISH} style={{ height: 16, width: "auto" }} draggable={false} />
               <span className="text-white text-sm font-semibold">{LABEL_PAY_WHISH}</span>
+            </>}
+      </button>
+    );
+  }
+
+  if (paymentMethod === "tabby") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        data-testid="button-submit-payment"
+        className={`${base} rounded-xl px-6`}
+        style={{ backgroundColor: "#3AFEB2" }}
+      >
+        {isProcessing
+          ? <span className="text-sm font-medium" style={{ color: "#1a1a1a" }}>{t("checkout.processing")}</span>
+          : <>
+              <img src={tabbyLogo} alt={ALT_TABBY} style={{ height: 22, width: "auto" }} draggable={false} />
+              <span className="text-sm font-semibold" style={{ color: "#1a1a1a" }}>{LABEL_PAY_TABBY}</span>
             </>}
       </button>
     );
@@ -2958,7 +2981,7 @@ function CheckoutForm() {
                   <div className="space-y-2 mb-5">
                     {(paymentOptions ?? []).map((m) => {
                       const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
-                      type LogoSpec = { name: string; src: string; fill?: boolean; maxH?: string };
+                      type LogoSpec = { name: string; src: string; fill?: boolean; contain?: boolean; containerWidth?: number; maxH?: string };
                       const cardLogos: LogoSpec[] = [
                         { name: "Mastercard", src: mastercardLogo, fill: true },
                         { name: "Visa", src: visaLogo, fill: true },
@@ -2976,6 +2999,7 @@ function CheckoutForm() {
                         ],
                         whish: [{ name: "Whish Money", src: whishLogo, fill: true }],
                         western: [{ name: "Western Union", src: westernUnionLogo, fill: true }],
+                        tabby: [{ name: "Tabby", src: tabbyLogo, fill: true, contain: true, containerWidth: 72 }],
                       };
                       const logos = methodLogos[m.id] ?? [];
                       return (
@@ -3007,12 +3031,12 @@ function CheckoutForm() {
                                     key={logo.name}
                                     title={logo.name}
                                     className={logo.fill ? "inline-flex overflow-hidden rounded-[4px] shadow-sm" : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[4px]"}
-                                    style={{ width: 48, height: 34 }}
+                                    style={{ width: logo.containerWidth ?? 48, height: 34 }}
                                   >
                                     <img
                                       src={logo.src}
                                       alt={logo.name}
-                                      className={logo.fill ? "block w-full h-full object-fill" : `block max-w-[30px] object-contain ${logo.maxH ?? ""}`}
+                                      className={logo.fill ? `block w-full h-full ${logo.contain ? "object-contain" : "object-fill"}` : `block max-w-[30px] object-contain ${logo.maxH ?? ""}`}
                                       loading="lazy"
                                       decoding="async"
                                       draggable={false}
