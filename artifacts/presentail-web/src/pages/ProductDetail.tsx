@@ -48,6 +48,7 @@ import { trackFbEvent } from "@/lib/fbPixel";
 import { trackWebEvent, trackEvent } from "@/lib/analytics";
 import { buildProductSeo } from "@/lib/seo";
 import { FrequentlyBoughtTogether } from "@/components/product/FrequentlyBoughtTogether";
+import { calcCheckoutFees } from "@/pages/checkoutFees";
 
 const SEO_ATTR = "data-seo-managed";
 
@@ -343,6 +344,25 @@ export default function ProductDetail() {
       helperIsQualified: isFree,
     };
   }, [delivery, cityId, freeDeliveryMet, formatPrice, t]);
+
+  // All-in price shown in the sticky CTA: product price + district fee + express/slot surcharge.
+  // Returns null when the city fee is unknown (no location selected) — falls back to product price only.
+  const stickyTotalUsd = useMemo(() => {
+    if (delivery.cityFeeUsd === null) return null;
+    const fees = calcCheckoutFees({
+      subtotal: cartSubtotal + productUsdForPricing,
+      countryCode,
+      noAddress: false,
+      cityFee: delivery.cityFeeUsd,
+      freeDeliveryThresholdUsd: delivery.freeDeliveryThresholdUsd ?? undefined,
+      freeDeliveryEnabled: delivery.freeDeliveryEnabled,
+      deliveryMode: deliveryChoice === "express" ? "express" : "schedule",
+      timeSlots: cityTimeSlots,
+      deliverySlot: deliverySelection.slotLabel ?? "",
+      deliveryDate: deliverySelection.date ?? undefined,
+    });
+    return productUsdForPricing + fees.districtFee + fees.expressFee + fees.slotFee;
+  }, [delivery, cartSubtotal, productUsdForPricing, countryCode, deliveryChoice, cityTimeSlots, deliverySelection.slotLabel, deliverySelection.date]);
 
   const handleSelectExpress = () => {
     if (!expressAvailable) return;
@@ -692,11 +712,14 @@ export default function ProductDetail() {
               {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
             </span>
             <span className="font-semibold tracking-normal normal-case">
-              <SalePrice
-                priceValue={osPricing?.regularPriceUsd ?? product.priceValue}
-                discountPriceValue={osPricing?.discountPriceUsd ?? product.discountPriceValue}
-                discountPriceAed={osPricing?.discountPriceAed ?? product.discountPriceAed}
-              />
+              {stickyTotalUsd != null
+                ? <FormattedPrice usdValue={stickyTotalUsd} />
+                : <SalePrice
+                    priceValue={osPricing?.regularPriceUsd ?? product.priceValue}
+                    discountPriceValue={osPricing?.discountPriceUsd ?? product.discountPriceValue}
+                    discountPriceAed={osPricing?.discountPriceAed ?? product.discountPriceAed}
+                  />
+              }
             </span>
           </span>
         </Button>
