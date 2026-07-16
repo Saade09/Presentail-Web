@@ -54,11 +54,12 @@ export const productStrings: Dict = {
   "product.badge.bestSeller": { en: "Best Seller", ar: "الأكثر مبيعاً" },
 
   // ── Delivery option fee labels ──
-  "product.delivery.expressTotal": { en: "{amount} total", ar: "المجموع {amount}" },
-  "product.delivery.expressBreakdown": { en: "{standard} delivery + {express} express", ar: "{standard} توصيل + {express} سريع" },
-  "product.delivery.expressBreakdownFree": { en: "Free delivery + {express} express", ar: "توصيل مجاني + {express} سريع" },
+  "product.delivery.expressTotal": { en: "{amount} delivery fee", ar: "رسوم التوصيل {amount}" },
+  "product.delivery.expressBreakdown": { en: "{standard} standard + {express} express upgrade", ar: "{standard} عادي + {express} ترقية سريعة" },
+  "product.delivery.expressBreakdownFree": { en: "Free standard + {express} express upgrade", ar: "عادي مجاني + {express} ترقية سريعة" },
   "product.delivery.fromMin": { en: "From {amount}", ar: "ابتداءً من {amount}" },
   "product.delivery.standardDelivery": { en: "Standard delivery", ar: "توصيل قياسي" },
+  "product.delivery.standardFeeLabel": { en: "{amount} delivery fee", ar: "رسوم التوصيل {amount}" },
   "product.delivery.calculatedAtCheckout": { en: "Calculated at checkout", ar: "يُحسب عند الدفع" },
   "product.delivery.calculatedAfterArea": { en: "Calculated after selecting area", ar: "يُحسب بعد اختيار المنطقة" },
   "product.delivery.feesHelper": { en: "Fees update based on your cart total and the recipient's area.", ar: "تتغيّر الرسوم بناءً على إجمالي سلّتك ومنطقة المستلم." },
@@ -187,11 +188,12 @@ export const productStringsFr: Record<string, string> = {
   "product.badge.bestSeller": "Meilleures ventes",
 
   // ── Delivery option fee labels ──
-  "product.delivery.expressTotal": "Total {amount}",
-  "product.delivery.expressBreakdown": "{standard} livraison + {express} express",
-  "product.delivery.expressBreakdownFree": "Livraison gratuite + {express} express",
+  "product.delivery.expressTotal": "{amount} frais de livraison",
+  "product.delivery.expressBreakdown": "{standard} standard + {express} express upgrade",
+  "product.delivery.expressBreakdownFree": "Standard gratuit + {express} express upgrade",
   "product.delivery.fromMin": "À partir de {amount}",
   "product.delivery.standardDelivery": "Livraison standard",
+  "product.delivery.standardFeeLabel": "{amount} frais de livraison",
   "product.delivery.calculatedAtCheckout": "Calculé au paiement",
   "product.delivery.calculatedAfterArea": "Calculé après sélection de la zone",
   "product.delivery.feesHelper": "Les frais varient selon le total de votre panier et la zone du destinataire.",

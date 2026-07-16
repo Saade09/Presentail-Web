@@ -338,7 +338,7 @@ export default function ProductDetail() {
       expressIsFree: false,
       scheduledFeeLabel: isFree
         ? t("product.deliveryFree")
-        : fmt(cityFeeUsd),
+        : t("product.delivery.standardFeeLabel").replace("{amount}", fmt(cityFeeUsd)),
       scheduledFeeSubLabel: t("product.delivery.standardDelivery"),
       scheduledIsFree: isFree,
       helperIsQualified: isFree,
