@@ -185,7 +185,14 @@ export default function Cart() {
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponDiscountUsd, setCouponDiscountUsd] = useState<number>(() => {
-    try { return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0; } catch { return 0; }
+    try {
+      // Only restore a stored discount when a coupon code is also stored.
+      // COUPON_DISCOUNT_KEY can outlive COUPON_STORAGE_KEY when an order
+      // completes and only the code key is cleared, causing a silent discount
+      // on the next unrelated cart session.
+      if (!(localStorage.getItem(COUPON_STORAGE_KEY) ?? "")) return 0;
+      return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0;
+    } catch { return 0; }
   });
 
   const cartTotal = computeCartTotal(subtotal, (effectiveDeliveryFeeUsd ?? 0) + slotFeeUsd, couponDiscountUsd);

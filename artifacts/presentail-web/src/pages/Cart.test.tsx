@@ -499,6 +499,24 @@ describe("Cart — coupon discount display and total calculation", () => {
     const totals = screen.getAllByText("$100");
     expect(totals.length).toBeGreaterThan(0);
   });
+
+  it("5. stale discount key (no code key) → discount row is absent and full total shown", () => {
+    // Simulate an order-completion that cleared COUPON_STORAGE_KEY but left
+    // COUPON_DISCOUNT_KEY behind.  The cart must ignore the orphaned discount.
+    // subtotal=75, delivery=10 (cityFeeUsd, below $90 threshold) → total=$85
+    localStorage.setItem(COUPON_DISCOUNT_KEY, "10");
+    // COUPON_STORAGE_KEY is intentionally NOT set
+
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_BELOW_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.queryByTestId("row-cart-coupon-discount")).toBeNull();
+    const totals = screen.getAllByText("$85");
+    expect(totals.length).toBeGreaterThan(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
