@@ -1,23 +1,26 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export default function NotFound() {
   const { t } = useLocale();
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">{t("notFound.title")}</h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            {t("notFound.desc")}
-          </p>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center px-4 pt-24 pb-24 bg-background">
+      <div className="max-w-md text-center space-y-6">
+        <p className="text-8xl font-serif text-foreground/20 leading-none select-none">404</p>
+        <div className="space-y-3">
+          <h1 className="text-3xl font-serif">{t("notFound.title")}</h1>
+          <p className="text-muted-foreground">{t("notFound.desc")}</p>
+        </div>
+        <div className="flex flex-col items-center gap-4">
+          <Link href="/">
+            <Button variant="default">{t("notFound.cta")}</Button>
+          </Link>
+          <Link href="/shop" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {t("notFound.browse")} →
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
