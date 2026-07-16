@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
-import { ShoppingCart } from "lucide-react";
+import { Info, ShoppingCart } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -580,6 +581,33 @@ export default function ProductDetail() {
                   deliverySelection.setSelection({ mode, date, slotLabel });
                 }}
               />
+            )}
+
+            {!expressAvailable && (
+              <div className="flex items-center gap-1.5 px-0.5">
+                <Info
+                  className={cn(
+                    "w-3.5 h-3.5 shrink-0",
+                    deliveryCardLabels.helperIsQualified ? "text-primary" : "text-muted-foreground",
+                  )}
+                />
+                {deliveryCardLabels.helperIsQualified ? (
+                  <span className="text-[11px] leading-relaxed text-primary">
+                    {t("product.delivery.qualifiedHelper")}
+                  </span>
+                ) : delivery.cityFeeUsd !== null ? (
+                  <span className="text-[11px] leading-relaxed text-muted-foreground">
+                    {deliveryCardLabels.scheduledFeeLabel}
+                    {deliveryCardLabels.scheduledFeeSubLabel && (
+                      <> &middot; {deliveryCardLabels.scheduledFeeSubLabel}</>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-[11px] leading-relaxed text-muted-foreground">
+                    {t("product.delivery.feesHelper")}
+                  </span>
+                )}
+              </div>
             )}
 
             <div className="hidden md:flex gap-3">
