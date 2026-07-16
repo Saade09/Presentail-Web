@@ -88,7 +88,7 @@ export function OrderSummaryPanel({
   setSummaryOpen,
 }: OrderSummaryPanelProps) {
   const { t, dir } = useLocale();
-  const { currencyCode } = useDisplayCurrency();
+  useDisplayCurrency();
 
   const grandTotal = computeCartTotal(
     subtotal,
@@ -597,11 +597,6 @@ export function OrderSummaryPanel({
                     >
                       <FormattedPrice usdValue={grandTotal} />
                     </span>
-                    {currencyCode && (
-                      <span className="text-xs font-normal text-muted-foreground">
-                        {currencyCode}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
