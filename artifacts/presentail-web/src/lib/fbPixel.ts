@@ -46,22 +46,45 @@ function getFbp(): string {
 }
 
 /**
- * Read the Facebook click ID (_fbc) from document.cookie if present.
- * Also checks the fbclid URL parameter on the current page.
+ * Read the Facebook click ID (_fbc) from the current page URL, cookie, or
+ * persisted localStorage — in that priority order.
+ *
+ * Priority:
+ *   1. Fresh `fbclid` URL param → formatted as `fb.1.<timestamp_ms>.<fbclid>`,
+ *      persisted to localStorage under `_fbc_from_url` (overwrites stale value),
+ *      and returned immediately.
+ *   2. `_fbc` cookie (set by the Facebook pixel JS when loaded).
+ *   3. Persisted `_fbc_from_url` from localStorage (carries the click ID across
+ *      subsequent events in the same session after the initial URL load).
+ *   4. `undefined` when nothing is available.
  */
 function getFbclid(): string | undefined {
-  if (typeof document !== "undefined") {
-    const cookieMatch = document.cookie.match(/(?:^|;)\s*_fbc=([^;]+)/);
-    if (cookieMatch?.[1]) return cookieMatch[1];
-  }
   if (typeof window !== "undefined") {
     try {
       const params = new URLSearchParams(window.location.search);
       const fbclid = params.get("fbclid");
-      if (fbclid) return fbclid;
+      if (fbclid) {
+        const fbc = `fb.1.${Date.now()}.${fbclid}`;
+        try {
+          localStorage.setItem("_fbc_from_url", fbc);
+        } catch {
+          // Ignore storage failures — still return the formatted value.
+        }
+        return fbc;
+      }
     } catch {
-      // Ignore
+      // Ignore URL-parsing errors.
     }
+  }
+  if (typeof document !== "undefined") {
+    const cookieMatch = document.cookie.match(/(?:^|;)\s*_fbc=([^;]+)/);
+    if (cookieMatch?.[1]) return cookieMatch[1];
+  }
+  try {
+    const stored = localStorage.getItem("_fbc_from_url");
+    if (stored) return stored;
+  } catch {
+    // Ignore storage failures.
   }
   return undefined;
 }

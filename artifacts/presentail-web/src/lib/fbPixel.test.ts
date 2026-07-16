@@ -334,3 +334,178 @@ describe("trackFbEvent — pixel initialised (ae)", () => {
     expect(findPixelEventCall(mockFetch)).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Suite: getFbclid() priority, format, and persistence
+// ---------------------------------------------------------------------------
+
+describe("getFbclid — URL param wins, formatted correctly, and persisted", () => {
+  const PIXEL_ID = "pixel-lb-fbc-test";
+  let mockFetch: ReturnType<typeof vi.fn>;
+  let trackFbEvent: (typeof import("@/lib/fbPixel"))["trackFbEvent"];
+  let initPixel: (typeof import("@/lib/fbPixel"))["initPixel"];
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_FB_PIXEL_ID_LB", PIXEL_ID);
+    mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", mockFetch);
+    // Clear localStorage between tests
+    localStorage.clear();
+    // Reset cookies
+    document.cookie = "_fbc=; max-age=0; path=/";
+
+    const mod = await import("@/lib/fbPixel");
+    trackFbEvent = mod.trackFbEvent;
+    initPixel = mod.initPixel;
+    initPixel("lb");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    localStorage.clear();
+    document.cookie = "_fbc=; max-age=0; path=/";
+  });
+
+  it("formats fbclid from URL as fb.1.<timestamp_ms>.<fbclid>", async () => {
+    const fbclid = "AbCdEfG1234567";
+    const before = Date.now();
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: `?fbclid=${fbclid}`, href: `https://presentail.com/?fbclid=${fbclid}` },
+    });
+
+    trackFbEvent("PageView");
+    await settle();
+
+    const body = findPixelEventCall(mockFetch);
+    expect(body).not.toBeNull();
+    const fbc = body?.fbclid as string;
+    expect(typeof fbc).toBe("string");
+    // Must match fb.1.<number>.<fbclid>
+    const parts = fbc.split(".");
+    expect(parts[0]).toBe("fb");
+    expect(parts[1]).toBe("1");
+    const ts = Number(parts[2]);
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(ts).toBeLessThanOrEqual(Date.now() + 100);
+    expect(parts[3]).toBe(fbclid);
+  });
+
+  it("URL fbclid wins over a stale _fbc cookie", async () => {
+    const staleCookie = "fb.1.1000000000000.stale_click_id";
+    document.cookie = `_fbc=${staleCookie}; path=/`;
+
+    const freshFbclid = "FreshClickId999";
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: `?fbclid=${freshFbclid}`, href: `https://presentail.com/?fbclid=${freshFbclid}` },
+    });
+
+    trackFbEvent("PageView");
+    await settle();
+
+    const body = findPixelEventCall(mockFetch);
+    expect(body).not.toBeNull();
+    const fbc = body?.fbclid as string;
+    expect(fbc).not.toBe(staleCookie);
+    expect(fbc).toMatch(/^fb\.1\.\d+\.FreshClickId999$/);
+  });
+
+  it("URL fbclid overwrites a stale localStorage value", async () => {
+    localStorage.setItem("_fbc_from_url", "fb.1.1000000000000.old_click_id");
+
+    const freshFbclid = "NewClickId777";
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: `?fbclid=${freshFbclid}`, href: `https://presentail.com/?fbclid=${freshFbclid}` },
+    });
+
+    trackFbEvent("PageView");
+    await settle();
+
+    const body = findPixelEventCall(mockFetch);
+    const fbc = body?.fbclid as string;
+    expect(fbc).toMatch(/^fb\.1\.\d+\.NewClickId777$/);
+    // localStorage should now have the new value
+    expect(localStorage.getItem("_fbc_from_url")).toMatch(/^fb\.1\.\d+\.NewClickId777$/);
+  });
+
+  it("persists fbclid to localStorage so subsequent events carry it", async () => {
+    const fbclid = "PersistMe123";
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: `?fbclid=${fbclid}`, href: `https://presentail.com/?fbclid=${fbclid}` },
+    });
+
+    // First event (URL has fbclid)
+    trackFbEvent("PageView");
+    await settle();
+    const firstBody = findPixelEventCall(mockFetch);
+    expect(firstBody?.fbclid).toMatch(/^fb\.1\.\d+\.PersistMe123$/);
+
+    mockFetch.mockClear();
+
+    // Simulate navigation to a new page with no fbclid in the URL
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: "", href: "https://presentail.com/product/flowers" },
+    });
+
+    // Second event — should use the persisted localStorage value
+    trackFbEvent("ViewContent");
+    await settle();
+    const secondBody = findPixelEventCall(mockFetch);
+    expect(secondBody).not.toBeNull();
+    expect(secondBody?.fbclid).toMatch(/^fb\.1\.\d+\.PersistMe123$/);
+  });
+
+  it("falls back to _fbc cookie when no URL fbclid and no localStorage entry", async () => {
+    const cookieFbc = "fb.1.1700000000000.cookie_click_id";
+    document.cookie = `_fbc=${cookieFbc}; path=/`;
+
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: "", href: "https://presentail.com/" },
+    });
+
+    trackFbEvent("PageView");
+    await settle();
+
+    const body = findPixelEventCall(mockFetch);
+    expect(body?.fbclid).toBe(cookieFbc);
+  });
+
+  it("falls back to persisted localStorage when no URL fbclid and no cookie", async () => {
+    const storedFbc = "fb.1.1700000000000.stored_click_id";
+    localStorage.setItem("_fbc_from_url", storedFbc);
+
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: "", href: "https://presentail.com/" },
+    });
+
+    trackFbEvent("PageView");
+    await settle();
+
+    const body = findPixelEventCall(mockFetch);
+    expect(body?.fbclid).toBe(storedFbc);
+  });
+
+  it("omits fbclid when no URL param, no cookie, and no localStorage entry", async () => {
+    vi.stubGlobal("window", {
+      ...window,
+      location: { search: "", href: "https://presentail.com/" },
+    });
+
+    trackFbEvent("PageView");
+    await settle();
+
+    const body = findPixelEventCall(mockFetch);
+    expect(body).not.toBeNull();
+    expect(body).not.toHaveProperty("fbclid");
+  });
+});
