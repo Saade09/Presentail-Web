@@ -10,6 +10,7 @@
 import {
   freeDeliveryThresholdUsd,
   expressSurchargeForCountry,
+  getLocalIso,
   type TimeSlot,
 } from "@workspace/delivery";
 
@@ -57,6 +58,18 @@ export interface CheckoutFeeInput {
   timeSlots: TimeSlot[];
   /** Label of the currently selected delivery slot, e.g. "9:00 AM – 2:00 PM". */
   deliverySlot: string;
+  /**
+   * OS-assigned stable identifier for the selected slot (e.g. "night-same-day").
+   * When present, slot lookup uses this ID first for accuracy; falls back to
+   * label-based matching so legacy code without IDs continues to work.
+   */
+  deliverySlotId?: string;
+  /**
+   * The selected delivery date as an ISO-8601 date string (YYYY-MM-DD).
+   * Used to determine whether the night-slot same-day surcharge applies.
+   * When absent, the current local date for the country is assumed (today).
+   */
+  deliveryDate?: string;
 }
 
 export interface CheckoutFeeOutput {
@@ -76,6 +89,9 @@ export interface CheckoutFeeOutput {
  * Mirrors the four inline fee assignments in Checkout.tsx so changes to the
  * rules here automatically propagate to both the component and the tests.
  */
+/** $5 same-day night surcharge: applied when the OS sends no explicit fee override. */
+const NIGHT_SLOT_SURCHARGE_USD = 5;
+
 export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   const {
     subtotal,
@@ -84,6 +100,8 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
     deliveryMode,
     timeSlots,
     deliverySlot,
+    deliverySlotId,
+    deliveryDate,
     freeDeliveryThresholdUsd: thresholdOverride,
     freeDeliveryEnabled = true,
   } = input;
@@ -97,10 +115,26 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   const baseFee = cityFee;
   const districtFee = (freeDeliveryEnabled && subtotal >= threshold) ? 0 : baseFee;
   const expressFee = deliveryMode === "express" ? surcharge : 0;
-  const slotFee =
-    deliveryMode !== "express"
-      ? (timeSlots.find((s) => s.label === deliverySlot)?.extraFee ?? 0)
-      : 0;
+  const slotFee = (() => {
+    if (deliveryMode === "express") return 0;
+    // Prefer ID-based lookup when available to handle same-label/different-config slots.
+    const bookedSlot = deliverySlotId
+      ? (timeSlots.find((s) => s.slotId === deliverySlotId) ?? timeSlots.find((s) => s.label === deliverySlot))
+      : timeSlots.find((s) => s.label === deliverySlot);
+    if (!bookedSlot) return 0;
+    // When the OS has configured an explicit surcharge (> 0), use it directly.
+    if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
+      return bookedSlot.extraFee;
+    }
+    // Hardcoded same-day night surcharge: when the OS sends no fee override (undefined or 0),
+    // a $5 fee applies for night slots (startHour ≥ 21) selected for today.
+    const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
+    const isNightSlot = slotStartHour >= 21;
+    const todayForCountry = getLocalIso(countryCode);
+    const isToday = !deliveryDate || deliveryDate === todayForCountry;
+    if (isNightSlot && isToday) return NIGHT_SLOT_SURCHARGE_USD;
+    return 0;
+  })();
   const total = subtotal + districtFee + expressFee + slotFee;
 
   return { districtFee, expressFee, slotFee, total };

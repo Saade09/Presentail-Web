@@ -1962,6 +1962,12 @@ export const GetDeliveryLocationsResponse = zod.object({
                   .describe(
                     'Human-readable slot label (e.g. \"Morning (9 AM – 12 PM)\").',
                   ),
+                slotId: zod
+                  .string()
+                  .optional()
+                  .describe(
+                    "Unique slot identifier from Presentail OS. Present when the OS assigns per-slot IDs; absent for legacy hardcoded slots. Used as the React key and for ID-first slot lookup on the backend.",
+                  ),
                 startHour: zod
                   .number()
                   .optional()
@@ -1986,6 +1992,18 @@ export const GetDeliveryLocationsResponse = zod.object({
                   .describe(
                     "Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee.",
                   ),
+                sameDayEnabled: zod
+                  .boolean()
+                  .optional()
+                  .describe(
+                    "Whether this slot is available for same-day (today) delivery. Absent means eligible for all dates. Use to filter slots for today when the OS configures separate same-day and next-day variants of the same window.",
+                  ),
+                nextDayEnabled: zod
+                  .boolean()
+                  .optional()
+                  .describe(
+                    "Whether this slot is available for next-day delivery. Absent means eligible for all dates.",
+                  ),
               }),
             )
             .describe(
@@ -2000,6 +2018,12 @@ export const GetDeliveryLocationsResponse = zod.object({
                     .string()
                     .describe(
                       'Human-readable slot label (e.g. \"Morning (9 AM – 12 PM)\").',
+                    ),
+                  slotId: zod
+                    .string()
+                    .optional()
+                    .describe(
+                      "Unique slot identifier from Presentail OS. Present when the OS assigns per-slot IDs; absent for legacy hardcoded slots. Used as the React key and for ID-first slot lookup on the backend.",
                     ),
                   startHour: zod
                     .number()
@@ -2024,6 +2048,18 @@ export const GetDeliveryLocationsResponse = zod.object({
                     .optional()
                     .describe(
                       "Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee.",
+                    ),
+                  sameDayEnabled: zod
+                    .boolean()
+                    .optional()
+                    .describe(
+                      "Whether this slot is available for same-day (today) delivery. Absent means eligible for all dates. Use to filter slots for today when the OS configures separate same-day and next-day variants of the same window.",
+                    ),
+                  nextDayEnabled: zod
+                    .boolean()
+                    .optional()
+                    .describe(
+                      "Whether this slot is available for next-day delivery. Absent means eligible for all dates.",
                     ),
                 }),
               ),

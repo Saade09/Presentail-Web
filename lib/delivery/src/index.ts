@@ -65,12 +65,20 @@ export function expressSurchargeForCountry(code?: string | null): number {
 
 export type TimeSlot = {
   label: string;
+  /** Stable OS-assigned identifier for this slot. Absent for hardcoded fallback slots. */
+  slotId?: string;
   cutoffHour: number;
+  /** Additional surcharge for booking this slot (USD).
+   * A value of exactly 0 means the slot is explicitly free (override) — distinct from undefined (no override). */
   extraFee?: number;
   /** Hour of day (0–23) the slot window opens. Provided by OS; absent for hardcoded fallback slots. */
   startHour?: number;
   /** Hour of day (0–23) the slot window closes. Provided by OS; absent for hardcoded fallback slots. */
   endHour?: number;
+  /** When true, this slot is available for same-day orders. Absent means no same-day/next-day restriction. */
+  sameDayEnabled?: boolean;
+  /** When true, this slot is available for next-day orders. Absent means no same-day/next-day restriction. */
+  nextDayEnabled?: boolean;
 };
 
 const LB_TIME_SLOTS: TimeSlot[] = [

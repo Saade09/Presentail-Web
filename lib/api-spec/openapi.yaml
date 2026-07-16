@@ -2848,6 +2848,9 @@ components:
         label:
           type: string
           description: Human-readable slot label (e.g. "Morning (9 AM – 12 PM)").
+        slotId:
+          type: string
+          description: Unique slot identifier from Presentail OS. Present when the OS assigns per-slot IDs; absent for legacy hardcoded slots. Used as the React key and for ID-first slot lookup on the backend.
         startHour:
           type: integer
           description: Hour of day (0–23) the slot window opens (e.g. 9 for 9 AM). Optional; absent when the OS has not configured window boundaries.
@@ -2861,6 +2864,12 @@ components:
         extraFee:
           type: number
           description: Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee.
+        sameDayEnabled:
+          type: boolean
+          description: Whether this slot is available for same-day (today) delivery. Absent means eligible for all dates. Use to filter slots for today when the OS configures separate same-day and next-day variants of the same window.
+        nextDayEnabled:
+          type: boolean
+          description: Whether this slot is available for next-day delivery. Absent means eligible for all dates.
       required:
         - label
     DeliveryCity:

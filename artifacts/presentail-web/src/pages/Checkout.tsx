@@ -671,6 +671,7 @@ function CheckoutForm() {
   const [deliverySlot, setDeliverySlot] = useState<string>(
     deliverySelection.slotLabel ?? timeSlotsForCountry(countryCode)[0]?.label ?? "",
   );
+  const [deliverySlotId, setDeliverySlotId] = useState<string | undefined>(undefined);
   const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">(
     persistedScheduleMode,
   );
@@ -1279,6 +1280,8 @@ function CheckoutForm() {
       deliveryMode,
       timeSlots,
       deliverySlot,
+      deliverySlotId: deliveryMode !== "express" ? deliverySlotId : undefined,
+      deliveryDate: recipient.deliveryDate || undefined,
       freeDeliveryThresholdUsd: thr,
       freeDeliveryEnabled: en,
     });
@@ -1356,6 +1359,7 @@ function CheckoutForm() {
             noAddress,
             ...(couponCode ? { couponCode } : {}),
             deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+            ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
             ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
           } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
         });
@@ -1385,6 +1389,7 @@ function CheckoutForm() {
                 expressDelivery: deliveryMode === "express",
                 noAddress,
                 deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+                ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
                 ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
                 ...(couponCode ? { couponCode } : {}),
               }),
@@ -1581,6 +1586,8 @@ function CheckoutForm() {
     deliveryMode,
     timeSlots,
     deliverySlot,
+    deliverySlotId: deliveryMode !== "express" ? deliverySlotId : undefined,
+    deliveryDate: recipient.deliveryDate || undefined,
     freeDeliveryThresholdUsd: effectiveFreeDeliveryThresholdUsd,
     freeDeliveryEnabled: effectiveFreeDeliveryEnabled,
   });
@@ -1711,6 +1718,7 @@ function CheckoutForm() {
     deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
     deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+    ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
     deliverySlotTime: deliveryMode === "express" ? undefined : slotTimeRangeForLabel(deliverySlot, timeSlots),
     cardMessage: recipient.cardMessage,
     cardTo: recipient.cardTo.trim() || undefined,
@@ -2127,6 +2135,7 @@ function CheckoutForm() {
               expressDelivery: deliveryMode === "express",
               noAddress,
               deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+              ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
               ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
               ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
             }),
@@ -2225,6 +2234,7 @@ function CheckoutForm() {
               // Only request card saving when using a new card (not a saved one)
               ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
               deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+              ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
               ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
             } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
           });
@@ -2907,9 +2917,10 @@ function CheckoutForm() {
                       initialDate={recipient.deliveryDate || undefined}
                       initialSlotLabel={deliverySlot || undefined}
                       timeSlots={timeSlots}
-                      onChange={({ date, slotLabel }) => {
+                      onChange={({ date, slotLabel, slotId }) => {
                         setRecipient((r) => ({ ...r, deliveryDate: date }));
                         setDeliverySlot(slotLabel);
+                        setDeliverySlotId(slotId);
                       }}
                     />
                   )}

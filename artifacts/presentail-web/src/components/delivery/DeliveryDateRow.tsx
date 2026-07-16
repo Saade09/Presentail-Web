@@ -26,14 +26,23 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
   );
 
   const cityTimeSlots = useMemo(() => {
-    if (city?.timeSlots?.length) return city.timeSlots;
-    if (city?.slotsByDay) {
-      const derived = Object.values(city.slotsByDay)
+    let raw: ReturnType<typeof timeSlotsForCountry> = [];
+    if (city?.timeSlots?.length) {
+      raw = city.timeSlots;
+    } else if (city?.slotsByDay) {
+      raw = Object.values(city.slotsByDay)
         .flat()
         .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i);
-      if (derived.length > 0) return derived;
     }
-    return timeSlotsForCountry(null);
+    if (!raw.length) return timeSlotsForCountry(null);
+    // Deduplicate by label — the OS may return two Night slots (same-day / next-day
+    // configs) with identical labels; keep the first occurrence of each label.
+    const seen = new Set<string>();
+    return raw.filter((s) => {
+      if (seen.has(s.label)) return false;
+      seen.add(s.label);
+      return true;
+    });
   }, [city]);
 
   const contextRowText =

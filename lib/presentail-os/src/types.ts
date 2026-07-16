@@ -8,13 +8,22 @@
 
 export type OSTimeSlot = {
   label: string;
+  /** Stable OS-assigned identifier for this slot (e.g. "night-same-day"). Absent for legacy/hardcoded fallback slots. */
+  slotId?: string;
   /** Hour of day (0–23) the slot window opens (e.g. 9 for 9 AM). */
   startHour?: number;
   /** Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). */
   endHour?: number;
   cutoffHour: number;
-  /** Additional surcharge for booking this slot (USD). e.g. night-slot fee. */
+  /** Additional surcharge for booking this slot (USD). e.g. night-slot fee.
+   * A value of exactly 0 means the slot is explicitly free (override) — distinct from undefined (no override). */
   extraFee?: number;
+  /** When true, this slot is available for same-day orders. Absent means no same-day/next-day restriction. */
+  sameDayEnabled?: boolean;
+  /** When true, this slot is available for next-day orders. Absent means no same-day/next-day restriction. */
+  nextDayEnabled?: boolean;
+  /** Whether this slot is enabled at all. Absent is treated as true (backwards compat). */
+  enabled?: boolean;
 };
 
 export type OSCity = {

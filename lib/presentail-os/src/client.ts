@@ -38,12 +38,16 @@ export type PresentailOsConfig = {
 // place of) the ext response.
 
 type RawLegacyTimeSlot = {
+  id?: string | number | null;
   day_of_week?: number;
   label?: string;
   start_time?: string;
   end_time?: string;
   fee_override?: number | null;
   cutoff_time?: string | null;
+  same_day?: boolean | null;
+  next_day?: boolean | null;
+  enabled?: boolean | null;
 };
 
 type RawLegacyCity = {
@@ -101,25 +105,36 @@ function mapLegacySlots(raw: RawLegacyTimeSlot[] | undefined): {
   for (const s of raw) {
     const dayName = WEEKDAY_NAMES[s.day_of_week ?? -1];
     if (!dayName) continue;
+    const slotId = s.id != null ? String(s.id) : undefined;
     const slot: OSTimeSlot = {
       label: s.label ?? "",
+      slotId,
       startHour: parseLegacyHour(s.start_time),
       endHour: parseLegacyHour(s.end_time),
       cutoffHour: parseLegacyHour(s.cutoff_time) ?? parseLegacyHour(s.start_time) ?? 0,
-      extraFee: s.fee_override ?? undefined,
+      // Normalise fee_override: treat null as "no override" (undefined) and coerce strings to number.
+      extraFee: s.fee_override != null ? Number(s.fee_override) : undefined,
+      sameDayEnabled: s.same_day ?? undefined,
+      nextDayEnabled: s.next_day ?? undefined,
+      enabled: s.enabled ?? undefined,
     };
     (slotsByDay[dayName] ??= []).push(slot);
   }
 
-  // Flat fallback list: dedupe by label across all days so callers that only
-  // read the flat `timeSlots` array (rather than `slotsByDay`) still see a
-  // representative set of slots.
-  const seenLabels = new Set<string>();
+  // Flat fallback list: deduplicate by slotId when IDs are present so that two
+  // slots with the same label but different IDs (e.g. "Night" same-day vs
+  // next-day) are both preserved. Fall back to label-based dedup only when no
+  // slot in the list has an ID (legacy OS data without IDs).
+  const hasIds = Object.values(slotsByDay).some((slots) =>
+    slots.some((slot) => slot.slotId !== undefined),
+  );
+  const seenKeys = new Set<string>();
   const timeSlots: OSTimeSlot[] = [];
   for (const daySlots of Object.values(slotsByDay)) {
     for (const slot of daySlots) {
-      if (!slot.label || seenLabels.has(slot.label)) continue;
-      seenLabels.add(slot.label);
+      const key = hasIds ? (slot.slotId ?? slot.label) : slot.label;
+      if (!slot.label || seenKeys.has(key)) continue;
+      seenKeys.add(key);
       timeSlots.push(slot);
     }
   }

@@ -685,6 +685,8 @@ export interface LocalizedNames {
 export interface DeliveryTimeSlot {
   /** Human-readable slot label (e.g. "Morning (9 AM – 12 PM)"). */
   label: string;
+  /** Unique slot identifier from Presentail OS. Present when the OS assigns per-slot IDs; absent for legacy hardcoded slots. Used as the React key and for ID-first slot lookup on the backend. */
+  slotId?: string;
   /** Hour of day (0–23) the slot window opens (e.g. 9 for 9 AM). Optional; absent when the OS has not configured window boundaries. */
   startHour?: number;
   /** Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). Optional; absent when the OS has not configured window boundaries. */
@@ -693,6 +695,10 @@ export interface DeliveryTimeSlot {
   cutoffHour?: number | null;
   /** Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee. */
   extraFee?: number;
+  /** Whether this slot is available for same-day (today) delivery. Absent means eligible for all dates. Use to filter slots for today when the OS configures separate same-day and next-day variants of the same window. */
+  sameDayEnabled?: boolean;
+  /** Whether this slot is available for next-day delivery. Absent means eligible for all dates. */
+  nextDayEnabled?: boolean;
 }
 
 /**

@@ -20,7 +20,7 @@ import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { expressSurchargeForCountry, freeDeliveryThresholdUsd } from "@workspace/delivery";
+import { expressSurchargeForCountry, freeDeliveryThresholdUsd, getLocalIso, timeSlotsForCountry } from "@workspace/delivery";
 import { computeCartTotal } from "@workspace/display-currency";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
@@ -105,7 +105,7 @@ export default function Cart() {
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
-  const { mode: deliveryMode } = useDeliverySelection();
+  const { mode: deliveryMode, slotLabel, date: deliveryDate } = useDeliverySelection();
   const { formatPrice } = useDisplayCurrency();
   // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
   //   1. OS per-city value (most specific)
@@ -121,15 +121,45 @@ export default function Cart() {
     configThresholdUsd ??
     (freeDeliveryThresholdUsd(countryCode) || undefined);
 
-  // Delivery fee for the Order Summary sidebar.
+  // Same-day night slot surcharge — $5 when the OS sends no configured fee override.
+  // Mirrors the logic in calcCheckoutFees (checkoutFees.ts) so Cart and Checkout agree.
+  const slotFeeUsd: number = (() => {
+    if (deliveryMode === "express" || !slotLabel) return 0;
+    // Derive deduplicated flat slot list from city data, mirroring DeliveryDateRow.
+    const raw = locationCity?.timeSlots?.length
+      ? locationCity.timeSlots
+      : locationCity?.slotsByDay
+        ? (() => {
+            const seen = new Set<string>();
+            return Object.values(locationCity.slotsByDay).flat().filter((s) => {
+              if (seen.has(s.label)) return false;
+              seen.add(s.label);
+              return true;
+            });
+          })()
+        : timeSlotsForCountry(countryCode);
+    const bookedSlot = raw.find((s) => s.label === slotLabel);
+    if (!bookedSlot) return 0;
+    if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
+      return bookedSlot.extraFee;
+    }
+    const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
+    if (slotStartHour >= 21) {
+      const todayIso = getLocalIso(countryCode);
+      const isToday = !deliveryDate || deliveryDate === todayIso;
+      if (isToday) return 5;
+    }
+    return 0;
+  })();
+
+  // Delivery fee for the Order Summary sidebar (district fee only — slot fee shown separately).
   // null → no city selected yet (show "Calculated at checkout")
   // 0    → above free-delivery threshold (show "Free")
   // >0   → show the fee amount
   const deliveryFeeUsd: number | null = (() => {
     if (cityFeeUsd === null) return null;
     const threshold = thresholdUsd ?? Infinity;
-    if (freeDeliveryEnabled !== false && subtotal >= threshold) return 0;
-    return cityFeeUsd;
+    return freeDeliveryEnabled !== false && subtotal >= threshold ? 0 : cityFeeUsd;
   })();
 
   // When express is selected, add the surcharge on top of the base delivery fee.
@@ -158,7 +188,7 @@ export default function Cart() {
     try { return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0; } catch { return 0; }
   });
 
-  const cartTotal = computeCartTotal(subtotal, effectiveDeliveryFeeUsd ?? 0, couponDiscountUsd);
+  const cartTotal = computeCartTotal(subtotal, (effectiveDeliveryFeeUsd ?? 0) + slotFeeUsd, couponDiscountUsd);
 
   const handleCouponToggle = () => {
     const next = !couponOpen;
@@ -702,6 +732,13 @@ export default function Cart() {
                       }
                     </span>
                   </div>
+
+                  {slotFeeUsd > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t("cart.lateNightFee")}</span>
+                      <span className="font-medium"><FormattedPrice usdValue={slotFeeUsd} /></span>
+                    </div>
+                  )}
 
                   {expressSurcharge > 0 && locationCity?.expressAvailable !== false && (
                     deliveryMode === "express" ? (

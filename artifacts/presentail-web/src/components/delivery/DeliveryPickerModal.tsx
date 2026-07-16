@@ -74,7 +74,15 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
 
   const timeSlots = useMemo(() => {
     const raw = propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(countryCode);
-    return [...raw].sort(
+    // Deduplicate by label — the OS may return two Night slots (same-day / next-day
+    // configs) with the same label. Keep the first occurrence of each label.
+    const seen = new Set<string>();
+    const deduped = raw.filter((s) => {
+      if (seen.has(s.label)) return false;
+      seen.add(s.label);
+      return true;
+    });
+    return [...deduped].sort(
       (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
     );
   }, [propTimeSlots, countryCode]);
@@ -278,8 +286,17 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {timeSlots.map((s) => {
-                    const isPastCutoff =
-                      (!date || date === todayIso) && s.cutoffHour <= currentHour;
+                    const isToday = !date || date === todayIso;
+                    const isPastCutoff = isToday && s.cutoffHour <= currentHour;
+                    // Show the OS-configured extra fee when > 0; otherwise apply the
+                    // hardcoded $5 same-day night surcharge (startHour ≥ 21, today only).
+                    const slotStartHour = s.startHour ?? s.cutoffHour ?? 0;
+                    const displayFee =
+                      s.extraFee && s.extraFee > 0
+                        ? s.extraFee
+                        : isToday && slotStartHour >= 21
+                          ? 5
+                          : null;
                     return (
                       <button
                         key={s.label}
@@ -300,8 +317,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                         ) : (
                           <div>{s.label}</div>
                         )}
-                        {s.extraFee && s.extraFee > 0 ? (
-                          <div className="text-xs opacity-75 mt-0.5">+${s.extraFee}</div>
+                        {displayFee ? (
+                          <div className="text-xs opacity-75 mt-0.5">+${displayFee}</div>
                         ) : null}
                       </button>
                     );

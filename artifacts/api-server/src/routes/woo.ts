@@ -1191,8 +1191,11 @@ router.post("/woo/order", async (req, res) => {
             const recoveredSlotFeeUsd = (() => {
               if (isExpressRecovery || !body.deliverySlot || !body.cityId) return 0;
               const citySlots = getDeliverySlots(body.cityId);
-              const bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
-              return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+              const bookedSlot = body.deliverySlotId
+                ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
+                : citySlots.find((s) => s.label === body.deliverySlot);
+              if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
+              return Number(bookedSlot.extraFee);
             })();
             const recoveredTotalUsd =
               cartResolution.subtotalUsd + recoveredDistrictFeeUsd + recoveredExpressFeeUsd + recoveredSlotFeeUsd;

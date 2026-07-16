@@ -103,6 +103,7 @@ export const WooOrderSchema = z.object({
   deliveryDetails: z.string().default(""),
   deliveryDate: z.string().default(""),
   deliverySlot: z.string().default(""),
+  deliverySlotId: z.string().optional(),
   cardMessage: z.string().optional(),
   cardFrom: z.string().optional(),
   cardTo: z.string().optional(),
@@ -401,14 +402,18 @@ export async function attemptCreateWcOrder(
   let slotFeeAppliedUsd = 0;
   if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
     const citySlots = getDeliverySlots(body.cityId);
-    const bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
-    if (bookedSlot?.extraFee && bookedSlot.extraFee > 0) {
-      slotFeeAppliedUsd = bookedSlot.extraFee;
-      shippingLines.push({
-        method_id: "flat_rate",
-        method_title: "Night Delivery Surcharge",
-        total: fmt(await conv(slotFeeAppliedUsd)),
-      });
+    const bookedSlot = body.deliverySlotId
+      ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
+      : citySlots.find((s) => s.label === body.deliverySlot);
+    if (bookedSlot && bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
+      slotFeeAppliedUsd = Number(bookedSlot.extraFee);
+      if (slotFeeAppliedUsd > 0) {
+        shippingLines.push({
+          method_id: "flat_rate",
+          method_title: "Night Delivery Surcharge",
+          total: fmt(await conv(slotFeeAppliedUsd)),
+        });
+      }
     }
   }
 
@@ -982,9 +987,11 @@ export async function attemptCreateOsOrder(
   let bookedSlot: OsDeliverySlot | undefined;
   if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
     const citySlots = getDeliverySlots(body.cityId);
-    bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
-    if (bookedSlot?.extraFee && bookedSlot.extraFee > 0) {
-      slotFeeAppliedUsd = bookedSlot.extraFee;
+    bookedSlot = body.deliverySlotId
+      ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
+      : citySlots.find((s) => s.label === body.deliverySlot);
+    if (bookedSlot && bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
+      slotFeeAppliedUsd = Number(bookedSlot.extraFee);
     }
   }
 

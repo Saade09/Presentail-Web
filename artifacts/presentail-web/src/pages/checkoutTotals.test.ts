@@ -16,6 +16,7 @@ import {
 import {
   freeDeliveryThresholdUsd,
   expressSurchargeForCountry,
+  getLocalIso,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -302,6 +303,82 @@ describe("calcCheckoutFees: slotFee — extra fee for premium time slots", () =>
 });
 
 // ---------------------------------------------------------------------------
+// calcCheckoutFees — same-day night-slot surcharge ($5 hardcoded fallback)
+// ---------------------------------------------------------------------------
+
+describe("calcCheckoutFees: slotFee — same-day night surcharge when OS sends extraFee 0", () => {
+  // Night slot the OS returns with fee_override = 0 (no explicit surcharge configured).
+  const nightSlotZeroFee: TimeSlot = { label: "Night", startHour: 21, endHour: 23, cutoffHour: 21, extraFee: 0 };
+  const nightSlotNoFee: TimeSlot = { label: "Night", startHour: 21, endHour: 23, cutoffHour: 21 };
+  const morningSlot: TimeSlot = { label: "Morning", startHour: 9, endHour: 14, cutoffHour: 9 };
+
+  it("returns $5 for a night slot with extraFee 0 when no deliveryDate is provided (assumes today)", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50, countryCode: "LB", noAddress: false, cityFee: 0,
+      deliveryMode: "schedule",
+      timeSlots: [morningSlot, nightSlotZeroFee],
+      deliverySlot: "Night",
+    });
+    expect(slotFee).toBe(5);
+  });
+
+  it("returns $5 for a night slot with no extraFee field when no deliveryDate is provided", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50, countryCode: "LB", noAddress: false, cityFee: 0,
+      deliveryMode: "schedule",
+      timeSlots: [nightSlotNoFee],
+      deliverySlot: "Night",
+    });
+    expect(slotFee).toBe(5);
+  });
+
+  it("returns $5 when deliveryDate equals today's Lebanese date", () => {
+    const today = getLocalIso("LB");
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50, countryCode: "LB", noAddress: false, cityFee: 0,
+      deliveryMode: "schedule",
+      timeSlots: [nightSlotZeroFee],
+      deliverySlot: "Night",
+      deliveryDate: today,
+    });
+    expect(slotFee).toBe(5);
+  });
+
+  it("returns $0 when deliveryDate is a future date (next-day or later — no same-day surcharge)", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50, countryCode: "LB", noAddress: false, cityFee: 0,
+      deliveryMode: "schedule",
+      timeSlots: [nightSlotZeroFee],
+      deliverySlot: "Night",
+      deliveryDate: "2099-12-31",
+    });
+    expect(slotFee).toBe(0);
+  });
+
+  it("uses the OS-configured fee when extraFee > 0, ignoring the $5 fallback", () => {
+    const nightSlotOsFee: TimeSlot = { label: "Night", startHour: 21, endHour: 23, cutoffHour: 21, extraFee: 8 };
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50, countryCode: "LB", noAddress: false, cityFee: 0,
+      deliveryMode: "schedule",
+      timeSlots: [nightSlotOsFee],
+      deliverySlot: "Night",
+    });
+    expect(slotFee).toBe(8);
+  });
+
+  it("does not apply the night surcharge to a daytime slot (startHour < 21)", () => {
+    const lateSlot: TimeSlot = { label: "Afternoon", startHour: 18, endHour: 22, cutoffHour: 18 };
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50, countryCode: "LB", noAddress: false, cityFee: 0,
+      deliveryMode: "schedule",
+      timeSlots: [lateSlot],
+      deliverySlot: "Afternoon",
+    });
+    expect(slotFee).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // calcCheckoutFees — total
 // ---------------------------------------------------------------------------
 
@@ -398,6 +475,130 @@ describe("activeCurrencyForCountry — derived from countryCode", () => {
   it("LB → USD", () => expect(activeCurrencyForCountry("LB")).toBe("USD"));
   it("unknown country → USD", () => expect(activeCurrencyForCountry("XX")).toBe("USD"));
   it("empty string → USD", () => expect(activeCurrencyForCountry("")).toBe("USD"));
+});
+
+// ---------------------------------------------------------------------------
+// calcCheckoutFees — slotFee with slotId-based lookup (same-day / next-day dedup fix)
+// ---------------------------------------------------------------------------
+
+describe("calcCheckoutFees: slotFee — ID-first lookup and $0 override guard", () => {
+  /**
+   * Two "Night 9 PM–11 PM" slots that share the same label but have different
+   * configs: the same-day variant charges $5; the next-day variant is free
+   * (explicit $0 extraFee override). The deduplication fix means both coexist
+   * in the timeSlots list, distinguished by slotId.
+   */
+  const sameDayNight: TimeSlot = {
+    label: "9:00 PM – 11:00 PM",
+    cutoffHour: 21,
+    extraFee: 5,
+    slotId: "night-same-day",
+    sameDayEnabled: true,
+    nextDayEnabled: false,
+  };
+  const nextDayNight: TimeSlot = {
+    label: "9:00 PM – 11:00 PM",
+    cutoffHour: 21,
+    extraFee: 0,
+    slotId: "night-next-day",
+    sameDayEnabled: false,
+    nextDayEnabled: true,
+  };
+  const slots: TimeSlot[] = [sameDayNight, nextDayNight];
+
+  it("ID lookup: same-day Night slot charges $5 when deliverySlotId matches", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 5,
+      deliveryMode: "schedule",
+      timeSlots: slots,
+      deliverySlot: "9:00 PM – 11:00 PM",
+      deliverySlotId: "night-same-day",
+    });
+    expect(slotFee).toBe(5);
+  });
+
+  it("ID lookup: next-day Night slot charges $0 when deliverySlotId matches", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 5,
+      deliveryMode: "schedule",
+      timeSlots: slots,
+      deliverySlot: "9:00 PM – 11:00 PM",
+      deliverySlotId: "night-next-day",
+    });
+    expect(slotFee).toBe(0);
+  });
+
+  it("$0 extraFee override is treated as free (not charged)", () => {
+    const freeSlot: TimeSlot = { label: "Morning", cutoffHour: 8, extraFee: 0, slotId: "morning-free" };
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 5,
+      deliveryMode: "schedule",
+      timeSlots: [freeSlot],
+      deliverySlot: "Morning",
+      deliverySlotId: "morning-free",
+    });
+    expect(slotFee).toBe(0);
+  });
+
+  it("label fallback: resolves by label when no deliverySlotId supplied", () => {
+    // Without an ID, the first slot whose label matches is used.
+    // sameDayNight is first → $5
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 5,
+      deliveryMode: "schedule",
+      timeSlots: slots,
+      deliverySlot: "9:00 PM – 11:00 PM",
+    });
+    expect(slotFee).toBe(5);
+  });
+
+  it("express mode: always returns $0 even when a matching slot has $5 fee", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 5,
+      deliveryMode: "express",
+      timeSlots: slots,
+      deliverySlot: "9:00 PM – 11:00 PM",
+      deliverySlotId: "night-same-day",
+    });
+    expect(slotFee).toBe(0);
+  });
+
+  it("ID lookup: unknown slotId falls back to label match", () => {
+    const simpleSlot: TimeSlot = { label: "9:00 PM – 11:00 PM", cutoffHour: 21, extraFee: 7, slotId: "night-x" };
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 5,
+      deliveryMode: "schedule",
+      timeSlots: [simpleSlot],
+      deliverySlot: "9:00 PM – 11:00 PM",
+      deliverySlotId: "nonexistent-id",
+    });
+    expect(slotFee).toBe(7);
+  });
+
+  it("both Night slots coexist in the list without collision (slotId uniqueness)", () => {
+    // Verify both are present and have distinct IDs — this guards against
+    // label-based deduplication silently dropping one of them.
+    expect(slots.filter((s) => s.label === "9:00 PM – 11:00 PM").length).toBe(2);
+    expect(slots[0].slotId).not.toBe(slots[1].slotId);
+  });
 });
 
 // ---------------------------------------------------------------------------

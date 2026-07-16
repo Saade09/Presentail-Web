@@ -90,6 +90,8 @@ type Body = {
   // Slot context — required when the shopper selected a premium delivery slot.
   // cityId is used to look up the slot's extraFee from the OS locations cache.
   deliverySlot?: string;
+  /** Stable OS slot ID. When provided, overrides label-based slot lookup so same-label/different-config slots are resolved correctly. */
+  deliverySlotId?: string;
   cityId?: string;
   couponCode?: string;
 };
@@ -107,6 +109,7 @@ router.post("/checkout/session", async (req, res) => {
     expressDelivery: rawExpressDelivery,
     noAddress: rawNoAddress,
     deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
     cityId: rawCityId,
     couponCode: sessionCouponCode,
   } = req.body as Body;
@@ -192,8 +195,11 @@ router.post("/checkout/session", async (req, res) => {
   const sessionSlotFeeUsd = (() => {
     if (sessionExpressDelivery || !sessionDeliverySlot || !rawCityId) return 0;
     const citySlots = getDeliverySlots(rawCityId);
-    const bookedSlot = citySlots.find((s) => s.label === sessionDeliverySlot);
-    return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+    const bookedSlot = rawDeliverySlotId
+      ? (citySlots.find((s) => s.slotId === rawDeliverySlotId) ?? citySlots.find((s) => s.label === sessionDeliverySlot))
+      : citySlots.find((s) => s.label === sessionDeliverySlot);
+    if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
+    return Number(bookedSlot.extraFee);
   })();
   const sessionDeliveryFeeUsd = sessionDistrictFeeUsd + sessionExpressFeeUsd + sessionSlotFeeUsd;
   const sessionTotalUsd = sessionSubtotalUsd + sessionDeliveryFeeUsd;
@@ -379,6 +385,8 @@ type PaymentIntentBody = {
   noAddress?: boolean;
   // Slot context — required when the shopper selected a premium delivery slot.
   deliverySlot?: string;
+  /** Stable OS slot ID. When provided, overrides label-based slot lookup. */
+  deliverySlotId?: string;
   cityId?: string;
   couponCode?: string;
   saveCard?: boolean;
@@ -506,7 +514,7 @@ async function computeStripeAmounts({
 }
 
 router.post("/checkout/payment-intent", async (req, res) => {
-  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, cityId, couponCode, saveCard } =
+  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, deliverySlotId, cityId, couponCode, saveCard } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -586,8 +594,11 @@ router.post("/checkout/payment-intent", async (req, res) => {
   const serverSlotFeeUsd = (() => {
     if (expressDelivery === true || !deliverySlot || !cityId) return 0;
     const citySlots = getDeliverySlots(cityId);
-    const bookedSlot = citySlots.find((s) => s.label === deliverySlot);
-    return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+    const bookedSlot = deliverySlotId
+      ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
+      : citySlots.find((s) => s.label === deliverySlot);
+    if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
+    return Number(bookedSlot.extraFee);
   })();
   const serverDeliveryFeeUsd = serverDistrictFeeUsd + serverExpressFeeUsd + serverSlotFeeUsd;
   const totalUsd = subtotalUsd + serverDeliveryFeeUsd;
@@ -991,6 +1002,7 @@ router.post("/checkout/fees", async (req, res) => {
     expressDelivery,
     noAddress,
     deliverySlot,
+    deliverySlotId,
     cityId,
     couponCode,
   } = req.body as {
@@ -1001,6 +1013,7 @@ router.post("/checkout/fees", async (req, res) => {
     expressDelivery?: boolean;
     noAddress?: boolean;
     deliverySlot?: string;
+    deliverySlotId?: string;
     cityId?: string;
     couponCode?: string;
   };
@@ -1038,8 +1051,11 @@ router.post("/checkout/fees", async (req, res) => {
   const slotFeeUsd = (() => {
     if (expressDelivery === true || !deliverySlot || !cityId) return 0;
     const citySlots = getDeliverySlots(cityId);
-    const bookedSlot = citySlots.find((s) => s.label === deliverySlot);
-    return bookedSlot?.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+    const bookedSlot = deliverySlotId
+      ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
+      : citySlots.find((s) => s.label === deliverySlot);
+    if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
+    return Number(bookedSlot.extraFee);
   })();
   const deliveryFeeUsd = districtFeeUsd + expressFeeUsd + slotFeeUsd;
   const rawTotalUsd = subtotalUsd + deliveryFeeUsd;

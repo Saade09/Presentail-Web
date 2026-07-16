@@ -37,6 +37,8 @@ type Props = {
     mode: "today_slot" | "schedule";
     date: string;
     slotLabel: string;
+    /** OS-assigned stable slot ID, when available. */
+    slotId?: string;
   }) => void;
 };
 
@@ -195,11 +197,114 @@ export function ScheduleInlinePanel({
     if (!slotLabel) return;
     const mode: "today_slot" | "schedule" =
       date === todayIso ? "today_slot" : "schedule";
-    const key = `${mode}|${date}|${slotLabel}`;
+    const selectedSlot = timeSlots.find((s) => s.label === slotLabel);
+    const slotId = selectedSlot?.slotId;
+    const key = `${mode}|${date}|${slotLabel}|${slotId ?? ""}`;
     if (key === lastEmittedRef.current) return;
     lastEmittedRef.current = key;
-    onChange({ mode, date, slotLabel });
-  }, [date, slotLabel, todayIso, onChange]);
+    onChange({ mode, date, slotLabel, slotId });
+  }, [date, slotLabel, todayIso, onChange, timeSlots]);
+
+  /**
+   * Date-filtered, deduplicated view of the slot list.
+   *
+   * Step 1 — date filter:
+   *   - Today     → sameDayEnabled !== false  (undefined counts as eligible)
+   *   - Tomorrow  → nextDayEnabled !== false
+   *   - Later     → all slots
+   *   When no slot carries the relevant field at all (legacy OS data without
+   *   same-day/next-day flags) the filter is skipped and all slots proceed to
+   *   step 2 — deduplication still runs regardless.
+   *
+   * Step 2 — label deduplication (always):
+   *   When multiple slots share the same label (e.g. two "9 PM–11 PM" entries),
+   *   keep the one best suited for the current date:
+   *   - Today:        prefer sameDayEnabled=true, then higher extraFee
+   *   - Other dates:  prefer nextDayEnabled=true, then lower/absent extraFee
+   */
+  const displayedSlots = useMemo<TimeSlot[]>(() => {
+    const isToday = date === todayIso;
+    const isTomorrow = date === tomorrowIso;
+
+    // Step 1: date-based filter
+    let filtered: TimeSlot[];
+    if (isToday) {
+      const hasSameDayField = timeSlots.some((s) => s.sameDayEnabled !== undefined);
+      filtered = hasSameDayField ? timeSlots.filter((s) => s.sameDayEnabled !== false) : timeSlots;
+    } else if (isTomorrow) {
+      const hasNextDayField = timeSlots.some((s) => s.nextDayEnabled !== undefined);
+      filtered = hasNextDayField ? timeSlots.filter((s) => s.nextDayEnabled !== false) : timeSlots;
+    } else {
+      filtered = timeSlots;
+    }
+
+    // Step 2: deduplicate by label — always, even when step 1 returned all slots
+    const seen = new Map<string, TimeSlot>();
+    for (const slot of filtered) {
+      const existing = seen.get(slot.label);
+      if (!existing) {
+        seen.set(slot.label, slot);
+      } else {
+        // Choose which duplicate to keep based on date context
+        let preferNew: boolean;
+        if (isToday) {
+          // Today: prefer sameDayEnabled=true, then higher extraFee (the surcharge variant)
+          preferNew =
+            (slot.sameDayEnabled === true && existing.sameDayEnabled !== true) ||
+            (slot.sameDayEnabled === existing.sameDayEnabled &&
+              (slot.extraFee ?? 0) > (existing.extraFee ?? 0));
+        } else {
+          // Other dates: prefer nextDayEnabled=true, then lower/no extraFee (the free variant)
+          preferNew =
+            (slot.nextDayEnabled === true && existing.nextDayEnabled !== true) ||
+            (slot.nextDayEnabled === existing.nextDayEnabled &&
+              (slot.extraFee ?? 0) < (existing.extraFee ?? 0));
+        }
+        if (preferNew) seen.set(slot.label, slot);
+      }
+    }
+
+    const deduped = Array.from(seen.values());
+
+    // Same-day night surcharge: when OS hasn't configured a fee for a late slot,
+    // apply $5 for today only. This mirrors the Presentail OS same-day night
+    // delivery configuration. If the OS ever returns fee_override for this slot,
+    // extraFee will be defined and this fallback is skipped automatically.
+    //
+    // "Night" is defined as: delivery window starting at 21:00 or later.
+    // We resolve the delivery start hour using three sources in priority order:
+    //   1. slot.startHour — OS-provided delivery window start (most accurate)
+    //   2. Label parse   — extract "9 PM" from "9:00 PM – 11:00 PM" labels
+    //   3. slot.cutoffHour — works for hardcoded slots (LB night = 21)
+    // This is needed because some OS legacy responses omit start_time and set
+    // cutoff_time to the ORDER deadline (e.g. "18:00"), not the delivery hour.
+    if (isToday) {
+      return deduped.map((slot) => {
+        // Parse "9:00 PM – ..." or "21:00 – ..." style label → delivery start hour
+        const parsedLabelHour = (() => {
+          const m = slot.label.match(/^(\d+)(?::\d+)?\s*(AM|PM)?/i);
+          if (!m) return undefined;
+          let h = parseInt(m[1]!, 10);
+          const meridiem = m[2]?.toUpperCase();
+          if (meridiem === "PM" && h !== 12) h += 12;
+          else if (meridiem === "AM" && h === 12) h = 0;
+          return h;
+        })();
+        const deliveryStartHour = slot.startHour ?? parsedLabelHour ?? slot.cutoffHour;
+        const isNightSlot = deliveryStartHour >= 21;
+        // Apply $5 when: slot is a night window AND the OS has not configured a
+        // real surcharge (extraFee is absent or zero). `extraFee: 0` means the OS
+        // explicitly set it to zero OR no override was stored — either way the
+        // hardcoded same-day night rate should take over.
+        if (isNightSlot && !slot.extraFee) {
+          return { ...slot, extraFee: 5 };
+        }
+        return slot;
+      });
+    }
+
+    return deduped;
+  }, [timeSlots, date, todayIso, tomorrowIso]);
 
   // Keep the slot valid when the date or available slot list changes (e.g.
   // switching from today to a future day, or the city's OS slots updating).
@@ -374,23 +479,21 @@ export function ScheduleInlinePanel({
           {t("checkout.deliveryTime")}
         </p>
         <div className="flex flex-wrap gap-2">
-          {timeSlots.map((s) => {
+          {displayedSlots.map((s) => {
             const isToday = date === todayIso;
             const past = isToday && localHour >= s.cutoffHour;
             const active = slotLabel === s.label;
             const rangeLabel = formatSlotTimeRangeShort(s);
-            const hasExtraFee = typeof s.extraFee === "number" && s.extraFee > 0;
-            // "Free" label: only shown when this slot has no extra surcharge AND the
-            // district delivery fee is also waived (cart meets the free-delivery threshold).
-            // "+fee" label: always shown when extraFee > 0 regardless of threshold.
-            const feeLabel = hasExtraFee
-              ? t("product.deliveryExtraFee").replace("{fee}", formatPrice(s.extraFee!))
-              : freeDeliveryMet
-                ? t("product.deliveryFree")
+            // Only show a fee label when there is a real surcharge (extraFee > 0).
+            // "Free" is intentionally suppressed — it clutters the slot chips and is
+            // already implicit when no fee amount is shown.
+            const feeLabel =
+              s.extraFee !== undefined && s.extraFee !== null && s.extraFee > 0
+                ? t("product.deliveryExtraFee").replace("{fee}", formatPrice(s.extraFee))
                 : null;
             return (
               <button
-                key={s.label}
+                key={s.slotId ?? s.label}
                 type="button"
                 disabled={past}
                 aria-pressed={active}
