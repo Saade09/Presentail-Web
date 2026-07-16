@@ -1977,8 +1977,24 @@ function CheckoutForm() {
         // drift since PI creation), bail WITHOUT opening the sheet and clear the
         // cached intent so the next tap re-creates the PI with the refreshed rates.
         // No await is required — all inputs are already in memory.
+        //
+        // IMPORTANT: use serverFeesOverride when available. The wallet PI creation
+        // effect fires a /checkout/fees fetch right after the PI is created and
+        // stores the result in serverFeesOverride. Those amounts came from the same
+        // server call that produced the PI, so they agree byte-for-byte. Using
+        // client-estimated fees (districtFee + expressFee + slotFee) causes a
+        // permanent false-positive loop: the server ignores the client-supplied
+        // deliveryFeeUsd and computes its own, so even a $1 discrepancy between the
+        // client estimate and the server value causes every tap to clear the PI,
+        // re-arm the preparation spinner, and loop forever.
         {
-          const _wClientTotalUsd = computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount);
+          const _wSubtotalUsd = serverFeesOverride?.subtotalUsd ?? subtotal;
+          const _wDeliveryUsd =
+            (serverFeesOverride?.districtFeeUsd ?? districtFee) +
+            (serverFeesOverride?.expressFeeUsd ?? expressFee) +
+            (serverFeesOverride?.slotFeeUsd ?? slotFee);
+          const _wCouponUsd = serverFeesOverride?.couponDiscountUsd ?? confirmedCouponDiscount;
+          const _wClientTotalUsd = computeCartTotal(_wSubtotalUsd, _wDeliveryUsd, _wCouponUsd);
           const _wClientRate = fxRatesData?.rates?.[checkoutCurrency] ?? 1;
           const _wClientDisplay = roundToNearestFive(_wClientTotalUsd * _wClientRate, checkoutCurrency);
           const _wClientMinorUnits = toStripeMinorUnits(_wClientDisplay, checkoutCurrency);

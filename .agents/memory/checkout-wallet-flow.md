@@ -15,6 +15,14 @@ The wallet path in the web checkout `handleSubmit` only runs for non-AED currenc
 
 - **Wallet errors are invisible unless the card tile is selected.** The inline Stripe error only renders while the card method is active. After a wallet payment failure you must switch the selected method to card so the shopper actually sees the error; a wallet shopper otherwise just sees the sheet dismiss with no explanation. Note the card tile's onClick clears the error, but a programmatic method switch does not.
 
+## Parity check must use serverFeesOverride, not client fees
+
+The parity check in `handleSubmit` (before `pr.show()`) compares `walletIntentRef.current.amount` against a client-recomputed total. The server **ignores** the client-supplied `deliveryFeeUsd` and computes its own fees (see `checkout.ts` line ~580). Even a $1 discrepancy between server and client fees causes every tap to fire "Order total updated", clear the PI, re-arm the spinner, and loop forever.
+
+**Fix:** use `serverFeesOverride?.subtotalUsd`, `serverFeesOverride?.districtFeeUsd`, etc. when available (fall back to client estimates when null). `serverFeesOverride` is populated right after PI creation by the inline `/api/checkout/fees` fetch in the wallet effect — it always matches the PI amount.
+
+**Why:** server ignores client `deliveryFeeUsd` as a security measure (anti-tamper); parity check must use server-authoritative amounts to avoid false positives.
+
 ## Testing the wallet branch
 
 - It only runs on mobile viewports — mock `useIsMobile` true and have the canMakePayment probe resolve null, then capture the `pr.on("paymentmethod"|"cancel", ...)` handlers and invoke them directly.
