@@ -134,7 +134,7 @@ export function ProductCollectionCarousel({
 
       <div
         ref={trackRef}
-        className="flex gap-3 md:gap-5 overflow-x-auto snap-x snap-mandatory pb-2 [&::-webkit-scrollbar]:hidden"
+        className="-mx-4 md:mx-0 pl-4 md:pl-0 scroll-pl-4 md:scroll-pl-0 flex gap-3 md:gap-5 overflow-x-auto snap-x snap-mandatory pb-2 [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
           {isLoading
@@ -160,6 +160,7 @@ export function ProductCollectionCarousel({
                   <ProductCard product={p} index={i} imageClassName="rounded-xl" />
                 </div>
               ))}
+          <div className="flex-shrink-0 w-4 md:hidden" aria-hidden />
       </div>
     </section>
   );
