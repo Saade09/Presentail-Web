@@ -112,7 +112,7 @@ export function PaymentSubmitButton({ payMethod, onPress, disabled, paying, proc
         disabled={disabled}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={paying ? processingLabel : "Pay with Whish App"}
+        accessibilityLabel={paying ? processingLabel : "Pay with Whish Money"}
         accessibilityState={{ disabled, busy: paying }}
         style={({ pressed }) => ({
           backgroundColor: "#D31F37",
@@ -131,7 +131,7 @@ export function PaymentSubmitButton({ payMethod, onPress, disabled, paying, proc
               <View style={{ backgroundColor: "#fff", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3 }}>
                 <SvgXml xml={whishXml} width={44} height={10} />
               </View>
-              <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", fontSize: 14, letterSpacing: 0.3 }}>Pay with Whish App</AppText>{/* i18n-ignore */}
+              <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", fontSize: 14, letterSpacing: 0.3 }}>Pay with Whish Money</AppText>{/* i18n-ignore */}
             </>}
       </Pressable>
     );

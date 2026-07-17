@@ -197,7 +197,7 @@ const ALT_GOOGLE_PAY = "Google Pay"; // i18n-ignore
 const ALT_PAYPAL = "PayPal"; // i18n-ignore
 const LABEL_PAY_PAYPAL = "Pay with PayPal"; // i18n-ignore
 const ALT_WHISH = "Whish"; // i18n-ignore
-const LABEL_PAY_WHISH = "Pay with Whish App"; // i18n-ignore
+const LABEL_PAY_WHISH = "Pay with Whish Money"; // i18n-ignore
 const ALT_TABBY = "Tabby"; // i18n-ignore
 const LABEL_PAY_TABBY = "Pay in 4 with Tabby"; // i18n-ignore
 

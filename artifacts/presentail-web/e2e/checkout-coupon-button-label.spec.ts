@@ -359,7 +359,7 @@ test.describe("PaymentSubmitButton — coupon discount reflected in button label
   });
 
   // ── 3. Whish (non-wallet, offline method) + coupon ────────────────────────
-  // The Whish button shows "Pay with Whish App" (brand copy, no total), so we
+  // The Whish button shows "Pay with Whish Money" (brand copy, no total), so we
   // assert the order-summary sidebar — the canonical price surface — shows the
   // discounted total correctly regardless of the active payment method.
 
@@ -391,7 +391,7 @@ test.describe("PaymentSubmitButton — coupon discount reflected in button label
     await expect(whishOption).toBeVisible({ timeout: 10_000 });
     await whishOption.click();
 
-    // The Whish submit button shows brand copy ("Pay with Whish App"), not a
+    // The Whish submit button shows brand copy ("Pay with Whish Money"), not a
     // price amount. Assert the expected label so we catch accidental copy changes.
     const submitBtn = page.getByTestId("button-submit-payment");
     await expect(submitBtn).toBeVisible({ timeout: 5_000 });
@@ -399,7 +399,7 @@ test.describe("PaymentSubmitButton — coupon discount reflected in button label
     expect(
       whishBtnText,
       "Whish button should show brand copy, not a price amount",
-    ).toMatch(/Pay with Whish App/i);
+    ).toMatch(/Pay with Whish Money/i);
 
     // Order-summary sidebar total must reflect the coupon discount. FormattedPrice
     // omits ".00" for whole-dollar USD amounts, so the rendered text is "$55" not "$55.00".
