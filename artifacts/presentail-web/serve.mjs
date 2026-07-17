@@ -1141,12 +1141,14 @@ const server = http.createServer(async (req, res) => {
           // `.replit.app` preview domains) so Lighthouse / Googlebot don't
           // see "noindex" on a production deployment.
           "x-robots-tag": "index, follow",
-          // Transactional pages (checkout, cart, order-confirmed) must never
-          // be stored by any cache layer — use no-store. All other pages use
-          // no-cache (must revalidate, but may cache).
-          "cache-control": isTransactionalPage(pathname)
-            ? "no-store, no-cache, must-revalidate"
-            : "no-cache",
+          // All HTML responses use no-store so that:
+          //  1. No HTTP cache layer (CDN, ISP, browser) stores the shell.
+          //  2. Safari's Back/Forward Cache (BFCache) is opted out — BFCache
+          //     ignores no-cache but respects no-store. Without this, Safari
+          //     can restore a frozen page snapshot whose JS chunk hashes no
+          //     longer exist on the server after a redeploy, leaving a blank
+          //     white page with no error the chunk-reload handler can catch.
+          "cache-control": "no-store, no-cache, must-revalidate",
           "expires": "0",
           "vary": "Accept-Encoding",
           // HTTP Link header mirrors the <link rel="canonical"> injected into

@@ -118,4 +118,16 @@ export function installChunkReloadHandlers(): void {
       reloadForStaleChunk();
     }
   });
+
+  // Belt-and-suspenders: if the page is restored from Safari's Back/Forward
+  // Cache (BFCache), the frozen JS snapshot may reference chunk hashes that
+  // no longer exist on the server after a redeploy. The no-store header on
+  // index.html opts the page out of BFCache, but older Safari versions may
+  // not honour that. Forcing a reload on persisted restoration guarantees the
+  // browser fetches a fresh shell with the correct chunk hashes.
+  window.addEventListener("pageshow", (event) => {
+    if ((event as PageTransitionEvent).persisted) {
+      reloadForStaleChunk();
+    }
+  });
 }
