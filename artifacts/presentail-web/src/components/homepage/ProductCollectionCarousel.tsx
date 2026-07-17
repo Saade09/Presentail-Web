@@ -103,7 +103,8 @@ export function ProductCollectionCarousel({
               className="text-sm font-medium text-primary hover:text-primary/70 transition-colors"
               data-testid={`${testId ?? "collection"}-view-all`}
             >
-              {linkLabel}
+              <span className="md:hidden">{t("carousel.viewAll")}</span>
+              <span className="hidden md:inline">{linkLabel}</span>
             </Link>
           )}
           <div className="hidden md:flex items-center gap-1.5">
@@ -143,7 +144,7 @@ export function ProductCollectionCarousel({
                   <div
                     key={i}
                     data-collection-card
-                    className="flex-shrink-0 snap-start w-[45%] sm:w-[calc((100%-2.5rem)/3)] md:w-[calc((100%-3.75rem)/4)]"
+                    className="flex-shrink-0 snap-start w-[42%] sm:w-[calc((100%-2.5rem)/3)] md:w-[calc((100%-3.75rem)/4)]"
                   >
                     <div className="aspect-square animate-shimmer rounded-xl mb-3" />
                     <div className="h-5 animate-shimmer rounded w-2/3 mb-2" />
@@ -154,7 +155,7 @@ export function ProductCollectionCarousel({
                 <div
                   key={p.id}
                   data-collection-card
-                  className="flex-shrink-0 snap-start w-[45%] sm:w-[calc((100%-2.5rem)/3)] md:w-[calc((100%-3.75rem)/4)]"
+                  className="flex-shrink-0 snap-start w-[42%] sm:w-[calc((100%-2.5rem)/3)] md:w-[calc((100%-3.75rem)/4)]"
                 >
                   <ProductCard product={p} index={i} imageClassName="rounded-xl" />
                 </div>
