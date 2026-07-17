@@ -27,8 +27,6 @@ const chipBase: ViewStyle = {
 const lightChip: ViewStyle = {
   ...chipBase,
   backgroundColor: "#FFFFFF",
-  borderWidth: 1,
-  borderColor: "#E5E5E5",
 };
 
 // Inner logo dimensions tuned per brand to respect each brand's
@@ -88,7 +86,7 @@ export function GooglePayBadge() {
 
 export function WhishBadge() {
   return (
-    <View style={[chipBase, { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E5E5" }]}>
+    <View style={[chipBase, { backgroundColor: "#FFFFFF" }]}>
       <Logo xml={whishXml} width={36} height={8} />
     </View>
   );
