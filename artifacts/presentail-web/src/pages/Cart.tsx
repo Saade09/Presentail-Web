@@ -403,32 +403,41 @@ export default function Cart() {
               {couponOpen ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
             </button>
             {couponOpen && (
-              <div className="absolute right-4 left-4 mt-1 z-10 bg-white border border-primary/15 rounded-xl shadow-lg p-3">
-                <div className="flex gap-2">
-                  <Input
-                    value={couponInput}
-                    onChange={(e) => {
-                      setCouponInput(e.target.value);
-                      if (couponError) setCouponError(null);
-                      if (couponApplied) { setCouponApplied(false); setCouponDiscountUsd(0); }
-                    }}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
-                    placeholder={t("cart.promoCodePlaceholder")}
-                    className={`h-8 text-xs rounded-lg${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
-                    data-testid="input-promo-code-mobile"
-                    autoFocus
-                  />
-                  {couponApplied ? (
-                    <Button type="button" variant="outline" size="sm" onClick={handleCouponRemove} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-remove-mobile">
-                      {t("cart.promoCodeRemove")}
-                    </Button>
-                  ) : (
-                    <Button type="button" size="sm" onClick={handleCouponApply} disabled={!couponInput.trim() || couponValidating} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-apply-mobile">
-                      {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
-                    </Button>
-                  )}
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center"
+                onClick={handleCouponToggle}
+              >
+                <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
+                <div
+                  className="relative mx-4 w-full max-w-sm bg-white border border-primary/15 rounded-xl shadow-lg p-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex gap-2">
+                    <Input
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value);
+                        if (couponError) setCouponError(null);
+                        if (couponApplied) { setCouponApplied(false); setCouponDiscountUsd(0); }
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
+                      placeholder={t("cart.promoCodePlaceholder")}
+                      className={`h-8 text-xs rounded-lg${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                      data-testid="input-promo-code-mobile"
+                      autoFocus
+                    />
+                    {couponApplied ? (
+                      <Button type="button" variant="outline" size="sm" onClick={handleCouponRemove} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-remove-mobile">
+                        {t("cart.promoCodeRemove")}
+                      </Button>
+                    ) : (
+                      <Button type="button" size="sm" onClick={handleCouponApply} disabled={!couponInput.trim() || couponValidating} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-apply-mobile">
+                        {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
+                      </Button>
+                    )}
+                  </div>
+                  {couponError && <p className="mt-1.5 text-xs text-destructive">{couponError}</p>}
                 </div>
-                {couponError && <p className="mt-1.5 text-xs text-destructive">{couponError}</p>}
               </div>
             )}
           </div>
