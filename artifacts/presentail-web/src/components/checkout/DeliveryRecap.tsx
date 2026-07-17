@@ -1,4 +1,4 @@
-import { User, MapPin, Clock } from "lucide-react";
+import { User, Clock } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 
 type DeliveryMode = "express" | "schedule";
@@ -36,10 +36,10 @@ type Props = {
 export function DeliveryRecap({
   recipientFirstName,
   recipientLastName,
-  district,
-  address,
-  recipientWillProvideAddress,
-  selfRecipient,
+  district: _district,
+  address: _address,
+  recipientWillProvideAddress: _recipientWillProvideAddress,
+  selfRecipient: _selfRecipient,
   deliveryMode,
   deliveryRowText,
   onEdit,
@@ -48,20 +48,6 @@ export function DeliveryRecap({
 
   const recipientName =
     [recipientFirstName, recipientLastName].filter(Boolean).join(" ") || "—";
-
-  // Address state: three mutually exclusive branches (priority order)
-  //  1. recipientWillProvideAddress — recipient shares their address at door
-  //  2. selfRecipient               — sender == recipient (self-delivery)
-  //  3. normal address              — district + address entered by sender
-  let locationText: string;
-  if (recipientWillProvideAddress) {
-    locationText = t("checkout.recap.recipientProvidesAddress");
-  } else if (selfRecipient) {
-    locationText = t("checkout.recap.selfDelivery");
-  } else {
-    const parts = [district, address].filter(Boolean);
-    locationText = parts.join(" · ") || "—";
-  }
 
   // Timing state: deliveryRowText already covers all three sub-states —
   //   express ("Express Delivery"), standard ("Today · HH:MM – HH:MM"),
@@ -90,10 +76,6 @@ export function DeliveryRecap({
         <div className="flex items-start gap-2.5">
           <User className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true" />
           <span className="text-sm font-medium">{recipientName}</span>
-        </div>
-        <div className="flex items-start gap-2.5">
-          <MapPin className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true" />
-          <span className="text-sm text-muted-foreground leading-snug line-clamp-2">{locationText}</span>
         </div>
         {timingLabel && (
           <div className="flex items-start gap-2.5">
