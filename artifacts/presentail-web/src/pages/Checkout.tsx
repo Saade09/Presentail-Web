@@ -3046,7 +3046,7 @@ function CheckoutForm() {
                                   <span
                                     key={logo.name}
                                     title={logo.name}
-                                    className={logo.fill ? "inline-flex overflow-hidden rounded-[4px] shadow-sm" : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[4px]"}
+                                    className={logo.fill ? "inline-flex overflow-hidden rounded-[4px]" : "inline-flex items-center justify-center bg-white rounded-[4px] overflow-hidden p-[4px]"}
                                     style={{ width: logo.containerWidth ?? 48, height: 34 }}
                                   >
                                     <img
