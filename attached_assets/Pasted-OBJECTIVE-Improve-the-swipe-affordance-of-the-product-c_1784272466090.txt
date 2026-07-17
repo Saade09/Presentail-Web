@@ -1,0 +1,88 @@
+OBJECTIVE
+
+Improve the swipe affordance of the product carousels on the customer-facing Presentail mobile homepage by making more of the third product visible.
+
+The current layout shows the first two products clearly, but only a very narrow sliver of the third product. Customers should immediately understand that the row continues horizontally and can be swiped.
+
+IMPORTANT SCOPE CONSTRAINT
+
+This is the only approved visual change for this page. Do not redesign the product cards or make unrelated homepage changes.
+
+REQUIRED CHANGE
+
+Adjust the mobile carousel sizing and/or spacing so that:
+
+- The first two product cards remain fully visible.
+- Approximately 15–25% of the third card is visible on standard mobile widths.
+- The third card preview is large enough to show recognizable product imagery and clearly communicate that additional products are available by swiping.
+- The layout remains balanced and does not make the first two product cards feel cramped.
+
+Apply the same behavior consistently to all horizontally scrollable product rows on the homepage that use this card component, including Summer Picks, Best Sellers, Flower Boxes, Balloons, and any other dynamically rendered product collection.
+
+DESIGN ELEMENTS TO PRESERVE EXACTLY
+
+Do not change:
+
+- The existing rounded product-image containers.
+- Product image aspect ratio, background treatment, crop, or product scale.
+- Product name typography or placement.
+- Price typography or placement.
+- Existing fixed-price and “From $X” price behavior.
+- Best Seller and other existing merchandising badge styling.
+- Section headings or “View all” links.
+- Vertical spacing inside the product cards.
+- Homepage content order.
+- The white background and clean spacing between homepage sections.
+- Any header, hero, category, occasion, social-proof, SEO, FAQ, or footer content.
+
+DO NOT ADD
+
+- Wishlist or heart buttons.
+- Free-delivery or delivery-threshold messaging.
+- Truck icons.
+- Quick Add buttons.
+- Ratings or review counts.
+- New borders, shadows, card panels, or section divider lines.
+- Additional badges or promotional copy.
+- Pagination dots or arrows for the product rows.
+
+IMPLEMENTATION GUIDANCE
+
+- Make the adjustment in the shared homepage product-carousel/card component rather than creating separate overrides for each section.
+- Prefer responsive CSS using the card flex-basis/width, carousel gap, and horizontal container padding.
+- Avoid a fixed width that only works on one device.
+- Keep horizontal scrolling smooth and touch-friendly.
+- Ensure that only the carousel scrolls horizontally; the page itself must not develop horizontal overflow.
+- Preserve appropriate right-side padding after the final product.
+- If scroll snapping is used, it should feel natural and should not prevent the user from reaching every product.
+- Limit the change to the mobile breakpoint. Do not unintentionally alter the existing tablet or desktop layout.
+- For Arabic/RTL, the partial next card should appear on the correct side according to reading direction.
+
+RESPONSIVE EXPECTATIONS
+
+Test at minimum:
+
+- 320px width: the third-card cue remains visible without making titles or prices unusably narrow.
+- 375px width: two full cards plus a clearly recognizable portion of the third card.
+- 390px width: two full cards plus approximately 15–25% of the third card.
+- 430px width: maintain the same intentional carousel cue without excessive empty space.
+- Tablet and desktop: no unintended regression.
+
+ACCEPTANCE CRITERIA
+
+1. On a standard mobile viewport, customers can see two complete product cards and a meaningful portion of the third.
+2. The third product preview is visibly intentional, not a 1–2px accidental crop.
+3. Product images, names, prices, and badges remain visually unchanged.
+4. No wishlist or delivery elements are introduced.
+5. No divider line is added between product sections; whitespace continues to separate them.
+6. Every homepage product carousel follows the same sizing and spacing behavior.
+7. Long product names and “From $X” prices remain readable and do not overlap adjacent cards.
+8. The final item in each carousel can be fully revealed and has appropriate end padding.
+9. There is no horizontal overflow on the overall page.
+10. English, French, and Arabic layouts work correctly, including RTL direction.
+11. Existing product-card click behavior, tracking, and navigation to the product page remain unchanged.
+12. The change passes visual QA on iOS Safari and Android Chrome.
+
+QA / HANDOFF
+
+Please provide before-and-after screenshots at 375px and 390px widths. Include at least one row with a Best Seller badge and one row containing a longer product name. Confirm that the shared component was updated and that tablet/desktop layouts were checked for regressions.
