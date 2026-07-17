@@ -251,6 +251,7 @@ function CheckoutScreen() {
   const { token: authToken, user: authUser, updateProfile } = useAuth();
   const { selectedCountry, selectedCity, isLoading: locationsLoading } = useDeliveryLocation();
   const t = useT();
+  const { isRTL } = useLanguage();
   const headingFontMedium = useHeadingFont("500Medium");
   const headingFontRegular = useHeadingFont("400Regular");
   const headingFontBold = useHeadingFont("700Bold");
@@ -1753,8 +1754,8 @@ function CheckoutScreen() {
       {/* Brand bar — contains brand name (left) and inline stepper (right) */}
       <View
         style={{
-          paddingTop: insets.top + 14,
-          paddingBottom: 14,
+          paddingTop: insets.top + (step === 2 ? 10 : 14),
+          paddingBottom: step === 2 ? 10 : 14,
           paddingHorizontal: 16,
           backgroundColor: colors.primary,
           alignItems: "center",
@@ -1763,65 +1764,96 @@ function CheckoutScreen() {
       >
         {/* Brand name — shrinks if screen is narrow so the stepper is never clipped */}
         <AppText
-          style={{ fontFamily: headingFontMedium, fontSize: 22, color: "#fff", flexShrink: 1 }}
+          style={{ fontFamily: headingFontMedium, fontSize: step === 2 ? 20 : 22, color: "#fff", flexShrink: 1 }}
           numberOfLines={1}
         >
           {t.checkoutBrandHeader}
         </AppText>
 
-        {/* Inline stepper — flex:1 so it fills remaining space; right-aligned.
-            Labels are hidden on narrow screens (< 360 px, e.g. iPhone SE)
-            so the three bubbles always have room to render without clipping. */}
-        <View style={{ flex: 1, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", minWidth: 0, marginLeft: 8 }}>
-          {([t.checkoutStep0, t.checkoutStep1, t.checkoutStep2] as const).map((label, i) => (
-            <View key={label} style={{ flex: 1, alignItems: "center", minWidth: 0 }}>
-              <View
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 999,
-                  borderWidth: 1.5,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderColor: i <= step ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
-                  backgroundColor: i < step ? "rgba(255,255,255,0.25)" : "transparent",
-                }}
-              >
-                {i < step ? (
-                  <Feather name="check" size={11} color="#fff" />
-                ) : (
-                  <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#fff" }}>
-                    {i + 1}
-                  </AppText>
-                )}
+        {/* Inline stepper — for step 2 (Payment) shows a compact Delivery→Payment
+            two-step row with white circles and teal fill; other steps show the
+            full three-step row. Labels are hidden on narrow screens (< 360 px). */}
+        {step === 2 ? (
+          <View style={{ flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
+            {/* Delivery — completed */}
+            <View style={{ alignItems: "center", gap: 3 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }}>
+                <Feather name="check" size={14} color={colors.primary} />
               </View>
               {screenWidth >= 360 && (
-                <AppText
-                  style={{
-                    marginTop: 3,
-                    fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular",
-                    fontSize: 9,
-                    color: i === step ? "#fff" : "rgba(255,255,255,0.6)",
-                    textAlign: "center",
-                  }}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {label}
+                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: "rgba(255,255,255,0.8)", textAlign: "center" }}>
+                  {t.checkoutStep1}
                 </AppText>
               )}
-              <View
-                style={{
-                  marginTop: 3,
-                  height: 2,
-                  width: "70%",
-                  borderRadius: 1,
-                  backgroundColor: i === step ? "rgba(255,255,255,0.9)" : "transparent",
-                }}
-              />
             </View>
-          ))}
-        </View>
+            {/* Connector */}
+            <View style={{ flex: 1, height: 1.5, backgroundColor: "rgba(255,255,255,0.35)", marginBottom: screenWidth >= 360 ? 14 : 0, marginHorizontal: 6 }} />
+            {/* Payment — active */}
+            <View style={{ alignItems: "center", gap: 3 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }}>
+                <AppText style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.primary }}>
+                  {"2"}{/* i18n-ignore */}
+                </AppText>
+              </View>
+              {screenWidth >= 360 && (
+                <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#fff", textAlign: "center" }}>
+                  {t.checkoutStep2}
+                </AppText>
+              )}
+            </View>
+          </View>
+        ) : (
+          <View style={{ flex: 1, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", minWidth: 0, marginLeft: 8 }}>
+            {([t.checkoutStep0, t.checkoutStep1, t.checkoutStep2] as const).map((label, i) => (
+              <View key={label} style={{ flex: 1, alignItems: "center", minWidth: 0 }}>
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 999,
+                    borderWidth: 1.5,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderColor: i <= step ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
+                    backgroundColor: i < step ? "rgba(255,255,255,0.25)" : "transparent",
+                  }}
+                >
+                  {i < step ? (
+                    <Feather name="check" size={11} color="#fff" />
+                  ) : (
+                    <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#fff" }}>
+                      {i + 1}
+                    </AppText>
+                  )}
+                </View>
+                {screenWidth >= 360 && (
+                  <AppText
+                    style={{
+                      marginTop: 3,
+                      fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular",
+                      fontSize: 9,
+                      color: i === step ? "#fff" : "rgba(255,255,255,0.6)",
+                      textAlign: "center",
+                    }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {label}
+                  </AppText>
+                )}
+                <View
+                  style={{
+                    marginTop: 3,
+                    height: 2,
+                    width: "70%",
+                    borderRadius: 1,
+                    backgroundColor: i === step ? "rgba(255,255,255,0.9)" : "transparent",
+                  }}
+                />
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Collapsible order summary — pinned between stepper and scroll body */}
@@ -3563,7 +3595,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           // isn't stuck on an empty list.
           if (!Object.values(visible).some(Boolean)) visible.card = true;
           return (
-            <>
+            <View style={{ gap: 8 }}>
               {visible.apple_pay ? (
         <PayOption
           colors={colors}
@@ -3795,7 +3827,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           payIcons="western"
         />
               ) : null}
-            </>
+            </View>
           );
         })()}
       </Card>
@@ -3812,16 +3844,19 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
     <View
       style={{
         borderRadius: 12,
-        borderWidth: 1.5,
+        borderWidth: active ? 2 : 1,
         borderColor: active ? colors.primary : colors.border,
-        backgroundColor: active ? colors.secondary : "#fff",
+        backgroundColor: active ? "#E8F5F4" : "#fff",
         overflow: "hidden",
+        minHeight: 60,
       }}
     >
       <Pressable
         onPress={onPress}
+        hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
         style={{
-          padding: 14,
+          paddingVertical: 12,
+          paddingHorizontal: 14,
           flexDirection: "row",
           alignItems: "center",
           gap: 10,
@@ -3829,16 +3864,16 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
       >
         <View
           style={{
-            width: 18,
-            height: 18,
+            width: 20,
+            height: 20,
             borderRadius: 999,
-            borderWidth: 1.5,
+            borderWidth: active ? 2 : 1.5,
             borderColor: active ? colors.primary : colors.border,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          {active ? <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: colors.primary }} /> : null}
+          {active ? <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: colors.primary }} /> : null}
         </View>
         <AppText style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
           {title}
@@ -3902,19 +3937,41 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
     <View style={{ backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
       <Pressable
         onPress={toggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
         style={({ pressed }) => ({
           flexDirection: isRTL ? "row-reverse" : "row",
           alignItems: "center",
           justifyContent: "space-between",
           paddingHorizontal: 18,
-          paddingVertical: 14,
+          paddingVertical: 12,
           opacity: pressed ? 0.75 : 1,
         })}
       >
-        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground }}>
-          {t.checkoutOrderSummaryCard}
-        </AppText>
-        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+        {/* Left: two-line block — title + item count · delivery */}
+        {(() => {
+          const itemCount = detailed.reduce((sum: number, { qty }: any) => sum + qty, 0);
+          const itemLabel = itemCount === 1 ? t.checkoutSummaryItemOne : t.checkoutSummaryItemMany;
+          const deliveryLabel = showDeliveryFee
+            ? (fees.districtFee === 0
+                ? t.checkoutSummaryFreeDelivery
+                : `${t.checkoutSummaryDelivery} ${formatPrice(fees.districtFee)}`)
+            : null;
+          const secondLine = deliveryLabel
+            ? `${itemCount} ${itemLabel} · ${deliveryLabel}`
+            : `${itemCount} ${itemLabel}`;
+          return (
+            <View style={{ flex: 1, gap: 2 }}>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground }}>
+                {t.checkoutOrderSummaryCard}
+              </AppText>
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }} numberOfLines={1}>
+                {secondLine}
+              </AppText>
+            </View>
+          );
+        })()}
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, paddingLeft: isRTL ? 0 : 12, paddingRight: isRTL ? 12 : 0 }}>
           <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
             {formatPrice(fees.grand)}
           </AppText>
