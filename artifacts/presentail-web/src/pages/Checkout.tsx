@@ -467,7 +467,7 @@ function CheckoutForm() {
   const [stripeNeeded, setStripeNeeded] = useState(false);
 
   const triggerStripeLoad = useCallback(() => {
-    setStripePromise((prev) => prev ?? getStripePromise(countryCode ?? undefined));
+    setStripePromise(getStripePromise(countryCode ?? undefined));
     setStripeNeeded(true);
   }, [countryCode]);
 
