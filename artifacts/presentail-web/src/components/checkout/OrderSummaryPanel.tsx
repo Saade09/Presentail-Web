@@ -6,7 +6,6 @@ import {
   Tag,
   Loader2,
   CalendarDays,
-  MapPin,
   ArrowRight,
   Lock,
   X,
@@ -657,17 +656,6 @@ export function OrderSummaryPanel({
                       />
                       <span className="text-sm text-muted-foreground italic">
                         {t("checkout.delivery.notSelected")}
-                      </span>
-                    </div>
-                  )}
-                  {selectedDistrict && (
-                    <div className="flex items-start gap-2.5">
-                      <MapPin
-                        className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <span className="text-sm text-muted-foreground leading-snug">
-                        {selectedDistrict}
                       </span>
                     </div>
                   )}
