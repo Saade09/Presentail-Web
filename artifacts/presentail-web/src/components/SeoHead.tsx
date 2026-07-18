@@ -3,13 +3,12 @@ import { useLocation } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import {
-  buildLanguageAlternates,
-  hreflangCode,
   isSupportedCity,
   parseLocalePath,
   type Lang,
 } from "@/lib/locale-route";
 import { NONINDEX_ROUTE_KEYS } from "@/lib/seo";
+import { buildHreflangSet, ALL_COUNTRIES } from "@/lib/hreflang";
 
 const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "" || r === "/", key: "home" },
@@ -303,38 +302,37 @@ export function SeoHead() {
       head,
     );
 
-    const alternates = inLocale ? buildLanguageAlternates(path) : [];
-    if (alternates.length && parsed.country) {
-      for (const alt of alternates) {
-        // hreflang hrefs must never carry a query string — they should point at
-        // the clean, canonical URL so search engines don't cluster distinct
-        // filtered or tracking-parameter URLs into the hreflang group.
-        const href = origin + basePrefix + alt.path;
-        const code = hreflangCode(alt.lang, parsed.country);
+    // Emit the full 9-locale + x-default hreflang set (matching the server
+    // injector), but only for indexable locale routes. Entity pages bail out
+    // early above — their hreflang is already server-injected and must not be
+    // overwritten here. Noindex routes (cart, checkout, auth, etc.) also skip
+    // hreflang to stay consistent with the server.
+    if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey)) {
+      // Mirror the server's isUnknownSubRoute guard so soft-404 alternates
+      // point at locale homes rather than the unknown path.
+      const entityPathForHreflang = isUnknownSubRoute
+        ? ""
+        : (parsed.rest || "").replace(/^\//, "").replace(/\/$/, "");
+
+      const hreflangEntries = buildHreflangSet(
+        entityPathForHreflang,
+        ALL_COUNTRIES,
+        origin + basePrefix,
+      );
+
+      for (const { hreflang, href } of hreflangEntries) {
         // Claim an existing server-injected alternate before creating a new one
         // to avoid duplicate <link rel="alternate"> elements in the DOM.
         const existing = head.querySelector<HTMLElement>(
-          `link[rel="alternate"][hreflang="${code}"]`,
+          `link[rel="alternate"][hreflang="${hreflang}"]`,
         );
         const link = existing ?? document.createElement("link");
         if (!existing) head.appendChild(link);
         link.setAttribute(SEO_ATTR, "true");
         link.setAttribute("rel", "alternate");
-        link.setAttribute("hreflang", code);
+        link.setAttribute("hreflang", hreflang);
         link.setAttribute("href", href);
       }
-      // x-default points at the English variant.
-      const en = alternates.find((a) => a.lang === "en") ?? alternates[0];
-      const existingXDefault = head.querySelector<HTMLElement>(
-        'link[rel="alternate"][hreflang="x-default"]',
-      );
-      const xDefault =
-        existingXDefault ?? document.createElement("link");
-      if (!existingXDefault) head.appendChild(xDefault);
-      xDefault.setAttribute(SEO_ATTR, "true");
-      xDefault.setAttribute("rel", "alternate");
-      xDefault.setAttribute("hreflang", "x-default");
-      xDefault.setAttribute("href", origin + basePrefix + en.path);
     }
   }, [path, language, country, city, t, countryName, cityName]);
 

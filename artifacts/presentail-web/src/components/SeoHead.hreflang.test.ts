@@ -133,6 +133,125 @@ describe("SeoHead — hreflang no-duplicate (claim-before-append)", () => {
   });
 });
 
+describe("SeoHead — full 10-entry hreflang set (server inject + client claim)", () => {
+  let head: HTMLElement;
+
+  const ALL_HREFLANG_CODES = [
+    "en-LB", "ar-LB", "fr-LB",
+    "en-AE", "ar-AE", "fr-AE",
+    "en-CY", "ar-CY", "fr-CY",
+    "x-default",
+  ] as const;
+
+  const BASE = "https://presentail.test";
+  const CITY = { lb: "beirut", ae: "dubai", cy: "limassol" } as const;
+
+  function buildEntries(entityPath: string) {
+    const countries = ["lb", "ae", "cy"] as const;
+    const langs = ["en", "ar", "fr"] as const;
+    const result: Array<{ hreflang: string; href: string }> = [];
+    for (const c of countries) {
+      for (const l of langs) {
+        const href = entityPath
+          ? `${BASE}/${l}-${c}/${CITY[c]}/${entityPath}`
+          : `${BASE}/${l}-${c}/${CITY[c]}`;
+        result.push({ hreflang: `${l}-${c.toUpperCase()}`, href });
+      }
+    }
+    const xDefaultHref = entityPath
+      ? `${BASE}/en-lb/beirut/${entityPath}`
+      : `${BASE}/en-lb/beirut`;
+    result.push({ hreflang: "x-default", href: xDefaultHref });
+    return result;
+  }
+
+  beforeEach(() => {
+    document.head.innerHTML = "";
+    head = document.head;
+  });
+
+  it("server-injected 10-entry set is claimed (no duplicates after client hydration)", () => {
+    const entries = buildEntries("shop");
+
+    for (const { hreflang, href } of entries) {
+      injectServerAlternate(hreflang, href, head);
+    }
+
+    for (const { hreflang, href } of entries) {
+      claimOrCreateAlternate(hreflang, href, head);
+    }
+
+    const allAlternates = head.querySelectorAll('link[rel="alternate"]');
+    expect(allAlternates).toHaveLength(10);
+  });
+
+  it("all 10 entries carry data-seo-managed after client claim", () => {
+    const entries = buildEntries("shop");
+
+    for (const { hreflang, href } of entries) {
+      injectServerAlternate(hreflang, href, head);
+    }
+
+    for (const { hreflang, href } of entries) {
+      claimOrCreateAlternate(hreflang, href, head);
+    }
+
+    for (const code of ALL_HREFLANG_CODES) {
+      const link = head.querySelector(`link[rel="alternate"][hreflang="${code}"]`);
+      expect(link?.getAttribute("data-seo-managed")).toBe("true");
+    }
+  });
+
+  it("after SPA navigation: old 10 entries removed, new 10 entries written with updated entity path", () => {
+    const shopEntries = buildEntries("shop");
+
+    for (const { hreflang, href } of shopEntries) {
+      injectServerAlternate(hreflang, href, head);
+    }
+    for (const { hreflang, href } of shopEntries) {
+      claimOrCreateAlternate(hreflang, href, head);
+    }
+
+    // Simulate SPA navigation cleanup: remove all managed elements
+    head.querySelectorAll('[data-seo-managed]').forEach((el) => el.parentElement?.removeChild(el));
+
+    // Write new entries for product page
+    const productEntries = buildEntries("product/roses");
+    for (const { hreflang, href } of productEntries) {
+      claimOrCreateAlternate(hreflang, href, head);
+    }
+
+    const allAlternates = head.querySelectorAll('link[rel="alternate"]');
+    expect(allAlternates).toHaveLength(10);
+
+    const enAE = head.querySelector('link[rel="alternate"][hreflang="en-AE"]');
+    expect(enAE?.getAttribute("href")).toBe(`${BASE}/en-ae/dubai/product/roses`);
+
+    const xDefault = head.querySelector('link[rel="alternate"][hreflang="x-default"]');
+    expect(xDefault?.getAttribute("href")).toBe(`${BASE}/en-lb/beirut/product/roses`);
+  });
+
+  it("x-default always points to en-lb/beirut regardless of any browsed city", () => {
+    const entries = buildEntries("brands");
+    for (const { hreflang, href } of entries) {
+      claimOrCreateAlternate(hreflang, href, head);
+    }
+
+    const xDefault = head.querySelector('link[rel="alternate"][hreflang="x-default"]');
+    expect(xDefault?.getAttribute("href")).toBe(`${BASE}/en-lb/beirut/brands`);
+  });
+
+  it("creates all 10 entries from scratch when no server injection occurred", () => {
+    const entries = buildEntries("occasions");
+    for (const { hreflang, href } of entries) {
+      claimOrCreateAlternate(hreflang, href, head);
+    }
+
+    const allAlternates = head.querySelectorAll('link[rel="alternate"]');
+    expect(allAlternates).toHaveLength(10);
+  });
+});
+
 describe("SeoHead — unknown-subroute canonical guard", () => {
   let head: HTMLElement;
 

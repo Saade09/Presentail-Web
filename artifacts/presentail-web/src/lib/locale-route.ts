@@ -143,6 +143,12 @@ export function switchLanguage(fullUrl: string, newLang: Lang): string {
  * entry per supported language, all sharing the same country/city/rest. Useful
  * for emitting hreflang link tags. Returns an empty array when the path has no
  * locale prefix (e.g. the landing page).
+ *
+ * @deprecated Use `buildHreflangSet` from `@/lib/hreflang` instead.
+ * `buildLanguageAlternates` only emits alternates for the requesting country,
+ * missing cross-country hreflang and using the browsed city instead of the
+ * canonical city for that country. `buildHreflangSet` covers all three
+ * countries with fixed canonical cities and a consistent x-default.
  */
 export function buildLanguageAlternates(
   pathname: string,

@@ -87,6 +87,8 @@ import {
   formatTemplate,
 } from "./src/lib/seo.mjs";
 
+import { buildHreflangSet, ALL_COUNTRIES } from "./src/lib/hreflang.mjs";
+
 import {
   BRAND_FAQ_COPY,
   BRAND_HEADING_COPY,
@@ -634,29 +636,19 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     lines.push(jsonLdGraphTag(jsonLdNodes));
   }
 
-  if (inLocale) {
-    for (const altLang of SUPPORTED_LANGS) {
-      const altPath = buildLocalePath({
-        lang: altLang,
-        country: parsed.country,
-        city: parsed.city,
-        rest: parsed.rest,
-      });
-      const href = origin + cleanBase + altPath;
-      const code = `${altLang}-${parsed.country.toUpperCase()}`;
+  if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey)) {
+    // Build the full 9-locale + x-default hreflang set using canonical cities
+    // (not the requesting city), consistent x-default pointing at en-lb/beirut,
+    // and soft-404 alternates pointing at locale homes (entityPath = "").
+    const entityPathForHreflang = isUnknownSubRoute
+      ? ""
+      : (parsed.rest || "").replace(/^\//, "").replace(/\/$/, "");
+    const hreflangSet = buildHreflangSet(entityPathForHreflang, ALL_COUNTRIES, origin + cleanBase);
+    for (const { hreflang, href } of hreflangSet) {
       lines.push(
-        `<link rel="alternate" hreflang="${escapeAttr(code)}" href="${escapeAttr(href)}" />`,
+        `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
       );
     }
-    const xDefaultPath = buildLocalePath({
-      lang: "en",
-      country: parsed.country,
-      city: parsed.city,
-      rest: parsed.rest,
-    });
-    lines.push(
-      `<link rel="alternate" hreflang="x-default" href="${escapeAttr(origin + cleanBase + xDefaultPath)}" />`,
-    );
   }
 
   const localeBase = inLocale && parsed.lang && parsed.country && parsed.city
