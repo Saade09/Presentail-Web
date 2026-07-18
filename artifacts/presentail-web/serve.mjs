@@ -1844,6 +1844,9 @@ const server = http.createServer(async (req, res) => {
           "x-robots-tag": "noindex",
           "cache-control": "no-cache",
           "expires": "0",
+          // AI-discovery Link headers on error HTML so crawlers can still find
+          // llms.txt and related files even when landing on a 404 page.
+          "link": `<${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
         });
         res.end(
           // i18n-ignore — server-side HTTP 404 response; not a UI string
@@ -1884,6 +1887,9 @@ const server = http.createServer(async (req, res) => {
         "x-robots-tag": "noindex",
         "cache-control": "no-cache",
         "expires": "0",
+        // AI-discovery Link headers on error HTML so crawlers can still find
+        // llms.txt and related files even when landing on a 404 page.
+        "link": `<${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
       });
       res.end(
         // i18n-ignore — server-side HTTP 404 response; not a UI string
@@ -1911,6 +1917,9 @@ const server = http.createServer(async (req, res) => {
         "x-robots-tag": "noindex",
         "cache-control": "no-cache",
         "expires": "0",
+        // AI-discovery Link headers on error HTML so crawlers can still find
+        // llms.txt and related files even when landing on a 404 page.
+        "link": `<${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
       });
       res.end(
         // i18n-ignore — server-side HTTP 404 response; not a UI string
