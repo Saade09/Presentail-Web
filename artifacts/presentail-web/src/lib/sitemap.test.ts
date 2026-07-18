@@ -73,6 +73,24 @@ describe("buildSitemapXml", () => {
     expect(xml).not.toContain("/llms-full.txt");
   });
 
+  it("does not include any robots.txt-blocked private-content paths", () => {
+    // These paths are Disallowed in robots.txt. They must never appear in the
+    // sitemap — not even as a segment of a longer URL — so we assert that the
+    // raw substring is absent from the entire sitemap XML.
+    const blocked = [
+      "/sign-in",
+      "/order-confirmed",
+      "/favorites",
+      "/checkout",
+      "/cart",
+      "/auth",
+      "/account",
+    ];
+    for (const path of blocked) {
+      expect(xml, `blocked path ${path} must be absent from the sitemap`).not.toContain(path);
+    }
+  });
+
   it("emits hreflang alternates for en/ar/fr + x-default on every <url> with a prefix", () => {
     const doc = parse(xml);
     const urlNodes = Array.from(doc.getElementsByTagName("url"));
