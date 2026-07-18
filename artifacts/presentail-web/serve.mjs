@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import {
   SITEMAP_CITIES,
   SITEMAP_LANGS,
+  SITEMAP_CANONICAL_CITIES,
   escXml,
   generateSitemap,
   buildSitemapXml,
@@ -1021,7 +1022,7 @@ const server = http.createServer(async (req, res) => {
       const encoding = pickEncoding(req, ".txt");
       const body = await compressBuffer(llmsTxtCache, encoding);
       const headers = {
-        "content-type": "text/markdown; charset=utf-8",
+        "content-type": "text/plain; charset=utf-8",
         "cache-control": "public, max-age=3600, must-revalidate",
         "vary": "Accept-Encoding",
       };
@@ -1059,8 +1060,165 @@ const server = http.createServer(async (req, res) => {
       const encoding = pickEncoding(req, ".txt");
       const body = await compressBuffer(llmsFullTxtCache, encoding);
       const headers = {
-        "content-type": "text/markdown; charset=utf-8",
+        "content-type": "text/plain; charset=utf-8",
         "cache-control": "public, max-age=3600, must-revalidate",
+        "vary": "Accept-Encoding",
+      };
+      if (encoding) headers["content-encoding"] = encoding;
+      res.writeHead(200, headers);
+      res.end(body);
+      return;
+    }
+
+    // /sitemap.md — human-readable Markdown sitemap for AI agents and crawlers.
+    // Homepages are generated from SITEMAP_CANONICAL_CITIES × SITEMAP_LANGS so
+    // every EN/AR/FR × LB/AE/CY combination is covered. Categories are fetched
+    // live from the catalog metadata API and fall back to a static list.
+    if (pathname === "/sitemap.md") {
+      // Fetch live category data; fall back gracefully on error.
+      const STATIC_CATEGORIES = [
+        { id: "lux-arrangements", name: "Lux Arrangements" },
+        { id: "hand-bouquets",    name: "Flower Bouquets" },
+        { id: "chocolates",       name: "Chocolates" },
+        { id: "gift-boxes",       name: "Gift Boxes" },
+        { id: "hampers",          name: "Hampers" },
+        { id: "plants",           name: "Plants" },
+        { id: "cakes",            name: "Cakes & Pastries" },
+        { id: "balloons",         name: "Balloons" },
+      ];
+      let liveCategories = null;
+      try {
+        const catalogMeta = await fetchSitemapJson(
+          `${INTERNAL_API_BASE_URL}/api/catalog/metadata`
+        );
+        if (Array.isArray(catalogMeta?.categories) && catalogMeta.categories.length > 0) {
+          liveCategories = catalogMeta.categories.filter((c) => c?.name && c?.id);
+        }
+      } catch {
+        // fall through to static list
+      }
+      const categories = liveCategories ?? STATIC_CATEGORIES;
+
+      // Build homepage links: canonical city per country × all supported langs.
+      const CANONICAL_CITIES = SITEMAP_CANONICAL_CITIES; // { lb: "beirut", ae: "dubai", cy: "nicosia" }
+      const COUNTRY_LABELS = { lb: "Lebanon", ae: "UAE", cy: "Cyprus" };
+      const LANG_LABELS = { en: "English", ar: "Arabic", fr: "French" };
+      const homepageLines = [];
+      for (const [country, city] of Object.entries(CANONICAL_CITIES)) {
+        for (const lang of SITEMAP_LANGS) {
+          homepageLines.push(
+            `- [${COUNTRY_LABELS[country]} – ${city.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${LANG_LABELS[lang]})](${origin}/${lang}-${country}/${city})`
+          );
+        }
+      }
+
+      const categoryLines = categories.map(
+        (c) => `- [${c.name}](${origin}/en-lb/beirut/category/${c.id})`
+      );
+
+      const lines = [
+        "# Presentail — Site Map",
+        "",
+        "Luxury flower and gift delivery across Lebanon, UAE, and Cyprus.",
+        "",
+        "## Homepages",
+        "",
+        ...homepageLines,
+        "",
+        "## Shopping",
+        "",
+        `- [Shop – Lebanon](${origin}/en-lb/beirut/shop)`,
+        `- [Shop – UAE](${origin}/en-ae/dubai/shop)`,
+        `- [Shop – Cyprus](${origin}/en-cy/nicosia/shop)`,
+        `- [Brands – Lebanon](${origin}/en-lb/beirut/brands)`,
+        `- [Brands – UAE](${origin}/en-ae/dubai/brands)`,
+        `- [Occasions – Lebanon](${origin}/en-lb/beirut/occasions)`,
+        `- [Occasions – UAE](${origin}/en-ae/dubai/occasions)`,
+        "",
+        "## Categories",
+        "",
+        ...categoryLines,
+        "",
+        "## Special Services",
+        "",
+        `- [Corporate Gifting](${origin}/en-lb/beirut/corporate)`,
+        `- [Weddings](${origin}/en-lb/beirut/weddings)`,
+        `- [Partner with Us](${origin}/en-lb/beirut/partner)`,
+        `- [Blog](${origin}/en-lb/beirut/blog)`,
+        "",
+        "## Help & Support",
+        "",
+        `- [Contact Us](${origin}/en-lb/beirut/contact)`,
+        `- [FAQs & Delivery Information](${origin}/en-lb/beirut/faqs)`,
+        "",
+        "## Policies",
+        "",
+        `- [Terms and Conditions](${origin}/en-lb/beirut/terms)`,
+        `- [Privacy Policy](${origin}/en-lb/beirut/privacy)`,
+        "",
+        "## Machine-Readable Indexes",
+        "",
+        `- [llms.txt (concise index for AI agents)](${origin}/llms.txt)`,
+        `- [llms-full.txt (full content for AI agents)](${origin}/llms-full.txt)`,
+        `- [sitemap.xml (XML sitemap)](${origin}/sitemap.xml)`,
+      ];
+      const sitemapMd = lines.join("\n");
+      const encoding = pickEncoding(req, ".txt");
+      const body = await compressBuffer(sitemapMd, encoding);
+      const headers = {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=3600, must-revalidate",
+        "vary": "Accept-Encoding",
+      };
+      if (encoding) headers["content-encoding"] = encoding;
+      res.writeHead(200, headers);
+      res.end(body);
+      return;
+    }
+
+    // /agents.md — agent guidance file describing what AI agents can find on this site.
+    if (pathname === "/agents.md") {
+      const agentsMd = [
+        "# Presentail — Agent Guidance",
+        "",
+        "Presentail is a luxury flower and gift delivery platform serving Lebanon, the UAE (Dubai and Abu Dhabi), and Cyprus.",
+        "Shoppers can order curated arrangements, gift boxes, hampers, and more from top local and international brands,",
+        "with same-day Express delivery or scheduled delivery to a specific date and time slot.",
+        "",
+        "## What agents can find on this site",
+        "",
+        "- **Products**: Hundreds of curated flower arrangements, gift boxes, hampers, chocolates, and more.",
+        "- **Brands**: A curated list of premium florists, patisseries, chocolatiers, and gift boutiques.",
+        "- **Occasions**: Gifts organised by occasion — Birthday, Anniversary, Valentine's Day, Mother's Day, Wedding, Eid, and more.",
+        "- **Delivery information**: Areas covered, same-day cutoff times, and scheduled delivery slots.",
+        "- **Pricing**: All prices shown in local currency (LBP, USD, AED, EUR).",
+        "- **Payment methods**: Credit/debit card (Stripe), Mamo Pay, PayPal, Whish Money, Western Union.",
+        "- **Corporate gifting**: Bulk orders, branded packaging, recurring gift programmes.",
+        "- **Policies**: Terms, privacy policy, returns and refunds.",
+        "",
+        "## Countries and cities served",
+        "",
+        "- **Lebanon**: Beirut, Jounieh, Jbeil, Metn, Baabda, Aley, Chouf, and more",
+        "- **UAE**: Dubai, Abu Dhabi",
+        "- **Cyprus**: Nicosia, Limassol, Larnaca, Paphos",
+        "",
+        "## Machine-readable indexes",
+        "",
+        `- Concise index: https://presentail.com/llms.txt`,
+        `- Full content (brands, occasions, featured products): https://presentail.com/llms-full.txt`,
+        `- Human-readable sitemap: https://presentail.com/sitemap.md`,
+        `- XML sitemap: https://presentail.com/sitemap.xml`,
+        "",
+        "## Contact",
+        "",
+        "- General enquiries: hello@presentail.com",
+        "- Corporate gifting: corporate@presentail.com",
+      ].join("\n");
+      const encoding = pickEncoding(req, ".txt");
+      const body = await compressBuffer(agentsMd, encoding);
+      const headers = {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=86400, must-revalidate",
         "vary": "Accept-Encoding",
       };
       if (encoding) headers["content-encoding"] = encoding;
@@ -1154,7 +1312,7 @@ const server = http.createServer(async (req, res) => {
           // HTTP Link header mirrors the <link rel="canonical"> injected into
           // the HTML by seo-inject.mjs so HTTP-level crawlers and preload
           // scanners see the canonical URL without parsing the body.
-          "link": `<${canonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby"`,
+          "link": `<${canonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
         };
         if (encoding) headers["content-encoding"] = encoding;
         res.writeHead(200, headers);
@@ -1269,7 +1427,7 @@ const server = http.createServer(async (req, res) => {
     // which search engines treat as a soft 404 and waste crawl budget on.
     //
     // Paths already handled above and therefore never reaching this point:
-    //   • /sitemap.xml, /llms.txt, /llms-full.txt  (explicit route handlers)
+    //   • /sitemap.xml, /llms.txt, /llms-full.txt, /sitemap.md, /agents.md  (explicit route handlers)
     //   • /product/:slug  (301 redirect)
     //   • /:lang-:country/:city/...  (locale-aware SPA fallback + 404 guard)
     //   • Static files in dist/public  (file-exists check above)
@@ -1315,7 +1473,7 @@ const server = http.createServer(async (req, res) => {
         : "no-cache",
       "expires": "0",
       "vary": "Accept-Encoding",
-      "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby"`,
+      "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
     };
     if (encoding) headers["content-encoding"] = encoding;
     res.writeHead(200, headers);

@@ -20,5 +20,7 @@ Disallow: /*/personal-information
 Sitemap: https://presentail.com/sitemap.xml
 
 # AI crawler guidance — machine-readable content index (llmstxt.org)
-# https://presentail.com/llms.txt
-# https://presentail.com/llms-full.txt
+# Concise index:     https://presentail.com/llms.txt
+# Full content:      https://presentail.com/llms-full.txt
+# Human sitemap:     https://presentail.com/sitemap.md
+# Agent guidance:    https://presentail.com/agents.md

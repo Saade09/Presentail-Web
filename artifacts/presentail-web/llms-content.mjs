@@ -32,8 +32,9 @@
 // the /llms.txt route to the same async + TTL + stale-fallback pattern used by
 // /llms-full.txt rather than regenerating on every request.
 export const LLMS_INTRO =
-  "Luxury flower and gift delivery across Lebanon, UAE, and Cyprus.\n" +
-  "Same-day and scheduled delivery. Shop online or via the mobile app.";
+  "Presentail is a luxury flower and gift delivery platform serving Lebanon, the UAE (Dubai and Abu Dhabi), and Cyprus. " +
+  "Shoppers can browse hundreds of curated arrangements, gift boxes, hampers, and seasonal gifts from top local and international brands, " +
+  "and place orders online or via the iOS/Android app with same-day Express delivery or scheduled delivery to a chosen date and time slot.";
 
 /** Pages listed in the ## Pages index of both /llms.txt and /llms-full.txt. */
 export const LLMS_PAGES = [
