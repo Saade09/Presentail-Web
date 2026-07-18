@@ -10,6 +10,10 @@
  *   3. Any of the required paths is absent from the `User-agent: *` block:
  *        /sign-in, /order-confirmed, /favorites, /cart, /checkout,
  *        /*?utm_*  (at least one Disallow matching /*?utm_… must be present)
+ *   4. No `Sitemap:` directive is present in the file.
+ *   5. Any `Sitemap:` value does not start with the expected base URL
+ *      (default: `https://presentail.com/`; override with the
+ *      `ROBOTS_TXT_SITEMAP_BASE` environment variable).
  *
  * Parsing model
  * ─────────────
@@ -29,6 +33,11 @@
  * Usage
  * ─────
  *   pnpm --filter @workspace/scripts run check-robots-txt
+ *
+ * Environment variables
+ * ─────────────────────
+ *   ROBOTS_TXT_SITEMAP_BASE  Expected URL prefix for every Sitemap directive
+ *                            (default: https://presentail.com/)
  */
 
 import fs from "node:fs";
@@ -41,6 +50,9 @@ const ROBOTS_PATH = path.join(
   REPO_ROOT,
   "artifacts/presentail-web/public/robots.txt",
 );
+
+const SITEMAP_BASE =
+  process.env["ROBOTS_TXT_SITEMAP_BASE"] ?? "https://presentail.com/";
 
 export const REQUIRED_DISALLOW_PATTERNS: Array<{
   label: string;
@@ -65,12 +77,14 @@ export interface ParsedBlock {
 export interface ParseResult {
   blocks: ParsedBlock[];
   orphanedLines: Array<{ lineNo: number; line: string }>;
+  sitemapUrls: string[];
 }
 
 export function parseRobotsTxt(content: string): ParseResult {
   const lines = content.split(/\r?\n/);
   const blocks: ParsedBlock[] = [];
   const orphanedLines: Array<{ lineNo: number; line: string }> = [];
+  const sitemapUrls: string[] = [];
 
   let currentBlock: ParsedBlock | null = null;
   let blockSealed = false;
@@ -89,6 +103,7 @@ export function parseRobotsTxt(content: string): ParseResult {
     const value = line.slice(colonIdx + 1).trim();
 
     if (field === "sitemap") {
+      sitemapUrls.push(value);
       continue;
     }
 
@@ -114,7 +129,7 @@ export function parseRobotsTxt(content: string): ParseResult {
     }
   }
 
-  return { blocks, orphanedLines };
+  return { blocks, orphanedLines, sitemapUrls };
 }
 
 /**
@@ -123,7 +138,7 @@ export function parseRobotsTxt(content: string): ParseResult {
  * Exported so unit tests can exercise each error class in isolation.
  */
 export function checkRobotsTxtContent(content: string): string[] {
-  const { blocks, orphanedLines } = parseRobotsTxt(content);
+  const { blocks, orphanedLines, sitemapUrls } = parseRobotsTxt(content);
   const errors: string[] = [];
 
   for (const { lineNo, line } of orphanedLines) {
@@ -157,6 +172,20 @@ export function checkRobotsTxtContent(content: string): string[] {
     }
   }
 
+  if (sitemapUrls.length === 0) {
+    errors.push(
+      `No Sitemap directive found — add "Sitemap: ${SITEMAP_BASE}sitemap.xml" (or another path under ${SITEMAP_BASE})`,
+    );
+  } else {
+    for (const url of sitemapUrls) {
+      if (!url.startsWith(SITEMAP_BASE)) {
+        errors.push(
+          `Sitemap URL does not start with expected base "${SITEMAP_BASE}": "${url}"`,
+        );
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -182,12 +211,13 @@ function run(): void {
     process.exit(1);
   }
 
-  const { blocks } = parseRobotsTxt(content);
+  const { blocks, sitemapUrls } = parseRobotsTxt(content);
   const blockSummary = blocks
     .map((b) => b.agents.join("|"))
     .join(", ");
+  const sitemapSummary = sitemapUrls.join(", ");
   console.log(
-    `✓ robots.txt structural check passed (${blocks.length} User-agent block${blocks.length === 1 ? "" : "s"}: ${blockSummary}; no orphaned directives, no duplicates, all required paths present)`,
+    `✓ robots.txt structural check passed (${blocks.length} User-agent block${blocks.length === 1 ? "" : "s"}: ${blockSummary}; no orphaned directives, no duplicates, all required paths present; ${sitemapUrls.length} Sitemap directive${sitemapUrls.length === 1 ? "" : "s"} verified: ${sitemapSummary})`,
   );
 }
 
