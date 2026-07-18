@@ -41,7 +41,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       "/en-ae/dubai/product/velvet-rose-bouquet",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1); // entity API only — branded og-image used (no CDN image probe)
+    expect(fetchMock).toHaveBeenCalledTimes(1); // entity API only (og:image uses branded API URL)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/product?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
@@ -115,7 +115,7 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
       "/en-ae/dubai/brand/acme-florals",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + brand-products count
+    expect(fetchMock).toHaveBeenCalledTimes(4); // entity API + image dimension fetch + brand listing fetch + brand parent listing fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/brand?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=acme-florals");
     expect(out).toContain("<title>Acme Florals | Presentail</title>");
@@ -211,7 +211,7 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       ...OPTS,
       search: "?n=birthday-cakes",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
+    expect(fetchMock).toHaveBeenCalledTimes(4); // entity API + image dimension fetch + listing products fetch + parent listing fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-cakes");
     expect(out).toContain("<title>Birthday Cakes Delivery in Dubai | Presentail</title>");
@@ -237,7 +237,7 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       ...OPTS,
       search: "?category=roses",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (no image URL → no dims fetch)
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch (no image URL → no dims fetch)
     expect(fetchMock.mock.calls[0][0]).toContain("slug=roses");
     expect(out).toContain("<title>Roses Delivery in Beirut | Presentail</title>");
     // When entity has no image the fallback opengraph.jpg is used → always summary_large_image.
@@ -280,7 +280,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       ...OPTS,
       search: "?occasion=birthday",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (branded og-image, no CDN probe)
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch (og:image uses branded API URL)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday");
     expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
@@ -334,7 +334,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       ...OPTS,
       search: "?category=roses&occasion=birthday",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (image null → no dims fetch)
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch (image null → no dims fetch)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).not.toContain("/api/woo/occasion");
     expect(out).toContain("<title>Roses Delivery in Dubai | Presentail</title>");
@@ -375,7 +375,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
 
     const callOpts = {
       apiBaseUrl: "https://api.cache-hit-test",
-      origin: "https://presentail.cache-hit-test",
+      origin: "", // empty origin forces CDN probing path so dimsFetchCount reflects real CDN fetches
       basePath: "",
       search: "?occasion=cache-hit-occasion-unique-slug",
     };
@@ -405,23 +405,33 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
   });
 
   it("strips tracking params from the canonical when /shop?occasion=<slug>&gclid=<id>", async () => {
-    mockFetchOnce({
+    // Use a slug distinct from "birthday" to avoid entity-cache collision with the
+    // earlier test that caches the birthday entity — a cache hit would skip the
+    // entity fetch and make the listing call consume the mock, returning null
+    // productCount and triggering noindex which strips the canonical.
+    const occBody = {
       ok: true,
       occasion: {
         name: "Birthday Gifts",
         description: "<p>Make every birthday memorable.</p>",
         image: null,
       },
-    });
+    };
+    const fn = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => occBody })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, total: 8, groups: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, total: 20, groups: [] }) });
+    vi.stubGlobal("fetch", fn);
     const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
       ...OPTS,
-      search: "?occasion=birthday&gclid=abc123",
+      search: "?occasion=birthday-occ-strip&gclid=abc123",
     });
     expect(out).toContain(
-      'rel="canonical" href="https://presentail.test/en-ae/dubai/occasion/birthday"',
+      'rel="canonical" href="https://presentail.test/en-ae/dubai/occasion/birthday-occ-strip"',
     );
     expect(out).toContain(
-      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday"',
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday-occ-strip"',
     );
     expect(out).not.toContain("gclid");
   });
@@ -431,20 +441,28 @@ describe("injectSeoTagsAsync — /occasion/:slug (clean path)", () => {
   const CLEAN_PATH_OPTS = { ...OPTS, apiBaseUrl: "https://api.clean-path-test" };
 
   it("fetches occasion and emits rich SEO tags for /occasion/birthday path", async () => {
-    const fetchMock = mockFetchOnce({
+    const occBody = {
       ok: true,
       occasion: {
         name: "Birthday Gifts",
         description: "<p>Make every birthday memorable.</p>",
         image: "https://cdn.test/birthday-clean.jpg",
       },
-    });
+    };
+    // occasionOgImageUrl always resolves to a relative path — no dims probe.
+    // Calls: entity (1) + city listing (2) + parent listing (3).
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => occBody })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, total: 8, groups: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, total: 20, groups: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(
       HTML,
       "/en-ae/dubai/occasion/birthday-path-unique",
       CLEAN_PATH_OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (branded og-image, no CDN probe)
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch (og:image uses branded API URL)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-path-unique");
     expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
@@ -476,20 +494,31 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
   const CLEAN_PATH_OPTS = { ...OPTS, apiBaseUrl: "https://api.clean-cat-test" };
 
   it("fetches category and emits rich SEO tags for /category/hand-bouquets path", async () => {
-    const fetchMock = mockFetchOnce({
+    const catBody = {
       ok: true,
       category: {
         name: "Hand Bouquets",
         description: "<p>Beautiful hand-tied bouquets.</p>",
         image: "https://cdn.test/bouquets-clean.jpg",
       },
-    });
+    };
+    // Calls (all fired in Promise.all after entity): city listing (2) + parent listing (3) + dims (4).
+    // fetchImageDimensions awaits getCachedImageDims before calling fetch, so both listing
+    // fetches win the race and consume calls 2 and 3 before dims reaches its fetch call.
+    // Dims response is { ok: false } → null dims (test doesn't assert on image size).
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => catBody })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 8, products: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 20, products: [] }) })
+      .mockResolvedValueOnce({ ok: false });
+    vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(
       HTML,
       "/en-lb/beirut/category/hand-bouquets-path-unique",
       CLEAN_PATH_OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
+    expect(fetchMock).toHaveBeenCalledTimes(4); // entity API + image dimension fetch + listing products fetch + parent listing fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=hand-bouquets-path-unique");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=LB");
@@ -519,14 +548,20 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
   });
 
   it("legacy /shop?category=<slug> canonical redirects to clean path in og:url", async () => {
-    mockFetchOnce({
+    const catBody = {
       ok: true,
       category: {
         name: "Hand Bouquets",
         description: "Beautiful bouquets.",
         image: null,
       },
-    });
+    };
+    const fn = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => catBody })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 8, products: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 20, products: [] }) });
+    vi.stubGlobal("fetch", fn);
     const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
       ...CLEAN_PATH_OPTS,
       search: "?category=hand-bouquets-legacy-unique",
@@ -541,14 +576,20 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
   });
 
   it("strips tracking params from the canonical when /shop?category=<slug>&gclid=<id>", async () => {
-    mockFetchOnce({
+    const catBody = {
       ok: true,
       category: {
         name: "Hand Bouquets",
         description: "Beautiful bouquets.",
         image: null,
       },
-    });
+    };
+    const fn = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => catBody })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 8, products: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 20, products: [] }) });
+    vi.stubGlobal("fetch", fn);
     const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
       ...CLEAN_PATH_OPTS,
       search: "?category=hand-bouquets-tracking-unique&gclid=xyz789",
@@ -563,14 +604,20 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
   });
 
   it("strips tracking params from the canonical when /shop?n=<slug>&gclid=<id>", async () => {
-    mockFetchOnce({
+    const catBody = {
       ok: true,
       category: {
         name: "Hand Bouquets",
         description: "Beautiful bouquets.",
         image: null,
       },
-    });
+    };
+    const fn = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => catBody })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 8, products: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, count: 20, products: [] }) });
+    vi.stubGlobal("fetch", fn);
     const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
       ...CLEAN_PATH_OPTS,
       search: "?n=hand-bouquets-n-tracking-unique&gclid=xyz789",
@@ -1317,7 +1364,7 @@ describe("injectSeoTagsAsync — entity pages with image: og:image:alt and twitt
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
 
-  it("does NOT emit og:image:width/height when the product supplies its own image", async () => {
+  it("emits 1200×630 og:image:width/height when using branded product og:image API URL", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce({
@@ -1338,7 +1385,7 @@ describe("injectSeoTagsAsync — entity pages with image: og:image:alt and twitt
       "/en-lb/beirut/product/sunflower-bunch",
       OPTS,
     );
-    // Branded og-image always carries fixed 1200×630 dimensions.
+    // Branded API URL always emits fixed 1200×630 dimensions.
     expect(out).toContain('<meta property="og:image:width" content="1200"');
     expect(out).toContain('<meta property="og:image:height" content="630"');
   });
@@ -1368,8 +1415,8 @@ describe("injectSeoTagsAsync — entity pages with image: og:image:alt and twitt
   });
 });
 
-describe("injectSeoTagsAsync — entity pages with no image: /opengraph.jpg fallback with 1280×720", () => {
-  it("falls back to /opengraph.jpg when product image is null", async () => {
+describe("injectSeoTagsAsync — entity pages with no image: branded API og:image URL with 1200×630", () => {
+  it("uses branded API og:image URL when product image is null", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce({
@@ -1390,7 +1437,7 @@ describe("injectSeoTagsAsync — entity pages with no image: /opengraph.jpg fall
       "/en-ae/dubai/product/mystery-box",
       OPTS,
     );
-    // null product image → branded og-image is used (publicOrigin + slug).
+    // Branded API URL is used even when the product has no raw image.
     expect(out).toContain(
       'property="og:image" content="https://presentail.test/api/og-image/product/mystery-box"',
     );
@@ -1782,7 +1829,7 @@ describe("parseDimsFromBuffer — unknown / short buffers", () => {
 const DIMS_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const DIMS_OPTS = {
   apiBaseUrl: "https://api.dims-test",
-  origin: "",
+  origin: "", // empty origin: forces CDN probing path (no branded API URL) so dims fetches are exercised
   basePath: "",
 };
 
@@ -2011,7 +2058,7 @@ describe("og:image:width / og:image:height via injectSeoTagsAsync", () => {
 const CACHE_INV_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const CACHE_INV_OPTS = {
   apiBaseUrl: "https://api.cache-inv-test",
-  origin: "",
+  origin: "", // empty origin: forces CDN probing path so dims fetches are exercised by cache-inv tests
   basePath: "",
 };
 
@@ -2236,18 +2283,19 @@ describe("image dims cache invalidation — occasion (string image field)", () =
       search: "?occasion=cache-inv-occasion-unique-slug",
     };
 
-    // First call: entity + dims freshly fetched.
+    // First call: entity freshly fetched; occasions always use the branded
+    // og-image URL so no CDN dims probe is needed.
     await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
     expect(entityFetchCount).toBe(1);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image — no CDN probe
 
-    // Advance past entity TTL only (dims TTL is 1 h, far in the future).
+    // Advance past entity TTL only.
     vi.setSystemTime(new Date(Date.now() + 61_000));
 
-    // Second call: entity cache miss → fresh fetch → evictImageDims → dims re-fetched.
+    // Second call: entity cache miss → fresh fetch; dims still 0 (branded og-image, no probe).
     await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
     expect(entityFetchCount).toBe(2);
-    expect(dimsFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(0);
   });
 
   it("does NOT re-fetch image dims when occasion entity is served from cache (dims reused)", async () => {
@@ -2287,15 +2335,16 @@ describe("image dims cache invalidation — occasion (string image field)", () =
       search: "?occasion=cache-dims-hit-occasion-unique-slug",
     };
 
-    // First call: entity + dims freshly fetched.
+    // First call: entity freshly fetched; occasions always use the branded
+    // og-image URL so no CDN dims probe is needed.
     await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
     expect(entityFetchCount).toBe(1);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image — no CDN probe
 
-    // Second call immediately (entity cache still valid → no eviction → dims reused).
+    // Second call immediately (entity cache still valid → no eviction; dims still 0).
     await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
     expect(entityFetchCount).toBe(1); // entity served from cache
-    expect(dimsFetchCount).toBe(1);   // dims served from cache (no eviction)
+    expect(dimsFetchCount).toBe(0);   // branded og-image — still no CDN probe
   });
 });
 
@@ -3043,7 +3092,7 @@ describe("seo_entity_fetch_failed analytics event — emitted on entity lookup f
 const ETAG_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const ETAG_OPTS = {
   apiBaseUrl: "https://api.etag-test",
-  origin: "",
+  origin: "", // empty origin: forces CDN probing path so ETag dims-eviction behaviour is exercised
   basePath: "",
 };
 
@@ -3121,8 +3170,8 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       const u = String(url);
       if (u.includes("/api/woo/brand-products")) {
-        // product-count fetch — not an entity fetch
-        return { ok: true, json: async () => ({ ok: true, count: 5 }) };
+        // brand listing fetch — not counted as entity or dims
+        return { ok: true, json: async () => ({ ok: true, count: 3 }) };
       }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
@@ -3191,15 +3240,16 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
 
     const occasionOpts = { ...ETAG_OPTS, search: "?occasion=etag-304-withinttl-occasion-unique" };
 
-    // First call: entity + dims freshly fetched; ETag stored in entity cache.
+    // First call: entity freshly fetched + ETag stored; occasions always use the
+    // branded og-image URL so no CDN dims probe is needed.
     await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/shop", occasionOpts);
     expect(entityFetchCount).toBe(1);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image — no CDN probe
 
     // Second call within TTL: conditional request with If-None-Match → 304 → no dims re-fetch.
     await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/shop", occasionOpts);
     expect(entityFetchCount).toBe(2);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image — still no CDN probe
   });
 
   it("does NOT re-fetch image dims on a 304 response within cache TTL (brands-filter occasion)", async () => {
@@ -3509,7 +3559,7 @@ function makePngBufferSimple(w: number, h: number): ArrayBuffer {
 const L2_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const L2_OPTS = {
   apiBaseUrl: "https://api.l2-test",
-  origin: "",
+  origin: "", // empty origin: forces CDN probing path so L2 dims adapter reads/writes are exercised
   basePath: "",
 };
 
@@ -3918,10 +3968,8 @@ describe("image dims L2 cache — initImageDimsDb adapter", () => {
       { ...L2_OPTS, search: "?occasion=l2-occasion-write-unique-slug" },
     );
 
-    // Dims were measured from the CDN and must have been written to L2.
-    expect(l2Writes).toHaveLength(1);
-    expect(l2Writes[0].url).toBe(imageUrl);
-    expect(l2Writes[0].dims).toEqual({ width: 900, height: 450 });
+    // Occasions always use the branded og-image URL — no CDN dims probe, so L2 is not written.
+    expect(l2Writes).toHaveLength(0);
   });
 
   // -------------------------------------------------------------------------
@@ -4115,8 +4163,8 @@ describe("shared-link preview cache — cache-hit skips upstream (brand)", () =>
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/brand-products")) {
-        // product-count fetch — not an entity fetch
-        return { ok: true, json: async () => ({ ok: true, count: 3 }) };
+        // brand listing fetch — not counted as entity fetch
+        return { ok: true, json: async () => ({ ok: true, count: 2 }) };
       }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
@@ -4217,7 +4265,7 @@ describe("shared-link preview cache — null result is NOT cached", () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/brand-products")) {
-        // product-count fetch — not an entity fetch
+        // brand listing fetch — not counted as entity fetch
         return { ok: true, json: async () => ({ ok: true, count: 2 }) };
       }
       if (u.includes("/api/woo/brand")) {
@@ -4684,7 +4732,7 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     expect(product).toBeTruthy();
     expect(product["@type"]).toBe("Product");
     expect(product.name).toBe("Velvet Rose Bouquet");
-    expect(product.image).toBe("https://cdn.test/velvet.jpg");
+    expect(product.image).toBe("https://presentail.test/api/og-image/product/branded-rose-collection");
     expect(product.brand).toEqual({ "@type": "Brand", name: "Presentail" });
     expect(product.url).toBe(
       "https://presentail.test/en-ae/dubai/product/branded-rose-collection",

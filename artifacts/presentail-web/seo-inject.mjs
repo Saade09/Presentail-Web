@@ -525,10 +525,9 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   if (emitJsonLd) {
     // Organization is the brand entity — emit on every public, indexable page.
     jsonLdNodes.push(buildOrganizationSchema(siteUrl));
-    // WebSite identifies the site as a whole. Only emit on the homepage
-    // (routeKey "home" = locale city root, "landing" = bare root "/") so each
-    // page has a single, unambiguous site-level anchor. Content pages (shop,
-    // brands, occasions, terms, etc.) do not repeat it.
+    // WebSite identifies the site as a whole. Emit only on the homepage so
+    // crawlers get a single authoritative site-level anchor without duplicating
+    // the schema on every product/brand/occasion/shop page.
     if (routeKey === "home" || routeKey === "landing") {
       jsonLdNodes.push(buildWebSiteSchema(siteUrl));
     }
@@ -2365,7 +2364,7 @@ export function buildProductHead({
     "@type": "Product",
     name: rawName || "Presentail",
     ...(rawDesc ? { description: clampDescription(stripHtml(rawDesc), 300) } : {}),
-    ...(rawProductImageUri ? { image: rawProductImageUri } : {}),
+    ...(imageUrl ? { image: imageUrl } : {}),
     ...(sku ? { sku } : {}),
     url: canonicalUrl,
     // Use the actual brand name from the product; omit if unavailable so the
@@ -2594,24 +2593,39 @@ function buildBrandsFilterHead({
     typeof entity.image === "string" && entity.image ? entity.image : null;
   const locBase = localeBaseUrl(pathname, origin, basePath);
   const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
-  return {
-    ...buildEntityHead({
-      ogType: "website",
-      title,
-      description,
-      imageUrl,
-      imageAlt: rawName || "Presentail brands", // i18n-ignore — brand+type label used as OG image alt fallback
-      imageWidth: imageDimensions?.width,
-      imageHeight: imageDimensions?.height,
-      basePath,
-      origin,
-      pathname,
-      search,
-      lang,
-      country,
-    }),
-    bodyHtml,
-  };
+  const entityHead = buildEntityHead({
+    ogType: "website",
+    title,
+    description,
+    imageUrl,
+    imageAlt: rawName || "Presentail brands", // i18n-ignore — brand+type label used as OG image alt fallback
+    imageWidth: imageDimensions?.width,
+    imageHeight: imageDimensions?.height,
+    basePath,
+    origin,
+    pathname,
+    search,
+    lang,
+    country,
+  });
+  // buildCanonicalUrl (used inside buildEntityHead) strips filter params like
+  // ?category / ?occasion, but on the /brands filter page those params define
+  // the page's identity — they must survive in the canonical and og:url. We
+  // rebuild the canonical here, preserving the filter param but still stripping
+  // tracking noise (gclid, fbclid, etc.).
+  const cleanBase = (basePath || "").replace(/\/$/, "");
+  const filteredSearch = stripTrackingParams(search);
+  const bfCanonical = `${(origin || "").replace(/\/$/, "")}${cleanBase}${pathname}${filteredSearch}`;
+  const fixedHeadSnippet = entityHead.headSnippet
+    .replace(
+      /<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/,
+      `<link rel="canonical" href="${escapeAttr(bfCanonical)}" />`,
+    )
+    .replace(
+      /<meta property="og:url" content="[^"]*" \/>/,
+      `<meta property="og:url" content="${escapeAttr(bfCanonical)}" />`,
+    );
+  return { ...entityHead, headSnippet: fixedHeadSnippet, bodyHtml };
 }
 
 export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, country, productCount }) {
@@ -2640,12 +2654,11 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   ];
   // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
   // expandable FAQ rich results for brand detail pages. Mirrors the pattern
-  // used for category and occasion pages. Suppressed only when productCount is
-  // explicitly 0 (empty brand page). When productCount is null/undefined (the
-  // count fetch failed or was not performed) we still emit so the rich result
-  // is never silently dropped due to a transient upstream error.
+  // used for category and occasion pages. Only emitted when the brand has a
+  // name AND we know the brand has deliverable products (or count is unknown
+  // because the listing fetch failed — do not suppress on fetch failure).
   let brandBodyFaqItems = [];
-  if (rawName && productCount !== 0) {
+  if (rawName && (productCount == null || productCount > 0)) {
     const pickLangFaq = (/** @type {string} */ l) => {
       if (l === "ar" || l === "fr") return l;
       return "en";
@@ -3654,7 +3667,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       // server) instead of the raw occasion photo.
       const occasionOgImageUrl = publicOrigin
         ? `${publicOrigin}/api/og-image/occasion/${encodeURIComponent(occasionSlug)}`
-        : null;
+        : `/api/og-image/occasion/${encodeURIComponent(occasionSlug)}`;
       // Fetch city-specific listing (productCount) and country-wide listing
       // (parentProductCount, no cityId) in parallel so the ratio/identical-
       // inventory rules in isPageEligible can fire.
