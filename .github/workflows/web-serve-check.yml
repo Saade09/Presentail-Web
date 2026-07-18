@@ -139,10 +139,19 @@ jobs:
       - name: Check Apple Sign In domain verification endpoint (serve logic)
         run: node artifacts/presentail-web/scripts/check-apple-sign-in-domain.mjs http://localhost:19234
 
-      - name: Validate JSON-LD structured data against schema.org validator API (Error-level issues fail)
+      - name: Validate JSON-LD structured data against schema.org validator API; check Google Merchant Listing requirements via Rich Results Test API when key is set (Error-level issues fail)
         run: pnpm --filter @workspace/presentail-web run check-jsonld-rich-results
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:19234
+          # Optional: when set, a second phase posts live production product-page
+          # URLs to the Google Rich Results Test API and fails on any Error-level
+          # Merchant Listing issue (shippingDetails, hasMerchantReturnPolicy, etc.)
+          # that schema.org's validator does not enforce.  The step skips the
+          # Google phase gracefully when this secret is absent so contributor PRs
+          # without repo-level secrets are unaffected.
+          # Store the key under GitHub → Settings → Secrets → Actions with the
+          # name GOOGLE_RICH_RESULTS_API_KEY (Search Console API must be enabled).
+          GOOGLE_RICH_RESULTS_API_KEY: ${{ secrets.GOOGLE_RICH_RESULTS_API_KEY }}
 
       - name: Install Playwright browsers
         run: pnpm --filter @workspace/presentail-web exec playwright install chromium --with-deps
