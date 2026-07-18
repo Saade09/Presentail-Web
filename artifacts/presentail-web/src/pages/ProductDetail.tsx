@@ -49,6 +49,8 @@ import { trackWebEvent, trackEvent } from "@/lib/analytics";
 import { buildProductSeo } from "@/lib/seo";
 import { FrequentlyBoughtTogether } from "@/components/product/FrequentlyBoughtTogether";
 import { calcCheckoutFees } from "@/pages/checkoutFees";
+import { buildInternalLinks, type InternalLinksLocale, type InternalLinksContext } from "@/lib/internalLinks";
+import { RelatedLinks } from "@/components/RelatedLinks";
 
 const SEO_ATTR = "data-seo-managed";
 
@@ -238,6 +240,23 @@ export default function ProductDetail() {
     if (wooDesc.length > 0) return wooDesc;
     return vm?.description ?? "";
   }, [product, vm]);
+
+  const internalLinksLocale = useMemo((): InternalLinksLocale => ({
+    lang: language,
+    country: (countryCode ?? "lb").toLowerCase(),
+    city: cityId ? cityId.replace(/^[a-z]{2}-/, "") : null,
+  }), [language, countryCode, cityId]);
+
+  const relatedLinks = useMemo(() => {
+    if (!product) return [];
+    const context: InternalLinksContext = {
+      categories: catalogMetadata?.categories.map((c) => ({ id: c.id, name: c.name })),
+      occasions: catalogMetadata?.occasions.map((o) => ({ id: o.id, name: o.name })),
+      brands: catalogMetadata?.brands.map((b) => ({ slug: b.slug, name: b.name })),
+      allProducts: allData?.products,
+    };
+    return buildInternalLinks(product, internalLinksLocale, context);
+  }, [product, catalogMetadata, allData?.products, internalLinksLocale]);
 
   const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
   const cityTimeSlots = useMemo(
@@ -694,6 +713,8 @@ export default function ProductDetail() {
       </div>
 
       {slug && product && <FrequentlyBoughtTogether slug={slug} anchor={product} />}
+
+      <RelatedLinks links={relatedLinks} lang={language} />
 
       <AddToCartUpsellModal
         open={upsellOpen}

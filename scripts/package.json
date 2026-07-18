@@ -42,6 +42,7 @@
     "check-robots-txt": "tsx ./src/checkRobotsTxt.ts",
     "check-nap-consistency": "tsx ./src/checkNapConsistency.ts",
     "check-image-alt": "tsx ./src/checkImageAlt.ts",
+    "check-orphan-pages": "tsx ./src/checkOrphanPages.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

@@ -114,6 +114,8 @@ import {
 
 import { CITY_SEO } from "./src/data/city-seo.mjs";
 
+import { buildInternalLinks } from "./src/lib/internalLinks.mjs";
+
 // Localised SEO strings for shared wishlist pages.
 // The wishlist share path (/favorites/share/:token) has no locale prefix so
 // these default to "en", but the dict is structured so a lang can be passed
@@ -1025,7 +1027,7 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   );
 }
 
-function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "" }) {
+function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "", lang, country, city }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const safeTitle = escapeHtml(rawName || title);
   const rawDesc = typeof product.description === "string"
@@ -1073,32 +1075,50 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     `<h2>Delivery</h2>` + // i18n-ignore
     `<p>Available for same-day and scheduled delivery with Presentail. Order before midday for same-day dispatch.</p>`; // i18n-ignore
 
-  // Category/occasion cross-links — up to 5 combined, category first.
-  // product.categories is an array of category slugs (strings).
-  // product.occasions is an array of { name, slug } objects.
-  let crossLinksHtml = "";
-  if (localeBase) {
-    const catLinks = (Array.isArray(product.categories) ? product.categories : [])
-      .filter((s) => typeof s === "string" && s.trim())
-      .slice(0, 5)
-      .map((slug) => {
-        const label = slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-        return `<li><a href="${localeBase}/category/${escapeAttr(slug)}">${escapeHtml(label)}</a></li>`;
-      });
-    const occLinks = (Array.isArray(product.occasions) ? product.occasions : [])
-      .filter((o) => o && typeof o.slug === "string" && o.slug.trim())
-      .slice(0, Math.max(0, 5 - catLinks.length))
-      .map((o) => {
-        const label = typeof o.name === "string" && o.name.trim() ? o.name.trim() : o.slug;
-        return `<li><a href="${localeBase}/occasion/${escapeAttr(o.slug)}">${escapeHtml(label)}</a></li>`;
-      });
-    const allLinks = [...catLinks, ...occLinks];
-    if (allLinks.length > 0) {
-      crossLinksHtml = `<ul>${allLinks.join("")}</ul>`;
+  // Contextual noscript internal-links nav — crawlers follow these to discover
+  // related collection and city pages without executing JavaScript.
+  // Uses the same buildInternalLinks rule engine as the client-side RelatedLinks
+  // component so server and client output stay in lockstep.  Rule 5 (related
+  // products) is skipped because the full product catalog is not available here;
+  // the four structural rules (category, occasion, brand, city) are sufficient
+  // for crawler discovery.
+  let noscriptNav = "";
+  if (localeBase && lang && country) {
+    const brandName =
+      (Array.isArray(product.brands) && product.brands[0] &&
+        typeof product.brands[0].name === "string" && product.brands[0].name) ||
+      (typeof product.brand === "object" && product.brand !== null &&
+        typeof product.brand.name === "string" && product.brand.name) ||
+      "";
+    const brandSlug =
+      (Array.isArray(product.brands) && product.brands[0] &&
+        typeof product.brands[0].slug === "string" && product.brands[0].slug) ||
+      "";
+    const productForLinks = {
+      id: typeof product.id === "string" ? product.id : "current",
+      name: rawName,
+      category: Array.isArray(product.categories) && typeof product.categories[0] === "string"
+        ? product.categories[0] : "",
+      categories: Array.isArray(product.categories) ? product.categories : [],
+      occasions: Array.isArray(product.occasions) ? product.occasions : [],
+      brandNames: brandName ? [brandName] : [],
+    };
+    const brandContext = brandName && brandSlug ? [{ slug: brandSlug, name: brandName }] : [];
+    const links = buildInternalLinks(
+      productForLinks,
+      { lang, country, city: city || null, baseUrl: localeBase },
+      { brands: brandContext },
+    );
+    if (links.length > 0) {
+      const listItems = links
+        .map((link) => `<li><a href="${escapeAttr(link.href)}">${escapeHtml(link.anchorText)}</a></li>`)
+        .join("");
+      noscriptNav =
+        `<noscript><nav aria-label="Related pages"><ul>${listItems}</ul></nav></noscript>`; // i18n-ignore — static label in crawlers-only noscript block
     }
   }
 
-  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${crossLinksHtml}${deliveryNote}${nav}</div>`;
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -2548,6 +2568,7 @@ export function buildProductHead({
   countryLabel,
   countryCode,
   country,
+  city,
   ogImageUrl,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
@@ -2782,6 +2803,9 @@ export function buildProductHead({
     localeBase: locBase,
     imageUrl,
     cityLabel,
+    lang,
+    country,
+    city,
   });
   // When a pre-generated branded OG image URL is provided use fixed 1200×630
   // dimensions (no need to probe the URL with a Range request).
@@ -3837,6 +3861,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     countryLabel: generic.countryLabel,
     countryCode,
     country: parsed.country,
+    city: parsed.city,
   };
 
   // Base public origin used to build OG image API URLs. The og:image tag must
