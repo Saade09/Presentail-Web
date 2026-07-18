@@ -848,7 +848,7 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
   const deliveryNote =
     `<h2>Delivery</h2>` + // i18n-ignore
     `<p>Available for same-day and scheduled delivery with Presentail. Order before midday for same-day dispatch.</p>`; // i18n-ignore
-  return `<div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${deliveryNote}${nav}</div>`;
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${deliveryNote}${nav}</div>`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {

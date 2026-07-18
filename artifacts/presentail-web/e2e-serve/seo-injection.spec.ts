@@ -821,6 +821,7 @@ function describeEntityH1(label: string, path: string): void {
 describeEntityH1("category", "/en-lb/beirut/category/flowers");
 describeEntityH1("occasion", "/en-lb/beirut/occasion/birthday");
 describeEntityH1("brand", "/en-lb/beirut/brand/roses");
+describeEntityH1("product", "/en-lb/beirut/product/rose-bouquet");
 
 for (const { label, path } of UNKNOWN_SLUG_CASES) {
   test.describe(
