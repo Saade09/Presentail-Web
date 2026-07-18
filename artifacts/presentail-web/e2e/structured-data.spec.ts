@@ -515,3 +515,267 @@ test.describe("Structured data — locale-prefixed FAQ page /en-lb/beirut/faqs",
     expect(html).toContain('"@type":"Question"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Helpers for BreadcrumbList well-formedness and prerendered heading counts
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract every JSON-LD block from raw HTML and return them as parsed objects.
+ * Handles both standalone <script type="application/ld+json">…</script> blocks
+ * and @graph wrappers.
+ */
+function extractJsonLdNodes(html: string): Record<string, unknown>[] {
+  const nodes: Record<string, unknown>[] = [];
+  const re = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const parsed = JSON.parse(m[1]) as Record<string, unknown>;
+      if (Array.isArray(parsed["@graph"])) {
+        for (const n of parsed["@graph"] as Record<string, unknown>[]) nodes.push(n);
+      } else {
+        nodes.push(parsed);
+      }
+    } catch {
+      // malformed block — skip
+    }
+  }
+  return nodes;
+}
+
+/**
+ * Find the first BreadcrumbList node in a JSON-LD node array.
+ */
+function findBreadcrumbList(
+  nodes: Record<string, unknown>[],
+): Record<string, unknown> | undefined {
+  return nodes.find((n) => n["@type"] === "BreadcrumbList");
+}
+
+/**
+ * Assert that a BreadcrumbList node is well-formed:
+ *   - @type === "BreadcrumbList"
+ *   - itemListElement is a non-empty array
+ *   - every item has @type "ListItem", a numeric position ≥ 1, and a non-empty name
+ */
+function assertWellFormedBreadcrumbList(node: Record<string, unknown>): void {
+  expect(node["@type"]).toBe("BreadcrumbList");
+  const items = node.itemListElement as Array<Record<string, unknown>>;
+  expect(Array.isArray(items), "itemListElement should be an array").toBe(true);
+  expect(items.length, "BreadcrumbList should have at least one item").toBeGreaterThan(0);
+  for (const item of items) {
+    expect(item["@type"]).toBe("ListItem");
+    expect(typeof item.position === "number" && item.position >= 1, "position should be a number ≥ 1").toBe(true);
+    expect(typeof item.name === "string" && (item.name as string).trim().length > 0, "name should be a non-empty string").toBe(true);
+  }
+}
+
+/**
+ * Count the number of h2 and h3 opening tags in raw HTML (prerendered body).
+ */
+function countHeadings(html: string): number {
+  const h2 = (html.match(/<h2[\s>]/gi) ?? []).length;
+  const h3 = (html.match(/<h3[\s>]/gi) ?? []).length;
+  return h2 + h3;
+}
+
+// ---------------------------------------------------------------------------
+// 11. Locale-prefixed shop page /en-lb/beirut/shop
+//
+// buildSeoHead() emits for this path:
+//   - Organization JSON-LD (always)
+//   - BreadcrumbList (Home > Beirut > Shop) via the ROUTE_CRUMB_LABELS branch
+//   - FAQPage JSON-LD (from SHOP_FAQ_COPY via genericFaqRoutes)
+//   - A prerendered body section with an h2 "Frequently Asked Questions" heading
+//     followed by h3 headings for each FAQ question (≥ 2 h2/h3 total)
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed shop page /en-lb/beirut/shop", () => {
+  let html: string;
+  let nodes: Record<string, unknown>[];
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-lb/beirut/shop");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+    nodes = extractJsonLdNodes(html);
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test('meta[name="description"] is present and non-empty', () => {
+    assertDescription(html);
+  });
+
+  test('"@type":"BreadcrumbList" JSON-LD is present', () => {
+    expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+
+  test("BreadcrumbList JSON-LD is well-formed (ListItem array with position and name)", () => {
+    const node = findBreadcrumbList(nodes);
+    expect(node, "BreadcrumbList node not found in JSON-LD blocks").toBeTruthy();
+    assertWellFormedBreadcrumbList(node!);
+  });
+
+  test("BreadcrumbList has at least 2 items (Home > … > Shop)", () => {
+    const node = findBreadcrumbList(nodes);
+    expect(node, "BreadcrumbList node not found").toBeTruthy();
+    const items = node!.itemListElement as Array<Record<string, unknown>>;
+    expect(items.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('"@type":"FAQPage" JSON-LD is present (SHOP_FAQ_COPY)', () => {
+    expect(html).toContain('"@type":"FAQPage"');
+  });
+
+  test('FAQPage JSON-LD contains "@type":"Question" entries', () => {
+    expect(html).toContain('"@type":"Question"');
+  });
+
+  test("prerendered body contains at least 2 h2/h3 elements (FAQ headings)", () => {
+    expect(
+      countHeadings(html),
+      "expected at least 2 h2/h3 heading tags in the prerendered HTML body",
+    ).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12. Locale-prefixed terms page /en-lb/beirut/terms
+//
+// buildSeoHead() emits for this path:
+//   - Organization JSON-LD (always)
+//   - BreadcrumbList (Home > Beirut > Terms of Use) via ROUTE_CRUMB_LABELS
+//   - WebPage JSON-LD (via buildWebPageSchema for routeKey "terms")
+// Terms is a legal page with no FAQ copy, so no FAQPage JSON-LD or FAQ headings.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed terms page /en-lb/beirut/terms", () => {
+  let html: string;
+  let nodes: Record<string, unknown>[];
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-lb/beirut/terms");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+    nodes = extractJsonLdNodes(html);
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test('meta[name="description"] is present and non-empty', () => {
+    assertDescription(html);
+  });
+
+  test('"@type":"BreadcrumbList" JSON-LD is present', () => {
+    expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+
+  test("BreadcrumbList JSON-LD is well-formed (ListItem array with position and name)", () => {
+    const node = findBreadcrumbList(nodes);
+    expect(node, "BreadcrumbList node not found in JSON-LD blocks").toBeTruthy();
+    assertWellFormedBreadcrumbList(node!);
+  });
+
+  test("BreadcrumbList has at least 2 items (Home > … > Terms of Use)", () => {
+    const node = findBreadcrumbList(nodes);
+    expect(node, "BreadcrumbList node not found").toBeTruthy();
+    const items = node!.itemListElement as Array<Record<string, unknown>>;
+    expect(items.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('"@type":"WebPage" JSON-LD is present', () => {
+    expect(html).toContain('"@type":"WebPage"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    const orgNode = nodes.find((n) => n["@type"] === "Organization");
+    expect(orgNode, "Organization JSON-LD node not found").toBeTruthy();
+    expect(typeof orgNode!.description === "string" && (orgNode!.description as string).trim().length > 0, "Organization.description should be a non-empty string").toBe(true);
+    expect(orgNode!.areaServed, "Organization.areaServed should be present").toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 13. Locale-prefixed contact page /en-lb/beirut/contact
+//
+// buildSeoHead() emits for this path:
+//   - Organization JSON-LD (always)
+//   - BreadcrumbList (Home > Beirut > Contact) via ROUTE_CRUMB_LABELS
+//   - ContactPage JSON-LD (via buildContactPageSchema for routeKey "contact")
+//   - FAQPage JSON-LD (from CONTACT_FAQ_COPY via genericFaqRoutes)
+//   - A prerendered body with h2 "Frequently Asked Questions" + h3 per FAQ item
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed contact page /en-lb/beirut/contact", () => {
+  let html: string;
+  let nodes: Record<string, unknown>[];
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-lb/beirut/contact");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+    nodes = extractJsonLdNodes(html);
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test('meta[name="description"] is present and non-empty', () => {
+    assertDescription(html);
+  });
+
+  test('"@type":"BreadcrumbList" JSON-LD is present', () => {
+    expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+
+  test("BreadcrumbList JSON-LD is well-formed (ListItem array with position and name)", () => {
+    const node = findBreadcrumbList(nodes);
+    expect(node, "BreadcrumbList node not found in JSON-LD blocks").toBeTruthy();
+    assertWellFormedBreadcrumbList(node!);
+  });
+
+  test("BreadcrumbList has at least 2 items (Home > … > Contact)", () => {
+    const node = findBreadcrumbList(nodes);
+    expect(node, "BreadcrumbList node not found").toBeTruthy();
+    const items = node!.itemListElement as Array<Record<string, unknown>>;
+    expect(items.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('"@type":"ContactPage" JSON-LD is present', () => {
+    expect(html).toContain('"@type":"ContactPage"');
+  });
+
+  test('"@type":"FAQPage" JSON-LD is present (CONTACT_FAQ_COPY)', () => {
+    expect(html).toContain('"@type":"FAQPage"');
+  });
+
+  test('FAQPage JSON-LD contains "@type":"Question" entries', () => {
+    expect(html).toContain('"@type":"Question"');
+  });
+
+  test("prerendered body contains at least 2 h2/h3 elements (FAQ headings)", () => {
+    expect(
+      countHeadings(html),
+      "expected at least 2 h2/h3 heading tags in the prerendered HTML body",
+    ).toBeGreaterThanOrEqual(2);
+  });
+});
