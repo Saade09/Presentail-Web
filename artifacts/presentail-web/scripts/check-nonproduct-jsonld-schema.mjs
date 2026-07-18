@@ -90,22 +90,37 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Terms page (/en-lb/beirut/terms)",
-    expectTypes: ["Organization", "WebPage"],
+    expectTypes: ["Organization", "WebSite", "WebPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/terms", SHARED_OPTS).headSnippet,
   },
   {
     label: "Contact page (/en-lb/beirut/contact)",
-    expectTypes: ["Organization", "ContactPage"],
+    expectTypes: ["Organization", "WebSite", "ContactPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/contact", SHARED_OPTS).headSnippet,
   },
   {
     label: "FAQs page (/en-lb/beirut/faqs)",
-    expectTypes: ["Organization", "FAQPage"],
+    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/faqs", SHARED_OPTS).headSnippet,
   },
   {
+    label: "Shop page (/en-lb/beirut/shop)",
+    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    build: () => buildSeoHead("/en-lb/beirut/shop", SHARED_OPTS).headSnippet,
+  },
+  {
+    label: "Brands listing page (/en-lb/beirut/brands)",
+    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    build: () => buildSeoHead("/en-lb/beirut/brands", SHARED_OPTS).headSnippet,
+  },
+  {
+    label: "Occasions listing page (/en-lb/beirut/occasions)",
+    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    build: () => buildSeoHead("/en-lb/beirut/occasions", SHARED_OPTS).headSnippet,
+  },
+  {
     label: "Product page (/en-lb/beirut/product/grand-rose-box)",
-    expectTypes: ["Organization", "BreadcrumbList"],
+    expectTypes: ["Organization", "WebSite", "BreadcrumbList"],
     build: () =>
       buildProductHead({
         ...SHARED_OPTS,
@@ -120,7 +135,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Blog post (/en-lb/beirut/blog/art-of-gifting)",
-    expectTypes: ["Organization", "Article", "BreadcrumbList"],
+    expectTypes: ["Organization", "WebSite", "Article", "BreadcrumbList"],
     build: () =>
       buildBlogPostHead({
         ...SHARED_OPTS,
@@ -131,7 +146,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Brand page (/en-lb/beirut/brand/floral-house)",
-    expectTypes: ["Organization", "BreadcrumbList"],
+    expectTypes: ["Organization", "WebSite", "BreadcrumbList"],
     build: () =>
       buildBrandHead({
         ...SHARED_OPTS,
@@ -143,7 +158,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Category page (/en-lb/beirut/category/roses)",
-    expectTypes: ["Organization", "BreadcrumbList", "ItemList"],
+    expectTypes: ["Organization", "WebSite", "BreadcrumbList", "ItemList"],
     build: () =>
       buildCategoryHead({
         ...SHARED_OPTS,
@@ -160,7 +175,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Occasion page (/en-lb/beirut/occasion/birthday)",
-    expectTypes: ["Organization", "BreadcrumbList", "ItemList"],
+    expectTypes: ["Organization", "WebSite", "BreadcrumbList", "ItemList"],
     build: () =>
       buildOccasionHead({
         ...SHARED_OPTS,
@@ -174,6 +189,47 @@ export const NONPRODUCT_FIXTURES = [
         productCount: 8,
         items: SAMPLE_LISTING_ITEMS,
       }).headSnippet,
+  },
+  // Arabic locale fixture — validates WebSite on a non-home page and that
+  // BreadcrumbList names are in Arabic (not English) for AR routes.
+  {
+    label: "Arabic shop page (/ar-lb/beirut/shop) — localized breadcrumb",
+    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    build: () => {
+      const snippet = buildSeoHead("/ar-lb/beirut/shop", SHARED_OPTS).headSnippet;
+      // Assert the breadcrumb uses the Arabic label "تسوّق" not the EN label "Shop"
+      const nodes = extractAllJsonLd(snippet);
+      const crumb = nodes.find((n) => n["@type"] === "BreadcrumbList");
+      if (!crumb) return snippet; // will fail in expectTypes check
+      const lastItem = crumb.itemListElement?.[crumb.itemListElement.length - 1];
+      if (lastItem?.name !== "تسوّق") {
+        throw new Error(
+          `AR breadcrumb name must be "تسوّق" (Arabic) but got "${lastItem?.name}". ` +
+          "ROUTE_CRUMB_LABELS must provide locale-specific labels for every supported language.",
+        );
+      }
+      return snippet;
+    },
+  },
+  // French locale fixture — validates WebSite on a non-home page and that
+  // BreadcrumbList names are in French for FR routes.
+  {
+    label: "French brands page (/fr-lb/beirut/brands) — localized breadcrumb",
+    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    build: () => {
+      const snippet = buildSeoHead("/fr-lb/beirut/brands", SHARED_OPTS).headSnippet;
+      const nodes = extractAllJsonLd(snippet);
+      const crumb = nodes.find((n) => n["@type"] === "BreadcrumbList");
+      if (!crumb) return snippet;
+      const lastItem = crumb.itemListElement?.[crumb.itemListElement.length - 1];
+      if (lastItem?.name !== "Marques") {
+        throw new Error(
+          `FR breadcrumb name must be "Marques" (French) but got "${lastItem?.name}". ` +
+          "ROUTE_CRUMB_LABELS must provide locale-specific labels for every supported language.",
+        );
+      }
+      return snippet;
+    },
   },
 ];
 

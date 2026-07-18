@@ -455,11 +455,9 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   if (emitJsonLd) {
     // Organization is the brand entity — emit on every public, indexable page.
     jsonLdNodes.push(buildOrganizationSchema(siteUrl));
-    // WebSite identifies the site as a whole and belongs only on the homepage
-    // (root landing + locale/city home), not on every content page.
-    if (isLanding || isHome) {
-      jsonLdNodes.push(buildWebSiteSchema(siteUrl));
-    }
+    // WebSite identifies the site as a whole. Emit on every public page so
+    // crawlers always have a site-level anchor regardless of entry point.
+    jsonLdNodes.push(buildWebSiteSchema(siteUrl));
   }
 
   // LocalBusiness (Florist) + Home > {City} breadcrumb on city homepages —
@@ -483,6 +481,50 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
         { name: cityLabel },
       ]),
     );
+  }
+
+  // BreadcrumbList on navigable non-home locale pages. Gives search engines a
+  // clear trail for every major section so they can understand site hierarchy
+  // without relying on JavaScript navigation.
+  // Breadcrumb labels in each supported UI language, sourced from the same
+  // locale catalogue used by the storefront (nav.ts / footer locale files).
+  // These are JSON-LD values that must match visible page labels per locale.
+  const ROUTE_CRUMB_LABELS = { // i18n-ignore — locale-keyed breadcrumb label map
+    en: {
+      home: "Home",
+      shop: "Shop", brands: "Brands", occasions: "Occasions",
+      weddings: "Weddings", corporate: "Corporate", contact: "Contact",
+      faqs: "FAQs", terms: "Terms of Use", privacy: "Privacy Policy",
+      blog: "Journal", careers: "Careers", partner: "Partner",
+    },
+    ar: {
+      home: "الرئيسية",
+      shop: "تسوّق", brands: "العلامات التجارية", occasions: "المناسبات",
+      weddings: "الأفراح", corporate: "الشركات", contact: "اتصل بنا",
+      faqs: "الأسئلة الشائعة", terms: "شروط الاستخدام",
+      privacy: "سياسة الخصوصية", blog: "المدونة", careers: "الوظائف",
+      partner: "شريك",
+    },
+    fr: {
+      home: "Accueil",
+      shop: "Boutique", brands: "Marques", occasions: "Occasions",
+      weddings: "Mariages", corporate: "Entreprises", contact: "Contact",
+      faqs: "FAQ", terms: "Conditions d'utilisation",
+      privacy: "Politique de confidentialité", blog: "Journal",
+      careers: "Carrières", partner: "Partenariat",
+    },
+  };
+  const crumbLabels = ROUTE_CRUMB_LABELS[lang] ?? ROUTE_CRUMB_LABELS.en;
+  if (emitJsonLd && inLocale && crumbLabels[routeKey]) {
+    const localePathBase = parsed.city
+      ? `${origin}${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`
+      : `${origin}${cleanBase}/${parsed.lang}-${parsed.country}`;
+    const navCrumbs = [{ name: crumbLabels.home, url: siteUrl }];
+    if (cityLabel && localePathBase !== siteUrl) {
+      navCrumbs.push({ name: cityLabel, url: localePathBase });
+    }
+    navCrumbs.push({ name: crumbLabels[routeKey] });
+    jsonLdNodes.push(buildBreadcrumbListSchema(navCrumbs));
   }
 
   // WebPage (Terms / Privacy) and ContactPage (Contact) lightweight schema.
@@ -612,7 +654,37 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const localeBase = inLocale && parsed.lang && parsed.country && parsed.city
     ? `${origin}${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`
     : null;
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase });
+
+  // Collect resolved FAQ items for the prerendered body fragment. These mirror
+  // the JSON-LD FAQPage nodes above so the crawler-visible body has the same
+  // meaningful h2/h3 structure as the JSON-LD without relying on JavaScript.
+  let bodyFaqItems = [];
+  if (inLocale) {
+    const faqBodyParams = { city: cityLabel || "" };
+    const pickFaqBodyLang = (l) => ((l === "ar" || l === "fr") ? l : "en");
+    const faqBodyL = pickFaqBodyLang(lang);
+    if (genericFaqRoutes[routeKey]) {
+      const raw = genericFaqRoutes[routeKey][faqBodyL] ?? genericFaqRoutes[routeKey].en ?? [];
+      bodyFaqItems = raw.slice(0, 3).map(({ q, a }) => ({
+        q: formatTemplate(q, faqBodyParams),
+        a: formatTemplate(a, faqBodyParams),
+      }));
+    } else if (routeKey === "brands") {
+      const raw = BRANDS_FAQ_COPY[faqBodyL] ?? BRANDS_FAQ_COPY.en ?? [];
+      bodyFaqItems = raw.slice(0, 3).map(({ q, a }) => ({
+        q: formatTemplate(q, faqBodyParams),
+        a: formatTemplate(a, faqBodyParams),
+      }));
+    } else if (routeKey === "faqs") {
+      const faqLangData = FAQ_COPY[lang] ?? FAQ_COPY.en;
+      bodyFaqItems = (faqLangData.groups ?? [])
+        .flatMap((g) => g.items)
+        .slice(0, 3)
+        .map(({ q, a }) => ({ q, a }));
+    }
+  }
+
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems });
 
   return {
     lang,
@@ -720,16 +792,25 @@ function buildNavLinks(localeBase) {
   );
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase }) {
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [] }) {
   const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   const safeDesc = escapeHtml(description);
   const safeIntro = escapeHtml(intro);
+  // Add FAQ questions as h2+h3 headings so pages with multiple sections have
+  // the required subheading structure for AI crawlers and the Agent Ready scan.
+  let faqHtml = "";
+  if (faqItems.length > 0) {
+    faqHtml =
+      `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
+      faqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
+  }
   return (
     `<div style="display:none">` +
     `<h1>${safeTitle}</h1>` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
+    faqHtml +
     buildNavLinks(localeBase) +
     `</div>`
   );
@@ -755,7 +836,12 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
-  return `<div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${nav}</div>`;
+  // i18n-ignore — "Product Details" and "Delivery" are static EN-only headings in crawlers-only body
+  const detailsHeading = safeDesc ? `<h2>Product Details</h2>` : ""; // i18n-ignore
+  const deliveryNote =
+    `<h2>Delivery</h2>` + // i18n-ignore
+    `<p>Available for same-day and scheduled delivery with Presentail. Order before midday for same-day dispatch.</p>`; // i18n-ignore
+  return `<div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${deliveryNote}${nav}</div>`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -1666,6 +1752,8 @@ function buildOrganizationSchema(siteUrl) {
     name: "Presentail",
     url: siteUrl,
     logo: `${siteUrl}/opengraph.jpg`,
+    description: "Luxury flower and gift delivery in Lebanon, UAE, and Cyprus. Same-day and scheduled delivery available.", // i18n-ignore — EN-only schema description
+    areaServed: ["LB", "AE", "CY"],
     sameAs: SEO_SOCIAL_LINKS,
   };
 }
@@ -1884,8 +1972,10 @@ function buildEntityHead({
   );
   lines.push(`<meta name="twitter:image" content="${escapeAttr(effectiveImageUrl)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(effectiveImageAlt)}" />`);
-  // Organization JSON-LD on every entity page.
+  // Organization + WebSite JSON-LD on every entity page so crawlers always
+  // have a site-level anchor regardless of which page they enter through.
   lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
+  lines.push(jsonLdTag(buildWebSiteSchema(`${origin}${cleanBase}`)));
   for (const extra of extraLines) lines.push(extra);
   return { title, headSnippet: lines.join("\n    ") };
 }
@@ -2315,6 +2405,7 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   // used for category and occasion pages. Only emitted when the brand has a
   // name AND has deliverable products — the UI suppresses the FAQ section on
   // empty brand pages so the schema must match what the visitor actually sees.
+  let brandBodyFaqItems = [];
   if (rawName && productCount > 0) {
     const pickLangFaq = (/** @type {string} */ l) => {
       if (l === "ar" || l === "fr") return l;
@@ -2322,12 +2413,16 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     };
     const faqItems = BRAND_FAQ_COPY[pickLangFaq(lang)] ?? BRAND_FAQ_COPY.en;
     const params = { name: rawName, city: cityLabel || "" };
-    const mainEntity = faqItems.map(({ q, a }) => ({
+    brandBodyFaqItems = faqItems.slice(0, 3).map(({ q, a }) => ({
+      q: formatTemplate(q, params),
+      a: formatTemplate(a, params),
+    }));
+    const mainEntity = brandBodyFaqItems.map(({ q, a }) => ({
       "@type": "Question",
-      name: formatTemplate(q, params),
+      name: q,
       acceptedAnswer: {
         "@type": "Answer",
-        text: formatTemplate(a, params),
+        text: a,
       },
     }));
     if (mainEntity.length > 0) {
@@ -2342,7 +2437,9 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   }
   // Body HTML: include the localised heading + intro (general variant, since
   // brand category type is not available at server render time) so AI crawlers
-  // see the real SEO section content without executing JS.
+  // see the real SEO section content without executing JS. FAQ questions are
+  // added as h2+h3 so pages with multiple sections have the required heading
+  // structure for AI crawlers and the Agent Ready scan.
   const pickBodyLangBrand = (/** @type {string} */ l) =>
     (l === "ar" || l === "fr") ? l : "en";
   const brandBodyLang = pickBodyLangBrand(lang);
@@ -2362,12 +2459,19 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   const brandNav = locBase
     ? `<nav><a href="${locBase}/">Home</a> › <a href="${locBase}/brands">Brands</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
+  let brandFaqBodyHtml = "";
+  if (brandBodyFaqItems.length > 0) {
+    brandFaqBodyHtml =
+      `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
+      brandBodyFaqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
+  }
   const bodyHtml = (
     `<div style="display:none">` +
     `<h1>${safeBrandTitle}</h1>` +
     (safeBrandDesc ? `<p>${safeBrandDesc}</p>` : "") +
     (safeBrandHeading ? `<h2>${safeBrandHeading}</h2>` : "") +
     (safeBrandIntro ? `<p>${safeBrandIntro}</p>` : "") +
+    brandFaqBodyHtml +
     brandNav +
     `</div>`
   );
@@ -2523,6 +2627,7 @@ function buildShopEntityHead({
   // see a clean FAQPage root. Only emitted when the entity has a name AND the
   // page has deliverable products — a listing with no products never renders
   // the FAQ section in the UI, so the schema would not match visible content.
+  let entityBodyFaqItems = [];
   if (rawName && productCount > 0) {
     const faqCopyMap =
       entityKind === "occasion" ? OCCASION_FAQ_COPY : CATEGORY_FAQ_COPY;
@@ -2532,12 +2637,16 @@ function buildShopEntityHead({
     };
     const faqItems = faqCopyMap[pickLangFaq(lang)] ?? faqCopyMap.en;
     const params = { name: rawName, city: cityLabel || "" };
-    const mainEntity = faqItems.map(({ q, a }) => ({
+    entityBodyFaqItems = faqItems.slice(0, 3).map(({ q, a }) => ({
+      q: formatTemplate(q, params),
+      a: formatTemplate(a, params),
+    }));
+    const mainEntity = entityBodyFaqItems.map(({ q, a }) => ({
       "@type": "Question",
-      name: formatTemplate(q, params),
+      name: q,
       acceptedAnswer: {
         "@type": "Answer",
-        text: formatTemplate(a, params),
+        text: a,
       },
     }));
     if (mainEntity.length > 0) {
@@ -2550,9 +2659,9 @@ function buildShopEntityHead({
       );
     }
   }
-  // Body HTML: include the localised heading + intro template text so AI
-  // crawlers (GPTBot, ClaudeBot, etc.) see the real SEO section content
-  // without executing JS. The strings mirror SEOContentSection.tsx.
+  // Body HTML: include the localised heading + intro template text and the FAQ
+  // questions so AI crawlers (GPTBot, ClaudeBot, etc.) see the real SEO section
+  // content and heading structure without executing JS.
   const pickBodyLang = (/** @type {string} */ l) =>
     (l === "ar" || l === "fr") ? l : "en";
   const bodyLang = pickBodyLang(lang);
@@ -2580,12 +2689,21 @@ function buildShopEntityHead({
   const entityNav = locBase
     ? `<nav><a href="${locBase}/">Home</a> › <a href="${locBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
+  // Add FAQ questions as h2+h3 headings so pages with multiple sections have
+  // the required subheading structure for AI crawlers and the Agent Ready scan.
+  let entityFaqBodyHtml = "";
+  if (entityBodyFaqItems.length > 0) {
+    entityFaqBodyHtml =
+      `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
+      entityBodyFaqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
+  }
   const bodyHtml = (
     `<div style="display:none">` +
     `<h1>${safeEntityTitle}</h1>` +
     (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
     (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
     (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +
+    entityFaqBodyHtml +
     entityNav +
     `</div>`
   );
