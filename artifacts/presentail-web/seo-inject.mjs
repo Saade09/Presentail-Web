@@ -887,7 +887,13 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
       `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
       faqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
   }
+  // The sr-only h1 lives OUTSIDE the display:none wrapper so Google (which
+  // treats display:none as potentially cloaked content) indexes it alongside
+  // the rest of the page. sr-only hides it visually while keeping it in the
+  // accessibility tree and the crawlable DOM. React's createRoot() replaces
+  // all children of #root on hydration, so JS users see the normal SPA h1.
   return (
+    `<h1 class="sr-only">${safeTitle}</h1>` +
     `<div style="display:none">` +
     `<h1>${safeTitle}</h1>` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
@@ -935,7 +941,9 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
-  return `<div style="display:none"><h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
+  // The sr-only h1 lives OUTSIDE the display:none wrapper so Googlebot indexes
+  // it without the cloaking risk that display:none carries.
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none"><h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
 }
 
 /**
@@ -958,7 +966,9 @@ function buildBlogPostBodyHtml(article, { localeBase }) {
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/blog">Journal</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
-  return `<div style="display:none">${inner}${nav}</div>`;
+  // The sr-only h1 lives OUTSIDE the display:none wrapper so Googlebot indexes
+  // it without the cloaking risk that display:none carries.
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${inner}${nav}</div>`;
 }
 
 /**
@@ -988,7 +998,9 @@ function buildWishlistBodyHtml({ count, items, title, origin, basePath }) {
     }
     inner += `</ul>`;
   }
-  return `<div style="display:none">${inner}</div>`;
+  // The sr-only h1 lives OUTSIDE the display:none wrapper so Googlebot indexes
+  // it without the cloaking risk that display:none carries.
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${inner}</div>`;
 }
 
 // ---------------------------------------------------------------------------
