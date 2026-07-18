@@ -51,32 +51,17 @@ const BASE_PATH = (process.env.BASE_PATH ?? "/").replace(/\/$/, "");
 const INTERNAL_API_BASE_URL =
   process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
 
-// Canonical-domain redirect. Requests arriving with this Host (or
-// X-Forwarded-Host) are 301-redirected to the same path on the apex domain so
-// there is a single canonical URL (avoids duplicate-content SEO penalties and
-// split sessions).
+// Canonical-domain redirect. Requests arriving on www.* or new.presentail.com
+// are hard-redirected to the apex unconditionally (cannot be disabled by env
+// vars — see request handler guards below).
 //
-// Both the source host and the target origin are configurable via env vars so
-// the canonical domain can be changed (new TLD, staging apex, different market
-// domain) purely through deployment configuration — no code edit / redeploy.
-//   • WEB_CANONICAL_REDIRECT_FROM_HOST     — host that triggers the redirect
-//   • WEB_CANONICAL_REDIRECT_TARGET_ORIGIN — origin the redirect points at
-// When unset, the historical hardcoded values are used. Setting EITHER env var
-// to an explicit empty string disables the redirect entirely (e.g. for a
-// single-domain deploy that has no www → apex mapping).
-const DEFAULT_WWW_REDIRECT_HOST = "www.presentail.com"; // i18n-ignore — canonical domain, not UI copy
-const WWW_REDIRECT_HOST = (
-  process.env.WEB_CANONICAL_REDIRECT_FROM_HOST ?? DEFAULT_WWW_REDIRECT_HOST
-)
-  .trim()
-  .toLowerCase();
+// WEB_CANONICAL_REDIRECT_TARGET_ORIGIN controls the apex origin used as the
+// redirect target. When unset the default "https://presentail.com" is used.
+// Setting it to an empty string is not recommended — the guards fall back to
+// the hardcoded string anyway.
 const WWW_REDIRECT_TARGET_ORIGIN = (
   process.env.WEB_CANONICAL_REDIRECT_TARGET_ORIGIN ?? "https://presentail.com"
 ).trim();
-// Disabled when either side is empty: an empty source host can never match a
-// real request, and an empty target origin has no destination to point at.
-const WWW_REDIRECT_ENABLED =
-  WWW_REDIRECT_HOST !== "" && WWW_REDIRECT_TARGET_ORIGIN !== "";
 
 // ---------------------------------------------------------------------------
 // Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
@@ -363,49 +348,59 @@ function isTransactionalPage(pathname) {
   return /(?:^|\/)(?:checkout|cart|order-confirmed)(?:\/|$)/.test(pathname);
 }
 
+// Deny-list of route tokens that must carry noindex regardless of host.
+// Must mirror NONINDEX_ROUTE_KEYS in src/lib/seo.mjs:
+//   cart, checkout, orderConfirmed, auth, account, favorites,
+//   privacy, terms, careers, partner, blog.
+// Also covers auth-adjacent routes not in NONINDEX_ROUTE_KEYS directly:
+//   sign-in, sign-up, reset-password (mapped to key "auth" by detectRouteKey).
+// Keep in sync with public/robots.txt Disallow entries.
+//
+// "blog" is deliberately excluded from this regex: the listing page /blog IS
+// noindex (route key "blog"), but individual posts /blog/{slug} ARE indexed
+// (route key "blogPost"). A separate blog-listing check handles this case.
+const PRIVATE_ROUTE_RE =
+  /(?:^|\/)(?:cart|checkout|order-confirmed|auth|sign-in|sign-up|reset-password|account|personal-information|favorites|privacy|terms|careers|partner)(?:\/|$)/;
+
 /**
- * Returns true for pages that must never be indexed by search engines.
- * Mirrors seo.mjs#NONINDEX_ROUTE_KEYS so the HTTP-level X-Robots-Tag header
- * stays in sync with the <meta name="robots"> injected by seo-inject.mjs.
- * Matches both bare paths (/checkout) and locale-prefixed variants
- * (e.g. /en-lb/beirut/checkout).
+ * Returns true when the pathname resolves to a private page that must carry a
+ * noindex directive. Matches both bare paths (/cart) and locale-prefixed
+ * variants (/en-lb/beirut/cart).
+ *
+ * Implemented as a deny-list (not an allow-list) so new public pages are
+ * automatically indexable without a code change.
  *
  * IMPORTANT: `blog` (the listing) is noindex but individual blog posts
- * (/blog/<slug>) are fully indexable.  The two regexes below keep them
+ * (/blog/<slug>) are fully indexable. The two clauses below keep them
  * distinct — do not collapse them into a single pattern that matches both.
  */
-function isNoindexPath(pathname) {
-  // Transactional / auth / account pages — noindex at any depth including sub-paths.
-  if (/(?:^|\/)(?:checkout|cart|order-confirmed|account|auth|sign-in|sign-up|favorites|privacy|terms|careers|partner)(?:\/|$)/.test(pathname)) return true;
-  // Blog LISTING only (/blog or /blog/) — individual blog post pages (/blog/<slug>)
-  // are fully indexable and must NOT match this pattern.
-  if (/(?:^|\/)blog\/?$/.test(pathname)) return true;
-  return false;
+function isPrivatePath(pathname) {
+  if (PRIVATE_ROUTE_RE.test(pathname)) return true;
+  // Blog listing page (/blog or /{lang-country}/{city}/blog) is noindex;
+  // individual blog posts (/blog/{slug}) are public. Match listing only by
+  // requiring "blog" at the end of the path (with optional trailing slash).
+  return /(?:^|\/)blog\/?$/.test(pathname);
 }
 
-/**
- * Returns true when the resolved host is a Replit preview domain
- * (*.replit.app or *.repl.co). Replit already injects a noindex
- * X-Robots-Tag for preview domains; we must not override it with
- * "index, follow" for public pages or we'd inadvertently expose
- * preview builds to search engines.
- */
-function isReplitPreviewHost(host) {
-  const h = host.split(":")[0].toLowerCase();
-  return h.endsWith(".replit.app") || h.endsWith(".repl.co");
-}
+const CANONICAL_PRODUCTION_HOST = "presentail.com"; // i18n-ignore — canonical domain
 
 /**
- * Resolve the X-Robots-Tag value for an HTML response.
+ * Returns the value for the X-Robots-Tag response header for an HTML response.
  *
- * - Private / noindex pages      → "noindex"  (always, regardless of host)
- * - Public pages on .replit.app  → undefined  (omit header; let Replit's noindex stand)
- * - Public pages on other hosts  → "index, follow"
+ * Rules (applied in order):
+ *  1. Private/transactional paths → "noindex" (regardless of host).
+ *  2. Canonical production host ("presentail.com") and public path → "index, follow".
+ *  3. All other hosts (Replit preview URLs, staging, etc.) → omit the header
+ *     entirely (return null) so the platform's default noindex applies.
+ *
+ * @param {string} host      Normalised hostname (no port, lowercase).
+ * @param {string} pathname  URL pathname (after BASE_PATH stripping).
+ * @returns {string|null}    Header value, or null to omit the header.
  */
-function resolveRobotsTag(pathname, host) {
-  if (isNoindexPath(pathname)) return "noindex";
-  if (isReplitPreviewHost(host)) return undefined;
-  return "index, follow";
+function resolveXRobotsTag(host, pathname) {
+  if (isPrivatePath(pathname)) return "noindex";
+  if (host === CANONICAL_PRODUCTION_HOST) return "index, follow";
+  return null; // non-canonical host — omit; let platform default apply
 }
 
 const MIME = {
@@ -906,15 +901,31 @@ const server = http.createServer(async (req, res) => {
         .trim()
         .split(":")[0]
         .toLowerCase();
+
+    // Hard guard: requests arriving on any www.* hostname are unconditionally
+    // redirected to the apex. This fires even if WEB_CANONICAL_REDIRECT_FROM_HOST
+    // is overridden or cleared, so the www→apex consolidation can never be
+    // accidentally disabled by a misconfigured env var.
+    const normalizedHost    = normalizeHostHeader(req.headers.host);
+    const normalizedFwdHost = normalizeHostHeader(req.headers["x-forwarded-host"]);
     const isWwwHost =
-      WWW_REDIRECT_ENABLED &&
-      (normalizeHostHeader(req.headers["x-forwarded-host"]) ===
-        WWW_REDIRECT_HOST ||
-        normalizeHostHeader(req.headers.host) === WWW_REDIRECT_HOST);
+      normalizedHost.startsWith("www.") || normalizedFwdHost.startsWith("www.");
     if (isWwwHost) {
-      res.writeHead(301, {
-        location: `${WWW_REDIRECT_TARGET_ORIGIN}${req.url ?? "/"}`,
-      });
+      const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
+      res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
+      res.end();
+      return;
+    }
+
+    // Hard guard: the retired new.presentail.com subdomain is permanently
+    // redirected to the canonical apex. This must fire unconditionally — no env
+    // var controls it — so the redirect cannot be accidentally disabled.
+    const isNewSubdomain =
+      normalizedHost === "new.presentail.com" ||
+      normalizedFwdHost === "new.presentail.com";
+    if (isNewSubdomain) {
+      const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
+      res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
       res.end();
       return;
     }
@@ -1341,14 +1352,13 @@ const server = http.createServer(async (req, res) => {
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
         const canonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
-        const robotsTag = resolveRobotsTag(pathname, host);
+        const xRobotsTag = resolveXRobotsTag(normalizeHostHeader(host), pathname);
         const headers = {
           "content-type": MIME[".html"],
-          // x-robots-tag: set to "noindex" for private pages; "index, follow"
-          // for public pages on production domains; omitted (undefined) for
-          // public pages on Replit preview domains so Replit's own noindex
-          // header is not overridden and preview builds stay out of Google's index.
-          ...(robotsTag !== undefined && { "x-robots-tag": robotsTag }),
+          // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
+          // On the canonical production host: "index, follow" for public pages,
+          // "noindex" for private/transactional paths.
+          ...(xRobotsTag !== null ? { "x-robots-tag": xRobotsTag } : {}),
           // All HTML responses use no-store so that:
           //  1. No HTTP cache layer (CDN, ISP, browser) stores the shell.
           //  2. Safari's Back/Forward Cache (BFCache) is opted out — BFCache
@@ -1515,10 +1525,13 @@ const server = http.createServer(async (req, res) => {
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);
     const spaCanonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
-    const spaRobotsTag = resolveRobotsTag(pathname, host);
+    const xRobotsTagSpa = resolveXRobotsTag(normalizeHostHeader(host), pathname);
     const headers = {
       "content-type": MIME[".html"],
-      ...(spaRobotsTag !== undefined && { "x-robots-tag": spaRobotsTag }),
+      // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
+      // On the canonical production host: "index, follow" for public pages,
+      // "noindex" for private/transactional paths.
+      ...(xRobotsTagSpa !== null ? { "x-robots-tag": xRobotsTagSpa } : {}),
       "cache-control": isTransactionalPage(pathname)
         ? "no-store, no-cache, must-revalidate"
         : "no-cache",
