@@ -363,6 +363,51 @@ function isTransactionalPage(pathname) {
   return /(?:^|\/)(?:checkout|cart|order-confirmed)(?:\/|$)/.test(pathname);
 }
 
+/**
+ * Returns true for pages that must never be indexed by search engines.
+ * Mirrors seo.mjs#NONINDEX_ROUTE_KEYS so the HTTP-level X-Robots-Tag header
+ * stays in sync with the <meta name="robots"> injected by seo-inject.mjs.
+ * Matches both bare paths (/checkout) and locale-prefixed variants
+ * (e.g. /en-lb/beirut/checkout).
+ *
+ * IMPORTANT: `blog` (the listing) is noindex but individual blog posts
+ * (/blog/<slug>) are fully indexable.  The two regexes below keep them
+ * distinct — do not collapse them into a single pattern that matches both.
+ */
+function isNoindexPath(pathname) {
+  // Transactional / auth / account pages — noindex at any depth including sub-paths.
+  if (/(?:^|\/)(?:checkout|cart|order-confirmed|account|auth|sign-in|sign-up|favorites|privacy|terms|careers|partner)(?:\/|$)/.test(pathname)) return true;
+  // Blog LISTING only (/blog or /blog/) — individual blog post pages (/blog/<slug>)
+  // are fully indexable and must NOT match this pattern.
+  if (/(?:^|\/)blog\/?$/.test(pathname)) return true;
+  return false;
+}
+
+/**
+ * Returns true when the resolved host is a Replit preview domain
+ * (*.replit.app or *.repl.co). Replit already injects a noindex
+ * X-Robots-Tag for preview domains; we must not override it with
+ * "index, follow" for public pages or we'd inadvertently expose
+ * preview builds to search engines.
+ */
+function isReplitPreviewHost(host) {
+  const h = host.split(":")[0].toLowerCase();
+  return h.endsWith(".replit.app") || h.endsWith(".repl.co");
+}
+
+/**
+ * Resolve the X-Robots-Tag value for an HTML response.
+ *
+ * - Private / noindex pages      → "noindex"  (always, regardless of host)
+ * - Public pages on .replit.app  → undefined  (omit header; let Replit's noindex stand)
+ * - Public pages on other hosts  → "index, follow"
+ */
+function resolveRobotsTag(pathname, host) {
+  if (isNoindexPath(pathname)) return "noindex";
+  if (isReplitPreviewHost(host)) return undefined;
+  return "index, follow";
+}
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
@@ -795,6 +840,9 @@ const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
   "/shipping-policy", "/return-policy",
   "/reset-password", "/unauthorized", "/account", "/favorites",
   "/sign-in", "/sign-up",
+  // /auth is a recognised route in seo-inject.mjs (maps to routeKey "auth");
+  // it must be listed here too so the SPA route guard does not 404 it.
+  "/auth",
 ]);
 function isKnownLocaleSubRoute(rest) {
   if (!rest || rest === "/" || rest === "") return true;
@@ -1293,12 +1341,14 @@ const server = http.createServer(async (req, res) => {
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
         const canonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
+        const robotsTag = resolveRobotsTag(pathname, host);
         const headers = {
           "content-type": MIME[".html"],
-          // Override any upstream X-Robots-Tag (e.g. Replit's default for
-          // `.replit.app` preview domains) so Lighthouse / Googlebot don't
-          // see "noindex" on a production deployment.
-          "x-robots-tag": "index, follow",
+          // x-robots-tag: set to "noindex" for private pages; "index, follow"
+          // for public pages on production domains; omitted (undefined) for
+          // public pages on Replit preview domains so Replit's own noindex
+          // header is not overridden and preview builds stay out of Google's index.
+          ...(robotsTag !== undefined && { "x-robots-tag": robotsTag }),
           // All HTML responses use no-store so that:
           //  1. No HTTP cache layer (CDN, ISP, browser) stores the shell.
           //  2. Safari's Back/Forward Cache (BFCache) is opted out — BFCache
@@ -1465,9 +1515,10 @@ const server = http.createServer(async (req, res) => {
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);
     const spaCanonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
+    const spaRobotsTag = resolveRobotsTag(pathname, host);
     const headers = {
       "content-type": MIME[".html"],
-      "x-robots-tag": "index, follow",
+      ...(spaRobotsTag !== undefined && { "x-robots-tag": spaRobotsTag }),
       "cache-control": isTransactionalPage(pathname)
         ? "no-store, no-cache, must-revalidate"
         : "no-cache",
