@@ -42,7 +42,7 @@ const ROBOTS_PATH = path.join(
   "artifacts/presentail-web/public/robots.txt",
 );
 
-const REQUIRED_DISALLOW_PATTERNS: Array<{
+export const REQUIRED_DISALLOW_PATTERNS: Array<{
   label: string;
   match: (p: string) => boolean;
 }> = [
@@ -57,17 +57,17 @@ const REQUIRED_DISALLOW_PATTERNS: Array<{
   },
 ];
 
-interface ParsedBlock {
+export interface ParsedBlock {
   agents: string[];
   disallows: string[];
 }
 
-interface ParseResult {
+export interface ParseResult {
   blocks: ParsedBlock[];
   orphanedLines: Array<{ lineNo: number; line: string }>;
 }
 
-function parseRobotsTxt(content: string): ParseResult {
+export function parseRobotsTxt(content: string): ParseResult {
   const lines = content.split(/\r?\n/);
   const blocks: ParsedBlock[] = [];
   const orphanedLines: Array<{ lineNo: number; line: string }> = [];
@@ -117,15 +117,12 @@ function parseRobotsTxt(content: string): ParseResult {
   return { blocks, orphanedLines };
 }
 
-function run(): void {
-  let content: string;
-  try {
-    content = fs.readFileSync(ROBOTS_PATH, "utf-8");
-  } catch (err) {
-    console.error(`✗ Could not read ${ROBOTS_PATH}: ${err}`);
-    process.exit(1);
-  }
-
+/**
+ * Pure validation logic: parses `content` and returns a list of error
+ * strings. An empty array means the content is structurally valid.
+ * Exported so unit tests can exercise each error class in isolation.
+ */
+export function checkRobotsTxtContent(content: string): string[] {
   const { blocks, orphanedLines } = parseRobotsTxt(content);
   const errors: string[] = [];
 
@@ -160,6 +157,20 @@ function run(): void {
     }
   }
 
+  return errors;
+}
+
+function run(): void {
+  let content: string;
+  try {
+    content = fs.readFileSync(ROBOTS_PATH, "utf-8");
+  } catch (err) {
+    console.error(`✗ Could not read ${ROBOTS_PATH}: ${err}`);
+    process.exit(1);
+  }
+
+  const errors = checkRobotsTxtContent(content);
+
   if (errors.length > 0) {
     console.error(
       `\n✗ robots.txt structural check failed (${errors.length} error${errors.length === 1 ? "" : "s"}):\n`,
@@ -171,6 +182,7 @@ function run(): void {
     process.exit(1);
   }
 
+  const { blocks } = parseRobotsTxt(content);
   const blockSummary = blocks
     .map((b) => b.agents.join("|"))
     .join(", ");
