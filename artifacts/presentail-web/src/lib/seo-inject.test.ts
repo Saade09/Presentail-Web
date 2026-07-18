@@ -705,6 +705,94 @@ describe("buildSeoHead — city slug allowlist", () => {
   });
 });
 
+describe("buildSeoHead — hreflang alternates (full 10-alternate set)", () => {
+  const ORIGIN = "https://presentail.com";
+  const OPTS_FULL = { origin: ORIGIN, basePath: "" };
+
+  function getAlternates(headSnippet: string): Array<{ hreflang: string; href: string }> {
+    const re = /<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g;
+    const results: Array<{ hreflang: string; href: string }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(headSnippet)) !== null) {
+      results.push({ hreflang: m[1], href: m[2] });
+    }
+    return results;
+  }
+
+  beforeEach(() => {
+    genericSeoCache.clear();
+  });
+
+  it("emits exactly 10 alternates for /en-lb/tripoli/shop (all 9 locales + x-default)", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli/shop", OPTS_FULL);
+    const alts = getAlternates(headSnippet);
+    expect(alts).toHaveLength(10);
+    expect(alts.map((a) => a.hreflang)).toEqual([
+      "en-LB", "ar-LB", "fr-LB",
+      "en-AE", "ar-AE", "fr-AE",
+      "en-CY", "ar-CY", "fr-CY",
+      "x-default",
+    ]);
+  });
+
+  it("uses canonical cities (not the browsed city) when building alternate hrefs — /en-ae/dubai/shop", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/shop", OPTS_FULL);
+    const alts = getAlternates(headSnippet);
+    expect(alts).toHaveLength(10);
+    const byHreflang = Object.fromEntries(alts.map((a) => [a.hreflang, a.href]));
+    expect(byHreflang["en-LB"]).toBe(`${ORIGIN}/en-lb/beirut/shop`);
+    expect(byHreflang["ar-LB"]).toBe(`${ORIGIN}/ar-lb/beirut/shop`);
+    expect(byHreflang["fr-LB"]).toBe(`${ORIGIN}/fr-lb/beirut/shop`);
+    expect(byHreflang["en-AE"]).toBe(`${ORIGIN}/en-ae/dubai/shop`);
+    expect(byHreflang["ar-AE"]).toBe(`${ORIGIN}/ar-ae/dubai/shop`);
+    expect(byHreflang["fr-AE"]).toBe(`${ORIGIN}/fr-ae/dubai/shop`);
+    expect(byHreflang["en-CY"]).toBe(`${ORIGIN}/en-cy/limassol/shop`);
+    expect(byHreflang["ar-CY"]).toBe(`${ORIGIN}/ar-cy/limassol/shop`);
+    expect(byHreflang["fr-CY"]).toBe(`${ORIGIN}/fr-cy/limassol/shop`);
+    expect(byHreflang["x-default"]).toBe(`${ORIGIN}/en-lb/beirut/shop`);
+  });
+
+  it("emits zero alternates for /en-lb/beirut/checkout (noindex guard)", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut/checkout", OPTS_FULL);
+    const alts = getAlternates(headSnippet);
+    expect(alts).toHaveLength(0);
+  });
+
+  it("x-default always points to en-lb/beirut/{entityPath} regardless of requesting locale", () => {
+    const paths = [
+      { path: "/en-lb/tripoli/shop", entity: "shop" },
+      { path: "/ar-lb/beirut/shop", entity: "shop" },
+      { path: "/fr-ae/dubai/shop", entity: "shop" },
+      { path: "/en-cy/limassol/shop", entity: "shop" },
+    ];
+    for (const { path, entity } of paths) {
+      genericSeoCache.clear();
+      const { headSnippet } = buildSeoHead(path, OPTS_FULL);
+      const alts = getAlternates(headSnippet);
+      const xDefault = alts.find((a) => a.hreflang === "x-default");
+      expect(xDefault, `x-default missing for ${path}`).toBeDefined();
+      expect(xDefault!.href).toBe(`${ORIGIN}/en-lb/beirut/${entity}`);
+    }
+  });
+
+  it("alternates for an unknown sub-route point to locale homes (soft-404 guard)", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut/some-unknown-route", OPTS_FULL);
+    const alts = getAlternates(headSnippet);
+    expect(alts).toHaveLength(10);
+    const byHreflang = Object.fromEntries(alts.map((a) => [a.hreflang, a.href]));
+    expect(byHreflang["en-LB"]).toBe(`${ORIGIN}/en-lb/beirut`);
+    expect(byHreflang["ar-LB"]).toBe(`${ORIGIN}/ar-lb/beirut`);
+    expect(byHreflang["fr-LB"]).toBe(`${ORIGIN}/fr-lb/beirut`);
+    expect(byHreflang["en-AE"]).toBe(`${ORIGIN}/en-ae/dubai`);
+    expect(byHreflang["ar-AE"]).toBe(`${ORIGIN}/ar-ae/dubai`);
+    expect(byHreflang["fr-AE"]).toBe(`${ORIGIN}/fr-ae/dubai`);
+    expect(byHreflang["en-CY"]).toBe(`${ORIGIN}/en-cy/limassol`);
+    expect(byHreflang["ar-CY"]).toBe(`${ORIGIN}/ar-cy/limassol`);
+    expect(byHreflang["fr-CY"]).toBe(`${ORIGIN}/fr-cy/limassol`);
+    expect(byHreflang["x-default"]).toBe(`${ORIGIN}/en-lb/beirut`);
+  });
+});
+
 describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
   const ORIGIN_OPTS = { origin: "https://presentail.test", basePath: "" };
 
