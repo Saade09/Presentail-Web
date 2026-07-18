@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 type OgImage = {
   url: string;
@@ -88,13 +89,14 @@ const COPY: Record<Language, Copy> = {
 };
 
 export default function Blog() {
-  const { language } = useLocale();
+  const { language, t } = useLocale();
   const c = COPY[language] ?? COPY.en;
   const stories = getStories(language);
 
   return (
     <div className="bg-background" data-testid="blog-page" lang={language}>
       <section className="container mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-16 max-w-4xl">
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: c.eyebrow }]} />
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
           {c.eyebrow}
         </p>

@@ -4,6 +4,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { CITY_NAMES, buildContactSeo } from "@/lib/seo";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { Mail, MessageCircle, Phone, MapPin, ArrowRight, ExternalLink } from "lucide-react";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 type Copy = {
   eyebrow: string;
@@ -149,7 +150,7 @@ function useBeirutOpen() {
 }
 
 export default function Contact() {
-  const { language } = useLocale();
+  const { language, t } = useLocale();
   const { cityId, countryCode } = useLocationSelection();
   const c = COPY[language] ?? COPY.en;
   const isOpen = useBeirutOpen();
@@ -161,6 +162,9 @@ export default function Contact() {
 
   return (
     <div className="bg-background" data-testid="contact-page" lang={language}>
+      <div className="container mx-auto px-4 pt-6 max-w-content">
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: c.eyebrow }]} />
+      </div>
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         {/* Decorative radial gradient accent */}

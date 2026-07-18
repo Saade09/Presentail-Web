@@ -216,6 +216,7 @@ export default function ProductDetail() {
 
   const productBreadcrumbs = useMemo((): Crumb[] => {
     const home: Crumb = { label: t("nav.home"), href: "/" };
+    const shop: Crumb = { label: t("shop.allCollection"), href: "/shop" };
     if (!product) return [home];
     const catSlug = product.category;
     const catEntry = catSlug
@@ -224,11 +225,12 @@ export default function ProductDetail() {
     if (catEntry) {
       return [
         home,
+        shop,
         { label: catEntry.name, href: `/category/${catSlug}` },
         { label: product.name },
       ];
     }
-    return [home, { label: product.name }];
+    return [home, shop, { label: product.name }];
   }, [product, catalogMetadata, t]);
 
   const effectiveDescription = useMemo(() => {

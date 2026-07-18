@@ -1,5 +1,6 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 type Copy = {
   eyebrow: string;
@@ -115,13 +116,14 @@ const COPY: Record<Language, Copy> = {
 };
 
 export default function Careers() {
-  const { language } = useLocale();
+  const { language, t } = useLocale();
   const c = COPY[language] ?? COPY.en;
   const mailto = `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent(c.applySubject)}`;
 
   return (
     <div className="bg-background" data-testid="careers-page" lang={language}>
       <section className="container mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-16 max-w-4xl">
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: c.eyebrow }]} />
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
           {c.eyebrow}
         </p>

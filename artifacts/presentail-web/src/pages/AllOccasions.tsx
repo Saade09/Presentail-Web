@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SEOContentSection } from "@/components/SEOContentSection";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { useState } from "react";
 import {
   Baby,
@@ -201,6 +202,9 @@ export default function AllOccasions() {
 
   return (
     <div className="min-h-screen pt-12">
+      <div className="container mx-auto max-w-content px-page pt-2">
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: t("occasions.title") }]} />
+      </div>
       <div className="container mx-auto max-w-content px-page">
         <div className="mb-12 pb-8">
           <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-occasions-title">

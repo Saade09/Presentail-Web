@@ -1,5 +1,6 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { LegalPage, type LegalSection } from "./legal/LegalPage";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 const EYEBROW: Record<Language, string> = {
   en: "Legal",
@@ -272,7 +273,7 @@ const SECTIONS: LegalSection[] = [
 ];
 
 export default function Terms() {
-  const { language } = useLocale();
+  const { language, t } = useLocale();
   return (
     <LegalPage
       testId="terms-page"
@@ -281,6 +282,7 @@ export default function Terms() {
       title={TITLE[language] ?? TITLE.en}
       intro={<p>{INTRO_NOTE[language] ?? INTRO_NOTE.en}</p>}
       sections={SECTIONS}
+      breadcrumb={<PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: TITLE[language] ?? TITLE.en }]} />}
     />
   );
 }

@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import {
   buildBlogArticleJsonLd,
   BLOG_OG_FALLBACK_IMAGE_PATH,
@@ -37,12 +38,13 @@ const ARTICLES = BLOG_POSTS as Record<string, Record<Language, Article>>;
 type UiCopy = {
   backToJournal: string;
   shopCta: string;
+  blogNav: string;
 };
 
 const UI_COPY: Record<Language, UiCopy> = {
-  en: { backToJournal: "Back to the Journal", shopCta: "Shop the collection" },
-  ar: { backToJournal: "العودة إلى اليوميّات", shopCta: "تسوّق المجموعة" },
-  fr: { backToJournal: "Retour au Journal", shopCta: "Voir la collection" },
+  en: { backToJournal: "Back to the Journal", shopCta: "Shop the collection", blogNav: "Blog" },
+  ar: { backToJournal: "العودة إلى اليوميّات", shopCta: "تسوّق المجموعة", blogNav: "المدوّنة" },
+  fr: { backToJournal: "Retour au Journal", shopCta: "Voir la collection", blogNav: "Blog" },
 };
 
 function formatDate(iso: string, language: Language): string {
@@ -57,7 +59,7 @@ function formatDate(iso: string, language: Language): string {
 export default function BlogPost() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug ?? "";
-  const { language } = useLocale();
+  const { language, t } = useLocale();
 
   const articlesByLang = ARTICLES[slug];
   const article = articlesByLang?.[language] ?? articlesByLang?.["en"];
@@ -136,7 +138,8 @@ export default function BlogPost() {
   return (
     <div className="bg-background" data-testid="blog-post-page" lang={language}>
       <div className="container mx-auto px-4 pt-10 pb-4 max-w-3xl">
-        <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: ui.blogNav, href: "/blog" }, { label: article.title }]} />
+        <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mt-2">
           <ArrowLeft className="w-3.5 h-3.5" />
           {ui.backToJournal}
         </Link>

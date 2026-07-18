@@ -3,6 +3,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { SEOContentSection } from "@/components/SEOContentSection";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 type Copy = {
   eyebrow: string;
@@ -135,7 +136,7 @@ const COPY: Record<Language, Copy> = {
 };
 
 export default function Corporate() {
-  const { language } = useLocale();
+  const { language, t } = useLocale();
   const { cityId, countryCode } = useLocationSelection();
   const c = COPY[language] ?? COPY.en;
   const mailto = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(c.ctaSubject)}`;
@@ -150,6 +151,7 @@ export default function Corporate() {
   return (
     <div className="bg-background" data-testid="corporate-page" lang={language}>
       <section className="container mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-16 max-w-4xl">
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: c.eyebrow }]} />
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
           {c.eyebrow}
         </p>

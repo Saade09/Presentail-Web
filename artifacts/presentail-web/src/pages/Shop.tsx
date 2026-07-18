@@ -583,8 +583,8 @@ export default function Shop() {
       : "/shop";
 
   const breadcrumbCrumbs = useMemo((): Crumb[] => {
-    if (!category && !occasion && !brand) return [];
     const home: Crumb = { label: t("nav.home"), href: "/" };
+    if (!category && !occasion && !brand) return [home, { label: t("shop.allCollection") }];
     if (category) {
       const label = capitalizeFirst(
         (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) ||

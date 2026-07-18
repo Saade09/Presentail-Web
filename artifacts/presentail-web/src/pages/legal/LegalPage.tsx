@@ -13,6 +13,7 @@ type Props = {
   sections: LegalSection[];
   testId: string;
   lang: string;
+  breadcrumb?: ReactNode;
 };
 
 export function LegalPage({
@@ -23,10 +24,12 @@ export function LegalPage({
   sections,
   testId,
   lang,
+  breadcrumb,
 }: Props) {
   return (
     <div className="bg-background" data-testid={testId} lang={lang}>
       <section className="container mx-auto px-4 pt-16 pb-10 md:pt-24 md:pb-12 max-w-3xl">
+        {breadcrumb}
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
           {eyebrow}
         </p>

@@ -1,5 +1,6 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { LegalPage, type LegalSection } from "./legal/LegalPage";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 // i18n-ignore — legal policy page; content is EN-authoritative with AR/FR summaries
 const EYEBROW: Record<Language, string> = {
@@ -75,7 +76,7 @@ const SECTIONS: LegalSection[] = [
 ];
 
 export default function ShippingPolicy() {
-  const { language } = useLocale();
+  const { language, t } = useLocale();
   return (
     <LegalPage
       eyebrow={EYEBROW[language]}
@@ -84,6 +85,7 @@ export default function ShippingPolicy() {
       testId="shipping-policy-page"
       lang={language}
       sections={SECTIONS}
+      breadcrumb={<PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: TITLE[language] }]} />}
     />
   );
 }
