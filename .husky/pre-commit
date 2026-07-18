@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 # Pre-commit hook: fail fast on hardcoded user-visible strings in mobile, web, and API code,
-# and catch unused / missing / copy-pasted translation keys before they reach CI.
+# catch unused / missing / copy-pasted translation keys before they reach CI, and guard
+# NAP (phone/email) consistency between Contact.tsx and the JSON-LD locationData.mjs schema.
 # To install: cp .husky/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 pnpm run check-hardcoded-strings
 pnpm --filter @workspace/scripts run check-translations
+pnpm --filter @workspace/scripts run check-nap-consistency
