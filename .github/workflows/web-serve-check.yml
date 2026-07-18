@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "artifacts/presentail-web/**"
+      - "scripts/**"
       - ".github/workflows/web-serve-check.yml"
   pull_request:
     paths:
       - "artifacts/presentail-web/**"
+      - "scripts/**"
       - ".github/workflows/web-serve-check.yml"
 
 jobs:
@@ -53,6 +55,9 @@ jobs:
 
       - name: Check FAQ copy is in sync (seo-shop-faqs.mjs matches shop.ts)
         run: pnpm --filter @workspace/scripts run check-faq-sync
+
+      - name: Check city page content similarity (≤80% Jaccard per same-country pair)
+        run: pnpm --filter @workspace/scripts run check-city-similarity
 
       - name: Check contact page SEO title lengths (30–65 chars)
         run: pnpm --filter @workspace/presentail-web run check-contact-title-length

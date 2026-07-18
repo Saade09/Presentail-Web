@@ -36,6 +36,7 @@
     "check-cross-platform-copy-sync": "tsx ./src/checkCrossPlatformCopySync.ts",
     "check-low-contrast-text": "tsx ./src/checkLowContrastText.ts",
     "check-low-contrast-text-mobile": "tsx ./src/checkLowContrastTextMobile.ts",
+    "check-city-similarity": "tsx ./src/checkCitySimilarity.ts",
     "seed-collection-ranking": "tsx ./src/seedCollectionRanking.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
