@@ -568,9 +568,9 @@ export const DESCRIPTIONS = {
 // description are built from the fetched entity name.
 export const ENTITY_TITLES = {
   product: {
-    en: "{name} Delivery in {city} | Presentail",
-    ar: "توصيل {name} في {city} | Presentail",
-    fr: "Livraison de {name} à {city} | Presentail",
+    en: "{name} — {city} | Presentail",
+    ar: "{name} — {city} | Presentail",
+    fr: "{name} — {city} | Presentail",
   },
   category: {
     en: "{name} Delivery in {city} | Presentail",

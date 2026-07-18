@@ -46,7 +46,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
     expect(fetchMock.mock.calls[0][0]).toContain("cityId=ae-dubai");
-    expect(out).toContain("<title>Velvet Rose Bouquet Delivery in Dubai | Presentail</title>");
+    expect(out).toContain("<title>Velvet Rose Bouquet — Dubai | Presentail</title>");
     expect(out).toContain(
       'content="A dozen long-stem velvet roses, hand-tied."',
     );
@@ -3167,7 +3167,7 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
     // Second call within TTL: conditional request fails → should still serve
     // the cached entity (not the generic fallback).
     const out = await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-errf-withinttl-product", ETAG_OPTS);
-    expect(out).toContain("<title>Fallback Product Delivery in Dubai | Presentail</title>");
+    expect(out).toContain("<title>Fallback Product — Dubai | Presentail</title>");
     expect(entityFetchCount).toBe(2); // conditional attempt was made
   });
 });
@@ -3886,7 +3886,7 @@ describe("shared-link preview cache — cache-hit skips upstream (product)", () 
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(1);
-    expect(out1).toContain("<title>Cached Preview Product Delivery in Dubai | Presentail</title>");
+    expect(out1).toContain("<title>Cached Preview Product — Dubai | Presentail</title>");
 
     // Second call immediately within TTL: entity must be served from the
     // in-process cache — the upstream must NOT be called again.
@@ -3896,7 +3896,7 @@ describe("shared-link preview cache — cache-hit skips upstream (product)", () 
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(1); // still 1 — served from cache
-    expect(out2).toContain("<title>Cached Preview Product Delivery in Dubai | Presentail</title>");
+    expect(out2).toContain("<title>Cached Preview Product — Dubai | Presentail</title>");
   });
 });
 
@@ -4005,7 +4005,7 @@ describe("shared-link preview cache — null result is NOT cached", () => {
     );
     expect(entityFetchCount).toBe(2); // upstream called again (null not cached)
     // This time the fetch succeeds → product-specific title is rendered.
-    expect(out2).toContain("<title>Retry Product Delivery in Dubai | Presentail</title>");
+    expect(out2).toContain("<title>Retry Product — Dubai | Presentail</title>");
   });
 
   it("retries the upstream on the next call when the first brand fetch threw a network error", async () => {
@@ -4130,7 +4130,7 @@ describe("shared-link preview cache — analytics event fired on live failure bu
     );
     expect(successFetchCount).toBe(1); // upstream skipped — cache hit
     expect(analyticsCalls).toHaveLength(0); // no event on cache hit
-    expect(out2).toContain("<title>Analytics Cache Hit Product Delivery in Dubai | Presentail</title>");
+    expect(out2).toContain("<title>Analytics Cache Hit Product — Dubai | Presentail</title>");
 
     // --- Failed entity: live failure fires the event ---
     analyticsCalls.length = 0;
@@ -5580,9 +5580,9 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
 describe("Client-side SEO builders — return shape (title, ogTitle, twitterTitle)", () => {
   it("buildProductSeo returns entity-specific title for EN with city and name", () => {
     const seo = buildProductSeo({ lang: "en", productName: "15 Red Roses", city: "Beirut", country: "Lebanon" });
-    expect(seo.title).toBe("15 Red Roses Delivery in Beirut | Presentail");
-    expect(seo.ogTitle).toBe("15 Red Roses Delivery in Beirut | Presentail");
-    expect(seo.twitterTitle).toBe("15 Red Roses Delivery in Beirut | Presentail");
+    expect(seo.title).toBe("15 Red Roses — Beirut | Presentail");
+    expect(seo.ogTitle).toBe("15 Red Roses — Beirut | Presentail");
+    expect(seo.twitterTitle).toBe("15 Red Roses — Beirut | Presentail");
     expect(typeof seo.description).toBe("string");
     expect(seo.description.length).toBeGreaterThan(0);
   });
