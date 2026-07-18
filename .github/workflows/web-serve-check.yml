@@ -130,6 +130,11 @@ jobs:
       - name: Check Apple Sign In domain verification endpoint (serve logic)
         run: node artifacts/presentail-web/scripts/check-apple-sign-in-domain.mjs http://localhost:19234
 
+      - name: Validate JSON-LD structured data against schema.org validator API (Error-level issues fail)
+        run: pnpm --filter @workspace/presentail-web run check-jsonld-rich-results
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:19234
+
       - name: Install Playwright browsers
         run: pnpm --filter @workspace/presentail-web exec playwright install chromium --with-deps
 
