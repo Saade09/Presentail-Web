@@ -191,6 +191,10 @@ test.describe("Structured data — locale-prefixed city homepage /en-lb/beirut/"
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
 
+  test('LocalBusiness (Florist) JSON-LD is present with areaServed and address', () => {
+    assertLocalBusinessJsonLd(html);
+  });
+
   test("meta[name=\"description\"] is present and non-empty", () => {
     assertDescription(html);
   });
@@ -610,6 +614,44 @@ function extractJsonLdNodes(html: string): Record<string, unknown>[] {
     }
   }
   return nodes;
+}
+
+/**
+ * Assert that the LocalBusiness (Florist) JSON-LD node parsed from raw HTML:
+ *   - exists and has @type "Florist"
+ *   - carries a non-empty `areaServed` string (city-page location anchor)
+ *   - carries an `address` object with at least one of `addressLocality` or
+ *     `addressCountry` present and non-empty
+ *
+ * Applied to the /en-lb/beirut/ describe block so a regression in the
+ * cityName/countryName resolution path (which conditionally populates these
+ * fields in buildLocalBusinessSchema) is caught before it silently removes the
+ * local-pack location signals from every city homepage.
+ */
+function assertLocalBusinessJsonLd(html: string) {
+  const nodes = extractJsonLdNodes(html);
+  const floristNode = nodes.find((n) => n["@type"] === "Florist");
+  expect(floristNode, 'LocalBusiness (Florist) JSON-LD node not found').toBeTruthy();
+
+  const areaServed = floristNode!.areaServed;
+  expect(areaServed, "LocalBusiness.areaServed should be present").toBeTruthy();
+  expect(
+    typeof areaServed === "string" && (areaServed as string).trim().length > 0,
+    "LocalBusiness.areaServed should be a non-empty string",
+  ).toBe(true);
+
+  const address = floristNode!.address as Record<string, unknown> | undefined;
+  expect(address, "LocalBusiness.address should be present").toBeTruthy();
+  const hasLocality =
+    typeof address!.addressLocality === "string" &&
+    (address!.addressLocality as string).trim().length > 0;
+  const hasCountry =
+    typeof address!.addressCountry === "string" &&
+    (address!.addressCountry as string).trim().length > 0;
+  expect(
+    hasLocality || hasCountry,
+    "LocalBusiness.address should have a non-empty addressLocality or addressCountry",
+  ).toBe(true);
 }
 
 /**
