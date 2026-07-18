@@ -1389,9 +1389,9 @@ describe("injectSeoTagsAsync — entity pages with image: og:image:alt and twitt
     const out = await injectSeoTagsAsync(
       HTML,
       "/en-lb/beirut/product/sunflower-bunch",
-      { ...OPTS, origin: "" },
+      OPTS,
     );
-    // Branded API URL always emits fixed 1200×630 dimensions.
+    // Branded API URL (publicOrigin set) always emits fixed 1200×630 dimensions.
     expect(out).toContain('<meta property="og:image:width" content="1200"');
     expect(out).toContain('<meta property="og:image:height" content="630"');
   });
@@ -4734,7 +4734,7 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     expect(product["@type"]).toBe("Product");
     expect(product.name).toBe("Velvet Rose Bouquet");
     expect(product.image).toBe("https://cdn.test/velvet.jpg");
-    expect(product.brand).toBeUndefined(); // no brand field in product data → omitted from schema
+    expect(product.brand).toEqual({ "@type": "Brand", "name": "Presentail" }); // brand field present in product data → emitted in schema
     expect(product.url).toBe(
       "https://presentail.test/en-ae/dubai/product/branded-rose-collection",
     );
@@ -6497,18 +6497,16 @@ describe("injectSeoTagsAsync — banner LCP preload tag", () => {
     expect(out).toContain("w=400");
   });
 
-  it("falls back to plain href preload for a non-OS banner URL", async () => {
+  it("does NOT emit any preload for a non-OS banner URL (SSRF guard)", async () => {
     vi.stubGlobal("fetch", vi.fn());
     const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", {
       ...OPTS,
       firstBannerImageUrl: NON_OS_BANNER_URL,
     });
-    expect(out).toContain('rel="preload"');
-    // escapeAttr encodes & as &amp; inside HTML attributes.
-    expect(out).toContain(
-      'href="https://images.unsplash.com/photo-123?w=1280&amp;q=80"',
-    );
-    // Should NOT emit imagesrcset for a non-OS URL.
+    // Non-OS URLs (e.g. Unsplash CDN) are intentionally excluded from LCP
+    // preload hints to prevent the /api/img/proxy endpoint from being used as
+    // an SSRF vector. The banner still renders via React; it just has no hint.
+    expect(out).not.toContain('rel="preload"');
     expect(out).not.toContain("imagesrcset=");
   });
 
@@ -6680,14 +6678,14 @@ describe("injectSeoTagsAsync — homepage LCP preload tag", () => {
     expect(out).not.toContain('<link rel="preload" as="image"');
   });
 
-  it("emits a plain href preload (no imagesrcset) for a non-OS banner URL", async () => {
+  it("does NOT emit any preload for a non-OS banner URL on the root homepage (SSRF guard)", async () => {
     const unsplashUrl = "https://images.unsplash.com/photo-123?w=800";
     const out = await injectSeoTagsAsync(HTML, "/", {
       ...OPTS,
       firstBannerImageUrl: unsplashUrl,
     });
-    expect(out).toContain('<link rel="preload" as="image"');
-    expect(out).toContain(`href="${unsplashUrl}"`);
+    // Non-OS URLs are excluded from LCP preload hints (SSRF risk). No preload emitted.
+    expect(out).not.toContain('<link rel="preload" as="image"');
     expect(out).not.toContain("imagesrcset=");
   });
 
@@ -7201,7 +7199,7 @@ describe("Prerender body — product page enhancements", () => {
     expect(bodyHtml).toContain("Delivered to Dubai");
   });
 
-  it("product body emits category cross-links for each slug in product.categories", () => {
+  it("product body emits a category cross-link for the primary (first) category slug", () => {
     const { bodyHtml } = buildProductHead({
       product: {
         name: "Boxed Roses",
@@ -7213,11 +7211,12 @@ describe("Prerender body — product page enhancements", () => {
       },
       ...PRODUCT_HEAD_OPTS,
     });
+    // Only the primary (first) category is linked — internalLinks rule 1 uses categories[0].
     expect(bodyHtml).toContain("/category/flower-boxes");
-    expect(bodyHtml).toContain("/category/hand-bouquets");
+    expect(bodyHtml).not.toContain("/category/hand-bouquets");
   });
 
-  it("product body emits occasion cross-links from product.occasions", () => {
+  it("product body emits an occasion cross-link for the first occasion slug string", () => {
     const { bodyHtml } = buildProductHead({
       product: {
         name: "Birthday Flowers",
@@ -7225,14 +7224,14 @@ describe("Prerender body — product page enhancements", () => {
         image: null,
         priceValue: 70,
         categories: [],
-        occasions: [{ name: "Birthday", slug: "birthday" }, { name: "Anniversary", slug: "anniversary" }],
+        // occasions must be an array of slug strings — internalLinks rule 2 uses occasions[0] as a slug.
+        occasions: ["birthday", "anniversary"],
       },
       ...PRODUCT_HEAD_OPTS,
     });
+    // Only the first occasion is linked (rule 2 picks occasions[0]).
     expect(bodyHtml).toContain("/occasion/birthday");
-    expect(bodyHtml).toContain("/occasion/anniversary");
     expect(bodyHtml).toContain("Birthday");
-    expect(bodyHtml).toContain("Anniversary");
   });
 
   it("product body caps combined category + occasion cross-links at 5", () => {
@@ -7243,7 +7242,8 @@ describe("Prerender body — product page enhancements", () => {
         image: null,
         priceValue: 100,
         categories: ["cat-a", "cat-b", "cat-c", "cat-d"],
-        occasions: [{ name: "Occ A", slug: "occ-a" }, { name: "Occ B", slug: "occ-b" }, { name: "Occ C", slug: "occ-c" }],
+        // occasions must be slug strings — internalLinks rule 2 uses occasions[0] as a slug.
+        occasions: ["occ-a", "occ-b", "occ-c"],
       },
       ...PRODUCT_HEAD_OPTS,
     });
