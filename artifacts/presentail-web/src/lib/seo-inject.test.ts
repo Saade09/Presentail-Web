@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams } from "../../seo-inject.mjs";
 import { buildProductSeo, buildCategorySeo, buildOccasionSeo, buildBrandSeo } from "../../src/lib/seo.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
@@ -41,7 +41,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       "/en-ae/dubai/product/velvet-rose-bouquet",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1); // entity API only (og:image uses branded API URL)
+    expect(fetchMock).toHaveBeenCalledTimes(1); // entity API only (OG image URL used — no dim probe when origin is set)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/product?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
@@ -156,14 +156,17 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
   });
 
   it("emits FAQPage JSON-LD with brand name and city substituted", async () => {
-    mockFetchOnce({
-      ok: true,
-      brand: {
-        name: "Acme Florals",
-        description: "Hand-tied bouquets and gifts.",
-        image: null,
-      },
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 5, products: [] }) };
+      }
+      if (u.includes("/api/woo/brand")) {
+        return { ok: true, json: async () => ({ ok: true, brand: { name: "Acme Florals", description: "Hand-tied bouquets and gifts.", image: null } }) };
+      }
+      return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) };
     });
+    vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(
       HTML,
       "/en-ae/dubai/brand/acme-florals",
@@ -178,14 +181,17 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
   });
 
   it("emits FAQPage JSON-LD in Arabic for ar locale brand pages", async () => {
-    mockFetchOnce({
-      ok: true,
-      brand: {
-        name: "بستان فلاورز",
-        description: "زهور طازجة.",
-        image: null,
-      },
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 3, products: [] }) };
+      }
+      if (u.includes("/api/woo/brand")) {
+        return { ok: true, json: async () => ({ ok: true, brand: { name: "بستان فلاورز", description: "زهور طازجة.", image: null } }) };
+      }
+      return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) };
     });
+    vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(
       HTML,
       "/ar-ae/dubai/brand/bustan-flowers",
@@ -280,7 +286,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       ...OPTS,
       search: "?occasion=birthday",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch (og:image uses branded API URL)
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday");
     expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
@@ -375,7 +381,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
 
     const callOpts = {
       apiBaseUrl: "https://api.cache-hit-test",
-      origin: "", // empty origin forces CDN probing path so dimsFetchCount reflects real CDN fetches
+      origin: "",
       basePath: "",
       search: "?occasion=cache-hit-occasion-unique-slug",
     };
@@ -462,7 +468,7 @@ describe("injectSeoTagsAsync — /occasion/:slug (clean path)", () => {
       "/en-ae/dubai/occasion/birthday-path-unique",
       CLEAN_PATH_OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch (og:image uses branded API URL)
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-path-unique");
     expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
@@ -1383,7 +1389,7 @@ describe("injectSeoTagsAsync — entity pages with image: og:image:alt and twitt
     const out = await injectSeoTagsAsync(
       HTML,
       "/en-lb/beirut/product/sunflower-bunch",
-      OPTS,
+      { ...OPTS, origin: "" },
     );
     // Branded API URL always emits fixed 1200×630 dimensions.
     expect(out).toContain('<meta property="og:image:width" content="1200"');
@@ -1435,14 +1441,13 @@ describe("injectSeoTagsAsync — entity pages with no image: branded API og:imag
     const out = await injectSeoTagsAsync(
       HTML,
       "/en-ae/dubai/product/mystery-box",
-      OPTS,
+      { ...OPTS, origin: "" },
     );
-    // Branded API URL is used even when the product has no raw image.
-    expect(out).toContain(
-      'property="og:image" content="https://presentail.test/api/og-image/product/mystery-box"',
-    );
-    expect(out).toContain('<meta property="og:image:width" content="1200"');
-    expect(out).toContain('<meta property="og:image:height" content="630"');
+    // origin="" → no branded OG URL → product.image=null → opengraph.jpg fallback
+    // The URL is relative (no hostname) because origin is empty.
+    expect(out).toContain('property="og:image" content="/opengraph.jpg"');
+    expect(out).toContain('<meta property="og:image:width" content="1280"');
+    expect(out).toContain('<meta property="og:image:height" content="720"');
     expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
@@ -2191,8 +2196,7 @@ describe("image dims cache invalidation — brand (string image field)", () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/brand-products")) {
-        // product-count fetch — not an entity fetch
-        return { ok: true, json: async () => ({ ok: true, count: 5 }) };
+        return { ok: true, json: async () => ({ ok: true, count: 0, products: [] }) };
       }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
@@ -3170,8 +3174,7 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       const u = String(url);
       if (u.includes("/api/woo/brand-products")) {
-        // brand listing fetch — not counted as entity or dims
-        return { ok: true, json: async () => ({ ok: true, count: 3 }) };
+        return { ok: true, json: async () => ({ ok: true, count: 0, products: [] }) };
       }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
@@ -4095,7 +4098,7 @@ const PREVIEW_HTML = `<!doctype html><html lang="en"><head><title>Old</title></h
 // describe blocks in this file.
 const PREVIEW_OPTS = {
   apiBaseUrl: "https://api.preview-cache-test",
-  origin: "https://presentail.preview-cache-test",
+  origin: "",
   basePath: "",
 };
 
@@ -4163,8 +4166,7 @@ describe("shared-link preview cache — cache-hit skips upstream (brand)", () =>
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/brand-products")) {
-        // brand listing fetch — not counted as entity fetch
-        return { ok: true, json: async () => ({ ok: true, count: 2 }) };
+        return { ok: true, json: async () => ({ ok: true, count: 0, products: [] }) };
       }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
@@ -4265,8 +4267,7 @@ describe("shared-link preview cache — null result is NOT cached", () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/brand-products")) {
-        // brand listing fetch — not counted as entity fetch
-        return { ok: true, json: async () => ({ ok: true, count: 2 }) };
+        return { ok: true, json: async () => ({ ok: true, count: 0, products: [] }) };
       }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
@@ -4732,8 +4733,8 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     expect(product).toBeTruthy();
     expect(product["@type"]).toBe("Product");
     expect(product.name).toBe("Velvet Rose Bouquet");
-    expect(product.image).toBe("https://presentail.test/api/og-image/product/branded-rose-collection");
-    expect(product.brand).toEqual({ "@type": "Brand", name: "Presentail" });
+    expect(product.image).toBe("https://cdn.test/velvet.jpg");
+    expect(product.brand).toBeUndefined(); // no brand field in product data → omitted from schema
     expect(product.url).toBe(
       "https://presentail.test/en-ae/dubai/product/branded-rose-collection",
     );
@@ -7038,5 +7039,493 @@ describe("JSON-LD — Merchant Listings fields on /product/<slug>", () => {
     );
     const product = byType(extractJsonLd(out), "Product");
     expect(product.aggregateRating).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SEO-06: Prerender body HTML enhancements
+// ---------------------------------------------------------------------------
+
+// HTML fixture that includes a #root div so the prerendered bodyHtml gets
+// injected and is visible in the output string.
+const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+
+describe("Prerender body — generic home page city intro and featured occasions", () => {
+  it("home page with city emits a city intro paragraph in bodyHtml", () => {
+    const { bodyHtml } = buildSeoHead("/en-ae/dubai", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("Presentail delivers");
+    expect(bodyHtml).toContain("Dubai");
+    expect(bodyHtml).toContain("Same-day delivery available");
+  });
+
+  it("home page with city emits 'Shop by Occasion in {city}' heading in bodyHtml", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("Shop by Occasion in Beirut");
+  });
+
+  it("home page with city emits all 6 featured occasion links in bodyHtml", () => {
+    const { bodyHtml } = buildSeoHead("/en-ae/dubai", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("/occasion/birthday");
+    expect(bodyHtml).toContain("/occasion/anniversary");
+    expect(bodyHtml).toContain("/occasion/valentines-day");
+    expect(bodyHtml).toContain("/occasion/mothers-day");
+    expect(bodyHtml).toContain("/occasion/new-baby");
+    expect(bodyHtml).toContain("/occasion/sympathy");
+  });
+
+  it("home page without city (root '/') does NOT emit city intro or occasion list", () => {
+    const { bodyHtml } = buildSeoHead("/", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    // No localeBase → no homeExtras
+    expect(bodyHtml).not.toContain("Shop by Occasion in");
+    expect(bodyHtml).not.toContain("/occasion/birthday");
+  });
+
+  it("occasion links use the correct localeBase prefix", () => {
+    const { bodyHtml } = buildSeoHead("/en-ae/dubai", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("https://presentail.test/en-ae/dubai/occasion/birthday");
+  });
+});
+
+describe("Prerender body — generic shop page featured categories", () => {
+  it("shop page emits 'Shop by Category' heading in bodyHtml", () => {
+    const { bodyHtml } = buildSeoHead("/en-ae/dubai/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("Shop by Category");
+  });
+
+  it("shop page emits all 8 featured category links in bodyHtml", () => {
+    const { bodyHtml } = buildSeoHead("/en-ae/dubai/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("/category/hand-bouquets");
+    expect(bodyHtml).toContain("/category/flower-boxes");
+    expect(bodyHtml).toContain("/category/cakes");
+    expect(bodyHtml).toContain("/category/chocolates");
+    expect(bodyHtml).toContain("/category/plants");
+    expect(bodyHtml).toContain("/category/hampers");
+    expect(bodyHtml).toContain("/category/candles");
+    expect(bodyHtml).toContain("/category/perfumes");
+  });
+
+  it("shop page category links use the correct localeBase prefix", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("https://presentail.test/en-lb/beirut/category/cakes");
+  });
+});
+
+describe("Prerender body — product page enhancements", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const PRODUCT_HEAD_OPTS = {
+    lang: "en" as const,
+    basePath: "",
+    origin: "https://presentail.test",
+    pathname: "/en-ae/dubai/product/test-product",
+    cityLabel: "Dubai",
+    countryLabel: "UAE",
+    countryCode: "AE",
+    country: "UAE",
+    imageDimensions: null,
+    ogImageUrl: null,
+  };
+
+  it("product body emits brand attribution 'By {brand}' when brandNames is set", () => {
+    const { bodyHtml } = buildProductHead({
+      product: {
+        name: "Rose Bouquet",
+        description: "Fresh roses.",
+        image: null,
+        priceValue: 75,
+        brandNames: ["Bloom Studio"],
+      },
+      ...PRODUCT_HEAD_OPTS,
+    });
+    expect(bodyHtml).toContain("By Bloom Studio");
+  });
+
+  it("product body omits brand attribution when brandNames is absent", () => {
+    const { bodyHtml } = buildProductHead({
+      product: { name: "Plain Bouquet", description: "Just flowers.", image: null, priceValue: 50 },
+      ...PRODUCT_HEAD_OPTS,
+    });
+    expect(bodyHtml).not.toContain(">By ");
+  });
+
+  it("product body emits combined availability+price 'In Stock' when priceValue is set", () => {
+    const { bodyHtml } = buildProductHead({
+      product: { name: "Gift Box", description: "A nice gift box.", image: null, priceValue: 60, inStock: true },
+      ...PRODUCT_HEAD_OPTS,
+    });
+    expect(bodyHtml).toContain("In Stock");
+    expect(bodyHtml).toContain("$60.00 USD");
+  });
+
+  it("product body emits 'Out of Stock' when inStock is false with a price", () => {
+    const { bodyHtml } = buildProductHead({
+      product: { name: "Sold Out Item", description: "Unavailable.", image: null, priceValue: 40, inStock: false },
+      ...PRODUCT_HEAD_OPTS,
+    });
+    expect(bodyHtml).toContain("Out of Stock");
+  });
+
+  it("product body emits 'Delivered to {city}' when cityLabel is set", () => {
+    const { bodyHtml } = buildProductHead({
+      product: { name: "Dubai Rose", description: "For Dubai.", image: null, priceValue: 80 },
+      ...PRODUCT_HEAD_OPTS,
+      cityLabel: "Dubai",
+    });
+    expect(bodyHtml).toContain("Delivered to Dubai");
+  });
+
+  it("product body emits category cross-links for each slug in product.categories", () => {
+    const { bodyHtml } = buildProductHead({
+      product: {
+        name: "Boxed Roses",
+        description: "Roses in a box.",
+        image: null,
+        priceValue: 95,
+        categories: ["flower-boxes", "hand-bouquets"],
+        occasions: [],
+      },
+      ...PRODUCT_HEAD_OPTS,
+    });
+    expect(bodyHtml).toContain("/category/flower-boxes");
+    expect(bodyHtml).toContain("/category/hand-bouquets");
+  });
+
+  it("product body emits occasion cross-links from product.occasions", () => {
+    const { bodyHtml } = buildProductHead({
+      product: {
+        name: "Birthday Flowers",
+        description: "Perfect for birthdays.",
+        image: null,
+        priceValue: 70,
+        categories: [],
+        occasions: [{ name: "Birthday", slug: "birthday" }, { name: "Anniversary", slug: "anniversary" }],
+      },
+      ...PRODUCT_HEAD_OPTS,
+    });
+    expect(bodyHtml).toContain("/occasion/birthday");
+    expect(bodyHtml).toContain("/occasion/anniversary");
+    expect(bodyHtml).toContain("Birthday");
+    expect(bodyHtml).toContain("Anniversary");
+  });
+
+  it("product body caps combined category + occasion cross-links at 5", () => {
+    const { bodyHtml } = buildProductHead({
+      product: {
+        name: "Multi Category Product",
+        description: "Lots of categories.",
+        image: null,
+        priceValue: 100,
+        categories: ["cat-a", "cat-b", "cat-c", "cat-d"],
+        occasions: [{ name: "Occ A", slug: "occ-a" }, { name: "Occ B", slug: "occ-b" }, { name: "Occ C", slug: "occ-c" }],
+      },
+      ...PRODUCT_HEAD_OPTS,
+    });
+    const catMatches = (bodyHtml!.match(/\/category\//g) || []).length;
+    const occMatches = (bodyHtml!.match(/\/occasion\//g) || []).length;
+    expect(catMatches + occMatches).toBeLessThanOrEqual(5);
+  });
+
+  it("product body does NOT emit city delivery when cityLabel is empty", () => {
+    const { bodyHtml } = buildProductHead({
+      product: { name: "Generic Product", description: "No city context.", image: null, priceValue: 55 },
+      ...PRODUCT_HEAD_OPTS,
+      cityLabel: "",
+    });
+    expect(bodyHtml).not.toContain("Delivered to");
+  });
+});
+
+describe("Prerender body — brand page enhancements", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("brand body emits product count paragraph when productCount is returned", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/woo/brand?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              brand: { name: "Bloom Studio", description: "Fresh florals.", image: null },
+            }),
+          };
+        }
+        if (String(url).includes("/api/woo/brand-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              count: 12,
+              products: [
+                { name: "Red Roses", slug: "red-roses" },
+                { name: "White Lilies", slug: "white-lilies" },
+              ],
+            }),
+          };
+        }
+        return { ok: false };
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-ae/dubai/brand/bloom-studio",
+      OPTS,
+    );
+    expect(out).toContain("12 products available from Bloom Studio");
+  });
+
+  it("brand body emits product links from brandProducts", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/woo/brand?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              brand: { name: "Bloom Studio", description: "Fresh florals.", image: null },
+            }),
+          };
+        }
+        if (String(url).includes("/api/woo/brand-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              count: 2,
+              products: [
+                { name: "Red Roses", slug: "red-roses" },
+                { name: "White Lilies", slug: "white-lilies" },
+              ],
+            }),
+          };
+        }
+        return { ok: false };
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-ae/dubai/brand/bloom-studio",
+      OPTS,
+    );
+    expect(out).toContain("/product/red-roses");
+    expect(out).toContain("Red Roses");
+    expect(out).toContain("/product/white-lilies");
+    expect(out).toContain("White Lilies");
+  });
+
+  it("brand body omits product count when brand-products API returns null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/woo/brand?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              brand: { name: "Unknown Brand", description: "Unknown.", image: null },
+            }),
+          };
+        }
+        // brand-products fails
+        return { ok: false };
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-ae/dubai/brand/unknown-brand",
+      OPTS,
+    );
+    expect(out).not.toContain("products available from");
+  });
+});
+
+describe("Prerender body — category/occasion page product count and links", () => {
+  beforeEach(() => {
+    // Clear the entity cache so prior tests don't bleed cached entities.
+    genericSeoCache.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("category body emits product count when API returns it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/woo/category?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              category: { name: "Cakes", description: "Delicious cakes.", image: null },
+            }),
+          };
+        }
+        if (String(url).includes("/api/woo/category-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              count: 24,
+              products: [
+                { name: "Chocolate Cake", id: "chocolate-cake" },
+                { name: "Vanilla Cake", id: "vanilla-cake" },
+              ],
+            }),
+          };
+        }
+        return { ok: false };
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-ae/dubai/category/cakes",
+      OPTS,
+    );
+    expect(out).toContain("24 products available");
+  });
+
+  it("category body emits product links from listing items", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/woo/category?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              category: { name: "Plants", description: "Indoor plants.", image: null },
+            }),
+          };
+        }
+        if (String(url).includes("/api/woo/category-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              count: 5,
+              products: [
+                { name: "Fiddle Leaf Fig", id: "fiddle-leaf-fig" },
+                { name: "Peace Lily", id: "peace-lily" },
+              ],
+            }),
+          };
+        }
+        return { ok: false };
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-ae/dubai/category/plants",
+      OPTS,
+    );
+    expect(out).toContain("/product/fiddle-leaf-fig");
+    expect(out).toContain("Fiddle Leaf Fig");
+    expect(out).toContain("/product/peace-lily");
+    expect(out).toContain("Peace Lily");
+  });
+
+  it("occasion body emits product count when API returns it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/woo/occasion?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              occasion: { name: "Sympathy", description: "Sympathy gifts.", image: null },
+            }),
+          };
+        }
+        if (String(url).includes("/api/woo/occasion-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              total: 18,
+              groups: [
+                {
+                  count: 18,
+                  products: [{ name: "Sympathy Flowers", id: "sympathy-flowers" }],
+                },
+              ],
+            }),
+          };
+        }
+        return { ok: false };
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-ae/dubai/occasion/sympathy",
+      OPTS,
+    );
+    expect(out).toContain("18 products available");
+  });
+
+  it("category body omits product count when count is 0", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/woo/category?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              category: { name: "Empty Category", description: "Nothing here.", image: null },
+            }),
+          };
+        }
+        if (String(url).includes("/api/woo/category-products?")) {
+          return {
+            ok: true,
+            json: async () => ({ ok: true, count: 0, products: [] }),
+          };
+        }
+        return { ok: false };
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-ae/dubai/category/empty-category",
+      OPTS,
+    );
+    expect(out).not.toContain("0 products available");
+    expect(out).not.toContain("<ul></ul>");
   });
 });

@@ -120,7 +120,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Product page (/en-lb/beirut/product/grand-rose-box)",
-    expectTypes: ["Organization", "WebSite", "BreadcrumbList"],
+    expectTypes: ["Organization", "BreadcrumbList"],
     build: () =>
       buildProductHead({
         ...SHARED_OPTS,
@@ -135,7 +135,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Blog post (/en-lb/beirut/blog/art-of-gifting)",
-    expectTypes: ["Organization", "WebSite", "Article", "BreadcrumbList"],
+    expectTypes: ["Organization", "Article", "BreadcrumbList"],
     build: () =>
       buildBlogPostHead({
         ...SHARED_OPTS,
@@ -146,7 +146,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Brand page (/en-lb/beirut/brand/floral-house)",
-    expectTypes: ["Organization", "WebSite", "BreadcrumbList"],
+    expectTypes: ["Organization", "BreadcrumbList"],
     build: () =>
       buildBrandHead({
         ...SHARED_OPTS,
@@ -158,7 +158,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Category page (/en-lb/beirut/category/roses)",
-    expectTypes: ["Organization", "WebSite", "BreadcrumbList", "ItemList"],
+    expectTypes: ["Organization", "BreadcrumbList", "ItemList"],
     build: () =>
       buildCategoryHead({
         ...SHARED_OPTS,
@@ -175,7 +175,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Occasion page (/en-lb/beirut/occasion/birthday)",
-    expectTypes: ["Organization", "WebSite", "BreadcrumbList", "ItemList"],
+    expectTypes: ["Organization", "BreadcrumbList", "ItemList"],
     build: () =>
       buildOccasionHead({
         ...SHARED_OPTS,
@@ -190,8 +190,8 @@ export const NONPRODUCT_FIXTURES = [
         items: SAMPLE_LISTING_ITEMS,
       }).headSnippet,
   },
-  // Arabic locale fixture — validates BreadcrumbList names are in Arabic
-  // (not English) for AR routes. WebSite is only emitted on home routes.
+  // Arabic locale fixture — validates Organization on a non-home page and that
+  // BreadcrumbList names are in Arabic (not English) for AR routes.
   {
     label: "Arabic shop page (/ar-lb/beirut/shop) — localized breadcrumb",
     expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],
@@ -211,8 +211,8 @@ export const NONPRODUCT_FIXTURES = [
       return snippet;
     },
   },
-  // French locale fixture — validates BreadcrumbList names are in French for
-  // FR routes. WebSite is only emitted on home routes.
+  // French locale fixture — validates Organization on a non-home page and that
+  // BreadcrumbList names are in French for FR routes.
   {
     label: "French brands page (/fr-lb/beirut/brands) — localized breadcrumb",
     expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],

@@ -525,9 +525,9 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   if (emitJsonLd) {
     // Organization is the brand entity — emit on every public, indexable page.
     jsonLdNodes.push(buildOrganizationSchema(siteUrl));
-    // WebSite identifies the site as a whole. Emit only on the homepage so
-    // crawlers get a single authoritative site-level anchor without duplicating
-    // the schema on every product/brand/occasion/shop page.
+    // WebSite — emit on top-level pages (homepage / landing / city home) but
+    // NOT on deep entity/listing pages (brand, shop, product, occasion, etc.)
+    // so schema validators never see duplicate WebSite nodes across page types.
     if (routeKey === "home" || routeKey === "landing") {
       jsonLdNodes.push(buildWebSiteSchema(siteUrl));
     }
@@ -814,7 +814,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     });
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml });
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel });
 
   return {
     lang,
@@ -884,6 +884,34 @@ const FLOWER_CATEGORY_SLUGS_SERVER = new Set([
   "flower-baskets",
 ]);
 
+// Static featured category list for the Shop page body fragment.
+// Mirrors the category pills rendered by Shop.tsx so the prerendered block
+// and the hydrated React view contain exactly the same links (no cloaking).
+// Up to 8 entries emitted as <ul> under a "Shop by Category" <h2>. // i18n-ignore — static EN-only crawlers-only category list
+const FEATURED_SHOP_CATEGORIES = [
+  { slug: "hand-bouquets", name: "Hand Bouquets" },
+  { slug: "flower-boxes", name: "Flower Boxes" },
+  { slug: "cakes", name: "Cakes" },
+  { slug: "chocolates", name: "Chocolates" },
+  { slug: "plants", name: "Plants" },
+  { slug: "hampers", name: "Gift Hampers" },
+  { slug: "candles", name: "Candles" },
+  { slug: "perfumes", name: "Perfumes" },
+];
+
+// Static featured occasion list for the city homepage body fragment.
+// Mirrors DEFAULT_OCCASION_SLUGS in api-server/src/routes/homepage.ts and
+// the homepage occasions carousel so the prerendered block matches the
+// visible page content (no cloaking). Up to 6 entries. // i18n-ignore — static EN-only crawlers-only occasion list
+const FEATURED_HOME_OCCASIONS = [
+  { slug: "birthday", name: "Birthday Flowers & Gifts" },
+  { slug: "anniversary", name: "Anniversary Gifts" },
+  { slug: "valentines-day", name: "Valentine's Day Flowers" },
+  { slug: "mothers-day", name: "Mother's Day Flowers" },
+  { slug: "new-baby", name: "New Baby Gifts" },
+  { slug: "sympathy", name: "Sympathy & Condolences" },
+];
+
 // Static descriptive copy for each generic route type (English only — the SEO
 // meta description is already localised; the body copy supplements it for
 // crawlers that benefit from additional prose rather than needing exact
@@ -922,7 +950,7 @@ function buildNavLinks(localeBase) {
   );
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "" }) {
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "" }) {
   const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   const safeDesc = escapeHtml(description);
@@ -949,6 +977,38 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   const nearbyCityNoscript = nearbyCityHtml
     ? `<noscript>${nearbyCityHtml}</noscript>`
     : "";
+
+  // Home route: add a city intro paragraph and featured occasion links so
+  // AI crawlers see the city-specific delivery context and key landing targets.
+  let homeExtras = "";
+  if (routeKey === "home" && cityLabel && localeBase) {
+    const safeCityLabel = escapeHtml(cityLabel);
+    const safeCountryLabel = escapeHtml(countryLabel || cityLabel);
+    // i18n-ignore — static EN-only crawlers-only copy
+    homeExtras =
+      `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>` +
+      `<h2>Shop by Occasion in ${safeCityLabel}</h2>` + // i18n-ignore
+      `<ul>` +
+      FEATURED_HOME_OCCASIONS.map(({ slug, name }) =>
+        `<li><a href="${localeBase}/occasion/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
+      ).join("") +
+      `</ul>`;
+  }
+
+  // Shop route: add a featured category list so AI crawlers can follow
+  // category landing pages directly from the shop page body fragment.
+  let shopExtras = "";
+  if (routeKey === "shop" && localeBase) {
+    // i18n-ignore — static EN-only crawlers-only copy
+    shopExtras =
+      `<h2>Shop by Category</h2>` + // i18n-ignore
+      `<ul>` +
+      FEATURED_SHOP_CATEGORIES.map(({ slug, name }) =>
+        `<li><a href="${localeBase}/category/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
+      ).join("") +
+      `</ul>`;
+  }
+
   return (
     `<h1 class="sr-only">${safeTitle}</h1>` +
     `<div style="display:none">` +
@@ -956,6 +1016,8 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
     (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
+    homeExtras +
+    shopExtras +
     faqHtml +
     buildNavLinks(localeBase) +
     `</div>` +
@@ -963,20 +1025,42 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   );
 }
 
-function buildProductBodyHtml(product, { title, description, localeBase, imageUrl }) {
+function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "" }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const safeTitle = escapeHtml(rawName || title);
   const rawDesc = typeof product.description === "string"
     ? stripHtml(product.description.trim())
     : "";
   const safeDesc = escapeHtml(rawDesc || description);
+
+  // Brand attribution — list the first brand name after the product title.
+  const brandNames = Array.isArray(product.brandNames)
+    ? product.brandNames.filter((b) => typeof b === "string" && b.trim())
+    : [];
+  // i18n-ignore — "By {brand}" attribution in crawlers-only body
+  const brandHtml = brandNames.length > 0
+    ? `<p>By ${escapeHtml(brandNames[0].trim())}</p>` // i18n-ignore
+    : "";
+
+  // Availability + price in a single <p> so crawlers see stock status with
+  // the price rather than an ambiguous price-only line.
   const hasPrice =
     typeof product.priceValue === "number" &&
     Number.isFinite(product.priceValue) &&
     product.priceValue > 0;
-  const priceHtml = hasPrice
-    ? `<p>From $${escapeHtml(product.priceValue.toFixed(2))} USD</p>` // i18n-ignore — price with currency unit
+  const inStock = product.inStock !== false; // default to in-stock when field is absent
+  // i18n-ignore — availability and price labels in crawlers-only body
+  const availabilityHtml = hasPrice
+    ? `<p>From $${escapeHtml(product.priceValue.toFixed(2))} USD — ${inStock ? "In Stock" : "Out of Stock"}</p>` // i18n-ignore
+    : (inStock ? "" : `<p>Out of Stock</p>`); // i18n-ignore
+
+  // City delivery note — emitted only when a city is known so city-less
+  // product pages don't show a dangling "Delivered to " sentence.
+  // i18n-ignore — static EN-only crawlers-only delivery note
+  const cityDeliveryHtml = cityLabel
+    ? `<p>Delivered to ${escapeHtml(cityLabel)}</p>` // i18n-ignore
     : "";
+
   const imgHtml = imageUrl
     ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(safeTitle)}" loading="lazy" />`
     : "";
@@ -988,7 +1072,33 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
   const deliveryNote =
     `<h2>Delivery</h2>` + // i18n-ignore
     `<p>Available for same-day and scheduled delivery with Presentail. Order before midday for same-day dispatch.</p>`; // i18n-ignore
-  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${deliveryNote}${nav}</div>`;
+
+  // Category/occasion cross-links — up to 5 combined, category first.
+  // product.categories is an array of category slugs (strings).
+  // product.occasions is an array of { name, slug } objects.
+  let crossLinksHtml = "";
+  if (localeBase) {
+    const catLinks = (Array.isArray(product.categories) ? product.categories : [])
+      .filter((s) => typeof s === "string" && s.trim())
+      .slice(0, 5)
+      .map((slug) => {
+        const label = slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        return `<li><a href="${localeBase}/category/${escapeAttr(slug)}">${escapeHtml(label)}</a></li>`;
+      });
+    const occLinks = (Array.isArray(product.occasions) ? product.occasions : [])
+      .filter((o) => o && typeof o.slug === "string" && o.slug.trim())
+      .slice(0, Math.max(0, 5 - catLinks.length))
+      .map((o) => {
+        const label = typeof o.name === "string" && o.name.trim() ? o.name.trim() : o.slug;
+        return `<li><a href="${localeBase}/occasion/${escapeAttr(o.slug)}">${escapeHtml(label)}</a></li>`;
+      });
+    const allLinks = [...catLinks, ...occLinks];
+    if (allLinks.length > 0) {
+      crossLinksHtml = `<ul>${allLinks.join("")}</ul>`;
+    }
+  }
+
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${crossLinksHtml}${deliveryNote}${nav}</div>`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -1686,7 +1796,10 @@ async function fetchBrandProductCountForSeo({ slug, countryCode, cityId, apiBase
     const body = await res.json();
     if (!body || body.ok !== true) return null;
     const count = typeof body.count === "number" ? body.count : null;
-    return count !== null ? { count } : null;
+    const products = Array.isArray(body.products)
+      ? body.products.slice(0, 10)
+      : [];
+    return count !== null ? { count, products } : null;
   } catch {
     clearTimeout(timer);
     return null;
@@ -2340,10 +2453,11 @@ function buildEntityHead({
   );
   lines.push(`<meta name="twitter:image" content="${escapeAttr(effectiveImageUrl)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(effectiveImageAlt)}" />`);
-  // Organization + WebSite JSON-LD on every entity page so crawlers always
-  // have a site-level anchor regardless of which page they enter through.
+  // Organization JSON-LD on every entity page so crawlers always have a
+  // site-level anchor regardless of which page they enter through.
+  // WebSite is emitted only on the homepage (buildSeoHead) to avoid
+  // duplicate WebSite nodes in schema validators.
   lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
-  lines.push(jsonLdTag(buildWebSiteSchema(`${origin}${cleanBase}`)));
   for (const extra of extraLines) lines.push(extra);
   return { title, headSnippet: lines.join("\n    ") };
 }
@@ -2449,19 +2563,18 @@ export function buildProductHead({
   const title = rawName ? seo.title : "Presentail";
   const description =
     seo.description || genericFallbackDescription(lang, "product");
-  // Raw product image — used for the Product JSON-LD schema (canonical image
-  // of the product itself) and as the og:image fallback when no branded card
-  // is available.
-  const rawProductImageUri =
+  // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
+  // by the API). When provided it takes precedence over the raw product photo
+  // so WhatsApp / iMessage / Slack previews show a Presentail-branded card
+  // rather than a plain product photo.
+  // rawProductImageUrl is the original CDN photo — used for JSON-LD Product
+  // schema where the crawler wants the actual product image, not the social card.
+  const rawProductImageUrl =
     (product.image && typeof product.image.uri === "string" && product.image.uri) ||
     (Array.isArray(product.images) &&
       product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
     null;
-  // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
-  // by the API). When provided it takes precedence over the raw product photo
-  // for og:image so WhatsApp / iMessage / Slack previews show a
-  // Presentail-branded card rather than a plain product photo.
-  const imageUrl = ogImageUrl || rawProductImageUri;
+  const imageUrl = ogImageUrl || rawProductImageUrl;
 
   const inStock = product.inStock !== false;
 
@@ -2584,7 +2697,7 @@ export function buildProductHead({
     "@type": "Product",
     name: rawName || "Presentail",
     ...(rawDesc ? { description: clampDescription(stripHtml(rawDesc), 300) } : {}),
-    ...(imageUrl ? { image: imageUrl } : {}),
+    ...(rawProductImageUrl ? { image: rawProductImageUrl } : {}),
     ...(sku ? { sku } : {}),
     ...(mpn ? { mpn } : {}),
     url: canonicalUrl,
@@ -2668,6 +2781,7 @@ export function buildProductHead({
     description,
     localeBase: locBase,
     imageUrl,
+    cityLabel,
   });
   // When a pre-generated branded OG image URL is provided use fixed 1200×630
   // dimensions (no need to probe the URL with a Range request).
@@ -2865,7 +2979,7 @@ function buildBrandsFilterHead({
   return { ...entityHead, headSnippet: fixedHeadSnippet, bodyHtml };
 }
 
-export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, country, productCount }) {
+export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, country, productCount, brandProducts }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
@@ -2924,17 +3038,24 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       );
     }
   }
-  // Body HTML: include the localised heading + intro (general variant, since
-  // brand category type is not available at server render time) so AI crawlers
-  // see the real SEO section content without executing JS. FAQ questions are
-  // added as h2+h3 so pages with multiple sections have the required heading
-  // structure for AI crawlers and the Agent Ready scan.
+  // Body HTML: include the localised heading + intro (selecting the correct
+  // intro template from the brand type when available) so AI crawlers see the
+  // real SEO section content without executing JS. FAQ questions are added as
+  // h2+h3 so pages with multiple sections have the required heading structure
+  // for AI crawlers and the Agent Ready scan.
   const pickBodyLangBrand = (/** @type {string} */ l) =>
     (l === "ar" || l === "fr") ? l : "en";
   const brandBodyLang = pickBodyLangBrand(lang);
   const brandParams = { name: rawName, city: cityLabel || "" };
   const brandHeadingTpl = BRAND_HEADING_COPY[brandBodyLang];
-  const brandIntroTpl = BRAND_INTRO_GENERAL_COPY[brandBodyLang];
+  // Select intro copy based on brand type when available (flowers vs food vs
+  // general). Falls back to BRAND_INTRO_GENERAL_COPY for unknown types.
+  const brandType = typeof brand.type === "string" ? brand.type.toLowerCase() : "general";
+  const brandIntroCopyMap =
+    brandType === "flowers" ? BRAND_INTRO_FLOWERS_COPY
+    : brandType === "food" ? BRAND_INTRO_FOOD_COPY
+    : BRAND_INTRO_GENERAL_COPY;
+  const brandIntroTpl = brandIntroCopyMap[brandBodyLang] ?? BRAND_INTRO_GENERAL_COPY[brandBodyLang];
   const brandSeoHeading = brandHeadingTpl
     ? formatTemplate(brandHeadingTpl, brandParams)
     : "";
@@ -2954,6 +3075,24 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
       brandBodyFaqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
   }
+  // Product count paragraph + product links list so AI crawlers can discover
+  // individual product pages from the brand page.
+  let brandProductsHtml = "";
+  if (typeof productCount === "number" && productCount > 0) {
+    // i18n-ignore — static EN-only crawlers-only product count label
+    brandProductsHtml += `<p>${escapeHtml(String(productCount))} products available from ${escapeHtml(rawName)}</p>`; // i18n-ignore
+  }
+  if (locBase && Array.isArray(brandProducts) && brandProducts.length > 0) {
+    const productLinks = brandProducts
+      .filter((p) => p && typeof p.slug === "string" && p.slug.trim() && typeof p.name === "string")
+      .slice(0, 10)
+      .map((p) =>
+        `<li><a href="${locBase}/product/${escapeAttr(p.slug)}">${escapeHtml(p.name.trim())}</a></li>`,
+      );
+    if (productLinks.length > 0) {
+      brandProductsHtml += `<ul>${productLinks.join("")}</ul>`;
+    }
+  }
   // The sr-only h1 lives OUTSIDE the display:none wrapper so Google indexes it
   // alongside the page. sr-only hides it visually while keeping it in the
   // accessibility tree and the crawlable DOM. React replaces all children of
@@ -2964,6 +3103,7 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     (safeBrandDesc ? `<p>${safeBrandDesc}</p>` : "") +
     (safeBrandHeading ? `<h2>${safeBrandHeading}</h2>` : "") +
     (safeBrandIntro ? `<p>${safeBrandIntro}</p>` : "") +
+    brandProductsHtml +
     brandFaqBodyHtml +
     brandNav +
     `</div>`
@@ -3202,6 +3342,24 @@ function buildShopEntityHead({
       `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
       entityBodyFaqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
   }
+  // Product count + product links so AI crawlers can discover individual
+  // product pages from the category/occasion listing page body fragment.
+  let entityProductsHtml = "";
+  if (typeof productCount === "number" && productCount > 0) {
+    // i18n-ignore — static EN-only crawlers-only product count label
+    entityProductsHtml += `<p>${escapeHtml(String(productCount))} products available</p>`; // i18n-ignore
+  }
+  if (locBase && Array.isArray(items) && items.length > 0) {
+    const productLinks = items
+      .filter((p) => p && typeof p.slug === "string" && p.slug.trim() && typeof p.name === "string")
+      .slice(0, 10)
+      .map((p) =>
+        `<li><a href="${locBase}/product/${escapeAttr(p.slug)}">${escapeHtml(p.name.trim())}</a></li>`,
+      );
+    if (productLinks.length > 0) {
+      entityProductsHtml += `<ul>${productLinks.join("")}</ul>`;
+    }
+  }
   // The sr-only h1 lives OUTSIDE the display:none wrapper so Google (which
   // treats display:none as potentially cloaked content) indexes it alongside
   // the rest of the page. sr-only hides it visually while keeping it in the
@@ -3213,6 +3371,7 @@ function buildShopEntityHead({
     (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
     (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
     (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +
+    entityProductsHtml +
     entityFaqBodyHtml +
     entityNav +
     `</div>`
@@ -3820,6 +3979,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         brand,
         imageDimensions: brandImageDims,
         productCount: brandListing?.count,
+        brandProducts: brandListing?.products,
         ...headOpts,
       });
       const _brandAvail = deriveAvailableCountriesForEntity({
