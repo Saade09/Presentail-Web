@@ -39,6 +39,18 @@ Disallow: /*?min_price=
 Disallow: /*?max_price=
 Disallow: /*?filter_
 
+# Faceted-navigation / filter parameters — never produce a distinct landing page
+Disallow: /*?sort=
+Disallow: /*?currency=
+Disallow: /*?delivery=
+Disallow: /*?availability=
+Disallow: /*?price_min=
+Disallow: /*?price_max=
+Disallow: /*?page=
+Disallow: /*?ref=
+Disallow: /*?from=
+Disallow: /*?scroll=
+
 Sitemap: https://presentail.com/sitemap.xml
 
 # AI crawler guidance — machine-readable content index (llmstxt.org)

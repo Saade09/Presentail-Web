@@ -225,8 +225,9 @@ async function warnStartupFile(filePath, label, fixHint) {
 // Without it the Set stays empty and the server falls back to on-the-fly
 // compression, which is slower but correct.
 // ---------------------------------------------------------------------------
+let CURATED_FILTER_PAGES = [];
 try {
-  ({ injectSeoTagsAsync, initImageDimsDb } = await import("./seo-inject.mjs"));
+  ({ injectSeoTagsAsync, initImageDimsDb, CURATED_FILTER_PAGES } = await import("./seo-inject.mjs"));
 } catch (err) {
   await fatalStartupError(
     ":rotating_light: *presentail-web: seo-inject.mjs failed to load at startup*\n" +
@@ -451,6 +452,79 @@ function hasUtmParams(search) {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// Faceted-navigation / filter-param noindex guard
+//
+// Filter and utility parameters (sort, currency, delivery, availability,
+// price_min, price_max, page, ref, from, scroll) never produce a distinct
+// landing page. Any URL that carries one of these parameters and is not a
+// curated filter page receives `x-robots-tag: noindex, follow` so crawlers
+// that ignore the robots.txt Disallow rules still don't index duplicates.
+//
+// Must stay in sync with:
+//   - seo-inject.mjs FILTER_PARAMS_CANONICAL
+//   - robots.txt Disallow: /*?<param>= rules
+//   - scripts/src/canonicalNorm.ts FILTER_PARAMS
+// ---------------------------------------------------------------------------
+
+const FILTER_NOINDEX_PARAMS = new Set([
+  "sort",
+  "currency",
+  "delivery",
+  "availability",
+  "price_min",
+  "price_max",
+  "page",
+  "ref",
+  "from",
+  "scroll",
+]);
+
+/**
+ * Returns true when the query string contains at least one filter/utility
+ * parameter that never produces a distinct landing page.
+ *
+ * @param {string} search  URL query string (e.g. "?sort=price-asc").
+ * @returns {boolean}
+ */
+function hasFilterParams(search) {
+  if (!search || search === "?") return false;
+  try {
+    const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    for (const key of sp.keys()) {
+      if (FILTER_NOINDEX_PARAMS.has(key)) return true;
+    }
+  } catch {
+    // malformed query string — treat as no filter params
+  }
+  return false;
+}
+
+/**
+ * Returns true when the pathname + search match a curated filter landing page
+ * entry (defined in CURATED_FILTER_PAGES from seo-inject.mjs).  Curated pages
+ * are intentional filter-param URLs that should be indexed; they are exempt
+ * from the faceted-navigation noindex guard.
+ *
+ * @param {string} pathname  URL pathname.
+ * @param {string} search    URL query string (e.g. "?delivery=today").
+ * @returns {boolean}
+ */
+function isCuratedFilterPage(pathname, search) {
+  if (!CURATED_FILTER_PAGES.length) return false;
+  try {
+    const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    for (const entry of CURATED_FILTER_PAGES) {
+      if (entry.path !== pathname) continue;
+      const matchesAll = Object.entries(entry.params ?? {}).every(
+        ([k, v]) => sp.get(k) === String(v),
+      );
+      if (matchesAll) return true;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
 /**
  * Returns the value for the X-Robots-Tag response header for an HTML response.
  *
@@ -458,8 +532,12 @@ function hasUtmParams(search) {
  *  1. Private/transactional paths → "noindex" (regardless of host).
  *  2. UTM / click-ID marketing params → "noindex" (duplicate-content guard;
  *     mirrors the Disallow: /*?utm_* rules in robots.txt).
- *  3. Canonical production host ("presentail.com") and public path → "index, follow".
- *  4. All other hosts (Replit preview URLs, staging, etc.) → omit the header
+ *  3. Filter/utility params (sort, currency, delivery, etc.) → "noindex, follow"
+ *     UNLESS the path+params match a curated filter landing page entry.
+ *     (faceted-navigation crawl-budget guard; follow allows discovery of linked
+ *     canonical pages even when this variant is not indexed).
+ *  4. Canonical production host ("presentail.com") and public path → "index, follow".
+ *  5. All other hosts (Replit preview URLs, staging, etc.) → omit the header
  *     entirely (return null) so the platform's default noindex applies.
  *
  * @param {string} host      Normalised hostname (no port, lowercase).
@@ -470,6 +548,7 @@ function hasUtmParams(search) {
 function resolveXRobotsTag(host, pathname, search) {
   if (isPrivatePath(pathname)) return "noindex";
   if (hasUtmParams(search)) return "noindex";
+  if (hasFilterParams(search) && !isCuratedFilterPage(pathname, search || "")) return "noindex, follow";
   if (host === CANONICAL_PRODUCTION_HOST) return "index, follow";
   return null; // non-canonical host — omit; let platform default apply
 }

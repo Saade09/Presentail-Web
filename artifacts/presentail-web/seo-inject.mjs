@@ -248,16 +248,41 @@ function cityLabelFromSlug(slug) {
 // Small in-process LRU+TTL cache for the generic locale-aware head snippet.
 // `buildSeoHead` is invoked for every request that hits the SPA shell —
 // including high-traffic non-entity routes like `/{lang}-{country}/{city}` and
-// `/shop` — and its output is fully determined by (pathname, basePath, origin).
-// Caching the result for ~60s makes repeat crawler / user hits essentially
-// free without changing per-route content. Bounded with simple FIFO eviction
-// (re-inserting on hit gives LRU-ish behaviour).
+// `/shop` — and its output is fully determined by (pathname, basePath, origin,
+// and any filter params present in the search string). Caching the result for
+// ~60s makes repeat crawler / user hits essentially free without changing
+// per-route content. Bounded with simple FIFO eviction (re-inserting on hit
+// gives LRU-ish behaviour).
 const GENERIC_SEO_CACHE_TTL_MS = 60_000;
 const GENERIC_SEO_CACHE_MAX_ENTRIES = 500;
 export const genericSeoCache = new Map();
 
-function genericSeoCacheKey(pathname, basePath, origin) {
-  return `${pathname}\u0000${basePath}\u0000${origin}`;
+/**
+ * Compute a compact filter-params portion of the cache key.  Tracking params
+ * (UTM, gclid, etc.) are intentionally excluded — they always produce noindex
+ * and never affect the canonical, so all their combinations share one entry.
+ * Filter/nav params DO affect the canonical on curated pages, so each unique
+ * filter combination gets its own cache entry.
+ */
+function filterParamCacheKey(search) {
+  if (!search || search === "?") return "";
+  try {
+    const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    const entries = [];
+    for (const [k, v] of sp.entries()) {
+      if (FILTER_PARAMS_CANONICAL.has(k) || NAV_PARAMS_CANONICAL.has(k)) {
+        entries.push(`${k}=${v}`);
+      }
+    }
+    if (entries.length === 0) return "";
+    return "\u0001f:" + entries.sort().join("&");
+  } catch {
+    return "";
+  }
+}
+
+function genericSeoCacheKey(pathname, basePath, origin, search) {
+  return `${pathname}\u0000${basePath}\u0000${origin}${filterParamCacheKey(search)}`;
 }
 
 export function getCachedGenericSeo(key) {
@@ -288,16 +313,16 @@ export function setCachedGenericSeo(key, value) {
  * artifact base prefix (e.g. "" or "/app"). `origin` is the site origin used
  * for absolute canonical / hreflang URLs.
  */
-export function buildSeoHead(pathname, { origin = "", basePath = "" } = {}) {
-  const cacheKey = genericSeoCacheKey(pathname, basePath, origin);
+export function buildSeoHead(pathname, { origin = "", basePath = "", search = "" } = {}) {
+  const cacheKey = genericSeoCacheKey(pathname, basePath, origin, search);
   const cached = getCachedGenericSeo(cacheKey);
   if (cached) return cached;
-  const value = computeSeoHead(pathname, { origin, basePath });
+  const value = computeSeoHead(pathname, { origin, basePath, search });
   setCachedGenericSeo(cacheKey, value);
   return value;
 }
 
-function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
+function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = {}) {
   const parsed = parseLocalePath(pathname);
   const hasValidCity =
     parsed.hasLocalePrefix &&
@@ -375,7 +400,40 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     routeKey === "landing" && !inLocale && process.env?.CANONICAL_ORIGIN
       ? process.env.CANONICAL_ORIGIN.replace(/\/$/, "")
       : origin;
-  const canonicalHref = canonicalOrigin + cleanBase + canonicalPath;
+
+  // Faceted-navigation crawl-budget controls:
+  // Detect whether the request URL contains any filter/utility params and
+  // whether the path+params match a curated filter landing page.
+  const hasFilterParamsInSearch = search
+    ? (function _chkFilter(s) {
+        try {
+          const sp = new URLSearchParams(s.startsWith("?") ? s.slice(1) : s);
+          for (const k of sp.keys()) if (FILTER_PARAMS_CANONICAL.has(k)) return true;
+        } catch { /* ignore */ }
+        return false;
+      })(search)
+    : false;
+
+  let isCuratedFilterPage = false;
+  if (hasFilterParamsInSearch && CURATED_FILTER_PAGES.length > 0) {
+    try {
+      const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+      for (const entry of CURATED_FILTER_PAGES) {
+        if (entry.path !== canonicalPath) continue;
+        const matchesAll = Object.entries(entry.params ?? {}).every(
+          ([k, v]) => sp.get(k) === String(v),
+        );
+        if (matchesAll) { isCuratedFilterPage = true; break; }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Canonical href: curated filter pages preserve their defining params so
+  // Googlebot treats them as the authoritative URL.  All other pages (including
+  // filter-parameterised non-curated URLs) point at the clean path.
+  const canonicalHref = isCuratedFilterPage
+    ? buildCanonicalUrl(pathname + (search || ""), { origin: canonicalOrigin, basePath })
+    : canonicalOrigin + cleanBase + canonicalPath;
 
   // Landing, locale-prefixed home, and the generic browse routes (Shop,
   // Brands, All Occasions, and the Category fallback) use distinct, shorter OG
@@ -417,7 +475,9 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
   // Non-public routes (cart, checkout, account, auth, favorites, order
   // confirmation) must not be indexed, but their links may still be followed.
-  if (NONINDEX_ROUTE_KEYS.has(routeKey)) {
+  // Filter-parameterised non-curated URLs also get noindex so Googlebot does
+  // not spend crawl budget on duplicate pages like /shop?sort=price-asc.
+  if (NONINDEX_ROUTE_KEYS.has(routeKey) || (hasFilterParamsInSearch && !isCuratedFilterPage)) {
     lines.push(`<meta name="robots" content="noindex, follow" />`);
   }
   lines.push(`<meta property="og:title" content="${escapeAttr(ogTitle)}" />`);
@@ -1934,6 +1994,101 @@ const TRACKING_PARAMS = new Set([
   "mc_eid",
 ]);
 
+// ---------------------------------------------------------------------------
+// Faceted-navigation canonical URL normalization
+//
+// Filter / utility parameters that never produce a distinct landing page.
+// Must stay in sync with:
+//   - robots.txt Disallow rules (/*?<param>=)
+//   - serve.mjs FILTER_NOINDEX_PARAMS
+//   - scripts/src/canonicalNorm.ts FILTER_PARAMS
+// ---------------------------------------------------------------------------
+
+const FILTER_PARAMS_CANONICAL = new Set([
+  "sort",
+  "currency",
+  "delivery",
+  "availability",
+  "price_min",
+  "price_max",
+  "page",
+  "ref",
+  "from",
+  "scroll",
+]);
+
+// Navigation params that have dedicated path equivalents (/occasion/<slug>,
+// /category/<slug>). Always stripped from canonical URLs.
+const NAV_PARAMS_CANONICAL = new Set(["occasion", "category", "recipient"]);
+
+/**
+ * Curated filter landing pages whose canonical URL deliberately preserves the
+ * filter params.  Empty by default — populated by the product team when a
+ * curated filter collection (e.g. "same-day delivery in Beirut") is launched.
+ *
+ * Shape:
+ *   { path: '/en-lb/beirut/shop', params: { delivery: 'today' },
+ *     title: {...}, description: {...} }
+ */
+export const CURATED_FILTER_PAGES = [
+  // Example: a curated "same-day delivery" collection
+  // { path: '/en-lb/beirut/shop', params: { delivery: 'today' }, title: {...}, description: {...} }
+];
+
+/**
+ * Build a canonical URL by stripping utility/filter, navigation, and tracking
+ * parameters.  Curated filter-page combinations in CURATED_FILTER_PAGES are
+ * exempt from stripping — their canonical URL preserves only the curated params.
+ *
+ * @param {string} reqUrl   Full request URL or path+query string.
+ * @param {{ origin?: string, basePath?: string }} [opts]
+ * @returns {string}        Absolute canonical URL with stripped params.
+ */
+export function buildCanonicalUrl(reqUrl, { origin = "https://presentail.com", basePath = "" } = {}) {
+  const cleanBase = (basePath || "").replace(/\/$/, "");
+  let pathname, search;
+  try {
+    const base = origin || "https://presentail.com";
+    const parsed = new URL(reqUrl, base);
+    pathname = parsed.pathname;
+    search = parsed.search;
+  } catch {
+    return (origin || "") + cleanBase + (reqUrl || "/");
+  }
+
+  // Strip basePath prefix so path matching works on the locale-relative path.
+  let cleanPathname = pathname;
+  if (cleanBase && cleanPathname.startsWith(cleanBase)) {
+    cleanPathname = cleanPathname.slice(cleanBase.length) || "/";
+  }
+
+  // Check curated filter pages — exempt from param stripping.
+  for (const curated of CURATED_FILTER_PAGES) {
+    if (cleanPathname === curated.path) {
+      const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+      let matches = true;
+      for (const [k, v] of Object.entries(curated.params ?? {})) {
+        if (sp.get(k) !== v) { matches = false; break; }
+      }
+      if (matches) {
+        const curatedParams = new URLSearchParams();
+        for (const [k, v] of Object.entries(curated.params ?? {})) curatedParams.set(k, v);
+        const curatedSearch = curatedParams.toString() ? `?${curatedParams.toString()}` : "";
+        return (origin || "") + cleanBase + cleanPathname + curatedSearch;
+      }
+    }
+  }
+
+  // Strip all unwanted params (filter + navigation + tracking).
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  for (const key of FILTER_PARAMS_CANONICAL) params.delete(key);
+  for (const key of NAV_PARAMS_CANONICAL) params.delete(key);
+  for (const key of TRACKING_PARAMS) params.delete(key);
+  const cleanSearch = params.toString() ? `?${params.toString()}` : "";
+  const cleanPath = cleanPathname.replace(/\/$/, "") || "/";
+  return (origin || "") + cleanBase + cleanPath + cleanSearch;
+}
+
 /**
  * Remove known tracking/analytics query parameters from a raw query string.
  * Returns a clean query string (e.g. "?foo=bar") or an empty string when
@@ -1970,7 +2125,10 @@ function buildEntityHead({
   extraLines = [],
 }) {
   const cleanBase = basePath.replace(/\/$/, "");
-  const canonicalHref = origin + cleanBase + pathname + stripTrackingParams(search || "");
+  // Use buildCanonicalUrl so entity page canonicals strip both tracking params
+  // AND filter/utility params (sort, currency, page, etc.) from the canonical
+  // href, consistent with the faceted-navigation crawl-budget controls.
+  const canonicalHref = buildCanonicalUrl(pathname + (search || ""), { origin, basePath });
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
@@ -2825,7 +2983,9 @@ function buildShopEntityHead({
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, ...rest } = opts;
-  const generic = buildSeoHead(pathname, rest);
+  // Pass search so buildSeoHead can emit noindex meta for filter-parameterised
+  // URLs and preserve curated filter page canonicals.
+  const generic = buildSeoHead(pathname, { ...rest, search: search || "" });
   const parsed = parseLocalePath(pathname);
 
   // For homepage routes, append a <link rel="preload"> for the first banner
