@@ -2472,9 +2472,13 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
       brandBodyFaqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
   }
+  // The sr-only h1 lives OUTSIDE the display:none wrapper so Google indexes it
+  // alongside the page. sr-only hides it visually while keeping it in the
+  // accessibility tree and the crawlable DOM. React replaces all children of
+  // #root on hydration, so JS users see the normal SPA h1 without any flash.
   const bodyHtml = (
+    `<h1 class="sr-only">${safeBrandTitle}</h1>` +
     `<div style="display:none">` +
-    `<h1>${safeBrandTitle}</h1>` +
     (safeBrandDesc ? `<p>${safeBrandDesc}</p>` : "") +
     (safeBrandHeading ? `<h2>${safeBrandHeading}</h2>` : "") +
     (safeBrandIntro ? `<p>${safeBrandIntro}</p>` : "") +
@@ -2710,9 +2714,14 @@ function buildShopEntityHead({
       `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
       entityBodyFaqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
   }
+  // The sr-only h1 lives OUTSIDE the display:none wrapper so Google (which
+  // treats display:none as potentially cloaked content) indexes it alongside
+  // the rest of the page. sr-only hides it visually while keeping it in the
+  // accessibility tree and the crawlable DOM. React's createRoot() replaces
+  // all children of #root on hydration, so JS users see the normal SPA h1.
   const bodyHtml = (
+    `<h1 class="sr-only">${safeEntityTitle}</h1>` +
     `<div style="display:none">` +
-    `<h1>${safeEntityTitle}</h1>` +
     (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
     (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
     (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +

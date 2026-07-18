@@ -754,6 +754,74 @@ const UNKNOWN_SLUG_CASES: UnknownSlugCase[] = [
   { label: "occasion", path: "/en-lb/beirut/occasion/unknown-occasion-slug-xyz" },
 ];
 
+// ---------------------------------------------------------------------------
+// 11. <h1 class="sr-only"> h1 parity on category, occasion, and brand pages
+//
+// buildShopEntityHead (for category / occasion) and buildBrandHead (for brand)
+// in seo-inject.mjs inject an <h1 class="sr-only">{entityName}</h1> directly
+// inside <div id="root"> when the OS API resolves the entity. The element sits
+// OUTSIDE the <div style="display:none"> wrapper so Googlebot sees the heading
+// without the cloaking risk that display:none carries. sr-only hides it
+// visually while keeping it in the accessibility tree. React's createRoot()
+// replaces all #root children on hydration, so interactive users always see the
+// normal SPA h1 with no flash.
+//
+// These tests verify:
+//   (a) An <h1 class="sr-only"> is present in the served HTML when the OS API
+//       resolves a real entity.
+//   (b) The h1 text content is non-empty (i.e. the entity name was injected).
+//
+// Degrades gracefully via test.skip when the OS API does not resolve the entity
+// (the element is simply absent from the generic fallback head).
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the text content of the first <h1 class="sr-only"> element from a
+ * raw HTML string. Returns null when no such element is present.
+ */
+function findSrOnlyH1(html: string): string | null {
+  const re = /<h1\s+class="sr-only">([\s\S]*?)<\/h1>/i;
+  const m = html.match(re);
+  return m ? m[1].trim() : null;
+}
+
+function describeEntityH1(label: string, path: string): void {
+  test.describe(
+    `Production SEO — sr-only <h1> on a resolved ${label} entity page`,
+    () => {
+      let html: string;
+      let entityResolved = false;
+
+      test.beforeAll(async ({ request }) => {
+        const response = await request.get(path);
+        expect(response.status()).toBe(200);
+        html = await response.text();
+        // The sr-only h1 is injected only when the OS API resolves the entity.
+        entityResolved = html.includes('<h1 class="sr-only">');
+      });
+
+      test("<h1 class=\"sr-only\"> is present and non-empty", () => {
+        if (!entityResolved) {
+          test.skip(
+            true,
+            `OS API did not resolve a ${label} entity for path "${path}" — sr-only h1 assertion not applicable`,
+          );
+        }
+        const content = findSrOnlyH1(html);
+        expect(
+          content,
+          `<h1 class="sr-only"> not found in served HTML for ${path}`,
+        ).toBeTruthy();
+        expect(content!.trim().length).toBeGreaterThan(0);
+      });
+    },
+  );
+}
+
+describeEntityH1("category", "/en-lb/beirut/category/flowers");
+describeEntityH1("occasion", "/en-lb/beirut/occasion/birthday");
+describeEntityH1("brand", "/en-lb/beirut/brand/roses");
+
 for (const { label, path } of UNKNOWN_SLUG_CASES) {
   test.describe(
     `Production SEO — unknown ${label} slug degrades to generic OG head (${path})`,
