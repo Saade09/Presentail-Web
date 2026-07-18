@@ -173,6 +173,8 @@ const ROUTE_KEYS = [
   { test: (r) => r === "/faqs", key: "faqs" },
   { test: (r) => r === "/terms", key: "terms" },
   { test: (r) => r === "/privacy", key: "privacy" },
+  { test: (r) => r === "/return-policy", key: "return-policy" },
+  { test: (r) => r === "/shipping-policy", key: "shipping-policy" },
 ];
 
 function detectRouteKey(rest) {
@@ -497,6 +499,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
       weddings: "Weddings", corporate: "Corporate", contact: "Contact",
       faqs: "FAQs", terms: "Terms of Use", privacy: "Privacy Policy",
       blog: "Journal", careers: "Careers", partner: "Partner",
+      "return-policy": "Return Policy", "shipping-policy": "Shipping Policy",
     },
     ar: {
       home: "الرئيسية",
@@ -505,6 +508,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
       faqs: "الأسئلة الشائعة", terms: "شروط الاستخدام",
       privacy: "سياسة الخصوصية", blog: "المدونة", careers: "الوظائف",
       partner: "شريك",
+      "return-policy": "سياسة الإرجاع", "shipping-policy": "سياسة الشحن",
     },
     fr: {
       home: "Accueil",
@@ -513,6 +517,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
       faqs: "FAQ", terms: "Conditions d'utilisation",
       privacy: "Politique de confidentialité", blog: "Journal",
       careers: "Carrières", partner: "Partenariat",
+      "return-policy": "Politique de retour", "shipping-policy": "Politique de livraison",
     },
   };
   const crumbLabels = ROUTE_CRUMB_LABELS[lang] ?? ROUTE_CRUMB_LABELS.en;
