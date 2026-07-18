@@ -25,6 +25,26 @@ const app: Express = express();
 // per-IP limits (only the proxy-appended rightmost hop is trusted).
 app.set("trust proxy", 1);
 
+// Universal noindex protection — the first middleware mounted so it applies to
+// every HTTP response without exception, including the Clerk proxy, webhook
+// handlers, static assets, and all API routes. This keeps the ops.presentail.com
+// admin deployment out of Google's index. The header is also harmless on pure
+// JSON API responses (Googlebot does not index raw API payloads).
+app.use((_req, res, next) => {
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  next();
+});
+
+// robots.txt — served at the root so that ops.presentail.com/robots.txt
+// instructs all compliant crawlers (including Googlebot) to disallow the entire
+// site. Mounted immediately after the noindex middleware so the response also
+// carries the X-Robots-Tag header set above.
+app.get("/robots.txt", (_req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.end("User-agent: *\nDisallow: /\n");
+});
+
 app.use(
   pinoHttp({
     logger,
