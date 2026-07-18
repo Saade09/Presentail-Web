@@ -38,6 +38,9 @@ jobs:
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
+      - name: Check robots.txt structure (no orphaned directives, no duplicates, required paths present)
+        run: pnpm --filter @workspace/scripts run check-robots-txt
+
       - name: Check public/ image budget (per-format; blog WebP-only ≤300 kB)
         run: pnpm --filter @workspace/presentail-web run check-public-image-budget
 

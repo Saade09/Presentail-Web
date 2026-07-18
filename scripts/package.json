@@ -39,6 +39,7 @@
     "check-city-similarity": "tsx ./src/checkCitySimilarity.ts",
     "seed-collection-ranking": "tsx ./src/seedCollectionRanking.ts",
     "check-subdomain-redirects": "tsx ./src/checkSubdomainRedirects.ts",
+    "check-robots-txt": "tsx ./src/checkRobotsTxt.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
