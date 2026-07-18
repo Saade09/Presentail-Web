@@ -4,13 +4,13 @@
  *
  * CI guard for the product rich-result (Merchant Listing) JSON-LD.
  *
- * The product page Offer JSON-LD emits `shippingDetails` +
- * `hasMerchantReturnPolicy` (built in seo-inject.mjs's
- * buildOfferDeliveryAndReturns) so listings qualify for Google's free /
- * enhanced merchant results. Google disqualifies a listing (or downgrades it
- * to a plain result, losing the free-listing eligibility) when any required
- * field is missing or malformed — and that happens silently: nothing in the
- * page breaks, the warning only shows up days later in Search Console.
+ * The product page JSON-LD emits `shippingDetails` on the Offer and links a
+ * `hasMerchantReturnPolicy` node directly on the Product node (per task spec
+ * §3) so listings qualify for Google's free / enhanced merchant results.
+ * Google disqualifies a listing (or downgrades it to a plain result, losing
+ * the free-listing eligibility) when any required field is missing or
+ * malformed — and that happens silently: nothing in the page breaks, the
+ * warning only shows up days later in Search Console.
  *
  * This check builds the real product head (via buildProductHead) for a set of
  * representative fixtures (free-shipping vs surcharge, every served country,
@@ -26,11 +26,11 @@
  *   offers.shippingDetails.shippingRate.value
  *   offers.shippingDetails.shippingRate.currency
  *   offers.shippingDetails.shippingDestination.addressCountry
- *   offers.hasMerchantReturnPolicy.applicableCountry
- *   offers.hasMerchantReturnPolicy.returnPolicyCategory
- *   offers.hasMerchantReturnPolicy.merchantReturnDays
- *   offers.hasMerchantReturnPolicy.returnMethod
- *   offers.hasMerchantReturnPolicy.returnFees
+ *   hasMerchantReturnPolicy.applicableCountry          ← on Product node
+ *   hasMerchantReturnPolicy.returnPolicyCategory       ← on Product node
+ *   hasMerchantReturnPolicy.merchantReturnDays         ← on Product node
+ *   hasMerchantReturnPolicy.returnMethod               ← on Product node
+ *   hasMerchantReturnPolicy.returnFees                 ← on Product node
  *
  * Exits 0 on PASS, 1 on FAIL.
  *
@@ -227,25 +227,25 @@ export function validateProductOffer(product) {
     }
   }
 
-  // hasMerchantReturnPolicy.
-  const policy = offer.hasMerchantReturnPolicy;
+  // hasMerchantReturnPolicy — lives on the Product node (not inside Offer).
+  const policy = product.hasMerchantReturnPolicy;
   if (!policy || typeof policy !== "object") {
-    errors.push("offers.hasMerchantReturnPolicy is missing");
+    errors.push("hasMerchantReturnPolicy is missing from the Product node");
   } else {
     if (!isNonEmptyString(policy.applicableCountry)) {
-      errors.push(`offers.hasMerchantReturnPolicy.applicableCountry must be a non-empty string (got ${JSON.stringify(policy.applicableCountry)})`);
+      errors.push(`hasMerchantReturnPolicy.applicableCountry must be a non-empty string (got ${JSON.stringify(policy.applicableCountry)})`);
     }
     if (!isSchemaOrgUrl(policy.returnPolicyCategory)) {
-      errors.push(`offers.hasMerchantReturnPolicy.returnPolicyCategory must be a schema.org URL (got ${JSON.stringify(policy.returnPolicyCategory)})`);
+      errors.push(`hasMerchantReturnPolicy.returnPolicyCategory must be a schema.org URL (got ${JSON.stringify(policy.returnPolicyCategory)})`);
     }
     if (typeof policy.merchantReturnDays !== "number" || !Number.isInteger(policy.merchantReturnDays) || policy.merchantReturnDays < 0) {
-      errors.push(`offers.hasMerchantReturnPolicy.merchantReturnDays must be a non-negative integer (got ${JSON.stringify(policy.merchantReturnDays)})`);
+      errors.push(`hasMerchantReturnPolicy.merchantReturnDays must be a non-negative integer (got ${JSON.stringify(policy.merchantReturnDays)})`);
     }
     if (!isSchemaOrgUrl(policy.returnMethod)) {
-      errors.push(`offers.hasMerchantReturnPolicy.returnMethod must be a schema.org URL (got ${JSON.stringify(policy.returnMethod)})`);
+      errors.push(`hasMerchantReturnPolicy.returnMethod must be a schema.org URL (got ${JSON.stringify(policy.returnMethod)})`);
     }
     if (!isSchemaOrgUrl(policy.returnFees)) {
-      errors.push(`offers.hasMerchantReturnPolicy.returnFees must be a schema.org URL (got ${JSON.stringify(policy.returnFees)})`);
+      errors.push(`hasMerchantReturnPolicy.returnFees must be a schema.org URL (got ${JSON.stringify(policy.returnFees)})`);
     }
   }
 

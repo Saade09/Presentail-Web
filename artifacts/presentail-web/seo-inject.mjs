@@ -15,11 +15,10 @@ import {
   freeDeliveryThresholdUsd,
   expressSurchargeForCountry,
 } from "@workspace/delivery";
+import { roundToNearestFive } from "@workspace/display-currency";
 
-// Returns window (days) for the merchant return policy in the Product offer.
-// Mirrors the "Send us a photo within 7 days" satisfaction-guarantee window
-// documented on the /faqs page (src/data/faqsCopy.js) and /terms page. Kept as
-// a single constant so the JSON-LD and the on-page copy can't silently drift.
+// Returns window (days) for the Google Merchant Listings hasMerchantReturnPolicy node.
+// Must match the satisfaction-guarantee window documented in /faqs and Terms.tsx.
 // Exported so returns-window-sync.test.ts can assert the FAQ/terms copy agrees.
 export const RETURN_WINDOW_DAYS = 7;
 
@@ -2354,18 +2353,27 @@ function genericFallbackDescription(lang, key) {
   return tpl.replace(/\{(?:city|country)\}/g, "").replace(/\s+/g, " ").trim();
 }
 
+// Standard delivery fee in USD for LB orders below the free-delivery threshold.
+// AE and CY always offer free standard delivery (see buildOfferDeliveryAndReturns).
+const LB_STANDARD_SHIPPING_USD = 3;
+
+// Per-country native currency for the shipping-rate structured data field.
+// AE transacts in AED (pegged to USD), CY in EUR. LB uses USD (the store base).
+const COUNTRY_SHIPPING_CURRENCY = { AE: "AED", CY: "EUR" };
+
 /**
  * Build the `shippingDetails` + `hasMerchantReturnPolicy` fields for a Product
  * Offer so the listing qualifies for Google's enhanced/free merchant results.
  *
  * - shippingDetails: region is the page's recipient country (defaults to LB).
- *   The shipping rate is derived from the shared delivery rules
- *   (@workspace/delivery): orders at/above the country's free-delivery
- *   threshold ship free (rate 0); below the threshold we surface the country's
- *   standard delivery surcharge — both values come straight from the shared
- *   lib, never hardcoded here.
+ *   AE and CY always ship free; LB ships free above the threshold, otherwise
+ *   the standard delivery fee (LB_STANDARD_SHIPPING_USD) is emitted.
+ *   The shipping currency matches the country's native transactional currency
+ *   (AED for AE, EUR for CY, USD for LB) so Google can display localised
+ *   shipping costs in the Shopping tab without a conversion step.
+ *   deliveryTime is emitted for all countries: 1–3 business days transit.
  * - hasMerchantReturnPolicy: reflects the real 100% Satisfaction Guarantee —
- *   a finite 7-day, free-of-charge return window (see RETURN_WINDOW_DAYS).
+ *   a finite RETURN_WINDOW_DAYS-day, free-of-charge return window.
  *
  * Returns `{}` when the price is unusable so we never emit a malformed offer.
  */
@@ -2379,33 +2387,38 @@ function buildOfferDeliveryAndReturns({ countryCode, priceValue }) {
     return {};
   }
 
-  const thresholdUsd = freeDeliveryThresholdUsd(country);
-  const qualifiesForFree = priceValue >= thresholdUsd;
-  const shippingRateUsd = qualifiesForFree
-    ? 0
-    : expressSurchargeForCountry(country);
+  // AE and CY always offer free standard delivery. LB: free above the
+  // threshold, otherwise charge the standard per-order delivery fee.
+  const shippingCurrency = COUNTRY_SHIPPING_CURRENCY[country] ?? "USD";
+  let shippingRateValue;
+  if (country === "AE" || country === "CY") {
+    shippingRateValue = 0;
+  } else {
+    const thresholdUsd = freeDeliveryThresholdUsd(country);
+    shippingRateValue = priceValue >= thresholdUsd ? 0 : LB_STANDARD_SHIPPING_USD;
+  }
 
   return {
     shippingDetails: {
       "@type": "OfferShippingDetails",
       shippingRate: {
         "@type": "MonetaryAmount",
-        value: shippingRateUsd.toFixed(2),
-        currency: "USD",
+        value: shippingRateValue.toFixed(2),
+        currency: shippingCurrency,
+      },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        transitTime: {
+          "@type": "QuantitativeValue",
+          minValue: 1,
+          maxValue: 3,
+          unitCode: "d",
+        },
       },
       shippingDestination: {
         "@type": "DefinedRegion",
         addressCountry: country,
       },
-    },
-    hasMerchantReturnPolicy: {
-      "@type": "MerchantReturnPolicy",
-      applicableCountry: country,
-      returnPolicyCategory:
-        "https://schema.org/MerchantReturnFiniteReturnWindow",
-      merchantReturnDays: RETURN_WINDOW_DAYS,
-      returnMethod: "https://schema.org/ReturnByMail",
-      returnFees: "https://schema.org/FreeReturn",
     },
   };
 }
@@ -2469,7 +2482,7 @@ export function buildProductHead({
     Number.isFinite(product.priceValue) &&
     product.priceValue > 0
   ) {
-    const marketPrice = Math.round(product.priceValue * marketFx * 100) / 100;
+    const marketPrice = roundToNearestFive(product.priceValue * marketFx, marketCurrency);
     extraLines.push(
       `<meta property="product:price:amount" content="${escapeAttr(marketPrice.toFixed(2))}" />`,
     );
@@ -2508,17 +2521,64 @@ export function buildProductHead({
   });
 
   // Schema.org Product JSON-LD for Google rich results.
-  // Currency is USD because all prices are stored in the WC/OS USD base and the
-  // server-rendered HTML (what crawlers index) shows the USD figure — display
-  // currency is a client-only conversion applied after hydration via
-  // CurrencyContext, so it is not present in the crawlable markup. This keeps
-  // the price number and currency code internally consistent and matches the
-  // existing `product:price` OG meta. availability mirrors the page: out-of-
-  // stock products show a dead-end view, so we never emit InStock for them.
+  // Price is converted to the market's display currency (marketCurrency) using
+  // the same FX rates that the web storefront's display layer applies — this
+  // ensures the crawlable structured data agrees with the displayed price so
+  // Google's Merchant Listings validator sees consistent numbers.
+  // priceValidUntil is set 30 days out to inform Google the price is current
+  // and to prevent stale-price penalties from cached structured data.
   const hasPrice =
     typeof product.priceValue === "number" &&
     Number.isFinite(product.priceValue) &&
     product.priceValue > 0;
+
+  // priceValidUntil: 30 days from now, ISO 8601 date (YYYY-MM-DD).
+  const priceValidUntilDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const priceValidUntil = priceValidUntilDate.toISOString().split("T")[0];
+
+  // mpn: OS product SKU field (if present), then the numeric OS id, then
+  // the WC id. Provides Google with a Manufacturer Part Number to unambiguously
+  // match the product in the merchant catalogue.
+  const mpn =
+    (typeof product.sku === "string" && product.sku.trim()) ||
+    (typeof product.osNumericId === "number" && product.osNumericId > 0
+      ? String(product.osNumericId)
+      : "") ||
+    (typeof product.wcId === "number" && product.wcId > 0
+      ? String(product.wcId)
+      : "") ||
+    (typeof product.id === "string" && product.id) ||
+    "";
+
+  // aggregateRating: emit only when the OS product carries genuine review data
+  // (reviewCount >= 1). Never fabricate ratings — an empty node would cause
+  // Google's Rich Results Test to flag the schema as incomplete.
+  const hasRating =
+    typeof product.rating === "number" &&
+    Number.isFinite(product.rating) &&
+    typeof product.reviewCount === "number" &&
+    product.reviewCount >= 1;
+
+  // Brand name resolution — used by the brand field on the Product node.
+  const brandName =
+    (product.brand && typeof product.brand.name === "string" && product.brand.name.trim()) ||
+    (Array.isArray(product.brands) && product.brands[0] &&
+      typeof product.brands[0].name === "string" && product.brands[0].name.trim()) ||
+    null;
+
+  // hasMerchantReturnPolicy belongs on the Product node per the task spec
+  // ("Link via hasMerchantReturnPolicy on the Product node") so that Google's
+  // Merchant Listings validator can find the return policy without needing to
+  // traverse into the Offer. applicableCountry is derived from the locale country.
+  const merchantReturnPolicy = {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: countryCode ? String(countryCode).toUpperCase() : "LB",
+    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+    merchantReturnDays: RETURN_WINDOW_DAYS,
+    returnMethod: "https://schema.org/ReturnByMail",
+    returnFees: "https://schema.org/FreeReturn",
+  };
+
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -2526,28 +2586,45 @@ export function buildProductHead({
     ...(rawDesc ? { description: clampDescription(stripHtml(rawDesc), 300) } : {}),
     ...(imageUrl ? { image: imageUrl } : {}),
     ...(sku ? { sku } : {}),
+    ...(mpn ? { mpn } : {}),
     url: canonicalUrl,
-    // Use the actual brand name from the product; omit if unavailable so the
-    // schema never emits a misleading fallback for unbranded items.
-    ...(() => {
-      const bName =
-        (product.brand && typeof product.brand.name === "string" && product.brand.name.trim()) ||
-        (Array.isArray(product.brands) && product.brands[0] &&
-          typeof product.brands[0].name === "string" && product.brands[0].name.trim()) ||
-        null;
-      return bName ? { brand: { "@type": "Brand", name: bName } } : {};
-    })(),
+    // seller at the Product level identifies Presentail as the merchant.
+    // Also present inside the Offer node; having it at both levels satisfies
+    // both the Google Merchant Listings validator and the schema.org spec.
+    seller: {
+      "@type": "Organization",
+      name: "Presentail",
+      url: "https://presentail.com",
+    },
+    // hasMerchantReturnPolicy on the Product node as required by task spec §3.
+    hasMerchantReturnPolicy: merchantReturnPolicy,
+    ...(brandName ? { brand: { "@type": "Brand", name: brandName } } : {}),
+    ...(hasRating
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: product.rating,
+            reviewCount: product.reviewCount,
+          },
+        }
+      : {}),
     ...(hasPrice
       ? {
           offers: {
             "@type": "Offer",
-            price: (Math.round(product.priceValue * marketFx * 100) / 100).toFixed(2),
+            price: roundToNearestFive(product.priceValue * marketFx, marketCurrency).toFixed(2),
             priceCurrency: marketCurrency,
+            priceValidUntil,
             availability: inStock
               ? "https://schema.org/InStock"
               : "https://schema.org/OutOfStock",
             itemCondition: "https://schema.org/NewCondition",
             url: canonicalUrl,
+            seller: {
+              "@type": "Organization",
+              name: "Presentail",
+              url: "https://presentail.com",
+            },
             ...offerExtras,
           },
         }

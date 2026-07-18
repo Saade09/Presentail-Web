@@ -54,9 +54,9 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       '<meta property="og:image" content="https://presentail.test/api/og-image/product/velvet-rose-bouquet"',
     );
     expect(out).toContain('<meta property="og:type" content="product"');
-    // AE market: price is converted from USD to AED (3.6725 peg): 89.5 × 3.6725 = 328.69
+    // AE market: 89.5 × 3.6725 = 328.69 → roundToNearestFive → 330.00 AED
     expect(out).toContain(
-      '<meta property="product:price:amount" content="328.69"',
+      '<meta property="product:price:amount" content="330.00"',
     );
     expect(out).toContain(
       '<meta property="product:price:currency" content="AED"',
@@ -4737,39 +4737,59 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     expect(product.url).toBe(
       "https://presentail.test/en-ae/dubai/product/branded-rose-collection",
     );
-    // Offer carries shippingDetails + hasMerchantReturnPolicy so the listing
-    // qualifies for Google's enhanced/free merchant results.
-    // AE market: price is converted from USD to AED (3.6725 peg): 89.5 × 3.6725 = 328.69.
-    // The original USD priceValue 89.50 is just below the AE free-delivery threshold
-    // so the shippingDetails shows the AE standard delivery surcharge (4.90 USD).
-    expect(product.offers).toEqual({
-      "@type": "Offer",
-      price: "328.69",
-      priceCurrency: "AED",
-      availability: "https://schema.org/InStock",
-      itemCondition: "https://schema.org/NewCondition",
-      url: "https://presentail.test/en-ae/dubai/product/branded-rose-collection",
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        shippingRate: {
-          "@type": "MonetaryAmount",
-          value: "4.90",
-          currency: "USD",
-        },
-        shippingDestination: {
-          "@type": "DefinedRegion",
-          addressCountry: "AE",
+    // Offer carries all required merchant-listing fields: price in the market
+    // currency (AED for AE), priceValidUntil 30 days out, seller, shippingDetails
+    // with deliveryTime, and hasMerchantReturnPolicy.
+    // AE market: 89.5 × 3.6725 = 328.69 → roundToNearestFive(AED) → 330.00.
+    const offers = product.offers;
+    expect(offers["@type"]).toBe("Offer");
+    expect(offers.price).toBe("330.00");
+    expect(offers.priceCurrency).toBe("AED");
+    expect(offers.availability).toBe("https://schema.org/InStock");
+    expect(offers.itemCondition).toBe("https://schema.org/NewCondition");
+    expect(offers.url).toBe(
+      "https://presentail.test/en-ae/dubai/product/branded-rose-collection",
+    );
+    // priceValidUntil: ISO date string 30 days from now
+    expect(offers.priceValidUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // seller node on the Offer
+    expect(offers.seller).toEqual({
+      "@type": "Organization",
+      name: "Presentail",
+      url: "https://presentail.com",
+    });
+    // shippingDetails: AE always free, currency AED, with deliveryTime 1–3 days
+    expect(offers.shippingDetails).toEqual({
+      "@type": "OfferShippingDetails",
+      shippingRate: {
+        "@type": "MonetaryAmount",
+        value: "0.00",
+        currency: "AED",
+      },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        transitTime: {
+          "@type": "QuantitativeValue",
+          minValue: 1,
+          maxValue: 3,
+          unitCode: "d",
         },
       },
-      hasMerchantReturnPolicy: {
-        "@type": "MerchantReturnPolicy",
-        applicableCountry: "AE",
-        returnPolicyCategory:
-          "https://schema.org/MerchantReturnFiniteReturnWindow",
-        merchantReturnDays: 7,
-        returnMethod: "https://schema.org/ReturnByMail",
-        returnFees: "https://schema.org/FreeReturn",
+      shippingDestination: {
+        "@type": "DefinedRegion",
+        addressCountry: "AE",
       },
+    });
+    // hasMerchantReturnPolicy is on the Product node, not inside offers
+    expect(offers.hasMerchantReturnPolicy).toBeUndefined();
+    expect(product.hasMerchantReturnPolicy).toEqual({
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "AE",
+      returnPolicyCategory:
+        "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: 7,
+      returnMethod: "https://schema.org/ReturnByMail",
+      returnFees: "https://schema.org/FreeReturn",
     });
   });
 
@@ -4790,6 +4810,8 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
       OPTS,
     );
     const product = byType(extractJsonLd(out), "Product");
+    // LB above free-delivery threshold (150 USD > 90 USD): free shipping in USD.
+    // deliveryTime is now always emitted alongside the shipping rate.
     expect(product.offers.shippingDetails).toEqual({
       "@type": "OfferShippingDetails",
       shippingRate: {
@@ -4797,13 +4819,23 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
         value: "0.00",
         currency: "USD",
       },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        transitTime: {
+          "@type": "QuantitativeValue",
+          minValue: 1,
+          maxValue: 3,
+          unitCode: "d",
+        },
+      },
       shippingDestination: {
         "@type": "DefinedRegion",
         addressCountry: "LB",
       },
     });
-    // Below-threshold LB products fall back to the LB standard surcharge (15).
-    expect(product.offers.hasMerchantReturnPolicy.applicableCountry).toBe("LB");
+    // hasMerchantReturnPolicy is on the Product node, not inside offers
+    expect(product.offers.hasMerchantReturnPolicy).toBeUndefined();
+    expect(product.hasMerchantReturnPolicy.applicableCountry).toBe("LB");
   });
 
   it("shows the LB standard delivery surcharge for below-threshold products", async () => {
@@ -4823,9 +4855,10 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
       OPTS,
     );
     const product = byType(extractJsonLd(out), "Product");
+    // LB below free-delivery threshold (25 USD < 90 USD): LB standard flat rate.
     expect(product.offers.shippingDetails.shippingRate).toEqual({
       "@type": "MonetaryAmount",
-      value: "15.00",
+      value: "3.00",
       currency: "USD",
     });
   });
@@ -5432,6 +5465,8 @@ describe("Product Offer JSON-LD — Google Merchant Listing required fields", ()
   it("the validator fails loudly when a required shipping/return field is missing", async () => {
     // @ts-expect-error - mjs import without types; plain JS module.
     const mod = await import("../../scripts/check-product-jsonld-schema.mjs");
+    // hasMerchantReturnPolicy is on the Product node (not inside offers).
+    // shippingRate.currency and returnFees are intentionally omitted to trigger errors.
     const broken = {
       "@type": "Product",
       offers: {
@@ -5445,15 +5480,15 @@ describe("Product Offer JSON-LD — Google Merchant Listing required fields", ()
           shippingRate: { "@type": "MonetaryAmount", value: "0.00" },
           shippingDestination: { "@type": "DefinedRegion", addressCountry: "LB" },
         },
-        hasMerchantReturnPolicy: {
-          "@type": "MerchantReturnPolicy",
-          applicableCountry: "LB",
-          returnPolicyCategory:
-            "https://schema.org/MerchantReturnFiniteReturnWindow",
-          merchantReturnDays: 7,
-          returnMethod: "https://schema.org/ReturnByMail",
-          // returnFees intentionally omitted.
-        },
+      },
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "LB",
+        returnPolicyCategory:
+          "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 7,
+        returnMethod: "https://schema.org/ReturnByMail",
+        // returnFees intentionally omitted.
       },
     };
     const errors = mod.validateProductOffer(broken);
@@ -5461,7 +5496,7 @@ describe("Product Offer JSON-LD — Google Merchant Listing required fields", ()
       "offers.shippingDetails.shippingRate.currency must be a non-empty string (got undefined)",
     );
     expect(errors).toContain(
-      "offers.hasMerchantReturnPolicy.returnFees must be a schema.org URL (got undefined)",
+      "hasMerchantReturnPolicy.returnFees must be a schema.org URL (got undefined)",
     );
   });
 
@@ -5585,8 +5620,8 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     const blocks = assertAllJsonLdValid(out, "product page");
     const product = byType(blocks, "Product");
     expect(product).toBeTruthy();
-    // AE market: price is converted from USD to AED (3.6725 peg): 89.5 × 3.6725 = 328.69
-    expect(product.offers.price).toBe("328.69");
+    // AE market: 89.5 × 3.6725 = 328.69 → roundToNearestFive(AED) → 330.00
+    expect(product.offers.price).toBe("330.00");
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 
@@ -6853,5 +6888,155 @@ describe("Local SEO — nearby-area navigation links in <noscript> block", () =>
       /<a href="[^"]*\/en-lb\/[^"]+">Flower delivery in [^<]+<\/a>/g,
     );
     expect((anchors ?? []).length).toBeLessThanOrEqual(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Merchant Listings integration tests — Google Shopping rich result fields
+// ---------------------------------------------------------------------------
+
+describe("JSON-LD — Merchant Listings fields on /product/<slug>", () => {
+  function productMock(overrides: Record<string, unknown> = {}) {
+    return {
+      ok: true,
+      product: {
+        name: "Merchant Test Bouquet",
+        description: "A merchant test bouquet.",
+        image: { uri: "https://cdn.test/merchant.jpg" },
+        priceValue: 60,
+        inStock: true,
+        osNumericId: 77,
+        ...overrides,
+      },
+    };
+  }
+
+  it("LB product: Offer.priceCurrency is USD and priceValidUntil is a future date", async () => {
+    mockFetchOnce(productMock());
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/merchant-test-lb",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.offers.priceCurrency).toBe("USD");
+    expect(product.offers.priceValidUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const validUntil = new Date(product.offers.priceValidUntil);
+    expect(validUntil.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("AE product: Offer.priceCurrency is AED and price is rounded to nearest 5", async () => {
+    mockFetchOnce(productMock({ priceValue: 100 }));
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/merchant-test-ae",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.offers.priceCurrency).toBe("AED");
+    // 100 × 3.6725 = 367.25 → roundToNearestFive → 365
+    expect(parseFloat(product.offers.price)).toBe(365);
+  });
+
+  it("CY product: Offer.priceCurrency is EUR and price is rounded to nearest 5", async () => {
+    mockFetchOnce(productMock({ priceValue: 50 }));
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-cy/nicosia/product/merchant-test-cy",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.offers.priceCurrency).toBe("EUR");
+    // 50 × 0.92 = 46 → roundToNearestFive → 45
+    expect(parseFloat(product.offers.price)).toBe(45);
+  });
+
+  it("seller node is present on the Product and on the Offer", async () => {
+    mockFetchOnce(productMock());
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/merchant-seller-test",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.seller?.name).toBe("Presentail");
+    expect(product.offers.seller?.name).toBe("Presentail");
+  });
+
+  it("hasMerchantReturnPolicy.applicableCountry is on the Product node and matches route country", async () => {
+    mockFetchOnce(productMock());
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/merchant-return-ae",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    // Task spec §3: hasMerchantReturnPolicy is linked on the Product node, not inside Offer.
+    expect(product.hasMerchantReturnPolicy?.applicableCountry).toBe("AE");
+    expect(product.hasMerchantReturnPolicy?.merchantReturnDays).toBe(7);
+    expect(product.hasMerchantReturnPolicy?.returnFees).toBe(
+      "https://schema.org/FreeReturn",
+    );
+    expect(product.offers?.hasMerchantReturnPolicy).toBeUndefined();
+  });
+
+  it("shippingDetails.deliveryTime is emitted with 1–3 day transitTime", async () => {
+    mockFetchOnce(productMock());
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/merchant-delivery-time",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    const dt = product.offers.shippingDetails?.deliveryTime;
+    expect(dt?.["@type"]).toBe("ShippingDeliveryTime");
+    expect(dt?.transitTime?.minValue).toBe(1);
+    expect(dt?.transitTime?.maxValue).toBe(3);
+  });
+
+  it("mpn is non-empty and matches osNumericId when no sku is provided", async () => {
+    mockFetchOnce(productMock({ osNumericId: 77 }));
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/merchant-mpn-test",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.mpn).toBe("77");
+  });
+
+  it("mpn prefers product.sku over osNumericId", async () => {
+    mockFetchOnce(productMock({ sku: "SKU-XYZ", osNumericId: 77 }));
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/merchant-sku-test",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.mpn).toBe("SKU-XYZ");
+  });
+
+  it("aggregateRating is emitted when reviewCount >= 1", async () => {
+    mockFetchOnce(productMock({ rating: 4.8, reviewCount: 23 }));
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/merchant-rating-test",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.aggregateRating?.["@type"]).toBe("AggregateRating");
+    expect(product.aggregateRating?.ratingValue).toBe(4.8);
+    expect(product.aggregateRating?.reviewCount).toBe(23);
+  });
+
+  it("aggregateRating is absent when reviewCount is 0", async () => {
+    mockFetchOnce(productMock({ rating: 4.5, reviewCount: 0 }));
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/merchant-no-rating",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.aggregateRating).toBeUndefined();
   });
 });
