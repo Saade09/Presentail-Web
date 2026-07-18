@@ -59,6 +59,9 @@ jobs:
       - name: Check city page content similarity (≤80% Jaccard per same-country pair)
         run: pnpm --filter @workspace/scripts run check-city-similarity
 
+      - name: Check city-name coverage (every slug must have EN/AR/FR names in seo.mjs)
+        run: pnpm --filter @workspace/scripts run check-city-name-coverage
+
       - name: Check contact page SEO title lengths (30–65 chars)
         run: pnpm --filter @workspace/presentail-web run check-contact-title-length
 
