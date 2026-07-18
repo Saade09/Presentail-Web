@@ -384,6 +384,16 @@ function isPrivatePath(pathname) {
 
 const CANONICAL_PRODUCTION_HOST = "presentail.com"; // i18n-ignore — canonical domain
 
+// Retired country subdomains whose link equity must be consolidated into the
+// canonical apex.  Each entry is the lowercase, port-stripped hostname that the
+// normalizeHostHeader() helper (defined inside the request handler) produces.
+// Kept as a module-level Set so it is allocated once, not per-request.
+const COUNTRY_SUBDOMAINS = new Set([
+  "lb.presentail.com",
+  "ae.presentail.com",
+  "cy.presentail.com",
+]);
+
 /**
  * Returns true when the query string contains at least one UTM tracking
  * parameter or Google click-ID parameter (gclid / gbraid / wbraid).
@@ -952,6 +962,24 @@ const server = http.createServer(async (req, res) => {
       normalizedHost === "new.presentail.com" ||
       normalizedFwdHost === "new.presentail.com";
     if (isNewSubdomain) {
+      const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
+      res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
+      res.end();
+      return;
+    }
+
+    // Hard guard: retired country subdomains (lb., ae., cy.) are permanently
+    // redirected to the canonical apex so their indexed pages and link equity
+    // merge into presentail.com.  Fires unconditionally — no env var controls
+    // it.  Path + query string are preserved verbatim on the redirect target.
+    // This in-server guard activates once DNS CNAMEs for the subdomains are
+    // pointed at this server; the DNS/CDN layer documented in
+    // docs/subdomain-redirect-runbook.md is the prerequisite for traffic to
+    // reach this code path.
+    const isCountrySubdomain =
+      COUNTRY_SUBDOMAINS.has(normalizedHost) ||
+      COUNTRY_SUBDOMAINS.has(normalizedFwdHost);
+    if (isCountrySubdomain) {
       const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
       res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
       res.end();
