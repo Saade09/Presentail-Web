@@ -22,13 +22,27 @@
  * → assemble — and then confirming the resulting markup is accepted by the
  * same external validator Google's crawlers use.
  *
- * Pages checked (representative set covering all major entity types):
+ * Pages checked (representative set covering all major entity types and the
+ * three supported locales — EN, AR, FR — so that RTL/Arabic breadcrumb text
+ * and French accented characters are validated alongside English):
+ *
+ *   English (en-lb):
  *   /en-lb/beirut/                                city homepage
  *   /en-lb/beirut/product/rose-bouquet            product entity page
  *   /en-lb/beirut/brand/roses                     brand entity page
  *   /en-lb/beirut/blog/inside-spring-sourcing-trip blog post entity page
  *   /en-lb/beirut/category/flowers                category entity page
  *   /en-lb/beirut/occasion/birthday               occasion entity page
+ *
+ *   Arabic (ar-lb) — RTL text in breadcrumb `name` fields:
+ *   /ar-lb/beirut/                                city homepage
+ *   /ar-lb/beirut/category/flowers                category entity page
+ *   /ar-lb/beirut/occasion/birthday               occasion entity page
+ *
+ *   French (fr-lb) — accented characters in breadcrumb / description fields:
+ *   /fr-lb/beirut/                                city homepage
+ *   /fr-lb/beirut/category/flowers                category entity page
+ *   /fr-lb/beirut/occasion/birthday               occasion entity page
  *
  * ── Phase 2: Google Rich Results Test API (Merchant Listing) ─────────────────
  *
@@ -112,15 +126,26 @@ const GOOGLE_API_TIMEOUT_MS = 30_000;
  * exercised end-to-end.
  */
 const PAGES = [
-  { path: "/en-lb/beirut/", label: "city homepage" },
-  { path: "/en-lb/beirut/product/rose-bouquet", label: "product entity page" },
-  { path: "/en-lb/beirut/brand/roses", label: "brand entity page" },
+  // ── English (en-lb) ────────────────────────────────────────────────────────
+  { path: "/en-lb/beirut/", label: "EN city homepage" },
+  { path: "/en-lb/beirut/product/rose-bouquet", label: "EN product entity page" },
+  { path: "/en-lb/beirut/brand/roses", label: "EN brand entity page" },
   {
     path: "/en-lb/beirut/blog/inside-spring-sourcing-trip",
-    label: "blog post entity page",
+    label: "EN blog post entity page",
   },
-  { path: "/en-lb/beirut/category/flowers", label: "category entity page" },
-  { path: "/en-lb/beirut/occasion/birthday", label: "occasion entity page" },
+  { path: "/en-lb/beirut/category/flowers", label: "EN category entity page" },
+  { path: "/en-lb/beirut/occasion/birthday", label: "EN occasion entity page" },
+
+  // ── Arabic (ar-lb) — RTL text in breadcrumb `name` fields ─────────────────
+  { path: "/ar-lb/beirut/", label: "AR city homepage" },
+  { path: "/ar-lb/beirut/category/flowers", label: "AR category entity page" },
+  { path: "/ar-lb/beirut/occasion/birthday", label: "AR occasion entity page" },
+
+  // ── French (fr-lb) — accented characters in breadcrumb / description ───────
+  { path: "/fr-lb/beirut/", label: "FR city homepage" },
+  { path: "/fr-lb/beirut/category/flowers", label: "FR category entity page" },
+  { path: "/fr-lb/beirut/occasion/birthday", label: "FR occasion entity page" },
 ];
 
 /**
