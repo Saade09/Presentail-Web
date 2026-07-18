@@ -65,6 +65,34 @@ function assertDescription(html: string) {
   expect(match![1].trim().length).toBeGreaterThan(0);
 }
 
+/**
+ * Assert that the Organization JSON-LD node parsed from raw HTML:
+ *   - exists and has @type "Organization"
+ *   - carries a non-empty `description` string
+ *   - carries a non-empty `areaServed` value (string or non-empty array)
+ *
+ * Applied to every describe block so a regression in buildOrganizationSchema
+ * (seo-inject.mjs) is caught on any route, not just the terms page.
+ */
+function assertOrganizationJsonLd(html: string) {
+  const nodes = extractJsonLdNodes(html);
+  const orgNode = nodes.find((n) => n["@type"] === "Organization");
+  expect(orgNode, "Organization JSON-LD node not found").toBeTruthy();
+  expect(
+    typeof orgNode!.description === "string" &&
+      (orgNode!.description as string).trim().length > 0,
+    "Organization.description should be a non-empty string",
+  ).toBe(true);
+  const areaServed = orgNode!.areaServed;
+  expect(areaServed, "Organization.areaServed should be present").toBeTruthy();
+  if (Array.isArray(areaServed)) {
+    expect(
+      (areaServed as unknown[]).length,
+      "Organization.areaServed array should be non-empty",
+    ).toBeGreaterThan(0);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 1. Generic homepage /
 // ---------------------------------------------------------------------------
@@ -80,6 +108,10 @@ test.describe("Structured data — initial HTML response for /", () => {
 
   test('JSON-LD block with "@type":"Organization" is present', () => {
     expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
   });
 
   test('JSON-LD block with "@type":"WebSite" is present', () => {
@@ -143,6 +175,10 @@ test.describe("Structured data — locale-prefixed city homepage /en-lb/beirut/"
     expect(html).toContain('"@type":"Organization"');
   });
 
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
   test('JSON-LD block with "@type":"WebSite" is present', () => {
     expect(html).toContain('"@type":"WebSite"');
   });
@@ -190,6 +226,10 @@ test.describe("Structured data — locale-prefixed product path /en-lb/beirut/pr
     expect(html).toContain('"@type":"Organization"');
   });
 
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
   test("OG and Twitter Card tags are present and non-empty", () => {
     assertOgTwitter(html);
   });
@@ -234,6 +274,10 @@ test.describe("Structured data — locale-prefixed brand path /en-lb/beirut/bran
     expect(html).toContain('"@type":"Organization"');
   });
 
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
   test("OG and Twitter Card tags are present and non-empty", () => {
     assertOgTwitter(html);
   });
@@ -271,6 +315,10 @@ test.describe("Structured data — locale-prefixed category path /en-lb/beirut/c
     expect(html).toContain('"@type":"Organization"');
   });
 
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
   test("OG and Twitter Card tags are present and non-empty", () => {
     assertOgTwitter(html);
   });
@@ -306,6 +354,10 @@ test.describe("Structured data — locale-prefixed occasion path /en-lb/beirut/o
 
   test('JSON-LD block with "@type":"Organization" is present', () => {
     expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
   });
 
   test("OG and Twitter Card tags are present and non-empty", () => {
@@ -347,6 +399,10 @@ test.describe("Structured data — locale-prefixed blog index /en-lb/beirut/blog
 
   test('JSON-LD block with "@type":"Organization" is present', () => {
     expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
   });
 
   test('JSON-LD block with "@type":"WebSite" is present', () => {
@@ -391,6 +447,10 @@ test.describe("Structured data — locale-prefixed blog post /en-lb/beirut/blog/
 
   test('JSON-LD block with "@type":"Organization" is present', () => {
     expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
   });
 
   test("OG and Twitter Card tags are present and non-empty", () => {
@@ -465,6 +525,10 @@ test.describe("Structured data — shared wishlist path /favorites/share/:token 
     expect(html).toContain('"@type":"Organization"');
   });
 
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
   test("OG and Twitter Card tags are present and non-empty", () => {
     assertOgTwitter(html);
   });
@@ -497,6 +561,10 @@ test.describe("Structured data — locale-prefixed FAQ page /en-lb/beirut/faqs",
 
   test('JSON-LD block with "@type":"Organization" is present', () => {
     expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
   });
 
   test("OG and Twitter Card tags are present and non-empty", () => {
@@ -606,6 +674,10 @@ test.describe("Structured data — locale-prefixed shop page /en-lb/beirut/shop"
     expect(html).toContain('"@type":"Organization"');
   });
 
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
   test("OG and Twitter Card tags are present and non-empty", () => {
     assertOgTwitter(html);
   });
@@ -702,10 +774,7 @@ test.describe("Structured data — locale-prefixed terms page /en-lb/beirut/term
   });
 
   test("Organization JSON-LD includes description and areaServed", () => {
-    const orgNode = nodes.find((n) => n["@type"] === "Organization");
-    expect(orgNode, "Organization JSON-LD node not found").toBeTruthy();
-    expect(typeof orgNode!.description === "string" && (orgNode!.description as string).trim().length > 0, "Organization.description should be a non-empty string").toBe(true);
-    expect(orgNode!.areaServed, "Organization.areaServed should be present").toBeTruthy();
+    assertOrganizationJsonLd(html);
   });
 });
 
@@ -733,6 +802,10 @@ test.describe("Structured data — locale-prefixed contact page /en-lb/beirut/co
 
   test('JSON-LD block with "@type":"Organization" is present', () => {
     expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
   });
 
   test("OG and Twitter Card tags are present and non-empty", () => {
