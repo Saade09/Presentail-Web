@@ -7,6 +7,7 @@
  *
  * Usage:
  *   node artifacts/presentail-web/scripts/check-seo-regression.mjs [base-url]
+ *   node artifacts/presentail-web/scripts/check-seo-regression.mjs --base-url https://presentail.com
  *   node artifacts/presentail-web/scripts/check-seo-regression.mjs --dry-run
  *
  * Exits 0 when all checks pass, 1 when any check fails.
@@ -15,7 +16,15 @@
 
 import { createRequire } from "module";
 
-const BASE = process.argv.find((a) => a.startsWith("http")) ?? "https://presentail.com";
+// Support --base-url=<url>, --base-url <url>, or a bare positional http(s):// argument.
+const _baseUrlFlagEq = process.argv.find((a) => a.startsWith("--base-url="))?.slice("--base-url=".length);
+const _baseUrlFlagIdx = process.argv.indexOf("--base-url");
+const _baseUrlFlagSpace = _baseUrlFlagIdx !== -1 ? process.argv[_baseUrlFlagIdx + 1] : undefined;
+const BASE =
+  _baseUrlFlagEq ??
+  _baseUrlFlagSpace ??
+  process.argv.find((a) => a.startsWith("http")) ??
+  "https://presentail.com";
 const DRY_RUN = process.argv.includes("--dry-run");
 
 const PASS = "✅ PASS";

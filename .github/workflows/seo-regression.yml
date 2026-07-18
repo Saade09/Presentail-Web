@@ -1,0 +1,216 @@
+name: SEO regression checks
+
+# Runs the automated SEO regression suite (check-seo-regression.mjs) in two modes:
+#
+#  1. Daily schedule — checks the live production site (https://presentail.com).
+#     Fails and posts a Slack alert when any check fails.
+#
+#  2. Pull request — triggered when PRs touch the files that control SEO output
+#     (seo-inject.mjs, serve.mjs, sitemap.mjs, llms.mjs).
+#
+#     PR mode resolves the base URL in order of preference:
+#       a. SEO_PREVIEW_URL secret — a staging / preview deploy URL set in
+#          GitHub → Settings → Secrets. When present the job skips the local
+#          build entirely and runs the checks directly against the deployed
+#          preview environment, giving the most realistic signal.
+#       b. Local build fallback — when SEO_PREVIEW_URL is absent the job builds
+#          the web app, starts serve.mjs at localhost:19234, and runs the checks
+#          there. Useful in forks and for repos that have no dedicated preview
+#          environment.
+#
+#  3. workflow_dispatch — manual "Run workflow" button; accepts an optional
+#     base_url override so you can point the check at any environment.
+#
+# Secrets (GitHub → Settings → Secrets and variables → Actions):
+#   SEO_PREVIEW_URL          — URL of a preview / staging deployment used by
+#                              PR checks (e.g. https://preview.presentail.com).
+#                              Optional; falls back to local serve when absent.
+#   ALERTS_SLACK_WEBHOOK_URL — Slack incoming-webhook URL; alert posted on
+#                              failure. Silently skipped when absent.
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC — catches overnight production regressions before
+    # EU/MENA business hours.
+    - cron: "0 6 * * *"
+
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL to check (default: https://presentail.com)"
+        required: false
+        default: "https://presentail.com"
+
+  pull_request:
+    paths:
+      - "artifacts/presentail-web/seo-inject.mjs"
+      - "artifacts/presentail-web/serve.mjs"
+      - "artifacts/presentail-web/sitemap.mjs"
+      - "artifacts/presentail-web/llms.mjs"
+      - ".github/workflows/seo-regression.yml"
+
+concurrency:
+  # One production run at a time; cancel superseded PR runs to keep the queue
+  # short.
+  group: seo-regression-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 1: production — schedule + workflow_dispatch
+  # Checks the live site directly; no build required.
+  # ─────────────────────────────────────────────────────────────────────────────
+  seo-regression-production:
+    name: SEO regression (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run SEO regression checks
+        run: |
+          BASE_URL="${{ inputs.base_url || 'https://presentail.com' }}"
+          echo "Checking: ${BASE_URL}"
+          pnpm --filter @workspace/presentail-web run check-seo-regression -- --base-url "${BASE_URL}"
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          ALERTS_SLACK_WEBHOOK_URL: ${{ secrets.ALERTS_SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$ALERTS_SLACK_WEBHOOK_URL" ]; then
+            echo "ALERTS_SLACK_WEBHOOK_URL not set — skipping Slack alert."
+            exit 0
+          fi
+          BASE_URL="${{ inputs.base_url || 'https://presentail.com' }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(printf '{"text":"❌ *SEO regression checks failed* against `%s`\nSee: %s"}' \
+            "${BASE_URL}" "${RUN_URL}")
+          curl --silent --show-error --fail -X POST "$ALERTS_SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2: preview — pull_request
+  #
+  # Resolution order for the base URL:
+  #   1. SEO_PREVIEW_URL secret → use the deployed preview environment directly
+  #      (no build; fastest path; most realistic signal).
+  #   2. No secret → build locally, start serve.mjs, run against localhost.
+  # ─────────────────────────────────────────────────────────────────────────────
+  seo-regression-preview:
+    name: SEO regression (preview)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Resolve the preview URL ─────────────────────────────────────────────
+      # Output: base_url (the URL the checks will run against)
+      #         use_local (true when we need to build + serve locally)
+      - name: Resolve preview URL
+        id: preview
+        env:
+          SEO_PREVIEW_URL: ${{ secrets.SEO_PREVIEW_URL }}
+        run: |
+          if [ -n "$SEO_PREVIEW_URL" ]; then
+            echo "Using SEO_PREVIEW_URL: ${SEO_PREVIEW_URL}"
+            echo "base_url=${SEO_PREVIEW_URL}" >> "$GITHUB_OUTPUT"
+            echo "use_local=false"             >> "$GITHUB_OUTPUT"
+          else
+            echo "SEO_PREVIEW_URL not set — will build locally and serve at localhost:19234"
+            echo "base_url=http://localhost:19234" >> "$GITHUB_OUTPUT"
+            echo "use_local=true"                 >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Local build path (skipped when SEO_PREVIEW_URL is set) ─────────────
+      - name: Build shared libs
+        if: steps.preview.outputs.use_local == 'true'
+        run: pnpm run typecheck:libs
+
+      - name: Build web app
+        if: steps.preview.outputs.use_local == 'true'
+        run: pnpm --filter @workspace/presentail-web run build
+
+      - name: Start SEO entity fixture API
+        # Provides synthetic product/brand/category/occasion responses so
+        # serve.mjs can inject entity-specific OG tags without a live OS backend.
+        if: steps.preview.outputs.use_local == 'true'
+        run: node artifacts/presentail-web/e2e-serve/seo-entity-fixture-server.mjs &
+        env:
+          SEO_FIXTURE_PORT: 19235
+          WISHLIST_SHARE_TOKEN: ci-wishlist-share-token
+
+      - name: Wait for fixture API to be ready
+        if: steps.preview.outputs.use_local == 'true'
+        run: npx --yes wait-on http://localhost:19235/healthz --timeout 30000
+
+      - name: Start serve.mjs
+        if: steps.preview.outputs.use_local == 'true'
+        run: node artifacts/presentail-web/serve.mjs &
+        env:
+          PORT: 19234
+          BASE_PATH: /
+          NODE_ENV: production
+          INTERNAL_API_BASE_URL: http://localhost:19235
+          # Synthetic tokens — long enough to pass validity checks without
+          # exposing real secrets.
+          STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION: "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+          APPLE_DOMAIN_VERIFICATION_TOKEN: "apple-domain-verification=00000000000000000000000000000000"
+
+      - name: Wait for local server to be ready
+        if: steps.preview.outputs.use_local == 'true'
+        run: npx --yes wait-on http://localhost:19234/ --timeout 30000
+
+      # ── Run the checks ──────────────────────────────────────────────────────
+      - name: Run SEO regression checks
+        run: |
+          BASE_URL="${{ steps.preview.outputs.base_url }}"
+          echo "Checking: ${BASE_URL}"
+          pnpm --filter @workspace/presentail-web run check-seo-regression -- --base-url "${BASE_URL}"
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          ALERTS_SLACK_WEBHOOK_URL: ${{ secrets.ALERTS_SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$ALERTS_SLACK_WEBHOOK_URL" ]; then
+            echo "ALERTS_SLACK_WEBHOOK_URL not set — skipping Slack alert."
+            exit 0
+          fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(printf '{"text":"❌ *SEO regression checks failed* on PR #%s (`%s`)\nSee: %s"}' \
+            "${{ github.event.number }}" "${{ github.head_ref }}" "${RUN_URL}")
+          curl --silent --show-error --fail -X POST "$ALERTS_SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}"
