@@ -138,6 +138,8 @@ channel = "stable-25_05"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-74f8bcd6-34cd-4551-b856-390b15765e86"
+<<<<<<< HEAD
+=======
 
 [[ports]]
 localPort = 8080
@@ -154,3 +156,4 @@ externalPort = 3003
 [[ports]]
 localPort = 24188
 externalPort = 3000
+>>>>>>> 2346b7e0 (SEO-05: Plan unique metadata for collection pages and occasion slug migration)
