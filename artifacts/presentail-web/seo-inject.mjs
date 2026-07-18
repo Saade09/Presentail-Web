@@ -476,6 +476,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
         siteUrl,
         cityName: cityLabel,
         countryName: countryPlain,
+        countryCode: parsed.country,
       }),
     );
     jsonLdNodes.push(
@@ -1757,25 +1758,38 @@ function buildOrganizationSchema(siteUrl) {
     "@type": "Organization",
     name: "Presentail",
     url: siteUrl,
-    logo: `${siteUrl}/opengraph.jpg`,
+    logo: `${siteUrl}/android-chrome-512x512.png`,
     description: "Luxury flower and gift delivery in Lebanon, UAE, and Cyprus. Same-day and scheduled delivery available.", // i18n-ignore — EN-only schema description
     areaServed: ["LB", "AE", "CY"],
     sameAs: SEO_SOCIAL_LINKS,
   };
 }
 
+// Per-country accepted currencies for LocalBusiness schema.
+// LB accepts both USD and LBP (Lebanese pound); AE transacts in AED;
+// CY is a eurozone member. Default falls back to USD for unknown markets.
+const LOCAL_BUSINESS_CURRENCIES = {
+  lb: "USD, LBP",
+  ae: "AED",
+  cy: "EUR",
+};
+
 /**
  * LocalBusiness (Florist) JSON-LD for city homepages. Helps Google associate
  * the brand with each served city/country for local-pack visibility.
  */
-function buildLocalBusinessSchema({ siteUrl, cityName, countryName }) {
+function buildLocalBusinessSchema({ siteUrl, cityName, countryName, countryCode }) {
+  const currenciesAccepted =
+    LOCAL_BUSINESS_CURRENCIES[(countryCode || "").toLowerCase()] ?? "USD";
   const schema = {
     "@context": "https://schema.org",
     "@type": "Florist",
     name: "Presentail",
     url: siteUrl,
-    image: `${siteUrl}/opengraph.jpg`,
-    logo: `${siteUrl}/opengraph.jpg`,
+    image: `${siteUrl}/android-chrome-512x512.png`,
+    logo: `${siteUrl}/android-chrome-512x512.png`,
+    currenciesAccepted,
+    paymentAccepted: "Credit Card, Apple Pay, Google Pay, Cash on Delivery", // i18n-ignore — payment method labels
   };
   if (cityName || countryName) {
     schema.address = {
@@ -2117,13 +2131,18 @@ export function buildProductHead({
   const canonicalUrl = `${siteRoot}${pathname}`;
   const locBase = localeBaseUrl(pathname, origin, basePath);
 
-  // Stable identifier: prefer the numeric OS/WC id, fall back to the slug.
+  // Stable identifier: prefer the numeric OS product id, then WC id, fall back to the slug.
+  // osNumericId is the canonical numeric DB primary key that is stable across
+  // catalog changes; wcId is kept as a secondary fallback for older products
+  // that may not yet carry osNumericId.
   const sku =
-    typeof product.wcId === "number" && product.wcId > 0
-      ? String(product.wcId)
-      : typeof product.id === "string" && product.id
-        ? product.id
-        : "";
+    typeof product.osNumericId === "number" && product.osNumericId > 0
+      ? String(product.osNumericId)
+      : typeof product.wcId === "number" && product.wcId > 0
+        ? String(product.wcId)
+        : typeof product.id === "string" && product.id
+          ? product.id
+          : "";
 
   // Shipping + return policy enrichment for the Offer. Both are required for
   // Google's enhanced/free merchant listings; without them the Rich Results
@@ -2156,7 +2175,15 @@ export function buildProductHead({
     ...(imageUrl ? { image: imageUrl } : {}),
     ...(sku ? { sku } : {}),
     url: canonicalUrl,
-    brand: { "@type": "Brand", name: "Presentail" },
+    // Use the actual brand name from the product; omit if unavailable.
+    ...(() => {
+      const bName =
+        (product.brand && typeof product.brand.name === "string" && product.brand.name.trim()) ||
+        (Array.isArray(product.brands) && product.brands[0] &&
+          typeof product.brands[0].name === "string" && product.brands[0].name.trim()) ||
+        null;
+      return bName ? { brand: { "@type": "Brand", name: bName } } : {};
+    })(),
     ...(hasPrice
       ? {
           offers: {
@@ -2401,16 +2428,21 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     clampDescription(rawDesc) || genericFallbackDescription(lang, "brand");
   const imageUrl =
     typeof brand.image === "string" && brand.image ? brand.image : null;
-  // BreadcrumbList JSON-LD — Home > Brands > Brand Name.
+  // BreadcrumbList JSON-LD — Home > City > Brands > Brand Name.
+  // "Home" is the site root (not the locale/city page) so the trail is always
+  // anchored to the top-level domain; a city crumb is inserted between Home and
+  // Brands whenever a city is present in the path.
   const locBase = localeBaseUrl(pathname, origin, basePath);
+  const cleanBase = basePath.replace(/\/$/, "");
+  const siteRoot = `${origin}${cleanBase}`;
+  const brandCrumbs = [{ name: "Home", url: siteRoot }];
+  if (cityLabel && locBase !== siteRoot) {
+    brandCrumbs.push({ name: cityLabel, url: locBase });
+  }
+  brandCrumbs.push({ name: "Brands", url: `${locBase}/brands` });
+  brandCrumbs.push({ name: rawName || "Brand" });
   const extraLines = [
-    jsonLdTag(
-      buildBreadcrumbListSchema([
-        { name: "Home", url: locBase },
-        { name: "Brands", url: `${locBase}/brands` },
-        { name: rawName || "Brand" },
-      ]),
-    ),
+    jsonLdTag(buildBreadcrumbListSchema(brandCrumbs)),
   ];
   // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
   // expandable FAQ rich results for brand detail pages. Mirrors the pattern
@@ -2635,6 +2667,12 @@ function buildShopEntityHead({
   const crumbItems = [{ name: "Home", url: siteRoot }];
   if (cityLabel && locBase !== siteRoot) {
     crumbItems.push({ name: cityLabel, url: locBase });
+  }
+  // Occasion detail pages include an intermediate "Occasions" crumb so the
+  // full trail is Home > City > Occasions > OccasionName, matching the
+  // equivalent breadcrumb the category pages show for their listing page.
+  if (entityKind === "occasion" && rawName) {
+    crumbItems.push({ name: "Occasions", url: `${locBase}/occasions` });
   }
   crumbItems.push({ name: rawName || altText });
   const graphNodes = [buildBreadcrumbListSchema(crumbItems)];

@@ -4508,7 +4508,7 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
 });
 
 describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () => {
-  it("emits Home > Brands > Brand on a brand page", async () => {
+  it("emits Home > City > Brands > Brand on a brand page", async () => {
     mockFetchOnce({
       ok: true,
       brand: { name: "Acme Florals", description: "Hand-tied bouquets.", image: "https://cdn.test/acme.jpg" },
@@ -4518,6 +4518,7 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     expect(crumb).toBeTruthy();
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
       "Home",
+      "Dubai",
       "Brands",
       "Acme Florals",
     ]);
@@ -4559,7 +4560,7 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     ]);
   });
 
-  it("emits Home > City > Occasion on an occasion page", async () => {
+  it("emits Home > City > Occasions > Occasion on an occasion page", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/occasion")) {
@@ -4576,8 +4577,102 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
       "Home",
       "Dubai",
+      "Occasions",
       "Birthday",
     ]);
+    // The "Occasions" URL should be the occasions listing page.
+    const occasionsCrumb = crumb.itemListElement.find((i: any) => i.name === "Occasions");
+    expect(occasionsCrumb.item).toContain("/occasions");
+  });
+});
+
+describe("JSON-LD — Product.sku and Product.brand", () => {
+  it("uses osNumericId as the Product.sku when available", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Sku Test Bouquet",
+        description: "Hand-tied roses.",
+        image: { uri: "https://cdn.test/sku-test.jpg" },
+        priceValue: 89.5,
+        inStock: true,
+        osNumericId: 9001,
+        wcId: 4242,
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/sku-test-bouquet-9001", OPTS);
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product).toBeTruthy();
+    // osNumericId takes precedence over wcId.
+    expect(product.sku).toBe("9001");
+  });
+
+  it("falls back to wcId as Product.sku when osNumericId is absent", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Sku Fallback Bouquet",
+        description: "Hand-tied roses.",
+        image: { uri: "https://cdn.test/sku-fallback.jpg" },
+        priceValue: 89.5,
+        inStock: true,
+        wcId: 4242,
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/sku-fallback-bouquet-4242", OPTS);
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.sku).toBe("4242");
+  });
+
+  it("uses product.brand.name for Product.brand when available", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Acme Roses",
+        description: "Premium roses.",
+        image: { uri: "https://cdn.test/acme.jpg" },
+        priceValue: 60,
+        inStock: true,
+        brand: { name: "Acme Florals" },
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/acme-roses", OPTS);
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product).toBeTruthy();
+    expect(product.brand).toMatchObject({ "@type": "Brand", name: "Acme Florals" });
+  });
+
+  it("falls back to product.brands[0].name for Product.brand when brand is absent", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Bloom Roses",
+        description: "Premium roses.",
+        image: { uri: "https://cdn.test/bloom.jpg" },
+        priceValue: 55,
+        inStock: true,
+        brands: [{ name: "Bloom Studio" }, { name: "Other Brand" }],
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/bloom-roses", OPTS);
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.brand).toMatchObject({ "@type": "Brand", name: "Bloom Studio" });
+  });
+
+  it("omits Product.brand when neither brand nor brands is present", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Generic Flowers",
+        description: "A bunch of flowers.",
+        image: { uri: "https://cdn.test/generic.jpg" },
+        priceValue: 30,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/generic-flowers", OPTS);
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.brand).toBeUndefined();
   });
 });
 
@@ -4726,6 +4821,9 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
     expect(org.name).toBe("Presentail");
     expect(org.url).toBe("https://presentail.test");
     expect(Array.isArray(org.sameAs)).toBe(true);
+    // Logo should be the square app icon, not the OG banner image.
+    expect(org.logo).toContain("android-chrome-512x512.png");
+    expect(org.logo).not.toContain("opengraph.jpg");
     const site = byType(blocks, "WebSite");
     expect(site).toBeTruthy();
     // No SearchAction: the storefront has no crawlable /search results page,
@@ -4745,6 +4843,14 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
     expect(florist.name).toBe("Presentail");
     expect(florist.address["@type"]).toBe("PostalAddress");
     expect(florist.address.addressLocality).toBe("Beirut");
+    // Logo and image should be the square app icon, not the OG banner image.
+    expect(florist.logo).toContain("android-chrome-512x512.png");
+    expect(florist.logo).not.toContain("opengraph.jpg");
+    expect(florist.image).toContain("android-chrome-512x512.png");
+    // LB accepts USD and LBP; paymentAccepted must be a non-empty string.
+    expect(florist.currenciesAccepted).toBe("USD, LBP");
+    expect(typeof florist.paymentAccepted).toBe("string");
+    expect(florist.paymentAccepted.length).toBeGreaterThan(0);
     const crumb = byType(blocks, "BreadcrumbList");
     expect(crumb).toBeTruthy();
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
@@ -4754,6 +4860,26 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
     expect(crumb.itemListElement[0].item).toBe("https://presentail.test");
     // The current page (last crumb) omits the item URL per schema.org guidance.
     expect(crumb.itemListElement[1].item).toBeUndefined();
+  });
+
+  it("emits currenciesAccepted=AED on an AE city homepage", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist).toBeTruthy();
+    expect(florist.currenciesAccepted).toBe("AED");
+  });
+
+  it("emits currenciesAccepted=EUR on a CY city homepage", () => {
+    const { headSnippet } = buildSeoHead("/en-cy/nicosia", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist).toBeTruthy();
+    expect(florist.currenciesAccepted).toBe("EUR");
   });
 
   it("emits Organization but no WebSite on a non-home content page", () => {
@@ -4777,6 +4903,25 @@ describe("JSON-LD — excluded on cart / checkout / order-confirmed", () => {
         basePath: "",
       });
       expect(extractJsonLd(`<head>${headSnippet}</head>`)).toHaveLength(0);
+    },
+  );
+});
+
+describe("JSON-LD — BreadcrumbList on static navigable pages", () => {
+  it.each(["shop", "brands", "occasions", "faqs", "terms", "privacy", "contact"])(
+    "emits a BreadcrumbList with Home > City > Page on /%s",
+    (route) => {
+      const { headSnippet } = buildSeoHead(`/en-ae/dubai/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      const crumb = byType(extractJsonLd(`<head>${headSnippet}</head>`), "BreadcrumbList");
+      expect(crumb, `BreadcrumbList missing on /${route}`).toBeTruthy();
+      const names = crumb.itemListElement.map((i: any) => i.name);
+      expect(names[0]).toBe("Home");
+      expect(names[1]).toBe("Dubai");
+      // Last crumb is the page itself and must not carry an item URL (current page).
+      expect(crumb.itemListElement[crumb.itemListElement.length - 1].item).toBeUndefined();
     },
   );
 });
