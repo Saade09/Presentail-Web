@@ -128,7 +128,17 @@ server {
 
 ## Step 3 — Verify
 
-After both DNS propagation and CDN rule activation, verify with `curl`:
+After both DNS propagation and CDN rule activation, run the automated smoke test:
+
+```bash
+pnpm --filter @workspace/scripts run check-subdomain-redirects
+```
+
+This checks all three subdomains, path preservation, and query-string
+preservation.  It exits 0 when every redirect is correct, or 1 with a
+detailed failure report.
+
+Alternatively, verify manually with `curl`:
 
 ```bash
 # Lebanon

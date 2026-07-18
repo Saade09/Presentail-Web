@@ -38,6 +38,7 @@
     "check-low-contrast-text-mobile": "tsx ./src/checkLowContrastTextMobile.ts",
     "check-city-similarity": "tsx ./src/checkCitySimilarity.ts",
     "seed-collection-ranking": "tsx ./src/seedCollectionRanking.ts",
+    "check-subdomain-redirects": "tsx ./src/checkSubdomainRedirects.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

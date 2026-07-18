@@ -394,6 +394,36 @@ const COUNTRY_SUBDOMAINS = new Set([
   "cy.presentail.com",
 ]);
 
+// Rate-limit map: subdomain → last Slack alert timestamp (ms).
+// Prevents Slack spam when CDN rules are not yet configured and the origin
+// receives a burst of country-subdomain requests.  One alert per subdomain
+// per 24-hour window is sufficient for ops to act on.
+const COUNTRY_SUBDOMAIN_ALERT_LAST_MS = new Map();
+const COUNTRY_SUBDOMAIN_ALERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Fire a rate-limited Slack alert when a country-subdomain request reaches the
+ * origin server.  Indicates the CDN redirect layer is absent or misconfigured.
+ * The alert is fire-and-forget and never blocks the redirect response.
+ *
+ * @param {string} subdomain  The matched hostname (e.g. "lb.presentail.com").
+ * @param {string} path       The request URL (path + query string).
+ */
+function alertCountrySubdomainBypass(subdomain, path) {
+  if (!process.env.ALERTS_SLACK_WEBHOOK_URL) return;
+  const now = Date.now();
+  const last = COUNTRY_SUBDOMAIN_ALERT_LAST_MS.get(subdomain) ?? 0;
+  if (now - last < COUNTRY_SUBDOMAIN_ALERT_INTERVAL_MS) return;
+  COUNTRY_SUBDOMAIN_ALERT_LAST_MS.set(subdomain, now);
+  sendSlackAlert(
+    `:warning: *presentail-web: country-subdomain request reached the origin server*\n` +
+    `Host \`${subdomain}\` hit the in-server redirect guard (path: \`${path ?? "/"}\`).\n` +
+    `This means traffic is bypassing the CDN redirect layer — check that the Cloudflare/GCP redirect rule is active.\n` +
+    `See \`artifacts/presentail-web/docs/subdomain-redirect-runbook.md\` for setup steps.\n` +
+    `_(This alert is rate-limited to once per subdomain per 24 h.)_`,
+  ).catch(() => {});
+}
+
 /**
  * Returns true when the query string contains at least one UTM tracking
  * parameter or Google click-ID parameter (gclid / gbraid / wbraid).
@@ -980,6 +1010,12 @@ const server = http.createServer(async (req, res) => {
       COUNTRY_SUBDOMAINS.has(normalizedHost) ||
       COUNTRY_SUBDOMAINS.has(normalizedFwdHost);
     if (isCountrySubdomain) {
+      const matchedSubdomain = COUNTRY_SUBDOMAINS.has(normalizedHost)
+        ? normalizedHost
+        : normalizedFwdHost;
+      // Alert ops that CDN layer may be absent — request reached origin directly.
+      // Fire-and-forget; never blocks the redirect.
+      alertCountrySubdomainBypass(matchedSubdomain, req.url ?? "/");
       const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
       res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
       res.end();
