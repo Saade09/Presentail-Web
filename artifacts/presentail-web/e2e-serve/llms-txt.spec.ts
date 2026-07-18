@@ -9,8 +9,9 @@
  *   4. HTML page responses carry a `Link: <…/agents.md>; rel="describedby"` header.
  *   5. GET /llms.txt returns HTTP 200 with Content-Type: text/plain and a non-empty body.
  *   6. GET /llms.txt body contains the summary paragraph before the ## Pages section.
- *   7. GET /llms-full.txt returns HTTP 200 with a non-empty body.
- *   8. GET /agents.md returns HTTP 200 with Content-Type: text/plain and a non-empty body.
+ *   7. GET /llms-full.txt returns HTTP 200 with Content-Type: text/plain and a non-empty body.
+ *   8. GET /sitemap.md returns HTTP 200 with Content-Type: text/plain and a body containing "# Presentail".
+ *   9. GET /agents.md returns HTTP 200 with Content-Type: text/plain and a non-empty body.
  *
  * Checks (1)–(4) run against both the root path ("/") and a locale-prefixed
  * non-root path ("/en-lb/beirut/"). These exercise the two distinct Link-header
@@ -129,7 +130,17 @@ test.describe("/llms.txt and /agents.md — Agent Ready scan", () => {
   // -------------------------------------------------------------------------
   // /llms-full.txt route checks
   // -------------------------------------------------------------------------
-  test("GET /llms-full.txt returns 200 with a non-empty body", async ({
+  test("GET /llms-full.txt returns 200 with Content-Type: text/plain", async ({
+    request,
+  }) => {
+    const response = await request.get("/llms-full.txt");
+    expect(response.status()).toBe(200);
+
+    const contentType = response.headers()["content-type"] ?? "";
+    expect(contentType).toContain("text/plain");
+  });
+
+  test("GET /llms-full.txt returns a non-empty body", async ({
     request,
   }) => {
     const response = await request.get("/llms-full.txt");
@@ -137,6 +148,29 @@ test.describe("/llms.txt and /agents.md — Agent Ready scan", () => {
 
     const body = await response.text();
     expect(body.trim().length).toBeGreaterThan(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // /sitemap.md route checks
+  // -------------------------------------------------------------------------
+  test("GET /sitemap.md returns 200 with Content-Type: text/plain", async ({
+    request,
+  }) => {
+    const response = await request.get("/sitemap.md");
+    expect(response.status()).toBe(200);
+
+    const contentType = response.headers()["content-type"] ?? "";
+    expect(contentType).toContain("text/plain");
+  });
+
+  test("GET /sitemap.md body contains a recognisable heading", async ({
+    request,
+  }) => {
+    const response = await request.get("/sitemap.md");
+    expect(response.status()).toBe(200);
+
+    const body = await response.text();
+    expect(body).toContain("# Presentail");
   });
 
   // -------------------------------------------------------------------------
