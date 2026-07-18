@@ -212,12 +212,61 @@ curl -I https://presentail.com/en-lb/beirut/shop
 
 ---
 
-## Step 4 — Google Search Console
+## Step 4 — Google Search Console "Change of Address"
 
-After the redirects are confirmed live, submit each old subdomain to Google
-Search Console → Change of Address if it was previously a verified property.
-This accelerates the transfer of search equity and suppresses the old subdomain
-from the index.
+> **Pre-condition**: Complete Steps 1–3 first.  The 301 redirects must be live
+> and verified with `curl` before submitting "Change of Address" — Google will
+> reject the submission if it cannot follow a confirmed 301 from the old property
+> to the new one.
+
+### 4a — Confirm which subdomains are verified GSC properties
+
+1. Open [Google Search Console](https://search.google.com/search-console).
+2. Check the **property selector** (top-left dropdown) for each of:
+   - `https://lb.presentail.com/`
+   - `https://ae.presentail.com/`
+   - `https://cy.presentail.com/`
+3. If a subdomain is **not listed**, it was never a verified GSC property —
+   skip it (no search equity to transfer; Google was never tracking it).
+4. If a subdomain **is listed**, continue with 4b below for that property.
+
+> **Note on Cyprus**: The runbook DNS section notes that `cy.presentail.com` may
+> never have been registered.  If it is absent from both DNS history and the GSC
+> property list, skip it entirely.
+
+### 4b — Submit "Change of Address" for each verified subdomain
+
+Repeat these steps once per verified subdomain property:
+
+1. In GSC, switch to the **old subdomain property** (e.g. `https://lb.presentail.com/`).
+2. Click **Settings** (gear icon, bottom-left sidebar).
+3. Under **"Change of address"**, click **Open tool**.
+4. In the destination field, select or type **`https://presentail.com/`**.
+5. Click **Validate & Update** — GSC will follow the live 301 redirect to
+   confirm it leads to `presentail.com`.  If validation fails:
+   - Re-run the `curl` checks in Step 3 to confirm the redirect is still live.
+   - Wait 5–10 minutes and retry (propagation lag can cause transient failures).
+6. Once validated, click **Submit**.  A confirmation banner will appear.
+
+| Old property | Target property |
+|---|---|
+| `https://lb.presentail.com/` | `https://presentail.com/` |
+| `https://ae.presentail.com/` | `https://presentail.com/` |
+| `https://cy.presentail.com/` | `https://presentail.com/` (only if verified) |
+
+### 4c — Post-submission monitoring
+
+Google's index update takes weeks, not days.  Check progress as follows:
+
+| Timeline | What to check |
+|---|---|
+| 1–2 weeks | In the **old subdomain** property → Coverage report: "Valid" pages should start declining. |
+| 2–4 weeks | In the **`presentail.com`** property → Coverage / Performance: impressions from Lebanon, UAE, Cyprus city pages should increase. |
+| 4–8 weeks | Old subdomain pages should largely drop from the index.  Any remaining pages can be submitted for removal via GSC → Removals → Outdated content. |
+
+> **Do not delete the old subdomain GSC property** until it shows zero indexed
+> pages.  Keeping it lets you track the de-indexing progress and catch any
+> pages that stubbornly stayed in the index.
 
 ---
 
