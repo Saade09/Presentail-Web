@@ -75,6 +75,7 @@ import {
   GENERIC_TWITTER,
   DESCRIPTIONS,
   OG_LOCALE,
+  OG_LOCALE_COUNTRY,
   SEO_SOCIAL_LINKS,
   NONINDEX_ROUTE_KEYS,
   STATIC_PAGE_GROUP,
@@ -421,7 +422,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   lines.push(`<meta property="og:type" content="website" />`);
   lines.push(`<meta property="og:site_name" content="Presentail" />`);
   lines.push(
-    `<meta property="og:locale" content="${escapeAttr(OG_LOCALE[lang] ?? "en_US")}" />`,
+    `<meta property="og:locale" content="${escapeAttr((parsed.country && OG_LOCALE_COUNTRY[lang]?.[parsed.country]) || OG_LOCALE[lang] || "en_US")}" />`,
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
   lines.push(`<meta name="twitter:card" content="summary_large_image" />`);
@@ -1933,6 +1934,7 @@ function buildEntityHead({
   pathname,
   search,
   lang,
+  country,
   robots,
   extraLines = [],
 }) {
@@ -1951,7 +1953,7 @@ function buildEntityHead({
   lines.push(`<meta property="og:type" content="${escapeAttr(ogType)}" />`);
   lines.push(`<meta property="og:site_name" content="Presentail" />`);
   lines.push(
-    `<meta property="og:locale" content="${escapeAttr(OG_LOCALE[lang] ?? "en_US")}" />`,
+    `<meta property="og:locale" content="${escapeAttr((country && OG_LOCALE_COUNTRY[lang]?.[country]) || OG_LOCALE[lang] || "en_US")}" />`,
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
   const effectiveImageUrl = imageUrl || `${origin}${cleanBase}/opengraph.jpg`;
@@ -2051,6 +2053,7 @@ export function buildProductHead({
   cityLabel,
   countryLabel,
   countryCode,
+  country,
   ogImageUrl,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
@@ -2222,6 +2225,7 @@ export function buildProductHead({
       pathname,
       search: "",
       lang,
+      country,
       extraLines,
     }),
     bodyHtml,
@@ -2233,7 +2237,7 @@ export function buildProductHead({
  * (@workspace/blog-content) — the same module the BlogPost page renders from —
  * so the server-side link preview and the live article can never disagree.
  */
-export function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {
+export function buildBlogPostHead({ article, lang, country, basePath, origin, pathname }) {
   const rawTitle = typeof article.title === "string" ? article.title.trim() : "";
   const title = rawTitle ? `${rawTitle} | Presentail` : "Presentail";
   const description =
@@ -2312,6 +2316,7 @@ export function buildBlogPostHead({ article, lang, basePath, origin, pathname })
       pathname,
       search: "",
       lang,
+      country,
       extraLines,
     }),
     bodyHtml,
@@ -2340,6 +2345,7 @@ function buildBrandsFilterHead({
   search,
   cityLabel,
   countryLabel,
+  country,
 }) {
   const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
   const params = {
@@ -2376,12 +2382,13 @@ function buildBrandsFilterHead({
       pathname,
       search,
       lang,
+      country,
     }),
     bodyHtml,
   };
 }
 
-export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, productCount }) {
+export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, country, productCount }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
@@ -2489,6 +2496,7 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       pathname,
       search: "",
       lang,
+      country,
       extraLines,
     }),
     bodyHtml,
@@ -2505,6 +2513,7 @@ export function buildCategoryHead({
   search,
   cityLabel,
   countryLabel,
+  country,
   productCount,
   items,
 }) {
@@ -2520,6 +2529,7 @@ export function buildCategoryHead({
     search,
     cityLabel,
     countryLabel,
+    country,
     productCount,
     items,
   });
@@ -2535,6 +2545,7 @@ export function buildOccasionHead({
   search,
   cityLabel,
   countryLabel,
+  country,
   productCount,
   items,
   ogImageUrl,
@@ -2551,6 +2562,7 @@ export function buildOccasionHead({
     search,
     cityLabel,
     countryLabel,
+    country,
     productCount,
     items,
     ogImageUrl,
@@ -2569,6 +2581,7 @@ function buildShopEntityHead({
   search,
   cityLabel,
   countryLabel,
+  country,
   productCount,
   items,
   ogImageUrl,
@@ -2725,6 +2738,7 @@ function buildShopEntityHead({
       pathname,
       search,
       lang,
+      country,
       robots,
       extraLines,
     }),
@@ -3022,6 +3036,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       const result = buildBlogPostHead({
         article,
         lang: generic.lang,
+        country: parsed.country,
         basePath: rest.basePath ?? "",
         origin: rest.origin ?? "",
         pathname,
@@ -3075,6 +3090,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     cityLabel: generic.cityLabel,
     countryLabel: generic.countryLabel,
     countryCode,
+    country: parsed.country,
   };
 
   // Base public origin used to build OG image API URLs. The og:image tag must

@@ -775,6 +775,31 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
     );
   });
 
+  it("AR Lebanon route (/ar-lb/beirut/shop) emits og:locale = ar_LB", () => {
+    const { headSnippet } = buildSeoHead("/ar-lb/beirut/shop", ORIGIN_OPTS);
+    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("ar_LB");
+  });
+
+  it("AR UAE route (/ar-ae/dubai/shop) emits og:locale = ar_AE", () => {
+    const { headSnippet } = buildSeoHead("/ar-ae/dubai/shop", ORIGIN_OPTS);
+    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("ar_AE");
+  });
+
+  it("AR Cyprus route (/ar-cy/nicosia/shop) emits og:locale = ar_CY", () => {
+    const { headSnippet } = buildSeoHead("/ar-cy/nicosia/shop", ORIGIN_OPTS);
+    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("ar_CY");
+  });
+
+  it("EN Lebanon route (/en-lb/beirut/shop) emits og:locale = en_US", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut/shop", ORIGIN_OPTS);
+    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("en_US");
+  });
+
+  it("FR Lebanon route (/fr-lb/beirut/shop) emits og:locale = fr_FR", () => {
+    const { headSnippet } = buildSeoHead("/fr-lb/beirut/shop", ORIGIN_OPTS);
+    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("fr_FR");
+  });
+
   it("FR locale home (/fr-lb/beirut) uses the French home copy with the French city name", () => {
     const { headSnippet } = buildSeoHead("/fr-lb/beirut", ORIGIN_OPTS);
     expect(getMeta(headSnippet, 'property="og:title"')).toBe(

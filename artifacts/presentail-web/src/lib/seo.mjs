@@ -15,6 +15,12 @@ export const SUPPORTED_LANGS = ["en", "ar", "fr"];
 
 export const OG_LOCALE = { en: "en_US", ar: "ar_AE", fr: "fr_FR" };
 
+export const OG_LOCALE_COUNTRY = {
+  en: { ae: "en_US", lb: "en_US", cy: "en_US" },
+  ar: { ae: "ar_AE", lb: "ar_LB", cy: "ar_CY" },
+  fr: { ae: "fr_FR", lb: "fr_FR", cy: "fr_FR" },
+};
+
 // Public social profiles, surfaced as Organization `sameAs` links in JSON-LD.
 export const SEO_SOCIAL_LINKS = [
   "https://www.instagram.com/presentail",
