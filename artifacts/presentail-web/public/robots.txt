@@ -17,6 +17,18 @@ Disallow: /*/favorites
 Disallow: /*/order-confirmed
 Disallow: /*/personal-information
 
+# UTM / click-ID marketing parameters — block crawlers from indexing
+# parameterised variants to prevent duplicate-content penalties.
+Disallow: /*?utm_source=
+Disallow: /*?utm_medium=
+Disallow: /*?utm_campaign=
+Disallow: /*?utm_id=
+Disallow: /*?utm_term=
+Disallow: /*?utm_content=
+Disallow: /*?gclid=
+Disallow: /*?gbraid=
+Disallow: /*?wbraid=
+
 Sitemap: https://presentail.com/sitemap.xml
 
 # AI crawler guidance — machine-readable content index (llmstxt.org)

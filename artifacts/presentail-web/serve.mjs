@@ -385,20 +385,48 @@ function isPrivatePath(pathname) {
 const CANONICAL_PRODUCTION_HOST = "presentail.com"; // i18n-ignore — canonical domain
 
 /**
+ * Returns true when the query string contains at least one UTM tracking
+ * parameter or Google click-ID parameter (gclid / gbraid / wbraid).
+ * These parameters are used by marketing campaigns but must not produce
+ * indexable duplicate pages — they are blocked in robots.txt and also
+ * receive an x-robots-tag: noindex header as a belt-and-suspenders guard.
+ */
+const UTM_PARAMS = new Set([
+  "utm_source", "utm_medium", "utm_campaign", "utm_id", "utm_term", "utm_content",
+  "gclid", "gbraid", "wbraid",
+]);
+function hasUtmParams(search) {
+  if (!search || search === "?") return false;
+  try {
+    const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    for (const key of sp.keys()) {
+      if (UTM_PARAMS.has(key)) return true;
+    }
+  } catch {
+    // malformed query string — treat as no UTM params
+  }
+  return false;
+}
+
+/**
  * Returns the value for the X-Robots-Tag response header for an HTML response.
  *
  * Rules (applied in order):
  *  1. Private/transactional paths → "noindex" (regardless of host).
- *  2. Canonical production host ("presentail.com") and public path → "index, follow".
- *  3. All other hosts (Replit preview URLs, staging, etc.) → omit the header
+ *  2. UTM / click-ID marketing params → "noindex" (duplicate-content guard;
+ *     mirrors the Disallow: /*?utm_* rules in robots.txt).
+ *  3. Canonical production host ("presentail.com") and public path → "index, follow".
+ *  4. All other hosts (Replit preview URLs, staging, etc.) → omit the header
  *     entirely (return null) so the platform's default noindex applies.
  *
  * @param {string} host      Normalised hostname (no port, lowercase).
  * @param {string} pathname  URL pathname (after BASE_PATH stripping).
+ * @param {string} [search]  URL query string (e.g. "?utm_source=foo").
  * @returns {string|null}    Header value, or null to omit the header.
  */
-function resolveXRobotsTag(host, pathname) {
+function resolveXRobotsTag(host, pathname, search) {
   if (isPrivatePath(pathname)) return "noindex";
+  if (hasUtmParams(search)) return "noindex";
   if (host === CANONICAL_PRODUCTION_HOST) return "index, follow";
   return null; // non-canonical host — omit; let platform default apply
 }
@@ -1352,12 +1380,12 @@ const server = http.createServer(async (req, res) => {
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
         const canonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
-        const xRobotsTag = resolveXRobotsTag(normalizeHostHeader(host), pathname);
+        const xRobotsTag = resolveXRobotsTag(normalizeHostHeader(host), pathname, url.search);
         const headers = {
           "content-type": MIME[".html"],
           // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
           // On the canonical production host: "index, follow" for public pages,
-          // "noindex" for private/transactional paths.
+          // "noindex" for private/transactional paths and UTM-parameterised URLs.
           ...(xRobotsTag !== null ? { "x-robots-tag": xRobotsTag } : {}),
           // All HTML responses use no-store so that:
           //  1. No HTTP cache layer (CDN, ISP, browser) stores the shell.
@@ -1525,7 +1553,7 @@ const server = http.createServer(async (req, res) => {
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);
     const spaCanonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
-    const xRobotsTagSpa = resolveXRobotsTag(normalizeHostHeader(host), pathname);
+    const xRobotsTagSpa = resolveXRobotsTag(normalizeHostHeader(host), pathname, url.search);
     const headers = {
       "content-type": MIME[".html"],
       // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
