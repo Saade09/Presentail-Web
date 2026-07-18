@@ -1800,6 +1800,22 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Pagination /page/1 redirect → canonical base collection URL (301).
+    // e.g. /en-lb/beirut/category/flowers/page/1 → /en-lb/beirut/category/flowers
+    {
+      const PAGE_ONE_RE =
+        /^(\/[a-z]{2}-[a-z]{2}\/[^/]+\/(?:category|occasion|brand)\/[^/]+)\/page\/1\/?$/;
+      const pageOneMatch = pathname.match(PAGE_ONE_RE);
+      if (pageOneMatch) {
+        res.writeHead(301, {
+          location: `${BASE_PATH}${pageOneMatch[1]}`,
+          "cache-control": "public, max-age=31536000, immutable",
+        });
+        res.end();
+        return;
+      }
+    }
+
     // SPA route guard: return a real 404 for locale-prefixed paths that have a
     // recognised lang + country + city but an unknown sub-route.  Without this,
     // crawlers see an indexable 200 shell with homepage-like metadata for junk
@@ -1872,6 +1888,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // SPA fallback: rewrite to index.html with locale-aware SEO.
+    const paginationRef = {};
     const seoOut = await injectSeoTagsAsync(indexHtml, pathname, {
       basePath: BASE_PATH,
       origin,
@@ -1879,7 +1896,23 @@ const server = http.createServer(async (req, res) => {
       search: url.search,
       acceptLanguage: req.headers["accept-language"],
       firstBannerImageUrl: firstBannerImageUrl ?? undefined,
+      paginationRef,
     });
+    if (paginationRef.outOfRange) {
+      res.writeHead(404, {
+        "content-type": "text/html; charset=utf-8",
+        "x-robots-tag": "noindex",
+        "cache-control": "no-cache",
+        "expires": "0",
+      });
+      res.end(
+        // i18n-ignore — server-side HTTP 404 response; not a UI string
+        `<!doctype html><html lang="en"><head><title>404 Not Found – Presentail</title></head>` + // i18n-ignore
+        `<body><h1>Page Not Found</h1><p>The requested page does not exist.</p>` + // i18n-ignore
+        `<p><a href="/">Return to homepage</a></p></body></html>`, // i18n-ignore
+      );
+      return;
+    }
     const out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);

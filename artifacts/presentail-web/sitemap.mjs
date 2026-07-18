@@ -8,6 +8,9 @@
 
 import { BLOG_POSTS } from "@workspace/blog-content";
 
+const PAGINATION_PAGE_SIZE = 24;
+const PAGINATION_SITEMAP_MAX_PAGES = 10;
+
 // All cities per country — must mirror CITY_SLUGS_BY_COUNTRY in seo-inject.mjs.
 export const SITEMAP_CITIES = {
   lb: [
@@ -138,6 +141,15 @@ export function buildSitemapXml({
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/occasion/${encoded}`));
     }
+    const occasionPageCount = Math.min(
+      Math.ceil((occasion.count ?? 0) / PAGINATION_PAGE_SIZE),
+      PAGINATION_SITEMAP_MAX_PAGES + 1,
+    );
+    for (let pageNum = 2; pageNum <= occasionPageCount; pageNum++) {
+      for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+        urls.push(urlEntryWithAlternates("0.4", "weekly", country, city, `/occasion/${encoded}/page/${pageNum}`));
+      }
+    }
   }
 
   // 5. Category pages — canonical city per country × all languages. Skip any
@@ -148,6 +160,15 @@ export function buildSitemapXml({
     const encoded = encodeURIComponent(category.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
+    }
+    const categoryPageCount = Math.min(
+      Math.ceil((category.count ?? 0) / PAGINATION_PAGE_SIZE),
+      PAGINATION_SITEMAP_MAX_PAGES + 1,
+    );
+    for (let pageNum = 2; pageNum <= categoryPageCount; pageNum++) {
+      for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+        urls.push(urlEntryWithAlternates("0.4", "weekly", country, city, `/category/${encoded}/page/${pageNum}`));
+      }
     }
   }
 

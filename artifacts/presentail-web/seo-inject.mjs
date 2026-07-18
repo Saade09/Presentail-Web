@@ -1005,6 +1005,9 @@ const ENTITY_FETCH_TIMEOUT_MS = 2500;
 const ENTITY_CACHE_TTL_MS = 60_000;
 const ENTITY_CACHE_MAX_ENTRIES = 500;
 
+export const PAGINATION_PAGE_SIZE = 24;
+const PAGINATION_SUFFIX_RE = /^(\/(?:category|occasion|brand)\/[^/]+)\/page\/(\d+)$/;
+
 // Small in-process LRU+TTL cache for the per-entity SEO lookup. WhatsApp /
 // iMessage / Slack crawlers retry aggressively on shared product, brand, and
 // category links, so caching the upstream lookup for ~60s makes repeat shares
@@ -3029,11 +3032,15 @@ function deriveAvailableCountriesForEntity({ entityKind, slug, lang, requestingC
  * locale-aware injector on any failure.
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
-  const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, ...rest } = opts;
+  const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, paginationRef, ...rest } = opts;
   // Pass search so buildSeoHead can emit noindex meta for filter-parameterised
   // URLs and preserve curated filter page canonicals.
   const generic = buildSeoHead(pathname, { ...rest, search: search || "" });
   const parsed = parseLocalePath(pathname);
+  const paginationMatch = parsed?.rest?.match?.(PAGINATION_SUFFIX_RE);
+  const paginationPage = paginationMatch ? parseInt(paginationMatch[2], 10) : null;
+  let paginationListingCount = 0;
+  let paginationListingItems = [];
 
   // For homepage routes, append a <link rel="preload"> for the first banner
   // image so the browser preload scanner can discover and fetch the LCP image
@@ -3444,6 +3451,17 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         fetchImageDimensions(brandImageUrl),
         fetchBrandProductCountForSeo({ slug: brandSlug, ...fetchOpts }),
       ]);
+      if (paginationPage !== null) {
+        const maxPage = Math.ceil((brandListing?.count ?? 0) / PAGINATION_PAGE_SIZE);
+        if (maxPage === 0 || paginationPage > maxPage) {
+          if (paginationRef) paginationRef.outOfRange = true;
+          return assembleHtml(html, {
+            ...generic,
+            headSnippet: generic.headSnippet + '\n    <meta name="robots" content="noindex" />',
+          });
+        }
+      }
+      paginationListingCount = brandListing?.count ?? 0;
       result = buildBrandHead({
         brand,
         imageDimensions: brandImageDims,
@@ -3484,6 +3502,18 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         slug: categorySlug,
         ...fetchOpts,
       });
+      if (paginationPage !== null) {
+        const maxPage = Math.ceil((listing?.count ?? 0) / PAGINATION_PAGE_SIZE);
+        if (maxPage === 0 || paginationPage > maxPage) {
+          if (paginationRef) paginationRef.outOfRange = true;
+          return assembleHtml(html, {
+            ...generic,
+            headSnippet: generic.headSnippet + '\n    <meta name="robots" content="noindex" />',
+          });
+        }
+      }
+      paginationListingCount = listing?.count ?? 0;
+      paginationListingItems = listing?.items ?? [];
       // Canonical for category clean paths drops any query string.
       result = buildCategoryHead({
         category,
@@ -3534,6 +3564,18 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         slug: occasionSlug,
         ...fetchOpts,
       });
+      if (paginationPage !== null) {
+        const maxPage = Math.ceil((listing?.count ?? 0) / PAGINATION_PAGE_SIZE);
+        if (maxPage === 0 || paginationPage > maxPage) {
+          if (paginationRef) paginationRef.outOfRange = true;
+          return assembleHtml(html, {
+            ...generic,
+            headSnippet: generic.headSnippet + '\n    <meta name="robots" content="noindex" />',
+          });
+        }
+      }
+      paginationListingCount = listing?.count ?? 0;
+      paginationListingItems = listing?.items ?? [];
       // Canonical for occasion clean paths drops any query string.
       result = buildOccasionHead({
         occasion,
@@ -3591,11 +3633,68 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   if (!result) {
     return assembleHtml(html, generic);
   }
+
+  let finalHeadSnippet = result.headSnippet;
+  let finalTitle = result.title;
+  let finalBodyHtml = result.bodyHtml ?? null;
+
+  const currentPage = paginationPage ?? 1;
+  const paginationMaxPage =
+    paginationListingCount > 0
+      ? Math.ceil(paginationListingCount / PAGINATION_PAGE_SIZE)
+      : 0;
+
+  if (paginationMaxPage > 1 || paginationPage !== null) {
+    const basePathname = pathname.replace(/\/page\/\d+\/?$/, "");
+    const baseUrl = `${(rest.origin ?? "").replace(/\/$/, "")}${basePathname}`;
+
+    if (currentPage > 1) {
+      const prevHref =
+        currentPage === 2 ? baseUrl : `${baseUrl}/page/${currentPage - 1}`;
+      finalHeadSnippet += `\n    <link rel="prev" href="${escapeAttr(prevHref)}">`;
+    }
+    if (paginationMaxPage > 0 && currentPage < paginationMaxPage) {
+      const nextHref = `${baseUrl}/page/${currentPage + 1}`;
+      finalHeadSnippet += `\n    <link rel="next" href="${escapeAttr(nextHref)}">`;
+    }
+
+    if (paginationPage !== null && paginationPage >= 2) {
+      const pageLabel =
+        generic.lang === "ar"
+          ? `\u0627\u0644\u0635\u0641\u062d\u0629 ${paginationPage}`
+          : `Page ${paginationPage}`;
+      finalTitle = finalTitle.replace(
+        / \| Presentail$/,
+        ` \u2013 ${pageLabel} | Presentail`,
+      );
+    }
+
+    const noscriptItems = paginationListingItems.filter(
+      (i) => i && i.slug && i.name,
+    );
+    if (noscriptItems.length > 0) {
+      const basePfx = (rest.basePath ?? "").replace(/\/$/, "");
+      const localePfx = parsed.hasLocalePrefix
+        ? `/${parsed.lang}-${parsed.country}/${parsed.city}`
+        : "";
+      const links = noscriptItems
+        .slice(0, PAGINATION_PAGE_SIZE)
+        .map(
+          (i) =>
+            `<li><a href="${escapeAttr(`${basePfx}${localePfx}/product/${encodeURIComponent(i.slug)}`)}">${escapeHtml(i.name)}</a></li>`,
+        )
+        .join("");
+      finalBodyHtml =
+        (finalBodyHtml ?? "") +
+        `<noscript><ul aria-label="Products">${links}</ul></noscript>`;
+    }
+  }
+
   return assembleHtml(html, {
     lang: generic.lang,
     dir: generic.dir,
-    headSnippet: result.headSnippet,
-    titleTag: `<title>${escapeHtml(result.title)}</title>`,
-    bodyHtml: result.bodyHtml ?? null,
+    headSnippet: finalHeadSnippet,
+    titleTag: `<title>${escapeHtml(finalTitle)}</title>`,
+    bodyHtml: finalBodyHtml,
   });
 }

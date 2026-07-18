@@ -228,14 +228,20 @@ const server = http.createServer((req, res) => {
     }
     case "/api/woo/category-products": {
       if (!CATEGORIES[slug]) return notFound(res);
-      const products = [{ name: "Rose Bouquet" }, { name: "Tulip Bunch" }];
-      return sendJson(res, 200, { ok: true, products, count: products.length });
+      const products = [
+        { name: "Rose Bouquet", id: "rose-bouquet" },
+        { name: "Tulip Bunch", id: "tulip-bunch" },
+      ];
+      return sendJson(res, 200, { ok: true, products, count: 50 });
     }
     case "/api/woo/occasion-products": {
       if (!OCCASIONS[slug]) return notFound(res);
-      const products = [{ name: "Rose Bouquet" }, { name: "Tulip Bunch" }];
+      const products = [
+        { name: "Rose Bouquet", id: "rose-bouquet" },
+        { name: "Tulip Bunch", id: "tulip-bunch" },
+      ];
       const groups = [{ count: products.length, products }];
-      return sendJson(res, 200, { ok: true, groups, total: products.length });
+      return sendJson(res, 200, { ok: true, groups, total: 50 });
     }
     case "/api/homepage/banners": {
       // Provides a real OS storage banner URL so serve.mjs's startup fetch
