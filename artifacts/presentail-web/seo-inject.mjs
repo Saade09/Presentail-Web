@@ -3,6 +3,7 @@
 // <title>, <meta description>, OG/Twitter tags, canonical and hreflang
 // alternates already present in the initial document (no JS required).
 
+import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 import { FAQ_COPY } from "./src/data/faqsCopy.js";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import {
@@ -156,6 +157,9 @@ const ROUTE_KEYS = [
   { test: (r) => r === "/occasions", key: "occasions" },
   { test: (r) => r.startsWith("/occasion/"), key: "occasion" },
   { test: (r) => r.startsWith("/category/"), key: "category" },
+  // TODO: add { test: (r) => r.startsWith("/recipient/"), key: "recipient" }
+  // when recipient pages are implemented, and wire isPageEligible({ pageType: "city-recipient" })
+  // in the corresponding handler below (same pattern as brand/category/occasion).
   { test: (r) => r.startsWith("/blog/"), key: "blogPost" },
   { test: (r) => r === "/blog", key: "blog" },
   { test: (r) => r === "/cart", key: "cart" },
@@ -3025,6 +3029,37 @@ function deriveAvailableCountriesForEntity({ entityKind, slug, lang, requestingC
 }
 
 /**
+ * Mark a collection page as ineligible for indexing by:
+ *  1. Removing the self-canonical <link rel="canonical"> tag so Google does
+ *     not record a conflicting canonical on a noindexed page.
+ *  2. Injecting (or replacing) the robots meta with "noindex, follow".
+ *
+ * The page still renders and is reachable by users — this is a soft noindex.
+ *
+ * @param {{ headSnippet: string, [key: string]: any }} result
+ * @returns {{ headSnippet: string, [key: string]: any }}
+ */
+function applyEligibilityNoindex(result) {
+  let snippet = result.headSnippet ?? "";
+  // Remove the self-canonical tag (any href value, single or double quotes).
+  snippet = snippet.replace(
+    /\s*<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/g,
+    "",
+  );
+  // Replace existing robots meta if present, otherwise inject one.
+  const robotsTag = `<meta name="robots" content="noindex, follow" />`;
+  if (/<meta\s+name="robots"/.test(snippet)) {
+    snippet = snippet.replace(
+      /<meta\s+name="robots"\s+content="[^"]*"\s*\/>/,
+      robotsTag,
+    );
+  } else {
+    snippet = robotsTag + "\n    " + snippet;
+  }
+  return { ...result, headSnippet: snippet };
+}
+
+/**
  * Async variant of injectSeoTags that, for `/product/<slug>`, `/brand/<slug>`,
  * `/shop?category=<slug>`, and `/shop?occasion=<slug>` routes, fetches the
  * matching record from the API and emits entity-specific OG/Twitter Card
@@ -3297,6 +3332,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   // Path-based slugs (new clean URLs)
   const categorySlugFromPath = extractSlugFor("/category", parsed.rest);
   const occasionSlugFromPath = extractSlugFor("/occasion", parsed.rest);
+  // Recipient pages are not yet implemented in the router but we detect the
+  // slug here so the eligibility noindex path is in place when they land.
+  const recipientSlug = extractSlugFor("/recipient", parsed.rest);
   // Query-param slugs (legacy URLs — kept for backward compatibility)
   const categorySlugFromSearch = parsed.rest === "/shop" ? extractCategorySlugFromSearch(search) : null;
   const occasionSlugFromSearch =
@@ -3447,9 +3485,18 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     });
     if (brand) {
       const brandImageUrl = typeof brand.image === "string" && brand.image ? brand.image : null;
-      const [brandImageDims, brandListing] = await Promise.all([
+      // Fetch city-specific count (productCount) and global count (parentProductCount)
+      // in parallel. The global count omits cityId so it covers all cities for the
+      // brand in this country — the ratio check requires both values.
+      const { countryCode: brandCountryCode, apiBaseUrl: brandApiBaseUrl } = fetchOpts;
+      const [brandImageDims, brandListing, brandParentListing] = await Promise.all([
         fetchImageDimensions(brandImageUrl),
         fetchBrandProductCountForSeo({ slug: brandSlug, ...fetchOpts }),
+        fetchBrandProductCountForSeo({
+          slug: brandSlug,
+          countryCode: brandCountryCode,
+          apiBaseUrl: brandApiBaseUrl,
+        }),
       ]);
       if (paginationPage !== null) {
         const maxPage = Math.ceil((brandListing?.count ?? 0) / PAGINATION_PAGE_SIZE);
@@ -3487,6 +3534,22 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           .join("\n    ");
         result = { ...result, headSnippet: result.headSnippet + "\n    " + _brandHreflangLines };
       }
+      const brandParentCount = brandParentListing?.count ?? null;
+      const brandEligibility = isPageEligible({
+        pageType: "city-brand",
+        country: parsed.country ?? undefined,
+        city: parsed.city ?? undefined,
+        brandSlug,
+        productCount: brandListing?.count ?? null,
+        parentProductCount: brandParentCount,
+        parentEligible:
+          brandParentCount !== null
+            ? brandParentCount >= MIN_PRODUCTS_BY_TYPE["city-brand"]
+            : null,
+      });
+      if (!brandEligibility.eligible) {
+        result = applyEligibilityNoindex(result);
+      }
     }
   } else if (categorySlug) {
     const category = await fetchEntityForSeoCached(
@@ -3496,12 +3559,22 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     );
     if (category) {
       const catImageUrl = typeof category.image === "string" && category.image ? category.image : null;
-      const catImageDims = await fetchImageDimensions(catImageUrl);
-      const listing = await fetchListingProductsForSeo({
-        kind: "category",
-        slug: categorySlug,
-        ...fetchOpts,
-      });
+      // Fetch city-specific listing (productCount) and country-wide listing
+      // (parentProductCount, no cityId) in parallel so the ratio/identical-
+      // inventory rules in isPageEligible can fire. catImageDims is also
+      // kicked off in the same batch to avoid a sequential waterfall.
+      const { countryCode: catCountryCode, lang: catLang, apiBaseUrl: catApiBaseUrl } = fetchOpts;
+      const [catImageDims, listing, catParentListing] = await Promise.all([
+        fetchImageDimensions(catImageUrl),
+        fetchListingProductsForSeo({ kind: "category", slug: categorySlug, ...fetchOpts }),
+        fetchListingProductsForSeo({
+          kind: "category",
+          slug: categorySlug,
+          countryCode: catCountryCode,
+          lang: catLang,
+          apiBaseUrl: catApiBaseUrl,
+        }),
+      ]);
       if (paginationPage !== null) {
         const maxPage = Math.ceil((listing?.count ?? 0) / PAGINATION_PAGE_SIZE);
         if (maxPage === 0 || paginationPage > maxPage) {
@@ -3542,6 +3615,22 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           .join("\n    ");
         result = { ...result, headSnippet: result.headSnippet + "\n    " + _catHreflangLines };
       }
+      const catParentCount = catParentListing?.count ?? null;
+      const categoryEligibility = isPageEligible({
+        pageType: "city-category",
+        country: parsed.country ?? undefined,
+        city: parsed.city ?? undefined,
+        categorySlug,
+        productCount: listing?.count ?? null,
+        parentProductCount: catParentCount,
+        parentEligible:
+          catParentCount !== null
+            ? catParentCount >= MIN_PRODUCTS_BY_TYPE["city-category"]
+            : null,
+      });
+      if (!categoryEligibility.eligible) {
+        result = applyEligibilityNoindex(result);
+      }
     }
   } else if (occasionSlug) {
     const occasion = await fetchEntityForSeoCached("occasion", fetchOccasionForSeo, {
@@ -3554,16 +3643,25 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       const occasionOgImageUrl = publicOrigin
         ? `${publicOrigin}/api/og-image/occasion/${encodeURIComponent(occasionSlug)}`
         : null;
-      const occImageDims = occasionOgImageUrl
-        ? null // dimensions are always 1200×630 — no probe needed
-        : await fetchImageDimensions(
-            typeof occasion.image === "string" && occasion.image ? occasion.image : null,
-          );
-      const listing = await fetchListingProductsForSeo({
-        kind: "occasion",
-        slug: occasionSlug,
-        ...fetchOpts,
-      });
+      // Fetch city-specific listing (productCount) and country-wide listing
+      // (parentProductCount, no cityId) in parallel so the ratio/identical-
+      // inventory rules in isPageEligible can fire.
+      const { countryCode: occCountryCode, lang: occLang, apiBaseUrl: occApiBaseUrl } = fetchOpts;
+      const [occImageDims, listing, occParentListing] = await Promise.all([
+        occasionOgImageUrl
+          ? Promise.resolve(null) // dimensions are always 1200×630 — no probe needed
+          : fetchImageDimensions(
+              typeof occasion.image === "string" && occasion.image ? occasion.image : null,
+            ),
+        fetchListingProductsForSeo({ kind: "occasion", slug: occasionSlug, ...fetchOpts }),
+        fetchListingProductsForSeo({
+          kind: "occasion",
+          slug: occasionSlug,
+          countryCode: occCountryCode,
+          lang: occLang,
+          apiBaseUrl: occApiBaseUrl,
+        }),
+      ]);
       if (paginationPage !== null) {
         const maxPage = Math.ceil((listing?.count ?? 0) / PAGINATION_PAGE_SIZE);
         if (maxPage === 0 || paginationPage > maxPage) {
@@ -3605,6 +3703,42 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           .join("\n    ");
         result = { ...result, headSnippet: result.headSnippet + "\n    " + _occHreflangLines };
       }
+      const occParentCount = occParentListing?.count ?? null;
+      const occasionEligibility = isPageEligible({
+        pageType: "city-occasion",
+        country: parsed.country ?? undefined,
+        city: parsed.city ?? undefined,
+        occasionSlug,
+        productCount: listing?.count ?? null,
+        parentProductCount: occParentCount,
+        parentEligible:
+          occParentCount !== null
+            ? occParentCount >= MIN_PRODUCTS_BY_TYPE["city-occasion"]
+            : null,
+      });
+      if (!occasionEligibility.eligible) {
+        result = applyEligibilityNoindex(result);
+      }
+    }
+  } else if (recipientSlug) {
+    // Recipient city pages are not yet implemented (no route in App.tsx), so
+    // this block will not execute at runtime until the route is added. It is
+    // scaffolded here so the eligibility noindex is already in place the moment
+    // recipient pages go live.
+    //
+    // productCount is null → fail-closed → noindex until a product-count fetch
+    // is wired in (same pattern as the brand/category/occasion handlers above).
+    const recipientEligibility = isPageEligible({
+      pageType: "city-recipient",
+      country: parsed.country ?? undefined,
+      city: parsed.city ?? undefined,
+      recipientSlug,
+      productCount: null,
+      parentProductCount: null,
+      parentEligible: null,
+    });
+    if (!recipientEligibility.eligible) {
+      result = applyEligibilityNoindex(result);
     }
   } else if (brandsFilter) {
     const fetcher =

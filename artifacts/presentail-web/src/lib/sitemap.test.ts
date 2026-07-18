@@ -17,7 +17,7 @@ const ORIGIN = "https://presentail.com";
 // empty, so the count filter can be asserted in both directions.
 const MOCK = {
   products: [{ slug: "red-roses" }, { slug: null }],
-  brands: [{ slug: "acme-flowers" }],
+  brands: [{ slug: "acme-flowers", count: 5 }, { slug: "empty-brand", count: 0 }],
   occasions: [
     { id: "birthday", count: 5 },
     { id: "empty-occasion", count: 0 },
@@ -141,6 +141,7 @@ describe("generateSitemap", () => {
     expect(xml).not.toContain("/occasion/empty-occasion");
     expect(xml).toContain("/product/red-roses");
     expect(xml).toContain("/brand/acme-flowers");
+    expect(xml).not.toContain("/brand/empty-brand");
 
     expect(parse(xml).documentElement?.nodeName).toBe("urlset");
   });

@@ -1,49 +1,19 @@
+import _citySlugsJson from "./city-slugs.json";
+
 export const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
 export type Lang = (typeof SUPPORTED_LANGS)[number];
 
 export const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"] as const;
 export type CountrySlug = (typeof SUPPORTED_COUNTRY_SLUGS)[number];
 
-export const CITY_SLUGS_BY_COUNTRY: Record<CountrySlug, readonly string[]> = {
-  lb: [
-    "akkar",
-    "aley",
-    "baabda",
-    "baalbeck",
-    "batroun",
-    "bcharee",
-    "beirut",
-    "bent-jbeil",
-    "chouf",
-    "hasbaya",
-    "hermel",
-    "jbeil",
-    "jezzine",
-    "kesserwan",
-    "koura",
-    "marjayoun",
-    "metn",
-    "minnieh-dennaya",
-    "nabatieh",
-    "rechaya",
-    "saida",
-    "tripoli",
-    "tyre",
-    "west-bekaa",
-    "zahle",
-    "zghorta",
-  ],
-  ae: [
-    "abu-dhabi",
-    "ajman",
-    "dubai",
-    "fujairah",
-    "ras-al-khaimah",
-    "sharjah",
-    "umm-al-quwain",
-  ],
-  cy: ["larnaca", "limassol", "nicosia", "paphos"],
-};
+/**
+ * Single source of truth for city slugs, shared with
+ * `artifacts/presentail-web/scripts/pageEligibility.mjs`.
+ * Edit `city-slugs.json` to add/remove cities — both files pick up the change
+ * automatically.
+ */
+export const CITY_SLUGS_BY_COUNTRY: Record<CountrySlug, readonly string[]> =
+  _citySlugsJson as Record<CountrySlug, readonly string[]>;
 
 export function isSupportedLang(s: string): s is Lang {
   return (SUPPORTED_LANGS as readonly string[]).includes(s);

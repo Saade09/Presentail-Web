@@ -1,0 +1,13 @@
+{
+  "lb": [
+    "akkar", "aley", "baabda", "baalbeck", "batroun", "bcharee", "beirut",
+    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbeil", "jezzine",
+    "kesserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
+    "rechaya", "saida", "tripoli", "tyre", "west-bekaa", "zahle", "zghorta"
+  ],
+  "ae": [
+    "abu-dhabi", "ajman", "dubai", "fujairah", "ras-al-khaimah", "sharjah",
+    "umm-al-quwain"
+  ],
+  "cy": ["larnaca", "limassol", "nicosia", "paphos"]
+}

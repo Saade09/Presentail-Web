@@ -7,6 +7,7 @@
 // categories) and delegates to the pure builder.
 
 import { BLOG_POSTS } from "@workspace/blog-content";
+import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 
 const PAGINATION_PAGE_SIZE = 24;
 const PAGINATION_SITEMAP_MAX_PAGES = 10;
@@ -69,8 +70,38 @@ export function buildSitemapXml({
   categories = [],
   blogPosts: blogPostsArg = null,
   lastmod = new Date().toISOString().slice(0, 10),
+  /**
+   * Optional mutable report collector. When provided, the function accumulates
+   * per-pageType eligible/ineligible counts into `reportRef.counts` so callers
+   * can print a JSON summary without a separate traversal.
+   * Shape: { counts: { [pageType]: { eligible: number, ineligible: number } } }
+   */
+  reportRef = null,
+  /**
+   * Total product count across the full catalog (e.g. `products.length` from
+   * the /api/woo/products response). Used as `parentProductCount` in
+   * brand/occasion/category eligibility checks so the uniqueness-ratio and
+   * identical-inventory rules can fire at sitemap build time.
+   *
+   * Per-city product counts are not available at sitemap build time, so we use
+   * this global total as a conservative proxy: if the collection represents a
+   * very small or identical fraction of the whole catalog, the city page is
+   * treated as thin/duplicate and excluded.
+   *
+   * null = unknown (ratio rules are skipped — callers should always supply this
+   * when productsData is available to ensure ratio checks are enforced).
+   */
+  totalProductCount = null,
 } = {}) {
   const cleanBase = (basePath ?? "/").replace(/\/$/, "");
+
+  // Accumulate eligibility counts into reportRef when provided.
+  const recordEligibility = (pageType, eligible) => {
+    if (!reportRef) return;
+    if (!reportRef.counts) reportRef.counts = {};
+    if (!reportRef.counts[pageType]) reportRef.counts[pageType] = { eligible: 0, ineligible: 0 };
+    reportRef.counts[pageType][eligible ? "eligible" : "ineligible"]++;
+  };
 
   // Plain <url> entry for un-prefixed, language-agnostic paths (root, llms.txt).
   const urlEntry = (loc, priority, changefreq) =>
@@ -127,18 +158,55 @@ export function buildSitemapXml({
     if (!brand?.slug) continue;
     const encoded = encodeURIComponent(brand.slug);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      // At sitemap build time per-city product counts are unavailable without
+      // O(brands×cities) extra API calls. We use brand.count (global brand total)
+      // as productCount and totalProductCount (full catalog size) as the parent
+      // so the ratio and identical-inventory rules can enforce some signal:
+      //  - ratio: brand.count / totalProductCount < 0.15 → thin/niche brand page excluded
+      //  - identical: brand covers entire catalog → no city-specific value added
+      // This is a conservative proxy — any false positives are prevented by
+      // the min-count check, and false negatives (thin per-city pages that pass)
+      // are caught at request time by seo-inject which has the real per-city count.
+      const parentEligibleBrand =
+        totalProductCount !== null
+          ? totalProductCount >= MIN_PRODUCTS_BY_TYPE["city-brand"]
+          : null;
+      const eligibility = isPageEligible({
+        pageType: "city-brand",
+        country,
+        city,
+        brandSlug: brand.slug,
+        productCount: brand.count ?? 0,
+        parentProductCount: totalProductCount,
+        parentEligible: parentEligibleBrand,
+      });
+      recordEligibility("city-brand", eligibility.eligible);
+      if (!eligibility.eligible) continue;
       urls.push(urlEntryWithAlternates("0.6", "monthly", country, city, `/brand/${encoded}`));
     }
   }
 
   // 4. Occasion pages — canonical city per country × all languages. Skip any
-  // occasion with no in-stock products (count === 0) so crawlers never discover
-  // a thin/empty listing page.
+  // occasion that fails the eligibility check (thin/empty/duplicate pages).
   for (const occasion of occasions) {
     if (!occasion?.id) continue;
-    if ((occasion.count ?? 0) === 0) continue;
     const encoded = encodeURIComponent(occasion.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      const parentEligibleOccasion =
+        totalProductCount !== null
+          ? totalProductCount >= MIN_PRODUCTS_BY_TYPE["city-occasion"]
+          : null;
+      const eligibility = isPageEligible({
+        pageType: "city-occasion",
+        country,
+        city,
+        occasionSlug: occasion.id,
+        productCount: occasion.count ?? 0,
+        parentProductCount: totalProductCount,
+        parentEligible: parentEligibleOccasion,
+      });
+      recordEligibility("city-occasion", eligibility.eligible);
+      if (!eligibility.eligible) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/occasion/${encoded}`));
     }
     const occasionPageCount = Math.min(
@@ -153,12 +221,26 @@ export function buildSitemapXml({
   }
 
   // 5. Category pages — canonical city per country × all languages. Skip any
-  // category with no in-stock products (count === 0).
+  // category that fails the eligibility check (thin/empty/duplicate pages).
   for (const category of categories) {
     if (!category?.id) continue;
-    if ((category.count ?? 0) === 0) continue;
     const encoded = encodeURIComponent(category.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      const parentEligibleCategory =
+        totalProductCount !== null
+          ? totalProductCount >= MIN_PRODUCTS_BY_TYPE["city-category"]
+          : null;
+      const eligibility = isPageEligible({
+        pageType: "city-category",
+        country,
+        city,
+        categorySlug: category.id,
+        productCount: category.count ?? 0,
+        parentProductCount: totalProductCount,
+        parentEligible: parentEligibleCategory,
+      });
+      recordEligibility("city-category", eligibility.eligible);
+      if (!eligibility.eligible) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
     }
     const categoryPageCount = Math.min(
@@ -221,6 +303,9 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
     occasions: catalogData?.occasions ?? [],
     categories: catalogData?.categories ?? [],
     lastmod,
+    // Pass the total product count so eligibility ratio/identical-inventory
+    // rules can fire at sitemap build time (see buildSitemapXml JSDoc).
+    totalProductCount: productsData?.products?.length ?? null,
   });
 }
 
@@ -284,4 +369,80 @@ export async function resolveSitemap({
     onError?.(err, "static-fallback");
     return { value: generateStatic(), tsMs, mode: "static-fallback" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// CLI: node sitemap.mjs --eligibility-report
+// ---------------------------------------------------------------------------
+// When run directly with --eligibility-report, builds the sitemap with
+// whatever catalog data is available (empty lists when no live API is
+// reachable) and prints a JSON summary of eligible/ineligible URL counts
+// per page type to stdout, then exits 0.
+//
+// In production with a live API:
+//   INTERNAL_API_BASE_URL=http://localhost:80 node sitemap.mjs --eligibility-report
+//
+// In CI (no live API — shows zero counts from empty catalog):
+//   node sitemap.mjs --eligibility-report
+
+import { fileURLToPath } from "node:url";
+
+const _isMain =
+  typeof process !== "undefined" &&
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === process.argv[1];
+
+if (_isMain) {
+  const args = process.argv.slice(2);
+  if (!args.includes("--eligibility-report")) {
+    process.stderr.write(
+      "Usage: node sitemap.mjs --eligibility-report\n" +
+      "  Optionally set INTERNAL_API_BASE_URL to fetch real catalog data.\n",
+    );
+    process.exit(1);
+  }
+
+  (async () => {
+    const apiBase = process.env.INTERNAL_API_BASE_URL ?? "";
+    const reportRef = { counts: {} };
+
+    // Attempt to fetch catalog data when an API base is configured.
+    let products = [], brands = [], occasions = [], categories = [];
+    if (apiBase) {
+      const fetchJson = async (url) => {
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) return null;
+          return resp.json();
+        } catch {
+          return null;
+        }
+      };
+      const [productsData, brandsData, catalogData] = await Promise.all([
+        fetchJson(`${apiBase}/api/woo/products?lang=en&countryCode=LB`),
+        fetchJson(`${apiBase}/api/woo/brands`),
+        fetchJson(`${apiBase}/api/catalog/metadata`),
+      ]);
+      products = productsData?.products ?? [];
+      brands = brandsData?.brands ?? [];
+      occasions = catalogData?.occasions ?? [];
+      categories = catalogData?.categories ?? [];
+    }
+
+    buildSitemapXml({
+      origin: process.env.ORIGIN ?? "https://presentail.com",
+      basePath: "/",
+      products,
+      brands,
+      occasions,
+      categories,
+      reportRef,
+    });
+
+    process.stdout.write(JSON.stringify(reportRef.counts, null, 2) + "\n");
+    process.exit(0);
+  })().catch((err) => {
+    process.stderr.write(String(err) + "\n");
+    process.exit(1);
+  });
 }

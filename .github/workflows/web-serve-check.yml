@@ -65,6 +65,9 @@ jobs:
       - name: Check city-name coverage (every slug must have EN/AR/FR names in seo.mjs)
         run: pnpm --filter @workspace/scripts run check-city-name-coverage
 
+      - name: Sitemap eligibility report (eligible/ineligible counts per page type, exit 0)
+        run: node artifacts/presentail-web/sitemap.mjs --eligibility-report
+
       - name: Check contact page SEO title lengths (30–65 chars)
         run: pnpm --filter @workspace/presentail-web run check-contact-title-length
 
