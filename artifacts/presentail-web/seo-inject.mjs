@@ -109,6 +109,7 @@ import {
   CONTACT_FAQ_COPY,
 } from "./src/lib/seo-shop-faqs.mjs";
 
+import { CITY_SEO } from "./src/data/city-seo.mjs";
 
 // Localised SEO strings for shared wishlist pages.
 // The wishlist share path (/favorites/share/:token) has no locale prefix so
@@ -691,7 +692,18 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     }
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems });
+  // City-specific intro paragraph — injected into the prerendered body so
+  // same-country city pages are distinct enough to pass the check-city-similarity
+  // Jaccard-80% gate. Look up by the same "{country}-{city}" key used in CITY_SEO.
+  let citySpecificContent = "";
+  if (routeKey === "home" && hasValidCity && cityKey) {
+    const cityEntry = CITY_SEO[cityKey];
+    if (cityEntry) {
+      citySpecificContent = cityEntry[lang] ?? cityEntry.en ?? "";
+    }
+  }
+
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent });
 
   return {
     lang,
@@ -799,11 +811,14 @@ function buildNavLinks(localeBase) {
   );
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [] }) {
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "" }) {
   const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   const safeDesc = escapeHtml(description);
   const safeIntro = escapeHtml(intro);
+  // City-specific paragraph for city home pages — provides unique vocabulary
+  // tokens per city so the Jaccard similarity gate in check-city-similarity passes.
+  const safeCityContent = cityContent ? escapeHtml(cityContent) : "";
   // Add FAQ questions as h2+h3 headings so pages with multiple sections have
   // the required subheading structure for AI crawlers and the Agent Ready scan.
   let faqHtml = "";
@@ -817,6 +832,7 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     `<h1>${safeTitle}</h1>` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
+    (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
     faqHtml +
     buildNavLinks(localeBase) +
     `</div>`
