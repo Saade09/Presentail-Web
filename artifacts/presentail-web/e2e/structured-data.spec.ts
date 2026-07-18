@@ -307,6 +307,85 @@ test.describe("Structured data — locale-prefixed city homepage /en-cy/nicosia/
 });
 
 // ---------------------------------------------------------------------------
+// 2d. LocalBusiness JSON-LD — all UAE cities (data-driven)
+//
+// Covers the full set of 7 UAE cities so a regression in the "ae" locale
+// branch of buildLocalBusinessSchema() (countryName / addressLocality
+// resolution) is caught for any city, not just Dubai.
+//
+// City slug list mirrors CITY_SLUGS_BY_COUNTRY in seo-inject.mjs — keep in
+// sync whenever a new UAE city is added to the platform.
+// ---------------------------------------------------------------------------
+
+const UAE_CITY_SLUGS = [
+  "abu-dhabi",
+  "ajman",
+  "dubai",
+  "fujairah",
+  "ras-al-khaimah",
+  "sharjah",
+  "umm-al-quwain",
+] as const;
+
+for (const city of UAE_CITY_SLUGS) {
+  test.describe(`Structured data — LocalBusiness schema for /en-ae/${city}/`, () => {
+    let html: string;
+
+    test.beforeAll(async ({ request }) => {
+      const response = await request.get(`/en-ae/${city}/`);
+      expect(response.status()).toBe(200);
+      html = await response.text();
+    });
+
+    test("LocalBusiness (Florist) JSON-LD is present with areaServed and address", () => {
+      assertLocalBusinessJsonLd(html);
+    });
+
+    test('Home > City BreadcrumbList JSON-LD is present', () => {
+      expect(html).toContain('"@type":"BreadcrumbList"');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 2e. LocalBusiness JSON-LD — all Cyprus cities (data-driven)
+//
+// Covers the full set of 4 Cyprus cities so a regression in the "cy" locale
+// branch of buildLocalBusinessSchema() (countryName / addressLocality
+// resolution) is caught for any city, not just Nicosia.
+//
+// City slug list mirrors CITY_SLUGS_BY_COUNTRY in seo-inject.mjs — keep in
+// sync whenever a new Cyprus city is added to the platform.
+// ---------------------------------------------------------------------------
+
+const CYPRUS_CITY_SLUGS = [
+  "larnaca",
+  "limassol",
+  "nicosia",
+  "paphos",
+] as const;
+
+for (const city of CYPRUS_CITY_SLUGS) {
+  test.describe(`Structured data — LocalBusiness schema for /en-cy/${city}/`, () => {
+    let html: string;
+
+    test.beforeAll(async ({ request }) => {
+      const response = await request.get(`/en-cy/${city}/`);
+      expect(response.status()).toBe(200);
+      html = await response.text();
+    });
+
+    test("LocalBusiness (Florist) JSON-LD is present with areaServed and address", () => {
+      assertLocalBusinessJsonLd(html);
+    });
+
+    test('Home > City BreadcrumbList JSON-LD is present', () => {
+      expect(html).toContain('"@type":"BreadcrumbList"');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // 3. Locale-prefixed product path /en-lb/beirut/product/rose-bouquet
 //
 // injectSeoTagsAsync() always runs buildSeoHead() first and then attempts an
