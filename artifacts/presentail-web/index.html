@@ -25,7 +25,9 @@
     <meta name="twitter:description" content="Send flowers, cakes and gifts with same-day express delivery in Lebanon, UAE, and Cyprus." />
     <meta name="twitter:image" content="https://presentail.com/opengraph.jpg" />
     <meta name="twitter:image:alt" content="Presentail — Luxury Flower & Gift Delivery" />
+    <!-- perf: deferred for INP — async prevents blocking the main thread during page load -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=%VITE_GTAG_ADS_ID%"></script>
+    <!-- perf: inline init only (no external fetch); dataLayer must be ready before async gtag.js executes -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}

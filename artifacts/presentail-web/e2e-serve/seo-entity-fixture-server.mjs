@@ -107,6 +107,10 @@ const HERO_IMAGE_URL = `${ORIGIN}/fixtures/hero.png`;
 // seo-injection.spec.ts.
 // ---------------------------------------------------------------------------
 
+// A fixture product whose image is an OS storage URL so the PDP LCP preload
+// injection path in seo-inject.mjs is exercised in e2e-serve tests.
+const OS_STORAGE_IMAGE_URL = "https://os.presentail.com/api/storage/products/fixture-roses.jpg";
+
 const PRODUCTS = {
   "rose-bouquet": {
     name: "Rose Bouquet",
@@ -114,6 +118,14 @@ const PRODUCTS = {
     priceValue: 89,
     inStock: true,
     image: { uri: HERO_IMAGE_URL },
+  },
+  // Product with an OS storage image — exercises the PDP LCP preload path.
+  "os-storage-roses": {
+    name: "OS Storage Roses",
+    description: "Roses with an OS storage image for preload testing.",
+    priceValue: 95,
+    inStock: true,
+    image: { uri: OS_STORAGE_IMAGE_URL },
   },
   "sold-out-roses": {
     name: "Sold Out Roses",

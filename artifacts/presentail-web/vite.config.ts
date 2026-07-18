@@ -265,6 +265,53 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
 
 
 /**
+ * Inject <link rel="preload" as="font"> tags for all self-hosted woff2 font
+ * files into the built index.html. Without preloads the browser must wait for
+ * the CSS bundle to download and parse before discovering font URLs, adding
+ * ~100–200 ms to first paint. With preloads it can fetch fonts in parallel
+ * with the CSS bundle, improving LCP on all pages.
+ *
+ * Reads the Vite manifest to resolve content-hashed filenames and injects tags
+ * immediately before </head>. Runs only at build time (not dev server).
+ */
+function fontPreloadPlugin(outDir: string, basePath: string): Plugin {
+  const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
+  return {
+    name: "presentail-font-preload",
+    apply: "build",
+    async closeBundle() {
+      const htmlPath = path.join(outDir, "index.html");
+      const manifestPath = path.join(outDir, ".vite", "manifest.json");
+      if (!fs.existsSync(htmlPath) || !fs.existsSync(manifestPath)) return;
+
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<
+        string,
+        { file: string }
+      >;
+
+      const links = Object.values(manifest)
+        .filter((entry) => typeof entry.file === "string" && entry.file.endsWith(".woff2"))
+        .map((entry) => {
+          const href = `${base}/${entry.file}`;
+          return `  <link rel="preload" as="font" type="font/woff2" crossorigin href="${href}">`;
+        });
+
+      if (links.length === 0) {
+        console.warn("[font-preload] No .woff2 entries found in Vite manifest — font preloads not injected");
+        return;
+      }
+
+      const html = fs.readFileSync(htmlPath, "utf8");
+      const injection = links.join("\n");
+      const patched = html.replace("</head>", `${injection}\n</head>`);
+      if (patched === html) return;
+      fs.writeFileSync(htmlPath, patched, "utf8");
+      console.log(`[font-preload] Injected ${links.length} woff2 preload hint(s) into index.html`);
+    },
+  };
+}
+
+/**
  * Convert every hashed CSS asset link in the built index.html from a
  * render-blocking <link rel="stylesheet"> into the LoadCSS preload+swap
  * pattern, eliminating the CSS file from the render-blocking critical path.
@@ -392,6 +439,7 @@ export default defineConfig(async ({ command }) => {
       runtimeErrorOverlay(),
       seoInjectPlugin(basePath),
       logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
+      fontPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
       lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       ...(process.env.NODE_ENV !== "production" &&

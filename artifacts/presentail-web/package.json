@@ -30,6 +30,7 @@
     "check-font-files-emitted": "node scripts/check-font-files-emitted.mjs dist/public",
     "check-font-face-declarations": "node scripts/check-font-face-declarations.mjs dist/public",
     "check-stripe-isolation": "node scripts/check-stripe-isolation.mjs dist/public",
+    "check-web-vitals-budget": "node scripts/check-web-vitals-budget.mjs dist/public",
     "check-public-image-budget": "node scripts/check-public-image-budget.mjs public",
     "check-font-budget": "node scripts/check-public-font-budget.mjs src/fonts",
     "check-contact-title-length": "node scripts/check-contact-title-length.mjs",

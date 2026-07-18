@@ -3128,7 +3128,12 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           return false;
         }
       })();
-      let preloadTag;
+      // Only emit the LCP preload for trusted OS storage image URLs.  Third-party
+      // or unknown image domains (e.g. Unsplash CDN) are excluded: injecting an
+      // arbitrary external URL as a preload hint exposes server-side SSRF risk via
+      // the preload scanner, and the /api/img/proxy endpoint must not be used as a
+      // general-purpose SSRF vector.  Non-trusted URLs degrade gracefully — the
+      // banner image is still shown by React; it just lacks the preload hint.
       if (isOsStorage) {
         const widths = [400, 800, 1200];
         const srcset = widths
@@ -3139,15 +3144,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           .join(", ");
         const sizes = "(max-width: 1280px) 100vw, 1280px";
         const href = `/api/img/proxy?url=${encodeURIComponent(firstBannerImageUrl)}&w=800&f=webp`;
-        preloadTag =
+        const preloadTag =
           `<link rel="preload" as="image" fetchpriority="high"` +
           ` href="${escapeAttr(href)}"` +
           ` imagesrcset="${escapeAttr(srcset)}"` +
           ` imagesizes="${escapeAttr(sizes)}">`;
-      } else {
-        preloadTag = `<link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(firstBannerImageUrl)}">`;
+        generic.headSnippet += `\n    ${preloadTag}`;
       }
-      generic.headSnippet += `\n    ${preloadTag}`;
     }
   }
   if (!apiBaseUrl) {
@@ -3501,6 +3504,48 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           )
           .join("\n    ");
         result = { ...result, headSnippet: result.headSnippet + "\n    " + _prodHreflangLines };
+      }
+
+      // Inject a <link rel="preload" as="image" fetchpriority="high"> for the
+      // primary product image so the preload scanner can fetch it before the JS
+      // bundle executes — improving LCP on product detail pages.
+      //
+      // Only emitted for OS storage images (os.presentail.com/api/storage/…)
+      // to prevent injecting arbitrary external URLs as preload hints (SSRF
+      // risk via the /api/img/proxy endpoint). The responsive preload uses the
+      // same srcset widths and sizes as the ProductDetail gallery component so
+      // the browser reuses the preloaded bytes and does not issue a second fetch.
+      const _prodImageUri =
+        (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+        (Array.isArray(product.images) &&
+          product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+        null;
+      if (_prodImageUri) {
+        const _isProdOsStorage = (() => {
+          try {
+            const u = new URL(_prodImageUri);
+            return (
+              u.hostname === "os.presentail.com" &&
+              u.pathname.startsWith("/api/storage/")
+            );
+          } catch {
+            return false;
+          }
+        })();
+        if (_isProdOsStorage) {
+          const _pdpWidths = [400, 800, 1200];
+          const _pdpSrcset = _pdpWidths
+            .map((w) => `/api/img/proxy?url=${encodeURIComponent(_prodImageUri)}&w=${w}&f=webp ${w}w`)
+            .join(", ");
+          const _pdpSizes = "(max-width: 1280px) 100vw, 1280px";
+          const _pdpHref = `/api/img/proxy?url=${encodeURIComponent(_prodImageUri)}&w=800&f=webp`;
+          const _pdpPreloadTag =
+            `<link rel="preload" as="image" fetchpriority="high"` +
+            ` href="${escapeAttr(_pdpHref)}"` +
+            ` imagesrcset="${escapeAttr(_pdpSrcset)}"` +
+            ` imagesizes="${escapeAttr(_pdpSizes)}">`;
+          result = { ...result, headSnippet: result.headSnippet + "\n    " + _pdpPreloadTag };
+        }
       }
     }
   } else if (brandSlug) {

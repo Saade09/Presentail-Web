@@ -1451,7 +1451,7 @@ const server = http.createServer(async (req, res) => {
       const body = await compressBuffer(sitemapCache, encoding);
       const headers = {
         "content-type": MIME[".xml"],
-        "cache-control": "public, max-age=900, must-revalidate",
+        "cache-control": "public, max-age=3600, must-revalidate",
         "vary": "Accept-Encoding",
       };
       if (encoding) headers["content-encoding"] = encoding;
@@ -1712,14 +1712,16 @@ const server = http.createServer(async (req, res) => {
           // On the canonical production host: "index, follow" for public pages,
           // "noindex" for private/transactional paths and UTM-parameterised URLs.
           ...(xRobotsTag !== null ? { "x-robots-tag": xRobotsTag } : {}),
-          // All HTML responses use no-store so that:
-          //  1. No HTTP cache layer (CDN, ISP, browser) stores the shell.
-          //  2. Safari's Back/Forward Cache (BFCache) is opted out — BFCache
-          //     ignores no-cache but respects no-store. Without this, Safari
-          //     can restore a frozen page snapshot whose JS chunk hashes no
-          //     longer exist on the server after a redeploy, leaving a blank
-          //     white page with no error the chunk-reload handler can catch.
-          "cache-control": "no-store, no-cache, must-revalidate",
+          // Transactional pages (cart, checkout, order-confirmed) use no-store to
+          // prevent any cache layer from serving stale payment/order state and to
+          // opt Safari out of BFCache for those critical flows.
+          // All other HTML pages use s-maxage=300 so CDNs can serve the SEO-injected
+          // shell for up to 5 minutes without hitting the origin on every request,
+          // while stale-while-revalidate=60 keeps the CDN cache warm on revalidation.
+          // perf: CDN cache for LCP/TTFB
+          "cache-control": isTransactionalPage(pathname)
+            ? "no-store, no-cache, must-revalidate"
+            : "public, s-maxage=300, stale-while-revalidate=60",
           "expires": "0",
           "vary": "Accept-Encoding",
           // HTTP Link header mirrors the <link rel="canonical"> injected into
@@ -1742,8 +1744,13 @@ const server = http.createServer(async (req, res) => {
       // .well-known files (AASA, assetlinks) must be re-fetched regularly so
       // OS verifiers pick up updates; don't cache them for more than an hour.
       const isWellKnown = filePath.includes(`${path.sep}.well-known${path.sep}`);
-      const maxAgeSeconds = isWellKnown ? 3600 : isIconAsset ? 86400 : 31536000;
-      const cacheControl = isWellKnown
+      // robots.txt and llms.txt carry no content hash in their filename so they
+      // cannot use immutable caching. Serve them with a 1-hour TTL so crawlers
+      // pick up updates promptly while still reducing origin load.
+      // perf: short-lived cache for unhashed SEO config files
+      const isSeoConfigFile = baseName === "robots.txt" || baseName === "llms.txt";
+      const maxAgeSeconds = isWellKnown || isSeoConfigFile ? 3600 : isIconAsset ? 86400 : 31536000;
+      const cacheControl = isWellKnown || isSeoConfigFile
         ? "public, max-age=3600, must-revalidate"
         : isIconAsset
           ? "public, max-age=86400, must-revalidate"
@@ -1924,9 +1931,13 @@ const server = http.createServer(async (req, res) => {
       // On the canonical production host: "index, follow" for public pages,
       // "noindex" for private/transactional paths.
       ...(xRobotsTagSpa !== null ? { "x-robots-tag": xRobotsTagSpa } : {}),
+      // Transactional pages keep no-store to prevent BFCache and payment-state
+      // caching. Public SPA pages use CDN cache (s-maxage=300) with a 60-second
+      // stale-while-revalidate window for fresh SEO-injected heads.
+      // perf: CDN cache for LCP/TTFB
       "cache-control": isTransactionalPage(pathname)
         ? "no-store, no-cache, must-revalidate"
-        : "no-cache",
+        : "public, s-maxage=300, stale-while-revalidate=60",
       "expires": "0",
       "vary": "Accept-Encoding",
       "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,

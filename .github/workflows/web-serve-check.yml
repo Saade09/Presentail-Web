@@ -141,7 +141,7 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter @workspace/presentail-web exec playwright install chromium --with-deps
 
-      - name: Run serve-backed e2e tests (llms.txt + agents.md Agent Ready scan + SEO injection + blog/product/brand image/LCP perf) against serve.mjs
+      - name: Run serve-backed e2e tests (llms.txt + SEO injection + blog/product/brand/PDP LCP preload perf + caching headers) against serve.mjs
         run: pnpm --filter @workspace/presentail-web run test:e2e:serve
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:19234
@@ -194,6 +194,9 @@ jobs:
         with:
           name: web-dist
           path: artifacts/presentail-web/dist/public
+
+      - name: Web Vitals budget (no blocking scripts, font preload present)
+        run: node artifacts/presentail-web/scripts/check-web-vitals-budget.mjs artifacts/presentail-web/dist/public
 
       - name: Chunk budget report (instant vs on-demand, ≤200 kB brotli per chunk)
         run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public
