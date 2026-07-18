@@ -349,6 +349,7 @@ export default function ProductDetail() {
   // Returns null when the city fee is unknown (no location selected) — falls back to product price only.
   const stickyTotalUsd = useMemo(() => {
     if (delivery.cityFeeUsd === null) return null;
+    if (!countryCode) return null;
     const fees = calcCheckoutFees({
       subtotal: cartSubtotal + productUsdForPricing,
       countryCode,
