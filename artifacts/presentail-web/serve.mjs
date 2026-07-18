@@ -1079,6 +1079,173 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // -------------------------------------------------------------------------
+    // Legacy WordPress / WooCommerce redirect + 410 Gone block.
+    // Source of truth: .local/seo/legacy-redirect-proposal.md
+    //
+    // Sections 1–3: WP infrastructure paths, date archives, author archives
+    //   → 410 Gone (no meaningful equivalent on the current Presentail site).
+    // Section 4: WC shop pagination → /en-lb/beirut/shop (301).
+    // Section 5: /product-category/:slug → /en-lb/beirut/category/:slug (301).
+    // Section 6: /product-tag/:slug     → /en-lb/beirut/occasion/:slug (301).
+    // Section 7: Vanity archive pages   → canonical equivalents (301).
+    //
+    // This block must run BEFORE the trailing-slash redirect so patterns that
+    // include a trailing slash (e.g. /wp-admin/, /product-category/flowers/)
+    // are matched directly rather than being stripped and re-evaluated.
+    // -------------------------------------------------------------------------
+
+    // Sections 1–3: WP infra paths, date/author archives → 410 Gone ----------
+    if (
+      pathname.startsWith("/wp-admin") ||
+      pathname === "/wp-login.php" ||
+      pathname.startsWith("/wp-json") ||
+      pathname.startsWith("/wp-content") ||
+      pathname.startsWith("/wp-includes") ||
+      /^\/author\/[^/]/.test(pathname) ||
+      /^\/\d{4}(\/\d{2})?(\/\d{2})?\/?$/.test(pathname)
+    ) {
+      res.writeHead(410, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end("Gone");
+      return;
+    }
+
+    // Section 4: WC shop pagination → main shop (301) -----------------------
+    if (/^\/shop\/page\/\d+\/?$/.test(pathname)) {
+      res.writeHead(301, {
+        location: `${BASE_PATH}/en-lb/beirut/shop`,
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
+    // Section 5: WP product-category → Presentail category (301) -----------
+    // Slug map: WC category slug → Presentail category slug.
+    // Unknown slugs fall through to /en-lb/beirut/shop.
+    const WC_CATEGORY_SLUG_MAP = {
+      "flowers":             "hand-bouquets",
+      "flower-bouquets":     "hand-bouquets",
+      "bouquets":            "hand-bouquets",
+      "luxury-arrangements": "lux-arrangements",
+      "lux-arrangements":    "lux-arrangements",
+      "chocolates":          "chocolate",
+      "chocolate":           "chocolate",
+      "gift-boxes":          "gift-boxes",
+      "hampers":             "hampers",
+      "gift-baskets":        "gift-baskets",
+      "plants":              "plants",
+      "cakes":               "cakes",
+      "cakes-pastries":      "cakes",
+      "balloons":            "balloons",
+      "flower-boxes":        "flower-boxes",
+      "flower-baskets":      "flower-baskets",
+      "bundles":             "bundles",
+    };
+
+    // Matches /product-category/:slug and /product-category/:slug/page/:n/
+    const productCategoryMatch = pathname.match(
+      /^\/product-category\/([^/]+?)(?:\/page\/\d+)?\/?$/
+    );
+    if (productCategoryMatch) {
+      const wcSlug = productCategoryMatch[1];
+      const presentailSlug = WC_CATEGORY_SLUG_MAP[wcSlug];
+      const target = presentailSlug
+        ? `${BASE_PATH}/en-lb/beirut/category/${encodeURIComponent(presentailSlug)}`
+        : `${BASE_PATH}/en-lb/beirut/shop`;
+      res.writeHead(301, {
+        location: target,
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
+    // Section 6: WP product-tag → Presentail occasion (301) ----------------
+    // Slug map: WC tag slug → Presentail occasion slug.
+    // Unknown tags fall through to /en-lb/beirut/occasions.
+    const WC_TAG_SLUG_MAP = {
+      "birthday":        "birthday",
+      "love":            "love-romance",
+      "romance":         "love-romance",
+      "love-romance":    "love-romance",
+      "housewarming":    "housewarming",
+      "anniversary":     "anniversary",
+      "new-job":         "new-job",
+      "promotion":       "promotion",
+      "graduation":      "graduation",
+      "congratulations": "congratulations",
+      "thank-you":       "thank-you",
+      "get-well-soon":   "get-well-soon",
+      "newborn":         "new-born",
+      "new-born":        "new-born",
+      "eid":             "eid",
+      "ramadan":         "ramadan",
+      "wedding":         "wedding",
+      "thinking-of-you": "thinking-of-you",
+      "farewell":        "farewell",
+      "condolences":     "condolences",
+      "colleague":       "colleague",
+      "colleagues":      "colleague",
+      "friend":          "friend",
+      "im-sorry":        "im-sorry",
+      "sorry":           "im-sorry",
+      "children":        "children",
+      "valentine":       "valentine",
+      "mothers-day":     "mothers-day",
+      "womens-day":      "womens-day",
+      "fathers-day":     "fathers-day",
+      "christmas":       "christmas",
+      "katb-kitab":      "katb-kitab",
+    };
+
+    const productTagMatch = pathname.match(/^\/product-tag\/([^/]+?)\/?$/);
+    if (productTagMatch) {
+      const wcTag = productTagMatch[1];
+      const presentailOccasion = WC_TAG_SLUG_MAP[wcTag];
+      const target = presentailOccasion
+        ? `${BASE_PATH}/en-lb/beirut/occasion/${encodeURIComponent(presentailOccasion)}`
+        : `${BASE_PATH}/en-lb/beirut/occasions`;
+      res.writeHead(301, {
+        location: target,
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
+    // Section 7: WC vanity archive pages → canonical equivalents (301) -----
+    // Trailing slash is normalised out before the lookup so /offer and /offer/
+    // both match.
+    const VANITY_REDIRECT_MAP = {
+      "/offer":        `${BASE_PATH}/en-lb/beirut/shop`,
+      "/offers":       `${BASE_PATH}/en-lb/beirut/shop`,
+      "/sale":         `${BASE_PATH}/en-lb/beirut/shop`,
+      "/sales":        `${BASE_PATH}/en-lb/beirut/shop`,
+      "/best-sellers": `${BASE_PATH}/en-lb/beirut/shop`,
+      "/best-seller":  `${BASE_PATH}/en-lb/beirut/shop`,
+      "/new-arrivals": `${BASE_PATH}/en-lb/beirut/shop`,
+      "/new-arrival":  `${BASE_PATH}/en-lb/beirut/shop`,
+      "/all-flowers":  `${BASE_PATH}/en-lb/beirut/category/hand-bouquets`,
+    };
+
+    const vanityKey =
+      pathname.length > 1 && pathname.endsWith("/")
+        ? pathname.slice(0, -1)
+        : pathname;
+    const vanityTarget = VANITY_REDIRECT_MAP[vanityKey];
+    if (vanityTarget) {
+      res.writeHead(301, {
+        location: vanityTarget,
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
     // Trailing-slash redirect: 301 any path that ends with "/" (other than the
     // root "/" itself, /.well-known/* paths, and bare /product/ which has no
     // slug and must fall through to the SPA shell) to the equivalent clean URL.
