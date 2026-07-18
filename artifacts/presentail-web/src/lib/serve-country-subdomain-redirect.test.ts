@@ -1,15 +1,20 @@
 /**
- * Integration tests for the country-subdomain → apex 301 redirect in
- * serve.mjs:
+ * Integration tests for the country-subdomain → canonical city-root 301 redirect
+ * in serve.mjs:
  *
- *   lb.presentail.com/* → 301 https://presentail.com/*
- *   ae.presentail.com/* → 301 https://presentail.com/*
- *   cy.presentail.com/* → 301 https://presentail.com/*
+ *   lb.presentail.com/* → 301 https://presentail.com/en-lb/beirut/
+ *   ae.presentail.com/* → 301 https://presentail.com/en-ae/dubai/
+ *   cy.presentail.com/* → 301 https://presentail.com/en-cy/nicosia/
+ *
+ * The redirect target is the fixed locale city-root (NOT path-preserving).
+ * Old WordPress paths on these subdomains have no direct SPA equivalent, so
+ * the city homepage is always the correct landing destination.  Path and query
+ * string are intentionally dropped.
  *
  * Covers:
  *   1. All three country subdomains fire 301 via the Host header
  *   2. All three fire via the X-Forwarded-Host header (proxy chain)
- *   3. Path + query string are preserved verbatim
+ *   3. Paths are NOT preserved — all paths land on the city root
  *   4. Port suffix on the Host header is ignored (normalised away)
  *   5. Matching is case-insensitive
  *   6. The apex domain (presentail.com) is never redirected
@@ -116,27 +121,35 @@ afterAll(() => {
   serverProc?.kill("SIGTERM");
 });
 
-describe("serve.mjs — lb.presentail.com → apex redirect", () => {
-  it("301-redirects lb.presentail.com to the apex, preserving the path", async () => {
+describe("serve.mjs — lb.presentail.com → city-root redirect", () => {
+  it("301-redirects lb.presentail.com to the LB city root (path is dropped)", async () => {
     const { status, location } = await get(
       serverPort,
       "/en-lb/beirut/shop",
       { host: "lb.presentail.com" },
     );
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-lb/beirut/shop");
+    expect(location).toBe("https://presentail.com/en-lb/beirut/");
   });
 
-  it("preserves the query string on the redirect target", async () => {
+  it("redirects any path (including old WordPress paths) to the LB city root", async () => {
+    const { status, location } = await get(
+      serverPort,
+      "/product-category/roses",
+      { host: "lb.presentail.com" },
+    );
+    expect(status).toBe(301);
+    expect(location).toBe("https://presentail.com/en-lb/beirut/");
+  });
+
+  it("redirects even when a query string is present — target is still the city root", async () => {
     const { status, location } = await get(
       serverPort,
       "/en-lb/beirut/shop?category=roses&sort=price",
       { host: "lb.presentail.com" },
     );
     expect(status).toBe(301);
-    expect(location).toBe(
-      "https://presentail.com/en-lb/beirut/shop?category=roses&sort=price",
-    );
+    expect(location).toBe("https://presentail.com/en-lb/beirut/");
   });
 
   it("honours X-Forwarded-Host (set by the upstream proxy)", async () => {
@@ -145,7 +158,7 @@ describe("serve.mjs — lb.presentail.com → apex redirect", () => {
       "x-forwarded-host": "lb.presentail.com",
     });
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-lb/beirut/shop");
+    expect(location).toBe("https://presentail.com/en-lb/beirut/");
   });
 
   it("redirects when Host carries an explicit :port suffix", async () => {
@@ -153,7 +166,7 @@ describe("serve.mjs — lb.presentail.com → apex redirect", () => {
       host: "lb.presentail.com:443",
     });
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-lb/beirut/shop");
+    expect(location).toBe("https://presentail.com/en-lb/beirut/");
   });
 
   it("matches the lb Host case-insensitively", async () => {
@@ -161,7 +174,7 @@ describe("serve.mjs — lb.presentail.com → apex redirect", () => {
       host: "LB.Presentail.COM",
     });
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-lb/beirut/shop");
+    expect(location).toBe("https://presentail.com/en-lb/beirut/");
   });
 
   it("redirects the root path", async () => {
@@ -169,19 +182,19 @@ describe("serve.mjs — lb.presentail.com → apex redirect", () => {
       host: "lb.presentail.com",
     });
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/");
+    expect(location).toBe("https://presentail.com/en-lb/beirut/");
   });
 });
 
-describe("serve.mjs — ae.presentail.com → apex redirect", () => {
-  it("301-redirects ae.presentail.com to the apex, preserving the path", async () => {
+describe("serve.mjs — ae.presentail.com → city-root redirect", () => {
+  it("301-redirects ae.presentail.com to the AE city root (path is dropped)", async () => {
     const { status, location } = await get(
       serverPort,
       "/en-ae/dubai/shop",
       { host: "ae.presentail.com" },
     );
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-ae/dubai/shop");
+    expect(location).toBe("https://presentail.com/en-ae/dubai/");
   });
 
   it("honours X-Forwarded-Host for ae", async () => {
@@ -190,31 +203,29 @@ describe("serve.mjs — ae.presentail.com → apex redirect", () => {
       "x-forwarded-host": "ae.presentail.com",
     });
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-ae/dubai/shop");
+    expect(location).toBe("https://presentail.com/en-ae/dubai/");
   });
 
-  it("preserves the query string for ae", async () => {
+  it("redirects an old WordPress path on ae to the AE city root", async () => {
     const { status, location } = await get(
       serverPort,
-      "/en-ae/dubai/product/roses?ref=homepage",
+      "/product/roses?ref=homepage",
       { host: "ae.presentail.com" },
     );
     expect(status).toBe(301);
-    expect(location).toBe(
-      "https://presentail.com/en-ae/dubai/product/roses?ref=homepage",
-    );
+    expect(location).toBe("https://presentail.com/en-ae/dubai/");
   });
 });
 
-describe("serve.mjs — cy.presentail.com → apex redirect", () => {
-  it("301-redirects cy.presentail.com to the apex, preserving the path", async () => {
+describe("serve.mjs — cy.presentail.com → city-root redirect", () => {
+  it("301-redirects cy.presentail.com to the CY city root (path is dropped)", async () => {
     const { status, location } = await get(
       serverPort,
       "/en-cy/nicosia/shop",
       { host: "cy.presentail.com" },
     );
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-cy/nicosia/shop");
+    expect(location).toBe("https://presentail.com/en-cy/nicosia/");
   });
 
   it("honours X-Forwarded-Host for cy", async () => {
@@ -223,7 +234,7 @@ describe("serve.mjs — cy.presentail.com → apex redirect", () => {
       "x-forwarded-host": "cy.presentail.com",
     });
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-cy/nicosia/shop");
+    expect(location).toBe("https://presentail.com/en-cy/nicosia/");
   });
 });
 
@@ -258,6 +269,6 @@ describe("serve.mjs — country-subdomain redirect safeguards", () => {
       "x-forwarded-host": "ae.presentail.com",
     });
     expect(status).toBe(301);
-    expect(location).toBe("https://presentail.com/en-ae/dubai/shop");
+    expect(location).toBe("https://presentail.com/en-ae/dubai/");
   });
 });

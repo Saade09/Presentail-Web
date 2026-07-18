@@ -385,13 +385,16 @@ function isPrivatePath(pathname) {
 const CANONICAL_PRODUCTION_HOST = "presentail.com"; // i18n-ignore — canonical domain
 
 // Retired country subdomains whose link equity must be consolidated into the
-// canonical apex.  Each entry is the lowercase, port-stripped hostname that the
-// normalizeHostHeader() helper (defined inside the request handler) produces.
-// Kept as a module-level Set so it is allocated once, not per-request.
-const COUNTRY_SUBDOMAINS = new Set([
-  "lb.presentail.com",
-  "ae.presentail.com",
-  "cy.presentail.com",
+// canonical apex.  Maps each lowercase, port-stripped hostname (as produced by
+// normalizeHostHeader()) to the fixed locale-specific city-root target URL.
+// ALL inbound paths on these hosts redirect to the city root — old WordPress
+// URLs on these subdomains have no direct equivalent in the SPA, so the city
+// homepage is the best landing destination.  Path is intentionally NOT
+// preserved: lb.presentail.com/product-category/roses → /en-lb/beirut/.
+const COUNTRY_SUBDOMAIN_TARGETS = new Map([
+  ["lb.presentail.com", "https://presentail.com/en-lb/beirut/"],
+  ["ae.presentail.com", "https://presentail.com/en-ae/dubai/"],
+  ["cy.presentail.com", "https://presentail.com/en-cy/nicosia/"],
 ]);
 
 // Rate-limit map: subdomain → last Slack alert timestamp (ms).
@@ -999,25 +1002,26 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Hard guard: retired country subdomains (lb., ae., cy.) are permanently
-    // redirected to the canonical apex so their indexed pages and link equity
-    // merge into presentail.com.  Fires unconditionally — no env var controls
-    // it.  Path + query string are preserved verbatim on the redirect target.
+    // redirected to their canonical locale city-root on presentail.com so their
+    // indexed pages and link equity merge into the apex.  Fires unconditionally
+    // — no env var controls it.  The target is the fixed locale city homepage
+    // (not path-preserving) because old WordPress paths on these subdomains have
+    // no direct equivalent in the SPA; the city homepage is always a valid page.
     // This in-server guard activates once DNS CNAMEs for the subdomains are
-    // pointed at this server; the DNS/CDN layer documented in
-    // docs/subdomain-redirect-runbook.md is the prerequisite for traffic to
-    // reach this code path.
-    const isCountrySubdomain =
-      COUNTRY_SUBDOMAINS.has(normalizedHost) ||
-      COUNTRY_SUBDOMAINS.has(normalizedFwdHost);
-    if (isCountrySubdomain) {
-      const matchedSubdomain = COUNTRY_SUBDOMAINS.has(normalizedHost)
+    // pointed at this server; the CDN layer documented in
+    // docs/subdomain-redirect-runbook.md should issue the 301 before traffic
+    // ever reaches the origin server.
+    const countrySubdomainTarget =
+      COUNTRY_SUBDOMAIN_TARGETS.get(normalizedHost) ||
+      COUNTRY_SUBDOMAIN_TARGETS.get(normalizedFwdHost);
+    if (countrySubdomainTarget) {
+      const matchedSubdomain = COUNTRY_SUBDOMAIN_TARGETS.has(normalizedHost)
         ? normalizedHost
         : normalizedFwdHost;
       // Alert ops that CDN layer may be absent — request reached origin directly.
       // Fire-and-forget; never blocks the redirect.
       alertCountrySubdomainBypass(matchedSubdomain, req.url ?? "/");
-      const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
-      res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
+      res.writeHead(301, { location: countrySubdomainTarget });
       res.end();
       return;
     }
