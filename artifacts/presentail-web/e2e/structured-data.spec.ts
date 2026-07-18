@@ -205,6 +205,108 @@ test.describe("Structured data — locale-prefixed city homepage /en-lb/beirut/"
 });
 
 // ---------------------------------------------------------------------------
+// 2b. Locale-prefixed city homepage /en-ae/dubai/
+//
+// UAE city homepages share the same buildLocalBusinessSchema() code path as LB
+// but resolve countryName through the "ae" locale branch.  A regression there
+// would silently drop the Florist JSON-LD (and local-pack signals) for every
+// UAE city without failing any existing test.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed city homepage /en-ae/dubai/", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-ae/dubai/");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
+  test('JSON-LD block with "@type":"WebSite" is present', () => {
+    expect(html).toContain('"@type":"WebSite"');
+  });
+
+  test('WebSite JSON-LD block does NOT include a SearchAction', () => {
+    expect(html).not.toContain('"@type":"SearchAction"');
+  });
+
+  test('Home > City BreadcrumbList JSON-LD is present', () => {
+    expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+
+  test('LocalBusiness (Florist) JSON-LD is present with areaServed and address', () => {
+    assertLocalBusinessJsonLd(html);
+  });
+
+  test("meta[name=\"description\"] is present and non-empty", () => {
+    assertDescription(html);
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2c. Locale-prefixed city homepage /en-cy/nicosia/
+//
+// Cyprus city homepages share the same buildLocalBusinessSchema() code path
+// but resolve countryName through the "cy" locale branch.  A regression there
+// would silently drop the Florist JSON-LD (and local-pack signals) for every
+// Cyprus city without failing any existing test.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed city homepage /en-cy/nicosia/", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-cy/nicosia/");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("Organization JSON-LD includes description and areaServed", () => {
+    assertOrganizationJsonLd(html);
+  });
+
+  test('JSON-LD block with "@type":"WebSite" is present', () => {
+    expect(html).toContain('"@type":"WebSite"');
+  });
+
+  test('WebSite JSON-LD block does NOT include a SearchAction', () => {
+    expect(html).not.toContain('"@type":"SearchAction"');
+  });
+
+  test('Home > City BreadcrumbList JSON-LD is present', () => {
+    expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+
+  test('LocalBusiness (Florist) JSON-LD is present with areaServed and address', () => {
+    assertLocalBusinessJsonLd(html);
+  });
+
+  test("meta[name=\"description\"] is present and non-empty", () => {
+    assertDescription(html);
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3. Locale-prefixed product path /en-lb/beirut/product/rose-bouquet
 //
 // injectSeoTagsAsync() always runs buildSeoHead() first and then attempts an
