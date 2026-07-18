@@ -65,6 +65,9 @@ jobs:
       - name: Check city-name coverage (every slug must have EN/AR/FR names in seo.mjs)
         run: pnpm --filter @workspace/scripts run check-city-name-coverage
 
+      - name: Check NAP consistency (locationData.mjs phone/email match Contact.tsx)
+        run: pnpm --filter @workspace/scripts run check-nap-consistency
+
       - name: Sitemap eligibility report (eligible/ineligible counts per page type, exit 0)
         run: node artifacts/presentail-web/sitemap.mjs --eligibility-report
 

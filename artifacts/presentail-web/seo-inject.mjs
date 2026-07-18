@@ -5,6 +5,7 @@
 
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 import { FAQ_COPY } from "./src/data/faqsCopy.js";
+import { LOCATION_DATA } from "./src/lib/locationData.mjs";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import {
   buildBlogArticleJsonLd,
@@ -541,12 +542,16 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
         COUNTRY_PLAIN_NAMES.en[parsed.country] ??
         countryLabel
       : countryLabel;
+    const cityCanonicalUrl = parsed.city
+      ? `${origin}${cleanBase}/${lang}-${parsed.country}/${parsed.city}`
+      : siteUrl;
     jsonLdNodes.push(
       buildLocalBusinessSchema({
         siteUrl,
         cityName: cityLabel,
         countryName: countryPlain,
         countryCode: parsed.country,
+        cityUrl: cityCanonicalUrl,
       }),
     );
     jsonLdNodes.push(
@@ -651,7 +656,27 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     occasions: OCCASIONS_FAQ_COPY,
     contact:   CONTACT_FAQ_COPY,
   };
-  if (emitJsonLd && genericFaqRoutes[routeKey]) {
+  if (emitJsonLd && routeKey === "home" && hasValidCity) {
+    // City home pages get city-specific delivery FAQs that vary by city name
+    // and country, giving each of the 37 city pages distinct Q&A schema.
+    const cityFaqs = buildCityFaqSchema(
+      cityLabel || "",
+      (parsed.country || "").toUpperCase(),
+      lang,
+    );
+    const mainEntity = cityFaqs.map(({ question, answer }) => ({
+      "@type": "Question",
+      name: question,
+      acceptedAnswer: { "@type": "Answer", text: answer },
+    }));
+    if (mainEntity.length > 0) {
+      jsonLdNodes.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity,
+      });
+    }
+  } else if (emitJsonLd && genericFaqRoutes[routeKey]) {
     const params = { city: cityLabel || "" };
     const mainEntity = buildFaqMainEntity(genericFaqRoutes[routeKey], params);
     if (mainEntity.length > 0) {
@@ -727,16 +752,28 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   // meaningful h2/h3 structure as the JSON-LD without relying on JavaScript.
   let bodyFaqItems = [];
   if (inLocale) {
-    const faqBodyParams = { city: cityLabel || "" };
     const pickFaqBodyLang = (l) => ((l === "ar" || l === "fr") ? l : "en");
     const faqBodyL = pickFaqBodyLang(lang);
-    if (genericFaqRoutes[routeKey]) {
+    if (routeKey === "home" && hasValidCity) {
+      // City home pages: use city-specific FAQ to match JSON-LD above.
+      const cityFaqsBody = buildCityFaqSchema(
+        cityLabel || "",
+        (parsed.country || "").toUpperCase(),
+        lang,
+      );
+      bodyFaqItems = cityFaqsBody.slice(0, 3).map(({ question, answer }) => ({
+        q: question,
+        a: answer,
+      }));
+    } else if (genericFaqRoutes[routeKey]) {
+      const faqBodyParams = { city: cityLabel || "" };
       const raw = genericFaqRoutes[routeKey][faqBodyL] ?? genericFaqRoutes[routeKey].en ?? [];
       bodyFaqItems = raw.slice(0, 3).map(({ q, a }) => ({
         q: formatTemplate(q, faqBodyParams),
         a: formatTemplate(a, faqBodyParams),
       }));
     } else if (routeKey === "brands") {
+      const faqBodyParams = { city: cityLabel || "" };
       const raw = BRANDS_FAQ_COPY[faqBodyL] ?? BRANDS_FAQ_COPY.en ?? [];
       bodyFaqItems = raw.slice(0, 3).map(({ q, a }) => ({
         q: formatTemplate(q, faqBodyParams),
@@ -762,7 +799,23 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     }
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent });
+  // Nearby-city navigation links — injected for city home pages so AI crawlers
+  // and non-JS bots can follow links to other cities in the same country. Up to
+  // 4 links, ordered by CITY_SLUGS_BY_COUNTRY array position, with localized
+  // anchor text ("Flower delivery in {city}"). Provides a crawlable web of city
+  // pages without relying on JavaScript navigation.
+  let nearbyCityHtml = "";
+  if (routeKey === "home" && hasValidCity && parsed.country && parsed.city && localeBase) {
+    nearbyCityHtml = buildNearbyCityLinks({
+      country: parsed.country,
+      currentCity: parsed.city,
+      lang,
+      origin,
+      cleanBase,
+    });
+  }
+
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml });
 
   return {
     lang,
@@ -870,7 +923,7 @@ function buildNavLinks(localeBase) {
   );
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "" }) {
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "" }) {
   const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   const safeDesc = escapeHtml(description);
@@ -891,6 +944,12 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   // the rest of the page. sr-only hides it visually while keeping it in the
   // accessibility tree and the crawlable DOM. React's createRoot() replaces
   // all children of #root on hydration, so JS users see the normal SPA h1.
+  // Nearby-city links go in a <noscript> block so they are visible to
+  // non-JS crawlers and AI bots but never rendered to end-users (React
+  // replaces #root children on hydration, removing the noscript element).
+  const nearbyCityNoscript = nearbyCityHtml
+    ? `<noscript>${nearbyCityHtml}</noscript>`
+    : "";
   return (
     `<h1 class="sr-only">${safeTitle}</h1>` +
     `<div style="display:none">` +
@@ -900,7 +959,8 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
     faqHtml +
     buildNavLinks(localeBase) +
-    `</div>`
+    `</div>` +
+    nearbyCityNoscript
   );
 }
 
@@ -1855,31 +1915,31 @@ function buildOrganizationSchema(siteUrl) {
   };
 }
 
-// Per-country accepted currencies for LocalBusiness schema.
-// LB accepts both USD and LBP (Lebanese pound); AE transacts in AED;
-// CY is a eurozone member. Default falls back to USD for unknown markets.
-const LOCAL_BUSINESS_CURRENCIES = {
-  lb: "USD, LBP",
-  ae: "AED",
-  cy: "EUR",
-};
-
 /**
  * LocalBusiness (Florist) JSON-LD for city homepages. Helps Google associate
  * the brand with each served city/country for local-pack visibility.
+ *
+ * Enriched fields from LOCATION_DATA: telephone, email, openingHours, hasMap,
+ * priceRange, areaServed (AdministrativeArea array), currenciesAccepted,
+ * paymentAccepted, and url (city-level canonical).
  */
-function buildLocalBusinessSchema({ siteUrl, cityName, countryName, countryCode }) {
-  const currenciesAccepted =
-    LOCAL_BUSINESS_CURRENCIES[(countryCode || "").toLowerCase()] ?? "USD";
+export function buildLocalBusinessSchema({ siteUrl, cityName, countryName, countryCode, cityUrl }) {
+  const cc = (countryCode || "").toLowerCase();
+  const loc = LOCATION_DATA[cc] ?? LOCATION_DATA.lb;
   const schema = {
     "@context": "https://schema.org",
     "@type": "Florist",
     name: "Presentail",
-    url: siteUrl,
+    url: cityUrl || siteUrl,
     image: `${siteUrl}/android-chrome-512x512.png`,
     logo: `${siteUrl}/android-chrome-512x512.png`,
-    currenciesAccepted,
-    paymentAccepted: "Credit Card, Apple Pay, Google Pay, Cash on Delivery", // i18n-ignore — payment method labels
+    telephone: loc.phone,
+    email: loc.email,
+    openingHours: loc.openingHours,
+    hasMap: loc.mapUrl,
+    priceRange: loc.priceRange,
+    currenciesAccepted: loc.currenciesAccepted,
+    paymentAccepted: loc.paymentAccepted, // i18n-ignore — payment method labels
   };
   if (cityName || countryName) {
     schema.address = {
@@ -1887,9 +1947,109 @@ function buildLocalBusinessSchema({ siteUrl, cityName, countryName, countryCode 
       ...(cityName ? { addressLocality: cityName } : {}),
       ...(countryName ? { addressCountry: countryName } : {}),
     };
+  }
+  // Use an AdministrativeArea array for each service area so search engines
+  // can associate the LocalBusiness with all cities served in the country.
+  if (loc.serviceAreas.length > 0) {
+    schema.areaServed = loc.serviceAreas.map((name) => ({
+      "@type": "AdministrativeArea",
+      name,
+    }));
+  } else if (countryName || cityName) {
     schema.areaServed = countryName || cityName;
   }
   return schema;
+}
+
+/**
+ * City-specific FAQ items for city home pages. Returns an array of
+ * { question, answer } objects localised to `locale` (en/ar/fr).
+ *
+ * Replaces the generic HOMEPAGE_FAQ_COPY for city home pages in JSON-LD and
+ * the prerendered body fragment so each of the 37 city pages has distinct Q&A.
+ */
+export function buildCityFaqSchema(cityName, countryCode, locale) {
+  const cc = (countryCode || "").toUpperCase();
+  const lang = locale === "ar" || locale === "fr" ? locale : "en";
+
+  const loc = LOCATION_DATA[cc.toLowerCase()] ?? LOCATION_DATA.lb;
+  const paymentAccepted = loc.paymentAccepted; // i18n-ignore — payment methods
+
+  const questions = {
+    en: [
+      {
+        question: `Does Presentail deliver flowers to ${cityName}?`, // i18n-ignore — city name only
+        answer: `Yes, Presentail delivers fresh flowers, plants, and luxury gifts to ${cityName} with same-day and next-day delivery options.`, // i18n-ignore — city name only
+      },
+      {
+        question: `What payment methods are accepted for orders in ${cityName}?`, // i18n-ignore — city name only
+        answer: `We accept ${paymentAccepted} for all orders.`, // i18n-ignore — payment list
+      },
+      {
+        question: `Can I send a gift to someone in ${cityName}?`, // i18n-ignore — city name only
+        answer: `Yes, simply enter the recipient's address in ${cityName} at checkout. Your order will be delivered with a personalised card message.`, // i18n-ignore — city name only
+      },
+    ],
+    ar: [
+      {
+        question: `هل تقوم Presentail بتوصيل الزهور إلى ${cityName}؟`,
+        answer: `نعم، تقوم Presentail بتوصيل الزهور الطازجة والنباتات والهدايا الفاخرة إلى ${cityName} مع خيارات التوصيل في نفس اليوم والتوصيل في اليوم التالي.`,
+      },
+      {
+        question: `ما هي طرق الدفع المقبولة للطلبات في ${cityName}؟`,
+        answer: `نقبل ${paymentAccepted} لجميع الطلبات.`,
+      },
+      {
+        question: `هل يمكنني إرسال هدية لشخص في ${cityName}؟`,
+        answer: `نعم، أدخل عنوان المستلم في ${cityName} عند إتمام الطلب وسيتم التوصيل مع رسالة بطاقة شخصية.`,
+      },
+    ],
+    fr: [
+      {
+        question: `Presentail livre-t-il des fleurs à ${cityName} ?`,
+        answer: `Oui, Presentail livre des fleurs fraîches, des plantes et des cadeaux de luxe à ${cityName} avec des options de livraison le jour même ou le lendemain.`,
+      },
+      {
+        question: `Quels modes de paiement sont acceptés pour les commandes à ${cityName} ?`,
+        answer: `Nous acceptons ${paymentAccepted} pour toutes les commandes.`,
+      },
+      {
+        question: `Puis-je envoyer un cadeau à quelqu'un à ${cityName} ?`,
+        answer: `Oui, saisissez l'adresse du destinataire à ${cityName} lors du paiement. La commande sera livrée avec un message personnalisé.`,
+      },
+    ],
+  };
+
+  return questions[lang] ?? questions.en;
+}
+
+/** Locale-keyed prefix for the nearby-city anchor text. */
+const NEARBY_CITY_ANCHOR_PREFIX = {
+  en: "Flower delivery in", // i18n-ignore — locale-keyed crawler-only anchor prefix
+  ar: "توصيل الزهور في", // i18n-ignore — locale-keyed crawler-only anchor prefix
+  fr: "Livraison de fleurs à", // i18n-ignore — locale-keyed crawler-only anchor prefix
+};
+
+/**
+ * Build a nav of up to 4 other cities in the same country. Rendered inside
+ * a <noscript> block so AI crawlers and non-JS bots can discover other city
+ * pages without relying on JS. Anchor text is localized for en/ar/fr.
+ */
+function buildNearbyCityLinks({ country, currentCity, lang, origin, cleanBase }) {
+  const siblings = CITY_SLUGS_BY_COUNTRY[country];
+  if (!siblings || siblings.length <= 1) return "";
+  const cityNamesForLang = CITY_NAMES[lang] ?? CITY_NAMES.en;
+  const nearby = siblings
+    .filter((slug) => slug !== currentCity)
+    .slice(0, 4);
+  if (nearby.length === 0) return "";
+  const prefix = NEARBY_CITY_ANCHOR_PREFIX[lang] ?? NEARBY_CITY_ANCHOR_PREFIX.en;
+  const links = nearby.map((slug) => {
+    const label = cityNamesForLang[`${country}-${slug}`] ?? CITY_NAMES.en[`${country}-${slug}`] ?? slug;
+    const href = `${origin}${cleanBase}/${lang}-${country}/${slug}`;
+    return `<a href="${escapeAttr(href)}">${escapeHtml(prefix)} ${escapeHtml(label)}</a>`;
+  });
+  return `<nav aria-label="Nearby cities">${links.join("")}</nav>`; // i18n-ignore
 }
 
 /**

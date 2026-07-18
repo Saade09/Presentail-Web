@@ -40,6 +40,7 @@
     "seed-collection-ranking": "tsx ./src/seedCollectionRanking.ts",
     "check-subdomain-redirects": "tsx ./src/checkSubdomainRedirects.ts",
     "check-robots-txt": "tsx ./src/checkRobotsTxt.ts",
+    "check-nap-consistency": "tsx ./src/checkNapConsistency.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

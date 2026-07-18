@@ -6660,3 +6660,198 @@ describe("injectSeoTagsAsync — homepage LCP preload tag", () => {
     expect(out).not.toContain('<link rel="preload" as="image"');
   });
 });
+
+// ── Local SEO enrichment tests ──────────────────────────────────────────────
+// These tests verify the enriched LocalBusiness schema, city-specific FAQ
+// injection, and nearby-area navigation links for city home pages.
+// Pattern: use buildSeoHead + extractJsonLd + byType for JSON-LD; use
+// buildSeoHead().bodyHtml for prerendered body content checks.
+
+const LOCAL_SEO_OPTS = { origin: "https://presentail.test", basePath: "" };
+
+describe("Local SEO — enriched LocalBusiness schema on city home pages", () => {
+  it("Tripoli page includes telephone in LocalBusiness JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
+    const florist = byType(blocks, "Florist");
+    expect(florist).toBeTruthy();
+    expect(florist.telephone).toBe("+9613136532");
+  });
+
+  it("Tripoli page includes email in LocalBusiness JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist?.email).toBe("hello@presentail.com");
+  });
+
+  it("Tripoli page includes openingHours in LocalBusiness JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(Array.isArray(florist?.openingHours)).toBe(true);
+    expect(florist?.openingHours[0]).toMatch(/Mo-Su/);
+  });
+
+  it("Tripoli page includes hasMap in LocalBusiness JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(typeof florist?.hasMap).toBe("string");
+    expect(florist?.hasMap.length).toBeGreaterThan(0);
+  });
+
+  it("Tripoli page has priceRange in LocalBusiness JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist?.priceRange).toBe("$$$");
+  });
+
+  it("Tripoli page url points to the city-level canonical", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist?.url).toContain("/en-lb/tripoli");
+  });
+
+  it("Tripoli areaServed is an AdministrativeArea array containing Tripoli", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    const areas: { "@type": string; name: string }[] = florist?.areaServed ?? [];
+    expect(Array.isArray(areas)).toBe(true);
+    expect(areas.length).toBeGreaterThan(1);
+    expect(areas[0]["@type"]).toBe("AdministrativeArea");
+    expect(areas.some((a) => a.name === "Tripoli")).toBe(true);
+  });
+
+  it("Dubai page has AED currency and no Cash on Delivery", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist?.currenciesAccepted).toBe("AED");
+    expect(florist?.paymentAccepted as string).not.toContain("Cash on Delivery");
+  });
+
+  it("Limassol page has EUR currency", () => {
+    const { headSnippet } = buildSeoHead("/en-cy/limassol", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist?.currenciesAccepted).toBe("EUR");
+  });
+
+  it("LB page includes Cash on Delivery in paymentAccepted", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist?.paymentAccepted as string).toContain("Cash on Delivery");
+  });
+});
+
+describe("Local SEO — city-specific FAQPage JSON-LD on city home pages", () => {
+  it("Tripoli page has a FAQPage node in JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq).toBeTruthy();
+  });
+
+  it("Tripoli FAQPage question 1 mentions Tripoli", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq?.mainEntity?.[0]?.name).toContain("Tripoli");
+  });
+
+  it("Tripoli city-specific FAQ differs from Beirut FAQ question 1", () => {
+    const { headSnippet: tripoliSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const { headSnippet: beirutSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const tripoliFaq = byType(extractJsonLd(`<head>${tripoliSnippet}</head>`), "FAQPage");
+    const beirutFaq = byType(extractJsonLd(`<head>${beirutSnippet}</head>`), "FAQPage");
+    expect(tripoliFaq?.mainEntity?.[0]?.name).not.toBe(beirutFaq?.mainEntity?.[0]?.name);
+  });
+
+  it("AR city page has Arabic FAQ questions", () => {
+    const { headSnippet } = buildSeoHead("/ar-lb/tripoli", LOCAL_SEO_OPTS);
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq?.mainEntity?.[0]?.name).toMatch(/[\u0600-\u06FF]/);
+  });
+
+  it("Tripoli FAQPage has 3 questions", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq?.mainEntity).toHaveLength(3);
+  });
+
+  it("non-city shop page (/en-lb/beirut/shop) does not include city-delivery FAQ question", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut/shop", LOCAL_SEO_OPTS);
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    // If there IS a FAQPage, its first question must not be the city-delivery question
+    if (faq?.mainEntity?.[0]?.name) {
+      expect(faq.mainEntity[0].name as string).not.toMatch(/deliver flowers to/i);
+    }
+  });
+});
+
+describe("Local SEO — nearby-area navigation links in <noscript> block", () => {
+  it("Beirut bodyHtml wraps nearby-cities nav in <noscript> with EN anchor text", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    expect(bodyHtml).toContain('<noscript><nav aria-label="Nearby cities">');
+    const anchors = (bodyHtml ?? "").match(
+      /<a href="[^"]*\/en-lb\/[^"]+">Flower delivery in [^<]+<\/a>/g,
+    );
+    expect(anchors).not.toBeNull();
+    expect(anchors!.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Dubai bodyHtml wraps nearby-cities nav in <noscript> with EN anchor text", () => {
+    const { bodyHtml } = buildSeoHead("/en-ae/dubai", LOCAL_SEO_OPTS);
+    expect(bodyHtml).toContain('<noscript><nav aria-label="Nearby cities">');
+    const anchors = (bodyHtml ?? "").match(
+      /<a href="[^"]*\/en-ae\/[^"]+">Flower delivery in [^<]+<\/a>/g,
+    );
+    expect(anchors).not.toBeNull();
+    expect(anchors!.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Arabic Beirut page uses Arabic anchor prefix in <noscript> nav", () => {
+    const { bodyHtml } = buildSeoHead("/ar-lb/beirut", LOCAL_SEO_OPTS);
+    expect(bodyHtml).toContain('<noscript><nav aria-label="Nearby cities">');
+    const anchors = (bodyHtml ?? "").match(
+      /<a href="[^"]*\/ar-lb\/[^"]+">توصيل الزهور في [^<]+<\/a>/g,
+    );
+    expect(anchors).not.toBeNull();
+    expect(anchors!.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("French Beirut page uses French anchor prefix in <noscript> nav", () => {
+    const { bodyHtml } = buildSeoHead("/fr-lb/beirut", LOCAL_SEO_OPTS);
+    expect(bodyHtml).toContain('<noscript><nav aria-label="Nearby cities">');
+    const anchors = (bodyHtml ?? "").match(
+      /<a href="[^"]*\/fr-lb\/[^"]+">Livraison de fleurs à [^<]+<\/a>/g,
+    );
+    expect(anchors).not.toBeNull();
+    expect(anchors!.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("nearby-city links are NOT inside the display:none div", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    // noscript must come AFTER the closing </div> of the display:none block
+    const noscriptIdx = (bodyHtml ?? "").indexOf('<noscript><nav');
+    const displayNoneClosingIdx = (bodyHtml ?? "").indexOf('</div>');
+    expect(noscriptIdx).toBeGreaterThan(displayNoneClosingIdx);
+  });
+
+  it("Beirut nearby links do not include Beirut itself", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const anchors = (bodyHtml ?? "").match(/<a href="[^"]*\/en-lb\/([^"/]+)"/g) ?? [];
+    const slugs = anchors.map((a) => {
+      const m = a.match(/\/en-lb\/([^"/]+)"/);
+      return m ? m[1] : "";
+    });
+    expect(slugs).not.toContain("beirut");
+  });
+
+  it("non-city shop page bodyHtml has no nearby-cities nav", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut/shop", LOCAL_SEO_OPTS);
+    expect(bodyHtml ?? "").not.toContain('<nav aria-label="Nearby cities">');
+  });
+
+  it("Beirut bodyHtml contains at most 4 nearby-city links", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const anchors = (bodyHtml ?? "").match(
+      /<a href="[^"]*\/en-lb\/[^"]+">Flower delivery in [^<]+<\/a>/g,
+    );
+    expect((anchors ?? []).length).toBeLessThanOrEqual(4);
+  });
+});
