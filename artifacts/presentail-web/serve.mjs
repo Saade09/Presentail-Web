@@ -1281,7 +1281,10 @@ const server = http.createServer(async (req, res) => {
       "katb-kitab":      "katb-kitab",
     };
 
-    const productTagMatch = pathname.match(/^\/product-tag\/([^/]+?)\/?$/);
+    // Matches /product-tag/:slug and /product-tag/:slug/page/:n/ (row 16)
+    const productTagMatch = pathname.match(
+      /^\/product-tag\/([^/]+?)(?:\/page\/\d+)?\/?$/
+    );
     if (productTagMatch) {
       const wcTag = productTagMatch[1];
       const presentailOccasion = WC_TAG_SLUG_MAP[wcTag];
