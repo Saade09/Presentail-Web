@@ -386,6 +386,67 @@ for (const city of CYPRUS_CITY_SLUGS) {
 }
 
 // ---------------------------------------------------------------------------
+// 2f. LocalBusiness JSON-LD — all Lebanon cities (data-driven)
+//
+// Covers all 26 Lebanon cities so a regression in the "lb" locale branch of
+// buildLocalBusinessSchema() (countryName / addressLocality resolution) is
+// caught for any city, not just Beirut (which is already covered by the
+// single-city test in section 2 above).
+//
+// City slug list mirrors CITY_SLUGS_BY_COUNTRY.lb in seo-inject.mjs — keep in
+// sync whenever a new Lebanon city is added to the platform.
+// ---------------------------------------------------------------------------
+
+const LEBANON_CITY_SLUGS = [
+  "akkar",
+  "aley",
+  "baabda",
+  "baalbeck",
+  "batroun",
+  "bcharee",
+  "beirut",
+  "bent-jbeil",
+  "chouf",
+  "hasbaya",
+  "hermel",
+  "jbeil",
+  "jezzine",
+  "kesserwan",
+  "koura",
+  "marjayoun",
+  "metn",
+  "minnieh-dennaya",
+  "nabatieh",
+  "rechaya",
+  "saida",
+  "tripoli",
+  "tyre",
+  "west-bekaa",
+  "zahle",
+  "zghorta",
+] as const;
+
+for (const city of LEBANON_CITY_SLUGS) {
+  test.describe(`Structured data — LocalBusiness schema for /en-lb/${city}/`, () => {
+    let html: string;
+
+    test.beforeAll(async ({ request }) => {
+      const response = await request.get(`/en-lb/${city}/`);
+      expect(response.status()).toBe(200);
+      html = await response.text();
+    });
+
+    test("LocalBusiness (Florist) JSON-LD is present with areaServed and address", () => {
+      assertLocalBusinessJsonLd(html);
+    });
+
+    test('Home > City BreadcrumbList JSON-LD is present', () => {
+      expect(html).toContain('"@type":"BreadcrumbList"');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // 3. Locale-prefixed product path /en-lb/beirut/product/rose-bouquet
 //
 // injectSeoTagsAsync() always runs buildSeoHead() first and then attempts an
