@@ -28,10 +28,21 @@
  * Jaccard similarity = |A ∩ B| / |A ∪ B| on the word-token sets. Two pages
  * are flagged when their similarity exceeds SIMILARITY_THRESHOLD (0.80).
  *
+ * Missing CITY_SEO entries
+ * ────────────────────────
+ * Before running the similarity check the script verifies that every city slug
+ * in CITY_SLUGS_BY_COUNTRY has a matching entry in city-seo.mjs (keyed by
+ * "{country}-{city}"). If any entry is absent the script fails immediately with
+ * exit code 1 and lists every missing key. This catches the case where a new
+ * city is added to CITY_SLUGS_BY_COUNTRY without a corresponding CITY_SEO
+ * entry, which would cause the Jaccard gate to fail silently later anyway.
+ *
  * Exit codes
  * ──────────
- *   0 — all same-country city page pairs are below the threshold
- *   1 — at least one pair is too similar, or the script encountered an error
+ *   0 — all CITY_SEO entries are present and all same-country city page pairs
+ *       are below the threshold
+ *   1 — one or more CITY_SEO entries are missing, at least one pair is too
+ *       similar, or the script encountered an error
  *
  * Usage
  * ─────
@@ -47,55 +58,13 @@ const SEO_INJECT_PATH = path.join(
   REPO_ROOT,
   "artifacts/presentail-web/seo-inject.mjs",
 );
+const CITY_SEO_PATH = path.join(
+  REPO_ROOT,
+  "artifacts/presentail-web/src/data/city-seo.mjs",
+);
 
 /** Maximum allowed Jaccard similarity for any same-country city pair. */
 const SIMILARITY_THRESHOLD = 0.8;
-
-/**
- * City slugs by country — mirrors CITY_SLUGS_BY_COUNTRY in
- * artifacts/presentail-web/src/lib/locale-route.ts and the copy inside
- * seo-inject.mjs.  Keep all three lists in sync.
- */
-const CITY_SLUGS_BY_COUNTRY: Record<string, readonly string[]> = {
-  lb: [
-    "akkar",
-    "aley",
-    "baabda",
-    "baalbeck",
-    "batroun",
-    "bcharee",
-    "beirut",
-    "bent-jbeil",
-    "chouf",
-    "hasbaya",
-    "hermel",
-    "jbeil",
-    "jezzine",
-    "kesserwan",
-    "koura",
-    "marjayoun",
-    "metn",
-    "minnieh-dennaya",
-    "nabatieh",
-    "rechaya",
-    "saida",
-    "tripoli",
-    "tyre",
-    "west-bekaa",
-    "zahle",
-    "zghorta",
-  ],
-  ae: [
-    "abu-dhabi",
-    "ajman",
-    "dubai",
-    "fujairah",
-    "ras-al-khaimah",
-    "sharjah",
-    "umm-al-quwain",
-  ],
-  cy: ["larnaca", "limassol", "nicosia", "paphos"],
-};
 
 /**
  * Minimal SPA shell HTML fed to injectSeoTagsAsync.  The function replaces
@@ -160,10 +129,23 @@ type InjectFn = (
 ) => Promise<string>;
 
 async function main(): Promise<void> {
-  const mod = (await import(pathToFileURL(SEO_INJECT_PATH).href)) as {
+  // Load seo-inject.mjs — canonical source of truth for CITY_SLUGS_BY_COUNTRY
+  // and the injectSeoTagsAsync function used by both checks.
+  const seoInjectMod = (await import(pathToFileURL(SEO_INJECT_PATH).href)) as {
+    CITY_SLUGS_BY_COUNTRY: Record<string, readonly string[]>;
     injectSeoTagsAsync: InjectFn;
   };
-  const { injectSeoTagsAsync } = mod;
+  const { CITY_SLUGS_BY_COUNTRY, injectSeoTagsAsync } = seoInjectMod;
+
+  if (
+    !CITY_SLUGS_BY_COUNTRY ||
+    typeof CITY_SLUGS_BY_COUNTRY !== "object"
+  ) {
+    console.error(
+      "check-city-similarity: CITY_SLUGS_BY_COUNTRY not found in seo-inject.mjs",
+    );
+    process.exit(1);
+  }
 
   if (typeof injectSeoTagsAsync !== "function") {
     console.error(
@@ -171,6 +153,50 @@ async function main(): Promise<void> {
     );
     process.exit(1);
   }
+
+  // ── Step 1: Verify every city has a CITY_SEO entry ──────────────────────
+  const citySeoMod = (await import(pathToFileURL(CITY_SEO_PATH).href)) as {
+    CITY_SEO: Record<string, unknown>;
+  };
+  const { CITY_SEO } = citySeoMod;
+
+  if (!CITY_SEO || typeof CITY_SEO !== "object") {
+    console.error(
+      "check-city-similarity: CITY_SEO not found in city-seo.mjs",
+    );
+    process.exit(1);
+  }
+
+  const missingKeys: string[] = [];
+  for (const [country, cities] of Object.entries(CITY_SLUGS_BY_COUNTRY)) {
+    for (const city of cities) {
+      const key = `${country}-${city}`;
+      if (!Object.prototype.hasOwnProperty.call(CITY_SEO, key)) {
+        missingKeys.push(key);
+      }
+    }
+  }
+
+  if (missingKeys.length > 0) {
+    console.error(
+      `\ncheck-city-similarity: ${missingKeys.length} city slug(s) are missing from CITY_SEO in city-seo.mjs:\n`,
+    );
+    for (const key of missingKeys) {
+      console.error(`  ${key}`);
+    }
+    console.error(
+      `\nAdd an entry for each missing key to artifacts/presentail-web/src/data/city-seo.mjs.`,
+    );
+    console.error(
+      `Each entry must include "en", "ar", and "fr" copy with 4-5 neighbourhood names`,
+    );
+    console.error(
+      `unique to that city so the check-city-similarity Jaccard gate passes.`,
+    );
+    process.exit(1);
+  }
+
+  // ── Step 2: Run Jaccard similarity check ────────────────────────────────
 
   const ORIGIN = "https://presentail.com";
   const LANG = "en";

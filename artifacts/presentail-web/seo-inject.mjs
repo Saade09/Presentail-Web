@@ -45,7 +45,7 @@ export function pickLangFromAcceptLanguage(header) {
 // Mirror of CITY_SLUGS_BY_COUNTRY in src/lib/locale-route.ts. Keep in sync
 // with that file — both lists must agree or shoppers get an SEO-rendered
 // page for a slug the SPA refuses to route to.
-const CITY_SLUGS_BY_COUNTRY = {
+export const CITY_SLUGS_BY_COUNTRY = {
   lb: [
     "akkar", "aley", "baabda", "baalbeck", "batroun", "bcharee", "beirut",
     "bent-jbeil", "chouf", "hasbaya", "hermel", "jbeil", "jezzine",
