@@ -33,6 +33,7 @@
     "check-font-budget": "node scripts/check-public-font-budget.mjs src/fonts",
     "check-contact-title-length": "node scripts/check-contact-title-length.mjs",
     "check-seo-title-length": "node scripts/check-seo-title-length.mjs",
+    "check-seo-regression": "node scripts/check-seo-regression.mjs",
     "check-static-entity-title-lengths": "node scripts/check-static-entity-title-lengths.mjs",
     "generate-og-image": "node scripts/generate-og-image.mjs"
   },
