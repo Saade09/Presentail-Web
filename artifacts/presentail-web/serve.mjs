@@ -27,7 +27,10 @@ import {
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
 // than an unstructured module-load crash.
-let injectSeoTagsAsync, initImageDimsDb, collectSidecars;
+let injectSeoTagsAsync, initImageDimsDb, collectSidecars, PRODUCT_AVAILABILITY_STATE;
+
+// Static redirect map for renamed / merged products (ops-editable).
+import { PRODUCT_REDIRECTS } from "./scripts/productRedirects.mjs";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const gzipCompress = promisify(zlib.gzip);
@@ -227,7 +230,7 @@ async function warnStartupFile(filePath, label, fixHint) {
 // ---------------------------------------------------------------------------
 let CURATED_FILTER_PAGES = [];
 try {
-  ({ injectSeoTagsAsync, initImageDimsDb, CURATED_FILTER_PAGES } = await import("./seo-inject.mjs"));
+  ({ injectSeoTagsAsync, initImageDimsDb, CURATED_FILTER_PAGES, PRODUCT_AVAILABILITY_STATE } = await import("./seo-inject.mjs"));
 } catch (err) {
   await fatalStartupError(
     ":rotating_light: *presentail-web: seo-inject.mjs failed to load at startup*\n" +
@@ -347,6 +350,88 @@ if (process.env.DATABASE_URL) {
  */
 function isTransactionalPage(pathname) {
   return /(?:^|\/)(?:checkout|cart|order-confirmed)(?:\/|$)/.test(pathname);
+}
+
+/**
+ * After injectSeoTagsAsync fills lifecycleOut for a product URL, decide whether
+ * the HTTP response should be a 301 (renamed/merged) or 410 (discontinued/gone).
+ *
+ * Returns null  → no lifecycle override; caller should return 200.
+ * Returns { status, headers, body }  → caller must write this response.
+ *
+ * Rules (in priority order):
+ *  1. Product found, DISCONTINUED, slug in PRODUCT_REDIRECTS → 301 to new slug.
+ *  2. Product found, DISCONTINUED, no redirect entry → 410 Gone.
+ *  3. Product NOT found in OS cache, slug in PRODUCT_REDIRECTS → 301 to new slug.
+ *  4. Product NOT found in OS cache, no redirect entry → 410 Gone.
+ *  5. Product found with any other state (ACTIVE / SOLD_OUT / SEASONAL) → null.
+ *
+ * The redirect target preserves the locale prefix so the user lands on the
+ * correct locale+city page for the replacement product.
+ */
+function resolveProductLifecycleResponse(pathname, lifecycleOut, origin, basePath) {
+  if (!lifecycleOut || !lifecycleOut.productSlug) return null;
+
+  const { productSlug, productFound, productState } = lifecycleOut;
+  const isDiscontinued =
+    productFound &&
+    PRODUCT_AVAILABILITY_STATE &&
+    productState === PRODUCT_AVAILABILITY_STATE.DISCONTINUED;
+  const isAbsent = productFound === false;
+
+  if (!isDiscontinued && !isAbsent) return null;
+
+  // Check the static redirect map for this slug.
+  const redirectTarget = PRODUCT_REDIRECTS[productSlug];
+
+  if (redirectTarget) {
+    // Build an absolute redirect URL. Preserve locale prefix from the current
+    // pathname so /en-lb/beirut/product/old-slug → /en-lb/beirut/product/new-slug.
+    const localePrefix = extractLocalePrefix(pathname, basePath);
+    const cleanBase = (basePath || "").replace(/\/$/, "");
+    const location = redirectTarget.startsWith("http")
+      ? redirectTarget
+      : `${origin}${cleanBase}${localePrefix}/product/${encodeURIComponent(redirectTarget)}`;
+    return {
+      status: 301,
+      headers: {
+        location,
+        "cache-control": "max-age=31536000, immutable",
+        "x-robots-tag": "noindex",
+      },
+      body: `<!doctype html><html lang="en"><head><title>Moved</title>` + // i18n-ignore
+        `<meta http-equiv="refresh" content="0;url=${location}" /></head>` + // i18n-ignore
+        `<body><p>Redirecting…</p></body></html>`, // i18n-ignore
+    };
+  }
+
+  // No redirect entry — the product is definitively gone. Issue 410.
+  return {
+    status: 410,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "max-age=86400",
+      "x-robots-tag": "noindex",
+    },
+    body: `<!doctype html><html lang="en"><head><title>Gone – Presentail</title></head>` + // i18n-ignore
+      `<body><h1>This product is no longer available.</h1>` + // i18n-ignore
+      `<p><a href="/">Return to homepage</a></p></body></html>`, // i18n-ignore
+  };
+}
+
+/**
+ * Extracts the locale prefix from a product pathname so that redirect targets
+ * preserve the original locale + city (e.g. "/en-lb/beirut").
+ * Returns an empty string when no locale prefix is found.
+ */
+function extractLocalePrefix(pathname, basePath) {
+  const base = (basePath || "").replace(/\/$/, "");
+  const rel = base && pathname.startsWith(base)
+    ? pathname.slice(base.length)
+    : pathname;
+  // Match /<lang>-<country>/<city> at the start of the relative path.
+  const m = rel.match(/^(\/[a-z]{2}-[a-z]{2}\/[^/]+)(?=\/)/i);
+  return m ? m[1] : "";
 }
 
 // Deny-list of route tokens that must carry noindex regardless of host.
@@ -1696,6 +1781,7 @@ const server = http.createServer(async (req, res) => {
       // index.html gets locale-aware SEO injection.
       if (ext === ".html") {
         const html = fs.readFileSync(filePath, "utf8");
+        const lifecycleOut = {};
         const seoOut = await injectSeoTagsAsync(html, pathname, {
           basePath: BASE_PATH,
           origin,
@@ -1703,7 +1789,17 @@ const server = http.createServer(async (req, res) => {
           search: url.search,
           acceptLanguage: req.headers["accept-language"],
           firstBannerImageUrl: firstBannerImageUrl ?? undefined,
+          lifecycleOut,
         });
+        // Product lifecycle: issue 301 (renamed) or 410 (discontinued/absent).
+        const lifecycleResponse = resolveProductLifecycleResponse(
+          pathname, lifecycleOut, origin, BASE_PATH,
+        );
+        if (lifecycleResponse) {
+          res.writeHead(lifecycleResponse.status, lifecycleResponse.headers);
+          res.end(lifecycleResponse.body);
+          return;
+        }
         const out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
@@ -1905,6 +2001,7 @@ const server = http.createServer(async (req, res) => {
 
     // SPA fallback: rewrite to index.html with locale-aware SEO.
     const paginationRef = {};
+    const spaLifecycleOut = {};
     const seoOut = await injectSeoTagsAsync(indexHtml, pathname, {
       basePath: BASE_PATH,
       origin,
@@ -1913,6 +2010,7 @@ const server = http.createServer(async (req, res) => {
       acceptLanguage: req.headers["accept-language"],
       firstBannerImageUrl: firstBannerImageUrl ?? undefined,
       paginationRef,
+      lifecycleOut: spaLifecycleOut,
     });
     if (paginationRef.outOfRange) {
       res.writeHead(404, {
@@ -1930,6 +2028,15 @@ const server = http.createServer(async (req, res) => {
         `<body><h1>Page Not Found</h1><p>The requested page does not exist.</p>` + // i18n-ignore
         `<p><a href="/">Return to homepage</a></p></body></html>`, // i18n-ignore
       );
+      return;
+    }
+    // Product lifecycle: issue 301 (renamed) or 410 (discontinued/absent).
+    const spaLifecycleResponse = resolveProductLifecycleResponse(
+      pathname, spaLifecycleOut, origin, BASE_PATH,
+    );
+    if (spaLifecycleResponse) {
+      res.writeHead(spaLifecycleResponse.status, spaLifecycleResponse.headers);
+      res.end(spaLifecycleResponse.body);
       return;
     }
     const out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));

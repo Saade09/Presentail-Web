@@ -22,6 +22,58 @@ import { roundToNearestFive } from "@workspace/display-currency";
 // Exported so returns-window-sync.test.ts can assert the FAQ/terms copy agrees.
 export const RETURN_WINDOW_DAYS = 7;
 
+// ---------------------------------------------------------------------------
+// Product availability lifecycle
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical availability state for an OS product, used to decide HTTP response
+ * codes (200 / 301 / 410) and structured-data markup (InStock / OutOfStock).
+ *
+ * Priority order:
+ *  1. status === 'discontinued' → DISCONTINUED (regardless of inStock)
+ *  2. inStock === false + tags includes 'seasonal' → SEASONAL_UNAVAILABLE
+ *  3. inStock === false (and not discontinued) → SOLD_OUT_TEMPORARILY
+ *  4. inStock is true or undefined → ACTIVE
+ */
+export const PRODUCT_AVAILABILITY_STATE = /** @type {const} */ ({
+  ACTIVE: "ACTIVE",
+  SOLD_OUT_TEMPORARILY: "SOLD_OUT_TEMPORARILY",
+  SEASONAL_UNAVAILABLE: "SEASONAL_UNAVAILABLE",
+  DISCONTINUED: "DISCONTINUED",
+});
+
+/**
+ * Map an OS product object to a lifecycle state.
+ *
+ * @param {object} product OS product shape (inStock, status, tags).
+ * @returns {string} One of the PRODUCT_AVAILABILITY_STATE values.
+ */
+export function getProductAvailabilityState(product) {
+  if (!product || typeof product !== "object") {
+    return PRODUCT_AVAILABILITY_STATE.ACTIVE;
+  }
+  if (product.status === "discontinued") {
+    return PRODUCT_AVAILABILITY_STATE.DISCONTINUED;
+  }
+  if (product.inStock === false) {
+    if (Array.isArray(product.tags) && product.tags.includes("seasonal")) {
+      return PRODUCT_AVAILABILITY_STATE.SEASONAL_UNAVAILABLE;
+    }
+    return PRODUCT_AVAILABILITY_STATE.SOLD_OUT_TEMPORARILY;
+  }
+  return PRODUCT_AVAILABILITY_STATE.ACTIVE;
+}
+
+// Title suffix appended to sold-out / seasonal product page titles in SERPs.
+// Distinguishes the page from an active-product page without hurting brand
+// perception (it signals the product will be available again).
+const COMING_SOON_SUFFIX = { // i18n-ignore — locale-keyed "coming soon" suffix map
+  en: " \u2013 Coming Soon",
+  ar: " \u2013 \u0642\u0631\u064a\u0628\u0627\u064b",
+  fr: " \u2013 Bient\u00f4t disponible",
+};
+
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
 
@@ -2558,6 +2610,7 @@ function buildOfferDeliveryAndReturns({ countryCode, priceValue }) {
 
 export function buildProductHead({
   product,
+  availabilityState,
   imageDimensions,
   lang,
   basePath,
@@ -2580,7 +2633,20 @@ export function buildProductHead({
     country: countryLabel || "",
     shortDescription: clampDescription(stripHtml(rawDesc), 160),
   });
-  const title = rawName ? seo.title : "Presentail";
+  // Compute the effective availability state. When the caller passes an
+  // explicit state (e.g. from the serve.mjs lifecycle handler) we use it
+  // directly; otherwise we derive it from the product object.
+  const effectiveState =
+    availabilityState ?? getProductAvailabilityState(product);
+  const isUnavailable =
+    effectiveState === PRODUCT_AVAILABILITY_STATE.SOLD_OUT_TEMPORARILY ||
+    effectiveState === PRODUCT_AVAILABILITY_STATE.SEASONAL_UNAVAILABLE;
+  // Append " – Coming Soon" to the page title for sold-out / seasonal products
+  // so they appear distinctly in SERPs without hurting brand perception.
+  const comingSoonSuffix = isUnavailable
+    ? (COMING_SOON_SUFFIX[lang] ?? COMING_SOON_SUFFIX.en)
+    : "";
+  const title = rawName ? seo.title + comingSoonSuffix : "Presentail";
   const description =
     seo.description || genericFallbackDescription(lang, "product");
   // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
@@ -2596,7 +2662,7 @@ export function buildProductHead({
     null;
   const imageUrl = ogImageUrl || rawProductImageUrl;
 
-  const inStock = product.inStock !== false;
+  const inStock = effectiveState === PRODUCT_AVAILABILITY_STATE.ACTIVE;
 
   // Determine market currency from countryCode (ISO 3166-1 alpha-2).
   // AED is pegged to USD at 3.6725 by the UAE Central Bank (fixed rate).
@@ -2660,6 +2726,8 @@ export function buildProductHead({
   // Google's Merchant Listings validator sees consistent numbers.
   // priceValidUntil is set 30 days out to inform Google the price is current
   // and to prevent stale-price penalties from cached structured data.
+  // availability mirrors the lifecycle state: sold-out and seasonal products
+  // keep their page alive but emit OutOfStock.
   const hasPrice =
     typeof product.priceValue === "number" &&
     Number.isFinite(product.priceValue) &&
@@ -2712,6 +2780,10 @@ export function buildProductHead({
     returnFees: "https://schema.org/FreeReturn",
   };
 
+  // Lifecycle-aware availability: sold-out / seasonal → OutOfStock, active → InStock.
+  const schemaAvailability = inStock
+    ? "https://schema.org/InStock"
+    : "https://schema.org/OutOfStock";
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -2721,6 +2793,11 @@ export function buildProductHead({
     ...(sku ? { sku } : {}),
     ...(mpn ? { mpn } : {}),
     url: canonicalUrl,
+    // itemCondition applies to the product itself, not just the offer.
+    itemCondition: "https://schema.org/NewCondition",
+    // Canonical return-policy page. LB is the authoritative policy URL;
+    // other country pages inherit the same policy.
+    returnPolicy: "https://presentail.com/en-lb/beirut/return-policy",
     // seller at the Product level identifies Presentail as the merchant.
     // Also present inside the Offer node; having it at both levels satisfies
     // both the Google Merchant Listings validator and the schema.org spec.
@@ -2748,9 +2825,7 @@ export function buildProductHead({
             price: roundToNearestFive(product.priceValue * marketFx, marketCurrency).toFixed(2),
             priceCurrency: marketCurrency,
             priceValidUntil,
-            availability: inStock
-              ? "https://schema.org/InStock"
-              : "https://schema.org/OutOfStock",
+            availability: schemaAvailability,
             itemCondition: "https://schema.org/NewCondition",
             url: canonicalUrl,
             seller: {
@@ -3511,7 +3586,7 @@ function applyEligibilityNoindex(result) {
  * locale-aware injector on any failure.
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
-  const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, paginationRef, ...rest } = opts;
+  const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, paginationRef, lifecycleOut, ...rest } = opts;
   // Pass search so buildSeoHead can emit noindex meta for filter-parameterised
   // URLs and preserve curated filter page canonicals.
   const generic = buildSeoHead(pathname, { ...rest, search: search || "" });
@@ -3698,10 +3773,21 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         },
       );
       if (product) {
-        // Out-of-stock products render a dead-end view in the SPA; return the
-        // generic head so the HTML head matches the page body consistently.
-        if (product.inStock === false) {
+        const bareProductState = getProductAvailabilityState(product);
+        // DISCONTINUED products are handled by serve.mjs (301 or 410); return
+        // generic head here so the HTML body stays neutral.
+        if (bareProductState === PRODUCT_AVAILABILITY_STATE.DISCONTINUED) {
+          if (lifecycleOut) {
+            lifecycleOut.productSlug = bareProductSlug;
+            lifecycleOut.productFound = true;
+            lifecycleOut.productState = bareProductState;
+          }
           return assembleHtml(html, generic);
+        }
+        if (lifecycleOut) {
+          lifecycleOut.productSlug = bareProductSlug;
+          lifecycleOut.productFound = true;
+          lifecycleOut.productState = bareProductState;
         }
         const barePublicOrigin = (rest.origin ?? "").replace(/\/$/, "");
         const bareProductOgImageUrl = barePublicOrigin
@@ -3717,6 +3803,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             );
         const result = buildProductHead({
           product,
+          availabilityState: bareProductState,
           imageDimensions: bareImageDims,
           ogImageUrl: bareProductOgImageUrl,
           lang: bareProductLang,
@@ -3876,11 +3963,23 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       ...fetchOpts,
     });
     if (product) {
-      // Out-of-stock products render a dead-end view in the SPA; return the
-      // generic head so the HTML head matches the page body consistently.
-      if (product.inStock === false) {
+      const productState = getProductAvailabilityState(product);
+      // Write lifecycle info for serve.mjs to act on (301/410 decisions).
+      if (lifecycleOut) {
+        lifecycleOut.productSlug = productSlug;
+        lifecycleOut.productFound = true;
+        lifecycleOut.productState = productState;
+      }
+      // DISCONTINUED products are handled by serve.mjs (301 or 410 depending on
+      // the redirect map); return a neutral generic head here so the HTML body
+      // is consistent regardless of HTTP status.
+      if (productState === PRODUCT_AVAILABILITY_STATE.DISCONTINUED) {
         return assembleHtml(html, generic);
       }
+      // SOLD_OUT_TEMPORARILY and SEASONAL_UNAVAILABLE: render the rich product
+      // head with OutOfStock availability so the page stays indexed and social
+      // previews remain useful. The title suffix " – Coming Soon" is added by
+      // buildProductHead for these states.
       // Use the branded per-product OG image (generated on demand by the API
       // server) instead of the raw product photo. This gives WhatsApp / iMessage
       // / Slack a 1200×630 card with the product name and Presentail branding.
@@ -3899,6 +3998,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           );
       result = buildProductHead({
         product,
+        availabilityState: productState,
         imageDimensions: productImageDims,
         ogImageUrl: productOgImageUrl,
         ...headOpts,
@@ -3966,6 +4066,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             ` imagesizes="${escapeAttr(_pdpSizes)}">`;
           result = { ...result, headSnippet: result.headSnippet + "\n    " + _pdpPreloadTag };
         }
+      }
+    } else {
+      // Product not found in OS cache — signal to serve.mjs for 410/301.
+      if (lifecycleOut) {
+        lifecycleOut.productSlug = productSlug;
+        lifecycleOut.productFound = false;
+        lifecycleOut.productState = null;
       }
     }
   } else if (brandSlug) {

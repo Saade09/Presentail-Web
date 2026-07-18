@@ -134,6 +134,35 @@ const PRODUCTS = {
     inStock: false,
     image: { uri: HERO_IMAGE_URL },
   },
+  // Lifecycle test fixtures ─────────────────────────────────────────────────
+  // SEASONAL_UNAVAILABLE: out-of-stock with seasonal tag.
+  "seasonal-poppies": {
+    name: "Seasonal Poppies",
+    description: "A charming arrangement of seasonal poppies — back soon.",
+    priceValue: 55,
+    inStock: false,
+    tags: ["seasonal"],
+    image: { uri: HERO_IMAGE_URL },
+  },
+  // DISCONTINUED with no PRODUCT_REDIRECTS entry → 410 Gone.
+  "discontinued-product": {
+    name: "Discontinued Ceramic Vase",
+    description: "No longer available.",
+    priceValue: 35,
+    inStock: false,
+    status: "discontinued",
+    image: { uri: HERO_IMAGE_URL },
+  },
+  // DISCONTINUED with a PRODUCT_REDIRECTS entry → 301 to "rose-bouquet".
+  // The matching redirect entry lives in scripts/productRedirects.mjs.
+  "old-red-roses": {
+    name: "Old Red Roses (Renamed)",
+    description: "This product has been renamed.",
+    priceValue: 89,
+    inStock: false,
+    status: "discontinued",
+    image: { uri: HERO_IMAGE_URL },
+  },
   "velvet-rose-bouquet": {
     name: "Velvet Rose Bouquet",
     description: "A dozen long-stem velvet roses, hand-tied.",
