@@ -673,6 +673,209 @@ describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
   });
 });
 
+describe("injectSeoTagsAsync — entity hreflang gating (per-country availability)", () => {
+  // Reusable mock: succeeds for any entity or listing fetch, fails image dims.
+  function makeFetchMock(entityKey: string, entityBody: unknown) {
+    return vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes(entityKey)) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => entityBody,
+        };
+      }
+      // listing products, brand-products, etc.
+      if (
+        u.includes("/api/woo/category-products") ||
+        u.includes("/api/woo/occasion-products") ||
+        u.includes("/api/woo/brand-products")
+      ) {
+        return { ok: true, json: async () => ({ ok: true, count: 5, products: [], groups: [] }) };
+      }
+      // Analytics events — swallow silently.
+      if (u.includes("/api/analytics/events")) {
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      // Image dims and anything else — fail so dims resolve to null.
+      return { ok: false, status: 404 };
+    });
+  }
+
+  it("product: emits hreflang only for requesting country when other countries are cold cache", async () => {
+    const slug = "hrl-gating-product-cold-1";
+    const fetchMock = makeFetchMock("/api/woo/product", {
+      ok: true,
+      product: { name: "Test Rose", description: "A rose.", image: { uri: "" }, priceValue: 50 },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(HTML, `/en-lb/beirut/product/${slug}`, OPTS);
+
+    // Requesting country (LB) — always included with all 3 locale alternates + x-default.
+    expect(out).toContain('hreflang="en-LB"');
+    expect(out).toContain('hreflang="ar-LB"');
+    expect(out).toContain('hreflang="fr-LB"');
+    expect(out).toContain('hreflang="x-default"');
+
+    // Other countries (AE, CY) — cold cache → must be absent.
+    expect(out).not.toContain('hreflang="en-AE"');
+    expect(out).not.toContain('hreflang="ar-AE"');
+    expect(out).not.toContain('hreflang="en-CY"');
+    expect(out).not.toContain('hreflang="ar-CY"');
+  });
+
+  it("product: includes all 3 countries once all are warm in the entity cache", async () => {
+    const slug = "hrl-gating-product-warm-1";
+    const fetchMock = makeFetchMock("/api/woo/product", {
+      ok: true,
+      product: { name: "Warm Rose", description: "A rose.", image: { uri: "" }, priceValue: 50 },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Pre-warm LB and CY entity cache entries with their canonical cities.
+    await injectSeoTagsAsync(HTML, `/en-lb/beirut/product/${slug}`, OPTS);
+    await injectSeoTagsAsync(HTML, `/en-cy/limassol/product/${slug}`, OPTS);
+
+    // AE request — LB and CY entries are now in cache with canonical city keys.
+    const out = await injectSeoTagsAsync(HTML, `/en-ae/dubai/product/${slug}`, OPTS);
+
+    expect(out).toContain('hreflang="en-LB"');
+    expect(out).toContain('hreflang="en-AE"');
+    expect(out).toContain('hreflang="en-CY"');
+    // x-default always points at en-lb/beirut.
+    expect(out).toContain(
+      `href="https://presentail.test/en-lb/beirut/product/${slug}"`,
+    );
+    // All 9 locale alternates (3 langs × 3 countries) plus x-default.
+    expect(out).toContain('hreflang="ar-LB"');
+    expect(out).toContain('hreflang="fr-AE"');
+    expect(out).toContain('hreflang="ar-CY"');
+  });
+
+  it("product: hreflang href contains encoded slug", async () => {
+    const slug = "hrl-gating-product-warm-2";
+    const fetchMock = makeFetchMock("/api/woo/product", {
+      ok: true,
+      product: { name: "Warm Rose", description: "", image: { uri: "" }, priceValue: 50 },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await injectSeoTagsAsync(HTML, `/en-lb/beirut/product/${slug}`, OPTS);
+    const out = await injectSeoTagsAsync(HTML, `/en-lb/beirut/product/${slug}`, OPTS);
+    expect(out).toContain(`href="https://presentail.test/en-lb/beirut/product/${slug}"`);
+  });
+
+  it("brand: emits hreflang only for requesting country when other countries are cold cache", async () => {
+    const slug = "hrl-gating-brand-cold-1";
+    const fetchMock = makeFetchMock("/api/woo/brand", {
+      ok: true,
+      brand: { name: "Test Brand", description: "", image: null },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(HTML, `/en-ae/dubai/brand/${slug}`, OPTS);
+
+    expect(out).toContain('hreflang="en-AE"');
+    expect(out).toContain('hreflang="ar-AE"');
+    expect(out).toContain('hreflang="fr-AE"');
+    expect(out).not.toContain('hreflang="en-LB"');
+    expect(out).not.toContain('hreflang="en-CY"');
+    // x-default still emitted (points at en-lb/beirut even if LB cold — it's the canonical default locale).
+    expect(out).toContain('hreflang="x-default"');
+  });
+
+  it("brand: includes all 3 countries once all are warm in entity cache", async () => {
+    const slug = "hrl-gating-brand-warm-1";
+    const fetchMock = makeFetchMock("/api/woo/brand", {
+      ok: true,
+      brand: { name: "Warm Brand", description: "", image: null },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await injectSeoTagsAsync(HTML, `/en-lb/beirut/brand/${slug}`, OPTS);
+    await injectSeoTagsAsync(HTML, `/en-ae/dubai/brand/${slug}`, OPTS);
+    const out = await injectSeoTagsAsync(HTML, `/en-cy/limassol/brand/${slug}`, OPTS);
+
+    expect(out).toContain('hreflang="en-LB"');
+    expect(out).toContain('hreflang="en-AE"');
+    expect(out).toContain('hreflang="en-CY"');
+  });
+
+  it("category: emits hreflang only for requesting country when cold cache", async () => {
+    const slug = "hrl-gating-category-cold-1";
+    const fetchMock = makeFetchMock("/api/woo/category", {
+      ok: true,
+      category: { name: "Roses", description: "", image: null },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(HTML, `/en-lb/beirut/category/${slug}`, OPTS);
+
+    expect(out).toContain('hreflang="en-LB"');
+    expect(out).not.toContain('hreflang="en-AE"');
+    expect(out).not.toContain('hreflang="en-CY"');
+    expect(out).toContain(`href="https://presentail.test/en-lb/beirut/category/${slug}"`);
+  });
+
+  it("occasion: emits hreflang only for requesting country when cold cache", async () => {
+    const slug = "hrl-gating-occasion-cold-1";
+    const fetchMock = makeFetchMock("/api/woo/occasion", {
+      ok: true,
+      occasion: { name: "Birthday", description: "", image: null },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(HTML, `/en-ae/dubai/occasion/${slug}`, OPTS);
+
+    expect(out).toContain('hreflang="en-AE"');
+    expect(out).not.toContain('hreflang="en-LB"');
+    expect(out).not.toContain('hreflang="en-CY"');
+    expect(out).toContain(`href="https://presentail.test/en-ae/dubai/occasion/${slug}"`);
+  });
+
+  it("occasion: includes all 3 countries once all are warm in entity cache", async () => {
+    const slug = "hrl-gating-occasion-warm-1";
+    const fetchMock = makeFetchMock("/api/woo/occasion", {
+      ok: true,
+      occasion: { name: "Anniversary", description: "", image: null },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await injectSeoTagsAsync(HTML, `/en-lb/beirut/occasion/${slug}`, OPTS);
+    await injectSeoTagsAsync(HTML, `/en-cy/limassol/occasion/${slug}`, OPTS);
+    const out = await injectSeoTagsAsync(HTML, `/en-ae/dubai/occasion/${slug}`, OPTS);
+
+    expect(out).toContain('hreflang="en-LB"');
+    expect(out).toContain('hreflang="en-AE"');
+    expect(out).toContain('hreflang="en-CY"');
+  });
+
+  it("brandsFilter (/brands?category=<slug>) does NOT emit entity-gated hreflang", async () => {
+    // brands-filter pages (/brands?category=<slug>) use buildBrandsFilterHead which
+    // overrides the generic headSnippet entirely. My implementation only adds
+    // hreflang gating to the product/brand/category/occasion branches, not to
+    // brandsFilter. Since buildBrandsFilterHead does not include hreflang,
+    // these pages end up with no hreflang alternates at all.
+    const fetchMock = makeFetchMock("/api/woo/category", {
+      ok: true,
+      category: { name: "Luxury Brands", description: "", image: null },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/brands", {
+      ...OPTS,
+      search: "?category=hrl-gating-bf-cold-1",
+    });
+
+    // brands-filter headSnippet does not include any hreflang tags.
+    expect(out).not.toContain('hreflang="en-AE"');
+    expect(out).not.toContain('hreflang="en-LB"');
+    expect(out).not.toContain('hreflang="en-CY"');
+    expect(out).not.toContain('hreflang="x-default"');
+  });
+});
+
 describe("buildSeoHead — city slug allowlist", () => {
   it("emits localized canonical/hreflang for a supported AE city slug", () => {
     const out = buildSeoHead("/en-ae/ras-al-khaimah/shop", {

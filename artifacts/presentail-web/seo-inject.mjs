@@ -2975,6 +2975,53 @@ function buildShopEntityHead({
 }
 
 /**
+ * Consults the in-process entity SEO cache to determine which countries have
+ * confirmed availability for the given entity. Only countries with a warm cache
+ * entry (using the canonical city for that country) are considered confirmed.
+ *
+ * The `requestingCountry` is always marked available — it was just successfully
+ * fetched by the caller. Countries not in the cache are omitted with a WARN so
+ * Google never receives a broken cross-country alternate pointing at a 404.
+ *
+ * No upstream fetches are made; this is a pure synchronous cache read.
+ *
+ * @param {object} opts
+ * @param {string} opts.entityKind  "product" | "brand" | "category" | "occasion"
+ * @param {string} opts.slug        decoded entity slug
+ * @param {string} opts.lang        request language (en | ar | fr)
+ * @param {string|undefined} opts.requestingCountry  two-letter country code (lb|ae|cy) — always included
+ * @returns {string[]} subset of ALL_COUNTRIES confirmed available
+ */
+function deriveAvailableCountriesForEntity({ entityKind, slug, lang, requestingCountry }) {
+  const CANONICAL_CITY_ID = { lb: "lb-beirut", ae: "ae-dubai", cy: "cy-limassol" };
+  const available = [];
+  for (const country of ALL_COUNTRIES) {
+    if (country === requestingCountry) {
+      // The requesting country's entity was just successfully fetched — include unconditionally.
+      available.push(country);
+      continue;
+    }
+    // Check the entity cache using the canonical city for this country.
+    // Cache key must match exactly what fetchEntityForSeoCached stores.
+    const key = entityCacheKey({
+      kind: entityKind,
+      slug,
+      lang,
+      countryCode: country.toUpperCase(),
+      cityId: CANONICAL_CITY_ID[country],
+    });
+    if (getCachedEntity(key) !== null) {
+      available.push(country);
+    } else {
+      console.warn(
+        `seo: omitted hreflang for country=${country.toUpperCase()} on ${entityKind}/${slug} — availability unconfirmed`,
+      );
+    }
+  }
+  return available;
+}
+
+/**
  * Async variant of injectSeoTags that, for `/product/<slug>`, `/brand/<slug>`,
  * `/shop?category=<slug>`, and `/shop?occasion=<slug>` routes, fetches the
  * matching record from the API and emits entity-specific OG/Twitter Card
@@ -3363,6 +3410,28 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         ogImageUrl: productOgImageUrl,
         ...headOpts,
       });
+      // Append hreflang alternates gated on confirmed per-country availability.
+      // Only countries with a warm entity-cache entry are included; cold-cache
+      // countries are omitted with a WARN rather than emitting a broken alternate.
+      const _prodAvail = deriveAvailableCountriesForEntity({
+        entityKind: "product",
+        slug: productSlug,
+        lang: generic.lang,
+        requestingCountry: parsed.country,
+      });
+      const _prodHreflangSet = buildHreflangSet(
+        `product/${encodeURIComponent(productSlug)}`,
+        _prodAvail,
+        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+      );
+      if (_prodHreflangSet.length > 0) {
+        const _prodHreflangLines = _prodHreflangSet
+          .map(({ hreflang, href }) =>
+            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+          )
+          .join("\n    ");
+        result = { ...result, headSnippet: result.headSnippet + "\n    " + _prodHreflangLines };
+      }
     }
   } else if (brandSlug) {
     const brand = await fetchEntityForSeoCached("brand", fetchBrandForSeo, {
@@ -3381,6 +3450,25 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         productCount: brandListing?.count,
         ...headOpts,
       });
+      const _brandAvail = deriveAvailableCountriesForEntity({
+        entityKind: "brand",
+        slug: brandSlug,
+        lang: generic.lang,
+        requestingCountry: parsed.country,
+      });
+      const _brandHreflangSet = buildHreflangSet(
+        `brand/${encodeURIComponent(brandSlug)}`,
+        _brandAvail,
+        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+      );
+      if (_brandHreflangSet.length > 0) {
+        const _brandHreflangLines = _brandHreflangSet
+          .map(({ hreflang, href }) =>
+            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+          )
+          .join("\n    ");
+        result = { ...result, headSnippet: result.headSnippet + "\n    " + _brandHreflangLines };
+      }
     }
   } else if (categorySlug) {
     const category = await fetchEntityForSeoCached(
@@ -3405,6 +3493,25 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         items: listing?.items ?? [],
         ...headOpts,
       });
+      const _catAvail = deriveAvailableCountriesForEntity({
+        entityKind: "category",
+        slug: categorySlug,
+        lang: generic.lang,
+        requestingCountry: parsed.country,
+      });
+      const _catHreflangSet = buildHreflangSet(
+        `category/${encodeURIComponent(categorySlug)}`,
+        _catAvail,
+        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+      );
+      if (_catHreflangSet.length > 0) {
+        const _catHreflangLines = _catHreflangSet
+          .map(({ hreflang, href }) =>
+            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+          )
+          .join("\n    ");
+        result = { ...result, headSnippet: result.headSnippet + "\n    " + _catHreflangLines };
+      }
     }
   } else if (occasionSlug) {
     const occasion = await fetchEntityForSeoCached("occasion", fetchOccasionForSeo, {
@@ -3437,6 +3544,25 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         items: listing?.items ?? [],
         ...headOpts,
       });
+      const _occAvail = deriveAvailableCountriesForEntity({
+        entityKind: "occasion",
+        slug: occasionSlug,
+        lang: generic.lang,
+        requestingCountry: parsed.country,
+      });
+      const _occHreflangSet = buildHreflangSet(
+        `occasion/${encodeURIComponent(occasionSlug)}`,
+        _occAvail,
+        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+      );
+      if (_occHreflangSet.length > 0) {
+        const _occHreflangLines = _occHreflangSet
+          .map(({ hreflang, href }) =>
+            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+          )
+          .join("\n    ");
+        result = { ...result, headSnippet: result.headSnippet + "\n    " + _occHreflangLines };
+      }
     }
   } else if (brandsFilter) {
     const fetcher =
