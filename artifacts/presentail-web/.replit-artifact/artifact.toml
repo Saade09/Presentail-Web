@@ -20,7 +20,9 @@ run = "pnpm --filter @workspace/presentail-web run dev"
 [services.production]
 
 [services.production.build]
-args = [ "pnpm", "--filter", "@workspace/presentail-web", "run", "build" ]
+# Run typecheck before building so that any TypeScript error aborts the deploy
+# and keeps the previous version running (same pattern as the API server).
+args = ["sh", "-c", "pnpm --filter @workspace/presentail-web run typecheck && pnpm --filter @workspace/presentail-web run build"]
 
 [services.production.run]
 args = [ "node", "artifacts/presentail-web/serve.mjs" ]
