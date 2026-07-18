@@ -124,8 +124,12 @@ describe("serve.mjs — sidecar file blocking", () => {
   });
 
   it("does not block a plain .js request (no .br/.gz extension)", async () => {
-    const { status } = await get(serverPort, "/assets/index-abc123.js");
-    expect(status).not.toBe(404);
+    // The sidecar blocker only intercepts .br and .gz extensions; a plain .js
+    // path must NOT be intercepted by it.  The file does not exist in dist so
+    // the server will still return a 404, but via the non-locale path guard
+    // (HTML body) — NOT via the sidecar blocker (plain-text "Not Found" body).
+    const { status, body } = await get(serverPort, "/assets/index-abc123.js");
+    expect(body).not.toBe("Not Found");
   });
 
   it("serves an existing static file without being blocked", async () => {

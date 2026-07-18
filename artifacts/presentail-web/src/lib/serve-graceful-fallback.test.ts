@@ -169,9 +169,13 @@ describe("serve.mjs — graceful fallback when sidecar-cache.mjs is missing", ()
     expect(status).toBe(200);
   });
 
-  it("still returns the SPA shell for unknown routes", async () => {
-    const { status, body } = await get(serverPort, "/some/spa/route");
-    // The SPA shell (index.html) is returned for unmatched paths.
+  it("still returns the SPA shell for locale-prefixed routes", async () => {
+    // Non-locale bare paths (e.g. /some/spa/route) are now rejected with a
+    // real HTTP 404 by the non-locale path guard to prevent soft-404 crawl
+    // waste.  A locale-prefixed path that maps to a known SPA sub-route
+    // (here: /en-lb/beirut/shop) must still receive the SPA shell.
+    const { status, body } = await get(serverPort, "/en-lb/beirut/shop");
+    // The SPA shell (index.html) is returned for recognised locale routes.
     expect(status).toBe(200);
     // Match case-insensitively — Vite emits <!DOCTYPE html> (uppercase).
     expect(body.toLowerCase()).toContain("<!doctype html>");

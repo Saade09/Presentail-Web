@@ -997,8 +997,51 @@ const server = http.createServer(async (req, res) => {
       pathname = pathname.slice(BASE_PATH.length) || "/";
     }
 
+    // Redirect bare `/product/<slug>` (shared links from the mobile app) to the
+    // default locale-prefixed canonical URL so mobile share links land correctly
+    // when the app is not installed. Uses 301 (permanent) for SEO value.
+    // NOTE: Must run BEFORE the trailing-slash redirect so /product/<slug>/
+    // (with trailing slash) is handled here rather than being stripped to
+    // /product/<slug> first.
+    const productRedirectMatch = pathname.match(/^\/product\/([^/]+)\/?$/);
+    if (productRedirectMatch) {
+      const slug = productRedirectMatch[1];
+      const target = `${BASE_PATH}/en-lb/beirut/product/${slug}`;
+      res.writeHead(301, { location: target });
+      res.end();
+      return;
+    }
+
+    // Redirect old shop query-param URLs to clean SEO paths so external links
+    // already indexed under the old format pass their ranking signals forward.
+    //   /:lang-:country/:city/shop?category=<slug>  →  /:lang-:country/:city/category/<slug>
+    //   /:lang-:country/:city/shop?occasion=<slug>  →  /:lang-:country/:city/occasion/<slug>
+    // Uses 301 (permanent) so search engines update their indexes.
+    // NOTE: Must run BEFORE the trailing-slash redirect so /shop/?param=value
+    // (with trailing slash on the shop segment) is handled here rather than
+    // being stripped and losing the query params redirect.
+    const shopRedirectMatch = pathname.match(
+      /^(\/[a-z]{2}-[a-z]{2}\/[^/]+)\/shop\/?$/,
+    );
+    if (shopRedirectMatch) {
+      const localeCity = shopRedirectMatch[1];
+      const categorySlug = url.searchParams.get("category");
+      const occasionSlug = url.searchParams.get("occasion");
+      if (categorySlug) {
+        res.writeHead(301, { location: `${BASE_PATH}${localeCity}/category/${encodeURIComponent(categorySlug)}` });
+        res.end();
+        return;
+      }
+      if (occasionSlug) {
+        res.writeHead(301, { location: `${BASE_PATH}${localeCity}/occasion/${encodeURIComponent(occasionSlug)}` });
+        res.end();
+        return;
+      }
+    }
+
     // Trailing-slash redirect: 301 any path that ends with "/" (other than the
-    // root "/" itself and /.well-known/* paths) to the equivalent clean URL.
+    // root "/" itself, /.well-known/* paths, and bare /product/ which has no
+    // slug and must fall through to the SPA shell) to the equivalent clean URL.
     // This eliminates the duplicate-content penalty caused by crawlers following
     // both /en-lb/beirut/faqs and /en-lb/beirut/faqs/ as separate URLs.
     // Applied after BASE_PATH stripping so the redirect target is correct.
@@ -1006,7 +1049,11 @@ const server = http.createServer(async (req, res) => {
       pathname.length > 1 &&
       pathname.endsWith("/") &&
       !pathname.startsWith("/.well-known") &&
-      !pathname.startsWith("/api")
+      !pathname.startsWith("/api") &&
+      // Bare /product/ (no slug) must not be trailing-slash-redirected; it has
+      // already bypassed the product redirect above (no slug) and should reach
+      // the SPA fallback as-is so the client can render a 404 page.
+      pathname !== "/product/"
     ) {
       const cleanPath = BASE_PATH + pathname.slice(0, -1);
       res.writeHead(301, {
@@ -1342,42 +1389,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Redirect bare `/product/<slug>` (shared links from the mobile app) to the
-    // default locale-prefixed canonical URL so mobile share links land correctly
-    // when the app is not installed. Uses 301 (permanent) for SEO value.
-    const productRedirectMatch = pathname.match(/^\/product\/([^/]+)\/?$/);
-    if (productRedirectMatch) {
-      const slug = productRedirectMatch[1];
-      const target = `${BASE_PATH}/en-lb/beirut/product/${slug}`;
-      res.writeHead(301, { location: target });
-      res.end();
-      return;
-    }
-
-    // Redirect old shop query-param URLs to clean SEO paths so external links
-    // already indexed under the old format pass their ranking signals forward.
-    //   /:lang-:country/:city/shop?category=<slug>  →  /:lang-:country/:city/category/<slug>
-    //   /:lang-:country/:city/shop?occasion=<slug>  →  /:lang-:country/:city/occasion/<slug>
-    // Uses 301 (permanent) so search engines update their indexes.
-    const shopRedirectMatch = pathname.match(
-      /^(\/[a-z]{2}-[a-z]{2}\/[^/]+)\/shop\/?$/,
-    );
-    if (shopRedirectMatch) {
-      const localeCity = shopRedirectMatch[1];
-      const categorySlug = url.searchParams.get("category");
-      const occasionSlug = url.searchParams.get("occasion");
-      if (categorySlug) {
-        res.writeHead(301, { location: `${BASE_PATH}${localeCity}/category/${encodeURIComponent(categorySlug)}` });
-        res.end();
-        return;
-      }
-      if (occasionSlug) {
-        res.writeHead(301, { location: `${BASE_PATH}${localeCity}/occasion/${encodeURIComponent(occasionSlug)}` });
-        res.end();
-        return;
-      }
-    }
-
     let assetPath = pathname;
     if (assetPath === "/") assetPath = "/index.html";
 
@@ -1536,11 +1547,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Non-locale path guard: return a real 404 for bare paths that are not
-    // recognised entry points. Only "/" (the root landing page) and
-    // "/favorites/share/:token" (shared wishlist links) are valid non-locale
-    // SPA entry points. Every other bare path (e.g. "/does-not-exist") is not
-    // a real app route — it would receive the homepage shell with HTTP 200,
-    // which search engines treat as a soft 404 and waste crawl budget on.
+    // recognised entry points. Only "/" (the root landing page),
+    // "/favorites/share/:token" (shared wishlist links), and bare "/product/"
+    // or "/product" (no slug — falls through to the SPA to render a 404 page
+    // client-side) are valid non-locale SPA entry points. Every other bare
+    // path (e.g. "/does-not-exist") is not a real app route — it would receive
+    // the homepage shell with HTTP 200, which search engines treat as a soft 404
+    // and waste crawl budget on.
     //
     // Paths already handled above and therefore never reaching this point:
     //   • /sitemap.xml, /llms.txt, /llms-full.txt, /sitemap.md, /agents.md  (explicit route handlers)
@@ -1551,7 +1564,11 @@ const server = http.createServer(async (req, res) => {
     if (
       pathname !== "/" &&
       !pathname.match(/^\/favorites\/share\/[A-Za-z0-9_-]{8,}\/?$/) &&
-      !pathname.match(/^\/[a-z]{2}-[a-z]{2}\//)
+      !pathname.match(/^\/[a-z]{2}-[a-z]{2}\//) &&
+      // Bare /product or /product/ (no slug) passes through to the SPA shell so
+      // the client can render a 404 page; the product redirect above only fires
+      // when a slug is present.
+      !pathname.match(/^\/product\/?$/)
     ) {
       res.writeHead(404, {
         "content-type": "text/html; charset=utf-8",
