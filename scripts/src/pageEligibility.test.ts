@@ -4,6 +4,7 @@ import {
   eligibilityReason,
   MIN_PRODUCTS_BY_TYPE,
   UNIQUENESS_RATIO_MIN,
+// @ts-expect-error - mjs module without type declarations.
 } from "../../artifacts/presentail-web/scripts/pageEligibility.mjs";
 
 describe("isPageEligible", () => {

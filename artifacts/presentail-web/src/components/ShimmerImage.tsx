@@ -12,6 +12,8 @@ interface ShimmerImageProps {
   priority?: boolean;
   srcset?: string;
   sizes?: string;
+  width?: number;
+  height?: number;
 }
 
 /**
@@ -41,6 +43,8 @@ export function ShimmerImage({
   priority = false,
   srcset,
   sizes,
+  width,
+  height,
 }: ShimmerImageProps) {
   const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
@@ -75,6 +79,8 @@ export function ShimmerImage({
         {...(priority ? { fetchPriority: "high" } : {})}
         {...(resolvedSrcset ? { srcSet: resolvedSrcset } : {})}
         {...(resolvedSizes ? { sizes: resolvedSizes } : {})}
+        {...(width != null ? { width } : {})}
+        {...(height != null ? { height } : {})}
         onLoad={() => {
           loadedUrls.add(src);
           setLoaded(true);

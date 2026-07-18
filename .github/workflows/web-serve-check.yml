@@ -80,6 +80,9 @@ jobs:
       - name: Run web unit tests
         run: pnpm --filter @workspace/presentail-web run test
 
+      - name: Check image alt text (no <img> missing alt or using empty alt without annotation)
+        run: pnpm --filter @workspace/scripts run check-image-alt
+
       - name: Build web app (vite + compress-assets)
         run: pnpm --filter @workspace/presentail-web run build
 

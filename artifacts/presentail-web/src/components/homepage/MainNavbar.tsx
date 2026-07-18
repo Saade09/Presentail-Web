@@ -34,7 +34,7 @@ function MegaItemThumbnail({ img, emoji, className }: { img?: string; emoji?: st
     return (
       <img
         src={img}
-        alt=""
+        alt="" // image-alt-ok: decorative emoji/icon fallback image, meaning conveyed by emoji sibling
         className={className ?? "w-full h-full object-cover"}
         loading="lazy"
         decoding="async"
@@ -63,7 +63,7 @@ function MobileSubPanelTile({ img, emoji }: { img?: string; emoji?: string }) {
     return (
       <img
         src={img}
-        alt=""
+        alt="" // image-alt-ok: decorative emoji/icon fallback image, meaning conveyed by emoji sibling
         className="w-full h-full object-cover"
         loading="lazy"
         decoding="async"

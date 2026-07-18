@@ -1,12 +1,13 @@
 import { Product } from "@/lib/queries";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { ShimmerImage } from "./ShimmerImage";
+import { ProductImage } from "./ProductImage";
 import { SalePrice, isDiscountActive } from "./SalePrice";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { prefetchProps } from "@/lib/prefetch";
 import { loadProductDetail } from "@/lib/pageLoaders";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
 export function ProductCard({
   product,
@@ -20,8 +21,9 @@ export function ProductCard({
   const imageUrl = product.image?.uri;
   const tag = product.tag;
   const { currencyCode } = useDisplayCurrency();
-  const { t } = useLocale();
+  const { t, language } = useLocale();
 
+  const { city } = useLocationSelection();
   const isPriority = index < 4;
   const onSale = isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed);
 
@@ -44,11 +46,15 @@ export function ProductCard({
           style={{ backgroundColor: "#f4f4f5" }}
         >
           {imageUrl ? (
-            <ShimmerImage
+            <ProductImage
               src={imageUrl}
-              alt={product.name}
+              product={{ name: product.name }}
+              locale={language}
+              cityName={city?.name ?? ""}
               className="object-cover group-hover:scale-[1.02] transition-transform duration-500"
               sizes="(max-width: 640px) 45vw, (max-width: 768px) 33vw, 25vw"
+              width={400}
+              height={400}
               priority={index < 4}
               fallback={
                 // contrast-ok: decorative placeholder shown only when image fails to load

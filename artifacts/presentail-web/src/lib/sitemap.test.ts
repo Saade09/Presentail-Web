@@ -49,13 +49,104 @@ describe("buildSitemapXml", () => {
   });
 
   it("declares the xhtml namespace on <urlset>", () => {
-    expect(xml).toContain(
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
-    );
+    expect(xml).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"');
     const doc = parse(xml);
     expect(
       doc.documentElement?.getAttribute("xmlns:xhtml"),
     ).toBe("http://www.w3.org/1999/xhtml");
+  });
+
+  it("declares the image namespace on <urlset>", () => {
+    expect(xml).toContain('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"');
+    const doc = parse(xml);
+    expect(
+      doc.documentElement?.getAttribute("xmlns:image"),
+    ).toBe("http://www.google.com/schemas/sitemap-image/1.1");
+  });
+
+  it("includes <image:image> for products that have imageUrl and name", () => {
+    const xmlWithImage = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products: [
+        {
+          slug: "red-roses",
+          name: "Red Roses",
+          imageUrl: "https://os.presentail.com/api/storage/public-objects/red-roses.jpg",
+        },
+        { slug: "no-image" },
+      ],
+      lastmod: "2026-06-27",
+    });
+
+    expect(xmlWithImage).toContain("<image:image>");
+    expect(xmlWithImage).toContain("<image:loc>https://os.presentail.com/api/storage/public-objects/red-roses.jpg</image:loc>");
+    expect(xmlWithImage).toContain("<image:title>Red Roses</image:title>");
+    expect(xmlWithImage).not.toContain("no-image</image:title>");
+  });
+
+  it("<image:loc> is a valid URL when imageUrl is provided", () => {
+    const imageUrl = "https://os.presentail.com/api/storage/public-objects/bouquet.jpg";
+    const xmlWithImage = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products: [{ slug: "bouquet", name: "Bouquet", imageUrl }],
+      lastmod: "2026-06-27",
+    });
+
+    const match = xmlWithImage.match(/<image:loc>(.+?)<\/image:loc>/);
+    expect(match).not.toBeNull();
+    expect(() => new URL(match![1])).not.toThrow();
+  });
+
+  it("<image:title> is non-empty for products with a name", () => {
+    const xmlWithImage = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products: [
+        {
+          slug: "flowers",
+          name: "Spring Flowers",
+          imageUrl: "https://os.presentail.com/api/storage/public-objects/flowers.jpg",
+        },
+      ],
+      lastmod: "2026-06-27",
+    });
+
+    const match = xmlWithImage.match(/<image:title>(.+?)<\/image:title>/);
+    expect(match).not.toBeNull();
+    expect(match![1].length).toBeGreaterThan(0);
+  });
+
+  it("<image:caption> uses buildProductImageAlt EN pattern (name – delivered in Beirut)", () => {
+    const xmlWithImage = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products: [
+        {
+          slug: "spring-bouquet",
+          name: "Spring Bouquet",
+          imageUrl: "https://os.presentail.com/api/storage/public-objects/spring.jpg",
+        },
+      ],
+      lastmod: "2026-06-27",
+    });
+
+    const match = xmlWithImage.match(/<image:caption>(.+?)<\/image:caption>/);
+    expect(match).not.toBeNull();
+    const caption = match![1];
+    expect(caption).toBe("Spring Bouquet \u2013 delivered in Beirut");
+    expect(caption.length).toBeLessThanOrEqual(125);
+  });
+
+  it("does not emit <image:image> for products without imageUrl", () => {
+    const xmlNoImage = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products: [{ slug: "red-roses" }],
+      lastmod: "2026-06-27",
+    });
+    expect(xmlNoImage).not.toContain("<image:image>");
   });
 
   it("excludes categories with count 0 and includes those with count > 0", () => {

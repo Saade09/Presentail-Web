@@ -2,6 +2,8 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { buildCollectionImageAlt } from "@/lib/imageAlt";
 import { apiFetch } from "@/lib/api";
 import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
 import { ShimmerImage } from "@/components/ShimmerImage";
@@ -30,7 +32,8 @@ const STATIC_FALLBACK_IMAGES: Record<string, string> = {
 };
 
 export function CategoriesGrid() {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const { city } = useLocationSelection();
 
   const { data } = useQuery({
     queryKey: ["homepage", "categories"],
@@ -78,8 +81,10 @@ export function CategoriesGrid() {
                   {imgSrc ? (
                     <ShimmerImage
                       src={heroSrcsetResult?.src ?? imgSrc}
-                      alt={item.name}
+                      alt={buildCollectionImageAlt(item.name, "flowers", language, city?.name ?? "")}
                       className="absolute inset-0 object-cover transition-transform duration-700 group-hover:scale-105"
+                      width={400}
+                      height={200}
                       priority={i === 0}
                       srcset={heroSrcsetResult?.srcset}
                       sizes={

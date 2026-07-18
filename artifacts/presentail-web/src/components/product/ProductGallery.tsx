@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Heart, Maximize2, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import { ProductLightbox } from "./ProductLightbox";
 import { buildOsImageSrcset, buildOsProxyUrl } from "@/lib/imageUtils";
+import { buildProductImageAlt } from "@/lib/imageAlt";
 
 type Props = {
   images: { uri: string }[];
@@ -14,7 +16,8 @@ type Props = {
 };
 
 export function ProductGallery({ images, productName, onShare, onFavorite, isFavorited }: Props) {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const { city } = useLocationSelection();
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const list = images.length > 0 ? images : [{ uri: "" }];
@@ -51,7 +54,11 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
                   <img
                     src={buildOsProxyUrl(img.uri, 160)}
                     alt={`${productName} — image ${i + 1}`}
+                    width={80}
+                    height={80}
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div className="w-full h-full" />
@@ -66,7 +73,9 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
           {current.uri ? (
             <img
               src={mainImageResponsive?.src ?? current.uri}
-              alt={productName}
+              alt={buildProductImageAlt({ name: productName }, language, city?.name ?? "")}
+              width={800}
+              height={800}
               className="w-full h-full object-cover"
               loading="eager"
               fetchPriority="high"

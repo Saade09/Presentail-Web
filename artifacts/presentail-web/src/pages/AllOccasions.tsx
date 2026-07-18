@@ -1,6 +1,7 @@
 import { useCatalogMetadata } from "@/lib/queries";
 import { catalogAssetUrl } from "@/lib/catalogAssets";
 import { buildCatalogImageSrcset } from "@/lib/imageUtils";
+import { buildCollectionImageAlt } from "@/lib/imageAlt";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -140,7 +141,9 @@ const OCCASION_LABEL_KEYS: Record<string, string> = {
 
 function OccasionCard({ occasion, index }: OccasionCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
-  const { t } = useLocale();
+  const { t, language, cityName } = useLocale();
+  const { city } = useLocationSelection();
+  const cityLabel = city ? cityName(city.id, city.name) : "";
   const Icon = getIcon(occasion.icon ?? "");
   const photoUri = !imgFailed ? catalogAssetUrl(occasion.image ?? undefined) : null;
   const labelKey = OCCASION_LABEL_KEYS[occasion.id];
@@ -169,7 +172,9 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
               return (
                 <img
                   src={catalogSrcset?.src ?? photoUri}
-                  alt={displayName}
+                  alt={buildCollectionImageAlt(displayName, "occasion", language, cityLabel)}
+                  width={160}
+                  height={160}
                   className="w-full h-full object-cover"
                   loading="lazy"
                   {...(catalogSrcset

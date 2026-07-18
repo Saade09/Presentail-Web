@@ -1054,7 +1054,7 @@ function CardPreviewDialog({
     <>
       <img
         src={cardStationery}
-        alt=""
+        alt="" // image-alt-ok: decorative stationery background, purely presentational
         width={1536}
         height={1024}
         className="absolute inset-0 h-full w-full"
@@ -1069,7 +1069,7 @@ function CardPreviewDialog({
       >
         <img
           src={cardLogo}
-          alt=""
+          alt="" // image-alt-ok: decorative logo watermark inside aria-hidden wrapper
           width={dir === "rtl" ? 3250 : 4167}
           height={dir === "rtl" ? 792 : 2383}
           style={{ height: "38%", width: "auto", objectFit: "contain" }}

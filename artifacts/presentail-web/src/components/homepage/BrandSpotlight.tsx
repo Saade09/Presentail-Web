@@ -5,6 +5,7 @@ import { useBrands } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { ShimmerImage } from "@/components/ShimmerImage";
+import { buildCollectionImageAlt } from "@/lib/imageAlt";
 
 interface SpotlightCardProps {
   brand: { id: number | string; slug: string; name: string; image?: string | null };
@@ -12,6 +13,8 @@ interface SpotlightCardProps {
 }
 
 function SpotlightCard({ brand, index }: SpotlightCardProps) {
+  const { language } = useLocale();
+  const { city } = useLocationSelection();
   return (
     <motion.div
       key={brand.id}
@@ -28,7 +31,9 @@ function SpotlightCard({ brand, index }: SpotlightCardProps) {
         {brand.image ? (
           <ShimmerImage
             src={brand.image}
-            alt={brand.name}
+            alt={buildCollectionImageAlt(brand.name, "flowers", language, city?.name ?? "")}
+            width={200}
+            height={200}
             className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-500"
             fallback={
               <span className="font-serif text-base md:text-lg text-primary group-hover:text-gold transition-colors">

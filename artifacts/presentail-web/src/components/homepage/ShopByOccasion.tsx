@@ -43,7 +43,7 @@ function OccasionIcon({
     return (
       <img
         src={catalogSrcset?.src ?? img}
-        alt=""
+        alt="" // image-alt-ok: decorative occasion icon, meaning conveyed by adjacent text label
         className="w-7 h-7 md:w-8 md:h-8 object-contain"
         loading="lazy"
         decoding="async"

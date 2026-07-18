@@ -8,6 +8,7 @@
 
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
+import { buildProductImageAlt } from "./imageAlt.mjs";
 
 const PAGINATION_PAGE_SIZE = 24;
 const PAGINATION_SITEMAP_MAX_PAGES = 10;
@@ -54,7 +55,7 @@ export function escXml(s) {
  * @param {object} args
  * @param {string} args.origin       - e.g. "https://presentail.com"
  * @param {string} args.basePath     - deploy prefix, e.g. "/" or "/web"
- * @param {Array}  [args.products]   - [{ slug }]
+ * @param {Array}  [args.products]   - [{ slug, name?, imageUrl? }]
  * @param {Array}  [args.brands]     - [{ slug }]
  * @param {Array}  [args.occasions]  - [{ id, count }]
  * @param {Array}  [args.categories] - [{ id, count }]
@@ -111,7 +112,8 @@ export function buildSitemapXml({
   // variant via <xhtml:link rel="alternate" hreflang>. `rest` is the path after
   // the `/{lang}-{country}/{city}` prefix ("" for the home page, otherwise
   // beginning with "/"). x-default points at the English variant.
-  const urlEntryWithAlternates = (priority, changefreq, country, city, rest) => {
+  // `imageBlock` is an optional <image:image> XML string to embed for product URLs.
+  const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "") => {
     const loc = origin + cleanBase + `/en-${country}/${city}${rest}`;
     const alternates = SITEMAP_LANGS.map((altLang) => {
       const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
@@ -122,7 +124,25 @@ export function buildSitemapXml({
     alternates.push(
       `    <xhtml:link rel="alternate" hreflang="x-default" href="${escXml(xDefaultHref)}"/>`,
     );
-    return `  <url>\n    <loc>${escXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n${alternates.join("\n")}\n  </url>`;
+    const imageSection = imageBlock ? `\n${imageBlock}` : "";
+    return `  <url>\n    <loc>${escXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n${alternates.join("\n")}${imageSection}\n  </url>`;
+  };
+
+  /**
+   * Build an <image:image> block for a product's primary photo.
+   * @param {string} imageUrl
+   * @param {string} title
+   * @param {string} caption
+   */
+  const buildImageBlock = (imageUrl, title, caption) => {
+    if (!imageUrl) return "";
+    return (
+      `    <image:image>\n` +
+      `      <image:loc>${escXml(imageUrl)}</image:loc>\n` +
+      `      <image:title>${escXml(title)}</image:title>\n` +
+      `      <image:caption>${escXml(caption)}</image:caption>\n` +
+      `    </image:image>`
+    );
   };
 
   const urls = [];
@@ -144,12 +164,21 @@ export function buildSitemapXml({
   }
 
   // 2. Products — canonical-city URLs per country (each block carries all
-  // language alternates).
+  // language alternates). When a product has a primary image URL and name,
+  // an <image:image> extension is embedded for Google Images discovery.
   for (const product of products) {
     if (!product?.slug) continue;
     const encoded = encodeURIComponent(product.slug);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      urls.push(urlEntryWithAlternates("0.8", "weekly", country, city, `/product/${encoded}`));
+      const imageBlock =
+        product.imageUrl && product.name
+          ? buildImageBlock(
+              product.imageUrl,
+              product.name,
+              buildProductImageAlt({ name: product.name }, "en", city.charAt(0).toUpperCase() + city.slice(1)),
+            )
+          : "";
+      urls.push(urlEntryWithAlternates("0.8", "weekly", country, city, `/product/${encoded}`, imageBlock));
     }
   }
 
@@ -269,7 +298,7 @@ export function buildSitemapXml({
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urls.join("\n")}
 </urlset>`;
 }
@@ -295,10 +324,20 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
     fetchJson(`${apiBaseUrl}/api/catalog/metadata`),
   ]);
 
+  // Normalise the product list: extract the slug, primary image URL, and name
+  // so buildSitemapXml can embed <image:image> extensions without knowing the
+  // raw API response shape.
+  const rawProducts = productsData?.products ?? [];
+  const products = rawProducts.map((p) => ({
+    slug: p.slug,
+    name: p.name ?? null,
+    imageUrl: p.image?.uri ?? p.images?.[0]?.url ?? p.images?.[0]?.uri ?? null,
+  }));
+
   return buildSitemapXml({
     origin,
     basePath,
-    products: productsData?.products ?? [],
+    products,
     brands: brandsData?.brands ?? [],
     occasions: catalogData?.occasions ?? [],
     categories: catalogData?.categories ?? [],
