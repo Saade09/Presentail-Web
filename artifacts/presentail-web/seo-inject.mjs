@@ -461,9 +461,13 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   if (emitJsonLd) {
     // Organization is the brand entity — emit on every public, indexable page.
     jsonLdNodes.push(buildOrganizationSchema(siteUrl));
-    // WebSite identifies the site as a whole. Emit on every public page so
-    // crawlers always have a site-level anchor regardless of entry point.
-    jsonLdNodes.push(buildWebSiteSchema(siteUrl));
+    // WebSite identifies the site as a whole. Only emit on the homepage
+    // (routeKey "home" = locale city root, "landing" = bare root "/") so each
+    // page has a single, unambiguous site-level anchor. Content pages (shop,
+    // brands, occasions, terms, etc.) do not repeat it.
+    if (routeKey === "home" || routeKey === "landing") {
+      jsonLdNodes.push(buildWebSiteSchema(siteUrl));
+    }
   }
 
   // LocalBusiness (Florist) + Home > {City} breadcrumb on city homepages —
@@ -2096,15 +2100,19 @@ export function buildProductHead({
   const title = rawName ? seo.title : "Presentail";
   const description =
     seo.description || genericFallbackDescription(lang, "product");
-  // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
-  // by the API). When provided it takes precedence over the raw product photo
-  // so WhatsApp / iMessage / Slack previews show a Presentail-branded card
-  // rather than a plain product photo.
-  const imageUrl = ogImageUrl ||
+  // Raw product image — used for the Product JSON-LD schema (canonical image
+  // of the product itself) and as the og:image fallback when no branded card
+  // is available.
+  const rawProductImageUri =
     (product.image && typeof product.image.uri === "string" && product.image.uri) ||
     (Array.isArray(product.images) &&
       product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
     null;
+  // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
+  // by the API). When provided it takes precedence over the raw product photo
+  // for og:image so WhatsApp / iMessage / Slack previews show a
+  // Presentail-branded card rather than a plain product photo.
+  const imageUrl = ogImageUrl || rawProductImageUri;
 
   const inStock = product.inStock !== false;
 
@@ -2180,10 +2188,11 @@ export function buildProductHead({
     "@type": "Product",
     name: rawName || "Presentail",
     ...(rawDesc ? { description: clampDescription(stripHtml(rawDesc), 300) } : {}),
-    ...(imageUrl ? { image: imageUrl } : {}),
+    ...(rawProductImageUri ? { image: rawProductImageUri } : {}),
     ...(sku ? { sku } : {}),
     url: canonicalUrl,
-    // Use the actual brand name from the product; omit if unavailable.
+    // Use the actual brand name from the product; omit if unavailable so the
+    // schema never emits a misleading fallback for unbranded items.
     ...(() => {
       const bName =
         (product.brand && typeof product.brand.name === "string" && product.brand.name.trim()) ||
@@ -2454,11 +2463,12 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   ];
   // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
   // expandable FAQ rich results for brand detail pages. Mirrors the pattern
-  // used for category and occasion pages. Only emitted when the brand has a
-  // name AND has deliverable products — the UI suppresses the FAQ section on
-  // empty brand pages so the schema must match what the visitor actually sees.
+  // used for category and occasion pages. Suppressed only when productCount is
+  // explicitly 0 (empty brand page). When productCount is null/undefined (the
+  // count fetch failed or was not performed) we still emit so the rich result
+  // is never silently dropped due to a transient upstream error.
   let brandBodyFaqItems = [];
-  if (rawName && productCount > 0) {
+  if (rawName && productCount !== 0) {
     const pickLangFaq = (/** @type {string} */ l) => {
       if (l === "ar" || l === "fr") return l;
       return "en";

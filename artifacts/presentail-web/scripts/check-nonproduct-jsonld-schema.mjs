@@ -90,32 +90,32 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Terms page (/en-lb/beirut/terms)",
-    expectTypes: ["Organization", "WebSite", "WebPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "WebPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/terms", SHARED_OPTS).headSnippet,
   },
   {
     label: "Contact page (/en-lb/beirut/contact)",
-    expectTypes: ["Organization", "WebSite", "ContactPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "ContactPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/contact", SHARED_OPTS).headSnippet,
   },
   {
     label: "FAQs page (/en-lb/beirut/faqs)",
-    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/faqs", SHARED_OPTS).headSnippet,
   },
   {
     label: "Shop page (/en-lb/beirut/shop)",
-    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/shop", SHARED_OPTS).headSnippet,
   },
   {
     label: "Brands listing page (/en-lb/beirut/brands)",
-    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/brands", SHARED_OPTS).headSnippet,
   },
   {
     label: "Occasions listing page (/en-lb/beirut/occasions)",
-    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut/occasions", SHARED_OPTS).headSnippet,
   },
   {
@@ -190,11 +190,11 @@ export const NONPRODUCT_FIXTURES = [
         items: SAMPLE_LISTING_ITEMS,
       }).headSnippet,
   },
-  // Arabic locale fixture — validates WebSite on a non-home page and that
-  // BreadcrumbList names are in Arabic (not English) for AR routes.
+  // Arabic locale fixture — validates BreadcrumbList names are in Arabic
+  // (not English) for AR routes. WebSite is only emitted on home routes.
   {
     label: "Arabic shop page (/ar-lb/beirut/shop) — localized breadcrumb",
-    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],
     build: () => {
       const snippet = buildSeoHead("/ar-lb/beirut/shop", SHARED_OPTS).headSnippet;
       // Assert the breadcrumb uses the Arabic label "تسوّق" not the EN label "Shop"
@@ -211,11 +211,11 @@ export const NONPRODUCT_FIXTURES = [
       return snippet;
     },
   },
-  // French locale fixture — validates WebSite on a non-home page and that
-  // BreadcrumbList names are in French for FR routes.
+  // French locale fixture — validates BreadcrumbList names are in French for
+  // FR routes. WebSite is only emitted on home routes.
   {
     label: "French brands page (/fr-lb/beirut/brands) — localized breadcrumb",
-    expectTypes: ["Organization", "WebSite", "FAQPage", "BreadcrumbList"],
+    expectTypes: ["Organization", "FAQPage", "BreadcrumbList"],
     build: () => {
       const snippet = buildSeoHead("/fr-lb/beirut/brands", SHARED_OPTS).headSnippet;
       const nodes = extractAllJsonLd(snippet);

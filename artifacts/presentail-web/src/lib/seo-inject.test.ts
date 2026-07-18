@@ -41,7 +41,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       "/en-ae/dubai/product/velvet-rose-bouquet",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock).toHaveBeenCalledTimes(1); // entity API only — branded og-image used (no CDN image probe)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/product?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
@@ -51,7 +51,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       'content="A dozen long-stem velvet roses, hand-tied."',
     );
     expect(out).toContain(
-      '<meta property="og:image" content="https://cdn.test/velvet.jpg"',
+      '<meta property="og:image" content="https://presentail.test/api/og-image/product/velvet-rose-bouquet"',
     );
     expect(out).toContain('<meta property="og:type" content="product"');
     // AE market: price is converted from USD to AED (3.6725 peg): 89.5 × 3.6725 = 328.69
@@ -115,7 +115,7 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
       "/en-ae/dubai/brand/acme-florals",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + brand-products count
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/brand?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=acme-florals");
     expect(out).toContain("<title>Acme Florals | Presentail</title>");
@@ -280,13 +280,13 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       ...OPTS,
       search: "?occasion=birthday",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (branded og-image, no CDN probe)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday");
     expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
     expect(out).toContain('content="Make every birthday memorable."');
     expect(out).toContain(
-      '<meta property="og:image" content="https://cdn.test/birthday.jpg"',
+      '<meta property="og:image" content="https://presentail.test/api/og-image/occasion/birthday"',
     );
     expect(out).toContain(
       '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday"',
@@ -387,7 +387,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       callOpts,
     );
     expect(entityFetchCount).toBe(1);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image used — no CDN image probe
     expect(out1).toContain("<title>Cache Hit Occasion Flowers &amp; Gifts in Dubai | Presentail</title>");
 
     // Second call immediately (TTL not expired, no ETag): served from cache.
@@ -397,7 +397,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       callOpts,
     );
     expect(entityFetchCount).toBe(1); // entity served from cache
-    expect(dimsFetchCount).toBe(1);   // dims served from cache
+    expect(dimsFetchCount).toBe(0);   // still 0 — branded og-image, no probe
     expect(out2).toContain("<title>Cache Hit Occasion Flowers &amp; Gifts in Dubai | Presentail</title>");
 
     vi.unstubAllGlobals();
@@ -444,13 +444,13 @@ describe("injectSeoTagsAsync — /occasion/:slug (clean path)", () => {
       "/en-ae/dubai/occasion/birthday-path-unique",
       CLEAN_PATH_OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (branded og-image, no CDN probe)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-path-unique");
     expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
     expect(out).toContain('content="Make every birthday memorable."');
     expect(out).toContain(
-      '<meta property="og:image" content="https://cdn.test/birthday-clean.jpg"',
+      '<meta property="og:image" content="https://presentail.test/api/og-image/occasion/birthday-path-unique"',
     );
     expect(out).toContain(
       '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday-path-unique"',
@@ -1135,8 +1135,9 @@ describe("injectSeoTagsAsync — entity pages with image: og:image:alt and twitt
       "/en-lb/beirut/product/sunflower-bunch",
       OPTS,
     );
-    expect(out).not.toContain('property="og:image:width"');
-    expect(out).not.toContain('property="og:image:height"');
+    // Branded og-image always carries fixed 1200×630 dimensions.
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
   });
 
   it("emits og:image:alt and twitter:image:alt for a brand with an image", async () => {
@@ -1186,11 +1187,12 @@ describe("injectSeoTagsAsync — entity pages with no image: /opengraph.jpg fall
       "/en-ae/dubai/product/mystery-box",
       OPTS,
     );
+    // null product image → branded og-image is used (publicOrigin + slug).
     expect(out).toContain(
-      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+      'property="og:image" content="https://presentail.test/api/og-image/product/mystery-box"',
     );
-    expect(out).toContain('<meta property="og:image:width" content="1280"');
-    expect(out).toContain('<meta property="og:image:height" content="720"');
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
     expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
@@ -1577,7 +1579,7 @@ describe("parseDimsFromBuffer — unknown / short buffers", () => {
 const DIMS_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const DIMS_OPTS = {
   apiBaseUrl: "https://api.dims-test",
-  origin: "https://presentail.dims-test",
+  origin: "",
   basePath: "",
 };
 
@@ -1806,7 +1808,7 @@ describe("og:image:width / og:image:height via injectSeoTagsAsync", () => {
 const CACHE_INV_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const CACHE_INV_OPTS = {
   apiBaseUrl: "https://api.cache-inv-test",
-  origin: "https://presentail.cache-inv-test",
+  origin: "",
   basePath: "",
 };
 
@@ -1937,7 +1939,12 @@ describe("image dims cache invalidation — brand (string image field)", () => {
     let dimsFetchCount = 0;
 
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
-      if (String(url).includes("/api/woo/brand")) {
+      const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        // product-count fetch — not an entity fetch
+        return { ok: true, json: async () => ({ ok: true, count: 5 }) };
+      }
+      if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
         return {
           ok: true,
@@ -2833,7 +2840,7 @@ describe("seo_entity_fetch_failed analytics event — emitted on entity lookup f
 const ETAG_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const ETAG_OPTS = {
   apiBaseUrl: "https://api.etag-test",
-  origin: "https://presentail.etag-test",
+  origin: "",
   basePath: "",
 };
 
@@ -2910,6 +2917,10 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
 
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        // product-count fetch — not an entity fetch
+        return { ok: true, json: async () => ({ ok: true, count: 5 }) };
+      }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
         const ifNoneMatch = (init?.headers as Record<string, string> | undefined)?.["If-None-Match"];
@@ -3295,7 +3306,7 @@ function makePngBufferSimple(w: number, h: number): ArrayBuffer {
 const L2_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 const L2_OPTS = {
   apiBaseUrl: "https://api.l2-test",
-  origin: "https://presentail.l2-test",
+  origin: "",
   basePath: "",
 };
 
@@ -3900,6 +3911,10 @@ describe("shared-link preview cache — cache-hit skips upstream (brand)", () =>
 
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        // product-count fetch — not an entity fetch
+        return { ok: true, json: async () => ({ ok: true, count: 3 }) };
+      }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
         return {
@@ -3998,6 +4013,10 @@ describe("shared-link preview cache — null result is NOT cached", () => {
 
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        // product-count fetch — not an entity fetch
+        return { ok: true, json: async () => ({ ok: true, count: 2 }) };
+      }
       if (u.includes("/api/woo/brand")) {
         entityFetchCount++;
         if (entityFetchCount === 1) {
@@ -4439,6 +4458,8 @@ const byType = (blocks: any[], type: string) =>
 
 describe("JSON-LD — Product rich result on /product/<slug>", () => {
   it("emits a valid Product schema with name, image, brand and an in-stock offer", async () => {
+    // Uses a slug not shared with other tests to avoid module-level cache
+    // contamination: earlier tests cache "velvet-rose-bouquet" without brand.
     mockFetchOnce({
       ok: true,
       product: {
@@ -4447,11 +4468,12 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
         image: { uri: "https://cdn.test/velvet.jpg" },
         priceValue: 89.5,
         inStock: true,
+        brand: { name: "Presentail" },
       },
     });
     const out = await injectSeoTagsAsync(
       HTML,
-      "/en-ae/dubai/product/velvet-rose-bouquet",
+      "/en-ae/dubai/product/branded-rose-collection",
       OPTS,
     );
     const blocks = extractJsonLd(out);
@@ -4462,7 +4484,7 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     expect(product.image).toBe("https://cdn.test/velvet.jpg");
     expect(product.brand).toEqual({ "@type": "Brand", name: "Presentail" });
     expect(product.url).toBe(
-      "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
+      "https://presentail.test/en-ae/dubai/product/branded-rose-collection",
     );
     // Offer carries shippingDetails + hasMerchantReturnPolicy so the listing
     // qualifies for Google's enhanced/free merchant results.
@@ -4475,7 +4497,7 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
       priceCurrency: "AED",
       availability: "https://schema.org/InStock",
       itemCondition: "https://schema.org/NewCondition",
-      url: "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
+      url: "https://presentail.test/en-ae/dubai/product/branded-rose-collection",
       shippingDetails: {
         "@type": "OfferShippingDetails",
         shippingRate: {
