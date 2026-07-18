@@ -68,12 +68,17 @@ describe("buildSitemapXml", () => {
     expect(xml).not.toContain("/occasion/empty-occasion");
   });
 
+  it("does not include /llms.txt or /llms-full.txt in the sitemap", () => {
+    expect(xml).not.toContain("/llms.txt");
+    expect(xml).not.toContain("/llms-full.txt");
+  });
+
   it("emits hreflang alternates for en/ar/fr + x-default on every <url> with a prefix", () => {
     const doc = parse(xml);
     const urlNodes = Array.from(doc.getElementsByTagName("url"));
 
-    // Locale-prefixed entries (every entry except the three language-agnostic
-    // ones: root "/", /llms.txt, /llms-full.txt) must carry alternates.
+    // Locale-prefixed entries (every entry except the one language-agnostic
+    // one: root "/") must carry alternates.
     const prefixed = urlNodes.filter((u) => {
       const loc = u.getElementsByTagName("loc")[0]?.textContent ?? "";
       return /\/(en|ar|fr)-(lb|ae|cy)\//.test(loc);

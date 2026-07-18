@@ -96,11 +96,6 @@ export function buildSitemapXml({
   // 0. Root landing page (un-prefixed, language-agnostic entry point).
   urls.push(urlEntry("/", "1.0", "weekly"));
 
-  // 0a. LLMs.txt discovery — machine-readable content index for AI crawlers.
-  // Listed early so crawlers encounter them before the long locale-path block.
-  urls.push(urlEntry("/llms.txt", "0.5", "monthly"));
-  urls.push(urlEntry("/llms-full.txt", "0.5", "monthly"));
-
   // 1. Static locale pages — one <url> per country × city, each carrying its
   // language alternates (so the three languages collapse into a single block
   // instead of three separate <url> entries).
