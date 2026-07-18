@@ -46,6 +46,8 @@ import adminCollectionRankingRouter from "./adminCollectionRanking";
 import pageDescriptionsRouter from "./pageDescriptions";
 import adminRankingMetricsRouter from "./adminRankingMetrics";
 import adminPlantClassificationsRouter from "./adminPlantClassifications";
+import seoAuditRouter from "./seoAuditRoutes";
+import adminSeoDashboardRouter from "./adminSeoDashboard";
 
 const router: IRouter = Router();
 
@@ -96,5 +98,7 @@ router.use(adminRankingMetricsRouter);
 router.use(adminPlantClassificationsRouter);
 router.use(ogImageRouter);
 router.use(webEventsRouter);
+router.use(seoAuditRouter);
+router.use(adminSeoDashboardRouter);
 
 export default router;

@@ -111,6 +111,10 @@ import type {
   PushUnregisterRequest,
   PushUnregisterResponse,
   ReferralCodeResponse,
+  SeoAuditHistoryResponse,
+  SeoAuditLatestResponse,
+  SeoAuditRunByIdResponse,
+  SeoAuditRunResponse,
   SharedFavoritesResponse,
   StuffedAnimalsSizesResponse,
   WooOrderRequest,
@@ -126,6 +130,328 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * Returns the most recent seo_audit_runs row with full check results. Requires admin token.
+ * @summary Get latest SEO audit run
+ */
+export const getGetSeoAuditLatestUrl = () => {
+  return `/api/seo/audit/latest`;
+};
+
+export const getSeoAuditLatest = async (
+  options?: RequestInit,
+): Promise<SeoAuditLatestResponse> => {
+  return customFetch<SeoAuditLatestResponse>(getGetSeoAuditLatestUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSeoAuditLatestQueryKey = () => {
+  return [`/api/seo/audit/latest`] as const;
+};
+
+export const getGetSeoAuditLatestQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSeoAuditLatest>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoAuditLatest>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSeoAuditLatestQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSeoAuditLatest>>
+  > = ({ signal }) => getSeoAuditLatest({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoAuditLatest>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSeoAuditLatestQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSeoAuditLatest>>
+>;
+export type GetSeoAuditLatestQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get latest SEO audit run
+ */
+
+export function useGetSeoAuditLatest<
+  TData = Awaited<ReturnType<typeof getSeoAuditLatest>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoAuditLatest>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSeoAuditLatestQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Starts a full SEO audit asynchronously and returns immediately. Requires admin token.
+ * @summary Trigger a new SEO audit run
+ */
+export const getTriggerSeoAuditRunUrl = () => {
+  return `/api/seo/audit/run`;
+};
+
+export const triggerSeoAuditRun = async (
+  options?: RequestInit,
+): Promise<SeoAuditRunResponse> => {
+  return customFetch<SeoAuditRunResponse>(getTriggerSeoAuditRunUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getTriggerSeoAuditRunMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerSeoAuditRun>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof triggerSeoAuditRun>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["triggerSeoAuditRun"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof triggerSeoAuditRun>>,
+    void
+  > = () => {
+    return triggerSeoAuditRun(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TriggerSeoAuditRunMutationResult = NonNullable<
+  Awaited<ReturnType<typeof triggerSeoAuditRun>>
+>;
+
+export type TriggerSeoAuditRunMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Trigger a new SEO audit run
+ */
+export const useTriggerSeoAuditRun = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerSeoAuditRun>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof triggerSeoAuditRun>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getTriggerSeoAuditRunMutationOptions(options));
+};
+
+/**
+ * Returns a specific audit run row including full summaryJson. Requires admin token.
+ * @summary Get a specific SEO audit run by ID
+ */
+export const getGetSeoAuditRunByIdUrl = (id: number) => {
+  return `/api/seo/audit/run/${id}`;
+};
+
+export const getSeoAuditRunById = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SeoAuditRunByIdResponse> => {
+  return customFetch<SeoAuditRunByIdResponse>(getGetSeoAuditRunByIdUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSeoAuditRunByIdQueryKey = (id: number) => {
+  return [`/api/seo/audit/run/${id}`] as const;
+};
+
+export const getGetSeoAuditRunByIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSeoAuditRunById>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSeoAuditRunById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSeoAuditRunByIdQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSeoAuditRunById>>
+  > = ({ signal }) => getSeoAuditRunById(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoAuditRunById>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSeoAuditRunByIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSeoAuditRunById>>
+>;
+export type GetSeoAuditRunByIdQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a specific SEO audit run by ID
+ */
+
+export function useGetSeoAuditRunById<
+  TData = Awaited<ReturnType<typeof getSeoAuditRunById>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSeoAuditRunById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSeoAuditRunByIdQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the last 10 audit run summaries (without full check details). Requires admin token.
+ * @summary Get SEO audit run history
+ */
+export const getGetSeoAuditHistoryUrl = () => {
+  return `/api/seo/audit/history`;
+};
+
+export const getSeoAuditHistory = async (
+  options?: RequestInit,
+): Promise<SeoAuditHistoryResponse> => {
+  return customFetch<SeoAuditHistoryResponse>(getGetSeoAuditHistoryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSeoAuditHistoryQueryKey = () => {
+  return [`/api/seo/audit/history`] as const;
+};
+
+export const getGetSeoAuditHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSeoAuditHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoAuditHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSeoAuditHistoryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSeoAuditHistory>>
+  > = ({ signal }) => getSeoAuditHistory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoAuditHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSeoAuditHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSeoAuditHistory>>
+>;
+export type GetSeoAuditHistoryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get SEO audit run history
+ */
+
+export function useGetSeoAuditHistory<
+  TData = Awaited<ReturnType<typeof getSeoAuditHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoAuditHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSeoAuditHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),

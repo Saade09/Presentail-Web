@@ -2008,6 +2008,72 @@ export interface NextOrderIdResponse {
   orderId: string;
 }
 
+export type AuditCheckResultSeverity =
+  (typeof AuditCheckResultSeverity)[keyof typeof AuditCheckResultSeverity];
+
+export const AuditCheckResultSeverity = {
+  critical: "critical",
+  warn: "warn",
+  pass: "pass",
+  info: "info",
+} as const;
+
+export interface AuditCheckResult {
+  checkId: string;
+  severity: AuditCheckResultSeverity;
+  label: string;
+  affectedUrls: string[];
+  recommendation: string;
+  requiresHumanApproval?: boolean;
+}
+
+export interface SeoAuditRun {
+  id?: number;
+  runId?: number | null;
+  runAt: string;
+  triggeredBy: string;
+  durationMs: number;
+  totalChecks: number;
+  criticalCount: number;
+  warnCount: number;
+  passCount: number;
+  checks: AuditCheckResult[];
+}
+
+export interface SeoAuditRunSummary {
+  id: number;
+  runAt: string;
+  triggeredBy: string;
+  durationMs?: number | null;
+  totalChecks?: number | null;
+  criticalCount?: number | null;
+  warnCount?: number | null;
+  passCount?: number | null;
+}
+
+export interface SeoAuditLatestResponse {
+  ok: boolean;
+  run?: SeoAuditRun;
+}
+
+export interface SeoAuditRunResponse {
+  ok: boolean;
+  /** The DB row ID of the created run. Poll GET /seo/audit/run/{runId} for results. */
+  runId?: number | null;
+  /** Always "started" for a 202 response. */
+  status: string;
+}
+
+export interface SeoAuditRunByIdResponse {
+  ok: boolean;
+  run?: SeoAuditRun;
+}
+
+export interface SeoAuditHistoryResponse {
+  ok: boolean;
+  rows: SeoAuditRunSummary[];
+}
+
 export type ProxyOsImageParams = {
   /**
    * Fully-qualified `https://os.presentail.com/api/storage/` image URL.

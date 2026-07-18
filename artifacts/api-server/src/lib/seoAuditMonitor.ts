@@ -25,6 +25,7 @@ import { desc, eq, gte, lt } from "drizzle-orm";
 import { db, monitorStateTable, seoAuditLogTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
+import { runSeoAudit } from "./seoAuditEngine";
 import {
   hasOsProducts,
   getOsProducts,
@@ -768,6 +769,40 @@ export async function runOnce(): Promise<void> {
     await persistAuditSummary(lastAuditSummary);
     await appendAuditLog(lastAuditSummary, "scheduled");
     await pruneOldAuditLog();
+
+    // Run the structured SEO quality audit engine (13 checks) alongside the
+    // daily OG-image digest. Results are persisted to seo_audit_runs by the
+    // engine itself; critical findings trigger a separate Slack alert.
+    runSeoAudit("scheduler")
+      .then(async (engineResult) => {
+        if (engineResult.criticalCount > 0) {
+          const criticalChecks = engineResult.checks.filter((c) => c.severity === "critical");
+          const lines = criticalChecks.map((c) => {
+            const sampleUrls = c.affectedUrls.slice(0, 3).join(", ") || "none";
+            return `  🔴 *${c.label}*: ${c.affectedUrls.length} affected — ${sampleUrls}`;
+          });
+          await sendAlert({
+            title: `SEO audit engine: ${engineResult.criticalCount} critical finding(s) — ${prevDay}`,
+            body:
+              `The scheduled SEO quality audit found ${engineResult.criticalCount} critical issue(s) ` +
+              `requiring immediate attention. View the full report at /api/admin/seo.\n${lines.join("\n")}`,
+            severity: "warn",
+            fields: [
+              { title: "Critical", value: String(engineResult.criticalCount) },
+              { title: "Warnings", value: String(engineResult.warnCount) },
+              { title: "Pass/Info", value: String(engineResult.passCount) },
+              { title: "Date", value: prevDay },
+            ],
+            source: "seoAuditMonitor.engine",
+          });
+        }
+      })
+      .catch((err) => {
+        logger.warn(
+          { err: (err as Error)?.message },
+          "seoAuditMonitor: SEO engine run failed — OG digest continues",
+        );
+      });
 
     logger.info(
       {

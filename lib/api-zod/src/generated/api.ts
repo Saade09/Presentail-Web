@@ -8,6 +8,112 @@
 import * as zod from "zod";
 
 /**
+ * Returns the most recent seo_audit_runs row with full check results. Requires admin token.
+ * @summary Get latest SEO audit run
+ */
+export const GetSeoAuditLatestHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const GetSeoAuditLatestResponse = zod.object({
+  ok: zod.boolean(),
+  run: zod
+    .object({
+      id: zod.number().optional(),
+      runId: zod.number().nullish(),
+      runAt: zod.string(),
+      triggeredBy: zod.string(),
+      durationMs: zod.number(),
+      totalChecks: zod.number(),
+      criticalCount: zod.number(),
+      warnCount: zod.number(),
+      passCount: zod.number(),
+      checks: zod.array(
+        zod.object({
+          checkId: zod.string(),
+          severity: zod.enum(["critical", "warn", "pass", "info"]),
+          label: zod.string(),
+          affectedUrls: zod.array(zod.string()),
+          recommendation: zod.string(),
+          requiresHumanApproval: zod.boolean().optional(),
+        }),
+      ),
+    })
+    .optional(),
+});
+
+/**
+ * Starts a full SEO audit asynchronously and returns immediately. Requires admin token.
+ * @summary Trigger a new SEO audit run
+ */
+export const TriggerSeoAuditRunHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+/**
+ * Returns a specific audit run row including full summaryJson. Requires admin token.
+ * @summary Get a specific SEO audit run by ID
+ */
+export const GetSeoAuditRunByIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSeoAuditRunByIdHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const GetSeoAuditRunByIdResponse = zod.object({
+  ok: zod.boolean(),
+  run: zod
+    .object({
+      id: zod.number().optional(),
+      runId: zod.number().nullish(),
+      runAt: zod.string(),
+      triggeredBy: zod.string(),
+      durationMs: zod.number(),
+      totalChecks: zod.number(),
+      criticalCount: zod.number(),
+      warnCount: zod.number(),
+      passCount: zod.number(),
+      checks: zod.array(
+        zod.object({
+          checkId: zod.string(),
+          severity: zod.enum(["critical", "warn", "pass", "info"]),
+          label: zod.string(),
+          affectedUrls: zod.array(zod.string()),
+          recommendation: zod.string(),
+          requiresHumanApproval: zod.boolean().optional(),
+        }),
+      ),
+    })
+    .optional(),
+});
+
+/**
+ * Returns the last 10 audit run summaries (without full check details). Requires admin token.
+ * @summary Get SEO audit run history
+ */
+export const GetSeoAuditHistoryHeader = zod.object({
+  "x-push-admin-token": zod.string(),
+});
+
+export const GetSeoAuditHistoryResponse = zod.object({
+  ok: zod.boolean(),
+  rows: zod.array(
+    zod.object({
+      id: zod.number(),
+      runAt: zod.string(),
+      triggeredBy: zod.string(),
+      durationMs: zod.number().nullish(),
+      totalChecks: zod.number().nullish(),
+      criticalCount: zod.number().nullish(),
+      warnCount: zod.number().nullish(),
+      passCount: zod.number().nullish(),
+    }),
+  ),
+});
+
+/**
  * Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),
 resizes it to the requested pixel width, and returns it as WebP (or JPEG).
 Results are cached server-side in an LRU cache and returned with a

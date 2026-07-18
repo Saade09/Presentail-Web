@@ -50,7 +50,132 @@ tags:
     description: Category-level product classification endpoints
   - name: orders
     description: Order ID generation
+  - name: seo
+    description: SEO audit and quality monitoring endpoints
 paths:
+  /seo/audit/latest:
+    get:
+      operationId: getSeoAuditLatest
+      tags: [seo]
+      summary: Get latest SEO audit run
+      description: Returns the most recent seo_audit_runs row with full check results. Requires admin token.
+      parameters:
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Latest audit run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeoAuditLatestResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No audit run found yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /seo/audit/run:
+    post:
+      operationId: triggerSeoAuditRun
+      tags: [seo]
+      summary: Trigger a new SEO audit run
+      description: Starts a full SEO audit asynchronously and returns immediately. Requires admin token.
+      parameters:
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Audit started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeoAuditRunResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /seo/audit/run/{id}:
+    get:
+      operationId: getSeoAuditRunById
+      tags: [seo]
+      summary: Get a specific SEO audit run by ID
+      description: Returns a specific audit run row including full summaryJson. Requires admin token.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit run found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeoAuditRunByIdResponse"
+        "400":
+          description: Invalid ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Audit run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /seo/audit/history:
+    get:
+      operationId: getSeoAuditHistory
+      tags: [seo]
+      summary: Get SEO audit run history
+      description: Returns the last 10 audit run summaries (without full check details). Requires admin token.
+      parameters:
+        - name: x-push-admin-token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit run history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeoAuditHistoryResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /img/proxy:
     get:
       operationId: proxyOsImage
@@ -4912,3 +5037,113 @@ components:
       required:
         - ok
         - orderId
+    AuditCheckResult:
+      type: object
+      properties:
+        checkId:
+          type: string
+        severity:
+          type: string
+          enum: [critical, warn, pass, info]
+        label:
+          type: string
+        affectedUrls:
+          type: array
+          items:
+            type: string
+        recommendation:
+          type: string
+        requiresHumanApproval:
+          type: boolean
+      required: [checkId, severity, label, affectedUrls, recommendation]
+    SeoAuditRun:
+      type: object
+      properties:
+        id:
+          type: integer
+        runId:
+          type: integer
+          nullable: true
+        runAt:
+          type: string
+        triggeredBy:
+          type: string
+        durationMs:
+          type: integer
+        totalChecks:
+          type: integer
+        criticalCount:
+          type: integer
+        warnCount:
+          type: integer
+        passCount:
+          type: integer
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditCheckResult"
+      required: [runAt, triggeredBy, durationMs, totalChecks, criticalCount, warnCount, passCount, checks]
+    SeoAuditRunSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        runAt:
+          type: string
+        triggeredBy:
+          type: string
+        durationMs:
+          type: integer
+          nullable: true
+        totalChecks:
+          type: integer
+          nullable: true
+        criticalCount:
+          type: integer
+          nullable: true
+        warnCount:
+          type: integer
+          nullable: true
+        passCount:
+          type: integer
+          nullable: true
+      required: [id, runAt, triggeredBy]
+    SeoAuditLatestResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        run:
+          $ref: "#/components/schemas/SeoAuditRun"
+      required: [ok]
+    SeoAuditRunResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        runId:
+          type: integer
+          nullable: true
+          description: The DB row ID of the created run. Poll GET /seo/audit/run/{runId} for results.
+        status:
+          type: string
+          description: Always "started" for a 202 response.
+      required: [ok, status]
+    SeoAuditRunByIdResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        run:
+          $ref: "#/components/schemas/SeoAuditRun"
+      required: [ok]
+    SeoAuditHistoryResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeoAuditRunSummary"
+      required: [ok, rows]
