@@ -5905,6 +5905,46 @@ describe("Client-side SEO builders — return shape (title, ogTitle, twitterTitl
     expect(seo.description.length).toBeGreaterThan(0);
   });
 
+  it("buildProductSeo truncates a very long product name so the title stays within 65 chars", () => {
+    // 70-char name — full title "Romantic Red Rose Bouquet with Personalised Teddy Bear and Chocolates — Beirut | Presentail" = 91 chars
+    const longName = "Romantic Red Rose Bouquet with Personalised Teddy Bear and Chocolates";
+    const seo = buildProductSeo({ lang: "en", productName: longName, city: "Beirut", country: "Lebanon" });
+    expect(seo.title.length).toBeLessThanOrEqual(65);
+    expect(seo.title).toContain("Beirut");
+    expect(seo.title).toContain("Presentail");
+    expect(seo.title).toContain("…");
+    expect(seo.ogTitle).toBe(seo.title);
+    expect(seo.twitterTitle).toBe(seo.title);
+  });
+
+  it("buildProductSeo truncated title is exactly PRODUCT_TITLE_HARD_MAX (65) chars", () => {
+    const longName = "Romantic Red Rose Bouquet with Personalised Teddy Bear and Chocolates";
+    const seo = buildProductSeo({ lang: "en", productName: longName, city: "Beirut", country: "Lebanon" });
+    expect(seo.title.length).toBe(65);
+  });
+
+  it("buildProductSeo does NOT truncate a short product name that fits within 65 chars", () => {
+    // "15 Red Roses — Beirut | Presentail" = 35 chars — well under the limit
+    const seo = buildProductSeo({ lang: "en", productName: "15 Red Roses", city: "Beirut", country: "Lebanon" });
+    expect(seo.title).toBe("15 Red Roses — Beirut | Presentail");
+    expect(seo.title).not.toContain("…");
+  });
+
+  it("buildProductSeo does NOT truncate when there is no city (no-city template has no guardrail)", () => {
+    const longName = "Romantic Red Rose Bouquet with Personalised Teddy Bear and Chocolates";
+    const seo = buildProductSeo({ lang: "en", productName: longName, city: "", country: "" });
+    expect(seo.title).toContain(longName);
+    expect(seo.title).not.toContain("…");
+  });
+
+  it("buildProductSeo truncation works for long names in the longest city (Minnieh-Denniyeh, 16 chars)", () => {
+    const longName = "A".repeat(50);
+    const seo = buildProductSeo({ lang: "en", productName: longName, city: "Minnieh-Denniyeh", country: "Lebanon" });
+    expect(seo.title.length).toBeLessThanOrEqual(65);
+    expect(seo.title).toContain("Minnieh-Denniyeh");
+    expect(seo.title).toContain("…");
+  });
+
   it("buildCategorySeo returns entity-specific title for EN with city and name", () => {
     const seo = buildCategorySeo({ lang: "en", categoryName: "Plants", city: "Beirut", country: "Lebanon" });
     expect(seo.title).toBe("Plants Delivery in Beirut | Presentail");

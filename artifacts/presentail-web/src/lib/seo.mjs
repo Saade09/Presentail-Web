@@ -762,19 +762,39 @@ export function buildOccasionSeo({ lang, occasionName, city, country, productCou
   });
 }
 
+// Maximum character length for product page titles before Google truncates them
+// in SERPs. When the full "{name} — {city} | Presentail" exceeds this limit,
+// the product name is shortened with an ellipsis so the city and brand suffix
+// always remain visible. This mirrors the FAQ/Contact page guardrail pattern.
+const PRODUCT_TITLE_HARD_MAX = 65;
+
 export function buildProductSeo({ lang, productName, city, country, shortDescription } = {}) {
   const l = pickLang(lang);
   const name = productName ?? "";
-  const params = { name, city: city ?? "", country: country ?? "" };
+  const cityVal = city ?? "";
+  const params = { name, city: cityVal, country: country ?? "" };
   const titleTpl = city ? ENTITY_TITLES.product[l] : ENTITY_TITLES_NO_CITY.product[l];
   const descTpl = city ? ENTITY_DESCRIPTIONS.product[l] : ENTITY_DESCRIPTIONS_NO_CITY.product[l];
   // Prefer the product's own short description when it fits within 160 chars.
   const clean = typeof shortDescription === "string" ? shortDescription.trim() : "";
   const description = clean && clean.length <= 160 ? clean : formatTemplate(descTpl, params);
-  return meta({
-    title: formatTemplate(titleTpl, params),
-    description,
-  });
+
+  // Title-length guardrail: when the city-qualified title would exceed
+  // PRODUCT_TITLE_HARD_MAX, truncate the product name so the " — {city} |
+  // Presentail" suffix always fits. The ellipsis counts as one character.
+  // No guardrail is applied to the no-city fallback (shorter by design).
+  let title = formatTemplate(titleTpl, params);
+  if (city && title.length > PRODUCT_TITLE_HARD_MAX) {
+    // Suffix that always follows the name in the city-qualified template.
+    const suffix = ` \u2014 ${cityVal} | Presentail`;
+    const maxNameLen = PRODUCT_TITLE_HARD_MAX - suffix.length - 1; // -1 for ellipsis
+    if (maxNameLen > 0 && name.length > maxNameLen) {
+      const truncatedName = name.slice(0, maxNameLen) + "\u2026";
+      title = formatTemplate(titleTpl, { ...params, name: truncatedName });
+    }
+  }
+
+  return meta({ title, description });
 }
 
 export function buildBrandSeo({ lang, brandName, city, country } = {}) {

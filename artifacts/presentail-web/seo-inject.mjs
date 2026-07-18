@@ -986,9 +986,8 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   if (routeKey === "home" && cityLabel && localeBase) {
     const safeCityLabel = escapeHtml(cityLabel);
     const safeCountryLabel = escapeHtml(countryLabel || cityLabel);
-    // i18n-ignore — static EN-only crawlers-only copy
     homeExtras =
-      `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>` +
+      `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>` + // i18n-ignore — static EN-only crawlers-only copy
       `<h2>Shop by Occasion in ${safeCityLabel}</h2>` + // i18n-ignore
       `<ul>` +
       FEATURED_HOME_OCCASIONS.map(({ slug, name }) =>
