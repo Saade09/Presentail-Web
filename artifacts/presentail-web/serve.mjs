@@ -23,6 +23,7 @@ import {
   generateLlmsFullTxt,
   resolveLlmsFullTxt,
 } from "./llms.mjs";
+import { resolveXRobotsTag as resolveXRobotsTagPure } from "./serve-robots.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -434,41 +435,9 @@ function extractLocalePrefix(pathname, basePath) {
   return m ? m[1] : "";
 }
 
-// Deny-list of route tokens that must carry noindex regardless of host.
-// Must mirror NONINDEX_ROUTE_KEYS in src/lib/seo.mjs:
-//   cart, checkout, orderConfirmed, auth, account, favorites,
-//   privacy, terms, careers, partner, blog.
-// Also covers auth-adjacent routes not in NONINDEX_ROUTE_KEYS directly:
-//   sign-in, sign-up, reset-password (mapped to key "auth" by detectRouteKey).
-// Keep in sync with public/robots.txt Disallow entries.
-//
-// "blog" is deliberately excluded from this regex: the listing page /blog IS
-// noindex (route key "blog"), but individual posts /blog/{slug} ARE indexed
-// (route key "blogPost"). A separate blog-listing check handles this case.
-const PRIVATE_ROUTE_RE =
-  /(?:^|\/)(?:cart|checkout|order-confirmed|auth|sign-in|sign-up|reset-password|account|personal-information|favorites|privacy|terms|careers|partner)(?:\/|$)/;
-
-/**
- * Returns true when the pathname resolves to a private page that must carry a
- * noindex directive. Matches both bare paths (/cart) and locale-prefixed
- * variants (/en-lb/beirut/cart).
- *
- * Implemented as a deny-list (not an allow-list) so new public pages are
- * automatically indexable without a code change.
- *
- * IMPORTANT: `blog` (the listing) is noindex but individual blog posts
- * (/blog/<slug>) are fully indexable. The two clauses below keep them
- * distinct — do not collapse them into a single pattern that matches both.
- */
-function isPrivatePath(pathname) {
-  if (PRIVATE_ROUTE_RE.test(pathname)) return true;
-  // Blog listing page (/blog or /{lang-country}/{city}/blog) is noindex;
-  // individual blog posts (/blog/{slug}) are public. Match listing only by
-  // requiring "blog" at the end of the path (with optional trailing slash).
-  return /(?:^|\/)blog\/?$/.test(pathname);
-}
-
-const CANONICAL_PRODUCTION_HOST = "presentail.com"; // i18n-ignore — canonical domain
+// All private-path and X-Robots-Tag logic lives in ./serve-robots.mjs.
+// resolveXRobotsTagPure is imported above; this file wraps it with the
+// runtime CURATED_FILTER_PAGES list via the resolveXRobotsTag() function below.
 
 // Retired country subdomains whose link equity must be consolidated into the
 // canonical apex.  Maps each lowercase, port-stripped hostname (as produced by
@@ -514,116 +483,8 @@ function alertCountrySubdomainBypass(subdomain, path) {
 }
 
 /**
- * Returns true when the query string contains at least one UTM tracking
- * parameter or Google click-ID parameter (gclid / gbraid / wbraid).
- * These parameters are used by marketing campaigns but must not produce
- * indexable duplicate pages — they are blocked in robots.txt and also
- * receive an x-robots-tag: noindex header as a belt-and-suspenders guard.
- */
-const UTM_PARAMS = new Set([
-  "utm_source", "utm_medium", "utm_campaign", "utm_id", "utm_term", "utm_content",
-  "gclid", "gbraid", "wbraid",
-]);
-function hasUtmParams(search) {
-  if (!search || search === "?") return false;
-  try {
-    const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-    for (const key of sp.keys()) {
-      if (UTM_PARAMS.has(key)) return true;
-    }
-  } catch {
-    // malformed query string — treat as no UTM params
-  }
-  return false;
-}
-
-// ---------------------------------------------------------------------------
-// Faceted-navigation / filter-param noindex guard
-//
-// Filter and utility parameters (sort, currency, delivery, availability,
-// price_min, price_max, page, ref, from, scroll) never produce a distinct
-// landing page. Any URL that carries one of these parameters and is not a
-// curated filter page receives `x-robots-tag: noindex, follow` so crawlers
-// that ignore the robots.txt Disallow rules still don't index duplicates.
-//
-// Must stay in sync with:
-//   - seo-inject.mjs FILTER_PARAMS_CANONICAL
-//   - robots.txt Disallow: /*?<param>= rules
-//   - scripts/src/canonicalNorm.ts FILTER_PARAMS
-// ---------------------------------------------------------------------------
-
-const FILTER_NOINDEX_PARAMS = new Set([
-  "sort",
-  "currency",
-  "delivery",
-  "availability",
-  "price_min",
-  "price_max",
-  "page",
-  "ref",
-  "from",
-  "scroll",
-]);
-
-/**
- * Returns true when the query string contains at least one filter/utility
- * parameter that never produces a distinct landing page.
- *
- * @param {string} search  URL query string (e.g. "?sort=price-asc").
- * @returns {boolean}
- */
-function hasFilterParams(search) {
-  if (!search || search === "?") return false;
-  try {
-    const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-    for (const key of sp.keys()) {
-      if (FILTER_NOINDEX_PARAMS.has(key)) return true;
-    }
-  } catch {
-    // malformed query string — treat as no filter params
-  }
-  return false;
-}
-
-/**
- * Returns true when the pathname + search match a curated filter landing page
- * entry (defined in CURATED_FILTER_PAGES from seo-inject.mjs).  Curated pages
- * are intentional filter-param URLs that should be indexed; they are exempt
- * from the faceted-navigation noindex guard.
- *
- * @param {string} pathname  URL pathname.
- * @param {string} search    URL query string (e.g. "?delivery=today").
- * @returns {boolean}
- */
-function isCuratedFilterPage(pathname, search) {
-  if (!CURATED_FILTER_PAGES.length) return false;
-  try {
-    const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-    for (const entry of CURATED_FILTER_PAGES) {
-      if (entry.path !== pathname) continue;
-      const matchesAll = Object.entries(entry.params ?? {}).every(
-        ([k, v]) => sp.get(k) === String(v),
-      );
-      if (matchesAll) return true;
-    }
-  } catch { /* ignore */ }
-  return false;
-}
-
-/**
- * Returns the value for the X-Robots-Tag response header for an HTML response.
- *
- * Rules (applied in order):
- *  1. Private/transactional paths → "noindex" (regardless of host).
- *  2. UTM / click-ID marketing params → "noindex" (duplicate-content guard;
- *     mirrors the Disallow: /*?utm_* rules in robots.txt).
- *  3. Filter/utility params (sort, currency, delivery, etc.) → "noindex, follow"
- *     UNLESS the path+params match a curated filter landing page entry.
- *     (faceted-navigation crawl-budget guard; follow allows discovery of linked
- *     canonical pages even when this variant is not indexed).
- *  4. Canonical production host ("presentail.com") and public path → "index, follow".
- *  5. All other hosts (Replit preview URLs, staging, etc.) → omit the header
- *     entirely (return null) so the platform's default noindex applies.
+ * Local wrapper that forwards the runtime CURATED_FILTER_PAGES list to the
+ * pure resolveXRobotsTag function imported from serve-robots.mjs.
  *
  * @param {string} host      Normalised hostname (no port, lowercase).
  * @param {string} pathname  URL pathname (after BASE_PATH stripping).
@@ -631,11 +492,7 @@ function isCuratedFilterPage(pathname, search) {
  * @returns {string|null}    Header value, or null to omit the header.
  */
 function resolveXRobotsTag(host, pathname, search) {
-  if (isPrivatePath(pathname)) return "noindex";
-  if (hasUtmParams(search)) return "noindex";
-  if (hasFilterParams(search) && !isCuratedFilterPage(pathname, search || "")) return "noindex, follow";
-  if (host === CANONICAL_PRODUCTION_HOST) return "index, follow";
-  return null; // non-canonical host — omit; let platform default apply
+  return resolveXRobotsTagPure(host, pathname, search, CURATED_FILTER_PAGES);
 }
 
 const MIME = {
