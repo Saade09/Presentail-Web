@@ -115,15 +115,18 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
       "/en-ae/dubai/brand/acme-florals",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(4); // entity API + image dimension fetch + brand listing fetch + brand parent listing fetch
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + brand listing fetch + brand parent listing fetch (dims skipped — branded og-image URL always used)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/brand?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=acme-florals");
     expect(out).toContain("<title>Acme Florals | Presentail</title>");
     expect(out).toContain(
       'content="Hand-tied bouquets &amp; gifts."',
     );
+    // Brand pages now emit the pre-generated branded OG image API URL (1200×630 JPEG)
+    // rather than the raw CDN image, so WhatsApp/Slack/iMessage previews show a
+    // Presentail-branded card.
     expect(out).toContain(
-      '<meta property="og:image" content="https://cdn.test/acme.jpg"',
+      '<meta property="og:image" content="https://presentail.test/api/og-image/brand/acme-florals"',
     );
     expect(out).toContain('<meta property="og:type" content="website"');
     expect(out).toContain(
@@ -1452,7 +1455,7 @@ describe("injectSeoTagsAsync — entity pages with no image: branded API og:imag
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
 
-  it("falls back to /opengraph.jpg when brand image is null", async () => {
+  it("uses the branded API og:image URL even when brand image is null", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce({
@@ -1472,11 +1475,14 @@ describe("injectSeoTagsAsync — entity pages with no image: branded API og:imag
       "/en-lb/beirut/brand/no-photo-brand",
       OPTS,
     );
+    // Brand pages always emit the pre-generated branded OG image API URL
+    // (1200×630 JPEG) — even when brand.image is null — so the branded card
+    // is served regardless of whether the brand has a photo.
     expect(out).toContain(
-      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+      'property="og:image" content="https://presentail.test/api/og-image/brand/no-photo-brand"',
     );
-    expect(out).toContain('<meta property="og:image:width" content="1280"');
-    expect(out).toContain('<meta property="og:image:height" content="720"');
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
     expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
@@ -1509,7 +1515,7 @@ describe("injectSeoTagsAsync — entity pages with no image: branded API og:imag
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
 
-  it("respects the basePath when building the fallback opengraph.jpg URL", async () => {
+  it("uses the branded API og:image URL for brands even when basePath is set", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce({
@@ -1529,11 +1535,13 @@ describe("injectSeoTagsAsync — entity pages with no image: branded API og:imag
       "/en-ae/dubai/brand/prefixed-brand",
       { ...OPTS, basePath: "/web" },
     );
+    // Brand pages always emit the pre-generated branded OG image API URL regardless
+    // of basePath — the API route is at /api/og-image/brand/:slug (no basePath prefix).
     expect(out).toContain(
-      'property="og:image" content="https://presentail.test/web/opengraph.jpg"',
+      'property="og:image" content="https://presentail.test/api/og-image/brand/prefixed-brand"',
     );
-    expect(out).toContain('<meta property="og:image:width" content="1280"');
-    expect(out).toContain('<meta property="og:image:height" content="720"');
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
   });
 });
 
@@ -2187,7 +2195,7 @@ describe("image dims cache invalidation — brand (string image field)", () => {
     vi.restoreAllMocks();
   });
 
-  it("re-fetches image dims after brand entity cache expires", async () => {
+  it("re-fetches entity after brand entity cache expires (no CDN dims probe — branded og-image used)", async () => {
     const pngBuf = makePngBuffer(600, 400);
     const imageUrl = "https://cdn.cache-inv-test/brand-cache-inv-unique.png";
     let entityFetchCount = 0;
@@ -2217,26 +2225,27 @@ describe("image dims cache invalidation — brand (string image field)", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    // First call: entity + dims freshly fetched.
+    // First call: entity freshly fetched. Brand pages always use the branded
+    // og-image API URL so no CDN dims probe is issued.
     await injectSeoTagsAsync(
       CACHE_INV_HTML,
       "/en-ae/dubai/brand/cache-inv-brand",
       CACHE_INV_OPTS,
     );
     expect(entityFetchCount).toBe(1);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image used — no CDN image probe
 
     // Advance past entity TTL only.
     vi.setSystemTime(new Date(Date.now() + 61_000));
 
-    // Second call: entity cache miss → fresh fetch → evictImageDims → dims re-fetched.
+    // Second call: entity cache miss → fresh fetch; dims still 0 (branded og-image, no probe).
     await injectSeoTagsAsync(
       CACHE_INV_HTML,
       "/en-ae/dubai/brand/cache-inv-brand",
       CACHE_INV_OPTS,
     );
     expect(entityFetchCount).toBe(2);
-    expect(dimsFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(0); // still 0 — branded og-image, no probe
   });
 });
 
@@ -3164,7 +3173,7 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
     expect(dimsFetchCount).toBe(1);   // 304 → no dims eviction
   });
 
-  it("does NOT re-fetch image dims on a 304 response within cache TTL (brand)", async () => {
+  it("does NOT probe CDN image dims for brands (branded og-image URL always used, even on 304)", async () => {
     const pngBuf = makePngBuffer(600, 400);
     const imageUrl = "https://cdn.etag-test/brand-etag-304-withinttl-unique.png";
     const entityEtag = '"etag-v1-within-ttl-brand-304"';
@@ -3197,14 +3206,15 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // First call: entity freshly fetched; branded og-image URL → no CDN dims probe.
     await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/brand/etag-304-withinttl-brand", ETAG_OPTS);
     expect(entityFetchCount).toBe(1);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image — no CDN probe
 
-    // Second call within TTL: conditional request → 304 → no dims re-fetch.
+    // Second call within TTL: conditional request → 304; dims still 0 (branded og-image).
     await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/brand/etag-304-withinttl-brand", ETAG_OPTS);
     expect(entityFetchCount).toBe(2);
-    expect(dimsFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(0); // branded og-image — still no CDN probe
   });
 
   it("does NOT re-fetch image dims on a 304 response within cache TTL (occasion)", async () => {

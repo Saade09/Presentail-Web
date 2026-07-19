@@ -26,6 +26,7 @@ import sharp from "sharp";
 import {
   getOsProductBySlug,
   getOsOccasions,
+  getOsBrands,
 } from "../lib/osProductsCache";
 
 const router = Router();
@@ -422,6 +423,41 @@ router.get("/og-image/product/:slug", async (req, res) => {
     return sendJpeg(res, buffer, maxAge);
   } catch (err) {
     req.log.warn({ err, slug }, "og-image product: generation failed");
+    return res.status(500).end();
+  }
+});
+
+/**
+ * GET /api/og-image/brand/:slug
+ *
+ * Returns a 1200×630 JPEG branded card for the brand identified by `slug`.
+ * Same fallback strategy as the product route above.
+ */
+router.get("/og-image/brand/:slug", async (req, res) => {
+  const slug = (req.params.slug ?? "").trim();
+  if (!slug) return res.status(400).end();
+
+  const cacheKey = `brand:${slug}`;
+  const cached = getCached(cacheKey);
+  if (cached) {
+    return sendJpeg(res, cached);
+  }
+
+  const brands = getOsBrands();
+  const brand = brands?.find((b) => b.slug === slug);
+  const found = !!brand;
+
+  const name = brand?.name ?? "";
+  const imageUrl = (typeof brand?.image === "string" && brand.image) ? brand.image : null;
+
+  try {
+    const buffer = await generateOgImage(name, imageUrl);
+    checkJpegBudget(req, buffer, `brand:${slug}`);
+    const maxAge = found ? 3600 : 300;
+    setCached(cacheKey, buffer);
+    return sendJpeg(res, buffer, maxAge);
+  } catch (err) {
+    req.log.warn({ err, slug }, "og-image brand: generation failed");
     return res.status(500).end();
   }
 });

@@ -3091,14 +3091,19 @@ function buildBrandsFilterHead({
   return { ...entityHead, headSnippet: fixedHeadSnippet, bodyHtml };
 }
 
-export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, country, productCount, brandProducts }) {
+export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, country, productCount, brandProducts, ogImageUrl }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
   const description =
     clampDescription(rawDesc) || genericFallbackDescription(lang, "brand");
-  const imageUrl =
+  // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
+  // by the API). When provided it takes precedence over the raw brand image
+  // so WhatsApp / iMessage / Slack previews show a Presentail-branded card
+  // rather than a plain brand photo.
+  const rawBrandImageUrl =
     typeof brand.image === "string" && brand.image ? brand.image : null;
+  const imageUrl = ogImageUrl || rawBrandImageUrl;
   // BreadcrumbList JSON-LD — Home > City > Brands > Brand Name.
   // "Home" is the site root (not the locale/city page) so the trail is always
   // anchored to the top-level domain; a city crumb is inserted between Home and
@@ -3220,6 +3225,10 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     brandNav +
     `</div>`
   );
+  // When a pre-generated branded OG image URL is provided use fixed 1200×630
+  // dimensions (no need to probe the URL with a Range request).
+  const effectiveBrandImageWidth = ogImageUrl ? 1200 : imageDimensions?.width;
+  const effectiveBrandImageHeight = ogImageUrl ? 630 : imageDimensions?.height;
   return {
     ...buildEntityHead({
       ogType: "website",
@@ -3227,8 +3236,8 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       description,
       imageUrl,
       imageAlt: rawName || "Presentail brand", // i18n-ignore — brand+type label used as OG image alt fallback
-      imageWidth: imageDimensions?.width,
-      imageHeight: imageDimensions?.height,
+      imageWidth: effectiveBrandImageWidth,
+      imageHeight: effectiveBrandImageHeight,
       basePath,
       origin,
       pathname,
@@ -4096,12 +4105,21 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     });
     if (brand) {
       const brandImageUrl = typeof brand.image === "string" && brand.image ? brand.image : null;
+      // Pre-generated branded OG image URL (1200×630 JPEG). When publicOrigin is
+      // set the API always serves this URL — crawlers get a Presentail-branded
+      // card rather than the raw brand photo. Dimensions are always 1200×630 so
+      // no image-dimension probe is needed when this URL is available.
+      const brandOgImageUrl = publicOrigin
+        ? `${publicOrigin}/api/og-image/brand/${encodeURIComponent(brandSlug)}`
+        : `/api/og-image/brand/${encodeURIComponent(brandSlug)}`;
       // Fetch city-specific count (productCount) and global count (parentProductCount)
       // in parallel. The global count omits cityId so it covers all cities for the
       // brand in this country — the ratio check requires both values.
       const { countryCode: brandCountryCode, apiBaseUrl: brandApiBaseUrl } = fetchOpts;
       const [brandImageDims, brandListing, brandParentListing] = await Promise.all([
-        fetchImageDimensions(brandImageUrl),
+        brandOgImageUrl
+          ? Promise.resolve(null) // dimensions are always 1200×630 — no probe needed
+          : fetchImageDimensions(brandImageUrl),
         fetchBrandProductCountForSeo({ slug: brandSlug, ...fetchOpts }),
         fetchBrandProductCountForSeo({
           slug: brandSlug,
@@ -4123,6 +4141,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       result = buildBrandHead({
         brand,
         imageDimensions: brandImageDims,
+        ogImageUrl: brandOgImageUrl,
         productCount: brandListing?.count,
         brandProducts: brandListing?.products,
         ...headOpts,
