@@ -47,9 +47,12 @@ activate the redirects.
 
 ## Step 1 — DNS CNAME records
 
-> **Cyprus note**: Before adding `cy.presentail.com`, confirm with DNS history
-> that this subdomain ever existed.  If it was never registered, skip it (no
-> inbound links to redirect).
+> **Cyprus — CONFIRMED SKIP** (checked 2026-07-18): `cy.presentail.com` was
+> never registered in DNS.  A live DNS resolution attempt returns
+> `NXDOMAIN` (Name or service not known), confirming there is no A, AAAA, or
+> CNAME record.  Do **not** add a CNAME or CDN redirect rule for this subdomain
+> — there are no inbound links, no indexed pages, and no SSL certificate slot
+> to provision.  No further investigation is needed.
 
 Add the following CNAME records in your DNS provider (Cloudflare, Route 53, etc.):
 
@@ -57,7 +60,7 @@ Add the following CNAME records in your DNS provider (Cloudflare, Route 53, etc.
 |---|---|---|---|
 | `lb.presentail.com` | CNAME | `presentail.com` | 300 s (5 min) — lower TTL during cutover |
 | `ae.presentail.com` | CNAME | `presentail.com` | 300 s |
-| `cy.presentail.com` | CNAME | `presentail.com` | 300 s (only if confirmed in DNS history) |
+| ~~`cy.presentail.com`~~ | ~~CNAME~~ | ~~`presentail.com`~~ | **SKIP — never registered (confirmed 2026-07-18)** |
 
 > **Important**: `presentail.com` itself must NOT be listed as a source.  Verify
 > that no existing A/AAAA record conflicts with each new CNAME.  If the
@@ -98,11 +101,11 @@ Then:        Type: Static
              URL:  https://presentail.com/en-ae/dubai/
              Status code: 301
 
-# Cyprus (only if DNS history confirmed)
-Expression:  http.host eq "cy.presentail.com"
-Then:        Type: Static
-             URL:  https://presentail.com/en-cy/nicosia/
-             Status code: 301
+# Cyprus — SKIP (never registered, confirmed 2026-07-18; no rule needed)
+# Expression:  http.host eq "cy.presentail.com"
+# Then:        Type: Static
+#              URL:  https://presentail.com/en-cy/nicosia/
+#              Status code: 301
 ```
 
 Alternatively, using a single combined rule with the `concat` expression is NOT
@@ -124,9 +127,7 @@ hostRules:
   - hosts:
       - ae.presentail.com
     pathMatcher: ae-subdomain-redirect
-  - hosts:
-      - cy.presentail.com
-    pathMatcher: cy-subdomain-redirect
+  # cy.presentail.com — SKIP (never registered, confirmed 2026-07-18)
 
 pathMatchers:
   - name: lb-subdomain-redirect
@@ -145,13 +146,7 @@ pathMatchers:
       redirectResponseCode: MOVED_PERMANENTLY_DEFAULT
       stripQuery: true
 
-  - name: cy-subdomain-redirect
-    defaultUrlRedirect:
-      httpsRedirect: true
-      hostRedirect: presentail.com
-      pathRedirect: /en-cy/nicosia/
-      redirectResponseCode: MOVED_PERMANENTLY_DEFAULT
-      stripQuery: true
+  # cy-subdomain-redirect — SKIP (cy.presentail.com never registered, confirmed 2026-07-18)
 ```
 
 ### Nginx (self-hosted)
@@ -171,11 +166,7 @@ server {
     return 301 https://presentail.com/en-ae/dubai/;
 }
 
-server {
-    listen 443 ssl;
-    server_name cy.presentail.com;
-    return 301 https://presentail.com/en-cy/nicosia/;
-}
+# cy.presentail.com — SKIP (never registered, confirmed 2026-07-18; no server block needed)
 ```
 
 ---
@@ -200,10 +191,7 @@ curl -I https://ae.presentail.com/
 # Expected: HTTP/2 301
 #           location: https://presentail.com/en-ae/dubai/
 
-# Cyprus (only after DNS CNAME confirmed and added)
-curl -I https://cy.presentail.com/
-# Expected: HTTP/2 301
-#           location: https://presentail.com/en-cy/nicosia/
+# Cyprus — SKIP (cy.presentail.com never registered, confirmed 2026-07-18; no curl check needed)
 
 # Apex must NOT redirect (loop guard)
 curl -I https://presentail.com/en-lb/beirut/shop
@@ -225,14 +213,11 @@ curl -I https://presentail.com/en-lb/beirut/shop
 2. Check the **property selector** (top-left dropdown) for each of:
    - `https://lb.presentail.com/`
    - `https://ae.presentail.com/`
-   - `https://cy.presentail.com/`
+   - ~~`https://cy.presentail.com/`~~ — **SKIP**: never registered in DNS
+     (confirmed 2026-07-18); GSC check not needed.
 3. If a subdomain is **not listed**, it was never a verified GSC property —
    skip it (no search equity to transfer; Google was never tracking it).
 4. If a subdomain **is listed**, continue with 4b below for that property.
-
-> **Note on Cyprus**: The runbook DNS section notes that `cy.presentail.com` may
-> never have been registered.  If it is absent from both DNS history and the GSC
-> property list, skip it entirely.
 
 ### 4b — Submit "Change of Address" for each verified subdomain
 
@@ -252,7 +237,7 @@ Repeat these steps once per verified subdomain property:
 |---|---|
 | `https://lb.presentail.com/` | `https://presentail.com/` |
 | `https://ae.presentail.com/` | `https://presentail.com/` |
-| `https://cy.presentail.com/` | `https://presentail.com/` (only if verified) |
+| ~~`https://cy.presentail.com/`~~ | **SKIP — never registered in DNS (confirmed 2026-07-18)** |
 
 ### 4c — Post-submission monitoring
 
