@@ -2667,8 +2667,12 @@ export function buildProductHead({
   // by the API). When provided it takes precedence over the raw product photo
   // so WhatsApp / iMessage / Slack previews show a Presentail-branded card
   // rather than a plain product photo.
-  // rawProductImageUrl is the original CDN photo — used for JSON-LD Product
-  // schema where the crawler wants the actual product image, not the social card.
+  //
+  // rawProductImageUrl is the original CDN photo. It is intentionally
+  // JSON-LD-only (Product schema `image` field): crawlers expect the real item
+  // image there, not a social card composite. It is NOT used as an og:image
+  // fallback — see the "Design decision" comment in injectSeoTagsAsync for the
+  // full rationale.
   const rawProductImageUrl =
     (product.image && typeof product.image.uri === "string" && product.image.uri) ||
     (Array.isArray(product.images) &&
@@ -4003,11 +4007,32 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       // head with OutOfStock availability so the page stays indexed and social
       // previews remain useful. The title suffix " – Coming Soon" is added by
       // buildProductHead for these states.
-      // Use the branded per-product OG image (generated on demand by the API
-      // server) instead of the raw product photo. This gives WhatsApp / iMessage
-      // / Slack a 1200×630 card with the product name and Presentail branding.
-      // If publicOrigin is empty (e.g. in unit tests), fall back to probing the
-      // raw product image URL.
+      // Design decision: use the branded OG image URL unconditionally when
+      // publicOrigin is available, without probing the endpoint first.
+      //
+      // Rationale — why no runtime probe / CDN fallback in og:image:
+      //   1. Latency: probing would add an extra HTTP round-trip to every
+      //      product-page SSR render just to confirm what we already expect to
+      //      be true in the steady state.
+      //   2. False assurance: even a successful probe at render time cannot
+      //      guarantee the endpoint is still up minutes later when WhatsApp /
+      //      Slack / iMessage fetches the page. The probe would only help when
+      //      the service is persistently down, not for transient failures.
+      //   3. Co-deployment: the OG image API (/api/og-image/*) is served by
+      //      the same Express process as the rest of /api. If that service is
+      //      unreachable, the overall app is down and product pages themselves
+      //      will not render successfully — so the share card image URL is the
+      //      least of our worries.
+      //
+      // rawProductImageUrl (the CDN photo) is intentionally JSON-LD-only: it
+      // provides the actual product photo in Product structured data, which
+      // crawlers expect to be the real item image, not a social card composite.
+      // Using the CDN URL as an og:image fallback would silently degrade social
+      // previews to a plain crop rather than the branded 1200×630 card, so we
+      // prefer the branded URL or nothing.
+      //
+      // If publicOrigin is empty (e.g. in unit tests with no proxy), fall back
+      // to probing the raw product image URL for dimensions.
       const productOgImageUrl = publicOrigin
         ? `${publicOrigin}/api/og-image/product/${encodeURIComponent(productSlug)}`
         : null;

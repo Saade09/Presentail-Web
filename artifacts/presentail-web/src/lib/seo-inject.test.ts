@@ -97,6 +97,61 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
     expect(entityCalls).toHaveLength(1);
     expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
   });
+
+  /**
+   * Design-decision test: the raw CDN product photo is intentionally JSON-LD-
+   * only. When publicOrigin is set, the branded OG image URL
+   * (/api/og-image/product/:slug) is used unconditionally as og:image — no
+   * runtime probe is made and the CDN URL is NOT used as an og:image fallback.
+   *
+   * Rationale (see matching comment in seo-inject.mjs → injectSeoTagsAsync):
+   *  • A probe at render time can't guarantee the endpoint is up when a social
+   *    crawler fetches the page later.
+   *  • The OG image service is co-deployed with the API server; if it's down
+   *    the entire app is down.
+   *  • Using the CDN crop as a fallback would silently degrade share cards to
+   *    an unbranded photo instead of the 1200×630 Presentail-branded card.
+   *
+   * If this decision is ever revisited, update the "Design decision" comment in
+   * injectSeoTagsAsync at the productOgImageUrl assignment site too.
+   */
+  it("uses branded og:image URL unconditionally when publicOrigin is set; raw CDN URL is JSON-LD-only", async () => {
+    const cdnUrl = "https://cdn.test/rose-design-decision.jpg";
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Rose Design Decision",
+        description: "Design decision test product.",
+        image: { uri: cdnUrl },
+        priceValue: 50,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/rose-design-decision",
+      OPTS,
+    );
+
+    // Branded URL must appear as og:image.
+    expect(out).toContain(
+      '<meta property="og:image" content="https://presentail.test/api/og-image/product/rose-design-decision"',
+    );
+
+    // Raw CDN URL must NOT appear as og:image — it belongs in JSON-LD only.
+    const ogImageMatches = [...out.matchAll(/property="og:image"\s+content="([^"]+)"/g)];
+    for (const [, url] of ogImageMatches) {
+      expect(url).not.toBe(cdnUrl);
+    }
+
+    // Raw CDN URL must appear in the JSON-LD Product schema image field.
+    expect(out).toContain(cdnUrl);
+    const jsonLdBlocks = [...out.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+      .map(([, content]) => JSON.parse(content));
+    const allNodes = jsonLdBlocks.flatMap((g) => g["@graph"] ?? [g]);
+    const productNodes = allNodes.filter((n: { "@type": string }) => n["@type"] === "Product");
+    expect(productNodes.length).toBeGreaterThan(0);
+    expect(productNodes[0].image).toBe(cdnUrl);
+  });
 });
 
 describe("injectSeoTagsAsync — /brand/<slug>", () => {
