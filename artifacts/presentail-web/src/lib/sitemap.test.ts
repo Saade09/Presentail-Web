@@ -688,3 +688,130 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     expect(xmlFull).not.toContain("/llms-full.txt");
   });
 });
+
+// ---------------------------------------------------------------------------
+// buildSitemapXml — product lifecycle / availability filtering
+//
+// DISCONTINUED products must be omitted (they return 410 and must not be
+// submitted to Google via the sitemap). SOLD_OUT_TEMPORARILY and
+// SEASONAL_UNAVAILABLE products must remain in the sitemap but with a lower
+// crawl-priority signal (0.4) to deprioritise re-crawling out-of-stock pages.
+// ---------------------------------------------------------------------------
+describe("buildSitemapXml — product availability lifecycle filtering", () => {
+  const makeXml = (products: object[]) =>
+    buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products,
+      lastmod: "2026-07-19",
+    });
+
+  it("includes ACTIVE products (no inStock / status fields) at priority 0.8", () => {
+    const xml = makeXml([{ slug: "active-product" }]);
+    expect(xml).toContain("/product/active-product");
+    const priorityMatch = xml.match(
+      /product\/active-product[\s\S]*?<priority>([^<]+)<\/priority>/,
+    );
+    expect(priorityMatch?.[1]).toBe("0.8");
+  });
+
+  it("includes ACTIVE products (inStock=true) at priority 0.8", () => {
+    const xml = makeXml([{ slug: "in-stock", inStock: true, status: null, tags: [] }]);
+    expect(xml).toContain("/product/in-stock");
+    const priorityMatch = xml.match(
+      /product\/in-stock[\s\S]*?<priority>([^<]+)<\/priority>/,
+    );
+    expect(priorityMatch?.[1]).toBe("0.8");
+  });
+
+  it("omits DISCONTINUED products entirely (status=discontinued)", () => {
+    const xml = makeXml([
+      { slug: "discontinued-product", inStock: false, status: "discontinued", tags: [] },
+    ]);
+    expect(xml).not.toContain("/product/discontinued-product");
+  });
+
+  it("omits DISCONTINUED products even when inStock is true", () => {
+    const xml = makeXml([
+      { slug: "disc-in-stock", inStock: true, status: "discontinued", tags: [] },
+    ]);
+    expect(xml).not.toContain("/product/disc-in-stock");
+  });
+
+  it("includes SOLD_OUT_TEMPORARILY products at priority 0.4", () => {
+    const xml = makeXml([
+      { slug: "sold-out", inStock: false, status: null, tags: [] },
+    ]);
+    expect(xml).toContain("/product/sold-out");
+    const priorityMatch = xml.match(
+      /product\/sold-out[\s\S]*?<priority>([^<]+)<\/priority>/,
+    );
+    expect(priorityMatch?.[1]).toBe("0.4");
+  });
+
+  it("includes SEASONAL_UNAVAILABLE products at priority 0.4", () => {
+    const xml = makeXml([
+      { slug: "seasonal-product", inStock: false, status: null, tags: ["seasonal"] },
+    ]);
+    expect(xml).toContain("/product/seasonal-product");
+    const priorityMatch = xml.match(
+      /product\/seasonal-product[\s\S]*?<priority>([^<]+)<\/priority>/,
+    );
+    expect(priorityMatch?.[1]).toBe("0.4");
+  });
+
+  it("sold-out products keep changefreq=weekly", () => {
+    const xml = makeXml([
+      { slug: "sold-out-freq", inStock: false, status: null, tags: [] },
+    ]);
+    const freqMatch = xml.match(
+      /product\/sold-out-freq[\s\S]*?<changefreq>([^<]+)<\/changefreq>/,
+    );
+    expect(freqMatch?.[1]).toBe("weekly");
+  });
+
+  it("filters out DISCONTINUED but keeps active products in the same list", () => {
+    const xml = makeXml([
+      { slug: "active-one", inStock: true, status: null, tags: [] },
+      { slug: "disc-one", inStock: false, status: "discontinued", tags: [] },
+      { slug: "sold-out-one", inStock: false, status: null, tags: [] },
+    ]);
+    expect(xml).toContain("/product/active-one");
+    expect(xml).not.toContain("/product/disc-one");
+    expect(xml).toContain("/product/sold-out-one");
+  });
+});
+
+describe("generateSitemap — product availability fields passed to builder", () => {
+  it("omits products with status=discontinued from the sitemap", async () => {
+    const fakeFetch = async (url: string) => {
+      if (url.includes("/api/woo/products")) {
+        return {
+          products: [
+            { slug: "active-p", inStock: true, status: null, tags: [] },
+            { slug: "disc-p", inStock: false, status: "discontinued", tags: [] },
+            { slug: "sold-out-p", inStock: false, status: null, tags: [] },
+          ],
+        };
+      }
+      return null;
+    };
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80");
+    expect(xml).toContain("/product/active-p");
+    expect(xml).not.toContain("/product/disc-p");
+    expect(xml).toContain("/product/sold-out-p");
+  });
+
+  it("assigns priority 0.4 to sold-out products via generateSitemap", async () => {
+    const fakeFetch = async (url: string) => {
+      if (url.includes("/api/woo/products")) {
+        return { products: [{ slug: "oos", inStock: false, status: null, tags: [] }] };
+      }
+      return null;
+    };
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80");
+    expect(xml).toContain("/product/oos");
+    const priorityMatch = xml.match(/product\/oos[\s\S]*?<priority>([^<]+)<\/priority>/);
+    expect(priorityMatch?.[1]).toBe("0.4");
+  });
+});

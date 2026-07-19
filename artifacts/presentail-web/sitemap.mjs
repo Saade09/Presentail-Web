@@ -9,6 +9,10 @@
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 import { buildProductImageAlt } from "./imageAlt.mjs";
+import {
+  getProductAvailabilityState,
+  PRODUCT_AVAILABILITY_STATE,
+} from "./seo-inject.mjs";
 
 const PAGINATION_PAGE_SIZE = 24;
 const PAGINATION_SITEMAP_MAX_PAGES = 10;
@@ -166,8 +170,23 @@ export function buildSitemapXml({
   // 2. Products — canonical-city URLs per country (each block carries all
   // language alternates). When a product has a primary image URL and name,
   // an <image:image> extension is embedded for Google Images discovery.
+  //
+  // Lifecycle filtering:
+  //  - DISCONTINUED → omitted entirely (product returns 410; must not appear
+  //    in the sitemap or Google will flag the submitted URL as an error).
+  //  - SOLD_OUT_TEMPORARILY / SEASONAL_UNAVAILABLE → included but with a
+  //    lower crawl-priority signal (0.4 vs 0.8) so Googlebot deprioritises
+  //    re-crawling pages that are currently out of stock.
+  //  - ACTIVE (or unknown) → standard priority 0.8.
   for (const product of products) {
     if (!product?.slug) continue;
+    const availState = getProductAvailabilityState(product);
+    if (availState === PRODUCT_AVAILABILITY_STATE.DISCONTINUED) continue;
+    const priority =
+      availState === PRODUCT_AVAILABILITY_STATE.SOLD_OUT_TEMPORARILY ||
+      availState === PRODUCT_AVAILABILITY_STATE.SEASONAL_UNAVAILABLE
+        ? "0.4"
+        : "0.8";
     const encoded = encodeURIComponent(product.slug);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
       const imageBlock =
@@ -178,7 +197,7 @@ export function buildSitemapXml({
               buildProductImageAlt({ name: product.name }, "en", city.charAt(0).toUpperCase() + city.slice(1)),
             )
           : "";
-      urls.push(urlEntryWithAlternates("0.8", "weekly", country, city, `/product/${encoded}`, imageBlock));
+      urls.push(urlEntryWithAlternates(priority, "weekly", country, city, `/product/${encoded}`, imageBlock));
     }
   }
 
@@ -326,12 +345,17 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
 
   // Normalise the product list: extract the slug, primary image URL, and name
   // so buildSitemapXml can embed <image:image> extensions without knowing the
-  // raw API response shape.
+  // raw API response shape. Also forward the availability fields so
+  // buildSitemapXml can call getProductAvailabilityState to filter discontinued
+  // products and lower crawl priority for sold-out / seasonal ones.
   const rawProducts = productsData?.products ?? [];
   const products = rawProducts.map((p) => ({
     slug: p.slug,
     name: p.name ?? null,
     imageUrl: p.image?.uri ?? p.images?.[0]?.url ?? p.images?.[0]?.uri ?? null,
+    inStock: p.inStock,
+    status: p.status ?? null,
+    tags: Array.isArray(p.tags) ? p.tags : [],
   }));
 
   return buildSitemapXml({
