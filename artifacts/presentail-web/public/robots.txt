@@ -23,6 +23,14 @@ Disallow: /*/favorites
 Disallow: /*/order-confirmed
 Disallow: /*/personal-information
 
+# Legacy WordPress paths — now return 410 Gone; block to recover crawl budget
+Disallow: /wp-admin/
+Disallow: /wp-json/
+Disallow: /wp-content/
+Disallow: /wp-includes/
+Disallow: /wp-login.php
+Disallow: /author/
+
 # URL parameter variants — prevent duplicate-content indexing
 Disallow: /*?_cr=
 Disallow: /*?utm_source=
