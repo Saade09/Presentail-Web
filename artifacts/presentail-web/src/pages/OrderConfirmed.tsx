@@ -291,7 +291,15 @@ export default function OrderConfirmed() {
       value,
       currency,
       event_id: `fbpurchase-${state.ref}`,
-      ...(user?.email ? { userData: { em: user.email } } : {}),
+      ...(user?.email
+        ? {
+            userData: {
+              em: user.email,
+              ...(user.firstName ? { fn: user.firstName } : {}),
+              ...(user.lastName ? { ln: user.lastName } : {}),
+            },
+          }
+        : {}),
     });
     fireAdsPurchaseConversion({ transactionId: state.ref, value, currency });
     try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }

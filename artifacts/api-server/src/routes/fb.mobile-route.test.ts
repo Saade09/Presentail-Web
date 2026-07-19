@@ -117,7 +117,7 @@ describe("POST /api/fb/events route — mobile Purchase path", () => {
   // No client-side event_id — server generates its own for deduplication
   // -------------------------------------------------------------------------
 
-  it("does not forward an eventId — deduplication is handled server-side by sendCapiEvent", async () => {
+  it("does not forward a client-supplied eventId — sendCapiEvent generates its own for deduplication", async () => {
     await request(app)
       .post("/fb/events")
       .send({
@@ -125,13 +125,16 @@ describe("POST /api/fb/events route — mobile Purchase path", () => {
         countryCode: "lb",
         value: 50,
         currency: "USD",
+        // No eventId in the body — the route must not invent one.
       });
 
     const callArg = mockSendCapiEvent.mock.calls[0][0] as Record<string, unknown>;
-    // The mobile route schema does not accept eventId from the client.
-    // sendCapiEvent generates its own random eventId for CAPI deduplication.
-    expect(callArg).not.toHaveProperty("eventId");
-    expect(callArg).not.toHaveProperty("event_id");
+    // When the body omits eventId the forwarded value is undefined so that
+    // sendCapiEvent() generates a fresh random ID internally. We assert on the
+    // value, not property existence, because optional Zod fields may still
+    // appear as undefined keys in the destructured object.
+    expect(callArg.eventId).toBeUndefined();
+    expect(callArg.event_id).toBeUndefined();
   });
 
   // -------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import {
   sendCapiEventByPixelId,
   type CAPIEventName,
 } from "../lib/fbConversions";
+import { pickClientIp } from "../lib/geoCurrency";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -15,11 +16,12 @@ const FB_EVENT_NAMES: [CAPIEventName, ...CAPIEventName[]] = [
   "ViewContent",
   "AddToCart",
   "InitiateCheckout",
+  "AddPaymentInfo",
   "Purchase",
 ];
 
 const FbMobileEventBodySchema = z.object({
-  event: z.enum(["ViewContent", "AddToCart", "InitiateCheckout", "Purchase"]),
+  event: z.enum(["ViewContent", "AddToCart", "InitiateCheckout", "AddPaymentInfo", "Purchase"]),
   countryCode: z.string().max(8),
   eventId: z.string().max(128).optional(),
   value: z.number().optional(),
@@ -28,6 +30,8 @@ const FbMobileEventBodySchema = z.object({
   contentName: z.string().max(500).optional(),
   email: z.string().max(254).optional(),
   phone: z.string().max(30).optional(),
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
 });
 
 const FbWebEventBodySchema = z.object({
@@ -41,6 +45,8 @@ const FbWebEventBodySchema = z.object({
     .object({
       em: z.string().max(254).optional(),
       ph: z.string().max(30).optional(),
+      fn: z.string().max(100).optional(),
+      ln: z.string().max(100).optional(),
     })
     .optional(),
   value: z.number().optional(),
@@ -82,7 +88,7 @@ router.post(
       return;
     }
 
-    const { event, countryCode, eventId, value, currency, contentIds, contentName, email, phone } = parsed.data;
+    const { event, countryCode, eventId, value, currency, contentIds, contentName, email, phone, firstName, lastName } = parsed.data;
 
     void sendCapiEvent({
       eventName: event,
@@ -92,7 +98,7 @@ router.post(
       currency,
       contentIds,
       contentName,
-      userData: { email, phone },
+      userData: { email, phone, firstName, lastName },
       actionSource: "app",
     }).catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
@@ -103,7 +109,9 @@ router.post(
   },
 );
 
-// Web app → CAPI (new endpoint, keyed by pixelId passed from client)
+// Web app → CAPI (keyed by pixelId from client; real visitor IP and UA
+// are extracted server-side from the proxied browser request so they are
+// never empty in the outgoing Meta payload).
 router.post(
   "/pixel/event",
   fbEventsLimiter,
@@ -139,6 +147,22 @@ router.post(
       contentName,
     } = parsed.data;
 
+    // Extract the real visitor IP. The production environment runs behind
+    // multiple proxy hops, so `req.ip` (with trust proxy: 1) may point at an
+    // internal hop. `pickClientIp` walks the x-forwarded-for chain and returns
+    // the leftmost publicly-routable address, falling back to req.ip.
+    const rawIp = (req.ip ?? "").toString();
+    const clientIpAddress = pickClientIp(req.headers["x-forwarded-for"], rawIp) || null;
+
+    // Extract browser User-Agent from the proxied request headers.
+    const clientUserAgent = (req.headers["user-agent"] ?? "").trim() || null;
+
+    // Log only presence and validity — never log raw IP or UA values.
+    logger.debug(
+      { eventName, ipPresent: Boolean(clientIpAddress), uaPresent: Boolean(clientUserAgent) },
+      "pixel/event: visitor signals",
+    );
+
     void sendCapiEventByPixelId({
       eventName,
       pixelId,
@@ -150,8 +174,12 @@ router.post(
       userData: {
         email: userData?.em,
         phone: userData?.ph,
+        firstName: userData?.fn,
+        lastName: userData?.ln,
         fbp,
         fbclid,
+        clientIpAddress,
+        clientUserAgent,
       },
       eventSourceUrl: sourceUrl,
     }).catch((err: unknown) => {

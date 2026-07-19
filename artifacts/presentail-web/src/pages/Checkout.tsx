@@ -986,7 +986,15 @@ function CheckoutForm() {
     if (checkoutStartedRef.current) return;
     checkoutStartedRef.current = true;
     trackEvent({ name: "checkout_started", surface: "checkout" });
-    trackFbEvent("InitiateCheckout", user?.email ? { userData: { em: user.email } } : undefined);
+    trackFbEvent("InitiateCheckout", user?.email
+      ? {
+          userData: {
+            em: user.email,
+            ...(user.firstName ? { fn: user.firstName } : {}),
+            ...(user.lastName ? { ln: user.lastName } : {}),
+          },
+        }
+      : undefined);
     trackWebEvent({
       type: "checkout_step",
       items: items.map((i) => ({

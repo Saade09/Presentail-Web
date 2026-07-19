@@ -7,6 +7,9 @@ import request from "supertest";
 // These verify the fb.ts adapter mapping: request body's userData.em field is
 // forwarded to sendCapiEventByPixelId as userData.email. A regression in this
 // mapping would silently drop Event Match Quality without any visible error.
+// They also verify that the real visitor IP and User-Agent from the incoming
+// HTTP request are forwarded to the CAPI helper — the primary fix for the
+// 100% empty client_ip_address diagnostic in Meta Events Manager.
 // ---------------------------------------------------------------------------
 
 const { mockSendCapiEventByPixelId } = vi.hoisted(() => ({
@@ -126,5 +129,96 @@ describe("POST /api/pixel/event route — userData.em adapter", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
+  });
+
+  // ---------------------------------------------------------------------------
+  // IP address and User-Agent forwarding — core fix for the 100% empty
+  // client_ip_address diagnostic in Meta Events Manager.
+  // ---------------------------------------------------------------------------
+
+  it("forwards the request IP to the CAPI helper as userData.clientIpAddress", async () => {
+    const res = await request(app)
+      .post("/pixel/event")
+      .set("X-Forwarded-For", "203.0.113.42")
+      .send({ eventName: "PageView", pixelId: "1234567890" });
+
+    expect(res.status).toBe(200);
+    expect(mockSendCapiEventByPixelId).toHaveBeenCalledOnce();
+    const callArg = mockSendCapiEventByPixelId.mock.calls[0][0] as {
+      userData?: { clientIpAddress?: string | null };
+    };
+    // The IP must be present — the exact value depends on pickClientIp resolving
+    // the XFF chain. We assert it is a non-null string rather than pinning a
+    // specific address so internal-IP fallback paths don't break the test.
+    expect(callArg.userData?.clientIpAddress).toBeTruthy();
+  });
+
+  it("forwards the request User-Agent to the CAPI helper as userData.clientUserAgent", async () => {
+    const res = await request(app)
+      .post("/pixel/event")
+      .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)")
+      .send({ eventName: "PageView", pixelId: "1234567890" });
+
+    expect(res.status).toBe(200);
+    expect(mockSendCapiEventByPixelId).toHaveBeenCalledOnce();
+    const callArg = mockSendCapiEventByPixelId.mock.calls[0][0] as {
+      userData?: { clientUserAgent?: string | null };
+    };
+    expect(callArg.userData?.clientUserAgent).toBe(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+    );
+  });
+
+  it("passes userData.fn and userData.ln from the request body to the CAPI helper", async () => {
+    const res = await request(app)
+      .post("/pixel/event")
+      .send({
+        eventName: "Purchase",
+        pixelId: "1234567890",
+        value: 75.0,
+        currency: "USD",
+        userData: { em: "ali@example.com", fn: "Ali", ln: "Hassan" },
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockSendCapiEventByPixelId).toHaveBeenCalledOnce();
+    const callArg = mockSendCapiEventByPixelId.mock.calls[0][0] as {
+      userData?: { firstName?: string; lastName?: string };
+    };
+    expect(callArg.userData?.firstName).toBe("Ali");
+    expect(callArg.userData?.lastName).toBe("Hassan");
+  });
+
+  it("passes userData.ph from the request body to the CAPI helper", async () => {
+    const res = await request(app)
+      .post("/pixel/event")
+      .send({
+        eventName: "InitiateCheckout",
+        pixelId: "1234567890",
+        userData: { ph: "+96171123456" },
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockSendCapiEventByPixelId).toHaveBeenCalledOnce();
+    const callArg = mockSendCapiEventByPixelId.mock.calls[0][0] as {
+      userData?: { phone?: string };
+    };
+    expect(callArg.userData?.phone).toBe("+96171123456");
+  });
+
+  it("always passes clientIpAddress and clientUserAgent regardless of whether userData is in the body", async () => {
+    const res = await request(app)
+      .post("/pixel/event")
+      .set("User-Agent", "TestAgent/1.0")
+      .set("X-Forwarded-For", "198.51.100.7")
+      .send({ eventName: "PageView", pixelId: "1234567890" });
+
+    expect(res.status).toBe(200);
+    expect(mockSendCapiEventByPixelId).toHaveBeenCalledOnce();
+    const callArg = mockSendCapiEventByPixelId.mock.calls[0][0] as {
+      userData?: { clientIpAddress?: string | null; clientUserAgent?: string | null };
+    };
+    expect(callArg.userData?.clientUserAgent).toBe("TestAgent/1.0");
+    expect(callArg.userData?.clientIpAddress).toBeTruthy();
   });
 });

@@ -6,6 +6,16 @@ const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 type CountryKey = "lb" | "ae";
 
+/**
+ * Maps Presentail country keys to ITU E.164 country dial codes (without the
+ * leading `+`). Used to normalise local-format phone numbers before hashing.
+ */
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  lb: "961",
+  ae: "971",
+  cy: "357",
+};
+
 function configForCountry(countryKey: CountryKey): { pixelId: string; accessToken: string } | null {
   if (countryKey === "lb") {
     const pixelId = process.env.FACEBOOK_PIXEL_ID_LB ?? process.env.VITE_FB_PIXEL_ID_LB;
@@ -52,6 +62,19 @@ function configForPixelId(pixelId: string): { pixelId: string; accessToken: stri
   return null;
 }
 
+/**
+ * Derive the CountryKey from a known pixel ID so that `sendCapiEventByPixelId`
+ * can apply country-specific phone normalisation. Returns null when the
+ * pixel ID is unrecognised.
+ */
+function countryKeyForPixelId(pixelId: string): CountryKey | null {
+  const lbPixelId = process.env.FACEBOOK_PIXEL_ID_LB ?? process.env.VITE_FB_PIXEL_ID_LB;
+  const aePixelId = process.env.FACEBOOK_PIXEL_ID_AE ?? process.env.VITE_FB_PIXEL_ID_AE;
+  if (lbPixelId && pixelId === lbPixelId) return "lb";
+  if (aePixelId && pixelId === aePixelId) return "ae";
+  return null;
+}
+
 function countryCodeToKey(countryCode: string | null | undefined): CountryKey | null {
   if (!countryCode) return null;
   const lower = countryCode.toLowerCase();
@@ -64,13 +87,66 @@ function hashValue(value: string): string {
   return createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
 }
 
-type CAPIUserData = {
+/**
+ * Normalise a phone number to a digit-only E.164 string (without the leading
+ * `+`) suitable for Meta's SHA-256 hashing requirement.
+ *
+ * Rules (applied in order):
+ *  1. If the raw value starts with `+` it is already in international format —
+ *     strip all non-digit characters and return.
+ *  2. If the digits already start with the country's dial code, return as-is
+ *     after stripping non-digits.
+ *  3. If the digits start with `0` (local national prefix), remove it and
+ *     prepend the country dial code.
+ *  4. Otherwise prepend the country dial code directly.
+ *  5. When no country key is available, strip non-digits and remove any
+ *     leading zero so the value is at least consistent.
+ */
+function normalizePhoneDigits(phone: string, countryKey?: string | null): string {
+  const trimmed = phone.trim();
+  let digits = trimmed.replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  // If the caller supplied an international format number (starts with +), the
+  // digit string already contains the country code — return it unchanged.
+  if (trimmed.startsWith("+")) return digits;
+
+  const dialCode = countryKey ? (COUNTRY_DIAL_CODES[countryKey] ?? null) : null;
+
+  if (dialCode) {
+    if (digits.startsWith(dialCode)) return digits;  // already has dial code
+    if (digits.startsWith("0")) digits = digits.slice(1);  // strip national trunk prefix
+    return dialCode + digits;
+  }
+
+  // No country known — strip leading zero and return.
+  if (digits.startsWith("0")) digits = digits.slice(1);
+  return digits;
+}
+
+export type CAPIUserData = {
   email?: string | null;
   phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  city?: string | null;
+  /** 2-letter ISO country code (e.g. "lb", "ae") — will be hashed. */
+  country?: string | null;
+  /** Your internal customer ID — hashed as external_id before sending. */
+  externalId?: string | null;
   fbp?: string | null;
   fbclid?: string | null;
+  /**
+   * Real visitor IP address — sent RAW (not hashed) per Meta's CAPI spec.
+   * Must be the original client IP, not the application server's address.
+   * Supports both IPv4 and IPv6.
+   */
+  clientIpAddress?: string | null;
+  /**
+   * Browser User-Agent string — sent RAW (not hashed) per Meta's CAPI spec.
+   */
+  clientUserAgent?: string | null;
 };
 
 export type CAPIEventName =
@@ -78,6 +154,7 @@ export type CAPIEventName =
   | "ViewContent"
   | "AddToCart"
   | "InitiateCheckout"
+  | "AddPaymentInfo"
   | "Purchase";
 
 export type CAPIEventParams = {
@@ -122,28 +199,54 @@ async function sendCapiPayload(
     contentName?: string | null;
     userData?: CAPIUserData;
     eventSourceUrl?: string | null;
+    /** Used for E.164 phone normalisation before hashing. */
+    countryKey?: CountryKey | null;
   },
 ): Promise<void> {
   const eventTime = Math.floor(Date.now() / 1000);
 
-  const hashedUserData: Record<string, string> = {};
+  // Build user_data according to Meta's CAPI spec:
+  //   - PII fields (em, ph, fn, ln, ct, country, external_id) must be SHA-256 hashed.
+  //   - client_ip_address and client_user_agent must be sent RAW — do not hash.
+  //   - fbp / fbc are sent as-is (opaque browser-set values).
+  const userData: Record<string, string> = {};
+
   if (params.userData?.email) {
-    hashedUserData.em = hashValue(params.userData.email);
+    userData.em = hashValue(params.userData.email);
   }
   if (params.userData?.phone) {
-    hashedUserData.ph = hashValue(params.userData.phone.replace(/\D/g, ""));
+    const normalised = normalizePhoneDigits(params.userData.phone, params.countryKey);
+    if (normalised) {
+      userData.ph = createHash("sha256").update(normalised).digest("hex");
+    }
   }
   if (params.userData?.firstName) {
-    hashedUserData.fn = hashValue(params.userData.firstName);
+    userData.fn = hashValue(params.userData.firstName);
   }
   if (params.userData?.lastName) {
-    hashedUserData.ln = hashValue(params.userData.lastName);
+    userData.ln = hashValue(params.userData.lastName);
+  }
+  if (params.userData?.city) {
+    userData.ct = hashValue(params.userData.city);
+  }
+  if (params.userData?.country) {
+    userData.country = hashValue(params.userData.country);
+  }
+  if (params.userData?.externalId) {
+    userData.external_id = hashValue(params.userData.externalId);
   }
   if (params.userData?.fbp) {
-    hashedUserData.fbp = params.userData.fbp;
+    userData.fbp = params.userData.fbp;
   }
   if (params.userData?.fbclid) {
-    hashedUserData.fbc = params.userData.fbclid;
+    userData.fbc = params.userData.fbclid;
+  }
+  // Raw (unhashed) fields — must not be hashed per Meta CAPI spec.
+  if (params.userData?.clientIpAddress) {
+    userData.client_ip_address = params.userData.clientIpAddress;
+  }
+  if (params.userData?.clientUserAgent) {
+    userData.client_user_agent = params.userData.clientUserAgent;
   }
 
   const customData: Record<string, unknown> = {};
@@ -160,10 +263,7 @@ async function sendCapiPayload(
     event_time: eventTime,
     event_id: params.eventId,
     action_source: params.actionSource,
-    user_data:
-      Object.keys(hashedUserData).length > 0
-        ? hashedUserData
-        : { client_user_agent: "" },
+    user_data: userData,
   };
   if (params.eventSourceUrl) {
     eventPayload.event_source_url = params.eventSourceUrl;
@@ -207,6 +307,7 @@ export async function sendCapiEvent(params: CAPIEventParams): Promise<void> {
     contentName: params.contentName,
     userData: params.userData,
     eventSourceUrl: params.eventSourceUrl,
+    countryKey,
   });
 }
 
@@ -221,6 +322,7 @@ export async function sendCapiEventByPixelId(
   const config = configForPixelId(params.pixelId);
   if (!config) return;
 
+  const countryKey = countryKeyForPixelId(params.pixelId);
   const eventId = params.eventId ?? randomBytes(16).toString("hex");
 
   await sendCapiPayload(config, {
@@ -233,6 +335,7 @@ export async function sendCapiEventByPixelId(
     contentName: params.contentName,
     userData: params.userData,
     eventSourceUrl: params.eventSourceUrl,
+    countryKey,
   });
 }
 

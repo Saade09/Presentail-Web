@@ -395,6 +395,303 @@ describe("Deduplication: concurrent mobile + web Purchase events with shared eve
   });
 });
 
+describe("sendCapiEvent — client_ip_address and client_user_agent", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    delete process.env.VITE_FB_PIXEL_ID_LB;
+    delete process.env.FB_CONVERSIONS_TOKEN_LB;
+  });
+
+  it("includes client_ip_address raw (not hashed) in user_data when provided", async () => {
+    await sendCapiEvent({
+      eventName: "PageView",
+      countryCode: "LB",
+      userData: { clientIpAddress: "203.0.113.5" },
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    expect(body.data[0].user_data.client_ip_address).toBe("203.0.113.5");
+  });
+
+  it("includes client_user_agent raw (not hashed) in user_data when provided", async () => {
+    await sendCapiEvent({
+      eventName: "PageView",
+      countryCode: "LB",
+      userData: { clientUserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)" },
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    expect(body.data[0].user_data.client_user_agent).toBe(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+    );
+  });
+
+  it("includes both client_ip_address and client_user_agent when both are provided", async () => {
+    await sendCapiEvent({
+      eventName: "PageView",
+      countryCode: "LB",
+      userData: {
+        clientIpAddress: "198.51.100.7",
+        clientUserAgent: "TestAgent/2.0",
+      },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    expect(body.data[0].user_data.client_ip_address).toBe("198.51.100.7");
+    expect(body.data[0].user_data.client_user_agent).toBe("TestAgent/2.0");
+  });
+
+  it("omits client_ip_address when not provided (no empty-string sentinel)", async () => {
+    await sendCapiEvent({
+      eventName: "PageView",
+      countryCode: "LB",
+      userData: { email: "test@example.com" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    expect(body.data[0].user_data.client_ip_address).toBeUndefined();
+  });
+
+  it("omits client_user_agent when not provided — no empty-string sentinel in payload", async () => {
+    await sendCapiEvent({
+      eventName: "PageView",
+      countryCode: "LB",
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    expect(body.data[0].user_data.client_user_agent).toBeUndefined();
+  });
+
+  it("includes client_ip_address alongside hashed email in the same payload", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 50,
+      currency: "USD",
+      userData: {
+        email: "buyer@example.com",
+        clientIpAddress: "203.0.113.99",
+        clientUserAgent: "Safari/17.0",
+      },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    // Hashed fields must not contain the raw value.
+    expect(body.data[0].user_data.em).not.toContain("@");
+    expect(body.data[0].user_data.em.length).toBe(64);
+    // Raw fields must contain the exact value.
+    expect(body.data[0].user_data.client_ip_address).toBe("203.0.113.99");
+    expect(body.data[0].user_data.client_user_agent).toBe("Safari/17.0");
+  });
+
+  it("supports IPv6 client_ip_address without modification", async () => {
+    await sendCapiEvent({
+      eventName: "PageView",
+      countryCode: "LB",
+      userData: { clientIpAddress: "2001:db8::1" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    expect(body.data[0].user_data.client_ip_address).toBe("2001:db8::1");
+  });
+});
+
+describe("sendCapiEvent — phone normalisation with country dial code (E.164)", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+    process.env.VITE_FB_PIXEL_ID_AE = "9876543210";
+    process.env.FB_CONVERSIONS_TOKEN_AE = "test-token-ae";
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    delete process.env.VITE_FB_PIXEL_ID_LB;
+    delete process.env.FB_CONVERSIONS_TOKEN_LB;
+    delete process.env.VITE_FB_PIXEL_ID_AE;
+    delete process.env.FB_CONVERSIONS_TOKEN_AE;
+  });
+
+  it("normalises a Lebanese local number (70xxxxxx) to 96170xxxxxx before hashing", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 20,
+      currency: "USD",
+      userData: { phone: "70123456" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const expectedHash = createHash("sha256").update("96170123456").digest("hex");
+    expect(body.data[0].user_data.ph).toBe(expectedHash);
+  });
+
+  it("normalises a Lebanese number with national prefix 0 (03xxxxxx) by stripping the 0 and prepending 961", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 20,
+      currency: "USD",
+      userData: { phone: "03123456" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const expectedHash = createHash("sha256").update("9613123456").digest("hex");
+    expect(body.data[0].user_data.ph).toBe(expectedHash);
+  });
+
+  it("normalises a UAE local number (050xxxxxxx) to 97150xxxxxxx", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "AE",
+      value: 200,
+      currency: "AED",
+      userData: { phone: "0501234567" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const expectedHash = createHash("sha256").update("971501234567").digest("hex");
+    expect(body.data[0].user_data.ph).toBe(expectedHash);
+  });
+
+  it("preserves an already-international phone (+961 71 123 456 → 96171123456) — existing behaviour", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 20,
+      currency: "USD",
+      userData: { phone: "+961 71 123 456" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const expectedHash = createHash("sha256").update("96171123456").digest("hex");
+    expect(body.data[0].user_data.ph).toBe(expectedHash);
+  });
+});
+
+describe("sendCapiEvent — additional matching fields (fn, ln, city, country, external_id)", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    delete process.env.VITE_FB_PIXEL_ID_LB;
+    delete process.env.FB_CONVERSIONS_TOKEN_LB;
+  });
+
+  it("hashes firstName as fn and lastName as ln", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 50,
+      currency: "USD",
+      userData: { firstName: "Ali", lastName: "Hassan" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const fnHash = createHash("sha256").update("ali").digest("hex");
+    const lnHash = createHash("sha256").update("hassan").digest("hex");
+    expect(body.data[0].user_data.fn).toBe(fnHash);
+    expect(body.data[0].user_data.ln).toBe(lnHash);
+  });
+
+  it("hashes externalId as external_id", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 50,
+      currency: "USD",
+      userData: { externalId: "customer-42" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const expectedHash = createHash("sha256").update("customer-42").digest("hex");
+    expect(body.data[0].user_data.external_id).toBe(expectedHash);
+  });
+
+  it("hashes city as ct and country as country", async () => {
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 50,
+      currency: "USD",
+      userData: { city: "Beirut", country: "lb" },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const ctHash = createHash("sha256").update("beirut").digest("hex");
+    const countryHash = createHash("sha256").update("lb").digest("hex");
+    expect(body.data[0].user_data.ct).toBe(ctHash);
+    expect(body.data[0].user_data.country).toBe(countryHash);
+  });
+});
+
 describe("sendCapiEventByPixelId (POST /api/pixel/event path)", () => {
   const mockFetch = vi.fn();
 

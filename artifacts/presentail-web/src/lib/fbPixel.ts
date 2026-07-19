@@ -97,8 +97,21 @@ export type FbPixelParams = {
   currency?: string;
   num_items?: number;
   event_id?: string;
-  /** Plain-text email — hashed server-side before being sent to Meta. Never logged. */
-  userData?: { em?: string };
+  /**
+   * Customer data to improve Meta event match quality.
+   * All fields are plain-text — hashed server-side before being sent to Meta.
+   * Never log or expose these values in browser DevTools or error messages.
+   */
+  userData?: {
+    /** Plain-text email address. */
+    em?: string;
+    /** Plain-text first name. */
+    fn?: string;
+    /** Plain-text last name. */
+    ln?: string;
+    /** Plain-text phone number (local or international format). */
+    ph?: string;
+  };
 };
 
 function postPixelEvent(
@@ -127,7 +140,17 @@ function postPixelEvent(
   if (params?.content_ids) body.contentIds = params.content_ids;
   if (params?.content_name) body.contentName = params.content_name;
   if (params?.num_items != null) body.numItems = params.num_items;
-  if (params?.userData?.em) body.userData = { em: params.userData.em };
+
+  // Collect whichever user-data fields the caller supplied, sending only
+  // non-empty values. Fields are hashed server-side.
+  if (params?.userData) {
+    const ud: Record<string, string> = {};
+    if (params.userData.em) ud.em = params.userData.em;
+    if (params.userData.fn) ud.fn = params.userData.fn;
+    if (params.userData.ln) ud.ln = params.userData.ln;
+    if (params.userData.ph) ud.ph = params.userData.ph;
+    if (Object.keys(ud).length > 0) body.userData = ud;
+  }
 
   fetch("/api/pixel/event", {
     method: "POST",
