@@ -12,6 +12,7 @@
  *   7. GET /llms-full.txt returns HTTP 200 with Content-Type: text/plain and a non-empty body.
  *   8. GET /sitemap.md returns HTTP 200 with Content-Type: text/plain and a body containing "# Presentail".
  *   9. GET /agents.md returns HTTP 200 with Content-Type: text/plain and a non-empty body.
+ *  10. GET /agents.md body contains a recognisable heading ("# Presentail").
  *
  * Checks (1)–(4) run against both the root path ("/") and a locale-prefixed
  * non-root path ("/en-lb/beirut/"). These exercise the two distinct Link-header
@@ -192,5 +193,15 @@ test.describe("/llms.txt and /agents.md — Agent Ready scan", () => {
 
     const body = await response.text();
     expect(body.trim().length).toBeGreaterThan(0);
+  });
+
+  test("GET /agents.md body contains a recognisable heading", async ({
+    request,
+  }) => {
+    const response = await request.get("/agents.md");
+    expect(response.status()).toBe(200);
+
+    const body = await response.text();
+    expect(body).toContain("# Presentail");
   });
 });
