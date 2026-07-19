@@ -28,12 +28,28 @@ name: Web – Submit sitemap after deploy
 #    after a transient Bing / IndexNow error.
 #
 # Required secrets (GitHub → Settings → Secrets and variables → Actions):
-#   SITEMAP_URL    — override the sitemap URL (optional; default:
-#                   https://presentail.com/sitemap.xml).  Set this secret
-#                   only if the production URL ever changes.
-#   INDEXNOW_KEY   — IndexNow API key.  Defaults to the committed key in
-#                   scripts/src/submitSitemap.ts when the secret is absent;
-#                   set the secret to rotate the key without a code change.
+#   SITEMAP_URL      — override the sitemap URL (optional; default:
+#                     https://presentail.com/sitemap.xml).  Set this secret
+#                     only if the production URL ever changes.
+#   INDEXNOW_KEY     — IndexNow API key.  Defaults to the committed key in
+#                     scripts/src/submitSitemap.ts when the secret is absent;
+#                     set the secret to rotate the key without a code change.
+#   GSC_CREDENTIALS  — base64-encoded Google service account JSON key.
+#                     When set, the submit-sitemap step also calls the Google
+#                     Search Console Sitemaps API (PUT /webmasters/v3/sites/…)
+#                     so the <image:image> sitemap extensions are queued for
+#                     GSC processing immediately — not just at the next
+#                     scheduled crawl.  Setup:
+#                       1. Create a GCP service account.
+#                       2. In GSC → Settings → Users and permissions, add the
+#                          service account email as Owner or Full User of the
+#                          https://presentail.com/ property.
+#                       3. Download the JSON key, then base64-encode it:
+#                            base64 -w 0 service-account.json
+#                       4. Store the result as a GitHub Actions secret named
+#                          GSC_CREDENTIALS.
+#                     The step is non-fatal and silently skipped when the
+#                     secret is absent, so existing runs are unaffected.
 #
 # Concurrency: only one submission runs at a time; a second run queues rather
 # than cancels so we never lose a ping.
@@ -115,3 +131,7 @@ jobs:
         env:
           SITEMAP_URL: ${{ secrets.SITEMAP_URL }}
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          # Optional: when set, also submits the sitemap to Google Search
+          # Console via the Sitemaps API so <image:image> extensions are
+          # processed promptly.  See the secret setup instructions above.
+          GSC_CREDENTIALS: ${{ secrets.GSC_CREDENTIALS }}
