@@ -1899,7 +1899,7 @@ function fetchOccasionForSeo(opts) {
  * (b) mark genuinely empty listing pages as `noindex, follow`. Best-effort:
  * returns null on any failure so the page still renders without a count.
  */
-async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityId, apiBaseUrl }) {
+async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityId, apiBaseUrl, page }) {
   if (!slug || !apiBaseUrl) return null;
   const endpoint =
     kind === "occasion" ? "/api/woo/occasion-products" : "/api/woo/category-products";
@@ -1907,6 +1907,7 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
   if (lang) params.set("lang", lang);
   if (countryCode) params.set("countryCode", countryCode);
   if (cityId) params.set("cityId", cityId);
+  if (page && page > 1) params.set("page", String(page));
   const url = `${apiBaseUrl.replace(/\/$/, "")}${endpoint}?${params.toString()}`;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);
@@ -1927,6 +1928,19 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
       return { name, slug, image };
     };
     if (kind === "occasion") {
+      // When the API returns a flat pageItems array (page-aware slice), prefer
+      // it over collecting from groups so the correct page offset is respected.
+      if (Array.isArray(body.pageItems)) {
+        const count =
+          typeof body.total === "number"
+            ? body.total
+            : (Array.isArray(body.groups) ? body.groups : []).reduce(
+                (s, g) => s + (g.count ?? 0),
+                0,
+              );
+        const items = body.pageItems.map(toItem).filter(Boolean).slice(0, PAGINATION_PAGE_SIZE);
+        return { count, items };
+      }
       const groups = Array.isArray(body.groups) ? body.groups : [];
       const items = [];
       for (const g of groups) {
@@ -1934,10 +1948,10 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
           const it = toItem(p);
           if (it) {
             items.push(it);
-            if (items.length >= 10) break;
+            if (items.length >= PAGINATION_PAGE_SIZE) break;
           }
         }
-        if (items.length >= 10) break;
+        if (items.length >= PAGINATION_PAGE_SIZE) break;
       }
       const count =
         typeof body.total === "number"
@@ -1946,7 +1960,7 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
       return { count, items };
     }
     const products = Array.isArray(body.products) ? body.products : [];
-    const items = products.map(toItem).filter(Boolean).slice(0, 10);
+    const items = products.map(toItem).filter(Boolean).slice(0, PAGINATION_PAGE_SIZE);
     const count = typeof body.count === "number" ? body.count : products.length;
     return { count, items };
   } catch {
@@ -4164,7 +4178,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       const { countryCode: catCountryCode, lang: catLang, apiBaseUrl: catApiBaseUrl } = fetchOpts;
       const [catImageDims, listing, catParentListing] = await Promise.all([
         fetchImageDimensions(catImageUrl),
-        fetchListingProductsForSeo({ kind: "category", slug: categorySlug, ...fetchOpts }),
+        fetchListingProductsForSeo({ kind: "category", slug: categorySlug, ...fetchOpts, page: paginationPage ?? 1 }),
         fetchListingProductsForSeo({
           kind: "category",
           slug: categorySlug,
@@ -4251,7 +4265,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           : fetchImageDimensions(
               typeof occasion.image === "string" && occasion.image ? occasion.image : null,
             ),
-        fetchListingProductsForSeo({ kind: "occasion", slug: occasionSlug, ...fetchOpts }),
+        fetchListingProductsForSeo({ kind: "occasion", slug: occasionSlug, ...fetchOpts, page: paginationPage ?? 1 }),
         fetchListingProductsForSeo({
           kind: "occasion",
           slug: occasionSlug,

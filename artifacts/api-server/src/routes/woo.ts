@@ -592,9 +592,23 @@ router.get("/woo/category-products", (req, res) => {
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter));
-  const products = sortOsShapedProducts(eligible, sortMode)
+  const allProducts = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
-  return res.json({ ok: true, products, count: products.length, categoryName: catName });
+  const count = allProducts.length;
+
+  // When `page` is explicitly provided (SEO injector for page 2+ noscript lists),
+  // return the correct 24-item slice. Without it, return the full list so existing
+  // SPA clients that expect all products are unaffected.
+  const pageSize = 24;
+  const pageParam = req.query.page;
+  if (pageParam !== undefined) {
+    const pageRaw = Number(pageParam);
+    const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+    const offset = (page - 1) * pageSize;
+    const products = allProducts.slice(offset, offset + pageSize);
+    return res.json({ ok: true, products, count, categoryName: catName });
+  }
+  return res.json({ ok: true, products: allProducts, count, categoryName: catName });
 });
 
 router.get("/woo/occasion-products", (req, res) => {
@@ -631,6 +645,24 @@ router.get("/woo/occasion-products", (req, res) => {
   // Apply sort before grouping so ranking is consistent within each group.
   const ranked = sortOsShapedProducts(deliverable, sortMode);
 
+  // Flat ordered list of all transformed products — used to derive pageItems
+  // (the correct slice for a given page) for noscript/SEO crawlers.
+  // Only computed (and included in the response) when `page` is explicitly
+  // requested — preserving the existing response shape for SPA clients.
+  const pageSize = 24;
+  const pageParam = req.query.page;
+  const allTransformed = pageParam !== undefined
+    ? ranked.map((p) => transformProduct(p, store.currencySymbol))
+    : null;
+  const pageItems = allTransformed !== null
+    ? (() => {
+        const pageRaw = Number(pageParam);
+        const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+        const offset = (page - 1) * pageSize;
+        return allTransformed.slice(offset, offset + pageSize);
+      })()
+    : undefined;
+
   type TransformedProduct = ReturnType<typeof transformProduct>;
   const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
   const assigned = new Set<string>();
@@ -656,7 +688,7 @@ router.get("/woo/occasion-products", (req, res) => {
     count: g.products.length,
     products: g.products.slice(0, 10),
   }));
-  return res.json({ ok: true, groups: result, total: deliverable.length });
+  return res.json({ ok: true, groups: result, total: deliverable.length, pageItems });
 });
 
 
