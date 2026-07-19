@@ -6566,6 +6566,76 @@ describe("injectSeoTagsAsync — banner LCP preload tag", () => {
     const out = await injectSeoTagsAsync(HTML, "/", OPTS);
     expect(out).not.toContain('rel="preload" as="image"');
   });
+
+  // Parametrised boundary table — guards against allow-list regressions.
+  // Any new trusted host must be explicitly added here (allowed: true) so the
+  // gate is documented and tested; widening the check without a matching test
+  // entry will leave a gap that this suite would expose.
+  const PRELOAD_BOUNDARY_CASES: Array<{
+    label: string;
+    url: string;
+    allowed: boolean;
+  }> = [
+    {
+      label: "OS storage URL (canonical path prefix)",
+      url: "https://os.presentail.com/api/storage/banners/hero.jpg",
+      allowed: true,
+    },
+    {
+      label: "OS storage URL with query string",
+      url: "https://os.presentail.com/api/storage/images/bouquet.webp?v=2",
+      allowed: true,
+    },
+    {
+      label: "Unsplash CDN URL (third-party, blocked for SSRF)",
+      url: "https://images.unsplash.com/photo-123?w=1280&q=80",
+      allowed: false,
+    },
+    {
+      label: "Arbitrary HTTP URL (blocked)",
+      url: "http://example.com/banner.jpg",
+      allowed: false,
+    },
+    {
+      label: "Arbitrary HTTPS URL on a different host (blocked)",
+      url: "https://cdn.example.com/images/hero.jpg",
+      allowed: false,
+    },
+    {
+      label: "Relative path (no hostname — blocked)",
+      url: "/images/hero.jpg",
+      allowed: false,
+    },
+    {
+      label: "os.presentail.com URL outside /api/storage/ (blocked)",
+      url: "https://os.presentail.com/app/banners/hero.jpg",
+      allowed: false,
+    },
+    {
+      label: "Subdomain of os.presentail.com (blocked — not the trusted host)",
+      url: "https://cdn.os.presentail.com/api/storage/hero.jpg",
+      allowed: false,
+    },
+  ];
+
+  it.each(PRELOAD_BOUNDARY_CASES)(
+    "isOsStorage boundary: $label → preload allowed=$allowed",
+    async ({ url, allowed }) => {
+      vi.stubGlobal("fetch", vi.fn());
+      const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", {
+        ...OPTS,
+        firstBannerImageUrl: url,
+      });
+      if (allowed) {
+        expect(out).toContain('rel="preload"');
+        expect(out).toContain("imagesrcset=");
+        expect(out).toContain(encodeURIComponent(url));
+      } else {
+        expect(out).not.toContain('rel="preload"');
+        expect(out).not.toContain("imagesrcset=");
+      }
+    },
+  );
 });
 
 describe("stripTrackingParams", () => {
