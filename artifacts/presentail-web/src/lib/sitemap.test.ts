@@ -6,6 +6,10 @@ import {
   generateSitemap,
   resolveSitemap,
   SITEMAP_RETRY_WINDOW_MS,
+  SITEMAP_CITIES,
+  SITEMAP_STATIC_PATHS,
+  SITEMAP_CANONICAL_CITIES,
+  SITEMAP_LANGS,
 // @ts-expect-error - mjs module without type declarations.
 } from "../../sitemap.mjs";
 
@@ -429,5 +433,258 @@ describe("resolveSitemap — /sitemap.xml route resilience", () => {
     expect(recovered.mode).toBe("regenerated");
     expect(recovered.value).toBe(FULL);
     expect(recovered.tsMs).toBe(NOW + SITEMAP_RETRY_WINDOW_MS + 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SITEMAP_STATIC_PATHS — explicit constant guard
+//
+// These tests pin the set of static sub-paths that every city × lang combo
+// gets an entry for. When a new top-level route is added to the sitemap the
+// developer must update SITEMAP_STATIC_PATHS — the tests below will fail and
+// remind them to do so.
+// ---------------------------------------------------------------------------
+describe("SITEMAP_STATIC_PATHS — expected contents", () => {
+  const EXPECTED_STATIC_PATHS = [
+    "/",
+    "/brands",
+    "/occasions",
+    "/contact",
+    "/faqs",
+    "/weddings",
+    "/corporate",
+  ];
+
+  it("contains every expected static sub-path", () => {
+    for (const p of EXPECTED_STATIC_PATHS) {
+      expect(
+        SITEMAP_STATIC_PATHS,
+        `SITEMAP_STATIC_PATHS should include "${p}"`,
+      ).toContain(p);
+    }
+  });
+
+  it("does not contain unexpected extra paths (update this test when adding new ones)", () => {
+    const unexpected = (SITEMAP_STATIC_PATHS as string[]).filter(
+      (p: string) => !EXPECTED_STATIC_PATHS.includes(p),
+    );
+    expect(
+      unexpected,
+      `Unexpected entries in SITEMAP_STATIC_PATHS: ${unexpected.join(", ")} — update both SITEMAP_STATIC_PATHS and this test together`,
+    ).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SITEMAP_CITIES — expected structure
+//
+// Pins the three-country structure and city counts so that adding a new
+// country or city without updating the constant is caught immediately.
+// ---------------------------------------------------------------------------
+describe("SITEMAP_CITIES — expected structure", () => {
+  it("has entries for exactly the three active countries: lb, ae, cy", () => {
+    expect(Object.keys(SITEMAP_CITIES).sort()).toEqual(["ae", "cy", "lb"]);
+  });
+
+  it("Lebanon has 26 cities", () => {
+    expect((SITEMAP_CITIES as Record<string, string[]>).lb).toHaveLength(26);
+  });
+
+  it("UAE has 7 cities", () => {
+    expect((SITEMAP_CITIES as Record<string, string[]>).ae).toHaveLength(7);
+  });
+
+  it("Cyprus has 4 cities", () => {
+    expect((SITEMAP_CITIES as Record<string, string[]>).cy).toHaveLength(4);
+  });
+
+  it("includes the canonical representative city for each country", () => {
+    expect((SITEMAP_CITIES as Record<string, string[]>).lb).toContain("beirut");
+    expect((SITEMAP_CITIES as Record<string, string[]>).ae).toContain("dubai");
+    expect((SITEMAP_CITIES as Record<string, string[]>).cy).toContain("nicosia");
+  });
+
+  it("SITEMAP_CANONICAL_CITIES matches the expected per-country representatives", () => {
+    expect((SITEMAP_CANONICAL_CITIES as Record<string, string>).lb).toBe("beirut");
+    expect((SITEMAP_CANONICAL_CITIES as Record<string, string>).ae).toBe("dubai");
+    expect((SITEMAP_CANONICAL_CITIES as Record<string, string>).cy).toBe("nicosia");
+  });
+
+  it("SITEMAP_LANGS contains en, ar, and fr", () => {
+    expect((SITEMAP_LANGS as string[]).sort()).toEqual(["ar", "en", "fr"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSitemapXml — top-level route type coverage
+//
+// Each route type (static pages, products, brands, occasions, categories,
+// blog articles) must produce at least one <url> in the output. Adding a new
+// route type to the sitemap generator without adding it here causes this
+// section to fall out of sync — update it alongside sitemap.mjs.
+// ---------------------------------------------------------------------------
+describe("buildSitemapXml — top-level route type coverage", () => {
+  const xmlFull = buildSitemapXml({
+    origin: ORIGIN,
+    basePath: "/",
+    products: [{ slug: "red-roses", name: "Red Roses", imageUrl: "https://os.presentail.com/api/storage/public-objects/roses.jpg" }],
+    brands: [{ slug: "acme-flowers", count: 5 }],
+    occasions: [{ id: "birthday", count: 5 }],
+    categories: [{ id: "bouquets", count: 12 }],
+    blogPosts: { "top-10-flowers": {} },
+    lastmod: "2026-01-01",
+    // totalProductCount: 30 keeps every entity's ratio >= UNIQUENESS_RATIO_MIN (0.15):
+    // brand 5/30 = 0.167, occasion 5/30 = 0.167, category 12/30 = 0.40
+    totalProductCount: 30,
+  });
+
+  it("includes the un-prefixed root URL /", () => {
+    expect(xmlFull).toContain(`<loc>${ORIGIN}/</loc>`);
+  });
+
+  it("includes product URLs", () => {
+    expect(xmlFull).toContain("/product/red-roses");
+  });
+
+  it("includes brand URLs", () => {
+    expect(xmlFull).toContain("/brand/acme-flowers");
+  });
+
+  it("includes occasion URLs", () => {
+    expect(xmlFull).toContain("/occasion/birthday");
+  });
+
+  it("includes category URLs", () => {
+    expect(xmlFull).toContain("/category/bouquets");
+  });
+
+  it("includes blog article URLs", () => {
+    expect(xmlFull).toContain("/blog/top-10-flowers");
+  });
+
+  it("includes every static sub-path from SITEMAP_STATIC_PATHS for at least one city", () => {
+    for (const subpath of SITEMAP_STATIC_PATHS as string[]) {
+      const rest = subpath === "/" ? "" : subpath;
+      const needle = `/en-lb/beirut${rest}`;
+      expect(xmlFull, `static path ${subpath} should appear as ${needle}`).toContain(needle);
+    }
+  });
+
+  it("emits product URLs for all three canonical countries", () => {
+    expect(xmlFull).toContain("/en-lb/beirut/product/red-roses");
+    expect(xmlFull).toContain("/en-ae/dubai/product/red-roses");
+    expect(xmlFull).toContain("/en-cy/nicosia/product/red-roses");
+  });
+
+  it("emits brand URLs for all three canonical countries", () => {
+    expect(xmlFull).toContain("/en-lb/beirut/brand/acme-flowers");
+    expect(xmlFull).toContain("/en-ae/dubai/brand/acme-flowers");
+    expect(xmlFull).toContain("/en-cy/nicosia/brand/acme-flowers");
+  });
+
+  it("emits occasion URLs for all three canonical countries", () => {
+    expect(xmlFull).toContain("/en-lb/beirut/occasion/birthday");
+    expect(xmlFull).toContain("/en-ae/dubai/occasion/birthday");
+    expect(xmlFull).toContain("/en-cy/nicosia/occasion/birthday");
+  });
+
+  it("emits blog article URLs for all three canonical countries", () => {
+    expect(xmlFull).toContain("/en-lb/beirut/blog/top-10-flowers");
+    expect(xmlFull).toContain("/en-ae/dubai/blog/top-10-flowers");
+    expect(xmlFull).toContain("/en-cy/nicosia/blog/top-10-flowers");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSitemapXml — per-country city coverage
+//
+// Every city in every country must produce URLs in the sitemap (for the
+// static sub-paths). Adding a new city to SITEMAP_CITIES but forgetting to
+// keep the list consistent with the web router will surface here.
+// ---------------------------------------------------------------------------
+describe("buildSitemapXml — per-country city coverage", () => {
+  const xmlStatic = buildSitemapXml({
+    origin: ORIGIN,
+    basePath: "/",
+    lastmod: "2026-01-01",
+  });
+
+  it("includes static page URLs for every Lebanon city", () => {
+    for (const city of (SITEMAP_CITIES as Record<string, string[]>).lb) {
+      expect(xmlStatic, `Lebanon city "${city}" should appear in the sitemap`).toContain(`/en-lb/${city}`);
+    }
+  });
+
+  it("includes static page URLs for every UAE city", () => {
+    for (const city of (SITEMAP_CITIES as Record<string, string[]>).ae) {
+      expect(xmlStatic, `UAE city "${city}" should appear in the sitemap`).toContain(`/en-ae/${city}`);
+    }
+  });
+
+  it("includes static page URLs for every Cyprus city", () => {
+    for (const city of (SITEMAP_CITIES as Record<string, string[]>).cy) {
+      expect(xmlStatic, `Cyprus city "${city}" should appear in the sitemap`).toContain(`/en-cy/${city}`);
+    }
+  });
+
+  it("emits all three language variants for each city (en, ar, fr)", () => {
+    for (const lang of SITEMAP_LANGS as string[]) {
+      expect(xmlStatic).toContain(`/${lang}-lb/beirut`);
+      expect(xmlStatic).toContain(`/${lang}-ae/dubai`);
+      expect(xmlStatic).toContain(`/${lang}-cy/nicosia`);
+    }
+  });
+
+  it("emits an x-default hreflang for locale-prefixed city pages", () => {
+    expect(xmlStatic).toContain('hreflang="x-default"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSitemapXml — excluded / noindex paths
+//
+// Paths that are either blocked in robots.txt or marked noindex must never
+// appear in the sitemap. Adding a new noindex group-B page without also
+// listing it here will leave this guard incomplete — update both together.
+// ---------------------------------------------------------------------------
+describe("buildSitemapXml — excluded / noindex paths", () => {
+  const xmlFull = buildSitemapXml({
+    origin: ORIGIN,
+    basePath: "/",
+    products: [{ slug: "red-roses" }],
+    brands: [{ slug: "acme-flowers", count: 5 }],
+    occasions: [{ id: "birthday", count: 5 }],
+    categories: [{ id: "bouquets", count: 12 }],
+    blogPosts: { "hello-world": {} },
+    lastmod: "2026-01-01",
+    totalProductCount: 30,
+  });
+
+  it("does not include /shop (canonical category/occasion clean paths used instead)", () => {
+    expect(xmlFull).not.toContain("/shop");
+  });
+
+  const NOINDEX_GROUP_B = ["/privacy", "/terms", "/careers", "/partner"];
+
+  for (const p of NOINDEX_GROUP_B) {
+    it(`does not include noindex Group B path ${p}`, () => {
+      expect(xmlFull).not.toContain(p);
+    });
+  }
+
+  it("does not include the blog index page (only article pages are indexed)", () => {
+    const locs = [...xmlFull.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
+      (m: RegExpMatchArray) => m[1],
+    );
+    for (const loc of locs) {
+      expect(loc, `loc "${loc}" must not be the bare blog index`).not.toMatch(
+        /\/blog\/?$/,
+      );
+    }
+  });
+
+  it("does not include llms.txt or llms-full.txt", () => {
+    expect(xmlFull).not.toContain("/llms.txt");
+    expect(xmlFull).not.toContain("/llms-full.txt");
   });
 });
