@@ -409,6 +409,7 @@ function CouponRow({
   onCopy: () => void;
 }) {
   const colors = useColors();
+  const t = useT();
   return (
     <View
       style={{

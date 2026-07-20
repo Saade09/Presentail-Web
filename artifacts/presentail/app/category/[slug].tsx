@@ -106,8 +106,8 @@ function CategoryScreen() {
     fetchCategoryProducts(String(slug), { countryCode, cityId }, apiSort).then(({ products, categoryName }) => {
       if (cancelled) return;
       const merged = products
-        .map((wp) => mergeWithStatic(wp))
-        .filter((p) => p.inStock && p.image);
+        .filter((wp) => wp.inStock && wp.image)
+        .map((wp) => mergeWithStatic(wp));
       setWcProducts(merged);
       setWcCategoryName(categoryName);
       setWcLoading(false);
