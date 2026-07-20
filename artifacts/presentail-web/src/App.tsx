@@ -27,9 +27,8 @@ import {
   loadBrands,
   loadBrandDetail,
   loadAllOccasions,
-  loadHomepageHeader,
-  loadFooter,
 } from "@/lib/pageLoaders";
+import { loadHomepageHeader, loadFooter } from "@/lib/layoutLoaders";
 // NOTE: loadCheckout is kept imported here because it is used by the lazy()
 // call for the Checkout route. It is intentionally NOT in IDLE_PREFETCH — see
 // the comment there for the rationale.

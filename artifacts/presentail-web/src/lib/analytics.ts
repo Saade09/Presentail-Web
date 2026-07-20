@@ -161,7 +161,8 @@ type AnalyticsEventName =
   /** Product card shown to the user within a homepage section. */
   | "product_impression"
   /** Product card clicked by the user within a homepage section. */
-  | "product_card_click";
+  | "product_card_click"
+  | "checkout_render_error";
 
 type AnalyticsSurface =
   | "cart"

@@ -1,6 +1,5 @@
-export const loadHomepageHeader = () =>
-  import("@/components/homepage/HomepageHeader");
-export const loadFooter = () => import("@/components/Footer");
+// loadHomepageHeader and loadFooter moved to layoutLoaders.ts to break the
+// HMR circular import: MainNavbar → pageLoaders → HomepageHeader → MainNavbar.
 
 export const loadHome = () => import("@/pages/Home");
 export const loadShop = () => import("@/pages/Shop");
