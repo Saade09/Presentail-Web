@@ -111,8 +111,12 @@ export function ScheduleInlinePanel({
     })();
 
   const defaultDate = todayHasSlots ? todayIso : tomorrowIso;
+  // When the parent passes today as the initial date but today no longer has
+  // bookable slots, ignore it and fall through to defaultDate (tomorrow).
   const seedDate =
-    initialDate && initialDate >= todayIso ? initialDate : defaultDate;
+    initialDate && initialDate >= todayIso && (initialDate !== todayIso || todayHasSlots)
+      ? initialDate
+      : defaultDate;
   const [date, setDateState] = useState<string>(seedDate);
 
   // No upper-bound clamp — shoppers can pick any future date via the calendar.

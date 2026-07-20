@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { TimeSlot } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "./ScheduleInlinePanel";
 import { renderWithProviders } from "@/test-utils";
 
@@ -577,5 +578,75 @@ describe("ScheduleInlinePanel — mobile modal (viewport < 640 px)", () => {
     const lastCall = onChange.mock.calls.at(-1)![0] as { mode: string; date: string };
     expect(lastCall.date).toBe(FAR_DATE_ISO);
     expect(lastCall.mode).toBe("schedule");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auto-switch to tomorrow when today has no available slots
+// ---------------------------------------------------------------------------
+// Simulate all timeslots having passed (cutoffHour 9 < mocked localHour 10).
+// The component must ignore the parent-supplied today date and default to tomorrow.
+
+describe("ScheduleInlinePanel — auto-switch to tomorrow when today has no slots", () => {
+  const PAST_SLOTS: TimeSlot[] = [{ label: "9 AM–11 AM", cutoffHour: 9, startHour: 9 }];
+
+  it("selects tomorrow by default when parent seeds today but every slot has passed", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        timeSlots={PAST_SLOTS}
+        initialDate={TODAY_ISO}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+
+    // Today's chip must not appear — no bookable slots remain.
+    expect(screen.queryByTestId(`schedule-day-${TODAY_ISO}`)).toBeNull();
+
+    // Tomorrow's chip must be present and selected.
+    const tomorrowChip = screen.getByTestId(`schedule-day-${TOMORROW_ISO}`);
+    expect(tomorrowChip).toBeTruthy();
+    expect(tomorrowChip.getAttribute("aria-pressed")).toBe("true");
+
+    // onChange must fire with tomorrow and mode='schedule'.
+    expect(onChange).toHaveBeenCalled();
+    const lastCall = onChange.mock.calls.at(-1)![0] as { mode: string; date: string };
+    expect(lastCall.date).toBe(TOMORROW_ISO);
+    expect(lastCall.mode).toBe("schedule");
+  });
+
+  it("slot chips for tomorrow are all enabled (not disabled) after the auto-switch", () => {
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        timeSlots={PAST_SLOTS}
+        initialDate={TODAY_ISO}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    // After switching to tomorrow every slot is in the future → none disabled.
+    const slotChips = screen.getAllByTestId(/^schedule-slot-/);
+    expect(slotChips.length).toBeGreaterThan(0);
+    slotChips.forEach((chip) => expect((chip as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it("ignores a stale today initialDate even when no initialDate is passed at all", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        timeSlots={PAST_SLOTS}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+    // With no initialDate the component should also land on tomorrow.
+    expect(screen.queryByTestId(`schedule-day-${TODAY_ISO}`)).toBeNull();
+    expect(screen.getByTestId(`schedule-day-${TOMORROW_ISO}`)).toBeTruthy();
+    const lastCall = onChange.mock.calls.at(-1)![0] as { date: string };
+    expect(lastCall.date).toBe(TOMORROW_ISO);
   });
 });
