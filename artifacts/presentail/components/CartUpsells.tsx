@@ -217,23 +217,35 @@ export function CartUpsells() {
 
   return (
     <View style={{ gap: 14 }}>
-      <AppText
-        style={{
-          fontFamily: headingFontMedium,
-          fontSize: 20,
-          color: colors.primary,
-          writingDirection: isRTL ? "rtl" : "ltr",
-        }}
-      >
-        {t.cartUpsellsTitle}
-      </AppText>
+      <View style={{ gap: 2 }}>
+        <AppText
+          style={{
+            fontFamily: headingFontMedium,
+            fontSize: 20,
+            color: colors.primary,
+            writingDirection: isRTL ? "rtl" : "ltr",
+          }}
+        >
+          {t.cartUpsellsTitle}
+        </AppText>
+        <AppText
+          style={{
+            fontFamily: "Inter_400Regular",
+            fontSize: 13,
+            color: colors.mutedForeground,
+            writingDirection: isRTL ? "rtl" : "ltr",
+          }}
+        >
+          {t.cartUpsellsSubtitle}
+        </AppText>
+      </View>
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          gap: 22,
-          paddingVertical: 4,
+          gap: 8,
+          paddingVertical: 2,
           flexDirection: isRTL ? "row-reverse" : "row",
         }}
       >
@@ -252,30 +264,25 @@ export function CartUpsells() {
               }}
               accessibilityRole="button"
               accessibilityState={{ selected: isActive }}
-              style={{ paddingVertical: 6 }}
+              style={{
+                paddingVertical: 7,
+                paddingHorizontal: 14,
+                borderRadius: 999,
+                backgroundColor: isActive ? colors.primary : colors.background,
+                borderWidth: 1,
+                borderColor: isActive ? colors.primary : colors.border,
+              }}
             >
               <AppText
                 style={{
                   fontFamily: isActive ? "Inter_600SemiBold" : "Inter_500Medium",
                   fontSize: 13,
-                  color: isActive ? colors.primary : colors.mutedForeground,
+                  color: isActive ? "#fff" : colors.primary,
                   writingDirection: isRTL ? "rtl" : "ltr",
                 }}
               >
                 {tabLabel(t, tab.id)}
               </AppText>
-              {isActive ? (
-                <View
-                  style={{
-                    height: 2,
-                    marginTop: 6,
-                    backgroundColor: colors.primary,
-                    borderRadius: 1,
-                  }}
-                />
-              ) : (
-                <View style={{ height: 2, marginTop: 6 }} />
-              )}
             </Pressable>
           );
         })}

@@ -110,40 +110,51 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
         closeLabel={t("cart.upsells.modal.close")}
         data-testid="dialog-upsell-modal"
       >
+        {/* ── Header ── */}
         <div className="px-6 pt-6 pb-4 border-b border-primary/10 shrink-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+          <h2 className="font-serif text-xl text-primary leading-tight">
             {t("cart.upsells.modal.addedTitle")}
-          </p>
-          <p className="font-serif text-2xl text-primary mb-3">
-            <FormattedPrice usdValue={subtotal} />
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {t("cart.upsells.modal.cartTotal")}:{" "}
+            <span className="font-semibold text-foreground">
+              <FormattedPrice usdValue={subtotal} />
+            </span>
           </p>
           {freeDeliveryEnabled && (
-            <FreeDeliveryBanner subtotal={subtotal} />
+            <div className="mt-3">
+              <FreeDeliveryBanner subtotal={subtotal} />
+            </div>
           )}
         </div>
 
+        {/* ── "Complete your gift" heading + subtitle ── */}
         <div className="px-6 pt-4 pb-2 shrink-0">
           <DialogTitle className="font-serif text-xl text-primary">
             {t("cart.upsells.title")}
           </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {t("cart.upsells.subtitle")}
+          </p>
         </div>
 
+        {/* ── Category chip tabs ── */}
         {isLoading && (
-          <div className="px-6 pt-4 shrink-0">
-            <div className="flex gap-6 pb-3">
+          <div className="px-6 pt-2 shrink-0">
+            <div className="flex gap-2 pb-3">
               {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-4 w-20" />
+                <Skeleton key={i} className="h-8 w-24 rounded-full" />
               ))}
             </div>
           </div>
         )}
 
         {!isLoading && tabs.length > 0 && (
-          <div className="px-6 pt-4 shrink-0">
+          <div className="px-6 pt-2 shrink-0">
             <div
               role="tablist"
               aria-label={t("cart.upsells.tabsLabel")}
-              className="flex gap-6 overflow-x-auto pb-3 -mx-2 px-2 scrollbar-none"
+              className="flex gap-2 overflow-x-auto pb-1 -mx-2 px-2 scrollbar-none"
             >
               {tabs.map((tab) => {
                 const isActive = tab.id === activeId;
@@ -164,16 +175,13 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
                       });
                     }}
                     data-testid={`upsell-modal-tab-${tab.id}`}
-                    className={`relative whitespace-nowrap pb-2 text-sm transition-colors ${
+                    className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium border transition-colors ${
                       isActive
-                        ? "text-primary font-medium"
-                        : "text-muted-foreground hover:text-primary"
+                        ? "bg-primary text-white border-primary"
+                        : "bg-background text-primary border-border hover:border-primary/50"
                     }`}
                   >
                     {t(tabLabelKey(tab.id))}
-                    {isActive ? (
-                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-                    ) : null}
                   </button>
                 );
               })}
@@ -181,6 +189,7 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           </div>
         )}
 
+        {/* ── Product grid ── */}
         <div
           id="upsell-modal-panel"
           role="tabpanel"
@@ -245,32 +254,35 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           ) : null}
         </div>
 
-        <div className="px-6 pb-2 pt-4 border-t border-primary/10 shrink-0">
-          <DeliveryDateRow className="mb-3" />
+        {/* ── Delivery row ── */}
+        <div className="px-6 pb-2 pt-3 border-t border-primary/10 shrink-0">
+          <DeliveryDateRow className="mb-0" />
         </div>
+
+        {/* ── Bottom action bar ── */}
         <div className="px-6 py-4 shrink-0 flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="outline"
-              className="flex-1 rounded-xl"
-              onClick={onClose}
-              data-testid="upsell-modal-continue-shopping"
-            >
-              {t("cart.upsells.modal.continueShopping")}
-            </Button>
-            <Button
-              className="flex-1 rounded-xl"
-              onClick={() => {
-                trackEvent({
-                  name: "upsell_checkout_proceeded",
-                  surface: "upsell_modal",
-                });
-                onClose();
-                setLocation("/cart");
-              }}
-              data-testid="upsell-modal-proceed-checkout"
-            >
-              {t("cart.viewCart")}
-            </Button>
+          <Button
+            variant="outline"
+            className="flex-1 rounded-full"
+            onClick={onClose}
+            data-testid="upsell-modal-continue-shopping"
+          >
+            {t("cart.upsells.modal.continueShopping")}
+          </Button>
+          <Button
+            className="flex-1 rounded-full gap-1"
+            onClick={() => {
+              trackEvent({
+                name: "upsell_checkout_proceeded",
+                surface: "upsell_modal",
+              });
+              onClose();
+              setLocation("/cart");
+            }}
+            data-testid="upsell-modal-proceed-checkout"
+          >
+            {t("cart.viewCart")} · <FormattedPrice usdValue={subtotal} />
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

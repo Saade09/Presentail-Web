@@ -67,19 +67,32 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
     }
   };
 
+  const cityName = city?.name ?? null;
+
   return (
     <>
       <button
         type="button"
         onClick={handleClick}
         aria-label={displayText ? `${displayText} — ${t("delivery.row.change")}` : t("delivery.row.selectDate")}
-        className={`w-full flex items-center gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 ${className}`}
+        className={`w-full flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 ${className}`}
         data-testid="delivery-date-row"
       >
         <CalendarDays className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <span className="flex-1 text-sm">
-          {displayText ?? (
-            <span className="text-muted-foreground">
+        <span className="flex-1 min-w-0">
+          {displayText ? (
+            <>
+              <span className="block text-sm font-medium text-foreground truncate">
+                {t("delivery.row.label")}: {displayText}
+              </span>
+              {cityName && (
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  {cityName}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">
               {t("delivery.row.selectDate")}
             </span>
           )}

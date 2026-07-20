@@ -118,34 +118,67 @@ function CartAddedScreen() {
   return (
     <>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {/* ── Header ── */}
         <View
           style={{
-            paddingTop: insets.top + 12,
-            paddingBottom: 16,
+            paddingTop: insets.top + 14,
+            paddingBottom: 14,
             paddingHorizontal: 20,
-            backgroundColor: colors.primary,
-            gap: 4,
+            backgroundColor: colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
           }}
         >
-          <AppText
-            style={{
-              fontFamily: headingFontMedium,
-              fontSize: 18,
-              color: "#fff",
-            }}
-          >
-            {t.cartAddedBanner}
-          </AppText>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.75)" }}>
-              {count} {count === 1 ? t.cartAddedItemSingular : t.cartAddedItemPlural} ·
+          <View style={{ flex: 1, gap: 3 }}>
+            <AppText
+              style={{
+                fontFamily: headingFontMedium,
+                fontSize: 18,
+                color: colors.primary,
+              }}
+            >
+              {t.cartAddedBanner}
             </AppText>
-            <Price
-              value={grandTotalUsd}
-              style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}
-              symbolSize={11}
-            />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <AppText
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.mutedForeground,
+                }}
+              >
+                {t.cartTotalLabel}:{" "}
+              </AppText>
+              <Price
+                value={grandTotalUsd}
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 13,
+                  color: colors.primary,
+                }}
+                symbolSize={11}
+              />
+            </View>
           </View>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel={t.previewCardClose}
+            hitSlop={10}
+            style={({ pressed }) => ({
+              width: 32,
+              height: 32,
+              borderRadius: 999,
+              backgroundColor: pressed ? colors.primary + "1A" : colors.muted,
+              alignItems: "center",
+              justifyContent: "center",
+            })}
+          >
+            <Feather name="x" size={16} color={colors.primary} />
+          </Pressable>
         </View>
 
         <ScrollView
@@ -153,37 +186,28 @@ function CartAddedScreen() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 20, gap: 16 }}
           showsVerticalScrollIndicator={false}
         >
+          {/* ── Free delivery nudge ── */}
           {freeDeliveryEnabled && (
             <View
               style={{
                 flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
+                alignItems: "flex-start",
+                gap: 10,
                 backgroundColor: "#fff",
-                borderRadius: 16,
-                padding: 12,
+                borderRadius: 14,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
                 borderWidth: 1,
                 borderColor: colors.border,
               }}
             >
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 999,
-                  backgroundColor: colors.background,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Feather name="truck" size={16} color={colors.primary} />
-              </View>
+              <Feather name="truck" size={18} color={colors.primary} style={{ marginTop: 1 }} />
               <View style={{ flex: 1, gap: 6 }}>
                 {unlocked ? (
                   <AppText
                     style={{
                       fontFamily: "Inter_500Medium",
-                      fontSize: 12,
+                      fontSize: 13,
                       color: colors.primary,
                     }}
                   >
@@ -191,16 +215,16 @@ function CartAddedScreen() {
                   </AppText>
                 ) : (
                   <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
-                    <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary }}>
+                    <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
                       {t.cartFreeDeliveryRemainingPrefix}{" "}
                     </AppText>
                     <Price
                       value={convert(remainingUsd)}
                       native
-                      style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.primary }}
+                      style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}
                       symbolSize={11}
                     />
-                    <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary }}>
+                    <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
                       {" "}{t.cartFreeDeliveryRemainingSuffix}
                     </AppText>
                   </View>
@@ -229,12 +253,22 @@ function CartAddedScreen() {
                     symbolSize={10}
                   />
                 </View>
+                <AppText
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 11,
+                    color: colors.mutedForeground,
+                  }}
+                >
+                  {t.cartFreeDeliveryExpressNote}
+                </AppText>
               </View>
             </View>
           )}
 
           <CartUpsells />
 
+          {/* ── Delivery slot row ── */}
           <Pressable
             onPress={() => setRescheduleVisible(true)}
             accessibilityRole="button"
@@ -243,12 +277,12 @@ function CartAddedScreen() {
               flexDirection: "row",
               alignItems: "center",
               gap: 12,
-              backgroundColor: "#fff",
+              backgroundColor: colors.primary + "0D",
               borderRadius: 14,
               paddingVertical: 10,
               paddingHorizontal: 12,
               borderWidth: 1,
-              borderColor: colors.border,
+              borderColor: colors.primary + "33",
             }}
           >
             <View
@@ -256,7 +290,7 @@ function CartAddedScreen() {
                 width: 28,
                 height: 28,
                 borderRadius: 999,
-                backgroundColor: colors.background,
+                backgroundColor: colors.primary + "1A",
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -265,31 +299,35 @@ function CartAddedScreen() {
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <AppText
-                style={{
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 10,
-                  color: colors.mutedForeground,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.8,
-                }}
-              >
-                {t.cartDeliveryWhenLabel}
-              </AppText>
-              <AppText
                 numberOfLines={1}
                 style={{
                   fontFamily: deliveryRowValue ? "Inter_600SemiBold" : "Inter_400Regular",
-                  fontSize: 12,
+                  fontSize: 13,
                   color: deliveryRowValue ? colors.primary : colors.mutedForeground,
                 }}
               >
-                {deliveryRowValue ?? t.cartSelectDateTimePrompt}
+                {deliveryRowValue
+                  ? `${t.cartDelivery}: ${deliveryRowValue}`
+                  : t.cartSelectDateTimePrompt}
               </AppText>
+              {selectedCity?.name ? (
+                <AppText
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 11,
+                    color: colors.mutedForeground,
+                  }}
+                >
+                  {selectedCity.name}
+                </AppText>
+              ) : null}
             </View>
             <Feather name={deliveryRowValue ? "edit-2" : "chevron-right"} size={14} color={colors.mutedForeground} />
           </Pressable>
         </ScrollView>
 
+        {/* ── Sticky bottom bar ── */}
         <View
           style={{
             paddingHorizontal: 20,
@@ -336,6 +374,8 @@ function CartAddedScreen() {
               paddingVertical: 14,
               alignItems: "center",
               justifyContent: "center",
+              flexDirection: "row",
+              gap: 4,
               backgroundColor: colors.primary,
               opacity: pressed ? 0.88 : 1,
             })}
@@ -348,8 +388,18 @@ function CartAddedScreen() {
                 letterSpacing: 0.6,
               }}
             >
-              {t.cartAddedViewCart}
+              {t.cartAddedViewCart} ·{" "}
             </AppText>
+            <Price
+              value={grandTotalUsd}
+              style={{
+                fontFamily: "Inter_600SemiBold",
+                fontSize: 13,
+                color: "#fff",
+                letterSpacing: 0.6,
+              }}
+              symbolSize={11}
+            />
           </Pressable>
         </View>
       </View>

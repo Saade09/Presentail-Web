@@ -80,17 +80,15 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
       data-testid="free-delivery-banner"
       className={`flex items-start gap-3 rounded-2xl bg-white border border-gray-100 shadow-sm px-4 py-3 ${className ?? ""}`}
     >
-      {/* Icon — truck (in-progress) or teal checkmark (unlocked) */}
+      {/* Icon — bare truck (in-progress) or bare checkmark (unlocked) */}
       <span
         role="img"
         aria-label={unlocked ? t("cart.banner.unlockedAria") : t("cart.banner.truckAria")}
-        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-          unlocked ? "bg-primary" : "bg-secondary/40"
-        }`}
+        className="shrink-0 mt-0.5 flex items-center justify-center"
       >
         {unlocked
-          ? <Check className="w-4 h-4 text-white" aria-hidden="true" />
-          : <Truck className="w-4 h-4 text-primary" aria-hidden="true" />}
+          ? <Check className="w-[18px] h-[18px] text-primary" aria-hidden="true" />
+          : <Truck className="w-[18px] h-[18px] text-primary" aria-hidden="true" />}
       </span>
 
       <div className="min-w-0 text-xs flex-1">
