@@ -173,7 +173,7 @@ export function LocationPicker({
             <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5" data-testid="section-delivery-areas">
               {t("locationPicker.deliveryAreasIn", { country: selectedCountryLabel })}
             </p>
-            <div className="rounded-xl border border-border overflow-hidden">
+            <div className="rounded-xl border border-border overflow-y-auto max-h-[50vh] overscroll-contain">
               {availableCities.map((city, idx) => (
                 <button
                   key={city.id}
@@ -196,7 +196,7 @@ export function LocationPicker({
           </div>
         ) : (
           /* Mixed availability (Cyprus) — one card, section labels inside as dividers */
-          <div className="rounded-xl border border-border overflow-hidden">
+          <div className="rounded-xl border border-border overflow-y-auto max-h-[50vh] overscroll-contain">
             <div className="px-5 pt-3.5 pb-1.5" data-testid="section-available-now">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {t("locationPicker.availableNow")}
