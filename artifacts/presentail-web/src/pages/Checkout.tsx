@@ -233,11 +233,11 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
         onClick={onClick}
         disabled={disabled || walletPreparing}
         data-testid="button-submit-payment"
-        className={`${base} rounded-xl border border-gray-300 px-6`}
-        style={{ backgroundColor: "#fff", color: "#3c4043" }}
+        className={`${base} rounded-xl px-6`}
+        style={{ backgroundColor: "#000" }}
       >
         {showWalletSpinner
-          ? <Loader2 className="h-5 w-5 animate-spin text-[#3c4043]" />
+          ? <Loader2 className="h-5 w-5 animate-spin text-white" />
           : <img src={googlePayLogo} alt={ALT_GOOGLE_PAY} style={{ height: 26, width: "auto" }} draggable={false} />}
       </button>
     );
