@@ -1,0 +1,462 @@
+TASK: Implement a production-ready Klarna payment rollout through the existing Stripe integration
+
+OBJECTIVE
+
+Extend Presentail’s existing Stripe checkout so eligible customers can pay with Klarna safely, without disrupting cards, Apple Pay, Google Pay, or any other existing payment method.
+
+Use Stripe’s supported Payment Element or Checkout Sessions integration with Dynamic Payment Methods. Do not create a separate Klarna SDK integration or a custom Klarna payment flow.
+
+Complete the implementation, database changes, tests, documentation, analytics, and rollout controls. Do not stop after producing an assessment.
+
+CRITICAL CUSTOMER-COUNTRY RULE
+
+Presentail already uses IP geolocation. Integrate it correctly:
+
+- Use the detected IP country as an initial customer-country hint and to prefill the payer’s billing country where appropriate.
+- Never use the gift recipient’s country or delivery address to determine Klarna eligibility.
+- Klarna eligibility must be based on the sender/payer, not the recipient.
+- Allow the customer to correct their billing country because IP detection can be inaccurate or affected by travel, mobile networks, or VPNs.
+- Pass the accurate payer/billing country to Stripe before Stripe determines available payment methods.
+- Do not maintain a permanent hard-coded list of Klarna-supported countries, currencies, or transaction limits.
+- Stripe must remain the source of truth for final eligibility based on the Stripe account, payer location, billing details, currency, amount, transaction type, and current Klarna support.
+- If Klarna is supported for the payer and transaction, ensure the current implementation is not accidentally hiding it because Presentail is sending the recipient’s country, a default Lebanon country, an incorrect currency, or incomplete payer details.
+- If Klarna is unavailable, checkout must continue normally with the other eligible Stripe methods.
+
+PHASE 1 — AUDIT THE EXISTING PAYMENT ARCHITECTURE
+
+Before editing code:
+
+1. Identify the complete existing Stripe flow:
+   - PaymentIntents, Checkout Sessions, Payment Element, or another implementation.
+   - Frontend payment components.
+   - Server routes that create and confirm payments.
+   - Webhook endpoint and signature-verification logic.
+   - Order creation and order activation logic.
+   - Refund and dispute handling.
+   - Stripe metadata and database fields.
+   - Existing analytics events.
+   - Existing IP-geolocation and country-selection logic.
+
+2. Confirm the application is not using Stripe’s deprecated Sources flow.
+
+3. Reuse the existing Stripe payment architecture. Do not build a parallel payment system.
+
+4. Record the relevant files, routes, database tables, event handlers, and current Stripe API version before making changes.
+
+5. If a required Stripe Dashboard action cannot be performed from the codebase, document it as a manual production step. Do not falsely report it as completed.
+
+STRIPE CONFIGURATION
+
+- Use Dynamic Payment Methods.
+- For modern Stripe API versions, avoid manually specifying `payment_method_types`.
+- For older supported API versions, use:
+
+  `automatic_payment_methods: { enabled: true }`
+
+- Enable Klarna in the appropriate Stripe payment-method configuration for both test and live mode.
+- Confirm that the correct Stripe account is being used in each environment.
+- Register and validate every stable production checkout domain used by Presentail, including:
+  - `presentail.com`
+  - `www.presentail.com`
+  - Any other actual domain on which Stripe checkout or the Payment Element runs.
+- Register staging or preview domains only when they are stable and genuinely required.
+- Keep all Stripe secret keys and webhook secrets server-side.
+- Never expose secret keys, full webhook payloads containing sensitive information, or private payer data in frontend code or analytics.
+- Preserve all existing card and wallet configuration.
+
+FEATURE FLAG AND ROLLOUT CONTROL
+
+Add a server-side Klarna rollout control that works without redeployment. It must support:
+
+- `off`: Klarna excluded for everyone.
+- `test`: Klarna available only in test mode or to approved internal testers.
+- `percentage`: Klarna available to a deterministic percentage of otherwise eligible customers.
+- `on`: Klarna available to all customers Stripe considers eligible.
+
+Add a configurable rollout percentage.
+
+Use deterministic cohort assignment based on a stable anonymous checkout/customer identifier so the same customer does not move between cohorts during the same checkout.
+
+The flag controls whether Klarna may be included, but it must not force Klarna to appear. Stripe still makes the final eligibility decision.
+
+When the flag is off or the customer is outside the rollout cohort, exclude only Klarna using a Stripe-supported payment-method configuration or `excluded_payment_method_types`. Do not disable or alter cards and wallets.
+
+Provide an immediate kill switch and document how to use it.
+
+PAYMENTINTENT OR CHECKOUT SESSION CREATION
+
+Extend the existing server-side Stripe service:
+
+- Send the final payable amount in the smallest currency unit.
+- Send the exact customer-facing presentment currency.
+- Ensure Presentail, Stripe, and Klarna totals match exactly.
+- Where supported by the existing Stripe flow, pass accurate line-item information:
+  - Product name
+  - Quantity
+  - Unit amount
+  - Discounts and coupons
+  - Delivery fees
+  - Express or time-slot fees
+  - Taxes
+- Do not send sensitive card-message text to Stripe.
+- Add safe Stripe metadata:
+  - Presentail internal order ID
+  - Storefront/country
+  - Delivery city
+  - Environment
+  - Application version or integration version where useful
+- Map the sender as the payer/billing customer:
+  - First name
+  - Last name
+  - Email
+  - Phone
+  - Billing country
+  - Billing address when collected
+- Map the gift recipient and delivery address separately as shipping or internal fulfillment information.
+- Never identify the gift recipient as the Klarna payer.
+- Use a safe allowlisted `return_url` that returns to the exact Presentail order/payment-status page.
+- Create PaymentIntents or Checkout Sessions idempotently.
+- Repeated clicks, refreshes, retries, and network timeouts must not create duplicate PaymentIntents, Stripe sessions, orders, or charges.
+- Recalculate and validate the amount and currency server-side. Never trust frontend totals.
+
+CHECKOUT USER EXPERIENCE
+
+Render Klarna only through Stripe’s Payment Element or the current Stripe-supported checkout UI.
+
+- Do not create independent Klarna Pay Later, Pay in 3, Pay in 4, or Financing buttons.
+- Use a single Klarna method.
+- Where Stripe’s supported UI allows it, present it as:
+  “Klarna — Buy now, pay later”
+- If Stripe controls the method label, keep Stripe’s native Klarna label and place this supporting copy nearby:
+  “Available plans and approval are determined by Klarna.”
+- Explain on selection that the customer will securely continue to Klarna and return to Presentail.
+- Do not promise a specific installment count, repayment amount, approval, interest-free offer, or financing plan unless an approved Stripe/Klarna messaging component returns it for that customer.
+- Prevent double submission.
+- Disable the payment button and show a loading/redirect state while Stripe confirmation is in progress.
+- Preserve all checkout state across redirect, refresh, back navigation, cancellation, and retry:
+  - Cart
+  - Sender details
+  - Recipient details
+  - Delivery address
+  - Delivery date and time slot
+  - Card message
+  - Add-ons
+  - Coupons
+  - Fees and taxes
+  - Selected currency
+- Do not depend only on browser memory. Persist recoverable checkout state securely on the server against the pending order or checkout session.
+- Support clear return-page states:
+  - Processing
+  - Paid
+  - Declined
+  - Cancelled
+  - Expired
+  - Unknown
+- After failure, cancellation, or expiry, preserve the order and checkout data and allow the customer to safely retry or choose another payment method.
+- Verify English, Arabic RTL, and French layouts on desktop and mobile.
+
+PAYMENT AUTHORITY AND WEBHOOK SAFETY
+
+The browser redirect or return page must never mark an order as paid.
+
+Verified Stripe webhooks are the authoritative payment result.
+
+- Verify webhook signatures using the raw request body and the correct environment-specific webhook secret.
+- Process webhook events idempotently using the Stripe event ID and a database uniqueness constraint or equivalent atomic mechanism.
+- Reuse the current payment-event architecture.
+- Handle all relevant events used by the existing integration, including successful, processing, failed, cancelled, refunded, and disputed states.
+- At minimum, support the appropriate PaymentIntent events such as:
+  - `payment_intent.succeeded`
+  - `payment_intent.processing`
+  - `payment_intent.payment_failed`
+  - `payment_intent.canceled`
+- If Checkout Sessions are used, also implement the applicable Checkout and asynchronous-payment events.
+- Do not assume event delivery order.
+- Fetch the latest Stripe object server-side when necessary to resolve ambiguous or out-of-order events.
+- Validate order ID, amount, currency, environment, and Stripe object ownership before activating an order.
+
+Keep the Presentail order in `Pending Payment` or `Payment Processing` until Stripe confirms success.
+
+Before confirmed success, do not:
+
+- Release the order to florist production.
+- Send it to POS or fulfillment.
+- Reserve or trigger delivery operations beyond the existing pending-order policy.
+- Mark it confirmed or paid.
+- Send a paid-order confirmation.
+- Create a final paid invoice.
+- Export it as paid to accounting.
+- Perform irreversible stock movement.
+
+A separate pending-payment message may be shown, but it must not imply that payment succeeded.
+
+On confirmed success, activate the order exactly once and store:
+
+- Stripe PaymentIntent ID
+- Checkout Session ID when applicable
+- Charge ID when available
+- Payment method type: `klarna`
+- Paid amount
+- Paid currency
+- Stripe payment status
+- Created, authorized, and confirmed timestamps
+- Klarna payment category, locale, or other non-sensitive Klarna fields when Stripe returns them
+
+Fulfillment, stock movement, invoices, receipts, paid confirmation emails, and operational notifications must each be protected against duplicate execution.
+
+RETURN PAGE
+
+The return page must query Presentail’s server for the current order/payment status.
+
+- Never infer success from URL parameters or the presence of a PaymentIntent ID.
+- If Stripe redirected the customer back before the webhook was processed, show a processing state.
+- Poll the Presentail server for a limited period with safe backoff.
+- If still processing after the polling period, leave the order pending and provide a neutral status message.
+- Refreshing or revisiting the URL must not change payment state.
+- Do not expose Stripe client secrets or sensitive payment details in visible URLs.
+
+FAILURE, CANCELLATION, AND RETRY
+
+- Preserve the pending order after failed, cancelled, expired, or abandoned attempts.
+- Record each payment attempt separately.
+- Allow a safe retry with a reusable or new PaymentIntent according to Stripe requirements and the existing architecture.
+- Ensure only one active confirmation attempt can mutate an order at a time.
+- Never activate fulfillment for an abandoned or unsuccessful attempt.
+- Avoid duplicate orders when a customer returns through browser history or starts another attempt.
+
+REFUNDS
+
+Route Klarna refunds through Presentail’s existing Stripe refund service.
+
+- Do not instruct staff to refund Klarna payments outside Stripe.
+- Support full and partial refunds.
+- Create refunds using server-side idempotency keys.
+- Prevent duplicate refund submissions.
+- Prevent refunds above the remaining refundable amount.
+- Synchronize Presentail’s refund state from Stripe webhook events.
+- Store:
+  - Stripe refund ID
+  - PaymentIntent and Charge IDs
+  - Presentail order ID
+  - Amount
+  - Currency
+  - Reason
+  - Staff actor
+  - Creation timestamp
+  - Stripe status
+  - Failure reason when applicable
+- Clearly label Klarna in:
+  - Order details
+  - Payment history
+  - Refund screens
+  - Customer receipts
+  - Internal reports and exports
+- Use neutral customer statuses such as:
+  - “Refund submitted”
+  - “Refund completed”
+- Do not promise that Klarna’s customer repayment schedule updates instantly.
+- Preserve existing card-refund behavior.
+
+DISPUTES AND KLARNA INQUIRIES
+
+Integrate Klarna dispute and inquiry events into the existing Stripe notification system.
+
+- Process applicable dispute-created, updated, closed, funds-withdrawn, and funds-reinstated events idempotently.
+- Create a visible internal alert for operations and finance.
+- Include:
+  - Presentail order
+  - Stripe dispute ID
+  - Disputed amount and currency
+  - Reason and current stage
+  - Response deadline
+  - Customer details appropriate for authorized staff
+  - Delivery status
+  - Tracking and fulfillment evidence
+  - Direct link to the Stripe Dashboard dispute record
+- Clearly distinguish a Klarna inquiry from an escalated chargeback.
+- Add an internal warning that Klarna inquiries require prompt handling and may escalate if ignored.
+- Do not automatically submit evidence or issue a refund without an authorized staff action unless an existing approved business rule already does so.
+
+STRUCTURED LOGGING AND ALERTING
+
+Add structured server-side logs and alerts for:
+
+- Webhook signature failures
+- Unhandled Stripe event types
+- Duplicate/replayed webhook events
+- Amount or currency mismatches
+- Metadata/order mismatches
+- Payment activation failures
+- Duplicate-fulfillment prevention
+- Refund failures
+- Dispute/inquiry creation
+- Return pages stuck in processing
+
+Do not log secret keys, client secrets, complete webhook signatures, full billing addresses, or other unnecessary personal information.
+
+ANALYTICS
+
+Capture `payment_method = klarna` and the Presentail order ID for:
+
+- Klarna selected
+- Payment attempt started
+- Redirect started
+- Customer returned
+- Processing
+- Success
+- Failure
+- Cancellation
+- Expiry/abandonment where determinable
+- Refund submitted
+- Refund completed
+- Dispute/inquiry created
+
+Track:
+
+- Klarna availability or exposure rate using only signals the Stripe integration can reliably provide
+- Selection rate
+- Authorization/success rate
+- Checkout conversion rate
+- Average order value
+- Failed-payment rate
+- Cancellation rate
+- Refund rate and value
+- Dispute rate and value
+- Revenue by payer country and presentment currency
+- Performance by language, device, and rollout cohort
+
+Compare Klarna conversion and average order value against card checkout without collecting sensitive payment details.
+
+Do not claim Klarna was available merely because the payer’s IP country usually supports Klarna. Separate these concepts in analytics:
+
+- IP-detected country
+- Customer-confirmed billing country
+- Klarna rollout exposure
+- Klarna selected
+- Klarna payment attempted
+- Klarna payment result
+
+QA MATRIX
+
+Add automated tests where practical and perform documented manual tests covering:
+
+1. Eligibility:
+   - Supported payer countries, currencies, and order ranges relevant to Presentail
+   - Unsupported country, currency, amount, or account combinations
+   - Confirm Klarna is hidden when ineligible without breaking other payment methods
+   - IP country and manually corrected billing country
+   - Sender in a Klarna-supported country sending a gift to another country
+   - Recipient location never overriding payer eligibility
+
+2. Payment lifecycle:
+   - Approved
+   - Declined
+   - Cancelled
+   - Expired
+   - Abandoned
+   - Retry
+   - Refresh
+   - Back button
+   - Duplicate click
+   - Network timeout
+   - Slow webhook
+   - Webhook replay
+   - Out-of-order events
+   - Return URL revisited later
+
+3. Order details:
+   - Coupons
+   - Product discounts
+   - Delivery fees
+   - Express/time-slot fees
+   - Taxes
+   - Currency changes
+   - Mixed cart contents
+   - Add-ons
+   - Guest checkout
+   - Signed-in checkout
+   - Saved addresses
+   - Sender billing details versus recipient shipping details
+
+4. Devices and localization:
+   - English
+   - Arabic RTL
+   - French
+   - Desktop
+   - Mobile
+   - Safari
+   - Chrome
+   - Every production checkout domain
+
+5. Post-payment:
+   - Full refund
+   - Partial refund
+   - Duplicate refund submission
+   - Refund webhook replay
+   - Inquiry/dispute alert
+   - Accounting and operational exports
+   - Existing card and wallet payment/refund behavior
+
+ROLLOUT
+
+Use the feature flag to launch in stages:
+
+1. Stripe test mode and automated QA.
+2. Internal production testers only.
+3. Small deterministic percentage of otherwise eligible customers.
+4. Larger eligible audience after reviewing results.
+5. Full Stripe-eligible audience only after Ahmad explicitly confirms production readiness.
+
+Before increasing rollout:
+
+- Verify the kill switch.
+- Test rollback.
+- Check payment failures, amount mismatches, webhook errors, stuck orders, duplicate-order risk, refund problems, disputes, and customer-service reports.
+
+Do not enable the full production audience automatically.
+
+ACCEPTANCE CRITERIA
+
+The task is complete only when:
+
+- Eligible customers can see Klarna when Stripe makes it available.
+- Presentail’s IP geolocation helps supply an accurate payer-country hint but does not act as the final eligibility engine.
+- Sender/payer and recipient/delivery information are mapped separately.
+- Ineligible customers retain the normal Stripe payment methods without checkout errors.
+- Presentail, Stripe, and Klarna show identical totals and currency.
+- Browser redirects, refreshes, and URL parameters cannot mark an order paid.
+- Successful Klarna payments activate each order exactly once.
+- Failed, cancelled, expired, or abandoned payments never activate fulfillment.
+- Duplicate clicks cannot create duplicate orders, PaymentIntents, sessions, charges, emails, invoices, stock movements, or fulfillment actions.
+- Support can see Klarna, Stripe IDs, attempts, payment status, refunds, and disputes on the order.
+- Full and partial refunds reconcile correctly.
+- Existing cards, Apple Pay, Google Pay, other Stripe methods, and their refund behavior remain unchanged.
+- EN, AR, and FR work correctly on mobile and desktop.
+- Analytics and rollout-cohort reporting are visible in the existing reporting stack.
+- The rollback procedure and kill switch have been tested.
+- QA evidence includes screenshots, test orders, Stripe event IDs, sanitized log references, and resolved blockers.
+- Test-mode and live-mode Stripe configuration steps are documented separately.
+- Full production rollout remains disabled until Ahmad approves it.
+
+FINAL DELIVERY REPORT
+
+After implementation, return:
+
+1. Audit findings and previous payment architecture.
+2. Exact files and database migrations changed.
+3. Stripe API version and integration type.
+4. Automated test results.
+5. Manual QA matrix with pass/fail status and evidence.
+6. Test PaymentIntent, Checkout Session, refund, and dispute IDs where applicable.
+7. Stripe Dashboard actions completed.
+8. Dashboard actions Ahmad must complete manually, with exact paths.
+9. Environment variables and feature-flag settings, without exposing values.
+10. Monitoring and rollback instructions.
+11. Remaining blockers.
+12. Explicit confirmation that full production rollout is still disabled pending Ahmad’s approval.
+
+Official references:
+- https://docs.stripe.com/payments/klarna/accept-a-payment
+- https://docs.stripe.com/payments/payment-methods/dynamic-payment-methods
+- https://docs.stripe.com/payments/klarna/disputes
+- https://docs.stripe.com/refunds

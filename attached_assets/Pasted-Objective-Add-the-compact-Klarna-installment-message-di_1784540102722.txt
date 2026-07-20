@@ -1,0 +1,42 @@
+Objective
+Add the compact Klarna installment message directly beneath the product price on Presentail product pages, matching the approved mockup.
+
+Scope — only implement this change
+- Add a small Klarna payment message between the product price and the delivery-information section.
+- Do not redesign the product image, product title, price, delivery section, Add to Cart button, product cards, or checkout.
+- Do not add a second “Buy with Klarna” or express-checkout button.
+- Do not add Klarna banners elsewhere on the website as part of this task.
+
+Implementation requirements
+- Use Stripe’s Payment Method Messaging Element or Stripe’s current supported dynamic messaging component. Do not hard-code “Pay in 4,” the installment amount, interest wording, or the Klarna country list.
+- Allow Stripe to generate the localized, compliant offer using the current product amount, selected currency, locale, and customer eligibility.
+- Show the Klarna message only when Stripe confirms that Klarna messaging is eligible for that customer country, presentment currency, product amount, and Stripe account.
+- If Stripe does not return an eligible Klarna offer—or the customer location is unknown/ineligible—render nothing and preserve the existing spacing.
+- Eligibility must use the payer/sender’s country or Stripe’s customer-location determination, not the flower recipient’s delivery country. Example: an eligible UK customer sending flowers to Lebanon or the UAE may see Klarna; a customer located in an unsupported market must not see it merely because the delivery destination is supported.
+- The component must refresh when product price, variant, add-on total, quantity, or selected currency changes.
+- Use Klarna’s official pink badge/logo supplied through the approved Stripe component. Keep the presentation compact and visually secondary to the Add to Cart button.
+- “Learn more” must open the localized Klarna/Stripe explanation supplied by the component.
+- Load the payment-messaging component without blocking the product page. A loading failure must not affect product purchase or create empty gaps.
+- Support English, Arabic, and French, including correct RTL layout in Arabic.
+
+Required visual placement
+1. Product name
+2. Price
+3. Klarna dynamic payment message
+4. Delivery information
+5. Add to Cart
+
+Acceptance criteria
+- Eligible supported-country customer: sees the Stripe-generated Klarna message beneath the price.
+- Unsupported-country customer: sees no Klarna message and no blank space.
+- Supported country with unsupported currency or amount: sees no Klarna message.
+- Changing currency or product total immediately re-evaluates and updates/hides the offer.
+- Recipient/delivery country does not incorrectly control payer eligibility.
+- Installment wording and amounts are never manually calculated or hard-coded.
+- Existing product-page design and checkout remain unchanged.
+- Verified on mobile and desktop in EN/AR/FR.
+- QA includes at least one eligible market and one ineligible market using Stripe test mode.
+
+References
+https://docs.stripe.com/payments/klarna/best-practices
+https://docs.stripe.com/payments/klarna
