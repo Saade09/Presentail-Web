@@ -227,6 +227,28 @@ router.get("/admin/seo-qa", async (req: Request, res: Response) => {
   );
 
   const rawOrigin = (req.query["origin"] as string | undefined)?.trim();
+
+  if (rawOrigin !== undefined) {
+    let parsedHostname: string | null = null;
+    try {
+      parsedHostname = new URL(rawOrigin).hostname.toLowerCase();
+    } catch {
+      res.status(400).json({ ok: false, message: "Invalid origin: must be an absolute URL" }); // i18n-ignore
+      return;
+    }
+    const isPresentailHost =
+      parsedHostname === "presentail.com" ||
+      parsedHostname.endsWith(".presentail.com");
+    const isLoopbackInDev =
+      process.env.NODE_ENV !== "production" &&
+      (parsedHostname === "localhost" || parsedHostname === "127.0.0.1");
+    const allowed = isPresentailHost || isLoopbackInDev;
+    if (!allowed) {
+      res.status(400).json({ ok: false, message: "origin is not an allowed Presentail domain" }); // i18n-ignore
+      return;
+    }
+  }
+
   const origin =
     rawOrigin ??
     process.env.SEO_QA_ORIGIN ??

@@ -192,9 +192,27 @@ async function checkImageReachability(imageUrl: string): Promise<{
   };
 }
 
-function resolveTargetUrl(rawUrl: string): string {
+/** Returns true when the hostname is an approved Presentail host.
+ *  In non-production environments localhost/127.0.0.1 are also permitted
+ *  so the SEO debug tool can target a local dev server. In production only
+ *  verified Presentail domains are allowed — loopback is excluded to prevent
+ *  using this tool as an internal-network SSRF pivot after token compromise.
+ */
+function isAllowedSeoHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === "presentail.com" || h.endsWith(".presentail.com")) return true;
+  if (process.env.NODE_ENV !== "production") {
+    if (h === "localhost" || h === "127.0.0.1") return true;
+  }
+  return false;
+}
+
+function resolveTargetUrl(rawUrl: string): string | null {
   try {
     const parsed = new URL(rawUrl);
+    if (!isAllowedSeoHost(parsed.hostname)) {
+      return null;
+    }
     return parsed.toString();
   } catch {
     const origin =
@@ -229,6 +247,29 @@ interface SeoDebugResult {
 
 async function debugPageUrl(rawUrl: string): Promise<SeoDebugResult> {
   const targetUrl = resolveTargetUrl(rawUrl);
+  if (targetUrl === null) {
+    return {
+      ok: false,
+      url: rawUrl,
+      error: "URL host is not an allowed Presentail domain", // i18n-ignore
+      title: null,
+      description: null,
+      canonical: null,
+      ogImage: null,
+      ogImageWidth: null,
+      ogImageHeight: null,
+      ogImageAlt: null,
+      twitterImageAlt: null,
+      ogImageReachable: null,
+      ogImageBytes: null,
+      ogImageActualWidth: null,
+      ogImageActualHeight: null,
+      ogImageWidthOk: null,
+      ogImageRatioOk: null,
+      ogImageSizeOk: null,
+      fallbackUsed: false,
+    };
+  }
   const html = await fetchPageHtml(targetUrl);
   if (!html) {
     return {
@@ -275,14 +316,22 @@ async function debugPageUrl(rawUrl: string): Promise<SeoDebugResult> {
   let ogImageSizeOk: boolean | null = null;
 
   if (ogImage) {
-    const result = await checkImageReachability(ogImage);
-    ogImageReachable = result.reachable;
-    ogImageBytes = result.bytes;
-    ogImageActualWidth = result.actualWidth;
-    ogImageActualHeight = result.actualHeight;
-    ogImageWidthOk = result.widthOk;
-    ogImageRatioOk = result.ratioOk;
-    ogImageSizeOk = result.sizeOk;
+    let ogImageHostAllowed = false;
+    try {
+      ogImageHostAllowed = isAllowedSeoHost(new URL(ogImage).hostname);
+    } catch {
+      ogImageHostAllowed = false;
+    }
+    if (ogImageHostAllowed) {
+      const result = await checkImageReachability(ogImage);
+      ogImageReachable = result.reachable;
+      ogImageBytes = result.bytes;
+      ogImageActualWidth = result.actualWidth;
+      ogImageActualHeight = result.actualHeight;
+      ogImageWidthOk = result.widthOk;
+      ogImageRatioOk = result.ratioOk;
+      ogImageSizeOk = result.sizeOk;
+    }
   }
 
   return {
@@ -321,6 +370,10 @@ router.get("/seo/debug", async (req: Request, res: Response) => {
   }
 
   const targetUrl = resolveTargetUrl(rawUrl);
+  if (targetUrl === null) {
+    res.status(400).json({ ok: false, message: "URL host is not an allowed Presentail domain" }); // i18n-ignore
+    return;
+  }
   logger.info({ targetUrl }, "seo.debug: fetching page");
 
   const result = await debugPageUrl(rawUrl);
