@@ -202,7 +202,28 @@ export default function AllOccasions() {
   const { t, language, cityName } = useLocale();
   const { city, countryCode } = useLocationSelection();
   const { data, isLoading } = useCatalogMetadata();
-  const occasions = data?.occasions ?? [];
+  const rawOccasions = data?.occasions ?? [];
+  const occasions = (() => {
+    const seen = new Map<string, typeof rawOccasions[number]>();
+    for (const occ of rawOccasions) {
+      const slug = SLUG_REMAP[occ.id] ?? occ.id;
+      const existing = seen.get(slug);
+      if (!existing) {
+        seen.set(slug, occ);
+        continue;
+      }
+      // Prefer the entry whose own id IS the canonical slug (not remapped).
+      const newIsCanonical = !(occ.id in SLUG_REMAP);
+      const existingIsCanonical = !(existing.id in SLUG_REMAP);
+      if (newIsCanonical && !existingIsCanonical) {
+        seen.set(slug, occ);
+      } else if (newIsCanonical === existingIsCanonical && !existing.image && occ.image) {
+        // Equal canonicality — fall back to preferring the entry with an image.
+        seen.set(slug, occ);
+      }
+    }
+    return Array.from(seen.values());
+  })();
   const cityLabel = city ? cityName(city.id, city.name) : "";
 
   return (
