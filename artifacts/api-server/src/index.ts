@@ -23,6 +23,7 @@ import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonito
 import { startGoogleAdsConversionMonitor } from "./lib/googleAdsConversionMonitor";
 import { startProductAffinityMonitor } from "./lib/productAffinityMonitor";
 import { startProductMetricsSyncJob } from "./lib/productMetricsSyncJob";
+import { startProductLifecycle410Monitor } from "./lib/productLifecycle410Monitor";
 import { startPlantClassificationJob } from "./lib/plantClassificationJob";
 import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
 import { registerOnFirstPopulatedCallback } from "./lib/osProductsCache";
@@ -91,6 +92,7 @@ app.listen(port, (err) => {
   startGoogleAdsConversionMonitor();
   startProductAffinityMonitor();
   startProductMetricsSyncJob();
+  startProductLifecycle410Monitor();
   startPlantClassificationJob();
 
   // Seed contextual descriptions for all category/occasion × area × language

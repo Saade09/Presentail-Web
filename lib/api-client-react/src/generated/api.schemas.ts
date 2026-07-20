@@ -245,6 +245,14 @@ form. The `errorCode` field carries the reason:
 `show_failed` (web — pr.show() threw synchronously), or
 `not_available` (mobile — isPlatformPaySupported returned false).
 
+`product_lifecycle_410` is recorded by `serve.mjs` whenever a
+product URL returns HTTP 410 Gone because the product slug is
+absent from `scripts/productRedirects.mjs` (product discontinued
+with no redirect entry). The `productId` field carries the slug.
+The server-side `productLifecycle410Monitor` queries these events
+daily and fires a Slack alert listing all affected slugs so ops
+can add redirect entries before link equity is permanently lost.
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -298,6 +306,7 @@ export const AnalyticsEventName = {
   delivery_price_recalculated: "delivery_price_recalculated",
   free_delivery_qualification_message_viewed:
     "free_delivery_qualification_message_viewed",
+  product_lifecycle_410: "product_lifecycle_410",
 } as const;
 
 /**

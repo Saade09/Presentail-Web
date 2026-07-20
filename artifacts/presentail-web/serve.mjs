@@ -68,6 +68,38 @@ const WWW_REDIRECT_TARGET_ORIGIN = (
 ).trim();
 
 // ---------------------------------------------------------------------------
+// product_lifecycle_410 analytics event recorder.
+//
+// Called whenever resolveProductLifecycleResponse() returns a 410 response
+// (discontinued product with no redirect entry in PRODUCT_REDIRECTS).
+//
+// Fire-and-forget POST to the internal API analytics endpoint — never throws,
+// never blocks the response path.  The productLifecycle410Monitor on the API
+// server queries these events daily and fires a Slack alert listing all slugs
+// that returned 410 in the prior UTC day so ops can add redirect entries before
+// link equity is permanently lost.
+// ---------------------------------------------------------------------------
+function recordProduct410Event(productSlug) {
+  if (!productSlug) return;
+  const url = `${INTERNAL_API_BASE_URL}/api/analytics/events`;
+  const body = JSON.stringify({
+    name: "product_lifecycle_410",
+    productId: String(productSlug).slice(0, 64),
+    surface: "web",
+  });
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 5_000);
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    signal: ctrl.signal,
+  })
+    .then((res) => { clearTimeout(t); if (!res.ok) console.warn(`WARN: product_lifecycle_410 event POST responded ${res.status}`); })
+    .catch((err) => { clearTimeout(t); console.warn(`WARN: product_lifecycle_410 event POST failed: ${err?.message}`); });
+}
+
+// ---------------------------------------------------------------------------
 // Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
 // ---------------------------------------------------------------------------
 async function sendSlackAlert(text) {
@@ -1653,6 +1685,9 @@ const server = http.createServer(async (req, res) => {
           pathname, lifecycleOut, origin, BASE_PATH,
         );
         if (lifecycleResponse) {
+          if (lifecycleResponse.status === 410) {
+            recordProduct410Event(lifecycleOut?.productSlug);
+          }
           res.writeHead(lifecycleResponse.status, lifecycleResponse.headers);
           res.end(lifecycleResponse.body);
           return;
@@ -1892,6 +1927,9 @@ const server = http.createServer(async (req, res) => {
       pathname, spaLifecycleOut, origin, BASE_PATH,
     );
     if (spaLifecycleResponse) {
+      if (spaLifecycleResponse.status === 410) {
+        recordProduct410Event(spaLifecycleOut?.productSlug);
+      }
       res.writeHead(spaLifecycleResponse.status, spaLifecycleResponse.headers);
       res.end(spaLifecycleResponse.body);
       return;

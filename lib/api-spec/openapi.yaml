@@ -2673,6 +2673,14 @@ components:
         `constructor_failed` (web — PaymentRequest constructor threw),
         `show_failed` (web — pr.show() threw synchronously), or
         `not_available` (mobile — isPlatformPaySupported returned false).
+
+        `product_lifecycle_410` is recorded by `serve.mjs` whenever a
+        product URL returns HTTP 410 Gone because the product slug is
+        absent from `scripts/productRedirects.mjs` (product discontinued
+        with no redirect entry). The `productId` field carries the slug.
+        The server-side `productLifecycle410Monitor` queries these events
+        daily and fires a Slack alert listing all affected slugs so ops
+        can add redirect entries before link equity is permanently lost.
       enum:
         - checkout_login_prompt_viewed
         - checkout_login_prompt_action
@@ -2719,6 +2727,7 @@ components:
         - free_standard_delivery_qualification_lost
         - delivery_price_recalculated
         - free_delivery_qualification_message_viewed
+        - product_lifecycle_410
     AnalyticsEventRequest:
       type: object
       properties:
