@@ -849,7 +849,7 @@ function OccasionsManagerScreen() {
         typePickerOpen,
         () => setTypePickerOpen(false),
         t.accountOccasionsTypeLabel,
-        OCCASION_OPTIONS.map((o) => ({
+        OCCASION_OPTIONS.filter((o) => o.value === "birthday" || o.value === "anniversary").map((o) => ({
           label: getOccasionTypeLabel(o.value),
           value: o.value,
         })),

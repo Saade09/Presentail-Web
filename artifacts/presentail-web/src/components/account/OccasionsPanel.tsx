@@ -145,7 +145,7 @@ function OccasionForm({
             <SelectValue placeholder={t("account.occasions.occasionTypePlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            {OCCASION_OPTIONS.map((o) => (
+            {OCCASION_OPTIONS.filter((o) => o.value === "birthday" || o.value === "anniversary").map((o) => (
               <SelectItem key={o.value} value={o.value}>
                 {t(`occasion.${o.value}`)}
               </SelectItem>
