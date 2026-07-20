@@ -44,6 +44,7 @@ import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import tabbyLogo from "@/assets/payment-logos/tabby.svg";
+import klarnaLogo from "@/assets/payment-logos/klarna.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
@@ -173,7 +174,7 @@ function getStripePromise(deliveryCountryCode?: string) {
 // (no Western Union). All availability / label / fallback decisions go
 // through the pure helpers in `./checkoutPayMethods`, which wrap the shared
 // `@workspace/pay-methods` table and mirror the mobile checkout.
-type PaymentMethodId = WebPaymentMethodId;
+type PaymentMethodId = WebPaymentMethodId | "klarna";
 
 // Branded submit button — swaps the generic teal button for a method-specific
 // branded button when the shopper has selected Apple Pay, Google Pay, PayPal,
@@ -199,7 +200,31 @@ const LABEL_PAY_PAYPAL = "Pay with PayPal"; // i18n-ignore
 const ALT_WHISH = "Whish"; // i18n-ignore
 const LABEL_PAY_WHISH = "Pay with Whish Money"; // i18n-ignore
 const ALT_TABBY = "Tabby"; // i18n-ignore
+const ALT_KLARNA = "Klarna"; // i18n-ignore
 const LABEL_PAY_TABBY = "Pay in 4 with Tabby"; // i18n-ignore
+
+// Countries where Klarna billing is supported. Used to populate the editable
+// billing-country selector in the Klarna payment tile. Country names are UI
+// labels — kept in English intentionally (ISO country names are broadly
+// understood; translating them adds no value for payment selection).
+const KLARNA_BILLING_COUNTRIES = [
+  { code: "AT", name: "Austria" }, // i18n-ignore
+  { code: "BE", name: "Belgium" }, // i18n-ignore
+  { code: "DE", name: "Germany" }, // i18n-ignore
+  { code: "DK", name: "Denmark" }, // i18n-ignore
+  { code: "ES", name: "Spain" }, // i18n-ignore
+  { code: "FI", name: "Finland" }, // i18n-ignore
+  { code: "FR", name: "France" }, // i18n-ignore
+  { code: "GB", name: "United Kingdom" }, // i18n-ignore
+  { code: "IT", name: "Italy" }, // i18n-ignore
+  { code: "LB", name: "Lebanon" }, // i18n-ignore
+  { code: "NL", name: "Netherlands" }, // i18n-ignore
+  { code: "NO", name: "Norway" }, // i18n-ignore
+  { code: "PL", name: "Poland" }, // i18n-ignore
+  { code: "PT", name: "Portugal" }, // i18n-ignore
+  { code: "SE", name: "Sweden" }, // i18n-ignore
+  { code: "US", name: "United States" }, // i18n-ignore
+] as const;
 
 function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProcessing, walletPreparing }: PaymentSubmitButtonProps) {
   const { t } = useLocale();
@@ -299,6 +324,23 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
               <img src={tabbyLogo} alt={ALT_TABBY} style={{ height: 22, width: "auto" }} draggable={false} />
               <span className="text-sm font-semibold" style={{ color: "#1a1a1a" }}>{LABEL_PAY_TABBY}</span>
             </>}
+      </button>
+    );
+  }
+
+  if (paymentMethod === "klarna") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        data-testid="button-submit-payment"
+        className={`${base} rounded-xl px-6`}
+        style={{ backgroundColor: "#FFB3C7" }}
+      >
+        {isProcessing
+          ? <span className="text-sm font-medium text-gray-900">{t("checkout.processing")}</span>
+          : <span className="text-sm font-semibold text-gray-900">{t("checkout.pay.klarnaLabel")}</span>}
       </button>
     );
   }
@@ -521,6 +563,19 @@ function CheckoutForm() {
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
   const [klarnaEnabled, setKlarnaEnabled] = useState(false);
+
+  // ── Klarna billing country ────────────────────────────────────────────────
+  // Separate editable state for the payer's billing country — distinct from
+  // the delivery location. Defaults to "LB" and syncs from IP-detected
+  // countryCode once it resolves (unless the shopper manually overrides it).
+  const [klarnaBillingCountry, setKlarnaBillingCountry] = useState<string>("LB");
+  const klarnaBillingCountryManual = useRef(false);
+  useEffect(() => {
+    if (countryCode && !klarnaBillingCountryManual.current) {
+      setKlarnaBillingCountry(countryCode.toUpperCase().slice(0, 2));
+    }
+  }, [countryCode]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   // ── Saved card / save-card state (declarations) ─────────────────────────
   const [saveCard, setSaveCard] = useState(false);
@@ -771,7 +826,7 @@ function CheckoutForm() {
         trackEvent({
           name: "payment_method_selected",
           surface: "checkout",
-          action: m,
+          action: m as WebPaymentMethodId,
         });
       }
       return m;
@@ -779,7 +834,7 @@ function CheckoutForm() {
     // Trigger Stripe initialisation immediately when the shopper explicitly
     // picks a Stripe-backed method.  Mamo, PayPal, Whish, and Western Union
     // never load Stripe.  triggerStripeLoad() is idempotent.
-    if (m === "card" || m === "apple_pay" || m === "google_pay") {
+    if (m === "card" || m === "apple_pay" || m === "google_pay" || m === "klarna") {
       triggerStripeLoad();
     }
   };
@@ -1224,6 +1279,9 @@ function CheckoutForm() {
   // the active currency / country, re-select a sensible default through
   // the same shared helper the mobile checkout uses.
   useEffect(() => {
+    // "klarna" is not in WebPaymentMethodId so webNextPaymentMethod won't
+    // fallback from it — only call the helper for standard web methods.
+    if (paymentMethod === "klarna") return;
     const fallback = webNextPaymentMethod(paymentMethod, {
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
@@ -1894,7 +1952,7 @@ function CheckoutForm() {
       trackEvent({
         name: "order_placed",
         surface: "checkout",
-        action: paymentMethod,
+        action: paymentMethod as WebPaymentMethodId,
       });
       trackWebEvent({
         type: "payment_completed",
@@ -1967,7 +2025,7 @@ function CheckoutForm() {
       // apple_pay selected, form filled out, submit clicked directly).
       // If Stripe hasn't resolved yet we bail early so the user can retry
       // once LazyStripeSection re-renders with the live stripe instance.
-      if (paymentMethod === "card" || paymentMethod === "apple_pay" || paymentMethod === "google_pay") {
+      if (paymentMethod === "card" || paymentMethod === "apple_pay" || paymentMethod === "google_pay" || paymentMethod === "klarna") {
         triggerStripeLoad();
         if (!stripe) {
           // Stripe is now loading; the component will re-render once the
@@ -2676,6 +2734,141 @@ function CheckoutForm() {
         return;
       }
 
+      if (payMethod === "klarna") {
+        if (!stripe) {
+          toast({
+            title: t("checkout.toast.stripeInitTitle"),
+            description: t("checkout.toast.stripeInitDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Step 1: Create (or reuse) the PaymentIntent with Klarna enabled.
+        let klarnaIntentRes: { ok: boolean; clientSecret?: string; orderId?: string; klarnaAllowed?: boolean; message?: string } | null = null;
+        try {
+          klarnaIntentRes = await createPaymentIntent.mutateAsync({
+            data: {
+              items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity, customInput: i.customNote?.trim() || undefined })),
+              orderId,
+              currency: checkoutCurrency,
+              email: sender.email || undefined,
+              deliveryFeeUsd: districtFee + expressFee + slotFee,
+              district: _selectedDistrict,
+              expressDelivery: deliveryMode === "express",
+              noAddress,
+              ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
+              deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+              ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+              ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+              billingCountry: klarnaBillingCountry,
+            } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
+          });
+        } catch (klarnaErr: any) {
+          toast({
+            title: t("checkout.toast.failTitle"),
+            description: klarnaErr?.message || t("checkout.toast.cardUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!klarnaIntentRes?.ok || !klarnaIntentRes?.clientSecret) {
+          toast({
+            title: t("checkout.toast.failTitle"),
+            description: klarnaIntentRes?.message || t("checkout.toast.cardUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Confirm Klarna eligibility from the server response (rollout flag may
+        // have changed between page load and submit).
+        if (!klarnaIntentRes.klarnaAllowed) {
+          toast({
+            title: t("checkout.toast.failTitle"),
+            description: t("checkout.toast.klarnaUnavailable"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const klarnaClientSecret = klarnaIntentRes.clientSecret;
+        const klarnaOrderId = klarnaIntentRes.orderId ?? orderId;
+        const piId = klarnaClientSecret.split("_secret_")[0]; // pi_xxx_secret_yyy → pi_xxx
+
+        // Step 2 & 3: Build the order payload once — reused for both the
+        // webhook-authoritative klarna-pending record and the browser-fallback
+        // session stash. The webhook handler merges paymentRef + paymentMethod:
+        // "stripe" on top before calling /woo/order.
+        const klarnaPayload = buildOrderPayload({ orderId: klarnaOrderId, paymentMethod: "klarna" });
+
+        // Register the pending checkout so the webhook can create the WC order
+        // authoritatively without the browser being open. orderPayload gives
+        // the webhook everything it needs to call /woo/order.
+        try {
+          const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+          await fetch(`${base}/api/checkout/klarna-pending`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: klarnaOrderId, piId, orderPayload: klarnaPayload }),
+          });
+        } catch {
+          // Non-fatal: proceed even if the pending record can't be written.
+        }
+
+        // Stash the payload in sessionStorage for the browser-fallback path:
+        // if the webhook-driven creation is slow or fails, OrderConfirmed reads
+        // this stash and calls /woo/order directly (same pattern as PayPal/Mamo).
+        try {
+          sessionStorage.setItem(
+            PENDING_ORDER_KEY,
+            JSON.stringify({ payload: klarnaPayload, createdAt: Date.now() }),
+          );
+        } catch {
+          toast({
+            title: t("checkout.toast.failTitle"),
+            description: t("checkout.toast.storageError"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Step 4: Redirect to Klarna. Stripe appends ?payment_intent=pi_xxx
+        // &redirect_status=succeeded|processing to the return_url.
+        const origin = window.location.origin;
+        const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+        const klarnaReturnUrl = `${origin}${base}/order-confirmed?status=success`;
+
+        const { error } = await stripe.confirmPayment({
+          clientSecret: klarnaClientSecret,
+          confirmParams: {
+            return_url: klarnaReturnUrl,
+            payment_method_data: {
+              billing_details: {
+                email: sender.email || undefined,
+                name: `${sender.firstName} ${sender.lastName}`.trim() || undefined,
+                address: {
+                  country: klarnaBillingCountry,
+                },
+              },
+            },
+          },
+        });
+
+        // If we reach here, confirmPayment threw a synchronous error (e.g. invalid
+        // publishable key, missing billing details). The redirect never happened.
+        if (error) {
+          try { sessionStorage.removeItem(PENDING_ORDER_KEY); } catch { /* best-effort */ }
+          toast({
+            title: t("checkout.toast.failTitle"),
+            description: error.message || t("checkout.toast.cardPaymentFailed"),
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
       await finalizeOrderNow();
     } catch (err) {
       const isNetworkFailure = err instanceof TypeError;
@@ -3212,6 +3405,7 @@ function CheckoutForm() {
                         whish: [{ name: "Whish Money", src: whishLogo, fill: true }],
                         western: [{ name: "Western Union", src: westernUnionLogo, fill: true }],
                         tabby: [{ name: "Tabby", src: tabbyLogo, fill: true, contain: true, containerWidth: 72 }],
+                        klarna: [{ name: "Klarna", src: klarnaLogo, fill: true, contain: true, containerWidth: 72 }],
                       };
                       const logos = methodLogos[m.id] ?? [];
                       return (
@@ -3290,6 +3484,54 @@ function CheckoutForm() {
                         </div>
                       );
                     })}
+
+                    {/* Klarna tile — only shown for non-AED stores when the
+                        KLARNA_ROLLOUT flag is active. The server validates
+                        eligibility at submit time; this tile is a client-side
+                        optimistic gate using currency as a Gulf proxy. */}
+                    {checkoutCurrency !== "AED" && (
+                      <div
+                        className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === "klarna" ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}
+                        style={paymentMethod === "klarna" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.04)", outlineColor: "hsl(var(--primary) / 0.15)" } : {}}
+                        onClick={() => { setPaymentMethod("klarna"); setStripeCardError(null); }}
+                        data-testid="option-payment-klarna"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors" style={paymentMethod === "klarna" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary))" } : { borderColor: "rgba(0,0,0,0.25)" }}>
+                            {paymentMethod === "klarna" && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                          <span className="font-medium text-sm">{t("checkout.pay.klarnaLabel")}</span>
+                          <div className="ml-auto flex items-center gap-1">
+                            <span className="inline-flex overflow-hidden rounded-[4px]" style={{ width: 72, height: 34 }}>
+                              <img src={klarnaLogo} alt={ALT_KLARNA} className="block w-full h-full object-contain" loading="lazy" decoding="async" draggable={false} />
+                            </span>
+                          </div>
+                        </div>
+                        {paymentMethod === "klarna" && (
+                          <>
+                            <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">{t("checkout.pay.klarnaDesc")}</p>
+                            <div className="mt-3 ms-8 flex items-center gap-2">
+                              <label htmlFor="klarna-billing-country" className="text-xs text-muted-foreground whitespace-nowrap">
+                                {t("checkout.pay.klarnaCountry")}
+                              </label>
+                              <select
+                                id="klarna-billing-country"
+                                value={klarnaBillingCountry}
+                                onChange={(e) => {
+                                  setKlarnaBillingCountry(e.target.value);
+                                  klarnaBillingCountryManual.current = true;
+                                }}
+                                className="text-xs border rounded-md px-2 py-1 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                              >
+                                {KLARNA_BILLING_COUNTRIES.map((c) => (
+                                  <option key={c.code} value={c.code}>{c.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Payment CTA */}

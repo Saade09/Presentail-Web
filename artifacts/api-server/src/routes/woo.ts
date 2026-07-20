@@ -1135,7 +1135,7 @@ router.post("/woo/order", async (req, res) => {
   // Remains undefined on the server-restart recovery path (no intent available).
   let verifiedCurrency: string | undefined;
 
-  if (body.paymentMethod === "card" || body.paymentMethod === "wallet") {
+  if (body.paymentMethod === "card" || body.paymentMethod === "wallet" || body.paymentMethod === "klarna") {
     if (!paymentRef) {
       return res.status(402).json({
         ok: false,

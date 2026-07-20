@@ -29,4 +29,4 @@
 - [OS brand banner field name](os-brand-banner-field.md) — OS /api/catalog-attributes/brands returns banner as `banner_image_url` (not `cover_image`); cover_image was a stale TypeScript anticipation
 - [Homepage rails sale pricing](homepage-pricing-enrichment.md) — OS list endpoint omits sale_price/regular_price/discount_price_*; homepage must read getOsProductPricingMap() (keyed by osNumericId) not raw product fields; also register a pricingEnrichmentListener to bust homepage caches after cold-start enrichment
 - [Best-seller badge annotation](best-seller-annotation.md) — OS totalSales is 0 for all products; must blend app_orders DB data for correct isBestSeller flag
-- [Klarna rollout](klarna-rollout.md) — payer IP country (not delivery country) for eligibility; confirmPayment type cast; elements.submit() required; rollout off by default pending Ahmad approval
+- [Klarna rollout](klarna-rollout.md) — payer IP country (not delivery country) for eligibility; KLARNA_ROLLOUT env var gate; confirmPayment type cast; elements.submit() required; Gulf always off; rollout off by default pending Ahmad approval

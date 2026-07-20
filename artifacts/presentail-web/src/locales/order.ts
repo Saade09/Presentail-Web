@@ -12,6 +12,8 @@ export const orderStrings: Dict = {
   "order.returnCheckout": { en: "Return to Checkout", ar: "العودة إلى الدفع" },
   "order.retry": { en: "Retry order", ar: "إعادة محاولة الطلب" },
   "order.backHome": { en: "Back to home", ar: "العودة إلى الرئيسية" },
+  "order.processing.title": { en: "Processing your payment…", ar: "جارٍ معالجة الدفع…" },
+  "order.processing.desc": { en: "Klarna is reviewing your application. This usually takes just a moment — please don't close this page.", ar: "Klarna يراجع طلبك. هذا عادةً يستغرق لحظة — يرجى عدم إغلاق هذه الصفحة." },
   "order.fail.cantFind": { en: "We couldn't find your pending order to finalize. If you were charged, contact us with your payment reference.", ar: "لم نتمكن من العثور على طلبك المعلّق لإتمامه. إذا تم خصم المبلغ، يرجى التواصل معنا مع رقم مرجع الدفع." },
   "order.fail.missing": { en: "Pending order missing.", ar: "الطلب المعلّق مفقود." },
   "order.fail.couldntCreate": { en: "Order could not be created.", ar: "تعذّر إنشاء الطلب." },
@@ -40,6 +42,8 @@ export const orderStrings: Dict = {
   "order.summary.pay.wallet": { en: "Apple / Google Pay", ar: "Apple / Google Pay" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "order.summary.pay.western": { en: "Western Union", ar: "ويسترن يونيون" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.klarna": { en: "Klarna", ar: "Klarna" },
 
   "order.section.gifts": { en: "Your Gifts", ar: "هداياك" },
   "order.section.recipient": { en: "Recipient", ar: "المستلم" },
@@ -65,6 +69,8 @@ export const orderStringsFr: Record<string, string> = {
   "order.returnCheckout": "Retour au paiement",
   "order.retry": "Réessayer la commande",
   "order.backHome": "Retour à l'accueil",
+  "order.processing.title": "Traitement de votre paiement…",
+  "order.processing.desc": "Klarna examine votre demande. Cela ne prend généralement qu'un moment — veuillez ne pas fermer cette page.",
   "order.fail.cantFind": "Nous n'avons pas trouvé votre commande en attente. Si vous avez été débité, contactez-nous avec votre référence de paiement.",
   "order.fail.missing": "Commande en attente introuvable.",
   "order.fail.couldntCreate": "La commande n'a pas pu être créée.",
@@ -87,6 +93,7 @@ export const orderStringsFr: Record<string, string> = {
   "order.summary.pay.mamo": "Mamo",
   "order.summary.pay.wallet": "Apple / Google Pay",
   "order.summary.pay.western": "Western Union",
+  "order.summary.pay.klarna": "Klarna",
 
   "order.section.gifts": "Vos cadeaux",
   "order.section.recipient": "Destinataire",

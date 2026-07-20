@@ -11,7 +11,11 @@ type WebEventType =
   | "promo_applied"
   | "promo_failed"
   | "search"
-  | "search_no_result";
+  | "search_no_result"
+  | "klarna_selected"
+  | "klarna_redirect_started"
+  | "klarna_payment_processing"
+  | "klarna_payment_failed";
 
 export type WebEventItem = {
   productId: string;

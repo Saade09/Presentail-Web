@@ -1,6 +1,6 @@
 ---
 name: Klarna rollout architecture
-description: Key decisions and gotchas for the Klarna payment integration via Stripe PaymentElement on the web storefront.
+description: Key decisions and gotchas for the Klarna payment integration via Stripe PaymentElement on the web storefront, including rollout gate and eligibility.
 ---
 
 ## Payer Country vs Delivery Country
@@ -10,6 +10,14 @@ Klarna eligibility is based on the **payer's IP-detected country** (from `resolv
 **Why:** Klarna's terms require the billing address (effectively the payer's location) to be in a supported market. The delivery country is irrelevant to Klarna's decision.
 
 **How to apply:** The `/api/checkout/klarna-status` endpoint uses `pickClientIp()` + `resolveGeoCurrency()` for server-side IP lookup. Never pass the `countryCode` delivery-selection state from the client for Klarna eligibility checks.
+
+## Rollout Env Vars
+
+- `KLARNA_ROLLOUT` = off | test | percentage | on (default: off)
+- `KLARNA_ROLLOUT_PCT` = 0-100 (used by HEAD's getRolloutPct(), percentage mode)
+- `KLARNA_ROLLOUT_PERCENTAGE` = 0-100 (used by 0987e255's getKlarnaRolloutPercentage(), percentage mode)
+- Gulf (AED/UAE) stores always block Klarna regardless of the flag — Klarna does not support AED.
+- Full rollout requires Ahmad's explicit approval.
 
 ## confirmPayment + redirect:'if_required' Type Cast
 
@@ -34,15 +42,18 @@ Order: `elements.submit()` → create PI → `stripe.confirmPayment({ elements, 
 
 Skip `elements.submit()` when a saved card is selected (no PaymentElement form to validate).
 
-## Rollout Env Vars
+## Stripe Checkout Session vs PaymentIntent difference
 
-- `KLARNA_ROLLOUT` = off | test | percentage | on (default: off)
-- `KLARNA_ROLLOUT_PCT` = 0-100 (used only in percentage mode)
-- Full rollout requires Ahmad's approval.
+- For **Checkout Sessions**: use `payment_method_types:["card"]` to restrict (no `automatic_payment_methods` available at session level — TypeScript enforces this).
+- For **PaymentIntents**: when Klarna is off, use `payment_method_types: ["card"]` (explicit restriction); when Klarna is on, use `automatic_payment_methods: { enabled: true }` (lets Stripe surface Klarna + wallet methods).
 
 ## Webhook Idempotency
 
-Stripe re-delivers webhooks on timeout/failure. The `stripe_webhook_events` table has a unique constraint on `stripe_event_id` — duplicate events get a PostgreSQL error code 23505 which is silently caught and returns HTTP 200 (so Stripe stops retrying).
+Stripe re-delivers webhooks on timeout/failure. The `stripe_webhook_events` table has a unique constraint on `stripe_event_id`. Idempotency record is written AFTER the handler succeeds (not before). On handler error the endpoint returns 500 so Stripe retries — the missing idempotency record means the retry re-enters the handler. Concurrent delivery may process the same event twice, but all side effects are idempotent.
+
+## Webhook secrets
+
+Two secrets required: `STRIPE_WEBHOOK_SECRET` (main LB/CY) and `STRIPE_WEBHOOK_SECRET_GULF` (gulf AE). Handler tries both in sequence.
 
 ## Klarna Redirect Flow
 

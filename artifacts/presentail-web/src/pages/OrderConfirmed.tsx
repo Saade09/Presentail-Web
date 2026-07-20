@@ -30,6 +30,7 @@ const MAX_FINALIZE_ATTEMPTS = 3;
 type FinalizeState =
   | { kind: "idle" }
   | { kind: "finalizing" }
+  | { kind: "processing"; piId: string }
   | { kind: "success"; ref: string }
   | { kind: "failed"; message?: string };
 
@@ -111,6 +112,7 @@ const PAYMENT_METHOD_KEYS: Record<string, string> = {
   mamo: "order.summary.pay.mamo",
   wallet: "order.summary.pay.wallet",
   western: "order.summary.pay.western",
+  klarna: "order.summary.pay.klarna",
 };
 
 function recipientDisplayName(order: ConfirmedOrder): string {
@@ -167,6 +169,21 @@ export default function OrderConfirmed() {
   const initial: FinalizeState = (() => {
     if (status !== "success") return { kind: "failed" };
     if (refFromUrl) return { kind: "success", ref: refFromUrl };
+    // Klarna redirect return: Stripe appends payment_intent and redirect_status
+    // to the return_url. Handle async approval (processing) and failures here
+    // before attempting to read the stash.
+    const redirectStatus = searchParams.get("redirect_status");
+    const paymentIntentId = searchParams.get("payment_intent");
+    if (paymentIntentId) {
+      // Both "processing" and "succeeded" enter the polling state.
+      // - "processing": Klarna async approval; webhook drives the state transition.
+      // - "succeeded": Payment confirmed synchronously; poll for wooOrderRef so
+      //   the webhook-authoritative order creation path is used instead of a
+      //   browser-driven /woo/order call with no verified payment proof.
+      if (redirectStatus === "processing" || redirectStatus === "succeeded")
+        return { kind: "processing", piId: paymentIntentId };
+      return { kind: "failed", message: t("order.fail.failed") };
+    }
     // A missing OR stale (expired) stash short-circuits to a graceful failure so
     // we never enter the finalizing state and call createOrder for an old payload.
     if (!readStashedEntry()) return { kind: "failed", message: t("order.fail.cantFind") };
@@ -239,6 +256,60 @@ export default function OrderConfirmed() {
   // full-page reloads (redirect-based payment returns). purchaseFiredRef prevents
   // the event from being sent more than once.
   }, [state, authLoading, user]);
+
+  // Poll /api/stripe/payment-status when Klarna returns with redirect_status=processing.
+  // Klarna approval can be asynchronous — the webhook updates the DB record when the
+  // payment_intent.succeeded event fires. When we detect payment_succeeded we
+  // transition to finalizing so the normal createOrder flow takes over.
+  useEffect(() => {
+    if (state.kind !== "processing") return;
+    const piId = state.piId;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+        const res = await fetch(`${base}/api/stripe/payment-status?pi=${encodeURIComponent(piId)}`);
+        if (cancelled) return;
+        if (res.ok) {
+          const data = (await res.json()) as { ok: boolean; status?: string; wooOrderRef?: string };
+          if (data.ok) {
+            if (data.status === "payment_succeeded") {
+              if (data.wooOrderRef) {
+                // Webhook already created the WC order — go directly to success
+                // without a browser-driven /woo/order call.
+                try { sessionStorage.removeItem(PENDING_ORDER_KEY); } catch { /* best-effort */ }
+                setState({ kind: "success", ref: data.wooOrderRef });
+                return;
+              }
+              // Webhook fired but WC order creation is still in progress or
+              // failed — fall back to browser-driven finalization via stash.
+              setState({ kind: "finalizing" });
+              return;
+            }
+            if (data.status === "payment_canceled" || data.status === "payment_failed") {
+              setState({ kind: "failed", message: t("order.fail.failed") });
+              return;
+            }
+          }
+        }
+      } catch {
+        // Network error — retry on next tick.
+      }
+      if (!cancelled) {
+        timer = setTimeout(poll, 4000);
+      }
+    };
+
+    // First poll after 2 s — the webhook typically fires within a few seconds.
+    timer = setTimeout(poll, 2000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [state, t]);
 
   useEffect(() => {
     if (state.kind !== "finalizing" || triedRef.current) return;
@@ -410,6 +481,30 @@ export default function OrderConfirmed() {
     ? (PAYMENT_METHOD_KEYS[confirmedOrder.paymentMethod] ?? null)
     : null;
   const payLabel = payKey ? t(payKey) : (confirmedOrder?.paymentMethod ?? "");
+
+  // ─── Klarna processing state ──────────────────────────────────────────────
+  // Klarna approved the application asynchronously — poll /api/stripe/payment-status
+  // until the webhook fires and transitions us to finalizing.
+  if (state.kind === "processing") {
+    return (
+      <div className="min-h-screen bg-white overflow-x-hidden">
+        <div
+          data-testid="order-confirmed-scroll-container"
+          className="mx-auto max-w-xl px-4 sm:px-6 py-12 sm:py-20 animate-in fade-in duration-500 text-center space-y-6"
+        >
+          <div className="flex justify-center">
+            <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" data-testid="icon-processing" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-serif" data-testid="text-confirmation-title">
+            {t("order.processing.title")}
+          </h1>
+          <p className="text-muted-foreground" data-testid="text-confirmation-message">
+            {t("order.processing.desc")}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Failed state ─────────────────────────────────────────────────────────
   if (!isSuccess) {

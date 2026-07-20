@@ -10,10 +10,15 @@
  *   STRIPE_WEBHOOK_SECRET_GULF → gulf account (AE)
  *
  * Supported events:
- *   payment_intent.succeeded     — record analytics + update app_orders row
- *   payment_intent.payment_failed — record analytics
+ *   payment_intent.succeeded     — record analytics + update app_orders row + update klarnaPendingCheckoutsTable
+ *   payment_intent.payment_failed — record analytics + update klarnaPendingCheckoutsTable
  *   charge.dispute.created        — Slack alert (critical)
  *   charge.refunded               — record analytics
+ *   payment_intent.processing    — Log for Klarna/deferred + update klarnaPendingCheckoutsTable
+ *   payment_intent.canceled      — Record reason + update klarnaPendingCheckoutsTable
+ *   charge.refund.updated        — Log status
+ *   charge.dispute.updated       — Slack alert on escalation
+ *   charge.dispute.closed        — Slack alert with outcome
  *
  * Idempotency: every processed event is inserted into stripe_webhook_events
  * with a unique index on stripeEventId. Re-delivered events are silently
@@ -22,7 +27,13 @@
 
 import { Router } from "express";
 import Stripe from "stripe";
-import { db, stripeWebhookEventsTable, analyticsEventsTable, appOrdersTable } from "@workspace/db";
+import {
+  db,
+  stripeWebhookEventsTable,
+  analyticsEventsTable,
+  appOrdersTable,
+  klarnaPendingCheckoutsTable,
+} from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendAlert } from "../lib/alerts";
@@ -108,6 +119,264 @@ async function insertEventRecord(
     }
     throw err;
   }
+}
+
+// ── Klarna pending checkout state helpers ────────────────────────────────────
+
+async function updateKlarnaPendingStatus(
+  piId: string,
+  status: string,
+): Promise<void> {
+  await db
+    .update(klarnaPendingCheckoutsTable)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(klarnaPendingCheckoutsTable.piId, piId));
+}
+
+// ── Event handlers ───────────────────────────────────────────────────────────
+
+async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent): Promise<void> {
+  const orderId: string = (pi.metadata as Record<string, string>)?.orderId ?? "unknown";
+  logger.info(
+    {
+      piId: pi.id,
+      orderId,
+      amount: pi.amount,
+      currency: pi.currency,
+      paymentMethodTypes: pi.payment_method_types,
+    },
+    "stripe-webhook: payment_intent.succeeded", // i18n-ignore
+  );
+
+  // Mark payment as succeeded so the polling endpoint can unblock the browser.
+  await updateKlarnaPendingStatus(pi.id, "payment_succeeded");
+
+  // Webhook-authoritative order creation: retrieve the order payload stored by
+  // POST /checkout/klarna-pending and submit it to /woo/order so the WC order
+  // is created without requiring the shopper's browser to be open. The task is
+  // detached from the webhook request (setImmediate) so Stripe gets a fast 200
+  // regardless of how long WC order creation takes.
+  const rows = await db
+    .select({
+      orderId: klarnaPendingCheckoutsTable.orderId,
+      orderPayload: klarnaPendingCheckoutsTable.orderPayload,
+    })
+    .from(klarnaPendingCheckoutsTable)
+    .where(eq(klarnaPendingCheckoutsTable.piId, pi.id))
+    .limit(1);
+
+  if (rows.length > 0 && rows[0].orderPayload != null) {
+    const storedOrderId = rows[0].orderId;
+    const orderPayload = rows[0].orderPayload;
+    const piId = pi.id;
+
+    setImmediate(() => {
+      void (async () => {
+        try {
+          const port = process.env.PORT ?? "8080";
+          // Merge the stored payload with paymentRef + paymentMethod so that
+          // /woo/order can verify the Stripe PI using its existing validation
+          // and recovery path (Stripe API fallback when in-memory store is gone).
+          const body = JSON.stringify({
+            ...(orderPayload as Record<string, unknown>),
+            paymentRef: piId,
+            paymentMethod: "stripe",
+          });
+          const resp = await fetch(`http://127.0.0.1:${port}/api/woo/order`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+            signal: AbortSignal.timeout(60_000),
+          });
+          const respBody = (await resp.json()) as {
+            ok?: boolean;
+            osOrderId?: string;
+            wcOrderId?: string;
+            message?: string;
+          };
+          if (resp.ok && respBody.ok) {
+            const wooOrderRef = String(
+              respBody.osOrderId ?? respBody.wcOrderId ?? storedOrderId,
+            );
+            await db
+              .update(klarnaPendingCheckoutsTable)
+              .set({ wooOrderRef, updatedAt: new Date() })
+              .where(eq(klarnaPendingCheckoutsTable.piId, piId));
+            logger.info(
+              { piId, orderId: storedOrderId, wooOrderRef },
+              "stripe-webhook: WC order created via webhook (authoritative)", // i18n-ignore
+            );
+          } else {
+            logger.warn(
+              { piId, orderId: storedOrderId, httpStatus: resp.status, message: respBody.message },
+              "stripe-webhook: WC order creation returned non-ok — browser polling will fall back to client-side finalization", // i18n-ignore
+            );
+          }
+        } catch (err) {
+          logger.warn(
+            { err, piId, orderId: storedOrderId },
+            "stripe-webhook: WC order creation threw — browser polling will fall back to client-side finalization", // i18n-ignore
+          );
+        }
+      })();
+    });
+  } else {
+    logger.warn(
+      { piId: pi.id, orderId },
+      "stripe-webhook: no orderPayload in klarna_pending_checkouts — WC order must be created by browser fallback", // i18n-ignore
+    );
+  }
+
+  await sendAlert({
+    title: ":white_check_mark: Klarna / redirect payment succeeded", // i18n-ignore
+    body: `PaymentIntent \`${pi.id}\` succeeded. WC order creation is running in the background; the browser polls \`/api/stripe/payment-status\` for the result.`, // i18n-ignore
+    severity: "info",
+    fields: [
+      { title: "PaymentIntent", value: pi.id }, // i18n-ignore
+      { title: "orderId", value: orderId }, // i18n-ignore
+      { title: "amount", value: `${(pi.amount / 100).toFixed(2)} ${pi.currency.toUpperCase()}` }, // i18n-ignore
+      { title: "methods", value: pi.payment_method_types?.join(", ") ?? "unknown" }, // i18n-ignore
+    ],
+    source: "stripe-webhook/payment_intent.succeeded",
+  }).catch(() => {});
+}
+
+async function handlePaymentIntentCanceled(pi: Stripe.PaymentIntent): Promise<void> {
+  const orderId: string = (pi.metadata as Record<string, string>)?.orderId ?? "unknown";
+  logger.info(
+    {
+      piId: pi.id,
+      orderId,
+      cancellationReason: pi.cancellation_reason,
+    },
+    "stripe-webhook: payment_intent.canceled", // i18n-ignore
+  );
+
+  await updateKlarnaPendingStatus(pi.id, "payment_canceled");
+}
+
+async function handlePaymentIntentProcessing(pi: Stripe.PaymentIntent): Promise<void> {
+  const orderId: string = (pi.metadata as Record<string, string>)?.orderId ?? "unknown";
+  logger.info(
+    {
+      piId: pi.id,
+      orderId,
+      amount: pi.amount,
+      currency: pi.currency,
+      paymentMethodTypes: pi.payment_method_types,
+    },
+    "stripe-webhook: payment_intent.processing — order payment is in a deferred state", // i18n-ignore
+  );
+
+  // Alert ops so deferred/processing payments are visible without querying Stripe.
+  await sendAlert({
+    title: "Klarna / deferred payment in processing state", // i18n-ignore
+    body: `A PaymentIntent entered \`processing\` status — the BNPL provider is evaluating the application. The shopper will be notified once it resolves.`, // i18n-ignore
+    severity: "info",
+    fields: [
+      { title: "PaymentIntent", value: pi.id }, // i18n-ignore
+      { title: "orderId", value: orderId }, // i18n-ignore
+      { title: "amount", value: `${(pi.amount / 100).toFixed(2)} ${pi.currency.toUpperCase()}` }, // i18n-ignore
+      { title: "methods", value: pi.payment_method_types?.join(", ") ?? "unknown" }, // i18n-ignore
+    ],
+    source: "stripe-webhook/payment_intent.processing",
+  }).catch(() => {});
+}
+
+async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent): Promise<void> {
+  const orderId: string = (pi.metadata as Record<string, string>)?.orderId ?? "unknown";
+  logger.warn(
+    {
+      piId: pi.id,
+      orderId,
+      amount: pi.amount,
+      currency: pi.currency,
+      lastError: (pi as unknown as { last_payment_error?: { code?: string; message?: string } })
+        .last_payment_error,
+    },
+    "stripe-webhook: payment_intent.payment_failed", // i18n-ignore
+  );
+
+  await updateKlarnaPendingStatus(pi.id, "payment_failed");
+}
+
+
+async function handleDisputeCreated(dispute: Stripe.Dispute): Promise<void> {
+  logger.warn(
+    {
+      disputeId: dispute.id,
+      chargeId: dispute.charge,
+      amount: dispute.amount,
+      currency: dispute.currency,
+      reason: dispute.reason,
+      status: dispute.status,
+    },
+    "stripe-webhook: charge.dispute.created", // i18n-ignore
+  );
+
+  await sendAlert({
+    title: ":scales: New Stripe dispute opened", // i18n-ignore
+    body: `A charge has been disputed. Respond in the Stripe Dashboard before the due date to avoid an automatic loss.`, // i18n-ignore
+    severity: "critical",
+    fields: [
+      { title: "Dispute ID", value: dispute.id }, // i18n-ignore
+      { title: "Charge", value: typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id }, // i18n-ignore
+      { title: "Amount", value: `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}` }, // i18n-ignore
+      { title: "Reason", value: dispute.reason ?? "unknown" }, // i18n-ignore
+      { title: "Status", value: dispute.status }, // i18n-ignore
+    ],
+    source: "stripe-webhook/charge.dispute.created",
+  }).catch(() => {});
+}
+
+async function handleDisputeUpdated(dispute: Stripe.Dispute): Promise<void> {
+  logger.info(
+    {
+      disputeId: dispute.id,
+      chargeId: dispute.charge,
+      status: dispute.status,
+    },
+    "stripe-webhook: charge.dispute.updated", // i18n-ignore
+  );
+
+  // Only alert on escalating states to avoid alert fatigue.
+  if (dispute.status === "under_review" || dispute.status === "warning_under_review") {
+    await sendAlert({
+      title: ":scales: Stripe dispute escalated to under_review", // i18n-ignore
+      body: `A dispute entered \`${dispute.status}\`. Check the Stripe Dashboard for any required action.`, // i18n-ignore
+      severity: "warn",
+      fields: [
+        { title: "Dispute ID", value: dispute.id }, // i18n-ignore
+        { title: "Charge", value: typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id }, // i18n-ignore
+        { title: "Amount", value: `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}` }, // i18n-ignore
+      ],
+      source: "stripe-webhook/charge.dispute.updated",
+    }).catch(() => {});
+  }
+}
+
+async function handleDisputeClosed(dispute: Stripe.Dispute): Promise<void> {
+  logger.info(
+    {
+      disputeId: dispute.id,
+      chargeId: dispute.charge,
+      status: dispute.status,
+    },
+    "stripe-webhook: charge.dispute.closed", // i18n-ignore
+  );
+
+  await sendAlert({
+    title: `:scales: Stripe dispute closed: ${dispute.status}`, // i18n-ignore
+    body: `A dispute has been closed with status \`${dispute.status}\`.`, // i18n-ignore
+    severity: "info",
+    fields: [
+      { title: "Dispute ID", value: dispute.id }, // i18n-ignore
+      { title: "Charge", value: typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id }, // i18n-ignore
+      { title: "Amount", value: `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}` }, // i18n-ignore
+      { title: "Status", value: dispute.status }, // i18n-ignore
+    ],
+    source: "stripe-webhook/charge.dispute.closed",
+  }).catch(() => {});
 }
 
 /** Extract the orderId from a PaymentIntent's metadata map. */
@@ -204,11 +473,99 @@ router.post("/", async (req, res) => {
   // event before the first insert commits (rare), but all side effects are
   // idempotent (analytics duplicate rows, app_orders SET with same values).
 
+  req.log.info({ eventId: event.id, type: event.type }, "stripe-webhook: received event"); // i18n-ignore
+
+  // Dispatch to event-specific handlers.
+  //
+  // IDEMPOTENCY: markProcessed is called AFTER the handler succeeds. On
+  // handler failure we return 5xx so Stripe retries the delivery. The dedup
+  // check at the top of the route guards against duplicate processing on retry.
+  // All handlers are designed to be idempotent (DB ON CONFLICT DO NOTHING,
+  // /woo/order returns 409 on already-paid PIs).
   try {
     switch (event.type) {
       case "payment_intent.succeeded": {
         const pi = obj as Stripe.PaymentIntent;
         const method = pi.payment_method_types?.[0] ?? "unknown";
+
+        // Update the pending checkout record so the polling endpoint can unblock
+        // the frontend finalize flow. This is the webhook authority for redirect-based methods.
+        await updateKlarnaPendingStatus(pi.id, "payment_succeeded");
+
+        // Webhook-authoritative WC order creation: retrieve the order payload
+        // stored by POST /checkout/klarna-pending and submit to /woo/order so
+        // the order is created even when the shopper's browser is no longer open.
+        // Detached via setImmediate so Stripe gets a fast 200 regardless of WC latency.
+        {
+          const pendingRows = await db
+            .select({
+              storedOrderId: klarnaPendingCheckoutsTable.orderId,
+              orderPayload: klarnaPendingCheckoutsTable.orderPayload,
+            })
+            .from(klarnaPendingCheckoutsTable)
+            .where(eq(klarnaPendingCheckoutsTable.piId, pi.id))
+            .limit(1);
+
+          if (pendingRows.length > 0 && pendingRows[0].orderPayload != null) {
+            const storedOrderId = pendingRows[0].storedOrderId;
+            const orderPayload = pendingRows[0].orderPayload;
+            const piId = pi.id;
+
+            setImmediate(() => {
+              void (async () => {
+                try {
+                  const port = process.env.PORT ?? "8080";
+                  const body = JSON.stringify({
+                    ...(orderPayload as Record<string, unknown>),
+                    paymentRef: piId,
+                    paymentMethod: "stripe",
+                  });
+                  const resp = await fetch(`http://127.0.0.1:${port}/api/woo/order`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body,
+                    signal: AbortSignal.timeout(60_000),
+                  });
+                  const respBody = (await resp.json()) as {
+                    ok?: boolean;
+                    osOrderId?: string;
+                    wcOrderId?: string;
+                    message?: string;
+                  };
+                  if (resp.ok && respBody.ok) {
+                    const wooOrderRef = String(
+                      respBody.osOrderId ?? respBody.wcOrderId ?? storedOrderId,
+                    );
+                    await db
+                      .update(klarnaPendingCheckoutsTable)
+                      .set({ wooOrderRef, updatedAt: new Date() })
+                      .where(eq(klarnaPendingCheckoutsTable.piId, piId));
+                    logger.info(
+                      { piId, orderId: storedOrderId, wooOrderRef },
+                      "stripe-webhook: WC order created via webhook (authoritative)", // i18n-ignore
+                    );
+                  } else {
+                    logger.warn(
+                      { piId, orderId: storedOrderId, httpStatus: resp.status, message: respBody.message },
+                      "stripe-webhook: WC order creation returned non-ok — browser polling will fall back to client-side finalization", // i18n-ignore
+                    );
+                  }
+                } catch (err) {
+                  logger.warn(
+                    { err, piId, orderId: storedOrderId },
+                    "stripe-webhook: WC order creation threw — browser polling will fall back to client-side finalization", // i18n-ignore
+                  );
+                }
+              })();
+            });
+          } else {
+            logger.warn(
+              { piId: pi.id, appOrderId },
+              "stripe-webhook: no orderPayload in klarna_pending_checkouts — WC order must be created by browser fallback", // i18n-ignore
+            );
+          }
+        }
+
         logger.info(
           {
             eventId: event.id,
@@ -275,8 +632,58 @@ router.post("/", async (req, res) => {
         break;
       }
 
+      case "payment_intent.canceled": {
+        const pi = obj as Stripe.PaymentIntent;
+        await updateKlarnaPendingStatus(pi.id, "payment_canceled");
+        logger.info(
+          {
+            piId: pi.id,
+            appOrderId,
+            cancellationReason: pi.cancellation_reason,
+          },
+          "stripeWebhook: payment_intent.canceled",
+        );
+        break;
+      }
+
+      case "payment_intent.processing": {
+        const pi = obj as Stripe.PaymentIntent;
+        logger.info(
+          {
+            piId: pi.id,
+            appOrderId,
+            amount: pi.amount,
+            currency: pi.currency,
+            paymentMethodTypes: pi.payment_method_types,
+          },
+          "stripeWebhook: payment_intent.processing — order payment is in a deferred state",
+        );
+
+        // Alert ops so deferred/processing payments are visible without querying Stripe.
+        await sendAlert({
+          title: "Klarna / deferred payment in processing state",
+          body: `A PaymentIntent entered \`processing\` status — the BNPL provider is evaluating the application. The shopper will be notified once it resolves.`,
+          severity: "info",
+          fields: [
+            { title: "PaymentIntent", value: pi.id },
+            { title: "App Order ID", value: appOrderId ?? "unknown" },
+            {
+              title: "Amount",
+              value: `${(pi.amount / 100).toFixed(2)} ${pi.currency.toUpperCase()}`,
+            },
+            {
+              title: "Methods",
+              value: pi.payment_method_types?.join(", ") ?? "unknown",
+            },
+          ],
+          source: "stripe-webhook/payment_intent.processing",
+        }).catch(() => {});
+        break;
+      }
+
       case "payment_intent.payment_failed": {
         const pi = obj as Stripe.PaymentIntent;
+        await updateKlarnaPendingStatus(pi.id, "payment_failed");
         const lastErr = pi.last_payment_error;
         const errorCode = lastErr?.code ?? lastErr?.decline_code ?? "unknown";
         logger.warn(
@@ -305,52 +712,7 @@ router.post("/", async (req, res) => {
       }
 
       case "charge.dispute.created": {
-        const charge = obj as Stripe.Charge;
-        const dispute = event.data.object as Stripe.Dispute;
-        logger.warn(
-          {
-            eventId: event.id,
-            account,
-            chargeId: charge.id ?? dispute.charge,
-            paymentIntentId,
-          },
-          "stripeWebhook: charge.dispute.created",
-        );
-        await sendAlert({
-          title: "Stripe dispute opened",
-          body: `A chargeback/dispute was filed on the ${account} Stripe account. Respond in the Stripe dashboard within 7 days.`,
-          severity: "critical",
-          fields: [
-            {
-              title: "Account",
-              value: account,
-            },
-            {
-              title: "Charge ID",
-              value:
-                typeof dispute.charge === "string"
-                  ? dispute.charge
-                  : String(dispute.charge ?? chargeId ?? "unknown"),
-            },
-            {
-              title: "Payment Intent",
-              value: paymentIntentId ?? "—",
-            },
-            {
-              title: "App Order",
-              value: appOrderId ?? "—",
-            },
-            {
-              title: "Amount",
-              value: `${(dispute as Stripe.Dispute).amount} ${(dispute as Stripe.Dispute).currency?.toUpperCase() ?? ""}`,
-            },
-            {
-              title: "Reason",
-              value: (dispute as Stripe.Dispute).reason ?? "unknown",
-            },
-          ],
-          source: "stripe/webhook/dispute",
-        });
+        await handleDisputeCreated(event.data.object as Stripe.Dispute);
         await recordAnalyticsEvent("stripe_dispute_created", {
           surface: "checkout",
           action: "dispute",
@@ -358,9 +720,19 @@ router.post("/", async (req, res) => {
           propertiesJson: JSON.stringify({
             stripeAccount: account,
             chargeId: chargeId ?? "unknown",
-            reason: (dispute as Stripe.Dispute).reason,
+            reason: (event.data.object as Stripe.Dispute).reason,
           }),
         });
+        break;
+      }
+
+      case "charge.dispute.updated": {
+        await handleDisputeUpdated(event.data.object as Stripe.Dispute);
+        break;
+      }
+
+      case "charge.dispute.closed": {
+        await handleDisputeClosed(event.data.object as Stripe.Dispute);
         break;
       }
 
@@ -425,18 +797,78 @@ router.post("/", async (req, res) => {
       }
 
       case "charge.refund.updated": {
-        const charge = obj as Stripe.Charge;
+        const refund = event.data.object as Stripe.Refund;
         logger.info(
-          { eventId: event.id, account, chargeId: charge.id, paymentIntentId },
+          { eventId: event.id, account, refundId: refund.id, chargeId: refund.charge, paymentIntentId },
           "stripeWebhook: charge.refund.updated",
         );
         break;
       }
 
-      case "charge.dispute.closed":
-      case "charge.dispute.funds_reinstated":
-      case "charge.dispute.funds_withdrawn":
+      case "charge.dispute.closed": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const won = dispute.status === "won";
+        logger.info(
+          {
+            eventId: event.id,
+            account,
+            disputeId: dispute.id,
+            chargeId: dispute.charge,
+            paymentIntentId,
+            status: dispute.status,
+            outcome: won ? "won" : "lost",
+          },
+          "stripeWebhook: charge.dispute.closed",
+        );
+        await sendAlert({
+          title: won ? "Stripe dispute closed — won" : "Stripe dispute closed — lost",
+          body: won
+            ? `The dispute was resolved in Presentail's favour.`
+            : `The dispute was resolved against Presentail. The charge has been reversed.`,
+          severity: won ? "info" : "warn",
+          fields: [
+            { title: "Dispute ID", value: dispute.id },
+            { title: "Charge", value: typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id },
+            { title: "Amount", value: `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}` },
+            { title: "Reason", value: dispute.reason ?? "unknown" },
+          ],
+          source: "stripe/webhook/dispute.closed",
+        });
+        break;
+      }
+
       case "charge.dispute.updated": {
+        const dispute = event.data.object as Stripe.Dispute;
+        logger.info(
+          {
+            eventId: event.id,
+            account,
+            disputeId: dispute.id,
+            chargeId: dispute.charge,
+            paymentIntentId,
+            status: dispute.status,
+          },
+          "stripeWebhook: charge.dispute.updated",
+        );
+        // Only alert on escalating states to avoid alert fatigue.
+        if (dispute.status === "under_review" || dispute.status === "warning_under_review") {
+          await sendAlert({
+            title: "Stripe dispute escalated to under_review",
+            body: `A dispute entered \`${dispute.status}\`. Check the Stripe Dashboard for any required action.`,
+            severity: "warn",
+            fields: [
+              { title: "Dispute ID", value: dispute.id },
+              { title: "Charge", value: typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id },
+              { title: "Amount", value: `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}` },
+            ],
+            source: "stripe/webhook/dispute.updated",
+          });
+        }
+        break;
+      }
+
+      case "charge.dispute.funds_reinstated":
+      case "charge.dispute.funds_withdrawn": {
         const charge = obj as Stripe.Charge;
         logger.info(
           { eventId: event.id, eventType: event.type, account, chargeId: charge.id, paymentIntentId },
@@ -455,14 +887,11 @@ router.post("/", async (req, res) => {
         );
     }
   } catch (err: unknown) {
-    logger.error(
-      { err: (err as Error)?.message, eventId: event.id, eventType: event.type },
-      "stripeWebhook: handler threw an error — returning 500 so Stripe retries",
+    req.log.error(
+      { err: (err as Error)?.message, eventId: event.id, type: event.type },
+      "stripe-webhook: handler threw — returning 500 so Stripe retries", // i18n-ignore
     );
-    // Return 5xx so Stripe retries delivery. We intentionally do NOT insert
-    // the idempotency record here — a missing record means the next retry
-    // will re-enter the switch and attempt processing again.
-    return res.status(500).json({ ok: false, message: "Handler error" }); // i18n-ignore
+    return res.status(500).json({ ok: false, message: "Handler failed — will retry" }); // i18n-ignore
   }
 
   // ── Post-processing: write idempotency record ────────────────────────────

@@ -10,6 +10,11 @@ import {
  * Idempotency log for Stripe webhook events. Each event is inserted once
  * (keyed on stripeEventId) so re-delivered events are silently skipped.
  * Covers both Stripe accounts (main LB/CY and gulf AE).
+ *
+ * DB-backed deduplication survives server restarts — required now that
+ * handlers perform state transitions (klarna_pending_checkouts updates).
+ *
+ * Retention: rows older than 72 hours can be purged (Stripe's retry window).
  */
 export const stripeWebhookEventsTable = pgTable(
   "stripe_webhook_events",

@@ -48,6 +48,7 @@ import adminRankingMetricsRouter from "./adminRankingMetrics";
 import adminPlantClassificationsRouter from "./adminPlantClassifications";
 import seoAuditRouter from "./seoAuditRoutes";
 import adminSeoDashboardRouter from "./adminSeoDashboard";
+import stripeWebhookRouter from "./stripeWebhook";
 
 const router: IRouter = Router();
 
@@ -100,5 +101,6 @@ router.use(ogImageRouter);
 router.use(webEventsRouter);
 router.use(seoAuditRouter);
 router.use(adminSeoDashboardRouter);
+router.use(stripeWebhookRouter);
 
 export default router;

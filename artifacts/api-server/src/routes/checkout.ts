@@ -1,7 +1,12 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
-import { isKlarnaEnabled } from "../lib/klarnaRollout";
+import {
+  isKlarnaEnabled,
+  isKlarnaEligibleCountry,
+  klarnaRolloutAllowed,
+  klarnaCohortLabel,
+} from "../lib/klarnaRollout";
 import { pickClientIp, resolveGeoCurrency } from "../lib/geoCurrency";
 import { getLocalIso } from "@workspace/delivery";
 import { sendAlert } from "../lib/alerts";
@@ -23,7 +28,7 @@ import { getDeliverySlots } from "../lib/osLocationsCache";
 import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
 import { validateCoupon } from "../lib/couponValidation";
 import { authenticate } from "../lib/auth";
-import { db, customersTable } from "@workspace/db";
+import { db, customersTable, klarnaPendingCheckoutsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -145,6 +150,14 @@ type Body = {
   /** Selected delivery date as YYYY-MM-DD. Used to determine whether the same-day night surcharge applies. */
   deliveryDate?: string;
   couponCode?: string;
+  /**
+   * ISO 3166-1 alpha-2 billing country hint (e.g. "DE", "US"). Used to pass
+   * billing_details.address.country on the PaymentIntent so Stripe can make an
+   * accurate Klarna eligibility decision before the Payment Element renders. The
+   * server never trusts this for pricing or security decisions — it is a UX hint
+   * only. Falls back to the store country when absent.
+   */
+  billingCountry?: string;
 };
 
 router.post("/checkout/session", async (req, res) => {
@@ -164,6 +177,7 @@ router.post("/checkout/session", async (req, res) => {
     cityId: rawCityId,
     deliveryDate: rawDeliveryDate,
     couponCode: sessionCouponCode,
+    billingCountry,
   } = req.body as Body;
 
   if (!orderId) {
@@ -356,11 +370,27 @@ router.post("/checkout/session", async (req, res) => {
         // Stripe accepts null at runtime to explicitly clear the field, but the
         // SDK type is string | undefined, so we cast.
         receipt_email: null as unknown as string,
+        // Embed Klarna cohort in the PI metadata for analytics / debugging.
+        metadata: {
+          klarna_cohort: klarnaCohortLabel(orderId, key),
+          ...(billingCountry
+            ? { billing_country_hint: billingCountry.toUpperCase().slice(0, 2) }
+            : {}),
+        },
       },
       // Apply promo coupon when one was validated above (creates a discount
       // on the hosted Checkout page so the charged amount matches the UI).
       ...(stripeDiscountCouponId ? { discounts: [{ coupon: stripeDiscountCouponId }] } : {}),
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
+      // Klarna rollout gate: for hosted Checkout Sessions, Klarna is controlled
+      // via payment_method_types. When Klarna is not in the cohort (or the flag
+      // is off), restrict to ["card"] so only card/wallet methods are available.
+      // When Klarna is allowed, omit payment_method_types to let Stripe surface
+      // all Dashboard-enabled methods (including Klarna for eligible countries).
+      // Gulf (AED) sessions always restrict to card — Klarna does not support AED.
+      ...(!isGulf && klarnaRolloutAllowed(orderId, key)
+        ? {}
+        : { payment_method_types: ["card"] as const }),
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
@@ -444,6 +474,13 @@ type PaymentIntentBody = {
   couponCode?: string;
   saveCard?: boolean;
   metadata?: Record<string, string>;
+  /**
+   * ISO 3166-1 alpha-2 billing country hint (e.g. "DE", "US"). Used to pass
+   * billing_details.address.country on the PaymentIntent so Stripe can make an
+   * accurate Klarna eligibility decision before the Payment Element renders.
+   * Never used for pricing or security — UX hint only.
+   */
+  billingCountry?: string;
 };
 
 /**
@@ -567,7 +604,7 @@ async function computeStripeAmounts({
 }
 
 router.post("/checkout/payment-intent", async (req, res) => {
-  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, deliverySlotId, cityId, deliveryDate, couponCode, saveCard } =
+  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, deliverySlotId, cityId, deliveryDate, couponCode, saveCard, billingCountry } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -855,17 +892,15 @@ router.post("/checkout/payment-intent", async (req, res) => {
       // Stripe search failure — fall through to create a new PI.
     }
 
-    // Server-side Klarna eligibility check for PI creation.
-    // We resolve the payer's country from their IP here (same logic as
-    // /checkout/klarna-status) so that even if a client bypasses the
-    // klarna-status endpoint, the PI itself restricts redirect-based methods
-    // (Klarna) for ineligible payers.
-    //
-    // allow_redirects:'never' only blocks redirect-based payment methods
-    // (Klarna, iDEAL, etc.); Apple Pay and Google Pay are not affected.
-    let klarnaAllowedForPayer = false;
+    // Two-layer Klarna eligibility for PI creation:
+    //   (1) Gulf/rollout gate — Gulf (AED) always blocks; KLARNA_ROLLOUT flag controls cohort.
+    //   (2) IP payer country — Klarna only supports specific payer markets (not LB/AE/CY);
+    //       uses the same IP lookup as /checkout/klarna-status so clients can't bypass it.
+    // allow_redirects:'never' only blocks redirect-based methods (Klarna, iDEAL…);
+    // Apple Pay and Google Pay are not affected.
+    let klarnaAllowed = false;
     let payerCountryForMeta: string | undefined;
-    {
+    if (!isGulf && klarnaRolloutAllowed(orderId, key)) {
       const piClientIp = pickClientIp(
         req.headers["x-forwarded-for"],
         (req.ip ?? "").toString(),
@@ -875,7 +910,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
           const piGeo = await resolveGeoCurrency(piClientIp);
           const piStripeKey = resolveStripeKey(store.storeKey);
           const piIsTestMode = !!(piStripeKey && piStripeKey.startsWith("sk_test_"));
-          klarnaAllowedForPayer = isKlarnaEnabled({
+          klarnaAllowed = isKlarnaEnabled({
             sessionId: piClientIp,
             payerCountry: piGeo.countryCode,
             isTestMode: piIsTestMode,
@@ -890,24 +925,26 @@ router.post("/checkout/payment-intent", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalMinorUnits,
       currency: stripeCurrency,
-      // automatic_payment_methods lets Stripe include Apple Pay, Google Pay, and
-      // card without enumerating them explicitly, and automatically surfaces any
-      // future wallet methods Stripe adds to the account.
-      // When the payer's country is not Klarna-eligible, allow_redirects:'never'
-      // prevents Stripe from surfacing redirect-based methods (Klarna, iDEAL…)
-      // even if the account is enrolled. Apple Pay/Google Pay are not affected.
-      automatic_payment_methods: {
-        enabled: true,
-        ...(klarnaAllowedForPayer ? {} : { allow_redirects: "never" }),
-      },
+      // When Klarna is allowed, automatic_payment_methods surfaces it alongside
+      // card and wallets via Stripe's dynamic payment method selection. When
+      // excluded, enumerate "card" explicitly — this keeps the exclusion scope
+      // tight (redirect-based BNPL only) and avoids silently suppressing other
+      // redirect methods that may be added to the account in future.
+      ...(klarnaAllowed
+        ? { automatic_payment_methods: { enabled: true } }
+        : { payment_method_types: ["card"] }),
       description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`, // i18n-ignore
       metadata: {
         ...(metadata ?? {}),
         orderId,
         presented_currency: currency,
+        klarna_cohort: klarnaCohortLabel(orderId, key),
         // payer_country is the IP-resolved billing country (not delivery address).
         // Stored for ops tracing, Klarna dispute resolution, and webhook correlation.
         ...(payerCountryForMeta ? { payer_country: payerCountryForMeta } : {}),
+        ...(billingCountry
+          ? { billing_country_hint: billingCountry.toUpperCase().slice(0, 2) }
+          : {}),
       },
       // receipt_email is intentionally omitted — the app sends its own order
       // confirmation via SMTP so a duplicate Stripe receipt adds noise.
@@ -920,6 +957,20 @@ router.post("/checkout/payment-intent", async (req, res) => {
         ? {
             customer: stripeCustomerId,
             ...(saveCard === true ? { setup_future_usage: "off_session" } : {}),
+          }
+        : {}),
+      // Pass the payer's billing country as a real Stripe field (not metadata-
+      // only) so Klarna can determine eligibility and the Stripe Dashboard shows
+      // the payer's country. Only set when Klarna is enabled for this session;
+      // for non-Klarna PIs the country is set by the Payment Element at confirm.
+      ...(billingCountry && klarnaAllowed
+        ? {
+            shipping: {
+              name: "Billing", // i18n-ignore
+              address: {
+                country: billingCountry.toUpperCase().slice(0, 2),
+              },
+            },
           }
         : {}),
     });
@@ -951,6 +1002,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       orderId,
       amount: totalMinorUnits,
       currency,
+      klarnaAllowed,
     });
   } catch (err: any) {
     req.log.error(
@@ -1341,5 +1393,111 @@ router.get("/checkout/klarna-status", async (req, res) => {
 
   return res.json({ ok: true, enabled, payerCountry });
 });
+
+// ── POST /checkout/klarna-pending ─────────────────────────────────────────────
+//
+// Called by the frontend immediately before stripe.confirmPayment() redirects
+// the shopper to Klarna. Writes a klarna_pending_checkouts record so the
+// payment_intent.succeeded webhook can drive state transitions even when the
+// shopper's browser is no longer open. The server verifies the piId matches the
+// intent stored for this orderId to prevent arbitrary record injection.
+
+router.post("/checkout/klarna-pending", async (req, res) => {
+  const { orderId, piId, orderPayload } = req.body as {
+    orderId?: unknown;
+    piId?: unknown;
+    orderPayload?: unknown;
+  };
+
+  if (!orderId || typeof orderId !== "string") {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!piId || typeof piId !== "string" || !piId.startsWith("pi_")) {
+    return res.status(400).json({ ok: false, message: "piId must be a Stripe PaymentIntent ID" }); // i18n-ignore
+  }
+
+  // Validate the piId against the server-side intent store so callers cannot
+  // create records for PIs they don't own.
+  // getPaymentIntentForOrder returns the paymentRef string (pi_xxx) directly.
+  const storedRef = getPaymentIntentForOrder(orderId);
+  if (!storedRef || storedRef !== piId) {
+    req.log.warn(
+      { orderId, piId, storedRef },
+      "klarna-pending: piId does not match stored intent for orderId", // i18n-ignore
+    );
+    return res.status(400).json({ ok: false, message: "PaymentIntent does not match the order" }); // i18n-ignore
+  }
+
+  // Sanitise orderPayload: accept only plain objects (not arrays or primitives).
+  const safePayload =
+    orderPayload !== null &&
+    typeof orderPayload === "object" &&
+    !Array.isArray(orderPayload)
+      ? (orderPayload as Record<string, unknown>)
+      : null;
+
+  try {
+    await db
+      .insert(klarnaPendingCheckoutsTable)
+      .values({ orderId, piId, status: "pending", orderPayload: safePayload })
+      .onConflictDoUpdate({
+        target: klarnaPendingCheckoutsTable.orderId,
+        set: { piId, status: "pending", orderPayload: safePayload, updatedAt: new Date() },
+      });
+
+    req.log.info(
+      { orderId, piId, hasPayload: safePayload !== null },
+      "klarna-pending: record stored", // i18n-ignore
+    );
+    return res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message, orderId, piId }, "klarna-pending: DB write failed"); // i18n-ignore
+    return res.status(500).json({ ok: false, message: "Failed to store Klarna pending checkout" }); // i18n-ignore
+  }
+});
+
+// ── GET /stripe/payment-status ────────────────────────────────────────────────
+//
+// Polled by the frontend when Stripe redirects back with redirect_status=processing
+// (Klarna approved the application asynchronously). Returns the DB-side status
+// written by the payment_intent.succeeded / canceled / payment_failed webhook.
+//
+// ?pi=pi_xxx   — Stripe PaymentIntent ID (required)
+
+router.get("/stripe/payment-status", async (req, res) => {
+  const piId = req.query.pi;
+
+  if (!piId || typeof piId !== "string" || !piId.startsWith("pi_")) {
+    return res.status(400).json({ ok: false, message: "pi query parameter must be a Stripe PaymentIntent ID" }); // i18n-ignore
+  }
+
+  try {
+    const rows = await db
+      .select()
+      .from(klarnaPendingCheckoutsTable)
+      .where(eq(klarnaPendingCheckoutsTable.piId, piId))
+      .limit(1);
+
+    if (rows.length === 0) {
+      // No pending checkout row — either a non-Klarna PI or record was never
+      // written (e.g. the frontend failed before calling /checkout/klarna-pending).
+      return res.status(404).json({ ok: false, message: "No pending checkout found" }); // i18n-ignore
+    }
+
+    return res.json({
+      ok: true,
+      orderId: rows[0].orderId,
+      status: rows[0].status,
+      // wooOrderRef is set by the payment_intent.succeeded webhook handler after
+      // it successfully creates the WC order. The browser polls until this is
+      // populated, then transitions to the success state using it as the order ref.
+      ...(rows[0].wooOrderRef ? { wooOrderRef: rows[0].wooOrderRef } : {}),
+    });
+  } catch (err: any) {
+    req.log.error({ err: err?.message, piId }, "stripe/payment-status: DB query failed"); // i18n-ignore
+    return res.status(500).json({ ok: false, message: "Failed to check payment status" }); // i18n-ignore
+  }
+});
+
 
 export default router;
