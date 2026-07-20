@@ -326,6 +326,7 @@ type SavedAddress = {
   district?: string | null;
   addressLine?: string | null;
   building?: string | null;
+  floor?: string | null;
   apartment?: string | null;
   directions?: string | null;
   recipientFirstName?: string | null;
@@ -510,6 +511,15 @@ function CheckoutForm() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const defaultAddressAppliedRef = useRef(false);
+  // Raw address sub-fields from the last applied saved address.
+  // Populated whenever applyAddressToRecipient is called; cleared when the
+  // shopper manually edits the address textarea (so stale sub-fields can't
+  // accompany a free-typed address they didn't come from).
+  const savedAddressSubFieldsRef = useRef<{
+    building?: string;
+    apartment?: string;
+    floor?: string;
+  } | null>(null);
 
   // Seed `recipient.deliveryDate` from the shared delivery-selection
   // store so a window the shopper picked from the product page lands
@@ -620,7 +630,14 @@ function CheckoutForm() {
         if (!defaultAddressAppliedRef.current) {
           defaultAddressAppliedRef.current = true;
           const def = addrs.find((a) => a.isDefault) ?? addrs[0];
-          if (def) applyAddressToRecipient(def, setRecipient, { onlyEmpty: true });
+          if (def) {
+            applyAddressToRecipient(def, setRecipient, { onlyEmpty: true });
+            savedAddressSubFieldsRef.current = {
+              building: def.building ?? undefined,
+              floor: def.floor ?? undefined,
+              apartment: def.apartment ?? undefined,
+            };
+          }
         }
       })
       .catch(() => {});
@@ -1800,6 +1817,12 @@ function CheckoutForm() {
     shippingCountry: (countryCode ?? "LB").toUpperCase().slice(0, 2),
     ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
+    ...(!noAddress && recipient.address ? { street: recipient.address } : {}),
+    ...(selectedCityData?.name ? { deliveryCity: selectedCityData.name } : {}),
+    ...(countryCode ? { deliveryCountry: countryCode.toUpperCase().slice(0, 2) } : {}),
+    ...(savedAddressSubFieldsRef.current?.building ? { building: savedAddressSubFieldsRef.current.building } : {}),
+    ...(savedAddressSubFieldsRef.current?.floor ? { floor: savedAddressSubFieldsRef.current.floor } : {}),
+    ...(savedAddressSubFieldsRef.current?.apartment ? { apartment: savedAddressSubFieldsRef.current.apartment } : {}),
   });
 
   const finalizeOrderNow = async (paymentRef?: string) => {
@@ -2731,6 +2754,11 @@ function CheckoutForm() {
                               type="button"
                               onClick={() => {
                                 applyAddressToRecipient(addr, setRecipient);
+                                savedAddressSubFieldsRef.current = {
+                                  building: addr.building ?? undefined,
+                                  floor: addr.floor ?? undefined,
+                                  apartment: addr.apartment ?? undefined,
+                                };
                                 setAddressPickerOpen(false);
                               }}
                               className="w-full flex items-start gap-2.5 rounded-lg px-2 py-2.5 text-left text-sm hover:bg-secondary/60 transition-colors"
@@ -2867,7 +2895,7 @@ function CheckoutForm() {
 
                       <div className="space-y-2 mb-4">
                         <label className="text-sm font-medium">{t("checkout.address")}<span className="text-destructive ms-0.5">*</span></label>
-                        <Textarea rows={3} value={recipient.address} onChange={(e) => setRecipient({ ...recipient, address: e.target.value })} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
+                        <Textarea rows={3} value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
                       </div>
 
                       {isSignedIn && (

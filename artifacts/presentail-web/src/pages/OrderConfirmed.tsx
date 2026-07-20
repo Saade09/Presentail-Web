@@ -54,6 +54,13 @@ type ConfirmedOrder = {
   district?: string;
   deliveryDetails?: string;
   noAddress?: boolean;
+  // Granular address fields (optional — absent in stashes created before this was added)
+  building?: string;
+  floor?: string;
+  apartment?: string;
+  street?: string;
+  deliveryCity?: string;
+  deliveryCountry?: string;
 };
 
 type StashedEntry = { payload: ConfirmedOrder; createdAt: number };
@@ -113,10 +120,20 @@ function recipientDisplayName(order: ConfirmedOrder): string {
 }
 
 function hasRecipientSection(order: ConfirmedOrder): boolean {
+  return !!(recipientDisplayName(order) || order.recipient?.phone?.trim());
+}
+
+function hasDeliveryAddressSection(order: ConfirmedOrder): boolean {
+  if (order.noAddress) return false;
   return !!(
-    recipientDisplayName(order) ||
-    order.recipient?.phone?.trim() ||
-    (!order.noAddress && (order.district?.trim() || order.deliveryDetails?.trim()))
+    order.building?.trim() ||
+    order.floor?.trim() ||
+    order.apartment?.trim() ||
+    order.street?.trim() ||
+    order.district?.trim() ||
+    order.deliveryCity?.trim() ||
+    order.deliveryCountry?.trim() ||
+    order.deliveryDetails?.trim()
   );
 }
 
@@ -354,7 +371,7 @@ export default function OrderConfirmed() {
       <div className="min-h-screen bg-white overflow-x-hidden">
         <div
           data-testid="order-confirmed-scroll-container"
-          className="mx-auto max-w-xl px-4 sm:px-6 py-12 sm:py-20 animate-in fade-in duration-500 text-center space-y-6"
+          className="mx-auto max-w-[760px] px-4 sm:px-6 py-12 sm:py-20 animate-in fade-in duration-500 text-center space-y-6"
         >
           <XCircle className="w-12 h-12 text-destructive mx-auto" data-testid="icon-failed" />
 
@@ -419,13 +436,13 @@ export default function OrderConfirmed() {
     <div className="min-h-screen bg-white overflow-x-hidden">
       <div
         data-testid="order-confirmed-scroll-container"
-        className="mx-auto max-w-xl px-4 sm:px-6 py-10 sm:py-16 animate-in fade-in duration-500"
+        className="mx-auto max-w-[760px] px-4 sm:px-6 py-10 sm:py-16 animate-in fade-in duration-500"
       >
 
-        {/* ── Confirmation header ─────────────────────────────────────────── */}
+        {/* ── Confirmation area ───────────────────────────────────────────── */}
         <div className="text-center space-y-3 pb-10">
           <CheckCircle2
-            className="w-11 h-11 text-primary mx-auto"
+            className="w-10 h-10 text-primary mx-auto"
             data-testid="icon-success"
           />
           <h1 className="text-2xl sm:text-3xl font-serif" data-testid="text-confirmation-title">
@@ -442,7 +459,7 @@ export default function OrderConfirmed() {
           </div>
         </div>
 
-        {/* ── Your Gifts ──────────────────────────────────────────────────── */}
+        {/* ── Your Gift ───────────────────────────────────────────────────── */}
         {items.length > 0 && (
           <section className="border-t border-border/40 pt-8">
             <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-5">
@@ -459,7 +476,7 @@ export default function OrderConfirmed() {
                     />
                   )}
                   <div className="flex-1 min-w-0 pt-0.5">
-                    <p className="font-medium leading-snug">{item.name}</p>
+                    <p className="font-medium leading-snug break-words">{item.name}</p>
                     {item.customInput && (
                       <p className="text-xs text-muted-foreground italic mt-1">
                         {t("order.summary.personalisation")}: {item.customInput}
@@ -482,28 +499,24 @@ export default function OrderConfirmed() {
             <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">
               {t("order.summary.cardMessage")}
             </p>
-            <div className="relative rounded-xl overflow-hidden shadow-sm border border-primary/10">
-              <div className="absolute inset-0 bg-gray-50" />
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary/60 to-primary/30" />
-              <div className="relative px-5 py-4 space-y-2">
-                {confirmedOrder?.cardTo?.trim() && (
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {t("order.summary.cardTo")}:{" "}
-                    <span className="text-foreground">{confirmedOrder.cardTo}</span>
-                  </p>
-                )}
-                {confirmedOrder?.cardMessage?.trim() && (
-                  <p className="font-serif text-sm leading-relaxed text-neutral-700 whitespace-pre-wrap">
-                    {confirmedOrder.cardMessage}
-                  </p>
-                )}
-                {confirmedOrder?.cardFrom?.trim() && (
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {t("order.summary.cardFrom")}:{" "}
-                    <span className="text-foreground">{confirmedOrder.cardFrom}</span>
-                  </p>
-                )}
-              </div>
+            <div className="rounded-xl border border-border px-5 py-4 space-y-2">
+              {confirmedOrder?.cardTo?.trim() && (
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("order.summary.cardTo")}:{" "}
+                  <span className="text-foreground">{confirmedOrder.cardTo}</span>
+                </p>
+              )}
+              {confirmedOrder?.cardMessage?.trim() && (
+                <p className="font-serif text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                  {confirmedOrder.cardMessage}
+                </p>
+              )}
+              {confirmedOrder?.cardFrom?.trim() && (
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("order.summary.cardFrom")}:{" "}
+                  <span className="text-foreground">{confirmedOrder.cardFrom}</span>
+                </p>
+              )}
             </div>
           </section>
         )}
@@ -530,11 +543,11 @@ export default function OrderConfirmed() {
           </section>
         )}
 
-        {/* ── Recipient & Delivery Address ─────────────────────────────────── */}
+        {/* ── Recipient Details ────────────────────────────────────────────── */}
         {confirmedOrder && hasRecipientSection(confirmedOrder) && (
           <section className="border-t border-border/40 pt-8 mt-8">
             <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">
-              {t("order.section.recipient")}
+              {t("order.section.recipientDetails")}
             </p>
             <div className="space-y-3 text-sm">
               {recipientDisplayName(confirmedOrder) && (
@@ -551,23 +564,50 @@ export default function OrderConfirmed() {
                   </span>
                 </div>
               )}
-              {!confirmedOrder.noAddress &&
-                (confirmedOrder.district?.trim() || confirmedOrder.deliveryDetails?.trim()) && (
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
-                    <div className="text-muted-foreground leading-relaxed">
-                      {confirmedOrder.district?.trim() && (
-                        <span className="font-medium text-foreground">
-                          {confirmedOrder.district}
-                        </span>
-                      )}
-                      {confirmedOrder.district?.trim() && confirmedOrder.deliveryDetails?.trim() && (
-                        <span>, </span>
-                      )}
-                      {confirmedOrder.deliveryDetails?.trim()}
-                    </div>
-                  </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Delivery Address ─────────────────────────────────────────────── */}
+        {confirmedOrder && hasDeliveryAddressSection(confirmedOrder) && (
+          <section className="border-t border-border/40 pt-8 mt-8">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">
+              {t("order.section.deliveryAddress")}
+            </p>
+            <div className="flex items-start gap-3 text-sm">
+              <MapPin className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
+              <div className="text-muted-foreground leading-relaxed space-y-0.5">
+                {confirmedOrder.building?.trim() && (
+                  <p><span className="text-foreground font-medium">{confirmedOrder.building}</span></p>
                 )}
+                {confirmedOrder.floor?.trim() && (
+                  <p>{confirmedOrder.floor}</p>
+                )}
+                {confirmedOrder.apartment?.trim() && (
+                  <p>{confirmedOrder.apartment}</p>
+                )}
+                {confirmedOrder.street?.trim() && (
+                  <p>{confirmedOrder.street}</p>
+                )}
+                {confirmedOrder.district?.trim() && (
+                  <p className="text-foreground font-medium">{confirmedOrder.district}</p>
+                )}
+                {confirmedOrder.deliveryCity?.trim() && (
+                  <p>{confirmedOrder.deliveryCity}</p>
+                )}
+                {confirmedOrder.deliveryCountry?.trim() && (
+                  <p>{confirmedOrder.deliveryCountry}</p>
+                )}
+                {/* Fallback for old stashes that only have the combined deliveryDetails */}
+                {!confirmedOrder.street?.trim() && !confirmedOrder.building?.trim() && confirmedOrder.deliveryDetails?.trim() && (
+                  <p>{confirmedOrder.deliveryDetails}</p>
+                )}
+                {confirmedOrder.deliveryDetails?.trim() &&
+                  (confirmedOrder.street?.trim() || confirmedOrder.building?.trim()) &&
+                  confirmedOrder.deliveryDetails !== confirmedOrder.street && (
+                  <p className="text-xs italic">{confirmedOrder.deliveryDetails}</p>
+                )}
+              </div>
             </div>
           </section>
         )}
@@ -618,30 +658,26 @@ export default function OrderConfirmed() {
         </section>
 
         {/* ── Actions ──────────────────────────────────────────────────────── */}
-        <section className="border-t border-border/40 pt-8 mt-8 text-center space-y-4">
-          <div>
-            <Button
-              size="lg"
-              className="rounded-full px-10 w-full sm:w-auto"
-              onClick={() => setLocation("/shop")}
-              data-testid="button-confirmation-cta"
+        <section className="border-t border-border/40 pt-8 mt-8 space-y-4">
+          <Button
+            size="lg"
+            className="rounded-full px-10 w-full"
+            onClick={() => setLocation("/shop")}
+            data-testid="button-confirmation-cta"
+          >
+            {t("order.continueShopping")}
+          </Button>
+
+          <div className="text-center">
+            <Link
+              href="/account"
+              className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
             >
-              {t("order.continueShopping")}
-            </Button>
+              {t("order.action.viewOrders")}
+            </Link>
           </div>
 
-          {user && (
-            <div>
-              <Link
-                href="/account"
-                className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
-              >
-                {t("order.action.viewOrders")}
-              </Link>
-            </div>
-          )}
-
-          <div>
+          <div className="text-center">
             <Link
               href="/contact"
               className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"

@@ -43,6 +43,8 @@ export const orderStrings: Dict = {
 
   "order.section.gifts": { en: "Your Gifts", ar: "هداياك" },
   "order.section.recipient": { en: "Recipient", ar: "المستلم" },
+  "order.section.recipientDetails": { en: "Recipient Details", ar: "تفاصيل المستلم" },
+  "order.section.deliveryAddress": { en: "Delivery Address", ar: "عنوان التوصيل" },
   "order.section.summary": { en: "Order Summary", ar: "ملخص الطلب" },
   "order.summary.discount": { en: "Discount", ar: "خصم" },
   "order.action.viewOrders": { en: "View my orders", ar: "استعراض طلباتي" },
@@ -88,6 +90,8 @@ export const orderStringsFr: Record<string, string> = {
 
   "order.section.gifts": "Vos cadeaux",
   "order.section.recipient": "Destinataire",
+  "order.section.recipientDetails": "Détails du destinataire",
+  "order.section.deliveryAddress": "Adresse de livraison",
   "order.section.summary": "Récapitulatif",
   "order.summary.discount": "Remise",
   "order.action.viewOrders": "Voir mes commandes",
