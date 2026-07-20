@@ -168,7 +168,8 @@ type AnalyticsSurface =
   | "checkout-direct"
   | "cart-screen"
   | "checkout"
-  | "upsell_modal";
+  | "upsell_modal"
+  | "all_occasions_page";
 
 type AnalyticsAction =
   | "continue"

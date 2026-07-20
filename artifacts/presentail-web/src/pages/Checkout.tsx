@@ -1763,6 +1763,7 @@ function CheckoutForm() {
     })(),
     identitySecret,
     currencyCode: "USD",
+    couponDiscount: confirmedCouponDiscount > 0 ? confirmedCouponDiscount : undefined,
     totalUsd: computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount),
     shippingCountry: (countryCode ?? "LB").toUpperCase().slice(0, 2),
     ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),

@@ -216,7 +216,6 @@ export function MainNavbar() {
     ? brandsData?.brands.find((b) => b.slug === activeBrandSlug)
     : null;
 
-  const cityId = city?.id ?? null;
   const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode, cityId);
   const osOccasions = occasionsData?.occasions ?? [];
   // Hide occasions with no in-stock products so shoppers never land on an empty page.

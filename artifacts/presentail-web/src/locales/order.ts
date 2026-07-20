@@ -41,6 +41,13 @@ export const orderStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "order.summary.pay.western": { en: "Western Union", ar: "ويسترن يونيون" },
 
+  "order.section.gifts": { en: "Your Gifts", ar: "هداياك" },
+  "order.section.recipient": { en: "Recipient", ar: "المستلم" },
+  "order.section.summary": { en: "Order Summary", ar: "ملخص الطلب" },
+  "order.summary.discount": { en: "Discount", ar: "خصم" },
+  "order.action.viewOrders": { en: "View my orders", ar: "استعراض طلباتي" },
+  "order.action.contact": { en: "Need help? Contact us", ar: "هل تحتاج مساعدة؟ تواصل معنا" },
+
   "payments.waysToPay": { en: "Ways to Pay", ar: "طرق الدفع" },
 };
 
@@ -78,6 +85,13 @@ export const orderStringsFr: Record<string, string> = {
   "order.summary.pay.mamo": "Mamo",
   "order.summary.pay.wallet": "Apple / Google Pay",
   "order.summary.pay.western": "Western Union",
+
+  "order.section.gifts": "Vos cadeaux",
+  "order.section.recipient": "Destinataire",
+  "order.section.summary": "Récapitulatif",
+  "order.summary.discount": "Remise",
+  "order.action.viewOrders": "Voir mes commandes",
+  "order.action.contact": "Besoin d'aide ? Contactez-nous",
 
   "payments.waysToPay": "Moyens de paiement",
 };

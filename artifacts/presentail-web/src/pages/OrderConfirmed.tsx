@@ -1,6 +1,6 @@
 import { useSearch, Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Loader2, CalendarDays } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, CalendarDays, MapPin, User, Phone } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCreateOrder } from "@/lib/queries";
 import { useCart } from "@/contexts/CartContext";
@@ -47,6 +47,13 @@ type ConfirmedOrder = {
   slotFee?: number;
   totalUsd?: number;
   paymentMethod?: string;
+  couponDiscount?: number;
+  currencyCode?: string;
+  // Delivery & recipient captured from full stash payload
+  recipient?: { firstName?: string; lastName?: string; phone?: string };
+  district?: string;
+  deliveryDetails?: string;
+  noAddress?: boolean;
 };
 
 type StashedEntry = { payload: ConfirmedOrder; createdAt: number };
@@ -98,125 +105,18 @@ const PAYMENT_METHOD_KEYS: Record<string, string> = {
   western: "order.summary.pay.western",
 };
 
-type OrderSummaryProps = {
-  order: ConfirmedOrder;
-  t: (key: string) => string;
-  language: string;
-};
+function recipientDisplayName(order: ConfirmedOrder): string {
+  const fn = order.recipient?.firstName?.trim() ?? "";
+  const ln = order.recipient?.lastName?.trim() ?? "";
+  const full = [fn, ln].filter(Boolean).join(" ");
+  return full || order.cardTo?.trim() || "";
+}
 
-function OrderSummary({ order, t, language }: OrderSummaryProps) {
-  const items = order.items ?? [];
-  const subtotal = items.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0);
-  const deliveryFee = (Number(order.expressFee) || 0) + (Number(order.slotFee) || 0) + (Number(order.districtFee) || 0);
-  const rawTotal = Number(order.totalUsd);
-  const total = Number.isFinite(rawTotal) ? rawTotal : subtotal + deliveryFee;
-  const payKey = order.paymentMethod ? (PAYMENT_METHOD_KEYS[order.paymentMethod] ?? null) : null;
-  const payLabel = payKey ? t(payKey) : order.paymentMethod ?? "";
-
-  return (
-    <div data-testid="order-summary" className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-4 space-y-5 text-start">
-      {items.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.items")}</p>
-          <ul className="space-y-3">
-            {items.map((item, idx) => (
-              <li key={idx} className="flex items-center gap-3 text-sm">
-                {item.image && (
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-12 h-12 rounded-lg object-cover shrink-0"
-                  />
-                )}
-                <span className="flex-1 min-w-0">
-                  <span className="truncate block">
-                    {item.name}
-                    <span className="text-muted-foreground"> × {item.quantity}</span>
-                  </span>
-                  {item.customInput && (
-                    <span className="block text-xs text-muted-foreground italic mt-0.5">
-                      {t("order.summary.personalisation")}: {item.customInput}
-                    </span>
-                  )}
-                </span>
-                <span className="shrink-0 font-medium">
-                  <FormattedPrice usdValue={(Number(item.price) || 0) * (Number(item.quantity) || 1)} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {(order.cardMessage?.trim() || order.cardTo?.trim() || order.cardFrom?.trim()) && (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.cardMessage")}</p>
-          <div className="relative rounded-xl overflow-hidden shadow-sm border border-primary/10">
-            <div className="absolute inset-0 bg-gray-50" />
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary/60 to-primary/30" />
-            <div className="relative px-5 py-4 space-y-2">
-              {order.cardTo?.trim() && (
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t("order.summary.cardTo")}: <span className="text-foreground">{order.cardTo}</span>
-                </p>
-              )}
-              {order.cardMessage?.trim() && (
-                <p className="font-serif text-sm leading-relaxed text-neutral-700 whitespace-pre-wrap">
-                  {order.cardMessage}
-                </p>
-              )}
-              {order.cardFrom?.trim() && (
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t("order.summary.cardFrom")}: <span className="text-foreground">{order.cardFrom}</span>
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {(order.deliveryDate || order.deliverySlot) && (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.delivery")}</p>
-          <div className="flex items-center gap-2 text-sm">
-            <CalendarDays className="w-4 h-4 shrink-0 text-primary" />
-            <span>
-              {order.deliveryDate ? formatDeliveryDate(order.deliveryDate, language) : ""}
-              {(order.deliverySlotTime ?? order.deliverySlot) && order.deliveryDate ? " · " : ""}
-              {order.deliverySlotTime ?? order.deliverySlot ?? ""}
-            </span>
-          </div>
-        </div>
-      )}
-
-      <div className="border-t border-border/50 pt-4 space-y-1.5">
-        {items.length > 0 && (
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{t("order.summary.subtotal")}</span>
-            <FormattedPrice usdValue={subtotal} />
-          </div>
-        )}
-        {deliveryFee > 0 && (
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{t("order.summary.deliveryFee")}</span>
-            <FormattedPrice usdValue={deliveryFee} />
-          </div>
-        )}
-        <div className="flex justify-between text-sm font-semibold pt-1">
-          <span>{t("order.summary.total")}</span>
-          <FormattedPrice usdValue={total} />
-        </div>
-      </div>
-
-      {payLabel && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t("order.summary.paymentMethod")}</span>
-          <span className="text-xs font-medium bg-primary/10 text-primary rounded-full px-3 py-1">
-            {payLabel}
-          </span>
-        </div>
-      )}
-    </div>
+function hasRecipientSection(order: ConfirmedOrder): boolean {
+  return !!(
+    recipientDisplayName(order) ||
+    order.recipient?.phone?.trim() ||
+    (!order.noAddress && (order.district?.trim() || order.deliveryDetails?.trim()))
   );
 }
 
@@ -396,12 +296,12 @@ export default function OrderConfirmed() {
 
   if (state.kind === "finalizing") {
     return (
-      <div className="h-screen overflow-hidden flex items-center justify-center container mx-auto max-w-content px-4">
-        <div data-testid="order-confirmed-scroll-container" className="max-h-screen overflow-y-auto max-w-md w-full text-center space-y-6 animate-in fade-in py-8">
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div data-testid="order-confirmed-scroll-container" className="max-w-md w-full text-center space-y-6 animate-in fade-in py-16">
           <div className="flex justify-center">
-            <Loader2 className="w-16 h-16 text-primary animate-spin" />
+            <Loader2 className="w-12 h-12 text-primary animate-spin" />
           </div>
-          <h1 className="text-3xl font-serif">{t("order.finalizing")}</h1>
+          <h1 className="text-2xl font-serif">{t("order.finalizing")}</h1>
           <p className="text-muted-foreground">{t("order.dontClose")}</p>
         </div>
       </div>
@@ -433,99 +333,324 @@ export default function OrderConfirmed() {
     setState({ kind: "finalizing" });
   };
 
-  return (
-    <div className="h-screen overflow-hidden flex items-center justify-center container mx-auto max-w-content px-4">
-      <div data-testid="order-confirmed-scroll-container" className="max-h-screen overflow-y-auto max-w-md w-full text-center space-y-3 sm:space-y-6 animate-in zoom-in-95 duration-500 py-8 sm:py-16">
-        <div className="flex justify-center">
-          {isSuccess ? (
-            <CheckCircle2 className="w-14 h-14 sm:w-24 sm:h-24 text-primary" data-testid="icon-success" />
-          ) : (
-            <XCircle className="w-14 h-14 sm:w-24 sm:h-24 text-destructive" data-testid="icon-failed" />
-          )}
-        </div>
+  // ─── Financial summary (used in the success state) ───────────────────────
+  const items = confirmedOrder?.items ?? [];
+  const subtotal = items.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0);
+  const deliveryFee =
+    (Number(confirmedOrder?.expressFee) || 0) +
+    (Number(confirmedOrder?.slotFee) || 0) +
+    (Number(confirmedOrder?.districtFee) || 0);
+  const couponDiscount = Number(confirmedOrder?.couponDiscount) || 0;
+  const rawTotal = Number(confirmedOrder?.totalUsd);
+  const total = Number.isFinite(rawTotal) ? rawTotal : subtotal + deliveryFee - couponDiscount;
+  const payKey = confirmedOrder?.paymentMethod
+    ? (PAYMENT_METHOD_KEYS[confirmedOrder.paymentMethod] ?? null)
+    : null;
+  const payLabel = payKey ? t(payKey) : (confirmedOrder?.paymentMethod ?? "");
 
-        <h1 className="text-2xl sm:text-4xl font-serif" data-testid="text-confirmation-title">
-          {isSuccess ? t("order.confirmed") : t("order.failed")}
-        </h1>
-
-        <p
-          className="text-muted-foreground text-base sm:text-lg"
-          data-testid="text-confirmation-message"
+  // ─── Failed state ─────────────────────────────────────────────────────────
+  if (!isSuccess) {
+    return (
+      <div className="min-h-screen bg-white overflow-x-hidden">
+        <div
+          data-testid="order-confirmed-scroll-container"
+          className="mx-auto max-w-xl px-4 sm:px-6 py-12 sm:py-20 animate-in fade-in duration-500 text-center space-y-6"
         >
-          {isSuccess
-            ? t("order.thanks")
-            : retriesExhausted
+          <XCircle className="w-12 h-12 text-destructive mx-auto" data-testid="icon-failed" />
+
+          <h1 className="text-2xl sm:text-3xl font-serif" data-testid="text-confirmation-title">
+            {t("order.failed")}
+          </h1>
+
+          <p className="text-muted-foreground" data-testid="text-confirmation-message">
+            {retriesExhausted
               ? t("order.fail.exhausted")
               : (state.kind === "failed" && state.message) || t("order.failGeneric")}
-        </p>
+          </p>
 
-        {isSuccess && (
-          <div className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-8 space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
-              <p className="font-mono text-xl font-medium tracking-wider" data-testid="text-order-ref">{ref}</p>
-            </div>
-          </div>
-        )}
-
-        {!isSuccess && retriesExhausted && paymentRef && (
-          <div className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-8 space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
-              <p
-                className="font-mono text-xl font-medium tracking-wider break-all"
-                data-testid="text-payment-ref"
-              >
+          {retriesExhausted && paymentRef && (
+            <div className="inline-block rounded-2xl border border-border px-6 py-4">
+              <p className="text-xs text-muted-foreground mb-1">{t("order.reference")}</p>
+              <p className="font-mono text-base font-semibold tracking-wider break-all" data-testid="text-payment-ref">
                 {paymentRef}
               </p>
             </div>
-          </div>
-        )}
-
-        {isSuccess && confirmedOrder && (
-          <OrderSummary order={confirmedOrder} t={t} language={language} />
-        )}
-
-        <div className="pt-2 sm:pt-4 space-y-3">
-          {canRetry ? (
-            <Button
-              size="lg"
-              className="rounded-full px-8"
-              onClick={handleRetry}
-              data-testid="button-retry-order"
-            >
-              {t("order.retry")}
-            </Button>
-          ) : (
-            <Button
-              size="lg"
-              className="rounded-full px-8"
-              onClick={() => setLocation(isSuccess ? "/shop" : "/checkout")}
-              data-testid="button-confirmation-cta"
-            >
-              {isSuccess ? t("order.continueShopping") : t("order.returnCheckout")}
-            </Button>
           )}
 
-          {canRetry && (
-            <div className="text-sm text-muted-foreground">
-              <button
-                type="button"
+          <div className="pt-2 space-y-3">
+            {canRetry ? (
+              <>
+                <Button size="lg" className="rounded-full px-8" onClick={handleRetry} data-testid="button-retry-order">
+                  {t("order.retry")}
+                </Button>
+                <div className="text-sm text-muted-foreground">
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/checkout")}
+                    className="hover:text-primary underline-offset-4 hover:underline"
+                    data-testid="button-return-checkout"
+                  >
+                    {t("order.returnCheckout")}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <Button
+                size="lg"
+                className="rounded-full px-8"
                 onClick={() => setLocation("/checkout")}
-                className="hover:text-primary underline-offset-4 hover:underline"
-                data-testid="button-return-checkout"
+                data-testid="button-confirmation-cta"
               >
                 {t("order.returnCheckout")}
-              </button>
-            </div>
-          )}
-        </div>
+              </Button>
+            )}
+          </div>
 
-        {!isSuccess && (
           <div className="text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary">{t("order.backHome")}</Link>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Success state ────────────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-white overflow-x-hidden">
+      <div
+        data-testid="order-confirmed-scroll-container"
+        className="mx-auto max-w-xl px-4 sm:px-6 py-10 sm:py-16 animate-in fade-in duration-500"
+      >
+
+        {/* ── Confirmation header ─────────────────────────────────────────── */}
+        <div className="text-center space-y-3 pb-10">
+          <CheckCircle2
+            className="w-11 h-11 text-primary mx-auto"
+            data-testid="icon-success"
+          />
+          <h1 className="text-2xl sm:text-3xl font-serif" data-testid="text-confirmation-title">
+            {t("order.confirmed")}
+          </h1>
+          <p className="text-muted-foreground text-sm sm:text-base" data-testid="text-confirmation-message">
+            {t("order.thanks")}
+          </p>
+          <div className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-1.5 mt-1">
+            <span className="text-xs text-muted-foreground">{t("order.reference")}</span>
+            <span className="font-mono text-sm font-semibold tracking-wider" data-testid="text-order-ref">
+              {ref}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Your Gifts ──────────────────────────────────────────────────── */}
+        {items.length > 0 && (
+          <section className="border-t border-border/40 pt-8">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-5">
+              {t("order.section.gifts")}
+            </p>
+            <ul className="space-y-5">
+              {items.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-4 text-sm">
+                  {item.image && (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-16 h-16 rounded-xl object-cover shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className="font-medium leading-snug">{item.name}</p>
+                    {item.customInput && (
+                      <p className="text-xs text-muted-foreground italic mt-1">
+                        {t("order.summary.personalisation")}: {item.customInput}
+                      </p>
+                    )}
+                    <p className="text-muted-foreground text-xs mt-1">× {item.quantity}</p>
+                  </div>
+                  <span className="shrink-0 font-semibold text-sm pt-0.5">
+                    <FormattedPrice usdValue={(Number(item.price) || 0) * (Number(item.quantity) || 1)} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
+
+        {/* ── Card Message ────────────────────────────────────────────────── */}
+        {(confirmedOrder?.cardMessage?.trim() || confirmedOrder?.cardTo?.trim() || confirmedOrder?.cardFrom?.trim()) && (
+          <section className="border-t border-border/40 pt-8 mt-8">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">
+              {t("order.summary.cardMessage")}
+            </p>
+            <div className="relative rounded-xl overflow-hidden shadow-sm border border-primary/10">
+              <div className="absolute inset-0 bg-gray-50" />
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary/60 to-primary/30" />
+              <div className="relative px-5 py-4 space-y-2">
+                {confirmedOrder?.cardTo?.trim() && (
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t("order.summary.cardTo")}:{" "}
+                    <span className="text-foreground">{confirmedOrder.cardTo}</span>
+                  </p>
+                )}
+                {confirmedOrder?.cardMessage?.trim() && (
+                  <p className="font-serif text-sm leading-relaxed text-neutral-700 whitespace-pre-wrap">
+                    {confirmedOrder.cardMessage}
+                  </p>
+                )}
+                {confirmedOrder?.cardFrom?.trim() && (
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t("order.summary.cardFrom")}:{" "}
+                    <span className="text-foreground">{confirmedOrder.cardFrom}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Delivery Date & Time ─────────────────────────────────────────── */}
+        {(confirmedOrder?.deliveryDate || confirmedOrder?.deliverySlot) && (
+          <section className="border-t border-border/40 pt-8 mt-8">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">
+              {t("order.summary.delivery")}
+            </p>
+            <div className="flex items-center gap-2.5 text-sm">
+              <CalendarDays className="w-4 h-4 shrink-0 text-primary" />
+              <span>
+                {confirmedOrder?.deliveryDate
+                  ? formatDeliveryDate(confirmedOrder.deliveryDate, language)
+                  : ""}
+                {(confirmedOrder?.deliverySlotTime ?? confirmedOrder?.deliverySlot) &&
+                  confirmedOrder?.deliveryDate
+                  ? " · "
+                  : ""}
+                {confirmedOrder?.deliverySlotTime ?? confirmedOrder?.deliverySlot ?? ""}
+              </span>
+            </div>
+          </section>
+        )}
+
+        {/* ── Recipient & Delivery Address ─────────────────────────────────── */}
+        {confirmedOrder && hasRecipientSection(confirmedOrder) && (
+          <section className="border-t border-border/40 pt-8 mt-8">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">
+              {t("order.section.recipient")}
+            </p>
+            <div className="space-y-3 text-sm">
+              {recipientDisplayName(confirmedOrder) && (
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
+                  <span className="font-medium">{recipientDisplayName(confirmedOrder)}</span>
+                </div>
+              )}
+              {confirmedOrder.recipient?.phone?.trim() && (
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span dir="ltr" className="text-muted-foreground">
+                    {confirmedOrder.recipient.phone}
+                  </span>
+                </div>
+              )}
+              {!confirmedOrder.noAddress &&
+                (confirmedOrder.district?.trim() || confirmedOrder.deliveryDetails?.trim()) && (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
+                    <div className="text-muted-foreground leading-relaxed">
+                      {confirmedOrder.district?.trim() && (
+                        <span className="font-medium text-foreground">
+                          {confirmedOrder.district}
+                        </span>
+                      )}
+                      {confirmedOrder.district?.trim() && confirmedOrder.deliveryDetails?.trim() && (
+                        <span>, </span>
+                      )}
+                      {confirmedOrder.deliveryDetails?.trim()}
+                    </div>
+                  </div>
+                )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Order Summary ────────────────────────────────────────────────── */}
+        <section
+          data-testid="order-summary"
+          className="border-t border-border/40 pt-8 mt-8"
+        >
+          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">
+            {t("order.section.summary")}
+          </p>
+          <div className="space-y-2 text-sm">
+            {items.length > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>{t("order.summary.subtotal")}</span>
+                <FormattedPrice usdValue={subtotal} />
+              </div>
+            )}
+            {deliveryFee > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>{t("order.summary.deliveryFee")}</span>
+                <FormattedPrice usdValue={deliveryFee} />
+              </div>
+            )}
+            {couponDiscount > 0 && (
+              <div className="flex justify-between text-emerald-600">
+                <span>{t("order.summary.discount")}</span>
+                <span>
+                  {"−\u202f"}
+                  <FormattedPrice usdValue={couponDiscount} />
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold pt-3 border-t border-border/40 text-base">
+              <span>{t("order.summary.total")}</span>
+              <FormattedPrice usdValue={total} />
+            </div>
+          </div>
+          {payLabel && (
+            <div className="flex items-center justify-between mt-5 pt-5 border-t border-border/40">
+              <span className="text-sm text-muted-foreground">{t("order.summary.paymentMethod")}</span>
+              <span className="text-xs font-medium bg-primary/10 text-primary rounded-full px-3 py-1">
+                {payLabel}
+              </span>
+            </div>
+          )}
+        </section>
+
+        {/* ── Actions ──────────────────────────────────────────────────────── */}
+        <section className="border-t border-border/40 pt-8 mt-8 text-center space-y-4">
+          <div>
+            <Button
+              size="lg"
+              className="rounded-full px-10 w-full sm:w-auto"
+              onClick={() => setLocation("/shop")}
+              data-testid="button-confirmation-cta"
+            >
+              {t("order.continueShopping")}
+            </Button>
+          </div>
+
+          {user && (
+            <div>
+              <Link
+                href="/account"
+                className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+              >
+                {t("order.action.viewOrders")}
+              </Link>
+            </div>
+          )}
+
+          <div>
+            <Link
+              href="/contact"
+              className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+            >
+              {t("order.action.contact")}
+            </Link>
+          </div>
+        </section>
+
       </div>
     </div>
   );
