@@ -18,6 +18,7 @@ import {
 import {
   fetchWcProductPrice,
   computeDistrictFeeUsd,
+  computeSlotFeeUsd,
   countryForDistrict,
   expressSurchargeUsd,
 } from "./catalog";
@@ -412,25 +413,23 @@ export async function attemptCreateWcOrder(
     });
   }
 
-  // Slot surcharge: look up the booked slot's extraFee from the OS city cache
-  // using the client-supplied cityId. Computed server-side so the amount cannot
-  // be inflated or zeroed out by the client.
-  let slotFeeAppliedUsd = 0;
-  if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
-    const citySlots = getDeliverySlots(body.cityId);
-    const bookedSlot = body.deliverySlotId
-      ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
-      : citySlots.find((s) => s.label === body.deliverySlot);
-    if (bookedSlot && bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
-      slotFeeAppliedUsd = Number(bookedSlot.extraFee);
-      if (slotFeeAppliedUsd > 0) {
-        shippingLines.push({
-          method_id: "flat_rate",
-          method_title: "Night Delivery Surcharge",
-          total: fmt(await conv(slotFeeAppliedUsd)),
-        });
-      }
-    }
+  // Slot surcharge: computed via computeSlotFeeUsd() so the $5 same-day night
+  // fallback is applied even when the OS slot has no explicit extraFee set.
+  // Amount cannot be inflated or zeroed out by the client.
+  const slotFeeAppliedUsd = computeSlotFeeUsd({
+    expressDelivery: clientSignalledExpress,
+    deliverySlot: body.deliverySlot,
+    deliverySlotId: body.deliverySlotId,
+    cityId: body.cityId ?? undefined,
+    deliveryDate: body.deliveryDate ?? undefined,
+    district: body.district,
+  });
+  if (slotFeeAppliedUsd > 0) {
+    shippingLines.push({
+      method_id: "flat_rate",
+      method_title: "Night Delivery Surcharge",
+      total: fmt(await conv(slotFeeAppliedUsd)),
+    });
   }
 
   // Final authoritative USD total persisted on the app_orders row. Mirrors
@@ -1005,17 +1004,24 @@ export async function attemptCreateOsOrder(
         : expressSurchargeUsd(districtCountry);
   }
 
-  let slotFeeAppliedUsd = 0;
+  // Slot surcharge: use computeSlotFeeUsd() so the $5 same-day night fallback
+  // fires even when the OS slot has no explicit extraFee value. bookedSlot is
+  // kept separately for the slot time string formatting below.
   let bookedSlot: OsDeliverySlot | undefined;
   if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
     const citySlots = getDeliverySlots(body.cityId);
     bookedSlot = body.deliverySlotId
       ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
       : citySlots.find((s) => s.label === body.deliverySlot);
-    if (bookedSlot && bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
-      slotFeeAppliedUsd = Number(bookedSlot.extraFee);
-    }
   }
+  const slotFeeAppliedUsd = computeSlotFeeUsd({
+    expressDelivery: clientSignalledExpress,
+    deliverySlot: body.deliverySlot,
+    deliverySlotId: body.deliverySlotId,
+    cityId: body.cityId ?? undefined,
+    deliveryDate: body.deliveryDate ?? undefined,
+    district: body.district,
+  });
 
   const preCouponTotalUsd =
     catalogSubtotalUsd +
