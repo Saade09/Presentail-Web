@@ -133,7 +133,7 @@ export function LocationPicker({
         </div>
       )}
 
-      <div className="flex flex-col min-h-0 flex-1 md:flex-none md:max-h-[50vh] overflow-y-auto gap-3">
+      <div className="flex flex-col min-h-0 max-h-[55dvh] md:max-h-[60dvh] overflow-y-auto overscroll-contain gap-3">
         {isLoadingCountries && countries.length === 0 ? (
           <div className="flex flex-col">
             {Array.from({ length: 3 }).map((_, i) => (

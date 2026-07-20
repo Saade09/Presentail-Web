@@ -1,0 +1,22 @@
+Objective
+Make the free-delivery message on the product page clearer and remove the impression that free standard delivery and the Express delivery fee contradict each other.
+
+Required changes
+1. Replace the current copy “Free standard delivery applied to your order.”
+2. When the order qualifies for free standard delivery and standard delivery is selected, display:
+   “You qualify for free standard delivery.”
+3. When the order qualifies for free standard delivery but Express Delivery is selected, display:
+   “Free standard delivery included — you’re only paying the $15 express upgrade.”
+4. Keep the existing check icon, but ensure the message remains clearly visible below the product price on both mobile and desktop.
+5. The copy must update dynamically when the customer switches between Express Delivery and scheduled standard delivery.
+6. Do not show the free-delivery qualification message when the basket does not meet the applicable city’s free-delivery threshold; preserve the existing paid-delivery/progress logic in that case.
+7. Support the final copy in English, Arabic, and French using the website’s existing translation system. Do not hard-code the $15 amount; use the actual localized Express upgrade fee configured for the selected city and currency.
+
+Acceptance criteria
+- A qualifying order with standard delivery selected shows: “You qualify for free standard delivery.”
+- A qualifying order with Express selected clearly states that standard delivery is free and only the Express upgrade is being charged.
+- The Express fee in the message always matches the fee shown in the selected delivery option and cart total.
+- Switching delivery options immediately updates the message without refreshing the page.
+- Non-qualifying orders never see the qualification message.
+- Copy and layout are verified on mobile and desktop in English, Arabic, and French.
+- No changes are made to delivery eligibility, fee calculations, or cart pricing; this task changes presentation and dynamic messaging only.
