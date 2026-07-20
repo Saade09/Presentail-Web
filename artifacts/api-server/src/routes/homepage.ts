@@ -322,7 +322,7 @@ async function buildOsCategories(
   const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
     kind: "category",
     countryCode,
-    cityId,
+    citySlug: cityId ?? null,
     configRows,
     osProducts,
     clickScores,
@@ -381,7 +381,7 @@ async function buildOsOccasions(
   const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
     kind: "occasion",
     countryCode,
-    cityId,
+    citySlug: cityId ?? null,
     configRows,
     osProducts,
     clickScores,

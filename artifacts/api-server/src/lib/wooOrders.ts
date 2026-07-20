@@ -115,6 +115,10 @@ export const WooOrderSchema = z.object({
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
   couponCode: z.string().trim().optional(),
+  // Occasion slug the shopper navigated from before reaching checkout.
+  // Read from client-side sessionStorage key ps_occasion_ref and cleared after use.
+  // Stored on the app_orders row for occasion-level attribution reporting.
+  occasion_ref: z.string().optional(),
   // Optional marketing attribution captured from UTM params / Google Ads click IDs.
   // Passed through to the OS order payload for ad-spend attribution reporting.
   // All sub-fields are optional strings so a partial payload never fails validation.
@@ -580,6 +584,10 @@ export async function recordSuccessfulWcOrder(input: {
     totalPaymentCents,
   } = input;
   const orderState = inputState ?? "confirmed";
+  const occasionRef =
+    typeof body.occasion_ref === "string" && body.occasion_ref.trim()
+      ? body.occasion_ref.trim()
+      : null;
 
   const senderName =
     `${body.billing.firstName ?? ""} ${body.billing.lastName ?? ""}`.trim() || null;
@@ -650,6 +658,7 @@ export async function recordSuccessfulWcOrder(input: {
         totalPaymentCents: totalPaymentCents ?? null,
         couponCode,
         cardMessage,
+        occasionRef,
         marketingAttributionJson,
       })
       .onConflictDoUpdate({
@@ -683,6 +692,7 @@ export async function recordSuccessfulWcOrder(input: {
           totalPaymentCents: totalPaymentCents ?? null,
           couponCode,
           cardMessage,
+          occasionRef,
           marketingAttributionJson,
           updatedAt: new Date(),
         },

@@ -88,6 +88,11 @@ export const appOrdersTable = pgTable(
     // rejects or ignores the metadata field. Shape mirrors MarketingAttribution
     // from openapi.yaml: { source, first_touch, last_touch, conversion }.
     marketingAttributionJson: text("marketing_attribution_json"),
+    // Occasion slug that triggered this order journey, set when the shopper
+    // navigated to /occasion/:slug before reaching checkout. Read from the
+    // client-side sessionStorage key ps_occasion_ref (cleared after checkout).
+    // Null for orders where no occasion link was followed, or legacy rows.
+    occasionRef: text("occasion_ref"),
     // Timestamp of the first Google Ads click-conversion upload attempt for
     // this order. Set to NOW() after the first upload attempt (success or
     // failure) to prevent duplicate uploads when OS sends the confirmed

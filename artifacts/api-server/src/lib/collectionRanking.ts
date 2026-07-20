@@ -17,9 +17,16 @@
  *     items with 0 in-stock products receive a -2.0 penalty and are sorted to the end.
  *
  * Pinned positions are applied as a post-sort pass.
+ * Seasonal targetPosition (optional per boost window) acts as a temporary pin
+ * that auto-expires when the window ends; regular pinnedPosition takes precedence.
  * Hidden overrides are applied as a pre-filter.
  * When no config is present and no sales data exists, falls back to the supplied
  * defaultOrder array (same behaviour as the existing DEFAULT_OCCASION_SLUGS logic).
+ *
+ * Config row resolution is 3-tier:
+ *   1. city + country (most specific)
+ *   2. country-only
+ *   3. global (null city, null country)
  */
 
 import { and, eq, gte, isNotNull, or } from "drizzle-orm";
@@ -44,12 +51,15 @@ export type ScoreDebug = {
   availabilityPenalty: number;
   finalScore: number;
   productCount: number;
+  /** Human-readable label indicating how this item got its position. */
+  source: "pinned" | "scheduled" | "demand" | "default";
 };
 
 export type ScoreCollectionsOpts = {
   kind: CollectionKind;
   countryCode?: string | null;
-  cityId?: string | null;
+  /** City slug for 3-tier config resolution (city+country > country > global). */
+  citySlug?: string | null;
   configRows: CollectionRankingConfigRow[];
   osProducts: OSProduct[];
   /**
@@ -104,7 +114,7 @@ const clickScoreCache = new Map<
  *
  * Events in the last 7 days count 2× to reward recent demand spikes.
  * The result is normalised to [0, 1] relative to the highest-scoring slug.
- * Returns an empty Map on cold start (no matching rows) or on DB error,
+ * Returns an empty Map on cold start (no rows) or on DB error,
  * so the ranking formula degrades gracefully to clickScore = 0.
  */
 export async function getCollectionClickScores(
@@ -221,7 +231,7 @@ function todayMmDd(): string {
  * [startMmDd, endMmDd], handling wrap-around across the year boundary
  * (e.g. "12-20" → "01-07").
  */
-function isInSeasonalWindow(mmDd: string, startMmDd: string, endMmDd: string): boolean {
+export function isInSeasonalWindow(mmDd: string, startMmDd: string, endMmDd: string): boolean {
   if (startMmDd <= endMmDd) {
     return mmDd >= startMmDd && mmDd <= endMmDd;
   }
@@ -230,24 +240,47 @@ function isInSeasonalWindow(mmDd: string, startMmDd: string, endMmDd: string): b
 }
 
 /**
- * For a given slug, find the most-specific config row (country-specific row
- * beats global row).
+ * For a given slug, find the most-specific config row using 3-tier resolution:
+ *   1. city + country exact match
+ *   2. country-only match (city_slug is null)
+ *   3. global row (country_code and city_slug are both null)
  */
-function findConfigRow(
+export function findConfigRow(
   configRows: CollectionRankingConfigRow[],
   kind: CollectionKind,
   slug: string,
   countryCode?: string | null,
+  citySlug?: string | null,
 ): CollectionRankingConfigRow | undefined {
   const rows = configRows.filter((r) => r.kind === kind && r.slug === slug);
   if (rows.length === 0) return undefined;
+
+  // Tier 1: city + country exact match
+  if (citySlug && countryCode) {
+    const cityRow = rows.find(
+      (r) =>
+        r.citySlug === citySlug &&
+        r.countryCode?.toUpperCase() === countryCode.toUpperCase(),
+    );
+    if (cityRow) return cityRow;
+  }
+
+  // Tier 2: country-only match (no city scope)
   if (countryCode) {
     const countryRow = rows.find(
-      (r) => r.countryCode?.toUpperCase() === countryCode.toUpperCase(),
+      (r) =>
+        (r.citySlug === null || r.citySlug === undefined) &&
+        r.countryCode?.toUpperCase() === countryCode.toUpperCase(),
     );
     if (countryRow) return countryRow;
   }
-  return rows.find((r) => r.countryCode === null || r.countryCode === undefined);
+
+  // Tier 3: global row (no city, no country)
+  return rows.find(
+    (r) =>
+      (r.citySlug === null || r.citySlug === undefined) &&
+      (r.countryCode === null || r.countryCode === undefined),
+  );
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -266,6 +299,7 @@ export function scoreCollections<T extends ScoredItem>(
   const {
     kind,
     countryCode,
+    citySlug,
     configRows,
     osProducts,
     clickScores = new Map(),
@@ -325,7 +359,7 @@ export function scoreCollections<T extends ScoredItem>(
 
   for (const item of items) {
     const { slug } = item;
-    const cfg = findConfigRow(configRows, kind, slug, countryCode);
+    const cfg = findConfigRow(configRows, kind, slug, countryCode, citySlug);
 
     if (cfg?.hiddenOverride) continue;
 
@@ -354,6 +388,21 @@ export function scoreCollections<T extends ScoredItem>(
     const finalScore =
       performanceScore + clickScore + seasonalBoost + manualBoost - availabilityPenalty;
 
+    // Determine source label for admin/debug
+    let source: ScoreDebug["source"] = "default";
+    if (cfg?.pinnedPosition != null) {
+      source = "pinned";
+    } else {
+      const hasActiveSeasonalTarget = boosts.some(
+        (b) => b.targetPosition != null && isInSeasonalWindow(today, b.startMmDd, b.endMmDd),
+      );
+      if (hasActiveSeasonalTarget) {
+        source = "scheduled";
+      } else if (performanceScore > 0 || clickScore > 0) {
+        source = "demand";
+      }
+    }
+
     debugMap.set(slug, {
       performanceScore,
       clickScore,
@@ -362,6 +411,7 @@ export function scoreCollections<T extends ScoredItem>(
       availabilityPenalty,
       finalScore,
       productCount: inStockCount,
+      source,
     });
 
     const defaultIdx = defaultOrder.indexOf(slug);
@@ -390,24 +440,33 @@ export function scoreCollections<T extends ScoredItem>(
     });
   }
 
+  // ── Build effective pinned positions ──────────────────────────────────────
+  //
+  // Effective position = pinnedPosition (DB) if set; otherwise the first
+  // active seasonal boost window's targetPosition (temporary pin that
+  // auto-expires). Regular pinnedPosition always takes precedence.
+
+  function getEffectivePinnedPosition(slug: string): number | null {
+    const cfg = findConfigRow(configRows, kind, slug, countryCode, citySlug);
+    if (cfg?.pinnedPosition != null) return cfg.pinnedPosition;
+    const boosts = cfg?.seasonalBoosts ?? [];
+    for (const b of boosts) {
+      if (b.targetPosition != null && isInSeasonalWindow(today, b.startMmDd, b.endMmDd)) {
+        return b.targetPosition;
+      }
+    }
+    return null;
+  }
+
   // ── Apply pinned positions ────────────────────────────────────────────────
   //
-  // Collect items that have a pinnedPosition config and splice them into the
-  // sorted array at their designated 1-based index.
+  // Collect items that have an effective pinned position and splice them into
+  // the sorted array at their designated 1-based index.
 
-  const unpinned = scored.filter(({ item }) => {
-    const cfg = findConfigRow(configRows, kind, item.slug, countryCode);
-    return cfg?.pinnedPosition === null || cfg?.pinnedPosition === undefined;
-  });
+  const unpinned = scored.filter(({ item }) => getEffectivePinnedPosition(item.slug) === null);
   const pinned = scored
-    .filter(({ item }) => {
-      const cfg = findConfigRow(configRows, kind, item.slug, countryCode);
-      return cfg?.pinnedPosition != null;
-    })
-    .map(({ item }) => {
-      const cfg = findConfigRow(configRows, kind, item.slug, countryCode)!;
-      return { item, position: cfg.pinnedPosition! };
-    })
+    .filter(({ item }) => getEffectivePinnedPosition(item.slug) !== null)
+    .map(({ item }) => ({ item, position: getEffectivePinnedPosition(item.slug)! }))
     .sort((a, b) => a.position - b.position);
 
   // ── Hard-bottom partition for zero-stock items ────────────────────────────

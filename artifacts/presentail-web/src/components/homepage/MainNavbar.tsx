@@ -216,7 +216,8 @@ export function MainNavbar() {
     ? brandsData?.brands.find((b) => b.slug === activeBrandSlug)
     : null;
 
-  const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode);
+  const cityId = city?.id ?? null;
+  const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode, cityId);
   const osOccasions = occasionsData?.occasions ?? [];
   // Hide occasions with no in-stock products so shoppers never land on an empty page.
   // Only fall back to the static OCCASION_OPTIONS list when the API has not returned

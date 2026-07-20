@@ -40,6 +40,7 @@ function makeConfigRow(
     kind,
     slug,
     countryCode: null,
+    citySlug: null,
     manualBoost: 0,
     pinnedPosition: null,
     hiddenOverride: false,

@@ -11,13 +11,27 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts } from "../lib/osProductsCache";
+import { getRankingConfig } from "./homepage";
+import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
 import { db } from "@workspace/db";
 import { plantEnvironmentCacheTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+
+const CATALOG_DEFAULT_OCCASION_ORDER = [
+  "birthday", "love-romance", "congratulations", "thank-you", "get-well-soon",
+  "new-born", "anniversary", "wedding", "katb-kitab", "graduation",
+  "housewarming", "im-sorry", "funeral",
+];
+
+function catalogResolveStoreKey(countryCode?: string | null): string {
+  if (countryCode === "AE") return "dubai";
+  if (countryCode === "CY") return "cyprus";
+  return "lebanon";
+}
 
 // ── Shared LRU image cache ─────────────────────────────────────────────────
 // Bounded in-memory LRU cache shared across all catalog image proxy endpoints.
@@ -223,24 +237,52 @@ router.get("/currencies", (_req, res) => {
   res.json(data);
 });
 
-router.get("/catalog/occasions", (req, res) => {
+router.get("/catalog/occasions", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
+  const citySlug = typeof req.query.city === "string" ? req.query.city : null;
   const osOccasions = getOsOccasions();
   const occasionCountMap = countryCode
     ? getOsOccasionProductCountsByCountry(countryCode)
     : getOsOccasionProductCounts();
-  const featured = osOccasions
-    ? osOccasions
-        .filter((o) => o.featured === true)
-        .map((o) => ({
-          slug: o.slug,
-          name: o.name,
-          // Route through our proxy so the browser never needs the OS API key.
-          image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,
-          count: occasionCountMap.get(o.slug) ?? 0,
-        }))
-    : [];
-  res.json({ occasions: featured });
+  const featuredOs = osOccasions ? osOccasions.filter((o) => o.featured === true) : [];
+  if (featuredOs.length === 0) {
+    res.json({ occasions: [] });
+    return;
+  }
+  const rawItems = featuredOs.map((o) => ({ id: o.id, slug: o.slug, name: o.name, osImage: o.image }));
+  try {
+    const [configRows, clickScores] = await Promise.all([
+      getRankingConfig(),
+      getCollectionClickScores("occasion", countryCode).catch(() => new Map<string, number>()),
+    ]);
+    const storeKey = catalogResolveStoreKey(countryCode);
+    const osProducts = getOsProducts(storeKey) ?? [];
+    const { items: rankedItems } = scoreCollections(rawItems, {
+      kind: "occasion",
+      countryCode,
+      citySlug,
+      configRows,
+      osProducts,
+      clickScores,
+      defaultOrder: CATALOG_DEFAULT_OCCASION_ORDER,
+      availabilityFloor: 3,
+    });
+    const occasions = rankedItems.map((item) => ({
+      slug: item.slug,
+      name: item.name,
+      image: item.osImage ? `/api/catalog/occasion-image/${item.id}` : null,
+      count: occasionCountMap.get(item.slug) ?? 0,
+    }));
+    res.json({ occasions });
+  } catch {
+    const occasions = featuredOs.map((o) => ({
+      slug: o.slug,
+      name: o.name,
+      image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,
+      count: occasionCountMap.get(o.slug) ?? 0,
+    }));
+    res.json({ occasions });
+  }
 });
 
 router.get("/catalog/metadata", (req, res) => {

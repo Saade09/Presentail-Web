@@ -52,9 +52,50 @@ function resolveStoreKey(countryCode?: string | null): string {
 }
 
 const DEFAULT_OCCASION_SLUGS = [
-  "birthday", "love-romance", "thank-you", "get-well-soon", "anniversary",
-  "congratulations", "graduation", "funeral", "newborn", "im-sorry", "wedding",
+  "birthday", "love-romance", "congratulations", "thank-you", "get-well-soon",
+  "new-born", "anniversary", "wedding", "katb-kitab", "graduation",
+  "housewarming", "im-sorry", "funeral",
 ];
+
+/** Occasions that should be seeded as hidden=true on first startup. */
+const SEED_HIDDEN_OCCASION_SLUGS = ["summer"];
+
+/**
+ * Idempotent startup seed: ensures default hidden config rows exist for
+ * occasions that should never appear on the homepage by default.
+ * Called once from index.ts after the DB is ready.
+ */
+export async function seedRankingConfigDefaults(): Promise<void> {
+  try {
+    for (const slug of SEED_HIDDEN_OCCASION_SLUGS) {
+      const existing = await db
+        .select()
+        .from(collectionRankingConfigTable)
+        .where(
+          and(
+            eq(collectionRankingConfigTable.kind, "occasion"),
+            eq(collectionRankingConfigTable.slug, slug),
+            eq(collectionRankingConfigTable.countryCode, null as unknown as string),
+          ),
+        )
+        .limit(1);
+      if (existing.length === 0) {
+        await db.insert(collectionRankingConfigTable).values({
+          kind: "occasion",
+          slug,
+          countryCode: null,
+          citySlug: null,
+          manualBoost: 0,
+          pinnedPosition: null,
+          hiddenOverride: true,
+          seasonalBoosts: [],
+        });
+      }
+    }
+  } catch {
+    // Non-fatal: log nothing — DB may not be available yet on first cold start
+  }
+}
 
 // GET /api/admin/collection-ranking — HTML admin dashboard (no auth required; token entered in-page)
 router.get("/admin/collection-ranking", (_req, res) => {
@@ -71,13 +112,17 @@ router.get("/admin/collection-ranking/ranked", async (req, res) => {
     typeof req.query.countryCode === "string"
       ? req.query.countryCode.toUpperCase()
       : "LB";
+  const citySlug =
+    typeof req.query.citySlug === "string" && req.query.citySlug.trim()
+      ? req.query.citySlug.trim()
+      : null;
 
   try {
     const raw =
       kind === "category" ? buildOsCategoriesRaw() : buildOsOccasionsRaw();
 
     if (!raw || raw.length === 0) {
-      return res.json({ ok: true, kind, countryCode, items: [] });
+      return res.json({ ok: true, kind, countryCode, citySlug, items: [] });
     }
 
     const [configRows, clickScores] = await Promise.all([
@@ -93,6 +138,7 @@ router.get("/admin/collection-ranking/ranked", async (req, res) => {
     const { items, debugMap } = scoreCollections(raw, {
       kind: kind as CollectionKind,
       countryCode,
+      citySlug,
       configRows,
       osProducts,
       clickScores,
@@ -100,24 +146,13 @@ router.get("/admin/collection-ranking/ranked", async (req, res) => {
       availabilityFloor: 3,
     });
 
-    // Find config row for each item to expose editable fields.
-    const configBySlug = new Map(
-      configRows
-        .filter((r) => r.kind === kind)
-        .map((r) => [`${r.slug}::${r.countryCode ?? ""}`, r]),
-    );
-
-    function getConfig(slug: string) {
-      return (
-        configBySlug.get(`${slug}::${countryCode}`) ??
-        configBySlug.get(`${slug}::`) ??
-        null
-      );
-    }
+    // Import findConfigRow from the ranking lib so admin uses the same 3-tier
+    // resolution (city+country → country → global) as the live homepage.
+    const { findConfigRow } = await import("../lib/collectionRanking");
 
     const ranked = items.map((item, idx) => {
       const debug: ScoreDebug | undefined = debugMap.get(item.slug);
-      const cfg = getConfig(item.slug);
+      const cfg = findConfigRow(configRows, kind as CollectionKind, item.slug, countryCode, citySlug);
       return {
         rank: idx + 1,
         id: item.id,
@@ -125,6 +160,7 @@ router.get("/admin/collection-ranking/ranked", async (req, res) => {
         slug: item.slug,
         imageUrl: item.imageUrl,
         inStockCount: debug?.productCount ?? 0,
+        source: debug?.source ?? "default",
         debug: debug ?? null,
         config: cfg
           ? {
@@ -134,12 +170,13 @@ router.get("/admin/collection-ranking/ranked", async (req, res) => {
               hiddenOverride: cfg.hiddenOverride,
               seasonalBoosts: cfg.seasonalBoosts ?? [],
               countryCode: cfg.countryCode ?? null,
+              citySlug: cfg.citySlug ?? null,
             }
           : null,
       };
     });
 
-    return res.json({ ok: true, kind, countryCode, items: ranked });
+    return res.json({ ok: true, kind, countryCode, citySlug, items: ranked });
   } catch (err: unknown) {
     req.log.error(
       { err: (err as Error)?.message },
@@ -163,10 +200,11 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
 
   const body = req.body as {
     countryCode?: string | null;
+    citySlug?: string | null;
     manualBoost?: number;
     pinnedPosition?: number | null;
     hiddenOverride?: boolean;
-    seasonalBoosts?: Array<{ label: string; startMmDd: string; endMmDd: string; boost: number }>;
+    seasonalBoosts?: Array<{ label: string; startMmDd: string; endMmDd: string; boost: number; targetPosition?: number | null }>;
   };
 
   // Validate seasonal boost date formats
@@ -204,7 +242,18 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
   const hiddenOverride = typeof body.hiddenOverride === "boolean" ? body.hiddenOverride : undefined;
   const countryCode =
     body.countryCode === undefined ? undefined : body.countryCode ?? null;
-  const seasonalBoosts = Array.isArray(body.seasonalBoosts) ? body.seasonalBoosts : undefined;
+  const citySlug =
+    body.citySlug === undefined
+      ? undefined
+      : typeof body.citySlug === "string" && body.citySlug.trim()
+        ? body.citySlug.trim()
+        : null;
+  const seasonalBoosts = Array.isArray(body.seasonalBoosts)
+    ? (body.seasonalBoosts as { label: string; startMmDd: string; endMmDd: string; boost: number; targetPosition?: number | null }[]).map((b) => ({
+        ...b,
+        targetPosition: b.targetPosition ?? undefined,
+      }))
+    : undefined;
 
   try {
     const existing = await db
@@ -217,6 +266,9 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
           countryCode !== undefined
             ? eq(collectionRankingConfigTable.countryCode, countryCode as string)
             : eq(collectionRankingConfigTable.countryCode, null as unknown as string),
+          citySlug !== undefined
+            ? eq(collectionRankingConfigTable.citySlug, citySlug as string)
+            : eq(collectionRankingConfigTable.citySlug, null as unknown as string),
         ),
       )
       .limit(1);
@@ -229,6 +281,7 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
       if (hiddenOverride !== undefined) updates.hiddenOverride = hiddenOverride;
       if (seasonalBoosts !== undefined) updates.seasonalBoosts = seasonalBoosts;
       if (countryCode !== undefined) updates.countryCode = countryCode;
+      if (citySlug !== undefined) updates.citySlug = citySlug;
 
       const updated = await db
         .update(collectionRankingConfigTable)
@@ -243,6 +296,7 @@ router.put("/admin/collection-ranking/:kind/:slug", async (req, res) => {
           kind: kind as "category" | "occasion",
           slug,
           countryCode: countryCode ?? null,
+          citySlug: citySlug ?? null,
           manualBoost: manualBoost ?? 0,
           pinnedPosition: (pinnedPosition as number | null) ?? null,
           hiddenOverride: hiddenOverride ?? false,
@@ -371,6 +425,15 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
     <button class="tab" data-kind="occasion">Occasions</button>
   </div>
 
+  <!-- City filter (optional — shows ranked view for a specific city scope) -->
+  <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:13px">
+    <label style="font-weight:600">City scope:</label>
+    <select id="citySelect" style="font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:4px">
+      <option value="">(All cities — country-level)</option>
+    </select>
+    <span style="color:#888;font-size:12px">Applies 3-tier resolution: city &rsaquo; country &rsaquo; global</span>
+  </div>
+
   <div class="card">
     <div id="tableContainer"><div class="loader">Enter the admin token to load.</div></div>
   </div>
@@ -388,10 +451,24 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
   // JSON serialization inside HTML onclick attributes.
   var ITEMS = [];
 
-  var state = { country: 'LB', kind: 'category', token: '' };
+  var CITY_OPTIONS = {
+    LB: [{value:'',label:'(Country-level)'},{value:'beirut',label:'Beirut'},{value:'tripoli',label:'Tripoli'},{value:'sidon',label:'Sidon'}],
+    AE: [{value:'',label:'(Country-level)'},{value:'dubai',label:'Dubai'},{value:'abu-dhabi',label:'Abu Dhabi'}],
+    CY: [{value:'',label:'(Country-level)'},{value:'limassol',label:'Limassol'},{value:'nicosia',label:'Nicosia'}],
+  };
+  var state = { country: 'LB', kind: 'category', token: '', city: '' };
+  var citySelect = document.getElementById('citySelect');
   var openPanelId = null;
 
   try { tokenEl.value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+
+  function updateCityOptions() {
+    var opts = CITY_OPTIONS[state.country] || [{value:'',label:'(Country-level)'}];
+    citySelect.innerHTML = opts.map(function(o){ return '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>'; }).join('');
+    state.city = '';
+  }
+  updateCityOptions();
+  citySelect.addEventListener('change', function () { state.city = citySelect.value; load(); });
 
   document.getElementById('countryTabs').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-country]');
@@ -399,6 +476,7 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
     document.querySelectorAll('#countryTabs .tab').forEach(function (t) { t.classList.remove('active'); });
     btn.classList.add('active');
     state.country = btn.dataset.country;
+    updateCityOptions();
     load();
   });
 
@@ -425,7 +503,9 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
     setStatus('Loading\u2026', 'muted');
     tableContainer.innerHTML = '<div class="loader">Loading\u2026</div>';
 
-    fetch('/api/admin/collection-ranking/ranked?kind=' + encodeURIComponent(state.kind) + '&countryCode=' + encodeURIComponent(state.country), {
+    var rankedUrl = '/api/admin/collection-ranking/ranked?kind=' + encodeURIComponent(state.kind) + '&countryCode=' + encodeURIComponent(state.country);
+    if (state.city) rankedUrl += '&citySlug=' + encodeURIComponent(state.city);
+    fetch(rankedUrl, {
       headers: { 'x-push-admin-token': token }
     })
       .then(function (r) {
@@ -471,7 +551,7 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
 
     var html = '<table><thead><tr>' +
       '<th>#</th><th>Collection</th><th>In\u00a0Stock</th><th>Final\u00a0Score</th>' +
-      '<th>Score Breakdown</th><th>Config</th><th>Actions</th>' +
+      '<th>Score Breakdown</th><th>Source</th><th>Config</th><th>Actions</th>' +
       '</tr></thead><tbody>';
 
     items.forEach(function (item, idx) {
@@ -520,12 +600,22 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
         actionsCell += ' <button class="show-btn" data-slug="' + escapeHtml(item.slug) + '" title="Show this collection">Show</button>';
       }
 
+      var src = item.source || 'default';
+      var sourceChip = src === 'pinned'
+        ? '<span class="badge badge-blue">pinned</span>'
+        : src === 'scheduled'
+          ? '<span class="badge badge-green">scheduled</span>'
+          : src === 'demand'
+            ? '<span class="badge badge-grey">demand</span>'
+            : '<span class="badge badge-grey">default</span>';
+
       html += '<tr' + rowCls + '>' +
         '<td>' + rankCell + '</td><td>' + nameCell + '</td><td>' + stockBadge + '</td>' +
-        '<td>' + finalScore + '</td><td>' + breakdown + '</td><td>' + configCell + '</td>' +
+        '<td>' + finalScore + '</td><td>' + breakdown + '</td><td>' + sourceChip + '</td>' +
+        '<td>' + configCell + '</td>' +
         '<td>' + actionsCell + '</td>' +
         '</tr>' +
-        '<tr id="' + panelId + '" style="display:none"><td colspan="7" style="padding:0 8px 8px">' +
+        '<tr id="' + panelId + '" style="display:none"><td colspan="8" style="padding:0 8px 8px">' +
           '<div class="editor" id="editor-' + idx + '"></div>' +
         '</td></tr>';
     });
@@ -607,6 +697,7 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
         '<td><input type="text" class="sb-start" data-i="' + i + '" value="' + escapeHtml(b.startMmDd || '') + '" placeholder="02-10" size="6"></td>' +
         '<td><input type="text" class="sb-end" data-i="' + i + '" value="' + escapeHtml(b.endMmDd || '') + '" placeholder="02-18" size="6"></td>' +
         '<td><input type="number" class="sb-boost" data-i="' + i + '" value="' + (b.boost || 0) + '" step="0.1" size="5"></td>' +
+        '<td><input type="number" class="sb-target-pos" data-i="' + i + '" value="' + (b.targetPosition != null ? b.targetPosition : '') + '" placeholder="\u2014" min="1" step="1" size="4" title="Temporary pin position during this window"></td>' +
         '<td><button type="button" class="rm-sb-btn">\u2715</button></td>' +
         '</tr>';
     }).join('');
@@ -648,7 +739,7 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
       '<div style="margin-top:10px">' +
         '<h2>Seasonal Boosts <button type="button" class="add-sb-btn" data-idx="' + idx + '" style="font-size:11px;margin-left:6px">+ Add</button></h2>' +
         '<table class="seasonal-table">' +
-          '<thead><tr><th>Label</th><th>Start (MM-DD)</th><th>End (MM-DD)</th><th>Boost</th><th></th></tr></thead>' +
+          '<thead><tr><th>Label</th><th>Start (MM-DD)</th><th>End (MM-DD)</th><th>Boost</th><th>Target\u00a0Pos</th><th></th></tr></thead>' +
           '<tbody id="sb-body-' + idx + '">' + seasonalRows + '</tbody>' +
         '</table>' +
       '</div>' +
@@ -809,6 +900,7 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
       '<td><input type="text" class="sb-start" data-i="' + i + '" placeholder="02-10" size="6"></td>' +
       '<td><input type="text" class="sb-end" data-i="' + i + '" placeholder="02-18" size="6"></td>' +
       '<td><input type="number" class="sb-boost" data-i="' + i + '" value="0.3" step="0.1" size="5"></td>' +
+      '<td><input type="number" class="sb-target-pos" data-i="' + i + '" placeholder="\u2014" min="1" step="1" size="4" title="Temporary pin position during this window"></td>' +
       '<td><button type="button" class="rm-sb-btn">\u2715</button></td>';
     tbody.appendChild(tr);
   }
@@ -843,13 +935,18 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
         var startVal = (start.value || '').trim();
         var endVal = (end.value || '').trim();
         var boostVal = parseFloat(boost.value) || 0;
+        var targetPosEl = tr.querySelector('.sb-target-pos');
+        var targetPosRaw = targetPosEl ? targetPosEl.value.trim() : '';
+        var targetPos = targetPosRaw !== '' && !isNaN(parseInt(targetPosRaw, 10)) ? parseInt(targetPosRaw, 10) : null;
         if (startVal && endVal) {
-          seasonalBoosts.push({
+          var entry = {
             label: (label ? label.value.trim() : '') || startVal,
             startMmDd: startVal,
             endMmDd: endVal,
             boost: boostVal,
-          });
+          };
+          if (targetPos !== null) entry.targetPosition = targetPos;
+          seasonalBoosts.push(entry);
         }
       });
     }
@@ -860,6 +957,7 @@ const ADMIN_UI_HTML = `<!DOCTYPE html>
       hiddenOverride: hiddenOverride,
       seasonalBoosts: seasonalBoosts,
       countryCode: countryScoped ? state.country : null,
+      citySlug: (countryScoped && state.city) ? state.city : null,
     };
 
     if (saveBtn) saveBtn.disabled = true;

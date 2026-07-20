@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { startReconcileWorker } from "./lib/wooOrders";
+import { seedRankingConfigDefaults } from "./routes/adminCollectionRanking";
 import { startWooSyncWorker } from "./lib/wooSync";
 import { validateOsEnv, startOsLocationSync } from "./lib/osLocationsCache";
 import { startOsProductsSync } from "./lib/osProductsCache";
@@ -70,6 +71,7 @@ app.listen(port, (err) => {
   startOsLocationSync();
   startOsProductsSync();
   startReconcileWorker();
+  void seedRankingConfigDefaults();
   startWooSyncWorker();
 
   startCheckoutLoginFunnelMonitor();

@@ -1,4 +1,5 @@
-import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, usePageDescription, type Product } from "@/lib/queries";
+import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useCatalogOccasions, useFxRates, usePageDescription, type Product } from "@/lib/queries";
+import { setOccasionRef } from "@/lib/occasionAttribution";
 import { buildRichClientDescription } from "@/lib/pageDescriptionClient";
 import { applyRecipientFilter, BIRTHDAY_RECIPIENTS } from "@/lib/birthdayRecipients";
 import { applyAnniversaryGenderFilter } from "@/lib/anniversaryGender";
@@ -194,6 +195,8 @@ export default function Shop() {
   const category = isCategoryRoute ? (params.slug ?? "") : categoryFromSearch;
 
   const { countryCode, cityId, country, city, openPicker } = useLocationSelection();
+  const citySlug = city?.id ?? null;
+  const { data: occasionsApiData } = useCatalogOccasions(countryCode, citySlug);
 
   // Contextual description: only on category / occasion pages
   const pageDescriptionType: "category" | "occasion" | null = isCategoryRoute
@@ -755,17 +758,25 @@ export default function Shop() {
             <div>
               <h2 className="font-serif text-lg mb-4">{t("shop.occasionsTitle")}</h2>
               <ul className="space-y-3">
-                {OCCASIONS.map((o) => (
-                  <li key={o.slug}>
-                    <Link
-                      href={`/occasion/${o.slug}`}
-                      className={`text-sm hover:text-primary transition-colors ${occasion === o.slug ? "font-medium text-primary" : "text-muted-foreground"}`}
-                      data-testid={`link-occasion-${o.slug}`}
-                    >
-                      {t(o.labelKey)}
-                    </Link>
-                  </li>
-                ))}
+                {(occasionsApiData
+                  ? occasionsApiData.occasions.filter((o) => (o.count ?? 0) > 0)
+                  : OCCASIONS.map((o) => ({ slug: o.slug, name: t(o.labelKey), count: 1, image: null }))
+                ).map((o) => {
+                  const staticEntry = OCCASIONS.find((s) => s.slug === o.slug);
+                  const label = staticEntry ? t(staticEntry.labelKey) : o.name;
+                  return (
+                    <li key={o.slug}>
+                      <Link
+                        href={`/occasion/${o.slug}`}
+                        className={`text-sm hover:text-primary transition-colors ${occasion === o.slug ? "font-medium text-primary" : "text-muted-foreground"}`}
+                        data-testid={`link-occasion-${o.slug}`}
+                        onClick={() => setOccasionRef(o.slug)}
+                      >
+                        {label}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 

@@ -1,5 +1,4 @@
-import { useCatalogMetadata } from "@/lib/queries";
-import { catalogAssetUrl } from "@/lib/catalogAssets";
+import { useCatalogOccasions } from "@/lib/queries";
 import { buildCatalogImageSrcset } from "@/lib/imageUtils";
 import { buildCollectionImageAlt } from "@/lib/imageAlt";
 import { Link } from "wouter";
@@ -9,7 +8,9 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { trackEvent } from "@/lib/analytics";
+import { setOccasionRef } from "@/lib/occasionAttribution";
 import {
   Baby,
   Briefcase,
@@ -90,26 +91,6 @@ function getIcon(iconName: string): LucideIcon {
   return (ICON_MAP[key] as LucideIcon | undefined) ?? Gift;
 }
 
-interface OccasionCardProps {
-  occasion: {
-    id: string;
-    name: string;
-    icon?: string | null;
-    image?: { uri?: string; asset?: string } | null;
-  };
-  index: number;
-}
-
-/**
- * Maps OS occasion ids that differ from the canonical URL slug we expose on
- * the web storefront to their correct URL slug.  The OS id is kept as the
- * key for `OCCASION_LABEL_KEYS` (label lookup) while only the href uses the
- * remapped slug.
- */
-const SLUG_REMAP: Record<string, string> = {
-  "newborn": "new-born",
-};
-
 const OCCASION_LABEL_KEYS: Record<string, string> = {
   "birthday": "shop.occ.birthday",
   "love-romance": "shop.occ.loveRomance",
@@ -122,6 +103,7 @@ const OCCASION_LABEL_KEYS: Record<string, string> = {
   "thank-you": "shop.occ.thankYou",
   "get-well-soon": "shop.occ.getWellSoon",
   "newborn": "shop.occ.newborn",
+  "new-born": "shop.occ.newborn",
   "eid": "shop.occ.eid",
   "ramadan": "shop.occ.ramadan",
   "wedding": "shop.occ.wedding",
@@ -139,15 +121,22 @@ const OCCASION_LABEL_KEYS: Record<string, string> = {
   "christmas": "shop.occ.christmas",
 };
 
-function OccasionCard({ occasion, index }: OccasionCardProps) {
+interface OccasionCardProps {
+  slug: string;
+  name: string;
+  image: string | null;
+  labelKey?: string;
+  index: number;
+}
+
+function OccasionCard({ slug, name, image, labelKey, index }: OccasionCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const { t, language, cityName } = useLocale();
   const { city } = useLocationSelection();
   const cityLabel = city ? cityName(city.id, city.name) : "";
-  const Icon = getIcon(occasion.icon ?? "");
-  const photoUri = !imgFailed ? catalogAssetUrl(occasion.image ?? undefined) : null;
-  const labelKey = OCCASION_LABEL_KEYS[occasion.id];
-  const displayName = (labelKey ? t(labelKey, {}) : undefined) || occasion.name;
+  const Icon = getIcon("gift");
+  const photoUri = !imgFailed && image ? image : null;
+  const displayName = (labelKey ? t(labelKey, {}) : undefined) || name;
 
   return (
     <motion.div
@@ -156,15 +145,14 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
       transition={{ duration: 0.4, delay: Math.min(index * 0.03, 0.3) }}
     >
       <Link
-        href={`/occasion/${SLUG_REMAP[occasion.id] ?? occasion.id}`}
+        href={`/occasion/${slug}`}
         className="group flex flex-col items-center justify-center text-center gap-3 py-6 md:py-8 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
-        data-testid={`link-occasion-${occasion.id}`}
+        data-testid={`link-occasion-${slug}`}
+        onClick={() => setOccasionRef(slug)}
       >
         {photoUri ? (
           <span className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden flex-shrink-0">
             {(() => {
-              // Occasion circles are 128 px on mobile, 160 px on desktop.
-              // Card srcset (144/288/480w) covers up to 3× the largest slot.
               const catalogSrcset = buildCatalogImageSrcset(
                 photoUri,
                 "(min-width: 768px) 160px, 128px",
@@ -201,30 +189,19 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
 export default function AllOccasions() {
   const { t, language, cityName } = useLocale();
   const { city, countryCode } = useLocationSelection();
-  const { data, isLoading } = useCatalogMetadata();
-  const rawOccasions = data?.occasions ?? [];
-  const occasions = (() => {
-    const seen = new Map<string, typeof rawOccasions[number]>();
-    for (const occ of rawOccasions) {
-      const slug = SLUG_REMAP[occ.id] ?? occ.id;
-      const existing = seen.get(slug);
-      if (!existing) {
-        seen.set(slug, occ);
-        continue;
-      }
-      // Prefer the entry whose own id IS the canonical slug (not remapped).
-      const newIsCanonical = !(occ.id in SLUG_REMAP);
-      const existingIsCanonical = !(existing.id in SLUG_REMAP);
-      if (newIsCanonical && !existingIsCanonical) {
-        seen.set(slug, occ);
-      } else if (newIsCanonical === existingIsCanonical && !existing.image && occ.image) {
-        // Equal canonicality — fall back to preferring the entry with an image.
-        seen.set(slug, occ);
-      }
-    }
-    return Array.from(seen.values());
-  })();
+  const citySlug = city?.id ?? null;
+  const { data, isLoading } = useCatalogOccasions(countryCode, citySlug);
+  const occasions = (data?.occasions ?? []).filter((o) => (o.count ?? 0) > 0);
   const cityLabel = city ? cityName(city.id, city.name) : "";
+
+  // Fire occasion impression event once when occasions finish loading
+  useEffect(() => {
+    if (data && occasions.length > 0) {
+      trackEvent({ name: "occasion_impression", surface: "all_occasions_page" });
+    }
+    // Only fire when data first resolves
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   return (
     <div className="min-h-screen pt-12">
@@ -254,7 +231,14 @@ export default function AllOccasions() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {occasions.map((occasion, i) => (
-              <OccasionCard key={occasion.id} occasion={occasion} index={i} />
+              <OccasionCard
+                key={occasion.slug}
+                slug={occasion.slug}
+                name={occasion.name}
+                image={occasion.image}
+                labelKey={OCCASION_LABEL_KEYS[occasion.slug]}
+                index={i}
+              />
             ))}
           </div>
         )}

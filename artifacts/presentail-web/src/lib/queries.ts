@@ -4,6 +4,7 @@ import { apiFetch } from "./api";
 import { fetchOsProducts, fetchOsProductPricing } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
 import { readAttribution } from "./attribution";
+import { readOccasionRef, clearOccasionRef } from "./occasionAttribution";
 
 // Brand slugs allowed to appear on the storefront.
 // Fetched from /api/catalog/brand-allowlist on startup so it stays in sync
@@ -476,12 +477,15 @@ export type CatalogOccasionsResponse = {
   occasions: { slug: string; name: string; image: string | null; count: number }[];
 };
 
-export const useCatalogOccasions = (countryCode?: string | null) => {
+export const useCatalogOccasions = (countryCode?: string | null, citySlug?: string | null) => {
   return useQuery({
-    queryKey: ["catalog-occasions", countryCode ?? null],
+    queryKey: ["catalog-occasions", countryCode ?? null, citySlug ?? null],
     queryFn: () => {
-      const url = countryCode ? `/catalog/occasions?countryCode=${encodeURIComponent(countryCode)}` : "/catalog/occasions";
-      return apiFetch<CatalogOccasionsResponse>(url);
+      const params = new URLSearchParams();
+      if (countryCode) params.set("countryCode", countryCode);
+      if (citySlug) params.set("city", citySlug);
+      const qs = params.toString();
+      return apiFetch<CatalogOccasionsResponse>(`/catalog/occasions${qs ? `?${qs}` : ""}`);
     },
     staleTime: 15 * 60 * 1000,
   });
@@ -677,17 +681,24 @@ export const useCreateOrder = () => {
             },
           }
         : undefined;
-      return apiFetch<CreateWcOrderResponse>("/woo/order", {
+      let occasionRef: string | null = null;
+      try { occasionRef = readOccasionRef(); } catch { /* storage unavailable */ }
+      const response = apiFetch<CreateWcOrderResponse>("/woo/order", {
         method: "POST",
         body: JSON.stringify({
           ...data,
           ...(marketingAttribution ? { marketing_attribution: marketingAttribution } : {}),
+          ...(occasionRef ? { occasion_ref: occasionRef } : {}),
         }),
         // Tag the request with the source platform so the admin funnel
         // dashboard can attribute revenue to "web" the same way analytics
         // events attribute counts.
         headers: { "x-app-platform": "web" },
       });
+      // Clear the occasion ref after it has been sent so subsequent orders
+      // in the same tab don't inherit the attribution.
+      response.then(() => { try { clearOccasionRef(); } catch { /* ignore */ } }).catch(() => {});
+      return response;
     },
   });
 };

@@ -17,9 +17,13 @@ import {
  *   - pinnedPosition: when set, this item is placed at this 1-based index
  *     after the performance-based sort (1 = first)
  *   - hiddenOverride: when true the slug is excluded entirely regardless of score
- *   - seasonalBoosts: array of date-window boosts active only within their window
+ *   - seasonalBoosts: array of date-window boosts active only within their window;
+ *     each entry may include an optional targetPosition (1-based) that temporarily
+ *     pins the item during the window (like pinnedPosition but auto-expires)
  *   - countryCode: when null the row is a global default; a specific countryCode
  *     row takes precedence over the global row for that country
+ *   - citySlug: when set, this row only applies to that specific city; resolution
+ *     is 3-tier: city+country → country-only → global
  */
 export const collectionRankingConfigTable = pgTable(
   "collection_ranking_config",
@@ -28,11 +32,21 @@ export const collectionRankingConfigTable = pgTable(
     kind: text("kind").notNull().$type<"category" | "occasion">(),
     slug: text("slug").notNull(),
     countryCode: text("country_code"),
+    citySlug: text("city_slug"),
     manualBoost: real("manual_boost").notNull().default(0),
     pinnedPosition: smallint("pinned_position"),
     hiddenOverride: boolean("hidden_override").notNull().default(false),
     seasonalBoosts: jsonb("seasonal_boosts")
-      .$type<Array<{ label: string; startMmDd: string; endMmDd: string; boost: number }>>()
+      .$type<
+        Array<{
+          label: string;
+          startMmDd: string;
+          endMmDd: string;
+          boost: number;
+          /** Optional 1-based position to pin this item during the window. */
+          targetPosition?: number;
+        }>
+      >()
       .default([]),
   },
   (t) => ({
@@ -40,6 +54,12 @@ export const collectionRankingConfigTable = pgTable(
     kindSlugCountryIdx: index("collection_ranking_config_kind_slug_country_idx").on(
       t.kind,
       t.slug,
+      t.countryCode,
+    ),
+    kindSlugCityIdx: index("collection_ranking_config_kind_slug_city_idx").on(
+      t.kind,
+      t.slug,
+      t.citySlug,
       t.countryCode,
     ),
   }),

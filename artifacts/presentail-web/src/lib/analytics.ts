@@ -128,6 +128,7 @@ export function trackWebEvent(event: WebEvent): void {
 }
 
 type AnalyticsEventName =
+  | "occasion_impression"
   | "birthday_recipient_filter_viewed"
   | "birthday_recipient_selected"
   | "birthday_recipient_changed"
