@@ -85,6 +85,26 @@ export const cartStrings: Dict = {
   "cart.customNote.placeholder": { en: "e.g. Happy Birthday, Anna!", ar: "مثال: عيد ميلاد سعيد، آنا!" },
   "cart.letterNote.label": { en: "Your letter", ar: "حرفك" },
   "cart.letterNote.placeholder": { en: "A", ar: "أ" },
+  // Free delivery changed popup (city switch loses eligibility)
+  "cart.fdc.title": { en: "Free delivery has changed", ar: "تغيّر التوصيل المجاني" },
+  "cart.fdc.body": {
+    en: "The free delivery minimum is different in {city}. Your cart no longer qualifies for free delivery.",
+    ar: "الحد الأدنى للتوصيل المجاني مختلف في {city}. لم تعد سلّتك مؤهّلة للتوصيل المجاني.",
+  },
+  "cart.fdc.noFreeDelivery": {
+    en: "Free delivery is not available in {city}. Your cart no longer qualifies for free delivery.",
+    ar: "التوصيل المجاني غير متاح في {city}. لم تعد سلّتك مؤهّلة للتوصيل المجاني.",
+  },
+  "cart.fdc.cartSubtotal": { en: "Cart subtotal", ar: "المجموع الفرعي للسلة" },
+  "cart.fdc.freeDeliveryFrom": { en: "Free delivery from", ar: "توصيل مجاني من" },
+  "cart.fdc.addMore": { en: "Add {amount} more to unlock free delivery.", ar: "أضف {amount} أخرى لتفعيل التوصيل المجاني." },
+  "cart.fdc.note": {
+    en: "Standard delivery fees will apply if your subtotal remains below {threshold}.",
+    ar: "تُطبَّق رسوم التوصيل العادية إذا ظلّ مجموعك الفرعي أقل من {threshold}.",
+  },
+  "cart.fdc.continueShopping": { en: "Continue shopping", ar: "مواصلة التسوق" },
+  "cart.fdc.continueToCart": { en: "Continue to cart", ar: "الانتقال إلى السلة" },
+  "cart.fdc.closeAria": { en: "Close free delivery notice", ar: "إغلاق إشعار التوصيل المجاني" },
 };
 
 export const cartStringsFr: Record<string, string> = {
@@ -162,4 +182,15 @@ export const cartStringsFr: Record<string, string> = {
   "cart.customNote.placeholder": "ex. : Joyeux anniversaire, Anna !",
   "cart.letterNote.label": "Votre lettre",
   "cart.letterNote.placeholder": "A",
+  // Free delivery changed popup
+  "cart.fdc.title": "La livraison gratuite a changé",
+  "cart.fdc.body": "Le minimum de livraison gratuite est différent à {city}. Votre panier ne bénéficie plus de la livraison gratuite.",
+  "cart.fdc.noFreeDelivery": "La livraison gratuite n'est pas disponible à {city}. Votre panier ne bénéficie plus de la livraison gratuite.",
+  "cart.fdc.cartSubtotal": "Sous-total du panier",
+  "cart.fdc.freeDeliveryFrom": "Livraison gratuite à partir de",
+  "cart.fdc.addMore": "Ajoutez {amount} de plus pour bénéficier de la livraison gratuite.",
+  "cart.fdc.note": "Des frais de livraison standard s'appliqueront si votre sous-total reste inférieur à {threshold}.",
+  "cart.fdc.continueShopping": "Continuer mes achats",
+  "cart.fdc.continueToCart": "Aller au panier",
+  "cart.fdc.closeAria": "Fermer l'avis de livraison gratuite",
 };

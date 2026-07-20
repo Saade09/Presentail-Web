@@ -1,11 +1,33 @@
+import { useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { useLocationSelection } from "@/contexts/LocationContext";
-import { LocationPicker } from "./LocationPicker";
+import { useLocation } from "wouter";
+import {
+  useLocationSelection,
+  type DeliveryCity,
+  type DeliveryCountry,
+} from "@/contexts/LocationContext";
+import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { LocationPicker } from "./LocationPicker";
+import { FreeDeliveryChangedModal } from "@/components/cart/FreeDeliveryChangedModal";
 
 type Props = {
   children: React.ReactNode;
 };
+
+type FdcWarning = {
+  cityName: string;
+  thresholdUsd: number | null;
+  subtotalUsd: number;
+};
+
+function resolveThreshold(city: DeliveryCity, country: DeliveryCountry | null): number | null {
+  return city.freeDeliveryThresholdUsd ?? country?.freeDeliveryThresholdUsd ?? null;
+}
+
+function isFreeDeliveryEnabled(city: DeliveryCity, country: DeliveryCountry | null): boolean {
+  return city.freeDeliveryEnabled ?? country?.freeDeliveryEnabled ?? true;
+}
 
 export function LocationPickerGate({ children }: Props) {
   const {
@@ -14,16 +36,83 @@ export function LocationPickerGate({ children }: Props) {
     closePicker,
     countryCode,
     pickerForceCountryStep,
+    city,
+    country,
+    countries,
   } = useLocationSelection();
-  const { t } = useLocale();
+  const { subtotal } = useCart();
+  const { t, cityName } = useLocale();
+  const [, navigate] = useLocation();
 
-  const handleComplete = () => {
+  // Snapshot the city+country at the moment the picker opens so we can
+  // compare eligibility after the user selects a new city.
+  const prevCityRef = useRef<DeliveryCity | null>(null);
+  const prevCountryRef = useRef<DeliveryCountry | null>(null);
+  useEffect(() => {
+    if (isPickerOpen) {
+      prevCityRef.current = city;
+      prevCountryRef.current = country;
+    }
+  }, [isPickerOpen]); // eslint-disable-line react-hooks/exhaustive-deps — intentionally only on open
+
+  const [fdcWarning, setFdcWarning] = useState<FdcWarning | null>(null);
+
+  const handleComplete = (selection: { countryCode: string; cityId: string }) => {
     closePicker();
+
+    // Guard: only check when the cart has items.
+    if (subtotal <= 0) return;
+
+    const prevCity = prevCityRef.current;
+    const prevCountry = prevCountryRef.current;
+
+    // Guard: same city re-selected — nothing changed.
+    if (prevCity && prevCity.id === selection.cityId) return;
+
+    const newCountry = countries.find((c) => c.code === selection.countryCode) ?? null;
+    const newCity = newCountry?.cities.find((c) => c.id === selection.cityId) ?? null;
+
+    if (!prevCity || !newCity) return;
+
+    const prevThreshold = resolveThreshold(prevCity, prevCountry);
+    const newThreshold = resolveThreshold(newCity, newCountry);
+
+    const prevEnabled = isFreeDeliveryEnabled(prevCity, prevCountry);
+    const newEnabled = isFreeDeliveryEnabled(newCity, newCountry);
+
+    const wasEligible =
+      prevEnabled &&
+      prevThreshold != null &&
+      prevThreshold > 0 &&
+      subtotal >= prevThreshold;
+
+    const nowEligible =
+      newEnabled &&
+      newThreshold != null &&
+      newThreshold > 0 &&
+      subtotal >= newThreshold;
+
+    if (wasEligible && !nowEligible) {
+      setFdcWarning({
+        cityName: cityName(newCity.id, newCity.name),
+        thresholdUsd: newEnabled ? newThreshold : null,
+        subtotalUsd: subtotal,
+      });
+    }
+  };
+
+  const handleFdcClose = () => setFdcWarning(null);
+
+  const handleFdcViewCart = () => {
+    setFdcWarning(null);
+    navigate("/cart");
   };
 
   return (
     <>
       {children}
+
+      {/* Location picker dialog */}
       <DialogPrimitive.Root
         open={isPickerOpen}
         onOpenChange={(o) => (o ? openPicker() : closePicker())}
@@ -69,6 +158,18 @@ export function LocationPickerGate({ children }: Props) {
           </DialogPrimitive.Overlay>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+
+      {/* Free delivery changed popup */}
+      {fdcWarning && (
+        <FreeDeliveryChangedModal
+          open
+          cityName={fdcWarning.cityName}
+          subtotalUsd={fdcWarning.subtotalUsd}
+          newThresholdUsd={fdcWarning.thresholdUsd}
+          onClose={handleFdcClose}
+          onViewCart={handleFdcViewCart}
+        />
+      )}
     </>
   );
 }
