@@ -102,6 +102,14 @@ export const appOrdersTable = pgTable(
     gadsConversionUploadedAt: timestamp("gads_conversion_uploaded_at", {
       withTimezone: true,
     }),
+    // Stripe PaymentIntent id (pi_…) for orders paid via Stripe (card, Apple
+    // Pay, Google Pay, Klarna). Null for non-Stripe payment methods (Mamo,
+    // PayPal, Whish, Western Union) and legacy rows.
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    // Stripe Charge id (ch_…) for orders paid via Stripe. Populated from
+    // the PI's latest_charge field when the webhook fires. Null for non-Stripe
+    // payment methods, uncaptured PIs, and legacy rows.
+    stripeChargeId: text("stripe_charge_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

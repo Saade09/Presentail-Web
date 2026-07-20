@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
+import { isKlarnaEnabled } from "../lib/klarnaRollout";
+import { pickClientIp, resolveGeoCurrency } from "../lib/geoCurrency";
 import { getLocalIso } from "@workspace/delivery";
 import { sendAlert } from "../lib/alerts";
 import {
@@ -853,15 +855,60 @@ router.post("/checkout/payment-intent", async (req, res) => {
       // Stripe search failure — fall through to create a new PI.
     }
 
+    // Server-side Klarna eligibility check for PI creation.
+    // We resolve the payer's country from their IP here (same logic as
+    // /checkout/klarna-status) so that even if a client bypasses the
+    // klarna-status endpoint, the PI itself restricts redirect-based methods
+    // (Klarna) for ineligible payers.
+    //
+    // allow_redirects:'never' only blocks redirect-based payment methods
+    // (Klarna, iDEAL, etc.); Apple Pay and Google Pay are not affected.
+    let klarnaAllowedForPayer = false;
+    let payerCountryForMeta: string | undefined;
+    {
+      const piClientIp = pickClientIp(
+        req.headers["x-forwarded-for"],
+        (req.ip ?? "").toString(),
+      );
+      if (piClientIp) {
+        try {
+          const piGeo = await resolveGeoCurrency(piClientIp);
+          const piStripeKey = resolveStripeKey(store.storeKey);
+          const piIsTestMode = !!(piStripeKey && piStripeKey.startsWith("sk_test_"));
+          klarnaAllowedForPayer = isKlarnaEnabled({
+            sessionId: piClientIp,
+            payerCountry: piGeo.countryCode,
+            isTestMode: piIsTestMode,
+          });
+          payerCountryForMeta = piGeo.countryCode ?? undefined;
+        } catch {
+          // Best-effort: default to false (Klarna not allowed) on geo failure.
+        }
+      }
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalMinorUnits,
       currency: stripeCurrency,
       // automatic_payment_methods lets Stripe include Apple Pay, Google Pay, and
       // card without enumerating them explicitly, and automatically surfaces any
       // future wallet methods Stripe adds to the account.
-      automatic_payment_methods: { enabled: true },
+      // When the payer's country is not Klarna-eligible, allow_redirects:'never'
+      // prevents Stripe from surfacing redirect-based methods (Klarna, iDEAL…)
+      // even if the account is enrolled. Apple Pay/Google Pay are not affected.
+      automatic_payment_methods: {
+        enabled: true,
+        ...(klarnaAllowedForPayer ? {} : { allow_redirects: "never" }),
+      },
       description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`, // i18n-ignore
-      metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
+      metadata: {
+        ...(metadata ?? {}),
+        orderId,
+        presented_currency: currency,
+        // payer_country is the IP-resolved billing country (not delivery address).
+        // Stored for ops tracing, Klarna dispute resolution, and webhook correlation.
+        ...(payerCountryForMeta ? { payer_country: payerCountryForMeta } : {}),
+      },
       // receipt_email is intentionally omitted — the app sends its own order
       // confirmation via SMTP so a duplicate Stripe receipt adds noise.
       // Attach Stripe Customer when the shopper is authenticated.
@@ -1183,6 +1230,116 @@ router.post("/checkout/fees", async (req, res) => {
     req.log.warn({ err: err?.message }, "Failed to compute checkout fees"); // i18n-ignore
     return res.status(500).json({ ok: false, message: "Failed to compute fees" }); // i18n-ignore
   }
+});
+
+// ── GET /checkout/payment-status ─────────────────────────────────────────────
+// Returns the current Stripe PaymentIntent status + orderId for a given PI id.
+// Used by OrderConfirmed.tsx as a fallback when the sessionStorage stash is
+// unavailable (Safari private mode, iOS app-state kill, etc.) after a Klarna
+// redirect — allowing the page to confirm the payment was taken and still show
+// a success screen with the correct order ref.
+//
+// Query params:
+//   paymentIntentId — e.g. "pi_3Oq..."
+//   storeKey        — optional; "main" (default) or "gulf"
+//
+// Response: { ok: true, status: string, orderId: string | null, amount: number, currency: string }
+router.get("/checkout/payment-status", async (req, res) => {
+  const piId = (req.query["paymentIntentId"] as string | undefined)?.trim();
+  if (!piId || !piId.startsWith("pi_")) {
+    return res.status(400).json({ ok: false, message: "paymentIntentId is required and must start with pi_" }); // i18n-ignore
+  }
+
+  // clientSecret is required as a proof-of-payment token. Stripe appends
+  // payment_intent_client_secret to redirect return URLs so legitimate callers
+  // (OrderConfirmed.tsx after a Klarna redirect) always have it. Callers who
+  // only know the PI ID (which appears in Stripe dashboard URLs) cannot call
+  // this endpoint without the client secret — limiting the exposure of order
+  // metadata to the shopper who initiated the payment.
+  const providedSecret = (req.query["clientSecret"] as string | undefined)?.trim();
+  if (!providedSecret || !providedSecret.startsWith(`${piId}_secret_`)) {
+    return res.status(400).json({ ok: false, message: "clientSecret is required and must be the PaymentIntent client secret" }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  const key = resolveStripeKey(store.storeKey);
+  if (!key) {
+    return res.status(503).json({ ok: false, code: "stripe_not_configured", message: "Stripe not configured" }); // i18n-ignore
+  }
+
+  try {
+    const stripe = new Stripe(key);
+    const pi = await stripe.paymentIntents.retrieve(piId);
+
+    // Verify the full client_secret matches what Stripe has on record.
+    // This prevents one shopper from polling another's payment status even if
+    // they somehow obtained a different PI ID.
+    if (!pi.client_secret || pi.client_secret !== providedSecret) {
+      return res.status(403).json({ ok: false, message: "Forbidden: clientSecret does not match" }); // i18n-ignore
+    }
+
+    const orderId = (pi.metadata?.["orderId"] as string | undefined) ?? null;
+    return res.json({
+      ok: true,
+      status: pi.status,
+      orderId,
+      amount: pi.amount,
+      currency: pi.currency.toUpperCase(),
+    });
+  } catch (err: any) {
+    req.log.warn({ err: err?.message, piId }, "checkout/payment-status: PI retrieval failed");
+    return res.status(404).json({ ok: false, message: "PaymentIntent not found or retrieval failed" }); // i18n-ignore
+  }
+});
+
+// ── GET /checkout/klarna-status ──────────────────────────────────────────────
+// Returns whether Klarna should be offered to this shopper based on:
+//   1. KLARNA_ROLLOUT env var (off|test|percentage|on)
+//   2. The payer's country (from the client — already determined via IP geo call)
+//   3. Whether the active Stripe key is a test key (sk_test_…)
+//
+// The payer country must come from the client's own IP geolocation call
+// (/api/geo/country), NOT from the delivery address. Klarna requires the
+// *billing* country to be in a supported market, and the billing country is
+// determined by the shopper's location, not the recipient's delivery address.
+//
+// Query params:
+//   country   — ISO 3166-1 alpha-2 code of the payer's country (from /api/geo/country)
+//   sessionId — stable per-session identifier used for percentage-rollout cohort bucketing
+//
+// Response: { ok: true, enabled: boolean, payerCountry: string | null }
+router.get("/checkout/klarna-status", async (req, res) => {
+  // sessionId is used for deterministic cohort bucketing in percentage mode.
+  // The client sends a stable per-session identifier (e.g. analytics sessionId).
+  const sessionId = (req.query["sessionId"] as string | undefined)?.trim() || req.ip || "unknown";
+
+  // Resolve payer country from the client's real IP address.
+  // This MUST be the payer's browsing IP, NOT the delivery address country,
+  // because Klarna's eligibility is based on the shopper's own billing country.
+  // Diaspora shoppers browse from US/UK/DE and send to LB/AE — their delivery
+  // countryCode would be "LB" (ineligible for Klarna), but their payer IP
+  // resolves to a supported market.
+  const clientIp = pickClientIp(
+    req.headers["x-forwarded-for"],
+    (req.ip ?? "").toString(),
+  );
+  let payerCountry: string | null = null;
+  if (clientIp) {
+    try {
+      const geoResult = await resolveGeoCurrency(clientIp);
+      payerCountry = geoResult.countryCode;
+    } catch {
+      // Best-effort: if geo fails, Klarna is not offered (safe default).
+    }
+  }
+
+  const store = resolveStoreFromRequest(req);
+  const stripeKey = resolveStripeKey(store.storeKey);
+  const isTestMode = !!(stripeKey && stripeKey.startsWith("sk_test_"));
+
+  const enabled = isKlarnaEnabled({ sessionId, payerCountry, isTestMode });
+
+  return res.json({ ok: true, enabled, payerCountry });
 });
 
 export default router;

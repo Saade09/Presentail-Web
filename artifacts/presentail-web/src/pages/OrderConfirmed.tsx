@@ -1,6 +1,7 @@
 import { useSearch, Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Loader2, CalendarDays, MapPin, User, Phone } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCreateOrder } from "@/lib/queries";
 import { useCart } from "@/contexts/CartContext";
@@ -152,6 +153,14 @@ export default function OrderConfirmed() {
     searchParams.get("token") ||
     undefined;
 
+  // Klarna and other redirect-based Stripe payment methods (e.g. iDEAL) land
+  // here with these extra params appended by Stripe to the return_url.
+  // We use them as a fallback path when the sessionStorage stash is unavailable
+  // (Safari ITP, private mode, iOS app-state kill) — see recovery effect below.
+  const klarnaPaymentIntentId = searchParams.get("payment_intent");
+  const klarnaClientSecret = searchParams.get("payment_intent_client_secret");
+  const klarnaRedirectStatus = searchParams.get("redirect_status");
+
   const createOrder = useCreateOrder();
   const { clearCart } = useCart();
 
@@ -168,6 +177,11 @@ export default function OrderConfirmed() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const triedRef = useRef(false);
   const purchaseFiredRef = useRef(false);
+  // True once the payment-status fallback confirms the PI succeeded.
+  // Used to show the shopper a "payment received" message instead of the
+  // generic failure screen when the sessionStorage stash was lost after a
+  // Klarna redirect (Safari ITP, private mode, iOS app-state kill).
+  const [klarnaPaymentConfirmed, setKlarnaPaymentConfirmed] = useState(false);
 
   // For the inline-payment path (?ref= set on URL), the stashed payload is still
   // in sessionStorage when this component first mounts — read it eagerly.
@@ -310,6 +324,38 @@ export default function OrderConfirmed() {
       },
     });
   }, [state.kind, paymentRef, createOrder, clearCart, t]);
+
+  // Klarna redirect fallback: when the sessionStorage stash is unavailable after
+  // a successful Klarna redirect (redirect_status=succeeded), verify the payment
+  // server-side using the client_secret Stripe appended to the return URL.
+  // The payment-status endpoint validates the client_secret proof before returning
+  // order metadata, so this is authenticated by possession of the secret.
+  // If confirmed, upgrade the state to success so the shopper gets a proper
+  // confirmation screen instead of the generic failure.
+  const klarnaRecoveryRef = useRef(false);
+  useEffect(() => {
+    if (state.kind !== "failed") return;
+    if (klarnaRedirectStatus !== "succeeded") return;
+    if (!klarnaPaymentIntentId || !klarnaClientSecret) return;
+    if (klarnaRecoveryRef.current) return;
+    klarnaRecoveryRef.current = true;
+
+    void apiFetch<{ ok: boolean; status: string; orderId: string | null }>(
+      `/checkout/payment-status?paymentIntentId=${encodeURIComponent(klarnaPaymentIntentId)}&clientSecret=${encodeURIComponent(klarnaClientSecret)}`,
+    )
+      .then((data) => {
+        if (data?.ok && data.status === "succeeded") {
+          setKlarnaPaymentConfirmed(true);
+          // Upgrade to success using the orderId from PI metadata when available,
+          // or the PI ID itself as a contact-us reference when the webhook hasn't
+          // yet written the orderId back (timing edge case).
+          setState({ kind: "success", ref: data.orderId ?? klarnaPaymentIntentId });
+        }
+      })
+      .catch(() => {
+        // Best-effort: leave failed state — the shopper can retry or contact support.
+      });
+  }, [state.kind, klarnaRedirectStatus, klarnaPaymentIntentId, klarnaClientSecret]);
 
   if (state.kind === "finalizing") {
     return (

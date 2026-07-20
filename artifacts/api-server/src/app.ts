@@ -8,6 +8,7 @@ import router from "./routes";
 import { feedsRouter } from "./routes/merchantFeed";
 import clerkWebhookRouter from "./routes/clerkWebhook";
 import wooWebhookRouter from "./routes/wooWebhook";
+import stripeWebhookRouter from "./routes/stripeWebhook";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -95,6 +96,16 @@ app.use(
 // so the route handler receives a Buffer in req.body. body-parser sets
 // req._body = true after parsing, which causes express.json() to skip it.
 app.use("/api/os/webhook", express.raw({ type: "application/json", limit: "1mb" }));
+
+// Stripe webhook: signature verification requires the raw request bytes.
+// Must be mounted BEFORE express.json() for the same reason as above.
+// The handler supports both the main (LB/CY) and gulf (AE) Stripe accounts —
+// it tries STRIPE_WEBHOOK_SECRET first, then STRIPE_WEBHOOK_SECRET_GULF.
+app.use(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  stripeWebhookRouter,
+);
 
 // Compress all JSON/text API responses. Skips responses < 1 kB (threshold)
 // and content types that are already binary-compressed (images, audio, video,

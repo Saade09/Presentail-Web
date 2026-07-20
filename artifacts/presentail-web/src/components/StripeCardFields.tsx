@@ -2,6 +2,7 @@ import {
   CardNumberElement,
   CardExpiryElement,
   CardCvcElement,
+  PaymentElement,
   useStripe,
 } from "@stripe/react-stripe-js";
 import type { StripeCardNumberElementOptions } from "@stripe/stripe-js";
@@ -44,6 +45,14 @@ type Props = {
   selectedSavedCardId?: string | null;
   onSelectSavedCard?: (id: string | null) => void;
   onRemoveSavedCard?: (id: string) => void;
+  /**
+   * When true, renders Stripe's unified <PaymentElement> instead of the
+   * individual split card fields. PaymentElement supports cards, Klarna, and
+   * any other payment methods enabled for the account and payer country.
+   * Requires the parent <Elements> to be initialized with deferred-intent mode
+   * (mode: "payment", amount, currency) — no clientSecret at mount time.
+   */
+  usePaymentElement?: boolean;
 };
 
 function cardBrandIcon(brand: string): string {
@@ -65,6 +74,7 @@ export function StripeCardFields({
   selectedSavedCardId,
   onSelectSavedCard,
   onRemoveSavedCard,
+  usePaymentElement,
 }: Props) {
   const { t } = useLocale();
   const stripe = useStripe();
@@ -132,59 +142,75 @@ export function StripeCardFields({
             );
           })}
 
-          {/* Divider before new card fields when a saved card is NOT selected */}
+          {/* Divider before card fields when no saved card is selected */}
           {!selectedSavedCardId && (
             <p className="text-xs text-muted-foreground pt-1">{t("checkout.stripe.orEnterNewCard")}</p>
           )}
         </div>
       )}
 
-      {/* New card fields — hidden when a saved card is selected */}
+      {/* Payment fields — hidden when a saved card is selected */}
       {!selectedSavedCardId && (
         <>
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">{t("checkout.stripe.cardNumber")}</label>
-            <div className={FIELD_CLASS} style={{ minHeight: "42px", display: "flex", alignItems: "center" }}>
-              <CardNumberElement
-                options={{ style: ELEMENT_STYLE, showIcon: true, disabled }}
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">{t("checkout.stripe.expiryDate")}</label>
-              <div className={FIELD_CLASS} style={{ minHeight: "42px", display: "flex", alignItems: "center" }}>
-                <CardExpiryElement
-                  options={{ style: ELEMENT_STYLE, disabled }}
-                  className="w-full"
-                />
+          {usePaymentElement ? (
+            /* Unified PaymentElement: renders cards, Klarna, and any other
+               payment methods enabled for the account + payer country.
+               Billing details (name, email, address) are collected inline. */
+            <PaymentElement
+              options={{
+                layout: "accordion",
+                defaultValues: { billingDetails: { address: { country: undefined } } },
+              }}
+            />
+          ) : (
+            /* Legacy split card fields — kept as fallback when PaymentElement
+               is not available (e.g. Elements initialized without deferred-intent options). */
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">{t("checkout.stripe.cardNumber")}</label>
+                <div className={FIELD_CLASS} style={{ minHeight: "42px", display: "flex", alignItems: "center" }}>
+                  <CardNumberElement
+                    options={{ style: ELEMENT_STYLE, showIcon: true, disabled }}
+                    className="w-full"
+                  />
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">CVC</label>
-              <div className={FIELD_CLASS} style={{ minHeight: "42px", display: "flex", alignItems: "center" }}>
-                <CardCvcElement
-                  options={{ style: ELEMENT_STYLE, disabled }}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
 
-          {/* Save card checkbox — only for authenticated shoppers */}
-          {isAuthenticated && (
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={saveCard ?? false}
-                onChange={(e) => onSaveCardChange?.(e.target.checked)}
-                disabled={disabled}
-                className="h-4 w-4 accent-primary"
-              />
-              <span className="text-sm">{t("checkout.stripe.saveCard")}</span>
-            </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">{t("checkout.stripe.expiryDate")}</label>
+                  <div className={FIELD_CLASS} style={{ minHeight: "42px", display: "flex", alignItems: "center" }}>
+                    <CardExpiryElement
+                      options={{ style: ELEMENT_STYLE, disabled }}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">CVC</label>
+                  <div className={FIELD_CLASS} style={{ minHeight: "42px", display: "flex", alignItems: "center" }}>
+                    <CardCvcElement
+                      options={{ style: ELEMENT_STYLE, disabled }}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Save card checkbox — only for authenticated shoppers, split-field mode only */}
+              {isAuthenticated && (
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveCard ?? false}
+                    onChange={(e) => onSaveCardChange?.(e.target.checked)}
+                    disabled={disabled}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="text-sm">{t("checkout.stripe.saveCard")}</span>
+                </label>
+              )}
+            </>
           )}
         </>
       )}
