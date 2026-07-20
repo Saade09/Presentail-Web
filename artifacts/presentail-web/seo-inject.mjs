@@ -1371,6 +1371,17 @@ async function fetchEntityForSeoCached(kind, fetcher, opts, out = {}) {
     return null;
   }
 
+  // Definitive 404 from upstream: the entity does not exist. Signal to the
+  // caller via out.definitelyNotFound so it can distinguish a genuine absence
+  // from a transient error (503, timeout, network failure). Do NOT serve the
+  // stale cached entry — a 404 is authoritative and should be honoured even
+  // when a prior cache entry exists (the product was deleted).
+  if (result && result.notFound) {
+    out.definitelyNotFound = true;
+    out.freshlyFetched = false;
+    return null;
+  }
+
   // 200 (new or changed entity): evict image-dims cache entries so the fresh
   // entity always gets freshly measured dimensions. This prevents stale dims
   // surviving up to 1 hour when the CDN replaces an image at an unchanged URL.
@@ -1807,6 +1818,10 @@ async function fetchEntityForSeo({
     if (res.status === 304) return { notModified: true };
     if (!res.ok) {
       reportSeoFetchFailure(apiBaseUrl, responseKey);
+      // Return a distinct sentinel for genuine HTTP 404 (product definitively
+      // absent) so callers can distinguish it from a transient error (503,
+      // network failure, timeout) that does NOT confirm the product is gone.
+      if (res.status === 404) return { notFound: true };
       return null;
     }
     const body = await res.json();
@@ -3985,10 +4000,15 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
 
   let result = null;
   if (productSlug) {
+    // Capture the definitelyNotFound signal so we can distinguish a genuine
+    // HTTP 404 (product absent) from a transient error (503, timeout, network)
+    // before writing to lifecycleOut.  Only a confirmed 404 should yield
+    // productFound = false; a network error must degrade gracefully to 200.
+    const fetchOut = {};
     const product = await fetchEntityForSeoCached("product", fetchProductForSeo, {
       slug: productSlug,
       ...fetchOpts,
-    });
+    }, fetchOut);
     if (product) {
       const productState = getProductAvailabilityState(product);
       // Write lifecycle info for serve.mjs to act on (301/410 decisions).
@@ -4116,8 +4136,15 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         }
       }
     } else {
-      // Product not found in OS cache — signal to serve.mjs for 410/301.
-      if (lifecycleOut) {
+      // Product not found in OS cache.
+      // Only signal a definitive absence (triggering 410/301 in serve.mjs)
+      // when the upstream API explicitly returned HTTP 404.  A transient error
+      // — 503, network failure, timeout — yields null without
+      // fetchOut.definitelyNotFound, so productFound is left unset and
+      // resolveProductLifecycleResponse falls through to a graceful 200
+      // instead of issuing a false-positive 410 during a catalog outage or
+      // cold-cache miss.
+      if (lifecycleOut && fetchOut.definitelyNotFound) {
         lifecycleOut.productSlug = productSlug;
         lifecycleOut.productFound = false;
         lifecycleOut.productState = null;

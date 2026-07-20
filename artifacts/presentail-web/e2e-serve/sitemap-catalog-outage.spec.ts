@@ -44,6 +44,7 @@ import * as net from "node:net";
 import * as cp from "node:child_process";
 import * as path from "node:path";
 import * as url from "node:url";
+import * as fs from "node:fs";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const SERVE_MJS = path.resolve(__dirname, "..", "serve.mjs");
@@ -221,5 +222,38 @@ test.describe("/sitemap.xml — static fallback when catalog API is down", () =>
     expect(body).toContain("</urlset>");
     // Sanity-check the body is not just a stub.
     expect(body.trim().length).toBeGreaterThan(100);
+  });
+
+  // -------------------------------------------------------------------------
+  // Product lifecycle guard: a catalog outage must not cause false-positive 410
+  //
+  // Product URLs go through the HTML-serving path in serve.mjs which calls
+  // injectSeoTagsAsync → fetchEntityForSeoCached → fetchEntityForSeo.  Before
+  // the fix, a 503 response was indistinguishable from a 404, so
+  // lifecycleOut.productFound was set to false → 410 Gone for every product
+  // page during an outage.  This group asserts the corrected behaviour
+  // (graceful 200) using the same 503 mock API already running for the sitemap
+  // tests above.
+  //
+  // Note: this assertion requires dist/public/index.html to exist so serve.mjs
+  // can read the SPA shell.  The test is skipped gracefully when the build
+  // artifact is absent (e.g. in a source-only environment).
+  // -------------------------------------------------------------------------
+
+  test("product page returns 200 (not 410) when catalog API is down", async () => {
+    const distIndex = path.resolve(__dirname, "..", "dist", "public", "index.html");
+    if (!fs.existsSync(distIndex)) {
+      test.skip(
+        true,
+        "dist/public/index.html not found — product lifecycle check skipped (run the web build first)",
+      );
+      return;
+    }
+    const { status } = await getUrl(
+      `http://127.0.0.1:${servePort}/en-lb/beirut/product/some-product-slug`,
+    );
+    // A transient 503 must degrade gracefully to 200 — not issue a
+    // false-positive 410 that de-indexes live product inventory pages.
+    expect(status).toBe(200);
   });
 });
