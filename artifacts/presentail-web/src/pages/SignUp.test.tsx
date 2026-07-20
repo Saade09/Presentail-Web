@@ -225,10 +225,11 @@ describe("SignUp — phone step", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Social-conflict error: registration_failed_social_account
+// Duplicate email: server now returns generic registration_failed for all
+// cases (social and password accounts alike) — no provider is disclosed.
 // ---------------------------------------------------------------------------
 
-describe("SignUp — social-conflict registration error (registration_failed_social_account)", () => {
+describe("SignUp — duplicate email returns generic registration_failed code", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     mockSetLocation.mockClear();
@@ -238,13 +239,14 @@ describe("SignUp — social-conflict registration error (registration_failed_soc
     });
   });
 
-  it("shows the Google-specific toast description when provider is google", async () => {
+  it("shows a generic toast and redirects to sign-in when email already exists", async () => {
     const { useToast } = await import("@/hooks/use-toast");
     const toastFn = vi.fn();
     vi.mocked(useToast).mockReturnValue({ toast: toastFn } as any);
 
+    // Server returns the same generic code regardless of social vs password auth.
     stubFetch(
-      { ok: false, code: "registration_failed_social_account", provider: "google" },
+      { ok: false, code: "registration_failed" },
       false,
     );
     const user = await advanceToPhoneStep();
@@ -256,16 +258,18 @@ describe("SignUp — social-conflict registration error (registration_failed_soc
     });
 
     const toastArgs = toastFn.mock.calls[0][0] as { title: string; description: string };
-    // t() returns the key in tests — verify the Google-specific key was used.
-    expect(toastArgs.description).toBe("auth.existingAccountSocialPromptGoogle");
+    // Generic error — no social-specific provider key used.
+    expect(toastArgs.description).not.toBe("auth.existingAccountSocialPromptGoogle");
+    expect(toastArgs.description).not.toBe("auth.existingAccountSocialPromptApple");
+    expect(toastArgs.description).not.toBe("auth.existingAccountSocialPrompt");
   });
 
-  it("redirects to /sign-in with social_provider=google when provider is google", async () => {
+  it("redirects to /sign-in WITHOUT social_provider when email already exists", async () => {
     const { useToast } = await import("@/hooks/use-toast");
     vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
 
     stubFetch(
-      { ok: false, code: "registration_failed_social_account", provider: "google" },
+      { ok: false, code: "registration_failed" },
       false,
     );
     const user = await advanceToPhoneStep();
@@ -278,17 +282,17 @@ describe("SignUp — social-conflict registration error (registration_failed_soc
 
     const redirectUrl = mockSetLocation.mock.calls[0][0] as string;
     expect(redirectUrl).toContain("/sign-in");
-    expect(redirectUrl).toContain("social_provider=google");
+    expect(redirectUrl).not.toContain("social_provider=");
     expect(redirectUrl).toContain("email_address=");
   });
 
-  it("shows the Apple-specific toast description when provider is apple", async () => {
+  it("shows a generic toast for duplicate emails (second indistinguishable-response case)", async () => {
     const { useToast } = await import("@/hooks/use-toast");
     const toastFn = vi.fn();
     vi.mocked(useToast).mockReturnValue({ toast: toastFn } as any);
 
     stubFetch(
-      { ok: false, code: "registration_failed_social_account", provider: "apple" },
+      { ok: false, code: "registration_failed" },
       false,
     );
     const user = await advanceToPhoneStep();
@@ -300,15 +304,16 @@ describe("SignUp — social-conflict registration error (registration_failed_soc
     });
 
     const toastArgs = toastFn.mock.calls[0][0] as { title: string; description: string };
-    expect(toastArgs.description).toBe("auth.existingAccountSocialPromptApple");
+    expect(toastArgs.description).not.toBe("auth.existingAccountSocialPromptGoogle");
+    expect(toastArgs.description).not.toBe("auth.existingAccountSocialPromptApple");
   });
 
-  it("redirects to /sign-in with social_provider=apple when provider is apple", async () => {
+  it("redirects to /sign-in without social_provider (second indistinguishable-response case)", async () => {
     const { useToast } = await import("@/hooks/use-toast");
     vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
 
     stubFetch(
-      { ok: false, code: "registration_failed_social_account", provider: "apple" },
+      { ok: false, code: "registration_failed" },
       false,
     );
     const user = await advanceToPhoneStep();
@@ -321,7 +326,7 @@ describe("SignUp — social-conflict registration error (registration_failed_soc
 
     const redirectUrl = mockSetLocation.mock.calls[0][0] as string;
     expect(redirectUrl).toContain("/sign-in");
-    expect(redirectUrl).toContain("social_provider=apple");
+    expect(redirectUrl).not.toContain("social_provider=");
   });
 });
 

@@ -152,14 +152,7 @@ function AuthScreen() {
     setEmailBusy(false);
     setEmail(trimmed);
     if (r.ok && r.exists) {
-      const sp = r.socialProvider;
-      if (sp === "google" || sp === "apple") {
-        setSocialError(
-          sp === "google" ? t.authSocialProviderGoogle : t.authSocialProviderApple,
-        );
-      } else {
-        setStep("passwordLogin");
-      }
+      setStep("passwordLogin");
     } else {
       setStep("signup");
     }

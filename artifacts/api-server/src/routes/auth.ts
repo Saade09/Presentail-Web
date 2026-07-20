@@ -283,24 +283,13 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
   }
   recordAuthExistsOutcome(result.outcome, platformHeader);
 
-  const body: { ok: true; exists: boolean; code?: string; socialProvider?: "google" | "apple" | null } = {
-    ok: true,
-    exists: result.exists,
-  };
+  // Do not disclose whether the email is registered: return the same 200 body
+  // for known and unknown addresses. Service-failure codes (lookup_failed /
+  // lookup_unavailable) are still surfaced so the mobile client can show a
+  // "couldn't check, try again" error rather than silently routing the shopper
+  // to sign-up — but the `exists` boolean is deliberately omitted.
+  const body: { ok: true; code?: string } = { ok: true };
   if (result.code) body.code = result.code;
-  if (result.exists && !result.code) {
-    try {
-      const provRows = await db
-        .select({ authProvider: customersTable.authProvider })
-        .from(customersTable)
-        .where(eq(customersTable.email, email))
-        .limit(1);
-      const p = provRows[0]?.authProvider;
-      if (p === "google" || p === "apple") body.socialProvider = p;
-    } catch (e: any) {
-      req.log?.warn?.({ err: e?.message }, "auth.exists: socialProvider lookup failed (non-fatal)");
-    }
-  }
   res.json(body);
 });
 
@@ -357,33 +346,35 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
   });
   recordAuthExistsOutcome(lookup.outcome, platformHeader);
 
-  if (!lookup.exists || lookup.code) {
-    const out: { ok: true; exists: boolean; code?: string } = {
-      ok: true,
-      exists: lookup.exists,
-    };
-    if (lookup.code) out.code = lookup.code;
-    res.json(out);
+  // Do not return an `exists` boolean or any boolean that maps 1:1 to account
+  // existence — that is an account-enumeration oracle.  The response shape MUST
+  // be indistinguishable for found vs not-found emails.
+  //
+  // Response contract (no `clerkReady` / `exists` field ever):
+  //   { ok: true }                              → proceed to sign-in; existence unknown
+  //   { ok: true, code: "lookup_failed" }       → transient service error
+  //   { ok: true, code: "lookup_unavailable" }  → Clerk/WC not configured
+  //   passwordLoginAvailable (optional)         → server config hint, not user-specific
+  if (lookup.code) {
+    // Inconclusive (service failure) — surface code for error UX, not existence.
+    // Check code BEFORE exists so transient errors are never silently swallowed.
+    // lookup.code is set by classifyAuthExists before existence is known, so
+    // returning it here is NOT an existence oracle.
+    res.json({ ok: true, code: lookup.code, passwordLoginAvailable: isWcAuthEnabled() });
     return;
   }
   if (!isClerkConfigured()) {
-    // We confirmed the account exists but cannot provision Clerk. Include
-    // socialProvider so the UI can show a provider-specific hint rather than
-    // a generic error even when Clerk is unavailable.
-    let socialProvider: "google" | "apple" | null = null;
-    try {
-      const provRows = await db
-        .select({ authProvider: customersTable.authProvider })
-        .from(customersTable)
-        .where(eq(customersTable.email, email))
-        .limit(1);
-      const p = provRows[0]?.authProvider;
-      if (p === "google" || p === "apple") socialProvider = p;
-    } catch (e: any) {
-      req.log?.warn?.({ err: e?.message }, "auth.web-bridge: socialProvider lookup failed (non-fatal)");
-    }
-    req.log?.warn?.({ socialProvider }, "auth.web-bridge: Clerk not configured");
-    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_unavailable", passwordLoginAvailable: isWcAuthEnabled(), socialProvider });
+    // Check Clerk availability BEFORE the exists branch so the same response
+    // shape is returned for found AND not-found emails — exposing "not configured"
+    // only for known emails would be an existence oracle.
+    req.log?.warn?.({}, "auth.web-bridge: Clerk not configured");
+    res.json({ ok: true, code: "lookup_unavailable", passwordLoginAvailable: isWcAuthEnabled() });
+    return;
+  }
+  if (!lookup.exists) {
+    // Unknown email — return same shape as successful Clerk provision so callers
+    // cannot distinguish "found" from "not found".
+    res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
     return;
   }
 
@@ -441,50 +432,27 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
     // page will advance the shopper to a Clerk email-code step against
     // a Clerk user that doesn't exist.
     if (!ensure.ok) {
-      // Look up the social provider so the UI can show a named-provider hint
-      // (e.g. "Please sign in with Google") even when Clerk provisioning fails.
-      let socialProvider: "google" | "apple" | null = null;
-      try {
-        const provRows = await db
-          .select({ authProvider: customersTable.authProvider })
-          .from(customersTable)
-          .where(eq(customersTable.email, email))
-          .limit(1);
-        const p = provRows[0]?.authProvider;
-        if (p === "google" || p === "apple") socialProvider = p;
-      } catch (e: any) {
-        req.log?.warn?.({ err: e?.message }, "auth.web-bridge: socialProvider lookup failed (non-fatal)");
-      }
       req.log?.warn?.(
-        { reason: ensure.reason, message: (ensure as any).message, socialProvider },
+        { reason: ensure.reason, message: (ensure as any).message },
         "auth.web-bridge: ensureClerkUserForCustomer returned not-ok",
       );
-      const code: "lookup_failed" | "lookup_unavailable" =
-        ensure.reason === "not_configured" ? "lookup_unavailable" : "lookup_failed";
-      res.json({ ok: true, exists: true, clerkReady: false, code, passwordLoginAvailable: isWcAuthEnabled(), socialProvider });
+      // Do NOT return a `code` here: this branch is only reached for known
+      // emails, so returning `code` would be an existence oracle (unknown emails
+      // never reach Clerk provisioning).  Log the failure and return the same
+      // shape as a successful provisioning so the response is indistinguishable.
+      res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
       return;
     }
-    let socialProvider: "google" | "apple" | null = null;
-    try {
-      const provRows = await db
-        .select({ authProvider: customersTable.authProvider })
-        .from(customersTable)
-        .where(eq(customersTable.email, email))
-        .limit(1);
-      const p = provRows[0]?.authProvider;
-      if (p === "google" || p === "apple") socialProvider = p;
-    } catch (e: any) {
-      req.log?.warn?.({ err: e?.message }, "auth.web-bridge: socialProvider lookup failed (non-fatal)");
-    }
-    res.json({ ok: true, exists: true, clerkReady: true, passwordLoginAvailable: isWcAuthEnabled(), socialProvider });
+    // Clerk user provisioned — same shape as not-found and provisioning failure.
+    res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
   } catch (e: any) {
-    // Defensive: helper shouldn't throw, but if it does (e.g. unexpected
-    // sync error during construction), still surface a hard error.
+    // Defensive: helper shouldn't throw, but if it does, still return the
+    // same indistinguishable shape rather than a differentiating error code.
     req.log?.warn?.(
       { err: e?.message },
       "auth.web-bridge: ensureClerkUserForCustomer threw",
     );
-    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_failed", passwordLoginAvailable: isWcAuthEnabled() });
+    res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
   }
 });
 
@@ -823,20 +791,37 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
         .where(eq(customersTable.email, normalizedEmail))
         .limit(1);
       if (existing.length > 0) {
-        const existingProvider = existing[0].authProvider;
-        if (existingProvider === "google" || existingProvider === "apple") {
-          return res.status(409).json({
-            ok: false,
-            code: "registration_failed_social_account",
-            provider: existingProvider,
-            message: `An account with this email is linked to ${existingProvider}.`, // i18n-ignore
-          });
-        }
-        return res.status(409).json({
+        // Use a generic 400 (not 409) and a non-revealing message so callers
+        // cannot distinguish "email already taken" from other registration
+        // failures — 409 "Conflict" is an account-existence oracle.
+        return res.status(400).json({
           ok: false,
           code: "registration_failed",
-          message: "An account with this email already exists.", // i18n-ignore
+          message: "Registration failed.", // i18n-ignore
         });
+      }
+
+      // Phone pre-check: if the submitted phone already belongs to a DIFFERENT
+      // customer, reject now before upsertCustomer() runs.  upsertCustomer() has
+      // a phone-fallback (step 3) that would bind the new email to the existing
+      // customer row — an account-takeover vector identical to the OTP path.
+      if (phone) {
+        const normalizedPhone = normalizePhoneE164(phone);
+        if (normalizedPhone) {
+          const phoneConflict = await db
+            .select({ id: customersTable.id, email: customersTable.email })
+            .from(customersTable)
+            .where(eq(customersTable.phoneE164, normalizedPhone))
+            .limit(1);
+          if (phoneConflict.length > 0 && phoneConflict[0].email !== normalizedEmail) {
+            req.log?.warn?.({ customerId: phoneConflict[0].id }, "auth.register: phone already belongs to another account"); // i18n-ignore
+            return res.status(400).json({
+              ok: false,
+              code: "registration_failed",
+              message: "Registration failed.", // i18n-ignore
+            });
+          }
+        }
       }
 
       const { customer } = await upsertCustomer({
@@ -852,6 +837,14 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
         // registration cannot immediately read orders tied to that email.
         emailVerified: false,
       });
+
+      // Defense-in-depth: verify upsertCustomer returned the correct row.
+      // If the email doesn't match (e.g. phone fallback unexpectedly resolved
+      // to a different row), abort before issuing a token.
+      if (customer.email !== normalizedEmail) {
+        req.log?.warn?.({ customerId: customer.id, expectedEmail: normalizedEmail }, "auth.register: post-upsert email mismatch guard triggered"); // i18n-ignore
+        return res.status(500).json({ ok: false, code: "server_error", message: "Registration failed." }); // i18n-ignore
+      }
 
       // Generate a secure email verification token and persist it.
       const verificationToken = randomBytes(32).toString("hex");
@@ -928,10 +921,17 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
-      return res.status(r.status).json({
+      // Never forward WC's HTTP status or message text verbatim:
+      //   - WC returns 409 + "already registered" for duplicate emails — a
+      //     direct existence oracle on a public endpoint.
+      //   - WC message text can contain "already registered with your email"
+      //     even when the status is 400.
+      // Use 400 + a generic message for all WC-path registration failures.
+      req.log?.info?.({ wcStatus: r.status }, "auth.register: WC rejected customer creation"); // i18n-ignore
+      return res.status(400).json({
         ok: false,
         code: "registration_failed",
-        message: data?.message?.replace(/<[^>]*>/g, "") ?? "Registration failed", // i18n-ignore
+        message: "Registration failed.", // i18n-ignore
       });
     }
 
@@ -2305,22 +2305,17 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
     if (isRedirect && /[?&]error=/.test(location)) {
       // WP error codes here include `invaliduserdata`, `invalid_email`,
       // `invalidcombo` — all of which mean "we couldn't find this account".
-      return res.status(404).json({
-        ok: false,
-        code: "unknown_email",
-        message: "We couldn't find a Presentail account for that email.", // i18n-ignore
-      });
+      // Return 200 instead of 404 to avoid disclosing whether the email is
+      // registered (standard "if an account exists you will receive an email"
+      // pattern — prevents enumeration of valid addresses).
+      return res.json({ ok: true });
     }
     if (r.status === 200) {
       // WP renders the form with errors inline when validation fails. Treat
-      // this as "unknown email" since that's by far the most common cause.
+      // this as a silent success (same enumeration-prevention reason as above).
       const body = await r.text().catch(() => "");
       if (/login_error|invalid|no.+user|user.+not/i.test(body)) {
-        return res.status(404).json({
-          ok: false,
-          code: "unknown_email",
-          message: "We couldn't find a Presentail account for that email.", // i18n-ignore
-        });
+        return res.json({ ok: true });
       }
     }
     // Anything else: treat as success rather than leak ambiguous state.
@@ -2923,6 +2918,25 @@ router.post("/auth/otp/verify", registerIpLimiter, async (req, res) => {
         return;
       }
 
+      // Reject if the verified phone number is already registered on *any*
+      // existing account. Without this check, upsertCustomer()'s phone-fallback
+      // lookup would return the existing row, and we'd issue a session token for
+      // that pre-existing customer ID with the attacker-supplied email — a full
+      // account-takeover via phone OTP.
+      const existingByPhone = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(eq(customersTable.phoneE164, normalizedPhone))
+        .limit(1);
+      if (existingByPhone.length > 0) {
+        res.status(409).json({
+          ok: false,
+          code: "registration_failed",
+          message: "An account with this phone number already exists.", // i18n-ignore
+        });
+        return;
+      }
+
       const { customer } = await upsertCustomer({
         email: normalizedEmail,
         firstName: firstName?.trim() ?? "",
@@ -2936,6 +2950,23 @@ router.post("/auth/otp/verify", registerIpLimiter, async (req, res) => {
         // email as unverified so the order-history guard still applies.
         emailVerified: false,
       });
+
+      // Defense-in-depth: if upsertCustomer() somehow returned a row whose
+      // email does not match the submitted email (e.g. the phone-fallback path
+      // was triggered despite the check above), abort rather than issue a token
+      // for someone else's account.
+      if (customer.email !== normalizedEmail) {
+        req.log?.warn?.(
+          { customerId: customer.id, submittedEmail: normalizedEmail },
+          "auth.otp.verify: upsertCustomer returned mismatched email — aborting",
+        );
+        res.status(409).json({
+          ok: false,
+          code: "registration_failed",
+          message: "An account with this phone number already exists.", // i18n-ignore
+        });
+        return;
+      }
 
       if (isClerkConfigured()) {
         ensureClerkUserInBackground({

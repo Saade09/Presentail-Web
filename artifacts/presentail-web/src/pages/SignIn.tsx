@@ -331,16 +331,10 @@ export default function SignInPage() {
       }
       const bridgeJson = (await bridgeRes.json().catch(() => null)) as {
         ok?: boolean;
-        exists?: boolean;
         code?: "lookup_failed" | "lookup_unavailable";
         passwordLoginAvailable?: boolean;
-        socialProvider?: "google" | "apple" | null;
       } | null;
-      if (
-        !bridgeJson ||
-        bridgeJson.ok !== true ||
-        typeof bridgeJson.exists !== "boolean"
-      ) {
+      if (!bridgeJson || bridgeJson.ok !== true) {
         toast({
           title: t("auth.toast.error"),
           description: t("auth.checkFailed"),
@@ -348,47 +342,38 @@ export default function SignInPage() {
         });
         return;
       }
-      // When the server found (or is confident about) an existing account,
-      // check whether password login is still available before advancing.
-      // Only show the password step when the server explicitly signals
-      // passwordLoginAvailable === true — treat undefined (older server) as
-      // false so returning shoppers are never silently routed to a dead-end.
-      if (bridgeJson.exists) {
-        // If the lookup found an account but can't proceed (e.g. Clerk not
-        // configured, or provisioning failed), surface an error — the user
-        // already has an account so we must not silently route them to sign-up.
-        // Exception: when the server included a social-provider hint, show the
-        // named-provider redirect instead of the generic error toast.
-        if (
-          bridgeJson.code === "lookup_failed" ||
-          bridgeJson.code === "lookup_unavailable"
-        ) {
-          const hintedProvider = bridgeJson.socialProvider;
-          if (hintedProvider === "google" || hintedProvider === "apple") {
-            setSocialProvider(hintedProvider);
-            setStep("social-redirect");
-            return;
-          }
-          toast({
-            title: t("auth.toast.error"),
-            description: t("auth.checkFailed"),
-            variant: "destructive",
-          });
-          return;
-        }
+      // The bridge response is intentionally indistinguishable for known vs
+      // unknown emails — `clerkReady` is no longer returned (it was an
+      // account-enumeration oracle).  Route every caller to the sign-in step;
+      // unknown emails will fail at sign-in and can use "Don't have an account?".
+      //
+      //   { ok: true }                             → proceed to sign-in
+      //   { ok: true, code: "lookup_failed" }      → transient service error
+      //   { ok: true, code: "lookup_unavailable" } → Clerk/WC not configured
+      if (
+        bridgeJson.code === "lookup_failed" ||
+        bridgeJson.code === "lookup_unavailable"
+      ) {
+        // Service failure — fall back to password step when available,
+        // otherwise surface the error so the user is not silently swallowed.
         if (bridgeJson.passwordLoginAvailable === true) {
           setStep("password");
-        } else {
-          setSocialProvider(bridgeJson.socialProvider ?? null);
-          setStep("social-redirect");
+          return;
         }
+        toast({
+          title: t("auth.toast.error"),
+          description: t("auth.checkFailed"),
+          variant: "destructive",
+        });
         return;
       }
-      // exists: false — route to sign-up even when the lookup was inconclusive.
-      // The sign-up endpoint rejects duplicate emails as a final safety net,
-      // so the worst case is the user sees a "already registered" message and
-      // is redirected to sign-in instead.
-      goToSignUp(trimmed);
+      // Success — proceed to sign-in.  passwordLoginAvailable is a server
+      // config hint (not user-specific) that selects which sign-in step to show.
+      if (bridgeJson.passwordLoginAvailable === true) {
+        setStep("password");
+      } else {
+        setStep("social-redirect");
+      }
     } catch (err: any) {
       toast({
         title: t("auth.toast.error"),

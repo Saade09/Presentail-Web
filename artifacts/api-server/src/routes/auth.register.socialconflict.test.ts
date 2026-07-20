@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import express from "express";
 import request from "supertest";
 
@@ -8,6 +8,9 @@ import request from "supertest";
 
 const mocks = vi.hoisted(() => ({
   dbSelectResult: [] as any[],
+  // Per-call sequence: if set, each limit() call shifts from this array.
+  // Existing tests that don't set this get the flat dbSelectResult as before.
+  dbSelectResultByCall: [] as any[][],
   upsertCustomer: vi.fn(),
   signServerToken: vi.fn(),
   isWcAuthEnabled: vi.fn(),
@@ -113,7 +116,12 @@ vi.mock("@workspace/db", () => ({
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: () => Promise.resolve(mocks.dbSelectResult),
+          limit: () => {
+            if (mocks.dbSelectResultByCall.length > 0) {
+              return Promise.resolve(mocks.dbSelectResultByCall.shift()!);
+            }
+            return Promise.resolve(mocks.dbSelectResult);
+          },
         }),
       }),
     }),
@@ -177,6 +185,7 @@ beforeEach(() => {
   vi.resetAllMocks();
 
   mocks.dbSelectResult = [];
+  mocks.dbSelectResultByCall = [];
   mocks.isWcAuthEnabled.mockReturnValue(false);
   mocks.isClerkConfigured.mockReturnValue(false);
   mocks.signServerToken.mockResolvedValue("server-session-jwt");
@@ -207,11 +216,12 @@ beforeEach(() => {
 });
 
 // ===========================================================================
-// POST /auth/register — social-conflict error (registration_failed_social_account)
+// POST /auth/register — duplicate-email response (enumeration-hardened)
+// HTTP 400 (not 409) so the status code itself is not an existence oracle.
 // ===========================================================================
 
-describe("POST /auth/register — social conflict: email linked to Google", () => {
-  it("returns 409 with code registration_failed_social_account and provider google", async () => {
+describe("POST /auth/register — duplicate email: social account (Google)", () => {
+  it("returns 400 with generic code registration_failed (no social provider revealed)", async () => {
     mocks.dbSelectResult = [{ id: 7, authProvider: "google" }];
 
     const app = buildApp();
@@ -219,13 +229,13 @@ describe("POST /auth/register — social conflict: email linked to Google", () =
       .post("/auth/register")
       .send(VALID_BODY);
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);
-    expect(res.body.code).toBe("registration_failed_social_account");
-    expect(res.body.provider).toBe("google");
+    expect(res.body.code).toBe("registration_failed");
+    expect(res.body.provider).toBeUndefined();
   });
 
-  it("does not create a new customer when the social-conflict 409 is returned", async () => {
+  it("does not create a new customer when duplicate-email 400 is returned", async () => {
     mocks.dbSelectResult = [{ id: 7, authProvider: "google" }];
 
     const app = buildApp();
@@ -236,7 +246,7 @@ describe("POST /auth/register — social conflict: email linked to Google", () =
     expect(mocks.upsertCustomer).not.toHaveBeenCalled();
   });
 
-  it("includes a human-readable message in the 409 body", async () => {
+  it("includes a human-readable message in the 400 body that does NOT reveal account existence", async () => {
     mocks.dbSelectResult = [{ id: 7, authProvider: "google" }];
 
     const app = buildApp();
@@ -246,11 +256,15 @@ describe("POST /auth/register — social conflict: email linked to Google", () =
 
     expect(typeof res.body.message).toBe("string");
     expect(res.body.message.length).toBeGreaterThan(0);
+    // Message must not reveal that the email is already taken.
+    expect(res.body.message).not.toMatch(/already exists/i);
+    expect(res.body.message).not.toMatch(/in use/i);
+    expect(res.body.message).not.toMatch(/taken/i);
   });
 });
 
-describe("POST /auth/register — social conflict: email linked to Apple", () => {
-  it("returns 409 with code registration_failed_social_account and provider apple", async () => {
+describe("POST /auth/register — duplicate email: social account (Apple)", () => {
+  it("returns 400 with generic code registration_failed (no social provider revealed)", async () => {
     mocks.dbSelectResult = [{ id: 8, authProvider: "apple" }];
 
     const app = buildApp();
@@ -258,15 +272,15 @@ describe("POST /auth/register — social conflict: email linked to Apple", () =>
       .post("/auth/register")
       .send(VALID_BODY);
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);
-    expect(res.body.code).toBe("registration_failed_social_account");
-    expect(res.body.provider).toBe("apple");
+    expect(res.body.code).toBe("registration_failed");
+    expect(res.body.provider).toBeUndefined();
   });
 });
 
-describe("POST /auth/register — plain conflict: email already exists with password auth", () => {
-  it("returns 409 with code registration_failed (no provider field) when authProvider is null", async () => {
+describe("POST /auth/register — duplicate email: password account", () => {
+  it("returns 400 with code registration_failed (no provider field) when authProvider is null", async () => {
     mocks.dbSelectResult = [{ id: 9, authProvider: null }];
 
     const app = buildApp();
@@ -274,13 +288,13 @@ describe("POST /auth/register — plain conflict: email already exists with pass
       .post("/auth/register")
       .send(VALID_BODY);
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);
     expect(res.body.code).toBe("registration_failed");
     expect(res.body.provider).toBeUndefined();
   });
 
-  it("returns 409 with code registration_failed when authProvider is 'password'", async () => {
+  it("returns 400 with code registration_failed when authProvider is 'password'", async () => {
     mocks.dbSelectResult = [{ id: 10, authProvider: "password" }];
 
     const app = buildApp();
@@ -288,10 +302,40 @@ describe("POST /auth/register — plain conflict: email already exists with pass
       .post("/auth/register")
       .send(VALID_BODY);
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);
     expect(res.body.code).toBe("registration_failed");
     expect(res.body.provider).toBeUndefined();
+  });
+});
+
+describe("POST /auth/register — enumeration resistance: response must be indistinguishable for known vs unknown emails", () => {
+  it("duplicate-email response (400) does not use the 409 status that directly signals existence", async () => {
+    mocks.dbSelectResult = [{ id: 11, authProvider: "google" }];
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send(VALID_BODY);
+
+    // 409 is the RFC-defined "Conflict" status — using it directly reveals the email exists.
+    expect(res.status).not.toBe(409);
+    // Must still be an error response.
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("registration_failed");
+  });
+
+  it("duplicate-email body does not contain an existence-revealing message", async () => {
+    mocks.dbSelectResult = [{ id: 12, authProvider: null }];
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send(VALID_BODY);
+
+    expect(res.body.message).not.toMatch(/already exists/i);
+    expect(res.body.message).not.toMatch(/in use/i);
+    expect(res.body).not.toHaveProperty("exists");
   });
 });
 
@@ -354,5 +398,195 @@ describe("POST /auth/register — input validation", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("password_too_short");
+  });
+});
+
+// ===========================================================================
+// POST /auth/register — WC-path enumeration hardening
+// When WC_AUTH_ENABLED=true the legacy path proxies the registration to
+// WooCommerce. WC returns 409 + "already registered with your email" for
+// duplicate emails — we must NOT forward that status or message.
+// ===========================================================================
+
+describe("POST /auth/register — WC path: duplicate-email response is enumeration-hardened", () => {
+  beforeEach(() => {
+    mocks.isWcAuthEnabled.mockReturnValue(true);
+    process.env.WC_CONSUMER_KEY = "ck_test";
+  });
+
+  afterEach(() => {
+    delete process.env.WC_CONSUMER_KEY;
+  });
+
+  it("returns 400 (not 409) when WC rejects with a duplicate-email conflict", async () => {
+    mocks.fetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        code: "registration-error-email-exists",
+        message: "An account is already registered with your email address.",
+      }),
+    });
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send(VALID_BODY);
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("registration_failed");
+  });
+
+  it("does not forward WC duplicate-email message text to the caller", async () => {
+    mocks.fetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        code: "registration-error-email-exists",
+        message: "An account is already registered with your email address.",
+      }),
+    });
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send(VALID_BODY);
+
+    expect(res.body.message).not.toMatch(/already registered/i);
+    expect(res.body.message).not.toMatch(/already exists/i);
+    expect(res.body).not.toHaveProperty("exists");
+  });
+
+  it("uses the same 400 status for non-duplicate WC registration failures (indistinguishable)", async () => {
+    mocks.fetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        code: "registration-error-invalid-email",
+        message: "Please provide a valid email address.",
+      }),
+    });
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send(VALID_BODY);
+
+    // Both duplicate-email (WC 409) and other failures (WC 400) now return 400
+    // so callers cannot distinguish them.
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("registration_failed");
+  });
+});
+
+// ===========================================================================
+// POST /auth/register — phone-fallback account-takeover prevention
+// upsertCustomer() has a phone-fallback (step 3): if the submitted phone
+// already belongs to a DIFFERENT customer, the upsert would silently bind
+// the attacker's email to the victim's row.  The register route must reject
+// this before calling upsertCustomer() and verify the result afterward.
+// ===========================================================================
+
+describe("POST /auth/register — phone-fallback ATO prevention (local path)", () => {
+  it("returns 400 when the submitted phone already belongs to a different account", async () => {
+    // First db call (email check): no duplicate email.
+    // Second db call (phone conflict check): phone owned by a different user.
+    mocks.dbSelectResultByCall = [
+      [],
+      [{ id: 99, email: "victim@example.com" }],
+    ];
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send({ ...VALID_BODY, phone: "+96170000001" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe("registration_failed");
+  });
+
+  it("does NOT call upsertCustomer when phone conflict is detected", async () => {
+    mocks.dbSelectResultByCall = [
+      [],
+      [{ id: 99, email: "victim@example.com" }],
+    ];
+
+    const app = buildApp();
+    await request(app)
+      .post("/auth/register")
+      .send({ ...VALID_BODY, phone: "+96170000001" });
+
+    expect(mocks.upsertCustomer).not.toHaveBeenCalled();
+  });
+
+  it("does not reveal account existence in the phone-conflict 400 response", async () => {
+    mocks.dbSelectResultByCall = [
+      [],
+      [{ id: 99, email: "victim@example.com" }],
+    ];
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send({ ...VALID_BODY, phone: "+96170000001" });
+
+    expect(res.body.message).not.toMatch(/already/i);
+    expect(res.body.message).not.toMatch(/taken/i);
+    expect(res.body).not.toHaveProperty("exists");
+  });
+
+  it("allows registration when the submitted phone does NOT conflict (both checks pass)", async () => {
+    // First db call (email check): no duplicate email.
+    // Second db call (phone check): no conflict (empty).
+    mocks.dbSelectResultByCall = [[], []];
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send({ ...VALID_BODY, phone: "+96170000001" });
+
+    expect(mocks.upsertCustomer).toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
+  it("allows registration when no phone is submitted (phone pre-check is skipped)", async () => {
+    // Only one db call: email check returns no duplicate.
+    mocks.dbSelectResult = [];
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send(VALID_BODY); // no phone field
+
+    expect(mocks.upsertCustomer).toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 500 when upsertCustomer resolves to a different email (post-upsert guard)", async () => {
+    // db checks both pass
+    mocks.dbSelectResultByCall = [[], []];
+    // upsertCustomer unexpectedly returns a row with a different email
+    mocks.upsertCustomer.mockResolvedValue({
+      customer: {
+        id: 99,
+        email: "victim@example.com", // NOT the submitted email
+        firstName: "Victim",
+        lastName: "User",
+        phoneE164: "+96170000001",
+      },
+    });
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/register")
+      .send({ ...VALID_BODY, phone: "+96170000001" });
+
+    expect(res.status).toBe(500);
+    expect(res.body.ok).toBe(false);
+    // Must NOT issue a session token for the wrong account.
+    expect(mocks.signServerToken).not.toHaveBeenCalled();
   });
 });
