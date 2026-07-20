@@ -53,6 +53,18 @@ const Iso2 = z
   .regex(/^[A-Za-z]{2}$/)
   .transform((s) => s.toUpperCase());
 
+/**
+ * Title-cases a string word-by-word (e.g. "john doe" → "John Doe").
+ * Each word has its first character uppercased and the rest lowercased.
+ * Already-correct input is returned unchanged.
+ */
+export function toTitleCase(s: string): string {
+  return s
+    .split(" ")
+    .map((word) => (word.length === 0 ? word : word[0].toUpperCase() + word.slice(1).toLowerCase()))
+    .join(" ");
+}
+
 export const WooOrderSchema = z.object({
   orderId: z.string().min(1),
   items: z
@@ -73,14 +85,14 @@ export const WooOrderSchema = z.object({
     )
     .min(1),
   billing: z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().default(""),
+    firstName: z.string().min(1).transform(toTitleCase),
+    lastName: z.string().default("").transform(toTitleCase),
     email: z.string().email(),
     phone: z.string().min(1),
   }),
   recipient: z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().default(""),
+    firstName: z.string().min(1).transform(toTitleCase),
+    lastName: z.string().default("").transform(toTitleCase),
     phone: z.string().min(1),
   }),
   district: z.string().min(1),
