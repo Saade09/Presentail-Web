@@ -3485,11 +3485,11 @@ function CheckoutForm() {
                       );
                     })}
 
-                    {/* Klarna tile — only shown for non-AED stores when the
-                        KLARNA_ROLLOUT flag is active. The server validates
-                        eligibility at submit time; this tile is a client-side
-                        optimistic gate using currency as a Gulf proxy. */}
-                    {checkoutCurrency !== "AED" && (
+                    {/* Klarna tile — only shown when the server confirmed the
+                        payer's country is a Klarna-supported market (IP geo,
+                        not delivery address) AND KLARNA_ROLLOUT is active AND
+                        the checkout currency is not AED (Gulf Stripe). */}
+                    {klarnaEnabled && checkoutCurrency !== "AED" && (
                       <div
                         className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === "klarna" ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}
                         style={paymentMethod === "klarna" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.04)", outlineColor: "hsl(var(--primary) / 0.15)" } : {}}
