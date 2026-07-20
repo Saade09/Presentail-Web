@@ -5,6 +5,7 @@ import { authenticate } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { getCustomerById, getCustomerByWcId } from "../lib/customers";
 import { fetchOsOrderStatus } from "@workspace/presentail-os";
+import { getOsProducts } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -183,8 +184,31 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
     })(),
   ]);
 
+  // Build a per-storeKey name→imageUrl map so OS-native orders can show
+  // product thumbnails without a per-order OS round-trip.
+  const imageMapByStore = new Map<string, Map<string, string | null>>();
+  function getImageMap(storeKey: string | null | undefined): Map<string, string | null> {
+    const sk = storeKey ?? "lebanon";
+    if (!imageMapByStore.has(sk)) {
+      const products = getOsProducts(sk) ?? [];
+      const m = new Map<string, string | null>();
+      for (const p of products) {
+        const img = p.images[0]?.url ?? null;
+        if (p.name) m.set(p.name.trim().toLowerCase(), img);
+      }
+      imageMapByStore.set(sk, m);
+    }
+    return imageMapByStore.get(sk)!;
+  }
+
   const orders = rows.map((r) => {
     const wc = r.wcOrderId ? wcMap.get(r.wcOrderId) ?? null : null;
+
+    // Shared extended fields available on all order rows.
+    const cardMessage = r.cardMessage ?? null;
+    const recipientPhone = r.recipientPhone ?? null;
+    const recipientAddress =
+      [r.deliveryDistrict, r.deliveryAddress].filter(Boolean).join(" · ") || null;
 
     // WooCommerce-linked order: enrich from WC response.
     if (wc) {
@@ -199,6 +223,8 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
         osOrderId: r.osOrderId ?? null,
         state: r.state,
         recipientName: r.recipientName,
+        recipientPhone,
+        recipientAddress,
         deliveryDate: r.deliveryDate,
         deliverySlot: r.deliverySlot,
         createdAt: r.createdAt.toISOString(),
@@ -208,6 +234,7 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
         currency: wc.currency ?? null,
         itemsCount: items.reduce((sum, it) => sum + (it.quantity || 0), 0) || items.length,
         items,
+        cardMessage,
       };
     }
 
@@ -216,7 +243,9 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
     const liveOsStatus = r.osOrderId ? (osStatusMap.get(r.osOrderId) ?? null) : null;
     const hasLiveStatus = liveOsStatus !== null;
 
-    let items: { name: string; quantity: number; image: null }[] = [];
+    // Enrich item images from the OS product cache (best-effort by name match).
+    const imageMap = getImageMap(r.storeKey);
+    let items: { name: string; quantity: number; image: string | null }[] = [];
     if (r.lineItemsJson) {
       try {
         const parsed = JSON.parse(r.lineItemsJson) as StoredLineItem[];
@@ -224,7 +253,7 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
           items = parsed.map((li) => ({
             name: String(li.name ?? ""),
             quantity: Number(li.quantity ?? 0),
-            image: null,
+            image: imageMap.get(String(li.name ?? "").trim().toLowerCase()) ?? null,
           }));
         }
       } catch {
@@ -236,6 +265,8 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
       typeof r.totalUsdCents === "number" && r.totalUsdCents !== null
         ? (r.totalUsdCents / 100).toFixed(2)
         : null;
+    const currency =
+      r.currencyCode ?? (total !== null ? "USD" : null);
 
     return {
       appOrderId: r.appOrderId,
@@ -243,15 +274,18 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
       osOrderId: r.osOrderId ?? null,
       state: r.state,
       recipientName: r.recipientName,
+      recipientPhone,
+      recipientAddress,
       deliveryDate: r.deliveryDate,
       deliverySlot: r.deliverySlot,
       createdAt: r.createdAt.toISOString(),
       status: liveOsStatus ?? r.state ?? null,
       liveStatus: hasLiveStatus,
       total,
-      currency: total !== null ? "USD" : null,
+      currency,
       itemsCount: items.reduce((sum, it) => sum + (it.quantity || 0), 0) || items.length,
       items,
+      cardMessage,
     };
   });
 

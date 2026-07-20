@@ -1,7 +1,8 @@
-import { Package, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Package, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MyOrder } from "@/lib/queries";
+import { OrderDetail } from "./OrderDetail";
 
 function statusConfig(status: string | null): { label: string; className: string } {
   if (!status) return { label: "", className: "" };
@@ -40,7 +41,7 @@ export function AccountOrderCard({
   order: MyOrder;
   t: (k: string) => string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const placed = new Date(order.createdAt).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -53,7 +54,6 @@ export function AccountOrderCard({
   const totalLabel =
     order.total && order.currency ? `${order.currency} ${order.total}` : null;
   const { label: statusLabel, className: statusClass } = statusConfig(order.status);
-  const hasItems = Array.isArray(order.items) && order.items.length > 0;
 
   return (
     <li
@@ -103,7 +103,7 @@ export function AccountOrderCard({
         </div>
       </div>
 
-      {/* Footer row: track order + view details toggle */}
+      {/* Footer row: track order + view details */}
       <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-3 flex-wrap">
         {order.wcOrderId != null && (
           <a
@@ -116,33 +116,22 @@ export function AccountOrderCard({
             {t("account.orders.trackOrder")}
           </a>
         )}
-        {hasItems && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className={`flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors${order.wcOrderId != null ? " ml-auto" : ""}`}
-          >
-            {expanded ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-            {expanded ? "Hide details" : "View details"}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className={`flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors${order.wcOrderId != null ? " ml-auto" : ""}`}
+          data-testid={`order-view-details-${order.appOrderId}`}
+        >
+          {t("account.orders.viewDetails")}
+        </button>
       </div>
-      {hasItems && expanded && (
-        <ul className="mt-3 space-y-1.5">
-          {order.items.map((item, i) => (
-            <li key={i} className="flex items-center justify-between text-sm">
-              <span className="text-foreground">{item.name}</span>
-              {item.quantity > 1 && (
-                <span className="text-muted-foreground text-xs">×{item.quantity}</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+
+      <OrderDetail
+        order={order}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        t={t}
+      />
     </li>
   );
 }

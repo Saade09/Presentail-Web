@@ -586,8 +586,11 @@ export const useBrands = (_params: LocalizedParams = {}) => {
 export type MyOrder = {
   appOrderId: string;
   wcOrderId: number | null;
+  osOrderId?: string | null;
   state: string;
   recipientName: string | null;
+  recipientPhone?: string | null;
+  recipientAddress?: string | null;
   deliveryDate: string | null;
   deliverySlot: string | null;
   createdAt: string;
@@ -597,6 +600,7 @@ export type MyOrder = {
   currency: string | null;
   itemsCount: number;
   items: { name: string; quantity: number; image: string | null }[];
+  cardMessage?: string | null;
 };
 
 // Pass `true` when the caller has confirmed there is an active session
