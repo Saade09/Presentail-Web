@@ -10,7 +10,7 @@ type Props = {
   price: ReactNode;
   taxLabel: string;
   rewardPoints: number;
-  /** Badge shown between the price row and the product title when free delivery is earned. */
+  /** Badge shown below the price row when free delivery is earned. */
   freeDeliveryBadge?: ReactNode;
 };
 
@@ -19,6 +19,13 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints, freeDeliveryB
   const { t } = useLocale();
   return (
     <div>
+      <h1
+        className="font-serif text-3xl md:text-4xl leading-tight text-foreground mb-3 lg:mb-1.5"
+        data-testid="product-title"
+      >
+        {name}
+      </h1>
+
       <div className="flex items-center justify-between gap-4 mb-3 lg:mb-1.5">
         <div className="flex items-baseline gap-3 min-w-0">
           <span
@@ -57,13 +64,6 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints, freeDeliveryB
           </span>
         </div>
       )}
-
-      <h1
-        className="font-serif text-3xl md:text-4xl leading-tight text-foreground"
-        data-testid="product-title"
-      >
-        {name}
-      </h1>
 
       <LoyaltyInfoModal open={open} onClose={() => setOpen(false)} />
     </div>
