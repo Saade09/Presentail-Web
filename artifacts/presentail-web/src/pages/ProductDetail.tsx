@@ -337,6 +337,7 @@ export default function ProductDetail() {
         scheduledFeeSubLabel: undefined as string | undefined,
         scheduledIsFree: false,
         helperIsQualified: false,
+        expressSurchargeFormatted: fmt(expressSurcharge),
       };
     }
 
@@ -363,6 +364,7 @@ export default function ProductDetail() {
       scheduledFeeSubLabel: t("product.delivery.standardDelivery"),
       scheduledIsFree: isFree,
       helperIsQualified: isFree,
+      expressSurchargeFormatted: fmt(expressSurcharge),
     };
   }, [delivery, cityId, freeDeliveryMet, formatPrice, t]);
 
@@ -546,7 +548,9 @@ export default function ProductDetail() {
               rewardPoints={vm.rewardPoints}
               freeDeliveryBadge={
                 delivery.isLoaded && freeDeliveryMet
-                  ? t("product.delivery.qualifiedHelper")
+                  ? deliveryChoice === "express"
+                    ? t("product.delivery.qualifiedHelperExpress").replace("{amount}", deliveryCardLabels.expressSurchargeFormatted)
+                    : t("product.delivery.qualifiedHelperStandard")
                   : undefined
               }
             />
@@ -622,8 +626,9 @@ export default function ProductDetail() {
               scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
               scheduledFeeSubLabel={deliveryCardLabels.scheduledFeeSubLabel}
               scheduledIsFree={deliveryCardLabels.scheduledIsFree}
-              showHelper={!deliveryCardLabels.helperIsQualified}
+              showHelper={true}
               helperIsQualified={deliveryCardLabels.helperIsQualified}
+              helperExpressFee={deliveryCardLabels.expressSurchargeFormatted}
             />
 
             {deliveryChoice === "scheduled" && (

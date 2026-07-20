@@ -63,7 +63,8 @@ export const productStrings: Dict = {
   "product.delivery.calculatedAtCheckout": { en: "Calculated at checkout", ar: "يُحسب عند الدفع" },
   "product.delivery.calculatedAfterArea": { en: "Calculated after selecting area", ar: "يُحسب بعد اختيار المنطقة" },
   "product.delivery.feesHelper": { en: "Fees update based on your cart total and the recipient's area.", ar: "تتغيّر الرسوم بناءً على إجمالي سلّتك ومنطقة المستلم." },
-  "product.delivery.qualifiedHelper": { en: "Free standard delivery applied to your order.", ar: "تم تطبيق التوصيل القياسي المجاني على طلبك." },
+  "product.delivery.qualifiedHelperStandard": { en: "You qualify for free standard delivery.", ar: "أنت مؤهّل للتوصيل القياسي المجاني." },
+  "product.delivery.qualifiedHelperExpress": { en: "Free standard delivery included — you're only paying the {amount} express upgrade.", ar: "التوصيل القياسي مجاني — أنت تدفع فقط {amount} رسوم الترقية السريعة." },
 
   "productUnavailable.heading": { en: "Not Available in {city}", ar: "غير متاح في {city}" },
   "productUnavailable.subtitleWithAlts": {
@@ -197,7 +198,8 @@ export const productStringsFr: Record<string, string> = {
   "product.delivery.calculatedAtCheckout": "Calculé au paiement",
   "product.delivery.calculatedAfterArea": "Calculé après sélection de la zone",
   "product.delivery.feesHelper": "Les frais varient selon le total de votre panier et la zone du destinataire.",
-  "product.delivery.qualifiedHelper": "Livraison standard gratuite appliquée à votre commande.",
+  "product.delivery.qualifiedHelperStandard": "Vous bénéficiez de la livraison standard gratuite.",
+  "product.delivery.qualifiedHelperExpress": "Livraison standard offerte — vous ne payez que {amount} pour l'option express.",
 
   "productUnavailable.heading": "Pas disponible à {city}",
   "productUnavailable.subtitleWithAlts": "Ce produit est disponible à {altCity}. Revenez à {altCity} pour l'acheter, ou parcourez notre sélection pour {city} ci-dessous.",

@@ -29,6 +29,8 @@ type Props = {
   showHelper?: boolean;
   /** When true the helper uses the "qualified" (free) copy and green styling. */
   helperIsQualified?: boolean;
+  /** Formatted express surcharge amount (e.g. "$15") used in the express qualified helper. */
+  helperExpressFee?: string;
 };
 
 export function DeliveryOptions({
@@ -47,6 +49,7 @@ export function DeliveryOptions({
   scheduledIsFree,
   showHelper,
   helperIsQualified,
+  helperExpressFee,
 }: Props) {
   const { t } = useLocale();
   if (!expressAvailable) return null;
@@ -100,7 +103,9 @@ export function DeliveryOptions({
             )}
           >
             {helperIsQualified
-              ? t("product.delivery.qualifiedHelper")
+              ? value === "express" && helperExpressFee
+                ? t("product.delivery.qualifiedHelperExpress").replace("{amount}", helperExpressFee)
+                : t("product.delivery.qualifiedHelperStandard")
               : t("product.delivery.feesHelper")}
           </span>
         </div>
