@@ -8,6 +8,10 @@
 //   (d) Free-delivery threshold — district fee zeroed when subtotal qualifies
 //   (e) No-address flat fee — flat fee returned when noAddress=true
 //   (f) Express delivery — express surcharge included, slot fee excluded
+//   (h) Night slot with no extraFee and today's date → $5 surcharge applied
+//   (i) Night slot with explicit extraFee: 7 → $7 surcharge (OS override wins)
+//   (j) Non-night slot with no extraFee → $0 slot fee
+//   (k) Night slot with a future date → $0 slot fee (same-day rule)
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
@@ -20,13 +24,19 @@ const {
   expressSurchargeUsdMock,
   countryForDistrictMock,
   getDeliverySlotsMock,
+  getLocalIsoMock,
 } = vi.hoisted(() => {
   const computeDistrictFeeUsdMock = vi.fn().mockReturnValue(8);
   const expressSurchargeUsdMock = vi.fn().mockReturnValue(5);
   const countryForDistrictMock = vi.fn().mockReturnValue("LB");
   const getDeliverySlotsMock = vi.fn().mockReturnValue([]);
-  return { computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, getDeliverySlotsMock };
+  const getLocalIsoMock = vi.fn().mockReturnValue("2026-07-20");
+  return { computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, getDeliverySlotsMock, getLocalIsoMock };
 });
+
+vi.mock("@workspace/delivery", () => ({
+  getLocalIso: getLocalIsoMock,
+}));
 
 vi.mock("../lib/catalog", () => ({
   resolveCartItems: vi.fn().mockResolvedValue({
@@ -114,6 +124,7 @@ beforeEach(() => {
   expressSurchargeUsdMock.mockReturnValue(5);
   countryForDistrictMock.mockReturnValue("LB");
   getDeliverySlotsMock.mockReturnValue([]);
+  getLocalIsoMock.mockReturnValue("2026-07-20");
   vi.mocked(resolveCartItems).mockResolvedValue({
     ok: true,
     subtotalUsd: 100,
@@ -245,5 +256,101 @@ describe("POST /checkout/fees", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);
+  });
+
+  it("(h) night slot with no extraFee and today's date — $5 surcharge applied", async () => {
+    computeDistrictFeeUsdMock.mockReturnValue(0);
+    // Night slot: startHour=21, no extraFee configured by OS.
+    getDeliverySlotsMock.mockReturnValue([
+      { label: "9:00 PM – 11:00 PM", cutoffHour: 21, startHour: 21, endHour: 23 },
+    ]);
+    // getLocalIso returns "2026-07-20" (today) — default from beforeEach.
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        deliverySlot: "9:00 PM – 11:00 PM",
+        cityId: "1",
+        deliveryDate: "2026-07-20",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.slotFeeUsd).toBe(5);
+    expect(res.body.totalUsd).toBe(105);
+  });
+
+  it("(i) night slot with explicit extraFee: 7 — OS override wins, returns $7", async () => {
+    computeDistrictFeeUsdMock.mockReturnValue(0);
+    getDeliverySlotsMock.mockReturnValue([
+      { label: "9:00 PM – 11:00 PM", cutoffHour: 21, startHour: 21, endHour: 23, extraFee: 7 },
+    ]);
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        deliverySlot: "9:00 PM – 11:00 PM",
+        cityId: "1",
+        deliveryDate: "2026-07-20",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.slotFeeUsd).toBe(7);
+    expect(res.body.totalUsd).toBe(107);
+  });
+
+  it("(j) non-night slot with no extraFee — no surcharge, returns $0 slot fee", async () => {
+    computeDistrictFeeUsdMock.mockReturnValue(0);
+    // Morning slot: startHour=9, not a night slot.
+    getDeliverySlotsMock.mockReturnValue([
+      { label: "9:00 AM – 2:00 PM", cutoffHour: 9, startHour: 9, endHour: 14 },
+    ]);
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        deliverySlot: "9:00 AM – 2:00 PM",
+        cityId: "1",
+        deliveryDate: "2026-07-20",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.slotFeeUsd).toBe(0);
+    expect(res.body.totalUsd).toBe(100);
+  });
+
+  it("(k) night slot with a future date — $0 slot fee (same-day rule only)", async () => {
+    computeDistrictFeeUsdMock.mockReturnValue(0);
+    getDeliverySlotsMock.mockReturnValue([
+      { label: "9:00 PM – 11:00 PM", cutoffHour: 21, startHour: 21, endHour: 23 },
+    ]);
+    // Today is "2026-07-20" but the shopper selected a future date.
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        deliverySlot: "9:00 PM – 11:00 PM",
+        cityId: "1",
+        deliveryDate: "2026-07-21",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.slotFeeUsd).toBe(0);
+    expect(res.body.totalUsd).toBe(100);
   });
 });

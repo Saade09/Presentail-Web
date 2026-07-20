@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
+import { getLocalIso } from "@workspace/delivery";
 import { sendAlert } from "../lib/alerts";
 import {
   convertFromUsd,
@@ -23,6 +24,52 @@ import { authenticate } from "../lib/auth";
 import { db, customersTable } from "@workspace/db";
 
 const router: IRouter = Router();
+
+/** $5 same-day night surcharge: applied when the OS sends no explicit fee override. */
+const NIGHT_SLOT_SURCHARGE_USD = 5;
+
+/**
+ * Compute the slot fee for a delivery slot, mirroring the client-side logic in
+ * `checkoutFees.ts`. Returns:
+ * - `extraFee` from the OS slot config when it is set and > 0
+ * - $5 night-slot surcharge when the slot starts at or after 21:00 and
+ *   `deliveryDate` is today in the recipient country (or when `deliveryDate` is absent)
+ * - 0 otherwise
+ */
+function computeSlotFeeUsd({
+  expressDelivery,
+  deliverySlot,
+  deliverySlotId,
+  cityId,
+  deliveryDate,
+  district,
+}: {
+  expressDelivery?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+  district?: string;
+}): number {
+  if (expressDelivery || !deliverySlot || !cityId) return 0;
+  const citySlots = getDeliverySlots(cityId);
+  const bookedSlot = deliverySlotId
+    ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
+    : citySlots.find((s) => s.label === deliverySlot);
+  if (!bookedSlot) return 0;
+  if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
+    return Number(bookedSlot.extraFee);
+  }
+  // Hardcoded same-day night surcharge: when the OS sends no fee override (undefined or 0),
+  // a $5 fee applies for night slots (startHour ≥ 21) selected for today.
+  const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
+  const isNightSlot = slotStartHour >= 21;
+  const countryCode = countryForDistrict(district ?? "Beirut");
+  const todayForCountry = getLocalIso(countryCode);
+  const isToday = !deliveryDate || deliveryDate === todayForCountry;
+  if (isNightSlot && isToday) return NIGHT_SLOT_SURCHARGE_USD;
+  return 0;
+}
 
 /**
  * Returns true when the store key corresponds to a UAE city (AED payments).
@@ -93,6 +140,8 @@ type Body = {
   /** Stable OS slot ID. When provided, overrides label-based slot lookup so same-label/different-config slots are resolved correctly. */
   deliverySlotId?: string;
   cityId?: string;
+  /** Selected delivery date as YYYY-MM-DD. Used to determine whether the same-day night surcharge applies. */
+  deliveryDate?: string;
   couponCode?: string;
 };
 
@@ -111,6 +160,7 @@ router.post("/checkout/session", async (req, res) => {
     deliverySlot: rawDeliverySlot,
     deliverySlotId: rawDeliverySlotId,
     cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
     couponCode: sessionCouponCode,
   } = req.body as Body;
 
@@ -192,15 +242,14 @@ router.post("/checkout/session", async (req, res) => {
   // Slot fee is computed server-side from the OS locations cache. Only charged
   // when the customer chose a premium slot and is NOT on express delivery
   // (express is a flat surcharge that supersedes slot pricing).
-  const sessionSlotFeeUsd = (() => {
-    if (sessionExpressDelivery || !sessionDeliverySlot || !rawCityId) return 0;
-    const citySlots = getDeliverySlots(rawCityId);
-    const bookedSlot = rawDeliverySlotId
-      ? (citySlots.find((s) => s.slotId === rawDeliverySlotId) ?? citySlots.find((s) => s.label === sessionDeliverySlot))
-      : citySlots.find((s) => s.label === sessionDeliverySlot);
-    if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
-    return Number(bookedSlot.extraFee);
-  })();
+  const sessionSlotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: sessionExpressDelivery,
+    deliverySlot: sessionDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    district: sessionDistrict,
+  });
   const sessionDeliveryFeeUsd = sessionDistrictFeeUsd + sessionExpressFeeUsd + sessionSlotFeeUsd;
   const sessionTotalUsd = sessionSubtotalUsd + sessionDeliveryFeeUsd;
 
@@ -388,6 +437,8 @@ type PaymentIntentBody = {
   /** Stable OS slot ID. When provided, overrides label-based slot lookup. */
   deliverySlotId?: string;
   cityId?: string;
+  /** Selected delivery date as YYYY-MM-DD. Used to determine whether the same-day night surcharge applies. */
+  deliveryDate?: string;
   couponCode?: string;
   saveCard?: boolean;
   metadata?: Record<string, string>;
@@ -514,7 +565,7 @@ async function computeStripeAmounts({
 }
 
 router.post("/checkout/payment-intent", async (req, res) => {
-  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, deliverySlotId, cityId, couponCode, saveCard } =
+  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, deliverySlotId, cityId, deliveryDate, couponCode, saveCard } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -591,15 +642,14 @@ router.post("/checkout/payment-intent", async (req, res) => {
       : 0;
   // Slot fee is computed server-side from the OS locations cache. Only charged
   // when the customer chose a premium slot and is NOT on express delivery.
-  const serverSlotFeeUsd = (() => {
-    if (expressDelivery === true || !deliverySlot || !cityId) return 0;
-    const citySlots = getDeliverySlots(cityId);
-    const bookedSlot = deliverySlotId
-      ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
-      : citySlots.find((s) => s.label === deliverySlot);
-    if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
-    return Number(bookedSlot.extraFee);
-  })();
+  const serverSlotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: expressDelivery === true,
+    deliverySlot,
+    deliverySlotId,
+    cityId,
+    deliveryDate,
+    district,
+  });
   const serverDeliveryFeeUsd = serverDistrictFeeUsd + serverExpressFeeUsd + serverSlotFeeUsd;
   const totalUsd = subtotalUsd + serverDeliveryFeeUsd;
 
@@ -1004,6 +1054,7 @@ router.post("/checkout/fees", async (req, res) => {
     deliverySlot,
     deliverySlotId,
     cityId,
+    deliveryDate,
     couponCode,
   } = req.body as {
     items?: LineItemInput[];
@@ -1015,6 +1066,8 @@ router.post("/checkout/fees", async (req, res) => {
     deliverySlot?: string;
     deliverySlotId?: string;
     cityId?: string;
+    /** Selected delivery date as YYYY-MM-DD. Used to determine whether the same-day night surcharge applies. */
+    deliveryDate?: string;
     couponCode?: string;
   };
 
@@ -1048,15 +1101,14 @@ router.post("/checkout/fees", async (req, res) => {
     expressDelivery === true
       ? expressSurchargeUsd(countryForDistrict(district ?? "Beirut"))
       : 0;
-  const slotFeeUsd = (() => {
-    if (expressDelivery === true || !deliverySlot || !cityId) return 0;
-    const citySlots = getDeliverySlots(cityId);
-    const bookedSlot = deliverySlotId
-      ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
-      : citySlots.find((s) => s.label === deliverySlot);
-    if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
-    return Number(bookedSlot.extraFee);
-  })();
+  const slotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: expressDelivery === true,
+    deliverySlot,
+    deliverySlotId,
+    cityId,
+    deliveryDate,
+    district,
+  });
   const deliveryFeeUsd = districtFeeUsd + expressFeeUsd + slotFeeUsd;
   const rawTotalUsd = subtotalUsd + deliveryFeeUsd;
 
