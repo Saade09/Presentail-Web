@@ -103,7 +103,7 @@ export function OrderSummaryPanel({
   return (
     <div className="w-full lg:w-96 xl:w-[420px] shrink-0 order-first lg:order-last self-stretch">
       <div className="sticky top-24">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:max-h-[calc(100vh-6rem)]">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
 
           {/* ══════════════════════════════════════════════════
               MOBILE HEADER (original — visually unchanged)
@@ -320,10 +320,10 @@ export function OrderSummaryPanel({
           {/* ══════════════════════════════════════════════════
               DESKTOP BODY (new redesign — hidden on mobile)
               ══════════════════════════════════════════════════ */}
-          <div className="hidden lg:flex flex-col flex-1 min-h-0">
+          <div className="hidden lg:block">
 
-            {/* Scrollable product list */}
-            <div className="overflow-y-auto shrink min-h-0 px-6 pt-4">
+            {/* Product list */}
+            <div className="px-6 pt-4">
               <ul className="space-y-0" aria-label={t("checkout.summary")}>
                 {items.map((item, idx) => (
                   <li key={item.product.id}>
@@ -383,8 +383,8 @@ export function OrderSummaryPanel({
               </ul>
             </div>
 
-            {/* Pinned bottom section */}
-            <div className="shrink-0 px-6 pb-5">
+            {/* Bottom section */}
+            <div className="px-6 pb-5">
 
               {/* Promo / gift-card control — outlined row */}
               <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden">
