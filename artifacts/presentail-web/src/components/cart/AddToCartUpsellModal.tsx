@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { freeDeliveryThresholdUsd as libFreeDeliveryThresholdUsd } from "@workspace/delivery";
 import { useProducts } from "@/lib/queries";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { useToast } from "@/hooks/use-toast";
@@ -52,8 +53,19 @@ type Props = {
 export function AddToCartUpsellModal({ open, onClose }: Props) {
   const { t, language, dir } = useLocale();
   const { subtotal } = useCart();
-  const { countryCode, cityId } = useLocationSelection();
-  const { freeDeliveryEnabled } = useDeliveryConfig();
+  const { countryCode, cityId, city: locationCity, country: locationCountry } = useLocationSelection();
+  const {
+    freeDeliveryEnabled,
+    freeDeliveryThresholdUsd: configThresholdUsd,
+  } = useDeliveryConfig();
+
+  // City-specific threshold: OS per-city → OS per-country → delivery-config API → lib fallback.
+  // Mirrors the same priority chain used in Cart.tsx so the modal and cart always agree.
+  const thresholdUsd =
+    locationCity?.freeDeliveryThresholdUsd ??
+    locationCountry?.freeDeliveryThresholdUsd ??
+    configThresholdUsd ??
+    (libFreeDeliveryThresholdUsd(countryCode) || undefined);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -123,7 +135,7 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           </p>
           {freeDeliveryEnabled && (
             <div className="mt-3">
-              <FreeDeliveryBanner subtotal={subtotal} />
+              <FreeDeliveryBanner subtotal={subtotal} overrideThresholdUsd={thresholdUsd} />
             </div>
           )}
         </div>
