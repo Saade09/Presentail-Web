@@ -830,8 +830,28 @@ function CheckoutForm() {
 
   const [couponValidating, setCouponValidating] = useState(false);
 
-  const handleCouponApply = async () => {
-    const code = couponInput.trim().toUpperCase();
+  type LoyaltyCoupon = { code: string; points: number; discountPercent: number };
+  const [loyaltyCoupon, setLoyaltyCoupon] = useState<LoyaltyCoupon | null>(null);
+
+  useEffect(() => {
+    if (!user || step !== 2) return;
+    let cancelled = false;
+    apiFetch<{ ok: boolean; loyalty: { points: number; coupons: Array<{ code: string; discountPercent: number; status: string }> } }>("/loyalty/me")
+      .then((r) => {
+        if (cancelled) return;
+        const active = r.loyalty?.coupons?.find((c) => c.status === "active");
+        setLoyaltyCoupon(active
+          ? { code: active.code, points: r.loyalty.points, discountPercent: active.discountPercent }
+          : null,
+        );
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, step]);
+
+  const handleCouponApply = async (codeOverride?: string) => {
+    const code = (codeOverride !== undefined ? codeOverride : couponInput).trim().toUpperCase();
     if (!code || couponValidating) return;
     setCouponError(null);
     setCouponValidating(true);
@@ -889,6 +909,18 @@ function CheckoutForm() {
     setCouponOpen(next);
     if (next) {
       setTimeout(() => couponInputRef.current?.focus(), 80);
+    }
+  };
+
+  const loyaltyToggleOn =
+    couponApplied && !!loyaltyCoupon &&
+    couponInput.trim().toUpperCase() === loyaltyCoupon.code.trim().toUpperCase();
+
+  const handleLoyaltyToggle = (active: boolean) => {
+    if (active && loyaltyCoupon) {
+      handleCouponApply(loyaltyCoupon.code);
+    } else {
+      handleCouponRemove();
     }
   };
 
@@ -3192,6 +3224,9 @@ function CheckoutForm() {
             handleCouponToggle={handleCouponToggle}
             handleCouponApply={handleCouponApply}
             handleCouponRemove={handleCouponRemove}
+            loyaltyCoupon={loyaltyCoupon}
+            loyaltyToggleOn={loyaltyToggleOn}
+            onLoyaltyToggle={handleLoyaltyToggle}
             onChangeDelivery={() => setDeliveryPickerOpen(true)}
             step={step}
             step1CtaDisabled={step1CtaDisabled}

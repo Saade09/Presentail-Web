@@ -217,6 +217,9 @@ export const checkoutStrings: Dict = {
   "checkout.editCart": { en: "Edit cart", ar: "تعديل السلة" },
   "checkout.delivery.sectionLabel": { en: "DELIVERY", ar: "التوصيل" },
   "checkout.delivery.notSelected": { en: "Select delivery details", ar: "اختر تفاصيل التوصيل" },
+
+  "checkout.loyalty.usePoints": { en: "Use {n} pts", ar: "استخدم {n} نقطة" },
+  "checkout.loyalty.off": { en: "{n}% off", ar: "خصم {n}٪" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -411,4 +414,7 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.editCart": "Modifier le panier",
   "checkout.delivery.sectionLabel": "LIVRAISON",
   "checkout.delivery.notSelected": "Sélectionner les détails de livraison",
+
+  "checkout.loyalty.usePoints": "Utiliser {n} pts",
+  "checkout.loyalty.off": "{n}% de réduction",
 };

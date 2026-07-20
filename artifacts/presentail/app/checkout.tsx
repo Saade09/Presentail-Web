@@ -906,9 +906,10 @@ function CheckoutScreen() {
     setShowFieldErrors(false);
   }, [step]);
 
-  const handleCouponApply = async () => {
-    const code = coupon.trim().toUpperCase();
+  const handleCouponApply = async (codeOverride?: string) => {
+    const code = (codeOverride !== undefined ? codeOverride : coupon).trim().toUpperCase();
     if (!code || couponValidating) return;
+    if (codeOverride !== undefined) setCoupon(codeOverride.toUpperCase());
     setCouponError(null);
     setCouponValidating(true);
     try {
@@ -951,6 +952,40 @@ function CheckoutScreen() {
     setCouponError(null);
     setCouponOpen(false);
     AsyncStorage.removeItem("@presentail/coupon_v1").catch(() => {});
+  };
+
+  const [loyaltyCoupon, setLoyaltyCoupon] = useState<{ code: string; points: number; discountPercent: number } | null>(null);
+
+  useEffect(() => {
+    if (!authUser || !authToken || step !== 2) return;
+    let cancelled = false;
+    fetch(`${API_BASE}/api/loyalty/me`, {
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const active = data.loyalty?.coupons?.find((c: { status: string }) => c.status === "active");
+        setLoyaltyCoupon(active
+          ? { code: active.code, points: data.loyalty.points, discountPercent: active.discountPercent }
+          : null,
+        );
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, authToken, step]);
+
+  const loyaltyToggleOn =
+    couponApplied && !!loyaltyCoupon &&
+    coupon.trim().toUpperCase() === loyaltyCoupon.code.trim().toUpperCase();
+
+  const handleLoyaltyToggle = (active: boolean) => {
+    if (active && loyaltyCoupon) {
+      handleCouponApply(loyaltyCoupon.code);
+    } else {
+      handleCouponRemove();
+    }
   };
 
   const next = () => {
@@ -1882,6 +1917,9 @@ function CheckoutScreen() {
           couponValidating={couponValidating}
           onCouponApply={handleCouponApply}
           onCouponRemove={handleCouponRemove}
+          loyaltyCoupon={loyaltyCoupon}
+          loyaltyToggleOn={loyaltyToggleOn}
+          onLoyaltyToggle={handleLoyaltyToggle}
           showDeliveryFee={step > 0}
           initialOpen={false}
         />
@@ -3906,7 +3944,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
 
 // =============== Collapsible Order Summary ===============
 
-function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, couponApplied, couponDiscountUsd, couponError, couponValidating, onCouponApply, onCouponRemove, showDeliveryFee, initialOpen = false }: any) {
+function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, couponApplied, couponDiscountUsd, couponError, couponValidating, onCouponApply, onCouponRemove, loyaltyCoupon, loyaltyToggleOn, onLoyaltyToggle, showDeliveryFee, initialOpen = false }: any) {
   const { formatPrice, currencyCode } = useCurrency();
   const { isRTL } = useLanguage();
   const headingFontMedium = useHeadingFont("500Medium");
@@ -4024,14 +4062,42 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
             </View>
           ))}
 
-          {!couponApplied ? (
+          {/* Loyalty points toggle — visible only when user has an active loyalty coupon */}
+          {loyaltyCoupon ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Feather name="star" size={14} color={loyaltyToggleOn ? "#16a34a" : colors.gold} />
+              <View style={{ flex: 1 }}>
+                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: loyaltyToggleOn ? "#16a34a" : colors.foreground }}>
+                  {t.checkoutLoyaltyUsePoints.replace("{n}", String(loyaltyCoupon.points))}
+                </AppText>
+                {loyaltyToggleOn && couponDiscountUsd > 0 ? (
+                  <AppText style={{ fontSize: 11, color: "#16a34a" }}>
+                    {"−"}{formatPrice(couponDiscountUsd)}
+                  </AppText>
+                ) : (
+                  <AppText style={{ fontSize: 11, color: colors.mutedForeground }}>
+                    {t.checkoutLoyaltyOff.replace("{n}", String(loyaltyCoupon.discountPercent))}
+                  </AppText>
+                )}
+              </View>
+              <Switch
+                value={loyaltyToggleOn ?? false}
+                onValueChange={onLoyaltyToggle}
+                disabled={!!(couponApplied && !loyaltyToggleOn)}
+                trackColor={{ false: colors.border, true: "#16a34a" }}
+                thumbColor="#ffffff"
+              />
+            </View>
+          ) : null}
+
+          {!loyaltyToggleOn && !couponApplied ? (
             <Pressable onPress={() => setCouponOpen(!couponOpen)}>
               <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
                 {t.checkoutHaveCoupon} <AppText style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</AppText>
               </AppText>
             </Pressable>
           ) : null}
-          {couponOpen && !couponApplied ? (
+          {!loyaltyToggleOn && couponOpen && !couponApplied ? (
             <View style={{ gap: 6 }}>
               <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder={t.checkoutCouponPlaceholder} />
               {couponError ? (
@@ -4048,7 +4114,7 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
               </Pressable>
             </View>
           ) : null}
-          {couponApplied ? (
+          {!loyaltyToggleOn && couponApplied ? (
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
                 {coupon.trim()}

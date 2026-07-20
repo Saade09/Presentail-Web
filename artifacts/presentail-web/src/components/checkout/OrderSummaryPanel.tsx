@@ -9,9 +9,11 @@ import {
   ArrowRight,
   Lock,
   X,
+  Star,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
@@ -46,6 +48,9 @@ export type OrderSummaryPanelProps = {
   handleCouponToggle: () => void;
   handleCouponApply: () => void;
   handleCouponRemove: () => void;
+  loyaltyCoupon?: { code: string; points: number; discountPercent: number } | null;
+  loyaltyToggleOn?: boolean;
+  onLoyaltyToggle?: (active: boolean) => void;
   onChangeDelivery: () => void;
   step: number;
   step1CtaDisabled: boolean;
@@ -79,6 +84,9 @@ export function OrderSummaryPanel({
   handleCouponToggle,
   handleCouponApply,
   handleCouponRemove,
+  loyaltyCoupon,
+  loyaltyToggleOn = false,
+  onLoyaltyToggle,
   onChangeDelivery,
   step,
   step1CtaDisabled,
@@ -194,7 +202,44 @@ export function OrderSummaryPanel({
 
               {/* Coupon — original text-link style */}
               <div className="border-t border-gray-100 pt-4 mb-4">
-                {couponApplied ? (
+                {/* Loyalty points toggle — visible only when the user has an active loyalty coupon */}
+                {loyaltyCoupon && (
+                  <div
+                    className={`flex items-center gap-2 mb-3 pb-3 border-b ${loyaltyToggleOn ? "border-green-100" : "border-gray-100"}`}
+                  >
+                    <Star
+                      className="w-3.5 h-3.5 shrink-0"
+                      style={{ color: loyaltyToggleOn ? "#16a34a" : "hsl(var(--primary))" }}
+                      aria-hidden
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span
+                        className="text-sm font-medium"
+                        style={{ color: loyaltyToggleOn ? "#16a34a" : "hsl(var(--foreground))" }}
+                      >
+                        {t("checkout.loyalty.usePoints").replace("{n}", String(loyaltyCoupon.points))}
+                      </span>
+                      {loyaltyToggleOn && confirmedCouponDiscount > 0 ? (
+                        <span className="ms-1.5 text-sm font-medium" style={{ color: "#16a34a" }}>
+                          ·&nbsp;−<FormattedPrice usdValue={confirmedCouponDiscount} />
+                        </span>
+                      ) : (
+                        <span className="ms-1.5 text-xs text-muted-foreground">
+                          · {t("checkout.loyalty.off").replace("{n}", String(loyaltyCoupon.discountPercent))}
+                        </span>
+                      )}
+                    </div>
+                    <Switch
+                      checked={loyaltyToggleOn}
+                      onCheckedChange={onLoyaltyToggle}
+                      disabled={!!(couponApplied && !loyaltyToggleOn)}
+                      aria-label={t("checkout.loyalty.usePoints").replace("{n}", String(loyaltyCoupon.points))}
+                      data-testid="toggle-loyalty-points"
+                    />
+                  </div>
+                )}
+
+                {!loyaltyToggleOn && couponApplied ? (
                   <>
                     <div
                       className="flex justify-between text-sm mb-1.5"
@@ -218,7 +263,7 @@ export function OrderSummaryPanel({
                       {t("checkout.coupon.remove")}
                     </button>
                   </>
-                ) : (
+                ) : !loyaltyToggleOn ? (
                   <>
                     <button
                       type="button"
@@ -264,7 +309,7 @@ export function OrderSummaryPanel({
                       </div>
                     )}
                   </>
-                )}
+                ) : null}
               </div>
 
               {/* Price breakdown — original style */}
@@ -386,7 +431,48 @@ export function OrderSummaryPanel({
             {/* Bottom section */}
             <div className="px-6 pb-5">
 
+              {/* Loyalty points toggle — desktop sidebar */}
+              {loyaltyCoupon && (
+                <div
+                  className={`mt-4 border rounded-xl overflow-hidden ${loyaltyToggleOn ? "border-green-200" : "border-gray-200"}`}
+                  style={loyaltyToggleOn ? { backgroundColor: "hsl(142 71% 45% / 0.06)" } : {}}
+                >
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    <Star
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: loyaltyToggleOn ? "#16a34a" : "hsl(var(--primary))" }}
+                      aria-hidden
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span
+                        className="text-sm font-medium"
+                        style={{ color: loyaltyToggleOn ? "#16a34a" : "hsl(var(--foreground))" }}
+                      >
+                        {t("checkout.loyalty.usePoints").replace("{n}", String(loyaltyCoupon.points))}
+                      </span>
+                      {loyaltyToggleOn && confirmedCouponDiscount > 0 ? (
+                        <span className="ms-2 text-sm font-medium" style={{ color: "#16a34a" }}>
+                          ·&nbsp;−<FormattedPrice usdValue={confirmedCouponDiscount} />
+                        </span>
+                      ) : (
+                        <span className="ms-2 text-xs text-muted-foreground">
+                          · {t("checkout.loyalty.off").replace("{n}", String(loyaltyCoupon.discountPercent))}
+                        </span>
+                      )}
+                    </div>
+                    <Switch
+                      checked={loyaltyToggleOn}
+                      onCheckedChange={onLoyaltyToggle}
+                      disabled={!!(couponApplied && !loyaltyToggleOn)}
+                      aria-label={t("checkout.loyalty.usePoints").replace("{n}", String(loyaltyCoupon.points))}
+                      data-testid="toggle-loyalty-points-sidebar"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Promo / gift-card control — outlined row */}
+              {!loyaltyToggleOn && (
               <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden">
                 {couponApplied ? (
                   /* Applied state */
@@ -506,6 +592,7 @@ export function OrderSummaryPanel({
                   </>
                 )}
               </div>
+              )}
 
               {/* Price hierarchy */}
               <div className="mt-4 space-y-2.5" role="region" aria-label={t("checkout.summary")}>
