@@ -1649,6 +1649,10 @@ function CheckoutScreen() {
         lastName: senderLast || undefined,
         returnUrl: successUrl,
         failureReturnUrl: cancelUrl,
+        deliverySlot: deliveryMode === "express" ? "" : slotLabel,
+        ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
+        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+        deliveryDate: date,
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {
@@ -1685,6 +1689,10 @@ function CheckoutScreen() {
         lastName: senderLast || undefined,
         returnUrl: successUrl,
         failureReturnUrl: cancelUrl,
+        deliverySlot: deliveryMode === "express" ? "" : slotLabel,
+        ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
+        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+        deliveryDate: date,
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {
@@ -1718,6 +1726,10 @@ function CheckoutScreen() {
         returnUrl: successUrl,
         cancelUrl,
         orderId,
+        deliverySlot: deliveryMode === "express" ? "" : slotLabel,
+        ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
+        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+        deliveryDate: date,
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {

@@ -9,7 +9,9 @@ import {
   getOsCityFreeDeliveryThresholdUsd,
   getOsCityFreeDeliveryEnabled,
   getOsCityDeliveryFeeUsd,
+  getDeliverySlots,
 } from "./osLocationsCache";
+import { getLocalIso } from "@workspace/delivery";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
 // server-side so the client cannot manipulate the delivery fee.
@@ -114,6 +116,56 @@ export function computeDistrictFeeUsd(
   // OS city fee wins over hardcoded table; hardcoded table is the cold-start fallback.
   const districtFee = getOsCityDeliveryFeeUsd(country, district) ?? baseDistrictFeeUsd(district);
   return noAddress ? NO_ADDRESS_DELIVERY_FEE_USD : districtFee;
+}
+
+/** $5 same-day night surcharge applied when the OS sends no explicit fee override. */
+export const NIGHT_SLOT_SURCHARGE_USD = 5;
+
+/**
+ * Compute the slot fee for a delivery slot.
+ *
+ * Returns:
+ * - `extraFee` from the OS slot config when set and > 0
+ * - $5 night-slot surcharge when the slot starts at or after 21:00 and
+ *   `deliveryDate` is today in the recipient country (or when `deliveryDate`
+ *   is absent)
+ * - 0 otherwise (no premium slot chosen, or express delivery was selected)
+ *
+ * Mirrors the client-side logic in `checkoutFees.ts` and the local copy in
+ * `routes/checkout.ts`. Centralised here so Mamo/PayPal/Tabby session-
+ * creation routes can charge the authoritative slot fee in the same way.
+ */
+export function computeSlotFeeUsd({
+  expressDelivery,
+  deliverySlot,
+  deliverySlotId,
+  cityId,
+  deliveryDate,
+  district,
+}: {
+  expressDelivery?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+  district?: string;
+}): number {
+  if (expressDelivery || !deliverySlot || !cityId) return 0;
+  const citySlots = getDeliverySlots(cityId);
+  const bookedSlot = deliverySlotId
+    ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
+    : citySlots.find((s) => s.label === deliverySlot);
+  if (!bookedSlot) return 0;
+  if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
+    return Number(bookedSlot.extraFee);
+  }
+  const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
+  const isNightSlot = slotStartHour >= 21;
+  const countryCode = countryForDistrict(district ?? "Beirut");
+  const todayForCountry = getLocalIso(countryCode);
+  const isToday = !deliveryDate || deliveryDate === todayForCountry;
+  if (isNightSlot && isToday) return NIGHT_SLOT_SURCHARGE_USD;
+  return 0;
 }
 
 type CatalogProduct = { price: number; name: string };

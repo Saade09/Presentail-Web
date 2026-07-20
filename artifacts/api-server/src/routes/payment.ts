@@ -8,11 +8,13 @@ import {
 import {
   resolveCartItems,
   computeDistrictFeeUsd,
+  computeSlotFeeUsd,
   countryForDistrict,
   expressSurchargeUsd,
 } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveStoreFromRequest } from "../lib/wooStore";
+import { validateRedirectUrl } from "../lib/validateRedirectUrl";
 
 const router: IRouter = Router();
 
@@ -111,6 +113,10 @@ router.post("/payment/mamo", async (req, res) => {
     lastName,
     returnUrl,
     failureReturnUrl,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -125,6 +131,10 @@ router.post("/payment/mamo", async (req, res) => {
     lastName?: string;
     returnUrl: string;
     failureReturnUrl: string;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
   };
 
   if (!orderId) {
@@ -132,6 +142,14 @@ router.post("/payment/mamo", async (req, res) => {
   }
   if (!returnUrl || !failureReturnUrl) {
     return res.status(400).json({ ok: false, message: "returnUrl and failureReturnUrl are required" }); // i18n-ignore
+  }
+  const returnUrlErr = validateRedirectUrl(returnUrl, "payment-return");
+  if (returnUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: returnUrlErr }); // i18n-ignore
+  }
+  const failureReturnUrlErr = validateRedirectUrl(failureReturnUrl, "payment-return");
+  if (failureReturnUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: failureReturnUrlErr }); // i18n-ignore
   }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
@@ -151,7 +169,18 @@ router.post("/payment/mamo", async (req, res) => {
   const districtCountry = countryForDistrict(resolvedDistrict);
   const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
   const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
-  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
+  // Slot fee is computed server-side from the OS locations cache and included
+  // in the Mamo charge so a shopper cannot pay the standard rate and then
+  // submit an order with a premium slot at finalization.
+  const mamoSlotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + mamoSlotFeeUsd;
 
   // Mamo settles in AED only — convert the server-computed USD total.
   const presented = normalizeCurrency(rawCurrency ?? "USD");
@@ -287,6 +316,7 @@ router.post("/payment/mamo", async (req, res) => {
         district: resolvedDistrict,
         expressDelivery: isExpress,
         noAddress: isNoAddress,
+        deliverySlot: rawDeliverySlot ?? "",
       },
     });
 
@@ -356,6 +386,10 @@ router.post("/payment/paypal", async (req, res) => {
     currency: rawCurrency,
     returnUrl,
     cancelUrl,
+    deliverySlot: ppRawDeliverySlot,
+    deliverySlotId: ppRawDeliverySlotId,
+    cityId: ppRawCityId,
+    deliveryDate: ppRawDeliveryDate,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -365,6 +399,10 @@ router.post("/payment/paypal", async (req, res) => {
     currency?: string;
     returnUrl: string;
     cancelUrl: string;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
   };
 
   if (!orderId) {
@@ -372,6 +410,14 @@ router.post("/payment/paypal", async (req, res) => {
   }
   if (!returnUrl || !cancelUrl) {
     return res.status(400).json({ ok: false, message: "returnUrl and cancelUrl are required" }); // i18n-ignore
+  }
+  const ppReturnUrlErr = validateRedirectUrl(returnUrl, "payment-return");
+  if (ppReturnUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: ppReturnUrlErr }); // i18n-ignore
+  }
+  const ppCancelUrlErr = validateRedirectUrl(cancelUrl, "payment-return");
+  if (ppCancelUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: ppCancelUrlErr }); // i18n-ignore
   }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
@@ -391,7 +437,17 @@ router.post("/payment/paypal", async (req, res) => {
   const districtCountryPP = countryForDistrict(resolvedDistrict);
   const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
   const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountryPP) : 0;
-  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
+  // Slot fee is computed server-side and included in the PayPal charge so a
+  // shopper cannot pay the standard rate and then submit a premium-slot order.
+  const ppSlotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: ppRawDeliverySlot,
+    deliverySlotId: ppRawDeliverySlotId,
+    cityId: ppRawCityId,
+    deliveryDate: ppRawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + ppSlotFeeUsd;
 
   const presented = normalizeCurrency(rawCurrency ?? "USD");
   const settle = paypalCurrencyFor(presented);
@@ -463,6 +519,7 @@ router.post("/payment/paypal", async (req, res) => {
         district: resolvedDistrict,
         expressDelivery: isExpress,
         noAddress: isNoAddress,
+        deliverySlot: ppRawDeliverySlot ?? "",
       },
     });
 
@@ -515,6 +572,10 @@ router.post("/payment/tabby", async (req, res) => {
     lastName,
     returnUrl,
     failureReturnUrl,
+    deliverySlot: tabbyRawDeliverySlot,
+    deliverySlotId: tabbyRawDeliverySlotId,
+    cityId: tabbyRawCityId,
+    deliveryDate: tabbyRawDeliveryDate,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -527,6 +588,10 @@ router.post("/payment/tabby", async (req, res) => {
     lastName?: string;
     returnUrl: string;
     failureReturnUrl: string;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
   };
 
   if (!orderId) {
@@ -534,6 +599,14 @@ router.post("/payment/tabby", async (req, res) => {
   }
   if (!returnUrl || !failureReturnUrl) {
     return res.status(400).json({ ok: false, message: "returnUrl and failureReturnUrl are required" }); // i18n-ignore
+  }
+  const tabbyReturnUrlErr = validateRedirectUrl(returnUrl, "payment-return");
+  if (tabbyReturnUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: tabbyReturnUrlErr }); // i18n-ignore
+  }
+  const tabbyFailureReturnUrlErr = validateRedirectUrl(failureReturnUrl, "payment-return");
+  if (tabbyFailureReturnUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: tabbyFailureReturnUrlErr }); // i18n-ignore
   }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
@@ -553,7 +626,15 @@ router.post("/payment/tabby", async (req, res) => {
   const districtCountry = countryForDistrict(resolvedDistrict);
   const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
   const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
-  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
+  const tabbySlotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: tabbyRawDeliverySlot,
+    deliverySlotId: tabbyRawDeliverySlotId,
+    cityId: tabbyRawCityId,
+    deliveryDate: tabbyRawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + tabbySlotFeeUsd;
 
   // Tabby settles in AED only — convert the server-computed USD total.
   const aedAmount = roundForCurrency(await convertFromUsd(totalUsd, "AED"), "AED");
@@ -693,6 +774,7 @@ router.post("/payment/tabby", async (req, res) => {
         district: resolvedDistrict,
         expressDelivery: isExpress,
         noAddress: isNoAddress,
+        deliverySlot: tabbyRawDeliverySlot ?? "",
       },
     });
 

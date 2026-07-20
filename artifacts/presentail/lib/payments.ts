@@ -88,6 +88,10 @@ export async function createMamoPayment(payload: {
   lastName?: string;
   returnUrl: string;
   failureReturnUrl: string;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
   storeContext?: StoreContext;
 }): Promise<PayResult> {
   try {
@@ -115,6 +119,10 @@ export async function createTabbyPayment(payload: {
   lastName?: string;
   returnUrl: string;
   failureReturnUrl: string;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
   storeContext?: StoreContext;
 }): Promise<PayResult> {
   try {
@@ -139,6 +147,10 @@ export async function createPayPalOrder(payload: {
   currency: string;
   returnUrl: string;
   cancelUrl: string;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
   storeContext?: StoreContext;
 }): Promise<PayResult> {
   try {

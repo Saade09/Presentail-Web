@@ -1422,6 +1422,7 @@ router.post("/woo/order", async (req, res) => {
       submittedDistrict: body.district,
       submittedExpressDelivery: body.expressFee > 0,
       submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
     });
     if (cartMismatch) {
       req.log?.warn?.(
@@ -1500,6 +1501,7 @@ router.post("/woo/order", async (req, res) => {
       submittedDistrict: body.district,
       submittedExpressDelivery: body.expressFee > 0,
       submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
     });
     if (cartMismatch) {
       req.log?.warn?.(

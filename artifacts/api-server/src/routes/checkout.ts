@@ -8,7 +8,6 @@ import {
   klarnaCohortLabel,
 } from "../lib/klarnaRollout";
 import { pickClientIp, resolveGeoCurrency } from "../lib/geoCurrency";
-import { getLocalIso } from "@workspace/delivery";
 import { sendAlert } from "../lib/alerts";
 import {
   convertFromUsd,
@@ -20,63 +19,18 @@ import {
 import {
   resolveCartItems,
   computeDistrictFeeUsd,
+  computeSlotFeeUsd,
   expressSurchargeUsd,
   countryForDistrict,
 } from "../lib/catalog";
 import { storePaymentIntent, getPaymentIntentForOrder } from "../lib/checkoutIntents";
-import { getDeliverySlots } from "../lib/osLocationsCache";
+import { validateRedirectUrl } from "../lib/validateRedirectUrl";
 import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
 import { validateCoupon } from "../lib/couponValidation";
 import { authenticate } from "../lib/auth";
 import { db, customersTable, klarnaPendingCheckoutsTable } from "@workspace/db";
 
 const router: IRouter = Router();
-
-/** $5 same-day night surcharge: applied when the OS sends no explicit fee override. */
-const NIGHT_SLOT_SURCHARGE_USD = 5;
-
-/**
- * Compute the slot fee for a delivery slot, mirroring the client-side logic in
- * `checkoutFees.ts`. Returns:
- * - `extraFee` from the OS slot config when it is set and > 0
- * - $5 night-slot surcharge when the slot starts at or after 21:00 and
- *   `deliveryDate` is today in the recipient country (or when `deliveryDate` is absent)
- * - 0 otherwise
- */
-function computeSlotFeeUsd({
-  expressDelivery,
-  deliverySlot,
-  deliverySlotId,
-  cityId,
-  deliveryDate,
-  district,
-}: {
-  expressDelivery?: boolean;
-  deliverySlot?: string;
-  deliverySlotId?: string;
-  cityId?: string;
-  deliveryDate?: string;
-  district?: string;
-}): number {
-  if (expressDelivery || !deliverySlot || !cityId) return 0;
-  const citySlots = getDeliverySlots(cityId);
-  const bookedSlot = deliverySlotId
-    ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
-    : citySlots.find((s) => s.label === deliverySlot);
-  if (!bookedSlot) return 0;
-  if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
-    return Number(bookedSlot.extraFee);
-  }
-  // Hardcoded same-day night surcharge: when the OS sends no fee override (undefined or 0),
-  // a $5 fee applies for night slots (startHour ≥ 21) selected for today.
-  const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
-  const isNightSlot = slotStartHour >= 21;
-  const countryCode = countryForDistrict(district ?? "Beirut");
-  const todayForCountry = getLocalIso(countryCode);
-  const isToday = !deliveryDate || deliveryDate === todayForCountry;
-  if (isNightSlot && isToday) return NIGHT_SLOT_SURCHARGE_USD;
-  return 0;
-}
 
 /**
  * Returns true when the store key corresponds to a UAE city (AED payments).
@@ -194,6 +148,14 @@ router.post("/checkout/session", async (req, res) => {
   }
   if (!successUrl || !cancelUrl) {
     return res.status(400).json({ ok: false, message: "successUrl and cancelUrl are required" }); // i18n-ignore
+  }
+  const successUrlErr = validateRedirectUrl(successUrl, "web");
+  if (successUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: successUrlErr }); // i18n-ignore
+  }
+  const cancelUrlErr = validateRedirectUrl(cancelUrl, "web");
+  if (cancelUrlErr) {
+    return res.status(400).json({ ok: false, code: "invalid_redirect_url", message: cancelUrlErr }); // i18n-ignore
   }
 
   const currency = normalizeCurrency(rawCurrency ?? "USD");
