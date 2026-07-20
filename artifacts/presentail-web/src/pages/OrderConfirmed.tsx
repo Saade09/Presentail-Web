@@ -577,19 +577,19 @@ export default function OrderConfirmed() {
     <div className="min-h-screen bg-white overflow-x-hidden">
       <div
         data-testid="order-confirmed-scroll-container"
-        className="mx-auto max-w-[760px] px-4 sm:px-6 py-6 sm:py-10 animate-in fade-in duration-500"
+        className="mx-auto max-w-[760px] px-4 sm:px-6 py-3 sm:py-5 animate-in fade-in duration-500"
       >
 
         {/* ── Confirmation area ───────────────────────────────────────────── */}
-        <div className="text-center space-y-2 pb-6">
+        <div className="text-center space-y-1.5 pb-4">
           <CheckCircle2
-            className="w-10 h-10 text-primary mx-auto"
+            className="w-8 h-8 text-primary mx-auto"
             data-testid="icon-success"
           />
-          <h1 className="text-2xl sm:text-3xl font-serif" data-testid="text-confirmation-title">
+          <h1 className="text-xl sm:text-2xl font-serif" data-testid="text-confirmation-title">
             {t("order.confirmed")}
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base" data-testid="text-confirmation-message">
+          <p className="text-muted-foreground text-sm" data-testid="text-confirmation-message">
             {t("order.thanks")}
           </p>
           <div className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-1.5 mt-1">
@@ -602,18 +602,18 @@ export default function OrderConfirmed() {
 
         {/* ── Your Gift ───────────────────────────────────────────────────── */}
         {items.length > 0 && (
-          <section className="border-t border-border/40 pt-5">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-3">
+          <section className="border-t border-border/40 pt-3">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
               {t("order.section.gifts")}
             </p>
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {items.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-4 text-sm">
+                <li key={idx} className="flex items-start gap-3 text-sm">
                   {item.image && (
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="w-16 h-16 rounded-xl object-cover shrink-0"
+                      className="w-12 h-12 rounded-lg object-cover shrink-0"
                     />
                   )}
                   <div className="flex-1 min-w-0 pt-0.5">
@@ -636,11 +636,11 @@ export default function OrderConfirmed() {
 
         {/* ── Card Message ────────────────────────────────────────────────── */}
         {(confirmedOrder?.cardMessage?.trim() || confirmedOrder?.cardTo?.trim() || confirmedOrder?.cardFrom?.trim()) && (
-          <section className="border-t border-border/40 pt-5 mt-5">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-3">
+          <section className="border-t border-border/40 pt-3 mt-3">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
               {t("order.summary.cardMessage")}
             </p>
-            <div className="rounded-xl border border-border px-4 py-3 space-y-1.5">
+            <div className="rounded-xl border border-border px-3 py-2 space-y-1">
               {confirmedOrder?.cardTo?.trim() && (
                 <p className="text-xs font-medium text-muted-foreground">
                   {t("order.summary.cardTo")}:{" "}
@@ -664,8 +664,8 @@ export default function OrderConfirmed() {
 
         {/* ── Delivery Date & Time ─────────────────────────────────────────── */}
         {(confirmedOrder?.deliveryDate || confirmedOrder?.deliverySlot) && (
-          <section className="border-t border-border/40 pt-5 mt-5">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-3">
+          <section className="border-t border-border/40 pt-3 mt-3">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
               {t("order.summary.delivery")}
             </p>
             <div className="flex items-center gap-2.5 text-sm">
@@ -686,8 +686,8 @@ export default function OrderConfirmed() {
 
         {/* ── Recipient Details ────────────────────────────────────────────── */}
         {confirmedOrder && hasRecipientSection(confirmedOrder) && (
-          <section className="border-t border-border/40 pt-5 mt-5">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-3">
+          <section className="border-t border-border/40 pt-3 mt-3">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
               {t("order.section.recipientDetails")}
             </p>
             <div className="space-y-2 text-sm">
@@ -711,8 +711,8 @@ export default function OrderConfirmed() {
 
         {/* ── Delivery Address ─────────────────────────────────────────────── */}
         {confirmedOrder && hasDeliveryAddressSection(confirmedOrder) && (
-          <section className="border-t border-border/40 pt-5 mt-5">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-3">
+          <section className="border-t border-border/40 pt-3 mt-3">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
               {t("order.section.deliveryAddress")}
             </p>
             <div className="flex items-start gap-3 text-sm">
@@ -756,12 +756,12 @@ export default function OrderConfirmed() {
         {/* ── Order Summary ────────────────────────────────────────────────── */}
         <section
           data-testid="order-summary"
-          className="border-t border-border/40 pt-5 mt-5"
+          className="border-t border-border/40 pt-3 mt-3"
         >
-          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-3">
+          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
             {t("order.section.summary")}
           </p>
-          <div className="space-y-2 text-sm">
+          <div className="space-y-1.5 text-sm">
             {items.length > 0 && (
               <div className="flex justify-between text-muted-foreground">
                 <span>{t("order.summary.subtotal")}</span>
@@ -783,13 +783,13 @@ export default function OrderConfirmed() {
                 </span>
               </div>
             )}
-            <div className="flex justify-between font-semibold pt-3 border-t border-border/40 text-base">
+            <div className="flex justify-between font-semibold pt-2 border-t border-border/40 text-base">
               <span>{t("order.summary.total")}</span>
               <FormattedPrice usdValue={total} />
             </div>
           </div>
           {payLabel && (
-            <div className="flex items-center justify-between mt-5 pt-5 border-t border-border/40">
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
               <span className="text-sm text-muted-foreground">{t("order.summary.paymentMethod")}</span>
               <span className="text-xs font-medium bg-primary/10 text-primary rounded-full px-3 py-1">
                 {payLabel}
@@ -799,7 +799,7 @@ export default function OrderConfirmed() {
         </section>
 
         {/* ── Actions ──────────────────────────────────────────────────────── */}
-        <section className="border-t border-border/40 pt-8 mt-8 space-y-4">
+        <section className="border-t border-border/40 pt-4 mt-3 space-y-3">
           <Button
             size="lg"
             className="rounded-full px-10 w-full"
