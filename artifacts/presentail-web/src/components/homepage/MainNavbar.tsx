@@ -226,7 +226,9 @@ export function MainNavbar() {
   // Use API resolution state (not array length) to decide whether to fall back.
   // An empty resolved response ([]) should show nothing, not the static list.
   const hasOccasionApiData = occasionsData !== undefined;
-  const visibleOsOccasions = osOccasions.filter((o) => (o.count ?? 0) > 0);
+  // Mega menu shows only featured occasions with in-stock products.
+  // The All Occasions page shows all active occasions (featured or not).
+  const visibleOsOccasions = osOccasions.filter((o) => (o.count ?? 0) > 0 && o.featured === true);
   const occasionItems: MegaItem[] =
     hasOccasionApiData
       ? visibleOsOccasions.map((o) => ({

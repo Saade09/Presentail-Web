@@ -114,7 +114,7 @@ const OCCASION_LABEL_KEYS: Record<string, string> = {
   "friend": "shop.occ.friend",
   "im-sorry": "shop.occ.imSorry",
   "children": "shop.occ.children",
-  "valentine": "shop.occ.valentine",
+  "valentines-day": "shop.occ.valentine",
   "mothers-day": "shop.occ.mothersDay",
   "womens-day": "shop.occ.womensDay",
   "fathers-day": "shop.occ.fathersDay",

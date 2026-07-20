@@ -244,12 +244,29 @@ router.get("/catalog/occasions", async (req, res) => {
   const occasionCountMap = countryCode
     ? getOsOccasionProductCountsByCountry(countryCode)
     : getOsOccasionProductCounts();
-  const featuredOs = osOccasions ? osOccasions.filter((o) => o.featured === true) : [];
-  if (featuredOs.length === 0) {
+  // Show all active occasions (not just featured). The featured flag is
+  // included in each item so the mega menu can filter client-side.
+  // Merge both sources: product-tag-derived occasions (base) + dedicated OS
+  // occasions catalog (overrides same slug), same pattern as /catalog/metadata.
+  // This ensures occasions like valentines-day that are only tagged on products
+  // (not yet added to the OS dedicated occasions catalog) still surface here.
+  function isOccasionActive(occ: { isActive?: boolean; status?: string }): boolean {
+    if (occ.isActive === false || occ.status === "inactive") return false;
+    return true;
+  }
+  // Merge product-tag occasions (base) with dedicated catalog occasions
+  // (catalog wins for duplicate slugs). This matches /catalog/metadata logic.
+  const osProductOccasions = getOsProductOccasions();
+  const allOsOccasionsMap = new Map<string, OSProductOccasion>(osProductOccasions);
+  for (const osOcc of osOccasions ?? []) {
+    allOsOccasionsMap.set(osOcc.slug, osOcc);
+  }
+  const activeOs = Array.from(allOsOccasionsMap.values()).filter((o) => isOccasionActive(o));
+  if (activeOs.length === 0) {
     res.json({ occasions: [] });
     return;
   }
-  const rawItems = featuredOs.map((o) => ({ id: o.id, slug: o.slug, name: o.name, osImage: o.image }));
+  const rawItems = activeOs.map((o) => ({ id: o.id, slug: o.slug, name: o.name, osImage: o.image, featured: o.featured ?? false }));
   try {
     const [configRows, clickScores] = await Promise.all([
       getRankingConfig(),
@@ -272,14 +289,16 @@ router.get("/catalog/occasions", async (req, res) => {
       name: item.name,
       image: item.osImage ? `/api/catalog/occasion-image/${item.id}` : null,
       count: occasionCountMap.get(item.slug) ?? 0,
+      featured: item.featured,
     }));
     res.json({ occasions });
   } catch {
-    const occasions = featuredOs.map((o) => ({
+    const occasions = activeOs.map((o) => ({
       slug: o.slug,
       name: o.name,
       image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,
       count: occasionCountMap.get(o.slug) ?? 0,
+      featured: o.featured ?? false,
     }));
     res.json({ occasions });
   }

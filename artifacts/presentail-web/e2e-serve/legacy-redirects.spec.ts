@@ -276,7 +276,7 @@ test.describe("301 redirect — WooCommerce product-tag (known slug)", () => {
       { wcTag: "im-sorry", presentailOccasion: "im-sorry" },
       { wcTag: "sorry", presentailOccasion: "im-sorry" },
       { wcTag: "children", presentailOccasion: "children" },
-      { wcTag: "valentine", presentailOccasion: "valentine" },
+      { wcTag: "valentine", presentailOccasion: "valentines-day" },
       { wcTag: "mothers-day", presentailOccasion: "mothers-day" },
       { wcTag: "womens-day", presentailOccasion: "womens-day" },
       { wcTag: "fathers-day", presentailOccasion: "fathers-day" },

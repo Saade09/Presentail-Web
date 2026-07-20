@@ -96,7 +96,7 @@ const OCCASIONS = [
   { slug: "friend", labelKey: "shop.occ.friend" },
   { slug: "im-sorry", labelKey: "shop.occ.imSorry" },
   { slug: "children", labelKey: "shop.occ.children" },
-  { slug: "valentine", labelKey: "shop.occ.valentine" },
+  { slug: "valentines-day", labelKey: "shop.occ.valentine" },
   { slug: "mothers-day", labelKey: "shop.occ.mothersDay" },
   { slug: "womens-day", labelKey: "shop.occ.womensDay" },
   { slug: "fathers-day", labelKey: "shop.occ.fathersDay" },
@@ -188,6 +188,8 @@ export default function Shop() {
       // searchString from useSearch() already includes the leading "?" when
       // query params are present, so append it directly (no extra "?").
       navigate(`/occasion/new-born${searchString}`, { replace: true });
+    } else if (occasion === "valentine") {
+      navigate(`/occasion/valentines-day${searchString}`, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [occasion]);

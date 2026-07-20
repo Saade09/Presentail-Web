@@ -1247,7 +1247,7 @@ const server = http.createServer(async (req, res) => {
       "im-sorry":        "im-sorry",
       "sorry":           "im-sorry",
       "children":        "children",
-      "valentine":       "valentine",
+      "valentine":       "valentines-day",
       "mothers-day":     "mothers-day",
       "womens-day":      "womens-day",
       "fathers-day":     "fathers-day",

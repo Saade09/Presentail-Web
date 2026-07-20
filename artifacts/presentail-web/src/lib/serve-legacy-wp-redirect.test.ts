@@ -373,13 +373,13 @@ describe("serve.mjs — WC product-tag redirects to Presentail occasion pages", 
     expect(location).toBe("/en-lb/beirut/occasion/anniversary");
   });
 
-  it("maps 'valentine' tag slug (WP slug) → valentine occasion", async () => {
+  it("maps 'valentine' tag slug (WP slug) → valentines-day occasion", async () => {
     const { status, location } = await get(
       serverPort,
       "/product-tag/valentine",
     );
     expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/occasion/valentine");
+    expect(location).toBe("/en-lb/beirut/occasion/valentines-day");
   });
 
   it("maps 'wedding' → wedding (direct match)", async () => {

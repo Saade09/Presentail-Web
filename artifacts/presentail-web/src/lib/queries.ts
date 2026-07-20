@@ -474,7 +474,7 @@ export const useCatalogMetadata = (countryCode?: string | null) => {
 };
 
 export type CatalogOccasionsResponse = {
-  occasions: { slug: string; name: string; image: string | null; count: number }[];
+  occasions: { slug: string; name: string; image: string | null; count: number; featured?: boolean }[];
 };
 
 export const useCatalogOccasions = (countryCode?: string | null, citySlug?: string | null) => {
