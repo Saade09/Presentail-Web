@@ -1753,7 +1753,7 @@ function CheckoutForm() {
     deliverySlotTime: deliveryMode === "express" ? undefined : slotTimeRangeForLabel(deliverySlot, timeSlots),
     cardMessage: recipient.cardMessage,
     cardTo: recipient.cardTo.trim() || undefined,
-    cardFrom: buildCardFrom(sender.firstName, sender.lastName),
+    cardFrom: buildCardFrom((() => { try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; } })()),
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
     // "apple_pay" / "google_pay" are client-side UX IDs; the API server and
     // WooCommerce only recognise the legacy "wallet" value for both.
