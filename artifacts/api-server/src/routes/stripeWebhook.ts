@@ -635,19 +635,32 @@ router.post("/", async (req, res) => {
       case "payment_intent.canceled": {
         const pi = obj as Stripe.PaymentIntent;
         await updateKlarnaPendingStatus(pi.id, "payment_canceled");
-        logger.info(
+        const cancelReason = pi.cancellation_reason ?? "unknown";
+        logger.warn(
           {
             piId: pi.id,
             appOrderId,
-            cancellationReason: pi.cancellation_reason,
+            cancellationReason: cancelReason,
           },
           "stripeWebhook: payment_intent.canceled",
         );
+        await recordAnalyticsEvent("stripe_payment_canceled", {
+          surface: "checkout",
+          action: cancelReason,
+          appOrderId,
+          propertiesJson: JSON.stringify({
+            stripeAccount: account,
+            paymentIntentId: pi.id,
+            reason: cancelReason,
+            currency: pi.currency,
+          }),
+        });
         break;
       }
 
       case "payment_intent.processing": {
         const pi = obj as Stripe.PaymentIntent;
+        const method = pi.payment_method_types?.[0] ?? "unknown";
         logger.info(
           {
             piId: pi.id,
@@ -658,6 +671,17 @@ router.post("/", async (req, res) => {
           },
           "stripeWebhook: payment_intent.processing — order payment is in a deferred state",
         );
+        await recordAnalyticsEvent("stripe_payment_processing", {
+          surface: "checkout",
+          action: method,
+          appOrderId,
+          propertiesJson: JSON.stringify({
+            stripeAccount: account,
+            paymentIntentId: pi.id,
+            method,
+            currency: pi.currency,
+          }),
+        });
 
         // Alert ops so deferred/processing payments are visible without querying Stripe.
         await sendAlert({
@@ -762,108 +786,12 @@ router.post("/", async (req, res) => {
         break;
       }
 
-      case "payment_intent.processing": {
-        // Klarna and bank-transfer methods can enter a "processing" state
-        // before final settlement. Log for ops visibility.
-        const pi = obj as Stripe.PaymentIntent;
-        const method = pi.payment_method_types?.[0] ?? "unknown";
-        logger.info(
-          { eventId: event.id, account, paymentIntentId: pi.id, appOrderId, method },
-          "stripeWebhook: payment_intent.processing",
-        );
-        await recordAnalyticsEvent("stripe_payment_processing", {
-          surface: "checkout",
-          action: method,
-          appOrderId,
-          propertiesJson: JSON.stringify({ stripeAccount: account, paymentIntentId: pi.id, method, currency: pi.currency }),
-        });
-        break;
-      }
-
-      case "payment_intent.canceled": {
-        const pi = obj as Stripe.PaymentIntent;
-        const reason = pi.cancellation_reason ?? "unknown";
-        logger.warn(
-          { eventId: event.id, account, paymentIntentId: pi.id, appOrderId, reason },
-          "stripeWebhook: payment_intent.canceled",
-        );
-        await recordAnalyticsEvent("stripe_payment_canceled", {
-          surface: "checkout",
-          action: reason,
-          appOrderId,
-          propertiesJson: JSON.stringify({ stripeAccount: account, paymentIntentId: pi.id, reason, currency: (pi as Stripe.PaymentIntent).currency }),
-        });
-        break;
-      }
-
       case "charge.refund.updated": {
         const refund = event.data.object as Stripe.Refund;
         logger.info(
           { eventId: event.id, account, refundId: refund.id, chargeId: refund.charge, paymentIntentId },
           "stripeWebhook: charge.refund.updated",
         );
-        break;
-      }
-
-      case "charge.dispute.closed": {
-        const dispute = event.data.object as Stripe.Dispute;
-        const won = dispute.status === "won";
-        logger.info(
-          {
-            eventId: event.id,
-            account,
-            disputeId: dispute.id,
-            chargeId: dispute.charge,
-            paymentIntentId,
-            status: dispute.status,
-            outcome: won ? "won" : "lost",
-          },
-          "stripeWebhook: charge.dispute.closed",
-        );
-        await sendAlert({
-          title: won ? "Stripe dispute closed — won" : "Stripe dispute closed — lost",
-          body: won
-            ? `The dispute was resolved in Presentail's favour.`
-            : `The dispute was resolved against Presentail. The charge has been reversed.`,
-          severity: won ? "info" : "warn",
-          fields: [
-            { title: "Dispute ID", value: dispute.id },
-            { title: "Charge", value: typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id },
-            { title: "Amount", value: `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}` },
-            { title: "Reason", value: dispute.reason ?? "unknown" },
-          ],
-          source: "stripe/webhook/dispute.closed",
-        });
-        break;
-      }
-
-      case "charge.dispute.updated": {
-        const dispute = event.data.object as Stripe.Dispute;
-        logger.info(
-          {
-            eventId: event.id,
-            account,
-            disputeId: dispute.id,
-            chargeId: dispute.charge,
-            paymentIntentId,
-            status: dispute.status,
-          },
-          "stripeWebhook: charge.dispute.updated",
-        );
-        // Only alert on escalating states to avoid alert fatigue.
-        if (dispute.status === "under_review" || dispute.status === "warning_under_review") {
-          await sendAlert({
-            title: "Stripe dispute escalated to under_review",
-            body: `A dispute entered \`${dispute.status}\`. Check the Stripe Dashboard for any required action.`,
-            severity: "warn",
-            fields: [
-              { title: "Dispute ID", value: dispute.id },
-              { title: "Charge", value: typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id },
-              { title: "Amount", value: `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}` },
-            ],
-            source: "stripe/webhook/dispute.updated",
-          });
-        }
         break;
       }
 
