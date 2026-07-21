@@ -17,7 +17,8 @@
  *                                  locations push path).
  *     catalog_attribute.*        — Invalidate products cache.
  *     product.created            — Invalidate products cache.
- *     product.updated            — Invalidate products cache.
+ *     product.updated            — Invalidate products cache + sitemap cache.
+ *     product.restocked          — Invalidate products cache + sitemap cache.
  *     product.deleted            — Invalidate products cache (full re-fetch;
  *                                  per-product removal is handled on next poll).
  *     banner.updated             — Map OS banner payload → HomepageBanner and
@@ -385,10 +386,63 @@ router.post("/os/webhook", async (req, res) => {
     return res.json({ ok: true });
   }
 
-  // product.created / product.updated — full cache invalidation ──────────
-  if (event === "product.created" || event === "product.updated") {
+  // product.created / product.updated / product.restocked — full cache
+  // invalidation. For product.updated and product.restocked we also reset the
+  // web sitemap cache so the next /sitemap.xml request regenerates immediately
+  // with the fresh availability state (priority / inclusion changes for
+  // restocked / sold-out products) rather than waiting up to 15 minutes for
+  // the TTL to expire.
+  if (
+    event === "product.created" ||
+    event === "product.updated" ||
+    event === "product.restocked"
+  ) {
     invalidateOsProductsCache();
     req.log.info({ event }, "osWebhook: products cache invalidated");
+
+    if (event === "product.updated" || event === "product.restocked") {
+      // Fire-and-forget: reset the web server's sitemap cache so it regenerates
+      // on the next crawl request. Non-fatal — a network error here just means
+      // the sitemap TTL (15 min) applies as normal.
+      const adminToken = process.env.PUSH_ADMIN_TOKEN ?? "";
+      const webBaseUrl = process.env.INTERNAL_WEB_BASE_URL ?? "http://localhost:80";
+      if (adminToken) {
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), 5000);
+        fetch(`${webBaseUrl}/__internal/sitemap-invalidate`, {
+          method: "POST",
+          headers: { "x-push-admin-token": adminToken },
+          signal: ac.signal,
+        })
+          .then((r) => {
+            clearTimeout(timer);
+            if (r.ok) {
+              req.log.info(
+                { event, status: r.status },
+                "osWebhook: sitemap cache invalidated on web server",
+              );
+            } else {
+              req.log.warn(
+                { event, status: r.status },
+                "osWebhook: sitemap cache invalidation returned non-2xx (non-fatal; TTL will still expire)",
+              );
+            }
+          })
+          .catch((err: unknown) => {
+            clearTimeout(timer);
+            req.log.warn(
+              { event, err: (err as Error)?.message },
+              "osWebhook: sitemap cache invalidation call failed (non-fatal)",
+            );
+          });
+      } else {
+        req.log.warn(
+          { event },
+          "osWebhook: PUSH_ADMIN_TOKEN not set — skipping sitemap cache invalidation",
+        );
+      }
+    }
+
     return res.json({ ok: true });
   }
 

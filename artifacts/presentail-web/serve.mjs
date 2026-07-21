@@ -1399,6 +1399,28 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Internal sitemap cache invalidation — called by the API server when a
+    // product.updated or product.restocked OS webhook event is received, so the
+    // next /sitemap.xml request regenerates with fresh availability data instead
+    // of waiting up to SITEMAP_CACHE_TTL_MS (15 min) for the TTL to expire.
+    // Protected by PUSH_ADMIN_TOKEN so it cannot be triggered by untrusted callers.
+    if (req.method === "POST" && pathname === "/__internal/sitemap-invalidate") {
+      const adminToken = (process.env.PUSH_ADMIN_TOKEN ?? "").trim();
+      const rawToken = req.headers["x-push-admin-token"];
+      const providedToken = (Array.isArray(rawToken) ? rawToken[0] : rawToken ?? "").trim();
+      if (!adminToken || !providedToken || providedToken !== adminToken) {
+        res.writeHead(401, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, message: "Unauthorized" })); // i18n-ignore
+        return;
+      }
+      sitemapCache = null;
+      sitemapCacheTsMs = 0;
+      console.info("[sitemap] cache invalidated via internal webhook hook");
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
     // Dynamic sitemap — intercept before file lookup so a missing
     // dist/public/sitemap.xml doesn't fall through to the SPA shell.
     // The cache has a TTL (SITEMAP_CACHE_TTL_MS) so catalog data stays current
