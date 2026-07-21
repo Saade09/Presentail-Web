@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<!--
+  CyberSource Microform v2 tokenizer page for the Presentail mobile app.
+
+  The React Native app opens this page in a WebView, passing query params:
+    ?captureContext=<JWT>&env=<test|live>
+
+  This page:
+    1. Loads the CyberSource Flex Microform JS SDK.
+    2. Mounts card-number and CVV iframe fields.
+    3. Accepts a postMessage from RN with { action: "tokenize", expirationMonth, expirationYear }.
+    4. Calls microform.createToken() and postMessages the result back.
+
+  Message protocol (RN → WebView):
+    { action: "tokenize", expirationMonth: "05", expirationYear: "2026" }
+
+  Message protocol (WebView → RN):
+    { type: "token", token: "<transientTokenJwt>" }         — success
+    { type: "error", message: "<human-readable reason>" }   — failure
+    { type: "ready" }                                        — fields mounted and ready
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Secure Card Entry</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f9fafb;
+      color: #111827;
+    }
+    .field-wrap {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .field-host {
+      height: 44px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 10px;
+      background: #fff;
+      padding: 0 12px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field-host.focused {
+      border-color: #005f5e;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+    }
+    .row .field-wrap {
+      flex: 1;
+    }
+    #status {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    #error-msg {
+      font-size: 13px;
+      color: #dc2626;
+      margin-top: 8px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="field-wrap">
+    <label>Card Number</label>
+    <div id="number-container" class="field-host"></div>
+  </div>
+  <div class="row">
+    <div class="field-wrap">
+      <label>Expiry</label>
+      <input
+        id="expiry-input"
+        type="text"
+        inputmode="numeric"
+        class="field-host"
+        placeholder="MM / YY"
+        maxlength="7"
+        autocomplete="cc-exp"
+        style="width:100%"
+      />
+    </div>
+    <div class="field-wrap">
+      <label>CVV</label>
+      <div id="cvv-container" class="field-host"></div>
+    </div>
+  </div>
+  <div id="status">Loading secure card form…</div>
+  <div id="error-msg"></div>
+  <button
+    id="pay-btn"
+    type="button"
+    style="display:none;width:100%;margin-top:16px;padding:14px;background:#005f5e;color:#fff;font-size:15px;font-weight:600;border:none;border-radius:10px;cursor:pointer;letter-spacing:0.02em;"
+    disabled
+  >Pay Now</button>
+
+  <script>
+    function postToRN(data) {
+      try {
+        // React Native WebView exposes window.ReactNativeWebView
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify(data));
+        } else {
+          window.parent.postMessage(JSON.stringify(data), "*");
+        }
+      } catch(e) {
+        console.error("postToRN failed", e);
+      }
+    }
+
+    function showError(msg) {
+      var el = document.getElementById("error-msg");
+      el.textContent = msg;
+      el.style.display = "block";
+      document.getElementById("status").style.display = "none";
+    }
+
+    // Parse ?captureContext=...&env=...
+    var params = new URLSearchParams(window.location.search);
+    var captureContext = params.get("captureContext") || "";
+    var env = params.get("env") || "test";
+
+    if (!captureContext) {
+      showError("Missing captureContext parameter.");
+    } else {
+      var scriptSrc = env === "live"
+        ? "https://flex.cybersource.com/microform/bundle/v2/flex-microform.min.js"
+        : "https://testflex.cybersource.com/microform/bundle/v2/flex-microform.min.js";
+
+      var s = document.createElement("script");
+      s.src = scriptSrc;
+      s.onload = function() {
+        try {
+          var flex = new window.Flex(captureContext);
+          var microform = flex.microform({
+            styles: {
+              input: {
+                "font-size": "15px",
+                "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                color: "#111827"
+              },
+              "::placeholder": { color: "#9ca3af" },
+              valid: { color: "#111827" },
+              invalid: { color: "#dc2626" }
+            }
+          });
+
+          var numberField = microform.createField("number", { placeholder: "•••• •••• •••• ••••" });
+          var cvvField = microform.createField("securityCode", { placeholder: "•••" });
+
+          numberField.on("focus", function() { document.getElementById("number-container").classList.add("focused"); });
+          numberField.on("blur",  function() { document.getElementById("number-container").classList.remove("focused"); });
+          cvvField.on("focus", function() { document.getElementById("cvv-container").classList.add("focused"); });
+          cvvField.on("blur",  function() { document.getElementById("cvv-container").classList.remove("focused"); });
+
+          numberField.load("#number-container");
+          cvvField.load("#cvv-container");
+
+          document.getElementById("status").style.display = "none";
+          var payBtn = document.getElementById("pay-btn");
+          payBtn.style.display = "block";
+          payBtn.disabled = false;
+          postToRN({ type: "ready" });
+
+          // Auto-insert slash in expiry input
+          var expiryInput = document.getElementById("expiry-input");
+          expiryInput.addEventListener("input", function(e) {
+            var val = e.target.value.replace(/\D/g, "");
+            if (val.length >= 3) {
+              val = val.slice(0,2) + " / " + val.slice(2,4);
+            }
+            e.target.value = val;
+          });
+
+          // Helper: parse expiry from the input and tokenize.
+          function doTokenize() {
+            var raw = (expiryInput.value || "").replace(/\s/g, "");
+            var parts = raw.split("/");
+            var expMonth = (parts[0] || "").padStart(2, "0");
+            var expYear = parts[1] || "";
+            if (expYear.length === 2) expYear = "20" + expYear;
+
+            if (!expMonth || expMonth === "00" || !expYear || expYear.length !== 4) {
+              showError("Please enter a valid expiry date (MM / YY).");
+              postToRN({ type: "error", message: "Invalid expiry date." });
+              return;
+            }
+
+            payBtn.disabled = true;
+            payBtn.textContent = "Processing…";
+            document.getElementById("error-msg").style.display = "none";
+
+            microform.createToken({ expirationMonth: expMonth, expirationYear: expYear }, function(err, token) {
+              payBtn.disabled = false;
+              payBtn.textContent = "Pay Now";
+              if (err) {
+                var errMsg = err.message || JSON.stringify(err);
+                showError(errMsg);
+                postToRN({ type: "error", message: errMsg });
+              } else {
+                postToRN({ type: "token", token: token });
+              }
+            });
+          }
+
+          // "Pay Now" button triggers tokenization directly from the page.
+          payBtn.addEventListener("click", doTokenize);
+
+          // Also support the RN postMessage protocol for completeness.
+          window.addEventListener("message", function(event) {
+            try {
+              var msg = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+              if (!msg || msg.action !== "tokenize") return;
+              // If RN supplied explicit expiry values, override the input.
+              if (msg.expirationMonth && msg.expirationYear) {
+                var mo = String(msg.expirationMonth).padStart(2, "0");
+                var yr = String(msg.expirationYear);
+                if (yr.length === 2) yr = "20" + yr;
+                expiryInput.value = mo + " / " + yr.slice(2);
+              }
+              doTokenize();
+            } catch(ex) {
+              postToRN({ type: "error", message: ex.message || "Tokenization error" });
+            }
+          });
+
+        } catch(e) {
+          showError(e.message || "Failed to initialise card form.");
+          postToRN({ type: "error", message: e.message || "Init error" });
+        }
+      };
+      s.onerror = function() {
+        showError("Could not load secure card form. Check your connection.");
+        postToRN({ type: "error", message: "Failed to load CyberSource SDK." });
+      };
+      document.head.appendChild(s);
+    }
+  </script>
+</body>
+</html>

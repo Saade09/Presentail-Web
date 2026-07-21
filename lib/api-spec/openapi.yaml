@@ -2122,6 +2122,165 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /payment/cybersource/available:
+    get:
+      operationId: getCybersourceAvailable
+      tags: [payment]
+      summary: Check whether CyberSource is configured on the server
+      description: |
+        Returns `{ available: true }` when all three CyberSource credentials
+        (CYBERSOURCE_MERCHANT_ID, CYBERSOURCE_API_KEY_ID, CYBERSOURCE_SHARED_SECRET_KEY)
+        are set. Returns `{ available: false }` otherwise. Clients use this to
+        silently hide the CyberSource payment tile when credentials are missing.
+      responses:
+        "200":
+          description: Availability status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+                required: [available]
+
+  /payment/cybersource/capture-context:
+    post:
+      operationId: createCybersourceCaptureContext
+      tags: [payment]
+      summary: Create a CyberSource Microform capture context
+      description: |
+        Resolves the cart total server-side and calls the CyberSource Microform v2
+        API to create a short-lived capture context JWT. The client passes this JWT
+        to the CyberSource Flex Microform SDK to initialise inline card fields.
+        Cart prices are resolved from the Presentail OS catalog (never from
+        client-supplied values). Also returns the `environment` so the client loads
+        the matching SDK URL (testflex vs flex).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      wcId: { type: integer }
+                      osSlug: { type: string }
+                      quantity: { type: integer }
+                    required: [wcId, quantity]
+                district: { type: string }
+                expressDelivery: { type: boolean }
+                noAddress: { type: boolean }
+                deliverySlot: { type: string }
+                deliverySlotId: { type: string }
+                cityId: { type: string }
+                deliveryDate: { type: string }
+                targetOrigin: { type: string }
+              required: [orderId, items]
+      responses:
+        "200":
+          description: Capture context created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  captureContext: { type: string }
+                  totalUsd: { type: number }
+                  environment:
+                    type: string
+                    enum: [test, live]
+                required: [ok]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          description: CyberSource not configured on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /payment/cybersource/charge:
+    post:
+      operationId: createCybersourceCharge
+      tags: [payment]
+      summary: Charge a card via CyberSource using a transient token
+      description: |
+        Accepts the transient token JWT produced by the CyberSource Microform SDK,
+        re-verifies the server-side cart total, authorises and captures the charge,
+        and stores a payment-intent binding (orderId ↔ "cybs:{id}"). The raw card
+        PAN never touches the Presentail server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId: { type: string }
+                transientTokenJwt: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      wcId: { type: integer }
+                      osSlug: { type: string }
+                      quantity: { type: integer }
+                    required: [wcId, quantity]
+                district: { type: string }
+                expressDelivery: { type: boolean }
+                noAddress: { type: boolean }
+                deliverySlot: { type: string }
+                deliverySlotId: { type: string }
+                cityId: { type: string }
+                deliveryDate: { type: string }
+                billingDetails:
+                  type: object
+                  properties:
+                    firstName: { type: string }
+                    lastName: { type: string }
+                    email: { type: string }
+              required: [orderId, transientTokenJwt, items]
+      responses:
+        "200":
+          description: Charge authorised and captured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  paymentRef: { type: string }
+                required: [ok]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "402":
+          description: Card declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Cart catalog error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: CyberSource not configured on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /checkout/payment-intent:
     post:
       operationId: createCheckoutPaymentIntent

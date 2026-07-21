@@ -123,7 +123,7 @@ export const WooOrderSchema = z.object({
   qrLink: z.string().optional(),
   qrLabel: z.string().optional(),
   orderNotes: z.string().optional(),
-  paymentMethod: z.enum(["card", "wallet", "whish", "western", "mamo", "paypal", "klarna"]),
+  paymentMethod: z.enum(["card", "wallet", "whish", "western", "mamo", "paypal", "klarna", "cybersource"]),
   identitySecret: z.boolean().optional(),
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
@@ -451,7 +451,8 @@ export async function attemptCreateWcOrder(
     body.paymentMethod === "card" ||
     body.paymentMethod === "wallet" ||
     body.paymentMethod === "mamo" ||
-    body.paymentMethod === "paypal";
+    body.paymentMethod === "paypal" ||
+    body.paymentMethod === "cybersource";
   const setPaid = requiresOnlinePayment && opts.paymentVerified === true;
 
   metaData.push(

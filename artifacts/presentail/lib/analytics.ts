@@ -54,6 +54,7 @@ type AnalyticsAction =
   | "tabby"
   | "whish"
   | "western"
+  | "cybersource"
   | "general"
   | "love"
   | "birthday"

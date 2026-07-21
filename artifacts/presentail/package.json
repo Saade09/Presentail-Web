@@ -101,6 +101,7 @@
     "react-async-hook": "^4.0.0",
     "react-native-phone-number-input": "^2.1.0",
     "react-native-qrcode-svg": "^6.3.21",
-    "react-native-view-shot": "4.0.3"
+    "react-native-view-shot": "4.0.3",
+    "react-native-webview": "^14.0.1"
   }
 }

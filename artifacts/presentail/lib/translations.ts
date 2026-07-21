@@ -613,6 +613,10 @@ const EN = {
   dateStripMoreLabel: "More",
   checkoutPayCard: "Credit / Debit Card",
   checkoutPayByCard: "Pay by card",
+  checkoutPayCybersource: "Pay by Card (Lebanon)",
+  checkoutPayCybersourceTitle: "Card Payment",
+  checkoutPayCybersourceCancel: "Cancel",
+  checkoutCybersourceDeclinedTitle: "Card Declined",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name, identical across all locales
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name, identical across all locales
   checkoutSaveCard: "Save card for future orders",
@@ -1595,6 +1599,10 @@ const AR: typeof EN = {
   dateStripMoreLabel: "المزيد",
   checkoutPayCard: "بطاقة ائتمان / خصم",
   checkoutPayByCard: "ادفع بالبطاقة",
+  checkoutPayCybersource: "الدفع بالبطاقة (لبنان)",
+  checkoutPayCybersourceTitle: "الدفع بالبطاقة",
+  checkoutPayCybersourceCancel: "إلغاء",
+  checkoutCybersourceDeclinedTitle: "تم رفض البطاقة",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
   checkoutSaveCard: "حفظ البطاقة للطلبات القادمة",
@@ -2572,6 +2580,10 @@ const FR: typeof EN = {
   dateStripMoreLabel: "Plus",
   checkoutPayCard: "Carte de crédit / débit",
   checkoutPayByCard: "Payer par carte",
+  checkoutPayCybersource: "Payer par carte (Liban)",
+  checkoutPayCybersourceTitle: "Paiement par carte",
+  checkoutPayCybersourceCancel: "Annuler",
+  checkoutCybersourceDeclinedTitle: "Carte refusée",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
   checkoutSaveCard: "Enregistrer la carte pour mes prochaines commandes",

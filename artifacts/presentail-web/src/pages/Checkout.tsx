@@ -16,8 +16,12 @@ import {
   useMamoPayment,
   usePaypalPayment,
   useTabbyPayment,
+  useCybersourceCaptureContext,
+  useCybersourceCharge,
+  useCybersourceAvailable,
   useFxRates,
 } from "@/lib/queries";
+import { CyberSourceSection, type CyberSourceSectionRef } from "./CyberSourceSection";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -174,7 +178,7 @@ function getStripePromise(deliveryCountryCode?: string) {
 // (no Western Union). All availability / label / fallback decisions go
 // through the pure helpers in `./checkoutPayMethods`, which wrap the shared
 // `@workspace/pay-methods` table and mirror the mobile checkout.
-type PaymentMethodId = WebPaymentMethodId | "klarna";
+type PaymentMethodId = WebPaymentMethodId | "klarna" | "cybersource";
 
 // Branded submit button — swaps the generic teal button for a method-specific
 // branded button when the shopper has selected Apple Pay, Google Pay, PayPal,
@@ -559,6 +563,20 @@ function CheckoutForm() {
   const mamoPayment = useMamoPayment();
   const paypalPayment = usePaypalPayment();
   const tabbyPayment = useTabbyPayment();
+  const cybersourceCapture = useCybersourceCaptureContext();
+  const cybersourceCharge = useCybersourceCharge();
+  // Probe once on mount to silently hide the tile when CS is not configured.
+  const { data: csAvailableData } = useCybersourceAvailable();
+  const csAvailable = csAvailableData?.available !== false; // optimistic: show until confirmed unavailable
+  // Ref to the CyberSource card-form component — exposes createToken().
+  const csFormRef = useRef<CyberSourceSectionRef>(null);
+  // The capture context JWT returned from POST /payment/cybersource/capture-context.
+  const [csCaptureContext, setCsCaptureContext] = useState<string | null>(null);
+  // CyberSource environment derived from the capture-context response ("test"|"live").
+  const [csCaptureEnv, setCsCaptureEnv] = useState<"test" | "live">("test");
+  // Error message shown inside CyberSourceSection when the prefetch fails.
+  const [csCaptureContextError, setCsCaptureContextError] = useState<string | null>(null);
+  // Expiry field managed here so we can read it in the submit handler.
   const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
@@ -831,6 +849,11 @@ function CheckoutForm() {
       }
       return m;
     });
+    // Clear any stale CS prefetch error so re-selecting the tile triggers a
+    // fresh attempt and doesn't leave the error banner stuck on screen.
+    if (m !== "cybersource") {
+      setCsCaptureContextError(null);
+    }
     // Trigger Stripe initialisation immediately when the shopper explicitly
     // picks a Stripe-backed method.  Mamo, PayPal, Whish, and Western Union
     // never load Stripe.  triggerStripeLoad() is idempotent.
@@ -1259,30 +1282,50 @@ function CheckoutForm() {
   );
   const payCtxCountry = countryCode ?? undefined;
   const paymentOptions = useMemo(() => {
+    const isLbUsd = currencyCode === "USD" && (payCtxCountry ?? "LB").toUpperCase() === "LB";
     const ids = webVisiblePayMethods({
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
       isApplePlatform: appleDevice,
     }).filter((id) => {
-      if (id === "apple_pay" || id === "google_pay") {
-        return walletSupported;
-      }
+      if (id === "apple_pay" || id === "google_pay") return walletSupported;
+      // CyberSource replaces Stripe card for Lebanon USD shoppers
+      if (id === "card" && isLbUsd) return false;
       return true;
     });
-    return ids.map((id) => ({
+    const result: { id: PaymentMethodId; labelKey: string }[] = ids.map((id) => ({
       id,
       labelKey: webPaymentMethodLabelKey(id, currencyCode),
     }));
+    // Inject CyberSource right after the last wallet tile for LB USD,
+    // but only when the availability probe confirms credentials are set.
+    if (isLbUsd && csAvailable) {
+      const lastWalletIdx = result.reduce(
+        (last, m, i) => (m.id === "apple_pay" || m.id === "google_pay" ? i : last),
+        -1,
+      );
+      result.splice(lastWalletIdx + 1, 0, {
+        id: "cybersource",
+        labelKey: "checkout.pay.cybersource",
+      });
+    }
+    return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyCode, countryCode, walletSupported]);
+  }, [currencyCode, countryCode, walletSupported, csAvailable]);
   // If the currently selected payment method is no longer available for
   // the active currency / country, re-select a sensible default through
   // the same shared helper the mobile checkout uses.
   useEffect(() => {
     // "klarna" is not in WebPaymentMethodId so webNextPaymentMethod won't
-    // fallback from it — only call the helper for standard web methods.
+    // fallback from it — leave klarna selection alone.
+    // "cybersource" likewise, BUT if it is no longer eligible (credentials
+    // unavailable or context changed away from LB+USD) we must reset to a
+    // valid method; treat it as "card" for the fallback computation.
     if (paymentMethod === "klarna") return;
-    const fallback = webNextPaymentMethod(paymentMethod, {
+    const isLbUsdContext = currencyCode === "USD" && (payCtxCountry ?? "LB").toUpperCase() === "LB";
+    if (paymentMethod === "cybersource" && csAvailable && isLbUsdContext) return;
+    const baseMethod = paymentMethod === "cybersource" ? "card" : paymentMethod;
+    const fallback = webNextPaymentMethod(baseMethod, {
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
       isApplePlatform: appleDevice,
@@ -1297,7 +1340,7 @@ function CheckoutForm() {
     if (fallback === "card" || fallback === "apple_pay" || fallback === "google_pay") {
       triggerStripeLoad();
     }
-  }, [currencyCode, countryCode, paymentMethod, triggerStripeLoad]);
+  }, [currencyCode, countryCode, paymentMethod, triggerStripeLoad, csAvailable, payCtxCountry]);
 
   // Stripe PaymentRequest object reused for both the canMakePayment probe
   // and the actual wallet submit (non-AED). Stored after canMakePayment()
@@ -1769,6 +1812,44 @@ function CheckoutForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, deliveryMode, _selectedDistrict, noAddress, confirmedCouponDiscount, deliverySlot]);
 
+  // Prefetch CyberSource capture context as soon as the shopper selects the
+  // tile so Microform can initialise immediately — no blank-field wait on submit.
+  useEffect(() => {
+    if (paymentMethod !== "cybersource" || step !== 2) return;
+    if (csCaptureContext || cybersourceCapture.isPending) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const oid = await ensureOrderId();
+        if (cancelled) return;
+        const res = await cybersourceCapture.mutateAsync({
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+          orderId: oid,
+          district: _selectedDistrict || undefined,
+          expressDelivery: deliveryMode === "express",
+          noAddress,
+          deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+          ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+          ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+          targetOrigin: window.location.origin,
+        });
+        if (!cancelled && res.ok && res.captureContext) {
+          setCsCaptureContext(res.captureContext);
+          setCsCaptureEnv(res.environment ?? "test");
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : String(err);
+          // Surface a friendly error so the user sees something instead of
+          // an infinite skeleton. The submit handler will retry on tap.
+          setCsCaptureContextError(msg || "Unable to load card form"); // i18n-ignore
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethod, step]);
+
   // Derived display values: prefer server-authoritative USD amounts when the
   // override is set; fall back to client-computed fees otherwise. These drive
   // OrderSummaryPanel and PaymentSubmitButton so the visible total always
@@ -1859,6 +1940,8 @@ function CheckoutForm() {
     mamoPayment.isPending ||
     paypalPayment.isPending ||
     tabbyPayment.isPending ||
+    cybersourceCapture.isPending ||
+    cybersourceCharge.isPending ||
     cardProcessing;
 
   // Active display currency derived from the active country. Used both
@@ -2869,6 +2952,91 @@ function CheckoutForm() {
         return;
       }
 
+      // ── CyberSource inline card payment ─────────────────────────────────
+      if (payMethod === "cybersource") {
+        // Step 1: Get capture context from server (re-use cached one if
+        // already fetched for the same orderId).
+        let captureCtx = csCaptureContext;
+        if (!captureCtx) {
+          const ccRes = await cybersourceCapture.mutateAsync({
+            items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+            orderId,
+            district: _selectedDistrict,
+            expressDelivery: deliveryMode === "express",
+            noAddress,
+            deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+            ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+            ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+            targetOrigin: window.location.origin,
+          });
+          if (!ccRes.ok || !ccRes.captureContext) {
+            toast({
+              title: t("checkout.toast.cybersourceUnavailable"),
+              description: ccRes.message || t("checkout.toast.cybersourceUnavailableDesc"),
+              variant: "destructive",
+            });
+            return;
+          }
+          captureCtx = ccRes.captureContext;
+          setCsCaptureContext(captureCtx);
+        }
+
+        // Step 2: Tokenize card in-browser via the CyberSource Microform SDK.
+        if (!csFormRef.current) {
+          toast({
+            title: t("checkout.toast.cybersourceUnavailable"),
+            description: t("checkout.toast.cybersourceUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        let transientToken: string;
+        try {
+          transientToken = await csFormRef.current.createToken();
+        } catch (tokenErr: any) {
+          toast({
+            title: t("checkout.toast.cybersourceDeclined"),
+            description: tokenErr?.message || t("checkout.toast.cybersourceDeclinedDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Step 3: Charge the card server-side.
+        const chargeRes = await cybersourceCharge.mutateAsync({
+          orderId,
+          transientTokenJwt: transientToken,
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+          district: _selectedDistrict,
+          expressDelivery: deliveryMode === "express",
+          noAddress,
+          deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+          ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+          ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+          billingDetails: {
+            firstName: sender.firstName,
+            lastName: sender.lastName,
+            email: sender.email,
+          },
+        });
+
+        if (!chargeRes.ok || !chargeRes.paymentRef) {
+          toast({
+            title: t("checkout.toast.cybersourceDeclined"),
+            description: chargeRes.message || t("checkout.toast.cybersourceDeclinedDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Step 4: Create the order with the CyberSource paymentRef.
+        void maybeSaveNewAddress();
+        void maybeSaveProfilePhone();
+        await finalizeOrderNow(chargeRes.paymentRef);
+        return;
+      }
+
       await finalizeOrderNow();
     } catch (err) {
       const isNetworkFailure = err instanceof TypeError;
@@ -3394,6 +3562,7 @@ function CheckoutForm() {
                       ];
                       const methodLogos: Record<string, LogoSpec[]> = {
                         card: cardLogos,
+                        cybersource: cardLogos,
                         mamo: cardLogos,
                         paypal: [{ name: "PayPal", src: paypalLogo, fill: true }],
                         apple_pay: [
@@ -3481,14 +3650,19 @@ function CheckoutForm() {
                               />
                             </Suspense>
                           )}
+                          {m.id === "cybersource" && paymentMethod === "cybersource" && (
+                            <CyberSourceSection
+                              ref={csFormRef}
+                              captureContext={csCaptureContext ?? ""}
+                              prefetchError={csCaptureContextError}
+                              environment={csCaptureEnv}
+                              className="mt-3"
+                            />
+                          )}
                         </div>
                       );
                     })}
 
-                    {/* Klarna tile — only shown when the server confirmed the
-                        payer's country is a Klarna-supported market (IP geo,
-                        not delivery address) AND KLARNA_ROLLOUT is active AND
-                        the checkout currency is not AED (Gulf Stripe). */}
                     {klarnaEnabled && checkoutCurrency !== "AED" && (
                       <div
                         className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === "klarna" ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}

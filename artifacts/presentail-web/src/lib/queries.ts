@@ -796,6 +796,60 @@ export const useTabbyPayment = () => {
   });
 };
 
+export const useCybersourceAvailable = () => {
+  return useQuery({
+    queryKey: ["cybersource-available"],
+    queryFn: () => apiFetch<{ available: boolean }>("/payment/cybersource/available"),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+};
+
+export const useCybersourceCaptureContext = () => {
+  return useMutation({
+    mutationFn: (data: {
+      items: PayCartItem[];
+      orderId: string;
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
+      targetOrigin?: string;
+    }) => apiFetch<{ ok: boolean; captureContext?: string; totalUsd?: number; environment?: "test" | "live"; message?: string; code?: string }>("/payment/cybersource/capture-context", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
+export const useCybersourceCharge = () => {
+  return useMutation({
+    mutationFn: (data: {
+      orderId: string;
+      transientTokenJwt: string;
+      items: PayCartItem[];
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
+      billingDetails?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+      };
+    }) => apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string; declineCode?: string }>("/payment/cybersource/charge", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
 // Search result types
 export type SearchProduct = {
   slug: string;

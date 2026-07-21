@@ -228,6 +228,19 @@ export const checkoutStrings: Dict = {
 
   "checkout.loyalty.usePoints": { en: "Use {n} pts", ar: "استخدم {n} نقطة" },
   "checkout.loyalty.off": { en: "{n}% off", ar: "خصم {n}٪" },
+
+  "checkout.pay.cybersource": { en: "Credit / Debit Card", ar: "بطاقة ائتمان / دفع" },
+  "checkout.pay.cybersourceDesc": { en: "Secure card payment — Visa, Mastercard, or Amex.", ar: "دفع آمن بالبطاقة — فيزا أو ماستركارد أو أمريكان إكسبريس." },
+  "checkout.cybersource.cardNumber": { en: "Card number", ar: "رقم البطاقة" },
+  "checkout.cybersource.cvv": { en: "CVC", ar: "رمز الأمان" },
+  "checkout.cybersource.expiry": { en: "Expiry date", ar: "تاريخ الانتهاء" },
+  "checkout.cybersource.expiryPlaceholder": { en: "MM / YY", ar: "شهر / سنة" },
+  "checkout.cybersource.expiryError": { en: "Please enter a valid expiry date.", ar: "يرجى إدخال تاريخ انتهاء صلاحية صحيح." },
+  "checkout.toast.cybersourceUnavailable": { en: "Card payment unavailable", ar: "الدفع بالبطاقة غير متوفر" },
+  "checkout.toast.cybersourceUnavailableDesc": { en: "Card payment isn't available right now.", ar: "الدفع بالبطاقة غير متوفر حالياً." },
+  "checkout.toast.cybersourceDeclined": { en: "Card declined", ar: "تم رفض البطاقة" },
+  "checkout.toast.cybersourceDeclinedDesc": { en: "Your card was declined. Please check your details and try again, or use a different card.", ar: "تم رفض بطاقتك. يرجى التحقق من بياناتك والمحاولة مجدداً أو استخدام بطاقة أخرى." },
+  "checkout.cybersource.loading": { en: "Loading secure card form…", ar: "جارٍ تحميل نموذج الدفع الآمن…" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -430,4 +443,17 @@ export const checkoutStringsFr: Record<string, string> = {
 
   "checkout.loyalty.usePoints": "Utiliser {n} pts",
   "checkout.loyalty.off": "{n}% de réduction",
+
+  "checkout.pay.cybersource": "Carte de crédit / débit",
+  "checkout.pay.cybersourceDesc": "Paiement sécurisé par carte — Visa, Mastercard ou Amex.",
+  "checkout.cybersource.cardNumber": "Numéro de carte",
+  "checkout.cybersource.cvv": "CVC",
+  "checkout.cybersource.expiry": "Date d'expiration",
+  "checkout.cybersource.expiryPlaceholder": "MM / AA",
+  "checkout.cybersource.expiryError": "Veuillez saisir une date d'expiration valide.",
+  "checkout.toast.cybersourceUnavailable": "Paiement par carte indisponible",
+  "checkout.toast.cybersourceUnavailableDesc": "Le paiement par carte n'est pas disponible pour le moment.",
+  "checkout.toast.cybersourceDeclined": "Carte refusée",
+  "checkout.toast.cybersourceDeclinedDesc": "Votre carte a été refusée. Vérifiez vos informations et réessayez, ou utilisez une autre carte.",
+  "checkout.cybersource.loading": "Chargement du formulaire de paiement sécurisé…",
 };

@@ -45,7 +45,7 @@ export type CartSnapshot = {
 export type PaymentIntent = {
   orderId: string;
   paymentRef: string;
-  provider: "stripe" | "mamo" | "paypal" | "tabby";
+  provider: "stripe" | "mamo" | "paypal" | "tabby" | "cybersource";
   // Which Stripe account was used: "main" (CY) or "gulf" (AE).
   stripeAccount?: "main" | "gulf";
   // The exact currency the provider was instructed to charge (e.g. "QAR",
@@ -91,7 +91,7 @@ function sweep(): void {
 export function storePaymentIntent(params: {
   orderId: string;
   paymentRef: string;
-  provider: "stripe" | "mamo" | "paypal" | "tabby";
+  provider: "stripe" | "mamo" | "paypal" | "tabby" | "cybersource";
   stripeAccount?: "main" | "gulf";
   /** The exact currency the provider was charged in (e.g. "QAR", "AED", "USD"). */
   currency: string;

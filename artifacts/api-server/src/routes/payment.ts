@@ -891,4 +891,289 @@ router.post("/payment/tabby/refund", async (req, res) => {
   }
 });
 
+// ── CyberSource Unified Checkout ─────────────────────────────────────────────
+// Gate: LB only (USD, Lebanon merchant account).
+// Two endpoints:
+//   POST /payment/cybersource/capture-context  — resolves server-side cart
+//       total and returns a short-lived CyberSource Capture Context JWT for
+//       the client-side Microform SDK.
+//   POST /payment/cybersource/charge           — accepts the transient-token
+//       JWT produced by Microform, re-verifies the server-side total, charges
+//       the card, and stores a payment intent binding orderId↔"cybs:{id}".
+//
+// Security model (mirrors Stripe/Mamo/PayPal):
+//   • All amounts derived from Presentail OS catalog — client-supplied prices
+//     are never trusted.
+//   • Transient token never touches the server as a raw PAN.
+//   • storePaymentIntent binds paymentRef to orderId + cart snapshot before
+//     returning, so /woo/order can reject any replay or cart substitution.
+import {
+  isCybersourceConfigured,
+  generateCaptureContext,
+  authorizeAndCapture,
+} from "../lib/cybersource";
+
+// Allowed origins for the Microform capture context — whitelist only.
+// The deployment origins from REPLIT_DOMAINS are added at runtime so the
+// mobile WebView (which loads the tokenizer from the API server's own domain)
+// is always covered without hardcoding environment-specific hostnames.
+const CYBERSOURCE_EXTRA_ORIGINS = new Set([
+  "https://new.presentail.com", // allow-legacy-domain — kept only as capture-context origin
+  "http://localhost:3000",
+  "http://localhost:5173",
+]);
+
+// Build the allowed-origins set once, lazily.  Includes presentail.com, any
+// domain from REPLIT_DOMAINS (e.g. *.replit.app in production), and the static
+// extra set above.  Same pattern as validateRedirectUrl.ts allowedHosts().
+let _cachedCsOrigins: Set<string> | null = null;
+function cybersourceAllowedOrigins(): Set<string> {
+  if (_cachedCsOrigins) return _cachedCsOrigins;
+  const s = new Set(CYBERSOURCE_EXTRA_ORIGINS);
+  s.add("https://presentail.com");
+  const replitDomains = process.env.REPLIT_DOMAINS ?? "";
+  for (const d of replitDomains.split(",")) {
+    const trimmed = d.trim();
+    if (trimmed) s.add(`https://${trimmed}`);
+  }
+  _cachedCsOrigins = s;
+  return s;
+}
+
+// Derive target origins for the capture context.  Always includes
+// presentail.com + REPLIT_DOMAINS so the mobile WebView (served from the API
+// server's own origin) can initialise Microform.  The client may pass an
+// additional `targetOrigin` body field for dev overrides; validated server-side.
+function resolveTargetOrigins(bodyOrigin?: string): string[] {
+  const allowed = cybersourceAllowedOrigins();
+  const base = ["https://presentail.com"];
+  // Auto-include REPLIT_DOMAINS origins (covers mobile WebView in all envs)
+  const replitDomains = process.env.REPLIT_DOMAINS ?? "";
+  for (const d of replitDomains.split(",")) {
+    const trimmed = d.trim();
+    if (trimmed) {
+      const origin = `https://${trimmed}`;
+      if (!base.includes(origin)) base.push(origin);
+    }
+  }
+  if (bodyOrigin && allowed.has(bodyOrigin) && !base.includes(bodyOrigin)) {
+    base.push(bodyOrigin);
+  }
+  return base;
+}
+
+router.get("/payment/cybersource/available", (_req, res) => {
+  return res.json({ available: isCybersourceConfigured() });
+});
+
+router.post("/payment/cybersource/capture-context", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+
+  const {
+    items,
+    orderId,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    targetOrigin: bodyOrigin,
+  } = req.body as {
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    orderId?: string;
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
+    targetOrigin?: string;
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (store.storeKey !== "lebanon") {
+    return res.status(400).json({ ok: false, message: "CyberSource is only available for the Lebanon storefront." }); // i18n-ignore
+  }
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Beirut";
+  const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const slotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd;
+  const totalAmount = totalUsd.toFixed(2);
+
+  const targetOrigins = resolveTargetOrigins(bodyOrigin);
+
+  const result = await generateCaptureContext({ targetOrigins, totalAmount, currency: "USD" });
+  if (!result.ok) {
+    req.log.warn({ orderId, message: result.message }, "CyberSource capture context failed");
+    return res.status(502).json({ ok: false, code: "cybersource_error", message: result.message });
+  }
+
+  const environment = (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") as "test" | "live";
+  req.log.info({ orderId, totalUsd, environment }, "CyberSource capture context created");
+  return res.json({ ok: true, captureContext: result.captureContext, totalUsd, environment });
+});
+
+router.post("/payment/cybersource/charge", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+
+  const {
+    orderId,
+    transientTokenJwt,
+    items,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    billingDetails: rawBilling,
+  } = req.body as {
+    orderId: string;
+    transientTokenJwt: string;
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
+    billingDetails?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+    };
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!transientTokenJwt) {
+    return res.status(400).json({ ok: false, message: "transientTokenJwt is required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  // Validate the transient token is a non-empty string that looks like a JWT
+  // (three dot-separated segments). We do not verify the JWT signature —
+  // CyberSource validates it when we submit the payment — but we reject
+  // obvious garbage early to avoid a wasted round-trip.
+  if (typeof transientTokenJwt !== "string" || transientTokenJwt.split(".").length !== 3) {
+    return res.status(400).json({ ok: false, message: "Invalid transient token." }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (store.storeKey !== "lebanon") {
+    return res.status(400).json({ ok: false, message: "CyberSource is only available for the Lebanon storefront." }); // i18n-ignore
+  }
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Beirut";
+  const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const slotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd;
+  const totalAmount = totalUsd.toFixed(2);
+
+  const chargeResult = await authorizeAndCapture({
+    transientTokenJwt,
+    totalAmount,
+    currency: "USD",
+    orderId,
+    billingDetails: rawBilling,
+  });
+
+  if (!chargeResult.ok) {
+    req.log.warn(
+      { orderId, totalUsd, declineCode: chargeResult.declineCode, message: chargeResult.message },
+      "CyberSource charge failed",
+    );
+    return res.status(402).json({
+      ok: false,
+      code: "payment_declined",
+      declineCode: chargeResult.declineCode,
+      message: chargeResult.message,
+    });
+  }
+
+  const paymentRef = `cybs:${chargeResult.paymentId}`;
+
+  // Bind orderId↔paymentRef before returning so /woo/order can verify cart
+  // snapshot and reject any replay attempt.
+  storePaymentIntent({
+    orderId,
+    paymentRef,
+    provider: "cybersource",
+    currency: "USD",
+    totalUsd,
+    snapshot: {
+      items: catalogResult.items.map((i) => ({
+        wcId: i.wcId,
+        osSlug: i.osSlug,
+        quantity: i.quantity,
+        priceUsd: i.priceUsd,
+      })),
+      district: resolvedDistrict,
+      expressDelivery: isExpress,
+      noAddress: isNoAddress,
+      deliverySlot: rawDeliverySlot ?? "",
+    },
+  });
+
+  req.log.info(
+    { orderId, paymentRef, totalUsd, status: chargeResult.status },
+    "CyberSource charge succeeded",
+  );
+
+  return res.json({ ok: true, paymentRef });
+});
+
 export default router;
+
