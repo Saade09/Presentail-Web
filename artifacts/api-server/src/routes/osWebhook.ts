@@ -60,6 +60,94 @@ import { DELIVERY_COUNTRIES } from "@workspace/catalog-data";
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
+// Helpers: IndexNow deindex ping for discontinued products
+// ---------------------------------------------------------------------------
+
+const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
+const DEFAULT_INDEXNOW_KEY = "5b84c9d17f3e4a8a9b6c2d1e5f7a3b2c";
+const INDEXNOW_HOST = "presentail.com";
+
+// Mirrors SITEMAP_CANONICAL_CITIES in presentail-web/sitemap.mjs.
+const DISCONTINUED_CANONICAL_CITIES: Record<string, string> = {
+  lb: "beirut",
+  ae: "dubai",
+  cy: "nicosia",
+};
+// Mirrors SITEMAP_LANGS in presentail-web/sitemap.mjs.
+const DISCONTINUED_LANGS = ["en", "ar", "fr"] as const;
+
+/**
+ * Submit an IndexNow ping for all locale-prefixed product URLs of a newly
+ * discontinued product so search engines (Bing, Yandex, etc.) pick up the
+ * 410 promptly rather than waiting for their next scheduled crawl.
+ *
+ * URLs submitted: `{lang}-{country}/{city}/product/{slug}` for every
+ * combination of DISCONTINUED_LANGS × DISCONTINUED_CANONICAL_CITIES.
+ *
+ * The INDEXNOW_KEY env var is reused from the iOS CI workflow; falls back to
+ * the same default key used by scripts/src/submitSitemap.ts.
+ *
+ * Failures are non-fatal: IndexNow is a best-effort deindex signal.
+ *
+ * Exported for unit testing.
+ */
+export async function pingIndexNowForDiscontinuedProduct(
+  slug: string,
+  logger?: { info?: (...a: any[]) => void; warn?: (...a: any[]) => void },
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  const key = (process.env.INDEXNOW_KEY ?? "").trim() || DEFAULT_INDEXNOW_KEY;
+  const keyLocation = `https://${INDEXNOW_HOST}/${key}.txt`;
+  const encoded = encodeURIComponent(slug);
+
+  const urlList: string[] = [];
+  for (const [country, city] of Object.entries(DISCONTINUED_CANONICAL_CITIES)) {
+    for (const lang of DISCONTINUED_LANGS) {
+      urlList.push(
+        `https://${INDEXNOW_HOST}/${lang}-${country}/${city}/product/${encoded}`,
+      );
+    }
+  }
+
+  const body = JSON.stringify({
+    host: INDEXNOW_HOST,
+    key,
+    keyLocation,
+    urlList,
+  });
+
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 15_000);
+  try {
+    const res = await fetchFn(INDEXNOW_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body,
+      signal: ac.signal,
+    });
+    clearTimeout(t);
+    if (res.ok || res.status === 202) {
+      logger?.info?.(
+        { slug, urlCount: urlList.length },
+        "osWebhook: IndexNow deindex ping sent for discontinued product",
+      );
+    } else {
+      const text = await res.text().catch(() => "");
+      logger?.warn?.(
+        { slug, status: res.status, body: text.slice(0, 200) },
+        "osWebhook: IndexNow deindex ping failed for discontinued product",
+      );
+    }
+  } catch (err: unknown) {
+    clearTimeout(t);
+    logger?.warn?.(
+      { slug, err: (err as Error)?.message },
+      "osWebhook: IndexNow deindex ping error for discontinued product",
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers: HMAC verification
 // ---------------------------------------------------------------------------
 
@@ -443,6 +531,28 @@ router.post("/os/webhook", async (req, res) => {
       }
     }
 
+    // When a product transitions to discontinued, proactively submit an
+    // IndexNow deindex ping for all locale-prefixed product URLs so search
+    // engines (Bing, Yandex, etc.) process the removal faster rather than
+    // waiting until the next scheduled crawl discovers the 410.
+    const productSlug = typeof (data as Record<string, unknown>)?.slug === "string"
+      ? ((data as Record<string, unknown>).slug as string)
+      : null;
+    const productStatus = typeof (data as Record<string, unknown>)?.status === "string"
+      ? ((data as Record<string, unknown>).status as string).toLowerCase()
+      : null;
+
+    if (productStatus === "discontinued" && productSlug) {
+      void pingIndexNowForDiscontinuedProduct(productSlug, req.log).catch(
+        (err: unknown) => {
+          req.log.warn(
+            { err: (err as Error)?.message, slug: productSlug },
+            "osWebhook: IndexNow deindex ping threw unexpectedly (non-fatal)",
+          );
+        },
+      );
+    }
+
     return res.json({ ok: true });
   }
 
@@ -458,6 +568,25 @@ router.post("/os/webhook", async (req, res) => {
       { event, productId },
       "osWebhook: product deleted — removed from cache and refetch queued",
     );
+
+    // Deleted products should also be deindexed from search engines promptly.
+    // A slug in the payload lets us submit the specific URLs; fall back
+    // gracefully when the payload only carries an id.
+    const deletedSlug = typeof (data as Record<string, unknown>)?.slug === "string"
+      ? ((data as Record<string, unknown>).slug as string)
+      : null;
+
+    if (deletedSlug) {
+      void pingIndexNowForDiscontinuedProduct(deletedSlug, req.log).catch(
+        (err: unknown) => {
+          req.log.warn(
+            { err: (err as Error)?.message, slug: deletedSlug },
+            "osWebhook: IndexNow deindex ping for deleted product threw unexpectedly (non-fatal)",
+          );
+        },
+      );
+    }
+
     return res.json({ ok: true });
   }
 
