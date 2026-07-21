@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useLocation } from "wouter";
 import {
@@ -36,9 +36,6 @@ export function LocationPickerGate({ children }: Props) {
     closePicker,
     countryCode,
     pickerForceCountryStep,
-    // These are the PRE-CHANGE values — setLocation() inside LocationPicker
-    // batches its setState calls so they won't commit until after handleComplete
-    // returns. Reading city/country here gives us the old location for free.
     city,
     country,
     countries,
@@ -49,48 +46,76 @@ export function LocationPickerGate({ children }: Props) {
 
   const [fdcWarning, setFdcWarning] = useState<FdcWarning | null>(null);
 
+  // ── City snapshot ────────────────────────────────────────────────────────
+  // Capture city/country/subtotal at the exact render where the picker
+  // transitions from closed → open. This runs synchronously during render,
+  // before any effect or batched state update from setLocation/navigate can
+  // propagate — making it immune to wouter's synchronous URL commit.
+  const prevPickerOpenRef = useRef(false);
+  const citySnapshotRef = useRef<DeliveryCity | null>(null);
+  const countrySnapshotRef = useRef<DeliveryCountry | null>(null);
+  const subtotalSnapshotRef = useRef<number>(0);
+
+  if (!prevPickerOpenRef.current && isPickerOpen) {
+    // Picker just transitioned closed → open: take snapshot now.
+    citySnapshotRef.current = city;
+    countrySnapshotRef.current = country;
+    subtotalSnapshotRef.current = subtotal;
+  }
+  prevPickerOpenRef.current = isPickerOpen;
+  // ────────────────────────────────────────────────────────────────────────
+
   const handleComplete = (selection: { countryCode: string; cityId: string }) => {
-    // Capture old city/country NOW — React batches setState so these are still
-    // the pre-change values while we're inside this synchronous event handler.
-    const prevCity = city;
-    const prevCountry = country;
+    const prevCity = citySnapshotRef.current;
+    const prevCountry = countrySnapshotRef.current;
+    const snap = subtotalSnapshotRef.current;
+
+    // eslint-disable-next-line no-console
+    console.log("[FDC-DEBUG] handleComplete", {
+      selectionCityId: selection.cityId,
+      prevCityId: prevCity?.id ?? null,
+      snap,
+      countriesCount: countries.length,
+    });
 
     closePicker();
 
-    // Nothing to check if cart is empty or no previous city.
-    if (subtotal <= 0 || !prevCity) return;
+    if (snap <= 0 || !prevCity) {
+      // eslint-disable-next-line no-console
+      console.log("[FDC-DEBUG] early exit: snap<=0 or no prevCity", { snap, prevCity });
+      return;
+    }
 
-    // Same city re-selected — nothing changed.
-    if (prevCity.id === selection.cityId) return;
+    if (prevCity.id === selection.cityId) {
+      // eslint-disable-next-line no-console
+      console.log("[FDC-DEBUG] early exit: same city");
+      return;
+    }
 
     const newCountry = countries.find((c) => c.code === selection.countryCode) ?? null;
     const newCity = newCountry?.cities.find((c) => c.id === selection.cityId) ?? null;
+
+    // eslint-disable-next-line no-console
+    console.log("[FDC-DEBUG] newCity lookup", { newCity: newCity?.id, newCountry: newCountry?.code });
 
     if (!newCity) return;
 
     const prevThreshold = resolveThreshold(prevCity, prevCountry);
     const newThreshold = resolveThreshold(newCity, newCountry);
-
     const prevEnabled = isFreeDeliveryEnabled(prevCity, prevCountry);
     const newEnabled = isFreeDeliveryEnabled(newCity, newCountry);
 
-    const wasEligible =
-      prevEnabled &&
-      prevThreshold != null &&
-      prevThreshold > 0 &&
-      subtotal >= prevThreshold;
+    const wasEligible = prevEnabled && prevThreshold != null && prevThreshold > 0 && snap >= prevThreshold;
+    const nowEligible = newEnabled && newThreshold != null && newThreshold > 0 && snap >= newThreshold;
 
-    const nowEligible =
-      newEnabled &&
-      newThreshold != null &&
-      newThreshold > 0 &&
-      subtotal >= newThreshold;
+    // eslint-disable-next-line no-console
+    console.log("[FDC-DEBUG] eligibility", { prevEnabled, prevThreshold, newEnabled, newThreshold, snap, wasEligible, nowEligible });
 
     if (wasEligible && !nowEligible) {
       setFdcWarning({
         cityName: cityName(newCity.id, newCity.name),
         thresholdUsd: newEnabled ? newThreshold : null,
-        subtotalUsd: subtotal,
+        subtotalUsd: snap,
       });
     }
   };
@@ -112,11 +137,6 @@ export function LocationPickerGate({ children }: Props) {
         onOpenChange={(o) => (o ? openPicker() : closePicker())}
       >
         <DialogPrimitive.Portal>
-          {/*
-           * Mobile: bottom-sheet layout — overlay anchors to the bottom edge
-           * so the card always reaches 100dvh regardless of Radix internals.
-           * Desktop (sm+): centred card with 90dvh cap.
-           */}
           <DialogPrimitive.Overlay
             className="fixed inset-0 z-[80] bg-black/55 flex flex-col pt-[120px]
                        md:pt-0 md:items-center md:justify-center md:p-4
@@ -139,7 +159,6 @@ export function LocationPickerGate({ children }: Props) {
                 {t("locationPickerGate.dialogDesc")}
               </DialogPrimitive.Description>
 
-              {/* Header + list — list handles its own scroll */}
               <div className="flex flex-col flex-1 min-h-0 p-6">
                 <LocationPicker
                   initialCountryCode={countryCode}
