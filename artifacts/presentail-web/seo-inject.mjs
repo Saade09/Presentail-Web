@@ -662,8 +662,8 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     jsonLdNodes.push(buildBreadcrumbListSchema(navCrumbs));
   }
 
-  // WebPage (Terms / Privacy) and ContactPage (Contact) lightweight schema.
-  if (emitJsonLd && (routeKey === "terms" || routeKey === "privacy")) {
+  // WebPage (Terms / Privacy / Return Policy / Shipping Policy) and ContactPage (Contact) lightweight schema.
+  if (emitJsonLd && (routeKey === "terms" || routeKey === "privacy" || routeKey === "return-policy" || routeKey === "shipping-policy")) {
     jsonLdNodes.push(
       buildWebPageSchema({
         siteUrl,
