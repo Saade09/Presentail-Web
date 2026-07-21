@@ -24,6 +24,10 @@ import {
   resolveLlmsFullTxt,
 } from "./llms.mjs";
 import { resolveXRobotsTag as resolveXRobotsTagPure } from "./serve-robots.mjs";
+import {
+  stripTrackingParams,
+  stripTrackingParamsFromReqUrl,
+} from "./serve-tracking.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -1036,7 +1040,10 @@ const server = http.createServer(async (req, res) => {
       normalizedHost.startsWith("www.") || normalizedFwdHost.startsWith("www.");
     if (isWwwHost) {
       const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
-      res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
+      // stripTrackingParamsFromReqUrl removes utm_*, srsltid, fbclid, etc.
+      // from the path+search before forwarding, so tracking params can never
+      // appear in a server-issued Location header.
+      res.writeHead(301, { location: `${apexOrigin}${stripTrackingParamsFromReqUrl(req.url)}` });
       res.end();
       return;
     }
@@ -1049,7 +1056,7 @@ const server = http.createServer(async (req, res) => {
       normalizedFwdHost === "new.presentail.com";
     if (isNewSubdomain) {
       const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
-      res.writeHead(301, { location: `${apexOrigin}${req.url ?? "/"}` });
+      res.writeHead(301, { location: `${apexOrigin}${stripTrackingParamsFromReqUrl(req.url)}` });
       res.end();
       return;
     }
@@ -1319,8 +1326,10 @@ const server = http.createServer(async (req, res) => {
       pathname !== "/product/"
     ) {
       const cleanPath = BASE_PATH + pathname.slice(0, -1);
+      // stripTrackingParams removes utm_*, srsltid, fbclid, etc. so the
+      // Location header for the trailing-slash 301 is always tracking-free.
       res.writeHead(301, {
-        location: cleanPath + (url.search || ""),
+        location: cleanPath + stripTrackingParams(url.search),
         "cache-control": "public, max-age=31536000, immutable",
       });
       res.end();
