@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Calendar, CircleCheck, Circle, Info, Zap } from "lucide-react";
+import { Calendar, CircleCheck, Circle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
 
@@ -25,12 +25,6 @@ type Props = {
   scheduledFeeSubLabel?: string;
   /** When true the scheduled card fee is styled in primary/green. */
   scheduledIsFree?: boolean;
-  /** When true the helper message below cards is shown. */
-  showHelper?: boolean;
-  /** When true the helper uses the "qualified" (free) copy and green styling. */
-  helperIsQualified?: boolean;
-  /** Formatted express surcharge amount (e.g. "$15") used in the express qualified helper. */
-  helperExpressFee?: string;
 };
 
 export function DeliveryOptions({
@@ -47,9 +41,6 @@ export function DeliveryOptions({
   scheduledFeeLabel,
   scheduledFeeSubLabel,
   scheduledIsFree,
-  showHelper,
-  helperIsQualified,
-  helperExpressFee,
 }: Props) {
   const { t } = useLocale();
   if (!expressAvailable) return null;
@@ -88,28 +79,6 @@ export function DeliveryOptions({
         testId="delivery-option-scheduled"
       />
 
-      {showHelper && (
-        <div className="flex items-center gap-1.5 px-0.5">
-          <Info
-            className={cn(
-              "w-3.5 h-3.5 shrink-0",
-              helperIsQualified ? "text-primary" : "text-muted-foreground",
-            )}
-          />
-          <span
-            className={cn(
-              "text-[11px] leading-relaxed",
-              helperIsQualified ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            {helperIsQualified
-              ? value === "express" && helperExpressFee
-                ? t("product.delivery.qualifiedHelperExpress").replace("{amount}", helperExpressFee)
-                : t("product.delivery.qualifiedHelperStandard")
-              : t("product.delivery.feesHelper")}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

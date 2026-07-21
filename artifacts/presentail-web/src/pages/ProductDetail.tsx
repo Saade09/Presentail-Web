@@ -608,9 +608,6 @@ export default function ProductDetail() {
               scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
               scheduledFeeSubLabel={deliveryCardLabels.scheduledFeeSubLabel}
               scheduledIsFree={deliveryCardLabels.scheduledIsFree}
-              showHelper={true}
-              helperIsQualified={deliveryCardLabels.helperIsQualified}
-              helperExpressFee={deliveryCardLabels.expressSurchargeFormatted}
             />
 
             {deliveryChoice === "scheduled" && (
