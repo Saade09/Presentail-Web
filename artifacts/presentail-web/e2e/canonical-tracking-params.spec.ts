@@ -145,7 +145,181 @@ test.describe("Canonical tag — brand URL with tracking params", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Baseline: canonical present on clean product URL (no tracking params)
+// 3. Homepage with tracking params → canonical and og:url are clean
+// ---------------------------------------------------------------------------
+
+test.describe("Canonical tag — homepage with tracking params", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get(
+      "/en-lb/beirut?srsltid=test&utm_source=google",
+    );
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test("HTTP 200 is returned for a homepage URL with tracking params", async ({ request }) => {
+    const response = await request.get("/en-lb/beirut?srsltid=test&utm_source=google");
+    expect(response.status()).toBe(200);
+  });
+
+  test("exactly one canonical tag is present in the server-rendered homepage HTML", () => {
+    const canonicals = html.match(/<link\s+rel="canonical"/gi) ?? [];
+    expect(canonicals, "expected exactly one <link rel=canonical>").toHaveLength(1);
+  });
+
+  test("canonical href does not contain srsltid on the homepage", () => {
+    const href = extractCanonicalHref(html);
+    expect(href).not.toBeNull();
+    expect(href, "canonical href must not contain srsltid").not.toContain("srsltid");
+  });
+
+  test("canonical href does not contain utm_source on the homepage", () => {
+    const href = extractCanonicalHref(html);
+    expect(href).not.toBeNull();
+    expect(href, "canonical href must not contain utm_source").not.toContain("utm_source");
+  });
+
+  test("og:url does not contain tracking params on the homepage", () => {
+    const m = html.match(/<meta\s+property="og:url"\s+content="([^"]+)"/i)
+      ?? html.match(/<meta\s+content="([^"]+)"\s+property="og:url"/i);
+    expect(m, "og:url meta tag must be present").not.toBeNull();
+    const ogUrl = m?.[1] ?? "";
+    expect(ogUrl).not.toContain("srsltid");
+    expect(ogUrl).not.toContain("utm_source");
+  });
+
+  test("no tracking param appears anywhere in the raw HTML head section", () => {
+    const headMatch = html.match(/<head[\s\S]*?<\/head>/i);
+    const head = headMatch?.[0] ?? html;
+    expect(head).not.toContain("srsltid=");
+    expect(head).not.toContain("utm_source=");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Arabic locale product URL with tracking params → canonical is clean
+// ---------------------------------------------------------------------------
+
+test.describe("Canonical tag — Arabic locale product URL with tracking params", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get(
+      "/ar-lb/beirut/product/rose-bouquet?srsltid=test",
+    );
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test("HTTP 200 is returned for the AR locale product URL with tracking params", async ({ request }) => {
+    const response = await request.get("/ar-lb/beirut/product/rose-bouquet?srsltid=test");
+    expect(response.status()).toBe(200);
+  });
+
+  test("exactly one canonical tag is present in the AR locale product HTML", () => {
+    const canonicals = html.match(/<link\s+rel="canonical"/gi) ?? [];
+    expect(canonicals, "expected exactly one <link rel=canonical>").toHaveLength(1);
+  });
+
+  test("canonical href does not contain srsltid on the AR locale product page", () => {
+    const href = extractCanonicalHref(html);
+    expect(href).not.toBeNull();
+    expect(href, "canonical href must not contain srsltid").not.toContain("srsltid");
+  });
+
+  test("canonical href contains the clean AR product path", () => {
+    const href = extractCanonicalHref(html);
+    expect(href).not.toBeNull();
+    expect(href).toContain("/ar-lb/");
+    expect(href).toContain("/product/rose-bouquet");
+    expect(href).not.toContain("?");
+  });
+
+  test("og:url does not contain tracking params on the AR product page", () => {
+    const m = html.match(/<meta\s+property="og:url"\s+content="([^"]+)"/i)
+      ?? html.match(/<meta\s+content="([^"]+)"\s+property="og:url"/i);
+    expect(m, "og:url meta tag must be present").not.toBeNull();
+    const ogUrl = m?.[1] ?? "";
+    expect(ogUrl).not.toContain("srsltid");
+    expect(ogUrl).not.toContain("gclid");
+    expect(ogUrl).not.toContain("fbclid");
+    expect(ogUrl).not.toContain("utm_");
+  });
+
+  test("no tracking param from any family appears in the raw HTML head section on AR locale product", () => {
+    const headMatch = html.match(/<head[\s\S]*?<\/head>/i);
+    const head = headMatch?.[0] ?? html;
+    expect(head).not.toContain("srsltid=");
+    expect(head).not.toContain("gclid=");
+    expect(head).not.toContain("fbclid=");
+    expect(head).not.toContain("utm_source=");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. French locale product URL with tracking params → canonical is clean
+// ---------------------------------------------------------------------------
+
+test.describe("Canonical tag — French locale product URL with tracking params", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get(
+      "/fr-lb/beirut/product/rose-bouquet?srsltid=test",
+    );
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test("HTTP 200 is returned for the FR locale product URL with tracking params", async ({ request }) => {
+    const response = await request.get("/fr-lb/beirut/product/rose-bouquet?srsltid=test");
+    expect(response.status()).toBe(200);
+  });
+
+  test("exactly one canonical tag is present in the FR locale product HTML", () => {
+    const canonicals = html.match(/<link\s+rel="canonical"/gi) ?? [];
+    expect(canonicals, "expected exactly one <link rel=canonical>").toHaveLength(1);
+  });
+
+  test("canonical href does not contain srsltid on the FR locale product page", () => {
+    const href = extractCanonicalHref(html);
+    expect(href).not.toBeNull();
+    expect(href, "canonical href must not contain srsltid").not.toContain("srsltid");
+  });
+
+  test("canonical href contains the clean FR product path", () => {
+    const href = extractCanonicalHref(html);
+    expect(href).not.toBeNull();
+    expect(href).toContain("/fr-lb/");
+    expect(href).toContain("/product/rose-bouquet");
+    expect(href).not.toContain("?");
+  });
+
+  test("og:url does not contain tracking params on the FR product page", () => {
+    const m = html.match(/<meta\s+property="og:url"\s+content="([^"]+)"/i)
+      ?? html.match(/<meta\s+content="([^"]+)"\s+property="og:url"/i);
+    expect(m, "og:url meta tag must be present").not.toBeNull();
+    const ogUrl = m?.[1] ?? "";
+    expect(ogUrl).not.toContain("srsltid");
+    expect(ogUrl).not.toContain("gclid");
+    expect(ogUrl).not.toContain("fbclid");
+    expect(ogUrl).not.toContain("utm_");
+  });
+
+  test("no tracking param from any family appears in the raw HTML head section on FR locale product", () => {
+    const headMatch = html.match(/<head[\s\S]*?<\/head>/i);
+    const head = headMatch?.[0] ?? html;
+    expect(head).not.toContain("srsltid=");
+    expect(head).not.toContain("gclid=");
+    expect(head).not.toContain("fbclid=");
+    expect(head).not.toContain("utm_source=");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. Baseline: canonical present on clean product URL (no tracking params)
 // ---------------------------------------------------------------------------
 
 test.describe("Canonical tag — baseline product URL without tracking params", () => {

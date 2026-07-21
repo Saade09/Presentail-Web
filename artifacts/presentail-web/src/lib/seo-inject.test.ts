@@ -6780,6 +6780,118 @@ describe("injectSeoTagsAsync — canonical strips tracking params on entity page
 });
 
 // ---------------------------------------------------------------------------
+// Canonical tracking-param strips on non-entity (generic) routes
+// ---------------------------------------------------------------------------
+
+describe("buildSeoHead — canonical strips tracking params on non-entity routes", () => {
+  beforeEach(() => {
+    genericSeoCache.clear();
+  });
+
+  it("emits a clean canonical href on the EN locale homepage when tracking params are present", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+      search: "?srsltid=test123&utm_source=google&gclid=Cj0abc",
+    });
+    expect(headSnippet).toContain('rel="canonical" href="https://presentail.test/en-lb/beirut"');
+    expect(headSnippet).not.toContain("srsltid");
+    expect(headSnippet).not.toContain("utm_source");
+    expect(headSnippet).not.toContain("gclid");
+  });
+
+  it("emits a clean og:url on the EN locale homepage when tracking params are present", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+      search: "?srsltid=test123&utm_medium=cpc&fbclid=xyz",
+    });
+    expect(headSnippet).toContain('<meta property="og:url" content="https://presentail.test/en-lb/beirut"');
+    expect(headSnippet).not.toContain("srsltid");
+    expect(headSnippet).not.toContain("fbclid");
+    expect(headSnippet).not.toContain("utm_medium");
+  });
+
+  it("strips tracking params from the AR locale homepage canonical and og:url", () => {
+    const { headSnippet } = buildSeoHead("/ar-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+      search: "?srsltid=abc&utm_source=google",
+    });
+    expect(headSnippet).toContain('rel="canonical" href="https://presentail.test/ar-lb/beirut"');
+    expect(headSnippet).toContain('<meta property="og:url" content="https://presentail.test/ar-lb/beirut"');
+    expect(headSnippet).not.toContain("srsltid");
+    expect(headSnippet).not.toContain("utm_source");
+  });
+
+  it("strips tracking params from the FR locale homepage canonical and og:url", () => {
+    const { headSnippet } = buildSeoHead("/fr-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+      search: "?srsltid=abc&utm_campaign=spring",
+    });
+    expect(headSnippet).toContain('rel="canonical" href="https://presentail.test/fr-lb/beirut"');
+    expect(headSnippet).toContain('<meta property="og:url" content="https://presentail.test/fr-lb/beirut"');
+    expect(headSnippet).not.toContain("srsltid");
+    expect(headSnippet).not.toContain("utm_campaign");
+  });
+
+  it("strips tracking params while the hreflang alternates remain clean on locale home", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai", {
+      origin: "https://presentail.test",
+      basePath: "",
+      search: "?srsltid=xyz&gclid=abc",
+    });
+    const alternates = [...headSnippet.matchAll(/href="([^"]+)"/g)].map(([, h]) => h);
+    for (const href of alternates) {
+      expect(href, `hreflang href must not contain srsltid: ${href}`).not.toContain("srsltid");
+      expect(href, `hreflang href must not contain gclid: ${href}`).not.toContain("gclid");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JSON-LD url / @id fields — tracking-param absence
+// ---------------------------------------------------------------------------
+
+describe("JSON-LD — url and @id fields do not contain tracking params on entity pages", () => {
+  it("product JSON-LD url and @id fields are clean when the request carries tracking params", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Tracking Test Bouquet",
+        description: "Test product for tracking param leak.",
+        image: { uri: "https://cdn.test/tracking-test.jpg" },
+        priceValue: 60,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/tracking-test-bouquet",
+      { ...OPTS, search: "?srsltid=test&utm_source=google&gclid=Cj0abc" },
+    );
+    const jsonLdBlocks = [
+      ...out.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g),
+    ];
+    expect(jsonLdBlocks.length).toBeGreaterThan(0);
+    for (const [, content] of jsonLdBlocks) {
+      const parsed = JSON.parse(content);
+      const nodes: unknown[] = (parsed as { "@graph"?: unknown[] })["@graph"] ?? [parsed];
+      for (const node of nodes as Record<string, unknown>[]) {
+        for (const field of ["url", "@id"] as const) {
+          if (typeof node[field] === "string") {
+            const val = node[field] as string;
+            expect(val, `JSON-LD ${String(node["@type"])} .${field} must not contain srsltid`).not.toContain("srsltid");
+            expect(val, `JSON-LD ${String(node["@type"])} .${field} must not contain utm_source`).not.toContain("utm_source");
+            expect(val, `JSON-LD ${String(node["@type"])} .${field} must not contain gclid`).not.toContain("gclid");
+          }
+        }
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Homepage LCP preload tag
 // ---------------------------------------------------------------------------
 

@@ -168,6 +168,19 @@ describe("buildSitemapXml", () => {
     expect(xml).not.toContain("/llms-full.txt");
   });
 
+  it("does not include any tracking parameters in <loc> entries", () => {
+    const doc = parse(xml);
+    const locs = Array.from(doc.getElementsByTagName("loc"));
+    expect(locs.length).toBeGreaterThan(0);
+    for (const loc of locs) {
+      const locText = loc.textContent ?? "";
+      expect(locText, `<loc> must not contain srsltid: ${locText}`).not.toContain("srsltid");
+      expect(locText, `<loc> must not contain gclid: ${locText}`).not.toContain("gclid");
+      expect(locText, `<loc> must not contain fbclid: ${locText}`).not.toContain("fbclid");
+      expect(locText, `<loc> must not contain utm_: ${locText}`).not.toContain("utm_");
+    }
+  });
+
   it("does not include any robots.txt-blocked private-content paths", () => {
     // These paths are Disallowed in robots.txt. They must never appear in the
     // sitemap — not even as a segment of a longer URL — so we assert that the

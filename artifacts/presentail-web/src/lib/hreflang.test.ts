@@ -147,3 +147,31 @@ describe("ALL_COUNTRIES", () => {
     expect(ALL_COUNTRIES).toEqual(["lb", "ae", "cy"]);
   });
 });
+
+describe("buildHreflangSet — tracking params in entityPath", () => {
+  it("strips tracking params from alternate hrefs when entityPath contains a query string with srsltid", () => {
+    const result = buildHreflangSet(
+      "product/roses?srsltid=test123&utm_source=google",
+      ["lb", "ae", "cy"],
+      "https://presentail.com",
+    );
+    expect(result).toHaveLength(10);
+    for (const { href } of result) {
+      expect(href, `alternate href must not contain srsltid: ${href}`).not.toContain("srsltid");
+      expect(href, `alternate href must not contain utm_source: ${href}`).not.toContain("utm_source");
+      expect(href, `alternate href must contain the product path: ${href}`).toContain("/product/roses");
+    }
+  });
+
+  it("strips gclid and fbclid from alternate hrefs", () => {
+    const result = buildHreflangSet(
+      "product/roses?gclid=Cj0abc&fbclid=xyz",
+      ["lb"],
+      "https://presentail.com",
+    );
+    const enLB = result.find((e) => e.hreflang === "en-LB")!;
+    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/product/roses");
+    expect(enLB.href).not.toContain("gclid");
+    expect(enLB.href).not.toContain("fbclid");
+  });
+});
