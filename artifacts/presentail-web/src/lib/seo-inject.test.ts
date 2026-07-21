@@ -5844,6 +5844,78 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 
+  it.each([
+    { route: "return-policy", label: "Return Policy" },
+    { route: "shipping-policy", label: "Shipping Policy" },
+  ])(
+    "$route page (EN) emits a BreadcrumbList with Home > $label",
+    ({ route, label }) => {
+      const { headSnippet } = buildSeoHead(`/en-lb/beirut/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      const blocks = assertAllJsonLdValid(
+        `<head>${headSnippet}</head>`,
+        `${route} page EN`,
+      );
+      const crumb = byType(blocks, "BreadcrumbList");
+      expect(crumb).toBeTruthy();
+      const items: any[] = crumb.itemListElement;
+      expect(items.length).toBeGreaterThanOrEqual(2);
+      expect(items[0].item?.name ?? items[0].name).toBe("Home");
+      const lastItem = items[items.length - 1];
+      expect(lastItem.item?.name ?? lastItem.name).toBe(label);
+    },
+  );
+
+  it.each([
+    { route: "return-policy", label: "سياسة الإرجاع", homeLabel: "الرئيسية" },
+    { route: "shipping-policy", label: "سياسة الشحن", homeLabel: "الرئيسية" },
+  ])(
+    "$route page (AR) emits a BreadcrumbList with Arabic labels",
+    ({ route, label, homeLabel }) => {
+      const { headSnippet } = buildSeoHead(`/ar-lb/beirut/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      const blocks = assertAllJsonLdValid(
+        `<head>${headSnippet}</head>`,
+        `${route} page AR`,
+      );
+      const crumb = byType(blocks, "BreadcrumbList");
+      expect(crumb).toBeTruthy();
+      const items: { item?: { name: string }; name?: string }[] = crumb.itemListElement;
+      expect(items.length).toBeGreaterThanOrEqual(2);
+      expect(items[0].item?.name ?? items[0].name).toBe(homeLabel);
+      const lastItem = items[items.length - 1];
+      expect(lastItem.item?.name ?? lastItem.name).toBe(label);
+    },
+  );
+
+  it.each([
+    { route: "return-policy", label: "Politique de retour", homeLabel: "Accueil" },
+    { route: "shipping-policy", label: "Politique de livraison", homeLabel: "Accueil" },
+  ])(
+    "$route page (FR) emits a BreadcrumbList with French labels",
+    ({ route, label, homeLabel }) => {
+      const { headSnippet } = buildSeoHead(`/fr-lb/beirut/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      const blocks = assertAllJsonLdValid(
+        `<head>${headSnippet}</head>`,
+        `${route} page FR`,
+      );
+      const crumb = byType(blocks, "BreadcrumbList");
+      expect(crumb).toBeTruthy();
+      const items: { item?: { name: string }; name?: string }[] = crumb.itemListElement;
+      expect(items.length).toBeGreaterThanOrEqual(2);
+      expect(items[0].item?.name ?? items[0].name).toBe(homeLabel);
+      const lastItem = items[items.length - 1];
+      expect(lastItem.item?.name ?? lastItem.name).toBe(label);
+    },
+  );
+
   // Negative tests: the guardrail must actually FAIL (not just warn) when a
   // required field is missing — otherwise the assertions above prove nothing.
   it("collectJsonLdProblems flags an Article missing image, datePublished, or url", () => {
