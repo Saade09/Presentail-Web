@@ -182,6 +182,15 @@ export default function Home() {
             viewAllLabel={t("collections.balloons.viewAll")}
             testId="section-collection-balloons"
           />
+
+          {/* Fourth themed rail — Lux Arrangements. */}
+          <BestSellersPreview
+            categorySlug="lux-arrangements"
+            titleKey="collections.luxArrangements.title"
+            railKey="rail-lux-arrangements"
+            viewAllLabel={t("collections.luxArrangements.viewAll")}
+            testId="section-collection-lux-arrangements"
+          />
         </>
       )}
 

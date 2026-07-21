@@ -14,6 +14,8 @@ export const homeStrings: Dict = {
   "collections.boxes.viewAll": { en: "View all Flower Boxes →", ar: "عرض كل صناديق الزهور →" },
   "collections.balloons.title": { en: "Balloons", ar: "البالونات" },
   "collections.balloons.viewAll": { en: "View all Balloons →", ar: "عرض كل البالونات →" },
+  "collections.luxArrangements.title": { en: "Lux Arrangements", ar: "تنسيقات فاخرة" },
+  "collections.luxArrangements.viewAll": { en: "View all Lux Arrangements →", ar: "عرض كل التنسيقات الفاخرة →" },
 
   "categories.eyebrow": { en: "Curated Collections", ar: "تشكيلات مختارة" },
   "categories.title": { en: "Shop by Category", ar: "تسوّق حسب الفئة" },
@@ -97,6 +99,8 @@ export const homeStringsFr: Record<string, string> = {
   "collections.boxes.viewAll": "Voir tous les coffrets de fleurs →",
   "collections.balloons.title": "Ballons",
   "collections.balloons.viewAll": "Voir tous les ballons →",
+  "collections.luxArrangements.title": "Compositions de luxe",
+  "collections.luxArrangements.viewAll": "Voir toutes les compositions de luxe →",
 
   "categories.eyebrow": "Collections sélectionnées",
   "categories.title": "Acheter par catégorie",
