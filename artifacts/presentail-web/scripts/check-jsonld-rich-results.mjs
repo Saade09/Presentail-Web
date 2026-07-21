@@ -65,6 +65,14 @@
  * (same policy as the schema.org validator) so transient Google-side
  * flakiness never blocks a PR merge.
  *
+ * Additional eligibility checks (beyond error-free):
+ *   - testStatus=PARTIAL is treated as a warning (not a hard failure) so
+ *     engineers notice an incomplete crawl without blocking a PR merge.
+ *   - SUGGESTION-level issues are printed as informational lines for CI log
+ *     review; they never cause a failure.
+ *   - The inspectionResultLink is always printed so engineers can click
+ *     straight to the Rich Results Test UI regardless of outcome.
+ *
  * Required environment variables:
  *   PLAYWRIGHT_BASE_URL         — base URL of the running serve.mjs instance
  *                                 (default: http://localhost:19234)
@@ -453,6 +461,79 @@ function extractGoogleProductErrors(result, targetType) {
   return errors;
 }
 
+/**
+ * Extract SUGGESTION-level issues from a Google Rich Results Test API response,
+ * scoped to detectedItems whose richResultType matches `targetType`.
+ *
+ * These are returned for informational printing in CI logs; they never cause
+ * a hard failure.  Google may upgrade suggestions to errors when eligibility
+ * policies tighten, so surfacing them early lets engineers address them
+ * proactively.
+ *
+ * @param {Record<string, unknown>} result  Parsed Google API response body.
+ * @param {string} targetType               richResultType to filter on (e.g. "Products").
+ * @returns {{ description: string }[]}
+ */
+function extractGoogleProductSuggestions(result, targetType) {
+  const suggestions = [];
+
+  const richResults = result.richResults;
+  if (!richResults || typeof richResults !== "object") return suggestions;
+
+  const detected = Array.isArray(
+    /** @type {Record<string,unknown>} */ (richResults).detectedItems,
+  )
+    ? /** @type {unknown[]} */ (
+        /** @type {Record<string,unknown>} */ (richResults).detectedItems
+      )
+    : [];
+
+  for (const detectedItem of detected) {
+    if (!detectedItem || typeof detectedItem !== "object") continue;
+    const richResultType = String(
+      /** @type {Record<string,unknown>} */ (detectedItem).richResultType ?? "",
+    );
+    if (richResultType !== targetType) continue;
+
+    const items = Array.isArray(
+      /** @type {Record<string,unknown>} */ (detectedItem).items,
+    )
+      ? /** @type {unknown[]} */ (
+          /** @type {Record<string,unknown>} */ (detectedItem).items
+        )
+      : [];
+
+    for (const item of items) {
+      if (!item || typeof item !== "object") continue;
+      const issues = Array.isArray(
+        /** @type {Record<string,unknown>} */ (item).issues,
+      )
+        ? /** @type {unknown[]} */ (
+            /** @type {Record<string,unknown>} */ (item).issues
+          )
+        : [];
+
+      for (const issue of issues) {
+        if (!issue || typeof issue !== "object") continue;
+        const sev = String(
+          /** @type {Record<string,unknown>} */ (issue).severity ?? "",
+        ).toUpperCase();
+        if (sev === "SUGGESTION") {
+          suggestions.push({
+            description: String(
+              /** @type {Record<string,unknown>} */ (issue).issueMessage ??
+                /** @type {Record<string,unknown>} */ (issue).description ??
+                JSON.stringify(issue),
+            ),
+          });
+        }
+      }
+    }
+  }
+
+  return suggestions;
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -656,12 +737,6 @@ async function main() {
       continue;
     }
 
-    // Log the inspection result link for easy manual follow-up.
-    const inspectionLink =
-      typeof googleResult.inspectionResultLink === "string"
-        ? googleResult.inspectionResultLink
-        : null;
-
     // Surface the test status so a "FAIL" or "PARTIAL" crawl is visible.
     const testStatus =
       googleResult.testStatus &&
@@ -669,6 +744,14 @@ async function main() {
       typeof /** @type {Record<string,unknown>} */ (googleResult.testStatus).status === "string"
         ? String(/** @type {Record<string,unknown>} */ (googleResult.testStatus).status)
         : "UNKNOWN";
+
+    // Always print the inspection result link immediately — engineers should
+    // be able to click through to the Rich Results Test UI regardless of outcome.
+    const inspectionLink =
+      typeof googleResult.inspectionResultLink === "string"
+        ? googleResult.inspectionResultLink
+        : null;
+    if (inspectionLink) console.log(`      → ${inspectionLink}`);
 
     if (testStatus === "FAIL") {
       // The page could not be fetched by Google (e.g. not yet indexed, DNS,
@@ -680,7 +763,6 @@ async function main() {
           ? String(/** @type {Record<string,unknown>} */ (googleResult.testStatus).details)
           : "page could not be fetched by Google";
       console.log(`WARN (testStatus=FAIL: ${detail})`);
-      if (inspectionLink) console.log(`      → ${inspectionLink}`);
       googleSummary.push({
         label: shortUrl,
         url: pageUrl,
@@ -694,13 +776,25 @@ async function main() {
       googleResult,
       PRODUCT_RICH_RESULT_TYPE,
     );
+    const productSuggestions = extractGoogleProductSuggestions(
+      googleResult,
+      PRODUCT_RICH_RESULT_TYPE,
+    );
 
     if (productErrors.length > 0) {
       console.log(`FAIL (${productErrors.length} Google Merchant Listing error(s))`);
       for (const e of productErrors) {
         console.error(`      ✗ ${e.description}`);
       }
-      if (inspectionLink) console.log(`      → ${inspectionLink}`);
+      // Print suggestions alongside errors so the full picture is visible.
+      if (productSuggestions.length > 0) {
+        console.log(
+          `      ${productSuggestions.length} SUGGESTION(s) (not a failure — address proactively):`,
+        );
+        for (const s of productSuggestions) {
+          console.log(`        ⚬ ${s.description}`);
+        }
+      }
       googleSummary.push({
         label: shortUrl,
         url: pageUrl,
@@ -738,7 +832,6 @@ async function main() {
         console.error(
           "        Check that the Product JSON-LD is present and valid on the live production URL.",
         );
-        if (inspectionLink) console.log(`      → ${inspectionLink}`);
         googleSummary.push({
           label: shortUrl,
           url: pageUrl,
@@ -746,9 +839,39 @@ async function main() {
           detail: `no ${PRODUCT_RICH_RESULT_TYPE} rich result detected`,
         });
         exitCode = 1;
+      } else if (testStatus === "PARTIAL") {
+        // Google crawled the page but could only partially evaluate it.
+        // This is a warning rather than a hard failure — the static checks
+        // already verify schema correctness, and a partial crawl may be
+        // transient (e.g. rate-limiting, slow page render).  Re-run to confirm.
+        console.log(
+          `WARN (testStatus=PARTIAL — Google crawl was incomplete; re-run to confirm eligibility)`,
+        );
+        // Print suggestions too so engineers see the full picture.
+        if (productSuggestions.length > 0) {
+          console.log(
+            `      ${productSuggestions.length} SUGGESTION(s) (not a failure — address proactively):`,
+          );
+          for (const s of productSuggestions) {
+            console.log(`        ⚬ ${s.description}`);
+          }
+        }
+        googleSummary.push({
+          label: shortUrl,
+          url: pageUrl,
+          status: "warn",
+          detail: "testStatus=PARTIAL (crawl incomplete)",
+        });
       } else {
         console.log(`ok (testStatus=${testStatus})`);
-        if (inspectionLink) console.log(`      → ${inspectionLink}`);
+        if (productSuggestions.length > 0) {
+          console.log(
+            `      ${productSuggestions.length} SUGGESTION(s) (not a failure — address proactively):`,
+          );
+          for (const s of productSuggestions) {
+            console.log(`        ⚬ ${s.description}`);
+          }
+        }
         googleSummary.push({ label: shortUrl, url: pageUrl, status: "pass" });
       }
     }
