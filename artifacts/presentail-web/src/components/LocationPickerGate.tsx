@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useLocation } from "wouter";
 import {
@@ -36,6 +36,9 @@ export function LocationPickerGate({ children }: Props) {
     closePicker,
     countryCode,
     pickerForceCountryStep,
+    // These are the PRE-CHANGE values — setLocation() inside LocationPicker
+    // batches its setState calls so they won't commit until after handleComplete
+    // returns. Reading city/country here gives us the old location for free.
     city,
     country,
     countries,
@@ -44,35 +47,26 @@ export function LocationPickerGate({ children }: Props) {
   const { t, cityName } = useLocale();
   const [, navigate] = useLocation();
 
-  // Snapshot the city+country at the moment the picker opens so we can
-  // compare eligibility after the user selects a new city.
-  const prevCityRef = useRef<DeliveryCity | null>(null);
-  const prevCountryRef = useRef<DeliveryCountry | null>(null);
-  useEffect(() => {
-    if (isPickerOpen) {
-      prevCityRef.current = city;
-      prevCountryRef.current = country;
-    }
-  }, [isPickerOpen]); // eslint-disable-line react-hooks/exhaustive-deps — intentionally only on open
-
   const [fdcWarning, setFdcWarning] = useState<FdcWarning | null>(null);
 
   const handleComplete = (selection: { countryCode: string; cityId: string }) => {
+    // Capture old city/country NOW — React batches setState so these are still
+    // the pre-change values while we're inside this synchronous event handler.
+    const prevCity = city;
+    const prevCountry = country;
+
     closePicker();
 
-    // Guard: only check when the cart has items.
-    if (subtotal <= 0) return;
+    // Nothing to check if cart is empty or no previous city.
+    if (subtotal <= 0 || !prevCity) return;
 
-    const prevCity = prevCityRef.current;
-    const prevCountry = prevCountryRef.current;
-
-    // Guard: same city re-selected — nothing changed.
-    if (prevCity && prevCity.id === selection.cityId) return;
+    // Same city re-selected — nothing changed.
+    if (prevCity.id === selection.cityId) return;
 
     const newCountry = countries.find((c) => c.code === selection.countryCode) ?? null;
     const newCity = newCountry?.cities.find((c) => c.id === selection.cityId) ?? null;
 
-    if (!prevCity || !newCity) return;
+    if (!newCity) return;
 
     const prevThreshold = resolveThreshold(prevCity, prevCountry);
     const newThreshold = resolveThreshold(newCity, newCountry);
