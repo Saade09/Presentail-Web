@@ -37,6 +37,8 @@ import {
 import { creditReferralRedemption } from "../lib/loyalty";
 import { validateCoupon } from "../lib/couponValidation";
 import { sendCapiPurchase } from "../lib/fbConversions";
+import { db, appOrdersTable } from "@workspace/db";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   resolveStoreFromRequest,
 } from "../lib/wooStore";
@@ -1686,7 +1688,12 @@ router.post("/woo/order", async (req, res) => {
       .json({ ok: false, message: result.message });
   }
 
-  void recordSuccessfulWcOrder({
+  // Await the DB upsert so the app_orders row is committed before the CAPI
+  // idempotency UPDATE runs below. recordSuccessfulWcOrder is internally
+  // best-effort (errors are caught+logged, never re-thrown) so this cannot
+  // reject and does not block the response beyond the DB write itself — the
+  // push notification inside is fire-and-forget as of the change above.
+  await recordSuccessfulWcOrder({
     body,
     wcOrderId: null,
     userId: resolvedUserId,
@@ -1702,28 +1709,56 @@ router.post("/woo/order", async (req, res) => {
     log: req.log,
   });
 
-  // ── Facebook Conversions API — Purchase (fire-and-forget) ────────────────
+  // ── Facebook Conversions API — Purchase (fire-and-forget, deduplicated) ──
   // Send a server-side Purchase event to Meta CAPI so Lebanon and UAE ad
   // campaigns can track conversions. The event_id mirrors the client-side
   // fbpurchase-<orderId> token so Meta can deduplicate the browser pixel
-  // event and this server event. A CAPI failure must never block the order.
-  void sendCapiPurchase({
-    eventId: `fbpurchase-${body.orderId}`,
-    value: result.totalUsdCents != null ? result.totalUsdCents / 100 : 0,
-    currency: verifiedCurrency ?? "USD",
-    countryCode: store.country,
-    userData: {
-      email: body.billing.email ?? null,
-      phone: body.billing.phone ?? null,
-      firstName: body.billing.firstName ?? null,
-      lastName: body.billing.lastName ?? null,
-    },
-  }).catch((err: unknown) => {
-    req.log?.warn?.(
-      { err: (err as Error)?.message, appOrderId: body.orderId },
-      "woo.order: CAPI Purchase event failed (non-fatal)",
-    );
-  });
+  // event and this server event.
+  //
+  // Idempotency guard: atomically set capiPurchaseSentAt WHERE it is still
+  // NULL. If the UPDATE claims 0 rows the event was already sent (duplicate
+  // webhook delivery, network retry, or support re-trigger) — skip it.
+  // A CAPI failure must never block the order response.
+  void (async () => {
+    try {
+      const capiClaimed = await db
+        .update(appOrdersTable)
+        .set({ capiPurchaseSentAt: new Date() })
+        .where(
+          and(
+            eq(appOrdersTable.appOrderId, body.orderId),
+            isNull(appOrdersTable.capiPurchaseSentAt),
+          ),
+        )
+        .returning({ id: appOrdersTable.id });
+
+      if (capiClaimed.length === 0) {
+        req.log?.info?.(
+          { appOrderId: body.orderId },
+          "woo.order: CAPI Purchase already sent for this order — skipping duplicate",
+        );
+        return;
+      }
+
+      await sendCapiPurchase({
+        eventId: `fbpurchase-${body.orderId}`,
+        value: result.totalUsdCents != null ? result.totalUsdCents / 100 : 0,
+        currency: verifiedCurrency ?? "USD",
+        countryCode: store.country,
+        userData: {
+          email: body.billing.email ?? null,
+          phone: body.billing.phone ?? null,
+          firstName: body.billing.firstName ?? null,
+          lastName: body.billing.lastName ?? null,
+        },
+      });
+    } catch (err: unknown) {
+      req.log?.warn?.(
+        { err: (err as Error)?.message, appOrderId: body.orderId },
+        "woo.order: CAPI Purchase event failed (non-fatal)",
+      );
+    }
+  })();
 
   // ── Referral points (fire-and-forget) ────────────────────────────────────
   // When the order included a referral coupon (PT[A-Z0-9]+), decode the

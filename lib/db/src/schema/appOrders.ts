@@ -110,6 +110,14 @@ export const appOrdersTable = pgTable(
     // the PI's latest_charge field when the webhook fires. Null for non-Stripe
     // payment methods, uncaptured PIs, and legacy rows.
     stripeChargeId: text("stripe_charge_id"),
+    // Timestamp of the first Meta Conversions API Purchase event sent for this
+    // order. Set to NOW() before the CAPI call so that concurrent or replayed
+    // webhooks that produce the same appOrderId can detect the already-claimed
+    // slot and skip sending — preventing duplicate Purchase events on Meta.
+    // Null for orders placed before this column existed.
+    capiPurchaseSentAt: timestamp("capi_purchase_sent_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

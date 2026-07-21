@@ -738,20 +738,20 @@ export async function recordSuccessfulWcOrder(input: {
     osOrderId: osOrderId ?? null,
   });
 
-  try {
-    await sendOrderEventPush({
-      state: "confirmed",
-      appOrderId: body.orderId,
-      userId,
-      deviceId: appDeviceId,
-      recipientName: recipientName || null,
-    });
-  } catch (err: any) {
+  // Push notification is best-effort and must not block the caller from
+  // returning a response. Fire-and-forget; errors are still logged.
+  void sendOrderEventPush({
+    state: "confirmed",
+    appOrderId: body.orderId,
+    userId,
+    deviceId: appDeviceId,
+    recipientName: recipientName || null,
+  }).catch((err: unknown) => {
     log?.warn?.(
-      { err: err?.message, appOrderId: body.orderId },
+      { err: (err as Error)?.message, appOrderId: body.orderId },
       "woo.order: failed to send confirmed push",
     );
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
