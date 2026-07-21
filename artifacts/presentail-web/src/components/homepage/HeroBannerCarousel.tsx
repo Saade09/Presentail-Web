@@ -128,9 +128,17 @@ export function HeroBannerCarousel({
                   e.preventDefault();
                   setIndex(i);
                 }}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === index ? "bg-white w-6" : "bg-white/60 w-1.5"
-                }`}
+                className="bg-white rounded-[1.5px]"
+                style={{
+                  height: 3,
+                  width: 20,
+                  opacity: i === index ? 1 : 0.45,
+                  transition: "opacity 250ms ease-out",
+                  padding: 0,
+                  border: "none",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
               />
             ))}
           </div>

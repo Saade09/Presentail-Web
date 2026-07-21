@@ -432,6 +432,19 @@ type HeroSlide = {
   route: Href | null;
 };
 
+function AnimatedDot({ active }: { active: boolean }) {
+  const anim = useRef(new Animated.Value(active ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: active ? 1 : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [active]);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] });
+  return <Animated.View style={[styles.heroDot, { opacity }]} />;
+}
+
 function Hero() {
   const { width: screenW, height: screenH } = useWindowDimensions();
   const heroHeight = Math.round(screenH * 0.88);
@@ -686,15 +699,7 @@ function Hero() {
       {slides.length > 1 && (
         <View style={styles.heroDots}>
           {slides.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.heroDot,
-                {
-                  backgroundColor: i === activeIndex ? "#ffffff" : "rgba(255,255,255,0.45)",
-                },
-              ]}
-            />
+            <AnimatedDot key={i} active={i === activeIndex} />
           ))}
         </View>
       )}
@@ -1669,9 +1674,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   heroDot: {
-    width: 28,
+    width: 20,
     height: 3,
-    borderRadius: 2,
+    borderRadius: 1.5,
+    backgroundColor: "#ffffff",
   },
 });
 
