@@ -277,6 +277,92 @@ describe("trackFbMobileEvent — pixel enabled", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Suite: fbc forwarding from AsyncStorage
+// ---------------------------------------------------------------------------
+
+describe("trackFbMobileEvent — fbc forwarding", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("forwards fbc from AsyncStorage when a stored value is present", async () => {
+    vi.resetModules();
+    vi.stubEnv("EXPO_PUBLIC_FB_PIXEL_ENABLED", "true");
+
+    const storedFbc = "fb.1.1700000000000.AbCdEfGhIjKlMnOp";
+    vi.doMock("@/lib/analytics", () => ({
+      loadStoredFbc: async () => storedFbc,
+    }));
+    vi.doMock("@/lib/stripe", () => ({
+      API_BASE: "https://api.test",
+    }));
+
+    const localMockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", localMockFetch);
+
+    const { trackFbMobileEvent } = await import("./fbPixel");
+    trackFbMobileEvent("Purchase", { countryCode: "lb", value: 50, currency: "USD" });
+    await settle();
+
+    const body = findMobilePixelCall(localMockFetch);
+    expect(body).not.toBeNull();
+    expect(body?.fbc).toBe(storedFbc);
+  });
+
+  it("omits fbc from the body when AsyncStorage has no stored value", async () => {
+    vi.resetModules();
+    vi.stubEnv("EXPO_PUBLIC_FB_PIXEL_ENABLED", "true");
+
+    vi.doMock("@/lib/analytics", () => ({
+      loadStoredFbc: async () => undefined,
+    }));
+    vi.doMock("@/lib/stripe", () => ({
+      API_BASE: "https://api.test",
+    }));
+
+    const localMockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", localMockFetch);
+
+    const { trackFbMobileEvent } = await import("./fbPixel");
+    trackFbMobileEvent("Purchase", { countryCode: "lb", value: 50, currency: "USD" });
+    await settle();
+
+    const body = findMobilePixelCall(localMockFetch);
+    expect(body).not.toBeNull();
+    expect(body).not.toHaveProperty("fbc");
+  });
+
+  it("still sends the event when loadStoredFbc rejects (best-effort)", async () => {
+    vi.resetModules();
+    vi.stubEnv("EXPO_PUBLIC_FB_PIXEL_ENABLED", "true");
+
+    vi.doMock("@/lib/analytics", () => ({
+      loadStoredFbc: async () => { throw new Error("storage error"); },
+    }));
+    vi.doMock("@/lib/stripe", () => ({
+      API_BASE: "https://api.test",
+    }));
+
+    const localMockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", localMockFetch);
+
+    const { trackFbMobileEvent } = await import("./fbPixel");
+    trackFbMobileEvent("Purchase", { countryCode: "lb", value: 50, currency: "USD" });
+    await settle();
+
+    // Event should still be sent even when fbc load fails.
+    expect(findMobilePixelCall(localMockFetch)).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Suite: pixel disabled via EXPO_PUBLIC_FB_PIXEL_ENABLED=false
 // ---------------------------------------------------------------------------
 

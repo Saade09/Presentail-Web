@@ -138,6 +138,12 @@ export type CAPIUserData = {
   fbp?: string | null;
   fbclid?: string | null;
   /**
+   * Pre-formatted `fbc` value from the mobile app (`fb.1.<timestamp>.<fbclid>`).
+   * When present, takes precedence over `fbclid` for the `fbc` CAPI field so
+   * the correct cookie format is forwarded without server-side reformatting.
+   */
+  fbc?: string | null;
+  /**
    * Real visitor IP address — sent RAW (not hashed) per Meta's CAPI spec.
    * Must be the original client IP, not the application server's address.
    * Supports both IPv4 and IPv6.
@@ -238,7 +244,11 @@ async function sendCapiPayload(
   if (params.userData?.fbp) {
     userData.fbp = params.userData.fbp;
   }
-  if (params.userData?.fbclid) {
+  // `fbc` (pre-formatted by the mobile client as `fb.1.<ts>.<fbclid>`) takes
+  // precedence.  Fall back to the raw `fbclid` field used by the web pixel.
+  if (params.userData?.fbc) {
+    userData.fbc = params.userData.fbc;
+  } else if (params.userData?.fbclid) {
     userData.fbc = params.userData.fbclid;
   }
   // Raw (unhashed) fields — must not be hashed per Meta CAPI spec.

@@ -32,6 +32,9 @@ const FbMobileEventBodySchema = z.object({
   phone: z.string().max(30).optional(),
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
+  /** Pre-formatted Meta fbc value (`fb.1.<timestamp_ms>.<fbclid>`) captured
+   *  from the Facebook ad deep-link that opened the app. */
+  fbc: z.string().max(512).optional(),
 });
 
 const FbWebEventBodySchema = z.object({
@@ -88,7 +91,7 @@ router.post(
       return;
     }
 
-    const { event, countryCode, eventId, value, currency, contentIds, contentName, email, phone, firstName, lastName } = parsed.data;
+    const { event, countryCode, eventId, value, currency, contentIds, contentName, email, phone, firstName, lastName, fbc } = parsed.data;
 
     void sendCapiEvent({
       eventName: event,
@@ -98,7 +101,7 @@ router.post(
       currency,
       contentIds,
       contentName,
-      userData: { email, phone, firstName, lastName },
+      userData: { email, phone, firstName, lastName, fbc },
       actionSource: "app",
     }).catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);

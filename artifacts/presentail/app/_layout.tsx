@@ -47,7 +47,7 @@ import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { API_BASE, getStripePublishableKey } from "@/lib/stripe";
 import { isPlatformPaySupported, StripeProvider } from "@stripe/stripe-react-native";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { trackEvent, storeGclid } from "@/lib/analytics";
+import { trackEvent, storeGclid, storeFbc } from "@/lib/analytics";
 import { captureAttributionFromUrl } from "@/lib/attribution";
 import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
@@ -170,11 +170,15 @@ function GclidCaptureListener() {
       if (!url) return;
       // Capture full attribution (gclid + UTM params) for marketing attribution on order submission.
       void captureAttributionFromUrl(url);
-      // Also keep the legacy per-gclid store for the FB CAPI / order-confirmed flow.
       try {
         const parsed = new URL(url);
+        // Keep the legacy per-gclid store for the Google Ads conversion ping.
         const gclid = parsed.searchParams.get("gclid");
         if (gclid) void storeGclid(gclid);
+        // Capture fbclid from Facebook ad deep-links and persist the formatted
+        // fbc value so it can be forwarded with every CAPI event this session.
+        const fbclid = parsed.searchParams.get("fbclid");
+        if (fbclid) void storeFbc(fbclid);
       } catch {
         // malformed URL — ignore
       }

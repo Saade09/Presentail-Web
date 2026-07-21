@@ -252,6 +252,59 @@ export async function loadStoredGclid(): Promise<string | undefined> {
 }
 
 // ---------------------------------------------------------------------------
+// Facebook Click ID (fbc) persistence
+// ---------------------------------------------------------------------------
+
+const FBC_STORAGE_KEY = "@presentail/fbc_v1";
+/** Keep fbc for 90 days — matches Meta's attribution window. */
+const FBC_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+type StoredFbc = { value: string; capturedAt: number };
+
+/**
+ * Format a raw `fbclid` as the Meta `fbc` cookie format and persist it so it
+ * can be forwarded with the next CAPI event.  Best-effort — storage failures
+ * are silently ignored.
+ *
+ * Format: `fb.1.<timestamp_ms>.<fbclid>` per the Meta Conversions API spec.
+ */
+export async function storeFbc(fbclid: string): Promise<void> {
+  if (!fbclid) return;
+  const capturedAt = Date.now();
+  const fbc = `fb.1.${capturedAt}.${fbclid}`;
+  try {
+    await AsyncStorage.setItem(
+      FBC_STORAGE_KEY,
+      JSON.stringify({ value: fbc, capturedAt } satisfies StoredFbc),
+    );
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Return the most recently stored `fbc` value if it is still within the
+ * 90-day attribution window, or `undefined` otherwise.
+ */
+export async function loadStoredFbc(): Promise<string | undefined> {
+  try {
+    const raw = await AsyncStorage.getItem(FBC_STORAGE_KEY);
+    if (!raw) return undefined;
+    const stored = JSON.parse(raw) as StoredFbc;
+    if (
+      typeof stored.value === "string" &&
+      typeof stored.capturedAt === "number" &&
+      Date.now() - stored.capturedAt < FBC_TTL_MS
+    ) {
+      return stored.value;
+    }
+  } catch {
+    // storage unavailable or malformed — ignore
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Ads conversion
 // ---------------------------------------------------------------------------
 
