@@ -25,6 +25,7 @@ import { startProductAffinityMonitor } from "./lib/productAffinityMonitor";
 import { startProductMetricsSyncJob } from "./lib/productMetricsSyncJob";
 import { startProductLifecycle410Monitor } from "./lib/productLifecycle410Monitor";
 import { startPlantClassificationJob } from "./lib/plantClassificationJob";
+import { startMerchantListingSuggestionsMonitor } from "./lib/merchantListingSuggestionsMonitor";
 import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
 import { registerOnFirstPopulatedCallback } from "./lib/osProductsCache";
 import { enqueueBulkSeed } from "./lib/pageDescriptionQueue";
@@ -94,6 +95,7 @@ app.listen(port, (err) => {
   startProductMetricsSyncJob();
   startProductLifecycle410Monitor();
   startPlantClassificationJob();
+  startMerchantListingSuggestionsMonitor();
 
   // Seed contextual descriptions for all category/occasion × area × language
   // combinations once the OS product catalog is first populated. Runs in the
