@@ -14,6 +14,10 @@
  *      SITEMAP_CANONICAL_ORIGIN env var).
  *   6. No duplicate <loc> values (duplicate URLs waste crawl budget and
  *      can confuse canonicalization signals).
+ *   7. Every <loc> value uses the https:// scheme — not http://, //, or a
+ *      relative path. This check is independent of the canonical-origin
+ *      comparison so a misconfigured SITEMAP_CANONICAL_ORIGIN env var (e.g.
+ *      http://presentail.com without TLS) is still caught.
  *
  * Exit codes
  * ──────────
@@ -57,6 +61,7 @@ export interface SitemapCheckResult {
   urlCount: number;
   duplicateLocs: string[];
   wrongOriginLocs: string[];
+  nonHttpsLocs: string[];
 }
 
 /**
@@ -174,6 +179,31 @@ export function checkSitemapContent(
     );
   }
 
+  // --- HTTPS scheme check ---------------------------------------------------
+  // Independent of the canonical-origin comparison: catches the case where
+  // SITEMAP_CANONICAL_ORIGIN is itself misconfigured with an http:// scheme
+  // (e.g. "http://presentail.com"), which would otherwise pass the origin
+  // check while still submitting plain-HTTP URLs to search engines.
+
+  const nonHttpsLocs: string[] = [];
+  for (const loc of locs) {
+    if (!loc.startsWith("https://")) {
+      nonHttpsLocs.push(loc);
+    }
+  }
+  if (nonHttpsLocs.length > 0) {
+    const sample = nonHttpsLocs.slice(0, 5).join("\n      ");
+    const extra =
+      nonHttpsLocs.length > 5
+        ? `\n      … and ${nonHttpsLocs.length - 5} more`
+        : "";
+    errors.push(
+      `${nonHttpsLocs.length} <loc> value(s) do not use the https:// scheme ` +
+        `(http://, protocol-relative, or relative URLs are not valid for ` +
+        `production sitemaps):\n      ${sample}${extra}`,
+    );
+  }
+
   // --- Duplicate <loc> detection --------------------------------------------
 
   const seen = new Set<string>();
@@ -197,7 +227,7 @@ export function checkSitemapContent(
     );
   }
 
-  return { errors, urlCount, duplicateLocs, wrongOriginLocs };
+  return { errors, urlCount, duplicateLocs, wrongOriginLocs, nonHttpsLocs };
 }
 
 // ---------------------------------------------------------------------------

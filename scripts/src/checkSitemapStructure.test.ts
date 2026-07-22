@@ -260,6 +260,104 @@ describe("checkSitemapContent — duplicate <loc> detection", () => {
 });
 
 // ---------------------------------------------------------------------------
+// HTTPS scheme check
+// ---------------------------------------------------------------------------
+
+describe("checkSitemapContent — HTTPS scheme", () => {
+  it("passes when all <loc> values use https://", () => {
+    const xml = buildValidSitemap(MIN_URL_COUNT);
+    const { errors, nonHttpsLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(errors.some((e) => e.includes("https://"))).toBe(false);
+    expect(nonHttpsLocs).toHaveLength(0);
+  });
+
+  it("fails when one <loc> uses http:// instead of https://", () => {
+    const httpLoc = "http://presentail.com/en-lb/beirut/product/item-http";
+    const xml =
+      buildValidSitemap(MIN_URL_COUNT - 1).replace(
+        "</urlset>",
+        `  <url><loc>${httpLoc}</loc></url>\n</urlset>`,
+      );
+    const { errors, nonHttpsLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(errors.some((e) => e.includes("https://"))).toBe(true);
+    expect(nonHttpsLocs).toContain(httpLoc);
+  });
+
+  it("fails when all <loc> values use http:// (misconfigured canonical origin)", () => {
+    // This is the key regression: SITEMAP_CANONICAL_ORIGIN set to
+    // "http://presentail.com" would still pass the origin check, but the
+    // HTTPS scheme check must catch it independently.
+    const httpOrigin = "http://presentail.com";
+    const xml = buildValidSitemap(MIN_URL_COUNT, httpOrigin);
+    const { errors, nonHttpsLocs } = checkSitemapContent(
+      xml,
+      httpOrigin,
+      MIN_URL_COUNT,
+    );
+    expect(errors.some((e) => e.includes("https://"))).toBe(true);
+    expect(nonHttpsLocs).toHaveLength(MIN_URL_COUNT);
+  });
+
+  it("fails for a protocol-relative <loc> (// prefix)", () => {
+    const protoRelativeLoc = "//presentail.com/en-lb/beirut/";
+    const xml =
+      buildValidSitemap(MIN_URL_COUNT - 1).replace(
+        "</urlset>",
+        `  <url><loc>${protoRelativeLoc}</loc></url>\n</urlset>`,
+      );
+    const { errors, nonHttpsLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(errors.some((e) => e.includes("https://"))).toBe(true);
+    expect(nonHttpsLocs).toContain(protoRelativeLoc);
+  });
+
+  it("fails for a relative-path <loc>", () => {
+    const relativeLoc = "/en-lb/beirut/product/item-relative";
+    const xml =
+      buildValidSitemap(MIN_URL_COUNT - 1).replace(
+        "</urlset>",
+        `  <url><loc>${relativeLoc}</loc></url>\n</urlset>`,
+      );
+    const { errors, nonHttpsLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(errors.some((e) => e.includes("https://"))).toBe(true);
+    expect(nonHttpsLocs).toContain(relativeLoc);
+  });
+
+  it("reports each offending loc in nonHttpsLocs", () => {
+    const httpLoc1 = "http://presentail.com/en-lb/beirut/";
+    const httpLoc2 = "http://presentail.com/en-lb/tripoli/";
+    const xml =
+      buildValidSitemap(MIN_URL_COUNT - 2).replace(
+        "</urlset>",
+        `  <url><loc>${httpLoc1}</loc></url>\n  <url><loc>${httpLoc2}</loc></url>\n</urlset>`,
+      );
+    const { nonHttpsLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(nonHttpsLocs).toContain(httpLoc1);
+    expect(nonHttpsLocs).toContain(httpLoc2);
+    expect(nonHttpsLocs).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Combined / realistic cases
 // ---------------------------------------------------------------------------
 
