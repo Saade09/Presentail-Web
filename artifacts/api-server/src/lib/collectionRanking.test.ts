@@ -278,3 +278,80 @@ describe("scoreCollections — year-wrap seasonal window", () => {
     expect(debugMap.get("christmas")!.seasonalBoost).toBe(0.5);
   });
 });
+
+describe("scoreCollections — osPositions tiebreaker", () => {
+  it("uses osPositions to order occasions when osOccasionStats is empty", () => {
+    // All three occasions have zero local stats — the OS position should
+    // govern the output order.
+    const items = ["birthday", "anniversary", "graduation"].map((s) => makeItem(s));
+
+    // OS best-selling order: graduation(0) > anniversary(1) > birthday(2)
+    const osPositions = new Map([
+      ["graduation", 0],
+      ["anniversary", 1],
+      ["birthday", 2],
+    ]);
+
+    const { items: result } = scoreCollections(items, {
+      kind: "occasion",
+      configRows: [],
+      osProducts: [],
+      osOccasionStats: new Map(), // empty — no local stats
+      defaultOrder: [], // no default order either
+      osPositions,
+    });
+
+    expect(result.map((i) => i.slug)).toEqual(["graduation", "anniversary", "birthday"]);
+  });
+
+  it("osPositions breaks ties when two occasions have equal composite scores", () => {
+    const items = ["flowers", "chocolate"].map((s) => makeItem(s));
+    // Both have exactly the same totalSales so scores are equal.
+    const osProducts = [
+      makeOsProduct("p1", { totalSales: 50, inStock: true, occasionSlugs: ["flowers"] }),
+      makeOsProduct("p2", { totalSales: 50, inStock: true, occasionSlugs: ["chocolate"] }),
+    ];
+
+    // OS says chocolate ranks higher (position 0) than flowers (position 1).
+    const osPositions = new Map([
+      ["chocolate", 0],
+      ["flowers", 1],
+    ]);
+
+    const { items: result } = scoreCollections(items, {
+      kind: "occasion",
+      configRows: [],
+      osProducts,
+      osPositions,
+      defaultOrder: [],
+    });
+
+    expect(result[0].slug).toBe("chocolate");
+    expect(result[1].slug).toBe("flowers");
+  });
+
+  it("defaultOrder still takes precedence over osPositions in the no-signal branch", () => {
+    const items = ["birthday", "anniversary", "graduation"].map((s) => makeItem(s));
+
+    // defaultOrder says birthday > anniversary > graduation
+    const defaultOrder = ["birthday", "anniversary", "graduation"];
+    // osPositions disagrees: graduation(0) > anniversary(1) > birthday(2)
+    const osPositions = new Map([
+      ["graduation", 0],
+      ["anniversary", 1],
+      ["birthday", 2],
+    ]);
+
+    const { items: result } = scoreCollections(items, {
+      kind: "occasion",
+      configRows: [],
+      osProducts: [],
+      osOccasionStats: new Map(),
+      defaultOrder,
+      osPositions,
+    });
+
+    // defaultOrder wins — osPositions only fills the gap for slugs NOT in defaultOrder.
+    expect(result.map((i) => i.slug)).toEqual(["birthday", "anniversary", "graduation"]);
+  });
+});

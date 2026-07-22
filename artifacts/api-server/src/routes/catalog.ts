@@ -12,7 +12,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsOccasionsForCity, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts } from "../lib/osProductsCache";
 import { getRankingConfig } from "./homepage";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
@@ -288,7 +288,12 @@ router.get("/currencies", (_req, res) => {
 router.get("/catalog/occasions", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
   const citySlug = typeof req.query.city === "string" ? req.query.city : null;
-  const osOccasions = getOsOccasions();
+  // When a city slug is present, fetch city-specific occasions from OS so the
+  // best-selling sort reflects that city's own sales signal. Falls back to the
+  // global cached occasions when the city-specific fetch fails or is empty.
+  const osOccasions = citySlug
+    ? await getOsOccasionsForCity(citySlug).catch(() => getOsOccasions())
+    : getOsOccasions();
   const occasionCountMap = countryCode
     ? getOsOccasionProductCountsByCountry(countryCode)
     : getOsOccasionProductCounts();
@@ -315,6 +320,15 @@ router.get("/catalog/occasions", async (req, res) => {
     return;
   }
   const rawItems = activeOs.map((o) => ({ id: o.id, slug: o.slug, name: o.name, osImage: o.image, featured: o.featured ?? false }));
+  // Build a map of OS best-selling position from the merged occasion set.
+  // Only OS-catalog occasions (those from getOsOccasions()) carry osPosition;
+  // product-tag-only occasions have no rank and are excluded from the map.
+  const osPositions = new Map<string, number>();
+  for (const osOcc of osOccasions ?? []) {
+    if (typeof osOcc.osPosition === "number") {
+      osPositions.set(osOcc.slug, osOcc.osPosition);
+    }
+  }
   try {
     const [configRows, clickScores, osOccasionStats] = await Promise.all([
       getRankingConfig(),
@@ -333,6 +347,7 @@ router.get("/catalog/occasions", async (req, res) => {
       osOccasionStats,
       defaultOrder: CATALOG_DEFAULT_OCCASION_ORDER,
       availabilityFloor: 3,
+      osPositions,
     });
     const occasions = rankedItems.map((item) => ({
       slug: item.slug,
@@ -343,7 +358,14 @@ router.get("/catalog/occasions", async (req, res) => {
     }));
     res.json({ occasions });
   } catch {
-    const occasions = activeOs.map((o) => ({
+    // Fallback: use OS best-selling order (osPosition) when available,
+    // otherwise preserve the merged-map iteration order.
+    const fallbackSorted = [...activeOs].sort((a, b) => {
+      const ap = typeof a.osPosition === "number" ? a.osPosition : Infinity;
+      const bp = typeof b.osPosition === "number" ? b.osPosition : Infinity;
+      return ap - bp;
+    });
+    const occasions = fallbackSorted.map((o) => ({
       slug: o.slug,
       name: o.name,
       image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,

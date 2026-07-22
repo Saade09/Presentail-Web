@@ -87,6 +87,14 @@ export type ScoreCollectionsOpts = {
    * Default: 3.
    */
   availabilityFloor?: number;
+  /**
+   * OS best-selling position index keyed by slug (zero-based, lower = better).
+   * Used as a low-weight tiebreaker when two occasions have equal composite
+   * scores, and as the primary ordering signal when all other signals are zero.
+   * Outweighed by osOccasionStats (actual order counts) and all other scoring
+   * signals. When absent, no OS-position tiebreaker is applied.
+   */
+  osPositions?: Map<string, number>;
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -314,6 +322,7 @@ export function scoreCollections<T extends ScoredItem>(
     osOccasionStats,
     defaultOrder = [],
     availabilityFloor = DEFAULT_AVAILABILITY_FLOOR,
+    osPositions,
   } = opts;
 
   if (items.length === 0) {
@@ -440,20 +449,39 @@ export function scoreCollections<T extends ScoredItem>(
   //
   // When there is no scoring signal and no config, fall back entirely to
   // defaultOrder so behaviour is identical to the pre-scoring code paths.
+  // When osPositions is provided it acts as a secondary tiebreaker after
+  // defaultOrder (which takes priority) and as the primary ordering key
+  // when no scoring signal exists and the item is absent from defaultOrder.
+
+  const hasOsPositions = osPositions != null && osPositions.size > 0;
 
   if (!hasSalesData && !hasClickData && !hasConfig) {
     scored.sort((a, b) => {
       const ai = a.defaultIdx >= 0 ? a.defaultIdx : Infinity;
       const bi = b.defaultIdx >= 0 ? b.defaultIdx : Infinity;
-      return ai - bi;
+      if (ai !== bi) return ai - bi;
+      // Secondary: OS best-selling position (lower index = higher in list).
+      if (hasOsPositions) {
+        const ap = osPositions!.has(a.item.slug) ? osPositions!.get(a.item.slug)! : Infinity;
+        const bp = osPositions!.has(b.item.slug) ? osPositions!.get(b.item.slug)! : Infinity;
+        if (ap !== bp) return ap - bp;
+      }
+      return 0;
     });
   } else {
     scored.sort((a, b) => {
       if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
-      // Stable tie-break: prefer defaultOrder position when scores are equal.
+      // Stable tie-break 1: prefer defaultOrder position when scores are equal.
       const ai = a.defaultIdx >= 0 ? a.defaultIdx : Infinity;
       const bi = b.defaultIdx >= 0 ? b.defaultIdx : Infinity;
-      return ai - bi;
+      if (ai !== bi) return ai - bi;
+      // Stable tie-break 2: OS best-selling position as final tiebreaker.
+      if (hasOsPositions) {
+        const ap = osPositions!.has(a.item.slug) ? osPositions!.get(a.item.slug)! : Infinity;
+        const bp = osPositions!.has(b.item.slug) ? osPositions!.get(b.item.slug)! : Infinity;
+        return ap - bp;
+      }
+      return 0;
     });
   }
 

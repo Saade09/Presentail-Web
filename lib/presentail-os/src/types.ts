@@ -156,6 +156,13 @@ export type OSProductOccasion = {
   image?: string | null;
   /** Public CDN URL (e.g. /api/storage/public-objects/…). Preferred over image. */
   imagePublicUrl?: string | null;
+  /**
+   * Zero-based position index from the OS best-selling sort response.
+   * Lower index = ranked higher by the OS sales signal.
+   * Absent for occasions that entered the cache via product tagging rather
+   * than the dedicated OS occasions endpoint (those have no OS rank).
+   */
+  osPosition?: number;
 };
 
 /**

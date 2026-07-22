@@ -1056,7 +1056,7 @@ async function fetchAndStore(): Promise<void> {
       await Promise.allSettled([
         fetchOsCategories(config),
         fetchOsCatalogAttributesBrands(config),
-        fetchOsOccasions(config),
+        fetchOsOccasions(config, { sort: "best_selling" }),
         ...storeFetches,
       ]);
 
@@ -1131,8 +1131,15 @@ async function fetchAndStore(): Promise<void> {
     if (occasionsResp.status === "fulfilled") {
       const occasions = occasionsResp.value.occasions ?? [];
       if (occasions.length > 0) {
-        cachedOccasions = occasions;
-        freshOccasions = occasions;
+        // Annotate each occasion with its zero-based position in the OS
+        // best-selling response so the ranking engine can use it as a
+        // tiebreaker when local stats are thin or absent.
+        const occasionsWithPosition = occasions.map((o, idx) => ({
+          ...o,
+          osPosition: idx,
+        }));
+        cachedOccasions = occasionsWithPosition;
+        freshOccasions = occasionsWithPosition;
         const featuredCount = occasions.filter((o) => o.featured === true).length;
         logger.info(
           { occasionCount: occasions.length, featuredCount },
@@ -1647,6 +1654,65 @@ export function getOsRawCatalogBrands(): import("@workspace/presentail-os").OSCa
  */
 export function getOsOccasions(): OSProductOccasion[] | null {
   return cachedOccasions;
+}
+
+// ── Per-city occasion cache ─────────────────────────────────────────────────
+//
+// When a catalog request includes a `city` query param, the occasions are
+// fetched from OS with `city_slug` so the best-selling sort reflects that
+// city's own sales signal. Results are cached per city slug for the same
+// interval as the global refresh so hot cities pay the network cost only
+// on the first request within each cache window.
+
+const cachedOccasionsByCity = new Map<
+  string,
+  { occasions: OSProductOccasion[]; fetchedAt: number }
+>();
+
+/**
+ * Return OS occasions for a specific city, fetching from OS with
+ * `sort=best_selling&city_slug=<citySlug>` and caching the result for
+ * `INTERVAL_MS` milliseconds.
+ *
+ * Falls back to the global `cachedOccasions` when:
+ *   - the OS API key is absent,
+ *   - the OS fetch fails, or
+ *   - the response is empty.
+ *
+ * Occasions are annotated with `osPosition` (zero-based index in the
+ * city-specific best-selling response) the same way the global cache is.
+ */
+export async function getOsOccasionsForCity(citySlug: string): Promise<OSProductOccasion[]> {
+  const now = Date.now();
+  const cached = cachedOccasionsByCity.get(citySlug);
+  if (cached && now - cached.fetchedAt < INTERVAL_MS) {
+    return cached.occasions;
+  }
+
+  const config = getOsConfig();
+  if (!config.apiKey) {
+    return cachedOccasions ?? [];
+  }
+
+  try {
+    const resp = await fetchOsOccasions(config, { sort: "best_selling", citySlug });
+    const occasions = (resp.occasions ?? []).map((o, idx) => ({ ...o, osPosition: idx }));
+    if (occasions.length > 0) {
+      cachedOccasionsByCity.set(citySlug, { occasions, fetchedAt: now });
+      logger.info(
+        { citySlug, occasionCount: occasions.length },
+        "osProductsCache: city-specific occasions fetched from Presentail OS",
+      );
+      return occasions;
+    }
+  } catch (err: unknown) {
+    logger.warn(
+      { citySlug, err: err instanceof Error ? err.message : String(err) },
+      "osProductsCache: city-specific occasions fetch failed — falling back to global cache",
+    );
+  }
+
+  return cachedOccasions ?? [];
 }
 
 /**

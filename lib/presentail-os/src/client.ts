@@ -563,6 +563,7 @@ export async function fetchOsCatalogAttributesBrands(
  */
 export async function fetchOsOccasions(
   config: PresentailOsConfig,
+  options?: { sort?: string; citySlug?: string },
 ): Promise<OSOccasionsResponse> {
   const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
 
@@ -573,6 +574,10 @@ export async function fetchOsOccasions(
   const url = new URL(`${baseUrl}/api/occasions`);
   url.searchParams.set("workspace", workspace);
   url.searchParams.set("apiKey", apiKey);
+  url.searchParams.set("sort", options?.sort ?? "best_selling");
+  if (options?.citySlug) {
+    url.searchParams.set("city_slug", options.citySlug);
+  }
   const res = await fetch(url.toString(), {
     headers: {
       Accept: "application/json",
