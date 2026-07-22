@@ -443,10 +443,49 @@ function CurrencyDataLoader() {
   return null;
 }
 
+// Tracking and WooCommerce-currency params that are cleaned from the browser
+// URL bar after attribution data has been captured. Must stay in sync with the
+// server-side TRACKING_PARAMS / FILTER_PARAMS_CANONICAL sets in seo-inject.mjs
+// and serve-tracking.mjs.
+const URL_CLEANUP_PARAMS = new Set([
+  "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id",
+  "gclid", "gbraid", "wbraid", "fbclid", "msclkid",
+  "gad_source", "gad_campaignid",
+  "ttclid", "twclid", "li_fat_id",
+  "mc_cid", "mc_eid",
+  "srsltid",
+  "hsa_cam", "hsa_grp", "hsa_ad", "hsa_mt", "hsa_net",
+  "hsa_src", "hsa_tgt", "hsa_ver", "hsa_kw",
+  "campaignid", "adgroupid", "adid",
+  "wmc-currency",
+]);
+
 function AttributionTracker() {
   const [path] = useLocation();
   useEffect(() => {
+    // 1. Capture attribution synchronously so it is readable before any async
+    //    work (e.g. createOrder) runs.
     captureAttribution(window.location.href, document.referrer);
+
+    // 2. After attribution has been captured, silently clean tracking and
+    //    WooCommerce-currency params from the visible browser URL so the
+    //    address bar matches the clean canonical. No page reload is triggered.
+    if (typeof window === "undefined") return;
+    const search = window.location.search;
+    if (!search) return;
+    const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    let changed = false;
+    for (const key of [...params.keys()]) {
+      if (URL_CLEANUP_PARAMS.has(key) || key.startsWith("hsa_") || key.startsWith("utm_")) {
+        params.delete(key);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    const newSearch = params.toString() ? `?${params.toString()}` : "";
+    const cleanUrl =
+      window.location.pathname + newSearch + window.location.hash;
+    window.history.replaceState(window.history.state, "", cleanUrl);
   }, [path]);
   return null;
 }

@@ -54,17 +54,31 @@ export function isPrivatePath(pathname) {
 // ---------------------------------------------------------------------------
 
 /**
- * UTM and Google click-ID query-string parameters that must never produce
- * indexable pages.  Mirrors the Disallow: rules in public/robots.txt.
+ * Exact query-parameter names that are known ad/tracking params and must never
+ * produce indexable pages.  Mirrors the Disallow: rules in public/robots.txt
+ * and the TRACKING_PARAMS set in seo-inject.mjs / TRACKING_EXACT in
+ * serve-tracking.mjs.
  */
 export const UTM_PARAMS = new Set([
   "utm_source", "utm_medium", "utm_campaign", "utm_id", "utm_term", "utm_content",
   "gclid", "gbraid", "wbraid",
+  // Microsoft HSA (HubSpot Ads / Hotel Search Ads) params — checked as an
+  // exact set here; hasUtmParams also checks the "hsa_" prefix below.
+  "hsa_cam", "hsa_grp", "hsa_ad", "hsa_mt", "hsa_net",
+  "hsa_src", "hsa_tgt", "hsa_ver", "hsa_kw",
+  // Google Ads campaign/adgroup/ad ID params (alternate naming convention)
+  "campaignid", "adgroupid", "adid",
 ]);
 
 /**
- * Returns true when the query string contains at least one UTM tracking
- * parameter or Google click-ID parameter (gclid / gbraid / wbraid).
+ * Query-parameter name prefixes that are always tracking params.
+ * Mirrors TRACKING_PREFIXES in serve-tracking.mjs.
+ */
+const TRACKING_PARAM_PREFIXES = ["utm_", "hsa_"];
+
+/**
+ * Returns true when the query string contains at least one ad-network tracking
+ * parameter (utm_*, hsa_*, gclid, gbraid, wbraid, campaignid, adgroupid, adid).
  *
  * @param {string} search  URL query string (e.g. "?utm_source=email").
  * @returns {boolean}
@@ -75,6 +89,9 @@ export function hasUtmParams(search) {
     const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
     for (const key of sp.keys()) {
       if (UTM_PARAMS.has(key)) return true;
+      for (const prefix of TRACKING_PARAM_PREFIXES) {
+        if (key.startsWith(prefix)) return true;
+      }
     }
   } catch {
     // malformed query string — treat as no UTM params
@@ -100,6 +117,7 @@ export function hasUtmParams(search) {
 export const FILTER_NOINDEX_PARAMS = new Set([
   "sort",
   "currency",
+  "wmc-currency",
   "delivery",
   "availability",
   "price_min",

@@ -15,23 +15,26 @@
  * Query-parameter name prefixes whose members are always tracking params.
  * Checked with String.prototype.startsWith().
  */
-export const TRACKING_PREFIXES = ["utm_"];
+export const TRACKING_PREFIXES = ["utm_", "hsa_"];
 
 /**
  * Exact query-parameter names that are known tracking params.
- *   srsltid  — Google Shopping / Merchant Center click id
- *   fbclid   — Facebook / Meta click id
- *   gclid    — Google Ads click id
+ *   srsltid    — Google Shopping / Merchant Center click id
+ *   fbclid     — Facebook / Meta click id
+ *   gclid      — Google Ads click id
  *   gad_source — Google Ads source tag
- *   ttclid   — TikTok click id
- *   msclkid  — Microsoft / Bing Ads click id
- *   twclid   — Twitter / X click id
- *   igshid   — Instagram share id
- *   mc_cid   — Mailchimp campaign id
- *   mc_eid   — Mailchimp email id
- *   dclid    — Google Display & Video 360 click id
- *   wbraid   — Google Ads web-to-app cross-channel measurement
- *   gbraid   — Google Ads app-to-web cross-channel measurement
+ *   ttclid     — TikTok click id
+ *   msclkid    — Microsoft / Bing Ads click id
+ *   twclid     — Twitter / X click id
+ *   igshid     — Instagram share id
+ *   mc_cid     — Mailchimp campaign id
+ *   mc_eid     — Mailchimp email id
+ *   dclid      — Google Display & Video 360 click id
+ *   wbraid     — Google Ads web-to-app cross-channel measurement
+ *   gbraid     — Google Ads app-to-web cross-channel measurement
+ *   campaignid — Google Ads campaign id (alternative param name)
+ *   adgroupid  — Google Ads ad group id
+ *   adid       — Google Ads ad id
  */
 export const TRACKING_EXACT = new Set([
   "srsltid",
@@ -47,6 +50,9 @@ export const TRACKING_EXACT = new Set([
   "dclid",
   "wbraid",
   "gbraid",
+  "campaignid",
+  "adgroupid",
+  "adid",
 ]);
 
 /**

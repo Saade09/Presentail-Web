@@ -2382,6 +2382,18 @@ const TRACKING_PARAMS = new Set([
   "li_fat_id",
   "mc_cid",
   "mc_eid",
+  "hsa_cam",
+  "hsa_grp",
+  "hsa_ad",
+  "hsa_mt",
+  "hsa_net",
+  "hsa_src",
+  "hsa_tgt",
+  "hsa_ver",
+  "hsa_kw",
+  "campaignid",
+  "adgroupid",
+  "adid",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -2397,6 +2409,7 @@ const TRACKING_PARAMS = new Set([
 const FILTER_PARAMS_CANONICAL = new Set([
   "sort",
   "currency",
+  "wmc-currency",
   "delivery",
   "availability",
   "price_min",

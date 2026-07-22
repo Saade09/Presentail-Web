@@ -1293,6 +1293,7 @@ const server = http.createServer(async (req, res) => {
       "/new-arrivals": `${BASE_PATH}/en-lb/beirut/shop`,
       "/new-arrival":  `${BASE_PATH}/en-lb/beirut/shop`,
       "/all-flowers":  `${BASE_PATH}/en-lb/beirut/category/hand-bouquets`,
+      "/flowers":      `${BASE_PATH}/en-lb/beirut/category/hand-bouquets`,
     };
 
     const vanityKey =
@@ -1307,6 +1308,72 @@ const server = http.createServer(async (req, res) => {
       });
       res.end();
       return;
+    }
+
+    // Section 8: Legacy WordPress country-prefix redirects (301) ---------------
+    // Maps old WordPress country-prefixed paths to the correct new locale-city
+    // equivalents in a single hop. Sub-paths with /product/, /product-category/,
+    // and /product-tag/ are mapped using the WC_CATEGORY_SLUG_MAP and
+    // WC_TAG_SLUG_MAP defined in sections 5–6 above.
+    // All redirect targets are built with BASE_PATH prefix and strip tracking
+    // params from the outbound Location header.
+    const COUNTRY_PREFIX_CONFIG = [
+      { prefixes: ["lebanon"],      locale: "en-lb", city: "beirut" },
+      { prefixes: ["cyprus"],       locale: "en-cy", city: "nicosia" },
+      { prefixes: ["uae", "dubai"], locale: "en-ae", city: "dubai" },
+    ];
+
+    for (const { prefixes, locale, city } of COUNTRY_PREFIX_CONFIG) {
+      for (const prefix of prefixes) {
+        const base = `/${prefix}`;
+        const isMatch =
+          pathname === base ||
+          pathname === `${base}/` ||
+          pathname.startsWith(`${base}/`);
+        if (!isMatch) continue;
+
+        const rest = pathname.startsWith(`${base}/`)
+          ? pathname.slice(base.length)
+          : "";
+
+        let countryRedirectTarget;
+
+        // /country/product/slug → /locale/city/product/slug
+        const productMatch = rest.match(/^\/product\/([^/]+?)\/?$/);
+        if (productMatch) {
+          countryRedirectTarget = `${BASE_PATH}/${locale}/${city}/product/${encodeURIComponent(productMatch[1])}`;
+        } else {
+          // /country/product-category/wc-slug → /locale/city/category/presentail-slug
+          const catMatch = rest.match(/^\/product-category\/([^/]+?)(?:\/page\/\d+)?\/?$/);
+          if (catMatch) {
+            const mappedCat = WC_CATEGORY_SLUG_MAP[catMatch[1]];
+            countryRedirectTarget = mappedCat
+              ? `${BASE_PATH}/${locale}/${city}/category/${encodeURIComponent(mappedCat)}`
+              : `${BASE_PATH}/${locale}/${city}/shop`;
+          } else {
+            // /country/product-tag/wc-tag → /locale/city/occasion/presentail-slug
+            const tagMatch = rest.match(/^\/product-tag\/([^/]+?)(?:\/page\/\d+)?\/?$/);
+            if (tagMatch) {
+              const mappedTag = WC_TAG_SLUG_MAP[tagMatch[1]];
+              countryRedirectTarget = mappedTag
+                ? `${BASE_PATH}/${locale}/${city}/occasion/${encodeURIComponent(mappedTag)}`
+                : `${BASE_PATH}/${locale}/${city}/occasions`;
+            } else {
+              // Bare country path or unrecognised sub-path → locale city home.
+              // No trailing slash — avoids a two-hop chain with the trailing-
+              // slash redirect that runs immediately after this block.
+              countryRedirectTarget = `${BASE_PATH}/${locale}/${city}`;
+            }
+          }
+        }
+
+        res.writeHead(301, {
+          location: countryRedirectTarget + stripTrackingParams(url.search),
+          "cache-control": "public, max-age=31536000, immutable",
+        });
+        res.end();
+        return;
+      }
     }
 
     // Trailing-slash redirect: 301 any path that ends with "/" (other than the
