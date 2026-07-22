@@ -928,7 +928,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
           <AppText
             style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 18 }}
           >
-            {t.freeDeliveryQualificationMessage}
+            {delivery === "express"
+              ? t.freeDeliveryQualifiedExpress.replace("{amount}", fmtNative(expressSurcharge))
+              : t.freeDeliveryQualifiedStandard}
           </AppText>
         </View>
       )}
