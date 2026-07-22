@@ -1,30 +1,29 @@
 /**
- * Regression guard: GET /woo/brand-products must return correct isBestSeller
- * badges even when the in-place OSProduct annotation (p.isBestSeller) has not
- * yet been written for the current refresh cycle.
+ * Regression guard: GET /woo/brand-products must include products whose
+ * product-embedded brand slug differs from the canonical catalog-attribute slug.
  *
- * Background
+ * Root cause
  * ----------
- * The best-seller annotation block in osProductsCache.ts runs AFTER fresh
- * products are stored in storeCache: it queries the DB for local sales, ranks
- * products, and then writes p.isBestSeller in-place.  Between the moment
- * products enter the cache and the moment the annotation completes, any
- * in-flight request would see p.isBestSeller = undefined → false.
+ * The brand filter was `p.brands.some((b) => b.slug === brandSlug)`, which
+ * only matched the raw embedded slug. When the OS catalog-attributes endpoint
+ * returns a canonical slug like "katb-kitab" but the product's embedded brand
+ * object carries a different slug (e.g. "katb-el-kitab") the product was
+ * silently dropped — causing brand pages to show fewer products than OS admin.
  *
- * The fix: the endpoint reads getCachedBestSellerIds() — a module-level Set
- * that persists across refresh cycles — and uses it to override isBestSeller
- * on each mapped product AFTER mapOsProductToWcShape runs.  This Set retains
- * the IDs from the previous annotation cycle until the new one finishes, so
- * badges remain correct while a refresh is in-flight.
+ * Fix
+ * ---
+ * The filter now also resolves the product's embedded brand *name* through the
+ * `cachedBrandNameToCanonicalSlug` map (keyed by normalised name). If the
+ * resolved canonical slug matches the requested brand slug, the product is
+ * included even when the embedded slugs differ.
  *
  * Guarantees verified
  * -------------------
- * 1. Product flagged by getCachedBestSellerIds() → isBestSeller: true in
- *    response, even when p.isBestSeller is false/undefined on the OSProduct.
- * 2. Product NOT in getCachedBestSellerIds() → isBestSeller: false, even
- *    when p.isBestSeller happens to be true (belt-and-suspenders).
- * 3. Empty bestSellerIds (cold start, no prior cycle) → isBestSeller: false
- *    for all products (no false positives).
+ * 1. A product with an embedded brand slug mismatch is included when its brand
+ *    *name* resolves to the requested canonical slug.
+ * 2. Products whose embedded brand slug matches directly still work.
+ * 3. Products whose brand slug AND name both fail to resolve are excluded.
+ * 4. The fix does not affect other filtering (inStock, isDeliverable).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,9 +38,11 @@ import type { OSProduct } from "@workspace/presentail-os";
 const {
   getOsProductsMock,
   getCachedBestSellerIdsMock,
+  getOsBrandNameToCanonicalSlugMock,
 } = vi.hoisted(() => ({
   getOsProductsMock: vi.fn<(storeKey: string) => OSProduct[] | null>(),
   getCachedBestSellerIdsMock: vi.fn<() => ReadonlySet<string>>(),
+  getOsBrandNameToCanonicalSlugMock: vi.fn<() => ReadonlyMap<string, string>>(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -57,8 +58,7 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsProductOccasions: vi.fn().mockReturnValue(new Map()),
   getOsProductBySlug: vi.fn().mockReturnValue(null),
   getCachedBestSellerIds: getCachedBestSellerIdsMock,
-  // Required by the brand slug mismatch fix in the brand-products route.
-  getOsBrandNameToCanonicalSlug: vi.fn().mockReturnValue(new Map()),
+  getOsBrandNameToCanonicalSlug: getOsBrandNameToCanonicalSlugMock,
   normaliseBrandName: (name: string) =>
     name
       .toLowerCase()
@@ -129,20 +129,19 @@ vi.mock("pino-http", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Test data
+// Test data helpers
 // ---------------------------------------------------------------------------
 
 function makeProduct(overrides: Partial<OSProduct> = {}): OSProduct {
   return {
-    id: "rose-bouquet",
-    name: "Rose Bouquet",
-    price: 50,
+    id: "product-1",
+    name: "Test Product",
+    price: 30,
     images: [{ url: "https://example.com/img.jpg" }],
     inStock: true,
     categories: [],
     occasions: [],
-    brands: [{ id: "hallab", slug: "hallab", name: "Hallab" }],
-    isBestSeller: false,
+    brands: [],
     ...overrides,
   };
 }
@@ -167,96 +166,121 @@ async function buildApp() {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("GET /woo/brand-products — best-seller badge reliability", () => {
+describe("GET /woo/brand-products — brand slug mismatch fix", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getCachedBestSellerIdsMock.mockReturnValue(new Set());
   });
 
   afterEach(() => {
     vi.resetModules();
   });
 
-  it("marks a product as best-seller when getCachedBestSellerIds contains its slug, even if p.isBestSeller is false", async () => {
-    const product = makeProduct({ id: "rose-bouquet", isBestSeller: false });
+  it("includes a product whose embedded brand slug differs from the canonical slug, matched by name", async () => {
+    // The catalog-attribute endpoint gave brand "Katb Kitab" slug "katb-kitab".
+    // The product carries the brand with slug "katb-el-kitab" (wrong) but correct name.
+    const product = makeProduct({
+      id: "product-mismatch",
+      brands: [{ id: "katb-el-kitab", slug: "katb-el-kitab", name: "Katb Kitab" }],
+    });
     getOsProductsMock.mockReturnValue([product]);
-    // Simulate: previous cycle's annotation set contains this slug; current
-    // cycle's in-place write (p.isBestSeller) is still false/in-flight.
-    getCachedBestSellerIdsMock.mockReturnValue(new Set(["rose-bouquet"]));
+    // Simulate the cachedBrandNameToCanonicalSlug map built from catalog-attributes.
+    getOsBrandNameToCanonicalSlugMock.mockReturnValue(
+      new Map([["katb kitab", "katb-kitab"]]),
+    );
 
     const app = await buildApp();
-    const res = await request(app).get("/woo/brand-products?slug=hallab");
+    const res = await request(app).get("/woo/brand-products?slug=katb-kitab");
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.products).toHaveLength(1);
-    expect(res.body.products[0].isBestSeller).toBe(true);
+    expect(res.body.products[0].id).toBe("product-mismatch");
   });
 
-  it("does NOT mark a product as best-seller when its slug is absent from getCachedBestSellerIds", async () => {
-    const product = makeProduct({ id: "rose-bouquet", isBestSeller: false });
+  it("includes a product whose embedded brand slug matches the canonical slug directly", async () => {
+    const product = makeProduct({
+      id: "product-direct",
+      brands: [{ id: "hallab", slug: "hallab", name: "Hallab" }],
+    });
     getOsProductsMock.mockReturnValue([product]);
-    getCachedBestSellerIdsMock.mockReturnValue(new Set(["other-product"]));
+    // Map doesn't contain "hallab" → canonical lookup returns undefined.
+    getOsBrandNameToCanonicalSlugMock.mockReturnValue(new Map());
 
     const app = await buildApp();
     const res = await request(app).get("/woo/brand-products?slug=hallab");
 
     expect(res.status).toBe(200);
-    expect(res.body.products[0].isBestSeller).toBe(false);
+    expect(res.body.products).toHaveLength(1);
+    expect(res.body.products[0].id).toBe("product-direct");
   });
 
-  it("returns isBestSeller: false for all products when getCachedBestSellerIds is empty (cold start, no prior cycle)", async () => {
-    const product = makeProduct({ id: "rose-bouquet" });
+  it("excludes a product whose brand slug and name both fail to match the requested slug", async () => {
+    const product = makeProduct({
+      id: "product-other-brand",
+      brands: [{ id: "some-other-brand", slug: "some-other-brand", name: "Some Other Brand" }],
+    });
     getOsProductsMock.mockReturnValue([product]);
-    getCachedBestSellerIdsMock.mockReturnValue(new Set());
+    // The name map maps "some other brand" → "some-other-brand", not "katb-kitab".
+    getOsBrandNameToCanonicalSlugMock.mockReturnValue(
+      new Map([["some other brand", "some-other-brand"]]),
+    );
 
     const app = await buildApp();
-    const res = await request(app).get("/woo/brand-products?slug=hallab");
+    const res = await request(app).get("/woo/brand-products?slug=katb-kitab");
 
     expect(res.status).toBe(200);
-    expect(res.body.products[0].isBestSeller).toBe(false);
+    expect(res.body.products).toHaveLength(0);
   });
 
-  it("correctly classifies multiple products: some best-sellers, some not", async () => {
-    const bs = makeProduct({ id: "rose-bouquet", name: "Rose Bouquet", isBestSeller: false });
-    const other = makeProduct({ id: "lily-vase", name: "Lily Vase", isBestSeller: false });
-    getOsProductsMock.mockReturnValue([bs, other]);
-    getCachedBestSellerIdsMock.mockReturnValue(new Set(["rose-bouquet"]));
+  it("includes multiple products: some with matching slug, some matched via name only", async () => {
+    // Product 1: direct slug match.
+    const p1 = makeProduct({
+      id: "prod-direct",
+      brands: [{ id: "katb-kitab", slug: "katb-kitab", name: "Katb Kitab" }],
+    });
+    // Product 2: name-resolved match (embedded slug is wrong).
+    const p2 = makeProduct({
+      id: "prod-name-match",
+      brands: [{ id: "katb-el-kitab", slug: "katb-el-kitab", name: "Katb Kitab" }],
+    });
+    // Product 3: belongs to a different brand entirely.
+    const p3 = makeProduct({
+      id: "prod-other",
+      brands: [{ id: "hallab", slug: "hallab", name: "Hallab" }],
+    });
+    getOsProductsMock.mockReturnValue([p1, p2, p3]);
+    getOsBrandNameToCanonicalSlugMock.mockReturnValue(
+      new Map([
+        ["katb kitab", "katb-kitab"],
+        ["hallab", "hallab"],
+      ]),
+    );
 
     const app = await buildApp();
-    const res = await request(app).get("/woo/brand-products?slug=hallab");
+    const res = await request(app).get("/woo/brand-products?slug=katb-kitab");
 
     expect(res.status).toBe(200);
     expect(res.body.products).toHaveLength(2);
-    // transformProduct maps WcProduct.slug (= OS product id) to the response `id` field.
-    const byId = Object.fromEntries(
-      res.body.products.map((p: { id: string; isBestSeller: boolean }) => [p.id, p.isBestSeller])
-    );
-    expect(byId["rose-bouquet"]).toBe(true);
-    expect(byId["lily-vase"]).toBe(false);
+    const ids = res.body.products.map((p: { id: string }) => p.id);
+    expect(ids).toContain("prod-direct");
+    expect(ids).toContain("prod-name-match");
+    expect(ids).not.toContain("prod-other");
   });
 
-  it("exposes totalSales as popularity in the response so the Best Seller sort has non-zero values to rank by", async () => {
-    // Regression guard: OS returns totalSales=0 for every product.
-    // The best-seller annotation block writes the blended score (OS totalSales +
-    // DB order count) back onto p.totalSales. That value is then mapped to
-    // total_sales in mapOsProductToWcShape and finally to `popularity` in the
-    // API response. If this pipeline is broken the sort sees all-zeros and
-    // "Best Seller" produces no visible reordering.
-    const popular = makeProduct({ id: "rose-bouquet", totalSales: 42 });
-    const cold = makeProduct({ id: "lily-vase", totalSales: 0 });
-    getOsProductsMock.mockReturnValue([popular, cold]);
-    getCachedBestSellerIdsMock.mockReturnValue(new Set());
+  it("excludes out-of-stock products even when brand matches", async () => {
+    const product = makeProduct({
+      id: "oos-product",
+      inStock: false,
+      brands: [{ id: "katb-kitab", slug: "katb-kitab", name: "Katb Kitab" }],
+    });
+    getOsProductsMock.mockReturnValue([product]);
+    getOsBrandNameToCanonicalSlugMock.mockReturnValue(new Map());
 
     const app = await buildApp();
-    const res = await request(app).get("/woo/brand-products?slug=hallab");
+    const res = await request(app).get("/woo/brand-products?slug=katb-kitab");
 
     expect(res.status).toBe(200);
-    const byId = Object.fromEntries(
-      res.body.products.map((p: { id: string; popularity: number }) => [p.id, p.popularity])
-    );
-    // The popular product must carry its totalSales through to popularity.
-    expect(byId["rose-bouquet"]).toBe(42);
-    // The cold product with no sales must have popularity 0, not undefined.
-    expect(byId["lily-vase"]).toBe(0);
+    expect(res.body.products).toHaveLength(0);
   });
 });

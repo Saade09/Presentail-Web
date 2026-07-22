@@ -43,7 +43,15 @@ import {
 } from "../lib/osLocationsCache";
 import { broadcastLocationsUpdated, getSseClientCount } from "../lib/sseBroadcast";
 import { sendAllStoresDataRefreshPush } from "../lib/wooSync";
-import { invalidateOsProductsCache, removeOsProductById } from "../lib/osProductsCache";
+import {
+  invalidateOsProductsCache,
+  removeOsProductById,
+  getLastRefreshedAt,
+  getProductCountByStore,
+  getOsCategories,
+  getOsBrands,
+  getOsOccasions,
+} from "../lib/osProductsCache";
 import { setFxRates } from "../lib/fxRateCache";
 
 import { sendOrderEventPush } from "../lib/orderEvents";
@@ -58,6 +66,30 @@ import { enqueueDescriptionGeneration, enqueueBulkSeed } from "../lib/pageDescri
 import { DELIVERY_COUNTRIES } from "@workspace/catalog-data";
 
 const router: IRouter = Router();
+
+// ---------------------------------------------------------------------------
+// Webhook event ring buffer (for /api/admin/catalog-sync diagnostic)
+// ---------------------------------------------------------------------------
+
+type WebhookEventRecord = {
+  eventType: string;
+  deliveryId: string;
+  receivedAt: string; // ISO 8601
+};
+
+const MAX_RECENT_EVENTS = 50;
+const recentWebhookEvents: WebhookEventRecord[] = [];
+
+function recordWebhookEvent(eventType: string, deliveryId: string): void {
+  recentWebhookEvents.push({
+    eventType,
+    deliveryId,
+    receivedAt: new Date().toISOString(),
+  });
+  if (recentWebhookEvents.length > MAX_RECENT_EVENTS) {
+    recentWebhookEvents.splice(0, recentWebhookEvents.length - MAX_RECENT_EVENTS);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers: IndexNow deindex ping for discontinued products
@@ -399,6 +431,10 @@ router.post("/os/webhook", async (req, res) => {
 
   req.log.info({ event, deliveryId }, "osWebhook: received event");
 
+  // Record every authenticated event in the in-memory ring buffer so the
+  // /api/admin/catalog-sync diagnostic endpoint can surface recent activity.
+  recordWebhookEvent(event, deliveryId);
+
   // ── Route by event type ─────────────────────────────────────────────────
 
   // exchange_rate.updated ─────────────────────────────────────────────────
@@ -464,10 +500,31 @@ router.post("/os/webhook", async (req, res) => {
   }
 
   // catalog_attribute.* / catalog_attributes.changed / catalog.products.changed
+  // product.brand_assigned / product.brand_unassigned
+  // product.category_assigned / product.category_unassigned
+  // product.occasion_assigned / product.occasion_unassigned
+  // brand.updated / brand.products_changed
+  // category.products_changed / occasion.products_changed
+  //
+  // All these events signal that the assignment of a product to a brand,
+  // category, or occasion changed — any may be emitted by the OS when an
+  // admin reassigns catalog attributes. All trigger a full cache invalidation
+  // so the change surfaces within seconds instead of waiting up to 15 minutes
+  // for the next scheduled polling cycle.
   if (
     event.startsWith("catalog_attribute") ||
     event === "catalog_attributes.changed" ||
-    event === "catalog.products.changed"
+    event === "catalog.products.changed" ||
+    event === "brand.updated" ||
+    event === "brand.products_changed" ||
+    event === "category.products_changed" ||
+    event === "occasion.products_changed" ||
+    event === "product.brand_assigned" ||
+    event === "product.brand_unassigned" ||
+    event === "product.category_assigned" ||
+    event === "product.category_unassigned" ||
+    event === "product.occasion_assigned" ||
+    event === "product.occasion_unassigned"
   ) {
     invalidateOsProductsCache();
     req.log.info({ event }, "osWebhook: products cache invalidated (catalog change)");
@@ -1093,6 +1150,76 @@ router.post("/os/sync/products", (req, res) => {
   invalidateOsProductsCache();
   req.log.info("osWebhook: products cache invalidated via manual sync trigger");
   return res.json({ ok: true, message: "Products cache invalidated — fresh fetch queued" }); // i18n-ignore
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/catalog-flush — on-demand products cache flush
+// ---------------------------------------------------------------------------
+// Immediately invalidates the in-memory OS product cache and queues a fresh
+// fetch from Presentail OS. Useful when a brand/category/occasion assignment
+// change is not yet surfaced via a webhook event, or to verify the current
+// catalog state before the next scheduled 15-minute polling cycle.
+//
+// Protected by x-push-admin-token.
+//
+// ASYNC CONTRACT — the fresh fetch runs in the background; this endpoint
+// returns as soon as invalidation is queued, typically within a few ms.
+// `productCountBefore` reflects the cache state at the moment of the flush.
+// Updated counts will appear in GET /admin/catalog-sync once the background
+// fetch completes (usually 5–30 s depending on OS response time).
+// ---------------------------------------------------------------------------
+
+router.post("/admin/catalog-flush", (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const beforeCounts = getProductCountByStore();
+  invalidateOsProductsCache();
+  req.log.info("osWebhook: products cache flushed via /admin/catalog-flush");
+  return res.json({
+    ok: true,
+    // Refresh is async — poll GET /admin/catalog-sync for updated counts.
+    message: "Products cache flushed — fresh fetch queued in background (async; poll /admin/catalog-sync for updated counts)", // i18n-ignore
+    productCountBefore: beforeCounts,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/admin/catalog-sync — catalog cache diagnostic
+// ---------------------------------------------------------------------------
+// Returns a snapshot of the current OS product cache state so the team can
+// verify catalog freshness without digging into server logs:
+//
+//   lastRefreshedAt        — ISO 8601 timestamp of the last successful fetch,
+//                            or null if no fetch has completed since startup.
+//   productCountByStore    — per-store product count from the current cache.
+//   categoriesCount        — number of cached categories (0 = not yet fetched).
+//   brandsCount            — number of cached brands (active, ≥1 product).
+//   occasionsCount         — number of cached occasions.
+//   recentWebhookEvents    — last ≤50 webhook events received (type, delivery
+//                            id, timestamp), newest last.
+//
+// Protected by x-push-admin-token.
+// ---------------------------------------------------------------------------
+
+router.get("/admin/catalog-sync", (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const cats = getOsCategories();
+  const brands = getOsBrands();
+  const occasions = getOsOccasions();
+  // Return only events received in the last 60 minutes so the list stays
+  // actionable (stale events from hours ago are noise, not a diagnostic signal).
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const recentEvents = recentWebhookEvents.filter(
+    (e) => e.receivedAt >= oneHourAgo,
+  );
+  return res.json({
+    ok: true,
+    lastRefreshedAt: getLastRefreshedAt()?.toISOString() ?? null,
+    productCountByStore: getProductCountByStore(),
+    categoriesCount: cats ? cats.length : 0,
+    brandsCount: brands ? brands.length : 0,
+    occasionsCount: occasions ? occasions.length : 0,
+    recentWebhookEvents: recentEvents,
+  });
 });
 
 router.post("/os/sync/locations", (req, res) => {

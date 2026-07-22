@@ -52,6 +52,8 @@ import {
   getOsProductOccasions,
   getOsProductBySlug,
   getCachedBestSellerIds,
+  getOsBrandNameToCanonicalSlug,
+  normaliseBrandName,
 } from "../lib/osProductsCache";
 import type { OSProduct, OSCatalogAttributeBrand } from "@workspace/presentail-os";
 import { getCustomerById } from "../lib/customers";
@@ -498,8 +500,18 @@ router.get("/woo/brand-products", (req, res) => {
   // annotation completes — so using it here ensures badges are correct even
   // while a refresh is in-flight.
   const bestSellerIds = getCachedBestSellerIds();
+  // Brand slug lookup: resolve product-embedded brand names to canonical catalog-attribute
+  // slugs so products are not missed when the embedded slug differs from the canonical one
+  // (e.g. product brand slug "hallab" vs catalog slug "hallab-1881").
+  const brandNameToCanonical = getOsBrandNameToCanonicalSlug();
   const eligible = osProducts
-    .filter((p) => p.brands.some((b) => b.slug === brandSlug))
+    .filter((p) =>
+      p.brands.some((b) => {
+        if (b.slug === brandSlug) return true;
+        const canonical = brandNameToCanonical.get(normaliseBrandName(b.name));
+        return canonical === brandSlug;
+      }),
+    )
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter))

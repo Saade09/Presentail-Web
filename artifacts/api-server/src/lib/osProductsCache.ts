@@ -68,8 +68,11 @@ type StoreOsFetchSpec = {
  * Strips punctuation, lowercases, and collapses whitespace so that
  * "Hallab 1881" and "hallab 1881" produce the same key regardless of
  * capitalisation or minor punctuation differences.
+ *
+ * Exported so the brand-products route can resolve product-embedded brand
+ * names to canonical catalog-attribute slugs at query time.
  */
-function normaliseBrandName(name: string): string {
+export function normaliseBrandName(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, "")
@@ -197,6 +200,9 @@ let cachedProductOccasions: Map<string, OSProductOccasion> = new Map();
 
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
+
+/** Timestamp of the most recent successful `fetchAndStore()` completion. */
+let lastRefreshedAt: Date | null = null;
 
 // ── IndexNow slug-change detection ─────────────────────────────────────────
 
@@ -1486,6 +1492,9 @@ async function fetchAndStore(): Promise<void> {
       fn();
     }
 
+    // Record successful refresh timestamp for the diagnostic endpoint.
+    lastRefreshedAt = new Date();
+
     // ── OS-refresh listeners ──────────────────────────────────────────────
     // Notify dependent caches (e.g. best-sellers ranking) that the OS
     // product data has been refreshed so they can invalidate in lock-step.
@@ -1697,6 +1706,45 @@ export function getOsCategoryProductCountsByCountry(countryCode: string): Readon
  */
 export function getOsProductOccasions(): ReadonlyMap<string, OSProductOccasion> {
   return cachedProductOccasions;
+}
+
+/**
+ * Returns the name-normalised → canonical-slug cross-reference map built
+ * from the catalog-attribute brands endpoint.
+ *
+ * Key: `normaliseBrandName(brandName)` (lowercase, punctuation-stripped).
+ * Value: canonical slug from the OS catalog-attributes endpoint.
+ *
+ * Use this at query time to resolve a product's embedded brand name to the
+ * canonical catalog-attribute slug, so brand-products filtering works even
+ * when the embedded slug differs from the catalog slug (e.g. "hallab" → "hallab-1881").
+ *
+ * Returns an empty map until the first successful catalog-attributes fetch.
+ */
+export function getOsBrandNameToCanonicalSlug(): ReadonlyMap<string, string> {
+  return cachedBrandNameToCanonicalSlug;
+}
+
+/**
+ * Returns the UTC timestamp of the most recent successful `fetchAndStore()`
+ * completion, or null if no successful fetch has occurred since startup.
+ */
+export function getLastRefreshedAt(): Date | null {
+  return lastRefreshedAt;
+}
+
+/**
+ * Returns a snapshot of per-store product counts from the current in-memory
+ * cache. Keys are store keys ("lebanon", "dubai", "abudhabi", "cyprus");
+ * values are the product count in that store's cache (0 when unpopulated).
+ */
+export function getProductCountByStore(): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const spec of OS_STORE_SPECS) {
+    const entry = storeCache.get(spec.storeKey);
+    result[spec.storeKey] = entry ? entry.products.length : 0;
+  }
+  return result;
 }
 
 /**
