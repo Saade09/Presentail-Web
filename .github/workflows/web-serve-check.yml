@@ -80,6 +80,9 @@ jobs:
       - name: Run web unit tests
         run: pnpm --filter @workspace/presentail-web run test
 
+      - name: Run seo-inject unit tests (seo-inject.mjs regression gate)
+        run: pnpm --filter @workspace/presentail-web exec vitest run src/lib/seo-inject.test.ts
+
       - name: Check image alt text (no <img> missing alt or using empty alt without annotation)
         run: pnpm --filter @workspace/scripts run check-image-alt
 
