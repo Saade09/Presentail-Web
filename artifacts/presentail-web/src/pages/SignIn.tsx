@@ -331,7 +331,7 @@ export default function SignInPage() {
       }
       const bridgeJson = (await bridgeRes.json().catch(() => null)) as {
         ok?: boolean;
-        code?: "lookup_failed" | "lookup_unavailable";
+        userExists?: boolean;
         passwordLoginAvailable?: boolean;
       } | null;
       if (!bridgeJson || bridgeJson.ok !== true) {
@@ -342,33 +342,14 @@ export default function SignInPage() {
         });
         return;
       }
-      // The bridge response is intentionally indistinguishable for known vs
-      // unknown emails — `clerkReady` is no longer returned (it was an
-      // account-enumeration oracle).  Route every caller to the sign-in step;
-      // unknown emails will fail at sign-in and can use "Don't have an account?".
-      //
-      //   { ok: true }                             → proceed to sign-in
-      //   { ok: true, code: "lookup_failed" }      → transient service error
-      //   { ok: true, code: "lookup_unavailable" } → Clerk/WC not configured
-      if (
-        bridgeJson.code === "lookup_failed" ||
-        bridgeJson.code === "lookup_unavailable"
-      ) {
-        // Service failure — fall back to password step when available,
-        // otherwise surface the error so the user is not silently swallowed.
-        if (bridgeJson.passwordLoginAvailable === true) {
-          setStep("password");
-          return;
-        }
-        toast({
-          title: t("auth.toast.error"),
-          description: t("auth.checkFailed"),
-          variant: "destructive",
-        });
+      // `userExists` tells us whether this email is registered in the local DB.
+      // Unknown emails are redirected to sign-up; known emails proceed to sign-in.
+      if (bridgeJson.userExists === false) {
+        setLocation(`/sign-up?email_address=${encodeURIComponent(trimmed)}`);
         return;
       }
-      // Success — proceed to sign-in.  passwordLoginAvailable is a server
-      // config hint (not user-specific) that selects which sign-in step to show.
+      // Known email — route to the appropriate sign-in step.
+      // `passwordLoginAvailable: true` means we have a local password account.
       if (bridgeJson.passwordLoginAvailable === true) {
         setStep("password");
       } else {

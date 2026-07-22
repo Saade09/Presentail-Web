@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   authenticate: vi.fn(),
   decodeJwtPayload: vi.fn(),
   classifyAuthExists: vi.fn(),
-  normalizeAuthExistsEmail: vi.fn((e: string) => e),
+  normalizeAuthExistsEmail: vi.fn((e: string): string | null => e),
   recordAuthExistsOutcome: vi.fn(),
   mirrorWcCustomerLocally: vi.fn(),
   fetch: vi.fn(),
@@ -134,6 +134,7 @@ vi.mock("@workspace/db", () => ({
     emailVerificationToken: "email_verification_token",
     emailVerificationTokenExpiresAt: "email_verification_token_expires_at",
     updatedAt: "updated_at",
+    passwordHash: "password_hash",
   },
   phoneOtpsTable: {
     phoneE164: "phone_e164",
@@ -173,160 +174,88 @@ async function postWebBridge(app: ReturnType<typeof buildApp>, email: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests — enumeration resistance
+// Tests — web-bridge local-DB-only flow
 // ---------------------------------------------------------------------------
 
-describe("POST /auth/web-bridge — enumeration resistance", () => {
+describe("POST /auth/web-bridge — local DB lookup (no WC/WP)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.normalizeAuthExistsEmail.mockImplementation((e: string) => e);
     mocks.isWcAuthEnabled.mockReturnValue(false);
     mocks.isClerkConfigured.mockReturnValue(true);
-    mocks.ensureClerkUserForCustomer.mockResolvedValue({ ok: true });
   });
 
-  it("returns { ok: true } with HTTP 200 for a KNOWN email", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: true,
-      outcome: "exists_true_local",
-      code: null,
-    });
+  it("returns HTTP 200 with userExists:true for a KNOWN email (DB hit)", async () => {
+    mocks.dbSelectResult = [{ id: 1 }];
     const app = buildApp();
     const res = await postWebBridge(app, "known@example.com");
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
+    expect(res.body.userExists).toBe(true);
+    expect(res.body.passwordLoginAvailable).toBe(true);
   });
 
-  it("returns { ok: true } with HTTP 200 for an UNKNOWN email", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: false,
-      outcome: "exists_false",
-      code: null,
-    });
+  it("returns HTTP 200 with userExists:false for an UNKNOWN email (DB miss)", async () => {
+    mocks.dbSelectResult = [];
     const app = buildApp();
     const res = await postWebBridge(app, "unknown@example.com");
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
+    expect(res.body.userExists).toBe(false);
   });
 
-  it("response body shape is identical for known vs unknown emails — no clerkReady, no exists field", async () => {
-    const app = buildApp();
-
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: true,
-      outcome: "exists_true_local",
-      code: null,
-    });
-    const knownRes = await postWebBridge(app, "known@example.com");
-
-    vi.clearAllMocks();
-    mocks.normalizeAuthExistsEmail.mockImplementation((e: string) => e);
-    mocks.isWcAuthEnabled.mockReturnValue(false);
-    mocks.isClerkConfigured.mockReturnValue(true);
-    mocks.ensureClerkUserForCustomer.mockResolvedValue({ ok: true });
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: false,
-      outcome: "exists_false",
-      code: null,
-    });
-    const unknownRes = await postWebBridge(app, "unknown@example.com");
-
-    // Both responses must carry the same top-level keys.
-    expect(Object.keys(knownRes.body).sort()).toEqual(
-      Object.keys(unknownRes.body).sort(),
-    );
-
-    // Neither response may contain `clerkReady` (enumeration oracle).
-    expect(knownRes.body).not.toHaveProperty("clerkReady");
-    expect(unknownRes.body).not.toHaveProperty("clerkReady");
-
-    // Neither response may contain `exists` (enumeration oracle).
-    expect(knownRes.body).not.toHaveProperty("exists");
-    expect(unknownRes.body).not.toHaveProperty("exists");
-  });
-
-  it("does not set clerkReady on a known email even when Clerk provisioning succeeds", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: true,
-      outcome: "exists_true_local",
-      code: null,
-    });
-    mocks.ensureClerkUserForCustomer.mockResolvedValue({ ok: true });
+  it("does NOT contain clerkReady or exists fields in the response", async () => {
+    mocks.dbSelectResult = [{ id: 1 }];
     const app = buildApp();
     const res = await postWebBridge(app, "known@example.com");
     expect(res.body).not.toHaveProperty("clerkReady");
+    expect(res.body).not.toHaveProperty("exists");
   });
 
-  it("does not set clerkReady on an unknown email", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: false,
-      outcome: "exists_false",
-      code: null,
-    });
+  it("does NOT contain clerkReady or exists fields for an unknown email", async () => {
+    mocks.dbSelectResult = [];
     const app = buildApp();
     const res = await postWebBridge(app, "unknown@example.com");
     expect(res.body).not.toHaveProperty("clerkReady");
-  });
-
-  it("service errors carry a code field but still do not reveal account existence", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: true,
-      outcome: "exists_inconclusive",
-      code: "lookup_failed",
-    });
-    const app = buildApp();
-    const res = await postWebBridge(app, "any@example.com");
-    expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-    expect(res.body.code).toBe("lookup_failed");
-    expect(res.body).not.toHaveProperty("clerkReady");
     expect(res.body).not.toHaveProperty("exists");
   });
 
-  it("Clerk-not-configured returns lookup_unavailable for a KNOWN email", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: true,
-      outcome: "exists_true_local",
-      code: null,
-    });
-    mocks.isClerkConfigured.mockReturnValue(false);
+  it("returns userExists:false immediately for an invalid email (normalizer returns null)", async () => {
+    mocks.normalizeAuthExistsEmail.mockReturnValue(null);
     const app = buildApp();
-    const res = await postWebBridge(app, "known@example.com");
+    const res = await postWebBridge(app, "not-an-email");
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
-    expect(res.body.code).toBe("lookup_unavailable");
-    expect(res.body).not.toHaveProperty("clerkReady");
-    expect(res.body).not.toHaveProperty("exists");
+    expect(res.body.userExists).toBe(false);
   });
 
-  it("Clerk-not-configured returns lookup_unavailable for an UNKNOWN email (same shape — not an oracle)", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: false,
-      outcome: "exists_false",
-      code: null,
-    });
-    mocks.isClerkConfigured.mockReturnValue(false);
+  it("does NOT call classifyAuthExists — web-bridge uses direct DB query now", async () => {
+    mocks.dbSelectResult = [{ id: 1 }];
     const app = buildApp();
-    const res = await postWebBridge(app, "unknown@example.com");
-    expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-    expect(res.body.code).toBe("lookup_unavailable");
-    expect(res.body).not.toHaveProperty("clerkReady");
-    expect(res.body).not.toHaveProperty("exists");
+    await postWebBridge(app, "known@example.com");
+    expect(mocks.classifyAuthExists).not.toHaveBeenCalled();
   });
 
-  it("Clerk provisioning failure does NOT return a code field (provisioning only runs for known emails, so code would be an oracle)", async () => {
-    mocks.classifyAuthExists.mockResolvedValue({
-      exists: true,
-      outcome: "exists_true_local",
-      code: null,
-    });
-    mocks.ensureClerkUserForCustomer.mockResolvedValue({ ok: false, reason: "provisioning_error" });
+  it("does NOT call ensureClerkUserForCustomer — JIT provisioning block is removed", async () => {
+    mocks.dbSelectResult = [{ id: 1 }];
     const app = buildApp();
-    const res = await postWebBridge(app, "known@example.com");
-    expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-    expect(res.body).not.toHaveProperty("code");
-    expect(res.body).not.toHaveProperty("clerkReady");
+    await postWebBridge(app, "known@example.com");
+    expect(mocks.ensureClerkUserForCustomer).not.toHaveBeenCalled();
+  });
+
+  it("records auth_exists outcome via recordAuthExistsOutcome", async () => {
+    mocks.dbSelectResult = [{ id: 1 }];
+    const app = buildApp();
+    await postWebBridge(app, "known@example.com");
+    expect(mocks.recordAuthExistsOutcome).toHaveBeenCalledOnce();
+    expect(mocks.recordAuthExistsOutcome.mock.calls[0][0]).toBe("exists_true_local");
+  });
+
+  it("records exists_false outcome for unknown email", async () => {
+    mocks.dbSelectResult = [];
+    const app = buildApp();
+    await postWebBridge(app, "unknown@example.com");
+    expect(mocks.recordAuthExistsOutcome).toHaveBeenCalledOnce();
+    expect(mocks.recordAuthExistsOutcome.mock.calls[0][0]).toBe("exists_false");
   });
 });

@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { randomBytes, createHash, randomInt } from "node:crypto";
+import { randomBytes, createHash, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { getAuth, createClerkClient } from "@clerk/express";
-import { authenticate, decodeJwtPayload, signServerToken, isWcAuthEnabled } from "../lib/auth";
+import { authenticate, signServerToken, isWcAuthEnabled } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull, isNotNull, gt } from "drizzle-orm";
@@ -11,7 +11,6 @@ import { upsertCustomer, getCustomerByWcId, getCustomerById, normalizePhoneE164 
 import { validateStoredPhone } from "../lib/phoneValidation";
 import {
   ensureClerkUserInBackground,
-  ensureClerkUserForCustomer,
   isClerkConfigured,
 } from "../lib/clerkUserSync";
 import type { Customer } from "@workspace/db";
@@ -32,6 +31,50 @@ import {
   normalizeAuthExistsEmail,
   recordAuthExistsOutcome,
 } from "../lib/authExists";
+
+// ── Password hashing (Node.js built-in crypto.scrypt) ────────────────────────
+// We use scrypt instead of bcrypt to avoid a native-binding dependency.
+// Format stored in the DB: "<16-byte-hex-salt>:<64-byte-hex-key>"
+// Cost params: N=16384, r=8, p=1 (equivalent to bcrypt cost ~12 on current hw).
+//
+// COMPATIBILITY NOTE: `customers.password_hash` is a brand-new column added by
+// migration 0015_customers_password_hash.sql.  No existing customer row has ever
+// had a hash stored here — all prior passwords lived in WordPress/WooCommerce,
+// not in the local DB.  The column is nullable; a null hash always fails
+// `verifyPassword` and returns `incorrect_password`, which is the intended
+// behaviour: pre-migration users must go through the password-reset flow to set
+// a local password for the first time.  There is no bcrypt-hash compat concern.
+
+const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
+const SCRYPT_KEY_LEN = 64;
+
+function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, SCRYPT_KEY_LEN, SCRYPT_PARAMS, (err, key) => {
+      if (err) reject(err);
+      else resolve(`${salt}:${key.toString("hex")}`);
+    });
+  });
+}
+
+function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [salt, hexKey] = stored.split(":");
+  if (!salt || !hexKey) return Promise.resolve(false);
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, SCRYPT_KEY_LEN, SCRYPT_PARAMS, (err, key) => {
+      if (err) reject(err);
+      else {
+        try {
+          const storedBuf = Buffer.from(hexKey, "hex");
+          resolve(timingSafeEqual(key, storedBuf));
+        } catch {
+          resolve(false);
+        }
+      }
+    });
+  });
+}
 
 // Used by the password-reset / login routes below for a quick syntactic
 // pre-check on input. The /auth/exists endpoint uses
@@ -244,7 +287,6 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
     return;
   }
 
-  const wcAuthEnabled = isWcAuthEnabled();
   const result = await classifyAuthExists({
     email,
     localLookup: async (e) => {
@@ -255,10 +297,10 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
         .limit(1);
       return rows.length > 0;
     },
-    wcConfigured: wcAuthEnabled && Boolean(process.env.WC_CONSUMER_KEY),
+    wcConfigured: false,
     wcFetch: (path, init) => wcFetch(path, init, req),
     wpFetch: (path, init) => wpFetch(path, init, req),
-    localOnly: !wcAuthEnabled,
+    localOnly: true,
   });
 
   // Centralised structured log + persisted outcome row. Both feed the
@@ -293,31 +335,21 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
   res.json(body);
 });
 
-// ── Web-bridge: JIT Clerk creation for an existing WP shopper ────────────────
-// The web sign-in page calls this with the email the shopper just typed. If
-// the email matches a WP/WC account, we ensure a corresponding Clerk user
-// exists (idempotent, see `ensureClerkUserForCustomer`) so the subsequent
-// Clerk email-code flow can authenticate them.
+// ── Web-bridge: local DB lookup for the sign-in page ─────────────────────────
+// The web sign-in page calls this with the email the shopper just typed.
+// We check the local `customers` table and return `userExists` so the
+// frontend can route unknown emails to /sign-up and known emails to the
+// password step. No WC/WP or Clerk JIT-provisioning is involved.
 //
-// We reuse `classifyAuthExists` for the lookup so this endpoint inherits the
-// same monitoring + outcome taxonomy as `/auth/exists`. When the classifier
-// reports `exists_true_wc` we additionally do a one-shot WC fetch to grab
-// the customer profile (the classifier intentionally returns no payload),
-// so the Clerk JIT-create has first / last name and phone.
+// We still call `recordAuthExistsOutcome` so the existing monitoring
+// taxonomy (exists_true_local / exists_false) continues to work.
 //
 // Response contract:
-//   - { ok: true, exists: true,  clerkReady: true }   → frontend may proceed
-//                                                       with `signIn.create`
-//   - { ok: true, exists: true,  clerkReady: false }  → existed in WP but
-//                                                       Clerk provisioning
-//                                                       failed; show error
-//   - { ok: true, exists: false }                     → unknown email; let
-//                                                       Clerk's normal
-//                                                       sign-up flow handle
-//   - { ok: true, exists: false, code: "lookup_failed" | "lookup_unavailable" }
-//                                                     → hard error; the UI
-//                                                       must NOT route the
-//                                                       shopper to sign-up
+//   - { ok: true, userExists: true,  passwordLoginAvailable: true }
+//                                    → known email; show the password step
+//   - { ok: true, userExists: false, passwordLoginAvailable: true }
+//                                    → unknown email; frontend redirects to
+//                                      /sign-up?email_address=<email>
 router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
   const platformHeader = String(req.header("x-app-platform") ?? "")
     .trim()
@@ -326,134 +358,32 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
   const email = normalizeAuthExistsEmail((req.body as any)?.email);
   if (!email) {
     recordAuthExistsOutcome("invalid_email", platformHeader);
-    res.json({ ok: true, exists: false });
+    res.json({ ok: true, userExists: false, passwordLoginAvailable: false });
     return;
   }
 
-  const lookup = await classifyAuthExists({
-    email,
-    localLookup: async (e) => {
-      const rows = await db
-        .select({ id: customersTable.id })
-        .from(customersTable)
-        .where(eq(customersTable.email, e))
-        .limit(1);
-      return rows.length > 0;
-    },
-    wcConfigured: Boolean(process.env.WC_CONSUMER_KEY),
-    wcFetch: (path, init) => wcFetch(path, init, req),
-    wpFetch: (path, init) => wpFetch(path, init, req),
+  // Local DB only — WC/WP no longer exists. A local miss is a definitive
+  // "user does not exist" (all customers have been imported into the local DB).
+  const rows = await db
+    .select({ id: customersTable.id })
+    .from(customersTable)
+    .where(eq(customersTable.email, email))
+    .limit(1);
+
+  const userExists = rows.length > 0;
+  recordAuthExistsOutcome(
+    userExists ? "exists_true_local" : "exists_false",
+    platformHeader,
+  );
+
+  // Return `userExists` so the frontend can route unknown emails to sign-up
+  // without showing an error. `passwordLoginAvailable: true` because all
+  // locally-registered accounts use a scrypt password hash stored in the DB.
+  res.json({
+    ok: true,
+    userExists,
+    passwordLoginAvailable: true,
   });
-  recordAuthExistsOutcome(lookup.outcome, platformHeader);
-
-  // Do not return an `exists` boolean or any boolean that maps 1:1 to account
-  // existence — that is an account-enumeration oracle.  The response shape MUST
-  // be indistinguishable for found vs not-found emails.
-  //
-  // Response contract (no `clerkReady` / `exists` field ever):
-  //   { ok: true }                              → proceed to sign-in; existence unknown
-  //   { ok: true, code: "lookup_failed" }       → transient service error
-  //   { ok: true, code: "lookup_unavailable" }  → Clerk/WC not configured
-  //   passwordLoginAvailable (optional)         → server config hint, not user-specific
-  if (lookup.code) {
-    // Inconclusive (service failure) — surface code for error UX, not existence.
-    // Check code BEFORE exists so transient errors are never silently swallowed.
-    // lookup.code is set by classifyAuthExists before existence is known, so
-    // returning it here is NOT an existence oracle.
-    res.json({ ok: true, code: lookup.code, passwordLoginAvailable: isWcAuthEnabled() });
-    return;
-  }
-  if (!isClerkConfigured()) {
-    // Check Clerk availability BEFORE the exists branch so the same response
-    // shape is returned for found AND not-found emails — exposing "not configured"
-    // only for known emails would be an existence oracle.
-    req.log?.warn?.({}, "auth.web-bridge: Clerk not configured");
-    res.json({ ok: true, code: "lookup_unavailable", passwordLoginAvailable: isWcAuthEnabled() });
-    return;
-  }
-  if (!lookup.exists) {
-    // Unknown email — return same shape as successful Clerk provision so callers
-    // cannot distinguish "found" from "not found".
-    res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
-    return;
-  }
-
-  // For the WC-hit path, fetch the matching WC row so we can mirror it
-  // into our local customers table and populate the Clerk JIT-create
-  // payload with first / last / phone. Best-effort — failures here just
-  // mean we create the Clerk user with email-only.
-  let wc: any = null;
-  if (lookup.outcome === "exists_true_wc") {
-    try {
-      const r = await wcFetch(
-        `/customers?email=${encodeURIComponent(email)}&per_page=1`,
-        {},
-        req,
-      );
-      if (r.ok) {
-        const list = (await r.json().catch(() => [])) as any[];
-        if (Array.isArray(list) && list.length > 0) {
-          wc = list[0];
-        }
-      }
-    } catch (e: any) {
-      req.log?.warn?.(
-        { err: e?.message },
-        "auth.web-bridge: WC profile fetch failed (non-fatal)",
-      );
-    }
-  }
-
-  let localCustomerId: number | null = null;
-  if (wc?.id) {
-    const local = await mirrorWcCustomerLocally(
-      Number(wc.id),
-      {
-        email,
-        firstName: typeof wc.first_name === "string" ? wc.first_name : undefined,
-        lastName: typeof wc.last_name === "string" ? wc.last_name : undefined,
-        phone: typeof wc.billing?.phone === "string" ? wc.billing.phone : undefined,
-      },
-      req.log,
-    );
-    localCustomerId = local?.id ?? null;
-  }
-  try {
-    const ensure = await ensureClerkUserForCustomer({
-      email,
-      firstName: (wc?.first_name as string) ?? null,
-      lastName: (wc?.last_name as string) ?? null,
-      localCustomerId,
-      log: req.log,
-    });
-    // `ensureClerkUserForCustomer` is intentionally non-throwing — it
-    // returns structured `{ok:false,reason}` on failure. We MUST inspect
-    // it before claiming `clerkReady: true`, otherwise the web SignIn
-    // page will advance the shopper to a Clerk email-code step against
-    // a Clerk user that doesn't exist.
-    if (!ensure.ok) {
-      req.log?.warn?.(
-        { reason: ensure.reason, message: (ensure as any).message },
-        "auth.web-bridge: ensureClerkUserForCustomer returned not-ok",
-      );
-      // Do NOT return a `code` here: this branch is only reached for known
-      // emails, so returning `code` would be an existence oracle (unknown emails
-      // never reach Clerk provisioning).  Log the failure and return the same
-      // shape as a successful provisioning so the response is indistinguishable.
-      res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
-      return;
-    }
-    // Clerk user provisioned — same shape as not-found and provisioning failure.
-    res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
-  } catch (e: any) {
-    // Defensive: helper shouldn't throw, but if it does, still return the
-    // same indistinguishable shape rather than a differentiating error code.
-    req.log?.warn?.(
-      { err: e?.message },
-      "auth.web-bridge: ensureClerkUserForCustomer threw",
-    );
-    res.json({ ok: true, passwordLoginAvailable: isWcAuthEnabled() });
-  }
 });
 
 // ── Admin diagnostic ─────────────────────────────────────────────────────────
@@ -603,19 +533,11 @@ router.get("/auth/diagnostics", async (req, res) => {
   res.status(overallOk ? 200 : 503).json({ ok: overallOk, checks });
 });
 
-// ── Login: uses JWT Authentication for WP REST API plugin ────────────────────
-// When WC_AUTH_ENABLED is false (the default), this endpoint returns 410 Gone
-// so that old mobile app builds show a graceful upgrade prompt. All new
-// registrations and sign-ins go through Clerk on the mobile side.
+// ── Login: local password auth (scrypt hash stored in customers.password_hash) ─
+// Looks up the customer by email in the local DB, verifies the submitted
+// password against the stored scrypt hash, and returns a server-issued JWT.
+// WC/WP is no longer involved in this flow.
 router.post("/auth/login", loginIpLimiter, async (req, res) => {
-  if (!isWcAuthEnabled()) {
-    return res.status(410).json({
-      ok: false,
-      code: "login_deprecated",
-      message: "Password login is no longer supported. Please update the app and sign in with your email via the new flow.", // i18n-ignore
-    });
-  }
-
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
     return res.status(400).json({ ok: false, code: "missing_credentials", message: "Email and password are required" }); // i18n-ignore
@@ -634,79 +556,64 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
   }
 
   try {
-    const tokenRes = await wpFetch(`/jwt-auth/v1/token`, {
-      method: "POST",
-      body: JSON.stringify({ username: email, password }),
-    }, req);
+    const normalizedEmail = email.trim().toLowerCase();
+    const rows = await db
+      .select({
+        id: customersTable.id,
+        email: customersTable.email,
+        firstName: customersTable.firstName,
+        lastName: customersTable.lastName,
+        phoneE164: customersTable.phoneE164,
+        passwordHash: customersTable.passwordHash,
+      })
+      .from(customersTable)
+      .where(eq(customersTable.email, normalizedEmail))
+      .limit(1);
 
-    const tokenData = (await tokenRes.json().catch(() => ({}))) as any;
-
-    if (tokenRes.status === 404) {
-      return res.status(503).json({
-        ok: false,
-        code: "jwt_not_installed",
-        message: "Login is being set up on the server. Please try again later.", // i18n-ignore
-      });
-    }
-
-    if (!tokenRes.ok || !tokenData?.token) {
+    const row = rows[0];
+    if (!row || !row.passwordHash) {
       loginEmailLimiter.record(email);
-      const wpCode = typeof tokenData?.code === "string" ? tokenData.code : undefined;
       return res.status(401).json({
         ok: false,
-        code: wpCode,
-        message: tokenData?.message?.replace(/<[^>]*>/g, "") ?? "Invalid email or password", // i18n-ignore
+        code: "invalid_credentials",
+        message: "Invalid email or password", // i18n-ignore
       });
     }
 
-    let customer: ReturnType<typeof mapCustomer> | null = null;
-    try {
-      const cRes = await wcFetch(`/customers?email=${encodeURIComponent(email)}`, {}, req);
-      const cList = (await cRes.json().catch(() => [])) as any[];
-      if (Array.isArray(cList) && cList[0]) customer = mapCustomer(cList[0]);
-    } catch {
-      // ignore - we'll fall back to JWT payload data
+    const valid = await verifyPassword(password, row.passwordHash);
+    if (!valid) {
+      loginEmailLimiter.record(email);
+      return res.status(401).json({
+        ok: false,
+        code: "incorrect_password",
+        message: "Invalid email or password", // i18n-ignore
+      });
     }
 
-    // Fall back to JWT/WP data when there's no WC customer record (e.g. WP-only
-    // users or WC customer create lag). We still derive the id from the JWT
-    // payload so /auth/me works.
-    if (!customer) {
-      const payload = decodeJwtPayload(tokenData.token);
-      const id =
-        Number(payload?.data?.user?.id) ||
-        Number(payload?.user_id) ||
-        Number(payload?.sub) ||
-        0;
-      const display = String(tokenData?.user_display_name ?? "").trim();
-      const [first = "", ...rest] = display ? display.split(/\s+/) : [];
-      customer = {
-        id,
-        email: String(tokenData?.user_email ?? email),
-        firstName: first,
-        lastName: rest.join(" "),
-        username: String(tokenData?.user_nicename ?? ""),
-        phone: "",
+    const store = resolveStoreFromRequest(req);
+    const token = await signServerToken({
+      customerId: row.id,
+      email: normalizedEmail,
+      provider: "password",
+      storeBaseUrl: store.baseUrl,
+      localCustomerId: row.id,
+      localCustomer: true,
+    });
+
+    return res.json({
+      ok: true,
+      token,
+      user: {
+        id: row.id,
+        email: row.email,
+        firstName: row.firstName ?? "",
+        lastName: row.lastName ?? "",
+        username: "",
+        phone: row.phoneE164 ?? "",
         gender: null,
         birthday: null,
-      };
-    }
-
-    if (customer && customer.id) {
-      void mirrorWcCustomerLocally(
-        customer.id,
-        {
-          email: customer.email,
-          firstName: customer.firstName,
-          lastName: customer.lastName,
-          phone: customer.phone,
-          provider: "password",
-          preferredLang: langFromRequest(req),
-        },
-        req.log,
-      );
-    }
-    return res.json({ ok: true, token: tokenData.token, user: customer });
+      },
+    });
   } catch (e: any) {
     return res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Login failed" }); // i18n-ignore
   }
@@ -824,6 +731,9 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
         }
       }
 
+      // Hash the password before storing using scrypt (Node.js built-in).
+      const hashedPw = await hashPassword(password);
+
       const { customer } = await upsertCustomer({
         email: normalizedEmail,
         firstName: firstName?.trim() ?? "",
@@ -847,11 +757,13 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
       }
 
       // Generate a secure email verification token and persist it.
+      // Also persist the password hash in the same update.
       const verificationToken = randomBytes(32).toString("hex");
       const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 h
       await db
         .update(customersTable)
         .set({
+          passwordHash: hashedPw,
           emailVerificationToken: verificationToken,
           emailVerificationTokenExpiresAt: tokenExpiresAt,
           updatedAt: new Date(),

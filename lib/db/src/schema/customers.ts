@@ -60,6 +60,9 @@ export const customersTable = pgTable(
     // Orders are not attached to unverified accounts so a fraudulent
     // registration cannot pre-claim another user's order history.
     emailVerified: boolean("email_verified").notNull().default(true),
+    // scrypt-hashed password for locally-registered (password) accounts.
+    // Null for social (Google/Apple) accounts that never set a password.
+    passwordHash: text("password_hash"),
     // One-time token sent in the verification email. Hex-encoded 32-byte
     // random value. Cleared once the account is verified.
     emailVerificationToken: text("email_verification_token"),
