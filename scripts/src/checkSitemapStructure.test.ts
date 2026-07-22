@@ -358,6 +358,124 @@ describe("checkSitemapContent — HTTPS scheme", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sitemap index format (<sitemapindex> root with <sitemap><loc> children)
+// ---------------------------------------------------------------------------
+
+// Build a minimal but structurally valid sitemap index XML with the given
+// number of synthetic <sitemap> entries, all using the canonical origin.
+function buildValidSitemapIndex(
+  sitemapCount: number,
+  origin = CANONICAL_ORIGIN,
+): string {
+  const sitemaps = Array.from(
+    { length: sitemapCount },
+    (_, i) =>
+      `  <sitemap><loc>${origin}/sitemap-${i}.xml</loc><lastmod>2026-01-01</lastmod></sitemap>`,
+  ).join("\n");
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    sitemaps +
+    `\n</sitemapindex>`
+  );
+}
+
+describe("checkSitemapContent — sitemap index format", () => {
+  it("passes a valid sitemap index with all https:// sub-sitemap <loc> values", () => {
+    const xml = buildValidSitemapIndex(5);
+    const { errors, sitemapIndexLocCount } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(errors).toEqual([]);
+    expect(sitemapIndexLocCount).toBe(5);
+  });
+
+  it("fails when a sitemap index has an http:// child <loc> (non-HTTPS sub-sitemap URL)", () => {
+    const httpLoc = "http://presentail.com/sitemap-products.xml";
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      `  <sitemap><loc>https://presentail.com/sitemap-0.xml</loc></sitemap>\n` +
+      `  <sitemap><loc>${httpLoc}</loc></sitemap>\n` +
+      `</sitemapindex>`;
+    const { errors, nonHttpsLocs, sitemapIndexLocCount } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(errors.some((e) => e.includes("https://"))).toBe(true);
+    expect(nonHttpsLocs).toContain(httpLoc);
+    expect(sitemapIndexLocCount).toBe(2);
+  });
+
+  it("fails when a sitemap index <loc> uses the wrong canonical origin", () => {
+    const wrongOriginLoc = "https://staging.presentail.com/sitemap-0.xml";
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      `  <sitemap><loc>${wrongOriginLoc}</loc></sitemap>\n` +
+      `</sitemapindex>`;
+    const { errors, wrongOriginLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(errors.some((e) => e.includes("canonical origin"))).toBe(true);
+    expect(wrongOriginLocs).toContain(wrongOriginLoc);
+  });
+
+  it("handles a mixed payload with both <url> and <sitemap> <loc> entries", () => {
+    // Unusual but possible: a file that contains both standard <url> entries
+    // and sitemap index <sitemap> entries.  Both sets of locs must be checked.
+    const httpIndexLoc = "http://presentail.com/sitemap-extra.xml";
+    const urlLocs = Array.from(
+      { length: MIN_URL_COUNT },
+      (_, i) =>
+        `  <url><loc>${CANONICAL_ORIGIN}/en-lb/beirut/product/item-${i}</loc></url>`,
+    ).join("\n");
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      urlLocs +
+      `\n  <sitemap><loc>https://presentail.com/sitemap-valid.xml</loc></sitemap>\n` +
+      `  <sitemap><loc>${httpIndexLoc}</loc></sitemap>\n` +
+      `</urlset>`;
+    const { errors, nonHttpsLocs, urlCount, sitemapIndexLocCount } =
+      checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
+    expect(errors.some((e) => e.includes("https://"))).toBe(true);
+    expect(nonHttpsLocs).toContain(httpIndexLoc);
+    expect(urlCount).toBe(MIN_URL_COUNT);
+    expect(sitemapIndexLocCount).toBe(2);
+  });
+
+  it("does not apply the minimum URL count check to a pure sitemap index", () => {
+    // A sitemap index has very few entries (one per sub-sitemap file) so the
+    // standard MIN_URL_COUNT threshold must not be applied to it.
+    const xml = buildValidSitemapIndex(3);
+    const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
+    expect(errors.some((e) => e.includes("entr") && e.includes("expected at least"))).toBe(false);
+  });
+
+  it("reports sitemapIndexLocCount correctly in the result", () => {
+    const xml = buildValidSitemapIndex(7);
+    const { sitemapIndexLocCount } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(sitemapIndexLocCount).toBe(7);
+  });
+
+  it("fails when the closing </sitemapindex> tag is missing (truncated response)", () => {
+    const xml = buildValidSitemapIndex(3).replace("</sitemapindex>", "");
+    const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
+    expect(errors.some((e) => e.includes("</sitemapindex>"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Combined / realistic cases
 // ---------------------------------------------------------------------------
 

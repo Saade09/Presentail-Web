@@ -6,11 +6,14 @@
  *   1. The HTTP response is 200.
  *   2. Content-Type is application/xml or text/xml.
  *   3. The XML is structurally sound — has an XML declaration, a <urlset>
- *      root element, and a matching </urlset> closing tag (catches truncation).
- *   4. At least MIN_URL_COUNT <url> entries are present (catches an empty
- *      or near-empty sitemap that silently dropped hundreds of URLs).
- *   5. Every <loc> value starts with the expected canonical origin
- *      (default: https://presentail.com; override with
+ *      root element (or <sitemapindex> for index files), and a matching
+ *      closing tag (catches truncation).
+ *   4. At least MIN_URL_COUNT <url> entries are present for standard sitemaps
+ *      (catches an empty or near-empty sitemap that silently dropped hundreds
+ *      of URLs). Skipped for pure sitemap index files.
+ *   5. Every <loc> value — whether inside a <url> (standard sitemap) or a
+ *      <sitemap> element (sitemap index format) — starts with the expected
+ *      canonical origin (default: https://presentail.com; override with
  *      SITEMAP_CANONICAL_ORIGIN env var).
  *   6. No duplicate <loc> values (duplicate URLs waste crawl budget and
  *      can confuse canonicalization signals).
@@ -18,6 +21,18 @@
  *      relative path. This check is independent of the canonical-origin
  *      comparison so a misconfigured SITEMAP_CANONICAL_ORIGIN env var (e.g.
  *      http://presentail.com without TLS) is still caught.
+ *
+ * Sitemap index format support
+ * ────────────────────────────
+ *   Sites with very large catalogs sometimes publish a sitemap index — a
+ *   <sitemapindex> root containing <sitemap><loc>…</loc></sitemap> children
+ *   that point to individual sitemap files.  checkSitemapContent handles both
+ *   formats:
+ *     • Standard sitemap  (<urlset> root, <url><loc>…</loc></url> children)
+ *     • Sitemap index     (<sitemapindex> root, <sitemap><loc>…</loc></sitemap>)
+ *     • Mixed             (both <url> and <sitemap> <loc> entries present)
+ *   HTTPS-scheme and canonical-origin checks are applied to all <loc> values
+ *   regardless of which element wraps them.
  *
  * Exit codes
  * ──────────
@@ -38,6 +53,7 @@
  *   SITEMAP_MIN_URL_COUNT     Minimum number of <url> entries required.
  *                             Default: 250 (static city×path pages alone
  *                             produce 260+ even with an empty catalog).
+ *                             Not applied to sitemap index <sitemap> entries.
  */
 
 import process from "node:process";
@@ -58,7 +74,10 @@ export const MIN_URL_COUNT = (() => {
 
 export interface SitemapCheckResult {
   errors: string[];
+  /** Number of <url><loc> entries (standard sitemap entries). */
   urlCount: number;
+  /** Number of <sitemap><loc> entries (sitemap index entries). */
+  sitemapIndexLocCount: number;
   duplicateLocs: string[];
   wrongOriginLocs: string[];
   nonHttpsLocs: string[];
@@ -68,13 +87,18 @@ export interface SitemapCheckResult {
  * Validate the raw sitemap XML string. Pure and synchronous so it can be
  * unit-tested without a running server or any I/O.
  *
+ * Handles both the standard sitemap format (<urlset> root) and the sitemap
+ * index format (<sitemapindex> root with <sitemap><loc> children), as well as
+ * files that contain entries from both formats simultaneously.
+ *
  * @param xml             Raw XML text of the sitemap.
  * @param canonicalOrigin Expected origin (scheme + host, no trailing slash) for
  *                        every <loc>. Validated via `new URL(loc).origin` so
  *                        host-spoof variants like `presentail.com.evil.com` are
  *                        rejected even though they share the expected string as a
  *                        prefix.
- * @param minUrlCount     Minimum number of <url> entries.
+ * @param minUrlCount     Minimum number of <url> entries (standard sitemap).
+ *                        Not applied to sitemap index <sitemap> entries.
  */
 export function checkSitemapContent(
   xml: string,
@@ -82,6 +106,10 @@ export function checkSitemapContent(
   minUrlCount = MIN_URL_COUNT,
 ): SitemapCheckResult {
   const errors: string[] = [];
+
+  // Detect which format(s) are present.
+  const isSitemapIndex = xml.includes("<sitemapindex");
+  const hasUrlset = xml.includes("<urlset");
 
   // --- Structural XML checks ------------------------------------------------
 
@@ -92,69 +120,108 @@ export function checkSitemapContent(
     );
   }
 
-  if (!xml.includes("<urlset")) {
-    errors.push(
-      "Sitemap is missing the <urlset> root element — the XML skeleton is broken.",
-    );
+  if (isSitemapIndex) {
+    // Sitemap index: validate <sitemapindex> root and closing tag.
+    if (!xml.includes("</sitemapindex>")) {
+      errors.push(
+        "Sitemap index is missing the closing </sitemapindex> tag — the " +
+          "response may be truncated or the XML generator threw mid-write.",
+      );
+    } else {
+      const afterRoot = xml.slice(
+        xml.lastIndexOf("</sitemapindex>") + "</sitemapindex>".length,
+      );
+      if (afterRoot.trim().length > 0) {
+        errors.push(
+          "Content found after the closing </sitemapindex> tag — the XML may " +
+            "be corrupted or the generator wrote a partial second response: " +
+            JSON.stringify(afterRoot.trim().slice(0, 80)),
+        );
+      }
+    }
   }
 
-  if (!xml.includes("</urlset>")) {
-    errors.push(
-      "Sitemap is missing the closing </urlset> tag — the response may be " +
-        "truncated or the XML generator threw mid-write.",
-    );
-  } else {
-    // Trailing-content check: nothing significant should follow </urlset>.
-    // Trailing whitespace / newlines are fine; any non-whitespace is a sign
-    // of truncation, concatenation, or a broken generator.
-    const afterRoot = xml.slice(
-      xml.lastIndexOf("</urlset>") + "</urlset>".length,
-    );
-    if (afterRoot.trim().length > 0) {
+  if (hasUrlset || !isSitemapIndex) {
+    // Standard sitemap (or a file that has neither format): validate <urlset>.
+    if (!hasUrlset) {
       errors.push(
-        "Content found after the closing </urlset> tag — the XML may be " +
-          "corrupted or the generator wrote a partial second response: " +
-          JSON.stringify(afterRoot.trim().slice(0, 80)),
+        "Sitemap is missing the <urlset> root element — the XML skeleton is broken.",
+      );
+    }
+
+    if (!xml.includes("</urlset>")) {
+      errors.push(
+        "Sitemap is missing the closing </urlset> tag — the response may be " +
+          "truncated or the XML generator threw mid-write.",
+      );
+    } else {
+      const afterRoot = xml.slice(
+        xml.lastIndexOf("</urlset>") + "</urlset>".length,
+      );
+      if (afterRoot.trim().length > 0) {
+        errors.push(
+          "Content found after the closing </urlset> tag — the XML may be " +
+            "corrupted or the generator wrote a partial second response: " +
+            JSON.stringify(afterRoot.trim().slice(0, 80)),
+        );
+      }
+    }
+
+    // Balanced <url> / </url> tag check: mismatched counts indicate the XML
+    // generator produced broken nesting (e.g. an unclosed <url> block).
+    const openUrlCount = (xml.match(/<url>/g) ?? []).length;
+    const closeUrlCount = (xml.match(/<\/url>/g) ?? []).length;
+    if (openUrlCount !== closeUrlCount) {
+      errors.push(
+        `Mismatched <url> tag counts: ${openUrlCount} opening tag(s) vs ` +
+          `${closeUrlCount} closing tag(s) — the XML is not well-formed.`,
       );
     }
   }
 
-  // Balanced <url> / </url> tag check: mismatched counts indicate the XML
-  // generator produced broken nesting (e.g. an unclosed <url> block).
-  // We count raw occurrences rather than trying to build a full parse tree,
-  // which is sufficient for the well-known sitemap element set.
-  const openUrlCount = (xml.match(/<url>/g) ?? []).length;
-  const closeUrlCount = (xml.match(/<\/url>/g) ?? []).length;
-  if (openUrlCount !== closeUrlCount) {
-    errors.push(
-      `Mismatched <url> tag counts: ${openUrlCount} opening tag(s) vs ` +
-        `${closeUrlCount} closing tag(s) — the XML is not well-formed.`,
-    );
-  }
+  // --- Extract <loc> values by context --------------------------------------
+  // Use context-aware regexes so standard <url><loc> entries and sitemap index
+  // <sitemap><loc> entries are tracked separately for accurate counts.
 
-  // --- Extract <loc> values via regex (safe for the well-known sitemap format) ---
+  // Standard sitemap entries: <url>…<loc>…</loc>…</url>
+  const urlLocMatches = [
+    ...xml.matchAll(/<url>[\s\S]*?<loc>([^<]+)<\/loc>[\s\S]*?<\/url>/g),
+  ];
+  const urlLocs = urlLocMatches.map((m) => m[1]!);
+  const urlCount = urlLocs.length;
 
-  const locMatches = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)];
-  const locs = locMatches.map((m) => m[1]!);
-  const urlCount = locs.length;
+  // Sitemap index entries: <sitemap>…<loc>…</loc>…</sitemap>
+  const sitemapLocMatches = [
+    ...xml.matchAll(/<sitemap>[\s\S]*?<loc>([^<]+)<\/loc>[\s\S]*?<\/sitemap>/g),
+  ];
+  const sitemapIndexLocs = sitemapLocMatches.map((m) => m[1]!);
+  const sitemapIndexLocCount = sitemapIndexLocs.length;
 
-  // --- Minimum URL count ----------------------------------------------------
+  // All <loc> values subject to scheme and origin checks.
+  const allLocs = [...urlLocs, ...sitemapIndexLocs];
 
-  if (urlCount < minUrlCount) {
-    errors.push(
-      `Sitemap contains only ${urlCount} <url> entr${urlCount === 1 ? "y" : "ies"} — ` +
-        `expected at least ${minUrlCount}. A regression may have silently ` +
-        `dropped hundreds of URLs from the index.`,
-    );
+  // --- Minimum URL count (standard entries only) ----------------------------
+  // Skipped for pure sitemap index files — the sub-sitemap count is not a
+  // meaningful proxy for catalog coverage.
+
+  if (!isSitemapIndex || urlCount > 0) {
+    if (urlCount < minUrlCount) {
+      errors.push(
+        `Sitemap contains only ${urlCount} <url> entr${urlCount === 1 ? "y" : "ies"} — ` +
+          `expected at least ${minUrlCount}. A regression may have silently ` +
+          `dropped hundreds of URLs from the index.`,
+      );
+    }
   }
 
   // --- Canonical origin check -----------------------------------------------
   // Use new URL(loc).origin for strict host comparison so a spoofed host like
   // "https://presentail.com.evil.com/..." is rejected even though it shares
   // "https://presentail.com" as a string prefix.
+  // Applied to all <loc> values: both standard <url> and index <sitemap> entries.
 
   const wrongOriginLocs: string[] = [];
-  for (const loc of locs) {
+  for (const loc of allLocs) {
     let locOrigin: string;
     try {
       locOrigin = new URL(loc).origin;
@@ -184,9 +251,10 @@ export function checkSitemapContent(
   // SITEMAP_CANONICAL_ORIGIN is itself misconfigured with an http:// scheme
   // (e.g. "http://presentail.com"), which would otherwise pass the origin
   // check while still submitting plain-HTTP URLs to search engines.
+  // Applied to all <loc> values: both standard <url> and index <sitemap> entries.
 
   const nonHttpsLocs: string[] = [];
-  for (const loc of locs) {
+  for (const loc of allLocs) {
     if (!loc.startsWith("https://")) {
       nonHttpsLocs.push(loc);
     }
@@ -208,7 +276,7 @@ export function checkSitemapContent(
 
   const seen = new Set<string>();
   const duplicateLocs: string[] = [];
-  for (const loc of locs) {
+  for (const loc of allLocs) {
     if (seen.has(loc)) {
       if (!duplicateLocs.includes(loc)) duplicateLocs.push(loc);
     } else {
@@ -227,7 +295,14 @@ export function checkSitemapContent(
     );
   }
 
-  return { errors, urlCount, duplicateLocs, wrongOriginLocs, nonHttpsLocs };
+  return {
+    errors,
+    urlCount,
+    sitemapIndexLocCount,
+    duplicateLocs,
+    wrongOriginLocs,
+    nonHttpsLocs,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -278,7 +353,7 @@ async function run(): Promise<void> {
     );
   }
 
-  const { errors, urlCount } = checkSitemapContent(xml);
+  const { errors, urlCount, sitemapIndexLocCount } = checkSitemapContent(xml);
   allErrors.push(...errors);
 
   if (allErrors.length > 0) {
@@ -292,8 +367,13 @@ async function run(): Promise<void> {
     process.exit(1);
   }
 
+  const locSummary =
+    sitemapIndexLocCount > 0
+      ? `${urlCount} <url> entr${urlCount === 1 ? "y" : "ies"} + ${sitemapIndexLocCount} sitemap index entr${sitemapIndexLocCount === 1 ? "y" : "ies"}`
+      : `${urlCount} <url> entr${urlCount === 1 ? "y" : "ies"}`;
+
   process.stdout.write(
-    `✓ Sitemap structure check passed — ${urlCount} <url> entries, ` +
+    `✓ Sitemap structure check passed — ${locSummary}, ` +
       `all <loc> values use the canonical origin "${CANONICAL_ORIGIN}", ` +
       `no duplicates, well-formed XML\n`,
   );
