@@ -237,6 +237,9 @@ jobs:
       - name: Stripe isolation check (Stripe must be absent from instant chunks)
         run: node artifacts/presentail-web/scripts/check-stripe-isolation.mjs artifacts/presentail-web/dist/public
 
+      - name: Clarity snippet check (snippet must be present in built index.html with correct project ID)
+        run: node artifacts/presentail-web/scripts/check-clarity-snippet.mjs artifacts/presentail-web/dist/public
+
   apple-pay-domain-production:
     name: Apple Pay domain association file (production)
     runs-on: ubuntu-latest
