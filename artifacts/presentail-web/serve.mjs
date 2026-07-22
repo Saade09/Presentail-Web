@@ -52,6 +52,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(__dirname, "dist/public");
 const PORT = Number(process.env.PORT ?? 24188);
 const BASE_PATH = (process.env.BASE_PATH ?? "/").replace(/\/$/, "");
+// When SERVE_TEST_HOOKS=1 the server exposes a /__test/trigger-500 endpoint
+// that deliberately throws inside the request handler, exercising the catch
+// block's text/plain 500 response.  This env var is only set by the local
+// run-serve-e2e.sh test runner and the CI "Web serve checks" workflow; it is
+// never set in production deployments.
+const SERVE_TEST_HOOKS = process.env.SERVE_TEST_HOOKS === "1";
 // Internal base URL used to fetch per-product data for server-rendered OG /
 // Twitter Card meta tags on `/product/<slug>` pages. Defaults to the shared
 // Replit proxy at localhost:80 so the API and web artifact can talk locally
@@ -1014,6 +1020,14 @@ async function fetchSitemapJson(url) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    // Test-only hook: deliberately triggers the catch block so that the
+    // ai-discovery-headers e2e-serve spec can assert the 500 path returns
+    // text/plain and omits AI-discovery Link headers.  The guard ensures this
+    // endpoint is never reachable in any production deployment.
+    if (SERVE_TEST_HOOKS && req.url === "/__test/trigger-500") {
+      throw new Error("Deliberate test-triggered 500 — SERVE_TEST_HOOKS=1");
+    }
+
     const proto =
       (req.headers["x-forwarded-proto"]?.toString().split(",")[0] ?? "http").trim();
     // Canonical-domain redirect: send www.presentail.com → presentail.com with a
@@ -2059,6 +2073,11 @@ const server = http.createServer(async (req, res) => {
     res.end(body);
   } catch (err) {
     console.error("serve error:", err);
+    // No AI-discovery Link header here: this response is text/plain (not HTML),
+    // so there is no <head> for a crawler to parse and no expectation that a
+    // machine will follow Link hints on an error response.  If this branch is
+    // ever changed to serve an HTML page, add the same `link` header entry used
+    // in the 200/404 branches above.
     res.writeHead(500, { "content-type": "text/plain" });
     res.end("Internal Server Error");
   }

@@ -115,6 +115,9 @@ jobs:
           PORT: 19234
           BASE_PATH: /
           NODE_ENV: production
+          # Enable test-only hooks (e.g. /__test/trigger-500) so the
+          # ai-discovery-headers spec can exercise the 500 catch branch.
+          SERVE_TEST_HOOKS: 1
           # Point serve.mjs's SEO entity + shared-wishlist resolution
           # (product/brand/category/occasion + /api/favorites/share) at the
           # stateless fixture API above so the og:image dimension specs resolve
@@ -166,6 +169,10 @@ jobs:
         run: pnpm --filter @workspace/presentail-web run test:e2e:serve
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:19234
+          # Tells the ai-discovery-headers spec that the /__test/trigger-500
+          # hook is active (serve.mjs was started with SERVE_TEST_HOOKS=1 above),
+          # so the 500-path test runs instead of being skipped.
+          SERVE_TEST_HOOKS: 1
           # Fixture share token answered by seo-entity-fixture-server.mjs's
           # /api/favorites/share/<token> handler. Must match the token passed to
           # the fixture API start step above so the shared-wishlist og:image
