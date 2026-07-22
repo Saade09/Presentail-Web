@@ -12,6 +12,7 @@
 //   (i) Night slot with explicit extraFee: 7 → $7 surcharge (OS override wins)
 //   (j) Non-night slot with no extraFee → $0 slot fee
 //   (k) Night slot with a future date → $0 slot fee (same-day rule)
+//   (l) Night slot with explicit extraFee: 0 → $0 (OS explicit-free override wins)
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
@@ -38,16 +39,20 @@ vi.mock("@workspace/delivery", () => ({
   getLocalIso: getLocalIsoMock,
 }));
 
-vi.mock("../lib/catalog", () => ({
-  resolveCartItems: vi.fn().mockResolvedValue({
-    ok: true,
-    subtotalUsd: 100,
-    items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 100, name: "Rose", description: "", image: "" }],
-  }),
-  computeDistrictFeeUsd: computeDistrictFeeUsdMock,
-  expressSurchargeUsd: expressSurchargeUsdMock,
-  countryForDistrict: countryForDistrictMock,
-}));
+vi.mock("../lib/catalog", async (importActual) => {
+  const actual = await importActual<typeof import("../lib/catalog")>();
+  return {
+    ...actual,
+    resolveCartItems: vi.fn().mockResolvedValue({
+      ok: true,
+      subtotalUsd: 100,
+      items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 100, name: "Rose", description: "", image: "" }],
+    }),
+    computeDistrictFeeUsd: computeDistrictFeeUsdMock,
+    expressSurchargeUsd: expressSurchargeUsdMock,
+    countryForDistrict: countryForDistrictMock,
+  };
+});
 
 vi.mock("../lib/osLocationsCache", () => ({
   getDeliverySlots: getDeliverySlotsMock,
@@ -350,6 +355,33 @@ describe("POST /checkout/fees", () => {
       });
 
     expect(res.status).toBe(200);
+    expect(res.body.slotFeeUsd).toBe(0);
+    expect(res.body.totalUsd).toBe(100);
+  });
+
+  it("(l) night slot with explicit extraFee: 0 — OS explicit-free override wins, returns $0", async () => {
+    computeDistrictFeeUsdMock.mockReturnValue(0);
+    // Night slot: startHour=21, but OS explicitly sets extraFee: 0 (free override).
+    getDeliverySlotsMock.mockReturnValue([
+      { label: "9:00 PM – 11:00 PM", cutoffHour: 21, startHour: 21, endHour: 23, extraFee: 0 },
+    ]);
+    // getLocalIso returns "2026-07-20" (today) — would trigger the $5 surcharge if
+    // extraFee: 0 were conflated with extraFee: undefined.
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        deliverySlot: "9:00 PM – 11:00 PM",
+        cityId: "1",
+        deliveryDate: "2026-07-20",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
     expect(res.body.slotFeeUsd).toBe(0);
     expect(res.body.totalUsd).toBe(100);
   });

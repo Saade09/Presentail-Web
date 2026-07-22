@@ -156,7 +156,10 @@ export function computeSlotFeeUsd({
     ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
     : citySlots.find((s) => s.label === deliverySlot);
   if (!bookedSlot) return 0;
-  if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
+  // extraFee: 0  → OS explicitly marks this slot as free; skip the default surcharge.
+  // extraFee: N  → OS provides the exact fee; use it directly.
+  // extraFee: undefined/null → no OS override; fall through to the night-slot heuristic.
+  if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
     return Number(bookedSlot.extraFee);
   }
   const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
