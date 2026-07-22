@@ -139,6 +139,18 @@ export function checkSitemapContent(
         );
       }
     }
+
+    // Balanced <sitemap> / </sitemap> tag check: mismatched counts indicate
+    // the XML generator produced broken nesting (e.g. an unclosed <sitemap>
+    // block or a stray closing tag with no matching opener).
+    const openSitemapCount = (xml.match(/<sitemap>/g) ?? []).length;
+    const closeSitemapCount = (xml.match(/<\/sitemap>/g) ?? []).length;
+    if (openSitemapCount !== closeSitemapCount) {
+      errors.push(
+        `Mismatched <sitemap> tag counts: ${openSitemapCount} opening tag(s) vs ` +
+          `${closeSitemapCount} closing tag(s) — the XML is not well-formed.`,
+      );
+    }
   }
 
   if (hasUrlset || !isSitemapIndex) {

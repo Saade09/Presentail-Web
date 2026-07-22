@@ -473,6 +473,28 @@ describe("checkSitemapContent — sitemap index format", () => {
     const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
     expect(errors.some((e) => e.includes("</sitemapindex>"))).toBe(true);
   });
+
+  it("fails when there is an extra unclosed <sitemap> tag (opening without closing)", () => {
+    // Append an opening <sitemap> without a matching </sitemap> before the
+    // closing </sitemapindex> — simulates a generator that started writing an
+    // entry but threw before finishing it.
+    const xml = buildValidSitemapIndex(3).replace(
+      "</sitemapindex>",
+      "  <sitemap><loc>https://presentail.com/sitemap-extra.xml</loc>\n</sitemapindex>",
+    );
+    const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
+    expect(errors.some((e) => e.includes("Mismatched <sitemap> tag counts"))).toBe(true);
+  });
+
+  it("fails when there is an extra stray </sitemap> closing tag with no opener", () => {
+    // Inject a bare </sitemap> that has no matching opening tag.
+    const xml = buildValidSitemapIndex(3).replace(
+      "</sitemapindex>",
+      "</sitemap>\n</sitemapindex>",
+    );
+    const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
+    expect(errors.some((e) => e.includes("Mismatched <sitemap> tag counts"))).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
