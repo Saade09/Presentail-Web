@@ -1141,10 +1141,38 @@ async function fetchAndStore(): Promise<void> {
         cachedOccasions = occasionsWithPosition;
         freshOccasions = occasionsWithPosition;
         const featuredCount = occasions.filter((o) => o.featured === true).length;
+        // Sample the first 3 slug+osPosition pairs so ops can visually verify
+        // in server logs that occasions arrived in best-selling order, not
+        // in id/alphabetical order.
+        const topSample = occasionsWithPosition.slice(0, 3).map((o) => ({
+          slug: o.slug,
+          osPosition: o.osPosition,
+        }));
         logger.info(
-          { occasionCount: occasions.length, featuredCount },
+          { occasionCount: occasions.length, featuredCount, topSample },
           "osProductsCache: occasions refreshed from Presentail OS",
         );
+        // Heuristic: when every occasion id parses as a number and the sequence
+        // is strictly ascending, the OS most likely ignored the sort=best_selling
+        // param and returned occasions in insertion/id order instead.  Emit a
+        // WARN so operators know the osPosition ranking may be meaningless.
+        const numericIds = occasions.map((o) => Number(o.id));
+        const allNumeric = numericIds.every((n) => Number.isFinite(n));
+        const strictlyAscending =
+          allNumeric &&
+          occasions.length > 1 &&
+          numericIds.every((n, i) => i === 0 || n > numericIds[i - 1]!);
+        if (strictlyAscending) {
+          logger.warn(
+            {
+              occasionCount: occasions.length,
+              firstIds: numericIds.slice(0, 5),
+            },
+            "osProductsCache: occasion ids are in strict ascending order — " +
+              "the OS sort=best_selling param may have been ignored; " +
+              "osPosition rankings could reflect id-order, not sales-order",
+          );
+        }
       }
     }
 
