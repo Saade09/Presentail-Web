@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { clarityPluginsForMode } from "./src/lib/clarityInjectPlugin";
 // rollup-plugin-visualizer: opt-in only. Set VITE_VISUALIZE=1 before running
 // `pnpm --filter @workspace/presentail-web run build` to emit dist/stats.html
 // for bundle composition auditing. Never runs during normal CI builds.
@@ -412,31 +413,6 @@ function criticalCssPlugin(outDir: string): Plugin {
   };
 }
 
-/**
- * Inject the Microsoft Clarity analytics snippet into the built index.html.
- * Only applied in production mode so dev / Replit preview environments never
- * send data to Clarity. The snippet is inlined into <head> as a single <script>
- * block — identical to the official tag. Because it is a static <head> tag
- * (not React), it loads exactly once per page load and is never duplicated by
- * SPA navigation.
- */
-function clarityInjectPlugin(): Plugin {
-  const CLARITY_PROJECT_ID = "mik1damp04"; // i18n-ignore
-  const snippet =
-    `<script>(function(c,l,a,r,i,t,y){` +
-    `c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};` +
-    `t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;` + // i18n-ignore
-    `y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);` +
-    `})(window,document,"clarity","script","${CLARITY_PROJECT_ID}");</script>`;
-  return {
-    name: "presentail-clarity-inject",
-    apply: "build",
-    transformIndexHtml(html) {
-      return html.replace("</head>", `  ${snippet}\n  </head>`);
-    },
-  };
-}
-
 export default defineConfig(async ({ command, mode }) => {
   // BASE_PATH defaults to "/" so bare `vite build` works without wrapper env vars.
   const basePath = process.env.BASE_PATH ?? "/";
@@ -467,7 +443,7 @@ export default defineConfig(async ({ command, mode }) => {
       fontPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
       lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
-      ...(mode === "production" ? [clarityInjectPlugin()] : []),
+      ...clarityPluginsForMode(mode),
       ...(process.env.NODE_ENV !== "production" &&
       process.env.REPL_ID !== undefined
         ? [
