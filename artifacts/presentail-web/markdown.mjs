@@ -22,6 +22,7 @@ import {
   COUNTRY_NAMES,
   DESCRIPTIONS,
 } from "./src/lib/seo.mjs";
+import { BLOG_POSTS } from "@workspace/blog-content";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -88,9 +89,15 @@ export function isMirroredPath(pathname) {
   if (
     subroute.startsWith("/account/") ||
     subroute.startsWith("/sign-in/") ||
-    subroute.startsWith("/sign-up/") ||
-    subroute.startsWith("/blog/")
+    subroute.startsWith("/sign-up/")
   ) return false;
+
+  // Allow individual blog post paths for known slugs only.
+  // The /blog listing is already in NON_MIRROR_SUBROUTES; unknown slugs → false.
+  if (subroute.startsWith("/blog/")) {
+    const slug = subroute.slice("/blog/".length).replace(/\/$/, "");
+    return Boolean(slug && BLOG_POSTS[slug]);
+  }
 
   // Allowed sub-routes (city home + known public pages + dynamic entity pages)
   if (subroute === "" || subroute === "/") return true;
@@ -1034,7 +1041,132 @@ export async function getMarkdownForPath(
     return buildBrandMarkdown({ ...baseArgs, brandSlug });
   }
 
+  if (subroute.startsWith("/blog/")) {
+    const blogSlug = decodeURIComponent(subroute.slice("/blog/".length).replace(/\/$/, ""));
+    if (!blogSlug) return null;
+    const articlesByLang = BLOG_POSTS[blogSlug];
+    if (!articlesByLang) return null;
+    const article = articlesByLang[lang] ?? articlesByLang.en;
+    if (!article) return null;
+    return buildBlogPostMarkdown({ article, lang, country, city, origin, cleanBase, lastmod });
+  }
+
   return null;
+}
+
+/**
+ * Build Markdown for a blog article page.
+ *
+ * @param {object} opts
+ * @param {object} opts.article     - Blog article object from BLOG_POSTS
+ * @param {string} opts.lang        - Language code
+ * @param {string} opts.country     - Country code
+ * @param {string} opts.city        - City slug
+ * @param {string} opts.origin      - Site origin
+ * @param {string} opts.cleanBase   - Base path prefix (no trailing slash)
+ * @param {string} opts.lastmod     - ISO date string for frontmatter
+ * @returns {string}
+ */
+function buildBlogPostMarkdown({ article, lang, country, city, origin, cleanBase, lastmod }) {
+  const localeBase = `${origin}${cleanBase}/${lang}-${country}/${city}`;
+  const slug = article.slug ?? "";
+  const canonical = `${localeBase}/blog/${slug}`;
+  const lines = [
+    "---",
+    `title: "${(article.title ?? "").replace(/"/g, '\\"')}"`,
+    `description: "${(article.description ?? "").replace(/"/g, '\\"')}"`,
+    `url: "${canonical}"`,
+    `date_published: "${article.datePublished ?? lastmod}"`,
+    `lang: "${lang}"`,
+    `country: "${country}"`,
+    `city: "${city}"`,
+    `canonical: "${canonical}"`,
+    "---",
+    "",
+    `# ${article.title ?? ""}`,
+    "",
+  ];
+  if (article.datePublished) {
+    lines.push(`*Published: ${article.datePublished}*`, "");
+  }
+  if (article.description) {
+    lines.push(article.description, "");
+  }
+  const sections = Array.isArray(article.sections) ? article.sections : [];
+  for (const sec of sections) {
+    if (sec.heading) lines.push(`## ${sec.heading}`, "");
+    if (sec.body) lines.push(sec.body, "");
+  }
+  lines.push(
+    "---",
+    "",
+    `[← Back to Journal](${localeBase}/blog)`,
+    `[Browse all gifts](${localeBase}/shop)`,
+  );
+  return lines.join("\n");
+}
+
+/**
+ * Build Markdown for the root homepage (/). Used by the /index.md route and
+ * Accept: text/markdown content negotiation on /. Does not require catalog data
+ * because the homepage overview is static editorial copy.
+ *
+ * @param {object} opts
+ * @param {string} [opts.origin] - Site origin, e.g. "https://presentail.com"
+ * @returns {string}
+ */
+export function buildHomepageMarkdown({ origin = "https://presentail.com" } = {}) {
+  return [
+    "---",
+    'title: "Presentail — Luxury Flower & Gift Delivery in Lebanon, UAE, and Cyprus"',
+    'description: "Order curated bouquets, gift boxes, chocolates, and more online. Same-day Express delivery or scheduled delivery across Lebanon, UAE, and Cyprus."',
+    `url: "${origin}/"`,
+    `canonical: "${origin}/"`,
+    "---",
+    "",
+    "# Presentail",
+    "",
+    "> Luxury flower and gift delivery in Lebanon, the UAE, and Cyprus.",
+    "",
+    "## About",
+    "",
+    "Presentail is a curated gift delivery platform. Browse hundreds of arrangements, gift boxes,",
+    "hampers, chocolates, plants, and premium lifestyle gifts from top local and international brands.",
+    "Order online or via the iOS / Android app with same-day Express or scheduled delivery.",
+    "",
+    "## Delivery Areas",
+    "",
+    "- **Lebanon**: Beirut, Jounieh, Jbeil, Metn, Baabda, Aley, Chouf, and more",
+    "- **UAE**: Dubai, Abu Dhabi",
+    "- **Cyprus**: Nicosia, Limassol, Larnaca, Paphos",
+    "",
+    "## Languages",
+    "",
+    "All pages are available in English, Arabic, and French.",
+    "",
+    "## Payment Methods",
+    "",
+    "Credit/debit card (Stripe), Mamo Pay, PayPal, Whish Money, Western Union.",
+    "",
+    "## Key Pages",
+    "",
+    `- [Shop — Beirut](${origin}/en-lb/beirut/shop)`,
+    `- [Brands](${origin}/en-lb/beirut/brands)`,
+    `- [Occasions](${origin}/en-lb/beirut/occasions)`,
+    `- [Blog / Journal](${origin}/en-lb/beirut/blog)`,
+    `- [Corporate Gifting](${origin}/en-lb/beirut/corporate)`,
+    `- [Weddings](${origin}/en-lb/beirut/weddings)`,
+    `- [Contact](${origin}/en-lb/beirut/contact)`,
+    `- [FAQs](${origin}/en-lb/beirut/faqs)`,
+    "",
+    "## Machine-Readable Resources",
+    "",
+    `- [LLM index](${origin}/llms.txt)`,
+    `- [Full LLM content](${origin}/llms-full.txt)`,
+    `- [Sitemap (Markdown)](${origin}/sitemap.md)`,
+    `- [Agent guidance](${origin}/agents.md)`,
+    `- [XML Sitemap](${origin}/sitemap.xml)`,
+  ].join("\n");
 }
 
 /**

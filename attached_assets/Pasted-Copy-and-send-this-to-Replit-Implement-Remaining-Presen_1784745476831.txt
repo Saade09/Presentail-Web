@@ -1,0 +1,798 @@
+Copy and send this to Replit:
+
+⸻
+
+Implement Remaining Presentail SEO and AI-Readiness Fixes
+
+Work directly on the live Presentail website codebase and implement the remaining issues identified in the latest full-site audit.
+
+Do not only provide a plan. Make the changes, test them, and report exactly what was modified.
+
+Context
+
+The latest full-site audit covered 269 sitemap URLs.
+
+Most of the website is now technically healthy, but several important issues remain:
+
+* Homepage Markdown mirror routing is incorrect
+* Homepage hreflang is missing
+* Duplicate H1 elements appear across many pages
+* AGENTS.md headings are not recognized by scanners
+* llms.txt is missing a blockquote summary
+* Several blog Markdown mirrors return 404
+* Homepage text-to-HTML ratio is very low
+* Homepage JSON-LD is missing important identity fields
+
+The goal is to fix these issues globally and safely without changing the current visual design, checkout behavior, product cards, pricing logic, localization, analytics, or conversion tracking.
+
+⸻
+
+1. Fix the Homepage Markdown Mirror
+
+Current problem
+
+The homepage Markdown implementation appears to resolve incorrectly to:
+
+https://presentail.com.md
+
+This is invalid.
+
+The homepage must have a valid and predictable Markdown mirror.
+
+Required implementation
+
+Create a working homepage Markdown endpoint using one of these patterns:
+
+https://presentail.com/index.md
+
+or:
+
+https://presentail.com/home.md
+
+Prefer:
+
+https://presentail.com/index.md
+
+unless the current routing architecture strongly favors another valid path.
+
+Required behavior
+
+The homepage HTML at:
+
+https://presentail.com/
+
+must include:
+
+<link
+  rel="alternate"
+  type="text/markdown"
+  href="https://presentail.com/index.md"
+/>
+
+The Markdown endpoint must return:
+
+HTTP/1.1 200 OK
+Content-Type: text/markdown; charset=utf-8
+
+It must not return:
+
+* HTML
+* a redirect loop
+* a 404
+* a soft 404
+* the homepage shell
+* an empty response
+
+Content negotiation
+
+When a client requests:
+
+GET /
+Accept: text/markdown
+
+return the homepage Markdown representation directly.
+
+Expected header:
+
+Content-Type: text/markdown; charset=utf-8
+
+Normal browser requests must continue receiving HTML.
+
+Do not change browser behavior or normal page rendering.
+
+Required homepage Markdown frontmatter
+
+Use valid YAML frontmatter:
+
+---
+title: Online Flower & Gift Delivery | Presentail
+description: Order flowers, gifts, cakes, chocolates, balloons, and plants for delivery across Lebanon, the UAE, and Cyprus.
+canonical_url: https://presentail.com/
+markdown_url: https://presentail.com/index.md
+language: en
+locale: en
+page_type: homepage
+site_name: Presentail
+last_modified: YYYY-MM-DD
+---
+
+Use a real dynamically generated or deployment-based last_modified value.
+
+Do not hardcode a fake date.
+
+Homepage Markdown content
+
+The Markdown should include clean readable sections such as:
+
+# Presentail
+> Presentail is an online flower and gift delivery platform serving Lebanon, the UAE, and Cyprus.
+## Flower and Gift Delivery
+## Delivery Locations
+## Popular Categories
+## How Ordering Works
+## Same-Day and Express Delivery
+## Customer Support
+## Explore Presentail
+
+Include relevant internal links to:
+
+* Lebanon
+* UAE
+* Cyprus
+* Beirut
+* Dubai
+* Abu Dhabi
+* Flowers
+* Birthday gifts
+* Anniversary gifts
+* Best sellers
+
+All links must use clean canonical URLs.
+
+Do not include:
+
+* tracking parameters
+* currency parameters
+* session IDs
+* customer data
+* internal admin URLs
+* unpublished products
+* inventory costs
+* private pricing logic
+* API secrets
+
+⸻
+
+2. Fix Duplicate H1 Elements Globally
+
+Current problem
+
+Many pages contain two H1 elements.
+
+This appears to be caused by shared page templates or repeated title rendering.
+
+Required behavior
+
+Every indexable public page must contain exactly one <h1>.
+
+Examples:
+
+Correct
+
+<h1>Flower Delivery in Beirut</h1>
+<h2>Shop Flowers by Occasion</h2>
+
+Incorrect
+
+<h1>Flower Delivery in Beirut</h1>
+<h1>Flower Delivery in Beirut</h1>
+
+Scope
+
+Audit and fix all shared templates used by:
+
+* Homepage
+* Country pages
+* City pages
+* Product pages
+* Category pages
+* Occasion pages
+* Brand pages
+* Blog pages
+* Search landing pages
+* Collection pages
+
+Implementation requirements
+
+Identify the actual cause instead of hiding one heading with CSS.
+
+Do not use:
+
+display: none;
+
+to mask duplicate headings.
+
+Remove the duplicate semantic heading from the DOM.
+
+If a visual heading must remain for design purposes, change it to:
+
+<div>
+
+or:
+
+<p>
+
+or another appropriate non-heading element.
+
+Maintain the existing visual appearance.
+
+Heading hierarchy
+
+Use:
+
+* One H1 per page
+* H2 for major sections
+* H3 for subsections
+* No skipped levels unless structurally justified
+
+Examples:
+
+<h1>Flower Delivery in Dubai</h1>
+<h2>Shop by Occasion</h2>
+<h3>Birthday Flowers</h3>
+
+⸻
+
+3. Add Homepage Hreflang
+
+Current problem
+
+The homepage currently lacks hreflang tags while other localized pages have them.
+
+Required implementation
+
+Add valid hreflang tags to the homepage and ensure each target returns HTTP 200.
+
+Use the actual production locale architecture.
+
+Example only:
+
+<link rel="alternate" hreflang="en-lb" href="https://presentail.com/en-lb/" />
+<link rel="alternate" hreflang="ar-lb" href="https://presentail.com/ar-lb/" />
+<link rel="alternate" hreflang="fr-lb" href="https://presentail.com/fr-lb/" />
+<link rel="alternate" hreflang="en-ae" href="https://presentail.com/en-ae/" />
+<link rel="alternate" hreflang="ar-ae" href="https://presentail.com/ar-ae/" />
+<link rel="alternate" hreflang="fr-ae" href="https://presentail.com/fr-ae/" />
+<link rel="alternate" hreflang="en-cy" href="https://presentail.com/en-cy/" />
+<link rel="alternate" hreflang="x-default" href="https://presentail.com/" />
+
+Do not copy this blindly.
+
+Generate the tags from the actual supported locale-country combinations in production.
+
+Validation requirements
+
+Every hreflang URL must:
+
+* Return HTTP 200
+* Be indexable
+* Have a self-referencing canonical
+* Have reciprocal hreflang references
+* Use absolute HTTPS URLs
+* Not redirect
+* Not contain query parameters
+
+The homepage should include x-default.
+
+⸻
+
+4. Rewrite AGENTS.md Using Recognizable Sections
+
+Current problem
+
+The scanner finds AGENTS.md, but it does not recognize the required sections.
+
+The file must include exact Markdown headings.
+
+Required URL
+
+Ensure this remains accessible:
+
+https://presentail.com/agents.md
+
+Return:
+
+Content-Type: text/markdown; charset=utf-8
+
+or:
+
+Content-Type: text/plain; charset=utf-8
+
+Markdown is preferred.
+
+Required exact headings
+
+The file must contain all of these exact H2 headings:
+
+## Installation
+## Configuration
+## Usage
+## Examples
+
+Do not rename them to alternatives such as:
+
+* Setup
+* Getting Started
+* How to Use
+* Implementation
+* Developer Notes
+
+The exact headings above must appear.
+
+Recommended full structure
+
+# Presentail Agent Guide
+> Guidance for AI agents and crawlers interacting with Presentail’s public website.
+## Overview
+## Installation
+## Configuration
+## Usage
+## Examples
+## URL Structure
+## Supported Content
+## Localization
+## SEO Guidance
+## Safety and Privacy
+## Contact
+
+Content requirements
+
+Explain:
+
+* Presentail is a flower and gift delivery platform
+* Supported markets
+* Supported languages
+* Canonical URL behavior
+* Locale-country-city URL structure
+* Public pages agents may access
+* Pages agents must not access
+* Markdown mirror availability
+* Sitemap and llms.txt locations
+* Safe browsing expectations
+* No checkout or payment actions
+* No user account actions
+* No customer data extraction
+
+Do not include:
+
+* API secrets
+* Internal endpoints
+* admin credentials
+* deployment tokens
+* database details
+* employee personal information
+* internal cost data
+
+⸻
+
+5. Fix llms.txt Blockquote Summary
+
+Current problem
+
+llms.txt is valid but missing a blockquote summary directly after the H1.
+
+Required change
+
+Current structure may resemble:
+
+# Presentail
+## Main Pages
+
+Change it to:
+
+# Presentail
+> Presentail is an online flower and gift delivery platform serving Lebanon, the UAE, and Cyprus.
+## Main Pages
+
+The blockquote must appear immediately after the H1, with no other section between them.
+
+Preserve current functionality
+
+Keep:
+
+* Existing useful links
+* Valid Markdown
+* Accessible URLs
+* Current llms-full.txt
+* Existing file-list sections
+
+Do not remove working entries.
+
+⸻
+
+6. Fix Blog Markdown Mirrors
+
+Current problem
+
+Some blog HTML pages have no working Markdown mirror and their .md endpoints return 404.
+
+Required implementation
+
+For every canonical indexable blog page, create a corresponding Markdown mirror.
+
+Example:
+
+/blog/how-to-choose-birthday-flowers
+
+must have:
+
+/blog/how-to-choose-birthday-flowers.md
+
+Required HTML alternate link
+
+Each blog HTML page must include:
+
+<link
+  rel="alternate"
+  type="text/markdown"
+  href="https://presentail.com/blog/example-article.md"
+/>
+
+Required Markdown frontmatter
+
+---
+title: Article title
+description: Article description
+canonical_url: https://presentail.com/blog/example-article
+markdown_url: https://presentail.com/blog/example-article.md
+language: en
+locale: en
+page_type: article
+site_name: Presentail
+published_at: YYYY-MM-DD
+last_modified: YYYY-MM-DD
+author: Presentail
+---
+
+Use real article metadata.
+
+Do not fabricate dates or authors.
+
+Required Markdown body
+
+The Markdown mirror must contain:
+
+* Article H1
+* Article introduction
+* H2 and H3 sections
+* Lists
+* Relevant internal links
+* FAQ content where present
+* Article conclusion
+
+Do not dump raw HTML.
+
+Remove:
+
+* navigation menus
+* cookie banners
+* footer boilerplate
+* JavaScript
+* CSS
+* tracking code
+* repeated unrelated products
+
+Content negotiation
+
+When requesting a blog HTML URL with:
+
+Accept: text/markdown
+
+return the Markdown representation.
+
+⸻
+
+7. Improve Homepage Text-to-HTML Ratio
+
+Current problem
+
+The homepage has approximately:
+
+* 39 readable words
+* around 2% text-to-HTML ratio
+
+The minimum target is 10%.
+
+The preferred target is 12–15% where practical.
+
+Important design constraint
+
+Do not make the homepage feel text-heavy or reduce conversion rate.
+
+Keep the current visual design.
+
+Add meaningful content in compact, well-designed sections lower on the page.
+
+Recommended content structure
+
+Add a section near the lower portion of the homepage:
+
+<section>
+  <h2>Online Flower and Gift Delivery</h2>
+  <p>...</p>
+</section>
+
+Then add compact subsections:
+
+<h2>Send Flowers Across Lebanon and the UAE</h2>
+<h2>Same-Day and Express Delivery</h2>
+<h2>Flowers and Gifts for Every Occasion</h2>
+<h2>Why Customers Choose Presentail</h2>
+
+Content guidance
+
+Include naturally written content about:
+
+* Online flower delivery
+* Gift delivery
+* Same-day delivery
+* Express delivery
+* Lebanon
+* Beirut
+* UAE
+* Dubai
+* Abu Dhabi
+* Cyprus
+* Birthday flowers
+* Anniversary flowers
+* Cakes
+* Balloons
+* Chocolates
+* Plants
+
+Do not keyword-stuff.
+
+Do not insert hidden text.
+
+Do not create large repetitive SEO blocks.
+
+Target approximately 300–500 useful words, depending on design.
+
+Localization
+
+Do not show English SEO copy on Arabic or French pages.
+
+Use localized content per language.
+
+If localized copy is not ready, only implement the English version and clearly report which locales still need copy.
+
+⸻
+
+8. Fix Homepage JSON-LD
+
+Current problem
+
+The homepage JSON-LD exists but is missing:
+
+* name or headline
+* description
+* url
+
+The scanner currently identifies the primary entity incorrectly or incompletely.
+
+Required implementation
+
+Create a clear primary homepage entity.
+
+Recommended structure:
+
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://presentail.com/#organization",
+  "name": "Presentail",
+  "url": "https://presentail.com/",
+  "description": "Presentail is an online flower and gift delivery platform serving Lebanon, the UAE, and Cyprus.",
+  "logo": {
+    "@type": "ImageObject",
+    "url": "ACTUAL_LOGO_URL"
+  }
+}
+
+Also add a website entity:
+
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://presentail.com/#website",
+  "name": "Presentail",
+  "url": "https://presentail.com/",
+  "description": "Order flowers, gifts, cakes, chocolates, balloons, and plants online with delivery across supported Presentail locations.",
+  "publisher": {
+    "@id": "https://presentail.com/#organization"
+  }
+}
+
+FAQ schema
+
+If FAQ content exists visibly on the page, FAQPage schema may remain.
+
+Do not use FAQ schema for content not visibly rendered.
+
+Do not make FAQPage the only or primary identity entity for the homepage.
+
+Validation
+
+Validate JSON-LD for:
+
+* Valid JSON
+* Correct absolute URLs
+* No duplicate conflicting entities
+* Correct organization name
+* Real logo URL
+* No placeholder data
+* No unsupported fake reviews
+* No fake aggregate ratings
+
+⸻
+
+9. Add Markdown Sitemap Sections
+
+For every Markdown mirror, include a final navigation section such as:
+
+## Explore Presentail
+- [Homepage](https://presentail.com/)
+- [Lebanon](https://presentail.com/en-lb/)
+- [United Arab Emirates](https://presentail.com/en-ae/)
+- [Cyprus](https://presentail.com/en-cy/)
+- [Flowers](CANONICAL_FLOWERS_URL)
+- [Birthday Gifts](CANONICAL_BIRTHDAY_URL)
+- [Anniversary Gifts](CANONICAL_ANNIVERSARY_URL)
+
+Only include valid canonical URLs.
+
+Do not use placeholder routes.
+
+⸻
+
+10. Preserve SEO and Application Behavior
+
+Do not break or modify:
+
+* Checkout
+* Cart
+* Customer accounts
+* Admin authentication
+* Product pricing
+* Currency conversion
+* Country selection
+* City selection
+* Delivery fees
+* Express delivery
+* Free-delivery thresholds
+* Inventory
+* Product availability
+* Stripe
+* Google Pay
+* Analytics
+* Google Ads conversion tracking
+* Meta Pixel
+* Microsoft Clarity
+* Existing SEO canonicals
+* Existing valid hreflang implementation
+* Existing redirects
+
+Do not redesign product cards or major UI elements.
+
+⸻
+
+11. Testing Requirements
+
+After implementation, run automated checks against the deployed production version.
+
+Homepage tests
+
+Verify:
+
+https://presentail.com/
+
+* HTTP 200
+* Exactly one H1
+* At least three total headings
+* Self-referencing canonical
+* Hreflang present
+* x-default present
+* JSON-LD has name, description, and URL
+* Markdown alternate link present
+* Accept: text/markdown returns Markdown
+* Text-to-HTML ratio materially improved
+
+Verify:
+
+https://presentail.com/index.md
+
+* HTTP 200
+* Correct content type
+* Valid YAML frontmatter
+* Meaningful Markdown
+* Correct canonical URL
+* No private data
+
+AGENTS.md tests
+
+Verify:
+
+https://presentail.com/agents.md
+
+contains exact strings:
+
+## Installation
+## Configuration
+## Usage
+## Examples
+
+llms.txt tests
+
+Verify:
+
+https://presentail.com/llms.txt
+
+contains:
+
+* One H1
+* A blockquote directly after H1
+* Valid links
+* Valid Markdown
+* HTTP 200
+* text/plain or Markdown content type
+
+Blog tests
+
+For every blog URL:
+
+* HTML returns 200
+* .md returns 200
+* HTML contains Markdown alternate link
+* Content negotiation works
+* Markdown frontmatter is valid
+* Markdown canonical points to HTML
+
+Global heading tests
+
+Crawl all 269 sitemap URLs and verify:
+
+* Exactly one H1 on every indexable HTML page
+* No new heading hierarchy regressions
+* No canonical regressions
+* No hreflang regressions
+
+⸻
+
+12. Completion Report
+
+At completion, provide:
+
+1. Files changed
+2. Routes added
+3. Shared components changed
+4. Number of duplicate-H1 pages fixed
+5. Number of blog Markdown mirrors added
+6. Homepage Markdown URL
+7. Homepage hreflang implementation
+8. JSON-LD entities added
+9. Homepage word count before and after
+10. Homepage text-to-HTML ratio before and after
+11. Full test results
+12. Any issues not completed
+13. Any pages intentionally excluded and why
+
+Do not mark the task complete if:
+
+* Homepage Markdown still returns 404
+* Accept: text/markdown still returns HTML
+* AGENTS.md headings are not exact
+* Homepage still has two H1s
+* Blog Markdown mirrors still return 404
+* Homepage JSON-LD still lacks name, description, or URL
+
+Deploy the completed implementation and verify the live production URLs, not only localhost or preview.

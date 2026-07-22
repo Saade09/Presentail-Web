@@ -796,6 +796,18 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     }
   }
 
+  if (isLanding && !parsed.hasLocalePrefix) {
+    // Root landing page (/) needs hreflang so search engines discover all
+    // locale variants. Guard with !hasLocalePrefix so paths like
+    // /en-ae/al-ain/ (invalid city → isLanding=true) don't get hreflang.
+    const landingHreflangSet = buildHreflangSet("", ALL_COUNTRIES, origin + cleanBase);
+    for (const { hreflang, href } of landingHreflangSet) {
+      lines.push(
+        `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+      );
+    }
+  }
+
   const localeBase = inLocale && parsed.lang && parsed.country && parsed.city
     ? `${origin}${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`
     : null;
@@ -1065,7 +1077,6 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   return (
     `<h1 class="sr-only">${safeTitle}</h1>` +
     `<div style="display:none">` +
-    `<h1>${safeTitle}</h1>` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
     (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
@@ -1169,7 +1180,7 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     }
   }
 
-  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -1182,7 +1193,7 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
     : "";
   // The sr-only h1 lives OUTSIDE the display:none wrapper so Googlebot indexes
   // it without the cloaking risk that display:none carries.
-  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none"><h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
+  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
 }
 
 /**
@@ -1194,7 +1205,7 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
 function buildBlogPostBodyHtml(article, { localeBase }) {
   const safeTitle = escapeHtml(article.title ?? "");
   const sections = Array.isArray(article.sections) ? article.sections : [];
-  let inner = `<h1>${safeTitle}</h1>`;
+  let inner = "";
   if (article.datePublished) {
     inner += `<time datetime="${escapeAttr(article.datePublished)}">${escapeHtml(article.datePublished)}</time>`;
   }
@@ -1225,7 +1236,7 @@ function buildBlogPostBodyHtml(article, { localeBase }) {
 function buildWishlistBodyHtml({ count, items, title, origin, basePath }) {
   const cleanBase = (basePath ?? "").replace(/\/$/, "");
   const safeTitle = escapeHtml(title ?? "");
-  let inner = `<h1>${safeTitle}</h1>`;
+  let inner = "";
   if (count > 0) {
     inner += `<ul>`;
     for (const item of items ?? []) {
@@ -2118,6 +2129,7 @@ function buildOrganizationSchema(siteUrl) {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
     name: "Presentail",
     url: siteUrl,
     logo: `${siteUrl}/android-chrome-512x512.png`,
@@ -2297,8 +2309,11 @@ function buildWebSiteSchema(siteUrl) {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
     name: "Presentail",
     url: siteUrl,
+    description: "Order flowers, gifts, cakes, chocolates, balloons, and plants online with delivery across Lebanon, the UAE, and Cyprus.", // i18n-ignore — EN-only schema description
+    publisher: { "@id": `${siteUrl}/#organization` },
   };
 }
 

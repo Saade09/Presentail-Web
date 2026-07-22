@@ -49,7 +49,7 @@ export function generateLlmsTxt(origin, basePath) {
     `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n` +
     `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n`;
 
-  return `# Presentail\n\n${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n\n${mdSection}`;
+  return `# Presentail\n\n> ${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n\n${mdSection}`;
 }
 
 /**

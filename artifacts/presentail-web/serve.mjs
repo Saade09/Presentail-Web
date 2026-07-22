@@ -27,6 +27,7 @@ import {
   isMirroredPath,
   getMarkdownForPath,
   buildSitemapMd,
+  buildHomepageMarkdown,
   invalidateMarkdownCatalogCache,
 } from "./markdown.mjs";
 import { resolveXRobotsTag as resolveXRobotsTagPure } from "./serve-robots.mjs";
@@ -1729,6 +1730,69 @@ const server = http.createServer(async (req, res) => {
         "Shoppers can order curated arrangements, gift boxes, hampers, and more from top local and international brands,",
         "with same-day Express delivery or scheduled delivery to a specific date and time slot.",
         "",
+        "## Installation",
+        "",
+        "No installation is required. Presentail is a hosted web service accessible at https://presentail.com",
+        "and via the Presentail iOS/Android mobile app. Use the API endpoints and Markdown mirrors described below",
+        "to fetch structured content programmatically.",
+        "",
+        "## Configuration",
+        "",
+        "All pages are publicly accessible without authentication. Content is locale-prefixed:",
+        "- **Lebanon**: /en-lb/beirut/, /ar-lb/beirut/, /fr-lb/beirut/",
+        "- **UAE (Dubai)**: /en-ae/dubai/, /ar-ae/dubai/, /fr-ae/dubai/",
+        "- **UAE (Abu Dhabi)**: /en-ae/abu-dhabi/",
+        "- **Cyprus**: /en-cy/nicosia/, /ar-cy/nicosia/, /fr-cy/nicosia/",
+        "",
+        "Append **.md** to any public page URL to receive a Markdown version (YAML frontmatter + body).",
+        "Add the header `Accept: text/markdown` as an alternative to the .md suffix.",
+        "",
+        "## Usage",
+        "",
+        "Fetch product, brand, category, and occasion data via the public Markdown mirrors:",
+        "",
+        "```",
+        "# Homepage overview",
+        "GET /index.md",
+        "",
+        "# City home (Lebanon/Beirut, English)",
+        "GET /en-lb/beirut.md",
+        "",
+        "# Product listing for Beirut",
+        "GET /en-lb/beirut/shop.md",
+        "",
+        "# Specific product",
+        "GET /en-lb/beirut/product/{slug}.md",
+        "",
+        "# Specific brand",
+        "GET /en-lb/beirut/brand/{slug}.md",
+        "",
+        "# Specific occasion",
+        "GET /en-lb/beirut/occasion/{slug}.md",
+        "",
+        "# Blog article",
+        "GET /en-lb/beirut/blog/{slug}.md",
+        "```",
+        "",
+        "## Examples",
+        "",
+        "```",
+        "# Fetch full LLM-ready content index",
+        "curl https://presentail.com/llms-full.txt",
+        "",
+        "# Fetch Beirut shop as Markdown",
+        "curl https://presentail.com/en-lb/beirut/shop.md",
+        "",
+        "# Fetch a product page as Markdown",
+        "curl https://presentail.com/en-lb/beirut/product/red-roses-bouquet.md",
+        "",
+        "# Fetch a blog post as Markdown",
+        "curl https://presentail.com/en-lb/beirut/blog/inside-spring-sourcing-trip.md",
+        "",
+        "# Content negotiation (alternative to .md suffix)",
+        "curl -H 'Accept: text/markdown' https://presentail.com/en-lb/beirut/shop",
+        "```",
+        "",
         "## What agents can find on this site",
         "",
         "- **Products**: Hundreds of curated flower arrangements, gift boxes, hampers, chocolates, and more.",
@@ -1752,6 +1816,7 @@ const server = http.createServer(async (req, res) => {
         `- Full content (brands, occasions, featured products): https://presentail.com/llms-full.txt`,
         `- Human-readable sitemap: https://presentail.com/sitemap.md`,
         `- XML sitemap: https://presentail.com/sitemap.xml`,
+        `- Homepage Markdown: https://presentail.com/index.md`,
         "",
         "## Contact",
         "",
@@ -1764,6 +1829,24 @@ const server = http.createServer(async (req, res) => {
         "content-type": "text/plain; charset=utf-8",
         "cache-control": "public, max-age=86400, must-revalidate",
         "vary": "Accept-Encoding",
+      };
+      if (encoding) headers["content-encoding"] = encoding;
+      res.writeHead(200, headers);
+      res.end(body);
+      return;
+    }
+
+    // /index.md — Markdown mirror for the root homepage (/). AI agents and
+    // crawlers can fetch a clean, structured overview of the storefront.
+    if (pathname === "/index.md") {
+      const indexMd = buildHomepageMarkdown({ origin });
+      const encoding = pickEncoding(req, ".txt");
+      const body = await compressBuffer(indexMd, encoding);
+      const headers = {
+        "content-type": "text/markdown; charset=utf-8",
+        "cache-control": "public, max-age=900, stale-while-revalidate=60",
+        "vary": "Accept-Encoding",
+        "link": `<${origin}/>; rel="canonical"; type="text/html"`,
       };
       if (encoding) headers["content-encoding"] = encoding;
       res.writeHead(200, headers);
@@ -1863,6 +1946,14 @@ const server = http.createServer(async (req, res) => {
           out = out.replace(
             "</head>",
             `    <link rel="alternate" type="text/markdown" href="${mdHref.replace(/"/g, "&quot;")}">\n  </head>`,
+          );
+        }
+        // Inject markdown alternate link for the root homepage
+        if (pathname === "/") {
+          const indexMdHref = `${origin}/index.md`;
+          out = out.replace(
+            "</head>",
+            `    <link rel="alternate" type="text/markdown" href="${indexMdHref}">\n  </head>`,
           );
         }
         const encoding = pickEncoding(req, ".html");
