@@ -341,3 +341,21 @@ id = "rZm9i3lnFw3raH9v6jLsN"
 uri = "file://brand-og-hallab.jpg"
 type = "image"
 title = "Hallab 1881 — real brand card"
+
+[[outputs]]
+id = "fc3L55KdltUoVJYbTupnh"
+uri = "file://presentail_full_site_audit.xlsx"
+type = "table"
+title = "Presentail Full Site Audit (XLSX — 16 worksheets)"
+
+[[outputs]]
+id = "dzdtfI1-taRP4uP8lB6qH"
+uri = "file://presentail_full_site_audit.csv"
+type = "table"
+title = "Presentail Full Site Audit (CSV — all 269 URLs)"
+
+[[outputs]]
+id = "NcTD7tvngNYISp3bCaRX_"
+uri = "file://presentail_audit_summary.md"
+type = "text"
+title = "Presentail Audit Summary (Markdown)"
