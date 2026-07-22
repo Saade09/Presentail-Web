@@ -1289,8 +1289,6 @@ function CheckoutForm() {
       isApplePlatform: appleDevice,
     }).filter((id) => {
       if (id === "apple_pay" || id === "google_pay") return walletSupported;
-      // CyberSource replaces Stripe card for Lebanon USD shoppers
-      if (id === "card" && isLbUsd) return false;
       return true;
     });
     const result: { id: PaymentMethodId; labelKey: string }[] = ids.map((id) => ({
