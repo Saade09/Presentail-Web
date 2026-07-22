@@ -68,7 +68,7 @@ import {
   type InternalLinksProduct,
   type InternalLinksLocale,
   type InternalLinksContext,
-} from "../../artifacts/presentail-web/src/lib/internalLinks.ts";
+} from "../../artifacts/presentail-web/src/lib/internalLinks";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../");

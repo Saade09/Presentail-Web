@@ -10,11 +10,13 @@ import { describe, it, expect } from "vitest";
 
 // seo-inject.mjs is a pure ESM module in the presentail-web artifact.
 // Vitest's node environment resolves .mjs imports from the workspace root.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const {
   getProductAvailabilityState,
   PRODUCT_AVAILABILITY_STATE,
   buildProductHead,
-} = await import("../../artifacts/presentail-web/seo-inject.mjs");
+// @ts-expect-error — plain .mjs module without type declarations
+} = await import("../../artifacts/presentail-web/seo-inject.mjs") as Record<string, any>;
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -175,7 +177,7 @@ describe("buildProductHead — title suffix", () => {
 
   it("appends the EN 'Coming Soon' suffix for SOLD_OUT_TEMPORARILY (en)", () => {
     const product = makeProduct({ inStock: false, tags: [] });
-    const result = buildProductHead({ product, lang: "en", ...BASE_HEAD_OPTS });
+    const result = buildProductHead({ product, ...BASE_HEAD_OPTS });
     expect(result.title).toMatch(/–\s*Coming Soon$/);
   });
 

@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-// @ts-expect-error — plain .mjs module without type declarations
 import {
   buildProductSchema,
   buildOfferShipping,
   RETURN_WINDOW_DAYS,
   LB_STANDARD_SHIPPING_USD,
+// @ts-expect-error — plain .mjs module without type declarations
 } from "../../artifacts/presentail-web/scripts/merchantProductSchema.mjs";
 
 // ---------------------------------------------------------------------------
