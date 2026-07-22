@@ -10,6 +10,7 @@ import type {
   OSCategoriesResponse,
   OSCatalogAttributeBrandsResponse,
   OSOccasionsResponse,
+  OSOccasionStatsResponse,
   OSCreateOrderPayload,
   OSCreateOrderResponse,
 } from "./types";
@@ -628,6 +629,90 @@ export async function fetchOsOccasions(
       };
     }),
   };
+}
+
+/**
+ * Probe the OS for per-occasion statistics (e.g. total orders or sales by occasion).
+ *
+ * Tries `/api/statistics/occasions` first, then `/api/analytics/occasions`.
+ * Returns `null` when neither endpoint exists (404) or when any network/parse
+ * error occurs — the caller must fall back to product-level totalSales sums.
+ *
+ * A successful response is expected to be `{ occasions: [{ slug, totalOrders?,
+ * totalRevenue?, totalSales? }, …] }` or a bare array with the same item shape.
+ * Unknown shapes are treated as a graceful failure (returns null).
+ */
+export async function fetchOsOccasionStats(
+  config: PresentailOsConfig,
+): Promise<OSOccasionStatsResponse | null> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+  if (!apiKey) return null;
+
+  const headers = {
+    Accept: "application/json",
+    "User-Agent": "PresentailApp/1.0",
+    "x-api-key": apiKey,
+    Authorization: `Bearer ${apiKey}`,
+  };
+
+  /** Normalise a single raw item from the stats response into OSOccasionStat shape.
+   * Handles both camelCase and snake_case field names from the OS API. */
+  function normaliseStatItem(item: Record<string, unknown>): OSOccasionStatsResponse["occasions"][number] | null {
+    const slug =
+      typeof item["slug"] === "string" ? item["slug"] : null;
+    if (!slug) return null;
+    const totalOrders =
+      typeof item["totalOrders"] === "number"
+        ? item["totalOrders"]
+        : typeof item["total_orders"] === "number"
+          ? item["total_orders"]
+          : undefined;
+    const totalSales =
+      typeof item["totalSales"] === "number"
+        ? item["totalSales"]
+        : typeof item["total_sales"] === "number"
+          ? item["total_sales"]
+          : undefined;
+    const totalRevenue =
+      typeof item["totalRevenue"] === "number"
+        ? item["totalRevenue"]
+        : typeof item["total_revenue"] === "number"
+          ? item["total_revenue"]
+          : undefined;
+    return { slug, totalOrders, totalSales, totalRevenue };
+  }
+
+  async function tryEndpoint(path: string): Promise<OSOccasionStatsResponse | null> {
+    try {
+      const url = new URL(`${baseUrl}${path}`);
+      url.searchParams.set("workspace", workspace);
+      const res = await fetch(url.toString(), {
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) return null;
+      const raw = (await res.json()) as unknown;
+      // Accept both { occasions: [...] } and a bare array; normalise each item.
+      const rawItems: unknown[] = Array.isArray(raw)
+        ? raw
+        : raw && typeof raw === "object" && "occasions" in raw && Array.isArray((raw as { occasions: unknown }).occasions)
+          ? (raw as { occasions: unknown[] }).occasions
+          : null!;
+      if (!Array.isArray(rawItems)) return null;
+      const occasions = rawItems
+        .map((item) =>
+          item && typeof item === "object"
+            ? normaliseStatItem(item as Record<string, unknown>)
+            : null,
+        )
+        .filter((x): x is OSOccasionStatsResponse["occasions"][number] => x !== null);
+      return { occasions };
+    } catch {
+      return null;
+    }
+  }
+
+  return (await tryEndpoint("/api/statistics/occasions")) ?? (await tryEndpoint("/api/analytics/occasions"));
 }
 
 /**

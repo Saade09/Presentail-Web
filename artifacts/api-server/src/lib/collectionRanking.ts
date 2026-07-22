@@ -69,6 +69,14 @@ export type ScoreCollectionsOpts = {
    */
   clickScores?: Map<string, number>;
   /**
+   * OS-provided occasion-level statistics keyed by slug (raw totalOrders /
+   * totalSales count). When provided for kind="occasion", these override the
+   * product-level totalSales aggregate as the primary performance signal.
+   * Values are fed through the same Bayesian-smoothed normalisation so the
+   * final score scale is comparable to the product-aggregate fallback.
+   */
+  osOccasionStats?: Map<string, number>;
+  /**
    * Default slug order used as fallback when scoring produces ties or when no
    * scoring data is available. Items present in this list are stable-sorted to
    * match the list order after the score-based sort.
@@ -303,6 +311,7 @@ export function scoreCollections<T extends ScoredItem>(
     configRows,
     osProducts,
     clickScores = new Map(),
+    osOccasionStats,
     defaultOrder = [],
     availabilityFloor = DEFAULT_AVAILABILITY_FLOOR,
   } = opts;
@@ -338,13 +347,21 @@ export function scoreCollections<T extends ScoredItem>(
   // ── Normalise performance scores ──────────────────────────────────────────
   //
   // Bayesian smoothing normalises to [0, 1) so that a slug with no history
-  // gets 0 and well-established slugs approach 1. Each slug gets the sum of
-  // its products' totalSales.
+  // gets 0 and well-established slugs approach 1.
+  //
+  // Primary signal: when osOccasionStats is provided for kind="occasion", use
+  // the OS-level per-occasion stat (totalOrders / totalSales) as the raw count.
+  // This reflects the OS admin "Top occasions" ranking directly.
+  // Fallback: sum of product-level totalSales tagged with each occasion slug.
+
+  const useOsStats = kind === "occasion" && osOccasionStats != null && osOccasionStats.size > 0;
 
   const slugScores = new Map<string, number>();
   for (const { slug } of items) {
-    const totalSales = slugSales.get(slug) ?? 0;
-    slugScores.set(slug, bayesianPopularity(totalSales));
+    const rawCount = useOsStats
+      ? (osOccasionStats!.get(slug) ?? 0)
+      : (slugSales.get(slug) ?? 0);
+    slugScores.set(slug, bayesianPopularity(rawCount));
   }
 
   // ── Determine whether the dataset has any real signal ────────────────────

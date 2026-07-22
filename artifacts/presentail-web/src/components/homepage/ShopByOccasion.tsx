@@ -27,6 +27,8 @@ const ITEMS: OccasionItem[] = [
   { key: "occasions.justBecause",slug: "just-because",   Icon: Gift },
 ];
 
+const ITEMS_BY_SLUG = new Map<string, OccasionItem>(ITEMS.map((it) => [it.slug, it]));
+
 function OccasionIcon({
   img,
   Icon,
@@ -58,18 +60,37 @@ function OccasionIcon({
 export function ShopByOccasion() {
   const { t } = useLocale();
 
-  const { data: occasionsData } = useGetCatalogOccasions({
+  const { data: occasionsData, isPending } = useGetCatalogOccasions({
     query: {
       queryKey: getGetCatalogOccasionsQueryKey(),
       staleTime: 15 * 60 * 1000,
     },
   });
 
-  const osImageBySlug = new Map<string, string>(
-    (occasionsData?.occasions ?? [])
-      .filter((o) => !!o.image)
-      .map((o) => [o.slug, o.image as string]),
-  );
+  // Build the display list from the API's sorted array.
+  // The API returns occasions ranked by best-seller stats (OS-level or product
+  // totalSales aggregate), so we preserve that order here. ITEMS_BY_SLUG maps
+  // each slug to its translation key and fallback icon; API occasions not in the
+  // map get the Gift icon as a generic fallback. Occasions only in ITEMS but not
+  // in the API response are omitted (no products or inactive).
+  //
+  // Fall back to the hardcoded ITEMS order ONLY while the query is still in
+  // flight (loading state). Once the query has settled — even to an empty list
+  // — we render strictly from the API data so the order is always server-driven.
+  const apiOccasions = occasionsData?.occasions ?? [];
+
+  const displayItems: Array<{ slug: string; key: string; Icon: LucideIcon; image: string | null }> =
+    isPending
+      ? ITEMS.map((it) => ({ slug: it.slug, key: it.key, Icon: it.Icon, image: null }))
+      : apiOccasions.map((o) => {
+          const meta = ITEMS_BY_SLUG.get(o.slug);
+          return {
+            slug: o.slug,
+            key: meta?.key ?? "",
+            Icon: meta?.Icon ?? Gift,
+            image: o.image ?? null,
+          };
+        });
 
   return (
     <section className="py-14 md:py-20" data-testid="section-occasions">
@@ -84,8 +105,8 @@ export function ShopByOccasion() {
 
         <div className="-mx-4 px-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0 md:overflow-x-visible">
           <div className="flex flex-nowrap gap-3 md:grid md:grid-cols-4 md:gap-5">
-          {ITEMS.map((it, i) => {
-            const osImg = osImageBySlug.get(it.slug);
+          {displayItems.map((it, i) => {
+            const label = it.key ? t(it.key) : it.slug;
             return (
               <motion.div
                 key={it.slug}
@@ -101,9 +122,9 @@ export function ShopByOccasion() {
                   data-testid={`link-occasion-${it.slug}`}
                 >
                   <span className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-secondary flex items-center justify-center text-primary group-hover:bg-gold group-hover:text-white transition-colors overflow-hidden">
-                    <OccasionIcon img={osImg} Icon={it.Icon} />
+                    <OccasionIcon img={it.image ?? undefined} Icon={it.Icon} />
                   </span>
-                  <span className="font-serif text-base md:text-lg text-primary">{t(it.key)}</span>
+                  <span className="font-serif text-base md:text-lg text-primary">{label}</span>
                 </Link>
               </motion.div>
             );

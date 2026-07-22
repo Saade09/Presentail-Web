@@ -290,6 +290,20 @@ export type OSOccasionsResponse = {
   occasions: OSProductOccasion[];
 };
 
+export type OSOccasionStat = {
+  slug: string;
+  /** Total number of orders that included a product tagged with this occasion. */
+  totalOrders?: number;
+  /** Total revenue (USD) from products tagged with this occasion. */
+  totalRevenue?: number;
+  /** Generic sales count — used when the endpoint only returns a single metric. */
+  totalSales?: number;
+};
+
+export type OSOccasionStatsResponse = {
+  occasions: OSOccasionStat[];
+};
+
 // ── Order creation types ───────────────────────────────────────────────────
 
 export type OSOrderLineItem = {
