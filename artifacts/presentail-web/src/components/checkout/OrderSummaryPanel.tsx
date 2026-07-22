@@ -228,7 +228,11 @@ export function OrderSummaryPanel({
                         {t("checkout.loyalty.usePoints").replace("{n}", String(loyaltyCoupon.points))}
                       </span>
                       {loyaltyToggleOn && confirmedCouponDiscount > 0 ? (
-                        <span className="ms-1.5 text-sm font-medium" style={{ color: "#16a34a" }}>
+                        <span
+                          className="ms-1.5 text-sm font-medium"
+                          style={{ color: "#16a34a" }}
+                          data-testid="loyalty-inline-discount"
+                        >
                           ·&nbsp;−<FormattedPrice usdValue={confirmedCouponDiscount} />
                         </span>
                       ) : (
@@ -467,7 +471,11 @@ export function OrderSummaryPanel({
                         {t("checkout.loyalty.usePoints").replace("{n}", String(loyaltyCoupon.points))}
                       </span>
                       {loyaltyToggleOn && confirmedCouponDiscount > 0 ? (
-                        <span className="ms-2 text-sm font-medium" style={{ color: "#16a34a" }}>
+                        <span
+                          className="ms-2 text-sm font-medium"
+                          style={{ color: "#16a34a" }}
+                          data-testid="loyalty-inline-discount-sidebar"
+                        >
                           ·&nbsp;−<FormattedPrice usdValue={confirmedCouponDiscount} />
                         </span>
                       ) : (
