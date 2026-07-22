@@ -484,18 +484,12 @@ function CheckoutForm() {
   const { data: fxRatesData } = useFxRates();
   const ipCountry = useIpDetectedCountry();
 
-  // For countries with a fixed billing currency (AE → AED, CY → EUR), the
-  // payment PI and wallet sheet MUST use that fixed currency regardless of
-  // what the shopper's IP-geo resolved display currency is. Without this, a
-  // Lebanon-IP shopper who selects a UAE delivery address would see USD prices
-  // in the Apple/Google Pay sheet but be charged AED — a confusing mismatch
-  // that can also cause the PI to fail if the server enforces the country's
-  // native currency. For all other delivery countries (LB, etc.) the display
-  // currency is the billing currency, so we keep `currencyCode` as-is.
-  const checkoutCurrency =
-    countryCode === "AE" ? "AED" :
-    countryCode === "CY" ? "EUR" :
-    currencyCode;
+  // The checkout currency always matches the shopper's display currency,
+  // regardless of delivery country. The Gulf Stripe account (AE) and the
+  // Cyprus account (CY) accept the shopper's display currency directly so
+  // the Order Summary and the Apple/Google Pay sheet always show the same
+  // currency and amount.
+  const checkoutCurrency = currencyCode;
 
   // ── Lazy Stripe state ──────────────────────────────────────────────────────
   // @stripe/react-stripe-js is dynamically imported via LazyStripeSection so
@@ -3683,7 +3677,7 @@ function CheckoutForm() {
                       );
                     })}
 
-                    {klarnaEnabled && checkoutCurrency !== "AED" && (
+                    {klarnaEnabled && checkoutCurrency !== "AED" && countryCode !== "AE" && (
                       <div
                         className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === "klarna" ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}
                         style={paymentMethod === "klarna" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.04)", outlineColor: "hsl(var(--primary) / 0.15)" } : {}}

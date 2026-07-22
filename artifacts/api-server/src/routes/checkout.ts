@@ -175,20 +175,6 @@ router.post("/checkout/session", async (req, res) => {
 
   const stripeCurrency = currency.toLowerCase();
 
-  // Gulf Stripe account (AE) only accepts AED. Guard here so the failure is
-  // explicit and self-documenting rather than a cryptic Stripe rejection.
-  if (isGulf && stripeCurrency !== "aed") {
-    req.log.warn(
-      { storeKey: store.storeKey, currency },
-      "checkout: Gulf store requires AED but received different currency (session)", // i18n-ignore
-    );
-    return res.status(422).json({
-      ok: false,
-      code: "currency_mismatch",
-      message: `UAE checkout requires AED but received ${currency}. Please reload and try again.`, // i18n-ignore
-    });
-  }
-
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     req.log.warn(
@@ -597,22 +583,6 @@ router.post("/checkout/payment-intent", async (req, res) => {
   }
 
   const stripeCurrency = currency.toLowerCase();
-
-  // Gulf Stripe account (AE) only accepts AED. Guard here so the failure is
-  // explicit and self-documenting rather than a cryptic Stripe rejection.
-  // This also catches the case where checkoutCurrency failed to force AED
-  // (e.g. countryCode was transiently null in the PI creation effect).
-  if (isGulf && stripeCurrency !== "aed") {
-    req.log.warn(
-      { storeKey: store.storeKey, currency },
-      "checkout: Gulf store requires AED but received different currency (payment-intent)", // i18n-ignore
-    );
-    return res.status(422).json({
-      ok: false,
-      code: "currency_mismatch",
-      message: `UAE checkout requires AED but received ${currency}. Please reload and try again.`, // i18n-ignore
-    });
-  }
 
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
