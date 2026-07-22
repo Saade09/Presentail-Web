@@ -251,6 +251,7 @@ const OCCASION_GROUP_LABELS: Record<string, Record<Lang, string>> = {
   baskets: { en: "Baskets", ar: "السلال", fr: "Paniers" },
   beauty: { en: "Beauty", ar: "الجمال", fr: "Beauté" },
   bundles: { en: "Gift Bundles", ar: "حزم الهدايا", fr: "Coffrets cadeaux" },
+  "other-gifts": { en: "Other Gifts", ar: "هدايا أخرى", fr: "Autres cadeaux" },
 };
 
 function translateOccasionLabel(slug: string, fallback: string, lang: Lang): string {
@@ -702,13 +703,26 @@ router.get("/woo/occasion-products", (req, res) => {
     }
   }
 
+  // Catch-all: products tagged with this occasion but not matching any known
+  // OCCASION_TYPE_CATEGORIES slug (e.g. rings, accessories, candles, or any
+  // future category added in OS without a matching entry here).
+  const unassigned = ranked.filter((p) => !assigned.has(p.slug));
+  if (unassigned.length > 0) {
+    const catchAllLabel = translateOccasionLabel("other-gifts", "Other Gifts", lang);
+    groups.set("other-gifts", {
+      label: catchAllLabel,
+      products: unassigned.map((p) => transformProduct(p, store.currencySymbol)),
+    });
+  }
+
   const result = Array.from(groups.entries()).map(([groupSlug, g]) => ({
     slug: groupSlug,
     label: g.label,
     count: g.products.length,
-    products: g.products.slice(0, 10),
+    products: g.products,
   }));
-  return res.json({ ok: true, groups: result, total: deliverable.length, pageItems });
+  const totalReturned = result.reduce((sum, g) => sum + g.count, 0);
+  return res.json({ ok: true, groups: result, total: totalReturned, pageItems });
 });
 
 

@@ -273,4 +273,70 @@ describe("GET /woo/occasion-products — product-embedded occasion fallback", ()
     expect(res.body.ok).toBe(true);
     expect(res.body.groups).toEqual([]);
   });
+
+  it("places products with unrecognised categories into the catch-all 'other-gifts' group", async () => {
+    // Product tagged with "ramadan" but its only category ("rings") does not match
+    // any OCCASION_TYPE_CATEGORIES entry — it must not be silently dropped.
+    getOsOccasionsMock.mockReturnValue([
+      { id: "occ-ramadan", slug: "ramadan", name: "Ramadan" },
+    ]);
+    getOsProductOccasionsMock.mockReturnValue(new Map());
+
+    const ringProduct = makeRamadanProduct({
+      id: "ramadan-ring",
+      name: "Ramadan Ring",
+      categories: [{ id: "cat-rings", slug: "rings", name: "Rings" }],
+    });
+    getOsProductsMock.mockReturnValue([ringProduct]);
+
+    const app = await buildApp();
+    const res = await request(app).get("/woo/occasion-products?slug=ramadan");
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    const groups: { slug: string; products: unknown[] }[] = res.body.groups;
+    // The product must appear in the catch-all group.
+    const catchAll = groups.find((g) => g.slug === "other-gifts");
+    expect(catchAll).toBeDefined();
+    expect(catchAll!.products.length).toBeGreaterThan(0);
+
+    // All products returned across groups must be accounted for in `total`.
+    const totalReturned = groups.reduce((sum, g) => sum + g.products.length, 0);
+    expect(res.body.total).toBe(totalReturned);
+  });
+
+  it("total matches actual products returned across all groups (no silent drops)", async () => {
+    // Mix: one product in a known category + one in an unknown category.
+    getOsOccasionsMock.mockReturnValue([
+      { id: "occ-ramadan", slug: "ramadan", name: "Ramadan" },
+    ]);
+    getOsProductOccasionsMock.mockReturnValue(new Map());
+
+    const flowerProduct = makeRamadanProduct({
+      id: "ramadan-bouquet",
+      name: "Ramadan Bouquet",
+      categories: [{ id: "cat-flowers", slug: "flowers", name: "Flowers" }],
+    });
+    const ringProduct = makeRamadanProduct({
+      id: "ramadan-ring",
+      name: "Ramadan Ring",
+      categories: [{ id: "cat-rings", slug: "rings", name: "Rings" }],
+    });
+    getOsProductsMock.mockReturnValue([flowerProduct, ringProduct]);
+
+    const app = await buildApp();
+    const res = await request(app).get("/woo/occasion-products?slug=ramadan");
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    const groups: { slug: string; products: unknown[] }[] = res.body.groups;
+    // Both products must appear somewhere in the groups.
+    const allProducts = groups.flatMap((g) => g.products);
+    expect(allProducts.length).toBe(2);
+
+    // `total` must equal the number of products actually returned.
+    expect(res.body.total).toBe(2);
+  });
 });

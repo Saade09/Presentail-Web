@@ -155,11 +155,19 @@ function groupOccasionProducts(
     }
   }
 
+  // Catch-all: products tagged with this occasion but not matching any known
+  // OCCASION_TYPE_CATEGORIES slug (e.g. rings, accessories, candles, or any
+  // future category added in OS without a matching entry here).
+  const unassigned = products.filter((p) => !assigned.has(p.id));
+  if (unassigned.length > 0) {
+    groups.set("other-gifts", { label: "Other Gifts", products: unassigned });
+  }
+
   return Array.from(groups.entries()).map(([slug, g]) => ({
     slug,
     label: g.label,
     count: g.products.length,
-    products: g.products.slice(0, 10),
+    products: g.products,
   }));
 }
 
