@@ -1,5 +1,5 @@
 /**
- * Integration tests for the 301 redirect rules in serve.mjs:
+ * Integration tests for the redirect and OG-injection rules in serve.mjs:
  *
  *  A. Shop query-param → clean-path redirects
  *     1. ?category=<slug>  → 301 /:lang-:country/:city/category/<slug>
@@ -7,7 +7,19 @@
  *     3. /shop with no recognised query param → falls through to SPA (no redirect)
  *     4. Slugs with special characters are percent-encoded in the Location header
  *
- *  B. Bare /product/<slug> mobile share-link → locale-prefixed canonical URL
+ *  B. Bare /brand/<slug> mobile share-link → OG-injected HTML + meta-refresh
+ *     WhatsApp / iMessage crawlers may not follow 301 redirects, so the server
+ *     now serves a 200 with brand OG meta tags injected directly at this path.
+ *     A <meta http-equiv="refresh"> + JS redirect send real browsers to the
+ *     locale-prefixed canonical URL immediately.  The 301 fallback fires only
+ *     when injectSeoTagsAsync is unavailable.
+ *     1. /brand/<slug>              → 200, body contains meta-refresh to canonical
+ *     2. /brand/<slug>/ (trailing slash) → 200, same
+ *     3. /brand/ (no slug)          → 200 SPA shell (no redirect)
+ *     4. Already-locale-prefixed URL → 200 SPA shell (no redirect)
+ *     5. Percent-encoded slug chars are preserved in the meta-refresh URL
+ *
+ *  C. Bare /product/<slug> mobile share-link → locale-prefixed canonical URL
  *     1. /product/<slug>            → 301 /en-lb/beirut/product/<slug>
  *     2. /product/<slug>/ (trailing slash) → 301 /en-lb/beirut/product/<slug>
  *     3. Already-locale-prefixed URL → falls through to SPA (no redirect)
@@ -15,7 +27,7 @@
  *
  * The test spawns serve.mjs as a real child process using the same dist folder
  * that the other serve.mjs integration tests rely on.  Node.js's `http.request`
- * does not follow redirects, so the raw 301 + Location header is directly
+ * does not follow redirects, so the raw status + Location header is directly
  * observable in every response.
  */
 
@@ -232,26 +244,38 @@ describe("serve.mjs — shop query-param redirects", () => {
   });
 });
 
-describe("serve.mjs — bare /brand/<slug> mobile share-link redirects", () => {
-  it("redirects /brand/<slug> to /en-lb/beirut/brand/<slug> with 301", async () => {
-    const { status, location } = await get(serverPort, "/brand/roses-de-chloe");
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/brand/roses-de-chloe");
+describe("serve.mjs — bare /brand/<slug> mobile share-link OG+redirect", () => {
+  // WhatsApp, iMessage, and other social-preview crawlers may not follow 301
+  // redirects, so /brand/<slug> now serves OG-injected HTML directly (200)
+  // instead of a plain 301.  Real browsers are redirected immediately via a
+  // <meta http-equiv="refresh"> + JS redirect to the canonical locale-prefixed
+  // URL.  The fallback 301 only fires when injectSeoTagsAsync is unavailable.
+
+  it("returns 200 with OG-injected HTML for /brand/<slug>", async () => {
+    const { status, location, body } = await get(serverPort, "/brand/roses-de-chloe");
+    expect(status).toBe(200);
+    // No HTTP Location redirect header — real browsers use the meta-refresh.
+    expect(location).toBeUndefined();
+    // Body must contain the meta-refresh pointing to the canonical URL.
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/brand/roses-de-chloe");
   });
 
-  it("redirects /brand/<slug>/ (trailing slash) to canonical URL with 301", async () => {
-    const { status, location } = await get(serverPort, "/brand/roses-de-chloe/");
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/brand/roses-de-chloe");
+  it("returns 200 with OG-injected HTML for /brand/<slug>/ (trailing slash)", async () => {
+    const { status, location, body } = await get(serverPort, "/brand/roses-de-chloe/");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/brand/roses-de-chloe");
   });
 
-  it("does NOT redirect /brand/ with no slug (falls through to SPA)", async () => {
+  it("does NOT intercept /brand/ with no slug (falls through to SPA)", async () => {
     const { status, location } = await get(serverPort, "/brand/");
     expect(status).toBe(200);
     expect(location).toBeUndefined();
   });
 
-  it("does NOT redirect an already locale-prefixed brand URL (falls through to SPA)", async () => {
+  it("does NOT intercept an already locale-prefixed brand URL (falls through to SPA)", async () => {
     const { status, location } = await get(
       serverPort,
       "/en-lb/beirut/brand/roses-de-chloe",
@@ -261,12 +285,13 @@ describe("serve.mjs — bare /brand/<slug> mobile share-link redirects", () => {
   });
 
   it("preserves percent-encoded characters in the brand slug", async () => {
-    const { status, location } = await get(
+    const { status, body } = await get(
       serverPort,
       "/brand/roses%20de%20chl%C3%B6e",
     );
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/brand/roses%20de%20chl%C3%B6e");
+    expect(status).toBe(200);
+    // The meta-refresh must point to the canonical URL with the slug preserved.
+    expect(body).toContain("/en-lb/beirut/brand/roses%20de%20chl%C3%B6e");
   });
 });
 
