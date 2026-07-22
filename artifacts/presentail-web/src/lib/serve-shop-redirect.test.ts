@@ -19,11 +19,16 @@
  *     4. Already-locale-prefixed URL → 200 SPA shell (no redirect)
  *     5. Percent-encoded slug chars are preserved in the meta-refresh URL
  *
- *  C. Bare /product/<slug> mobile share-link → locale-prefixed canonical URL
- *     1. /product/<slug>            → 301 /en-lb/beirut/product/<slug>
- *     2. /product/<slug>/ (trailing slash) → 301 /en-lb/beirut/product/<slug>
- *     3. Already-locale-prefixed URL → falls through to SPA (no redirect)
- *     4. Percent-encoded slug chars are preserved in the Location header
+ *  C. Bare /product/<slug> mobile share-link → OG-injected HTML + meta-refresh
+ *     WhatsApp / iMessage crawlers may not follow 301 redirects, so the server
+ *     now serves a 200 with product OG meta tags injected directly at this path.
+ *     A <meta http-equiv="refresh"> + JS redirect send real browsers to the
+ *     locale-prefixed canonical URL immediately.  The 301 fallback fires only
+ *     when injectSeoTagsAsync is unavailable.
+ *     1. /product/<slug>              → 200, body contains meta-refresh to canonical
+ *     2. /product/<slug>/ (trailing slash) → 200, same
+ *     3. Already-locale-prefixed URL  → falls through to SPA (no redirect)
+ *     4. Percent-encoded slug chars are preserved in the meta-refresh URL
  *
  * The test spawns serve.mjs as a real child process using the same dist folder
  * that the other serve.mjs integration tests rely on.  Node.js's `http.request`
@@ -85,13 +90,18 @@ function waitForReady(port: number, maxMs = 12_000): Promise<void> {
 
 /**
  * Make a single HTTP GET without following redirects.
- * Returns the status code, the `location` response header (if any), and the
- * response body.
+ * Returns the status code, the `location` response header (if any), the
+ * response body, and the full response headers map.
  */
 function get(
   port: number,
   urlPath: string,
-): Promise<{ status: number; location: string | undefined; body: string }> {
+): Promise<{
+  status: number;
+  location: string | undefined;
+  body: string;
+  headers: Record<string, string | string[] | undefined>;
+}> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       { host: "127.0.0.1", port, path: urlPath },
@@ -104,6 +114,7 @@ function get(
             status: res.statusCode ?? 0,
             location: res.headers["location"] as string | undefined,
             body,
+            headers: res.headers as Record<string, string | string[] | undefined>,
           }),
         );
       },
@@ -295,27 +306,42 @@ describe("serve.mjs — bare /brand/<slug> mobile share-link OG+redirect", () =>
   });
 });
 
-describe("serve.mjs — bare /product/<slug> mobile share-link redirects", () => {
-  it("redirects /product/<slug> to /en-lb/beirut/product/<slug> with 301", async () => {
-    const { status, location } = await get(serverPort, "/product/red-roses");
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/product/red-roses");
+describe("serve.mjs — bare /product/<slug> mobile share-link OG+redirect", () => {
+  // WhatsApp, iMessage, and other social-preview crawlers may not follow 301
+  // redirects, so /product/<slug> now serves OG-injected HTML directly (200)
+  // instead of a plain 301.  Real browsers are redirected immediately via a
+  // <meta http-equiv="refresh"> + JS redirect to the canonical locale-prefixed
+  // URL.  The fallback 301 only fires when injectSeoTagsAsync is unavailable.
+
+  it("returns 200 with OG-injected HTML for /product/<slug>", async () => {
+    const { status, location, body, headers } = await get(serverPort, "/product/red-roses");
+    expect(status).toBe(200);
+    // No HTTP Location redirect header — real browsers use the meta-refresh.
+    expect(location).toBeUndefined();
+    // Body must contain the meta-refresh pointing to the canonical URL.
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/product/red-roses");
+    // x-robots-tag: noindex keeps the redirect intermediary out of search results.
+    expect(headers["x-robots-tag"]).toBe("noindex");
   });
 
-  it("redirects /product/<slug>/ (trailing slash) to canonical URL with 301", async () => {
-    const { status, location } = await get(serverPort, "/product/red-roses/");
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/product/red-roses");
+  it("returns 200 with OG-injected HTML for /product/<slug>/ (trailing slash)", async () => {
+    const { status, location, body, headers } = await get(serverPort, "/product/red-roses/");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/product/red-roses");
+    expect(headers["x-robots-tag"]).toBe("noindex");
   });
 
-  it("does NOT redirect /product/ with no slug (falls through to SPA)", async () => {
+  it("does NOT intercept /product/ with no slug (falls through to SPA)", async () => {
     // The regex requires [^/]+ so a bare /product/ with no slug won't match.
     const { status, location } = await get(serverPort, "/product/");
     expect(status).toBe(200);
     expect(location).toBeUndefined();
   });
 
-  it("does NOT redirect an already locale-prefixed product URL (falls through to SPA)", async () => {
+  it("does NOT intercept an already locale-prefixed product URL (falls through to SPA)", async () => {
     // /en-lb/beirut/product/<slug> does not start with /product/ so the rule
     // must not fire and the SPA shell should be served instead.
     const { status, location } = await get(
@@ -326,23 +352,22 @@ describe("serve.mjs — bare /product/<slug> mobile share-link redirects", () =>
     expect(location).toBeUndefined();
   });
 
-  it("preserves percent-encoded characters in the slug", async () => {
-    // URL.pathname keeps percent-encoding intact; the slug captured from the
-    // regex is placed verbatim into the Location header.
-    const { status, location } = await get(
+  it("preserves percent-encoded characters in the product slug", async () => {
+    const { status, body } = await get(
       serverPort,
       "/product/red%20roses",
     );
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/product/red%20roses");
+    expect(status).toBe(200);
+    // The meta-refresh must point to the canonical URL with the slug preserved.
+    expect(body).toContain("/en-lb/beirut/product/red%20roses");
   });
 
   it("preserves other percent-encoded characters (apostrophe)", async () => {
-    const { status, location } = await get(
+    const { status, body } = await get(
       serverPort,
       "/product/mother%27s-day-bouquet",
     );
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/product/mother%27s-day-bouquet");
+    expect(status).toBe(200);
+    expect(body).toContain("/en-lb/beirut/product/mother%27s-day-bouquet");
   });
 });
