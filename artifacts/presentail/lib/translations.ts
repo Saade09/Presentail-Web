@@ -856,6 +856,7 @@ const EN = {
   brandSlugGoBack: "Go Back",
   brandSlugProducts: "products",
   brandSlugProduct: "product",
+  brandSlugShareAria: "Share brand link",
 
   // ── Not found ──
   notFoundScreenTitle: "Oops!",
@@ -1838,6 +1839,7 @@ const AR: typeof EN = {
   brandSlugGoBack: "العودة",
   brandSlugProducts: "منتجات",
   brandSlugProduct: "منتج",
+  brandSlugShareAria: "مشاركة رابط العلامة",
 
   // ── Not found ──
   notFoundScreenTitle: "عذراً!",
@@ -2823,6 +2825,7 @@ const FR: typeof EN = {
   brandSlugGoBack: "Retour",
   brandSlugProducts: "produits",
   brandSlugProduct: "produit",
+  brandSlugShareAria: "Partager le lien de la marque",
 
   // ── Not found ──
   notFoundScreenTitle: "Oups!",

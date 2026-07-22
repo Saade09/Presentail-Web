@@ -7,6 +7,7 @@ import {
   FlatList,
   Platform,
   Pressable,
+  Share,
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
@@ -21,6 +22,7 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchBrandProducts, applyPricingToProducts, sortKeyToApiSort, type WooProduct } from "@/lib/woo";
+import { buildBrandShareUrl } from "@/lib/brandShareUrl";
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -66,6 +68,26 @@ function BrandScreen() {
   const mountMsRef = useRef(Date.now());
 
   const enrichedProducts = applyPricingToProducts(products, pricingMap);
+
+  const handleShareBrand = async () => {
+    try {
+      const url = buildBrandShareUrl(slug);
+      // On iOS: pass `message` (brand name only, no URL) and `url` as
+      // separate fields. iOS renders them as two distinct items — the name
+      // appears as visible text above the link card. Putting the URL inside
+      // `message` causes iOS to extract it and show only the domain card,
+      // hiding the brand name entirely.
+      // On Android: `url` is not supported by Share.share, so combine name
+      // and URL into a single message string (Android shows it as plain text).
+      const sharePayload =
+        Platform.OS === "ios"
+          ? { message: brandName, url }
+          : { message: `${brandName}\n${url}` };
+      await Share.share(sharePayload);
+    } catch {
+      // Sharing unavailable — silently ignore
+    }
+  };
 
   const SORTS: { key: SortKey; label: string }[] = [
     { key: "recommended", label: t.sortRecommended },
@@ -253,6 +275,21 @@ function BrandScreen() {
         >
           {t.brandSlugBackToBrands}
         </AppText>
+        <Pressable
+          onPress={handleShareBrand}
+          hitSlop={10}
+          accessibilityLabel={t.brandSlugShareAria}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            backgroundColor: colors.muted ?? "rgba(0,0,0,0.05)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Feather name="share-2" size={18} color={colors.primary} />
+        </Pressable>
       </View>
 
       {loading ? (

@@ -232,6 +232,44 @@ describe("serve.mjs — shop query-param redirects", () => {
   });
 });
 
+describe("serve.mjs — bare /brand/<slug> mobile share-link redirects", () => {
+  it("redirects /brand/<slug> to /en-lb/beirut/brand/<slug> with 301", async () => {
+    const { status, location } = await get(serverPort, "/brand/roses-de-chloe");
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut/brand/roses-de-chloe");
+  });
+
+  it("redirects /brand/<slug>/ (trailing slash) to canonical URL with 301", async () => {
+    const { status, location } = await get(serverPort, "/brand/roses-de-chloe/");
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut/brand/roses-de-chloe");
+  });
+
+  it("does NOT redirect /brand/ with no slug (falls through to SPA)", async () => {
+    const { status, location } = await get(serverPort, "/brand/");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+
+  it("does NOT redirect an already locale-prefixed brand URL (falls through to SPA)", async () => {
+    const { status, location } = await get(
+      serverPort,
+      "/en-lb/beirut/brand/roses-de-chloe",
+    );
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+
+  it("preserves percent-encoded characters in the brand slug", async () => {
+    const { status, location } = await get(
+      serverPort,
+      "/brand/roses%20de%20chl%C3%B6e",
+    );
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut/brand/roses%20de%20chl%C3%B6e");
+  });
+});
+
 describe("serve.mjs — bare /product/<slug> mobile share-link redirects", () => {
   it("redirects /product/<slug> to /en-lb/beirut/product/<slug> with 301", async () => {
     const { status, location } = await get(serverPort, "/product/red-roses");

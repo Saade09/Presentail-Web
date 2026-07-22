@@ -1126,6 +1126,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Redirect bare `/brand/<slug>` (shared links from the mobile app) to the
+    // default locale-prefixed canonical URL so mobile share links land correctly
+    // when the app is not installed. Uses 301 (permanent) for SEO value.
+    // NOTE: Must run BEFORE the trailing-slash redirect so /brand/<slug>/
+    // (with trailing slash) is handled here rather than being stripped to
+    // /brand/<slug> first.
+    const brandRedirectMatch = pathname.match(/^\/brand\/([^/]+)\/?$/);
+    if (brandRedirectMatch) {
+      const slug = brandRedirectMatch[1];
+      const target = `${BASE_PATH}/en-lb/beirut/brand/${slug}`;
+      res.writeHead(301, { location: target });
+      res.end();
+      return;
+    }
+
     // Redirect old shop query-param URLs to clean SEO paths so external links
     // already indexed under the old format pass their ranking signals forward.
     //   /:lang-:country/:city/shop?category=<slug>  →  /:lang-:country/:city/category/<slug>
@@ -1401,10 +1416,11 @@ const server = http.createServer(async (req, res) => {
       pathname.endsWith("/") &&
       !pathname.startsWith("/.well-known") &&
       !pathname.startsWith("/api") &&
-      // Bare /product/ (no slug) must not be trailing-slash-redirected; it has
-      // already bypassed the product redirect above (no slug) and should reach
-      // the SPA fallback as-is so the client can render a 404 page.
-      pathname !== "/product/"
+      // Bare /product/ or /brand/ (no slug) must not be trailing-slash-redirected;
+      // they have already bypassed the respective redirect above (no slug) and
+      // should reach the SPA fallback as-is so the client can render a 404 page.
+      pathname !== "/product/" &&
+      pathname !== "/brand/"
     ) {
       const cleanPath = BASE_PATH + pathname.slice(0, -1);
       // stripTrackingParams removes utm_*, srsltid, fbclid, etc. so the
@@ -1973,6 +1989,7 @@ const server = http.createServer(async (req, res) => {
     // Paths already handled above and therefore never reaching this point:
     //   • /sitemap.xml, /llms.txt, /llms-full.txt, /sitemap.md, /agents.md  (explicit route handlers)
     //   • /product/:slug  (301 redirect)
+    //   • /brand/:slug    (301 redirect)
     //   • /:lang-:country/:city/...  (locale-aware SPA fallback + 404 guard)
     //   • Static files in dist/public  (file-exists check above)
     //   • /.well-known/*, apple-developer-domain-association  (earlier handlers)
@@ -1983,7 +2000,11 @@ const server = http.createServer(async (req, res) => {
       // Bare /product or /product/ (no slug) passes through to the SPA shell so
       // the client can render a 404 page; the product redirect above only fires
       // when a slug is present.
-      !pathname.match(/^\/product\/?$/)
+      !pathname.match(/^\/product\/?$/) &&
+      // Bare /brand or /brand/ (no slug) passes through to the SPA shell so
+      // the client can render a 404 page; the brand redirect above only fires
+      // when a slug is present.
+      !pathname.match(/^\/brand\/?$/)
     ) {
       res.writeHead(404, {
         "content-type": "text/html; charset=utf-8",
