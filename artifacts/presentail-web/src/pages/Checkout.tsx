@@ -1290,9 +1290,10 @@ function CheckoutForm() {
     }).filter((id) => {
       if (id === "apple_pay" || id === "google_pay") return walletSupported;
       // CyberSource is the card processor for Lebanon USD — hide Stripe card tile
-      // when CyberSource credentials are configured. Falls back to Stripe card
-      // automatically when csAvailable is false (e.g. credentials unset).
-      if (id === "card" && isLbUsd && csAvailable) return false;
+      // when CyberSource credentials are configured AND haven't failed yet.
+      // Falls back to Stripe card when csAvailable is false (credentials unset)
+      // OR when the capture-context prefetch has already returned an error.
+      if (id === "card" && isLbUsd && csAvailable && !csCaptureContextError) return false;
       return true;
     });
     const result: { id: PaymentMethodId; labelKey: string }[] = ids.map((id) => ({
@@ -1300,8 +1301,9 @@ function CheckoutForm() {
       labelKey: webPaymentMethodLabelKey(id, currencyCode),
     }));
     // Inject CyberSource right after the last wallet tile for LB USD,
-    // but only when the availability probe confirms credentials are set.
-    if (isLbUsd && csAvailable) {
+    // but only when the availability probe confirms credentials are set
+    // and the capture context hasn't already failed.
+    if (isLbUsd && csAvailable && !csCaptureContextError) {
       const lastWalletIdx = result.reduce(
         (last, m, i) => (m.id === "apple_pay" || m.id === "google_pay" ? i : last),
         -1,
@@ -1313,7 +1315,7 @@ function CheckoutForm() {
     }
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyCode, countryCode, walletSupported, csAvailable]);
+  }, [currencyCode, countryCode, walletSupported, csAvailable, csCaptureContextError]);
   // If the currently selected payment method is no longer available for
   // the active currency / country, re-select a sensible default through
   // the same shared helper the mobile checkout uses.
@@ -1845,6 +1847,10 @@ function CheckoutForm() {
           // Surface a friendly error so the user sees something instead of
           // an infinite skeleton. The submit handler will retry on tap.
           setCsCaptureContextError(msg || "Unable to load card form"); // i18n-ignore
+          // Automatically fall back to Stripe card — the paymentOptions memo
+          // re-runs on csCaptureContextError change and re-shows the Stripe tile.
+          setPaymentMethodState("card");
+          triggerStripeLoad();
         }
       }
     })();
@@ -3646,9 +3652,9 @@ function CheckoutForm() {
                                 selectedSavedCardId={selectedSavedCardId}
                                 onSelectSavedCard={setSelectedSavedCardId}
                                 onRemoveSavedCard={handleRemoveSavedCard}
-                                usePaymentElement={klarnaEnabled}
-                                paymentAmount={klarnaEnabled ? estimatedStripeMinorUnits : undefined}
-                                paymentCurrency={klarnaEnabled ? checkoutCurrency.toLowerCase() : undefined}
+                                usePaymentElement={false}
+                                paymentAmount={undefined}
+                                paymentCurrency={undefined}
                               />
                             </Suspense>
                           )}
