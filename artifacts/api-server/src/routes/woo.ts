@@ -95,6 +95,8 @@ type WcProduct = {
   categories?: WcProductCategory[];
   meta_data?: WcMeta[];
   brandNames?: string[];
+  occasionNames?: string[];
+  categoryNames?: string[];
   hasInputField?: boolean;
   hasLetterField?: boolean;
   personalisationRequired?: boolean;
@@ -211,6 +213,8 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     categories,
     meta_data: meta,
     brandNames: p.brands.map((b) => decodeHtmlEntities(b.name)),
+    occasionNames: p.occasions.map((o: { name: string; slug: string }) => decodeHtmlEntities(o.name)),
+    categoryNames: p.categories.map((c: { name: string; slug: string }) => decodeHtmlEntities(c.name)),
     hasInputField: p.hasInputField ?? false,
     hasLetterField: p.hasLetterField ?? LETTER_INPUT_PRODUCT_NAMES.includes(p.name.toLowerCase().trim()),
     personalisationRequired: p.personalisationRequired ?? false,
@@ -435,6 +439,8 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
       .filter((c) => c.id >= 10000)
       .map((c) => c.slug),
     brandNames: p.brandNames ?? [],
+    occasionNames: p.occasionNames ?? [],
+    categoryNames: p.categoryNames ?? [],
     popularity: typeof p.total_sales === "number" ? p.total_sales : 0,
     hasInputField: p.hasInputField ?? false,
     hasLetterField: p.hasLetterField ?? false,
