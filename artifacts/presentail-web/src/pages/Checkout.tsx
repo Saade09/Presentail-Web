@@ -1289,6 +1289,10 @@ function CheckoutForm() {
       isApplePlatform: appleDevice,
     }).filter((id) => {
       if (id === "apple_pay" || id === "google_pay") return walletSupported;
+      // CyberSource is the card processor for Lebanon USD — hide Stripe card tile
+      // when CyberSource credentials are configured. Falls back to Stripe card
+      // automatically when csAvailable is false (e.g. credentials unset).
+      if (id === "card" && isLbUsd && csAvailable) return false;
       return true;
     });
     const result: { id: PaymentMethodId; labelKey: string }[] = ids.map((id) => ({

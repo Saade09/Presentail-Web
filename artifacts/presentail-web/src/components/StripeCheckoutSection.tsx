@@ -110,6 +110,9 @@ export function StripeCheckoutSection({
           mode: "payment" as const,
           amount: Math.max(50, paymentAmount), // 50 minor units minimum per Stripe
           currency: paymentCurrency.toLowerCase(),
+          // Restrict to card only — prevents SEPA, Revolut, Google Pay etc.
+          // from appearing as sub-options inside the card tile.
+          payment_method_types: ["card"],
           locale: "auto",
           appearance: {
             theme: "stripe",
