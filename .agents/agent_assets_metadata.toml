@@ -329,3 +329,15 @@ id = "Qpn-1wR7PqOCwAM68OA3w"
 uri = "file://artifacts/presentail-web/public/opengraph.jpg"
 type = "image"
 title = "Presentail OG Share Image (opengraph.jpg)"
+
+[[outputs]]
+id = "0iJebr5JcEypP6uu4k-dM"
+uri = "file://brand-og-preview.jpg"
+type = "image"
+title = "Generic card (no brand in cache)"
+
+[[outputs]]
+id = "rZm9i3lnFw3raH9v6jLsN"
+uri = "file://brand-og-hallab.jpg"
+type = "image"
+title = "Hallab 1881 — real brand card"
