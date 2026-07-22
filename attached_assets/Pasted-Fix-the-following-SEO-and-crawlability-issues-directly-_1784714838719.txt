@@ -1,0 +1,612 @@
+Fix the following SEO and crawlability issues directly in the Presentail website. Do not only investigate, document, recommend, or create a plan. Implement the changes, test them thoroughly, and confirm the final behavior.
+
+## Objective
+
+Complete these three fixes:
+
+1. Consolidate the old and new URL structures.
+2. Prevent currency and advertising parameters from creating indexable duplicate URLs.
+3. Rewrite and structure `AGENTS.md` so it passes agent-readability checks.
+
+Do not redesign the website or change the customer-facing product experience. Preserve the current country, city, language, currency, product, checkout, analytics, and advertising functionality.
+
+---
+
+# 1. Consolidate the old and new URL structures
+
+The new location-based URL structure must become the only canonical and indexable structure.
+
+Examples of the preferred structure include:
+
+* `/en-lb/beirut`
+* `/en-lb/beirut/shop`
+* `/en-lb/beirut/flowers`
+* `/en-lb/beirut/flowers/flower-boxes`
+* `/en-lb/beirut/occasions/birthday`
+* `/en-lb/beirut/product/product-slug`
+* Equivalent routes for UAE, Cyprus, Arabic, and French where those routes exist
+
+Old URL patterns currently include routes such as:
+
+* `/flowers/`
+* `/lebanon/`
+* `/lebanon/flowers-and-plants/`
+* `/lebanon/product-category/plants/`
+* `/lebanon/product/...`
+* `/cyprus/`
+* `/cyprus/product/...`
+* Old WordPress-style category, product, country, blog, tag, and taxonomy routes
+* Old language or location-selection routes that duplicate the new storefront pages
+
+## Required implementation
+
+### A. Identify all legacy route patterns
+
+Inspect the existing routing system, sitemap generation, database slugs, product links, category links, and deployed routes.
+
+Find all old URL patterns that overlap with the new locale-country-city structure.
+
+The migration must cover:
+
+* Country landing pages
+* City landing pages
+* Shop pages
+* Product pages
+* Product category pages
+* Occasion pages
+* Recipient pages
+* Brand pages
+* Blog pages, if their URL structure has changed
+* Any legacy WordPress-style paths
+* Trailing-slash and non-trailing-slash variations
+* Uppercase and lowercase variations where relevant
+* URLs with obsolete locale or country formats
+
+### B. Implement permanent redirects
+
+Add server-side HTTP `301` redirects from every legacy URL to the closest relevant new URL.
+
+Examples:
+
+* An old Lebanon homepage should redirect to the correct new Lebanon/Beirut landing page.
+* An old plants category should redirect to the new Beirut plants category, not merely to the homepage.
+* An old product URL should redirect to the same product in the new location-based structure.
+* An old Cyprus product URL should redirect to the corresponding Cyprus product page.
+* Old category URLs must redirect to their matching category wherever possible.
+* Old occasion URLs must redirect to their matching occasion wherever possible.
+
+Do not redirect every old page to the homepage.
+
+If an exact equivalent no longer exists:
+
+1. Redirect to the nearest relevant parent category.
+2. If no relevant parent exists, return a proper `410 Gone` or a useful `404`, depending on whether the content was intentionally removed.
+3. Do not create misleading redirects.
+
+### C. Avoid redirect chains and loops
+
+Every old URL must redirect directly to its final canonical URL in one hop.
+
+Examples of unacceptable behavior:
+
+* Old URL → intermediate old URL → final URL
+* HTTP → WWW → trailing slash → locale URL
+* Redirect loops between country and city selectors
+
+Normalize all of the following efficiently:
+
+* HTTP to HTTPS
+* `www` to the preferred hostname
+* Trailing slash behavior
+* Duplicate locale formats
+* Case variations
+* Legacy route formats
+
+The final URL must return HTTP `200`.
+
+### D. Preserve necessary information
+
+Where relevant, preserve:
+
+* Product slug
+* Category slug
+* Occasion slug
+* Language
+* Country
+* City
+* Legitimate advertising attribution parameters
+* Referral information needed for analytics
+
+Do not preserve obsolete currency query parameters as indexable URL variations.
+
+### E. Update internal links
+
+Update all internal website links so the website links directly to the new canonical routes.
+
+This includes:
+
+* Header navigation
+* Footer navigation
+* Homepage sections
+* Product cards
+* Category cards
+* Occasion cards
+* Breadcrumbs
+* Search results
+* Related products
+* Blog links
+* Language selector
+* Country selector
+* City selector
+* XML sitemap
+* Markdown sitemap
+* `llms.txt`
+* `llms-full.txt`
+* Structured data URLs
+* Canonical tags
+* Open Graph URLs
+
+No internal link should intentionally point to a legacy URL and rely on a redirect.
+
+### F. Canonical tags
+
+Every indexable page must have exactly one self-referencing canonical URL.
+
+The canonical must:
+
+* Use HTTPS
+* Use the preferred hostname
+* Use the new URL structure
+* Exclude advertising parameters
+* Exclude currency parameters
+* Exclude unnecessary query parameters
+* Match the correct language, country, city, category, occasion, or product page
+* Return HTTP `200`
+
+Do not canonicalize every page to the homepage.
+
+### G. XML sitemap cleanup
+
+Update sitemap generation so it contains only URLs that:
+
+* Return HTTP `200`
+* Are canonical
+* Are indexable
+* Use the new URL structure
+* Do not contain tracking parameters
+* Do not contain currency parameters
+* Do not redirect
+* Are not duplicate language/location versions
+* Are not cart, checkout, account, search, preview, admin, or internal application pages
+
+Remove all legacy URLs from the sitemap.
+
+Keep valid `lastmod` values.
+
+### H. Hreflang integrity
+
+Where translated or regional equivalents exist, ensure hreflang tags use the new canonical URLs.
+
+Requirements:
+
+* Each page references itself and its valid alternatives.
+* Hreflang relationships are reciprocal.
+* Each hreflang URL returns HTTP `200`.
+* Do not reference redirected or legacy URLs.
+* Include `x-default` where appropriate.
+* Do not create hreflang links to pages that do not actually exist.
+
+---
+
+# 2. Prevent currency and advertising parameters from creating indexable URLs
+
+URLs containing currency, advertising, analytics, or referral parameters must not become separate indexable pages.
+
+Examples include:
+
+* `?wmc-currency=SAR`
+* `?wmc-currency=USD`
+* `?currency=AED`
+* `?utm_source=...`
+* `?utm_medium=...`
+* `?utm_campaign=...`
+* `?gclid=...`
+* `?gbraid=...`
+* `?wbraid=...`
+* `?gad_source=...`
+* `?campaignid=...`
+* `?hsa_cam=...`
+* `?hsa_grp=...`
+* `?hsa_ad=...`
+* `?fbclid=...`
+* Other Google Ads, Meta, affiliate, referral, or analytics parameters
+
+## Required implementation
+
+### A. Clean canonical URLs
+
+When a page is opened with tracking or currency parameters, the canonical tag must point to the clean URL without those parameters.
+
+Example:
+
+Requested URL:
+
+`https://presentail.com/en-lb/beirut/shop?utm_source=google&wmc-currency=USD`
+
+Canonical URL:
+
+`https://presentail.com/en-lb/beirut/shop`
+
+The page title, Open Graph URL, JSON-LD URL, breadcrumb URLs, and hreflang URLs must also use the clean canonical URL.
+
+### B. Preserve advertising attribution
+
+Do not break Google Ads, Meta Ads, affiliate tracking, or analytics attribution.
+
+For parameters such as `gclid`, `gbraid`, `wbraid`, UTMs, Meta click IDs, and affiliate IDs:
+
+1. Capture and store the attribution data using the website’s existing analytics/session mechanism.
+2. Ensure attribution remains available through checkout and order creation.
+3. Remove unnecessary parameters from the visible browser URL after they have been captured, using a method that does not trigger an unnecessary page reload.
+4. Do not remove parameters before the analytics and attribution systems have processed them.
+5. Confirm Google Ads and Meta conversion attribution continues to work.
+
+### C. Handle currency without duplicate URLs
+
+Currency selection must not rely on permanently indexable query-string URLs.
+
+When a currency parameter is provided:
+
+1. Read and validate the requested currency.
+2. Save it using the existing cookie, session, account preference, or application state.
+3. Display the correct currency.
+4. Replace the visible URL with the clean canonical URL after the currency preference has been stored.
+5. Ensure refreshing the clean URL keeps the selected currency.
+6. Ensure changing currency does not produce indexable duplicate pages.
+7. Ignore unsupported currency values safely.
+
+Do not create separate sitemap or canonical entries for each currency.
+
+### D. Do not block these URLs incorrectly
+
+Do not solve this only by blocking all parameter URLs in `robots.txt`.
+
+Search engines must be able to crawl the page and see the clean canonical tag.
+
+Use:
+
+* Clean self-referencing canonicals
+* Clean internal links
+* Parameter capture and URL cleanup
+* Sitemap exclusions
+* Appropriate `noindex` only for genuine non-search pages
+
+Do not place `noindex` on the clean canonical product, category, occasion, or location pages.
+
+### E. Internal link hygiene
+
+Search the entire application for links containing:
+
+* Currency parameters
+* UTM parameters
+* Google Ads parameters
+* Meta parameters
+* Old tracking parameters
+* Session identifiers
+
+Remove these parameters from internal navigation links.
+
+Advertising parameters should only arrive from external campaign links, not be propagated through every internal page.
+
+### F. Pagination, filters, and sorting
+
+Review product-list filters, sorting, pagination, search, and availability parameters separately.
+
+Do not accidentally canonicalize legitimate paginated content incorrectly.
+
+Apply the correct behavior based on the page type:
+
+* Search-result pages should generally not be indexable.
+* Internal sort-order variations should canonicalize to the clean category page unless intentionally indexable.
+* Filter combinations should not become indexable unless explicitly approved.
+* Checkout, cart, account, payment, preview, and order-status pages must not be indexable.
+* Product variants should use the parent product canonical unless a variant has a deliberate standalone SEO page.
+
+### G. Sitemap exclusions
+
+The sitemap must never include URLs containing:
+
+* `utm_`
+* `gclid`
+* `gbraid`
+* `wbraid`
+* `fbclid`
+* `gad_`
+* `hsa_`
+* `campaignid`
+* Currency parameters
+* Referral parameters
+* Session identifiers
+* Sort/filter parameters
+* Checkout or account parameters
+
+---
+
+# 3. Fix `AGENTS.md`
+
+Rewrite the public `AGENTS.md` file so it is clear, useful, valid Markdown, and passes agent-readability checks.
+
+The current scanner reported that it could not recognize the required sections. The updated file must explicitly include recognizable sections for installation, configuration, and usage/examples.
+
+Do not expose passwords, API keys, secrets, private internal URLs, database credentials, private admin instructions, or sensitive infrastructure information.
+
+## Required `AGENTS.md` sections
+
+Use clear Markdown headings including at least:
+
+# Presentail
+
+A short description explaining that Presentail is an online flower and gift delivery platform serving supported locations such as Lebanon, the UAE, and Cyprus.
+
+## Overview
+
+Explain:
+
+* What Presentail offers
+* Main product types
+* Supported delivery model
+* Location-aware storefront behavior
+* Language and currency behavior
+* That availability, pricing, and delivery promises depend on the selected location
+
+## Installation
+
+Provide safe, accurate instructions for installing or running the public project only if this repository is intended to be run by developers.
+
+Include:
+
+* Required runtime
+* Dependency installation
+* Environment-variable setup without exposing actual secrets
+* Development start command
+* Production build command
+
+If the public website repository is not intended for third-party installation, clearly say so while still retaining the `## Installation` heading and provide appropriate contributor setup information.
+
+## Configuration
+
+Explain the relevant configuration concepts without exposing sensitive values:
+
+* Public site URL
+* Supported locales
+* Supported countries and cities
+* Currency configuration
+* Product and category data sources
+* Delivery configuration
+* Analytics configuration
+* Sitemap and canonical URL configuration
+* Environment variables using placeholder names only
+
+## Usage
+
+Explain how agents and developers should use the public website.
+
+Include:
+
+* Choosing a country and city
+* Browsing products
+* Browsing categories and occasions
+* Viewing product details
+* Selecting delivery date and time
+* Using clean canonical URLs
+* Language and currency selection
+* Important limitations around availability and delivery areas
+
+## Examples
+
+Include several valid public URL examples using the new canonical structure, such as:
+
+* Beirut landing page
+* Beirut shop page
+* Category page
+* Occasion page
+* Product page
+* UAE example where an actual route exists
+* Cyprus example where an actual route exists
+
+Only include URLs that actually exist and return HTTP `200`.
+
+## URL Structure
+
+Document the preferred canonical URL format.
+
+Explain that legacy country, WordPress, query-parameter, and currency URLs are not canonical and should not be used.
+
+## SEO and Crawler Guidance
+
+Explain:
+
+* Canonical URL behavior
+* Parameter handling
+* Sitemap locations
+* `robots.txt`
+* `llms.txt`
+* `llms-full.txt`
+* `sitemap.md`
+* Hreflang behavior
+* Which pages should not be indexed
+
+## Supported Content
+
+Describe the main public content entities:
+
+* Countries
+* Cities
+* Products
+* Categories
+* Occasions
+* Recipients
+* Brands
+* Delivery information
+* FAQs
+* Blog/editorial content, if applicable
+
+## Safety and Limitations
+
+Clarify:
+
+* Product availability varies by location.
+* Prices and currencies can change.
+* Delivery timing must be confirmed during checkout.
+* Agents must not assume a product is available in every country.
+* Agents must not invent prices, delivery promises, stock, or service areas.
+* Checkout and payment actions require explicit customer confirmation.
+
+## Contact or Support
+
+Provide only the official public customer-support or contact route already displayed on the website.
+
+Do not publish internal employee or infrastructure information.
+
+## Markdown quality
+
+Ensure:
+
+* Exactly one H1
+* Logical H2 and H3 structure
+* Valid Markdown
+* No broken links
+* No placeholder text
+* No dummy installation commands
+* No private information
+* No contradictory URL examples
+* All linked public URLs return HTTP `200`
+
+The file must remain accessible publicly at:
+
+`https://presentail.com/agents.md`
+
+It must be served with an appropriate plain-text or Markdown-compatible content type.
+
+---
+
+# Testing and verification
+
+After implementing the fixes, test all of the following.
+
+## Redirect tests
+
+Test a representative sample of:
+
+* Old country pages
+* Old product pages
+* Old category pages
+* Old occasion pages
+* Old WordPress routes
+* Trailing-slash variations
+* HTTP URLs
+* `www` URLs
+* Uppercase variations
+* URLs containing tracking parameters
+* URLs containing currency parameters
+
+Confirm:
+
+* Legacy URLs return `301`.
+* Each redirect goes directly to the final destination.
+* Final URLs return `200`.
+* There are no loops.
+* There are no multi-hop chains.
+* Product and category context is preserved.
+
+## Canonical tests
+
+Confirm that:
+
+* Every indexable page has exactly one canonical.
+* Canonicals do not contain tracking or currency parameters.
+* Canonicals use the new structure.
+* Canonicals return `200`.
+* Product canonicals point to the correct product.
+* Category canonicals point to the correct category.
+* Language/location canonicals are not mixed up.
+
+## Attribution tests
+
+Test visits from URLs containing:
+
+* UTMs
+* Google click IDs
+* Meta click IDs
+* Affiliate/referral IDs
+* Currency parameters
+
+Confirm:
+
+* Attribution is captured.
+* Attribution survives internal navigation.
+* Attribution remains available at checkout/order creation.
+* The visible URL becomes clean after capture.
+* Conversion tracking still fires correctly.
+* Currency selection remains active after URL cleanup and refresh.
+
+## Sitemap tests
+
+Confirm:
+
+* The sitemap contains no redirecting URLs.
+* The sitemap contains no parameter URLs.
+* The sitemap contains no legacy URLs.
+* Every listed URL returns `200`.
+* Every listed URL is canonical and indexable.
+* `lastmod` remains accurate.
+
+## AGENTS.md tests
+
+Confirm:
+
+* `/agents.md` returns `200`.
+* It contains recognizable `Installation`, `Configuration`, `Usage`, and `Examples` sections.
+* It has exactly one H1.
+* All public links work.
+* No secrets or private information are exposed.
+* The agent-readability check no longer reports “No recognisable sections found.”
+
+## Regression testing
+
+Verify that these customer functions still work:
+
+* Country selection
+* City selection
+* Language selection
+* Currency selection
+* Homepage navigation
+* Product search
+* Category pages
+* Product pages
+* Add to cart
+* Cart
+* Delivery-date selection
+* Delivery-slot selection
+* Checkout
+* Payment methods
+* Analytics
+* Google Ads tracking
+* Meta tracking
+* Structured data
+* Open Graph sharing
+* Existing API integrations
+
+Do not mark the task complete until the changes are implemented and the tested URLs show the expected final status, canonical, and indexing behavior.
+
+At completion, provide a concise implementation summary containing:
+
+1. The legacy route patterns fixed.
+2. The redirect behavior implemented.
+3. How tracking attribution is preserved.
+4. How currency URLs are cleaned.
+5. The sitemap changes.
+6. The canonical and hreflang changes.
+7. The new `AGENTS.md` sections.
+8. Representative tested URLs and their HTTP results.
+9. Any legacy URL that could not be mapped and how it was handled.
