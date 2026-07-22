@@ -37,7 +37,19 @@ export function generateLlmsTxt(origin, basePath) {
   const pagesList = LLMS_PAGES
     .map(({ label, path }) => `- [${label}](${base}${path})`)
     .join("\n");
-  return `# Presentail\n\n${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n`;
+  const mdSection =
+    `## Machine-Readable Markdown Pages\n\n` +
+    `Every public Presentail page has a Markdown twin served at \`<path>.md\` and via \`Accept: text/markdown\` content negotiation.\n\n` +
+    `- [Markdown mirror index](${base}/sitemap.md)\n` +
+    `- [Homepage — Beirut (Lebanon)](${base}/en-lb/beirut.md)\n` +
+    `- [Homepage — Dubai (UAE)](${base}/en-ae/dubai.md)\n` +
+    `- [Homepage — Nicosia (Cyprus)](${base}/en-cy/nicosia.md)\n` +
+    `- [Shop — Beirut (Lebanon)](${base}/en-lb/beirut/shop.md)\n` +
+    `- [Best Sellers — Beirut (Lebanon)](${base}/en-lb/beirut/best-sellers.md)\n` +
+    `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n` +
+    `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n`;
+
+  return `# Presentail\n\n${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n\n${mdSection}`;
 }
 
 /**
@@ -109,12 +121,28 @@ export function buildLlmsFullTxt({
       }).join("\n") + "\n"
     : "";
 
+  const firstProduct = allProducts[0] ?? null;
+  const mdSection =
+    `## Machine-Readable Markdown Pages\n\n` +
+    `Every public Presentail page has a Markdown twin served at \`<path>.md\` and via \`Accept: text/markdown\` content negotiation.\n\n` +
+    `- [Markdown mirror index](${base}/sitemap.md)\n` +
+    `- [Homepage — Beirut (Lebanon)](${base}/en-lb/beirut.md)\n` +
+    `- [Homepage — Dubai (UAE)](${base}/en-ae/dubai.md)\n` +
+    `- [Homepage — Nicosia (Cyprus)](${base}/en-cy/nicosia.md)\n` +
+    `- [Shop — Beirut (Lebanon)](${base}/en-lb/beirut/shop.md)\n` +
+    `- [Best Sellers — Beirut (Lebanon)](${base}/en-lb/beirut/best-sellers.md)\n` +
+    (firstProduct?.slug
+      ? `- [${firstProduct.name} (product example)](${base}/en-lb/beirut/product/${encodeURIComponent(firstProduct.slug)}.md)\n`
+      : `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n`) +
+    `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n`;
+
   return (
     `# Presentail\n\n${LLMS_INTRO}\n\n` +
     `## Pages\n\n${pagesList}\n\n` +
     `${brandsSection}\n` +
     `${occasionsSection}\n` +
     (featuredSection ? `${featuredSection}\n` : "") +
+    `${mdSection}\n` +
     `## Full content\n\n${fullContent}\n`
   );
 }

@@ -44,6 +44,7 @@
     "check-image-alt": "tsx ./src/checkImageAlt.ts",
     "check-orphan-pages": "tsx ./src/checkOrphanPages.ts",
     "check-sitemap-structure": "tsx ./src/checkSitemapStructure.ts",
+    "check-markdown-mirrors": "tsx ./src/checkMarkdownMirrors.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

@@ -23,6 +23,12 @@ import {
   generateLlmsFullTxt,
   resolveLlmsFullTxt,
 } from "./llms.mjs";
+import {
+  isMirroredPath,
+  getMarkdownForPath,
+  buildSitemapMd,
+  invalidateMarkdownCatalogCache,
+} from "./markdown.mjs";
 import { resolveXRobotsTag as resolveXRobotsTagPure } from "./serve-robots.mjs";
 import {
   stripTrackingParams,
@@ -1623,105 +1629,41 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // /sitemap.md — human-readable Markdown sitemap for AI agents and crawlers.
-    // Homepages are generated from SITEMAP_CANONICAL_CITIES × SITEMAP_LANGS so
-    // every EN/AR/FR × LB/AE/CY combination is covered. Categories are fetched
-    // live from the catalog metadata API and fall back to a static list.
+    // /sitemap.md — Markdown index of all public per-page Markdown mirrors.
+    // Fetches live catalog data (products, brands, occasions, categories) to
+    // enumerate .md URLs grouped by section. Falls back gracefully on error.
     if (pathname === "/sitemap.md") {
-      // Fetch live category data; fall back gracefully on error.
-      const STATIC_CATEGORIES = [
-        { id: "lux-arrangements", name: "Lux Arrangements" },
-        { id: "hand-bouquets",    name: "Flower Bouquets" },
-        { id: "chocolates",       name: "Chocolates" },
-        { id: "gift-boxes",       name: "Gift Boxes" },
-        { id: "hampers",          name: "Hampers" },
-        { id: "plants",           name: "Plants" },
-        { id: "cakes",            name: "Cakes & Pastries" },
-        { id: "balloons",         name: "Balloons" },
-      ];
-      let liveCategories = null;
+      let catalogData = { products: [], brands: [], occasions: [], categories: [] };
       try {
-        const catalogMeta = await fetchSitemapJson(
-          `${INTERNAL_API_BASE_URL}/api/catalog/metadata`
-        );
-        if (Array.isArray(catalogMeta?.categories) && catalogMeta.categories.length > 0) {
-          liveCategories = catalogMeta.categories.filter((c) => c?.name && c?.id);
-        }
+        const [productsData, brandsData, metaData] = await Promise.all([
+          fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/products?lang=en&countryCode=LB`),
+          fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/brands`),
+          fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/catalog/metadata`),
+        ]);
+        catalogData = {
+          products: productsData?.products ?? [],
+          brands: brandsData?.brands ?? [],
+          occasions: metaData?.occasions ?? [],
+          categories: metaData?.categories ?? [],
+        };
       } catch {
-        // fall through to static list
+        // fall through to empty catalog — sitemap.md still renders with sections intact
       }
-      const categories = liveCategories ?? STATIC_CATEGORIES;
-
-      // Build homepage links: canonical city per country × all supported langs.
-      const CANONICAL_CITIES = SITEMAP_CANONICAL_CITIES; // { lb: "beirut", ae: "dubai", cy: "nicosia" }
-      const COUNTRY_LABELS = { lb: "Lebanon", ae: "UAE", cy: "Cyprus" };
-      const LANG_LABELS = { en: "English", ar: "Arabic", fr: "French" };
-      const homepageLines = [];
-      for (const [country, city] of Object.entries(CANONICAL_CITIES)) {
-        for (const lang of SITEMAP_LANGS) {
-          homepageLines.push(
-            `- [${COUNTRY_LABELS[country]} – ${city.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${LANG_LABELS[lang]})](${origin}/${lang}-${country}/${city})`
-          );
-        }
-      }
-
-      const categoryLines = categories.map(
-        (c) => `- [${c.name}](${origin}/en-lb/beirut/category/${c.id})`
-      );
-
-      const lines = [
-        "# Presentail — Site Map",
-        "",
-        "Luxury flower and gift delivery across Lebanon, UAE, and Cyprus.",
-        "",
-        "## Homepages",
-        "",
-        ...homepageLines,
-        "",
-        "## Shopping",
-        "",
-        `- [Shop – Lebanon](${origin}/en-lb/beirut/shop)`,
-        `- [Shop – UAE](${origin}/en-ae/dubai/shop)`,
-        `- [Shop – Cyprus](${origin}/en-cy/nicosia/shop)`,
-        `- [Brands – Lebanon](${origin}/en-lb/beirut/brands)`,
-        `- [Brands – UAE](${origin}/en-ae/dubai/brands)`,
-        `- [Occasions – Lebanon](${origin}/en-lb/beirut/occasions)`,
-        `- [Occasions – UAE](${origin}/en-ae/dubai/occasions)`,
-        "",
-        "## Categories",
-        "",
-        ...categoryLines,
-        "",
-        "## Special Services",
-        "",
-        `- [Corporate Gifting](${origin}/en-lb/beirut/corporate)`,
-        `- [Weddings](${origin}/en-lb/beirut/weddings)`,
-        `- [Partner with Us](${origin}/en-lb/beirut/partner)`,
-        `- [Blog](${origin}/en-lb/beirut/blog)`,
-        "",
-        "## Help & Support",
-        "",
-        `- [Contact Us](${origin}/en-lb/beirut/contact)`,
-        `- [FAQs & Delivery Information](${origin}/en-lb/beirut/faqs)`,
-        "",
-        "## Policies",
-        "",
-        `- [Terms and Conditions](${origin}/en-lb/beirut/terms)`,
-        `- [Privacy Policy](${origin}/en-lb/beirut/privacy)`,
-        "",
-        "## Machine-Readable Indexes",
-        "",
-        `- [llms.txt (concise index for AI agents)](${origin}/llms.txt)`,
-        `- [llms-full.txt (full content for AI agents)](${origin}/llms-full.txt)`,
-        `- [sitemap.xml (XML sitemap)](${origin}/sitemap.xml)`,
-      ];
-      const sitemapMd = lines.join("\n");
+      const sitemapMd = buildSitemapMd({
+        origin,
+        basePath: BASE_PATH,
+        ...catalogData,
+        lastmod: new Date().toISOString().slice(0, 10),
+      });
       const encoding = pickEncoding(req, ".txt");
       const body = await compressBuffer(sitemapMd, encoding);
       const headers = {
-        "content-type": "text/plain; charset=utf-8",
+        "content-type": "text/markdown; charset=utf-8",
         "cache-control": "public, max-age=3600, must-revalidate",
         "vary": "Accept-Encoding",
+        // Link back to the canonical HTML sitemap so HTTP-level crawlers can
+        // discover the XML sitemap even when requesting the Markdown version.
+        "link": `<${origin}/sitemap.xml>; rel="alternate"; type="application/xml"`,
       };
       if (encoding) headers["content-encoding"] = encoding;
       res.writeHead(200, headers);
@@ -1780,6 +1722,48 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Per-page Markdown mirrors.
+    // Any locale-prefixed public path at <path>.md serves a Markdown version
+    // of that HTML page with YAML frontmatter and real catalog data.
+    // Unrecognised .md paths return 404; /sitemap.md and /agents.md are
+    // already handled above and never reach this branch.
+    if (pathname.endsWith(".md")) {
+      const htmlPath = pathname.slice(0, -3);
+      const mdContent = isMirroredPath(htmlPath)
+        ? await getMarkdownForPath(htmlPath, {
+            origin,
+            basePath: BASE_PATH,
+            fetchJson: fetchSitemapJson,
+            apiBaseUrl: INTERNAL_API_BASE_URL,
+          })
+        : null;
+      if (mdContent) {
+        const cleanBase = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
+        const canonicalHtmlHref = `${origin}${cleanBase}${htmlPath}`;
+        const encoding = pickEncoding(req, ".txt");
+        const body = await compressBuffer(mdContent, encoding);
+        const headers = {
+          "content-type": "text/markdown; charset=utf-8",
+          "cache-control": "public, max-age=900, stale-while-revalidate=60",
+          "vary": "Accept-Encoding",
+          "link": `<${canonicalHtmlHref}>; rel="canonical"; type="text/html"`,
+        };
+        if (encoding) headers["content-encoding"] = encoding;
+        res.writeHead(200, headers);
+        res.end(body);
+        return;
+      }
+      // Unknown .md path — return 404 rather than falling through to the SPA.
+      res.writeHead(404, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-cache",
+        "expires": "0",
+        "x-robots-tag": "noindex",
+      });
+      res.end("Not Found");
+      return;
+    }
+
     let assetPath = pathname;
     if (assetPath === "/") assetPath = "/index.html";
 
@@ -1820,11 +1804,26 @@ const server = http.createServer(async (req, res) => {
           res.end(lifecycleResponse.body);
           return;
         }
-        const out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
+        let out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
+        // Inject <link rel="alternate" type="text/markdown"> for pages with a
+        // Markdown mirror. This allows crawlers and AI agents to discover the
+        // structured Markdown version directly from the HTML head.
+        if (isMirroredPath(pathname)) {
+          const cleanBase = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
+          const mdHref = `${origin}${cleanBase}${pathname}.md`;
+          out = out.replace(
+            "</head>",
+            `    <link rel="alternate" type="text/markdown" href="${mdHref.replace(/"/g, "&quot;")}">\n  </head>`,
+          );
+        }
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
         const canonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
         const xRobotsTag = resolveXRobotsTag(normalizeHostHeader(host), pathname, url.search);
+        const cleanBaseForLink = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
+        const mdAlternateLink = isMirroredPath(pathname)
+          ? `, <${origin}${cleanBaseForLink}${pathname}.md>; rel="alternate"; type="text/markdown"`
+          : "";
         const headers = {
           "content-type": MIME[".html"],
           // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
@@ -1846,7 +1845,8 @@ const server = http.createServer(async (req, res) => {
           // HTTP Link header mirrors the <link rel="canonical"> injected into
           // the HTML by seo-inject.mjs so HTTP-level crawlers and preload
           // scanners see the canonical URL without parsing the body.
-          "link": `<${canonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
+          // Also includes the Markdown alternate link for mirrored pages.
+          "link": `<${canonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"${mdAlternateLink}`,
         };
         if (encoding) headers["content-encoding"] = encoding;
         res.writeHead(200, headers);
@@ -2024,6 +2024,66 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Content negotiation: serve the Markdown mirror only when the client
+    // genuinely prefers text/markdown over text/html and */*.
+    // We parse the Accept header using q-values so that a browser sending
+    // "text/html,application/xhtml+xml,*/*;q=0.9" never accidentally gets
+    // Markdown served back.
+    //
+    // Algorithm:
+    //   1. Split Accept header by comma, parse each entry's q-value (default 1.0).
+    //   2. Compute the effective q for text/markdown, text/html, and */*.
+    //   3. Serve Markdown only when text/markdown q > text/html q AND q > 0.
+    function acceptsMarkdownPreferred(acceptHeader) {
+      if (!acceptHeader) return false;
+      let qMd = -1, qHtml = -1, qStar = -1;
+      for (const part of acceptHeader.split(",")) {
+        const [mimeRaw, ...params] = part.trim().split(";");
+        const mime = mimeRaw.trim().toLowerCase();
+        let q = 1.0;
+        for (const p of params) {
+          const kv = p.trim();
+          if (kv.startsWith("q=")) { q = parseFloat(kv.slice(2)); break; }
+        }
+        if (isNaN(q)) q = 1.0;
+        if (mime === "text/markdown") { if (q > qMd) qMd = q; }
+        else if (mime === "text/html") { if (q > qHtml) qHtml = q; }
+        else if (mime === "*/*" || mime === "text/*") { if (q > qStar) qStar = q; }
+      }
+      // text/markdown must be explicitly present with q > 0 and outrank text/html
+      // and the wildcard fallback.
+      if (qMd <= 0) return false;
+      const maxOther = Math.max(qHtml >= 0 ? qHtml : 0, qStar >= 0 ? qStar : 0);
+      return qMd > maxOther;
+    }
+
+    if (
+      isMirroredPath(pathname) &&
+      acceptsMarkdownPreferred(req.headers["accept"] ?? "")
+    ) {
+      const mdContent = await getMarkdownForPath(pathname, {
+        origin,
+        basePath: BASE_PATH,
+        fetchJson: fetchSitemapJson,
+        apiBaseUrl: INTERNAL_API_BASE_URL,
+      });
+      if (mdContent) {
+        const cleanBase2 = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
+        const mdEncoding = pickEncoding(req, ".txt");
+        const mdBody = await compressBuffer(mdContent, mdEncoding);
+        const mdHeaders = {
+          "content-type": "text/markdown; charset=utf-8",
+          "cache-control": "public, max-age=900, stale-while-revalidate=60",
+          "vary": "Accept-Encoding, Accept",
+          "link": `<${origin}${cleanBase2}${pathname}>; rel="canonical"; type="text/html"`,
+        };
+        if (mdEncoding) mdHeaders["content-encoding"] = mdEncoding;
+        res.writeHead(200, mdHeaders);
+        res.end(mdBody);
+        return;
+      }
+    }
+
     // SPA fallback: rewrite to index.html with locale-aware SEO.
     const paginationRef = {};
     const spaLifecycleOut = {};
@@ -2067,11 +2127,24 @@ const server = http.createServer(async (req, res) => {
       res.end(spaLifecycleResponse.body);
       return;
     }
-    const out = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
+    let spaOut = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));
+    // Inject <link rel="alternate" type="text/markdown"> for pages with a mirror.
+    if (isMirroredPath(pathname)) {
+      const cleanBaseSpa = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
+      const spaMdHref = `${origin}${cleanBaseSpa}${pathname}.md`;
+      spaOut = spaOut.replace(
+        "</head>",
+        `    <link rel="alternate" type="text/markdown" href="${spaMdHref.replace(/"/g, "&quot;")}">\n  </head>`,
+      );
+    }
     const encoding = pickEncoding(req, ".html");
-    const body = await compressBuffer(out, encoding);
+    const body = await compressBuffer(spaOut, encoding);
     const spaCanonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
     const xRobotsTagSpa = resolveXRobotsTag(normalizeHostHeader(host), pathname, url.search);
+    const spaCleanBase = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
+    const spaMdAlternateLink = isMirroredPath(pathname)
+      ? `, <${origin}${spaCleanBase}${pathname}.md>; rel="alternate"; type="text/markdown"`
+      : "";
     const headers = {
       "content-type": MIME[".html"],
       // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
@@ -2087,7 +2160,7 @@ const server = http.createServer(async (req, res) => {
         : "public, s-maxage=300, stale-while-revalidate=60",
       "expires": "0",
       "vary": "Accept-Encoding",
-      "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
+      "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"${spaMdAlternateLink}`,
     };
     if (encoding) headers["content-encoding"] = encoding;
     res.writeHead(200, headers);

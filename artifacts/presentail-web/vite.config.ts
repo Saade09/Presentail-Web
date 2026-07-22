@@ -16,6 +16,214 @@ const visualizer = process.env.VITE_VISUALIZE
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
 // @ts-expect-error - plain ESM module (no types).
 import { LOGO_EN_WEBP_BASENAME, LOGO_AR_WEBP_BASENAME, LOGO_EN_WHITE_WEBP_BASENAME, LOGO_AR_WHITE_WEBP_BASENAME } from "./logo-assets.mjs";
+// @ts-expect-error - plain ESM module (no types).
+import { getMarkdownForPath, isMirroredPath } from "./markdown.mjs";
+
+/**
+ * Dev-server middleware plugin that serves Markdown mirror pages at `<path>.md`
+ * and via `Accept: text/markdown` content negotiation, exactly matching what
+ * serve.mjs does in production. Runs only in dev mode (`apply: "serve"`).
+ *
+ * Also injects `Link: rel="alternate"` response headers for mirrored HTML
+ * paths so the test suite can verify content-negotiation support without a
+ * production build.
+ */
+function markdownMirrorDevPlugin(basePath: string): Plugin {
+  const apiBaseUrl =
+    process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
+
+  async function fetchJson(url: string): Promise<unknown> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function acceptsMarkdownPreferred(acceptHeader: string | undefined): boolean {
+    if (!acceptHeader) return false;
+    let mdQ = 0;
+    let htmlQ = -1;
+    let starQ = -1;
+    for (const part of acceptHeader.split(",")) {
+      const [typeRaw, ...params] = part.trim().split(";");
+      const type = typeRaw.trim().toLowerCase();
+      let q = 1;
+      for (const p of params) {
+        const m = p.trim().match(/^q\s*=\s*([01](?:\.\d{0,3})?)/i);
+        if (m) { q = parseFloat(m[1]); break; }
+      }
+      if (type === "text/markdown") mdQ = q;
+      else if (type === "text/html") htmlQ = q;
+      else if (type === "*/*") starQ = q;
+    }
+    const effectiveHtml = htmlQ >= 0 ? htmlQ : (starQ >= 0 ? starQ : 0);
+    return mdQ > 0 && mdQ > effectiveHtml;
+  }
+
+  return {
+    name: "presentail-markdown-mirror-dev",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use(async (req: import("http").IncomingMessage, res: import("http").ServerResponse, next: () => void) => {
+        const rawUrl = req.url ?? "/";
+        const qIdx = rawUrl.indexOf("?");
+        let pathname = qIdx >= 0 ? rawUrl.slice(0, qIdx) : rawUrl;
+
+        const cleanBase = (basePath ?? "").replace(/\/$/, "");
+        if (cleanBase && pathname.startsWith(cleanBase)) {
+          pathname = pathname.slice(cleanBase.length) || "/";
+        }
+
+        const origin = `http://${req.headers.host ?? "localhost"}`;
+
+        // Handle /sitemap.md
+        if (pathname === "/sitemap.md") {
+          try {
+            const { buildSitemapMd } = await import("./markdown.mjs" as string) as any;
+            const [catalogData, brandsData] = await Promise.all([
+              fetchJson(`${apiBaseUrl}/api/catalog/metadata`),
+              fetchJson(`${apiBaseUrl}/api/woo/brands`),
+            ]) as any[];
+            const content = buildSitemapMd({
+              origin,
+              basePath: cleanBase,
+              categories: catalogData?.categories ?? [],
+              occasions: catalogData?.occasions ?? [],
+              brands: Array.isArray(brandsData) ? brandsData : (brandsData?.brands ?? []),
+              products: [],
+            });
+            res.writeHead(200, { "content-type": "text/markdown; charset=utf-8", "cache-control": "no-store" });
+            res.end(content);
+          } catch {
+            res.writeHead(500, { "content-type": "text/plain" });
+            res.end("Error building sitemap.md");
+          }
+          return;
+        }
+
+        // Handle <path>.md requests
+        if (pathname.endsWith(".md")) {
+          const htmlPath = pathname.slice(0, -3);
+          const mirrorable = isMirroredPath(htmlPath);
+          if (!mirrorable) {
+            res.writeHead(404, { "content-type": "text/plain; charset=utf-8", "x-robots-tag": "noindex" });
+            res.end("Not Found");
+            return;
+          }
+          try {
+            const content = await getMarkdownForPath(htmlPath, {
+              origin,
+              basePath: cleanBase,
+              fetchJson,
+              apiBaseUrl,
+            });
+            if (!content) {
+              res.writeHead(404, { "content-type": "text/plain; charset=utf-8", "x-robots-tag": "noindex" });
+              res.end("Not Found");
+              return;
+            }
+            res.writeHead(200, {
+              "content-type": "text/markdown; charset=utf-8",
+              "cache-control": "no-store",
+              "link": `<${origin}${cleanBase}${htmlPath}>; rel="canonical"; type="text/html"`,
+            });
+            res.end(content);
+          } catch {
+            res.writeHead(500, { "content-type": "text/plain" });
+            res.end("Error building markdown");
+          }
+          return;
+        }
+
+        // For Accept: text/markdown content negotiation on HTML paths
+        if (acceptsMarkdownPreferred(req.headers.accept as string | undefined)) {
+          const mirrorable = isMirroredPath(pathname);
+          if (mirrorable) {
+            try {
+              const content = await getMarkdownForPath(pathname, {
+                origin,
+                basePath: cleanBase,
+                fetchJson,
+                apiBaseUrl,
+              });
+              if (content) {
+                res.writeHead(200, {
+                  "content-type": "text/markdown; charset=utf-8",
+                  "cache-control": "no-store",
+                  "link": `<${origin}${cleanBase}${pathname}>; rel="canonical"; type="text/html"`,
+                });
+                res.end(content);
+                return;
+              }
+            } catch { /* fall through */ }
+          }
+        }
+
+        // For mirrored HTML paths, inject Link: rel="alternate" response header.
+        // This is independent of the <link> tag injection done in transformIndexHtml.
+        if (!pathname.endsWith(".md") && pathname !== "/sitemap.md" && isMirroredPath(pathname)) {
+          const mdHref = `${origin}${cleanBase}${pathname}.md`;
+          const origSetHeader = res.setHeader.bind(res);
+          const extraLink = `<${mdHref}>; rel="alternate"; type="text/markdown"`;
+          // Append to any existing Link header once the first setHeader("link",...) fires.
+          let injected = false;
+          (res as any).setHeader = function(name: string, value: string | string[]) {
+            if (!injected && name.toLowerCase() === "link") {
+              injected = true;
+              (res as any).setHeader = origSetHeader;
+              const existing = Array.isArray(value) ? value.join(", ") : value;
+              return origSetHeader(name, `${existing}, ${extraLink}`);
+            }
+            return origSetHeader(name, value);
+          };
+          // If Vite never sets a Link header, inject it via writeHead.
+          const origWriteHead = res.writeHead.bind(res);
+          (res as any).writeHead = function(statusCode: number, headersArg?: Record<string, string | string[]> | string) {
+            (res as any).writeHead = origWriteHead;
+            (res as any).setHeader = origSetHeader;
+            if (!injected && typeof headersArg === "object" && headersArg) {
+              injected = true;
+              const lc = Object.keys(headersArg).find((k) => k.toLowerCase() === "link");
+              const existing = lc ? headersArg[lc] : "";
+              const merged = existing ? `${existing}, ${extraLink}` : extraLink;
+              return origWriteHead(statusCode, { ...headersArg, link: merged });
+            }
+            if (!injected) {
+              injected = true;
+              return origWriteHead(statusCode, { ...(typeof headersArg === "object" && headersArg ? headersArg : {}), link: extraLink });
+            }
+            return origWriteHead(statusCode, headersArg as Record<string, string | string[]>);
+          };
+        }
+
+        next();
+      });
+    },
+    // Inject <link rel="alternate" type="text/markdown"> into HTML head for
+    // all mirrored paths, matching what serve.mjs does in production.
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        const rawUrl = ctx.originalUrl ?? ctx.path ?? "/";
+        const qIdx = rawUrl.indexOf("?");
+        let pathname = qIdx >= 0 ? rawUrl.slice(0, qIdx) : rawUrl;
+        const cleanBase = (basePath ?? "").replace(/\/$/, "");
+        if (cleanBase && pathname.startsWith(cleanBase)) {
+          pathname = pathname.slice(cleanBase.length) || "/";
+        }
+        if (!isMirroredPath(pathname)) return html;
+        const mdHref = `${cleanBase}${pathname}.md`;
+        return html.replace(
+          "</head>",
+          `    <link rel="alternate" type="text/markdown" href="${mdHref.replace(/"/g, "&quot;")}">\n  </head>`,
+        );
+      },
+    },
+  };
+}
 
 /**
  * Inject locale-aware SEO tags (title, meta description, OG, hreflang,
@@ -438,6 +646,7 @@ export default defineConfig(async ({ command, mode }) => {
       react(),
       tailwindcss(),
       runtimeErrorOverlay(),
+      markdownMirrorDevPlugin(basePath),
       seoInjectPlugin(basePath),
       logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
       fontPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
