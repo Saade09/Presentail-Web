@@ -1052,13 +1052,28 @@ async function fetchAndStore(): Promise<void> {
         })),
     );
 
-    const [categoriesResp, brandsResp, occasionsResp, ...storeResults] =
-      await Promise.allSettled([
-        fetchOsCategories(config),
-        fetchOsCatalogAttributesBrands(config),
-        fetchOsOccasions(config, { sort: "best_selling" }),
-        ...storeFetches,
-      ]);
+    // Per-city occasion fetches for stores with a known city slug.
+    // Fetched during the same bulk refresh so the first request for a city
+    // is a cache hit rather than a live OS round-trip.
+    const cityOccasionSpecs = OS_STORE_SPECS.filter(
+      (s): s is StoreOsFetchSpec & { cityId: string } => typeof s.cityId === "string",
+    );
+    const cityOccasionFetches = cityOccasionSpecs.map((spec) =>
+      fetchOsOccasions(config, { sort: "best_selling", citySlug: spec.cityId }),
+    );
+
+    const [categoriesResp, brandsResp, occasionsResp, ...rest] = await Promise.allSettled([
+      fetchOsCategories(config),
+      fetchOsCatalogAttributesBrands(config),
+      fetchOsOccasions(config, { sort: "best_selling" }),
+      ...storeFetches,
+      ...cityOccasionFetches,
+    ]);
+
+    const storeResults = rest.slice(0, storeFetches.length);
+    const cityOccasionResults = rest.slice(storeFetches.length) as PromiseSettledResult<
+      Awaited<ReturnType<typeof fetchOsOccasions>>
+    >[];
 
     // ── Per-store products ────────────────────────────────────────────────
     // Collect the union of all product slugs across successfully-fetched
@@ -1171,6 +1186,46 @@ async function fetchAndStore(): Promise<void> {
             "osProductsCache: occasion ids are in strict ascending order — " +
               "the OS sort=best_selling param may have been ignored; " +
               "osPosition rankings could reflect id-order, not sales-order",
+          );
+        }
+      }
+    }
+
+    // ── Per-city occasions ────────────────────────────────────────────────
+    // Populate cachedOccasionsByCity from the parallel city-specific fetches
+    // so the first request for a city is a cache hit rather than a live OS
+    // round-trip. Uses the same timestamp for all entries so they expire
+    // together with the next scheduled refresh.
+    {
+      const bulkFetchedAt = Date.now();
+      for (let i = 0; i < cityOccasionSpecs.length; i++) {
+        const spec = cityOccasionSpecs[i];
+        const result = cityOccasionResults[i];
+        if (result.status !== "fulfilled") {
+          logger.warn(
+            {
+              citySlug: spec.cityId,
+              err:
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : String(result.reason),
+            },
+            "osProductsCache: per-city occasion fetch failed during bulk refresh",
+          );
+          continue;
+        }
+        const occasions = (result.value.occasions ?? []).map((o, idx) => ({
+          ...o,
+          osPosition: idx,
+        }));
+        if (occasions.length > 0) {
+          cachedOccasionsByCity.set(spec.cityId, {
+            occasions,
+            fetchedAt: bulkFetchedAt,
+          });
+          logger.info(
+            { citySlug: spec.cityId, occasionCount: occasions.length },
+            "osProductsCache: per-city occasions cached from bulk refresh",
           );
         }
       }
@@ -1741,6 +1796,41 @@ export async function getOsOccasionsForCity(citySlug: string): Promise<OSProduct
   }
 
   return cachedOccasions ?? [];
+}
+
+/**
+ * Primary city slug per country code for countries that have a city-specific
+ * OS store. First store entry per country wins (e.g. "ae-dubai" for AE).
+ * Countries without a designated city slug (LB, CY) are absent — the global
+ * cached occasions are used as their fallback.
+ */
+const COUNTRY_PRIMARY_CITY_SLUG: ReadonlyMap<string, string> = new Map(
+  OS_STORE_SPECS.filter(
+    (s): s is StoreOsFetchSpec & { cityId: string } => typeof s.cityId === "string",
+  ).reduce<[string, string][]>((acc, s) => {
+    if (!acc.some(([cc]) => cc === s.countryCode)) acc.push([s.countryCode, s.cityId]);
+    return acc;
+  }, []),
+);
+
+/**
+ * Return OS occasions for a given country code, using the country's primary
+ * city slug when available, or falling back to the global cached occasions.
+ *
+ * For multi-city countries (AE) the primary city is the first store in
+ * OS_STORE_SPECS for that country (ae-dubai). For single-city countries
+ * without a designated city slug (LB, CY) this behaves identically to
+ * getOsOccasions().
+ *
+ * This function never throws — any OS fetch failure falls through to the
+ * global cached occasions.
+ */
+export async function getOsOccasionsForCountry(
+  countryCode: string,
+): Promise<OSProductOccasion[]> {
+  const citySlug = COUNTRY_PRIMARY_CITY_SLUG.get(countryCode.toUpperCase());
+  if (!citySlug) return cachedOccasions ?? [];
+  return getOsOccasionsForCity(citySlug);
 }
 
 /**

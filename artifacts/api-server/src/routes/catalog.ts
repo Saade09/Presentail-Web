@@ -12,7 +12,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsOccasionsForCity, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsOccasionsForCity, getOsOccasionsForCountry, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts } from "../lib/osProductsCache";
 import { getRankingConfig } from "./homepage";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
@@ -288,12 +288,16 @@ router.get("/currencies", (_req, res) => {
 router.get("/catalog/occasions", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
   const citySlug = typeof req.query.city === "string" ? req.query.city : null;
-  // When a city slug is present, fetch city-specific occasions from OS so the
-  // best-selling sort reflects that city's own sales signal. Falls back to the
-  // global cached occasions when the city-specific fetch fails or is empty.
+  // When a city slug is present, use city-specific occasions so the best-selling
+  // sort reflects that city's own sales signal. When only a countryCode is known,
+  // use the primary city for that country (e.g. ae-dubai for AE) — for
+  // single-city countries (LB, CY) this falls back to the global cache.
+  // Falls back to the global cached occasions when any fetch fails or is empty.
   const osOccasions = citySlug
     ? await getOsOccasionsForCity(citySlug).catch(() => getOsOccasions())
-    : getOsOccasions();
+    : countryCode
+      ? await getOsOccasionsForCountry(countryCode).catch(() => getOsOccasions())
+      : getOsOccasions();
   const occasionCountMap = countryCode
     ? getOsOccasionProductCountsByCountry(countryCode)
     : getOsOccasionProductCounts();
