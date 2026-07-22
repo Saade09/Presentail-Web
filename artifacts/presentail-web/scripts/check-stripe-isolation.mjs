@@ -207,7 +207,115 @@ function scanForStripe(keys, label) {
 }
 
 // ---------------------------------------------------------------------------
-// Run both scans.
+// Patterns that indicate React source code is bundled inside a chunk.
+//
+// @stripe/react-stripe-js legitimately *calls* React hooks internally, so
+// `useState` and `createElement` will appear in vendor-stripe as *imported*
+// binding names — that is NOT a violation.  What we want to catch is React's
+// own *source code* being compiled into the chunk.  These string literals only
+// appear inside React's own package source and are preserved verbatim even in
+// minified production builds:
+//
+//   "__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED"
+//     — exported by react/index.js; only ever a property name defined by React
+//       itself, never written by application code or by stripe's packages.
+//
+//   "Invalid hook call."
+//     — the opening of React's own hook-order error message; appears as a
+//       string literal in react-dom's production bundle.  Its presence means
+//       the React runtime is compiled into this chunk.
+//
+// Either pattern alone is sufficient to detect a duplicate-React scenario
+// while remaining immune to the false-positive surface caused by stripe's
+// own hook usage.
+// ---------------------------------------------------------------------------
+
+/**
+ * @type {Array<{ label: string; pattern: RegExp }>}
+ */
+const REACT_IN_STRIPE_PATTERNS = [
+  {
+    label:
+      "__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED (React's own internals export — only in React source)",
+    pattern: /__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED/,
+  },
+  {
+    label:
+      '"Invalid hook call." (React hook-order error message — only in React runtime source)',
+    pattern: /Invalid hook call\./,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Scan the vendor-stripe chunk(s) for bundled React source.
+// Returns the number of violations found.
+// ---------------------------------------------------------------------------
+
+/**
+ * Locate every built JS file whose name starts with "vendor-stripe" and assert
+ * that none of them contain React source code.
+ *
+ * @returns {number} number of violations
+ */
+function checkVendorStripeForReact() {
+  // Collect file paths for all vendor-stripe chunks.
+  /** @type {string[]} */
+  const stripeChunkFiles = [];
+  for (const [, file] of keyToFile) {
+    // file is a relative path like "assets/vendor-stripe-XXXXX.js"
+    if (/(?:^|\/)vendor-stripe[^/]*\.js$/.test(file)) {
+      stripeChunkFiles.push(file);
+    }
+  }
+
+  if (stripeChunkFiles.length === 0) {
+    console.error(
+      `check-stripe-isolation: no vendor-stripe chunk found in the manifest.\n` +
+        `  Expected a built file whose name starts with "vendor-stripe".\n` +
+        `  Check that the manualChunks rule in vite.config.ts is still intact.`
+    );
+    return 1;
+  }
+
+  let violations = 0;
+  for (const file of stripeChunkFiles) {
+    const absPath = path.join(distDir, file);
+    if (!fs.existsSync(absPath)) {
+      console.error(
+        `check-stripe-isolation: vendor-stripe file listed in manifest but not on disk: ${file}`
+      );
+      violations++;
+      continue;
+    }
+
+    const content = fs.readFileSync(absPath, "utf8");
+
+    for (const { label, pattern } of REACT_IN_STRIPE_PATTERNS) {
+      if (pattern.test(content)) {
+        console.error(
+          `  ❌  REACT SOURCE in [vendor-stripe]\n` +
+            `      file   : ${file}\n` +
+            `      pattern: ${label}\n` +
+            `      React source code has been bundled into the vendor-stripe chunk.\n` +
+            `      This means resolve.dedupe is no longer preventing a duplicate\n` +
+            `      React copy and will cause "Invalid hook call" at runtime.`
+        );
+        violations++;
+      }
+    }
+  }
+
+  if (violations === 0) {
+    console.log(
+      `  ✓  [vendor-stripe React dedup]  ${stripeChunkFiles.length} chunk(s) scanned — no React source bundled.`
+    );
+  }
+
+  return violations;
+}
+
+// ---------------------------------------------------------------------------
+// Run all scans.
 // ---------------------------------------------------------------------------
 
 console.log(`\ncheck-stripe-isolation  (distDir: ${distDir})`);
@@ -223,6 +331,7 @@ console.log(
 let totalViolations = 0;
 totalViolations += scanForStripe(appEntryInstantKeys, "app-entry instant");
 totalViolations += scanForStripe(checkoutInitialKeys, "checkout-initial");
+totalViolations += checkVendorStripeForReact();
 
 console.log("");
 
@@ -232,13 +341,20 @@ if (totalViolations > 0) {
       `      Stripe must only appear in chunks loaded exclusively through\n` +
       `      the StripeCheckoutSection lazy boundary (React.lazy).\n` +
       `\n` +
-      `      Common causes:\n` +
+      `      Common causes for Stripe-in-instant-chunk violations:\n` +
       `        • A top-level static import of @stripe/react-stripe-js or\n` +
       `          @stripe/stripe-js was added to Checkout.tsx or a file it\n` +
       `          statically imports.\n` +
       `        • StripeCheckoutSection is no longer wrapped in React.lazy.\n` +
       `        • The vendor-stripe manualChunks rule in vite.config.ts was\n` +
-      `          removed, folding Stripe back into the shared vendor chunk.`
+      `          removed, folding Stripe back into the shared vendor chunk.\n` +
+      `\n` +
+      `      Common causes for React-in-vendor-stripe violations:\n` +
+      `        • resolve.dedupe: ["react","react-dom"] was removed from\n` +
+      `          vite.config.ts, allowing @stripe/react-stripe-js to bundle\n` +
+      `          its own React copy instead of sharing the app's singleton.\n` +
+      `        • A new @stripe/* package version changed its peer-dep\n` +
+      `          resolution and pulled in React directly.`
   );
   process.exit(1);
 }
@@ -249,6 +365,7 @@ const totalScanned = new Set([
 ]).size;
 
 console.log(
-  `PASS  No Stripe symbols in any of the ${totalScanned} unique chunk(s) checked (app-entry + checkout-initial).`
+  `PASS  No Stripe symbols in any of the ${totalScanned} unique chunk(s) checked (app-entry + checkout-initial);\n` +
+    `      no React source bundled in vendor-stripe chunk(s).`
 );
 process.exit(0);
