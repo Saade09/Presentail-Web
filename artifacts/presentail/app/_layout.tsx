@@ -62,6 +62,28 @@ import {
 
 setBaseUrl(API_BASE);
 
+// Initialize Microsoft Clarity session recording on native platforms.
+// Uses a dynamic import so existing shipped binaries that pre-date this
+// native module do not crash — the import will silently fail on older builds.
+// Expo Go also doesn't support native-code plugins, so we skip in __DEV__.
+// Same project ID as the web storefront (mik1damp04) so mobile sessions
+// appear in the same Clarity project alongside web sessions.
+if (Platform.OS !== "web" && !__DEV__) {
+  import("@microsoft/react-native-clarity")
+    .then((Clarity) => {
+      Clarity.initialize("mik1damp04");
+      // Tag every session with platform so mobile recordings can be
+      // filtered independently from web sessions in the Clarity dashboard.
+      Clarity.setCustomTag("platform", Platform.OS); // "ios" or "android"
+    })
+    .catch((err: unknown) => {
+      // Expected on older binaries that were shipped before this native
+      // module was compiled in. Log a warning so it shows up in device
+      // logs for the first post-integration EAS build, then disappears.
+      console.warn("[Presentail] Clarity init skipped:", err instanceof Error ? err.message : err);
+    });
+}
+
 SplashScreen.preventAutoHideAsync();
 
 // Display incoming pushes as banners + sounds even when the app is in the
