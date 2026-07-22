@@ -49,6 +49,7 @@ export type OrderSummaryPanelProps = {
   handleCouponApply: () => void;
   handleCouponRemove: () => void;
   loyaltyCoupon?: { code: string; points: number; discountPercent: number } | null;
+  loyaltyLoading?: boolean;
   loyaltyToggleOn?: boolean;
   onLoyaltyToggle?: (active: boolean) => void;
   onChangeDelivery: () => void;
@@ -85,6 +86,7 @@ export function OrderSummaryPanel({
   handleCouponApply,
   handleCouponRemove,
   loyaltyCoupon,
+  loyaltyLoading = false,
   loyaltyToggleOn = false,
   onLoyaltyToggle,
   onChangeDelivery,
@@ -203,9 +205,15 @@ export function OrderSummaryPanel({
               {/* Coupon — original text-link style */}
               <div className="border-t border-gray-100 pt-4 mb-4">
                 {/* Loyalty points toggle — visible only when the user has an active loyalty coupon */}
-                {loyaltyCoupon && (
+                {loyaltyLoading ? (
+                  <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100 animate-pulse" aria-hidden>
+                    <div className="w-3.5 h-3.5 rounded-full bg-gray-200 shrink-0" />
+                    <div className="flex-1 h-4 bg-gray-200 rounded" />
+                    <div className="w-8 h-5 bg-gray-200 rounded-full" />
+                  </div>
+                ) : loyaltyCoupon ? (
                   <div
-                    className={`flex items-center gap-2 mb-3 pb-3 border-b ${loyaltyToggleOn ? "border-green-100" : "border-gray-100"}`}
+                    className={`flex items-center gap-2 mb-3 pb-3 border-b animate-in fade-in duration-300 ${loyaltyToggleOn ? "border-green-100" : "border-gray-100"}`}
                   >
                     <Star
                       className="w-3.5 h-3.5 shrink-0"
@@ -237,7 +245,7 @@ export function OrderSummaryPanel({
                       data-testid="toggle-loyalty-points"
                     />
                   </div>
-                )}
+                ) : null}
 
                 {!loyaltyToggleOn && couponApplied ? (
                   <>
@@ -432,9 +440,17 @@ export function OrderSummaryPanel({
             <div className="px-6 pb-5">
 
               {/* Loyalty points toggle — desktop sidebar */}
-              {loyaltyCoupon && (
+              {loyaltyLoading ? (
+                <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden animate-pulse" aria-hidden>
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full bg-gray-200 shrink-0" />
+                    <div className="flex-1 h-4 bg-gray-200 rounded" />
+                    <div className="w-9 h-5 bg-gray-200 rounded-full" />
+                  </div>
+                </div>
+              ) : loyaltyCoupon ? (
                 <div
-                  className={`mt-4 border rounded-xl overflow-hidden ${loyaltyToggleOn ? "border-green-200" : "border-gray-200"}`}
+                  className={`mt-4 border rounded-xl overflow-hidden animate-in fade-in duration-300 ${loyaltyToggleOn ? "border-green-200" : "border-gray-200"}`}
                   style={loyaltyToggleOn ? { backgroundColor: "hsl(142 71% 45% / 0.06)" } : {}}
                 >
                   <div className="px-4 py-3 flex items-center gap-3">
@@ -469,7 +485,7 @@ export function OrderSummaryPanel({
                     />
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Promo / gift-card control — outlined row */}
               {!loyaltyToggleOn && (

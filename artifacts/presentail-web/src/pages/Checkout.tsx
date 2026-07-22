@@ -959,10 +959,12 @@ function CheckoutForm() {
 
   type LoyaltyCoupon = { code: string; points: number; discountPercent: number };
   const [loyaltyCoupon, setLoyaltyCoupon] = useState<LoyaltyCoupon | null>(null);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
 
   useEffect(() => {
     if (!user || step !== 2) return;
     let cancelled = false;
+    setLoyaltyLoading(true);
     apiFetch<{ ok: boolean; loyalty: { points: number; coupons: Array<{ code: string; discountPercent: number; status: string }> } }>("/loyalty/me")
       .then((r) => {
         if (cancelled) return;
@@ -972,8 +974,18 @@ function CheckoutForm() {
           : null,
         );
       })
-      .catch(() => {});
-    return () => { cancelled = true; };
+      .catch(() => {
+        if (!cancelled) {
+          console.warn("[loyalty] /loyalty/me fetch failed — loyalty toggle will be hidden");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoyaltyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      setLoyaltyLoading(false);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, step]);
 
@@ -3807,6 +3819,7 @@ function CheckoutForm() {
             handleCouponApply={handleCouponApply}
             handleCouponRemove={handleCouponRemove}
             loyaltyCoupon={loyaltyCoupon}
+            loyaltyLoading={loyaltyLoading}
             loyaltyToggleOn={loyaltyToggleOn}
             onLoyaltyToggle={handleLoyaltyToggle}
             onChangeDelivery={() => setDeliveryPickerOpen(true)}

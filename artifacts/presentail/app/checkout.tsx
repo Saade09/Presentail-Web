@@ -35,6 +35,7 @@ function loadShareModules() {
   return { captureRef: _captureRef, Sharing: _Sharing };
 }
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   findNodeHandle,
@@ -993,10 +994,12 @@ function CheckoutScreen() {
   };
 
   const [loyaltyCoupon, setLoyaltyCoupon] = useState<{ code: string; points: number; discountPercent: number } | null>(null);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
 
   useEffect(() => {
     if (!authUser || !authToken || step !== 2) return;
     let cancelled = false;
+    setLoyaltyLoading(true);
     fetch(`${API_BASE}/api/loyalty/me`, {
       headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
     })
@@ -1009,8 +1012,18 @@ function CheckoutScreen() {
           : null,
         );
       })
-      .catch(() => {});
-    return () => { cancelled = true; };
+      .catch(() => {
+        if (!cancelled) {
+          console.warn("[loyalty] /loyalty/me fetch failed — loyalty toggle will be hidden");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoyaltyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      setLoyaltyLoading(false);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, authToken, step]);
 
@@ -2050,6 +2063,7 @@ function CheckoutScreen() {
           onCouponApply={handleCouponApply}
           onCouponRemove={handleCouponRemove}
           loyaltyCoupon={loyaltyCoupon}
+          loyaltyLoading={loyaltyLoading}
           loyaltyToggleOn={loyaltyToggleOn}
           onLoyaltyToggle={handleLoyaltyToggle}
           showDeliveryFee={step > 0}
@@ -4151,13 +4165,23 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
 
 // =============== Collapsible Order Summary ===============
 
-function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, couponApplied, couponDiscountUsd, couponError, couponValidating, onCouponApply, onCouponRemove, loyaltyCoupon, loyaltyToggleOn, onLoyaltyToggle, showDeliveryFee, initialOpen = false }: any) {
+function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, couponApplied, couponDiscountUsd, couponError, couponValidating, onCouponApply, onCouponRemove, loyaltyCoupon, loyaltyLoading, loyaltyToggleOn, onLoyaltyToggle, showDeliveryFee, initialOpen = false }: any) {
   const { formatPrice, currencyCode } = useCurrency();
   const { isRTL } = useLanguage();
   const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const [open, setOpen] = useState(initialOpen);
   const animValue = useRef(new Animated.Value(initialOpen ? 1 : 0)).current;
+
+  const loyaltyFadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (loyaltyCoupon) {
+      Animated.timing(loyaltyFadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    } else {
+      loyaltyFadeAnim.setValue(0);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loyaltyCoupon]);
 
   const toggle = () => {
     const toValue = open ? 0 : 1;
@@ -4270,8 +4294,13 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
           ))}
 
           {/* Loyalty points toggle — visible only when user has an active loyalty coupon */}
-          {loyaltyCoupon ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {loyaltyLoading ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }} accessibilityElementsHidden>
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
+              <View style={{ flex: 1, height: 13, backgroundColor: colors.border, borderRadius: 6 }} />
+            </View>
+          ) : loyaltyCoupon ? (
+            <Animated.View style={{ flexDirection: "row", alignItems: "center", gap: 10, opacity: loyaltyFadeAnim }}>
               <Feather name="star" size={14} color={loyaltyToggleOn ? "#16a34a" : colors.gold} />
               <View style={{ flex: 1 }}>
                 <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: loyaltyToggleOn ? "#16a34a" : colors.foreground }}>
@@ -4294,7 +4323,7 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
                 trackColor={{ false: colors.border, true: "#16a34a" }}
                 thumbColor="#ffffff"
               />
-            </View>
+            </Animated.View>
           ) : null}
 
           {!loyaltyToggleOn && !couponApplied ? (
