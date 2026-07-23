@@ -266,7 +266,7 @@ export type WooOrderPayload = {
   qrLink?: string;
   qrLabel?: string;
   orderNotes?: string;
-  paymentMethod: "card" | "wallet" | "whish" | "western" | "mamo" | "paypal" | "tabby" | "cybersource";
+  paymentMethod: "card" | "wallet" | "apple_pay" | "google_pay" | "whish" | "western" | "mamo" | "paypal" | "tabby" | "cybersource";
   identitySecret?: boolean;
   // Per-install device id used by the API to route order push
   // notifications. The owning user (when signed in) is derived server-side

@@ -123,7 +123,7 @@ export const WooOrderSchema = z.object({
   qrLink: z.string().optional(),
   qrLabel: z.string().optional(),
   orderNotes: z.string().optional(),
-  paymentMethod: z.enum(["card", "wallet", "whish", "western", "mamo", "paypal", "klarna", "cybersource"]),
+  paymentMethod: z.enum(["card", "wallet", "apple_pay", "google_pay", "whish", "western", "mamo", "paypal", "klarna", "cybersource"]),
   identitySecret: z.boolean().optional(),
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),

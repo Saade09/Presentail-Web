@@ -2026,12 +2026,7 @@ function CheckoutForm() {
     cardTo: recipient.cardTo.trim() || undefined,
     cardFrom: buildCardFrom((() => { try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; } })()),
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
-    // "apple_pay" / "google_pay" are client-side UX IDs; the API server and
-    // WooCommerce only recognise the legacy "wallet" value for both.
-    paymentMethod: (() => {
-      const m = overrides.paymentMethod ?? paymentMethod;
-      return m === "apple_pay" || m === "google_pay" ? "wallet" : m;
-    })(),
+    paymentMethod: overrides.paymentMethod ?? paymentMethod,
     identitySecret,
     currencyCode: "USD",
     couponDiscount: confirmedCouponDiscount > 0 ? confirmedCouponDiscount : undefined,
@@ -2314,7 +2309,7 @@ function CheckoutForm() {
           walletSheetOpenRef.current = false;
           paymentRequestRef.current = null;
           setPaymentMethodState("card");
-          trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "show_failed" });
+          trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: paymentMethod as "apple_pay" | "google_pay", errorCode: "show_failed" });
           toast({
             title: t("checkout.toast.walletUnavailable"),
             description: t("checkout.toast.walletUnavailableDesc"),
@@ -2323,7 +2318,7 @@ function CheckoutForm() {
           return;
         }
 
-        trackEvent({ name: "payment_wallet_opened", surface: "checkout", action: "wallet" });
+        trackEvent({ name: "payment_wallet_opened", surface: "checkout", action: paymentMethod as "apple_pay" | "google_pay" });
         await new Promise<void>((resolve) => {
           const cleanup = () => {
             walletSheetOpenRef.current = false;

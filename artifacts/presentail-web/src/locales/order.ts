@@ -41,6 +41,10 @@ export const orderStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "order.summary.pay.wallet": { en: "Apple / Google Pay", ar: "Apple / Google Pay" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.apple_pay": { en: "Apple Pay", ar: "Apple Pay" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.google_pay": { en: "Google Pay", ar: "Google Pay" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "order.summary.pay.western": { en: "Western Union", ar: "ويسترن يونيون" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "order.summary.pay.klarna": { en: "Klarna", ar: "Klarna" },
@@ -92,6 +96,8 @@ export const orderStringsFr: Record<string, string> = {
   "order.summary.pay.whish": "Whish",
   "order.summary.pay.mamo": "Mamo",
   "order.summary.pay.wallet": "Apple / Google Pay",
+  "order.summary.pay.apple_pay": "Apple Pay",
+  "order.summary.pay.google_pay": "Google Pay",
   "order.summary.pay.western": "Western Union",
   "order.summary.pay.klarna": "Klarna",
 

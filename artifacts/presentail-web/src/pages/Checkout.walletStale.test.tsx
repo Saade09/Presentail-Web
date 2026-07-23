@@ -524,8 +524,8 @@ describe("Checkout wallet finalize → OrderConfirmed staleness guard", () => {
 
     const stash = readStash();
     expect(stash.payload).toMatchObject({
-      // apple_pay / google_pay are normalised to the legacy "wallet" value.
-      paymentMethod: "wallet",
+      // driveWalletSuccess selects google_pay in jsdom (non-Apple platform).
+      paymentMethod: "google_pay",
       paymentRef: "pi_wallet_ok",
       currencyCode: "USD",
     });
@@ -606,7 +606,8 @@ describe("Checkout wallet finalize → OrderConfirmed staleness guard", () => {
       unknown
     >;
     expect(submittedPayload).toMatchObject({
-      paymentMethod: "wallet",
+      // driveWalletSuccess selects google_pay in jsdom (non-Apple platform).
+      paymentMethod: "google_pay",
       paymentRef: "pi_wallet_ok",
       currencyCode: "USD",
     });

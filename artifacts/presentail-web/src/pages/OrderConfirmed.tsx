@@ -111,6 +111,8 @@ const PAYMENT_METHOD_KEYS: Record<string, string> = {
   whish: "order.summary.pay.whish",
   mamo: "order.summary.pay.mamo",
   wallet: "order.summary.pay.wallet",
+  apple_pay: "order.summary.pay.apple_pay",
+  google_pay: "order.summary.pay.google_pay",
   western: "order.summary.pay.western",
   klarna: "order.summary.pay.klarna",
 };

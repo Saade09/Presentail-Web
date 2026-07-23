@@ -1107,11 +1107,7 @@ function CheckoutScreen() {
     cardTo,
     ...(/^https?:\/\/.+/.test((qrLink ?? "").trim()) ? { qrLink: qrLink.trim() } : {}),
     orderNotes,
-    // "apple_pay" / "google_pay" are client-side UX IDs only; WooCommerce
-    // and the API server only know the legacy "wallet" value (both call the
-    // same Stripe native-wallet flow).  Map both back before submission.
-    paymentMethod:
-      payMethod === "apple_pay" || payMethod === "google_pay" ? "wallet" : payMethod,
+    paymentMethod: payMethod,
     identitySecret,
     appDeviceId: deviceIdForOrder ?? undefined,
     // Forwarded so the backend can record the customer-facing currency.
