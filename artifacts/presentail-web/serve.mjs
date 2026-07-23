@@ -751,28 +751,6 @@ await warnStartupFile(
 );
 
 // ---------------------------------------------------------------------------
-// Check APPLE_DOMAIN_VERIFICATION_TOKEN — required so that
-// /.well-known/apple-developer-domain-association is served and Apple can
-// verify the domain for Sign In with Apple.  Without it the endpoint returns
-// 404 and Apple Sign In is silently broken for all shoppers.
-// Non-fatal: logs WARN + Slack alert in production and continues.
-// ---------------------------------------------------------------------------
-if (!process.env.APPLE_DOMAIN_VERIFICATION_TOKEN) {
-  console.warn(
-    "WARN: APPLE_DOMAIN_VERIFICATION_TOKEN is not set — " +
-      "/.well-known/apple-developer-domain-association will return 404 " +
-      "and Sign In with Apple will be disabled for all shoppers",
-  );
-  if (process.env.NODE_ENV === "production") {
-    sendSlackAlert(
-      ":warning: *presentail-web: APPLE_DOMAIN_VERIFICATION_TOKEN is not set*\n" +
-        "`/.well-known/apple-developer-domain-association` will return 404 — " +
-        "Sign In with Apple is disabled for all shoppers until this secret is set and the server is restarted.",
-    ).catch(() => {});
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Stripe Apple Pay merchant domain association file content.
 //
 // Set STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION to the exact contents of the file
@@ -1538,32 +1516,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Apple Sign In domain verification file.
-    // Apple requires this file to be served at
-    // /.well-known/apple-developer-domain-association before it will let you
-    // verify a domain under a Services ID in Apple Developer Console.
-    // Set the APPLE_DOMAIN_VERIFICATION_TOKEN env var to the exact content of
-    // the file Apple provides when you click "Download" next to the domain in
-    // Apple Developer → Certificates, Identifiers & Profiles → Services IDs →
-    // <your-services-id> → Sign In with Apple → Configure.
-    if (pathname === "/.well-known/apple-developer-domain-association") {
-      const token = process.env.APPLE_DOMAIN_VERIFICATION_TOKEN;
-      if (!token) {
-        res.writeHead(404, { "content-type": "text/plain" });
-        res.end("Not Found");
-        return;
-      }
-      res.writeHead(200, {
-        // Serve as text/plain — Apple's domain verifier fetches this as an
-        // opaque blob and does not require a JSON content-type.
-        "content-type": "text/plain; charset=utf-8",
-        "cache-control": "public, max-age=3600, must-revalidate",
-        "expires": makeExpires(3600),
-      });
-      res.end(token);
-      return;
-    }
-
     // Stripe Apple Pay merchant domain association file.
     // Stripe requires this file to be served at
     // /.well-known/apple-developer-merchantid-domain-association so it can
@@ -2183,7 +2135,7 @@ const server = http.createServer(async (req, res) => {
     //   • /brand/:slug    (200 OG-injected HTML + meta-refresh; 301 fallback)
     //   • /:lang-:country/:city/...  (locale-aware SPA fallback + 404 guard)
     //   • Static files in dist/public  (file-exists check above)
-    //   • /.well-known/*, apple-developer-domain-association  (earlier handlers)
+    //   • /.well-known/*  (earlier handlers)
     if (
       pathname !== "/" &&
       !pathname.match(/^\/favorites\/share\/[A-Za-z0-9_-]{8,}\/?$/) &&

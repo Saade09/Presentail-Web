@@ -1,0 +1,252 @@
+Your instructions appear to be based on an outdated Sign in with Apple setup.
+
+According to Apple’s current official documentation, Sign in with Apple web configuration does NOT require downloading an apple-developer-domain-association file or uploading a domain verification token to the website.
+
+Apple explicitly states:
+
+“You don’t need to upload a file on your server to complete the registration process for domains and subdomains.”
+
+Please revise the implementation and do not ask me for an APPLE_DOMAIN_VERIFICATION_TOKEN unless you can identify a separate Apple feature that specifically requires it.
+
+Please inspect the existing authentication implementation and complete the following:
+
+1. Determine the exact production OAuth callback URL
+
+Do not assume the return URL is:
+
+https://presentail.com/sign-in
+
+Inspect the application’s authentication routes, OAuth provider configuration, API routes, Clerk/Auth.js/Supabase configuration, or other authentication framework being used.
+
+Identify the exact callback URL that Apple will redirect to after authentication.
+
+Examples could include:
+
+https://presentail.com/api/auth/callback/apple
+https://presentail.com/auth/apple/callback
+https://presentail.com/sso-callback
+
+These are examples only. Use the actual callback route implemented in this project.
+
+The callback URL registered in Apple Developer must exactly match the redirect_uri sent in the Apple authorization request.
+
+2. Confirm the correct Services ID
+
+Inspect the current environment variables and code and report the exact value expected for:
+
+VITE_APPLE_SERVICE_ID
+
+For web authentication, this must be the Apple Services ID identifier, which acts as the OAuth client ID.
+
+Do not confuse it with:
+
+- The iOS Bundle ID
+- The Apple Team ID
+- The Key ID
+- The App ID
+- The private key
+
+A possible Services ID might be:
+
+com.presentail.web
+
+But do not assume this value. Confirm it from the existing configuration or tell me exactly what identifier I should create.
+
+3. Give me the exact Apple Developer Console fields
+
+After inspecting the code, tell me exactly what I need to enter under:
+
+Apple Developer Console
+→ Certificates, Identifiers & Profiles
+→ Identifiers
+→ Services IDs
+→ [Presentail Services ID]
+→ Sign in with Apple
+→ Configure
+
+Provide the exact values for:
+
+Primary App ID:
+[exact App ID I should select]
+
+Domains and Subdomains:
+[exact production domain or domains]
+
+Return URLs:
+[exact callback URL or URLs]
+
+The domain should normally be entered without https:// and without a path.
+
+The Return URL must include:
+
+- https://
+- the full hostname
+- the exact callback path
+
+4. Remove obsolete domain-verification logic
+
+Search the entire codebase for:
+
+APPLE_DOMAIN_VERIFICATION_TOKEN
+apple-developer-domain-association
+.well-known/apple-developer-domain-association
+domain association
+domain verification token
+
+If this logic was added solely for Sign in with Apple, remove it.
+
+Do not remove anything related to Apple Pay domain verification if Apple Pay is also implemented. Clearly distinguish between Apple Pay verification and Sign in with Apple configuration.
+
+5. Verify the complete Apple credential requirements
+
+Confirm which of these values the current implementation actually requires:
+
+APPLE_SERVICE_ID
+VITE_APPLE_SERVICE_ID
+APPLE_CLIENT_ID
+APPLE_TEAM_ID
+APPLE_KEY_ID
+APPLE_PRIVATE_KEY
+APPLE_CLIENT_SECRET
+APPLE_REDIRECT_URI
+
+Do not create duplicate environment variables unnecessarily.
+
+Explain which variables are:
+
+- Safe to expose to the browser
+- Server-only secrets
+- Generated dynamically
+- Required only during deployment
+
+The Apple private key must never be exposed through a VITE_ environment variable or sent to the browser.
+
+6. Check whether the client secret is generated correctly
+
+Sign in with Apple uses a JWT-based client secret.
+
+Confirm whether the application:
+
+A. Generates the Apple client secret dynamically using:
+- Apple Team ID
+- Services ID
+- Key ID
+- .p8 private key
+
+or:
+
+B. Stores a previously generated client secret
+
+Dynamic generation is preferred because Apple client-secret JWTs expire and cannot have an expiration longer than Apple permits.
+
+If the project currently stores a static client secret, explain its expiration handling and whether it should be replaced with dynamic server-side generation.
+
+7. Validate the OAuth request
+
+Confirm that the Apple authorization request uses:
+
+client_id = the Services ID
+redirect_uri = the exact registered return URL
+response_type = code
+response_mode = form_post, if name or email scopes are requested
+scope = name email
+state = a securely generated and validated value
+nonce = securely generated and validated where applicable
+
+Ensure the callback route can accept Apple’s response method. Apple may send the authorization response using an HTTP POST when form_post is used.
+
+8. Validate the token exchange
+
+Confirm that the backend exchanges the authorization code using Apple’s token endpoint and supplies:
+
+client_id
+client_secret
+code
+grant_type=authorization_code
+redirect_uri
+
+The redirect_uri used during token exchange must be identical to the one used during authorization and registered in Apple Developer.
+
+9. Validate Apple ID tokens securely
+
+The backend must verify:
+
+- Signature using Apple’s public keys
+- iss equals https://appleid.apple.com
+- aud equals the Services ID
+- exp has not passed
+- nonce matches when used
+- state matches the original session
+
+Do not merely decode the ID token without verifying it.
+
+10. Handle Apple user information correctly
+
+Apple normally provides the user’s name only during the first successful authorization.
+
+Ensure the application stores the name immediately when Apple provides it.
+
+On subsequent sign-ins, the application must not require Apple to resend the name.
+
+Also handle users who select “Hide My Email” and receive an address ending in:
+
+@privaterelay.appleid.com
+
+11. Confirm account matching behavior
+
+Explain how the application handles these situations:
+
+- Existing Presentail customer signs in with Apple using the same email
+- Apple provides a private relay email
+- A customer previously used Google or email/password
+- Apple does not return a name on a later login
+- The same Apple user signs in from another device
+
+Do not automatically merge accounts based only on an unverified email address.
+
+12. Check production-domain handling
+
+Confirm whether the live website uses:
+
+presentail.com
+www.presentail.com
+or both
+
+Register every hostname actually used by the Apple authentication flow.
+
+Do not register Replit preview or development URLs as production callbacks unless explicitly needed.
+
+Apple does not allow localhost or IP-address redirect URIs for this web flow. Development should use a valid HTTPS hostname if testing Apple authentication outside production.
+
+13. Test the complete flow
+
+After configuration, test:
+
+- New Apple user
+- Returning Apple user
+- Hide My Email
+- Share My Email
+- User cancels authorization
+- Invalid or reused authorization code
+- State mismatch
+- Callback error response
+- Mobile Safari
+- Desktop Safari
+- Chrome
+- Production deployment
+
+14. Report back before requesting anything else
+
+Please respond with:
+
+A. Authentication framework currently being used  
+B. Exact Services ID expected  
+C. Exact production domain  
+D. Exact Apple return URL  
+E. Exact Primary App ID required  
+F. Environment variables currently present  
+G. Environment variables still missing  
+H. Whether obsolete domain-verification logic was removed  
+I. Any action I must perform manually in Apple Developer Console  
+
+Do not ask me to download a domain association file for Sign in with Apple. First inspect the implementation and provide the exact values I need to register.

@@ -186,8 +186,6 @@ jobs:
           # Synthetic tokens — long enough to pass validity checks without
           # exposing real secrets.
           STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION: "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-          APPLE_DOMAIN_VERIFICATION_TOKEN: "apple-domain-verification=00000000000000000000000000000000"
-
       - name: Wait for local server to be ready
         if: steps.preview.outputs.use_local == 'true'
         run: npx --yes wait-on http://localhost:19234/ --timeout 30000

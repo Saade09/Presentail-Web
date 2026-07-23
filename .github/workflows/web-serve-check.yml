@@ -127,8 +127,6 @@ jobs:
           # Synthetic token — long enough to pass the blob validity check in
           # check-apple-pay-domain.mjs without exposing any real secret.
           STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION: "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-          # Synthetic token for the Apple Sign In domain verification check.
-          APPLE_DOMAIN_VERIFICATION_TOKEN: "apple-domain-verification=00000000000000000000000000000000"
 
       - name: Wait for server to be ready
         run: npx --yes wait-on http://localhost:19234/ --timeout 30000
@@ -141,9 +139,6 @@ jobs:
 
       - name: Check Apple Pay domain association endpoint (serve logic)
         run: node artifacts/presentail-web/scripts/check-apple-pay-domain.mjs http://localhost:19234
-
-      - name: Check Apple Sign In domain verification endpoint (serve logic)
-        run: node artifacts/presentail-web/scripts/check-apple-sign-in-domain.mjs http://localhost:19234
 
       - name: Check sitemap structure (well-formed XML, ≥250 URLs, canonical origin, no duplicate locs)
         run: pnpm --filter @workspace/scripts run check-sitemap-structure http://localhost:19234
@@ -262,17 +257,3 @@ jobs:
       - name: Check Apple Pay domain association file on production
         run: node artifacts/presentail-web/scripts/check-apple-pay-domain.mjs https://presentail.com
 
-  apple-sign-in-domain-production:
-    name: Apple Sign In domain verification file (production)
-    runs-on: ubuntu-latest
-    # Run on pushes to main only — PRs cannot affect the production secret so
-    # checking production from a PR would only generate noise.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    timeout-minutes: 5
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Check Apple Sign In domain verification file on production
-        run: node artifacts/presentail-web/scripts/check-apple-sign-in-domain.mjs https://presentail.com
