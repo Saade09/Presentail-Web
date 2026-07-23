@@ -2,7 +2,7 @@
  * E2E: Loyalty points toggle in the checkout order summary panel
  *
  * The loyalty toggle is shown on step 2 (payment) when the authenticated user
- * has an active loyalty coupon.  Three scenarios are covered:
+ * has an active loyalty coupon.  Five scenarios are covered:
  *
  *  1. Happy path — toggle appears, user switches it on, the discount row
  *     updates in the order summary, and the coupon code is included in the
@@ -17,6 +17,14 @@
  *  3. Manual coupon already applied guard — when a *different* coupon is
  *     active, the loyalty toggle is rendered but disabled so the user cannot
  *     accidentally swap a higher-value coupon for the loyalty reward.
+ *
+ *  4. API error (500 / network failure) — when /api/loyalty/me returns a
+ *     server error, the loyalty toggle section is NOT rendered so shoppers
+ *     are never left with a broken UI element and checkout is not blocked.
+ *
+ *  5. Slow API response (3 s delay) — the toggle still appears and is
+ *     functional once the delayed response finally arrives, so a temporarily
+ *     slow backend does not permanently hide the loyalty feature.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -581,5 +589,100 @@ test.describe("Checkout — loyalty points toggle", () => {
       totalText,
       `Total should reflect the manual coupon discount ($${FULL_PRICE_USD - MANUAL_COUPON_DISCOUNT_USD})`,
     ).toMatch(/\$45\b/);
+  });
+
+  // ── 4. API error → loyalty toggle section is NOT rendered ─────────────────
+
+  test("loyalty toggle is NOT shown when /api/loyalty/me returns a 500 error", async ({
+    page,
+  }) => {
+    test.setTimeout(45_000);
+
+    // Seed cart + location + auth token (user is "logged in").
+    await page.addInitScript(
+      ({ cart, location, authKey, fakeToken }) => {
+        window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
+        window.localStorage.setItem("presentail_delivery_location_v1", JSON.stringify(location));
+        window.localStorage.setItem(authKey, fakeToken);
+        window.localStorage.removeItem("presentail_coupon_v1");
+        window.localStorage.removeItem("presentail_coupon_discount_v1");
+      },
+      { cart: [CART_ITEM], location: LOCATION, authKey: AUTH_TOKEN_KEY, fakeToken: "fake.loyalty.jwt" },
+    );
+
+    // Override the loyalty stub installed by beforeEach to return a 500.
+    // Playwright routes are matched LIFO so this takes precedence.
+    await page.route("**/api/loyalty/me", (route) =>
+      route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Internal Server Error" }) }),
+    );
+
+    await page.goto("/en-lb/beirut/checkout?guest=1");
+    await advanceToPaymentStep(page);
+
+    // Give the failed fetch time to settle (loyaltyLoading → false, loyaltyCoupon stays null).
+    // Both viewport variants of the toggle must be absent.
+    const sidebarToggle = page.getByTestId("toggle-loyalty-points-sidebar");
+    const mobileToggle  = page.getByTestId("toggle-loyalty-points");
+
+    // Wait long enough that a successful response would have appeared, then
+    // assert neither toggle is visible.
+    await expect(sidebarToggle).not.toBeVisible({ timeout: 8_000 });
+    await expect(mobileToggle).not.toBeVisible();
+
+    // Checkout must still be usable: the payment step UI should be present.
+    // Confirm the order-summary panel itself rendered (total row is visible).
+    await expect(getVisibleTotal(page)).toBeVisible({ timeout: 5_000 });
+  });
+
+  // ── 5. Slow API response (3 s) → toggle appears and is functional ─────────
+
+  test("loyalty toggle appears and works after a 3 s delay from /api/loyalty/me", async ({
+    page,
+  }) => {
+    // 3 s delay + full toggle-on flow needs extra headroom.
+    test.setTimeout(60_000);
+
+    await page.addInitScript(
+      ({ cart, location, authKey, fakeToken }) => {
+        window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
+        window.localStorage.setItem("presentail_delivery_location_v1", JSON.stringify(location));
+        window.localStorage.setItem(authKey, fakeToken);
+        window.localStorage.removeItem("presentail_coupon_v1");
+        window.localStorage.removeItem("presentail_coupon_discount_v1");
+      },
+      { cart: [CART_ITEM], location: LOCATION, authKey: AUTH_TOKEN_KEY, fakeToken: "fake.loyalty.jwt" },
+    );
+
+    // Override the loyalty stub installed by beforeEach with a 3 s delay.
+    await page.route("**/api/loyalty/me", async (route) => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 3_000));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(STUB_LOYALTY_ME),
+      });
+    });
+
+    await page.goto("/en-lb/beirut/checkout?guest=1");
+    await advanceToPaymentStep(page);
+
+    // The toggle must appear once the delayed response arrives.
+    // getLoyaltyToggle already uses a 15 s timeout — enough to cover the 3 s delay.
+    const loyaltyToggle = await getLoyaltyToggle(page);
+    await expect(loyaltyToggle).toBeVisible({ timeout: 15_000 });
+
+    // Toggle must start in the OFF state.
+    await expect(loyaltyToggle).toHaveAttribute("aria-checked", "false");
+
+    // Toggle ON — loyalty discount should apply as normal.
+    await loyaltyToggle.click();
+    await expect(loyaltyToggle).toHaveAttribute("aria-checked", "true", { timeout: 8_000 });
+
+    // Confirm the discount is reflected in the order total.
+    const totalEl = getVisibleTotal(page);
+    await expect(totalEl).toBeVisible({ timeout: 5_000 });
+    const totalText = await totalEl.textContent();
+    expect(totalText, "Order total should reflect loyalty discount ($55)").toMatch(/\$55\b/);
+    expect(totalText).not.toMatch(/\$65\b/);
   });
 });
