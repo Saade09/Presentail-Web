@@ -117,6 +117,37 @@ function stripeDeclineMsg(
   return null;
 }
 
+/**
+ * Races `promise` against a `ms`-millisecond deadline. If the deadline fires
+ * first, the returned promise rejects with an Error("timeout"). Use this to
+ * guard any promise that may never settle — e.g. Stripe's canMakePayment() on
+ * Chrome iOS, which can hang indefinitely when the Apple Pay service is slow.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (v) => { clearTimeout(id); resolve(v); },
+      (e) => { clearTimeout(id); reject(e); },
+    );
+  });
+}
+
+/**
+ * Like withTimeout, but resolves with `null` on deadline instead of rejecting.
+ * Use for canMakePayment() calls where a timeout should be treated identically
+ * to a `null` result (triggering the retry / give-up path, not the catch path).
+ */
+function withTimeoutAsNull<T>(promise: Promise<T | null>, ms: number): Promise<T | null> {
+  return new Promise<T | null>((resolve) => {
+    const id = setTimeout(() => resolve(null), ms);
+    promise.then(
+      (v) => { clearTimeout(id); resolve(v); },
+      () => { clearTimeout(id); resolve(null); },
+    );
+  });
+}
+
 // The country code of the Stripe merchant account used for Apple Pay / Google
 // Pay PaymentRequest construction. This must match the account's registered
 // country (e.g. "CY" for the Cyprus account), NOT the shopper's delivery
@@ -1445,7 +1476,10 @@ function CheckoutForm() {
       });
       return;
     }
-    pr.canMakePayment().then((_result) => {
+    // Cap the probe at 5 s — on Chrome iOS canMakePayment() can return a
+    // promise that never settles, which would leave walletCheckedRef stuck.
+    // A timeout here is safe because we don't act on the probe result anyway.
+    withTimeout(pr.canMakePayment(), 5000).then((_result) => {
       // Whether the probe returns a truthy result or null, we leave the wallet
       // tiles visible. The initial probe can return null transiently — e.g. on
       // Mac, Safari Keychain or Chrome's Google Pay service may not have
@@ -1462,7 +1496,8 @@ function CheckoutForm() {
       // currency and pre-validates it via canMakePayment() so handleSubmit
       // can call show() synchronously inside the click gesture.
     }).catch(() => {
-      // Ignore errors (e.g. Stripe not fully initialised yet).
+      // Ignore errors and timeouts (e.g. Stripe not fully initialised yet, or
+      // Chrome iOS canMakePayment() timing out after 5 s).
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stripe]);
@@ -1570,7 +1605,11 @@ function CheckoutForm() {
     const handle = setTimeout(async () => {
       try {
         const orderId = await ensureOrderId();
-        const res = await createPaymentIntent.mutateAsync({
+        // Race the PI creation against a 15 s deadline. On a slow mobile
+        // connection the fetch can hang indefinitely; timing out here falls
+        // into the catch block below which sets walletPrepareFailed(true) and
+        // shows the error toast — same UX as any other network failure.
+        const res = await withTimeout(createPaymentIntent.mutateAsync({
           data: {
             items: mappedItems,
             orderId,
@@ -1585,7 +1624,7 @@ function CheckoutForm() {
             ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
             ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
           } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
-        });
+        }), 15000);
         if (cancelled) return;
         if (res.ok && res.clientSecret && typeof res.amount === "number" && res.currency) {
           walletIntentRef.current = {
@@ -1651,7 +1690,12 @@ function CheckoutForm() {
           // handleSubmit to show the "wallet unavailable" error if tapped.
           // A PR's currency is immutable so each retry creates a fresh instance.
           function tryCanMakePayment(pr: import("@stripe/stripe-js").PaymentRequest): void {
-            pr.canMakePayment().then((result) => {
+            // withTimeoutAsNull resolves with null both on a 5 s deadline AND
+            // on any canMakePayment() rejection — so a timeout or error on
+            // Chrome iOS feeds the same null → retry / give-up branch as a
+            // normal null result, rather than short-circuiting to the catch
+            // path and skipping the remaining retry budget.
+            withTimeoutAsNull(pr.canMakePayment(), 5000).then((result) => {
               if (cancelled) return;
               if (result) {
                 paymentRequestRef.current = pr;
@@ -1683,12 +1727,8 @@ function CheckoutForm() {
                 paymentRequestRef.current = null;
                 setWalletReadySig(sig);
               }
-            }).catch(() => {
-              if (!cancelled) {
-                paymentRequestRef.current = null;
-                setWalletReadySig(sig);
-              }
             });
+            // No .catch() — withTimeoutAsNull always resolves (never rejects).
           }
 
           try {
@@ -1717,6 +1757,12 @@ function CheckoutForm() {
         // input change (email, slot, coupon, etc.) clears this flag and
         // re-arms the preparation effect automatically.
         setWalletPrepareFailed(true);
+        // Reset the mutation so its isPending flag clears immediately. Without
+        // this, a network hang that is cut short by withTimeout still keeps
+        // createPaymentIntent.isPending = true, which leaves isProcessing true
+        // and the submit button disabled even after walletPrepareFailed stops
+        // the wallet spinner.
+        createPaymentIntent.reset();
         toast({
           title: t("checkout.toast.walletPrepareFailTitle"),
           description: t(paymentMethod === "google_pay" ? "checkout.toast.walletPrepareFailDescGoogle" : "checkout.toast.walletPrepareFailDesc"),
