@@ -63,6 +63,8 @@ vi.mock("react-phone-number-input", () => ({
     />
   ),
   isValidPhoneNumber: vi.fn(() => true),
+  // getCountries is used by WebPhoneField to build the country selector.
+  getCountries: vi.fn(() => ["LB", "AE", "CY", "US", "GB"]),
 }));
 
 // ---------------------------------------------------------------------------
@@ -186,6 +188,33 @@ describe("SignUp — phone step", () => {
     await waitFor(() => {
       expect(mockSetLocation).toHaveBeenCalledWith("/account");
     });
+  });
+
+  it("successful registration redirects to redirect_url when ?redirect_url is in the query string", async () => {
+    // Simulate arriving at /sign-up?email_address=...&redirect_url=/checkout
+    // (the checkout shopper flow: CheckoutLoginDialog → SignIn → goToSignUp → SignUp)
+    Object.defineProperty(window, "location", {
+      value: { search: "?email_address=test%40example.com&redirect_url=%2Fcheckout", href: "" },
+      writable: true,
+    });
+
+    stubFetch({
+      ok: true,
+      token: "tok123",
+      user: { id: 1, email: "test@example.com", firstName: "Ada", lastName: "Lovelace" },
+    });
+    const user = await advanceToPhoneStep();
+
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(mockSetLocation).toHaveBeenCalledWith("/checkout");
+    });
+
+    // Must NOT land on /account when redirect_url is set.
+    const calls = mockSetLocation.mock.calls.map((c) => c[0] as string);
+    expect(calls).not.toContain("/account");
   });
 
   it("going back from the phone step returns to the name-password step", async () => {
