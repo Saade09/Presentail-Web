@@ -228,7 +228,7 @@ describe("POST /auth/oauth/apple — 503 guard when APPLE_SERVICE_IDS is not con
 
 describe("POST /auth/oauth/apple — request validation", () => {
   beforeEach(() => {
-    process.env.APPLE_SERVICE_IDS = "com.new.presentail";
+    process.env.APPLE_SERVICE_IDS = "com.presentail.web1";
   });
 
   it("returns 400 when idToken is missing", async () => {
@@ -269,7 +269,7 @@ describe("POST /auth/oauth/apple — request validation", () => {
 
 describe("POST /auth/oauth/apple — first-time sign-in with user object (web shape)", () => {
   beforeEach(() => {
-    process.env.APPLE_SERVICE_IDS = "com.new.presentail";
+    process.env.APPLE_SERVICE_IDS = "com.presentail.web1";
   });
 
   it("extracts firstName and lastName from user.name on the initial sign-in", async () => {
@@ -340,7 +340,7 @@ describe("POST /auth/oauth/apple — first-time sign-in with user object (web sh
 
 describe("POST /auth/oauth/apple — returning sign-in with no user object", () => {
   beforeEach(() => {
-    process.env.APPLE_SERVICE_IDS = "com.new.presentail";
+    process.env.APPLE_SERVICE_IDS = "com.presentail.web1";
   });
 
   it("succeeds and passes empty name strings when user object is absent", async () => {
@@ -392,7 +392,7 @@ describe("POST /auth/oauth/apple — returning sign-in with no user object", () 
   });
 
   it("uses APPLE_SERVICE_IDS as the jwtVerify audience", async () => {
-    process.env.APPLE_SERVICE_IDS = "com.new.presentail";
+    process.env.APPLE_SERVICE_IDS = "com.presentail.web1";
 
     const app = buildApp();
     await request(app)
@@ -401,7 +401,7 @@ describe("POST /auth/oauth/apple — returning sign-in with no user object", () 
 
     expect(mocks.jwtVerify).toHaveBeenCalledOnce();
     const [_token, _jwks, options] = mocks.jwtVerify.mock.calls[0];
-    expect(options.audience).toContain("com.new.presentail");
+    expect(options.audience).toContain("com.presentail.web1");
     expect(options.issuer).toBe("https://appleid.apple.com");
   });
 });
