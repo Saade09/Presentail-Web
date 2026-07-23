@@ -21,6 +21,14 @@
  *      relative path. This check is independent of the canonical-origin
  *      comparison so a misconfigured SITEMAP_CANONICAL_ORIGIN env var (e.g.
  *      http://presentail.com without TLS) is still caught.
+ *   8. (opt-in) Each <sitemap><loc> sub-sitemap URL is fetched and verified
+ *      to return HTTP 200. Enabled when SITEMAP_INDEX_FOLLOW=1; skipped by
+ *      default (or when SITEMAP_INDEX_FOLLOW=0) to keep CI fast for large
+ *      indexes. When the sitemap index uses canonical origin URLs (e.g.
+ *      https://presentail.com/sitemap-…xml) but the check is running against
+ *      a local server, set SITEMAP_INDEX_FOLLOW_BASE_URL to the local server
+ *      base URL (e.g. http://localhost:19234) so each canonical URL's path is
+ *      rewritten to target the local server instead.
  *
  * Sitemap index format support
  * ────────────────────────────
@@ -48,12 +56,22 @@
  *
  * Environment variables
  * ─────────────────────
- *   SITEMAP_CANONICAL_ORIGIN  Expected URL prefix for every <loc> value.
- *                             Default: https://presentail.com
- *   SITEMAP_MIN_URL_COUNT     Minimum number of <url> entries required.
- *                             Default: 250 (static city×path pages alone
- *                             produce 260+ even with an empty catalog).
- *                             Not applied to sitemap index <sitemap> entries.
+ *   SITEMAP_CANONICAL_ORIGIN       Expected URL prefix for every <loc> value.
+ *                                  Default: https://presentail.com
+ *   SITEMAP_MIN_URL_COUNT          Minimum number of <url> entries required.
+ *                                  Default: 250 (static city×path pages alone
+ *                                  produce 260+ even with an empty catalog).
+ *                                  Not applied to sitemap index <sitemap> entries.
+ *   SITEMAP_INDEX_FOLLOW           Set to "1" to enable the sub-sitemap
+ *                                  reachability check. Unset or "0" to skip
+ *                                  (default: skipped).
+ *   SITEMAP_INDEX_FOLLOW_BASE_URL  When set, the path of each sub-sitemap
+ *                                  <loc> URL is appended to this base URL
+ *                                  instead of fetching the canonical URL
+ *                                  directly. Useful when running the check
+ *                                  against a local server whose sub-sitemap
+ *                                  <loc> values use the production origin.
+ *                                  Example: http://localhost:19234
  */
 
 import process from "node:process";
@@ -72,12 +90,27 @@ export const MIN_URL_COUNT = (() => {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_MIN_URL_COUNT;
 })();
 
+export const FOLLOW_SITEMAP_INDEX =
+  process.env["SITEMAP_INDEX_FOLLOW"] === "1";
+
+export const FOLLOW_SITEMAP_INDEX_BASE_URL: string | undefined =
+  process.env["SITEMAP_INDEX_FOLLOW_BASE_URL"] || undefined;
+
+export interface SitemapIndexLocResult {
+  url: string;
+  /** HTTP status code, or null when the request threw a network error. */
+  status: number | null;
+  error?: string;
+}
+
 export interface SitemapCheckResult {
   errors: string[];
   /** Number of <url><loc> entries (standard sitemap entries). */
   urlCount: number;
   /** Number of <sitemap><loc> entries (sitemap index entries). */
   sitemapIndexLocCount: number;
+  /** The raw <sitemap><loc> URL strings extracted from a sitemap index. */
+  sitemapIndexLocs: string[];
   duplicateLocs: string[];
   wrongOriginLocs: string[];
   nonHttpsLocs: string[];
@@ -317,10 +350,65 @@ export function checkSitemapContent(
     errors,
     urlCount,
     sitemapIndexLocCount,
+    sitemapIndexLocs,
     duplicateLocs,
     wrongOriginLocs,
     nonHttpsLocs,
   };
+}
+
+/**
+ * Fetch each sub-sitemap URL from a sitemap index and verify that it returns
+ * HTTP 200.  Returns one result entry per URL — successful entries have
+ * `status: 200`; failures carry the actual status code or `status: null` when
+ * a network error prevented the request from completing.
+ *
+ * When `followBaseUrl` is provided, each canonical sub-sitemap URL's path is
+ * rewritten to target that base URL instead.  This lets the check run against
+ * a local dev server even when the sitemap index contains production-origin
+ * URLs (e.g. https://presentail.com/sitemap-products.xml →
+ * http://localhost:19234/sitemap-products.xml).
+ *
+ * The function is exported so it can be unit-tested with a mocked fetch.
+ */
+export async function checkSitemapIndexReachability(
+  locs: string[],
+  followBaseUrl?: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<SitemapIndexLocResult[]> {
+  const results: SitemapIndexLocResult[] = [];
+
+  for (const loc of locs) {
+    let targetUrl = loc;
+
+    if (followBaseUrl) {
+      try {
+        const parsed = new URL(loc);
+        const base = followBaseUrl.replace(/\/$/, "");
+        targetUrl = `${base}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      } catch {
+        results.push({
+          url: loc,
+          status: null,
+          error: `Could not parse URL: ${loc}`,
+        });
+        continue;
+      }
+    }
+
+    try {
+      const res = await fetchFn(targetUrl, { method: "GET" });
+      results.push({ url: loc, status: res.status });
+    } catch (err) {
+      results.push({
+        url: loc,
+        status: null,
+        error: String(err),
+      });
+    }
+  }
+
+  return results;
 }
 
 // ---------------------------------------------------------------------------
@@ -371,7 +459,8 @@ async function run(): Promise<void> {
     );
   }
 
-  const { errors, urlCount, sitemapIndexLocCount } = checkSitemapContent(xml);
+  const { errors, urlCount, sitemapIndexLocCount, sitemapIndexLocs } =
+    checkSitemapContent(xml);
   allErrors.push(...errors);
 
   if (allErrors.length > 0) {
@@ -394,6 +483,55 @@ async function run(): Promise<void> {
     `✓ Sitemap structure check passed — ${locSummary}, ` +
       `all <loc> values use the canonical origin "${CANONICAL_ORIGIN}", ` +
       `no duplicates, well-formed XML\n`,
+  );
+
+  // --- Sub-sitemap reachability check (opt-in) ------------------------------
+  // Enabled when SITEMAP_INDEX_FOLLOW=1. Skipped by default so CI remains fast
+  // for large indexes that contain many sub-sitemaps.
+
+  if (!FOLLOW_SITEMAP_INDEX) {
+    if (sitemapIndexLocCount > 0) {
+      process.stdout.write(
+        `ℹ  ${sitemapIndexLocCount} sub-sitemap URL${sitemapIndexLocCount === 1 ? "" : "s"} not fetched — set SITEMAP_INDEX_FOLLOW=1 to verify reachability\n`,
+      );
+    }
+    return;
+  }
+
+  if (sitemapIndexLocs.length === 0) {
+    process.stdout.write(
+      "ℹ  No sub-sitemap <loc> entries found — sub-sitemap reachability check skipped\n",
+    );
+    return;
+  }
+
+  const followBaseUrl = FOLLOW_SITEMAP_INDEX_BASE_URL ?? baseUrl;
+  process.stdout.write(
+    `  Checking reachability of ${sitemapIndexLocs.length} sub-sitemap URL${sitemapIndexLocs.length === 1 ? "" : "s"} via ${followBaseUrl} …\n`,
+  );
+
+  const reachabilityResults = await checkSitemapIndexReachability(
+    sitemapIndexLocs,
+    followBaseUrl,
+  );
+
+  const failures = reachabilityResults.filter((r) => r.status !== 200);
+
+  if (failures.length > 0) {
+    process.stderr.write(
+      `\n✗ ${failures.length} sub-sitemap URL${failures.length === 1 ? "" : "s"} returned a non-200 response:\n\n`,
+    );
+    for (const f of failures) {
+      const detail =
+        f.status !== null ? `HTTP ${f.status}` : `network error: ${f.error}`;
+      process.stderr.write(`  • ${f.url}  →  ${detail}\n`);
+    }
+    process.stderr.write("\n");
+    process.exit(1);
+  }
+
+  process.stdout.write(
+    `✓ All ${sitemapIndexLocs.length} sub-sitemap URL${sitemapIndexLocs.length === 1 ? "" : "s"} returned HTTP 200\n`,
   );
 }
 

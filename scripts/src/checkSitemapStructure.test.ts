@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { checkSitemapContent } from "./checkSitemapStructure.js";
+import {
+  checkSitemapContent,
+  checkSitemapIndexReachability,
+} from "./checkSitemapStructure.js";
 
 const CANONICAL_ORIGIN = "https://presentail.com";
 const MIN_URL_COUNT = 250;
@@ -565,5 +568,190 @@ describe("checkSitemapContent — combined error scenarios", () => {
     const xml = buildValidSitemap(300);
     const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
     expect(errors).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sitemapIndexLocs — returned array of raw sub-sitemap URLs
+// ---------------------------------------------------------------------------
+
+describe("checkSitemapContent — sitemapIndexLocs field", () => {
+  it("returns an empty array for a standard sitemap with no <sitemap> entries", () => {
+    const xml = buildValidSitemap(MIN_URL_COUNT);
+    const { sitemapIndexLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(sitemapIndexLocs).toEqual([]);
+  });
+
+  it("returns the correct URLs for a valid sitemap index", () => {
+    const xml = buildValidSitemapIndex(3);
+    const { sitemapIndexLocs } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(sitemapIndexLocs).toHaveLength(3);
+    expect(sitemapIndexLocs[0]).toBe(`${CANONICAL_ORIGIN}/sitemap-0.xml`);
+    expect(sitemapIndexLocs[1]).toBe(`${CANONICAL_ORIGIN}/sitemap-1.xml`);
+    expect(sitemapIndexLocs[2]).toBe(`${CANONICAL_ORIGIN}/sitemap-2.xml`);
+  });
+
+  it("returns sub-sitemap URLs even when they fail other checks (e.g. http:// scheme)", () => {
+    const httpLoc = "http://presentail.com/sitemap-products.xml";
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      `  <sitemap><loc>https://presentail.com/sitemap-ok.xml</loc></sitemap>\n` +
+      `  <sitemap><loc>${httpLoc}</loc></sitemap>\n` +
+      `</sitemapindex>`;
+    const { sitemapIndexLocs, errors } = checkSitemapContent(
+      xml,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(sitemapIndexLocs).toContain(httpLoc);
+    expect(sitemapIndexLocs).toHaveLength(2);
+    expect(errors.some((e) => e.includes("https://"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkSitemapIndexReachability — sub-sitemap URL fetch check
+// ---------------------------------------------------------------------------
+
+type FetchFn = typeof fetch;
+
+/** Build a minimal mock fetch that returns the given per-URL status codes. */
+function makeMockFetch(responses: Record<string, number | "error">): FetchFn {
+  return async (input: string | URL | Request) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const statusOrError = responses[url];
+    if (statusOrError === undefined) {
+      throw new Error(`Unexpected URL in mock fetch: ${url}`);
+    }
+    if (statusOrError === "error") {
+      throw new TypeError(`Network error for ${url}`);
+    }
+    return new Response(null, { status: statusOrError }) as Response;
+  };
+}
+
+describe("checkSitemapIndexReachability", () => {
+  it("returns an empty array when passed no locs", async () => {
+    const results = await checkSitemapIndexReachability([], undefined, makeMockFetch({}));
+    expect(results).toEqual([]);
+  });
+
+  it("reports status 200 for a URL that returns 200", async () => {
+    const url = "https://presentail.com/sitemap-products.xml";
+    const mockFetch = makeMockFetch({ [url]: 200 });
+    const results = await checkSitemapIndexReachability([url], undefined, mockFetch);
+    expect(results).toHaveLength(1);
+    expect(results[0]!.url).toBe(url);
+    expect(results[0]!.status).toBe(200);
+    expect(results[0]!.error).toBeUndefined();
+  });
+
+  it("reports the actual HTTP status for a URL that returns 404", async () => {
+    const url = "https://presentail.com/sitemap-gone.xml";
+    const mockFetch = makeMockFetch({ [url]: 404 });
+    const results = await checkSitemapIndexReachability([url], undefined, mockFetch);
+    expect(results[0]!.status).toBe(404);
+  });
+
+  it("reports status null and an error string for a network error", async () => {
+    const url = "https://presentail.com/sitemap-network-error.xml";
+    const mockFetch = makeMockFetch({ [url]: "error" });
+    const results = await checkSitemapIndexReachability([url], undefined, mockFetch);
+    expect(results[0]!.status).toBeNull();
+    expect(typeof results[0]!.error).toBe("string");
+    expect(results[0]!.error!.length).toBeGreaterThan(0);
+  });
+
+  it("handles multiple URLs and returns one result per URL", async () => {
+    const urls = [
+      "https://presentail.com/sitemap-a.xml",
+      "https://presentail.com/sitemap-b.xml",
+      "https://presentail.com/sitemap-c.xml",
+    ];
+    const mockFetch = makeMockFetch({
+      [urls[0]!]: 200,
+      [urls[1]!]: 404,
+      [urls[2]!]: 500,
+    });
+    const results = await checkSitemapIndexReachability(urls, undefined, mockFetch);
+    expect(results).toHaveLength(3);
+    expect(results[0]!.status).toBe(200);
+    expect(results[1]!.status).toBe(404);
+    expect(results[2]!.status).toBe(500);
+  });
+
+  it("preserves the canonical URL in the result even when rewriting to a local base URL", async () => {
+    const canonicalUrl = "https://presentail.com/sitemap-products.xml";
+    const localUrl = "http://localhost:19234/sitemap-products.xml";
+    const mockFetch = makeMockFetch({ [localUrl]: 200 });
+    const results = await checkSitemapIndexReachability(
+      [canonicalUrl],
+      "http://localhost:19234",
+      mockFetch,
+    );
+    expect(results[0]!.url).toBe(canonicalUrl);
+    expect(results[0]!.status).toBe(200);
+  });
+
+  it("rewrites the canonical URL path onto the follow base URL correctly", async () => {
+    const canonicalUrl = "https://presentail.com/sitemap-categories.xml";
+    const localBase = "http://localhost:19234";
+    const expectedFetchUrl = "http://localhost:19234/sitemap-categories.xml";
+    const mockFetch = makeMockFetch({ [expectedFetchUrl]: 200 });
+    const results = await checkSitemapIndexReachability(
+      [canonicalUrl],
+      localBase,
+      mockFetch,
+    );
+    expect(results[0]!.status).toBe(200);
+  });
+
+  it("strips a trailing slash from the follow base URL before rewriting", async () => {
+    const canonicalUrl = "https://presentail.com/sitemap-brands.xml";
+    const localBase = "http://localhost:19234/";
+    const expectedFetchUrl = "http://localhost:19234/sitemap-brands.xml";
+    const mockFetch = makeMockFetch({ [expectedFetchUrl]: 200 });
+    const results = await checkSitemapIndexReachability(
+      [canonicalUrl],
+      localBase,
+      mockFetch,
+    );
+    expect(results[0]!.status).toBe(200);
+  });
+
+  it("reports status null when the loc URL cannot be parsed", async () => {
+    const badUrl = "not-a-valid-url";
+    const mockFetch = makeMockFetch({});
+    const results = await checkSitemapIndexReachability(
+      [badUrl],
+      "http://localhost:19234",
+      mockFetch,
+    );
+    expect(results[0]!.status).toBeNull();
+    expect(results[0]!.error).toMatch(/Could not parse URL/);
+  });
+
+  it("continues checking remaining URLs after a failure", async () => {
+    const urls = [
+      "https://presentail.com/sitemap-ok.xml",
+      "https://presentail.com/sitemap-missing.xml",
+    ];
+    const mockFetch = makeMockFetch({
+      [urls[0]!]: 200,
+      [urls[1]!]: 404,
+    });
+    const results = await checkSitemapIndexReachability(urls, undefined, mockFetch);
+    expect(results).toHaveLength(2);
+    expect(results[0]!.status).toBe(200);
+    expect(results[1]!.status).toBe(404);
   });
 });
