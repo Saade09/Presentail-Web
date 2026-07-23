@@ -50,6 +50,7 @@ Disallow: /*?filter_
 # Faceted-navigation / filter parameters — never produce a distinct landing page
 Disallow: /*?sort=
 Disallow: /*?currency=
+Disallow: /*?wmc-currency=
 Disallow: /*?delivery=
 Disallow: /*?availability=
 Disallow: /*?price_min=
