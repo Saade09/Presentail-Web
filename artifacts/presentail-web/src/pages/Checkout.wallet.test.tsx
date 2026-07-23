@@ -87,6 +87,7 @@ const mockCreateOrderMutateSync = vi.fn();
 vi.mock("@workspace/api-client-react", () => ({
   useCreateCheckoutPaymentIntent: () => ({
     mutateAsync: mockCreatePaymentIntentMutate,
+    reset: vi.fn(),
     isPending: false,
   }),
 }));
@@ -101,6 +102,9 @@ vi.mock("@/lib/queries", () => ({
   useMamoPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePaypalPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceCaptureContext: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceAvailable: () => ({ data: { available: false }, isLoading: false }),
   useDeliveryLocations: () => ({
     data: { countries: [], cities: [] },
     isLoading: false,

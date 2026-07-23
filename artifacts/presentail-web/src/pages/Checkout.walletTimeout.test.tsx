@@ -1,16 +1,32 @@
 // @vitest-environment jsdom
 //
-// Wallet PaymentIntent pre-creation failure tests for Apple Pay / Google Pay.
+// Timeout guard tests for the Apple Pay / Google Pay wallet pre-creation flow.
 //
-// The wallet PI effect in Checkout.tsx pre-creates a Stripe PaymentIntent
-// (debounced 400 ms) so the native sheet always shows the server's exact total.
-// When `createPaymentIntent.mutateAsync` throws, the component must:
-//   1. Fire a destructive toast with the correct title/description.
-//   2. Set walletPrepareFailed=true so walletPreparing becomes false — i.e. the
-//      submit button stops spinning/disabled and the shopper isn't stuck.
-//   3. Re-arm automatically when the shopper makes any input change (here: taps
-//      the wallet tile again, which bumps walletRetryNonce via the same onClick
-//      guard that already fires when walletPrepareFailed=true).
+// The wallet PI pre-creation effect in Checkout.tsx wraps two operations with
+// deadline guards to prevent the UI from hanging indefinitely on Chrome iOS:
+//
+//   1. tryCanMakePayment() uses withTimeoutAsNull(pr.canMakePayment(), 5_000):
+//      a never-settling canMakePayment() promise resolves as null after 5 s,
+//      feeding the same retry path as a real null result.
+//
+//   2. The PaymentIntent fetch uses withTimeout(createPaymentIntent.mutateAsync(…), 15_000):
+//      a never-settling mutation rejects with Error("timeout") after 15 s,
+//      falling into the catch block.
+//
+// These tests verify:
+//   a. The component passes the CORRECT deadline to each helper (5_000 for
+//      canMakePayment, 15_000 for PI creation) by asserting on the mocked
+//      helpers' call arguments.
+//   b. When withTimeoutAsNull resolves null (deadline fired) the component
+//      follows the normal null-retry path — the submit button eventually becomes
+//      enabled without firing a failure toast.
+//   c. When withTimeout rejects (deadline fired) the catch block runs —
+//      walletPrepareFailed is set, the destructive toast fires, and the spinner
+//      clears so the submit button is no longer disabled.
+//
+// The withTimeout / withTimeoutAsNull helpers are mocked at the module level.
+// Their deadline mechanics are exercised independently in withTimeout.test.ts,
+// so no fake timers are needed here — tests run at real speed.
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -19,8 +35,23 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
 
 // ---------------------------------------------------------------------------
+// withTimeout / withTimeoutAsNull module mock — must be declared before the
+// Checkout import so the module is intercepted when Checkout.tsx is resolved.
+// ---------------------------------------------------------------------------
+
+const mockWithTimeout = vi.fn();
+const mockWithTimeoutAsNull = vi.fn();
+
+vi.mock("@/lib/withTimeout", () => ({
+  withTimeout: (promise: Promise<unknown>, ms: number) =>
+    mockWithTimeout(promise, ms),
+  withTimeoutAsNull: (promise: Promise<unknown> | null, ms: number) =>
+    mockWithTimeoutAsNull(promise, ms),
+}));
+
+// ---------------------------------------------------------------------------
 // Stripe JS mocks — hoisted so Checkout.tsx module-level loadStripe() and
-// Elements/useStripe hooks are intercepted. Mirrors walletStale.test.tsx.
+// Elements/useStripe hooks are intercepted. Mirrors walletPiFail.test.tsx.
 // ---------------------------------------------------------------------------
 
 const mockConfirmCardPayment = vi.fn();
@@ -63,6 +94,7 @@ vi.mock("./checkoutPayMethods", async (importOriginal) => {
     isApplePayBrowser: () => mockIsApplePayBrowser(),
   };
 });
+
 const mockCardElement = {};
 
 vi.mock("@stripe/stripe-js", () => ({
@@ -85,13 +117,14 @@ vi.mock("@stripe/react-stripe-js", () => ({
 // ---------------------------------------------------------------------------
 
 const mockCreatePaymentIntentMutate = vi.fn();
+const mockCreatePaymentIntentReset = vi.fn();
 const mockCreateOrderMutateAsync = vi.fn();
 const mockCreateOrderMutateSync = vi.fn();
 
 vi.mock("@workspace/api-client-react", () => ({
   useCreateCheckoutPaymentIntent: () => ({
     mutateAsync: mockCreatePaymentIntentMutate,
-    reset: vi.fn(),
+    reset: mockCreatePaymentIntentReset,
     isPending: false,
   }),
 }));
@@ -109,7 +142,9 @@ vi.mock("@/lib/queries", () => ({
   useCybersourceCaptureContext: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
   // available: false → csAvailable is false → card tile shown → StripeCheckoutSection
-  // mounts → onStripeReady sets stripe → probe fires → canMakePayment called.
+  // renders → onStripeReady sets stripe → probe fires → canMakePayment called.
+  // available: undefined would be interpreted as "optimistically true" and hide the
+  // card tile for LB+USD, preventing StripeCheckoutSection from ever mounting.
   useCybersourceAvailable: () => ({ data: { available: false }, isLoading: false }),
   useDeliveryLocations: () => ({
     data: { countries: [], cities: [] },
@@ -194,7 +229,7 @@ vi.mock("react-phone-number-input", async (importOriginal) => {
 });
 
 vi.mock("@/lib/api", () => ({
-  apiFetch: vi.fn().mockResolvedValue({ ok: true, orderId: "LB-WALLET-1", addresses: [] }),
+  apiFetch: vi.fn().mockResolvedValue({ ok: true, orderId: "LB-TIMEOUT-1", addresses: [] }),
 }));
 
 vi.mock("@/components/product/useDeliveryConfig", () => ({
@@ -210,7 +245,7 @@ vi.mock("@/components/product/useDeliveryConfig", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Component stubs
+// Component stubs — mirrors walletPiFail.test.tsx
 // ---------------------------------------------------------------------------
 
 vi.mock("@/components/StripeCheckoutSection", () => ({
@@ -375,6 +410,14 @@ const SIGNED_IN_USER: ShimUser = {
   phone: "+12125551234",
 };
 
+const PAYMENT_INTENT_RES = {
+  ok: true,
+  clientSecret: "pi_test_secret_timeout",
+  orderId: "web-order-timeout",
+  amount: 5000,
+  currency: "USD",
+};
+
 function renderCheckout() {
   return renderWithProviders(<Checkout />, {
     auth: {
@@ -396,9 +439,9 @@ function renderCheckout() {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: drive to the payment step with Apple Pay selected and wait for the
-// wallet PI effect to fire (debounced 400 ms). Returns after the first
-// mutateAsync call attempt has settled (resolved or rejected).
+// Helper: drive to payment step with Google Pay selected and wait for the
+// wallet PI pre-creation effect to run (debounced 400 ms). Returns after
+// createPaymentIntentMutate has been called once.
 // ---------------------------------------------------------------------------
 
 async function driveToWalletPaymentStep(user: ReturnType<typeof userEvent.setup>) {
@@ -412,12 +455,14 @@ async function driveToWalletPaymentStep(user: ReturnType<typeof userEvent.setup>
 
   expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
 
-  // In jsdom (non-Apple platform) isApplePlatform() returns false, so
-  // apple_pay is platform-hidden and google_pay is the visible wallet tile.
+  // google_pay is visible in jsdom (non-Apple platform, apple_pay is hidden).
   await user.click(await screen.findByTestId("option-payment-google_pay"));
+
+  // The probe canMakePayment() fires on wallet init (withTimeout-wrapped,
+  // now mocked at module level).
   await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
 
-  // Wait for the debounced PI pre-creation to run.
+  // Wait for the debounced PI pre-creation to fire.
   await waitFor(
     () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
     { timeout: 3000 },
@@ -428,7 +473,7 @@ async function driveToWalletPaymentStep(user: ReturnType<typeof userEvent.setup>
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Checkout wallet PaymentIntent pre-creation failure", () => {
+describe("Checkout wallet timeout guards", () => {
   let user: ReturnType<typeof userEvent.setup>;
 
   beforeEach(() => {
@@ -442,6 +487,18 @@ describe("Checkout wallet PaymentIntent pre-creation failure", () => {
       delete mockPrEventHandlers[key];
     }
     mockUseSearch.mockReturnValue("");
+
+    // Default withTimeout behaviour: pass the promise through (no artificial
+    // timeout). Individual tests override this for the path under test.
+    // The probe call uses ms=5_000; the PI creation call uses ms=15_000.
+    mockWithTimeout.mockImplementation(
+      (promise: Promise<unknown>, _ms: number) => promise,
+    );
+    // Default withTimeoutAsNull behaviour: pass the promise through.
+    mockWithTimeoutAsNull.mockImplementation(
+      (promise: Promise<unknown | null>, _ms: number) => promise,
+    );
+
     user = userEvent.setup();
   });
 
@@ -450,157 +507,119 @@ describe("Checkout wallet PaymentIntent pre-creation failure", () => {
     mockUseIsMobile.mockReturnValue(false);
   });
 
-  // ── 1. Toast is fired with the correct title/description ─────────────────
+  // ── Test 1: canMakePayment() timed out (withTimeoutAsNull resolves null)
+  //
+  // When withTimeoutAsNull wraps a never-settling canMakePayment(), the 5 s
+  // deadline resolves it as null. The component must pass 5_000 ms to
+  // withTimeoutAsNull and handle the null result via the normal retry path:
+  // retry up to 3 times, then set walletReadySig so the button is enabled.
+  //
+  // We simulate the deadline firing by making withTimeoutAsNull resolve null
+  // immediately. The retry path (1 s delays + up to 3 attempts) is tested in
+  // full in Checkout.wallet.test.tsx; here we verify the correct deadline is
+  // passed and that walletPrepareFailed is NOT set (timeout → null ≠ hard fail).
 
-  it("fires a destructive toast with the Google Pay description when PI creation throws for google_pay", async () => {
-    mockCreatePaymentIntentMutate.mockRejectedValue(new Error("network error"));
+  it("canMakePayment() timeout: withTimeoutAsNull is called with the 5 s deadline and the button eventually becomes enabled without a failure toast", async () => {
+    // Simulate: withTimeoutAsNull fires the 5 s deadline → resolves null.
+    // All calls (probe + pre-creation attempts) resolve null immediately.
+    mockWithTimeoutAsNull.mockResolvedValue(null);
 
-    await driveToWalletPaymentStep(user);
+    // PI creation resolves successfully so the retry loop can run.
+    mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
 
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "checkout.toast.walletPrepareFailTitle",
-          description: "checkout.toast.walletPrepareFailDescGoogle",
-          variant: "destructive",
-        }),
-      );
-    });
-  });
-
-  it("fires a destructive toast with the Apple Pay description when PI creation throws for apple_pay", async () => {
-    mockIsApplePayBrowser.mockReturnValue(true);
-    mockCreatePaymentIntentMutate.mockRejectedValue(new Error("network error"));
-
-    renderCheckout();
-
-    const noAddressSwitch = await screen.findByTestId("check-no-address");
-    await user.click(noAddressSwitch);
-    await user.type(screen.getByTestId("input-recipient-first-name"), "John");
-    await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
-    await user.click(screen.getByTestId("button-continue-to-payment"));
-
-    expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
-
-    await user.click(await screen.findByTestId("option-payment-apple_pay"));
-    await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
-
-    await waitFor(
-      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
-      { timeout: 3000 },
-    );
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "checkout.toast.walletPrepareFailTitle",
-          description: "checkout.toast.walletPrepareFailDesc",
-          variant: "destructive",
-        }),
-      );
-    });
-  });
-
-  // ── 2. walletPreparing becomes false — button is no longer disabled ───────
-
-  it("clears the preparing spinner so the submit button is no longer disabled after a PI failure", async () => {
-    mockCreatePaymentIntentMutate.mockRejectedValue(new Error("network error"));
+    // canMakePayment() itself returns a never-settling promise (the timeout
+    // guard is what converts it to null in production; in this test the mock
+    // does that directly).
+    mockCanMakePayment.mockImplementation(() => new Promise<null>(() => {}));
 
     await driveToWalletPaymentStep(user);
 
-    // After the throw, walletPrepareFailed=true → walletPreparing=false.
-    // The button's `disabled` prop (isProcessing||walletPreparing) must also
-    // be false — noAddress is true so the district guard doesn't block it.
-    await waitFor(() => {
-      const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
-      expect(btn.disabled).toBe(false);
-    });
-  });
+    // Verify the correct 5 s deadline was passed to withTimeoutAsNull.
+    // (The probe uses withTimeout with 5_000 ms; tryCanMakePayment uses
+    // withTimeoutAsNull with 5_000 ms.)
+    const calls = mockWithTimeoutAsNull.mock.calls;
+    const canMakePaymentCalls = calls.filter(([, ms]) => ms === 5_000);
+    expect(canMakePaymentCalls.length).toBeGreaterThanOrEqual(1);
 
-  // ── 3. Re-tapping the wallet tile clears the error and re-arms the effect ─
-
-  it("re-arms the PI preparation effect when the shopper taps the wallet tile again after a failure", async () => {
-    // First attempt throws; second attempt resolves successfully.
-    mockCreatePaymentIntentMutate
-      .mockRejectedValueOnce(new Error("transient network error"))
-      .mockResolvedValue({
-        ok: true,
-        clientSecret: "pi_test_abc_secret_xyz",
-        orderId: "web-order-retry",
-        amount: 5000,
-        currency: "USD",
-      });
-
-    await driveToWalletPaymentStep(user);
-
-    // Confirm the first failure settled.
-    await waitFor(() => expect(mockToast).toHaveBeenCalledTimes(1));
-
-    // Tapping the same google_pay tile while walletPrepareFailed=true bumps
-    // walletRetryNonce, which is a dep of the PI effect, causing it to re-run.
-    // The effect clears walletPrepareFailed and fires mutateAsync again.
-    // (In jsdom, isApplePlatform() is false so google_pay is the visible tile.)
-    await user.click(screen.getByTestId("option-payment-google_pay"));
-
-    await waitFor(
-      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(2),
-      { timeout: 3000 },
-    );
-
-    // The second attempt succeeded — button should now be enabled (not
-    // preparing), and no additional toast should have been fired.
-    // Use a longer timeout: when canMakePayment() returns null, the effect
-    // now auto-retries up to 3 times (~1 s apart) before setting walletReadySig
-    // and enabling the button.
+    // After all auto-retries exhaust (canMakePayment always null), the
+    // component sets walletReadySig so the button stops being disabled.
+    // Use a generous timeout to accommodate the 1 s retry delays (real timers).
     await waitFor(
       () => {
         const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
         expect(btn.disabled).toBe(false);
       },
-      { timeout: 5000 },
+      { timeout: 6000 },
     );
-    expect(mockToast).toHaveBeenCalledTimes(1);
-  }, 10000);
 
-  // ── 4. Editing a form field (email) also clears the error and re-arms ────
+    // A null from a timeout is NOT a hard failure — walletPrepareFailed stays
+    // false and no walletPrepareFailTitle toast fires.
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "checkout.toast.walletPrepareFailTitle" }),
+    );
+  }, 15_000);
 
-  it("re-arms the PI preparation effect when the shopper changes a form field after a failure", async () => {
-    // First attempt throws; second attempt resolves successfully.
-    mockCreatePaymentIntentMutate
-      .mockRejectedValueOnce(new Error("transient network error"))
-      .mockResolvedValue({
-        ok: true,
-        clientSecret: "pi_test_abc_secret_xyz",
-        orderId: "web-order-input-retry",
-        amount: 5000,
-        currency: "USD",
-      });
+  // ── Test 2: PaymentIntent creation timed out (withTimeout rejects)
+  //
+  // When withTimeout wraps createPaymentIntent.mutateAsync, the 15 s deadline
+  // causes a rejection which falls into the catch block. The component must:
+  //   1. Pass 15_000 ms to withTimeout (verified via mock call args).
+  //   2. Fire the destructive walletPrepareFailTitle toast.
+  //   3. Call createPaymentIntent.reset() so isPending clears.
+  //   4. Enable the submit button again (walletPrepareFailed stops the spinner).
+  //
+  // We simulate the deadline firing by making withTimeout reject with
+  // Error("timeout") immediately, bypassing the need for real or fake 15 s.
+
+  it("createPaymentIntent() timeout: withTimeout is called with the 15 s deadline and the catch block fires the error toast", async () => {
+    // Default pass-through for the probe (ms=5_000); reject for PI (ms=15_000).
+    mockWithTimeout.mockImplementation(
+      (promise: Promise<unknown>, ms: number) => {
+        if (ms === 15_000) return Promise.reject(new Error("timeout"));
+        return promise; // probe: pass through
+      },
+    );
+
+    // The underlying mutation never needs to settle — withTimeout intercepts it.
+    mockCreatePaymentIntentMutate.mockImplementation(
+      () => new Promise<never>(() => {}),
+    );
+
+    // canMakePayment resolves null immediately so the probe completes without
+    // blocking the payment step transition.
+    mockCanMakePayment.mockResolvedValue(null);
 
     await driveToWalletPaymentStep(user);
 
-    // Wait for the first failure to settle.
-    await waitFor(() => expect(mockToast).toHaveBeenCalledTimes(1));
-
-    // Go back to step 1, then toggle the "no address" switch. The noAddress
-    // boolean is a dep of the wallet PI effect — flipping it produces a
-    // different signature, which causes the effect to clear walletPrepareFailed
-    // and start a fresh pre-creation attempt. This simulates the general
-    // "any input change re-arms the preparation" behaviour. (The sender email
-    // field is not editable for signed-in users, so the address toggle is the
-    // most accessible dep that's visible on step 1.)
-    // Click the DeliveryRecap "edit" button to navigate back to step 1,
-    // then toggle the "no address" switch. noAddress is a dep of the wallet
-    // PI effect — flipping it produces a different signature, clears
-    // walletPrepareFailed, and starts a fresh pre-creation attempt.
-    await user.click(screen.getByTestId("link-edit-delivery"));
-    await user.click(screen.getByTestId("check-no-address"));
-
+    // The catch block must have fired: toast with the failure title.
     await waitFor(
-      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(2),
+      () => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "checkout.toast.walletPrepareFailTitle",
+            variant: "destructive",
+          }),
+        );
+      },
       { timeout: 3000 },
     );
 
-    // No extra toast should have been fired (second attempt resolved).
-    expect(mockToast).toHaveBeenCalledTimes(1);
+    // Verify the 15 s deadline was passed to withTimeout.
+    const piTimeoutCalls = mockWithTimeout.mock.calls.filter(
+      ([, ms]) => ms === 15_000,
+    );
+    expect(piTimeoutCalls.length).toBeGreaterThanOrEqual(1);
+
+    // reset() must be called so isPending clears and isProcessing can drop.
+    expect(mockCreatePaymentIntentReset).toHaveBeenCalledTimes(1);
+
+    // Submit button must become enabled — the shopper shouldn't be stuck.
+    await waitFor(
+      () => {
+        const btn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
+        expect(btn.disabled).toBe(false);
+      },
+      { timeout: 3000 },
+    );
   });
 });
