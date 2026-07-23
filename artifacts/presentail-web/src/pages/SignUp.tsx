@@ -271,7 +271,7 @@ export default function SignUpPage() {
                       if (e.key === "Enter") onContinueToPhone();
                     }}
                     data-testid="input-signup-password"
-                    className="h-12 rounded-sm pr-10"
+                    className="h-12 rounded-sm pe-10"
                   />
                   <button
                     type="button"

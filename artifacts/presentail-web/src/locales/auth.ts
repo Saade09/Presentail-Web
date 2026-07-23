@@ -22,6 +22,9 @@ export const authStrings: Dict = {
   "auth.or": { en: "Or", ar: "أو" },
   "auth.continueApple": { en: "Continue with Apple", ar: "المتابعة باستخدام Apple" },
   "auth.continueGoogle": { en: "Continue with Google", ar: "المتابعة باستخدام Google" },
+  "auth.inAppBrowserNotice": { en: "To sign in with Google or Apple, open this page in Safari or Chrome.", ar: "لتسجيل الدخول عبر Google أو Apple، افتح هذه الصفحة في Safari أو Chrome." },
+  "auth.inAppBrowserCopyLink": { en: "Copy link", ar: "نسخ الرابط" },
+  "auth.inAppBrowserCopied": { en: "Copied!", ar: "تم النسخ!" },
   "auth.toast.oauthFailed": { en: "{provider} sign-in failed", ar: "فشل تسجيل الدخول عبر {provider}" },
   "auth.incorrectPassword": {
     en: "Incorrect password. Please try again or reset your password.",
@@ -107,6 +110,9 @@ export const authStringsFr: Record<string, string> = {
   "auth.or": "Ou",
   "auth.continueApple": "Continuer avec Apple",
   "auth.continueGoogle": "Continuer avec Google",
+  "auth.inAppBrowserNotice": "Pour vous connecter avec Google ou Apple, ouvrez cette page dans Safari ou Chrome.",
+  "auth.inAppBrowserCopyLink": "Copier le lien",
+  "auth.inAppBrowserCopied": "Copié !",
   "auth.toast.oauthFailed": "Échec de la connexion avec {provider}",
   "auth.incorrectPassword": "Mot de passe incorrect. Veuillez réessayer ou réinitialiser votre mot de passe.",
 

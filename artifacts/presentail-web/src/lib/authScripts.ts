@@ -4,8 +4,10 @@ const APPLE_SCRIPT_SRC =
 
 const LOADED_ATTR = "data-auth-loaded";
 
+const LOAD_TIMEOUT_MS = 10_000;
+
 function loadScript(src: string): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(
       `script[src="${src}"]`
     );
@@ -13,7 +15,11 @@ function loadScript(src: string): Promise<void> {
       if (existing.getAttribute(LOADED_ATTR) === "true") {
         resolve();
       } else {
-        existing.addEventListener("load", () => resolve(), { once: true });
+        const existingTimer = setTimeout(() => {
+          reject(new Error(`Timed out loading script: ${src}`));
+        }, LOAD_TIMEOUT_MS);
+        existing.addEventListener("load", () => { clearTimeout(existingTimer); resolve(); }, { once: true });
+        existing.addEventListener("error", () => { clearTimeout(existingTimer); reject(new Error(`Failed to load script: ${src}`)); }, { once: true });
       }
       return;
     }
@@ -21,11 +27,25 @@ function loadScript(src: string): Promise<void> {
     script.src = src;
     script.async = true;
     script.defer = true;
+
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out loading script: ${src}`));
+    }, LOAD_TIMEOUT_MS);
+
     script.addEventListener(
       "load",
       () => {
+        clearTimeout(timer);
         script.setAttribute(LOADED_ATTR, "true");
         resolve();
+      },
+      { once: true }
+    );
+    script.addEventListener(
+      "error",
+      () => {
+        clearTimeout(timer);
+        reject(new Error(`Failed to load script: ${src}`));
       },
       { once: true }
     );

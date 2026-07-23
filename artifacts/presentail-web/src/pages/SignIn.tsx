@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRouter } from "wouter";
 import { loadAuthScripts } from "@/lib/authScripts";
-import { Eye, EyeOff } from "lucide-react";
+import { Copy, Check, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -11,6 +11,33 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { CompleteProfileDialog } from "@/components/auth/CompleteProfileDialog";
 import { Logo } from "@/components/Logo";
+
+function InAppBrowserBanner({ t }: { t: (key: string) => string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 flex items-start gap-2">
+      <span className="flex-1">{t("auth.inAppBrowserNotice")}</span>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="shrink-0 flex items-center gap-1 text-xs font-medium text-amber-800 hover:text-amber-900 focus-visible:outline-none"
+        aria-label={t("auth.inAppBrowserCopyLink")}
+      >
+        {copied ? (
+          <><Check size={13} aria-hidden="true" />{t("auth.inAppBrowserCopied")}</>
+        ) : (
+          <><Copy size={13} aria-hidden="true" />{t("auth.inAppBrowserCopyLink")}</>
+        )}
+      </button>
+    </div>
+  );
+}
 
 const AppleLogo = () => (
   <svg
@@ -84,6 +111,12 @@ function mapApiUser(
   };
 }
 
+function isInAppBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /Instagram|FBAN|FBAV|BytedanceWebview|TikTok/i.test(ua);
+}
+
 export default function SignInPage() {
   const { login } = useAuth();
   const [, setLocation] = useLocation();
@@ -92,6 +125,7 @@ export default function SignInPage() {
   const { t, dir } = useLocale();
   const { toast } = useToast();
   const [oauthBusy, setOauthBusy] = useState<"apple" | "google" | null>(null);
+  const [inAppBrowser] = useState(() => isInAppBrowser());
   const [pendingAppleAuth, setPendingAppleAuth] = useState<{
     token: string;
     user: ShimUser;
@@ -155,18 +189,18 @@ export default function SignInPage() {
       });
       return;
     }
-    await loadAuthScripts();
-    if (!window.google?.accounts?.oauth2) {
-      toast({
-        title: t("auth.toast.error"),
-        description: t("auth.toast.oauthFailed", { provider: "Google" }),
-        variant: "destructive",
-      });
-      return;
-    }
-    trackEvent({ name: "signin_page_action", action: "google" });
     setOauthBusy("google");
     try {
+      await loadAuthScripts();
+      if (!window.google?.accounts?.oauth2) {
+        toast({
+          title: t("auth.toast.error"),
+          description: t("auth.toast.oauthFailed", { provider: "Google" }),
+          variant: "destructive",
+        });
+        return;
+      }
+      trackEvent({ name: "signin_page_action", action: "google" });
       await new Promise<void>((resolve, reject) => {
         const client = window.google!.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID!,
@@ -204,6 +238,15 @@ export default function SignInPage() {
         client.requestAccessToken();
       });
     } catch (err: any) {
+      const googleErrorCode: string | undefined =
+        err && typeof err === "object" && typeof err.error === "string"
+          ? err.error
+          : err instanceof Error && err.message === "popup_closed_by_user"
+          ? "popup_closed_by_user"
+          : undefined;
+      if (googleErrorCode === "popup_closed_by_user") {
+        return;
+      }
       toast({
         title: t("auth.toast.oauthFailed", { provider: "Google" }),
         description: err instanceof Error ? err.message : t("auth.toast.error"),
@@ -223,18 +266,18 @@ export default function SignInPage() {
       });
       return;
     }
-    await loadAuthScripts();
-    if (!window.AppleID?.auth) {
-      toast({
-        title: t("auth.toast.error"),
-        description: t("auth.toast.oauthFailed", { provider: "Apple" }),
-        variant: "destructive",
-      });
-      return;
-    }
-    trackEvent({ name: "signin_page_action", action: "apple" });
     setOauthBusy("apple");
     try {
+      await loadAuthScripts();
+      if (!window.AppleID?.auth) {
+        toast({
+          title: t("auth.toast.error"),
+          description: t("auth.toast.oauthFailed", { provider: "Apple" }),
+          variant: "destructive",
+        });
+        return;
+      }
+      trackEvent({ name: "signin_page_action", action: "apple" });
       window.AppleID.auth.init({
         clientId: APPLE_SERVICE_ID,
         scope: "name email",
@@ -291,12 +334,16 @@ export default function SignInPage() {
 
   // Pre-fetch Google GSI and Apple auth scripts on mount so they are ready
   // when the user clicks a social button. loadAuthScripts() is idempotent.
+  // Failures here are silent — the user will get an error toast if a script
+  // fails when they actually click a social button.
   useEffect(() => {
-    void loadAuthScripts();
+    void loadAuthScripts().catch(() => undefined);
   }, []);
 
   // Auto-trigger OAuth when navigated here from CheckoutLoginDialog with ?strategy=
+  // Skip in in-app browsers — the popup will be blocked; the banner guides the user.
   useEffect(() => {
+    if (inAppBrowser) return;
     if (initial.strategy === "oauth_google") {
       void onOAuthGoogle();
     } else if (initial.strategy === "oauth_apple") {
@@ -345,7 +392,7 @@ export default function SignInPage() {
       // `userExists` tells us whether this email is registered in the local DB.
       // Unknown emails are redirected to sign-up; known emails proceed to sign-in.
       if (bridgeJson.userExists === false) {
-        setLocation(`/sign-up?email_address=${encodeURIComponent(trimmed)}`);
+        goToSignUp(trimmed);
         return;
       }
       // Known email — route to the appropriate sign-in step.
@@ -465,13 +512,14 @@ export default function SignInPage() {
                 ? t("auth.existingAccountSocialPromptApple")
                 : t("auth.existingAccountSocialPrompt")}
             </div>
+            {inAppBrowser && <InAppBrowserBanner t={t} />}
             <div className="space-y-2">
               <Button
                 variant={socialProvider === "apple" ? "default" : "outline"}
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuthApple()}
-                disabled={busy || oauthBusy !== null}
+                disabled={busy || oauthBusy !== null || inAppBrowser}
                 data-testid="button-signin-apple"
               >
                 <AppleLogo />
@@ -484,7 +532,7 @@ export default function SignInPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuthGoogle()}
-                disabled={busy || oauthBusy !== null}
+                disabled={busy || oauthBusy !== null || inAppBrowser}
                 data-testid="button-signin-google"
               >
                 <GoogleLogo />
@@ -527,6 +575,11 @@ export default function SignInPage() {
               {t("auth.accountBenefits")}
             </p>
 
+            {/* In-app browser notice */}
+            {inAppBrowser && (
+              <InAppBrowserBanner t={t} />
+            )}
+
             {/* Social buttons — Apple first */}
             <div className="space-y-2">
               <Button
@@ -534,7 +587,7 @@ export default function SignInPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuthApple()}
-                disabled={busy || oauthBusy !== null}
+                disabled={busy || oauthBusy !== null || inAppBrowser}
                 data-testid="button-signin-apple"
               >
                 <AppleLogo />
@@ -547,7 +600,7 @@ export default function SignInPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuthGoogle()}
-                disabled={busy || oauthBusy !== null}
+                disabled={busy || oauthBusy !== null || inAppBrowser}
                 data-testid="button-signin-google"
               >
                 <GoogleLogo />
