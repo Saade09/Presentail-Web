@@ -140,9 +140,15 @@ export function checkSitemapContent(
       }
     }
 
-    // Balanced <sitemap> / </sitemap> tag check: mismatched counts indicate
-    // the XML generator produced broken nesting (e.g. an unclosed <sitemap>
-    // block or a stray closing tag with no matching opener).
+  }
+
+  // Balanced <sitemap> / </sitemap> tag check: mismatched counts indicate
+  // the XML generator produced broken nesting (e.g. an unclosed <sitemap>
+  // block or a stray closing tag with no matching opener).
+  // Runs whenever any <sitemap> tag is present — covers both the pure
+  // <sitemapindex> format and mixed payloads where <sitemap> children appear
+  // inside a <urlset> root without a <sitemapindex> wrapper.
+  if (xml.includes("<sitemap>") || xml.includes("</sitemap>")) {
     const openSitemapCount = (xml.match(/<sitemap>/g) ?? []).length;
     const closeSitemapCount = (xml.match(/<\/sitemap>/g) ?? []).length;
     if (openSitemapCount !== closeSitemapCount) {

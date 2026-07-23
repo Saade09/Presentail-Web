@@ -450,6 +450,28 @@ describe("checkSitemapContent — sitemap index format", () => {
     expect(sitemapIndexLocCount).toBe(2);
   });
 
+  it("fails when a mixed payload has an unclosed <sitemap> tag (no <sitemapindex> wrapper)", () => {
+    // A mixed file with <urlset> root + <sitemap> children but NO <sitemapindex>
+    // wrapper.  isSitemapIndex is false for this payload, so the <sitemap>
+    // balance check used to be skipped entirely.  Verify it fires correctly.
+    const urlLocs = Array.from(
+      { length: MIN_URL_COUNT },
+      (_, i) =>
+        `  <url><loc>${CANONICAL_ORIGIN}/en-lb/beirut/product/item-${i}</loc></url>`,
+    ).join("\n");
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      urlLocs +
+      // One properly closed <sitemap> entry …
+      `\n  <sitemap><loc>${CANONICAL_ORIGIN}/sitemap-valid.xml</loc></sitemap>\n` +
+      // … and one that is opened but never closed (simulates a generator bug).
+      `  <sitemap><loc>${CANONICAL_ORIGIN}/sitemap-extra.xml</loc>\n` +
+      `</urlset>`;
+    const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
+    expect(errors.some((e) => e.includes("Mismatched <sitemap> tag counts"))).toBe(true);
+  });
+
   it("does not apply the minimum URL count check to a pure sitemap index", () => {
     // A sitemap index has very few entries (one per sub-sitemap file) so the
     // standard MIN_URL_COUNT threshold must not be applied to it.
