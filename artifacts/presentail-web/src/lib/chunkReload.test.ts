@@ -38,37 +38,39 @@ describe("reloadForStaleChunk loop guard (sessionStorage path)", () => {
     vi.restoreAllMocks();
   });
 
-  it("reloads up to twice per incident then stops", () => {
-    const reload = vi.fn();
+  it("navigates (replace) up to twice per incident then stops", () => {
+    const replace = vi.fn();
     Object.defineProperty(window, "location", {
       configurable: true,
-      value: { ...window.location, reload, href: "https://x.test/en-lb/beirut" },
+      value: { ...window.location, replace, href: "https://x.test/en-lb/beirut" },
     });
 
     reloadForStaleChunk();
     reloadForStaleChunk();
     reloadForStaleChunk();
 
-    expect(reload).toHaveBeenCalledTimes(2);
+    expect(replace).toHaveBeenCalledTimes(2);
+    // replace() should be called with the current URL (full navigation, not reload()).
+    expect(replace.mock.calls[0][0]).toBe("https://x.test/en-lb/beirut");
   });
 
-  it("allows reloading again for a fresh incident after the window elapses", () => {
-    const reload = vi.fn();
+  it("allows navigating again for a fresh incident after the window elapses", () => {
+    const replace = vi.fn();
     Object.defineProperty(window, "location", {
       configurable: true,
-      value: { ...window.location, reload, href: "https://x.test/en-lb/beirut" },
+      value: { ...window.location, replace, href: "https://x.test/en-lb/beirut" },
     });
 
     const nowSpy = vi.spyOn(Date, "now");
     nowSpy.mockReturnValue(0);
     reloadForStaleChunk();
     reloadForStaleChunk();
-    expect(reload).toHaveBeenCalledTimes(2);
+    expect(replace).toHaveBeenCalledTimes(2);
 
     // More than the incident window later — counter resets.
     nowSpy.mockReturnValue(120_000);
     reloadForStaleChunk();
-    expect(reload).toHaveBeenCalledTimes(3);
+    expect(replace).toHaveBeenCalledTimes(3);
   });
 });
 

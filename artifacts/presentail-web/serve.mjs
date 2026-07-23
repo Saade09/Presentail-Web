@@ -1166,7 +1166,7 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, {
             "content-type": MIME[".html"],
             "x-robots-tag": "noindex",
-            "cache-control": "public, s-maxage=300, stale-while-revalidate=60",
+            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
             "expires": "0",
             "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
@@ -1230,7 +1230,7 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, {
             "content-type": MIME[".html"],
             "x-robots-tag": "noindex",
-            "cache-control": "public, s-maxage=300, stale-while-revalidate=60",
+            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
             "expires": "0",
             "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
@@ -2022,13 +2022,15 @@ const server = http.createServer(async (req, res) => {
           // Transactional pages (cart, checkout, order-confirmed) use no-store to
           // prevent any cache layer from serving stale payment/order state and to
           // opt Safari out of BFCache for those critical flows.
-          // All other HTML pages use s-maxage=300 so CDNs can serve the SEO-injected
-          // shell for up to 5 minutes without hitting the origin on every request,
-          // while stale-while-revalidate=60 keeps the CDN cache warm on revalidation.
-          // perf: CDN cache for LCP/TTFB
+          // All other HTML pages use no-cache so browsers (especially Safari on iOS)
+          // always revalidate index.html instead of serving a stale shell with old
+          // chunk hashes after a redeploy — stale chunks produce a blank page.
+          // s-maxage=300 allows CDN layers to cache the SEO-injected shell for up to
+          // 5 minutes; no-cache only prevents browser disk/BFCache serving.
+          // perf: browser always-revalidate + CDN cache for LCP/TTFB
           "cache-control": isTransactionalPage(pathname)
             ? "no-store, no-cache, must-revalidate"
-            : "public, s-maxage=300, stale-while-revalidate=60",
+            : "public, no-cache, s-maxage=300, stale-while-revalidate=60",
           "expires": "0",
           "vary": "Accept-Encoding",
           // HTTP Link header mirrors the <link rel="canonical"> injected into
@@ -2346,7 +2348,7 @@ const server = http.createServer(async (req, res) => {
       // perf: CDN cache for LCP/TTFB
       "cache-control": isTransactionalPage(pathname)
         ? "no-store, no-cache, must-revalidate"
-        : "public, s-maxage=300, stale-while-revalidate=60",
+        : "public, no-cache, s-maxage=300, stale-while-revalidate=60",
       "expires": "0",
       "vary": "Accept-Encoding",
       "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"${spaMdAlternateLink}`,

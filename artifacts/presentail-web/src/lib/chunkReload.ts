@@ -61,7 +61,12 @@ function reloadViaStorage(): void {
     CHUNK_RELOAD_KEY,
     JSON.stringify({ count: count + 1, ts: now }),
   );
-  window.location.reload();
+  // Use replace() rather than reload() so Safari treats this as a fresh
+  // navigation. reload() is a "soft reload" that can return a BFCache or
+  // disk-cached response; replace() with the same URL triggers a new
+  // navigation that honours cache-control headers and bypasses BFCache,
+  // giving the browser a chance to fetch a fresh index.html + chunk set.
+  window.location.replace(window.location.href);
 }
 
 /**
