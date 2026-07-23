@@ -472,6 +472,31 @@ describe("checkSitemapContent — sitemap index format", () => {
     expect(errors.some((e) => e.includes("Mismatched <sitemap> tag counts"))).toBe(true);
   });
 
+  it("catches both missing </urlset> and mismatched <sitemap> errors in a truncated mixed payload", () => {
+    // Simulate a generator that writes MIN_URL_COUNT <url> entries followed by
+    // two <sitemap> children inside a <urlset> root, then crashes mid-write:
+    //   - the second <sitemap> block is never closed (no </sitemap>)
+    //   - the </urlset> closing tag is never flushed
+    // Both the generic </urlset> check and the <sitemap> balance check must fire.
+    const urlLocs = Array.from(
+      { length: MIN_URL_COUNT },
+      (_, i) =>
+        `  <url><loc>${CANONICAL_ORIGIN}/en-lb/beirut/product/item-${i}</loc></url>`,
+    ).join("\n");
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      urlLocs +
+      // First <sitemap> entry is properly closed.
+      `\n  <sitemap><loc>${CANONICAL_ORIGIN}/sitemap-0.xml</loc></sitemap>\n` +
+      // Second <sitemap> entry: generator crashed before writing </sitemap>
+      // and before flushing </urlset> — both tags are absent.
+      `  <sitemap><loc>${CANONICAL_ORIGIN}/sitemap-1.xml</loc>\n`;
+    const { errors } = checkSitemapContent(xml, CANONICAL_ORIGIN, MIN_URL_COUNT);
+    expect(errors.some((e) => e.includes("</urlset>"))).toBe(true);
+    expect(errors.some((e) => e.includes("Mismatched <sitemap> tag counts"))).toBe(true);
+  });
+
   it("does not apply the minimum URL count check to a pure sitemap index", () => {
     // A sitemap index has very few entries (one per sub-sitemap file) so the
     // standard MIN_URL_COUNT threshold must not be applied to it.
