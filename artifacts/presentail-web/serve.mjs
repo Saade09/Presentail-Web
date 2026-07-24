@@ -1224,6 +1224,62 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Handle bare `/occasion/<slug>` and `/category/<slug>` (share links).
+    //
+    // Same rationale as the /product and /brand blocks above: WhatsApp,
+    // iMessage, and other social-preview crawlers may not follow 301
+    // redirects, so these paths serve the OG-injected HTML directly (200)
+    // with a <meta http-equiv="refresh"> + JS redirect for real browsers.
+    // x-robots-tag: noindex keeps the redirect intermediary out of search
+    // results.  Fallback: 301 when injectSeoTagsAsync is unavailable.
+    //
+    // NOTE: Must run BEFORE the trailing-slash redirect so /occasion/<slug>/
+    // and /category/<slug>/ are handled here rather than being stripped first.
+    const shopPageRedirectMatch = pathname.match(/^\/(occasion|category)\/([^/]+)\/?$/);
+    if (shopPageRedirectMatch) {
+      const kind = shopPageRedirectMatch[1];
+      const slug = shopPageRedirectMatch[2];
+      // `slug` already contains the raw path segment from the request URL
+      // (percent-encoded characters are preserved as-is); do NOT
+      // encodeURIComponent here or we double-encode the slug.
+      const canonicalTarget = `${BASE_PATH}/en-lb/beirut/${kind}/${slug}`;
+      if (typeof injectSeoTagsAsync === "function") {
+        try {
+          // Use the locale-prefixed virtual path so seo-inject resolves the
+          // correct occasion/category data and builds the right OG tags.
+          const virtualPath = `/en-lb/beirut/${kind}/${slug}`;
+          let pageHtml = await injectSeoTagsAsync(indexHtml, virtualPath, {
+            basePath: BASE_PATH,
+            origin,
+            apiBaseUrl: INTERNAL_API_BASE_URL,
+            acceptLanguage: req.headers["accept-language"],
+          });
+          // Inject meta-refresh and JS redirect so real browsers navigate to
+          // the canonical page immediately (crawlers ignore these and read the
+          // OG tags instead).
+          const safeTarget = canonicalTarget.replace(/"/g, "&quot;");
+          const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
+          const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
+          pageHtml = pageHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
+          res.writeHead(200, {
+            "content-type": MIME[".html"],
+            "x-robots-tag": "noindex",
+            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
+            "expires": "0",
+            "vary": "Accept-Encoding",
+            "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
+          });
+          res.end(pageHtml);
+          return;
+        } catch (_err) {
+          // OG injection failed — fall through to the 301 below.
+        }
+      }
+      res.writeHead(301, { location: canonicalTarget });
+      res.end();
+      return;
+    }
+
     // Redirect old shop query-param URLs to clean SEO paths so external links
     // already indexed under the old format pass their ranking signals forward.
     //   /:lang-:country/:city/shop?category=<slug>  →  /:lang-:country/:city/category/<slug>

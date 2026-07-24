@@ -30,6 +30,13 @@
  *     3. Already-locale-prefixed URL  → falls through to SPA (no redirect)
  *     4. Percent-encoded slug chars are preserved in the meta-refresh URL
  *
+ *  D. Bare /occasion/<slug> share-link → OG-injected HTML + meta-refresh
+ *     Same pattern as B/C: 200 with OG meta tags, meta-refresh + JS redirect
+ *     to the locale-prefixed canonical URL, x-robots-tag: noindex.
+ *
+ *  E. Bare /category/<slug> share-link → OG-injected HTML + meta-refresh
+ *     Same pattern as B/C/D.
+ *
  * The test spawns serve.mjs as a real child process using the same dist folder
  * that the other serve.mjs integration tests rely on.  Node.js's `http.request`
  * does not follow redirects, so the raw status + Location header is directly
@@ -369,5 +376,81 @@ describe("serve.mjs — bare /product/<slug> mobile share-link OG+redirect", () 
     );
     expect(status).toBe(200);
     expect(body).toContain("/en-lb/beirut/product/mother%27s-day-bouquet");
+  });
+});
+
+describe("serve.mjs — bare /occasion/<slug> share-link OG+redirect", () => {
+  it("returns 200 with OG-injected HTML for /occasion/<slug>", async () => {
+    const { status, location, body, headers } = await get(serverPort, "/occasion/birthday");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/occasion/birthday");
+    expect(headers["x-robots-tag"]).toBe("noindex");
+  });
+
+  it("returns 200 with OG-injected HTML for /occasion/<slug>/ (trailing slash)", async () => {
+    const { status, location, body, headers } = await get(serverPort, "/occasion/birthday/");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/occasion/birthday");
+    expect(headers["x-robots-tag"]).toBe("noindex");
+  });
+
+  it("does NOT intercept an already locale-prefixed occasion URL (falls through to SPA)", async () => {
+    const { status, location } = await get(
+      serverPort,
+      "/en-lb/beirut/occasion/birthday",
+    );
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+
+  it("preserves percent-encoded characters in the occasion slug", async () => {
+    const { status, body } = await get(
+      serverPort,
+      "/occasion/mother%27s-day",
+    );
+    expect(status).toBe(200);
+    expect(body).toContain("/en-lb/beirut/occasion/mother%27s-day");
+  });
+});
+
+describe("serve.mjs — bare /category/<slug> share-link OG+redirect", () => {
+  it("returns 200 with OG-injected HTML for /category/<slug>", async () => {
+    const { status, location, body, headers } = await get(serverPort, "/category/hand-bouquets");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/category/hand-bouquets");
+    expect(headers["x-robots-tag"]).toBe("noindex");
+  });
+
+  it("returns 200 with OG-injected HTML for /category/<slug>/ (trailing slash)", async () => {
+    const { status, location, body, headers } = await get(serverPort, "/category/hand-bouquets/");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+    expect(body).toContain('http-equiv="refresh"');
+    expect(body).toContain("/en-lb/beirut/category/hand-bouquets");
+    expect(headers["x-robots-tag"]).toBe("noindex");
+  });
+
+  it("does NOT intercept an already locale-prefixed category URL (falls through to SPA)", async () => {
+    const { status, location } = await get(
+      serverPort,
+      "/en-lb/beirut/category/hand-bouquets",
+    );
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+
+  it("preserves percent-encoded characters in the category slug", async () => {
+    const { status, body } = await get(
+      serverPort,
+      "/category/red%20roses",
+    );
+    expect(status).toBe(200);
+    expect(body).toContain("/en-lb/beirut/category/red%20roses");
   });
 });
