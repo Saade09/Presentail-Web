@@ -536,6 +536,26 @@ describe("checkSitemapContent — sitemap index format", () => {
     expect(errors.some((e) => e.includes("Mismatched <sitemap> tag counts"))).toBe(true);
   });
 
+  it("fails with both closing-tag errors when a pure index is truncated mid-entry", () => {
+    // Simulate a generator that wrote <sitemap> children inside a
+    // <sitemapindex> root and crashed before flushing the last </sitemap>
+    // and the closing </sitemapindex> — both errors must fire together.
+    const truncated = buildValidSitemapIndex(3)
+      .replace("</sitemapindex>", "")
+      .replace(/<\/sitemap>\s*$/, "");
+    const { errors } = checkSitemapContent(
+      truncated,
+      CANONICAL_ORIGIN,
+      MIN_URL_COUNT,
+    );
+    expect(
+      errors.some((e) => e.includes("missing the closing </sitemapindex>")),
+    ).toBe(true);
+    expect(
+      errors.some((e) => e.includes("Mismatched <sitemap> tag counts")),
+    ).toBe(true);
+  });
+
   it("fails when there is an extra stray </sitemap> closing tag with no opener", () => {
     // Inject a bare </sitemap> that has no matching opening tag.
     const xml = buildValidSitemapIndex(3).replace(
