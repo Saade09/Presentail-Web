@@ -1884,7 +1884,10 @@ const server = http.createServer(async (req, res) => {
       const body = await compressBuffer(agentsMd, encoding);
       const headers = {
         "content-type": "text/plain; charset=utf-8",
-        "cache-control": "public, max-age=86400, must-revalidate",
+        // Same 1-hour TTL policy as /llms.txt, /llms-full.txt, and /sitemap.md:
+        // no content hash in the filename, so use a short TTL with mandatory
+        // revalidation so AI crawlers pick up changes promptly after a deploy.
+        "cache-control": "public, max-age=3600, must-revalidate",
         "vary": "Accept-Encoding",
       };
       if (encoding) headers["content-encoding"] = encoding;
