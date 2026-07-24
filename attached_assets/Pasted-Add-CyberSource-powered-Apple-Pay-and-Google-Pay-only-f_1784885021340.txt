@@ -1,0 +1,216 @@
+Add CyberSource-powered Apple Pay and Google Pay only for the existing eligible checkout case:
+
+senderCountryCode === "LB" && currency === "USD"
+
+This is an additive change only. Do not replace, refactor, or modify the existing working CyberSource card flow, Stripe routing, Klarna, Whish Money, order creation, totals, delivery logic, or checkout layout.
+
+Required routing
+
+Use the same authoritative sender-country value already used for payment routing:
+
+const isLebanonUsd =
+  senderCountryCode?.trim().toUpperCase() === "LB" &&
+  selectedCurrency?.trim().toUpperCase() === "USD";
+
+Result:
+
+Lebanon sender + USD → existing CyberSource card fields, plus CyberSource Apple Pay and Google Pay
+Lebanon sender + non-USD → preserve current payment methods unchanged
+Any non-Lebanon sender + any currency → preserve Stripe and all current methods unchanged
+Unknown sender country → preserve Stripe; do not mount CyberSource wallets
+
+Do not use delivery country, browser locale, IP independently, or currency alone.
+
+Preserve the existing card implementation
+
+Do not modify:
+
+Existing CyberSource Microform card-number and CVC fields
+Existing capture-context endpoint used by manual card entry
+Existing CyberSource card payment submission
+Existing error handling
+Existing card styling
+Existing sender-country detection
+
+Build the wallet integration as a separate component and separate backend route so it cannot destabilize manual card payments.
+
+Use CyberSource Unified Checkout for wallets only
+
+Create a dedicated Unified Checkout capture-context request for Apple Pay and Google Pay.
+
+The wallet capture context must use:
+
+{
+  "targetOrigins": [
+    "<exact current approved origin>"
+  ],
+  "clientVersion": "<CyberSource-supported Unified Checkout version>",
+  "allowedCardNetworks": [
+    "VISA",
+    "MASTERCARD",
+    "AMEX"
+  ],
+  "allowedPaymentTypes": [
+    "APPLEPAY",
+    "GOOGLEPAY"
+  ],
+  "country": "LB",
+  "locale": "en_US",
+  "data": {
+    "orderInformation": {
+      "amountDetails": {
+        "totalAmount": "<actual checkout total>",
+        "currency": "USD"
+      }
+    },
+    "clientReferenceInformation": {
+      "code": "<order or payment-attempt reference>"
+    }
+  }
+}
+
+Use the exact schema and supported clientVersion from the installed/current official CyberSource Unified Checkout documentation. Do not reuse the Microform capture-context body unchanged.
+
+CyberSource officially supports APPLEPAY and GOOGLEPAY as Unified Checkout allowedPaymentTypes.
+
+Account and wallet readiness
+
+Before showing either wallet, verify that merchant blom_presentail1 is enabled for:
+
+Unified Checkout
+Apple Pay
+Google Pay
+The required card networks
+Production payment processing through BLOM
+
+Do not assume active REST keys automatically enable the wallets.
+
+If a wallet is not enabled, hide only that wallet. Do not affect manual card entry or other payment methods.
+
+Apple Pay
+
+Implement Apple Pay through CyberSource Unified Checkout.
+
+Requirements:
+
+Show Apple Pay only when:
+isLebanonUsd === true
+the browser/device supports Apple Pay
+an active Apple Pay card is available where the browser API exposes that check
+the production domain is registered and verified for Apple Pay
+CyberSource Apple Pay enrollment is active
+Do not show an unusable Apple Pay button on unsupported browsers.
+Use the official Apple Pay button styling.
+Do not manually decrypt Apple Pay payloads unless the merchant configuration explicitly requires merchant decryption.
+Prefer CyberSource-managed decryption through the Unified Checkout implementation.
+
+Apple Pay requires enrollment and domain/certificate configuration in addition to application code.
+
+Google Pay
+
+Implement Google Pay through CyberSource Unified Checkout.
+
+Requirements:
+
+Show Google Pay only when:
+isLebanonUsd === true
+Google Pay reports the device/browser is ready to pay
+CyberSource Google Pay enrollment is active
+Do not show a non-functional Google Pay button.
+Use the official Google Pay button supplied/rendered by the supported CyberSource Unified Checkout flow.
+Do not process or store raw wallet card credentials.
+Rendering
+
+Add a separate wallet section above the existing manual CyberSource card form:
+
+Apple Pay button, when eligible and available
+Google Pay button, when eligible and available
+“or pay with card”
+Existing CyberSource manual card fields
+
+Do not alter the existing manual card component.
+
+Only mount wallet scripts/components when isLebanonUsd is true.
+
+For all other checkout combinations:
+
+return null;
+
+CyberSource wallet code must not exist in the active DOM for non-Lebanon or non-USD checkout states.
+
+Payment and order handling
+
+Reuse the existing checkout totals and order data.
+
+For wallet payments:
+
+Use the exact displayed USD total
+Prevent duplicate submission
+Disable Place Order while wallet authorization is processing
+Create or mark the order paid only after CyberSource returns an approved result
+Use an idempotent payment-attempt reference
+Preserve the selected delivery slot, sender details, recipient details, cart, fees, discounts, and notes
+Do not create a second order when the wallet callback completes
+
+Wallet cancellation must return the checkout to its previous state without deleting checkout information.
+
+Isolation and rollback
+
+Place all new logic behind a feature flag:
+
+CYBERSOURCE_WALLETS_ENABLED
+
+Also support separate controls:
+
+CYBERSOURCE_APPLE_PAY_ENABLED
+CYBERSOURCE_GOOGLE_PAY_ENABLED
+
+A failure in the wallet component must:
+
+Hide the failed wallet
+Leave the existing CyberSource card fields operational
+Leave Stripe, Klarna, Whish Money, and other methods unchanged
+Never crash the checkout
+
+Add an error boundary around the wallet component.
+
+Do not delete or rewrite existing payment files. Add new modules wherever possible.
+
+Safe diagnostics
+
+Log only:
+
+{
+  senderCountryCode,
+  currency,
+  isLebanonUsd,
+  applePaySupported,
+  googlePayReady,
+  unifiedCheckoutInitialized,
+  selectedWallet,
+  paymentStatus,
+  cybersourceRequestId
+}
+
+Never log:
+
+Wallet payment token payloads
+PAN
+CVC
+Capture-context JWT
+REST secret
+Apple Pay encrypted payment data
+Google Pay encrypted payment data
+Acceptance criteria
+Lebanon sender + USD on compatible Safari/device → Apple Pay appears.
+Lebanon sender + USD on compatible Google Pay browser/device → Google Pay appears.
+Lebanon sender + USD manual CyberSource card payment remains unchanged.
+Lebanon sender + EUR → no CyberSource wallets.
+Non-Lebanon sender + USD → no CyberSource wallets; existing Stripe flow remains unchanged.
+Unsupported Apple device/browser → Apple Pay is hidden.
+Google Pay not ready → Google Pay is hidden.
+Wallet cancellation returns safely to checkout.
+Successful wallet payment creates one paid order only.
+Failed wallet initialization does not affect any existing payment method.
+Disabling the feature flags restores the exact current checkout behavior without redeployment.
+No existing payment files are substantially refactored unless strictly necessary.
