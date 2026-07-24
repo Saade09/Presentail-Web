@@ -30,4 +30,5 @@
 - [Homepage rails sale pricing](homepage-pricing-enrichment.md) — OS list endpoint omits sale_price/regular_price/discount_price_*; homepage must read getOsProductPricingMap() (keyed by osNumericId) not raw product fields; also register a pricingEnrichmentListener to bust homepage caches after cold-start enrichment
 - [Best-seller badge annotation](best-seller-annotation.md) — OS totalSales is 0 for all products; must blend app_orders DB data for correct isBestSeller flag
 - [Klarna rollout](klarna-rollout.md) — payer IP country (not delivery country) for eligibility; KLARNA_ROLLOUT env var gate; confirmPayment type cast; elements.submit() required; Gulf always off; rollout off by default pending Ahmad approval
+- [Payment return-URL validation](payment-return-url-validation.md) — never path-restrict PayPal/Mamo/Tabby returnUrl to the bridge; host allowlist is the open-redirect guard (July 2026 outage)
 - [CyberSource checkout integration](cybersource-checkout.md) — CS tile gated LB+USD; csOnTokenRef pattern bridges placeOrder→WebView modal scope; createToken() uses component-internal expiry; wooOrders.ts Zod enum must include "cybersource"

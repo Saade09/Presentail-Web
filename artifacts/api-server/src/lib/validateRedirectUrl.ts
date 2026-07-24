@@ -13,10 +13,15 @@
 //                      dev/preview domain from REPLIT_DOMAINS).
 //
 //   "payment-return" — Mamo/PayPal/Tabby return URLs. Must also be HTTPS and on
-//                      an allowed host, AND the path must start with
-//                      /api/payment/return so the request is routed through our
-//                      deep-link bridge — which independently validates the
-//                      presentail: scheme before issuing any redirect.
+//                      an allowed host. Two callers use these routes:
+//                        - Mobile sends /api/payment/return?deeplink=… so the
+//                          bridge (which independently validates the
+//                          presentail: scheme) can hand off to the app.
+//                        - Web sends ordinary page URLs (e.g. /order-confirmed).
+//                      Both are safe because the host allowlist already blocks
+//                      the open-redirect attack; requiring the bridge path for
+//                      web callers broke every web PayPal/Mamo/Tabby payment
+//                      (July 2026 incident), so the path is NOT restricted.
 
 const ALWAYS_ALLOWED_HOSTS = new Set(["presentail.com", "www.presentail.com"]);
 
@@ -41,7 +46,8 @@ type UrlKind = "web" | "payment-return";
  *
  * @param raw  - The raw URL string from the request body.
  * @param kind - "web" for Stripe success/cancel; "payment-return" for
- *               Mamo/PayPal/Tabby (must target the /api/payment/return bridge).
+ *               Mamo/PayPal/Tabby (any path on an allowed host — web pages and
+ *               the /api/payment/return mobile bridge are both valid).
  * @returns null when valid, or a human-readable rejection reason on failure.
  */
 export function validateRedirectUrl(raw: string, kind: UrlKind): string | null {
@@ -67,11 +73,11 @@ export function validateRedirectUrl(raw: string, kind: UrlKind): string | null {
     return `Redirect URL hostname "${parsed.hostname}" is not permitted`; // i18n-ignore
   }
 
-  if (kind === "payment-return") {
-    if (!parsed.pathname.startsWith("/api/payment/return")) {
-      return "Return URL must target the /api/payment/return bridge"; // i18n-ignore
-    }
-  }
+  // "payment-return" and "web" share the same host/protocol rules. The
+  // /api/payment/return bridge (used by mobile deep-link returns) validates
+  // its own deeplink parameter, so no extra path restriction is needed here —
+  // and web callers legitimately use ordinary page URLs like /order-confirmed.
+  void kind;
 
   return null;
 }
