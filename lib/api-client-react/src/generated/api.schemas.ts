@@ -2416,6 +2416,7 @@ export type CreateCybersourceCaptureContext200 = {
   totalUsd?: number;
   environment?: CreateCybersourceCaptureContext200Environment;
   merchantId?: string;
+  googlePayMerchantId?: string;
   applePayEnabled?: boolean;
   googlePayEnabled?: boolean;
   clientLibrary?: string;

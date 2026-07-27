@@ -14,6 +14,7 @@ import {
 } from "../lib/catalog";
 import {
   getCybersourceMerchantId,
+  getCybersourceGooglePayMerchantId,
   getCybersourceEnvironment,
   authorizeAndCaptureGooglePay,
   validateApplePayMerchant,
@@ -1151,6 +1152,7 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
   const environment = (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") as "test" | "live";
   const { clientLibrary, clientLibraryIntegrity } = extractClientLibraryInfo(result.captureContext);
   const merchantId = getCybersourceMerchantId();
+  const googlePayMerchantId = getCybersourceGooglePayMerchantId();
   req.log.info({ orderId, totalUsd, environment, clientLibrary }, "CyberSource capture context created");
   return res.json({
     ok: true,
@@ -1160,8 +1162,9 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
     clientLibrary,
     clientLibraryIntegrity,
     merchantId,
+    googlePayMerchantId: googlePayMerchantId || undefined,
     applePayEnabled: true,
-    googlePayEnabled: true,
+    googlePayEnabled: !!googlePayMerchantId,
   });
 });
 

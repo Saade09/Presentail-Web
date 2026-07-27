@@ -831,7 +831,7 @@ export const useCybersourceCaptureContext = () => {
       cityId?: string;
       deliveryDate?: string;
       targetOrigin?: string;
-    }) => apiFetch<{ ok: boolean; captureContext?: string; totalUsd?: number; environment?: "test" | "live"; merchantId?: string; applePayEnabled?: boolean; googlePayEnabled?: boolean; clientLibrary?: string; clientLibraryIntegrity?: string; message?: string; code?: string }>("/payment/cybersource/capture-context", {
+    }) => apiFetch<{ ok: boolean; captureContext?: string; totalUsd?: number; environment?: "test" | "live"; merchantId?: string; googlePayMerchantId?: string; applePayEnabled?: boolean; googlePayEnabled?: boolean; clientLibrary?: string; clientLibraryIntegrity?: string; message?: string; code?: string }>("/payment/cybersource/capture-context", {
       method: "POST",
       body: JSON.stringify(data),
     }),

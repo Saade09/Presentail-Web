@@ -231,6 +231,10 @@ export function getCybersourceMerchantId(): string {
   return process.env.CYBERSOURCE_MERCHANT_ID?.trim() ?? "";
 }
 
+export function getCybersourceGooglePayMerchantId(): string {
+  return process.env.CYBERSOURCE_GOOGLE_PAY_MERCHANT_ID?.trim() ?? "";
+}
+
 export function getCybersourceEnvironment(): "test" | "live" {
   return (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") === "live" ? "live" : "test";
 }

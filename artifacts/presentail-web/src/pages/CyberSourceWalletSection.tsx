@@ -251,7 +251,7 @@ function CyberSourceWalletSectionInner({
         captureContextRef.current = ctx.captureContext;
         environmentRef.current = ctx.environment ?? "test";
         merchantIdRef.current = ctx.merchantId ?? "";
-        googlePayMerchantIdRef.current = (ctx as any).googlePayMerchantId ?? "";
+        googlePayMerchantIdRef.current = ctx.googlePayMerchantId ?? "";
 
         // 3. Load Flex SDK (for Apple Pay CyberSource merchant session handling)
         await loadScript(getFlexScriptUrl(environmentRef.current));
