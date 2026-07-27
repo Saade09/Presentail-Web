@@ -116,6 +116,18 @@ export interface HealthStatus {
 export interface ErrorResponse {
   ok: boolean;
   message: string;
+  /** Machine-readable failure class (e.g. payment_declined, gateway_endpoint_error, gateway_auth_error, gateway_validation_error, gateway_error) so clients can map errors to accurate user-facing messages.
+   */
+  code?: string;
+  /** Sanitized processor status/reason (e.g. DECLINED, "HTTP 404") for payment failures. Never contains card data.
+   */
+  declineCode?: string;
+  /** Sanitized upstream request identifier (e.g. the CyberSource request id) for support correlation. Never contains card data.
+   */
+  requestId?: string;
+  /** HTTP status returned by the CyberSource payments endpoint, when the failure originated there.
+   */
+  cybersourceStatus?: number;
 }
 
 export type PushPlatform = (typeof PushPlatform)[keyof typeof PushPlatform];
@@ -2298,6 +2310,148 @@ export type WooSearchParams = {
   countryCode?: string;
   cityId?: string;
   lang?: string;
+};
+
+export type CreateCybersourceApplePaySessionBody = {
+  /** Apple-supplied merchant validation URL (must be *.apple.com HTTPS) */
+  validationURL: string;
+  displayName?: string;
+  domainName?: string;
+};
+
+export type CreateCybersourceApplePaySession200MerchantSession = {
+  [key: string]: unknown;
+};
+
+export type CreateCybersourceApplePaySession200 = {
+  ok: boolean;
+  merchantSession: CreateCybersourceApplePaySession200MerchantSession;
+};
+
+export type CreateCybersourceWalletChargeBodyWalletType =
+  (typeof CreateCybersourceWalletChargeBodyWalletType)[keyof typeof CreateCybersourceWalletChargeBodyWalletType];
+
+export const CreateCybersourceWalletChargeBodyWalletType = {
+  googlepay: "googlepay",
+  applepay: "applepay",
+} as const;
+
+export type CreateCybersourceWalletChargeBodyItemsItem = {
+  wcId: number;
+  osSlug?: string;
+  quantity: number;
+};
+
+export type CreateCybersourceWalletChargeBodyBillingDetails = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+};
+
+export type CreateCybersourceWalletChargeBody = {
+  walletType: CreateCybersourceWalletChargeBodyWalletType;
+  walletToken: string;
+  orderId: string;
+  items: CreateCybersourceWalletChargeBodyItemsItem[];
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+  billingDetails?: CreateCybersourceWalletChargeBodyBillingDetails;
+};
+
+export type CreateCybersourceWalletCharge200 = {
+  ok: boolean;
+  paymentRef: string;
+};
+
+export type GetCybersourceAvailable200Environment =
+  (typeof GetCybersourceAvailable200Environment)[keyof typeof GetCybersourceAvailable200Environment];
+
+export const GetCybersourceAvailable200Environment = {
+  test: "test",
+  live: "live",
+} as const;
+
+export type GetCybersourceAvailable200 = {
+  available: boolean;
+  /** CyberSource merchant ID (public, safe for browser use) */
+  merchantId?: string;
+  environment?: GetCybersourceAvailable200Environment;
+};
+
+export type CreateCybersourceCaptureContextBodyItemsItem = {
+  wcId: number;
+  osSlug?: string;
+  quantity: number;
+};
+
+export type CreateCybersourceCaptureContextBody = {
+  orderId: string;
+  items: CreateCybersourceCaptureContextBodyItemsItem[];
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+  targetOrigin?: string;
+};
+
+export type CreateCybersourceCaptureContext200Environment =
+  (typeof CreateCybersourceCaptureContext200Environment)[keyof typeof CreateCybersourceCaptureContext200Environment];
+
+export const CreateCybersourceCaptureContext200Environment = {
+  test: "test",
+  live: "live",
+} as const;
+
+export type CreateCybersourceCaptureContext200 = {
+  ok: boolean;
+  captureContext?: string;
+  totalUsd?: number;
+  environment?: CreateCybersourceCaptureContext200Environment;
+  merchantId?: string;
+  applePayEnabled?: boolean;
+  googlePayEnabled?: boolean;
+  clientLibrary?: string;
+  clientLibraryIntegrity?: string;
+};
+
+export type CreateCybersourceChargeBodyItemsItem = {
+  wcId: number;
+  osSlug?: string;
+  quantity: number;
+};
+
+export type CreateCybersourceChargeBodyBillingDetails = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+};
+
+export type CreateCybersourceChargeBody = {
+  orderId: string;
+  transientTokenJwt: string;
+  items: CreateCybersourceChargeBodyItemsItem[];
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+  billingDetails?: CreateCybersourceChargeBodyBillingDetails;
+};
+
+export type CreateCybersourceCharge200 = {
+  ok: boolean;
+  paymentRef?: string;
 };
 
 export type GetPageDescriptionsParams = {

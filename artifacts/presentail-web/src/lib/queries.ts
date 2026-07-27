@@ -809,7 +809,10 @@ export const useTabbyPayment = () => {
 export const useCybersourceAvailable = () => {
   return useQuery({
     queryKey: ["cybersource-available"],
-    queryFn: () => apiFetch<{ available: boolean }>("/payment/cybersource/available"),
+    queryFn: () =>
+      apiFetch<{ available: boolean; merchantId?: string; environment?: "test" | "live" }>(
+        "/payment/cybersource/available",
+      ),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -828,7 +831,7 @@ export const useCybersourceCaptureContext = () => {
       cityId?: string;
       deliveryDate?: string;
       targetOrigin?: string;
-    }) => apiFetch<{ ok: boolean; captureContext?: string; totalUsd?: number; environment?: "test" | "live"; message?: string; code?: string }>("/payment/cybersource/capture-context", {
+    }) => apiFetch<{ ok: boolean; captureContext?: string; totalUsd?: number; environment?: "test" | "live"; merchantId?: string; applePayEnabled?: boolean; googlePayEnabled?: boolean; clientLibrary?: string; clientLibraryIntegrity?: string; message?: string; code?: string }>("/payment/cybersource/capture-context", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -852,6 +855,7 @@ export const useCybersourceCharge = () => {
         firstName?: string;
         lastName?: string;
         email?: string;
+        phone?: string;
       };
     }) => apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string; declineCode?: string }>("/payment/cybersource/charge", {
       method: "POST",
@@ -860,41 +864,26 @@ export const useCybersourceCharge = () => {
   });
 };
 
-export const useCybersourceWalletCaptureContext = () => {
+export const useCybersourceApplePaySession = () => {
   return useMutation({
     mutationFn: (data: {
-      items: PayCartItem[];
-      orderId: string;
-      district?: string;
-      expressDelivery?: boolean;
-      noAddress?: boolean;
-      deliverySlot?: string;
-      deliverySlotId?: string;
-      cityId?: string;
-      deliveryDate?: string;
-      targetOrigin?: string;
-    }) => apiFetch<{
-      ok: boolean;
-      captureContext?: string;
-      totalUsd?: number;
-      environment?: "test" | "live";
-      applePayEnabled?: boolean;
-      googlePayEnabled?: boolean;
-      merchantId?: string;
-      message?: string;
-      code?: string;
-    }>("/payment/cybersource/wallet-capture-context", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+      validationURL: string;
+      displayName?: string;
+      domainName?: string;
+    }) =>
+      apiFetch<{ ok: boolean; merchantSession?: unknown; message?: string }>(
+        "/payment/cybersource/applepay-session",
+        { method: "POST", body: JSON.stringify(data) },
+      ),
   });
 };
 
 export const useCybersourceWalletCharge = () => {
   return useMutation({
     mutationFn: (data: {
+      walletType: "googlepay" | "applepay";
+      walletToken: string;
       orderId: string;
-      transientTokenJwt: string;
       items: PayCartItem[];
       district?: string;
       expressDelivery?: boolean;
@@ -907,12 +896,13 @@ export const useCybersourceWalletCharge = () => {
         firstName?: string;
         lastName?: string;
         email?: string;
+        phone?: string;
       };
-      selectedWallet?: "apple_pay" | "google_pay";
-    }) => apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string; declineCode?: string }>("/payment/cybersource/wallet-charge", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    }) =>
+      apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string; declineCode?: string }>(
+        "/payment/cybersource/wallet-charge",
+        { method: "POST", body: JSON.stringify(data) },
+      ),
   });
 };
 

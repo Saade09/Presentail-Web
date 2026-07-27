@@ -178,4 +178,17 @@ app.use("/feeds", feedsRouter);
 
 app.use("/api", router);
 
+// Any request reaching this middleware hit /api but matched NO route above —
+// the 404 originates from OUR backend, not an upstream provider. Logging it
+// at WARN makes "is this 404 ours or CyberSource's?" answerable from logs.
+app.use("/api", (req, res) => {
+  // Optional chaining: req.log is always present in production (pino-http is
+  // mounted above), but bare express() test harnesses may not attach it.
+  req.log?.warn(
+    { method: req.method, frontendRequestUrl: req.originalUrl, backendRouteMatched: false },
+    "API route not matched — backend-origin 404",
+  );
+  res.status(404).json({ ok: false, code: "route_not_found", message: "API route not found" }); // i18n-ignore
+});
+
 export default app;

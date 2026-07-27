@@ -141,6 +141,8 @@ vi.mock("@/lib/queries", () => ({
   useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceCaptureContext: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceApplePaySession: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceWalletCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
   // available: false → csAvailable is false → card tile shown → StripeCheckoutSection
   // renders → onStripeReady sets stripe → probe fires → canMakePayment called.
   // available: undefined would be interpreted as "optimistically true" and hide the

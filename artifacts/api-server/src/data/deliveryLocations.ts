@@ -1,4 +1,6 @@
-import type { DeliveryCountry } from "@workspace/api-zod";
+import { GetDeliveryLocationsResponse } from "@workspace/api-zod";
+import type { z } from "zod";
+type DeliveryCountry = z.infer<typeof GetDeliveryLocationsResponse>["countries"][number];
 import {
   DELIVERY_COUNTRIES as LIB_DELIVERY_COUNTRIES,
   feeForDistrict,

@@ -19,6 +19,14 @@
  *     fails — the error sets `csCaptureContextError`, which causes the
  *     paymentOptions memo to re-include the Stripe card tile even while
  *     csAvailable is still true.
+ *
+ *  4. Credential-rotation recovery — the prefetch resolves as a soft failure
+ *     (HTTP 200, ok:false — e.g. credentials rotated mid-session), leaving
+ *     `csCaptureContext` null with no `csCaptureContextError`. The submit
+ *     handler must re-fetch the capture context on tap (second call succeeds)
+ *     and the shopper must never see a blank form or an unrecoverable error:
+ *     the retried context initialises the Microform, and a follow-up tap
+ *     completes the charge and reaches order-confirmed.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -107,6 +115,38 @@ const MOCK_STRIPE_SCRIPT = `
   MockStripe.prototype.registerAppInfo = function() {};
 
   window.Stripe = function(key) { return new MockStripe(key); };
+})();
+`;
+
+// ---------------------------------------------------------------------------
+// Mock CyberSource Flex Microform SDK — served instead of the CDN bundle so
+// the retried capture context can initialise the form and tokenize offline.
+// ---------------------------------------------------------------------------
+
+const MOCK_FLEX_SCRIPT = `
+(function() {
+  function MockMicroformField(type) { this._type = type; }
+  MockMicroformField.prototype.load = function(selector) {
+    var container = document.querySelector(selector);
+    if (container) {
+      var div = document.createElement('div');
+      div.setAttribute('data-mock-cs-field', this._type);
+      container.appendChild(div);
+    }
+  };
+  MockMicroformField.prototype.on = function() { return this; };
+  MockMicroformField.prototype.unload = function() {};
+
+  function MockMicroform() {}
+  MockMicroform.prototype.createField = function(type) { return new MockMicroformField(type); };
+  MockMicroform.prototype.createToken = function(options, callback) {
+    setTimeout(function() { callback(null, 'mock-transient-token-jwt'); }, 0);
+  };
+
+  function MockFlex(captureContext) { this._cc = captureContext; }
+  MockFlex.prototype.microform = function() { return new MockMicroform(); };
+
+  window.Flex = MockFlex;
 })();
 `;
 
@@ -274,78 +314,6 @@ test.describe("Checkout — CyberSource and Stripe card tile visibility", () => 
     await expect(page.getByTestId("option-payment-cybersource")).toHaveCount(0);
   });
 
-  // ── 4. Submit-time re-fetch: capture context null mid-session → retry works ─
-
-  test("shopper sees an error toast (not a blank form) when capture-context fails at submit time, and can retry successfully", async ({
-    page,
-  }) => {
-    test.setTimeout(90_000);
-
-    // CS credentials are configured — tile is visible.
-    await page.route("**/api/payment/cybersource/available", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true }) }),
-    );
-
-    // Suppress the prefetch so csCaptureContext remains null when the shopper
-    // hits Place Order, simulating a credential rotation that expired the
-    // prefetched context mid-session.
-    let captureContextCallCount = 0;
-    await page.route("**/api/payment/cybersource/capture-context", (route) => {
-      captureContextCallCount++;
-      if (captureContextCallCount === 1) {
-        // First call (at submit time): simulate a transient 500 so we can
-        // verify the form doesn't blank out.
-        route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ ok: false, message: "Capture context temporarily unavailable" }),
-        });
-      } else {
-        // Second call (shopper retries): succeed so the handler can proceed
-        // past the capture-context step.
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ ok: true, captureContext: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.stub.stub" }),
-        });
-      }
-    });
-
-    await page.goto("/en-lb/beirut/checkout?guest=1");
-    await advanceToPaymentStep(page);
-
-    // Select the CyberSource tile (CS is available — tile renders).
-    const csOption = page.getByTestId("option-payment-cybersource");
-    await expect(csOption).toBeVisible({ timeout: 15_000 });
-    await csOption.click();
-
-    // Hit Place Order — csCaptureContext is null so the submit handler will
-    // call the endpoint. First call returns 500.
-    const submitBtn = page.getByTestId("button-submit-payment");
-    await expect(submitBtn).toBeVisible({ timeout: 10_000 });
-    await submitBtn.click();
-
-    // The handler must show an error toast and return — form stays intact.
-    // Wait for at least one toast to appear.
-    const toast = page.locator("[data-sonner-toast], [role='alert'], [data-radix-toast-root]").first();
-    await expect(toast).toBeVisible({ timeout: 10_000 });
-
-    // The CyberSource tile is still present — the form did not blank out or
-    // navigate away from the payment step.
-    await expect(csOption).toBeVisible({ timeout: 5_000 });
-    expect(captureContextCallCount).toBe(1);
-
-    // Shopper retries. Second capture-context call succeeds.
-    await submitBtn.click();
-    // The handler will proceed past capture context. It may then fail at the
-    // Microform tokenisation step (no real SDK in test), but the form must not
-    // become entirely blank or unresponsive.
-    await page.waitForTimeout(2_000);
-    expect(captureContextCallCount).toBe(2);
-    // Payment step is still rendered (shopper is not stuck on a blank page).
-    await expect(submitBtn).toBeVisible({ timeout: 5_000 });
-  });
-
   // ── 3. CS available but capture-context fails → Stripe card tile recovers ──
 
   test("Stripe card tile appears after CyberSource capture-context prefetch returns an error", async ({
@@ -385,5 +353,113 @@ test.describe("Checkout — CyberSource and Stripe card tile visibility", () => 
 
     // CyberSource tile must now be absent — csCaptureContextError removes it.
     await expect(page.getByTestId("option-payment-cybersource")).toHaveCount(0);
+  });
+
+  // ── 4. Credential rotation mid-session → submit-time capture-context retry ─
+
+  test("charge submission re-fetches capture context when the prefetch soft-fails (credential rotation recovery)", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    await page.route("**/api/payment/cybersource/available", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true }) }),
+    );
+
+    // Capture-context: first call soft-fails (200 + ok:false, as returned when
+    // credentials were rotated mid-session and the old key is rejected), every
+    // subsequent call succeeds. This leaves csCaptureContext null with NO
+    // csCaptureContextError after the prefetch, exercising the submit-time
+    // retry branch in handleSubmit.
+    let captureContextCalls = 0;
+    await page.route("**/api/payment/cybersource/capture-context", (route) => {
+      captureContextCalls += 1;
+      if (captureContextCalls === 1) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: false, message: "CyberSource credentials rotated" }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, captureContext: "mock-capture-context-jwt", environment: "test" }),
+      });
+    });
+
+    // Mock the CyberSource Flex Microform SDK so the retried capture context
+    // can actually initialise the form and tokenize without hitting the CDN.
+    await page.route("**flex.cybersource.com/**", (route) =>
+      route.fulfill({ status: 200, contentType: "text/javascript", body: MOCK_FLEX_SCRIPT }),
+    );
+
+    // Charge succeeds once tokenization works.
+    let chargeCalled = false;
+    await page.route("**/api/payment/cybersource/charge", (route) => {
+      chargeCalled = true;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, paymentRef: "cs-ref-e2e-001" }),
+      });
+    });
+
+    // Order finalization after a successful charge.
+    await page.route("**/api/woo/order", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, orderId: FAKE_ORDER_ID, couponDiscount: 0 }),
+      }),
+    );
+
+    await page.goto("/en-lb/beirut/checkout?guest=1");
+    await advanceToPaymentStep(page);
+
+    // Select the CyberSource tile — this triggers the prefetch (call #1,
+    // soft failure).
+    const csOption = page.getByTestId("option-payment-cybersource");
+    await expect(csOption).toBeVisible({ timeout: 15_000 });
+    await csOption.click();
+
+    // Wait for the prefetch to have fired and soft-failed.
+    await expect.poll(() => captureContextCalls, { timeout: 10_000 }).toBe(1);
+
+    // The shopper is NOT dumped on a blank/broken form: the CS section stays
+    // mounted (loading skeleton), the CS tile remains selected (no forced
+    // Stripe fallback — that only happens on a thrown/HTTP error), and no
+    // destructive error message is shown inside the section.
+    const csSection = page.getByTestId("cybersource-section");
+    await expect(csSection).toBeVisible({ timeout: 10_000 });
+    await expect(csSection.locator("p.text-destructive")).toHaveCount(0);
+    await expect(page.getByTestId("option-payment-card")).toHaveCount(0);
+
+    // Tap Place Order — csCaptureContext is null, so the submit handler must
+    // re-fetch the capture context (call #2 succeeds).
+    const submitBtn = page.getByTestId("button-submit-payment");
+    await expect(submitBtn).toBeEnabled({ timeout: 10_000 });
+    await submitBtn.click();
+
+    await expect.poll(() => captureContextCalls, { timeout: 10_000 }).toBe(2);
+
+    // The retried capture context initialises the (mocked) Microform: the
+    // expiry input becomes visible — the form recovered, no blank state and
+    // no unrecoverable error inside the section.
+    const expiryInput = page.getByTestId("cs-expiry");
+    await expect(expiryInput).toBeVisible({ timeout: 15_000 });
+    await expect(csSection.locator("p.text-destructive")).toHaveCount(0);
+
+    // Complete the recovered flow: fill expiry and tap Place Order again.
+    // Tokenization now succeeds via the mock SDK, the charge is submitted,
+    // and the shopper reaches order-confirmed.
+    await expiryInput.fill("12 / 30");
+    await expect(submitBtn).toBeEnabled({ timeout: 10_000 });
+    await submitBtn.click();
+
+    await page.waitForURL(/\/order-confirmed/, { timeout: 20_000 });
+    expect(chargeCalled).toBe(true);
+    // No third capture-context fetch — the retried context was cached.
+    expect(captureContextCalls).toBe(2);
   });
 });

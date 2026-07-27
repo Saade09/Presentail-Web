@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import PhoneInput, { getCountries, isValidPhoneNumber } from "react-phone-number-input";
-import type { Value as PhoneValue } from "react-phone-number-input";
+import PhoneInput, {
+  getCountries,
+  getCountryCallingCode,
+  isValidPhoneNumber,
+  parsePhoneNumber,
+} from "react-phone-number-input";
+import type { Country, Value as PhoneValue } from "react-phone-number-input";
 import { PHONE_COUNTRY_BLOCKLIST } from "@workspace/catalog-data";
 
 export type Props = {
@@ -21,7 +26,39 @@ export type Props = {
    * stays inside this module's dynamic code-split boundary.
    */
   onValidityChange?: (isNonEmptyAndValid: boolean) => void;
+  /**
+   * Called with the ISO-3166 country currently displayed by the phone field's
+   * flag/prefix picker (and its dial code, e.g. "961"), including once on
+   * mount with the initial country. This is the SAME state that renders the
+   * visible prefix, so consumers (e.g. payment routing) can never disagree
+   * with what the UI shows. `undefined` means the picker is in the
+   * "international / unknown" state.
+   */
+  onCountryChange?: (country: string | undefined, dialCode: string | undefined) => void;
 };
+
+function safeDialCode(country: string | undefined): string | undefined {
+  if (!country) return undefined;
+  try {
+    return getCountryCallingCode(country as Country);
+  } catch {
+    return undefined;
+  }
+}
+
+function deriveInitialCountry(value: string, defaultCountry: string): string | undefined {
+  // A prefilled E.164 value decides the displayed country (PhoneInput derives
+  // it the same way); otherwise the picker starts on defaultCountry.
+  if (value) {
+    try {
+      const parsed = parsePhoneNumber(value);
+      if (parsed?.country) return parsed.country;
+    } catch {
+      /* fall through to defaultCountry */
+    }
+  }
+  return defaultCountry || undefined;
+}
 
 export function WebPhoneField({
   value,
@@ -33,11 +70,25 @@ export function WebPhoneField({
   errorMessage,
   "data-testid": testId,
   onValidityChange,
+  onCountryChange,
 }: Props) {
   const filteredCountries = useMemo(
     () => getCountries().filter((c) => !(PHONE_COUNTRY_BLOCKLIST as readonly string[]).includes(c)),
     [],
   );
+
+  // Mirror of the country the picker currently displays. Initialised from the
+  // prefilled value (or defaultCountry) and kept in sync via PhoneInput's own
+  // onCountryChange, so it can never diverge from the visible flag/prefix.
+  const [selectedCountry, setSelectedCountry] = useState<string | undefined>(() =>
+    deriveInitialCountry(value, defaultCountry),
+  );
+  // Notify parent on mount and on every change. onCountryChange is treated
+  // like onChange — stable reference not required in deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    onCountryChange?.(selectedCountry, safeDialCode(selectedCountry));
+  }, [selectedCountry]);
 
   const [touched, setTouched] = useState(false);
   // hasTyped tracks whether the user has actually typed into the text field.
@@ -87,6 +138,7 @@ export function WebPhoneField({
           defaultCountry={defaultCountry as any}
           value={(value as PhoneValue) || undefined}
           onChange={(v) => onChange(v ?? "")}
+          onCountryChange={(c) => setSelectedCountry(c ?? undefined)}
           countries={filteredCountries}
           data-testid={testId}
         />

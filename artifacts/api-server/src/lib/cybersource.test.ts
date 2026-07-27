@@ -319,9 +319,155 @@ describe("authorizeAndCapture", () => {
       orderId: "ord-sig",
     });
 
-    expect(capturedHeaders["Authorization"]).toBeDefined();
-    expect(capturedHeaders["Authorization"]).toMatch(/^Signature /);
-    expect(capturedHeaders["Authorization"]).toContain('algorithm="HmacSHA256"');
-    expect(capturedHeaders["Digest"]).toMatch(/^SHA-256=/);
+    // The official SDK sends the auth as a bare "signature:" header
+    // (not "Authorization: Signature ..."), and our signing mirrors it.
+    expect(capturedHeaders["signature"]).toBeDefined();
+    expect(capturedHeaders["signature"]).toMatch(/^keyid="/);
+    expect(capturedHeaders["signature"]).toContain('algorithm="HmacSHA256"');
+    expect(capturedHeaders["digest"]).toMatch(/^SHA-256=/);
+    // Accept must be HAL+JSON for /pts/v2/payments — sending application/jwt
+    // there makes CyberSource return HTTP 404 "Resource not found".
+    expect(capturedHeaders["Accept"]).toContain("application/hal+json");
+  });
+
+  it("classifies HTTP 201 with status DECLINED as a real card decline (kind=decline)", async () => {
+    const fakeDecline = {
+      id: "decline-id",
+      status: "DECLINED",
+      errorInformation: { reason: "INSUFFICIENT_FUND", message: "Insufficient funds in the account" },
+    };
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(fakeDecline), { status: 201 }),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-201-declined",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("decline");
+      expect(result.declineCode).toBe("INSUFFICIENT_FUND");
+      expect(result.httpStatus).toBe(201);
+    }
+  });
+
+  it("classifies HTTP 404 as endpoint error (kind=endpoint), never a decline, and never invents an entitlement claim", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response("Resource not found", {
+        status: 404,
+        headers: { "v-c-correlation-id": "corr-abc-123" },
+      }),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-404",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("endpoint");
+      expect(result.httpStatus).toBe(404);
+      expect(result.rawBody).toContain("Resource not found");
+      // The message must NOT claim the card was declined.
+      expect(result.message.toLowerCase()).not.toContain("declined");
+      // The message must NOT claim the merchant account is not enabled —
+      // a 404 alone does not prove entitlement failure. It must report the
+      // facts: the exact URL and CyberSource's correlation ID.
+      expect(result.message.toLowerCase()).not.toContain("not enabled");
+      expect(result.message).toContain("/pts/v2/payments");
+      expect(result.message).toContain("corr-abc-123");
+      // Diagnostics for structured logging.
+      expect(result.requestUrl).toMatch(/https:\/\/api(test)?\.cybersource\.com\/pts\/v2\/payments$/);
+      expect(result.correlationId).toBe("corr-abc-123");
+    }
+  });
+
+  it("relays CyberSource's own message on 404 when the response body provides one", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ errorInformation: { message: "Merchant account is not enabled for this service" } }),
+        { status: 404, headers: { "v-c-correlation-id": "corr-def-456" } },
+      ),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-404-upstream-msg",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("endpoint");
+      // Upstream stated it — relaying the claim verbatim is allowed here.
+      expect(result.message).toBe("Merchant account is not enabled for this service");
+    }
+  });
+
+  it("classifies HTTP 401 as an authentication failure (kind=auth)", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ response: { rmsg: "Authentication Failed" } }), { status: 401 }),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-401",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("auth");
+      expect(result.httpStatus).toBe(401);
+      expect(result.message.toLowerCase()).not.toContain("declined");
+    }
+  });
+
+  it("classifies HTTP 400 INVALID_DATA as validation (kind=validation)", async () => {
+    const fakeError = {
+      status: "DECLINED",
+      errorInformation: { reason: "INVALID_DATA", message: "Invalid Json Request" },
+    };
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(fakeError), { status: 400 }),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-400",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("validation");
+      expect(result.declineCode).toBe("INVALID_DATA");
+    }
+  });
+
+  it("classifies a thrown fetch error as kind=network", async () => {
+    vi.spyOn(global, "fetch").mockRejectedValueOnce(new TypeError("Network failure"));
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-net",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("network");
+    }
   });
 });

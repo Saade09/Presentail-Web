@@ -9,4 +9,16 @@
 export interface ErrorResponse {
   ok: boolean;
   message: string;
+  /** Machine-readable failure class (e.g. payment_declined, gateway_endpoint_error, gateway_auth_error, gateway_validation_error, gateway_error) so clients can map errors to accurate user-facing messages.
+   */
+  code?: string;
+  /** Sanitized processor status/reason (e.g. DECLINED, "HTTP 404") for payment failures. Never contains card data.
+   */
+  declineCode?: string;
+  /** Sanitized upstream request identifier (e.g. the CyberSource request id) for support correlation. Never contains card data.
+   */
+  requestId?: string;
+  /** HTTP status returned by the CyberSource payments endpoint, when the failure originated there.
+   */
+  cybersourceStatus?: number;
 }

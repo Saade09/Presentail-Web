@@ -12,6 +12,13 @@ import {
   countryForDistrict,
   expressSurchargeUsd,
 } from "../lib/catalog";
+import {
+  getCybersourceMerchantId,
+  getCybersourceEnvironment,
+  authorizeAndCaptureGooglePay,
+  validateApplePayMerchant,
+  authorizeAndCaptureApplePay,
+} from "../lib/cybersource";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 import { validateRedirectUrl } from "../lib/validateRedirectUrl";
@@ -909,9 +916,7 @@ router.post("/payment/tabby/refund", async (req, res) => {
 //     returning, so /woo/order can reject any replay or cart substitution.
 import {
   isCybersourceConfigured,
-  isCybersourceWalletsEnabled,
   generateCaptureContext,
-  generateWalletCaptureContext,
   authorizeAndCapture,
 } from "../lib/cybersource";
 
@@ -958,263 +963,118 @@ function resolveTargetOrigins(bodyOrigin?: string): string[] {
       if (!base.includes(origin)) base.push(origin);
     }
   }
+  // CRITICAL for the Replit workspace preview: the app itself runs inside an
+  // iframe hosted on replit.com, and CyberSource enforces targetOrigins via
+  // CSP frame-ancestors — which the browser checks against EVERY ancestor
+  // origin in the chain (flex iframe → app page → replit.com workspace).
+  // Without replit.com in the list, the Microform iframes render
+  // "flex.cybersource.com refused to connect" inside the preview pane even
+  // though the iframe src is correct.  Harmless in production (no replit.com
+  // ancestor exists there) and only added when running on Replit.
+  if (replitDomains.trim()) {
+    if (!base.includes("https://replit.com")) base.push("https://replit.com");
+  }
   if (bodyOrigin && allowed.has(bodyOrigin) && !base.includes(bodyOrigin)) {
     base.push(bodyOrigin);
   }
   return base;
 }
 
-router.get("/payment/cybersource/available", (_req, res) => {
-  return res.json({ available: isCybersourceConfigured() });
-});
+// ── Dev-only: decode a capture context JWT without any library ────────────
+// Returns the payload fields needed to diagnose Microform issues.
+// Never exposed in production.
+function decodeJwtPayload(jwt: string): Record<string, unknown> {
+  const parts = jwt.split(".");
+  if (parts.length !== 3) throw new Error("Not a 3-segment JWT"); // i18n-ignore
+  const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  return JSON.parse(Buffer.from(padded, "base64").toString("utf-8"));
+}
 
-// ── CyberSource wallet capture context ───────────────────────────────────────
-// Returns the wallet capture context JWT plus a flag for which wallets the
-// server has enabled.  Keeps amounts server-side — same totalling logic as the
-// Microform capture-context route.
-router.post("/payment/cybersource/wallet-capture-context", async (req, res) => {
-  if (!isCybersourceConfigured()) {
-    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
-  }
-  if (!isCybersourceWalletsEnabled()) {
-    return res.status(503).json({ ok: false, message: "CyberSource wallets not enabled." }); // i18n-ignore
-  }
-
-  const {
-    items,
-    orderId,
-    district,
-    expressDelivery,
-    noAddress,
-    deliverySlot: rawDeliverySlot,
-    deliverySlotId: rawDeliverySlotId,
-    cityId: rawCityId,
-    deliveryDate: rawDeliveryDate,
-    targetOrigin: bodyOrigin,
-  } = req.body as {
-    items: { wcId: number; osSlug?: string; quantity: number }[];
-    orderId?: string;
-    district?: string;
-    expressDelivery?: boolean;
-    noAddress?: boolean;
-    deliverySlot?: string;
-    deliverySlotId?: string;
-    cityId?: string;
-    deliveryDate?: string;
-    targetOrigin?: string;
-  };
-
-  if (!orderId) {
-    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
-  }
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
-  }
-
-  const store = resolveStoreFromRequest(req);
-  if (store.storeKey !== "lebanon") {
-    return res.status(400).json({ ok: false, message: "CyberSource wallets are only available for the Lebanon storefront." }); // i18n-ignore
-  }
-
-  const catalogResult = await resolveCartItems(items, store);
-  if (!catalogResult.ok) {
-    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
-  }
-
-  const resolvedDistrict = district ?? "Beirut";
-  const isExpress = expressDelivery === true;
-  const isNoAddress = noAddress === true;
-  const subtotalUsd = catalogResult.subtotalUsd;
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
-  const slotFeeUsd = computeSlotFeeUsd({
-    expressDelivery: isExpress,
-    deliverySlot: rawDeliverySlot,
-    deliverySlotId: rawDeliverySlotId,
-    cityId: rawCityId,
-    deliveryDate: rawDeliveryDate,
-    district: resolvedDistrict,
-  });
-  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd;
-  const totalAmount = totalUsd.toFixed(2);
-
-  const targetOrigins = resolveTargetOrigins(bodyOrigin);
-
-  const result = await generateWalletCaptureContext({ targetOrigins, totalAmount, currency: "USD" });
-  if (!result.ok) {
-    req.log.warn({ orderId, message: result.message }, "CyberSource wallet capture context failed");
-    return res.status(502).json({ ok: false, code: "cybersource_error", message: result.message });
-  }
-
-  const environment = (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") as "test" | "live";
-  const applePayEnabled = process.env.CYBERSOURCE_APPLE_PAY_ENABLED !== "0" &&
-    process.env.CYBERSOURCE_APPLE_PAY_ENABLED?.toLowerCase() !== "false" &&
-    process.env.CYBERSOURCE_APPLE_PAY_ENABLED?.toLowerCase() !== "no";
-  const googlePayEnabled = process.env.CYBERSOURCE_GOOGLE_PAY_ENABLED !== "0" &&
-    process.env.CYBERSOURCE_GOOGLE_PAY_ENABLED?.toLowerCase() !== "false" &&
-    process.env.CYBERSOURCE_GOOGLE_PAY_ENABLED?.toLowerCase() !== "no";
-  const merchantId = process.env.CYBERSOURCE_MERCHANT_ID?.trim() ?? "";
-  // Google Pay merchant ID registered in the Google Pay Business Console —
-  // distinct from the CyberSource merchantId used as the gateway credential.
-  // Set CYBERSOURCE_GOOGLE_PAY_MERCHANT_ID to the value from Google Pay console.
-  // When unset the client will fall back to the test merchant ID; the Google Pay
-  // button will be suppressed in production until this is configured.
-  const googlePayMerchantId = process.env.CYBERSOURCE_GOOGLE_PAY_MERCHANT_ID?.trim() ?? "";
-
-  req.log.info(
-    { orderId, totalUsd, environment, applePayEnabled, googlePayEnabled },
-    "CyberSource wallet capture context created",
-  );
-  return res.json({
-    ok: true,
-    captureContext: result.captureContext,
-    totalUsd,
-    environment,
-    applePayEnabled,
-    googlePayEnabled,
-    merchantId,
-    googlePayMerchantId,
-  });
-});
-
-// ── CyberSource wallet charge ─────────────────────────────────────────────────
-// Accepts the transient token produced by the CyberSource Unified Checkout SDK
-// (Apple Pay / Google Pay path) and finalises the payment server-side.
-// Uses the same authorizeAndCapture primitive as the Microform card charge;
-// the paymentRef is prefixed "cybs-wallet:" to distinguish it from card charges
-// in the order table and admin views.
-router.post("/payment/cybersource/wallet-charge", async (req, res) => {
-  if (!isCybersourceConfigured()) {
-    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
-  }
-
-  const {
-    orderId,
-    transientTokenJwt,
-    items,
-    district,
-    expressDelivery,
-    noAddress,
-    deliverySlot: rawDeliverySlot,
-    deliverySlotId: rawDeliverySlotId,
-    cityId: rawCityId,
-    deliveryDate: rawDeliveryDate,
-    billingDetails: rawBilling,
-    selectedWallet,
-  } = req.body as {
-    orderId: string;
-    transientTokenJwt: string;
-    items: { wcId: number; osSlug?: string; quantity: number }[];
-    district?: string;
-    expressDelivery?: boolean;
-    noAddress?: boolean;
-    deliverySlot?: string;
-    deliverySlotId?: string;
-    cityId?: string;
-    deliveryDate?: string;
-    billingDetails?: {
-      firstName?: string;
-      lastName?: string;
-      email?: string;
+// Extract the versioned SDK URL and SRI integrity hash from the capture-context
+// JWT so callers load the exact SDK version the capture context was built for.
+// Per CyberSource docs: always use ctx[0].data.clientLibrary, not a hardcoded URL.
+function extractClientLibraryInfo(jwt: string): {
+  clientLibrary?: string;
+  clientLibraryIntegrity?: string;
+} {
+  try {
+    const payload = decodeJwtPayload(jwt) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const ctx = Array.isArray(payload?.ctx) ? payload.ctx[0]?.data : undefined;
+    return {
+      clientLibrary: ctx?.clientLibrary ?? undefined,
+      clientLibraryIntegrity: ctx?.clientLibraryIntegrity ?? undefined,
     };
-    selectedWallet?: "apple_pay" | "google_pay";
-  };
-
-  if (!orderId) {
-    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  } catch {
+    return {};
   }
-  if (!transientTokenJwt) {
-    return res.status(400).json({ ok: false, message: "transientTokenJwt is required" }); // i18n-ignore
-  }
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
-  }
-  if (typeof transientTokenJwt !== "string" || transientTokenJwt.split(".").length !== 3) {
-    return res.status(400).json({ ok: false, message: "Invalid transient token." }); // i18n-ignore
-  }
+}
 
-  const store = resolveStoreFromRequest(req);
-  if (store.storeKey !== "lebanon") {
-    return res.status(400).json({ ok: false, message: "CyberSource wallets are only available for the Lebanon storefront." }); // i18n-ignore
+// GET /payment/cybersource/test-capture-context  (dev only)
+// Returns a minimal capture context for the isolated /cs-test.html diagnostic
+// page.  Uses a $1.00 dummy total so item pricing logic is not needed.
+router.get("/payment/cybersource/test-capture-context", async (req, res) => {
+  if (process.env.NODE_ENV === "production") return res.status(404).end();
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
   }
-
-  const catalogResult = await resolveCartItems(items, store);
-  if (!catalogResult.ok) {
-    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  const pageOrigin =
+    (req.headers.origin as string | undefined) ||
+    (req.query.origin as string | undefined) ||
+    (req.query.pageOrigin as string | undefined) ||
+    (() => {
+      const first = (process.env.REPLIT_DOMAINS ?? "").split(",")[0]?.trim();
+      return first ? `https://${first}` : "http://localhost:5173";
+    })();
+  const targetOrigins = resolveTargetOrigins(pageOrigin);
+  const result = await generateCaptureContext({ targetOrigins, totalAmount: "1.00", currency: "USD" });
+  if (!result.ok) {
+    return res.status(502).json({ ok: false, message: result.message }); // i18n-ignore
   }
+  const environment = (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") as "test" | "live";
+  const { clientLibrary, clientLibraryIntegrity } = extractClientLibraryInfo(result.captureContext);
+  return res.json({ ok: true, captureContext: result.captureContext, environment, targetOrigins, clientLibrary, clientLibraryIntegrity });
+});
 
-  const resolvedDistrict = district ?? "Beirut";
-  const isExpress = expressDelivery === true;
-  const isNoAddress = noAddress === true;
-  const subtotalUsd = catalogResult.subtotalUsd;
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
-  const slotFeeUsd = computeSlotFeeUsd({
-    expressDelivery: isExpress,
-    deliverySlot: rawDeliverySlot,
-    deliverySlotId: rawDeliverySlotId,
-    cityId: rawCityId,
-    deliveryDate: rawDeliveryDate,
-    district: resolvedDistrict,
-  });
-  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd;
-  const totalAmount = totalUsd.toFixed(2);
-
-  const chargeResult = await authorizeAndCapture({
-    transientTokenJwt,
-    totalAmount,
-    currency: "USD",
-    orderId,
-    billingDetails: rawBilling,
-  });
-
-  if (!chargeResult.ok) {
-    req.log.warn(
-      {
-        orderId,
-        totalUsd,
-        selectedWallet,
-        declineCode: chargeResult.declineCode,
-        message: chargeResult.message,
-      },
-      "CyberSource wallet charge failed",
-    );
-    return res.status(402).json({
-      ok: false,
-      code: "payment_declined",
-      declineCode: chargeResult.declineCode,
-      message: chargeResult.message,
+// POST /payment/cybersource/decode-context  (dev only)
+// Decodes the capture-context JWT payload and returns the fields needed to
+// diagnose Microform issues (targetOrigins, environment, exp, etc.).
+// Does NOT expose raw credentials or the full token back to the caller.
+router.post("/payment/cybersource/decode-context", (req, res) => {
+  if (process.env.NODE_ENV === "production") return res.status(404).end();
+  const { captureContext } = req.body as { captureContext?: string };
+  if (!captureContext || typeof captureContext !== "string") {
+    return res.status(400).json({ ok: false, message: "captureContext required" }); // i18n-ignore
+  }
+  try {
+    const payload = decodeJwtPayload(captureContext) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    // CyberSource Flex Microform v2 JWT structure:
+    //   payload.ctx[0].data.targetOrigins, .allowedCardNetworks, .allowedPaymentTypes
+    //   payload.iss, payload.exp, payload.jti
+    const ctx = Array.isArray(payload?.ctx) ? payload.ctx[0]?.data : undefined;
+    return res.json({
+      ok: true,
+      iss: payload?.iss,
+      exp: payload?.exp,
+      expDate: payload?.exp ? new Date((payload.exp as number) * 1000).toISOString() : undefined,
+      targetOrigins: ctx?.targetOrigins,
+      allowedCardNetworks: ctx?.allowedCardNetworks,
+      allowedPaymentTypes: ctx?.allowedPaymentTypes,
+      environment: ctx?.clientLibraryIntegrity ? "live" : payload?.environment,
+      pageOriginForDiag: req.headers.origin ?? "(no Origin header sent)", // i18n-ignore
     });
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    return res.status(422).json({ ok: false, message: e?.message });
   }
+});
 
-  const paymentRef = `cybs-wallet:${chargeResult.paymentId}`;
-
-  storePaymentIntent({
-    orderId,
-    paymentRef,
-    provider: "cybersource",
-    currency: "USD",
-    totalUsd,
-    snapshot: {
-      items: catalogResult.items.map((i) => ({
-        wcId: i.wcId,
-        osSlug: i.osSlug,
-        quantity: i.quantity,
-        priceUsd: i.priceUsd,
-      })),
-      district: resolvedDistrict,
-      expressDelivery: isExpress,
-      noAddress: isNoAddress,
-      deliverySlot: rawDeliverySlot ?? "",
-    },
+router.get("/payment/cybersource/available", (_req, res) => {
+  const available = isCybersourceConfigured();
+  return res.json({
+    available,
+    merchantId: available ? getCybersourceMerchantId() : undefined,
+    environment: available ? getCybersourceEnvironment() : undefined,
   });
-
-  req.log.info(
-    { orderId, paymentRef, totalUsd, selectedWallet, status: chargeResult.status },
-    "CyberSource wallet charge succeeded",
-  );
-
-  return res.json({ ok: true, paymentRef });
 });
 
 router.post("/payment/cybersource/capture-context", async (req, res) => {
@@ -1284,13 +1144,25 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
 
   const result = await generateCaptureContext({ targetOrigins, totalAmount, currency: "USD" });
   if (!result.ok) {
-    req.log.warn({ orderId, message: result.message }, "CyberSource capture context failed");
+    req.log.warn({ orderId, message: result.message, diag: (result as any).diag }, "CyberSource capture context failed");
     return res.status(502).json({ ok: false, code: "cybersource_error", message: result.message });
   }
 
   const environment = (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") as "test" | "live";
-  req.log.info({ orderId, totalUsd, environment }, "CyberSource capture context created");
-  return res.json({ ok: true, captureContext: result.captureContext, totalUsd, environment });
+  const { clientLibrary, clientLibraryIntegrity } = extractClientLibraryInfo(result.captureContext);
+  const merchantId = getCybersourceMerchantId();
+  req.log.info({ orderId, totalUsd, environment, clientLibrary }, "CyberSource capture context created");
+  return res.json({
+    ok: true,
+    captureContext: result.captureContext,
+    totalUsd,
+    environment,
+    clientLibrary,
+    clientLibraryIntegrity,
+    merchantId,
+    applePayEnabled: true,
+    googlePayEnabled: true,
+  });
 });
 
 router.post("/payment/cybersource/charge", async (req, res) => {
@@ -1325,16 +1197,31 @@ router.post("/payment/cybersource/charge", async (req, res) => {
       firstName?: string;
       lastName?: string;
       email?: string;
+      phone?: string;
     };
   };
 
+  // Log every early validation reject at WARN with safe request-shape info
+  // (never the token itself, PAN, or CVC) — a silent 400 here previously made
+  // shopper-reported "card payment unavailable" errors undiagnosable from logs.
+  const rejectShape = {
+    hasOrderId: Boolean(orderId),
+    tokenType: typeof transientTokenJwt,
+    tokenSegments:
+      typeof transientTokenJwt === "string" ? transientTokenJwt.split(".").length : null,
+    itemCount: Array.isArray(items) ? items.length : null,
+  };
+
   if (!orderId) {
+    req.log.warn({ ...rejectShape, check: "orderId" }, "CyberSource charge rejected: missing orderId");
     return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
   }
   if (!transientTokenJwt) {
+    req.log.warn({ ...rejectShape, orderId, check: "transientTokenJwt" }, "CyberSource charge rejected: missing transientTokenJwt");
     return res.status(400).json({ ok: false, message: "transientTokenJwt is required" }); // i18n-ignore
   }
   if (!Array.isArray(items) || items.length === 0) {
+    req.log.warn({ ...rejectShape, orderId, check: "items" }, "CyberSource charge rejected: missing/empty items");
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
   }
 
@@ -1343,11 +1230,13 @@ router.post("/payment/cybersource/charge", async (req, res) => {
   // CyberSource validates it when we submit the payment — but we reject
   // obvious garbage early to avoid a wasted round-trip.
   if (typeof transientTokenJwt !== "string" || transientTokenJwt.split(".").length !== 3) {
+    req.log.warn({ ...rejectShape, orderId, check: "tokenFormat" }, "CyberSource charge rejected: transient token is not a 3-segment JWT");
     return res.status(400).json({ ok: false, message: "Invalid transient token." }); // i18n-ignore
   }
 
   const store = resolveStoreFromRequest(req);
   if (store.storeKey !== "lebanon") {
+    req.log.warn({ ...rejectShape, orderId, storeKey: store.storeKey, check: "store" }, "CyberSource charge rejected: non-Lebanon storefront");
     return res.status(400).json({ ok: false, message: "CyberSource is only available for the Lebanon storefront." }); // i18n-ignore
   }
 
@@ -1382,14 +1271,65 @@ router.post("/payment/cybersource/charge", async (req, res) => {
   });
 
   if (!chargeResult.ok) {
+    // Complete sanitized CyberSource response — never contains PAN, CVC,
+    // the transient token, or the REST shared secret. The field names below
+    // deliberately answer "did the 404 come from our backend or CyberSource?":
+    // reaching this log line proves the backend route matched, and
+    // cybersourceUrl is the exact absolute outbound URL used for the charge.
     req.log.warn(
-      { orderId, totalUsd, declineCode: chargeResult.declineCode, message: chargeResult.message },
+      {
+        orderId,
+        totalUsd,
+        kind: chargeResult.kind,
+        frontendRequestUrl: req.originalUrl,
+        backendRouteMatched: true,
+        cybersourceUrl: chargeResult.requestUrl,
+        cybersourceHttpStatus: chargeResult.httpStatus,
+        cybersourceContentType: chargeResult.responseContentType,
+        cybersourceResponseBody: chargeResult.rawBody,
+        cybersourceRequestId: chargeResult.correlationId ?? chargeResult.requestId,
+        status: chargeResult.declineCode,
+        reason: chargeResult.declineCode,
+        message: chargeResult.message,
+        details: chargeResult.details,
+      },
       "CyberSource charge failed",
     );
-    return res.status(402).json({
+    // Only a genuine processor decline is the shopper's problem (402).
+    // Everything else — endpoint 404, auth, validation, gateway, network —
+    // is a service-side error and must NOT be presented as a card decline.
+    // Note: a 404 from CyberSource does NOT by itself prove the merchant is
+    // not enabled for the Payments API — report the raw upstream response and
+    // let ops/CyberSource support confirm entitlement.
+    if (chargeResult.kind === "decline") {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_declined",
+        declineCode: chargeResult.declineCode,
+        requestId: chargeResult.requestId,
+        cybersourceStatus: chargeResult.httpStatus,
+        message: chargeResult.message,
+      });
+    }
+    // Distinct codes let the client show an accurate message per failure
+    // class instead of a blanket "card payment unavailable".
+    const gatewayCode =
+      chargeResult.kind === "endpoint"
+        ? "gateway_endpoint_error"
+        : chargeResult.kind === "auth"
+          ? "gateway_auth_error"
+          : chargeResult.kind === "validation"
+            ? "gateway_validation_error"
+            : "gateway_error";
+    // The sanitized upstream identifiers (requestId, HTTP status) are safe to
+    // return — they contain no card data and let the client surface/log the
+    // ACTUAL processor response instead of a generic "unavailable".
+    return res.status(502).json({
       ok: false,
-      code: "payment_declined",
+      code: gatewayCode,
       declineCode: chargeResult.declineCode,
+      requestId: chargeResult.requestId,
+      cybersourceStatus: chargeResult.httpStatus,
       message: chargeResult.message,
     });
   }
@@ -1421,6 +1361,195 @@ router.post("/payment/cybersource/charge", async (req, res) => {
   req.log.info(
     { orderId, paymentRef, totalUsd, status: chargeResult.status },
     "CyberSource charge succeeded",
+  );
+
+  return res.json({ ok: true, paymentRef });
+});
+
+// ── POST /payment/cybersource/applepay-session ───────────────────────────────
+// Validates an Apple Pay merchant session via CyberSource. Called from the
+// browser's ApplePaySession.onvalidatemerchant event handler. CyberSource
+// contacts Apple on the merchant's behalf using the registered Apple Pay
+// certificate and returns the merchant session object. Requires the Business
+// Center to have an Apple Pay merchant certificate configured.
+router.post("/payment/cybersource/applepay-session", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+
+  const { validationURL, displayName, domainName } = req.body as {
+    validationURL?: string;
+    displayName?: string;
+    domainName?: string;
+  };
+
+  if (!validationURL || typeof validationURL !== "string") {
+    return res.status(400).json({ ok: false, message: "validationURL is required" }); // i18n-ignore
+  }
+
+  // Reject non-Apple validation URLs to prevent SSRF abuse.
+  // Apple's validation URLs always use apple.com subdomains over HTTPS.
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(validationURL);
+  } catch {
+    return res.status(400).json({ ok: false, message: "validationURL is not a valid URL" }); // i18n-ignore
+  }
+  if (parsedUrl.protocol !== "https:" || !parsedUrl.hostname.endsWith(".apple.com")) {
+    return res.status(400).json({ ok: false, message: "validationURL must be an apple.com HTTPS URL" }); // i18n-ignore
+  }
+
+  const result = await validateApplePayMerchant({
+    validationURL,
+    displayName: displayName ?? "Presentail", // i18n-ignore
+    domainName: domainName ?? "presentail.com", // i18n-ignore
+  });
+
+  if (!result.ok) {
+    req.log.warn({ message: result.message }, "CyberSource Apple Pay merchant validation failed");
+    return res.status(502).json({ ok: false, message: result.message });
+  }
+
+  return res.json({ ok: true, merchantSession: result.merchantSession });
+});
+
+// ── POST /payment/cybersource/wallet-charge ──────────────────────────────────
+// Charges a Google Pay or Apple Pay wallet token through CyberSource's payment
+// API. The cart total is always recomputed server-side — the client-supplied
+// token contains an amount for display only. Restricted to Lebanon (USD).
+router.post("/payment/cybersource/wallet-charge", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+
+  const {
+    walletType,
+    walletToken,
+    orderId,
+    items,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    billingDetails: rawBilling,
+  } = req.body as {
+    walletType: "googlepay" | "applepay";
+    walletToken: string;
+    orderId: string;
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
+    billingDetails?: { firstName?: string; lastName?: string; email?: string };
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!walletToken || typeof walletToken !== "string") {
+    return res.status(400).json({ ok: false, message: "walletToken is required" }); // i18n-ignore
+  }
+  if (walletType !== "googlepay" && walletType !== "applepay") {
+    return res.status(400).json({ ok: false, message: "walletType must be googlepay or applepay" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (store.storeKey !== "lebanon") {
+    return res.status(400).json({ ok: false, message: "CyberSource wallets are only available for Lebanon." }); // i18n-ignore
+  }
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Beirut"; // i18n-ignore
+  const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const slotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd;
+  const totalAmount = totalUsd.toFixed(2);
+
+  let chargeResult:
+    | { ok: true; paymentId: string; status: string }
+    | { ok: false; message: string; declineCode?: string };
+
+  if (walletType === "googlepay") {
+    chargeResult = await authorizeAndCaptureGooglePay({
+      googlePayToken: walletToken,
+      totalAmount,
+      currency: "USD",
+      orderId,
+      billingDetails: rawBilling,
+    });
+  } else {
+    chargeResult = await authorizeAndCaptureApplePay({
+      applePayToken: walletToken,
+      totalAmount,
+      currency: "USD",
+      orderId,
+      billingDetails: rawBilling,
+    });
+  }
+
+  if (!chargeResult.ok) {
+    req.log.warn(
+      { orderId, walletType, totalUsd, declineCode: chargeResult.declineCode, message: chargeResult.message },
+      "CyberSource wallet charge failed",
+    );
+    return res.status(402).json({
+      ok: false,
+      code: "payment_declined",
+      declineCode: chargeResult.declineCode,
+      message: chargeResult.message,
+    });
+  }
+
+  const paymentRef = `cybs:${chargeResult.paymentId}`;
+
+  storePaymentIntent({
+    orderId,
+    paymentRef,
+    provider: "cybersource",
+    currency: "USD",
+    totalUsd,
+    snapshot: {
+      items: catalogResult.items.map((i) => ({
+        wcId: i.wcId,
+        osSlug: i.osSlug,
+        quantity: i.quantity,
+        priceUsd: i.priceUsd,
+      })),
+      district: resolvedDistrict,
+      expressDelivery: isExpress,
+      noAddress: isNoAddress,
+      deliverySlot: rawDeliverySlot ?? "",
+    },
+  });
+
+  req.log.info(
+    { orderId, walletType, paymentRef, totalUsd, status: chargeResult.status },
+    "CyberSource wallet charge succeeded",
   );
 
   return res.json({ ok: true, paymentRef });

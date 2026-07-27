@@ -822,19 +822,22 @@ function CheckoutScreen() {
       if (!supported) {
         // Advance to the first supported non-wallet method so the shopper
         // is never left on a tile that would fail at submission.
-        //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
-        //   • else → card  (Stripe settles all other supported currencies)
+        //   • AED      → mamo        (Stripe doesn't settle AED; Mamo is the card option)
+        //   • LB + USD → cybersource (CyberSource is the card processor for Lebanon USD)
+        //   • else     → card        (Stripe settles all other supported currencies)
+        const isLbUsd = currencyCode === "USD" && (effectiveCountry ?? "LB") === "LB";
         setPayMethod((current) => {
           if (current !== "apple_pay" && current !== "google_pay") return current;
-          return currencyCode === "AED" ? "mamo" : "card";
+          return currencyCode === "AED" ? "mamo" : (isLbUsd ? "cybersource" : "card");
         });
       }
     }).catch(() => {
       // Probe failed — assume unsupported so rows are hidden and selection falls back.
       setWalletSupported(false);
+      const isLbUsd = currencyCode === "USD" && (effectiveCountry ?? "LB") === "LB";
       setPayMethod((current) => {
         if (current !== "apple_pay" && current !== "google_pay") return current;
-        return currencyCode === "AED" ? "mamo" : "card";
+        return currencyCode === "AED" ? "mamo" : (isLbUsd ? "cybersource" : "card");
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -846,10 +849,20 @@ function CheckoutScreen() {
   useEffect(() => {
     if (payMethod !== "apple_pay" && payMethod !== "google_pay") return;
     if (walletSupported === false) {
-      setPayMethod(currencyCode === "AED" ? "mamo" : "card");
+      const isLbUsd = currencyCode === "USD" && (effectiveCountry ?? "LB") === "LB";
+      setPayMethod(currencyCode === "AED" ? "mamo" : (isLbUsd ? "cybersource" : "card"));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payMethod, walletSupported]);
+
+  // Safety net: if the shopper ends up on "cybersource" but the server
+  // reports credentials are unavailable, fall back to Stripe card.
+  useEffect(() => {
+    if (payMethod !== "cybersource") return;
+    if (csServerAvailable === false) {
+      setPayMethod("card");
+    }
+  }, [payMethod, csServerAvailable]);
 
   // Maps known Stripe decline codes to plain-language, actionable messages.
   // stripe-react-native exposes the decline code in error.code for card declines.
@@ -3828,9 +3841,11 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
             currencyCode === "USD";
           const visible = {
             mamo: supports("mamo"),
-            card: supports("card"),
-            apple_pay: supports("apple_pay") && walletRowVisible,
-            google_pay: supports("google_pay") && walletRowVisible,
+            // CyberSource is the card processor for Lebanon + USD; hide all
+            // Stripe-backed card/wallet tiles when the CS tile is active.
+            card: supports("card") && !csbVisible,
+            apple_pay: supports("apple_pay") && walletRowVisible && !csbVisible,
+            google_pay: supports("google_pay") && walletRowVisible && !csbVisible,
             paypal: supports("paypal"),
             tabby: supports("tabby"),
             whish: supports("whish"),

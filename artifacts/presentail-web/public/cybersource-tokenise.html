@@ -140,12 +140,34 @@
     if (!captureContext) {
       showError("Missing captureContext parameter.");
     } else {
-      var scriptSrc = env === "live"
+        // Extract the versioned SDK URL from the capture context JWT (per CyberSource docs).
+      // Never hardcode the SDK URL — the JWT's clientLibrary specifies the exact version.
+      function decodeJwtPayload(jwt) {
+        try {
+          var parts = jwt.split(".");
+          if (parts.length !== 3) return null;
+          var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+          b64 += "=".repeat((4 - (b64.length % 4)) % 4);
+          return JSON.parse(atob(b64));
+        } catch (e) { return null; }
+      }
+
+      var jwtPayload = decodeJwtPayload(captureContext);
+      var jwtCtx = jwtPayload && Array.isArray(jwtPayload.ctx) && jwtPayload.ctx[0] && jwtPayload.ctx[0].data;
+      var clientLibrary = jwtCtx && jwtCtx.clientLibrary;
+      var clientLibraryIntegrity = jwtCtx && jwtCtx.clientLibraryIntegrity;
+
+      // Fallback: if the JWT has no clientLibrary (should not happen), use the versioned bundle.
+      var scriptSrc = clientLibrary || (env === "live"
         ? "https://flex.cybersource.com/microform/bundle/v2/flex-microform.min.js"
-        : "https://testflex.cybersource.com/microform/bundle/v2/flex-microform.min.js";
+        : "https://testflex.cybersource.com/microform/bundle/v2/flex-microform.min.js");
 
       var s = document.createElement("script");
       s.src = scriptSrc;
+      if (clientLibraryIntegrity) {
+        s.integrity = clientLibraryIntegrity;
+        s.crossOrigin = "anonymous";
+      }
       s.onload = function() {
         try {
           var flex = new window.Flex(captureContext);

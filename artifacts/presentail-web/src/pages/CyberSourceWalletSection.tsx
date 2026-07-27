@@ -37,7 +37,7 @@ import {
   type ErrorInfo,
 } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useCybersourceWalletCaptureContext, useCybersourceWalletCharge } from "@/lib/queries";
+import { useCybersourceCaptureContext, useCybersourceWalletCharge } from "@/lib/queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -190,7 +190,7 @@ function CyberSourceWalletSectionInner({
   onSetProcessing,
 }: CyberSourceWalletSectionProps) {
   const { t } = useLocale();
-  const walletCapture = useCybersourceWalletCaptureContext();
+  const walletCapture = useCybersourceCaptureContext();
   const walletCharge = useCybersourceWalletCharge();
 
   const [state, setState] = useState<
@@ -388,7 +388,7 @@ function CyberSourceWalletSectionInner({
 
           const chargeRes = await walletCharge.mutateAsync({
             orderId: orderIdRef.current!,
-            transientTokenJwt: transientToken,
+            walletToken: transientToken,
             items,
             district,
             expressDelivery,
@@ -402,7 +402,7 @@ function CyberSourceWalletSectionInner({
               lastName: senderLastName,
               email: senderEmail,
             },
-            selectedWallet: "apple_pay",
+            walletType: "applepay",
           });
 
           if (chargeRes.ok && chargeRes.paymentRef) {
@@ -502,7 +502,7 @@ function CyberSourceWalletSectionInner({
 
       const chargeRes = await walletCharge.mutateAsync({
         orderId: orderIdRef.current!,
-        transientTokenJwt: transientToken,
+        walletToken: transientToken,
         items,
         district,
         expressDelivery,
@@ -516,7 +516,7 @@ function CyberSourceWalletSectionInner({
           lastName: senderLastName,
           email: senderEmail,
         },
-        selectedWallet: "google_pay",
+        walletType: "googlepay",
       });
 
       if (chargeRes.ok && chargeRes.paymentRef) {

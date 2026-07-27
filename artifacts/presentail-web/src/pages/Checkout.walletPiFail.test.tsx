@@ -108,6 +108,8 @@ vi.mock("@/lib/queries", () => ({
   useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceCaptureContext: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceApplePaySession: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceWalletCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
   // available: false → csAvailable is false → card tile shown → StripeCheckoutSection
   // mounts → onStripeReady sets stripe → probe fires → canMakePayment called.
   useCybersourceAvailable: () => ({ data: { available: false }, isLoading: false }),

@@ -1,5 +1,7 @@
-import type { DeliveryConfigResponse } from "@workspace/api-zod";
+import { GetDeliveryConfigResponse } from "@workspace/api-zod";
+import type { z } from "zod";
 
+type DeliveryConfigResponse = z.infer<typeof GetDeliveryConfigResponse>;
 type CityOverride = Partial<DeliveryConfigResponse>;
 
 type CountryEntry = {

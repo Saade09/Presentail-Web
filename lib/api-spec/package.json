@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "codegen": "orval --config ./orval.config.ts && pnpm -w run typecheck:libs",
-    "check-codegen": "orval --config ./orval.config.ts && pnpm -w run typecheck:libs && (git -C ../.. diff --exit-code -- lib/api-client-react/src/generated lib/api-zod/src/generated || (echo '\\nError: codegen drift detected. Commit the updated generated files or run:\\n  pnpm --filter @workspace/api-spec run codegen\\n' >&2 && exit 1))"
+    "codegen": "orval --config ./orval.config.ts && node fix-zod-index.mjs && pnpm -w run typecheck:libs",
+    "check-codegen": "orval --config ./orval.config.ts && node fix-zod-index.mjs && pnpm -w run typecheck:libs && (git -C ../.. diff --exit-code -- lib/api-client-react/src/generated lib/api-zod/src/generated lib/api-zod/src/index.ts || (echo '\\nError: codegen drift detected. Commit the updated generated files or run:\\n  pnpm --filter @workspace/api-spec run codegen\\n' >&2 && exit 1))"
   },
   "devDependencies": {
     "orval": "^8.5.2"

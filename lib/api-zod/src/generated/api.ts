@@ -3278,6 +3278,167 @@ export const DeleteCheckoutPaymentMethodResponse = zod.object({
 });
 
 /**
+ * Called during the browser's ApplePaySession.onvalidatemerchant event.
+Passes the Apple-supplied validation URL to CyberSource, which contacts
+Apple using the merchant certificate registered in Business Center and
+returns a merchantSession object to complete validation. Restricted to
+apple.com HTTPS URLs to prevent SSRF.
+
+ * @summary Validate an Apple Pay merchant session via CyberSource
+ */
+export const CreateCybersourceApplePaySessionBody = zod.object({
+  validationURL: zod
+    .string()
+    .describe(
+      "Apple-supplied merchant validation URL (must be \*.apple.com HTTPS)",
+    ),
+  displayName: zod.string().optional(),
+  domainName: zod.string().optional(),
+});
+
+export const CreateCybersourceApplePaySessionResponse = zod.object({
+  ok: zod.boolean(),
+  merchantSession: zod.record(zod.string(), zod.unknown()),
+});
+
+/**
+ * Accepts a Google Pay or Apple Pay payment token (already encrypted for
+the CyberSource gateway), recomputes the cart total server-side, and
+creates a capture-authorised payment. Restricted to Lebanon (USD).
+Returns a paymentRef that must be included in the subsequent order
+creation call to bind the paid session to the order.
+
+ * @summary Charge a Google Pay or Apple Pay token through CyberSource
+ */
+export const CreateCybersourceWalletChargeBody = zod.object({
+  walletType: zod.enum(["googlepay", "applepay"]),
+  walletToken: zod.string(),
+  orderId: zod.string(),
+  items: zod.array(
+    zod.object({
+      wcId: zod.number(),
+      osSlug: zod.string().optional(),
+      quantity: zod.number(),
+    }),
+  ),
+  district: zod.string().optional(),
+  expressDelivery: zod.boolean().optional(),
+  noAddress: zod.boolean().optional(),
+  deliverySlot: zod.string().optional(),
+  deliverySlotId: zod.string().optional(),
+  cityId: zod.string().optional(),
+  deliveryDate: zod.string().optional(),
+  billingDetails: zod
+    .object({
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+    })
+    .optional(),
+});
+
+export const CreateCybersourceWalletChargeResponse = zod.object({
+  ok: zod.boolean(),
+  paymentRef: zod.string(),
+});
+
+/**
+ * Returns `{ available: true }` when all three CyberSource credentials
+(CYBERSOURCE_MERCHANT_ID, CYBERSOURCE_API_KEY_ID, CYBERSOURCE_SHARED_SECRET_KEY)
+are set. Returns `{ available: false }` otherwise. Also returns the
+merchantId (public identifier, safe to expose to the browser — used
+as the Google Pay gateway merchantId) and the environment ("test" or
+"live") when credentials are present. Clients use this to silently hide
+the CyberSource payment tile when credentials are missing.
+
+ * @summary Check whether CyberSource is configured on the server
+ */
+export const GetCybersourceAvailableResponse = zod.object({
+  available: zod.boolean(),
+  merchantId: zod
+    .string()
+    .optional()
+    .describe("CyberSource merchant ID (public, safe for browser use)"),
+  environment: zod.enum(["test", "live"]).optional(),
+});
+
+/**
+ * Resolves the cart total server-side and calls the CyberSource Microform v2
+API to create a short-lived capture context JWT. The client passes this JWT
+to the CyberSource Flex Microform SDK to initialise inline card fields.
+Cart prices are resolved from the Presentail OS catalog (never from
+client-supplied values). Also returns the `environment` so the client loads
+the matching SDK URL (testflex vs flex).
+
+ * @summary Create a CyberSource Microform capture context
+ */
+export const CreateCybersourceCaptureContextBody = zod.object({
+  orderId: zod.string(),
+  items: zod.array(
+    zod.object({
+      wcId: zod.number(),
+      osSlug: zod.string().optional(),
+      quantity: zod.number(),
+    }),
+  ),
+  district: zod.string().optional(),
+  expressDelivery: zod.boolean().optional(),
+  noAddress: zod.boolean().optional(),
+  deliverySlot: zod.string().optional(),
+  deliverySlotId: zod.string().optional(),
+  cityId: zod.string().optional(),
+  deliveryDate: zod.string().optional(),
+  targetOrigin: zod.string().optional(),
+});
+
+export const CreateCybersourceCaptureContextResponse = zod.object({
+  ok: zod.boolean(),
+  captureContext: zod.string().optional(),
+  totalUsd: zod.number().optional(),
+  environment: zod.enum(["test", "live"]).optional(),
+});
+
+/**
+ * Accepts the transient token JWT produced by the CyberSource Microform SDK,
+re-verifies the server-side cart total, authorises and captures the charge,
+and stores a payment-intent binding (orderId ↔ "cybs:{id}"). The raw card
+PAN never touches the Presentail server.
+
+ * @summary Charge a card via CyberSource using a transient token
+ */
+export const CreateCybersourceChargeBody = zod.object({
+  orderId: zod.string(),
+  transientTokenJwt: zod.string(),
+  items: zod.array(
+    zod.object({
+      wcId: zod.number(),
+      osSlug: zod.string().optional(),
+      quantity: zod.number(),
+    }),
+  ),
+  district: zod.string().optional(),
+  expressDelivery: zod.boolean().optional(),
+  noAddress: zod.boolean().optional(),
+  deliverySlot: zod.string().optional(),
+  deliverySlotId: zod.string().optional(),
+  cityId: zod.string().optional(),
+  deliveryDate: zod.string().optional(),
+  billingDetails: zod
+    .object({
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+      phone: zod.string().optional(),
+    })
+    .optional(),
+});
+
+export const CreateCybersourceChargeResponse = zod.object({
+  ok: zod.boolean(),
+  paymentRef: zod.string().optional(),
+});
+
+/**
  * Creates a Stripe PaymentIntent for the supplied cart. Cart prices are
 resolved server-side from the Presentail OS catalog (never from
 client-supplied values) so the client cannot manipulate the charge.

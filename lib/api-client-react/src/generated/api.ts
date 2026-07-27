@@ -42,6 +42,14 @@ import type {
   CollectionRankingConfigListResponse,
   CollectionRankingConfigUpsertRequest,
   CollectionRankingConfigUpsertResponse,
+  CreateCybersourceApplePaySession200,
+  CreateCybersourceApplePaySessionBody,
+  CreateCybersourceCaptureContext200,
+  CreateCybersourceCaptureContextBody,
+  CreateCybersourceCharge200,
+  CreateCybersourceChargeBody,
+  CreateCybersourceWalletCharge200,
+  CreateCybersourceWalletChargeBody,
   CreateWooOrder200,
   CurrenciesResponse,
   CustomerAddressDeleteResponse,
@@ -64,6 +72,7 @@ import type {
   GeoCurrencyResponse,
   GetAdminPageDescriptionsParams,
   GetCoupons200,
+  GetCybersourceAvailable200,
   GetDeliveryConfigParams,
   GetFrequentlyBoughtTogetherParams,
   GetGeoCurrencyByCoordsParams,
@@ -5947,6 +5956,484 @@ export const useDeleteCheckoutPaymentMethod = <
   TContext
 > => {
   return useMutation(getDeleteCheckoutPaymentMethodMutationOptions(options));
+};
+
+/**
+ * Called during the browser's ApplePaySession.onvalidatemerchant event.
+Passes the Apple-supplied validation URL to CyberSource, which contacts
+Apple using the merchant certificate registered in Business Center and
+returns a merchantSession object to complete validation. Restricted to
+apple.com HTTPS URLs to prevent SSRF.
+
+ * @summary Validate an Apple Pay merchant session via CyberSource
+ */
+export const getCreateCybersourceApplePaySessionUrl = () => {
+  return `/api/payment/cybersource/applepay-session`;
+};
+
+export const createCybersourceApplePaySession = async (
+  createCybersourceApplePaySessionBody: CreateCybersourceApplePaySessionBody,
+  options?: RequestInit,
+): Promise<CreateCybersourceApplePaySession200> => {
+  return customFetch<CreateCybersourceApplePaySession200>(
+    getCreateCybersourceApplePaySessionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCybersourceApplePaySessionBody),
+    },
+  );
+};
+
+export const getCreateCybersourceApplePaySessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceApplePaySession>>,
+    TError,
+    { data: BodyType<CreateCybersourceApplePaySessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCybersourceApplePaySession>>,
+  TError,
+  { data: BodyType<CreateCybersourceApplePaySessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createCybersourceApplePaySession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCybersourceApplePaySession>>,
+    { data: BodyType<CreateCybersourceApplePaySessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCybersourceApplePaySession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCybersourceApplePaySessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCybersourceApplePaySession>>
+>;
+export type CreateCybersourceApplePaySessionMutationBody =
+  BodyType<CreateCybersourceApplePaySessionBody>;
+export type CreateCybersourceApplePaySessionMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Validate an Apple Pay merchant session via CyberSource
+ */
+export const useCreateCybersourceApplePaySession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceApplePaySession>>,
+    TError,
+    { data: BodyType<CreateCybersourceApplePaySessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCybersourceApplePaySession>>,
+  TError,
+  { data: BodyType<CreateCybersourceApplePaySessionBody> },
+  TContext
+> => {
+  return useMutation(
+    getCreateCybersourceApplePaySessionMutationOptions(options),
+  );
+};
+
+/**
+ * Accepts a Google Pay or Apple Pay payment token (already encrypted for
+the CyberSource gateway), recomputes the cart total server-side, and
+creates a capture-authorised payment. Restricted to Lebanon (USD).
+Returns a paymentRef that must be included in the subsequent order
+creation call to bind the paid session to the order.
+
+ * @summary Charge a Google Pay or Apple Pay token through CyberSource
+ */
+export const getCreateCybersourceWalletChargeUrl = () => {
+  return `/api/payment/cybersource/wallet-charge`;
+};
+
+export const createCybersourceWalletCharge = async (
+  createCybersourceWalletChargeBody: CreateCybersourceWalletChargeBody,
+  options?: RequestInit,
+): Promise<CreateCybersourceWalletCharge200> => {
+  return customFetch<CreateCybersourceWalletCharge200>(
+    getCreateCybersourceWalletChargeUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCybersourceWalletChargeBody),
+    },
+  );
+};
+
+export const getCreateCybersourceWalletChargeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceWalletCharge>>,
+    TError,
+    { data: BodyType<CreateCybersourceWalletChargeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCybersourceWalletCharge>>,
+  TError,
+  { data: BodyType<CreateCybersourceWalletChargeBody> },
+  TContext
+> => {
+  const mutationKey = ["createCybersourceWalletCharge"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCybersourceWalletCharge>>,
+    { data: BodyType<CreateCybersourceWalletChargeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCybersourceWalletCharge(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCybersourceWalletChargeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCybersourceWalletCharge>>
+>;
+export type CreateCybersourceWalletChargeMutationBody =
+  BodyType<CreateCybersourceWalletChargeBody>;
+export type CreateCybersourceWalletChargeMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Charge a Google Pay or Apple Pay token through CyberSource
+ */
+export const useCreateCybersourceWalletCharge = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceWalletCharge>>,
+    TError,
+    { data: BodyType<CreateCybersourceWalletChargeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCybersourceWalletCharge>>,
+  TError,
+  { data: BodyType<CreateCybersourceWalletChargeBody> },
+  TContext
+> => {
+  return useMutation(getCreateCybersourceWalletChargeMutationOptions(options));
+};
+
+/**
+ * Returns `{ available: true }` when all three CyberSource credentials
+(CYBERSOURCE_MERCHANT_ID, CYBERSOURCE_API_KEY_ID, CYBERSOURCE_SHARED_SECRET_KEY)
+are set. Returns `{ available: false }` otherwise. Also returns the
+merchantId (public identifier, safe to expose to the browser — used
+as the Google Pay gateway merchantId) and the environment ("test" or
+"live") when credentials are present. Clients use this to silently hide
+the CyberSource payment tile when credentials are missing.
+
+ * @summary Check whether CyberSource is configured on the server
+ */
+export const getGetCybersourceAvailableUrl = () => {
+  return `/api/payment/cybersource/available`;
+};
+
+export const getCybersourceAvailable = async (
+  options?: RequestInit,
+): Promise<GetCybersourceAvailable200> => {
+  return customFetch<GetCybersourceAvailable200>(
+    getGetCybersourceAvailableUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCybersourceAvailableQueryKey = () => {
+  return [`/api/payment/cybersource/available`] as const;
+};
+
+export const getGetCybersourceAvailableQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCybersourceAvailable>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCybersourceAvailable>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCybersourceAvailableQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCybersourceAvailable>>
+  > = ({ signal }) => getCybersourceAvailable({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCybersourceAvailable>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCybersourceAvailableQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCybersourceAvailable>>
+>;
+export type GetCybersourceAvailableQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check whether CyberSource is configured on the server
+ */
+
+export function useGetCybersourceAvailable<
+  TData = Awaited<ReturnType<typeof getCybersourceAvailable>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCybersourceAvailable>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCybersourceAvailableQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Resolves the cart total server-side and calls the CyberSource Microform v2
+API to create a short-lived capture context JWT. The client passes this JWT
+to the CyberSource Flex Microform SDK to initialise inline card fields.
+Cart prices are resolved from the Presentail OS catalog (never from
+client-supplied values). Also returns the `environment` so the client loads
+the matching SDK URL (testflex vs flex).
+
+ * @summary Create a CyberSource Microform capture context
+ */
+export const getCreateCybersourceCaptureContextUrl = () => {
+  return `/api/payment/cybersource/capture-context`;
+};
+
+export const createCybersourceCaptureContext = async (
+  createCybersourceCaptureContextBody: CreateCybersourceCaptureContextBody,
+  options?: RequestInit,
+): Promise<CreateCybersourceCaptureContext200> => {
+  return customFetch<CreateCybersourceCaptureContext200>(
+    getCreateCybersourceCaptureContextUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCybersourceCaptureContextBody),
+    },
+  );
+};
+
+export const getCreateCybersourceCaptureContextMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceCaptureContext>>,
+    TError,
+    { data: BodyType<CreateCybersourceCaptureContextBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCybersourceCaptureContext>>,
+  TError,
+  { data: BodyType<CreateCybersourceCaptureContextBody> },
+  TContext
+> => {
+  const mutationKey = ["createCybersourceCaptureContext"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCybersourceCaptureContext>>,
+    { data: BodyType<CreateCybersourceCaptureContextBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCybersourceCaptureContext(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCybersourceCaptureContextMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCybersourceCaptureContext>>
+>;
+export type CreateCybersourceCaptureContextMutationBody =
+  BodyType<CreateCybersourceCaptureContextBody>;
+export type CreateCybersourceCaptureContextMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a CyberSource Microform capture context
+ */
+export const useCreateCybersourceCaptureContext = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceCaptureContext>>,
+    TError,
+    { data: BodyType<CreateCybersourceCaptureContextBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCybersourceCaptureContext>>,
+  TError,
+  { data: BodyType<CreateCybersourceCaptureContextBody> },
+  TContext
+> => {
+  return useMutation(
+    getCreateCybersourceCaptureContextMutationOptions(options),
+  );
+};
+
+/**
+ * Accepts the transient token JWT produced by the CyberSource Microform SDK,
+re-verifies the server-side cart total, authorises and captures the charge,
+and stores a payment-intent binding (orderId ↔ "cybs:{id}"). The raw card
+PAN never touches the Presentail server.
+
+ * @summary Charge a card via CyberSource using a transient token
+ */
+export const getCreateCybersourceChargeUrl = () => {
+  return `/api/payment/cybersource/charge`;
+};
+
+export const createCybersourceCharge = async (
+  createCybersourceChargeBody: CreateCybersourceChargeBody,
+  options?: RequestInit,
+): Promise<CreateCybersourceCharge200> => {
+  return customFetch<CreateCybersourceCharge200>(
+    getCreateCybersourceChargeUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCybersourceChargeBody),
+    },
+  );
+};
+
+export const getCreateCybersourceChargeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceCharge>>,
+    TError,
+    { data: BodyType<CreateCybersourceChargeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCybersourceCharge>>,
+  TError,
+  { data: BodyType<CreateCybersourceChargeBody> },
+  TContext
+> => {
+  const mutationKey = ["createCybersourceCharge"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCybersourceCharge>>,
+    { data: BodyType<CreateCybersourceChargeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCybersourceCharge(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCybersourceChargeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCybersourceCharge>>
+>;
+export type CreateCybersourceChargeMutationBody =
+  BodyType<CreateCybersourceChargeBody>;
+export type CreateCybersourceChargeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Charge a card via CyberSource using a transient token
+ */
+export const useCreateCybersourceCharge = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceCharge>>,
+    TError,
+    { data: BodyType<CreateCybersourceChargeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCybersourceCharge>>,
+  TError,
+  { data: BodyType<CreateCybersourceChargeBody> },
+  TContext
+> => {
+  return useMutation(getCreateCybersourceChargeMutationOptions(options));
 };
 
 /**

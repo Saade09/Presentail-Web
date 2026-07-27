@@ -19,9 +19,12 @@ import {
   useCybersourceCaptureContext,
   useCybersourceCharge,
   useCybersourceAvailable,
+  useCybersourceApplePaySession,
+  useCybersourceWalletCharge,
   useFxRates,
 } from "@/lib/queries";
 import { CyberSourceSection, type CyberSourceSectionRef } from "./CyberSourceSection";
+import { isCyberSourceEligible } from "@/lib/cybersource-eligibility";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -95,16 +98,6 @@ import {
 // user picks a Stripe-backed payment method (card / Apple Pay / Google Pay).
 const LazyStripeSection = lazy(() =>
   import("@/components/StripeCheckoutSection").then((m) => ({ default: m.StripeCheckoutSection })),
-);
-
-// Lazily loaded — wallet scripts (Google Pay JS, CyberSource Flex) are only
-// fetched when the user is on a LB+USD checkout.  The component is fully
-// self-contained: it fetches its own wallet capture context, checks device
-// availability, and renders only the buttons that are both server-enabled and
-// browser-supported.  An error boundary inside the component means any
-// uncaught error hides only the wallet section, leaving the card form intact.
-const LazyCyberSourceWalletSection = lazy(() =>
-  import("./CyberSourceWalletSection").then((m) => ({ default: m.CyberSourceWalletSection })),
 );
 
 // Maps known Stripe decline codes to plain-language, actionable messages.
@@ -189,7 +182,7 @@ function getStripePromise(deliveryCountryCode?: string) {
 // (no Western Union). All availability / label / fallback decisions go
 // through the pure helpers in `./checkoutPayMethods`, which wrap the shared
 // `@workspace/pay-methods` table and mirror the mobile checkout.
-type PaymentMethodId = WebPaymentMethodId | "klarna" | "cybersource";
+type PaymentMethodId = WebPaymentMethodId | "klarna" | "cybersource" | "cs_apple_pay" | "cs_google_pay";
 
 // Branded submit button — swaps the generic teal button for a method-specific
 // branded button when the shopper has selected Apple Pay, Google Pay, PayPal,
@@ -249,7 +242,7 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
   // server amount is known.
   const showWalletSpinner = isProcessing || walletPreparing;
 
-  if (paymentMethod === "apple_pay") {
+  if (paymentMethod === "apple_pay" || paymentMethod === "cs_apple_pay") {
     return (
       <button
         type="button"
@@ -266,7 +259,7 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
     );
   }
 
-  if (paymentMethod === "google_pay") {
+  if (paymentMethod === "google_pay" || paymentMethod === "cs_google_pay") {
     return (
       <button
         type="button"
@@ -570,6 +563,8 @@ function CheckoutForm() {
   const tabbyPayment = useTabbyPayment();
   const cybersourceCapture = useCybersourceCaptureContext();
   const cybersourceCharge = useCybersourceCharge();
+  const cybersourceApplePaySession = useCybersourceApplePaySession();
+  const cybersourceWalletCharge = useCybersourceWalletCharge();
   // Probe once on mount to silently hide the tile when CS is not configured.
   const { data: csAvailableData } = useCybersourceAvailable();
   const csAvailable = csAvailableData?.available !== false; // optimistic: show until confirmed unavailable
@@ -581,6 +576,9 @@ function CheckoutForm() {
   const [csCaptureEnv, setCsCaptureEnv] = useState<"test" | "live">("test");
   // Error message shown inside CyberSourceSection when the prefetch fails.
   const [csCaptureContextError, setCsCaptureContextError] = useState<string | null>(null);
+  // True once BOTH CyberSource hosted iframes have fired their onload event.
+  // Place Order stays disabled until this flips to true.
+  const [csFieldsReady, setCsFieldsReady] = useState(false);
   // Expiry field managed here so we can read it in the submit handler.
   const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
@@ -873,6 +871,14 @@ function CheckoutForm() {
   const [phoneSubmitAttempted, setPhoneSubmitAttempted] = useState(false);
   const [recipientPhoneValid, setRecipientPhoneValid] = useState(false);
   const [senderPhoneValid, setSenderPhoneValid] = useState(false);
+  // The exact country the sender phone field's picker currently displays
+  // (ISO-3166) and its dial code. Fed by WebPhoneField.onCountryChange — the
+  // SAME state that renders the visible +prefix — so payment routing can
+  // never disagree with what the phone UI shows. Null until the field mounts
+  // (or, for signed-in users with a saved phone, until the profile number is
+  // parsed). Null routes to Stripe.
+  const [senderPhoneCountry, setSenderPhoneCountry] = useState<string | null>(null);
+  const [senderPhoneDialCode, setSenderPhoneDialCode] = useState<string | null>(null);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
 
   // Coupon / gift card — seeded from localStorage so a code entered on the
@@ -927,10 +933,6 @@ function CheckoutForm() {
     } catch { return 0; }
   });
   const [cardProcessing, setCardProcessing] = useState(false);
-  // True while a wallet payment (Apple Pay / Google Pay) is in flight.
-  // Included in isProcessing so the card submit button is disabled during
-  // wallet auth — preventing duplicate submission.
-  const [walletProcessing, setWalletProcessing] = useState(false);
   const couponInputRef = useRef<HTMLInputElement>(null);
   // Stores the server-assigned order ID for the current checkout attempt.
   // Generated once via /api/orders/next-id and reused across retries so
@@ -1301,50 +1303,105 @@ function CheckoutForm() {
     () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
     [t],
   );
+  // payCtxCountry (delivery country) still gates NON-CARD tiles (e.g. wallet
+  // availability per market) — it is intentionally NOT the card-routing source.
   const payCtxCountry = countryCode ?? undefined;
+  // Signed-in shoppers with a saved profile phone never render the sender
+  // phone field, so derive the same "phone country" from the saved E.164
+  // number via the code-split phone library. Null when unparseable → Stripe.
+  useEffect(() => {
+    if (!hasProfilePhone) return;
+    let cancelled = false;
+    import("react-phone-number-input")
+      .then((m) => {
+        if (cancelled) return;
+        try {
+          const parsed = m.parsePhoneNumber(profilePhone);
+          setSenderPhoneCountry(parsed?.country ?? null);
+          setSenderPhoneDialCode(parsed?.countryCallingCode ? String(parsed.countryCallingCode) : null);
+        } catch {
+          setSenderPhoneCountry(null);
+          setSenderPhoneDialCode(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSenderPhoneCountry(null);
+          setSenderPhoneDialCode(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasProfilePhone, profilePhone]);
+  // STRICT payment routing rule — the ONLY country source is the sender
+  // phone field's displayed country (senderPhoneCountry). CyberSource renders
+  // ONLY when that country is Lebanon AND the checkout currency is USD.
+  // Everything else — non-LB phone, LB + non-USD, or an unknown/unmounted
+  // phone country — routes to Stripe. NEVER derived from delivery country,
+  // IP location, browser locale, persisted market, currency alone, or a
+  // hardcoded "LB" fallback.
+  const senderCountryCode = senderPhoneCountry?.trim().toUpperCase() || null;
+  const useCyberSource = isCyberSourceEligible(senderCountryCode, currencyCode);
+  // Reset csFieldsReady whenever the user switches away from the CyberSource
+  // tile so a stale "ready" doesn't carry over if they come back.
+  useEffect(() => {
+    if (paymentMethod !== "cybersource") setCsFieldsReady(false);
+  }, [paymentMethod]);
+  // Temporary diagnostic — proves which state payment routing consumed.
+  useEffect(() => {
+    console.log("PAYMENT_ROUTING", {
+      phoneCountryCode: senderPhoneCountry,
+      phoneDialCode: senderPhoneDialCode,
+      senderCountryCode,
+      currencyCode,
+      useCyberSource,
+    });
+  }, [senderPhoneCountry, senderPhoneDialCode, senderCountryCode, currencyCode, useCyberSource]);
   const paymentOptions = useMemo(() => {
-    const isLbUsd = currencyCode === "USD" && (payCtxCountry ?? "LB").toUpperCase() === "LB";
+    const isLbUsd = isCyberSourceEligible(senderCountryCode, currencyCode);
     const ids = webVisiblePayMethods({
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
       isApplePlatform: appleDevice,
     }).filter((id) => {
-      // For LB+USD, CyberSource is the payment processor and owns wallet buttons
-      // (Apple Pay / Google Pay via CyberSource Flex SDK inside the CyberSource
-      // tile). Hide the Stripe wallet tiles in that context so users can't select
-      // a wallet path that has no PaymentRequest initialized and would immediately
-      // show the "walletUnavailable" error toast.
-      if (id === "apple_pay" || id === "google_pay") {
-        if (isLbUsd && csAvailable && !csCaptureContextError) return false;
-        return walletSupported;
-      }
-      // CyberSource is the card processor for Lebanon USD — hide Stripe card tile
-      // when CyberSource credentials are configured AND haven't failed yet.
-      // Falls back to Stripe card when csAvailable is false (credentials unset)
+      // CyberSource is the card processor for Lebanon + USD — hide all
+      // Stripe-backed card/wallet tiles when CS credentials are configured
+      // and the capture-context hasn't already returned an error.
+      // Falls back to Stripe when csAvailable is false (credentials unset)
       // OR when the capture-context prefetch has already returned an error.
-      if (id === "card" && isLbUsd && csAvailable && !csCaptureContextError) return false;
+      if (isLbUsd && csAvailable && !csCaptureContextError) {
+        if (id === "card" || id === "apple_pay" || id === "google_pay") return false;
+      }
+      if (id === "apple_pay" || id === "google_pay") return walletSupported;
       return true;
     });
     const result: { id: PaymentMethodId; labelKey: string }[] = ids.map((id) => ({
       id,
       labelKey: webPaymentMethodLabelKey(id, currencyCode),
     }));
-    // Inject CyberSource right after the last wallet tile for LB USD,
+    // Inject the CyberSource tiles at the top of the list for LB USD,
     // but only when the availability probe confirms credentials are set
     // and the capture context hasn't already failed.
     if (isLbUsd && csAvailable && !csCaptureContextError) {
-      const lastWalletIdx = result.reduce(
-        (last, m, i) => (m.id === "apple_pay" || m.id === "google_pay" ? i : last),
-        -1,
-      );
-      result.splice(lastWalletIdx + 1, 0, {
+      // The CS inline-card tile sits directly under the CS native-wallet tile
+      // (Apple Pay on Apple devices, Google Pay on all others), so unshift the
+      // card tile first, then the wallet tile above it when supported.
+      result.unshift({
         id: "cybersource",
         labelKey: "checkout.pay.cybersource",
       });
+      if (walletSupported) {
+        const csWalletId: PaymentMethodId = appleDevice ? "cs_apple_pay" : "cs_google_pay";
+        result.unshift({
+          id: csWalletId,
+          labelKey: appleDevice ? "checkout.pay.apple_pay" : "checkout.pay.google_pay",
+        });
+      }
     }
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyCode, countryCode, walletSupported, csAvailable, csCaptureContextError]);
+  }, [currencyCode, countryCode, senderCountryCode, walletSupported, csAvailable, csCaptureContextError, appleDevice]);
   // If the currently selected payment method is no longer available for
   // the active currency / country, re-select a sensible default through
   // the same shared helper the mobile checkout uses.
@@ -1355,9 +1412,37 @@ function CheckoutForm() {
     // unavailable or context changed away from LB+USD) we must reset to a
     // valid method; treat it as "card" for the fallback computation.
     if (paymentMethod === "klarna") return;
-    const isLbUsdContext = currencyCode === "USD" && (payCtxCountry ?? "LB").toUpperCase() === "LB";
-    if (paymentMethod === "cybersource" && csAvailable && isLbUsdContext) return;
-    const baseMethod = paymentMethod === "cybersource" ? "card" : paymentMethod;
+    const isLbUsdContext = isCyberSourceEligible(senderCountryCode, currencyCode);
+    const isCsActive = csAvailable && isLbUsdContext && !csCaptureContextError;
+    // CS-backed methods are already correct for LB+USD — leave them alone.
+    if (
+      isCsActive &&
+      (paymentMethod === "cybersource" ||
+        paymentMethod === "cs_apple_pay" ||
+        paymentMethod === "cs_google_pay")
+    ) return;
+    // Stripe wallet tiles (apple_pay / google_pay / card) selected while CS is
+    // active for LB+USD: switch to the CS-backed equivalent without loading Stripe.
+    if (isCsActive) {
+      if (paymentMethod === "apple_pay") {
+        setPaymentMethodState(walletSupported ? "cs_apple_pay" : "cybersource");
+        return;
+      }
+      if (paymentMethod === "google_pay") {
+        setPaymentMethodState(walletSupported ? "cs_google_pay" : "cybersource");
+        return;
+      }
+      if (paymentMethod === "card") {
+        setPaymentMethodState("cybersource");
+        return;
+      }
+    }
+    const baseMethod =
+      paymentMethod === "cybersource" ||
+      paymentMethod === "cs_apple_pay" ||
+      paymentMethod === "cs_google_pay"
+        ? "card"
+        : paymentMethod;
     const fallback = webNextPaymentMethod(baseMethod, {
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
@@ -1373,7 +1458,7 @@ function CheckoutForm() {
     if (fallback === "card" || fallback === "apple_pay" || fallback === "google_pay") {
       triggerStripeLoad();
     }
-  }, [currencyCode, countryCode, paymentMethod, triggerStripeLoad, csAvailable, payCtxCountry]);
+  }, [currencyCode, countryCode, paymentMethod, triggerStripeLoad, csAvailable, payCtxCountry, senderCountryCode, csCaptureContextError, walletSupported]);
 
   // Stripe PaymentRequest object reused for both the canMakePayment probe
   // and the actual wallet submit (non-AED). Stored after canMakePayment()
@@ -1994,8 +2079,8 @@ function CheckoutForm() {
     tabbyPayment.isPending ||
     cybersourceCapture.isPending ||
     cybersourceCharge.isPending ||
-    cardProcessing ||
-    walletProcessing;
+    cybersourceWalletCharge.isPending ||
+    cardProcessing;
 
   // Active display currency derived from the active country. Used both
   // by the payment-method picker (to hide unavailable methods) and by
@@ -2049,7 +2134,16 @@ function CheckoutForm() {
     cardTo: recipient.cardTo.trim() || undefined,
     cardFrom: buildCardFrom((() => { try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; } })()),
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
-    paymentMethod: overrides.paymentMethod ?? paymentMethod,
+    // "cs_apple_pay" / "cs_google_pay" are client-side UX IDs for the
+    // CyberSource wallet tiles; the API server only recognises the base
+    // "apple_pay" / "google_pay" values, which are passed through so the
+    // OS payload and analytics can distinguish which wallet was used.
+    paymentMethod: (() => {
+      const m = overrides.paymentMethod ?? paymentMethod;
+      if (m === "cs_apple_pay") return "apple_pay";
+      if (m === "cs_google_pay") return "google_pay";
+      return m;
+    })(),
     identitySecret,
     currencyCode: "USD",
     couponDiscount: confirmedCouponDiscount > 0 ? confirmedCouponDiscount : undefined,
@@ -3000,6 +3094,223 @@ function CheckoutForm() {
         return;
       }
 
+      // ── CyberSource Google Pay ────────────────────────────────────────────
+      // Shows the native Google Pay sheet in the browser, collects the
+      // encrypted payment token, and charges it via CyberSource server-side.
+      // Restricted to Lebanon + USD (same gate as CyberSource inline card).
+      if (payMethod === "cs_google_pay") {
+        const csGpayEnv =
+          (csAvailableData as { environment?: string } | undefined)?.environment === "live"
+            ? "PRODUCTION"
+            : "TEST";
+        const csGatewayMerchantId =
+          (csAvailableData as { merchantId?: string } | undefined)?.merchantId ?? "";
+        const gpayMerchantId =
+          import.meta.env.VITE_GOOGLE_PAY_MERCHANT_ID ?? "BCR2DN4TWLDH45P4"; // i18n-ignore
+
+        // Load the Google Pay JS library if not already present.
+        await new Promise<void>((resolve, reject) => {
+          if ((window as any).google?.payments?.api?.PaymentsClient) {
+            resolve();
+            return;
+          }
+          const existing = document.getElementById("google-pay-js");
+          if (existing) { existing.addEventListener("load", () => resolve()); return; }
+          const script = document.createElement("script");
+          script.id = "google-pay-js";
+          script.src = "https://pay.google.com/gp/p/js/pay.js"; // i18n-ignore
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Failed to load Google Pay")); // i18n-ignore
+          document.head.appendChild(script);
+        });
+
+        const gPayClient = new (window as any).google.payments.api.PaymentsClient({
+          environment: csGpayEnv,
+        });
+
+        const paymentDataRequest = {
+          apiVersion: 2,
+          apiVersionMinor: 0,
+          allowedPaymentMethods: [
+            {
+              type: "CARD", // i18n-ignore
+              parameters: {
+                allowedAuthMethods: ["PAN_ONLY", "CRYPTOGRAM_3DS"], // i18n-ignore
+                allowedCardNetworks: ["VISA", "MASTERCARD", "AMEX"], // i18n-ignore
+              },
+              tokenizationSpecification: {
+                type: "PAYMENT_GATEWAY", // i18n-ignore
+                parameters: {
+                  gateway: "cybersource", // i18n-ignore
+                  gatewayMerchantId: csGatewayMerchantId,
+                },
+              },
+            },
+          ],
+          merchantInfo: {
+            merchantId: gpayMerchantId,
+            merchantName: "Presentail", // i18n-ignore
+          },
+          transactionInfo: {
+            totalPriceStatus: "FINAL", // i18n-ignore
+            totalPrice: computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount).toFixed(2),
+            currencyCode: "USD", // i18n-ignore
+            countryCode: "LB", // i18n-ignore
+          },
+        };
+
+        let gpayData: any;
+        try {
+          gpayData = await gPayClient.loadPaymentData(paymentDataRequest);
+        } catch (gpayErr: any) {
+          // User dismissed the sheet — statusCode "CANCELED" is not an error.
+          if (gpayErr?.statusCode === "CANCELED" || gpayErr?.statusCode === "USER_DISMISSED") return;
+          toast({
+            title: t("checkout.toast.cybersourceDeclined"),
+            description: gpayErr?.message || t("checkout.toast.cybersourceDeclinedDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const googlePayToken = gpayData.paymentMethodData.tokenizationData.token;
+
+        const walletChargeRes = await cybersourceWalletCharge.mutateAsync({
+          walletType: "googlepay",
+          walletToken: googlePayToken,
+          orderId,
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+          district: _selectedDistrict,
+          expressDelivery: deliveryMode === "express",
+          noAddress,
+          deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+          ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+          ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+          billingDetails: {
+            firstName: sender.firstName,
+            lastName: sender.lastName,
+            email: sender.email,
+          },
+        });
+
+        if (!walletChargeRes.ok || !walletChargeRes.paymentRef) {
+          toast({
+            title: t("checkout.toast.cybersourceDeclined"),
+            description: walletChargeRes.message || t("checkout.toast.cybersourceDeclinedDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        void maybeSaveNewAddress();
+        void maybeSaveProfilePhone();
+        await finalizeOrderNow(walletChargeRes.paymentRef);
+        return;
+      }
+
+      // ── CyberSource Apple Pay ─────────────────────────────────────────────
+      // Shows the native Apple Pay sheet in the browser. Merchant validation
+      // is proxied through CyberSource via /payment/cybersource/applepay-session.
+      // Requires the CyberSource account to have an Apple Pay certificate
+      // configured in Business Center (Setup → Payment Configuration → Apple Pay).
+      if (payMethod === "cs_apple_pay") {
+        const applePayTotal = computeCartTotal(
+          subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount,
+        ).toFixed(2);
+
+        // ApplePaySession.begin() MUST be called synchronously within the user
+        // gesture — any await before this point must already be settled.
+        const applePayRequest = {
+          countryCode: "LB", // i18n-ignore
+          currencyCode: "USD", // i18n-ignore
+          supportedNetworks: ["visa", "masterCard", "amex"], // i18n-ignore
+          merchantCapabilities: ["supports3DS"], // i18n-ignore
+          total: { label: "Presentail", amount: applePayTotal }, // i18n-ignore
+        };
+
+        let applePayToken: string | null = null;
+        let applePayError: string | null = null;
+
+        await new Promise<void>((resolve) => {
+          const session = new (window as any).ApplePaySession(14, applePayRequest);
+
+          session.onvalidatemerchant = async (event: any) => {
+            try {
+              const validationRes = await cybersourceApplePaySession.mutateAsync({
+                validationURL: event.validationURL,
+                displayName: "Presentail", // i18n-ignore
+                domainName: window.location.hostname,
+              });
+              if (validationRes.ok && validationRes.merchantSession) {
+                session.completeMerchantValidation(validationRes.merchantSession);
+              } else {
+                session.abort();
+                applePayError = validationRes.message ?? t("checkout.toast.cybersourceDeclinedDesc");
+                resolve();
+              }
+            } catch (err: any) {
+              session.abort();
+              applePayError = err?.message ?? t("checkout.toast.cybersourceDeclinedDesc");
+              resolve();
+            }
+          };
+
+          session.onpaymentauthorized = (event: any) => {
+            applePayToken = JSON.stringify(event.payment.token);
+            session.completePayment((window as any).ApplePaySession.STATUS_SUCCESS);
+            resolve();
+          };
+
+          session.oncancel = () => { resolve(); };
+          session.begin();
+        });
+
+        if (applePayError) {
+          toast({
+            title: t("checkout.toast.cybersourceDeclined"),
+            description: applePayError,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!applePayToken) {
+          // User cancelled the Apple Pay sheet — silent exit.
+          return;
+        }
+
+        const appleWalletRes = await cybersourceWalletCharge.mutateAsync({
+          walletType: "applepay",
+          walletToken: applePayToken,
+          orderId,
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+          district: _selectedDistrict,
+          expressDelivery: deliveryMode === "express",
+          noAddress,
+          deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+          ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+          ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+          billingDetails: {
+            firstName: sender.firstName,
+            lastName: sender.lastName,
+            email: sender.email,
+          },
+        });
+
+        if (!appleWalletRes.ok || !appleWalletRes.paymentRef) {
+          toast({
+            title: t("checkout.toast.cybersourceDeclined"),
+            description: appleWalletRes.message || t("checkout.toast.cybersourceDeclinedDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        void maybeSaveNewAddress();
+        void maybeSaveProfilePhone();
+        await finalizeOrderNow(appleWalletRes.paymentRef);
+        return;
+      }
+
       // ── CyberSource inline card payment ─────────────────────────────────
       if (payMethod === "cybersource") {
         // Step 1: Get capture context from server (re-use cached one if
@@ -3018,6 +3329,13 @@ function CheckoutForm() {
             targetOrigin: window.location.origin,
           });
           if (!ccRes.ok || !ccRes.captureContext) {
+            console.log("PAYMENT_DIAG", {
+              stage: "captureContext",
+              frontendEndpoint: "/api/payment/cybersource/capture-context",
+              ok: ccRes.ok === true,
+              hasCaptureContext: Boolean(ccRes.captureContext),
+              serverMessage: ccRes.message ?? null,
+            });
             toast({
               title: t("checkout.toast.cybersourceUnavailable"),
               description: ccRes.message || t("checkout.toast.cybersourceUnavailableDesc"),
@@ -3031,6 +3349,12 @@ function CheckoutForm() {
 
         // Step 2: Tokenize card in-browser via the CyberSource Microform SDK.
         if (!csFormRef.current) {
+          console.log("PAYMENT_DIAG", {
+            stage: "formRef",
+            reason: "CyberSource form ref is null — the card form is not mounted",
+            hadCaptureContext: Boolean(captureCtx),
+            csFieldsReady,
+          });
           toast({
             title: t("checkout.toast.cybersourceUnavailable"),
             description: t("checkout.toast.cybersourceUnavailableDesc"),
@@ -3039,35 +3363,156 @@ function CheckoutForm() {
           return;
         }
 
+        // Staged, safe diagnostics for the token→charge flow. NEVER contains
+        // the PAN, CVC, REST secret, or the full transient token.
+        const paymentDiag: {
+          stage: string;
+          tokenCreated: boolean;
+          frontendEndpoint: string;
+          frontendStatus: number | null;
+          backendRouteMatched: boolean | null;
+          cybersourceStatus: number | null;
+          cybersourceRequestId: string | null;
+          cybersourceReason: string | null;
+          cybersourceMessage: string | null;
+        } = {
+          stage: "createToken",
+          tokenCreated: false,
+          frontendEndpoint: "/api/payment/cybersource/charge",
+          frontendStatus: null,
+          backendRouteMatched: null,
+          cybersourceStatus: null,
+          cybersourceRequestId: null,
+          cybersourceReason: null,
+          cybersourceMessage: null,
+        };
+
         let transientToken: string;
         try {
           transientToken = await csFormRef.current.createToken();
+          paymentDiag.tokenCreated = Boolean(transientToken);
+          paymentDiag.stage = "charge";
+          console.log("PAYMENT_DIAG", {
+            ...paymentDiag,
+            tokenSegments: transientToken?.split(".").length,
+          });
         } catch (tokenErr: any) {
+          // Tokenization failed before any network call to our server —
+          // this is a "card details could not be secured" problem, not a
+          // decline and not a service outage.
+          console.log("PAYMENT_DIAG", paymentDiag);
           toast({
-            title: t("checkout.toast.cybersourceDeclined"),
-            description: tokenErr?.message || t("checkout.toast.cybersourceDeclinedDesc"),
+            title: t("checkout.toast.csTokenFailed"),
+            description: tokenErr?.message || t("checkout.toast.csTokenFailedDesc"),
             variant: "destructive",
           });
           return;
         }
 
         // Step 3: Charge the card server-side.
-        const chargeRes = await cybersourceCharge.mutateAsync({
-          orderId,
-          transientTokenJwt: transientToken,
-          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
-          district: _selectedDistrict,
-          expressDelivery: deliveryMode === "express",
-          noAddress,
-          deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
-          ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
-          ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
-          billingDetails: {
-            firstName: sender.firstName,
-            lastName: sender.lastName,
-            email: sender.email,
-          },
-        });
+        // The API client throws on non-2xx, so map the failure here instead of
+        // letting the generic outer catch mislabel it. Only HTTP 402 is a real
+        // card decline — 502 (gateway/config error) must show the "service
+        // unavailable" toast, never "payment declined". The server relays
+        // CyberSource's own message; we never invent an entitlement claim.
+        let chargeRes: { ok?: boolean; paymentRef?: string; message?: string };
+        try {
+          chargeRes = await cybersourceCharge.mutateAsync({
+            orderId,
+            transientTokenJwt: transientToken,
+            items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+            district: _selectedDistrict,
+            expressDelivery: deliveryMode === "express",
+            noAddress,
+            deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+            ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+            ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+            billingDetails: {
+              firstName: sender.firstName,
+              lastName: sender.lastName,
+              email: sender.email,
+              phone: sender.phone,
+            },
+          });
+        } catch (chargeErr) {
+          const apiErr = chargeErr as {
+            status?: number;
+            data?: {
+              code?: string;
+              message?: string;
+              declineCode?: string;
+              requestId?: string;
+              cybersourceStatus?: number;
+            } | null;
+            message?: string;
+          };
+          const serverMessage =
+            (apiErr?.data && typeof apiErr.data === "object" && typeof apiErr.data.message === "string"
+              ? apiErr.data.message
+              : undefined);
+          const serverCode =
+            (apiErr?.data && typeof apiErr.data === "object" && typeof apiErr.data.code === "string"
+              ? apiErr.data.code
+              : undefined);
+          paymentDiag.frontendStatus = typeof apiErr?.status === "number" ? apiErr.status : null;
+          // A 404 from OUR server means the frontend hit a route that is not
+          // registered; any other HTTP status proves the backend route matched.
+          paymentDiag.backendRouteMatched =
+            typeof apiErr?.status === "number" ? apiErr.status !== 404 : null;
+          paymentDiag.cybersourceStatus =
+            typeof apiErr?.data?.cybersourceStatus === "number" ? apiErr.data.cybersourceStatus : null;
+          paymentDiag.cybersourceRequestId =
+            typeof apiErr?.data?.requestId === "string" ? apiErr.data.requestId : null;
+          paymentDiag.cybersourceReason =
+            (typeof apiErr?.data?.declineCode === "string" ? apiErr.data.declineCode : null) ??
+            serverCode ??
+            null;
+          paymentDiag.cybersourceMessage = serverMessage ?? null;
+          console.log("PAYMENT_DIAG", paymentDiag);
+          if (apiErr?.status === 402) {
+            // Genuine processor decline — the only case that may say "declined".
+            toast({
+              title: t("checkout.toast.cybersourceDeclined"),
+              description: serverMessage || t("checkout.toast.cybersourceDeclinedDesc"),
+              variant: "destructive",
+            });
+          } else if (chargeErr instanceof TypeError) {
+            // Genuine network failure — let the outer catch handle it.
+            throw chargeErr;
+          } else if (apiErr?.status === 404 || serverCode === "gateway_endpoint_error") {
+            // 404 from our own API = route mismatch; gateway_endpoint_error =
+            // CyberSource returned 404 for /pts/v2/payments (the server relays
+            // the exact upstream response — cause is confirmed with CyberSource,
+            // not inferred here).
+            toast({
+              title: t("checkout.toast.csEndpointNotFound"),
+              description: serverMessage || t("checkout.toast.cybersourceUnavailableDesc"),
+              variant: "destructive",
+            });
+          } else if (serverCode === "gateway_auth_error") {
+            toast({
+              title: t("checkout.toast.csAuthFailed"),
+              description: serverMessage || t("checkout.toast.cybersourceUnavailableDesc"),
+              variant: "destructive",
+            });
+          } else {
+            // gateway_validation_error surfaces its sanitized upstream message
+            // here; anything else falls back to the generic unavailable copy.
+            toast({
+              title: t("checkout.toast.cybersourceUnavailable"),
+              description: serverMessage || t("checkout.toast.cybersourceUnavailableDesc"),
+              variant: "destructive",
+            });
+          }
+          trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+          trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: paymentMethod } });
+          return;
+        }
+
+        paymentDiag.stage = "complete";
+        paymentDiag.frontendStatus = 200;
+        paymentDiag.backendRouteMatched = true;
+        console.log("PAYMENT_DIAG", paymentDiag);
 
         if (!chargeRes.ok || !chargeRes.paymentRef) {
           toast({
@@ -3512,6 +3957,10 @@ function CheckoutForm() {
                         errorMessage={t("checkout.phoneInvalidNumber")}
                         data-testid="input-sender-phone"
                         onValidityChange={setSenderPhoneValid}
+                        onCountryChange={(country, dialCode) => {
+                          setSenderPhoneCountry(country ?? null);
+                          setSenderPhoneDialCode(dialCode ?? null);
+                        }}
                       />
                     </div>
                   )}
@@ -3698,52 +4147,19 @@ function CheckoutForm() {
                               />
                             </Suspense>
                           )}
-                          {m.id === "cybersource" && paymentMethod === "cybersource" && (
-                            <>
-                              {/* CyberSource Apple Pay / Google Pay wallet buttons.
-                                  Rendered lazily so wallet scripts are never loaded outside LB+USD.
-                                  The component renders null when wallets are not available or not
-                                  enabled, so the card form below is always the fallback. */}
-                              {checkoutCurrency === "USD" && countryCode?.toUpperCase() === "LB" && (
-                                <Suspense fallback={null}>
-                                  <LazyCyberSourceWalletSection
-                                    isLebanonUsd={true}
-                                    items={items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity }))}
-                                    getOrderId={ensureOrderId}
-                                    district={_selectedDistrict || undefined}
-                                    expressDelivery={deliveryMode === "express"}
-                                    noAddress={noAddress}
-                                    deliverySlot={deliveryMode === "express" ? "" : deliverySlot}
-                                    deliverySlotId={deliveryMode !== "express" && deliverySlotId ? deliverySlotId : undefined}
-                                    cityId={selectedCityData?.id != null ? String(selectedCityData.id) : undefined}
-                                    senderFirstName={sender.firstName}
-                                    senderLastName={sender.lastName}
-                                    senderEmail={sender.email}
-                                    disabled={isProcessing}
-                                    onPaymentSuccess={async (paymentRef) => {
-                                      void maybeSaveNewAddress();
-                                      void maybeSaveProfilePhone();
-                                      await finalizeOrderNow(paymentRef);
-                                    }}
-                                    onPaymentError={(message) => {
-                                      toast({
-                                        title: t("checkout.cybersource.walletDeclined"),
-                                        description: message || t("checkout.cybersource.walletDeclinedDesc"),
-                                        variant: "destructive",
-                                      });
-                                    }}
-                                    onSetProcessing={setWalletProcessing}
-                                  />
-                                </Suspense>
-                              )}
-                              <CyberSourceSection
-                                ref={csFormRef}
-                                captureContext={csCaptureContext ?? ""}
-                                prefetchError={csCaptureContextError}
-                                environment={csCaptureEnv}
-                                className="mt-3"
-                              />
-                            </>
+                          {useCyberSource && m.id === "cybersource" && paymentMethod === "cybersource" && (
+                            <CyberSourceSection
+                              ref={csFormRef}
+                              captureContext={csCaptureContext ?? ""}
+                              prefetchError={csCaptureContextError}
+                              environment={csCaptureEnv}
+                              className="mt-3"
+                              onFieldsReady={() => setCsFieldsReady(true)}
+                              onFieldsFailed={(msg) => {
+                                setCsFieldsReady(false);
+                                setCsCaptureContextError(msg);
+                              }}
+                            />
                           )}
                         </div>
                       );
@@ -3796,7 +4212,7 @@ function CheckoutForm() {
 
                   {/* Payment CTA */}
                   <div className="flex gap-3 mt-4">
-                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(displaySubtotal, displayDistrictFee + displayExpressFee + displaySlotFee, displayCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
+                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(displaySubtotal, displayDistrictFee + displayExpressFee + displaySlotFee, displayCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict) || (paymentMethod === "cybersource" && !csFieldsReady)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
                   </div>
 
                   {/* Secure payment badge */}

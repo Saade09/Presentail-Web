@@ -112,6 +112,12 @@ vi.mock("@/lib/queries", () => ({
   useStripeCheckoutSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useMamoPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePaypalPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceCaptureContext: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceAvailable: () => ({ data: { available: false }, isLoading: false }),
+  useCybersourceApplePaySession: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceWalletCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeliveryLocations: () => ({
     data: { countries: [], cities: [] },
     isLoading: false,
@@ -180,6 +186,7 @@ vi.mock("@/lib/analytics", () => ({
   // Wrap in a thunk so the factory (hoisted to the top of the file) does not
   // read mockTrackEvent before its const initialiser has run.
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  trackWebEvent: vi.fn(),
 }));
 
 vi.mock("react-phone-number-input", async (importOriginal) => {
@@ -876,14 +883,16 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
 
   // ── 1b. Pre-created PaymentIntent: sheet shows server amount, intent reused ─
 
-  it("pre-creates the PaymentIntent so the sheet shows the server amount and reuses it on tap", async () => {
-    // Server returns an amount that deliberately differs from any client-side
-    // estimate so we can prove the sheet total comes from the server.
+  it("pre-creates the PaymentIntent, builds the sheet with the server amount, and reuses the intent on tap", async () => {
+    // The server amount agrees with the client-computed total (the submit-time
+    // parity guard requires this — a divergent amount refuses to open the
+    // sheet; see the next test). The clientSecret is unique so we can prove
+    // the PRE-CREATED intent is the one confirmed, not a second creation.
     const SERVER_PI = {
       ok: true,
       clientSecret: "pi_prefetched_secret",
       orderId: "web-order-prefetched",
-      amount: 5137,
+      amount: 5000,
       currency: "USD",
     };
     mockCreatePaymentIntentMutate.mockResolvedValue(SERVER_PI);
@@ -904,12 +913,12 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     await user.click(screen.getByTestId("button-submit-payment"));
 
     // The PaymentRequest used for the native sheet was built with the server's
-    // exact amount and currency — not a client estimate.
+    // exact amount and currency.
     await waitFor(() => expect(mockPrShow).toHaveBeenCalled());
     expect(mockPaymentRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         currency: "usd",
-        total: expect.objectContaining({ amount: 5137 }),
+        total: expect.objectContaining({ amount: 5000 }),
       }),
     );
 
@@ -927,6 +936,41 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
       { handleActions: false },
     );
     expect(ev.complete).toHaveBeenCalledWith("success");
+  });
+
+  it("refuses to open the sheet when the pre-created PI amount diverges from the client total (FX drift)", async () => {
+    // Server returns an amount that differs from the client-computed total
+    // (e.g. FX rates drifted since PI creation). The submit-time parity guard
+    // must NOT open the sheet with a divergent amount: it clears the cached
+    // intent, shows the "prices updated" toast, and returns.
+    const SERVER_PI = {
+      ok: true,
+      clientSecret: "pi_prefetched_secret",
+      orderId: "web-order-prefetched",
+      amount: 5137,
+      currency: "USD",
+    };
+    mockCreatePaymentIntentMutate.mockResolvedValue(SERVER_PI);
+
+    renderCheckout();
+    await gotoWalletStep2();
+
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+      { timeout: 3000 },
+    );
+
+    await user.click(screen.getByTestId("button-submit-payment"));
+
+    // The sheet never opens and the shopper is told prices were refreshed.
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "checkout.toast.pricesUpdatedTitle" }),
+      );
+    });
+    expect(mockPrShow).not.toHaveBeenCalled();
+    // No charge was attempted with the stale intent.
+    expect(mockConfirmCardPayment).not.toHaveBeenCalled();
   });
 
   // ── 2. Wallet cancelled ────────────────────────────────────────────────

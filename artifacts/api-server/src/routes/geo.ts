@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
-import type { GeoCurrencyResponse } from "@workspace/api-zod";
+import { GetGeoCurrencyResponse } from "@workspace/api-zod";
+import type { z } from "zod";
+type GeoCurrencyResponse = z.infer<typeof GetGeoCurrencyResponse>;
 import { db, analyticsEventsTable } from "@workspace/db";
 import {
   FALLBACK_DISPLAY_CURRENCY,
