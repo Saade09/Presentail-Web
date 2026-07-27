@@ -32,4 +32,6 @@
 - [Klarna rollout](klarna-rollout.md) — payer IP country (not delivery country) for eligibility; KLARNA_ROLLOUT env var gate; confirmPayment type cast; elements.submit() required; Gulf always off; rollout off by default pending Ahmad approval
 - [Payment return-URL validation](payment-return-url-validation.md) — never path-restrict PayPal/Mamo/Tabby returnUrl to the bridge; host allowlist is the open-redirect guard (July 2026 outage)
 - [CyberSource checkout integration](cybersource-checkout.md) — CS tile gated LB+USD; csOnTokenRef pattern bridges placeOrder→WebView modal scope; createToken() uses component-internal expiry; wooOrders.ts Zod enum must include "cybersource"
-- [CyberSource Payer Auth (3DS)](cybersource-payer-auth.md) — 3-step 3DS backend: setupPayerAuth→checkEnrollment→validatePayerAuth; wallet eligibility gated on IP=LB (not delivery address); wallet-charge returns paymentMethod hint
+- [CyberSource Payer Auth (3DS)](cybersource-payer-auth.md) — setup→check-enrollment→validate; responses are FLAT (no nested payerAuthData); challenge ends via same-origin return-relay page, validate keyed by enrollment txn id
+- [CS Microform sessions CARD-only](cybersource-microform-wallets.md) — wallet types in /microform/v2/sessions 400 every capture context; silent Stripe fallback masks the outage
+- [CyberSource paid-status gate](cybersource-paid-gate.md) — paid needs 2xx + requestId + approved allowlist; 201 can be DECLINED; AUTHORIZED_RISK_DECLINED is never paid

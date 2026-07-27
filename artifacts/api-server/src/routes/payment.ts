@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import {
   convertFromUsd,
   normalizeCurrency,
@@ -1141,6 +1141,10 @@ router.get("/payment/cybersource/available", (_req, res) => {
     available,
     merchantId: available ? getCybersourceMerchantId() : undefined,
     environment: available ? getCybersourceEnvironment() : undefined,
+    // Payer Authentication (3DS) flag for the web checkout. False when PA
+    // credentials are missing or CYBERSOURCE_PAYER_AUTH_ENABLED !== "true" —
+    // the frontend must treat an absent field as false (older cached shapes).
+    payerAuthEnabled: available ? isPayerAuthEnabled() : false,
   });
 });
 
@@ -1233,16 +1237,44 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
   const geoOutcome = await lookupCountryFromIp(clientIp);
   const ipCountry = geoOutcome.country ?? null;
   const walletsEligible = ipCountry === "LB";
-  const extraPaymentTypes = walletsEligible ? ["GOOGLEPAY", "APPLEPAY"] : []; // i18n-ignore
 
   req.log.info(
-    { orderId, clientIp: clientIp.slice(0, 7) + "…", ipCountry, walletsEligible, extraPaymentTypes },
+    {
+      PAYMENT_DIAG: true,
+      stage: "capture_context",
+      orderId,
+      merchantId: getCybersourceMerchantId(),
+      environment: getCybersourceEnvironment(),
+      clientIp: clientIp.slice(0, 7) + "…",
+      ipCountry,
+      walletsEligible,
+    },
     "CyberSource capture context: wallet eligibility resolved", // i18n-ignore
   );
 
-  const result = await generateCaptureContext({ targetOrigins, totalAmount, currency: "USD", extraPaymentTypes });
+  // Wallet eligibility only drives the response flags below (wallet tile
+  // visibility + Google Pay merchant ID). It must NOT be merged into the
+  // Microform session request — /microform/v2/sessions accepts only CARD/CHECK
+  // payment types; sending GOOGLEPAY/APPLEPAY made live CyberSource reject
+  // every capture context (UNIFIEDPAYMENTS_VALIDATION_FIELDS, 2026-07-27) and
+  // silently pushed all Lebanon card shoppers to the Stripe fallback.
+  const result = await generateCaptureContext({ targetOrigins, totalAmount, currency: "USD" });
   if (!result.ok) {
-    req.log.warn({ orderId, message: result.message, diag: (result as any).diag }, "CyberSource capture context failed");
+    const failureDiag = (result as any).diag as { httpStatus?: number } | undefined;
+    req.log.warn(
+      {
+        PAYMENT_DIAG: true,
+        stage: "capture_context",
+        orderId,
+        merchantId: getCybersourceMerchantId(),
+        environment: getCybersourceEnvironment(),
+        httpStatus: failureDiag?.httpStatus,
+        reason: "capture_context_failed",
+        message: result.message,
+        diag: (result as any).diag,
+      },
+      "CyberSource capture context failed",
+    );
     return res.status(502).json({ ok: false, code: "cybersource_error", message: result.message });
   }
 
@@ -1251,7 +1283,10 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
   const merchantId = getCybersourceMerchantId();
   const googlePayMerchantId = getCybersourceGooglePayMerchantId();
 
-  req.log.info({ orderId, totalUsd, environment, clientLibrary, walletsEligible }, "CyberSource capture context created");
+  req.log.info(
+    { PAYMENT_DIAG: true, stage: "capture_context", orderId, merchantId, environment, totalUsd, clientLibrary, walletsEligible },
+    "CyberSource capture context created",
+  );
   return res.json({
     ok: true,
     captureContext: result.captureContext,
@@ -1284,6 +1319,7 @@ router.post("/payment/cybersource/charge", async (req, res) => {
     deliveryDate: rawDeliveryDate,
     billingDetails: rawBilling,
     payerAuthData,
+    paymentAttemptId,
   } = req.body as {
     orderId: string;
     transientTokenJwt: string;
@@ -1302,6 +1338,8 @@ router.post("/payment/cybersource/charge", async (req, res) => {
       phone?: string;
     };
     payerAuthData?: PayerAuthenticationData;
+    /** Client-generated attempt UUID — logged for cross-stage correlation. */
+    paymentAttemptId?: string;
   };
 
   // Log every early validation reject at WARN with safe request-shape info
@@ -1423,12 +1461,22 @@ router.post("/payment/cybersource/charge", async (req, res) => {
     // cybersourceUrl is the exact absolute outbound URL used for the charge.
     req.log.warn(
       {
+        PAYMENT_DIAG: true,
+        stage: "charge",
         orderId,
+        paymentAttemptId,
+        merchantId: getCybersourceMerchantId(),
+        environment: getCybersourceEnvironment(),
+        // Payer-auth transaction ID (when 3DS ran before this charge) — kept in
+        // the failure log so a PA-success-but-charge-fail case stays
+        // reconcilable against CyberSource Business Center.
+        paTransactionId: payerAuthData?.authenticationTransactionId,
         totalUsd,
         kind: chargeResult.kind,
         frontendRequestUrl: req.originalUrl,
         backendRouteMatched: true,
         cybersourceUrl: chargeResult.requestUrl,
+        httpStatus: chargeResult.httpStatus,
         cybersourceHttpStatus: chargeResult.httpStatus,
         cybersourceContentType: chargeResult.responseContentType,
         cybersourceResponseBody: chargeResult.rawBody,
@@ -1507,7 +1555,19 @@ router.post("/payment/cybersource/charge", async (req, res) => {
   });
 
   req.log.info(
-    { orderId, paymentRef, totalUsd, status: chargeResult.status },
+    {
+      PAYMENT_DIAG: true,
+      stage: "charge",
+      orderId,
+      paymentAttemptId,
+      merchantId: getCybersourceMerchantId(),
+      environment: getCybersourceEnvironment(),
+      paTransactionId: payerAuthData?.authenticationTransactionId,
+      cybersourceRequestId: chargeResult.paymentId,
+      status: chargeResult.status,
+      paymentRef,
+      totalUsd,
+    },
     "CyberSource charge succeeded",
   );
 
@@ -1758,6 +1818,9 @@ router.post("/payment/cybersource/payer-auth/setup", async (req, res) => {
       PAYMENT_DIAG: true,
       paymentAttemptId: paymentAttemptId ?? orderId,
       stage: "pa_setup",
+      orderId,
+      merchantId: getCybersourceMerchantId(),
+      environment: getCybersourceEnvironment(),
       ok: result.ok,
       ...(result.ok
         ? { referenceId: result.referenceId }
@@ -1842,6 +1905,9 @@ router.post("/payment/cybersource/payer-auth/check-enrollment", async (req, res)
       PAYMENT_DIAG: true,
       paymentAttemptId: paymentAttemptId ?? orderId,
       stage: "pa_enrollment",
+      orderId,
+      merchantId: getCybersourceMerchantId(),
+      environment: getCybersourceEnvironment(),
       ok: result.ok,
       ...(result.ok
         ? {
@@ -1905,6 +1971,9 @@ router.post("/payment/cybersource/payer-auth/validate", async (req, res) => {
       PAYMENT_DIAG: true,
       paymentAttemptId: paymentAttemptId ?? authenticationTransactionId,
       stage: "pa_validation",
+      merchantId: getCybersourceMerchantId(),
+      environment: getCybersourceEnvironment(),
+      paTransactionId: authenticationTransactionId,
       ok: result.ok,
       ...(result.ok
         ? {
@@ -1934,6 +2003,62 @@ router.post("/payment/cybersource/payer-auth/validate", async (req, res) => {
     commerceIndicator: result.commerceIndicator,
   });
 });
+
+// ── Payer-auth challenge return relay ────────────────────────────────────────
+// The Cardinal step-up iframe form-POSTs (or GETs) this URL when the issuer
+// challenge finishes. It runs INSIDE the challenge iframe on the checkout
+// page, so its only job is to tell the parent window (the checkout) that the
+// challenge is over. The checkout NEVER trusts anything in this message —
+// validation is keyed by the authenticationTransactionId captured at
+// enrollment time.
+// No auth: Cardinal drives the shopper's browser here, and the page exposes
+// nothing beyond a strictly-sanitized echo of Cardinal's own TransactionId.
+const handlePayerAuthChallengeReturn = (req: Request, res: Response) => {
+  const rawTxnId = ((req.body as Record<string, unknown> | undefined)?.TransactionId ??
+    (req.query?.TransactionId as unknown) ??
+    "") as unknown;
+  const transactionId =
+    typeof rawTxnId === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(rawTxnId) ? rawTxnId : "";
+
+  req.log.info(
+    {
+      PAYMENT_DIAG: true,
+      stage: "pa_challenge_return",
+      hasTransactionId: transactionId !== "",
+    },
+    "CyberSource PA challenge return relay",
+  );
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  // targetOrigin "*" is safe here: the payload is a completion ping plus a
+  // sanitized id the parent does not trust; nothing sensitive is included,
+  // and the relay cannot know the checkout origin in every environment
+  // (dev proxy vs production domain).
+  res.send(`<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Card verification</title></head>
+<body style="font-family: system-ui, sans-serif; text-align: center; padding-top: 48px; color: #555;">
+<p>Verification complete. Returning to checkout…</p>
+<script>
+(function () {
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(JSON.stringify({
+        MessageType: "cybersource.stepUpComplete",
+        Status: "COMPLETE",
+        TransactionId: ${JSON.stringify(transactionId)}
+      }), "*");
+    }
+  } catch (e) { /* no parent to notify */ }
+})();
+</script>
+</body>
+</html>`); // i18n-ignore
+};
+
+router.post("/payment/cybersource/payer-auth/return", handlePayerAuthChallengeReturn);
+router.get("/payment/cybersource/payer-auth/return", handlePayerAuthChallengeReturn);
 
 export default router;
 

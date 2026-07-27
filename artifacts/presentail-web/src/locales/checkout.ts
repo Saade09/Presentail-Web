@@ -244,7 +244,16 @@ export const checkoutStrings: Dict = {
   "checkout.toast.csTokenFailedDesc": { en: "Please re-enter your card details and try again.", ar: "يرجى إعادة إدخال بيانات البطاقة والمحاولة مجدداً." },
   "checkout.toast.csEndpointNotFound": { en: "Payment service endpoint not found", ar: "نقطة خدمة الدفع غير موجودة" },
   "checkout.toast.csAuthFailed": { en: "Payment service authentication failed", ar: "فشلت مصادقة خدمة الدفع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth setup failure path in Checkout.tsx
+  "checkout.toast.csSetupFailed": { en: "Card verification could not be started", ar: "تعذّر بدء التحقق من البطاقة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth device-data timeout path in Checkout.tsx
+  "checkout.toast.csDeviceDataTimeout": { en: "Card verification timed out", ar: "انتهت مهلة التحقق من البطاقة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth challenge cancellation path in Checkout.tsx
+  "checkout.toast.csChallengeCancelled": { en: "Card verification was cancelled", ar: "تم إلغاء التحقق من البطاقة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth bank-decline path in Checkout.tsx
+  "checkout.toast.csPayerAuthFailed": { en: "Your bank could not verify this payment", ar: "لم يتمكن بنكك من التحقق من هذه الدفعة" },
   "checkout.cybersource.loading": { en: "Loading secure card form…", ar: "جارٍ تحميل نموذج الدفع الآمن…" },
+  "checkout.cybersource.challengeTitle": { en: "Secure Verification", ar: "التحقق الآمن" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -463,5 +472,10 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.csTokenFailedDesc": "Veuillez saisir à nouveau les informations de votre carte et réessayer.",
   "checkout.toast.csEndpointNotFound": "Point de service de paiement introuvable",
   "checkout.toast.csAuthFailed": "Échec de l'authentification du service de paiement",
+  "checkout.toast.csSetupFailed": "La vérification de la carte n'a pas pu démarrer",
+  "checkout.toast.csDeviceDataTimeout": "La vérification de la carte a expiré",
+  "checkout.toast.csChallengeCancelled": "La vérification de la carte a été annulée",
+  "checkout.toast.csPayerAuthFailed": "Votre banque n'a pas pu vérifier ce paiement",
   "checkout.cybersource.loading": "Chargement du formulaire de paiement sécurisé…",
+  "checkout.cybersource.challengeTitle": "Vérification sécurisée",
 };

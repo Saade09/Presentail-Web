@@ -178,6 +178,27 @@ describe("generateCaptureContext", () => {
     expect(capturedUrl).toContain("api.cybersource.com");
     expect(capturedUrl).not.toContain("apitest");
   });
+
+  it("sends allowedPaymentTypes as exactly [CARD] — wallet types must never reach /microform/v2/sessions", async () => {
+    // Regression guard (2026-07-27): merging GOOGLEPAY/APPLEPAY into the
+    // Microform session request made live CyberSource reject every capture
+    // context (UNIFIEDPAYMENTS_VALIDATION_FIELDS: possible types [CARD, CHECK]),
+    // silently pushing all Lebanon card shoppers to the Stripe fallback.
+    let capturedBody = "";
+    vi.spyOn(global, "fetch").mockImplementationOnce(async (_url, init) => {
+      capturedBody = (init?.body as string) ?? "";
+      return new Response("fake.jwt.token", { status: 200 });
+    });
+
+    await generateCaptureContext({
+      targetOrigins: ["https://presentail.com"],
+      totalAmount: "10.00",
+      currency: "USD",
+    });
+
+    const body = JSON.parse(capturedBody);
+    expect(body.allowedPaymentTypes).toEqual(["CARD"]);
+  });
 });
 
 describe("authorizeAndCapture", () => {
@@ -352,6 +373,84 @@ describe("authorizeAndCapture", () => {
       expect(result.kind).toBe("decline");
       expect(result.declineCode).toBe("INSUFFICIENT_FUND");
       expect(result.httpStatus).toBe(201);
+    }
+  });
+
+  it("never treats HTTP 201 with a missing status as paid (kind=gateway, not decline)", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: "some-request-id" }), { status: 201 }),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-201-nostatus",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("gateway");
+    }
+  });
+
+  it("never treats HTTP 201 with an approved status but missing requestId as paid", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ status: "AUTHORIZED" }), { status: 201 }),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-201-noid",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("gateway");
+    }
+  });
+
+  it("classifies AUTHORIZED_RISK_DECLINED as a decline — the authorisation is reversed, no funds move", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: "risk-id", status: "AUTHORIZED_RISK_DECLINED" }),
+        { status: 201 },
+      ),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-201-risk",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("decline");
+    }
+  });
+
+  it("classifies HTTP 201 with INVALID_REQUEST as validation (our request problem), not a card decline", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: "inv-id", status: "INVALID_REQUEST" }),
+        { status: 201 },
+      ),
+    );
+
+    const result = await authorizeAndCapture({
+      transientTokenJwt: "fake.transient.token",
+      totalAmount: "25.00",
+      currency: "USD",
+      orderId: "order-201-invalid",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("validation");
     }
   });
 

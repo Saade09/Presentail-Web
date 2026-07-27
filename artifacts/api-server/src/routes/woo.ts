@@ -1678,6 +1678,20 @@ router.post("/woo/order", async (req, res) => {
     // The card was already authorized+captured server-side in
     // POST /payment/cybersource/charge — no further verification needed.
     paymentVerified = true;
+    // Stage log: the ONLY path that lets a cybersource order be recorded as
+    // paid. Reaching here proves a successful charge bound this exact
+    // orderId↔paymentRef pair (intent existed + cart snapshot matched).
+    req.log?.info?.(
+      {
+        PAYMENT_DIAG: true,
+        stage: "order_create_gate",
+        appOrderId: body.orderId,
+        paymentRef,
+        provider: "cybersource",
+        paymentVerified: true,
+      },
+      "woo.order: CyberSource payment intent verified — local order creation authorized",
+    );
   }
   // whish / western: offline payments — paymentVerified stays false,
   // WC order will be created with set_paid: false (pending payment).

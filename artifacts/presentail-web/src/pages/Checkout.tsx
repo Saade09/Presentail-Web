@@ -21,9 +21,14 @@ import {
   useCybersourceAvailable,
   useCybersourceApplePaySession,
   useCybersourceWalletCharge,
+  useCybersourcePayerAuthSetup,
+  useCybersourcePayerAuthCheckEnrollment,
+  useCybersourcePayerAuthValidate,
   useFxRates,
 } from "@/lib/queries";
 import { CyberSourceSection, type CyberSourceSectionRef } from "./CyberSourceSection";
+import { CyberSourceDeviceDataFrame } from "./CyberSourceDeviceDataFrame";
+import { CyberSourceChallengeModal } from "./CyberSourceChallengeModal";
 import { isCyberSourceEligible } from "@/lib/cybersource-eligibility";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
@@ -82,6 +87,7 @@ import {
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
 import { withTimeout, withTimeoutAsNull } from "@/lib/withTimeout";
 import { computeCartTotal, toStripeMinorUnits, roundToNearestFive } from "@workspace/display-currency";
+import { extractCsPayerAuthData, hasCsPayerAuthProof } from "@/lib/csPayerAuth";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -565,9 +571,15 @@ function CheckoutForm() {
   const cybersourceCharge = useCybersourceCharge();
   const cybersourceApplePaySession = useCybersourceApplePaySession();
   const cybersourceWalletCharge = useCybersourceWalletCharge();
+  const csPayerAuthSetup = useCybersourcePayerAuthSetup();
+  const csPayerAuthCheckEnrollment = useCybersourcePayerAuthCheckEnrollment();
+  const csPayerAuthValidate = useCybersourcePayerAuthValidate();
   // Probe once on mount to silently hide the tile when CS is not configured.
   const { data: csAvailableData } = useCybersourceAvailable();
   const csAvailable = csAvailableData?.available !== false; // optimistic: show until confirmed unavailable
+  // Feature flag: payer authentication (3DS) enabled by the backend.
+  // Default false so existing cached responses (without the field) are safe.
+  const payerAuthEnabled = csAvailableData?.payerAuthEnabled === true;
   // Ref to the CyberSource card-form component — exposes createToken().
   const csFormRef = useRef<CyberSourceSectionRef>(null);
   // The capture context JWT returned from POST /payment/cybersource/capture-context.
@@ -579,6 +591,39 @@ function CheckoutForm() {
   // True once BOTH CyberSource hosted iframes have fired their onload event.
   // Place Order stays disabled until this flips to true.
   const [csFieldsReady, setCsFieldsReady] = useState(false);
+
+  // ── CyberSource Payer Authentication (3DS) state ──────────────────────────
+  // Stage-level state for the payer-auth flow.  Reset to "idle" at the start
+  // of each fresh attempt so the submit button re-enables on retry.
+  type CsPayerAuthStage =
+    | "idle"
+    | "collecting_device_data"
+    | "authentication_pending"
+    | "authentication_succeeded"
+    | "authentication_failed"
+    | "authorization_pending";
+  const [csPayerAuthStage, setCsPayerAuthStage] = useState<CsPayerAuthStage>("idle");
+  // Unique ID for each CyberSource payment attempt — prevents duplicate charges
+  // on page refresh mid-flow.  Generated with crypto.randomUUID() at the start
+  // of each attempt and stored in a ref so beforeunload can read it without a
+  // closure capture.
+  const csPaymentAttemptIdRef = useRef<string | null>(null);
+  // Props for the invisible device-data iframe; null = not mounted.
+  const [csDeviceDataProps, setCsDeviceDataProps] = useState<{
+    deviceDataCollectionUrl: string;
+    accessToken: string;
+  } | null>(null);
+  // Resolver for the promise that awaits device-data collection completion.
+  const csDeviceDataResolverRef = useRef<((success: boolean) => void) | null>(null);
+  // Props for the challenge modal; null = not mounted.
+  const [csChallengeProps, setCsChallengeProps] = useState<{
+    stepUpUrl: string;
+    accessToken: string;
+  } | null>(null);
+  // Resolver for the promise that awaits challenge completion/cancellation.
+  type ChallengeResult = { completed: boolean; status?: string };
+  const csChallengeResolverRef = useRef<((result: ChallengeResult) => void) | null>(null);
+  // ─────────────────────────────────────────────────────────────────────────
   // Expiry field managed here so we can read it in the submit handler.
   const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
@@ -1987,6 +2032,25 @@ function CheckoutForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentMethod, step]);
 
+  // ── Payer-auth refresh guard ───────────────────────────────────────────────
+  // When the page is refreshed or navigated away during an active payer-auth
+  // stage, clear the in-flight attempt so the shopper gets a clean form on
+  // return rather than a stuck or duplicate-charge state.
+  // Uses a ref (not localStorage) so nothing survives the unload.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (csPaymentAttemptIdRef.current) {
+        csPaymentAttemptIdRef.current = null;
+        setCsPayerAuthStage("idle");
+        setCsDeviceDataProps(null);
+        setCsChallengeProps(null);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Derived display values: prefer server-authoritative USD amounts when the
   // override is set; fall back to client-computed fees otherwise. These drive
   // OrderSummaryPanel and PaymentSubmitButton so the visible total always
@@ -2080,6 +2144,13 @@ function CheckoutForm() {
     cybersourceCapture.isPending ||
     cybersourceCharge.isPending ||
     cybersourceWalletCharge.isPending ||
+    csPayerAuthSetup.isPending ||
+    csPayerAuthCheckEnrollment.isPending ||
+    csPayerAuthValidate.isPending ||
+    csPayerAuthStage === "collecting_device_data" ||
+    csPayerAuthStage === "authentication_pending" ||
+    csPayerAuthStage === "authentication_succeeded" ||
+    csPayerAuthStage === "authorization_pending" ||
     cardProcessing;
 
   // Active display currency derived from the active country. Used both
@@ -3419,7 +3490,189 @@ function CheckoutForm() {
           return;
         }
 
-        // Step 3: Charge the card server-side.
+        // Step 3 (optional): CyberSource Payer Authentication (3DS).
+        // Active only when the backend feature flag is on AND the user is on LB+USD.
+        // When payerAuthEnabled is false, this block is skipped entirely and the
+        // flow falls through to the existing charge call unchanged.
+        let payerAuthData: Parameters<typeof cybersourceCharge.mutateAsync>[0]["payerAuthData"] | undefined;
+
+        if (payerAuthEnabled && useCyberSource) {
+          // Generate a fresh attempt ID for this payment attempt.
+          const attemptId = crypto.randomUUID();
+          csPaymentAttemptIdRef.current = attemptId;
+          setCsPayerAuthStage("collecting_device_data");
+
+          // 3a. Setup — get deviceDataCollectionUrl + accessToken.
+          let setupRes: Awaited<ReturnType<typeof csPayerAuthSetup.mutateAsync>>;
+          try {
+            setupRes = await csPayerAuthSetup.mutateAsync({
+              transientTokenJwt: transientToken,
+              orderId,
+              paymentAttemptId: attemptId,
+            });
+          } catch {
+            setCsPayerAuthStage("authentication_failed");
+            csPaymentAttemptIdRef.current = null;
+            toast({ title: t("checkout.toast.csSetupFailed"), variant: "destructive" });
+            return;
+          }
+          if (!setupRes.ok || !setupRes.deviceDataCollectionUrl || !setupRes.accessToken || !setupRes.referenceId) {
+            setCsPayerAuthStage("authentication_failed");
+            csPaymentAttemptIdRef.current = null;
+            toast({ title: t("checkout.toast.csSetupFailed"), variant: "destructive" });
+            return;
+          }
+
+          // 3b. Mount the invisible device-data iframe and await collection.
+          const deviceDataSuccess = await new Promise<boolean>((resolve) => {
+            csDeviceDataResolverRef.current = resolve;
+            setCsDeviceDataProps({
+              deviceDataCollectionUrl: setupRes.deviceDataCollectionUrl!,
+              accessToken: setupRes.accessToken!,
+            });
+          });
+          setCsDeviceDataProps(null);
+          csDeviceDataResolverRef.current = null;
+          // A timeout (deviceDataSuccess === false) is not fatal — proceed anyway.
+          if (!deviceDataSuccess) {
+            // Log but continue; 3DS can still proceed without device fingerprint.
+            console.log("PAYMENT_DIAG", { stage: "deviceData", result: "timeout_or_failed" }); // i18n-ignore
+          }
+
+          // 3c. Collect browser info for the enrollment check. Field names
+          // and string types follow the CyberSource Payer Auth spec (mirrors
+          // PayerAuthBrowserInfo in the API server).
+          const browserInfo = {
+            javaEnabled: false,
+            javaScriptEnabled: true,
+            acceptHeaders: "application/json, text/plain, */*", // i18n-ignore
+            colorDepth: String(screen.colorDepth),
+            screenHeight: String(screen.height),
+            screenWidth: String(screen.width),
+            timeZone: String(new Date().getTimezoneOffset()),
+            userAgentBrowserValue: navigator.userAgent,
+          };
+
+          setCsPayerAuthStage("authentication_pending");
+
+          // 3d. Check enrollment. The request/response contract mirrors the
+          // backend route: amount/currency/returnUrl are required, and the
+          // response is FLAT ({ enrolled, ...3DS fields }) — there is no
+          // nested payerAuthData object.
+          const enrollmentAmount = computeCartTotal(
+            subtotal,
+            districtFee + expressFee + slotFee,
+            confirmedCouponDiscount,
+          ).toFixed(2);
+          let enrollRes: Awaited<ReturnType<typeof csPayerAuthCheckEnrollment.mutateAsync>>;
+          try {
+            enrollRes = await csPayerAuthCheckEnrollment.mutateAsync({
+              paymentAttemptId: attemptId,
+              transientTokenJwt: transientToken,
+              referenceId: setupRes.referenceId,
+              orderId,
+              amount: enrollmentAmount,
+              currency: "USD", // i18n-ignore
+              // The issuer step-up iframe navigates here when the challenge
+              // finishes; the page (served by our API on the same origin)
+              // posts a completion message back to the checkout window.
+              returnUrl: `${window.location.origin}/api/payment/cybersource/payer-auth/return`,
+              browserInfo,
+              billTo: {
+                firstName: sender.firstName,
+                lastName: sender.lastName,
+                email: sender.email,
+              },
+            });
+          } catch {
+            setCsPayerAuthStage("authentication_failed");
+            csPaymentAttemptIdRef.current = null;
+            toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+            return;
+          }
+
+          if (enrollRes.ok && enrollRes.enrolled === false) {
+            // Frictionless — no shopper interaction needed. Extract the 3DS
+            // metadata from the flat response fields.
+            payerAuthData = extractCsPayerAuthData(enrollRes);
+            if (!hasCsPayerAuthProof(payerAuthData)) {
+              // No usable 3DS proof — the backend charge would reject with
+              // pa_required anyway, so fail here with the bank toast.
+              setCsPayerAuthStage("authentication_failed");
+              csPaymentAttemptIdRef.current = null;
+              toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+              return;
+            }
+            setCsPayerAuthStage("authentication_succeeded");
+          } else if (enrollRes.ok && enrollRes.enrolled === true) {
+            // Challenge required. Keep the enrollment's transaction id — the
+            // validate call is keyed by it, never by anything the challenge
+            // iframe posts back.
+            const challengeTxnId = enrollRes.authenticationTransactionId;
+            if (!enrollRes.stepUpUrl || !enrollRes.accessToken || !challengeTxnId) {
+              setCsPayerAuthStage("authentication_failed");
+              csPaymentAttemptIdRef.current = null;
+              toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+              return;
+            }
+
+            // 3e. Show the challenge modal and await shopper interaction.
+            const challengeResult = await new Promise<{ completed: boolean; status?: string }>((resolve) => {
+              csChallengeResolverRef.current = resolve;
+              setCsChallengeProps({
+                stepUpUrl: enrollRes.stepUpUrl!,
+                accessToken: enrollRes.accessToken!,
+              });
+            });
+            setCsChallengeProps(null);
+            csChallengeResolverRef.current = null;
+
+            if (!challengeResult.completed) {
+              // Shopper dismissed the dialog or the 5-minute timeout fired.
+              setCsPayerAuthStage("authentication_failed");
+              csPaymentAttemptIdRef.current = null;
+              toast({ title: t("checkout.toast.csChallengeCancelled"), variant: "destructive" });
+              return;
+            }
+
+            // 3f. Validate after challenge completion. The completion message
+            // only signals "the challenge is over" — validation decides
+            // pass/fail and returns the 3DS metadata as flat fields.
+            let validateRes: Awaited<ReturnType<typeof csPayerAuthValidate.mutateAsync>>;
+            try {
+              validateRes = await csPayerAuthValidate.mutateAsync({
+                authenticationTransactionId: challengeTxnId,
+                paymentAttemptId: attemptId,
+              });
+            } catch {
+              setCsPayerAuthStage("authentication_failed");
+              csPaymentAttemptIdRef.current = null;
+              toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+              return;
+            }
+            payerAuthData = extractCsPayerAuthData(validateRes);
+            if (!validateRes.ok || !hasCsPayerAuthProof(payerAuthData)) {
+              setCsPayerAuthStage("authentication_failed");
+              csPaymentAttemptIdRef.current = null;
+              toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+              return;
+            }
+            setCsPayerAuthStage("authentication_succeeded");
+          } else {
+            // Enrollment refused (pa_* error) or unexpected response shape.
+            setCsPayerAuthStage("authentication_failed");
+            csPaymentAttemptIdRef.current = null;
+            toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+            return;
+          }
+
+          setCsPayerAuthStage("authorization_pending");
+          // csPaymentAttemptIdRef deliberately stays set through the charge
+          // call so the backend can correlate the pa_* stages with the charge
+          // in the PAYMENT_DIAG logs; it is cleared once the charge settles.
+        }
+
+        // Step 4: Charge the card server-side.
         // The API client throws on non-2xx, so map the failure here instead of
         // letting the generic outer catch mislabel it. Only HTTP 402 is a real
         // card decline — 502 (gateway/config error) must show the "service
@@ -3429,6 +3682,7 @@ function CheckoutForm() {
         try {
           chargeRes = await cybersourceCharge.mutateAsync({
             orderId,
+            ...(csPaymentAttemptIdRef.current ? { paymentAttemptId: csPaymentAttemptIdRef.current } : {}),
             transientTokenJwt: transientToken,
             items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
             district: _selectedDistrict,
@@ -3443,6 +3697,7 @@ function CheckoutForm() {
               email: sender.email,
               phone: sender.phone,
             },
+            ...(payerAuthData ? { payerAuthData } : {}),
           });
         } catch (chargeErr) {
           const apiErr = chargeErr as {
@@ -3505,6 +3760,14 @@ function CheckoutForm() {
               description: serverMessage || t("checkout.toast.cybersourceUnavailableDesc"),
               variant: "destructive",
             });
+          } else if (typeof serverCode === "string" && serverCode.startsWith("pa_")) {
+            // Backend pa_* codes indicate a payer-auth failure at the charge
+            // stage — show the bank-verification toast, NOT "Card declined".
+            toast({
+              title: t("checkout.toast.csPayerAuthFailed"),
+              description: serverMessage || undefined,
+              variant: "destructive",
+            });
           } else {
             // gateway_validation_error surfaces its sanitized upstream message
             // here; anything else falls back to the generic unavailable copy.
@@ -3514,6 +3777,8 @@ function CheckoutForm() {
               variant: "destructive",
             });
           }
+          setCsPayerAuthStage("idle");
+          csPaymentAttemptIdRef.current = null;
           trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
           trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: paymentMethod } });
           return;
@@ -3525,6 +3790,8 @@ function CheckoutForm() {
         console.log("PAYMENT_DIAG", paymentDiag);
 
         if (!chargeRes.ok || !chargeRes.paymentRef) {
+          setCsPayerAuthStage("idle");
+          csPaymentAttemptIdRef.current = null;
           toast({
             title: t("checkout.toast.cybersourceDeclined"),
             description: chargeRes.message || t("checkout.toast.cybersourceDeclinedDesc"),
@@ -3533,7 +3800,9 @@ function CheckoutForm() {
           return;
         }
 
-        // Step 4: Create the order with the CyberSource paymentRef.
+        // Step 5: Create the order with the CyberSource paymentRef.
+        setCsPayerAuthStage("idle");
+        csPaymentAttemptIdRef.current = null;
         void maybeSaveNewAddress();
         void maybeSaveProfilePhone();
         await finalizeOrderNow(chargeRes.paymentRef);
@@ -4389,6 +4658,43 @@ function CheckoutForm() {
         timeSlots={timeSlots}
         cityExpressAvailable={selectedCityData?.expressAvailable === true}
       />
+      {/* ── CyberSource Payer Authentication (3DS) components ── */}
+      {/* Invisible device-data collection iframe — mounts only during the
+          collecting_device_data stage and unmounts immediately after. */}
+      {csDeviceDataProps && (
+        <CyberSourceDeviceDataFrame
+          deviceDataCollectionUrl={csDeviceDataProps.deviceDataCollectionUrl}
+          accessToken={csDeviceDataProps.accessToken}
+          onComplete={(success) => {
+            const resolver = csDeviceDataResolverRef.current;
+            if (resolver) {
+              csDeviceDataResolverRef.current = null;
+              resolver(success);
+            }
+          }}
+        />
+      )}
+      {/* Issuer challenge modal — mounts only when a step-up is required. */}
+      {csChallengeProps && (
+        <CyberSourceChallengeModal
+          stepUpUrl={csChallengeProps.stepUpUrl}
+          accessToken={csChallengeProps.accessToken}
+          onComplete={(status) => {
+            const resolver = csChallengeResolverRef.current;
+            if (resolver) {
+              csChallengeResolverRef.current = null;
+              resolver({ completed: true, status });
+            }
+          }}
+          onCancel={() => {
+            const resolver = csChallengeResolverRef.current;
+            if (resolver) {
+              csChallengeResolverRef.current = null;
+              resolver({ completed: false });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

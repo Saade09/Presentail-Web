@@ -142,19 +142,20 @@ export async function generateCaptureContext(opts: {
   targetOrigins: string[];
   totalAmount: string;
   currency: string;
-  /** Additional payment types to include (e.g. ["GOOGLEPAY","APPLEPAY"]).
-   *  Merged with the base ["CARD"] list; duplicates are removed. */
-  extraPaymentTypes?: string[];
 }): Promise<{ ok: true; captureContext: string } | { ok: false; message: string }> {
-  const { targetOrigins, totalAmount, currency, extraPaymentTypes } = opts;
+  const { targetOrigins, totalAmount, currency } = opts;
   const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
   const base = getCybersourceBase();
   const path = "/microform/v2/sessions";
 
-  const baseTypes = ["CARD"]; // i18n-ignore — CARD is correct for Flex Microform V2
-  const allowedPaymentTypes = extraPaymentTypes?.length
-    ? [...new Set([...baseTypes, ...extraPaymentTypes])]
-    : baseTypes;
+  // /microform/v2/sessions accepts ONLY CARD (and CHECK) payment types.
+  // Wallet types must NEVER be sent here: on 2026-07-27 GOOGLEPAY/APPLEPAY
+  // were briefly merged in for wallet-eligible shoppers and live CyberSource
+  // rejected every session with HTTP 400 UNIFIEDPAYMENTS_VALIDATION_FIELDS
+  // ("Possible allowed payment types: [CARD, CHECK]"), which silently pushed
+  // all Lebanon card shoppers to the Stripe fallback. Wallet flows do not use
+  // this JWT at all — Google/Apple Pay tokens go directly to /wallet-charge.
+  const allowedPaymentTypes = ["CARD"]; // i18n-ignore — CARD is correct for Flex Microform V2
 
   const payload = {
     clientVersion: "v2",
@@ -467,6 +468,21 @@ export async function validatePayerAuth(opts: {
   }
 }
 
+// ── Approved payment statuses ────────────────────────────────────────────────
+// Statuses of POST /pts/v2/payments (capture:true) that mean the charge is
+// approved and funds will move. A paid order requires HTTP 2xx + a non-empty
+// CyberSource requestId (data.id) + one of these statuses — anything else
+// (DECLINED, INVALID_REQUEST, AUTHORIZED_RISK_DECLINED, PENDING_AUTHENTICATION,
+// unknown/missing status, missing id) must NEVER be treated as paid.
+// AUTHORIZED_RISK_DECLINED is deliberately excluded: Decision Manager reverses
+// the authorisation and no money moves.
+const APPROVED_PAYMENT_STATUSES = new Set([
+  "AUTHORIZED",
+  "PARTIAL_AUTHORIZED",
+  "AUTHORIZED_PENDING_REVIEW",
+  "PENDING_REVIEW",
+]);
+
 // ── authorizeAndCapture ───────────────────────────────────────────────────────
 // Calls POST /pts/v2/payments with capture:true.
 // Uses the transient token JWT (from the client-side Microform tokenization)
@@ -618,10 +634,15 @@ export async function authorizeAndCapture(opts: {
     }
 
     // CyberSource uses HTTP 201 for BOTH approved and declined authorisations —
-    // a real card decline comes back as 201 with status "DECLINED". Only treat
-    // 201 as success when the status is not a decline/error status.
-    if (res.status === 201 && data?.id && data?.status !== "DECLINED" && data?.status !== "INVALID_REQUEST") {
-      return { ok: true, paymentId: data.id, status: data.status ?? "AUTHORIZED_PENDING_REVIEW" }; // i18n-ignore
+    // a real card decline comes back as 201 with status "DECLINED".
+    // Success gate (all three required, else the order must not be marked paid):
+    //   1. HTTP 2xx
+    //   2. non-empty CyberSource requestId (data.id)
+    //   3. an explicitly APPROVED status (allowlist above)
+    const chargeRequestId = typeof data?.id === "string" && data.id.trim() !== "" ? data.id : undefined;
+    const chargeStatus = typeof data?.status === "string" ? data.status : undefined;
+    if (res.ok && chargeRequestId && chargeStatus && APPROVED_PAYMENT_STATUSES.has(chargeStatus)) {
+      return { ok: true, paymentId: chargeRequestId, status: chargeStatus };
     }
 
     const reason = data?.errorInformation?.reason ?? data?.status ?? `HTTP ${res.status}`;
@@ -642,12 +663,30 @@ export async function authorizeAndCapture(opts: {
       correlationId: res.headers.get("v-c-correlation-id") ?? undefined,
     };
 
-    // Genuine processor decline: HTTP 201 with DECLINED status.
-    if (res.status === 201) {
+    // Genuine processor declines: HTTP 201 with DECLINED status, or an
+    // authorisation Decision Manager reversed (AUTHORIZED_RISK_DECLINED — no
+    // funds move). Only these outcomes may surface as "card declined".
+    if (res.status === 201 && (chargeStatus === "DECLINED" || chargeStatus === "AUTHORIZED_RISK_DECLINED")) {
       return {
         ok: false,
         kind: "decline",
         message: upstreamMessage ?? `Payment declined (${reason}).`, // i18n-ignore
+        declineCode,
+        ...failureDiag,
+      };
+    }
+
+    // HTTP 201 without an approved status and without a decline status:
+    // INVALID_REQUEST, PENDING_AUTHENTICATION, unknown/missing status, or a
+    // missing requestId. Never paid, and never shown as a card decline —
+    // classify as a request/gateway fault so ops sees the real upstream state.
+    if (res.status === 201) {
+      return {
+        ok: false,
+        kind: chargeStatus === "INVALID_REQUEST" ? "validation" : "gateway",
+        message:
+          upstreamMessage ??
+          `CyberSource returned HTTP 201 without an approved status (status: ${chargeStatus ?? "missing"}, requestId: ${chargeRequestId ?? "missing"}).`, // i18n-ignore
         declineCode,
         ...failureDiag,
       };
@@ -770,8 +809,17 @@ export async function authorizeAndCaptureGooglePay(opts: {
     let data: any = null;
     try { data = rawBody ? JSON.parse(rawBody) : null; } catch { data = null; }
 
-    if (res.status === 201 && data?.id) {
-      return { ok: true, paymentId: data.id, status: data.status ?? "AUTHORIZED_PENDING_REVIEW" }; // i18n-ignore
+    // Same strict paid gate as authorizeAndCapture: 2xx + non-empty requestId
+    // + explicitly approved status. A 201 with status DECLINED is a decline —
+    // the previous `201 && data.id` check wrongly counted it as paid.
+    if (
+      res.ok &&
+      typeof data?.id === "string" &&
+      data.id.trim() !== "" &&
+      typeof data?.status === "string" &&
+      APPROVED_PAYMENT_STATUSES.has(data.status)
+    ) {
+      return { ok: true, paymentId: data.id, status: data.status };
     }
     const reason = data?.errorInformation?.reason ?? data?.status ?? `HTTP ${res.status}`;
     const message = data?.errorInformation?.message ?? data?.message ?? `Payment declined (${reason}).`; // i18n-ignore
@@ -896,8 +944,17 @@ export async function authorizeAndCaptureApplePay(opts: {
     let data: any = null;
     try { data = rawBody ? JSON.parse(rawBody) : null; } catch { data = null; }
 
-    if (res.status === 201 && data?.id) {
-      return { ok: true, paymentId: data.id, status: data.status ?? "AUTHORIZED_PENDING_REVIEW" }; // i18n-ignore
+    // Same strict paid gate as authorizeAndCapture: 2xx + non-empty requestId
+    // + explicitly approved status. A 201 with status DECLINED is a decline —
+    // the previous `201 && data.id` check wrongly counted it as paid.
+    if (
+      res.ok &&
+      typeof data?.id === "string" &&
+      data.id.trim() !== "" &&
+      typeof data?.status === "string" &&
+      APPROVED_PAYMENT_STATUSES.has(data.status)
+    ) {
+      return { ok: true, paymentId: data.id, status: data.status };
     }
     const reason = data?.errorInformation?.reason ?? data?.status ?? `HTTP ${res.status}`;
     const message = data?.errorInformation?.message ?? data?.message ?? `Payment declined (${reason}).`; // i18n-ignore

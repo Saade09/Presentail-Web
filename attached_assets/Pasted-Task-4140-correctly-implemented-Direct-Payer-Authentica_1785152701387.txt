@@ -1,0 +1,115 @@
+Task 4140 correctly implemented Direct Payer Authentication. Do not change it to Unified Checkout in this investigation.
+
+Two local orders were created, but no corresponding transactions appear in CyberSource Business Center.
+
+Determine exactly whether the final CyberSource authorization/capture occurred.
+
+For each of the two orders, trace and report:
+
+{
+  orderId,
+  orderCreatedAt,
+  orderPaymentStatus,
+  paymentAttemptId,
+  environment,
+  merchantId,
+  payerAuthSetupCalled,
+  payerAuthSetupStatus,
+  payerAuthTransactionId,
+  checkEnrollmentCalled,
+  checkEnrollmentStatus,
+  challengeRequired,
+  validationCalled,
+  validationStatus,
+  chargeRouteCalled,
+  authorizeAndCaptureCalled,
+  cybersourcePaymentEndpoint,
+  cybersourcePaymentHttpStatus,
+  cybersourcePaymentRequestId,
+  cybersourcePaymentStatus,
+  cybersourcePaymentResponseBody
+}
+
+Never log PAN, CVC, REST secrets, the full transient token, or full authentication JWTs.
+
+Verify the complete sequence:
+
+Microform tokenization
+→ Payer Authentication setup
+→ device collection
+→ check enrollment
+→ optional challenge
+→ validate
+→ POST /pts/v2/payments
+→ approved authorization/capture
+→ local order confirmation
+
+Required checks:
+
+Confirm whether /payment/cybersource/charge was called for each order.
+Confirm whether authorizeAndCapture() executed.
+Confirm the exact outbound endpoint:
+Production:
+https://api.cybersource.com/pts/v2/payments
+
+Test:
+https://apitest.cybersource.com/pts/v2/payments
+Confirm the request used:
+v-c-merchant-id: blom_presentail1
+Return the complete sanitized response status and body from CyberSource.
+Confirm whether a non-empty CyberSource payment request ID was returned.
+Search the appropriate Business Center:
+production request → production Business Center
+test request → test Business Center
+Search Payer Authentication separately using the PA Transaction ID.
+Identify the exact code line where the local order was created.
+Confirm whether local order creation happened before or after CyberSource payment approval.
+
+Fix the order creation gate:
+
+const paymentApproved =
+  cybersourceHttpStatus >= 200 &&
+  cybersourceHttpStatus < 300 &&
+  Boolean(cybersourceRequestId) &&
+  approvedCyberSourceStatuses.includes(cybersourceStatus);
+
+Do not create or confirm a paid order unless paymentApproved is true.
+
+If an order record must exist before payment, create it as:
+
+payment_pending
+
+Then update it only after an approved CyberSource response.
+
+If Payer Authentication succeeds but /pts/v2/payments is never called or fails:
+
+keep the order unpaid
+do not send paid-order confirmation
+show the actual payment-stage error
+retain the PA Transaction ID for investigation
+
+Add structured logs at every stage:
+
+{
+  orderId,
+  paymentAttemptId,
+  stage,
+  merchantId,
+  environment,
+  paTransactionId,
+  cybersourceRequestId,
+  httpStatus,
+  status,
+  reason
+}
+
+Do not conclude that the payment succeeded because:
+
+tokenization succeeded
+device collection completed
+Payer Authentication returned a result
+an order was written locally
+
+Success requires a final approved /pts/v2/payments response with a CyberSource request ID.
+
+Do not modify the Direct Payer Authentication architecture during this investigation. First identify where the payment sequence stopped for the two missing transactions.

@@ -1,0 +1,71 @@
+Investigate the “Card verification could not be started” error without changing the payment architecture.
+
+This error occurs at the Direct Payer Authentication setup stage, before device-data collection.
+
+Check the latest failed request to:
+
+POST /api/payment/cybersource/payer-auth/setup
+
+and report the sanitized result:
+
+{
+  frontendOrigin,
+  deploymentType: "preview" | "production",
+  payerAuthEnabled,
+  apiIdentifierPresent,
+  apiKeyPresent,
+  orgUnitIdPresent,
+  cybersourceEnvironment,
+  outboundEndpoint,
+  setupHttpStatus,
+  setupResponseCode,
+  setupResponseMessage,
+  requestId
+}
+
+Do not expose secret values.
+
+Verify all of the following:
+
+The running deployment was restarted after adding:
+CYBERSOURCE_PA_API_IDENTIFIER
+CYBERSOURCE_PA_API_KEY
+CYBERSOURCE_PA_ORG_UNIT_ID
+CYBERSOURCE_PAYER_AUTH_ENABLED=true
+isPaConfigured() reads the exact secret names above and trims whitespace.
+The application is not expecting different names such as:
+CYBERSOURCE_PAYER_AUTH_API_IDENTIFIER
+CYBERSOURCE_PAYER_AUTH_API_KEY
+CYBERSOURCE_PAYER_AUTH_ORG_UNIT_ID
+Production credentials call:
+https://api.cybersource.com/risk/v1/authentication-setups
+
+and test credentials call:
+
+https://apitest.cybersource.com/risk/v1/authentication-setups
+
+Do not mix production credentials with the test endpoint.
+
+Confirm the outbound authentication headers are built exactly as required for the Cruise Control credentials.
+Confirm the setup request includes the Microform transient token under the correct field:
+tokenInformation: {
+  transientToken: transientTokenJwt
+}
+Confirm the setup response is not being rejected by an incorrect frontend response mapper.
+Check whether preview uses a different backend, stale deployment, missing secrets, or CORS configuration.
+Log the actual sanitized CyberSource error body rather than returning only:
+Card verification could not be started
+Do not fall back silently to Stripe when Payer Authentication setup fails. Show the error and prevent order placement during this test.
+
+Add a temporary safe diagnostic endpoint or startup log:
+
+{
+  payerAuthEnabled: process.env.CYBERSOURCE_PAYER_AUTH_ENABLED === "true",
+  apiIdentifierPresent: Boolean(process.env.CYBERSOURCE_PA_API_IDENTIFIER?.trim()),
+  apiKeyPresent: Boolean(process.env.CYBERSOURCE_PA_API_KEY?.trim()),
+  orgUnitIdPresent: Boolean(process.env.CYBERSOURCE_PA_ORG_UNIT_ID?.trim())
+}
+
+Never output the actual values.
+
+Test once in preview and once on the deployed production URL. Report whether the failure differs by environment.

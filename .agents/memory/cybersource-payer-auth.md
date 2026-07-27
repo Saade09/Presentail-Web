@@ -1,34 +1,24 @@
 ---
 name: CyberSource Payer Auth (3DS)
-description: Backend 3DS implementation — endpoint paths, eligibility rules, consumerAuthInfo flow, and key design decisions.
+description: 3DS flow contracts (setup/check-enrollment/validate), flat response shapes, challenge return relay, and the contract-drift lesson.
 ---
 
-## Eligibility rule
-Wallet payment types (GOOGLEPAY, APPLEPAY) are added to the capture context `allowedPaymentTypes` only when the **client IP resolves to Lebanon**. Delivery address, billing address, and browser locale are never used. This is enforced server-side in `POST /payment/cybersource/capture-context` via `pickClientIp` + `lookupCountryFromIp`.
+## Read the merged backend before wiring a frontend
+**Why:** The web 3DS wiring was first written against *anticipated* shapes (`/payer-auth/enroll`, `action: "CONTINUE"`, nested `payerAuthData`, numeric browserInfo) and a completion review rejected it — every stage would have 400'd in production with the flag on. The merged routes were the truth.
+**How to apply:** treat `artifacts/api-server/src/routes/payment.ts` as the contract source; contract drift is pinned by `payment.payerAuth.test.ts`, whose fixtures mirror the exact frontend payloads — if those tests fight the frontend, fix the drift, not the test.
 
-## 3-step Payer Auth flow
+## Actual contracts (as merged)
+- `POST /payment/cybersource/payer-auth/setup` — `{ transientTokenJwt, orderId, paymentAttemptId? }` → `{ ok, accessToken, deviceDataCollectionUrl, referenceId }`.
+- `POST /payment/cybersource/payer-auth/check-enrollment` (not `/enroll`) — requires `amount`, `currency`, `returnUrl` besides token/referenceId/orderId; optional `billTo` (PayerAuthBillTo names) and `browserInfo` (CyberSource names: `acceptHeaders`, `userAgentBrowserValue`, string dimensions — NOT `acceptHeader`/`userAgent`/numbers). Response: `{ enrolled: true, stepUpUrl, accessToken, authenticationTransactionId }` (challenge) or `{ enrolled: false, ...FLAT 3DS fields }` (frictionless).
+- `POST /payment/cybersource/payer-auth/validate` — keyed by `authenticationTransactionId` (from enrollment, never from iframe messages) → FLAT 3DS fields.
+- All 3DS metadata is FLAT on response bodies — never nested. Web maps it via `extractCsPayerAuthData()` (`presentail-web/src/lib/csPayerAuth.ts`) into the charge's `payerAuthData`; charge gate needs cavv OR eci/eciRaw (`pa_required` otherwise).
 
-| Step | Route | CyberSource endpoint |
-|------|-------|---------------------|
-| 1 | `POST /payment/cybersource/payer-auth/setup` | `/risk/v1/authentication-setups` |
-| 2 | `POST /payment/cybersource/payer-auth/enroll` | `/risk/v1/authentications` |
-| 3 | `POST /payment/cybersource/payer-auth/validate` | `/risk/v1/authentication-results` |
+## Challenge completion = return relay, not a Cardinal postMessage
+The step-up iframe form-POSTs the `returnUrl` when the issuer challenge ends. Point `returnUrl` at `/api/payment/cybersource/payer-auth/return` — a no-auth HTML page that `parent.postMessage`s `{ MessageType: "cybersource.stepUpComplete" }`. The checkout modal listens for that same-origin message; the payload is only a "challenge over" ping — validation uses the enrollment's transaction id. TransactionId echoed into the page must stay regex-sanitized (XSS).
 
-**Step 1 → setup**: takes `orderId` + `transientTokenJwt`; returns `{ accessToken, deviceDataCollectionUrl, referenceId }`. Frontend loads `deviceDataCollectionUrl` in a hidden iframe. `referenceId` must be passed to step 2.
+## Wallets and eligibility
+- Wallet eligibility (Google/Apple Pay tiles) is gated on client IP = LB (`pickClientIp` + `lookupCountryFromIp`), never delivery address. It only sets response flags — wallet types must NEVER enter the Microform capture context (see cybersource-microform-wallets.md).
+- `POST /payment/cybersource/wallet-charge` returns `paymentMethod: "cybersource_googlepay" | "cybersource_applepay"`; frontend passes it as the order's paymentMethod.
 
-**Step 2 → enroll**: takes `orderId`, `transientTokenJwt`, `totalAmount`, `currency`, `returnUrl`, `referenceId`. Returns:
-- `action: "CONTINUE"` — frictionless; proceed directly to charge with `authenticationTransactionId`
-- `action: "CONSUMER_AUTHENTICATION_REQUIRED"` — challenge; open `stepUpUrl` in iframe; after completion call validate
-
-**Step 3 → validate**: takes `orderId` + `authenticationTransactionId`. Returns `payerAuthData` (cavv, eci, xid, ucafAuthenticationData, paSpecificationVersion, directoryServerTransactionId).
-
-## Charge with 3DS
-Pass `payerAuthData` from the validate step as `payerAuthData` in the `POST /payment/cybersource/charge` request body. The route forwards it as `consumerAuthenticationInformation` in the CyberSource payment payload. Same pattern for wallet charges (no route param yet, can be added).
-
-## Wallet payment method labels
-`POST /payment/cybersource/wallet-charge` now returns `paymentMethod: "cybersource_googlepay"` or `"cybersource_applepay"` in the response. The frontend should pass this as the order's `paymentMethod` when creating the WooCommerce order.
-
-**Why:** The spec requires distinct payment method labels per wallet type on the order record, and the charge endpoint is the only point that knows the wallet type server-side.
-
-## generateCaptureContext extraPaymentTypes
-The function accepts an optional `extraPaymentTypes?: string[]` merged dedup-safe with `["CARD"]`. The capture-context route passes `["GOOGLEPAY", "APPLEPAY"]` when IP=LB. Non-LB IPs get only `["CARD"]`.
+## Enabling 3DS
+`/payment/cybersource/available` must expose `payerAuthEnabled` (frontend defaults false when absent). Flag on requires `CYBERSOURCE_PAYER_AUTH_ENABLED=true` + `CYBERSOURCE_PA_API_IDENTIFIER`/`API_KEY`/`ORG_UNIT_ID`; with the backend flag on but the field not exposed, every charge dies with `pa_required` — keep flag exposure and charge gating in lockstep.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
+import type { CsPayerAuthChargeData } from "./csPayerAuth";
 import { fetchOsProducts, fetchOsProductPricing } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
 import { readAttribution } from "./attribution";
@@ -817,7 +818,7 @@ export const useCybersourceAvailable = () => {
   return useQuery({
     queryKey: ["cybersource-available"],
     queryFn: () =>
-      apiFetch<{ available: boolean; merchantId?: string; environment?: "test" | "live" }>(
+      apiFetch<{ available: boolean; merchantId?: string; environment?: "test" | "live"; payerAuthEnabled?: boolean }>(
         "/payment/cybersource/available",
       ),
     staleTime: 5 * 60 * 1000,
@@ -851,6 +852,9 @@ export const useCybersourceCharge = () => {
       orderId: string;
       transientTokenJwt: string;
       items: PayCartItem[];
+      /** Client-generated attempt UUID — logged server-side so every stage of
+       *  one attempt (setup → enrollment → validate → charge) correlates. */
+      paymentAttemptId?: string;
       district?: string;
       expressDelivery?: boolean;
       noAddress?: boolean;
@@ -864,10 +868,132 @@ export const useCybersourceCharge = () => {
         email?: string;
         phone?: string;
       };
+      payerAuthData?: CsPayerAuthChargeData;
     }) => apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string; declineCode?: string }>("/payment/cybersource/charge", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  });
+};
+
+// ── CyberSource Payer Authentication (3DS) ────────────────────────────────────
+
+// The request/response shapes below are the API server's payer-auth route
+// contracts (artifacts/api-server/src/routes/payment.ts). The routes return
+// the 3DS metadata as FLAT fields — never nested under `payerAuthData`; use
+// extractCsPayerAuthData() to build the charge payload from them. Contract
+// drift is pinned by artifacts/api-server/src/routes/payment.payerAuth.test.ts.
+
+export type CsPayerAuthSetupResponse = {
+  ok: boolean;
+  deviceDataCollectionUrl?: string;
+  accessToken?: string;
+  referenceId?: string;
+  message?: string;
+  code?: string;
+};
+
+/**
+ * Flat response from /payer-auth/check-enrollment.
+ * `enrolled: true`  → challenge required (stepUpUrl + accessToken present).
+ * `enrolled: false` → frictionless; the 3DS metadata fields sit on the body.
+ */
+export type CsPayerAuthEnrollmentResponse = {
+  ok: boolean;
+  enrolled?: boolean;
+  stepUpUrl?: string;
+  accessToken?: string;
+  authenticationTransactionId?: string;
+  eci?: string;
+  cavv?: string;
+  xid?: string;
+  specificationVersion?: string;
+  directoryServerTransactionId?: string;
+  paSpecificationVersion?: string;
+  message?: string;
+  code?: string;
+};
+
+/** Flat response from /payer-auth/validate. */
+export type CsPayerAuthValidateResponse = {
+  ok: boolean;
+  cavv?: string;
+  eci?: string;
+  eciRaw?: string;
+  xid?: string;
+  specificationVersion?: string;
+  directoryServerTransactionId?: string;
+  paSpecificationVersion?: string;
+  authenticationTransactionId?: string;
+  commerceIndicator?: string;
+  message?: string;
+  code?: string;
+};
+
+export const useCybersourcePayerAuthSetup = () => {
+  return useMutation({
+    mutationFn: (data: {
+      transientTokenJwt: string;
+      orderId: string;
+      paymentAttemptId?: string;
+    }) =>
+      apiFetch<CsPayerAuthSetupResponse>("/payment/cybersource/payer-auth/setup", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+};
+
+export const useCybersourcePayerAuthCheckEnrollment = () => {
+  return useMutation({
+    mutationFn: (data: {
+      paymentAttemptId?: string;
+      transientTokenJwt: string;
+      referenceId: string;
+      orderId: string;
+      amount: string;
+      currency: string;
+      returnUrl: string;
+      // Field names/types follow the CyberSource Payer Auth spec (mirrors
+      // PayerAuthBrowserInfo in the API server) — dimensions are strings.
+      browserInfo?: {
+        javaEnabled?: boolean;
+        javaScriptEnabled?: boolean;
+        acceptHeaders?: string;
+        colorDepth?: string;
+        screenHeight?: string;
+        screenWidth?: string;
+        timeZone?: string;
+        userAgentBrowserValue?: string;
+      };
+      // Mirrors PayerAuthBillTo in the API server.
+      billTo?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        address1?: string;
+        locality?: string;
+        country?: string;
+        postalCode?: string;
+      };
+    }) =>
+      apiFetch<CsPayerAuthEnrollmentResponse>("/payment/cybersource/payer-auth/check-enrollment", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+};
+
+export const useCybersourcePayerAuthValidate = () => {
+  return useMutation({
+    mutationFn: (data: {
+      authenticationTransactionId: string;
+      paymentAttemptId?: string;
+    }) =>
+      apiFetch<CsPayerAuthValidateResponse>("/payment/cybersource/payer-auth/validate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   });
 };
 

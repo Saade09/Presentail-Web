@@ -153,7 +153,7 @@ export async function setupPayerAuth(opts: {
 
   const payload = {
     clientReferenceInformation: { code: orderId },
-    tokenInformation: { transientTokenJwt },
+    tokenInformation: { transientToken: transientTokenJwt },
   };
 
   try {
@@ -222,7 +222,7 @@ export async function checkEnrollment(opts: {
       amountDetails: { totalAmount: amount, currency },
       ...(billTo ? { billTo } : {}),
     },
-    tokenInformation: { transientTokenJwt },
+    tokenInformation: { transientToken: transientTokenJwt },
     consumerAuthenticationInformation: {
       referenceId,
       returnUrl,
