@@ -909,7 +909,9 @@ router.post("/payment/tabby/refund", async (req, res) => {
 //     returning, so /woo/order can reject any replay or cart substitution.
 import {
   isCybersourceConfigured,
+  isCybersourceWalletsEnabled,
   generateCaptureContext,
+  generateWalletCaptureContext,
   authorizeAndCapture,
 } from "../lib/cybersource";
 
@@ -964,6 +966,255 @@ function resolveTargetOrigins(bodyOrigin?: string): string[] {
 
 router.get("/payment/cybersource/available", (_req, res) => {
   return res.json({ available: isCybersourceConfigured() });
+});
+
+// ── CyberSource wallet capture context ───────────────────────────────────────
+// Returns the wallet capture context JWT plus a flag for which wallets the
+// server has enabled.  Keeps amounts server-side — same totalling logic as the
+// Microform capture-context route.
+router.post("/payment/cybersource/wallet-capture-context", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+  if (!isCybersourceWalletsEnabled()) {
+    return res.status(503).json({ ok: false, message: "CyberSource wallets not enabled." }); // i18n-ignore
+  }
+
+  const {
+    items,
+    orderId,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    targetOrigin: bodyOrigin,
+  } = req.body as {
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    orderId?: string;
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
+    targetOrigin?: string;
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (store.storeKey !== "lebanon") {
+    return res.status(400).json({ ok: false, message: "CyberSource wallets are only available for the Lebanon storefront." }); // i18n-ignore
+  }
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Beirut";
+  const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const slotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd;
+  const totalAmount = totalUsd.toFixed(2);
+
+  const targetOrigins = resolveTargetOrigins(bodyOrigin);
+
+  const result = await generateWalletCaptureContext({ targetOrigins, totalAmount, currency: "USD" });
+  if (!result.ok) {
+    req.log.warn({ orderId, message: result.message }, "CyberSource wallet capture context failed");
+    return res.status(502).json({ ok: false, code: "cybersource_error", message: result.message });
+  }
+
+  const environment = (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") as "test" | "live";
+  const applePayEnabled = process.env.CYBERSOURCE_APPLE_PAY_ENABLED !== "0" &&
+    process.env.CYBERSOURCE_APPLE_PAY_ENABLED?.toLowerCase() !== "false" &&
+    process.env.CYBERSOURCE_APPLE_PAY_ENABLED?.toLowerCase() !== "no";
+  const googlePayEnabled = process.env.CYBERSOURCE_GOOGLE_PAY_ENABLED !== "0" &&
+    process.env.CYBERSOURCE_GOOGLE_PAY_ENABLED?.toLowerCase() !== "false" &&
+    process.env.CYBERSOURCE_GOOGLE_PAY_ENABLED?.toLowerCase() !== "no";
+  const merchantId = process.env.CYBERSOURCE_MERCHANT_ID?.trim() ?? "";
+  // Google Pay merchant ID registered in the Google Pay Business Console —
+  // distinct from the CyberSource merchantId used as the gateway credential.
+  // Set CYBERSOURCE_GOOGLE_PAY_MERCHANT_ID to the value from Google Pay console.
+  // When unset the client will fall back to the test merchant ID; the Google Pay
+  // button will be suppressed in production until this is configured.
+  const googlePayMerchantId = process.env.CYBERSOURCE_GOOGLE_PAY_MERCHANT_ID?.trim() ?? "";
+
+  req.log.info(
+    { orderId, totalUsd, environment, applePayEnabled, googlePayEnabled },
+    "CyberSource wallet capture context created",
+  );
+  return res.json({
+    ok: true,
+    captureContext: result.captureContext,
+    totalUsd,
+    environment,
+    applePayEnabled,
+    googlePayEnabled,
+    merchantId,
+    googlePayMerchantId,
+  });
+});
+
+// ── CyberSource wallet charge ─────────────────────────────────────────────────
+// Accepts the transient token produced by the CyberSource Unified Checkout SDK
+// (Apple Pay / Google Pay path) and finalises the payment server-side.
+// Uses the same authorizeAndCapture primitive as the Microform card charge;
+// the paymentRef is prefixed "cybs-wallet:" to distinguish it from card charges
+// in the order table and admin views.
+router.post("/payment/cybersource/wallet-charge", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+
+  const {
+    orderId,
+    transientTokenJwt,
+    items,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    billingDetails: rawBilling,
+    selectedWallet,
+  } = req.body as {
+    orderId: string;
+    transientTokenJwt: string;
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
+    billingDetails?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+    };
+    selectedWallet?: "apple_pay" | "google_pay";
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!transientTokenJwt) {
+    return res.status(400).json({ ok: false, message: "transientTokenJwt is required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+  if (typeof transientTokenJwt !== "string" || transientTokenJwt.split(".").length !== 3) {
+    return res.status(400).json({ ok: false, message: "Invalid transient token." }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (store.storeKey !== "lebanon") {
+    return res.status(400).json({ ok: false, message: "CyberSource wallets are only available for the Lebanon storefront." }); // i18n-ignore
+  }
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Beirut";
+  const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const slotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    district: resolvedDistrict,
+  });
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd;
+  const totalAmount = totalUsd.toFixed(2);
+
+  const chargeResult = await authorizeAndCapture({
+    transientTokenJwt,
+    totalAmount,
+    currency: "USD",
+    orderId,
+    billingDetails: rawBilling,
+  });
+
+  if (!chargeResult.ok) {
+    req.log.warn(
+      {
+        orderId,
+        totalUsd,
+        selectedWallet,
+        declineCode: chargeResult.declineCode,
+        message: chargeResult.message,
+      },
+      "CyberSource wallet charge failed",
+    );
+    return res.status(402).json({
+      ok: false,
+      code: "payment_declined",
+      declineCode: chargeResult.declineCode,
+      message: chargeResult.message,
+    });
+  }
+
+  const paymentRef = `cybs-wallet:${chargeResult.paymentId}`;
+
+  storePaymentIntent({
+    orderId,
+    paymentRef,
+    provider: "cybersource",
+    currency: "USD",
+    totalUsd,
+    snapshot: {
+      items: catalogResult.items.map((i) => ({
+        wcId: i.wcId,
+        osSlug: i.osSlug,
+        quantity: i.quantity,
+        priceUsd: i.priceUsd,
+      })),
+      district: resolvedDistrict,
+      expressDelivery: isExpress,
+      noAddress: isNoAddress,
+      deliverySlot: rawDeliverySlot ?? "",
+    },
+  });
+
+  req.log.info(
+    { orderId, paymentRef, totalUsd, selectedWallet, status: chargeResult.status },
+    "CyberSource wallet charge succeeded",
+  );
+
+  return res.json({ ok: true, paymentRef });
 });
 
 router.post("/payment/cybersource/capture-context", async (req, res) => {

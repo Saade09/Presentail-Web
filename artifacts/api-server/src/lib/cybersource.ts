@@ -175,6 +175,89 @@ export async function generateCaptureContext(opts: {
   }
 }
 
+// ── isCybersourceWalletsEnabled ───────────────────────────────────────────────
+// Returns true when CYBERSOURCE_WALLETS_ENABLED is not explicitly disabled.
+// Defaults to false (opt-in) so existing deployments are unaffected until the
+// merchant Apple Pay certificate is provisioned.
+export function isCybersourceWalletsEnabled(): boolean {
+  const v = process.env.CYBERSOURCE_WALLETS_ENABLED ?? "0";
+  return v === "1" || v.toLowerCase() === "true" || v.toLowerCase() === "yes";
+}
+
+// ── generateWalletCaptureContext ──────────────────────────────────────────────
+// Calls POST /microform/v2/sessions with allowedPaymentTypes APPLEPAY and
+// GOOGLEPAY.  This is intentionally separate from generateCaptureContext (which
+// uses PANENTRY) so neither path can interfere with the other.
+//
+// Guarded by CYBERSOURCE_WALLETS_ENABLED.  Returns { ok: false } when wallets
+// are not enabled so the caller can hide the buttons without an error.
+export async function generateWalletCaptureContext(opts: {
+  targetOrigins: string[];
+  totalAmount: string;
+  currency: string;
+}): Promise<{ ok: true; captureContext: string } | { ok: false; message: string }> {
+  if (!isCybersourceWalletsEnabled()) {
+    return { ok: false, message: "CyberSource wallets not enabled" }; // i18n-ignore
+  }
+  const { targetOrigins, totalAmount, currency } = opts;
+  const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
+  const base = getCybersourceBase();
+  const path = "/microform/v2/sessions";
+
+  const payload = {
+    clientVersion: "v2",
+    targetOrigins,
+    allowedCardNetworks: ["VISA", "MASTERCARD", "AMEX"], // i18n-ignore
+    allowedPaymentTypes: ["APPLEPAY", "GOOGLEPAY"], // i18n-ignore
+    country: "LB", // i18n-ignore
+    locale: "en_US", // i18n-ignore
+    orderInformation: {
+      amountDetails: {
+        totalAmount,
+        currency,
+      },
+    },
+  };
+
+  const body = JSON.stringify(payload);
+  const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey });
+
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers,
+      body,
+    });
+
+    const rawBody = await res.text();
+
+    if (!res.ok) {
+      let errorMessage = `CyberSource wallet capture context failed (HTTP ${res.status}): ${rawBody.slice(0, 500)}`; // i18n-ignore
+      try {
+        const errData = JSON.parse(rawBody) as any;
+        const detail =
+          errData?.message ??
+          errData?.response?.rmsg ??
+          errData?.errors?.[0]?.message ??
+          errData?.reason;
+        if (detail) errorMessage = `CyberSource ${res.status}: ${detail} — raw: ${rawBody.slice(0, 400)}`; // i18n-ignore
+      } catch {
+        // not JSON
+      }
+      return { ok: false, message: errorMessage };
+    }
+
+    const captureContext = rawBody.trim();
+    if (!captureContext) {
+      return { ok: false, message: "CyberSource returned an empty wallet capture context" }; // i18n-ignore
+    }
+
+    return { ok: true, captureContext };
+  } catch (err: any) {
+    return { ok: false, message: err?.message ?? "CyberSource wallet capture context request failed" }; // i18n-ignore
+  }
+}
+
 // ── authorizeAndCapture ───────────────────────────────────────────────────────
 // Calls POST /pts/v2/payments with capture:true.
 // Uses the transient token JWT (from the client-side Microform tokenization)

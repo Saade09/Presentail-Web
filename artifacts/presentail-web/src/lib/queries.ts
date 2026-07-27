@@ -860,6 +860,62 @@ export const useCybersourceCharge = () => {
   });
 };
 
+export const useCybersourceWalletCaptureContext = () => {
+  return useMutation({
+    mutationFn: (data: {
+      items: PayCartItem[];
+      orderId: string;
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
+      targetOrigin?: string;
+    }) => apiFetch<{
+      ok: boolean;
+      captureContext?: string;
+      totalUsd?: number;
+      environment?: "test" | "live";
+      applePayEnabled?: boolean;
+      googlePayEnabled?: boolean;
+      merchantId?: string;
+      message?: string;
+      code?: string;
+    }>("/payment/cybersource/wallet-capture-context", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
+export const useCybersourceWalletCharge = () => {
+  return useMutation({
+    mutationFn: (data: {
+      orderId: string;
+      transientTokenJwt: string;
+      items: PayCartItem[];
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
+      billingDetails?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+      };
+      selectedWallet?: "apple_pay" | "google_pay";
+    }) => apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string; declineCode?: string }>("/payment/cybersource/wallet-charge", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
 // Search result types
 export type SearchProduct = {
   slug: string;

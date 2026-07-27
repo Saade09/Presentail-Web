@@ -12,9 +12,45 @@ type FbqFunction = {
 };
 
 declare global {
+  // ── Apple Pay types ─────────────────────────────────────────────────────────
+  // Minimal Apple Pay JS API surface used by CyberSourceWalletSection.tsx.
+  namespace ApplePayJS {
+    interface ApplePayPaymentRequest {
+      countryCode: string;
+      currencyCode: string;
+      total: { label: string; amount: string };
+      supportedNetworks: string[];
+      merchantCapabilities: string[];
+    }
+    interface ApplePayValidateMerchantEvent extends Event {
+      validationURL: string;
+    }
+    interface ApplePayPayment {
+      token: unknown;
+    }
+    interface ApplePayPaymentAuthorizedEvent extends Event {
+      payment: ApplePayPayment;
+    }
+  }
+
   interface Window {
     fbq?: FbqFunction;
     _fbq?: FbqFunction;
+    ApplePaySession?: {
+      new(version: number, request: ApplePayJS.ApplePayPaymentRequest): {
+        begin(): void;
+        abort(): void;
+        completeMerchantValidation(merchantSession: unknown): void;
+        completePayment(result: { status: number }): void;
+        onvalidatemerchant: ((event: ApplePayJS.ApplePayValidateMerchantEvent) => void) | null;
+        onpaymentauthorized: ((event: ApplePayJS.ApplePayPaymentAuthorizedEvent) => void) | null;
+        oncancel: ((event: Event) => void) | null;
+      };
+      canMakePayments(): boolean;
+      canMakePaymentsWithActiveCard(merchantIdentifier: string): Promise<boolean>;
+      readonly STATUS_SUCCESS: number;
+      readonly STATUS_FAILURE: number;
+    };
     google?: {
       accounts: {
         id: {

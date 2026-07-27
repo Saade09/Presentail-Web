@@ -97,6 +97,16 @@ const LazyStripeSection = lazy(() =>
   import("@/components/StripeCheckoutSection").then((m) => ({ default: m.StripeCheckoutSection })),
 );
 
+// Lazily loaded — wallet scripts (Google Pay JS, CyberSource Flex) are only
+// fetched when the user is on a LB+USD checkout.  The component is fully
+// self-contained: it fetches its own wallet capture context, checks device
+// availability, and renders only the buttons that are both server-enabled and
+// browser-supported.  An error boundary inside the component means any
+// uncaught error hides only the wallet section, leaving the card form intact.
+const LazyCyberSourceWalletSection = lazy(() =>
+  import("./CyberSourceWalletSection").then((m) => ({ default: m.CyberSourceWalletSection })),
+);
+
 // Maps known Stripe decline codes to plain-language, actionable messages.
 function toTitleCase(s: string): string {
   return s.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
@@ -917,6 +927,10 @@ function CheckoutForm() {
     } catch { return 0; }
   });
   const [cardProcessing, setCardProcessing] = useState(false);
+  // True while a wallet payment (Apple Pay / Google Pay) is in flight.
+  // Included in isProcessing so the card submit button is disabled during
+  // wallet auth — preventing duplicate submission.
+  const [walletProcessing, setWalletProcessing] = useState(false);
   const couponInputRef = useRef<HTMLInputElement>(null);
   // Stores the server-assigned order ID for the current checkout attempt.
   // Generated once via /api/orders/next-id and reused across retries so
@@ -1295,7 +1309,15 @@ function CheckoutForm() {
       countryCode: payCtxCountry,
       isApplePlatform: appleDevice,
     }).filter((id) => {
-      if (id === "apple_pay" || id === "google_pay") return walletSupported;
+      // For LB+USD, CyberSource is the payment processor and owns wallet buttons
+      // (Apple Pay / Google Pay via CyberSource Flex SDK inside the CyberSource
+      // tile). Hide the Stripe wallet tiles in that context so users can't select
+      // a wallet path that has no PaymentRequest initialized and would immediately
+      // show the "walletUnavailable" error toast.
+      if (id === "apple_pay" || id === "google_pay") {
+        if (isLbUsd && csAvailable && !csCaptureContextError) return false;
+        return walletSupported;
+      }
       // CyberSource is the card processor for Lebanon USD — hide Stripe card tile
       // when CyberSource credentials are configured AND haven't failed yet.
       // Falls back to Stripe card when csAvailable is false (credentials unset)
@@ -1972,7 +1994,8 @@ function CheckoutForm() {
     tabbyPayment.isPending ||
     cybersourceCapture.isPending ||
     cybersourceCharge.isPending ||
-    cardProcessing;
+    cardProcessing ||
+    walletProcessing;
 
   // Active display currency derived from the active country. Used both
   // by the payment-method picker (to hide unavailable methods) and by
@@ -3676,13 +3699,51 @@ function CheckoutForm() {
                             </Suspense>
                           )}
                           {m.id === "cybersource" && paymentMethod === "cybersource" && (
-                            <CyberSourceSection
-                              ref={csFormRef}
-                              captureContext={csCaptureContext ?? ""}
-                              prefetchError={csCaptureContextError}
-                              environment={csCaptureEnv}
-                              className="mt-3"
-                            />
+                            <>
+                              {/* CyberSource Apple Pay / Google Pay wallet buttons.
+                                  Rendered lazily so wallet scripts are never loaded outside LB+USD.
+                                  The component renders null when wallets are not available or not
+                                  enabled, so the card form below is always the fallback. */}
+                              {checkoutCurrency === "USD" && countryCode?.toUpperCase() === "LB" && (
+                                <Suspense fallback={null}>
+                                  <LazyCyberSourceWalletSection
+                                    isLebanonUsd={true}
+                                    items={items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity }))}
+                                    getOrderId={ensureOrderId}
+                                    district={_selectedDistrict || undefined}
+                                    expressDelivery={deliveryMode === "express"}
+                                    noAddress={noAddress}
+                                    deliverySlot={deliveryMode === "express" ? "" : deliverySlot}
+                                    deliverySlotId={deliveryMode !== "express" && deliverySlotId ? deliverySlotId : undefined}
+                                    cityId={selectedCityData?.id != null ? String(selectedCityData.id) : undefined}
+                                    senderFirstName={sender.firstName}
+                                    senderLastName={sender.lastName}
+                                    senderEmail={sender.email}
+                                    disabled={isProcessing}
+                                    onPaymentSuccess={async (paymentRef) => {
+                                      void maybeSaveNewAddress();
+                                      void maybeSaveProfilePhone();
+                                      await finalizeOrderNow(paymentRef);
+                                    }}
+                                    onPaymentError={(message) => {
+                                      toast({
+                                        title: t("checkout.cybersource.walletDeclined"),
+                                        description: message || t("checkout.cybersource.walletDeclinedDesc"),
+                                        variant: "destructive",
+                                      });
+                                    }}
+                                    onSetProcessing={setWalletProcessing}
+                                  />
+                                </Suspense>
+                              )}
+                              <CyberSourceSection
+                                ref={csFormRef}
+                                captureContext={csCaptureContext ?? ""}
+                                prefetchError={csCaptureContextError}
+                                environment={csCaptureEnv}
+                                className="mt-3"
+                              />
+                            </>
                           )}
                         </div>
                       );
