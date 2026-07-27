@@ -338,34 +338,21 @@ export function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
   // Only surface occasions that OS has flagged as featured.
   const featured = osOccasions.filter((o) => o.featured === true);
   if (featured.length === 0) return null;
-  // Collect all featured occasions into a flat list; scoring will apply ordering.
-  const bySlug = new Map(featured.map((o) => [o.slug, o]));
-  const result: HomepageCollectionItem[] = [];
-  for (const slug of DEFAULT_OCCASION_SLUGS) {
-    const o = bySlug.get(slug);
-    if (!o) continue;
-    result.push({
-      id: o.id,
-      name: o.name,
-      slug: o.slug,
-      imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
-      sortOrder: result.length,
-      isActive: true,
-    });
-  }
-  // Append featured occasions not already added via DEFAULT_OCCASION_SLUGS.
-  for (const o of featured) {
-    if (!DEFAULT_OCCASION_SLUGS.includes(o.slug)) {
-      result.push({
-        id: o.id,
-        name: o.name,
-        slug: o.slug,
-        imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
-        sortOrder: result.length,
-        isActive: true,
-      });
-    }
-  }
+  // Preserve the OS best-selling order. The cache stores occasions in the order
+  // returned by the OS endpoint (sort=best_selling), so iterating `featured`
+  // directly gives the correct ranking. DEFAULT_OCCASION_SLUGS is kept as a
+  // safety-net reference but no longer controls the initial display order here.
+  const result: HomepageCollectionItem[] = featured.map((o, i) => ({
+    // Coerce to string — legacy occasions returned by the OS may carry a
+    // numeric id if they came through the { occasions: [...] } response
+    // path that bypasses the String(item.id) normalisation in fetchOsOccasions.
+    id: String(o.id),
+    name: o.name,
+    slug: o.slug,
+    imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
+    sortOrder: i,
+    isActive: true,
+  }));
   return result.length > 0 ? result : null;
 }
 
@@ -378,6 +365,17 @@ async function buildOsOccasions(
   const configRows = await getRankingConfig();
   const osProducts = getOsProducts(cityId === "ae-dubai" ? "dubai" : cityId === "ae-abu-dhabi" ? "abudhabi" : countryCode === "AE" ? "dubai" : countryCode === "CY" ? "cyprus" : "lebanon") ?? [];
   const clickScores = await getCollectionClickScores("occasion", countryCode).catch(() => new Map<string, number>());
+  // Build a synthetic osOccasionStats map from OS best-selling positions so
+  // the ranking engine uses the OS-curated order as the primary performance
+  // signal. The OS positions are zero-based (lower = better selling); we invert
+  // to a count (higher = better) so scoreCollections treats position 0 as the
+  // top-selling occasion. A scale factor of 100 gives each OS rank step enough
+  // separation that local click boosts (capped at 0.5) can nudge nearby
+  // occasions but cannot fully override a significantly higher-ranked one.
+  const n = raw.length;
+  const osOccasionStats = new Map(raw.map((item, i) => [item.slug, (n - i) * 100]));
+  const osOrderedSlugs = raw.map((item) => item.slug);
+  const osPositions = new Map(raw.map((item, i) => [item.slug, i]));
   const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
     kind: "occasion",
     countryCode,
@@ -385,7 +383,9 @@ async function buildOsOccasions(
     configRows,
     osProducts,
     clickScores,
-    defaultOrder: DEFAULT_OCCASION_SLUGS,
+    osOccasionStats,
+    defaultOrder: osOrderedSlugs,
+    osPositions,
     availabilityFloor: 3,
   });
   return { items: items.map((item, i) => ({ ...item, sortOrder: i })), debugMap };

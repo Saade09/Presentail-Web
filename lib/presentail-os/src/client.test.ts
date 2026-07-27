@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchOsLocations } from "./client";
+import { fetchOsLocations, fetchOsOccasions } from "./client";
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
@@ -150,5 +150,86 @@ describe("fetchOsLocations — Cyprus/legacy merge", () => {
     const result = await fetchOsLocations(config);
     expect(result.countries).toHaveLength(1);
     expect(result.countries[0]!.code).toBe("LB");
+  });
+});
+
+describe("fetchOsOccasions — URL construction", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("requests /api/public/catalog/occasions with sort=best_selling", async () => {
+    const occasionsBody = { items: [] };
+    let capturedUrl = "";
+    const fetchMock = vi.fn((url: string) => {
+      capturedUrl = url;
+      return Promise.resolve(jsonResponse(occasionsBody));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchOsOccasions(config);
+
+    const parsed = new URL(capturedUrl);
+    expect(parsed.pathname).toBe("/api/public/catalog/occasions");
+    expect(parsed.searchParams.get("sort")).toBe("best_selling");
+    expect(parsed.searchParams.get("workspace")).toBe("presentail");
+  });
+
+  it("does not include apiKey in the query string", async () => {
+    const occasionsBody = { items: [] };
+    let capturedUrl = "";
+    vi.stubGlobal("fetch", vi.fn((url: string) => {
+      capturedUrl = url;
+      return Promise.resolve(jsonResponse(occasionsBody));
+    }));
+
+    await fetchOsOccasions(config);
+
+    const parsed = new URL(capturedUrl);
+    expect(parsed.searchParams.has("apiKey")).toBe(false);
+  });
+
+  it("appends city_slug when citySlug option is provided", async () => {
+    const occasionsBody = { items: [] };
+    let capturedUrl = "";
+    vi.stubGlobal("fetch", vi.fn((url: string) => {
+      capturedUrl = url;
+      return Promise.resolve(jsonResponse(occasionsBody));
+    }));
+
+    await fetchOsOccasions(config, { citySlug: "beirut" });
+
+    const parsed = new URL(capturedUrl);
+    expect(parsed.searchParams.get("city_slug")).toBe("beirut");
+  });
+
+  it("normalises the { items } paginated shape into the occasions array", async () => {
+    const occasionsBody = {
+      items: [
+        { id: 5, slug: "birthday", name: "Birthday", is_active: true, is_featured: true },
+        { id: 12, slug: "summer", name: "Summer", is_active: true, is_featured: false },
+      ],
+    };
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(jsonResponse(occasionsBody))));
+
+    const result = await fetchOsOccasions(config);
+
+    expect(result.occasions).toHaveLength(2);
+    expect(result.occasions[0]!.slug).toBe("birthday");
+    expect(result.occasions[1]!.slug).toBe("summer");
+  });
+
+  it("preserves the legacy { occasions } shape unchanged", async () => {
+    const occasionsBody = {
+      occasions: [
+        { id: "birthday", slug: "birthday", name: "Birthday", isActive: true, featured: true },
+      ],
+    };
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(jsonResponse(occasionsBody))));
+
+    const result = await fetchOsOccasions(config);
+
+    expect(result.occasions).toHaveLength(1);
+    expect(result.occasions[0]!.slug).toBe("birthday");
   });
 });

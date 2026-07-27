@@ -1169,8 +1169,11 @@ async function fetchAndStore(): Promise<void> {
         );
         // Heuristic: when every occasion id parses as a number and the sequence
         // is strictly ascending, the OS most likely ignored the sort=best_selling
-        // param and returned occasions in insertion/id order instead.  Emit a
-        // WARN so operators know the osPosition ranking may be meaningless.
+        // param and returned occasions in insertion/id order instead.  This was
+        // the normal outcome when fetchOsOccasions used the wrong /api/occasions
+        // path (now corrected to /api/public/catalog/occasions).  Emit a WARN so
+        // operators can detect a regression if the correct endpoint ever
+        // starts ignoring the sort param too.
         const numericIds = occasions.map((o) => Number(o.id));
         const allNumeric = numericIds.every((n) => Number.isFinite(n));
         const strictlyAscending =

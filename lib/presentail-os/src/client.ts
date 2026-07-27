@@ -571,9 +571,9 @@ export async function fetchOsOccasions(
     throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsOccasions.");
   }
 
-  const url = new URL(`${baseUrl}/api/occasions`);
+  const url = new URL(`${baseUrl}/api/public/catalog/occasions`);
   url.searchParams.set("workspace", workspace);
-  url.searchParams.set("apiKey", apiKey);
+  // Public endpoint — no apiKey query param; the x-api-key header is sufficient.
   url.searchParams.set("sort", options?.sort ?? "best_selling");
   if (options?.citySlug) {
     url.searchParams.set("city_slug", options.citySlug);
