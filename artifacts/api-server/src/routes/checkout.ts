@@ -23,6 +23,7 @@ import {
   expressSurchargeUsd,
   countryForDistrict,
 } from "../lib/catalog";
+import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
 import { storePaymentIntent, getPaymentIntentForOrder } from "../lib/checkoutIntents";
 import { validateRedirectUrl } from "../lib/validateRedirectUrl";
 import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
@@ -196,12 +197,27 @@ router.post("/checkout/session", async (req, res) => {
   const sessionNoAddress = rawNoAddress === true;
   const sessionDeliverySlot = rawDeliverySlot ?? "";
   const sessionSubtotalUsd = catalogResult.subtotalUsd;
-  const sessionDistrictFeeUsd = sessionDistrict
-    ? computeDistrictFeeUsd(sessionDistrict, sessionSubtotalUsd, sessionNoAddress)
-    : 0;
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // session fee matches the fee wooOrders.ts will record on the order. When
+  // cityId is absent, fall back to the city-name lookup for backwards compat.
+  const sessionCountry = countryForDistrict(sessionDistrict);
+  const sessionOsConfig = rawCityId ? resolveOsDeliveryConfig(sessionCountry, rawCityId) : null;
+  const sessionDistrictFeeUsd = (() => {
+    if (!sessionDistrict) return 0;
+    if (!sessionNoAddress && sessionOsConfig && typeof sessionOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        sessionOsConfig.freeDeliveryEnabled === true &&
+        typeof sessionOsConfig.freeDeliveryThresholdUsd === "number" &&
+        sessionSubtotalUsd >= sessionOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : sessionOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(sessionDistrict, sessionSubtotalUsd, sessionNoAddress);
+  })();
   const sessionExpressFeeUsd =
     sessionDistrict && sessionExpressDelivery
-      ? expressSurchargeUsd(countryForDistrict(sessionDistrict))
+      ? (sessionOsConfig && sessionOsConfig.expressSurchargeUsd > 0
+          ? sessionOsConfig.expressSurchargeUsd
+          : expressSurchargeUsd(sessionCountry))
       : 0;
   // Slot fee is computed server-side from the OS locations cache. Only charged
   // when the customer chose a premium slot and is NOT on express delivery
@@ -369,6 +385,12 @@ router.post("/checkout/session", async (req, res) => {
         expressDelivery: sessionExpressDelivery,
         noAddress: sessionNoAddress,
         deliverySlot: sessionDeliverySlot,
+        // Fee snapshot (Step 3): store the server-computed fees so wooOrders.ts
+        // can use them directly at order creation, guaranteeing the order record
+        // uses the exact same fees as the Stripe charge.
+        districtFeeUsd: sessionDistrictFeeUsd,
+        expressFeeUsd: sessionExpressFeeUsd,
+        slotFeeUsd: sessionSlotFeeUsd,
       },
     });
 
@@ -601,15 +623,29 @@ router.post("/checkout/payment-intent", async (req, res) => {
   // supplied deliveryFeeUsd is intentionally ignored — trusting it would allow
   // an attacker to send deliveryFeeUsd:0 and have Stripe charge only the product
   // subtotal, then finalize a fully-paid order with expensive delivery options.
+  //
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // PI fee exactly matches the fee wooOrders.ts will use at order creation.
+  // When cityId is absent, fall back to the city-name lookup for backwards compat.
   const subtotalUsd = catalogResult.subtotalUsd;
-  const serverDistrictFeeUsd = computeDistrictFeeUsd(
-    district ?? "Beirut",
-    subtotalUsd,
-    noAddress === true,
-  );
+  const piCountry = countryForDistrict(district ?? "Beirut");
+  const piOsConfig = cityId ? resolveOsDeliveryConfig(piCountry, cityId) : null;
+  const serverDistrictFeeUsd = (() => {
+    const isNoAddr = noAddress === true;
+    if (!isNoAddr && piOsConfig && typeof piOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        piOsConfig.freeDeliveryEnabled === true &&
+        typeof piOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= piOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : piOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd, isNoAddr);
+  })();
   const serverExpressFeeUsd =
     expressDelivery === true
-      ? expressSurchargeUsd(countryForDistrict(district ?? "Beirut"))
+      ? (piOsConfig && piOsConfig.expressSurchargeUsd > 0
+          ? piOsConfig.expressSurchargeUsd
+          : expressSurchargeUsd(piCountry))
       : 0;
   // Slot fee is computed server-side from the OS locations cache. Only charged
   // when the customer chose a premium slot and is NOT on express delivery.
@@ -719,6 +755,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
                 expressDelivery: expressDelivery === true,
                 noAddress: noAddress === true,
                 deliverySlot: deliverySlot ?? "",
+                districtFeeUsd: serverDistrictFeeUsd,
+                expressFeeUsd: serverExpressFeeUsd,
+                slotFeeUsd: serverSlotFeeUsd,
               },
             });
             return res.json({
@@ -753,6 +792,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
               expressDelivery: expressDelivery === true,
               noAddress: noAddress === true,
               deliverySlot: deliverySlot ?? "",
+              districtFeeUsd: serverDistrictFeeUsd,
+              expressFeeUsd: serverExpressFeeUsd,
+              slotFeeUsd: serverSlotFeeUsd,
             },
           });
           return res.json({
@@ -790,10 +832,22 @@ router.post("/checkout/payment-intent", async (req, res) => {
         }
         const reusableSearchStatuses = ["requires_payment_method", "requires_confirmation"];
         if (reusableSearchStatuses.includes(pi.status)) {
+          // If the cart total has changed since this PI was created (e.g. after a
+          // server restart that cleared the in-memory cache, or a fee bug fix was
+          // deployed mid-session), update the PI amount in Stripe before returning
+          // the client_secret. Without this, the user would be charged the old
+          // stale amount even though the server computed a different total.
+          const resolvedPi =
+            pi.amount !== totalMinorUnits || pi.currency !== stripeCurrency
+              ? await stripe.paymentIntents.update(pi.id, {
+                  amount: totalMinorUnits,
+                  currency: stripeCurrency,
+                })
+              : pi;
           // Re-populate the cache so subsequent calls hit the fast path.
           storePaymentIntent({
             orderId,
-            paymentRef: pi.id,
+            paymentRef: resolvedPi.id,
             provider: "stripe",
             stripeAccount: isGulf ? "gulf" : "main",
             currency,
@@ -809,11 +863,14 @@ router.post("/checkout/payment-intent", async (req, res) => {
               expressDelivery: expressDelivery === true,
               noAddress: noAddress === true,
               deliverySlot: deliverySlot ?? "",
+              districtFeeUsd: serverDistrictFeeUsd,
+              expressFeeUsd: serverExpressFeeUsd,
+              slotFeeUsd: serverSlotFeeUsd,
             },
           });
           return res.json({
             ok: true,
-            clientSecret: pi.client_secret,
+            clientSecret: resolvedPi.client_secret,
             orderId,
             amount: totalMinorUnits,
             currency,
@@ -925,6 +982,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
         expressDelivery: expressDelivery === true,
         noAddress: noAddress === true,
         deliverySlot: deliverySlot ?? "",
+        districtFeeUsd: serverDistrictFeeUsd,
+        expressFeeUsd: serverExpressFeeUsd,
+        slotFeeUsd: serverSlotFeeUsd,
       },
     });
 
@@ -1123,14 +1183,29 @@ router.post("/checkout/fees", async (req, res) => {
   }
 
   const subtotalUsd = catalogResult.subtotalUsd;
-  const districtFeeUsd = computeDistrictFeeUsd(
-    district ?? "Beirut",
-    subtotalUsd,
-    noAddress === true,
-  );
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // quoted fees match what wooOrders.ts will compute at order creation.
+  // When cityId is absent, fall back to the city-name lookup for backwards compat.
+  const feesCountry = countryForDistrict(district ?? "Beirut");
+  const feesOsConfig = cityId ? resolveOsDeliveryConfig(feesCountry, cityId) : null;
+  const districtFeeUsd = (() => {
+    const isNoAddr = noAddress === true;
+    if (!isNoAddr && feesOsConfig && typeof feesOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        feesOsConfig.freeDeliveryEnabled === true &&
+        typeof feesOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= feesOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : feesOsConfig.cityFeeUsd;
+    }
+    // Default district to "Beirut" — same behaviour as /checkout/payment-intent
+    // and all charge routes, so the quoted fee always matches the charged fee.
+    return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd, isNoAddr);
+  })();
   const expressFeeUsd =
     expressDelivery === true
-      ? expressSurchargeUsd(countryForDistrict(district ?? "Beirut"))
+      ? (feesOsConfig && feesOsConfig.expressSurchargeUsd > 0
+          ? feesOsConfig.expressSurchargeUsd
+          : expressSurchargeUsd(feesCountry))
       : 0;
   const slotFeeUsd = computeSlotFeeUsd({
     expressDelivery: expressDelivery === true,

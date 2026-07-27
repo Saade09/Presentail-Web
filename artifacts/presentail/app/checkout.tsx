@@ -1193,6 +1193,11 @@ function CheckoutScreen() {
       expressDelivery: deliveryMode === "express",
       noAddress,
       deliverySlot: deliveryMode === "express" ? "" : slotLabel,
+      // Bug C fix: include deliveryDate so the server's computeSlotFeeUsd can
+      // correctly apply (or omit) the same-day night surcharge. Without this,
+      // the pre-payment verification call may compute a different slot fee than
+      // the PaymentIntent creation and order submission calls that do send it.
+      deliveryDate: deliveryMode === "express" ? days[0].iso : date,
       ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
       ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
       storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },

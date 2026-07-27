@@ -176,6 +176,9 @@ export async function fetchCheckoutFees(payload: {
   expressDelivery?: boolean;
   noAddress?: boolean;
   deliverySlot?: string;
+  /** ISO date (YYYY-MM-DD) of the selected delivery date. Required for correct
+   * same-day/night slot surcharge computation on the server. */
+  deliveryDate?: string;
   cityId?: string;
   couponCode?: string;
   storeContext?: StoreContext;

@@ -21,6 +21,7 @@ import {
   authorizeAndCaptureApplePay,
 } from "../lib/cybersource";
 import { storePaymentIntent } from "../lib/checkoutIntents";
+import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 import { validateRedirectUrl } from "../lib/validateRedirectUrl";
 
@@ -175,8 +176,24 @@ router.post("/payment/mamo", async (req, res) => {
   const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
   const districtCountry = countryForDistrict(resolvedDistrict);
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // Mamo charge matches the fee wooOrders.ts will record at order creation.
+  const mamoOsConfig = rawCityId ? resolveOsDeliveryConfig(districtCountry, rawCityId) : null;
+  const districtFeeUsd = (() => {
+    if (!isNoAddress && mamoOsConfig && typeof mamoOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        mamoOsConfig.freeDeliveryEnabled === true &&
+        typeof mamoOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= mamoOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : mamoOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  })();
+  const expressFeeUsd = isExpress
+    ? (mamoOsConfig && mamoOsConfig.expressSurchargeUsd > 0
+        ? mamoOsConfig.expressSurchargeUsd
+        : expressSurchargeUsd(districtCountry))
+    : 0;
   // Slot fee is computed server-side from the OS locations cache and included
   // in the Mamo charge so a shopper cannot pay the standard rate and then
   // submit an order with a premium slot at finalization.
@@ -325,6 +342,9 @@ router.post("/payment/mamo", async (req, res) => {
         expressDelivery: isExpress,
         noAddress: isNoAddress,
         deliverySlot: rawDeliverySlot ?? "",
+        districtFeeUsd,
+        expressFeeUsd,
+        slotFeeUsd: mamoSlotFeeUsd,
       },
     });
 
@@ -443,8 +463,24 @@ router.post("/payment/paypal", async (req, res) => {
   const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
   const districtCountryPP = countryForDistrict(resolvedDistrict);
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountryPP) : 0;
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // PayPal charge matches the fee wooOrders.ts will record at order creation.
+  const ppOsConfig = ppRawCityId ? resolveOsDeliveryConfig(districtCountryPP, ppRawCityId) : null;
+  const districtFeeUsd = (() => {
+    if (!isNoAddress && ppOsConfig && typeof ppOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        ppOsConfig.freeDeliveryEnabled === true &&
+        typeof ppOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= ppOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : ppOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  })();
+  const expressFeeUsd = isExpress
+    ? (ppOsConfig && ppOsConfig.expressSurchargeUsd > 0
+        ? ppOsConfig.expressSurchargeUsd
+        : expressSurchargeUsd(districtCountryPP))
+    : 0;
   // Slot fee is computed server-side and included in the PayPal charge so a
   // shopper cannot pay the standard rate and then submit a premium-slot order.
   const ppSlotFeeUsd = computeSlotFeeUsd({
@@ -528,6 +564,9 @@ router.post("/payment/paypal", async (req, res) => {
         expressDelivery: isExpress,
         noAddress: isNoAddress,
         deliverySlot: ppRawDeliverySlot ?? "",
+        districtFeeUsd,
+        expressFeeUsd,
+        slotFeeUsd: ppSlotFeeUsd,
       },
     });
 
@@ -632,8 +671,24 @@ router.post("/payment/tabby", async (req, res) => {
   const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
   const districtCountry = countryForDistrict(resolvedDistrict);
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // Tabby charge matches the fee wooOrders.ts will record at order creation.
+  const tabbyOsConfig = tabbyRawCityId ? resolveOsDeliveryConfig(districtCountry, tabbyRawCityId) : null;
+  const districtFeeUsd = (() => {
+    if (!isNoAddress && tabbyOsConfig && typeof tabbyOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        tabbyOsConfig.freeDeliveryEnabled === true &&
+        typeof tabbyOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= tabbyOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : tabbyOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  })();
+  const expressFeeUsd = isExpress
+    ? (tabbyOsConfig && tabbyOsConfig.expressSurchargeUsd > 0
+        ? tabbyOsConfig.expressSurchargeUsd
+        : expressSurchargeUsd(districtCountry))
+    : 0;
   const tabbySlotFeeUsd = computeSlotFeeUsd({
     expressDelivery: isExpress,
     deliverySlot: tabbyRawDeliverySlot,
@@ -783,6 +838,9 @@ router.post("/payment/tabby", async (req, res) => {
         expressDelivery: isExpress,
         noAddress: isNoAddress,
         deliverySlot: tabbyRawDeliverySlot ?? "",
+        districtFeeUsd,
+        expressFeeUsd,
+        slotFeeUsd: tabbySlotFeeUsd,
       },
     });
 
@@ -1136,8 +1194,25 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
   const isExpress = expressDelivery === true;
   const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const csWalletCountry = countryForDistrict(resolvedDistrict);
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // capture-context total matches the fee wooOrders.ts will record at order creation.
+  const csWalletOsConfig = rawCityId ? resolveOsDeliveryConfig(csWalletCountry, rawCityId) : null;
+  const districtFeeUsd = (() => {
+    if (!isNoAddress && csWalletOsConfig && typeof csWalletOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        csWalletOsConfig.freeDeliveryEnabled === true &&
+        typeof csWalletOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= csWalletOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : csWalletOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  })();
+  const expressFeeUsd = isExpress
+    ? (csWalletOsConfig && csWalletOsConfig.expressSurchargeUsd > 0
+        ? csWalletOsConfig.expressSurchargeUsd
+        : expressSurchargeUsd(csWalletCountry))
+    : 0;
   const slotFeeUsd = computeSlotFeeUsd({
     expressDelivery: isExpress,
     deliverySlot: rawDeliverySlot,
@@ -1301,8 +1376,25 @@ router.post("/payment/cybersource/charge", async (req, res) => {
   const isExpress = expressDelivery === true;
   const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const csCountry = countryForDistrict(resolvedDistrict);
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // CyberSource card charge matches the fee wooOrders.ts will record.
+  const csOsConfig = rawCityId ? resolveOsDeliveryConfig(csCountry, rawCityId) : null;
+  const districtFeeUsd = (() => {
+    if (!isNoAddress && csOsConfig && typeof csOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        csOsConfig.freeDeliveryEnabled === true &&
+        typeof csOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= csOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : csOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  })();
+  const expressFeeUsd = isExpress
+    ? (csOsConfig && csOsConfig.expressSurchargeUsd > 0
+        ? csOsConfig.expressSurchargeUsd
+        : expressSurchargeUsd(csCountry))
+    : 0;
   const slotFeeUsd = computeSlotFeeUsd({
     expressDelivery: isExpress,
     deliverySlot: rawDeliverySlot,
@@ -1408,6 +1500,9 @@ router.post("/payment/cybersource/charge", async (req, res) => {
       expressDelivery: isExpress,
       noAddress: isNoAddress,
       deliverySlot: rawDeliverySlot ?? "",
+      districtFeeUsd,
+      expressFeeUsd,
+      slotFeeUsd,
     },
   });
 
@@ -1530,8 +1625,25 @@ router.post("/payment/cybersource/wallet-charge", async (req, res) => {
   const isExpress = expressDelivery === true;
   const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(countryForDistrict(resolvedDistrict)) : 0;
+  const walletCountry = countryForDistrict(resolvedDistrict);
+  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
+  // wallet charge matches the fee wooOrders.ts will record at order creation.
+  const walletOsConfig = rawCityId ? resolveOsDeliveryConfig(walletCountry, rawCityId) : null;
+  const districtFeeUsd = (() => {
+    if (!isNoAddress && walletOsConfig && typeof walletOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        walletOsConfig.freeDeliveryEnabled === true &&
+        typeof walletOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= walletOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : walletOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  })();
+  const expressFeeUsd = isExpress
+    ? (walletOsConfig && walletOsConfig.expressSurchargeUsd > 0
+        ? walletOsConfig.expressSurchargeUsd
+        : expressSurchargeUsd(walletCountry))
+    : 0;
   const slotFeeUsd = computeSlotFeeUsd({
     expressDelivery: isExpress,
     deliverySlot: rawDeliverySlot,
@@ -1599,6 +1711,9 @@ router.post("/payment/cybersource/wallet-charge", async (req, res) => {
       expressDelivery: isExpress,
       noAddress: isNoAddress,
       deliverySlot: rawDeliverySlot ?? "",
+      districtFeeUsd,
+      expressFeeUsd,
+      slotFeeUsd,
     },
   });
 

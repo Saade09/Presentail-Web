@@ -40,6 +40,14 @@ export type CartSnapshot = {
   // Verified at finalization so a free-slot payment cannot be upgraded to a
   // fee-slot on the order submission.
   deliverySlot?: string;
+  // Server-computed fee breakdown (USD) at payment-session creation time.
+  // Stored so wooOrders.ts can use the exact same fees rather than re-computing
+  // from the OS cache (which may have changed since the session was created).
+  // Absent for snapshots written before this field was introduced — callers must
+  // fall through to the OS-cache re-computation path when these are undefined.
+  districtFeeUsd?: number;
+  expressFeeUsd?: number;
+  slotFeeUsd?: number;
 };
 
 export type PaymentIntent = {

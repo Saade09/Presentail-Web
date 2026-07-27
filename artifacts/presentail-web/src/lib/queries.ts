@@ -660,6 +660,13 @@ export type CreateWcOrderResponse =
       couponRejected?: boolean;
       /** WC's coupon error message when couponRejected is true. */
       couponMessage?: string;
+      /** Server-authoritative totals and delivery fee components (USD). Echo'd from the
+       * order-creation result so confirmation screens show exactly what was recorded. */
+      totalUsd?: number;
+      districtFeeUsd?: number;
+      expressFeeUsd?: number;
+      slotFeeUsd?: number;
+      deliveryFeeUsd?: number;
     }
   | {
       ok: false;

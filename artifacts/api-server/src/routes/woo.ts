@@ -22,7 +22,7 @@ import {
   verifyMamoPayment,
   captureAndVerifyPayPalOrder,
 } from "../lib/catalog";
-import { getDeliverySlots } from "../lib/osLocationsCache";
+import { getDeliverySlots, resolveOsDeliveryConfig } from "../lib/osLocationsCache";
 import {
   convertFromUsd,
   normalizeCurrency,
@@ -1162,6 +1162,11 @@ router.post("/woo/order", async (req, res) => {
   // payment-verified branch so that attemptCreateOsOrder can use these prices
   // directly (bypassing the OS cache lookup and cold-cache guard).
   let snapshotItems: { wcId: number; osSlug?: string; priceUsd: number; name?: string }[] | undefined;
+  // Server-computed fee breakdown from the payment intent snapshot. Set when
+  // the intent is found and consumed; undefined for offline payments (Whish,
+  // Western) and server-restart recovery paths. Passed to attemptCreateOsOrder
+  // so the order record uses the exact fees that were charged via the PSP.
+  let snapshotFees: { districtFeeUsd?: number; expressFeeUsd?: number; slotFeeUsd?: number } | undefined;
   // The exact currency the payment provider charged, sourced from the stored
   // intent (not from the client body). Passed to attemptCreateOsOrder so OS
   // receives the real charge currency (e.g. "QAR") instead of the display
@@ -1248,11 +1253,29 @@ router.post("/woo/order", async (req, res) => {
             // Compute the full server-side authoritative cost for the
             // submitted delivery parameters (district, express, slot).
             const isExpressRecovery = (body.expressFee ?? 0) > 0;
-            const recoveredDistrictFeeUsd = body.district
-              ? computeDistrictFeeUsd(body.district, cartResolution.subtotalUsd, body.noAddress === true)
-              : 0;
-            const recoveredExpressFeeUsd = isExpressRecovery && body.district
-              ? expressSurchargeUsd(countryForDistrict(body.district))
+            const recoveredDistrict = body.district ?? "Beirut";
+            const recoveredCountry = countryForDistrict(recoveredDistrict);
+            const recoveredIsNoAddr = body.noAddress === true;
+            // Bugs A+B: use resolveOsDeliveryConfig (city-ID lookup) when cityId
+            // is present — matching the fee model used at PI creation time.
+            // Fall back to legacy city-name helpers when cityId is absent.
+            const recoveredOsConfig = body.cityId
+              ? resolveOsDeliveryConfig(recoveredCountry, body.cityId)
+              : null;
+            const recoveredDistrictFeeUsd = (() => {
+              if (!recoveredIsNoAddr && recoveredOsConfig && typeof recoveredOsConfig.cityFeeUsd === "number") {
+                const isFreeByOs =
+                  recoveredOsConfig.freeDeliveryEnabled === true &&
+                  typeof recoveredOsConfig.freeDeliveryThresholdUsd === "number" &&
+                  cartResolution.subtotalUsd >= recoveredOsConfig.freeDeliveryThresholdUsd;
+                return isFreeByOs ? 0 : recoveredOsConfig.cityFeeUsd;
+              }
+              return computeDistrictFeeUsd(recoveredDistrict, cartResolution.subtotalUsd, recoveredIsNoAddr);
+            })();
+            const recoveredExpressFeeUsd = isExpressRecovery
+              ? (recoveredOsConfig && recoveredOsConfig.expressSurchargeUsd > 0
+                  ? recoveredOsConfig.expressSurchargeUsd
+                  : expressSurchargeUsd(recoveredCountry))
               : 0;
             const recoveredSlotFeeUsd = (() => {
               if (isExpressRecovery || !body.deliverySlot || !body.cityId) return 0;
@@ -1376,6 +1399,13 @@ router.post("/woo/order", async (req, res) => {
 
       // Hoist the verified prices so attemptCreateOsOrder can use them directly.
       snapshotItems = intent.snapshot.items;
+      // Hoist snapshot fees so attemptCreateOsOrder uses the same fees that
+      // were charged via Stripe, eliminating PI/order divergence (Bug A+B+Step3).
+      snapshotFees = {
+        districtFeeUsd: intent.snapshot.districtFeeUsd,
+        expressFeeUsd: intent.snapshot.expressFeeUsd,
+        slotFeeUsd: intent.snapshot.slotFeeUsd,
+      };
       // Hoist the charge currency so OS receives the exact currency Stripe used,
       // not the client-supplied body.currencyCode (which can drift — e.g. a LB
       // order where the shopper's display currency is QAR).
@@ -1471,6 +1501,11 @@ router.post("/woo/order", async (req, res) => {
     }
 
     snapshotItems = intent.snapshot.items;
+    snapshotFees = {
+      districtFeeUsd: intent.snapshot.districtFeeUsd,
+      expressFeeUsd: intent.snapshot.expressFeeUsd,
+      slotFeeUsd: intent.snapshot.slotFeeUsd,
+    };
     verifiedCurrency = intent.currency;
 
     if (!process.env.MAMO_SECRET_KEY) {
@@ -1550,6 +1585,11 @@ router.post("/woo/order", async (req, res) => {
     }
 
     snapshotItems = intent.snapshot.items;
+    snapshotFees = {
+      districtFeeUsd: intent.snapshot.districtFeeUsd,
+      expressFeeUsd: intent.snapshot.expressFeeUsd,
+      slotFeeUsd: intent.snapshot.slotFeeUsd,
+    };
     verifiedCurrency = intent.currency;
 
     if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
@@ -1629,6 +1669,11 @@ router.post("/woo/order", async (req, res) => {
     }
 
     snapshotItems = intent.snapshot.items;
+    snapshotFees = {
+      districtFeeUsd: intent.snapshot.districtFeeUsd,
+      expressFeeUsd: intent.snapshot.expressFeeUsd,
+      slotFeeUsd: intent.snapshot.slotFeeUsd,
+    };
     verifiedCurrency = intent.currency;
     // The card was already authorized+captured server-side in
     // POST /payment/cybersource/charge — no further verification needed.
@@ -1715,6 +1760,7 @@ router.post("/woo/order", async (req, res) => {
     store,
     platform: requestPlatform,
     preVerifiedItems: snapshotItems,
+    preVerifiedFees: snapshotFees,
     verifiedCurrency,
     couponValidated,
   });
@@ -1882,6 +1928,13 @@ router.post("/woo/order", async (req, res) => {
     wcOrderId: null,
     osOrderId: result.osOrderId,
     couponDiscount: result.couponDiscountUsd,
+    // Server-authoritative delivery fee breakdown. Confirmation screens should
+    // display these values (not client-estimated fees) to show what was recorded.
+    totalUsd: result.totalUsdCents / 100,
+    districtFeeUsd: result.districtFeeUsd,
+    expressFeeUsd: result.expressFeeUsd,
+    slotFeeUsd: result.slotFeeUsd,
+    deliveryFeeUsd: result.deliveryFeeUsd,
     // Echo validated items (including personalisation notes) back to the
     // client so confirmation screens can display them without a separate fetch.
     items: body.items.map((i) => ({

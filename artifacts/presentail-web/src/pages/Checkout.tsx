@@ -428,7 +428,7 @@ const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 // Typed shape of the /api/woo/order response. The generated hook uses `any`,
 // so we narrow it here to avoid `as any` casts in the order-handling code.
 type CreateOrderResponse =
-  | { ok: true; wcOrderId: number | null; osOrderId?: string | null; orderKey?: string; couponDiscount: number }
+  | { ok: true; wcOrderId: number | null; osOrderId?: string | null; orderKey?: string; couponDiscount: number; totalUsd?: number; districtFeeUsd?: number; expressFeeUsd?: number; slotFeeUsd?: number; deliveryFeeUsd?: number }
   | { ok: false; message?: string; code?: string; queued?: boolean };
 
 // Stable signature of the inputs that determine the server-computed wallet
@@ -2186,9 +2186,19 @@ function CheckoutForm() {
         city: locationCity?.name ?? locationCity?.id ?? undefined,
       });
       try {
+        // Bug D fix: prefer server-returned fee breakdown over client-estimated
+        // values so the order confirmation screen shows the exact fees recorded
+        // on the order, not the pre-payment estimate.
+        const confirmedPayload = {
+          ...payload,
+          ...(typeof res.totalUsd === "number" ? { totalUsd: res.totalUsd } : {}),
+          ...(typeof res.districtFeeUsd === "number" ? { districtFee: res.districtFeeUsd } : {}),
+          ...(typeof res.expressFeeUsd === "number" ? { expressFee: res.expressFeeUsd } : {}),
+          ...(typeof res.slotFeeUsd === "number" ? { slotFee: res.slotFeeUsd } : {}),
+        };
         sessionStorage.setItem(
           PENDING_ORDER_KEY,
-          JSON.stringify({ payload, createdAt: Date.now() }),
+          JSON.stringify({ payload: confirmedPayload, createdAt: Date.now() }),
         );
       } catch { /* best-effort */ }
       setLocation(`/order-confirmed?status=success&ref=${payload.orderId}`);

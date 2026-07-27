@@ -27,6 +27,10 @@ function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
   }
 }
 
+// Dev-only diagnostic labels — not user-facing, intentionally untranslated.
+const PAGE_TITLE = "CyberSource Microform test"; // i18n-ignore
+const CARD_NUMBER_LABEL = "Card number"; // i18n-ignore
+
 export default function CyberSourceTest() {
   const [status, setStatus] = useState("requesting capture context…");
   const [diag, setDiag] = useState<Record<string, unknown> | null>(null);
@@ -140,11 +144,11 @@ export default function CyberSourceTest() {
 
   return (
     <div style={{ maxWidth: 480, margin: "40px auto", padding: 16, fontFamily: "monospace" }}>
-      <h1 style={{ fontSize: 18, marginBottom: 12 }}>CyberSource Microform test</h1>{/*// i18n-ignore*/}
+      <h1 style={{ fontSize: 18, marginBottom: 12 }}>{PAGE_TITLE}</h1>
       <p style={{ fontSize: 13, marginBottom: 16 }} data-testid="cs-test-status">{status}</p>
 
       {/* 3. two empty containers — always visible */}
-      <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Card number</label>{/*// i18n-ignore*/}
+      <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>{CARD_NUMBER_LABEL}</label>
       <div
         id="cs-test-number"
         style={{ display: "block", minHeight: 44, border: "1px solid #ccc", borderRadius: 6, padding: "0 8px", marginBottom: 12, background: "white" }}

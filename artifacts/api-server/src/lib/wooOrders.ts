@@ -783,6 +783,12 @@ export type OsOrderAttemptResult =
       totalPaymentCents: number;
       lineItems: OrderLineItemSnapshot[];
       couponDiscountUsd: number;
+      /** Server-computed delivery fee components (USD). Returned so the route
+       * can echo them in the API response for order-confirmation screens. */
+      districtFeeUsd: number;
+      expressFeeUsd: number;
+      slotFeeUsd: number;
+      deliveryFeeUsd: number;
     }
   | {
       ok: false;
@@ -830,6 +836,18 @@ export async function attemptCreateOsOrder(
     couponValidated?: {
       couponId: string | number;
       couponDiscountUsd: number;
+    };
+    /**
+     * Server-computed delivery fee breakdown from the payment intent snapshot.
+     * When present (Stripe/Mamo/PayPal-verified payments), these are used directly
+     * instead of re-computing from the OS cache — guaranteeing the order record
+     * uses the exact same fees that were charged via the PSP.
+     * Absent for COD/Whish/offline flows and for old snapshots (pre-date this field).
+     */
+    preVerifiedFees?: {
+      districtFeeUsd?: number;
+      expressFeeUsd?: number;
+      slotFeeUsd?: number;
     };
   } = {},
 ): Promise<OsOrderAttemptResult> {
@@ -976,10 +994,15 @@ export async function attemptCreateOsOrder(
     body.shippingCountry ?? undefined,
     body.cityId ?? undefined,
   );
-  // Prefer OS city-level delivery fee; fall back to hardcoded district table
-  // when OS hasn't sent city data yet (e.g. during initial startup window).
+
+  // When the payment intent snapshot contains pre-computed fees (set by
+  // /checkout/payment-intent after Bugs A+B fix), use them directly so the
+  // order record matches the Stripe/Mamo/PayPal charge exactly. Fall back to
+  // OS-cache re-computation for COD/Whish flows and pre-fix snapshots.
   let serverDistrictFeeUsd: number;
-  if (!isNoAddress && typeof osDeliveryConfig.cityFeeUsd === "number") {
+  if (opts.preVerifiedFees?.districtFeeUsd !== undefined) {
+    serverDistrictFeeUsd = opts.preVerifiedFees.districtFeeUsd;
+  } else if (!isNoAddress && typeof osDeliveryConfig.cityFeeUsd === "number") {
     const isFreeByOs =
       osDeliveryConfig.freeDeliveryEnabled === true &&
       typeof osDeliveryConfig.freeDeliveryThresholdUsd === "number" &&
@@ -996,13 +1019,17 @@ export async function attemptCreateOsOrder(
   const clientSignalledExpress = body.expressFee > 0;
   let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
-    const districtCountry = countryForDistrict(body.district);
-    // Prefer OS-delivered city surcharge; fall back to hardcoded constant
-    // when the OS cache has no data for this city yet.
-    expressSurchargeAppliedUsd =
-      osDeliveryConfig.expressSurchargeUsd > 0
-        ? osDeliveryConfig.expressSurchargeUsd
-        : expressSurchargeUsd(districtCountry);
+    if (opts.preVerifiedFees?.expressFeeUsd !== undefined) {
+      expressSurchargeAppliedUsd = opts.preVerifiedFees.expressFeeUsd;
+    } else {
+      const districtCountry = countryForDistrict(body.district);
+      // Prefer OS-delivered city surcharge; fall back to hardcoded constant
+      // when the OS cache has no data for this city yet.
+      expressSurchargeAppliedUsd =
+        osDeliveryConfig.expressSurchargeUsd > 0
+          ? osDeliveryConfig.expressSurchargeUsd
+          : expressSurchargeUsd(districtCountry);
+    }
   }
 
   // Slot surcharge: use computeSlotFeeUsd() so the $5 same-day night fallback
@@ -1015,14 +1042,17 @@ export async function attemptCreateOsOrder(
       ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
       : citySlots.find((s) => s.label === body.deliverySlot);
   }
-  const slotFeeAppliedUsd = computeSlotFeeUsd({
-    expressDelivery: clientSignalledExpress,
-    deliverySlot: body.deliverySlot,
-    deliverySlotId: body.deliverySlotId,
-    cityId: body.cityId ?? undefined,
-    deliveryDate: body.deliveryDate ?? undefined,
-    district: body.district,
-  });
+  // Use snapshot slot fee when available (prevents re-computation drift).
+  const slotFeeAppliedUsd = opts.preVerifiedFees?.slotFeeUsd !== undefined
+    ? opts.preVerifiedFees.slotFeeUsd
+    : computeSlotFeeUsd({
+        expressDelivery: clientSignalledExpress,
+        deliverySlot: body.deliverySlot,
+        deliverySlotId: body.deliverySlotId,
+        cityId: body.cityId ?? undefined,
+        deliveryDate: body.deliveryDate ?? undefined,
+        district: body.district,
+      });
 
   const preCouponTotalUsd =
     catalogSubtotalUsd +
@@ -1193,6 +1223,10 @@ export async function attemptCreateOsOrder(
         osSlug: d.osProductId || undefined,
       })),
       couponDiscountUsd: opts.couponValidated?.couponDiscountUsd ?? 0,
+      districtFeeUsd: serverDistrictFeeUsd,
+      expressFeeUsd: expressSurchargeAppliedUsd,
+      slotFeeUsd: slotFeeAppliedUsd,
+      deliveryFeeUsd: Math.round((serverDistrictFeeUsd + expressSurchargeAppliedUsd + slotFeeAppliedUsd) * 100) / 100,
     };
   } catch (err: any) {
     return {
