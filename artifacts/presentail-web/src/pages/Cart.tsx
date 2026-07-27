@@ -240,8 +240,11 @@ export default function Cart() {
         try { localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
         trackWebEvent({ type: "promo_failed" });
       }
-    } catch {
-      setCouponError(t("cart.promoCodeError"));
+    } catch (err) {
+      const msg = err instanceof Error && err.message && !err.message.startsWith("API error ")
+        ? err.message
+        : t("cart.promoCodeError");
+      setCouponError(msg);
       trackWebEvent({ type: "promo_failed" });
     } finally {
       setCouponValidating(false);

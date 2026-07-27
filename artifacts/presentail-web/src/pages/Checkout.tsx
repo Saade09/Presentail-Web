@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment, lazy, Suspense } from "react";
-import { useCart } from "@/contexts/CartContext";
+import { useCart, effectivePrice } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
@@ -1061,7 +1061,7 @@ function CheckoutForm() {
         body: JSON.stringify({
           code,
           customerEmail: user?.email ?? "",
-          cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: i.product.priceValue, quantity: i.quantity })),
+          cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
           cartTotalUsd: subtotal,
         }),
       });
@@ -1080,8 +1080,11 @@ function CheckoutForm() {
         setConfirmedCouponDiscount(0);
         try { localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
       }
-    } catch {
-      setCouponError(t("checkout.coupon.error"));
+    } catch (err) {
+      const msg = err instanceof Error && err.message && !err.message.startsWith("API error ")
+        ? err.message
+        : t("checkout.coupon.error");
+      setCouponError(msg);
     } finally {
       setCouponValidating(false);
     }
