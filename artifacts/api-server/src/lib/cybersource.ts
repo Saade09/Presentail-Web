@@ -21,7 +21,7 @@
 import { createHmac, createHash } from "node:crypto";
 
 // ── Base URL ─────────────────────────────────────────────────────────────────
-function getCybersourceBase(): string {
+export function getCybersourceBase(): string {
   const env = process.env.CYBERSOURCE_ENVIRONMENT ?? "test";
   return env === "live"
     ? "https://api.cybersource.com"
@@ -515,16 +515,27 @@ export type ChargeFailure = {
   correlationId?: string;
 };
 
+export type PayerAuthenticationData = {
+  cavv?: string;
+  eciRaw?: string;
+  eci?: string;
+  xid?: string;
+  specificationVersion?: string;
+  directoryServerTransactionId?: string;
+  paSpecificationVersion?: string;
+  authenticationTransactionId?: string;
+  commerceIndicator?: string;
+};
+
 export async function authorizeAndCapture(opts: {
   transientTokenJwt: string;
   totalAmount: string;
   currency: string;
   orderId: string;
   billingDetails?: BillingDetails;
-  /** 3DS authentication data from validatePayerAuth — included when available. */
-  consumerAuthenticationInformation?: ConsumerAuthInfo;
+  payerAuthenticationData?: PayerAuthenticationData;
 }): Promise<{ ok: true; paymentId: string; status: string } | ChargeFailure> {
-  const { transientTokenJwt, totalAmount, currency, orderId, billingDetails, consumerAuthenticationInformation } = opts;
+  const { transientTokenJwt, totalAmount, currency, orderId, billingDetails, payerAuthenticationData } = opts;
   const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
   const base = getCybersourceBase();
   const path = "/pts/v2/payments";
@@ -568,8 +579,24 @@ export async function authorizeAndCapture(opts: {
       transientTokenJwt,
     },
   };
-  if (consumerAuthenticationInformation && Object.keys(consumerAuthenticationInformation).length > 0) {
-    payload.consumerAuthenticationInformation = consumerAuthenticationInformation;
+  // When 3DS data is supplied (post Payer Authentication), include it in the
+  // consumerAuthenticationInformation block so CyberSource can validate the
+  // authentication result before authorizing. When absent, the payload is
+  // identical to the non-3DS flow.
+  if (payerAuthenticationData) {
+    // eciRaw is the primary ECI field CyberSource expects; fall back to eci
+    // when only the semantic field is present (frictionless path returns `eci`).
+    const eciValue = payerAuthenticationData.eciRaw ?? payerAuthenticationData.eci;
+    payload.consumerAuthenticationInformation = {
+      ...(payerAuthenticationData.cavv !== undefined ? { cavv: payerAuthenticationData.cavv } : {}),
+      ...(eciValue !== undefined ? { eciRaw: eciValue } : {}),
+      ...(payerAuthenticationData.xid !== undefined ? { xid: payerAuthenticationData.xid } : {}),
+      ...(payerAuthenticationData.specificationVersion !== undefined ? { specificationVersion: payerAuthenticationData.specificationVersion } : {}),
+      ...(payerAuthenticationData.directoryServerTransactionId !== undefined ? { directoryServerTransactionId: payerAuthenticationData.directoryServerTransactionId } : {}),
+      ...(payerAuthenticationData.paSpecificationVersion !== undefined ? { paSpecificationVersion: payerAuthenticationData.paSpecificationVersion } : {}),
+      ...(payerAuthenticationData.authenticationTransactionId !== undefined ? { authenticationTransactionId: payerAuthenticationData.authenticationTransactionId } : {}),
+      ...(payerAuthenticationData.commerceIndicator !== undefined ? { commerceIndicator: payerAuthenticationData.commerceIndicator } : {}),
+    };
   }
 
   const body = JSON.stringify(payload);

@@ -919,13 +919,15 @@ import {
   isCybersourceConfigured,
   generateCaptureContext,
   authorizeAndCapture,
+  type PayerAuthenticationData,
+} from "../lib/cybersource";
+import { pickClientIp, lookupCountryFromIp } from "../lib/geoCurrency";
+import {
+  isPayerAuthEnabled,
   setupPayerAuth,
   checkEnrollment,
-  validatePayerAuth,
-  type ConsumerAuthInfo,
-} from "../lib/cybersource";
-import { pickClientIp } from "../lib/geoCurrency";
-import { lookupCountryFromIp } from "../lib/geoCurrency";
+  validateAuthentication,
+} from "../lib/cybersource-payer-auth";
 
 // Allowed origins for the Microform capture context — whitelist only.
 // The deployment origins from REPLIT_DOMAINS are added at runtime so the
@@ -1206,7 +1208,7 @@ router.post("/payment/cybersource/charge", async (req, res) => {
     cityId: rawCityId,
     deliveryDate: rawDeliveryDate,
     billingDetails: rawBilling,
-    payerAuthData: rawPayerAuthData,
+    payerAuthData,
   } = req.body as {
     orderId: string;
     transientTokenJwt: string;
@@ -1224,8 +1226,7 @@ router.post("/payment/cybersource/charge", async (req, res) => {
       email?: string;
       phone?: string;
     };
-    /** 3DS data returned by /payer-auth/validate — passed through to CyberSource charge. */
-    payerAuthData?: ConsumerAuthInfo;
+    payerAuthData?: PayerAuthenticationData;
   };
 
   // Log every early validation reject at WARN with safe request-shape info
@@ -1250,6 +1251,30 @@ router.post("/payment/cybersource/charge", async (req, res) => {
   if (!Array.isArray(items) || items.length === 0) {
     req.log.warn({ ...rejectShape, orderId, check: "items" }, "CyberSource charge rejected: missing/empty items");
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  // When Payer Authentication is enabled, the charge endpoint must receive
+  // meaningful 3DS metadata from the completed authentication flow. Accepting
+  // a charge with no object, or with an empty/incomplete object, would silently
+  // bypass the authentication step.
+  // Minimum proof: at least one of cavv or eci/eciRaw must be present (these
+  // are the fields CyberSource uses to validate the authentication outcome on
+  // the /pts/v2/payments call).
+  if (isPayerAuthEnabled()) {
+    const hasMinimum3dsProof =
+      payerAuthData &&
+      typeof payerAuthData === "object" &&
+      (
+        (typeof payerAuthData.cavv === "string" && payerAuthData.cavv.trim() !== "") ||
+        (typeof (payerAuthData.eciRaw ?? payerAuthData.eci) === "string" && (payerAuthData.eciRaw ?? payerAuthData.eci ?? "").trim() !== "")
+      );
+    if (!hasMinimum3dsProof) {
+      req.log.warn(
+        { orderId, check: "pa_required", hasPayerAuthData: !!payerAuthData },
+        "CyberSource charge rejected: valid payerAuthData with 3DS proof required when Payer Auth is enabled",
+      );
+      return res.status(400).json({ ok: false, code: "pa_required", message: "Payer Authentication data is required." }); // i18n-ignore
+    }
   }
 
   // Validate the transient token is a non-empty string that looks like a JWT
@@ -1295,7 +1320,7 @@ router.post("/payment/cybersource/charge", async (req, res) => {
     currency: "USD",
     orderId,
     billingDetails: rawBilling,
-    consumerAuthenticationInformation: rawPayerAuthData,
+    payerAuthenticationData: payerAuthData,
   });
 
   if (!chargeResult.ok) {
@@ -1585,36 +1610,51 @@ router.post("/payment/cybersource/wallet-charge", async (req, res) => {
   return res.json({ ok: true, paymentRef, paymentMethod: walletPaymentMethod });
 });
 
-// ── POST /payment/cybersource/payer-auth/setup ────────────────────────────────
-// Step 1 of 3DS: initialises device fingerprinting.
-// Returns accessToken + deviceDataCollectionUrl for the client to load in a
-// hidden iframe. referenceId must be passed back in the enrol step.
+// ── CyberSource Payer Authentication (3DS) Routes ────────────────────────────
+// Three-stage EMV 3DS 2.x flow via Cruise Control (Cardinal Commerce).
+// All three endpoints return 503 { code: "pa_disabled" } when
+// CYBERSOURCE_PAYER_AUTH_ENABLED !== "true". Stage-specific 502 codes let
+// the frontend show the correct toast per failure class.
+
+// POST /payment/cybersource/payer-auth/setup
+// Called after Microform tokenization. Returns device-data-collection params.
 router.post("/payment/cybersource/payer-auth/setup", async (req, res) => {
-  if (!isCybersourceConfigured()) {
-    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  if (!isPayerAuthEnabled()) {
+    return res.status(503).json({ ok: false, code: "pa_disabled", message: "Payer Authentication is not enabled." }); // i18n-ignore
   }
 
-  const { orderId, transientTokenJwt } = req.body as {
-    orderId?: string;
+  const { transientTokenJwt, orderId, paymentAttemptId } = req.body as {
     transientTokenJwt?: string;
+    orderId?: string;
+    paymentAttemptId?: string;
   };
 
-  if (!orderId || typeof orderId !== "string") {
-    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
-  }
   if (!transientTokenJwt || typeof transientTokenJwt !== "string") {
     return res.status(400).json({ ok: false, message: "transientTokenJwt is required" }); // i18n-ignore
   }
-
-  req.log.info({ orderId }, "CyberSource payer auth setup requested"); // i18n-ignore
-
-  const result = await setupPayerAuth({ orderId, transientTokenJwt });
-  if (!result.ok) {
-    req.log.warn({ orderId, message: result.message }, "CyberSource payer auth setup failed"); // i18n-ignore
-    return res.status(502).json({ ok: false, code: "payer_auth_setup_error", message: result.message });
+  if (!orderId || typeof orderId !== "string") {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
   }
 
-  req.log.info({ orderId, referenceId: result.referenceId }, "CyberSource payer auth setup succeeded"); // i18n-ignore
+  const result = await setupPayerAuth({ transientTokenJwt, orderId });
+
+  req.log.info(
+    {
+      PAYMENT_DIAG: true,
+      paymentAttemptId: paymentAttemptId ?? orderId,
+      stage: "pa_setup",
+      ok: result.ok,
+      ...(result.ok
+        ? { referenceId: result.referenceId }
+        : { code: result.code, message: result.message }),
+    },
+    "CyberSource PA setup",
+  );
+
+  if (!result.ok) {
+    return res.status(502).json({ ok: false, code: result.code, message: result.message });
+  }
+
   return res.json({
     ok: true,
     accessToken: result.accessToken,
@@ -1623,119 +1663,160 @@ router.post("/payment/cybersource/payer-auth/setup", async (req, res) => {
   });
 });
 
-// ── POST /payment/cybersource/payer-auth/enroll ───────────────────────────────
-// Step 2 of 3DS: checks enrolment after device fingerprinting completes.
-// Returns one of:
-//   action "CONTINUE"                        — frictionless; proceed to charge
-//   action "CONSUMER_AUTHENTICATION_REQUIRED" — challenge required; open stepUpUrl
-router.post("/payment/cybersource/payer-auth/enroll", async (req, res) => {
-  if (!isCybersourceConfigured()) {
-    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+// POST /payment/cybersource/payer-auth/check-enrollment
+// Called after device data collection. Returns frictionless result or challenge.
+router.post("/payment/cybersource/payer-auth/check-enrollment", async (req, res) => {
+  if (!isPayerAuthEnabled()) {
+    return res.status(503).json({ ok: false, code: "pa_disabled", message: "Payer Authentication is not enabled." }); // i18n-ignore
   }
 
-  const { orderId, transientTokenJwt, totalAmount, currency, returnUrl, referenceId } = req.body as {
-    orderId?: string;
+  const {
+    transientTokenJwt,
+    referenceId,
+    orderId,
+    amount,
+    currency,
+    billTo,
+    browserInfo,
+    returnUrl,
+    paymentAttemptId,
+  } = req.body as {
     transientTokenJwt?: string;
-    totalAmount?: string;
-    currency?: string;
-    returnUrl?: string;
     referenceId?: string;
+    orderId?: string;
+    amount?: string;
+    currency?: string;
+    billTo?: Record<string, string>;
+    browserInfo?: Record<string, string | boolean>;
+    returnUrl?: string;
+    paymentAttemptId?: string;
   };
 
-  if (!orderId || typeof orderId !== "string") {
-    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
-  }
   if (!transientTokenJwt || typeof transientTokenJwt !== "string") {
     return res.status(400).json({ ok: false, message: "transientTokenJwt is required" }); // i18n-ignore
   }
-  if (!totalAmount || !currency) {
-    return res.status(400).json({ ok: false, message: "totalAmount and currency are required" }); // i18n-ignore
+  if (!referenceId || typeof referenceId !== "string") {
+    return res.status(400).json({ ok: false, message: "referenceId is required" }); // i18n-ignore
+  }
+  if (!orderId || typeof orderId !== "string") {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!amount || typeof amount !== "string") {
+    return res.status(400).json({ ok: false, message: "amount is required" }); // i18n-ignore
+  }
+  if (!currency || typeof currency !== "string") {
+    return res.status(400).json({ ok: false, message: "currency is required" }); // i18n-ignore
   }
   if (!returnUrl || typeof returnUrl !== "string") {
     return res.status(400).json({ ok: false, message: "returnUrl is required" }); // i18n-ignore
   }
 
-  req.log.info({ orderId, referenceId: referenceId ?? null }, "CyberSource payer auth enrol requested"); // i18n-ignore
-
-  const result = await checkEnrollment({ orderId, transientTokenJwt, totalAmount, currency, returnUrl, referenceId });
-
-  if (!result.ok) {
-    req.log.warn(
-      { orderId, message: result.message, upstreamStatus: result.upstreamStatus },
-      "CyberSource payer auth enrol failed", // i18n-ignore
-    );
-    return res.status(502).json({ ok: false, code: "payer_auth_enroll_error", message: result.message });
-  }
+  const result = await checkEnrollment({
+    transientTokenJwt,
+    referenceId,
+    orderId,
+    amount,
+    currency,
+    billTo: billTo as any,
+    browserInfo: browserInfo as any,
+    returnUrl,
+  });
 
   req.log.info(
-    { orderId, action: result.action, authId: result.authenticationTransactionId },
-    "CyberSource payer auth enrol resolved", // i18n-ignore
+    {
+      PAYMENT_DIAG: true,
+      paymentAttemptId: paymentAttemptId ?? orderId,
+      stage: "pa_enrollment",
+      ok: result.ok,
+      ...(result.ok
+        ? {
+            enrolled: result.enrolled,
+            authenticationTransactionId: result.authenticationTransactionId,
+          }
+        : { code: result.code, message: result.message }),
+    },
+    "CyberSource PA enrollment",
   );
 
-  if (result.action === "CONTINUE") {
+  if (!result.ok) {
+    return res.status(502).json({ ok: false, code: result.code, message: result.message });
+  }
+
+  if (result.enrolled) {
+    // Challenge path — return only the fields the frontend needs to render the iframe.
     return res.json({
       ok: true,
-      action: "CONTINUE",
+      enrolled: true,
+      stepUpUrl: result.stepUpUrl,
+      accessToken: result.accessToken,
       authenticationTransactionId: result.authenticationTransactionId,
     });
   }
 
+  // Frictionless path — return the 3DS metadata needed for the charge call.
   return res.json({
     ok: true,
-    action: "CONSUMER_AUTHENTICATION_REQUIRED",
-    stepUpUrl: result.stepUpUrl,
-    accessToken: result.accessToken,
+    enrolled: false,
     authenticationTransactionId: result.authenticationTransactionId,
+    eci: result.eci,
+    cavv: result.cavv,
+    xid: result.xid,
+    specificationVersion: result.specificationVersion,
+    directoryServerTransactionId: result.directoryServerTransactionId,
+    paSpecificationVersion: result.paSpecificationVersion,
   });
 });
 
-// ── POST /payment/cybersource/payer-auth/validate ─────────────────────────────
-// Step 3 of 3DS: validates the challenge result after the shopper completes it.
-// Returns the consumerAuthenticationInformation (cavv, eci, xid, …) that must
-// be forwarded to the charge endpoint as payerAuthData.
+// POST /payment/cybersource/payer-auth/validate
+// Called after the challenge iframe completes. Returns 3DS metadata for charge.
 router.post("/payment/cybersource/payer-auth/validate", async (req, res) => {
-  if (!isCybersourceConfigured()) {
-    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  if (!isPayerAuthEnabled()) {
+    return res.status(503).json({ ok: false, code: "pa_disabled", message: "Payer Authentication is not enabled." }); // i18n-ignore
   }
 
-  const { orderId, authenticationTransactionId } = req.body as {
-    orderId?: string;
+  const { authenticationTransactionId, paymentAttemptId } = req.body as {
     authenticationTransactionId?: string;
+    paymentAttemptId?: string;
   };
 
-  if (!orderId || typeof orderId !== "string") {
-    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
-  }
   if (!authenticationTransactionId || typeof authenticationTransactionId !== "string") {
     return res.status(400).json({ ok: false, message: "authenticationTransactionId is required" }); // i18n-ignore
   }
 
-  req.log.info({ orderId, authenticationTransactionId }, "CyberSource payer auth validate requested"); // i18n-ignore
-
-  const result = await validatePayerAuth({ orderId, authenticationTransactionId });
-
-  if (!result.ok) {
-    req.log.warn({ orderId, message: result.message }, "CyberSource payer auth validate failed"); // i18n-ignore
-    return res.status(502).json({ ok: false, code: "payer_auth_validate_error", message: result.message });
-  }
+  const result = await validateAuthentication({ authenticationTransactionId });
 
   req.log.info(
-    { orderId, eci: result.eci, hasCAVV: !!result.cavv },
-    "CyberSource payer auth validated", // i18n-ignore
+    {
+      PAYMENT_DIAG: true,
+      paymentAttemptId: paymentAttemptId ?? authenticationTransactionId,
+      stage: "pa_validation",
+      ok: result.ok,
+      ...(result.ok
+        ? {
+            eci: result.eci,
+            specificationVersion: result.specificationVersion,
+            commerceIndicator: result.commerceIndicator,
+          }
+        : { code: result.code, message: result.message }),
+    },
+    "CyberSource PA validation",
   );
+
+  if (!result.ok) {
+    return res.status(502).json({ ok: false, code: result.code, message: result.message });
+  }
 
   return res.json({
     ok: true,
-    payerAuthData: {
-      cavv: result.cavv,
-      eci: result.eci,
-      xid: result.xid,
-      ucafAuthenticationData: result.ucafAuthenticationData,
-      ucafCollectionIndicator: result.ucafCollectionIndicator,
-      paSpecificationVersion: result.paSpecificationVersion,
-      directoryServerTransactionId: result.directoryServerTransactionId,
-      authenticationTransactionId: result.authenticationTransactionId,
-    } satisfies ConsumerAuthInfo,
+    cavv: result.cavv,
+    eci: result.eci,
+    eciRaw: result.eciRaw,
+    xid: result.xid,
+    specificationVersion: result.specificationVersion,
+    directoryServerTransactionId: result.directoryServerTransactionId,
+    paSpecificationVersion: result.paSpecificationVersion,
+    authenticationTransactionId: result.authenticationTransactionId,
+    commerceIndicator: result.commerceIndicator,
   });
 });
 

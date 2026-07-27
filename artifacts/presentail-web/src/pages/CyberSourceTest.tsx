@@ -49,7 +49,7 @@ export default function CyberSourceTest() {
         );
         if (cancelled) return;
         if (!resp.ok || !resp.captureContext) {
-          setStatus(`capture context failed: ${resp.message ?? "unknown error"}`);
+          setStatus(`capture context failed: ${resp.message ?? "unknown error"}`); // i18n-ignore
           return;
         }
         const captureContext = resp.captureContext;
@@ -140,11 +140,11 @@ export default function CyberSourceTest() {
 
   return (
     <div style={{ maxWidth: 480, margin: "40px auto", padding: 16, fontFamily: "monospace" }}>
-      <h1 style={{ fontSize: 18, marginBottom: 12 }}>CyberSource Microform test</h1>
+      <h1 style={{ fontSize: 18, marginBottom: 12 }}>CyberSource Microform test</h1>{/*// i18n-ignore*/}
       <p style={{ fontSize: 13, marginBottom: 16 }} data-testid="cs-test-status">{status}</p>
 
       {/* 3. two empty containers — always visible */}
-      <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Card number</label>
+      <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Card number</label>{/*// i18n-ignore*/}
       <div
         id="cs-test-number"
         style={{ display: "block", minHeight: 44, border: "1px solid #ccc", borderRadius: 6, padding: "0 8px", marginBottom: 12, background: "white" }}
