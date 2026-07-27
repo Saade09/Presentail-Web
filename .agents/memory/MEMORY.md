@@ -32,3 +32,4 @@
 - [Klarna rollout](klarna-rollout.md) — payer IP country (not delivery country) for eligibility; KLARNA_ROLLOUT env var gate; confirmPayment type cast; elements.submit() required; Gulf always off; rollout off by default pending Ahmad approval
 - [Payment return-URL validation](payment-return-url-validation.md) — never path-restrict PayPal/Mamo/Tabby returnUrl to the bridge; host allowlist is the open-redirect guard (July 2026 outage)
 - [CyberSource checkout integration](cybersource-checkout.md) — CS tile gated LB+USD; csOnTokenRef pattern bridges placeOrder→WebView modal scope; createToken() uses component-internal expiry; wooOrders.ts Zod enum must include "cybersource"
+- [CyberSource Payer Auth (3DS)](cybersource-payer-auth.md) — 3-step 3DS backend: setupPayerAuth→checkEnrollment→validatePayerAuth; wallet eligibility gated on IP=LB (not delivery address); wallet-charge returns paymentMethod hint

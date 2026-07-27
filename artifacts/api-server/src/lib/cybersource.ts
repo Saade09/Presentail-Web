@@ -1,18 +1,22 @@
 // CyberSource Unified Checkout — REST helper
 //
-// Implements two primitives:
+// Primitives:
 //   generateCaptureContext   — POST /microform/v2/sessions
 //   authorizeAndCapture      — POST /pts/v2/payments (capture:true)
+//   setupPayerAuth           — POST /risk/v1/authentication-setups (3DS device fingerprint)
+//   checkEnrollment          — POST /risk/v1/authentications (3DS enrol)
+//   validatePayerAuth        — POST /risk/v1/authentication-results (3DS validate)
 //
 // Authentication: HTTP Signature (keyId / HMAC-SHA256).
 // The Shared Secret Key is stored base64-encoded in the environment variable;
 // it is decoded before use as the HMAC key (CyberSource requirement).
 //
 // Environment variables consumed here:
-//   CYBERSOURCE_MERCHANT_ID      — Business Center Merchant ID
-//   CYBERSOURCE_API_KEY_ID       — REST API key ID
-//   CYBERSOURCE_SHARED_SECRET_KEY — Base64-encoded HMAC-SHA256 shared secret
-//   CYBERSOURCE_ENVIRONMENT      — "test" | "live" (default: "test")
+//   CYBERSOURCE_MERCHANT_ID           — Business Center Merchant ID
+//   CYBERSOURCE_API_KEY_ID            — REST API key ID
+//   CYBERSOURCE_SHARED_SECRET_KEY     — Base64-encoded HMAC-SHA256 shared secret
+//   CYBERSOURCE_ENVIRONMENT           — "test" | "live" (default: "test")
+//   CYBERSOURCE_GOOGLE_PAY_MERCHANT_ID — Google Pay Business Console merchant ID
 
 import { createHmac, createHash } from "node:crypto";
 
@@ -138,17 +142,25 @@ export async function generateCaptureContext(opts: {
   targetOrigins: string[];
   totalAmount: string;
   currency: string;
+  /** Additional payment types to include (e.g. ["GOOGLEPAY","APPLEPAY"]).
+   *  Merged with the base ["CARD"] list; duplicates are removed. */
+  extraPaymentTypes?: string[];
 }): Promise<{ ok: true; captureContext: string } | { ok: false; message: string }> {
-  const { targetOrigins, totalAmount, currency } = opts;
+  const { targetOrigins, totalAmount, currency, extraPaymentTypes } = opts;
   const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
   const base = getCybersourceBase();
   const path = "/microform/v2/sessions";
+
+  const baseTypes = ["CARD"]; // i18n-ignore — CARD is correct for Flex Microform V2
+  const allowedPaymentTypes = extraPaymentTypes?.length
+    ? [...new Set([...baseTypes, ...extraPaymentTypes])]
+    : baseTypes;
 
   const payload = {
     clientVersion: "v2",
     targetOrigins,
     allowedCardNetworks: ["VISA", "MASTERCARD", "AMEX"], // i18n-ignore
-    allowedPaymentTypes: ["CARD"], // i18n-ignore — CARD is correct for Flex Microform V2; PANENTRY is for Unified Checkout
+    allowedPaymentTypes,
     orderInformation: {
       amountDetails: {
         totalAmount,
@@ -239,6 +251,222 @@ export function getCybersourceEnvironment(): "test" | "live" {
   return (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") === "live" ? "live" : "test";
 }
 
+// ── Payer Authentication (3DS) ────────────────────────────────────────────────
+// Three-step flow:
+//   1. setupPayerAuth      — device fingerprint setup (POST /risk/v1/authentication-setups)
+//   2. checkEnrollment     — 3DS enrolment check (POST /risk/v1/authentications)
+//   3. validatePayerAuth   — post-challenge validation (POST /risk/v1/authentication-results)
+//
+// After a successful validate, the returned consumerAuthenticationInformation is
+// passed to authorizeAndCapture / authorizeAndCaptureGooglePay / authorizeAndCaptureApplePay.
+
+export type PayerAuthSetupResult =
+  | { ok: true; accessToken: string; deviceDataCollectionUrl: string; referenceId: string }
+  | { ok: false; message: string };
+
+export type EnrollmentAction = "CONTINUE" | "CONSUMER_AUTHENTICATION_REQUIRED";
+
+export type EnrollmentResult =
+  | { ok: true; action: "CONTINUE"; authenticationTransactionId: string; consumerAuthInfo: Record<string, string | undefined> }
+  | { ok: true; action: "CONSUMER_AUTHENTICATION_REQUIRED"; stepUpUrl: string; accessToken: string; authenticationTransactionId: string }
+  | { ok: false; message: string; upstreamStatus?: string };
+
+export type PayerAuthValidateResult =
+  | {
+      ok: true;
+      cavv?: string;
+      eci?: string;
+      xid?: string;
+      ucafAuthenticationData?: string;
+      ucafCollectionIndicator?: string;
+      paSpecificationVersion?: string;
+      directoryServerTransactionId?: string;
+      authenticationTransactionId?: string;
+    }
+  | { ok: false; message: string };
+
+/** consumerAuthenticationInformation block passed to the charge payload after 3DS. */
+export type ConsumerAuthInfo = {
+  cavv?: string;
+  eci?: string;
+  xid?: string;
+  ucafAuthenticationData?: string;
+  ucafCollectionIndicator?: string;
+  paSpecificationVersion?: string;
+  directoryServerTransactionId?: string;
+  authenticationTransactionId?: string;
+};
+
+/**
+ * Step 1 — POST /risk/v1/authentication-setups
+ * Returns an accessToken and deviceDataCollectionUrl for device fingerprinting.
+ * The referenceId (deviceFingerprintId) from this response must be passed to checkEnrollment.
+ */
+export async function setupPayerAuth(opts: {
+  orderId: string;
+  transientTokenJwt: string;
+}): Promise<PayerAuthSetupResult> {
+  const { orderId, transientTokenJwt } = opts;
+  const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
+  const base = getCybersourceBase();
+  const path = "/risk/v1/authentication-setups"; // i18n-ignore
+
+  const payload = {
+    clientReferenceInformation: { code: orderId },
+    tokenInformation: { transientTokenJwt },
+  };
+
+  const body = JSON.stringify(payload);
+  const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey, accept: "application/hal+json;charset=utf-8" });
+
+  try {
+    const res = await fetch(`${base}${path}`, { method: "POST", headers, body });
+    const rawBody = await res.text();
+    let data: any = null;
+    try { data = rawBody ? JSON.parse(rawBody) : null; } catch { data = null; }
+
+    const info = data?.consumerAuthenticationInformation;
+    if ((res.status === 201 || res.status === 200) && info?.accessToken) {
+      return {
+        ok: true,
+        accessToken: info.accessToken,
+        deviceDataCollectionUrl: info.deviceDataCollectionUrl ?? "",
+        referenceId: info.referenceId ?? orderId,
+      };
+    }
+
+    const message = data?.errorInformation?.message ?? data?.message ?? `CyberSource payer auth setup failed (HTTP ${res.status})`; // i18n-ignore
+    return { ok: false, message };
+  } catch (err: any) {
+    return { ok: false, message: err?.message ?? "CyberSource payer auth setup request failed" }; // i18n-ignore
+  }
+}
+
+/**
+ * Step 2 — POST /risk/v1/authentications
+ * Checks whether the card is enrolled in 3DS.
+ * - action "CONTINUE"                        → frictionless; proceed to charge with consumerAuthInfo
+ * - action "CONSUMER_AUTHENTICATION_REQUIRED" → open stepUpUrl in iframe for challenge
+ */
+export async function checkEnrollment(opts: {
+  orderId: string;
+  transientTokenJwt: string;
+  totalAmount: string;
+  currency: string;
+  returnUrl: string;
+  /** referenceId from setupPayerAuth (device fingerprint session ID). */
+  referenceId?: string;
+}): Promise<EnrollmentResult> {
+  const { orderId, transientTokenJwt, totalAmount, currency, returnUrl, referenceId } = opts;
+  const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
+  const base = getCybersourceBase();
+  const path = "/risk/v1/authentications"; // i18n-ignore
+
+  const consumerAuthInfo: Record<string, string> = { returnUrl };
+  if (referenceId) consumerAuthInfo.referenceId = referenceId;
+
+  const payload = {
+    clientReferenceInformation: { code: orderId },
+    tokenInformation: { transientTokenJwt },
+    orderInformation: { amountDetails: { totalAmount, currency } },
+    consumerAuthenticationInformation: consumerAuthInfo,
+  };
+
+  const body = JSON.stringify(payload);
+  const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey, accept: "application/hal+json;charset=utf-8" });
+
+  try {
+    const res = await fetch(`${base}${path}`, { method: "POST", headers, body });
+    const rawBody = await res.text();
+    let data: any = null;
+    try { data = rawBody ? JSON.parse(rawBody) : null; } catch { data = null; }
+
+    const info = data?.consumerAuthenticationInformation ?? {};
+    const status: string = data?.status ?? "";
+    const authId: string = info.authenticationTransactionId ?? "";
+
+    // Frictionless success statuses — proceed directly to charge
+    if (
+      (res.status === 201 || res.status === 200) &&
+      (status === "AUTHENTICATION_SUCCESSFUL" || status === "AUTHENTICATION_ATTEMPTED" || status === "AUTHENTICATION_NOT_REQUIRED")
+    ) {
+      return { ok: true, action: "CONTINUE", authenticationTransactionId: authId, consumerAuthInfo: info };
+    }
+
+    // Challenge required — frontend must open stepUpUrl in an iframe
+    if ((res.status === 201 || res.status === 200) && status === "PENDING_AUTHENTICATION") {
+      return {
+        ok: true,
+        action: "CONSUMER_AUTHENTICATION_REQUIRED",
+        stepUpUrl: info.stepUpUrl ?? "",
+        accessToken: info.accessToken ?? "",
+        authenticationTransactionId: authId,
+      };
+    }
+
+    const message =
+      data?.errorInformation?.message ??
+      data?.message ??
+      `3DS enrollment check failed: ${status || `HTTP ${res.status}`}`; // i18n-ignore
+    return { ok: false, message, upstreamStatus: status };
+  } catch (err: any) {
+    return { ok: false, message: err?.message ?? "CyberSource enrollment check request failed" }; // i18n-ignore
+  }
+}
+
+/**
+ * Step 3 — POST /risk/v1/authentication-results
+ * Called after the challenge iframe completes. Returns cavv/eci/xid
+ * that must be included in the subsequent charge call.
+ */
+export async function validatePayerAuth(opts: {
+  orderId: string;
+  authenticationTransactionId: string;
+}): Promise<PayerAuthValidateResult> {
+  const { orderId, authenticationTransactionId } = opts;
+  const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
+  const base = getCybersourceBase();
+  const path = "/risk/v1/authentication-results"; // i18n-ignore
+
+  const payload = {
+    clientReferenceInformation: { code: orderId },
+    consumerAuthenticationInformation: { authenticationTransactionId },
+  };
+
+  const body = JSON.stringify(payload);
+  const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey, accept: "application/hal+json;charset=utf-8" });
+
+  try {
+    const res = await fetch(`${base}${path}`, { method: "POST", headers, body });
+    const rawBody = await res.text();
+    let data: any = null;
+    try { data = rawBody ? JSON.parse(rawBody) : null; } catch { data = null; }
+
+    if ((res.status === 201 || res.status === 200) && data?.consumerAuthenticationInformation) {
+      const info = data.consumerAuthenticationInformation;
+      return {
+        ok: true,
+        cavv: info.cavv,
+        eci: info.eci ?? info.eciRaw,
+        xid: info.xid,
+        ucafAuthenticationData: info.ucafAuthenticationData,
+        ucafCollectionIndicator: info.ucafCollectionIndicator,
+        paSpecificationVersion: info.paSpecificationVersion,
+        directoryServerTransactionId: info.directoryServerTransactionId,
+        authenticationTransactionId: info.authenticationTransactionId ?? authenticationTransactionId,
+      };
+    }
+
+    const message =
+      data?.errorInformation?.message ??
+      data?.message ??
+      `Payer auth validation failed (HTTP ${res.status})`; // i18n-ignore
+    return { ok: false, message };
+  } catch (err: any) {
+    return { ok: false, message: err?.message ?? "CyberSource payer auth validation request failed" }; // i18n-ignore
+  }
+}
+
 // ── authorizeAndCapture ───────────────────────────────────────────────────────
 // Calls POST /pts/v2/payments with capture:true.
 // Uses the transient token JWT (from the client-side Microform tokenization)
@@ -293,8 +521,10 @@ export async function authorizeAndCapture(opts: {
   currency: string;
   orderId: string;
   billingDetails?: BillingDetails;
+  /** 3DS authentication data from validatePayerAuth — included when available. */
+  consumerAuthenticationInformation?: ConsumerAuthInfo;
 }): Promise<{ ok: true; paymentId: string; status: string } | ChargeFailure> {
-  const { transientTokenJwt, totalAmount, currency, orderId, billingDetails } = opts;
+  const { transientTokenJwt, totalAmount, currency, orderId, billingDetails, consumerAuthenticationInformation } = opts;
   const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
   const base = getCybersourceBase();
   const path = "/pts/v2/payments";
@@ -320,7 +550,7 @@ export async function authorizeAndCapture(opts: {
         postalCode: "00000",
       };
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     clientReferenceInformation: {
       code: orderId,
     },
@@ -338,6 +568,9 @@ export async function authorizeAndCapture(opts: {
       transientTokenJwt,
     },
   };
+  if (consumerAuthenticationInformation && Object.keys(consumerAuthenticationInformation).length > 0) {
+    payload.consumerAuthenticationInformation = consumerAuthenticationInformation;
+  }
 
   const body = JSON.stringify(payload);
   const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey, accept: "application/hal+json;charset=utf-8" });
@@ -454,8 +687,10 @@ export async function authorizeAndCaptureGooglePay(opts: {
   currency: string;
   orderId: string;
   billingDetails?: BillingDetails;
+  /** 3DS authentication data — included when available. */
+  consumerAuthenticationInformation?: ConsumerAuthInfo;
 }): Promise<{ ok: true; paymentId: string; status: string } | { ok: false; message: string; declineCode?: string }> {
-  const { googlePayToken, totalAmount, currency, orderId, billingDetails } = opts;
+  const { googlePayToken, totalAmount, currency, orderId, billingDetails, consumerAuthenticationInformation } = opts;
   const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
   const base = getCybersourceBase();
   const path = "/pts/v2/payments";
@@ -481,7 +716,7 @@ export async function authorizeAndCaptureGooglePay(opts: {
         postalCode: "00000",
       };
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     clientReferenceInformation: { code: orderId },
     processingInformation: {
       capture: true,
@@ -495,6 +730,9 @@ export async function authorizeAndCaptureGooglePay(opts: {
       billTo,
     },
   };
+  if (consumerAuthenticationInformation && Object.keys(consumerAuthenticationInformation).length > 0) {
+    payload.consumerAuthenticationInformation = consumerAuthenticationInformation;
+  }
 
   const body = JSON.stringify(payload);
   const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey, accept: "application/hal+json;charset=utf-8" });
@@ -571,8 +809,10 @@ export async function authorizeAndCaptureApplePay(opts: {
   currency: string;
   orderId: string;
   billingDetails?: BillingDetails;
+  /** 3DS authentication data — included when available. */
+  consumerAuthenticationInformation?: ConsumerAuthInfo;
 }): Promise<{ ok: true; paymentId: string; status: string } | { ok: false; message: string; declineCode?: string }> {
-  const { applePayToken, totalAmount, currency, orderId, billingDetails } = opts;
+  const { applePayToken, totalAmount, currency, orderId, billingDetails, consumerAuthenticationInformation } = opts;
   const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
   const base = getCybersourceBase();
   const path = "/pts/v2/payments";
@@ -598,7 +838,7 @@ export async function authorizeAndCaptureApplePay(opts: {
         postalCode: "00000",
       };
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     clientReferenceInformation: { code: orderId },
     processingInformation: {
       capture: true,
@@ -616,6 +856,9 @@ export async function authorizeAndCaptureApplePay(opts: {
       billTo,
     },
   };
+  if (consumerAuthenticationInformation && Object.keys(consumerAuthenticationInformation).length > 0) {
+    payload.consumerAuthenticationInformation = consumerAuthenticationInformation;
+  }
 
   const body = JSON.stringify(payload);
   const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey, accept: "application/hal+json;charset=utf-8" });

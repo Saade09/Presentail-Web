@@ -1,0 +1,101 @@
+Update the existing Cybersource payment integration to support both Google Pay and Apple Pay only when Cybersource is the active payment provider.
+
+Scope:
+
+* Apply this only when:
+
+  * The user's detected IP geolocation is Lebanon.
+  * Checkout currency is USD.
+  * Cybersource is the payment provider shown inside the card payment section.
+* Determine the user's country from the existing IP geolocation service already used by the website. Do **not** use the delivery address, billing address, browser locale, or selected country for this decision.
+* Keep all existing card payment logic, IP detection logic, currency logic, validation, payer authentication, order creation, and checkout behavior unchanged.
+
+Implementation requirements:
+
+1. Locate the backend endpoint that creates the Cybersource Unified Checkout Capture Context.
+
+2. When all of the following are true:
+
+   * user's IP resolves to Lebanon,
+   * currency is USD,
+   * Cybersource is enabled and selected for the card payment section,
+
+   include these payment methods in the Cybersource Capture Context request:
+
+```json
+"allowedPaymentTypes": [
+  "PANENTRY",
+  "GOOGLEPAY",
+  "APPLEPAY"
+]
+```
+
+3. Preserve any existing values already present in `allowedPaymentTypes`. Do not remove or replace existing supported Cybersource payment types. Add Google Pay and Apple Pay safely without duplicates.
+
+4. Continue using Cybersource Unified Checkout for:
+
+   * normal card entry,
+   * Google Pay,
+   * Apple Pay.
+
+5. Do not create a separate Stripe, browser-native, or custom wallet flow. Both wallets must be processed through the existing Cybersource merchant account and Cybersource Unified Checkout session.
+
+6. Render the Google Pay and Apple Pay buttons only when they are returned as available by Cybersource and supported by the current browser/device.
+
+7. Apple Pay should only appear on supported Apple devices and browsers with an eligible wallet.
+
+8. Google Pay should only appear on supported devices/browsers with an eligible Google Pay payment method.
+
+9. Do not display broken, disabled, empty, or placeholder wallet buttons when the device or Cybersource session does not support them.
+
+10. Pass the selected wallet payment token through the existing Cybersource authorization, payer authentication, capture, and order-processing flow.
+
+11. Store the payment method on the order as:
+
+* Cybersource Card
+* Cybersource Google Pay
+* Cybersource Apple Pay
+
+12. Do not change payment behavior for:
+
+* users whose IP is outside Lebanon,
+* currencies other than USD,
+* any checkout where Cybersource is not the active card provider,
+* existing non-Cybersource payment methods.
+
+13. Add server-side logging for:
+
+* detected IP country,
+* currency,
+* whether wallet payment types were added to the Capture Context,
+* wallet availability returned by Unified Checkout,
+* Capture Context creation errors,
+* authorization failures.
+
+Do not log card numbers, wallet tokens, cryptograms, API keys, secrets, or any sensitive payment data.
+
+Acceptance criteria:
+
+* User IP = Lebanon + Currency = USD + Cybersource active:
+
+  * Card payment remains available.
+  * Google Pay is requested through Cybersource Unified Checkout.
+  * Apple Pay is requested through Cybersource Unified Checkout.
+
+* User IP outside Lebanon:
+
+  * Existing payment behavior remains unchanged.
+
+* Currency other than USD:
+
+  * Existing payment behavior remains unchanged.
+
+* Cybersource not active:
+
+  * Google Pay and Apple Pay are not requested from Cybersource.
+
+* Unsupported browsers/devices:
+
+  * Unavailable wallet buttons remain hidden.
+
+* Existing Cybersource card payments, payer authentication, and order flow continue to work without regression.
