@@ -89,6 +89,7 @@ function buildHeaders(opts: {
 
   return {
     "Content-Type": "application/json",
+    Accept: "application/json",
     Host: host,
     Date: date,
     "v-c-date": date,

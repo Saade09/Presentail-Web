@@ -274,6 +274,78 @@ test.describe("Checkout — CyberSource and Stripe card tile visibility", () => 
     await expect(page.getByTestId("option-payment-cybersource")).toHaveCount(0);
   });
 
+  // ── 4. Submit-time re-fetch: capture context null mid-session → retry works ─
+
+  test("shopper sees an error toast (not a blank form) when capture-context fails at submit time, and can retry successfully", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    // CS credentials are configured — tile is visible.
+    await page.route("**/api/payment/cybersource/available", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true }) }),
+    );
+
+    // Suppress the prefetch so csCaptureContext remains null when the shopper
+    // hits Place Order, simulating a credential rotation that expired the
+    // prefetched context mid-session.
+    let captureContextCallCount = 0;
+    await page.route("**/api/payment/cybersource/capture-context", (route) => {
+      captureContextCallCount++;
+      if (captureContextCallCount === 1) {
+        // First call (at submit time): simulate a transient 500 so we can
+        // verify the form doesn't blank out.
+        route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: false, message: "Capture context temporarily unavailable" }),
+        });
+      } else {
+        // Second call (shopper retries): succeed so the handler can proceed
+        // past the capture-context step.
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true, captureContext: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.stub.stub" }),
+        });
+      }
+    });
+
+    await page.goto("/en-lb/beirut/checkout?guest=1");
+    await advanceToPaymentStep(page);
+
+    // Select the CyberSource tile (CS is available — tile renders).
+    const csOption = page.getByTestId("option-payment-cybersource");
+    await expect(csOption).toBeVisible({ timeout: 15_000 });
+    await csOption.click();
+
+    // Hit Place Order — csCaptureContext is null so the submit handler will
+    // call the endpoint. First call returns 500.
+    const submitBtn = page.getByTestId("button-submit-payment");
+    await expect(submitBtn).toBeVisible({ timeout: 10_000 });
+    await submitBtn.click();
+
+    // The handler must show an error toast and return — form stays intact.
+    // Wait for at least one toast to appear.
+    const toast = page.locator("[data-sonner-toast], [role='alert'], [data-radix-toast-root]").first();
+    await expect(toast).toBeVisible({ timeout: 10_000 });
+
+    // The CyberSource tile is still present — the form did not blank out or
+    // navigate away from the payment step.
+    await expect(csOption).toBeVisible({ timeout: 5_000 });
+    expect(captureContextCallCount).toBe(1);
+
+    // Shopper retries. Second capture-context call succeeds.
+    await submitBtn.click();
+    // The handler will proceed past capture context. It may then fail at the
+    // Microform tokenisation step (no real SDK in test), but the form must not
+    // become entirely blank or unresponsive.
+    await page.waitForTimeout(2_000);
+    expect(captureContextCallCount).toBe(2);
+    // Payment step is still rendered (shopper is not stuck on a blank page).
+    await expect(submitBtn).toBeVisible({ timeout: 5_000 });
+  });
+
   // ── 3. CS available but capture-context fails → Stripe card tile recovers ──
 
   test("Stripe card tile appears after CyberSource capture-context prefetch returns an error", async ({
