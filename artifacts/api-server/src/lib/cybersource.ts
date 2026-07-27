@@ -583,6 +583,7 @@ export async function authorizeAndCapture(opts: {
     },
     processingInformation: {
       capture: true,
+      paymentSolution: "unifiedCheckout", // i18n-ignore — CyberSource Unified Checkout / Flex Microform V2
     },
     orderInformation: {
       amountDetails: {
