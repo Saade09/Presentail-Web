@@ -226,13 +226,21 @@ export async function checkEnrollment(opts: {
   const base = getCybersourceBase();
   const path = "/risk/v1/authentications";
 
+  // Only include billTo if it has at least a country or address — CyberSource
+  // rejects a billTo object that has name+email but no address fields.
+  const billToForCs = billTo && (billTo.country || billTo.address1 || billTo.locality)
+    ? billTo
+    : undefined;
+
   const payload: Record<string, any> = {
     clientReferenceInformation: { code: orderId },
     orderInformation: {
       amountDetails: { totalAmount: amount, currency },
-      ...(billTo ? { billTo } : {}),
+      ...(billToForCs ? { billTo: billToForCs } : {}),
     },
-    tokenInformation: { transientToken: transientTokenJwt },
+    // NOTE: /risk/v1/authentications also uses "transientTokenJwt" (same as setup
+    // and /pts/v2/payments) — the shorter "transientToken" key is rejected.
+    tokenInformation: { transientTokenJwt },
     consumerAuthenticationInformation: {
       referenceId,
       returnUrl,
