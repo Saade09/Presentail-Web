@@ -24,13 +24,17 @@ import {
 type Props = {
   stepUpUrl: string;
   accessToken: string;
+  /** When provided, CYBERSOURCE_3DS_COMPLETE messages are only accepted if
+   *  their attemptId field matches this value, preventing a stale or unrelated
+   *  relay message from settling the wrong checkout session. */
+  expectedAttemptId?: string | null;
   onComplete: (status: string) => void;
   onCancel: () => void;
 };
 
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-export function CyberSourceChallengeModal({ stepUpUrl, accessToken, onComplete, onCancel }: Props) {
+export function CyberSourceChallengeModal({ stepUpUrl, accessToken, expectedAttemptId, onComplete, onCancel }: Props) {
   const { t } = useLocale();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const onCompleteRef = useRef(onComplete);
@@ -74,6 +78,25 @@ export function CyberSourceChallengeModal({ stepUpUrl, accessToken, onComplete, 
       //    server-side using the enrollment's transaction id, never data
       //    from this message.
       if (evt.origin === window.location.origin) {
+        // New backend-driven 3DS complete signal (type: "CYBERSOURCE_3DS_COMPLETE")
+        if (payload["type"] === "CYBERSOURCE_3DS_COMPLETE") {
+          // Strict attempt correlation: when expectedAttemptId is set, the
+          // message's attemptId must be present, must be a string, and must
+          // match exactly. Any deviation rejects the message — no exceptions.
+          if (expectedAttemptId) {
+            if (
+              typeof payload["attemptId"] !== "string" ||
+              payload["attemptId"] !== expectedAttemptId
+            ) {
+              return; // Ignore — missing, wrong type, or wrong attempt
+            }
+          }
+          // ACK so the relay page knows the message was received and can close.
+          try { (evt.source as Window | null)?.postMessage({ type: "CYBERSOURCE_3DS_ACK" }, window.location.origin); } catch { /* best-effort */ }
+          settleComplete("COMPLETE"); // i18n-ignore
+          return;
+        }
+        // Legacy relay signal (MessageType: "cybersource.stepUpComplete")
         if (payload["MessageType"] === "cybersource.stepUpComplete") {
           settleComplete(
             typeof payload["Status"] === "string" ? (payload["Status"] as string) : "COMPLETE", // i18n-ignore
@@ -147,7 +170,7 @@ export function CyberSourceChallengeModal({ stepUpUrl, accessToken, onComplete, 
           name="cs-3ds-challenge" // i18n-ignore — must match form target below
           title="3ds-challenge" // i18n-ignore
           className="flex-1 w-full border-0"
-          sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation-by-user-activation"
+          sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
           onError={() => onCancelRef.current()}
         />
       </DialogContent>

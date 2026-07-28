@@ -22,8 +22,16 @@ import {
 } from "../lib/cybersource";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
-import { resolveStoreFromRequest } from "../lib/wooStore";
+import { resolveStoreFromRequest, resolveStore } from "../lib/wooStore";
 import { validateRedirectUrl } from "../lib/validateRedirectUrl";
+import { db, csPaymentAttemptsTable, type CsAttemptCartSnapshot } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { logger as rootLogger } from "../lib/logger";
+import {
+  attemptCreateOsOrder,
+  recordSuccessfulWcOrder,
+  WooOrderSchema,
+} from "../lib/wooOrders";
 
 const router: IRouter = Router();
 
@@ -2489,7 +2497,40 @@ router.post("/payment/cybersource/payer-auth/check-enrollment", async (req, res)
   }
 
   if (result.enrolled) {
-    // Challenge path — return only the fields the frontend needs to render the iframe.
+    // Challenge path — persist the authenticationTransactionId in the backend
+    // attempt row so runCsAttemptCompleteChain can validate without the client.
+    if (
+      paymentAttemptId &&
+      ATTEMPT_ID_RE.test(paymentAttemptId) &&
+      result.authenticationTransactionId
+    ) {
+      try {
+        await db
+          .update(csPaymentAttemptsTable)
+          .set({
+            status: "ENROLLED",
+            csAuthenticationTransactionId: result.authenticationTransactionId,
+            updatedAt: new Date(),
+          })
+          .where(eq(csPaymentAttemptsTable.attemptId, paymentAttemptId));
+        req.log.info(
+          {
+            PAYMENT_DIAG: true,
+            stage: "enrollment_result",
+            attemptId: paymentAttemptId,
+            authenticationTransactionId: result.authenticationTransactionId,
+            enrolled: true,
+          },
+          "cs_attempt: attempt enrolled",
+        );
+      } catch (dbErr) {
+        req.log.warn(
+          { paymentAttemptId, err: (dbErr as Error)?.message },
+          "cs_enrollment: failed to update attempt status — challenge will still proceed",
+        );
+      }
+    }
+    // Return only the fields the frontend needs to render the iframe.
     return res.json({
       ok: true,
       enrolled: true,
@@ -2569,53 +2610,596 @@ router.post("/payment/cybersource/payer-auth/validate", async (req, res) => {
   });
 });
 
+// ── CyberSource 3DS Payment Attempt Lifecycle ────────────────────────────────
+// Persistent attempt tracking so the backend can complete the
+// validate → authorize → order-create chain even when the browser tab is lost.
+
+const ATTEMPT_ID_RE = /^[A-Za-z0-9_-]{8,80}$/;
+
+/** Build a WooOrderPayload from a stored cart snapshot + charge paymentRef. */
+function buildWooOrderPayloadFromSnapshot(
+  snapshot: CsAttemptCartSnapshot,
+  paymentRef: string,
+): ReturnType<typeof WooOrderSchema.parse> {
+  const raw = {
+    orderId: snapshot.appOrderId,
+    items: snapshot.items.map((i) => ({
+      name: i.name ?? "Product",
+      quantity: i.quantity,
+      price: i.price,
+      wcId: i.wcId,
+      osSlug: i.osSlug,
+      customInput: i.customInput,
+    })),
+    billing: snapshot.billing,
+    recipient: snapshot.recipient,
+    district: snapshot.district,
+    cityId: snapshot.cityId,
+    districtFee: snapshot.districtFee,
+    expressFee: snapshot.expressFee,
+    slotFee: snapshot.slotFee ?? 0,
+    noAddress: snapshot.noAddress ?? false,
+    billingCountry: snapshot.billingCountry,
+    shippingCountry: snapshot.shippingCountry ?? "LB",
+    deliveryDetails: snapshot.deliveryDetails ?? "",
+    deliveryDate: snapshot.deliveryDate ?? "",
+    deliverySlot: snapshot.deliverySlot ?? "",
+    deliverySlotId: snapshot.deliverySlotId,
+    cardMessage: snapshot.cardMessage,
+    cardFrom: snapshot.cardFrom,
+    cardTo: snapshot.cardTo,
+    qrLink: snapshot.qrLink,
+    orderNotes: snapshot.orderNotes,
+    paymentMethod: "cybersource" as const,
+    identitySecret: snapshot.identitySecret ?? false,
+    currencyCode: snapshot.currencyCode ?? "USD",
+    couponCode: snapshot.couponCode,
+    occasion_ref: snapshot.occasion_ref,
+    marketing_attribution: snapshot.marketing_attribution,
+    paymentRef,
+  };
+  return WooOrderSchema.parse(raw);
+}
+
+/**
+ * Server-side completion chain for a 3DS attempt.
+ * Idempotent: if already COMPLETED returns stored orderId; if already
+ * AUTHORIZED skips validate+charge and only retries order creation.
+ * Never re-charges a customer.
+ */
+async function runCsAttemptCompleteChain(
+  attemptId: string,
+  log: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void; error?: (...args: any[]) => void },
+): Promise<{ ok: true; orderId: string } | { ok: false; errorMessage: string }> {
+  const rows = await db
+    .select()
+    .from(csPaymentAttemptsTable)
+    .where(eq(csPaymentAttemptsTable.attemptId, attemptId))
+    .limit(1);
+  const attempt = rows[0];
+
+  if (!attempt) {
+    return { ok: false, errorMessage: "Attempt not found" };
+  }
+
+  // ── Idempotency guards ────────────────────────────────────────────────────
+  if (attempt.status === "COMPLETED" && attempt.orderId) {
+    log.info?.({ attemptId, orderId: attempt.orderId }, "cs_attempt: already COMPLETED — returning stored orderId");
+    return { ok: true, orderId: attempt.orderId };
+  }
+  if (attempt.status === "FAILED") {
+    const err = attempt.errorDetails as { message?: string } | null;
+    return { ok: false, errorMessage: err?.message ?? "Payment failed" };
+  }
+
+  const snapshot = attempt.cartSnapshot as CsAttemptCartSnapshot | null;
+  if (!snapshot) {
+    await db
+      .update(csPaymentAttemptsTable)
+      .set({ status: "FAILED", errorDetails: { message: "No cart snapshot stored" }, updatedAt: new Date() })
+      .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+    return { ok: false, errorMessage: "No cart snapshot stored" };
+  }
+
+  let paymentRef: string;
+
+  // ── Concurrency lock ──────────────────────────────────────────────────────
+  // Use a PostgreSQL session-level advisory lock keyed on this attemptId to
+  // prevent two concurrent callers from both entering the validate+charge path
+  // simultaneously.  pg_try_advisory_lock is non-blocking: if another session
+  // already holds the lock it returns false immediately and we return a
+  // "processing" signal so the caller retries via polling instead.
+  // The lock is automatically released when the DB connection is returned to
+  // the pool (end of async function) or when pg_advisory_unlock is called.
+  let advisoryLockAcquired = false;
+  try {
+    const lockResult = await db.execute<{ acquired: boolean }>(
+      sql`SELECT pg_try_advisory_lock(abs(hashtext(${attemptId}))) AS acquired`,
+    );
+    advisoryLockAcquired = (lockResult.rows[0] as { acquired: boolean }).acquired === true;
+  } catch {
+    // If advisory lock query itself fails (unlikely), proceed without locking
+    // rather than blocking the payment entirely.
+    advisoryLockAcquired = true;
+  }
+  if (!advisoryLockAcquired) {
+    log.info?.(
+      { attemptId },
+      "cs_attempt: advisory lock not acquired — another worker is processing; caller should retry",
+    );
+    return { ok: false, errorMessage: "Payment processing in progress — please check status" };
+  }
+
+  try {
+  // ── Phase 1: validate + charge (skip if already AUTHORIZED) ──────────────
+  if (attempt.status !== "AUTHORIZED" && attempt.status !== "ORDER_CREATED" && attempt.status !== "OS_SYNCED") {
+    if (!attempt.csAuthenticationTransactionId) {
+      await db
+        .update(csPaymentAttemptsTable)
+        .set({ status: "FAILED", errorDetails: { message: "No authentication transaction ID" }, updatedAt: new Date() })
+        .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+      return { ok: false, errorMessage: "No authentication transaction ID — enrollment may not have completed" };
+    }
+
+    // 1a. Validate authentication
+    log.info?.({ attemptId, csAuthTxnId: attempt.csAuthenticationTransactionId }, "cs_attempt: validate_authentication");
+    const validateResult = await validateAuthentication({
+      authenticationTransactionId: attempt.csAuthenticationTransactionId,
+    });
+    log.info?.({ attemptId, ok: validateResult.ok, stage: "validation_response", ...(validateResult.ok ? { eci: validateResult.eci } : { code: (validateResult as any).code }) }, "cs_attempt: validation_response");
+
+    if (!validateResult.ok) {
+      await db
+        .update(csPaymentAttemptsTable)
+        .set({ status: "FAILED", errorDetails: { message: validateResult.message, code: (validateResult as any).code }, updatedAt: new Date() })
+        .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+      return { ok: false, errorMessage: validateResult.message ?? "3DS validation failed" };
+    }
+
+    await db
+      .update(csPaymentAttemptsTable)
+      .set({ status: "VALIDATED", updatedAt: new Date() })
+      .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+
+    // 1b. Authorize + capture
+    log.info?.({ attemptId, stage: "authorization_started" }, "cs_attempt: authorization_started");
+    const chargeResult = await authorizeAndCapture({
+      transientTokenJwt: snapshot.transientTokenJwt,
+      totalAmount: snapshot.totalAmount,
+      currency: snapshot.currency ?? "USD",
+      orderId: snapshot.appOrderId,
+      billingDetails: snapshot.billing as any,
+      payerAuthenticationData: {
+        authenticationTransactionId: attempt.csAuthenticationTransactionId,
+        cavv: validateResult.cavv,
+        eci: validateResult.eci,
+        eciRaw: validateResult.eciRaw,
+        xid: validateResult.xid,
+        specificationVersion: validateResult.specificationVersion,
+        directoryServerTransactionId: validateResult.directoryServerTransactionId,
+        paSpecificationVersion: validateResult.paSpecificationVersion,
+        commerceIndicator: validateResult.commerceIndicator,
+      } as any,
+    });
+    log.info?.({ attemptId, ok: chargeResult.ok, stage: "authorization_response", requestId: chargeResult.ok ? (chargeResult as any).paymentId : undefined }, "cs_attempt: authorization_response");
+
+    if (!chargeResult.ok) {
+      await db
+        .update(csPaymentAttemptsTable)
+        .set({ status: "FAILED", errorDetails: { message: chargeResult.message, kind: chargeResult.kind }, updatedAt: new Date() })
+        .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+      return { ok: false, errorMessage: chargeResult.message ?? "Payment declined" };
+    }
+
+    paymentRef = `cybs:${(chargeResult as any).paymentId}`;
+
+    // Bind paymentRef↔orderId in the in-memory intent store so /woo/order can
+    // verify it if called later (reconciliation path).
+    storePaymentIntent({
+      orderId: snapshot.appOrderId,
+      paymentRef,
+      provider: "cybersource",
+      currency: snapshot.currency ?? "USD",
+      totalUsd: parseFloat(snapshot.totalAmount),
+      snapshot: {
+        items: snapshot.items.map((item: CsAttemptCartSnapshot["items"][number]) => ({
+          wcId: item.wcId ?? 0,
+          osSlug: item.osSlug,
+          quantity: item.quantity,
+          priceUsd: item.price,
+        })),
+        district: snapshot.district,
+        expressDelivery: (snapshot.expressFee ?? 0) > 0,
+        noAddress: snapshot.noAddress ?? false,
+        deliverySlot: snapshot.deliverySlot ?? "",
+        districtFeeUsd: snapshot.districtFee,
+        expressFeeUsd: snapshot.expressFee,
+        slotFeeUsd: snapshot.slotFee ?? 0,
+      },
+      stripeAccount: "direct" as any,
+    });
+
+    await db
+      .update(csPaymentAttemptsTable)
+      .set({ status: "AUTHORIZED", csRequestId: (chargeResult as any).paymentId, updatedAt: new Date() })
+      .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+  } else {
+    // Already authorized — build paymentRef from stored csRequestId.
+    if (!attempt.csRequestId) {
+      return { ok: false, errorMessage: "Authorized but no csRequestId stored" };
+    }
+    paymentRef = `cybs:${attempt.csRequestId}`;
+  }
+
+  // ── Phase 2: order creation ───────────────────────────────────────────────
+  // Retry-safe: if we reach here either fresh or after a previous OS failure.
+  let orderPayload: ReturnType<typeof WooOrderSchema.parse>;
+  try {
+    orderPayload = buildWooOrderPayloadFromSnapshot(snapshot, paymentRef);
+  } catch (parseErr: any) {
+    await db
+      .update(csPaymentAttemptsTable)
+      .set({ status: "FAILED", errorDetails: { message: `Cart snapshot parse error: ${parseErr?.message}` }, updatedAt: new Date() })
+      .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+    return { ok: false, errorMessage: "Cart snapshot could not be parsed" };
+  }
+
+  log.info?.({ attemptId, appOrderId: snapshot.appOrderId, stage: "order_creation_started" }, "cs_attempt: order_created");
+  const store = resolveStore(snapshot.shippingCountry ?? "LB");
+  const osResult = await attemptCreateOsOrder(orderPayload, {
+    paymentVerified: true,
+    store,
+    preVerifiedItems: snapshot.items.map((i) => ({ wcId: i.wcId ?? 0, osSlug: i.osSlug, priceUsd: i.price, name: i.name ?? "" })),
+    preVerifiedFees: { districtFeeUsd: snapshot.districtFee, expressFeeUsd: snapshot.expressFee, slotFeeUsd: snapshot.slotFee ?? 0 },
+  });
+  log.info?.({ attemptId, ok: osResult.ok, stage: "os_sync_result", osOrderId: osResult.ok ? osResult.osOrderId : undefined, message: !osResult.ok ? osResult.message : undefined }, "cs_attempt: os_sync_result");
+
+  if (!osResult.ok) {
+    // Leave status as AUTHORIZED so the next poll retries order creation
+    // without re-charging. The task spec requires retrying until the order
+    // is recorded; never mark FAILED here for a temporary OS outage.
+    log.warn?.({ attemptId, message: osResult.message }, "cs_attempt: OS order creation failed — will retry on next poll");
+    return { ok: false, errorMessage: osResult.message };
+  }
+
+  // Record in app_orders (idempotent via onConflictDoUpdate on appOrderId).
+  await recordSuccessfulWcOrder({
+    body: orderPayload,
+    wcOrderId: null,
+    userId: null,
+    customerId: attempt.customerId ? parseInt(attempt.customerId, 10) : null,
+    recipientName: osResult.recipientName,
+    totalUsdCents: osResult.totalUsdCents,
+    totalPaymentCents: osResult.totalPaymentCents,
+    platform: snapshot.platform ?? null,
+    storeKey: store.storeKey ?? "lebanon",
+    osOrderId: osResult.osOrderId ?? null,
+    lineItems: osResult.lineItems,
+    log,
+    currencyCode: snapshot.currencyCode ?? "USD",
+  });
+
+  log.info?.({ attemptId, appOrderId: snapshot.appOrderId, stage: "order_created" }, "cs_attempt: order_created_confirmed");
+
+  // Mark COMPLETED
+  await db
+    .update(csPaymentAttemptsTable)
+    .set({
+      status: "COMPLETED",
+      orderId: snapshot.appOrderId,
+      osOrderId: osResult.osOrderId ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(csPaymentAttemptsTable.attemptId, attemptId));
+
+  log.info?.({ attemptId, orderId: snapshot.appOrderId, stage: "confirmation_redirect" }, "cs_attempt: confirmation_redirect");
+  return { ok: true, orderId: snapshot.appOrderId };
+
+  } finally {
+    // Release the session-level advisory lock so the next retry (if any) can
+    // re-enter. Errors here are intentionally swallowed — a stale lock at
+    // worst delays the next retry until the DB connection is returned to pool.
+    await db
+      .execute(sql`SELECT pg_advisory_unlock(abs(hashtext(${attemptId})))`)
+      .catch(() => {});
+  }
+}
+
+// POST /payment/cybersource/attempt
+// Creates a payment attempt row before 3DS authentication begins.
+// Receives the cart snapshot (including the transient Microform JWT) and
+// returns an opaque attemptId the frontend stores in a ref.
+router.post("/payment/cybersource/attempt", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, code: "cs_disabled", message: "CyberSource is not configured." }); // i18n-ignore
+  }
+
+  const {
+    amount,
+    currency,
+    transientTokenJwt,
+    cartSnapshot,
+    customerId,
+    guestSessionId,
+  } = req.body as {
+    amount?: string;
+    currency?: string;
+    transientTokenJwt?: string;
+    cartSnapshot?: Record<string, unknown>;
+    customerId?: string;
+    guestSessionId?: string;
+  };
+
+  if (!amount || typeof amount !== "string" || !/^\d+(\.\d{1,2})?$/.test(amount)) {
+    return res.status(400).json({ ok: false, message: "amount is required (format: '45.00')" }); // i18n-ignore
+  }
+  if (!currency || typeof currency !== "string" || currency.length !== 3) {
+    return res.status(400).json({ ok: false, message: "currency is required (ISO 4217 3-letter code)" }); // i18n-ignore
+  }
+  if (!transientTokenJwt || typeof transientTokenJwt !== "string") {
+    return res.status(400).json({ ok: false, message: "transientTokenJwt is required" }); // i18n-ignore
+  }
+  if (!cartSnapshot || typeof cartSnapshot !== "object") {
+    return res.status(400).json({ ok: false, message: "cartSnapshot is required" }); // i18n-ignore
+  }
+
+  // Merge transientTokenJwt into the snapshot for server-side use only.
+  const storedSnapshot: CsAttemptCartSnapshot = {
+    ...(cartSnapshot as Omit<CsAttemptCartSnapshot, "transientTokenJwt">),
+    transientTokenJwt,
+    totalAmount: amount,
+    currency,
+  };
+
+  const { randomUUID } = await import("crypto");
+  const attemptId = randomUUID();
+
+  await db.insert(csPaymentAttemptsTable).values({
+    attemptId,
+    amount,
+    currency,
+    cartSnapshot: storedSnapshot,
+    customerId: customerId ?? null,
+    guestSessionId: guestSessionId ?? null,
+    status: "CREATED",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  req.log.info({ attemptId, appOrderId: (cartSnapshot as any).appOrderId, stage: "attempt_created" }, "cs_attempt: attempt_created"); // i18n-ignore
+
+  return res.json({ ok: true, attemptId });
+});
+
+// GET /payment/cybersource/attempt/:attemptId/status
+// Returns the current status of a payment attempt.
+// Safe to poll; never exposes auth tokens or 3DS fields.
+router.get("/payment/cybersource/attempt/:attemptId/status", async (req, res) => {
+  const { attemptId } = req.params;
+  if (!ATTEMPT_ID_RE.test(attemptId)) {
+    return res.status(400).json({ ok: false, message: "Invalid attemptId" }); // i18n-ignore
+  }
+
+  const rows = await db
+    .select({
+      status: csPaymentAttemptsTable.status,
+      orderId: csPaymentAttemptsTable.orderId,
+      errorDetails: csPaymentAttemptsTable.errorDetails,
+    })
+    .from(csPaymentAttemptsTable)
+    .where(eq(csPaymentAttemptsTable.attemptId, attemptId))
+    .limit(1);
+
+  if (!rows[0]) {
+    return res.status(404).json({ ok: false, message: "Attempt not found" }); // i18n-ignore
+  }
+
+  const { status, orderId, errorDetails } = rows[0];
+  const errorSummary =
+    status === "FAILED" && errorDetails
+      ? ((errorDetails as any).message as string | undefined) ?? "Payment could not be completed"
+      : undefined;
+
+  return res.json({ ok: true, status, orderId: orderId ?? null, errorSummary: errorSummary ?? null });
+});
+
+// POST /payment/cybersource/attempt/:attemptId/complete
+// Runs the full server-side chain: validate → authorize → order-create.
+// Idempotent: repeated calls return the stored orderId without re-charging.
+router.post("/payment/cybersource/attempt/:attemptId/complete", async (req, res) => {
+  const { attemptId } = req.params;
+  if (!ATTEMPT_ID_RE.test(attemptId)) {
+    return res.status(400).json({ ok: false, message: "Invalid attemptId" }); // i18n-ignore
+  }
+
+  const result = await runCsAttemptCompleteChain(attemptId, req.log);
+
+  if (!result.ok) {
+    // 409 = transient failure (OS down); frontend should keep polling.
+    // 422 = terminal failure (card declined, validation failed).
+    const rows = await db
+      .select({ status: csPaymentAttemptsTable.status })
+      .from(csPaymentAttemptsTable)
+      .where(eq(csPaymentAttemptsTable.attemptId, attemptId))
+      .limit(1);
+    const currentStatus = rows[0]?.status ?? "FAILED";
+    const httpStatus = currentStatus === "FAILED" ? 422 : 409;
+    return res.status(httpStatus).json({ ok: false, message: result.errorMessage, status: currentStatus });
+  }
+
+  return res.json({ ok: true, orderId: result.orderId, status: "COMPLETED" });
+});
+
+// POST /payment/cybersource/reconcile
+// One-time reconciliation: given an attemptId or csRequestId, retries order
+// creation without re-charging. For operations use only — not called by the
+// normal checkout flow.
+router.post("/payment/cybersource/reconcile", async (req, res) => {
+  const { attemptId, csRequestId } = req.body as { attemptId?: string; csRequestId?: string };
+
+  let resolvedAttemptId: string | null = null;
+
+  if (attemptId && ATTEMPT_ID_RE.test(attemptId)) {
+    resolvedAttemptId = attemptId;
+  } else if (csRequestId && /^[A-Za-z0-9_-]{8,120}$/.test(csRequestId)) {
+    const rows = await db
+      .select({ attemptId: csPaymentAttemptsTable.attemptId })
+      .from(csPaymentAttemptsTable)
+      .where(eq(csPaymentAttemptsTable.csRequestId, csRequestId))
+      .limit(1);
+    resolvedAttemptId = rows[0]?.attemptId ?? null;
+  }
+
+  if (!resolvedAttemptId) {
+    return res.status(400).json({ ok: false, message: "Provide a valid attemptId or csRequestId" }); // i18n-ignore
+  }
+
+  req.log.info({ resolvedAttemptId, csRequestId }, "cs_reconcile: triggered"); // i18n-ignore
+  const result = await runCsAttemptCompleteChain(resolvedAttemptId, req.log);
+
+  if (!result.ok) {
+    return res.status(422).json({ ok: false, message: result.errorMessage });
+  }
+  return res.json({ ok: true, orderId: result.orderId, message: "Order reconciled successfully" }); // i18n-ignore
+});
+
 // ── Payer-auth challenge return relay ────────────────────────────────────────
 // The Cardinal step-up iframe form-POSTs (or GETs) this URL when the issuer
-// challenge finishes. It runs INSIDE the challenge iframe on the checkout
-// page, so its only job is to tell the parent window (the checkout) that the
-// challenge is over. The checkout NEVER trusts anything in this message —
-// validation is keyed by the authenticationTransactionId captured at
-// enrollment time.
-// No auth: Cardinal drives the shopper's browser here, and the page exposes
-// nothing beyond a strictly-sanitized echo of Cardinal's own TransactionId.
-const handlePayerAuthChallengeReturn = (req: Request, res: Response) => {
+// challenge finishes. It serves HTML that handles all three return contexts:
+//
+//   1. Separate tab  (window.opener present): postMessage to opener, ACK wait, close.
+//   2. Iframe        (window.parent != window): postMessage to parent.
+//   3. Top-level     (neither): redirect to /checkout/payment-resume?attempt=<id>.
+//
+// The target origin for postMessage is window.location.origin — the same
+// origin as the checkout page — never "*".
+//
+// The completion chain is fired server-side asynchronously; the client polls
+// GET /payment/cybersource/attempt/:attemptId/status to know when done.
+const handlePayerAuthChallengeReturn = async (req: Request, res: Response) => {
   const rawTxnId = ((req.body as Record<string, unknown> | undefined)?.TransactionId ??
     (req.query?.TransactionId as unknown) ??
     "") as unknown;
   const transactionId =
     typeof rawTxnId === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(rawTxnId) ? rawTxnId : "";
 
+  const rawRefId = ((req.body as Record<string, unknown> | undefined)?.ReferenceId ??
+    (req.query?.ReferenceId as unknown) ??
+    "") as unknown;
+  const referenceId =
+    typeof rawRefId === "string" && /^[A-Za-z0-9_-]{1,120}$/.test(rawRefId) ? rawRefId : "";
+
+  // Attempt ID passed by the enrollment returnUrl: ?attempt=<id>
+  const rawAttemptId = (req.body as any)?.attempt ?? req.query?.attempt ?? "";
+  const attemptId =
+    typeof rawAttemptId === "string" && ATTEMPT_ID_RE.test(rawAttemptId) ? rawAttemptId : "";
+
   req.log.info(
     {
       PAYMENT_DIAG: true,
-      stage: "pa_challenge_return",
+      stage: "challenge_return_received",
       hasTransactionId: transactionId !== "",
+      hasReferenceId: referenceId !== "",
+      hasAttemptId: attemptId !== "",
     },
     "CyberSource PA challenge return relay",
   );
 
+  // ── Callback correlation check ───────────────────────────────────────────
+  // Before firing the completion chain, verify the TransactionId returned by
+  // Cardinal matches the one stored during enrollment. A mismatch means the
+  // callback was misrouted or spoofed — do not trigger order creation.
+  if (attemptId) {
+    let shouldRunChain = true;
+    try {
+      const rows = await db
+        .select({ csAuthTxnId: csPaymentAttemptsTable.csAuthenticationTransactionId })
+        .from(csPaymentAttemptsTable)
+        .where(eq(csPaymentAttemptsTable.attemptId, attemptId))
+        .limit(1);
+      const storedTxnId = rows[0]?.csAuthTxnId;
+      if (storedTxnId && transactionId && storedTxnId !== transactionId) {
+        req.log.warn(
+          { attemptId, stage: "challenge_return_received", storedTxnId, receivedTxnId: transactionId },
+          "cs_attempt: callback TransactionId mismatch — rejecting completion trigger", // i18n-ignore
+        );
+        shouldRunChain = false;
+      }
+    } catch (lookupErr) {
+      req.log.error(
+        { attemptId, err: (lookupErr as Error)?.message },
+        "cs_attempt: callback correlation lookup failed — proceeding", // i18n-ignore
+      );
+      // On lookup failure, still fire the chain (fail-open is safer for payments).
+    }
+
+    // Fire the server-side completion chain asynchronously — do NOT await it
+    // before returning the relay HTML. The browser must receive the HTML
+    // immediately; the frontend polls /attempt/:id/complete for retry and
+    // /attempt/:id/status for display.
+    if (shouldRunChain) {
+      void runCsAttemptCompleteChain(attemptId, rootLogger).catch((err) => {
+        rootLogger.error({ attemptId, err: (err as Error)?.message }, "cs_attempt: background complete chain error"); // i18n-ignore
+      });
+    }
+  }
+
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
-  // targetOrigin "*" is safe here: the payload is a completion ping plus a
-  // sanitized id the parent does not trust; nothing sensitive is included,
-  // and the relay cannot know the checkout origin in every environment
-  // (dev proxy vs production domain).
+
+  const safeAttemptId = JSON.stringify(attemptId);
+  const safeTransactionId = JSON.stringify(transactionId);
+
+  // The relay HTML handles all three return contexts and targets
+  // window.location.origin so the postMessage target is never "*".
   res.send(`<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>Card verification</title></head>
-<body style="font-family: system-ui, sans-serif; text-align: center; padding-top: 48px; color: #555;">
-<p>Verification complete. Returning to checkout…</p>
+<body style="font-family:system-ui,sans-serif;text-align:center;padding-top:48px;color:#555;">
+<p>Verification complete. Returning to checkout\u2026</p>
 <script>
 (function () {
+  var attemptId = ${safeAttemptId};
+  var transactionId = ${safeTransactionId};
+  var msg = JSON.stringify({
+    type: "CYBERSOURCE_3DS_COMPLETE",
+    attemptId: attemptId,
+    // Legacy field kept for backward compatibility with old frictionless path
+    MessageType: "cybersource.stepUpComplete",
+    Status: "COMPLETE",
+    TransactionId: transactionId
+  });
+  var origin = window.location.origin;
+
   try {
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage(JSON.stringify({
-        MessageType: "cybersource.stepUpComplete",
-        Status: "COMPLETE",
-        TransactionId: ${JSON.stringify(transactionId)}
-      }), "*");
+    // Context 1: opened in a separate browser tab (window.opener is the checkout)
+    if (window.opener && window.opener !== window) {
+      var acked = false;
+      window.addEventListener("message", function (e) {
+        if (e.origin === origin && e.data && e.data.type === "CYBERSOURCE_3DS_ACK") {
+          acked = true;
+          window.close();
+        }
+      });
+      window.opener.postMessage(msg, origin);
+      // Auto-close fallback if ACK never arrives
+      setTimeout(function () { if (!acked) window.close(); }, 5000);
+      return;
     }
-  } catch (e) { /* no parent to notify */ }
+
+    // Context 2: inside an iframe (window.parent is the checkout)
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(msg, origin);
+      return;
+    }
+  } catch (e) { /* cross-origin access blocked — fall through to redirect */ }
+
+  // Context 3: top-level navigation (no opener, no parent)
+  if (attemptId) {
+    window.location.replace("/checkout/payment-resume?attempt=" + encodeURIComponent(attemptId));
+  } else {
+    window.location.replace("/checkout");
+  }
 })();
 </script>
 </body>

@@ -8,6 +8,11 @@ import { Input } from "@/components/ui/input";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
+
+// sessionStorage key for the active CyberSource 3DS attempt ID.
+// Written when the challenge modal opens so a same-tab refresh can resume
+// polling without re-entering card details. Cleared on completion/failure.
+const CS_3DS_ATTEMPT_KEY = "cs_3ds_active_attempt_id"; // i18n-ignore
 import { buildCardFrom } from "@/lib/cardFrom";
 import {
   useCreateOrder,
@@ -2107,10 +2112,9 @@ function CheckoutForm() {
   );
 
   // ── Payer-auth refresh guard ───────────────────────────────────────────────
-  // When the page is refreshed or navigated away during an active payer-auth
-  // stage, clear the in-flight attempt so the shopper gets a clean form on
-  // return rather than a stuck or duplicate-charge state.
-  // Uses a ref (not localStorage) so nothing survives the unload.
+  // When the page is refreshed during an active payer-auth stage, the in-memory
+  // attempt ref is lost. We intentionally do NOT clear sessionStorage here so
+  // the recovery effect below can resume polling on the next mount.
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (csPaymentAttemptIdRef.current) {
@@ -2118,11 +2122,117 @@ function CheckoutForm() {
         setCsPayerAuthStage("idle");
         setCsDeviceDataProps(null);
         setCsChallengeProps(null);
+        // sessionStorage is NOT cleared — the recovery effect reads it on remount.
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
+  // ── 3DS attempt recovery (same-tab refresh) ───────────────────────────────
+  // On mount, check sessionStorage for a pending 3DS attempt that was started
+  // before the page refreshed. If found, immediately enter polling mode so the
+  // shopper sees "Finalizing your order…" rather than an empty checkout form
+  // (their cart is still intact — the backend has already authorized the card).
+  const [csRecoveryAttemptId, setCsRecoveryAttemptId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const id = sessionStorage.getItem(CS_3DS_ATTEMPT_KEY);
+      if (id && /^[A-Za-z0-9_-]{8,80}$/.test(id)) return id;
+    } catch { /* ignore */ }
+    return null;
+  });
+
+  useEffect(() => {
+    if (!csRecoveryAttemptId) return;
+
+    let cancelled = false;
+    setCsPayerAuthStage("authorization_pending");
+
+    (async () => {
+      const POLL_INTERVAL_MS = 2000;
+      const MAX_POLL = 45; // 90 s
+
+      for (let i = 0; i < MAX_POLL && !cancelled; i++) {
+        await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
+        if (cancelled) break;
+        try {
+          const statusRes = await apiFetch<{
+            ok: boolean;
+            status: string;
+            orderId: string | null;
+            errorSummary: string | null;
+          }>(`/payment/cybersource/attempt/${csRecoveryAttemptId}/status`);
+
+          if (statusRes.status === "COMPLETED" && statusRes.orderId) {
+            if (cancelled) return;
+            clearCart();
+            try {
+              localStorage.removeItem(COUPON_STORAGE_KEY);
+              localStorage.removeItem(COUPON_DISCOUNT_KEY);
+              localStorage.removeItem(ORDER_NOTE_KEY);
+              sessionStorage.removeItem(CS_3DS_ATTEMPT_KEY);
+            } catch { /* best-effort */ }
+            setCsRecoveryAttemptId(null);
+            trackEvent({ name: "order_placed", surface: "checkout", action: "cybersource" as WebPaymentMethodId });
+            trackWebEvent({ type: "payment_completed", value: total, currency: checkoutCurrency });
+            setLocation(`/order-confirmed?status=success&ref=${statusRes.orderId}`);
+            return;
+          }
+
+          if (statusRes.status === "FAILED") {
+            if (cancelled) return;
+            try { sessionStorage.removeItem(CS_3DS_ATTEMPT_KEY); } catch { /* best-effort */ }
+            setCsRecoveryAttemptId(null);
+            setCsPayerAuthStage("idle");
+            toast({
+              title: t("checkout.toast.csPayerAuthFailed"),
+              description: statusRes.errorSummary ?? undefined,
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // Authorization done but order creation may have failed transiently.
+          // Drive active retry by calling /complete (idempotent, advisory-locked).
+          if (!cancelled && ["AUTHORIZED", "ORDER_CREATED", "OS_SYNCED"].includes(statusRes.status)) {
+            try {
+              const completeRes = await apiFetch<{
+                ok: boolean;
+                orderId?: string;
+                status?: string;
+              }>(`/payment/cybersource/attempt/${csRecoveryAttemptId}/complete`, { method: "POST" });
+              if (completeRes.ok && completeRes.orderId) {
+                if (cancelled) return;
+                clearCart();
+                try {
+                  localStorage.removeItem(COUPON_STORAGE_KEY);
+                  localStorage.removeItem(COUPON_DISCOUNT_KEY);
+                  localStorage.removeItem(ORDER_NOTE_KEY);
+                  sessionStorage.removeItem(CS_3DS_ATTEMPT_KEY);
+                } catch { /* best-effort */ }
+                setCsRecoveryAttemptId(null);
+                trackEvent({ name: "order_placed", surface: "checkout", action: "cybersource" as WebPaymentMethodId });
+                trackWebEvent({ type: "payment_completed", value: total, currency: checkoutCurrency });
+                setLocation(`/order-confirmed?status=success&ref=${completeRes.orderId}`);
+                return;
+              }
+            } catch { /* ignore — next poll will retry */ }
+          }
+        } catch { /* network error — keep polling */ }
+      }
+
+      if (!cancelled) {
+        try { sessionStorage.removeItem(CS_3DS_ATTEMPT_KEY); } catch { /* best-effort */ }
+        setCsRecoveryAttemptId(null);
+        setCsPayerAuthStage("idle");
+        toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+      }
+    })();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [csRecoveryAttemptId]);
   // ─────────────────────────────────────────────────────────────────────────
 
   // Derived display values: prefer server-authoritative USD amounts when the
@@ -3697,8 +3807,88 @@ function CheckoutForm() {
         let payerAuthData: Parameters<typeof cybersourceCharge.mutateAsync>[0]["payerAuthData"] | undefined;
 
         if (payerAuthEnabled && useCyberSource) {
-          // Generate a fresh attempt ID for this payment attempt.
-          const attemptId = crypto.randomUUID();
+          // Compute enrollment amount early — needed for backend attempt creation
+          // and reused for the enrollment check below.
+          const enrollmentAmount = computeCartTotal(
+            subtotal,
+            districtFee + expressFee + slotFee,
+            confirmedCouponDiscount,
+          ).toFixed(2);
+
+          // Create a backend attempt record before authentication starts.
+          // The backend stores the cart snapshot + transient token so it can
+          // complete validate → charge → order-create server-side even if the
+          // browser tab is closed during the issuer challenge.
+          let beAttemptId: string | null = null;
+          try {
+            const cartSnap = buildOrderPayload({});
+            const attemptCreationRes = await apiFetch<{ ok: boolean; attemptId: string }>(
+              "/payment/cybersource/attempt",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  amount: enrollmentAmount,
+                  currency: "USD", // i18n-ignore
+                  transientTokenJwt: transientToken,
+                  cartSnapshot: {
+                    appOrderId: cartSnap.orderId,
+                    items: cartSnap.items,
+                    billing: cartSnap.billing,
+                    recipient: cartSnap.recipient,
+                    district: cartSnap.district,
+                    cityId: cartSnap.cityId,
+                    districtFee: cartSnap.districtFee,
+                    expressFee: cartSnap.expressFee,
+                    slotFee: cartSnap.slotFee ?? 0,
+                    noAddress: cartSnap.noAddress ?? false,
+                    billingCountry: cartSnap.shippingCountry,
+                    shippingCountry: cartSnap.shippingCountry,
+                    deliveryDetails: cartSnap.deliveryDetails ?? "",
+                    deliveryDate: cartSnap.deliveryDate ?? "",
+                    deliverySlot: cartSnap.deliverySlot ?? "",
+                    deliverySlotId: cartSnap.deliverySlotId,
+                    cardMessage: cartSnap.cardMessage,
+                    cardFrom: cartSnap.cardFrom,
+                    cardTo: cartSnap.cardTo,
+                    qrLink: cartSnap.qrLink,
+                    paymentMethod: "cybersource", // i18n-ignore
+                    currencyCode: "USD", // i18n-ignore
+                    // Fields that affect persisted order behavior and must
+                    // survive the 3DS challenge flow without loss.
+                    // Use component state directly for fields not returned by
+                    // buildOrderPayload (orderNote, etc.).
+                    identitySecret: cartSnap.identitySecret ?? false,
+                    // orderNote is component state, not part of buildOrderPayload return
+                    ...(orderNote.trim() ? { orderNotes: orderNote.trim() } : {}),
+                    // couponCode is spread-conditional in buildOrderPayload
+                    ...(cartSnap.couponCode ? { couponCode: cartSnap.couponCode } : {}),
+                    totalAmount: enrollmentAmount,
+                    currency: "USD", // i18n-ignore
+                  },
+                }),
+              },
+            );
+            if (attemptCreationRes.ok && attemptCreationRes.attemptId) {
+              beAttemptId = attemptCreationRes.attemptId;
+            }
+          } catch {
+            // Backend attempt creation failed — block checkout rather than
+            // falling back to a client-side UUID the server does not know about.
+            // A client-only UUID cannot be used to recover the order if the
+            // browser tab is lost during the 3DS challenge.
+            setCsPayerAuthStage("authentication_failed");
+            toast({ title: t("checkout.toast.csSetupFailed"), variant: "destructive" });
+            return;
+          }
+
+          if (!beAttemptId) {
+            // Server responded but returned no attemptId — same blocking path.
+            setCsPayerAuthStage("authentication_failed");
+            toast({ title: t("checkout.toast.csSetupFailed"), variant: "destructive" });
+            return;
+          }
+
+          const attemptId = beAttemptId;
           csPaymentAttemptIdRef.current = attemptId;
           setCsPayerAuthStage("collecting_device_data");
 
@@ -3759,11 +3949,7 @@ function CheckoutForm() {
           // backend route: amount/currency/returnUrl are required, and the
           // response is FLAT ({ enrolled, ...3DS fields }) — there is no
           // nested payerAuthData object.
-          const enrollmentAmount = computeCartTotal(
-            subtotal,
-            districtFee + expressFee + slotFee,
-            confirmedCouponDiscount,
-          ).toFixed(2);
+          // enrollmentAmount was computed earlier for the backend attempt creation.
           let enrollRes: Awaited<ReturnType<typeof csPayerAuthCheckEnrollment.mutateAsync>>;
           try {
             enrollRes = await csPayerAuthCheckEnrollment.mutateAsync({
@@ -3776,7 +3962,9 @@ function CheckoutForm() {
               // The issuer step-up iframe navigates here when the challenge
               // finishes; the page (served by our API on the same origin)
               // posts a completion message back to the checkout window.
-              returnUrl: `${window.location.origin}/api/payment/cybersource/payer-auth/return`,
+              // The attemptId lets the relay look up the stored attempt
+              // and fire the server-side completion chain asynchronously.
+              returnUrl: `${window.location.origin}/api/payment/cybersource/payer-auth/return${beAttemptId ? `?attempt=${encodeURIComponent(beAttemptId)}` : ""}`,
               browserInfo,
               billTo: {
                 firstName: sender.firstName,
@@ -3816,7 +4004,133 @@ function CheckoutForm() {
               return;
             }
 
-            // 3e. Show the challenge modal and await shopper interaction.
+            if (beAttemptId) {
+              // ── Backend-driven challenge path ─────────────────────────────────
+              // Persist attemptId so a tab refresh during the challenge can resume
+              // without re-entering card details (sessionStorage survives same-tab
+              // navigation but is cleared when the tab closes).
+              try { sessionStorage.setItem(CS_3DS_ATTEMPT_KEY, beAttemptId); } catch { /* best-effort */ }
+
+              setCsPayerAuthStage("authorization_pending");
+
+              type PollOutcome =
+                | { type: "completed"; orderId: string }
+                | { type: "failed"; errorSummary: string | null }
+                | { type: "timeout" }
+                | { type: "cancelled" };
+
+              // Open the challenge modal AND start polling concurrently.
+              // Whichever resolves first wins: shopper cancels the dialog OR
+              // the backend confirms the payment regardless of postMessage timing.
+              const challengeOutcome = await new Promise<PollOutcome>((resolve) => {
+                let settled = false;
+                const settle = (v: PollOutcome) => {
+                  if (!settled) { settled = true; resolve(v); }
+                };
+
+                // Modal cancellation path
+                csChallengeResolverRef.current = (result) => {
+                  if (!result.completed) settle({ type: "cancelled" });
+                  // If completed via postMessage, the polling loop will find
+                  // COMPLETED shortly and settle the outcome naturally.
+                };
+                setCsChallengeProps({
+                  stepUpUrl: enrollRes.stepUpUrl!,
+                  accessToken: enrollRes.accessToken!,
+                });
+
+                // Background polling — runs independently of postMessage.
+                // 45 × 2 s = 90 s max wait (matches /checkout/payment-resume).
+                // For states where authorization is complete but order creation
+                // failed transiently (AUTHORIZED / ORDER_CREATED / OS_SYNCED),
+                // we also call POST /complete to actively drive the retry.
+                const POLL_INTERVAL_MS = 2000;
+                const MAX_POLL = 45;
+                (async () => {
+                  for (let poll = 0; poll < MAX_POLL; poll++) {
+                    await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
+                    if (settled) return; // already resolved by cancel
+                    try {
+                      const statusRes = await apiFetch<{
+                        ok: boolean;
+                        status: string;
+                        orderId: string | null;
+                        errorSummary: string | null;
+                      }>(`/payment/cybersource/attempt/${beAttemptId}/status`);
+                      if (statusRes.status === "COMPLETED" && statusRes.orderId) {
+                        settle({ type: "completed", orderId: statusRes.orderId });
+                        return;
+                      }
+                      if (statusRes.status === "FAILED") {
+                        settle({ type: "failed", errorSummary: statusRes.errorSummary });
+                        return;
+                      }
+                      // Authorization done but order creation may have failed
+                      // transiently. Actively drive the retry by calling /complete.
+                      if (["AUTHORIZED", "ORDER_CREATED", "OS_SYNCED"].includes(statusRes.status)) {
+                        try {
+                          const completeRes = await apiFetch<{
+                            ok: boolean;
+                            orderId?: string;
+                            status?: string;
+                            message?: string;
+                          }>(`/payment/cybersource/attempt/${beAttemptId}/complete`, { method: "POST" });
+                          if (completeRes.ok && completeRes.orderId) {
+                            settle({ type: "completed", orderId: completeRes.orderId });
+                            return;
+                          }
+                        } catch { /* ignore — next poll will retry */ }
+                      }
+                    } catch { /* network error — keep trying */ }
+                  }
+                  settle({ type: "timeout" });
+                })();
+              });
+
+              setCsChallengeProps(null);
+              csChallengeResolverRef.current = null;
+              try { sessionStorage.removeItem(CS_3DS_ATTEMPT_KEY); } catch { /* best-effort */ }
+
+              if (challengeOutcome.type === "completed") {
+                clearCart();
+                try {
+                  localStorage.removeItem(COUPON_STORAGE_KEY);
+                  localStorage.removeItem(COUPON_DISCOUNT_KEY);
+                  localStorage.removeItem(ORDER_NOTE_KEY);
+                } catch { /* best-effort */ }
+                void maybeSaveProfilePhone();
+                setCsPayerAuthStage("idle");
+                csPaymentAttemptIdRef.current = null;
+                trackEvent({ name: "order_placed", surface: "checkout", action: "cybersource" as WebPaymentMethodId });
+                trackWebEvent({ type: "payment_completed", value: total, currency: checkoutCurrency });
+                setLocation(`/order-confirmed?status=success&ref=${challengeOutcome.orderId}`);
+                return;
+              }
+              if (challengeOutcome.type === "cancelled") {
+                setCsPayerAuthStage("authentication_failed");
+                csPaymentAttemptIdRef.current = null;
+                toast({ title: t("checkout.toast.csChallengeCancelled"), variant: "destructive" });
+                return;
+              }
+              if (challengeOutcome.type === "failed") {
+                setCsPayerAuthStage("authentication_failed");
+                csPaymentAttemptIdRef.current = null;
+                toast({
+                  title: t("checkout.toast.csPayerAuthFailed"),
+                  description: challengeOutcome.errorSummary ?? undefined,
+                  variant: "destructive",
+                });
+                return;
+              }
+              // timeout
+              setCsPayerAuthStage("authentication_failed");
+              csPaymentAttemptIdRef.current = null;
+              toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+              return;
+            }
+
+            // ── Legacy path (no beAttemptId) ─────────────────────────────────
+            // Show modal, await postMessage, then validate + charge client-side.
             const challengeResult = await new Promise<{ completed: boolean; status?: string }>((resolve) => {
               csChallengeResolverRef.current = resolve;
               setCsChallengeProps({
@@ -3828,16 +4142,13 @@ function CheckoutForm() {
             csChallengeResolverRef.current = null;
 
             if (!challengeResult.completed) {
-              // Shopper dismissed the dialog or the 5-minute timeout fired.
               setCsPayerAuthStage("authentication_failed");
               csPaymentAttemptIdRef.current = null;
               toast({ title: t("checkout.toast.csChallengeCancelled"), variant: "destructive" });
               return;
             }
 
-            // 3f. Validate after challenge completion. The completion message
-            // only signals "the challenge is over" — validation decides
-            // pass/fail and returns the 3DS metadata as flat fields.
+            // Client-side validate + charge (legacy, no persistent attempt).
             let validateRes: Awaited<ReturnType<typeof csPayerAuthValidate.mutateAsync>>;
             try {
               validateRes = await csPayerAuthValidate.mutateAsync({
@@ -4920,6 +5231,7 @@ function CheckoutForm() {
         <CyberSourceChallengeModal
           stepUpUrl={csChallengeProps.stepUpUrl}
           accessToken={csChallengeProps.accessToken}
+          expectedAttemptId={csPaymentAttemptIdRef.current}
           onComplete={(status) => {
             const resolver = csChallengeResolverRef.current;
             if (resolver) {

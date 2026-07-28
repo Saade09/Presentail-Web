@@ -124,6 +124,7 @@ const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
 const BestSellers = lazy(() => import("@/pages/BestSellers"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const CheckoutPaymentResume = lazy(() => import("@/pages/CheckoutPaymentResume"));
 
 const HomeRoute = withSuspense(Home, HomePageSkeleton);
 const ShopRoute = withSuspense(Shop, ShopPageSkeleton);
@@ -237,7 +238,11 @@ function ScrollToTop() {
 
 function ShopShell() {
   const [path] = useLocation();
-  const isCheckoutPage = path.endsWith("/checkout") || path.endsWith("/order-confirmed");
+  const isCheckoutPage =
+    path.endsWith("/checkout") ||
+    path.endsWith("/order-confirmed") ||
+    path.endsWith("/checkout/payment-resume") ||
+    path.includes("/checkout/payment-resume?");
   return (
     <LocationPickerGate>
       <ScrollToTop />
@@ -260,6 +265,13 @@ function ShopShell() {
             <Route path="/brand/:slug" component={BrandDetailRoute} />
             <Route path="/occasions" component={AllOccasionsRoute} />
             <Route path="/cart" component={CartRoute} />
+            <Route path="/checkout/payment-resume">
+              <CheckoutErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <CheckoutPaymentResume />
+                </Suspense>
+              </CheckoutErrorBoundary>
+            </Route>
             <Route path="/checkout">
               <CheckoutErrorBoundary>
                 <CheckoutRoute />

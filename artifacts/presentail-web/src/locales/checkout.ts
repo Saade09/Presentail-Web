@@ -254,6 +254,8 @@ export const checkoutStrings: Dict = {
   "checkout.toast.csChallengeCancelled": { en: "Card verification was cancelled", ar: "تم إلغاء التحقق من البطاقة" },
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth bank-decline path in Checkout.tsx
   "checkout.toast.csPayerAuthFailed": { en: "Your bank could not verify this payment", ar: "لم يتمكن بنكك من التحقق من هذه الدفعة" },
+  "checkout.finalizingOrder": { en: "Finalizing your order\u2026", ar: "\u062c\u0627\u0631\u064a \u0627\u0633\u062a\u0643\u0645\u0627\u0644 \u0637\u0644\u0628\u0643\u2026" },
+  "checkout.backToCheckout": { en: "Back to checkout", ar: "\u0627\u0644\u0639\u043e\u062f\u0629 \u0625\u0644\u0649 \u0627\u0644\u062f\u0641\u0639" },
   "checkout.cybersource.loading": { en: "Loading secure card form…", ar: "جارٍ تحميل نموذج الدفع الآمن…" },
   "checkout.cybersource.challengeTitle": { en: "Secure Verification", ar: "التحقق الآمن" },
 };
@@ -480,6 +482,8 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.csDeviceDataTimeout": "La vérification de la carte a expiré",
   "checkout.toast.csChallengeCancelled": "La vérification de la carte a été annulée",
   "checkout.toast.csPayerAuthFailed": "Votre banque n'a pas pu vérifier ce paiement",
+  "checkout.finalizingOrder": "Finalisation de votre commande\u2026",
+  "checkout.backToCheckout": "Retour au paiement",
   "checkout.cybersource.loading": "Chargement du formulaire de paiement sécurisé…",
   "checkout.cybersource.challengeTitle": "Vérification sécurisée",
 };
