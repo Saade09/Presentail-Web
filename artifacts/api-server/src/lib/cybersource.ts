@@ -37,7 +37,7 @@ export function isCybersourceConfigured(): boolean {
   );
 }
 
-function getCredentials(): {
+export function getCredentials(): {
   merchantId: string;
   apiKeyId: string;
   sharedSecretKey: string;
@@ -66,7 +66,7 @@ function getCredentials(): {
 //                 — v-c-date and Accept are NOT signed
 //   algorithm   = HmacSHA256
 //   secret      = BASE64-decoded shared secret key
-function buildHeaders(opts: {
+export function buildHeaders(opts: {
   method: string;
   path: string;
   body: string;

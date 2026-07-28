@@ -22,3 +22,8 @@ The step-up iframe form-POSTs the `returnUrl` when the issuer challenge ends. Po
 
 ## Enabling 3DS
 `/payment/cybersource/available` must expose `payerAuthEnabled` (frontend defaults false when absent). Flag on requires `CYBERSOURCE_PAYER_AUTH_ENABLED=true` + `CYBERSOURCE_PA_API_IDENTIFIER`/`API_KEY`/`ORG_UNIT_ID`; with the backend flag on but the field not exposed, every charge dies with `pa_required` — keep flag exposure and charge gating in lockstep.
+
+## PA REST API auth = HMAC Signature, NOT Basic auth
+The Payer Auth REST endpoints (`/risk/v1/authentication-setups`, `/risk/v1/authentications`, `/risk/v1/authentication-results`) use the **same HTTP Signature (HMAC-SHA256) as Payments** — `buildHeaders()` from `cybersource.ts`. The Cardinal/Cruise Control credentials (`CYBERSOURCE_PA_API_IDENTIFIER`, `CYBERSOURCE_PA_API_KEY`) are NOT used for server-side REST auth; they are merchant-configuration identifiers. `CYBERSOURCE_PA_ORG_UNIT_ID` IS passed as an extra `OrgUnitId` header on every PA REST call so CyberSource links the session to the correct Cardinal merchant account.
+**Why:** The original implementation used `Authorization: Basic <apiIdentifier:apiKey>` which caused 401s from CyberSource on every PA setup call — "Card verification could not be started".
+**How to apply:** Any new PA endpoint added to `cybersource-payer-auth.ts` must call `getCredentials()` + `buildHeaders()` for auth; never use Basic auth with PA credentials for REST calls.

@@ -16,7 +16,7 @@
 // getCybersourceBase() is used for the host so test/live switches are shared
 // with the main CyberSource REST credential helpers.
 
-import { getCybersourceBase } from "./cybersource";
+import { buildHeaders, getCybersourceBase, getCredentials } from "./cybersource";
 
 // ── PA credential helpers ────────────────────────────────────────────────────
 
@@ -42,16 +42,13 @@ function getPaCredentials(): { apiIdentifier: string; apiKey: string; orgUnitId:
   return { apiIdentifier, apiKey, orgUnitId };
 }
 
-function buildPaHeaders(credentials: { apiIdentifier: string; apiKey: string; orgUnitId: string }): Record<string, string> {
-  const { apiIdentifier, apiKey, orgUnitId } = credentials;
-  // Cruise Control JWT: HTTP Basic using API Identifier + API Key, Base64-encoded.
-  const encoded = Buffer.from(`${apiIdentifier}:${apiKey}`).toString("base64");
-  return {
-    "Content-Type": "application/json", // i18n-ignore
-    Accept: "application/json", // i18n-ignore
-    Authorization: `Basic ${encoded}`, // i18n-ignore
-    OrgUnitId: orgUnitId,
-  };
+// buildPaHeaders is no longer used for HTTP auth — the Payer Auth REST endpoints
+// (/risk/v1/authentication-setups, /risk/v1/authentications, /risk/v1/authentication-results)
+// require the same HTTP Signature (HMAC-SHA256) as the Payments API (buildHeaders).
+// The Cardinal Commerce OrgUnitId is added as an extra header on top so CyberSource
+// can link the session to the correct Cardinal merchant account.
+function getPaOrgUnitId(credentials: ReturnType<typeof getPaCredentials>): string {
+  return credentials.orgUnitId;
 }
 
 // ── Request/response types ───────────────────────────────────────────────────
@@ -149,18 +146,30 @@ export async function setupPayerAuth(opts: {
 
   const base = getCybersourceBase();
   const path = "/risk/v1/authentication-setups";
-  const headers = buildPaHeaders(credentials);
 
   const payload = {
     clientReferenceInformation: { code: orderId },
     tokenInformation: { transientToken: transientTokenJwt },
   };
 
+  // Payer Auth REST endpoints use HTTP Signature (same as Payments) — NOT Basic auth.
+  // OrgUnitId is added as an extra header so CyberSource links this session to the
+  // correct Cardinal Commerce merchant account.
+  let csCredentials: ReturnType<typeof getCredentials>;
+  try { csCredentials = getCredentials(); } catch (err: any) {
+    return { ok: false, code: "pa_setup_error", message: err?.message ?? "CS credentials not configured" }; // i18n-ignore
+  }
+  const body = JSON.stringify(payload);
+  const headers = {
+    ...buildHeaders({ method: "POST", path, body, ...csCredentials, accept: "application/hal+json;charset=utf-8" }),
+    OrgUnitId: getPaOrgUnitId(credentials),
+  };
+
   try {
     const res = await fetch(`${base}${path}`, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body,
     });
 
     const rawBody = await res.text();
@@ -214,7 +223,6 @@ export async function checkEnrollment(opts: {
 
   const base = getCybersourceBase();
   const path = "/risk/v1/authentications";
-  const headers = buildPaHeaders(credentials);
 
   const payload: Record<string, any> = {
     clientReferenceInformation: { code: orderId },
@@ -239,11 +247,21 @@ export async function checkEnrollment(opts: {
     },
   };
 
+  let csCredentials2: ReturnType<typeof getCredentials>;
+  try { csCredentials2 = getCredentials(); } catch (err: any) {
+    return { ok: false, code: "pa_enrollment_error", message: err?.message ?? "CS credentials not configured" }; // i18n-ignore
+  }
+  const enrollBody = JSON.stringify(payload);
+  const enrollHeaders = {
+    ...buildHeaders({ method: "POST", path, body: enrollBody, ...csCredentials2, accept: "application/hal+json;charset=utf-8" }),
+    OrgUnitId: getPaOrgUnitId(credentials),
+  };
+
   try {
     const res = await fetch(`${base}${path}`, {
       method: "POST",
-      headers,
-      body: JSON.stringify(payload),
+      headers: enrollHeaders,
+      body: enrollBody,
     });
 
     const rawBody = await res.text();
@@ -334,17 +352,26 @@ export async function validateAuthentication(opts: {
 
   const base = getCybersourceBase();
   const path = "/risk/v1/authentication-results";
-  const headers = buildPaHeaders(credentials);
 
   const payload = {
     consumerAuthenticationInformation: { authenticationTransactionId },
   };
 
+  let csCredentials3: ReturnType<typeof getCredentials>;
+  try { csCredentials3 = getCredentials(); } catch (err: any) {
+    return { ok: false, code: "pa_validation_error", message: err?.message ?? "CS credentials not configured" }; // i18n-ignore
+  }
+  const validateBody = JSON.stringify(payload);
+  const validateHeaders = {
+    ...buildHeaders({ method: "POST", path, body: validateBody, ...csCredentials3, accept: "application/hal+json;charset=utf-8" }),
+    OrgUnitId: getPaOrgUnitId(credentials),
+  };
+
   try {
     const res = await fetch(`${base}${path}`, {
       method: "POST",
-      headers,
-      body: JSON.stringify(payload),
+      headers: validateHeaders,
+      body: validateBody,
     });
 
     const rawBody = await res.text();
