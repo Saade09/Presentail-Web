@@ -2304,6 +2304,20 @@ paths:
                   environment:
                     type: string
                     enum: [test, live]
+                  payerAuthEnabled:
+                    type: boolean
+                    description: |
+                      True when the Payer Authentication (3DS) flow is enabled via
+                      CYBERSOURCE_PAYER_AUTH_ENABLED. Clients must treat an absent
+                      field as false.
+                  unifiedCheckoutEnabled:
+                    type: boolean
+                    description: |
+                      True when the Unified Checkout (v1) flow is enabled via
+                      CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED. The web checkout only
+                      renders the Unified Checkout widget when BOTH this flag and
+                      its own VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED flag are
+                      true. Clients must treat an absent field as false.
                 required: [available]
 
   /payment/cybersource/capture-context:
@@ -2368,6 +2382,193 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: CyberSource not configured on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /payment/cybersource/unified-checkout/session:
+    post:
+      operationId: createCybersourceUnifiedCheckoutSession
+      tags: [payment]
+      summary: Create a CyberSource Unified Checkout (v1) session
+      description: |
+        Resolves the cart total server-side and calls the CyberSource Unified
+        Checkout v1 Sessions API (POST /uc/v1/sessions) with
+        completeMandate { type: "CAPTURE", consumerAuthentication: "3DS" }.
+        The returned capture-context JWT initialises the Unified Checkout SDK
+        (VAS.UnifiedCheckout) in the browser, which performs 3DS consumer
+        authentication and the combined authorization+capture itself — none of
+        the /payer-auth/* endpoints are involved. Also returns the clientLibrary
+        URL and SRI integrity hash extracted from the JWT; per CyberSource docs
+        the SDK script URL must be taken from the session response, never
+        hardcoded. Responds 503 with code "unified_checkout_disabled" when
+        CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED is not "true" so the client can
+        fall back to the Microform path.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      wcId: { type: integer }
+                      osSlug: { type: string }
+                      quantity: { type: integer }
+                    required: [wcId, quantity]
+                district: { type: string }
+                expressDelivery: { type: boolean }
+                noAddress: { type: boolean }
+                deliverySlot: { type: string }
+                deliverySlotId: { type: string }
+                cityId: { type: string }
+                deliveryDate: { type: string }
+                targetOrigin: { type: string }
+                billingDetails:
+                  type: object
+                  properties:
+                    firstName: { type: string }
+                    lastName: { type: string }
+                    email: { type: string }
+                    phone: { type: string }
+                paymentAttemptId:
+                  type: string
+                  description: Client-generated attempt UUID, logged for cross-stage correlation
+              required: [orderId, items]
+      responses:
+        "200":
+          description: Unified Checkout session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  captureContext:
+                    type: string
+                    description: Unified Checkout session JWT for VAS.UnifiedCheckout()
+                  clientLibrary:
+                    type: string
+                    description: Versioned SDK script URL extracted from the session JWT
+                  clientLibraryIntegrity:
+                    type: string
+                    description: SRI integrity hash for the clientLibrary script
+                  totalUsd: { type: number }
+                  environment:
+                    type: string
+                    enum: [test, live]
+                  merchantId: { type: string }
+                required: [ok]
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: CyberSource not configured or Unified Checkout disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /payment/cybersource/unified-checkout/complete:
+    post:
+      operationId: completeCybersourceUnifiedCheckout
+      tags: [payment]
+      summary: Validate a Unified Checkout payment result and bind the payment intent
+      description: |
+        Accepts the completed payment result produced by the Unified Checkout
+        SDK (checkout.mount() with autoProcessing). The client-posted result is
+        treated as an untrusted hint: it must first pass the strict gate
+        (approved === true, non-empty CyberSource requestId, payment status in
+        the approved allowlist — AUTHORIZED, PARTIAL_AUTHORIZED,
+        AUTHORIZED_PENDING_REVIEW, PENDING_REVIEW), and the server then
+        independently confirms the transaction with CyberSource's Transaction
+        Details API (GET /tss/v2/transactions/{requestId}) — verifying approved
+        auth evidence and that the captured amount/currency match the
+        server-recomputed cart total. Fail closed: a declined/unknown
+        transaction responds 402 (verification_failed), an amount/currency
+        divergence responds 409 (amount_changed), and an unreachable
+        CyberSource responds 502 (verification_unavailable) — in every case
+        nothing is stored and the order stays unpaid. Only after provider
+        verification succeeds does the server store safe auth metadata
+        alongside the payment intent and return the "cybs:{requestId}"
+        paymentRef used to finalize the order via POST /woo/order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId: { type: string }
+                paymentAttemptId: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      wcId: { type: integer }
+                      osSlug: { type: string }
+                      quantity: { type: integer }
+                    required: [wcId, quantity]
+                district: { type: string }
+                expressDelivery: { type: boolean }
+                noAddress: { type: boolean }
+                deliverySlot: { type: string }
+                deliverySlotId: { type: string }
+                cityId: { type: string }
+                deliveryDate: { type: string }
+                result:
+                  type: object
+                  description: Payment result extracted from the Unified Checkout SDK
+                  properties:
+                    approved: { type: boolean }
+                    requestId: { type: string }
+                    status: { type: string }
+                    authenticationStatus: { type: string }
+                    ecommerceIndicator: { type: string }
+                    cavvPresent: { type: boolean }
+                    directoryServerTransactionId: { type: string }
+                    specificationVersion: { type: string }
+                    challengeRequired: { type: boolean }
+                    paymentResultJwt:
+                      type: string
+                      description: Raw completed-payment-result JWT from checkout.mount()
+              required: [orderId, items, result]
+      responses:
+        "200":
+          description: Payment accepted and intent stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  paymentRef: { type: string }
+                required: [ok]
+        "402":
+          description: Result not approved (payment_not_approved) or contradicted by the result JWT (result_mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Cart total changed since the session was created (amount_changed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: CyberSource not configured or Unified Checkout disabled
           content:
             application/json:
               schema:

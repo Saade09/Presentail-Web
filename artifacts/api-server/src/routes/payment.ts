@@ -977,6 +977,10 @@ import {
   isCybersourceConfigured,
   generateCaptureContext,
   authorizeAndCapture,
+  isUnifiedCheckoutEnabled,
+  generateUnifiedCheckoutSession,
+  isApprovedPaymentStatus,
+  verifyUnifiedCheckoutPayment,
   type PayerAuthenticationData,
 } from "../lib/cybersource";
 import { pickClientIp, lookupCountryFromIp } from "../lib/geoCurrency";
@@ -1068,9 +1072,13 @@ function extractClientLibraryInfo(jwt: string): {
   try {
     const payload = decodeJwtPayload(jwt) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     const ctx = Array.isArray(payload?.ctx) ? payload.ctx[0]?.data : undefined;
+    // Microform v2 and Unified Checkout v0 JWTs carry the SDK URL under
+    // ctx[0].data; tolerate a flat data block too (observed in UC v1 docs'
+    // session-response examples) so the extractor works for both shapes.
+    const flat = payload?.data && typeof payload.data === "object" ? payload.data : undefined;
     return {
-      clientLibrary: ctx?.clientLibrary ?? undefined,
-      clientLibraryIntegrity: ctx?.clientLibraryIntegrity ?? undefined,
+      clientLibrary: ctx?.clientLibrary ?? flat?.clientLibrary ?? undefined,
+      clientLibraryIntegrity: ctx?.clientLibraryIntegrity ?? flat?.clientLibraryIntegrity ?? undefined,
     };
   } catch {
     return {};
@@ -1145,6 +1153,11 @@ router.get("/payment/cybersource/available", (_req, res) => {
     // credentials are missing or CYBERSOURCE_PAYER_AUTH_ENABLED !== "true" —
     // the frontend must treat an absent field as false (older cached shapes).
     payerAuthEnabled: available ? isPayerAuthEnabled() : false,
+    // Unified Checkout (v1) flag. The web checkout only renders the UC widget
+    // when BOTH this server flag and its own VITE_ flag are true — keeping the
+    // two sides in lockstep so a half-enabled rollout can never strand the
+    // shopper without a working card form.
+    unifiedCheckoutEnabled: available ? isUnifiedCheckoutEnabled() : false,
   });
 });
 
@@ -1569,6 +1582,558 @@ router.post("/payment/cybersource/charge", async (req, res) => {
       totalUsd,
     },
     "CyberSource charge succeeded",
+  );
+
+  return res.json({ ok: true, paymentRef });
+});
+
+// ── Unified Checkout (v1) routes ─────────────────────────────────────────────
+// CyberSource-mandated migration for the LB+USD web card flow (task: replace
+// Microform v2 + manual Payer Auth with Unified Checkout + 3DS). Two routes:
+//
+//   POST /payment/cybersource/unified-checkout/session — resolves the
+//       server-side cart total and creates a UC v1 session (capture context)
+//       whose completeMandate { type: "CAPTURE", consumerAuthentication: "3DS" }
+//       makes the UC SDK run 3DS and the authorization+capture itself in the
+//       browser (autoProcessing). None of the /payer-auth/* endpoints are
+//       involved in this flow.
+//
+//   POST /payment/cybersource/unified-checkout/complete — accepts the UC
+//       payment result, enforces the strict paid gate (approved === true +
+//       non-empty requestId + explicitly approved status), re-verifies the
+//       server-side total against the session, and binds
+//       orderId↔"cybs:{requestId}" via storePaymentIntent so /woo/order can
+//       finalize the order. Any other outcome leaves the order unpaid.
+//
+// Pending-session records (orderId → session total) let the complete step
+// verify the amount UC actually charged still matches the submitted cart.
+type UcPendingSession = {
+  totalUsd: number;
+  paymentAttemptId?: string;
+  createdAt: number;
+};
+const ucPendingSessions = new Map<string, UcPendingSession>(); // keyed by orderId
+const UC_SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours — outlives any realistic checkout dwell
+function sweepUcPendingSessions(): void {
+  const now = Date.now();
+  for (const [key, rec] of ucPendingSessions) {
+    if (now - rec.createdAt > UC_SESSION_TTL_MS) ucPendingSessions.delete(key);
+  }
+}
+
+// Server-side fee/total computation shared by the two UC routes — identical
+// rules to the Microform capture-context/charge routes (OS city-level config
+// preferred, district fallback), so a UC-charged total always matches what
+// wooOrders.ts will record at order creation.
+function computeUcServerTotals(args: {
+  subtotalUsd: number;
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+}): {
+  totalUsd: number;
+  districtFeeUsd: number;
+  expressFeeUsd: number;
+  slotFeeUsd: number;
+  resolvedDistrict: string;
+  isExpress: boolean;
+  isNoAddress: boolean;
+} {
+  const resolvedDistrict = args.district ?? "Beirut"; // i18n-ignore
+  const isExpress = args.expressDelivery === true;
+  const isNoAddress = args.noAddress === true;
+  const subtotalUsd = args.subtotalUsd;
+  const ucCountry = countryForDistrict(resolvedDistrict);
+  const ucOsConfig = args.cityId ? resolveOsDeliveryConfig(ucCountry, args.cityId) : null;
+  const districtFeeUsd = (() => {
+    if (!isNoAddress && ucOsConfig && typeof ucOsConfig.cityFeeUsd === "number") {
+      const isFreeByOs =
+        ucOsConfig.freeDeliveryEnabled === true &&
+        typeof ucOsConfig.freeDeliveryThresholdUsd === "number" &&
+        subtotalUsd >= ucOsConfig.freeDeliveryThresholdUsd;
+      return isFreeByOs ? 0 : ucOsConfig.cityFeeUsd;
+    }
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  })();
+  const expressFeeUsd = isExpress
+    ? (ucOsConfig && ucOsConfig.expressSurchargeUsd > 0
+        ? ucOsConfig.expressSurchargeUsd
+        : expressSurchargeUsd(ucCountry))
+    : 0;
+  const slotFeeUsd = computeSlotFeeUsd({
+    expressDelivery: isExpress,
+    deliverySlot: args.deliverySlot,
+    deliverySlotId: args.deliverySlotId,
+    cityId: args.cityId,
+    deliveryDate: args.deliveryDate,
+    district: resolvedDistrict,
+  });
+  return {
+    totalUsd: subtotalUsd + districtFeeUsd + expressFeeUsd + slotFeeUsd,
+    districtFeeUsd,
+    expressFeeUsd,
+    slotFeeUsd,
+    resolvedDistrict,
+    isExpress,
+    isNoAddress,
+  };
+}
+
+router.post("/payment/cybersource/unified-checkout/session", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+  if (!isUnifiedCheckoutEnabled()) {
+    // Distinct code so the frontend can silently fall back to the Microform
+    // path when the server-side flag is off (rollback safety).
+    return res.status(503).json({ ok: false, code: "unified_checkout_disabled", message: "Unified Checkout is not enabled." }); // i18n-ignore
+  }
+
+  const {
+    items,
+    orderId,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    targetOrigin: bodyOrigin,
+    billingDetails: rawBilling,
+    paymentAttemptId,
+  } = req.body as {
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    orderId?: string;
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
+    targetOrigin?: string;
+    billingDetails?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+    };
+    /** Client-generated attempt UUID — logged for cross-stage correlation. */
+    paymentAttemptId?: string;
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (store.storeKey !== "lebanon") {
+    return res.status(400).json({ ok: false, message: "CyberSource is only available for the Lebanon storefront." }); // i18n-ignore
+  }
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const totals = computeUcServerTotals({
+    subtotalUsd: catalogResult.subtotalUsd,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+  });
+  const totalAmount = totals.totalUsd.toFixed(2);
+  const targetOrigins = resolveTargetOrigins(bodyOrigin);
+
+  const result = await generateUnifiedCheckoutSession({
+    targetOrigins,
+    totalAmount,
+    currency: "USD", // i18n-ignore
+    orderId,
+    billingDetails: rawBilling,
+  });
+
+  if (!result.ok) {
+    req.log.warn(
+      {
+        PAYMENT_DIAG: true,
+        stage: "unified_checkout_session",
+        orderId,
+        paymentAttemptId,
+        merchantId: getCybersourceMerchantId(),
+        environment: getCybersourceEnvironment(),
+        reason: "session_failed",
+        message: result.message,
+        diag: (result as any).diag, // eslint-disable-line @typescript-eslint/no-explicit-any
+      },
+      "CyberSource Unified Checkout session failed",
+    );
+    return res.status(502).json({ ok: false, code: "cybersource_error", message: result.message });
+  }
+
+  // Record the session total so /unified-checkout/complete can verify the
+  // amount UC charged still matches the cart being finalized.
+  sweepUcPendingSessions();
+  ucPendingSessions.set(orderId, {
+    totalUsd: totals.totalUsd,
+    paymentAttemptId,
+    createdAt: Date.now(),
+  });
+
+  const environment = getCybersourceEnvironment();
+  const { clientLibrary, clientLibraryIntegrity } = extractClientLibraryInfo(result.sessionJwt);
+
+  req.log.info(
+    {
+      PAYMENT_DIAG: true,
+      stage: "unified_checkout_session",
+      orderId,
+      paymentAttemptId,
+      merchantId: getCybersourceMerchantId(),
+      environment,
+      totalUsd: totals.totalUsd,
+      clientLibrary,
+      hasIntegrity: Boolean(clientLibraryIntegrity),
+    },
+    "CyberSource Unified Checkout session created",
+  );
+
+  return res.json({
+    ok: true,
+    captureContext: result.sessionJwt,
+    clientLibrary,
+    clientLibraryIntegrity,
+    totalUsd: totals.totalUsd,
+    environment,
+    merchantId: getCybersourceMerchantId(),
+  });
+});
+
+router.post("/payment/cybersource/unified-checkout/complete", async (req, res) => {
+  if (!isCybersourceConfigured()) {
+    return res.status(503).json({ ok: false, message: "CyberSource not configured." }); // i18n-ignore
+  }
+  if (!isUnifiedCheckoutEnabled()) {
+    return res.status(503).json({ ok: false, code: "unified_checkout_disabled", message: "Unified Checkout is not enabled." }); // i18n-ignore
+  }
+
+  const {
+    orderId,
+    paymentAttemptId,
+    items,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+    result: ucResult,
+  } = req.body as {
+    orderId?: string;
+    paymentAttemptId?: string;
+    items: { wcId: number; osSlug?: string; quantity: number }[];
+    district?: string;
+    expressDelivery?: boolean;
+    noAddress?: boolean;
+    deliverySlot?: string;
+    deliverySlotId?: string;
+    cityId?: string;
+    deliveryDate?: string;
+    result?: {
+      approved?: boolean;
+      requestId?: string;
+      status?: string;
+      authenticationStatus?: string;
+      ecommerceIndicator?: string;
+      cavvPresent?: boolean;
+      directoryServerTransactionId?: string;
+      specificationVersion?: string;
+      challengeRequired?: boolean;
+      /** Raw completed-payment-result JWT returned by checkout.mount(). */
+      paymentResultJwt?: string;
+    };
+  };
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (store.storeKey !== "lebanon") {
+    return res.status(400).json({ ok: false, message: "CyberSource is only available for the Lebanon storefront." }); // i18n-ignore
+  }
+
+  // ── Strict paid gate ───────────────────────────────────────────────────────
+  // A UC result may ONLY be treated as paid when ALL of:
+  //   1. approved === true
+  //   2. a non-empty CyberSource requestId
+  //   3. an explicitly approved payment status (same allowlist as the charge
+  //      path — AUTHORIZED_RISK_DECLINED and DECLINED are never paid).
+  // Anything else (failure, cancellation, missing fields) leaves the order
+  // unpaid — no payment intent is stored, so /woo/order will reject it.
+  const requestId =
+    typeof ucResult?.requestId === "string" && ucResult.requestId.trim() !== ""
+      ? ucResult.requestId.trim()
+      : undefined;
+  const paymentStatus = typeof ucResult?.status === "string" ? ucResult.status : undefined;
+  const approved = ucResult?.approved === true;
+
+  if (!approved || !requestId || !paymentStatus || !isApprovedPaymentStatus(paymentStatus)) {
+    req.log.warn(
+      {
+        PAYMENT_DIAG: true,
+        stage: "unified_checkout_complete",
+        orderId,
+        paymentAttemptId,
+        merchantId: getCybersourceMerchantId(),
+        environment: getCybersourceEnvironment(),
+        approved,
+        hasRequestId: Boolean(requestId),
+        status: paymentStatus ?? "missing", // i18n-ignore
+        challengeRequired: ucResult?.challengeRequired,
+        authenticationStatus: ucResult?.authenticationStatus,
+        reason: "paid_gate_rejected",
+      },
+      "CyberSource Unified Checkout complete rejected: result not approved",
+    );
+    return res.status(402).json({
+      ok: false,
+      code: "payment_not_approved",
+      message: "Payment was not approved. The order has not been placed.", // i18n-ignore
+    });
+  }
+
+  // ── Result-JWT cross-check ─────────────────────────────────────────────────
+  // When the client posts the raw completed-payment-result JWT, decode it and
+  // reject if its embedded id/status contradicts the flat fields. (Decode
+  // failure is tolerated — the strict gate above remains authoritative — but a
+  // successful decode that disagrees is always a hard reject.)
+  if (typeof ucResult?.paymentResultJwt === "string" && ucResult.paymentResultJwt.split(".").length === 3) {
+    try {
+      const decoded = decodeJwtPayload(ucResult.paymentResultJwt) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const pickString = (...candidates: unknown[]): string | undefined => {
+        for (const c of candidates) {
+          if (typeof c === "string" && c.trim() !== "") return c.trim();
+        }
+        return undefined;
+      };
+      const decodedId = pickString(
+        decoded?.id,
+        decoded?.data?.id,
+        decoded?.ctx?.[0]?.data?.id,
+        decoded?.paymentResponse?.id,
+        decoded?.data?.paymentResponse?.id,
+      );
+      const decodedStatus = pickString(
+        decoded?.status,
+        decoded?.data?.status,
+        decoded?.ctx?.[0]?.data?.status,
+        decoded?.paymentResponse?.status,
+        decoded?.data?.paymentResponse?.status,
+      );
+      if ((decodedId && decodedId !== requestId) || (decodedStatus && decodedStatus !== paymentStatus)) {
+        req.log.warn(
+          {
+            PAYMENT_DIAG: true,
+            stage: "unified_checkout_complete",
+            orderId,
+            paymentAttemptId,
+            postedRequestId: requestId,
+            decodedRequestId: decodedId,
+            postedStatus: paymentStatus,
+            decodedStatus,
+            reason: "result_jwt_mismatch",
+          },
+          "CyberSource Unified Checkout complete rejected: result JWT contradicts posted fields",
+        );
+        return res.status(402).json({
+          ok: false,
+          code: "result_mismatch",
+          message: "Payment result could not be verified. The order has not been placed.", // i18n-ignore
+        });
+      }
+    } catch {
+      req.log.info(
+        { PAYMENT_DIAG: true, stage: "unified_checkout_complete", orderId, paymentAttemptId, reason: "result_jwt_undecodable" },
+        "CyberSource Unified Checkout result JWT could not be decoded — proceeding on flat-field gate",
+      );
+    }
+  }
+
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
+  }
+
+  const totals = computeUcServerTotals({
+    subtotalUsd: catalogResult.subtotalUsd,
+    district,
+    expressDelivery,
+    noAddress,
+    deliverySlot: rawDeliverySlot,
+    deliverySlotId: rawDeliverySlotId,
+    cityId: rawCityId,
+    deliveryDate: rawDeliveryDate,
+  });
+
+  // ── Amount verification ────────────────────────────────────────────────────
+  // UC charged the amount baked into the session. If the recomputed cart total
+  // no longer matches the session total, the cart changed after the session
+  // was created — refuse to finalize at a different amount.
+  const pending = ucPendingSessions.get(orderId);
+  if (pending && Math.abs(pending.totalUsd - totals.totalUsd) > 0.005) {
+    req.log.warn(
+      {
+        PAYMENT_DIAG: true,
+        stage: "unified_checkout_complete",
+        orderId,
+        paymentAttemptId,
+        sessionTotalUsd: pending.totalUsd,
+        recomputedTotalUsd: totals.totalUsd,
+        reason: "amount_changed",
+      },
+      "CyberSource Unified Checkout complete rejected: cart total changed since session creation",
+    );
+    return res.status(409).json({
+      ok: false,
+      code: "amount_changed",
+      message: "The cart total changed after payment started. Please contact support before retrying.", // i18n-ignore
+    });
+  }
+  if (!pending) {
+    // Server restarted (or session expired) between session creation and
+    // completion. This is tolerated ONLY because the provider verification
+    // below independently confirms status + amount with CyberSource itself —
+    // a missing pending record never bypasses that gate.
+    req.log.warn(
+      { PAYMENT_DIAG: true, stage: "unified_checkout_complete", orderId, paymentAttemptId, reason: "pending_session_missing" },
+      "CyberSource Unified Checkout complete: no pending session record (restart/expiry) — deferring to provider verification",
+    );
+  }
+
+  // ── Server-authoritative provider verification ─────────────────────────────
+  // Everything the client posted so far (approved flag, requestId, status —
+  // even the result JWT, which we only payload-decode) is UNTRUSTED input.
+  // The only thing that can mark this order paid is CyberSource itself:
+  // confirm the transaction via the Transaction Details API and match its
+  // captured amount against the server-recomputed total. Fail closed — any
+  // lookup failure leaves the order unpaid.
+  const verification = await verifyUnifiedCheckoutPayment({
+    requestId,
+    expectedTotalUsd: totals.totalUsd,
+  });
+  if (!verification.ok) {
+    req.log.warn(
+      {
+        PAYMENT_DIAG: true,
+        stage: "unified_checkout_complete",
+        orderId,
+        paymentAttemptId,
+        requestId,
+        verificationCode: verification.code,
+        verificationMessage: verification.message,
+      },
+      "CyberSource Unified Checkout complete rejected: provider verification failed",
+    );
+    if (verification.code === "amount_mismatch") {
+      return res.status(409).json({
+        ok: false,
+        code: "amount_changed",
+        message: "The captured amount does not match the order total. Please contact support.", // i18n-ignore
+      });
+    }
+    if (verification.code === "not_approved" || verification.code === "not_found") {
+      return res.status(402).json({
+        ok: false,
+        code: "verification_failed",
+        message: "CyberSource did not confirm this payment as approved.", // i18n-ignore
+      });
+    }
+    return res.status(502).json({
+      ok: false,
+      code: "verification_unavailable",
+      message: "Could not verify the payment with CyberSource. The order was not finalised — please try again or contact support.", // i18n-ignore
+    });
+  }
+
+  const paymentRef = `cybs:${requestId}`;
+
+  // Safe auth metadata stored alongside the order's payment-intent record —
+  // never card data, never the raw JWT.
+  const paymentMeta = {
+    unifiedCheckoutUsed: true,
+    consumerAuthenticationRequested: "3DS", // i18n-ignore
+    paymentAttemptId,
+    authenticationStatus: ucResult?.authenticationStatus,
+    ecommerceIndicator: ucResult?.ecommerceIndicator,
+    cavvPresent: ucResult?.cavvPresent,
+    directoryServerTransactionId: ucResult?.directoryServerTransactionId,
+    specificationVersion: ucResult?.specificationVersion,
+    challengeRequired: ucResult?.challengeRequired,
+    cybersourceRequestId: requestId,
+    paymentStatus,
+    // Provider-confirmed fields (Transaction Details API) — the authoritative
+    // record of what CyberSource actually reported, independent of the client.
+    serverVerified: true,
+    verifiedPaymentStatus: verification.status,
+    verifiedAmountUsd: verification.totalAmount,
+  };
+
+  // Bind orderId↔paymentRef before returning so /woo/order can verify cart
+  // snapshot and reject any replay or cart substitution.
+  storePaymentIntent({
+    orderId,
+    paymentRef,
+    provider: "cybersource",
+    currency: "USD", // i18n-ignore
+    totalUsd: totals.totalUsd,
+    snapshot: {
+      items: catalogResult.items.map((i) => ({
+        wcId: i.wcId,
+        osSlug: i.osSlug,
+        quantity: i.quantity,
+        priceUsd: i.priceUsd,
+      })),
+      district: totals.resolvedDistrict,
+      expressDelivery: totals.isExpress,
+      noAddress: totals.isNoAddress,
+      deliverySlot: rawDeliverySlot ?? "",
+      districtFeeUsd: totals.districtFeeUsd,
+      expressFeeUsd: totals.expressFeeUsd,
+      slotFeeUsd: totals.slotFeeUsd,
+    },
+    paymentMeta,
+  });
+  ucPendingSessions.delete(orderId);
+
+  req.log.info(
+    {
+      PAYMENT_DIAG: true,
+      stage: "unified_checkout_complete",
+      orderId,
+      merchantId: getCybersourceMerchantId(),
+      environment: getCybersourceEnvironment(),
+      paymentRef,
+      totalUsd: totals.totalUsd,
+      ...paymentMeta,
+    },
+    "CyberSource Unified Checkout payment accepted",
   );
 
   return res.json({ ok: true, paymentRef });

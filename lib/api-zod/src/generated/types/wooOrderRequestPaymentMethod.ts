@@ -12,6 +12,8 @@ export type WooOrderRequestPaymentMethod =
 export const WooOrderRequestPaymentMethod = {
   card: "card",
   wallet: "wallet",
+  apple_pay: "apple_pay",
+  google_pay: "google_pay",
   whish: "whish",
   western: "western",
   mamo: "mamo",

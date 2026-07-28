@@ -12,10 +12,4 @@ export type CreateCybersourceCaptureContext200 = {
   captureContext?: string;
   totalUsd?: number;
   environment?: CreateCybersourceCaptureContext200Environment;
-  merchantId?: string;
-  googlePayMerchantId?: string;
-  applePayEnabled?: boolean;
-  googlePayEnabled?: boolean;
-  clientLibrary?: string;
-  clientLibraryIntegrity?: string;
 };

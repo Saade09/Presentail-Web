@@ -39,8 +39,8 @@ configured threshold.
 
 `payment_wallet_opened` is emitted when the native wallet sheet
 (Apple Pay / Google Pay) successfully opens on web or mobile. The
-`action` field carries `apple_pay` or `google_pay` on mobile and
-`wallet` on web (browser determines which wallet is active).
+`action` field carries `apple_pay` or `google_pay` on both web
+and mobile (determined by the browser / platform at confirmation time).
 
 `payment_wallet_fallback` is emitted when the wallet sheet could
 not be opened and the checkout silently falls back to the card

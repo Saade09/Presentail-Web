@@ -247,8 +247,8 @@ configured threshold.
 
 `payment_wallet_opened` is emitted when the native wallet sheet
 (Apple Pay / Google Pay) successfully opens on web or mobile. The
-`action` field carries `apple_pay` or `google_pay` on mobile and
-`wallet` on web (browser determines which wallet is active).
+`action` field carries `apple_pay` or `google_pay` on both web
+and mobile (determined by the browser / platform at confirmation time).
 
 `payment_wallet_fallback` is emitted when the wallet sheet could
 not be opened and the checkout silently falls back to the card
@@ -1432,6 +1432,8 @@ export type WooOrderRequestPaymentMethod =
 export const WooOrderRequestPaymentMethod = {
   card: "card",
   wallet: "wallet",
+  apple_pay: "apple_pay",
+  google_pay: "google_pay",
   whish: "whish",
   western: "western",
   mamo: "mamo",
@@ -2381,6 +2383,18 @@ export type GetCybersourceAvailable200 = {
   /** CyberSource merchant ID (public, safe for browser use) */
   merchantId?: string;
   environment?: GetCybersourceAvailable200Environment;
+  /** True when the Payer Authentication (3DS) flow is enabled via
+CYBERSOURCE_PAYER_AUTH_ENABLED. Clients must treat an absent
+field as false.
+ */
+  payerAuthEnabled?: boolean;
+  /** True when the Unified Checkout (v1) flow is enabled via
+CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED. The web checkout only
+renders the Unified Checkout widget when BOTH this flag and
+its own VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED flag are
+true. Clients must treat an absent field as false.
+ */
+  unifiedCheckoutEnabled?: boolean;
 };
 
 export type CreateCybersourceCaptureContextBodyItemsItem = {
@@ -2415,12 +2429,99 @@ export type CreateCybersourceCaptureContext200 = {
   captureContext?: string;
   totalUsd?: number;
   environment?: CreateCybersourceCaptureContext200Environment;
-  merchantId?: string;
-  googlePayMerchantId?: string;
-  applePayEnabled?: boolean;
-  googlePayEnabled?: boolean;
+};
+
+export type CreateCybersourceUnifiedCheckoutSessionBodyItemsItem = {
+  wcId: number;
+  osSlug?: string;
+  quantity: number;
+};
+
+export type CreateCybersourceUnifiedCheckoutSessionBodyBillingDetails = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+};
+
+export type CreateCybersourceUnifiedCheckoutSessionBody = {
+  orderId: string;
+  items: CreateCybersourceUnifiedCheckoutSessionBodyItemsItem[];
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+  targetOrigin?: string;
+  billingDetails?: CreateCybersourceUnifiedCheckoutSessionBodyBillingDetails;
+  /** Client-generated attempt UUID, logged for cross-stage correlation */
+  paymentAttemptId?: string;
+};
+
+export type CreateCybersourceUnifiedCheckoutSession200Environment =
+  (typeof CreateCybersourceUnifiedCheckoutSession200Environment)[keyof typeof CreateCybersourceUnifiedCheckoutSession200Environment];
+
+export const CreateCybersourceUnifiedCheckoutSession200Environment = {
+  test: "test",
+  live: "live",
+} as const;
+
+export type CreateCybersourceUnifiedCheckoutSession200 = {
+  ok: boolean;
+  /** Unified Checkout session JWT for VAS.UnifiedCheckout() */
+  captureContext?: string;
+  /** Versioned SDK script URL extracted from the session JWT */
   clientLibrary?: string;
+  /** SRI integrity hash for the clientLibrary script */
   clientLibraryIntegrity?: string;
+  totalUsd?: number;
+  environment?: CreateCybersourceUnifiedCheckoutSession200Environment;
+  merchantId?: string;
+};
+
+export type CompleteCybersourceUnifiedCheckoutBodyItemsItem = {
+  wcId: number;
+  osSlug?: string;
+  quantity: number;
+};
+
+/**
+ * Payment result extracted from the Unified Checkout SDK
+ */
+export type CompleteCybersourceUnifiedCheckoutBodyResult = {
+  approved?: boolean;
+  requestId?: string;
+  status?: string;
+  authenticationStatus?: string;
+  ecommerceIndicator?: string;
+  cavvPresent?: boolean;
+  directoryServerTransactionId?: string;
+  specificationVersion?: string;
+  challengeRequired?: boolean;
+  /** Raw completed-payment-result JWT from checkout.mount() */
+  paymentResultJwt?: string;
+};
+
+export type CompleteCybersourceUnifiedCheckoutBody = {
+  orderId: string;
+  paymentAttemptId?: string;
+  items: CompleteCybersourceUnifiedCheckoutBodyItemsItem[];
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  cityId?: string;
+  deliveryDate?: string;
+  /** Payment result extracted from the Unified Checkout SDK */
+  result: CompleteCybersourceUnifiedCheckoutBodyResult;
+};
+
+export type CompleteCybersourceUnifiedCheckout200 = {
+  ok: boolean;
+  paymentRef?: string;
 };
 
 export type CreateCybersourceChargeBodyItemsItem = {

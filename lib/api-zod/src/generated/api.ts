@@ -831,7 +831,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "product_lifecycle_410",
     ])
     .describe(
-      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n\n`payment_wallet_opened` is emitted when the native wallet sheet\n(Apple Pay \/ Google Pay) successfully opens on web or mobile. The\n`action` field carries `apple_pay` or `google_pay` on mobile and\n`wallet` on web (browser determines which wallet is active).\n\n`payment_wallet_fallback` is emitted when the wallet sheet could\nnot be opened and the checkout silently falls back to the card\nform. The `errorCode` field carries the reason:\n`constructor_failed` (web — PaymentRequest constructor threw),\n`show_failed` (web — pr.show() threw synchronously), or\n`not_available` (mobile — isPlatformPaySupported returned false).\n\n`product_lifecycle_410` is recorded by `serve.mjs` whenever a\nproduct URL returns HTTP 410 Gone because the product slug is\nabsent from `scripts\/productRedirects.mjs` (product discontinued\nwith no redirect entry). The `productId` field carries the slug.\nThe server-side `productLifecycle410Monitor` queries these events\ndaily and fires a Slack alert listing all affected slugs so ops\ncan add redirect entries before link equity is permanently lost.\n",
+      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n\n`payment_wallet_opened` is emitted when the native wallet sheet\n(Apple Pay \/ Google Pay) successfully opens on web or mobile. The\n`action` field carries `apple_pay` or `google_pay` on both web\nand mobile (determined by the browser \/ platform at confirmation time).\n\n`payment_wallet_fallback` is emitted when the wallet sheet could\nnot be opened and the checkout silently falls back to the card\nform. The `errorCode` field carries the reason:\n`constructor_failed` (web — PaymentRequest constructor threw),\n`show_failed` (web — pr.show() threw synchronously), or\n`not_available` (mobile — isPlatformPaySupported returned false).\n\n`product_lifecycle_410` is recorded by `serve.mjs` whenever a\nproduct URL returns HTTP 410 Gone because the product slug is\nabsent from `scripts\/productRedirects.mjs` (product discontinued\nwith no redirect entry). The `productId` field carries the slug.\nThe server-side `productLifecycle410Monitor` queries these events\ndaily and fires a Slack alert listing all affected slugs so ops\ncan add redirect entries before link equity is permanently lost.\n",
     ),
   surface: zod
     .enum([
@@ -2678,6 +2678,8 @@ export const CreateWooOrderBody = zod
     paymentMethod: zod.enum([
       "card",
       "wallet",
+      "apple_pay",
+      "google_pay",
       "whish",
       "western",
       "mamo",
@@ -3360,6 +3362,18 @@ export const GetCybersourceAvailableResponse = zod.object({
     .optional()
     .describe("CyberSource merchant ID (public, safe for browser use)"),
   environment: zod.enum(["test", "live"]).optional(),
+  payerAuthEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the Payer Authentication (3DS) flow is enabled via\nCYBERSOURCE_PAYER_AUTH_ENABLED. Clients must treat an absent\nfield as false.\n",
+    ),
+  unifiedCheckoutEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the Unified Checkout (v1) flow is enabled via\nCYBERSOURCE_UNIFIED_CHECKOUT_ENABLED. The web checkout only\nrenders the Unified Checkout widget when BOTH this flag and\nits own VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED flag are\ntrue. Clients must treat an absent field as false.\n",
+    ),
 });
 
 /**
@@ -3396,6 +3410,136 @@ export const CreateCybersourceCaptureContextResponse = zod.object({
   captureContext: zod.string().optional(),
   totalUsd: zod.number().optional(),
   environment: zod.enum(["test", "live"]).optional(),
+});
+
+/**
+ * Resolves the cart total server-side and calls the CyberSource Unified
+Checkout v1 Sessions API (POST /uc/v1/sessions) with
+completeMandate { type: "CAPTURE", consumerAuthentication: "3DS" }.
+The returned capture-context JWT initialises the Unified Checkout SDK
+(VAS.UnifiedCheckout) in the browser, which performs 3DS consumer
+authentication and the combined authorization+capture itself — none of
+the /payer-auth/* endpoints are involved. Also returns the clientLibrary
+URL and SRI integrity hash extracted from the JWT; per CyberSource docs
+the SDK script URL must be taken from the session response, never
+hardcoded. Responds 503 with code "unified_checkout_disabled" when
+CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED is not "true" so the client can
+fall back to the Microform path.
+
+ * @summary Create a CyberSource Unified Checkout (v1) session
+ */
+export const CreateCybersourceUnifiedCheckoutSessionBody = zod.object({
+  orderId: zod.string(),
+  items: zod.array(
+    zod.object({
+      wcId: zod.number(),
+      osSlug: zod.string().optional(),
+      quantity: zod.number(),
+    }),
+  ),
+  district: zod.string().optional(),
+  expressDelivery: zod.boolean().optional(),
+  noAddress: zod.boolean().optional(),
+  deliverySlot: zod.string().optional(),
+  deliverySlotId: zod.string().optional(),
+  cityId: zod.string().optional(),
+  deliveryDate: zod.string().optional(),
+  targetOrigin: zod.string().optional(),
+  billingDetails: zod
+    .object({
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+      phone: zod.string().optional(),
+    })
+    .optional(),
+  paymentAttemptId: zod
+    .string()
+    .optional()
+    .describe(
+      "Client-generated attempt UUID, logged for cross-stage correlation",
+    ),
+});
+
+export const CreateCybersourceUnifiedCheckoutSessionResponse = zod.object({
+  ok: zod.boolean(),
+  captureContext: zod
+    .string()
+    .optional()
+    .describe("Unified Checkout session JWT for VAS.UnifiedCheckout()"),
+  clientLibrary: zod
+    .string()
+    .optional()
+    .describe("Versioned SDK script URL extracted from the session JWT"),
+  clientLibraryIntegrity: zod
+    .string()
+    .optional()
+    .describe("SRI integrity hash for the clientLibrary script"),
+  totalUsd: zod.number().optional(),
+  environment: zod.enum(["test", "live"]).optional(),
+  merchantId: zod.string().optional(),
+});
+
+/**
+ * Accepts the completed payment result produced by the Unified Checkout
+SDK (checkout.mount() with autoProcessing). The client-posted result is
+treated as an untrusted hint: it must first pass the strict gate
+(approved === true, non-empty CyberSource requestId, payment status in
+the approved allowlist — AUTHORIZED, PARTIAL_AUTHORIZED,
+AUTHORIZED_PENDING_REVIEW, PENDING_REVIEW), and the server then
+independently confirms the transaction with CyberSource's Transaction
+Details API (GET /tss/v2/transactions/{requestId}) — verifying approved
+auth evidence and that the captured amount/currency match the
+server-recomputed cart total. Fail closed: a declined/unknown
+transaction responds 402 (verification_failed), an amount/currency
+divergence responds 409 (amount_changed), and an unreachable
+CyberSource responds 502 (verification_unavailable) — in every case
+nothing is stored and the order stays unpaid. Only after provider
+verification succeeds does the server store safe auth metadata
+alongside the payment intent and return the "cybs:{requestId}"
+paymentRef used to finalize the order via POST /woo/order.
+
+ * @summary Validate a Unified Checkout payment result and bind the payment intent
+ */
+export const CompleteCybersourceUnifiedCheckoutBody = zod.object({
+  orderId: zod.string(),
+  paymentAttemptId: zod.string().optional(),
+  items: zod.array(
+    zod.object({
+      wcId: zod.number(),
+      osSlug: zod.string().optional(),
+      quantity: zod.number(),
+    }),
+  ),
+  district: zod.string().optional(),
+  expressDelivery: zod.boolean().optional(),
+  noAddress: zod.boolean().optional(),
+  deliverySlot: zod.string().optional(),
+  deliverySlotId: zod.string().optional(),
+  cityId: zod.string().optional(),
+  deliveryDate: zod.string().optional(),
+  result: zod
+    .object({
+      approved: zod.boolean().optional(),
+      requestId: zod.string().optional(),
+      status: zod.string().optional(),
+      authenticationStatus: zod.string().optional(),
+      ecommerceIndicator: zod.string().optional(),
+      cavvPresent: zod.boolean().optional(),
+      directoryServerTransactionId: zod.string().optional(),
+      specificationVersion: zod.string().optional(),
+      challengeRequired: zod.boolean().optional(),
+      paymentResultJwt: zod
+        .string()
+        .optional()
+        .describe("Raw completed-payment-result JWT from checkout.mount()"),
+    })
+    .describe("Payment result extracted from the Unified Checkout SDK"),
+});
+
+export const CompleteCybersourceUnifiedCheckoutResponse = zod.object({
+  ok: zod.boolean(),
+  paymentRef: zod.string().optional(),
 });
 
 /**

@@ -42,12 +42,16 @@ import type {
   CollectionRankingConfigListResponse,
   CollectionRankingConfigUpsertRequest,
   CollectionRankingConfigUpsertResponse,
+  CompleteCybersourceUnifiedCheckout200,
+  CompleteCybersourceUnifiedCheckoutBody,
   CreateCybersourceApplePaySession200,
   CreateCybersourceApplePaySessionBody,
   CreateCybersourceCaptureContext200,
   CreateCybersourceCaptureContextBody,
   CreateCybersourceCharge200,
   CreateCybersourceChargeBody,
+  CreateCybersourceUnifiedCheckoutSession200,
+  CreateCybersourceUnifiedCheckoutSessionBody,
   CreateCybersourceWalletCharge200,
   CreateCybersourceWalletChargeBody,
   CreateWooOrder200,
@@ -6338,6 +6342,223 @@ export const useCreateCybersourceCaptureContext = <
 > => {
   return useMutation(
     getCreateCybersourceCaptureContextMutationOptions(options),
+  );
+};
+
+/**
+ * Resolves the cart total server-side and calls the CyberSource Unified
+Checkout v1 Sessions API (POST /uc/v1/sessions) with
+completeMandate { type: "CAPTURE", consumerAuthentication: "3DS" }.
+The returned capture-context JWT initialises the Unified Checkout SDK
+(VAS.UnifiedCheckout) in the browser, which performs 3DS consumer
+authentication and the combined authorization+capture itself — none of
+the /payer-auth/* endpoints are involved. Also returns the clientLibrary
+URL and SRI integrity hash extracted from the JWT; per CyberSource docs
+the SDK script URL must be taken from the session response, never
+hardcoded. Responds 503 with code "unified_checkout_disabled" when
+CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED is not "true" so the client can
+fall back to the Microform path.
+
+ * @summary Create a CyberSource Unified Checkout (v1) session
+ */
+export const getCreateCybersourceUnifiedCheckoutSessionUrl = () => {
+  return `/api/payment/cybersource/unified-checkout/session`;
+};
+
+export const createCybersourceUnifiedCheckoutSession = async (
+  createCybersourceUnifiedCheckoutSessionBody: CreateCybersourceUnifiedCheckoutSessionBody,
+  options?: RequestInit,
+): Promise<CreateCybersourceUnifiedCheckoutSession200> => {
+  return customFetch<CreateCybersourceUnifiedCheckoutSession200>(
+    getCreateCybersourceUnifiedCheckoutSessionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCybersourceUnifiedCheckoutSessionBody),
+    },
+  );
+};
+
+export const getCreateCybersourceUnifiedCheckoutSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceUnifiedCheckoutSession>>,
+    TError,
+    { data: BodyType<CreateCybersourceUnifiedCheckoutSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCybersourceUnifiedCheckoutSession>>,
+  TError,
+  { data: BodyType<CreateCybersourceUnifiedCheckoutSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createCybersourceUnifiedCheckoutSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCybersourceUnifiedCheckoutSession>>,
+    { data: BodyType<CreateCybersourceUnifiedCheckoutSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCybersourceUnifiedCheckoutSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCybersourceUnifiedCheckoutSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCybersourceUnifiedCheckoutSession>>
+>;
+export type CreateCybersourceUnifiedCheckoutSessionMutationBody =
+  BodyType<CreateCybersourceUnifiedCheckoutSessionBody>;
+export type CreateCybersourceUnifiedCheckoutSessionMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a CyberSource Unified Checkout (v1) session
+ */
+export const useCreateCybersourceUnifiedCheckoutSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCybersourceUnifiedCheckoutSession>>,
+    TError,
+    { data: BodyType<CreateCybersourceUnifiedCheckoutSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCybersourceUnifiedCheckoutSession>>,
+  TError,
+  { data: BodyType<CreateCybersourceUnifiedCheckoutSessionBody> },
+  TContext
+> => {
+  return useMutation(
+    getCreateCybersourceUnifiedCheckoutSessionMutationOptions(options),
+  );
+};
+
+/**
+ * Accepts the completed payment result produced by the Unified Checkout
+SDK (checkout.mount() with autoProcessing). The client-posted result is
+treated as an untrusted hint: it must first pass the strict gate
+(approved === true, non-empty CyberSource requestId, payment status in
+the approved allowlist — AUTHORIZED, PARTIAL_AUTHORIZED,
+AUTHORIZED_PENDING_REVIEW, PENDING_REVIEW), and the server then
+independently confirms the transaction with CyberSource's Transaction
+Details API (GET /tss/v2/transactions/{requestId}) — verifying approved
+auth evidence and that the captured amount/currency match the
+server-recomputed cart total. Fail closed: a declined/unknown
+transaction responds 402 (verification_failed), an amount/currency
+divergence responds 409 (amount_changed), and an unreachable
+CyberSource responds 502 (verification_unavailable) — in every case
+nothing is stored and the order stays unpaid. Only after provider
+verification succeeds does the server store safe auth metadata
+alongside the payment intent and return the "cybs:{requestId}"
+paymentRef used to finalize the order via POST /woo/order.
+
+ * @summary Validate a Unified Checkout payment result and bind the payment intent
+ */
+export const getCompleteCybersourceUnifiedCheckoutUrl = () => {
+  return `/api/payment/cybersource/unified-checkout/complete`;
+};
+
+export const completeCybersourceUnifiedCheckout = async (
+  completeCybersourceUnifiedCheckoutBody: CompleteCybersourceUnifiedCheckoutBody,
+  options?: RequestInit,
+): Promise<CompleteCybersourceUnifiedCheckout200> => {
+  return customFetch<CompleteCybersourceUnifiedCheckout200>(
+    getCompleteCybersourceUnifiedCheckoutUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(completeCybersourceUnifiedCheckoutBody),
+    },
+  );
+};
+
+export const getCompleteCybersourceUnifiedCheckoutMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeCybersourceUnifiedCheckout>>,
+    TError,
+    { data: BodyType<CompleteCybersourceUnifiedCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeCybersourceUnifiedCheckout>>,
+  TError,
+  { data: BodyType<CompleteCybersourceUnifiedCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["completeCybersourceUnifiedCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeCybersourceUnifiedCheckout>>,
+    { data: BodyType<CompleteCybersourceUnifiedCheckoutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return completeCybersourceUnifiedCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteCybersourceUnifiedCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeCybersourceUnifiedCheckout>>
+>;
+export type CompleteCybersourceUnifiedCheckoutMutationBody =
+  BodyType<CompleteCybersourceUnifiedCheckoutBody>;
+export type CompleteCybersourceUnifiedCheckoutMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Validate a Unified Checkout payment result and bind the payment intent
+ */
+export const useCompleteCybersourceUnifiedCheckout = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeCybersourceUnifiedCheckout>>,
+    TError,
+    { data: BodyType<CompleteCybersourceUnifiedCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeCybersourceUnifiedCheckout>>,
+  TError,
+  { data: BodyType<CompleteCybersourceUnifiedCheckoutBody> },
+  TContext
+> => {
+  return useMutation(
+    getCompleteCybersourceUnifiedCheckoutMutationOptions(options),
   );
 };
 

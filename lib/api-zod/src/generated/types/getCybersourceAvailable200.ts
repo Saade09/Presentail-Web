@@ -12,4 +12,16 @@ export type GetCybersourceAvailable200 = {
   /** CyberSource merchant ID (public, safe for browser use) */
   merchantId?: string;
   environment?: GetCybersourceAvailable200Environment;
+  /** True when the Payer Authentication (3DS) flow is enabled via
+CYBERSOURCE_PAYER_AUTH_ENABLED. Clients must treat an absent
+field as false.
+ */
+  payerAuthEnabled?: boolean;
+  /** True when the Unified Checkout (v1) flow is enabled via
+CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED. The web checkout only
+renders the Unified Checkout widget when BOTH this flag and
+its own VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED flag are
+true. Clients must treat an absent field as false.
+ */
+  unifiedCheckoutEnabled?: boolean;
 };

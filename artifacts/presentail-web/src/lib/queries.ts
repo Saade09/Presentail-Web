@@ -723,7 +723,7 @@ export const useCreateOrder = () => {
 
 // Cart item sent to hosted-payment endpoints. Prices are resolved server-side
 // from the WooCommerce catalog using wcId — never send client-controlled amounts.
-type PayCartItem = { wcId: number; quantity: number };
+export type PayCartItem = { wcId: number; quantity: number };
 
 // Hosted-payment-session hooks. Each returns a redirect URL the storefront
 // sends the shopper to; on return we finalize the order via /woo/order.
@@ -818,7 +818,7 @@ export const useCybersourceAvailable = () => {
   return useQuery({
     queryKey: ["cybersource-available"],
     queryFn: () =>
-      apiFetch<{ available: boolean; merchantId?: string; environment?: "test" | "live"; payerAuthEnabled?: boolean }>(
+      apiFetch<{ available: boolean; merchantId?: string; environment?: "test" | "live"; payerAuthEnabled?: boolean; unifiedCheckoutEnabled?: boolean }>(
         "/payment/cybersource/available",
       ),
     staleTime: 5 * 60 * 1000,
@@ -870,6 +870,90 @@ export const useCybersourceCharge = () => {
       };
       payerAuthData?: CsPayerAuthChargeData;
     }) => apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string; declineCode?: string }>("/payment/cybersource/charge", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
+// ── CyberSource Unified Checkout (v1) ─────────────────────────────────────────
+
+// Session response for the Unified Checkout widget. clientLibrary /
+// clientLibraryIntegrity come from the session JWT itself (per CyberSource
+// docs the SDK script URL must never be hardcoded — it is environment- and
+// version-specific).
+export type CsUnifiedCheckoutSessionResponse = {
+  ok: boolean;
+  captureContext?: string;
+  clientLibrary?: string;
+  clientLibraryIntegrity?: string;
+  totalUsd?: number;
+  environment?: "test" | "live";
+  merchantId?: string;
+  message?: string;
+  code?: string;
+};
+
+// Payment result extracted from the completed-payment-result JWT that
+// checkout.mount() resolves with (autoProcessing). The backend re-validates
+// every field against its strict paid gate — these values are a transport,
+// not a trust boundary.
+export type CsUnifiedCheckoutResult = {
+  approved?: boolean;
+  requestId?: string;
+  status?: string;
+  authenticationStatus?: string;
+  ecommerceIndicator?: string;
+  cavvPresent?: boolean;
+  directoryServerTransactionId?: string;
+  specificationVersion?: string;
+  challengeRequired?: boolean;
+  paymentResultJwt?: string;
+};
+
+export const useCybersourceUnifiedCheckoutSession = () => {
+  return useMutation({
+    mutationFn: (data: {
+      items: PayCartItem[];
+      orderId: string;
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
+      targetOrigin?: string;
+      billingDetails?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        phone?: string;
+      };
+      /** Client-generated attempt UUID — logged server-side for correlation. */
+      paymentAttemptId?: string;
+    }) => apiFetch<CsUnifiedCheckoutSessionResponse>("/payment/cybersource/unified-checkout/session", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
+export const useCybersourceUnifiedCheckoutComplete = () => {
+  return useMutation({
+    mutationFn: (data: {
+      orderId: string;
+      paymentAttemptId?: string;
+      items: PayCartItem[];
+      district?: string;
+      expressDelivery?: boolean;
+      noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
+      result: CsUnifiedCheckoutResult;
+    }) => apiFetch<{ ok: boolean; paymentRef?: string; message?: string; code?: string }>("/payment/cybersource/unified-checkout/complete", {
       method: "POST",
       body: JSON.stringify(data),
     }),

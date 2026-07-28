@@ -18,6 +18,8 @@ import {
   useTabbyPayment,
   useCybersourceCaptureContext,
   useCybersourceCharge,
+  useCybersourceUnifiedCheckoutComplete,
+  type CsUnifiedCheckoutResult,
   useCybersourceAvailable,
   useCybersourceApplePaySession,
   useCybersourceWalletCharge,
@@ -29,6 +31,7 @@ import {
 import { CyberSourceSection, type CyberSourceSectionRef } from "./CyberSourceSection";
 import { CyberSourceDeviceDataFrame } from "./CyberSourceDeviceDataFrame";
 import { CyberSourceChallengeModal } from "./CyberSourceChallengeModal";
+import CyberSourceUnifiedCheckout from "./CyberSourceUnifiedCheckout";
 import { isCyberSourceEligible } from "@/lib/cybersource-eligibility";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
@@ -580,6 +583,20 @@ function CheckoutForm() {
   // Feature flag: payer authentication (3DS) enabled by the backend.
   // Default false so existing cached responses (without the field) are safe.
   const payerAuthEnabled = csAvailableData?.payerAuthEnabled === true;
+  // ── Unified Checkout rollout gate ─────────────────────────────────────────
+  // BOTH flags must be true: the web build's VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED
+  // and the API server's CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED (surfaced via
+  // /payment/cybersource/available). A half-enabled rollout therefore always
+  // falls back to the Microform + payer-auth path instead of stranding the
+  // shopper. Only consulted inside CyberSource-gated contexts (LB + USD).
+  const unifiedCheckoutActive =
+    import.meta.env.VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED === "true" &&
+    csAvailableData?.unifiedCheckoutEnabled === true;
+  const csUnifiedComplete = useCybersourceUnifiedCheckoutComplete();
+  // Confirmed orderId for the UC session (the session bakes the orderId and
+  // total at creation time) + attempt UUID for cross-stage log correlation.
+  const [ucOrderId, setUcOrderId] = useState<string | null>(null);
+  const ucAttemptIdRef = useRef<string | null>(null);
   // Ref to the CyberSource card-form component — exposes createToken().
   const csFormRef = useRef<CyberSourceSectionRef>(null);
   // The capture context JWT returned from POST /payment/cybersource/capture-context.
@@ -1997,6 +2014,16 @@ function CheckoutForm() {
   // tile so Microform can initialise immediately — no blank-field wait on submit.
   useEffect(() => {
     if (paymentMethod !== "cybersource" || step !== 2) return;
+    // Unified Checkout replaces Microform entirely — never spend a Microform
+    // capture context on that path. While the build flag is on but the
+    // availability probe (which carries the server-side unifiedCheckoutEnabled
+    // flag) hasn't resolved yet, defer prefetching: we don't know which card
+    // UI will render. With the build flag off this block is dead code and the
+    // legacy prefetch behaviour is byte-for-byte unchanged.
+    if (import.meta.env.VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED === "true") {
+      if (!csAvailableData) return;
+      if (unifiedCheckoutActive) return;
+    }
     if (csCaptureContext || cybersourceCapture.isPending) return;
     let cancelled = false;
     (async () => {
@@ -2033,7 +2060,51 @@ function CheckoutForm() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentMethod, step]);
+  }, [paymentMethod, step, csAvailableData, unifiedCheckoutActive]);
+
+  // ── Unified Checkout prep ──────────────────────────────────────────────────
+  // The UC session bakes clientReferenceInformation (orderId) and the charge
+  // total at creation time, so a confirmed orderId must exist before the
+  // widget can request its session. Resolve it as soon as the tile is active.
+  useEffect(() => {
+    if (!unifiedCheckoutActive || paymentMethod !== "cybersource" || step !== 2) return;
+    if (ucOrderId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const oid = await ensureOrderId();
+        if (cancelled) return;
+        if (!ucAttemptIdRef.current) {
+          ucAttemptIdRef.current =
+            typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `uc-${Date.now()}`;
+        }
+        setUcOrderId(oid);
+      } catch {
+        // ensureOrderId failure leaves the widget in its loading state; the
+        // shopper can retry by re-selecting the tile or switching methods.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unifiedCheckoutActive, paymentMethod, step, ucOrderId]);
+
+  // Serialized fee-affecting inputs for the UC session. When any of these
+  // change, the widget remounts and creates a fresh session so the amount UC
+  // charges always matches the visible cart (the server re-verifies too).
+  const ucSessionKey = useMemo(
+    () =>
+      [
+        ucOrderId ?? "",
+        _selectedDistrict || "",
+        deliveryMode,
+        noAddress ? "1" : "0",
+        deliveryMode === "express" ? "" : deliverySlot || "",
+        deliveryMode === "express" ? "" : deliverySlotId || "",
+        selectedCityData?.id != null ? String(selectedCityData.id) : "",
+        items.map((i) => `${i.product.id}x${i.quantity}`).join(","),
+      ].join("|"),
+    [ucOrderId, _selectedDistrict, deliveryMode, noAddress, deliverySlot, deliverySlotId, selectedCityData?.id, items],
+  );
 
   // ── Payer-auth refresh guard ───────────────────────────────────────────────
   // When the page is refreshed or navigated away during an active payer-auth
@@ -2138,6 +2209,7 @@ function CheckoutForm() {
     // safe fallback — delivery row will show the picker affordance
   }
   const isProcessing =
+    csUnifiedComplete.isPending ||
     createOrder.isPending ||
     stripeSession.isPending ||
     createPaymentIntent.isPending ||
@@ -2325,6 +2397,103 @@ function CheckoutForm() {
     // For hosted-payment flows the phone is only saved on a future
     // checkout that finalizes via `finalizeOrderNow`.
     window.location.href = url;
+  };
+
+  // ── Unified Checkout result handlers ───────────────────────────────────────
+  // By the time onResult fires, the UC widget (autoProcessing) has already run
+  // 3DS and the CAPTURE itself. The server's strict paid gate at
+  // /unified-checkout/complete decides whether the result counts as paid; only
+  // its ok + paymentRef finalizes the order. setupPayerAuth / checkEnrollment /
+  // validateAuthentication are never called on this path.
+  const handleUnifiedCheckoutResult = async (ucRes: CsUnifiedCheckoutResult) => {
+    // isProcessing derives from mutation isPending flags (csUnifiedComplete +
+    // createOrder are both in it), so no manual toggling — this guard only
+    // prevents a double-fire while a previous result is still finalizing.
+    if (isProcessing) return;
+    try {
+      const orderId = ucOrderId ?? (await ensureOrderId());
+      const completeRes = await csUnifiedComplete.mutateAsync({
+        orderId,
+        paymentAttemptId: ucAttemptIdRef.current ?? undefined,
+        items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+        district: _selectedDistrict,
+        expressDelivery: deliveryMode === "express",
+        noAddress,
+        deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+        ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+        ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+        result: ucRes,
+      });
+      if (!completeRes.ok || !completeRes.paymentRef) {
+        toast({
+          title: t("checkout.toast.cybersourceDeclined"),
+          description: completeRes.message || t("checkout.toast.cybersourceDeclinedDesc"),
+          variant: "destructive",
+        });
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+        trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "cybersource" } });
+        return;
+      }
+      void maybeSaveNewAddress();
+      void maybeSaveProfilePhone();
+      await finalizeOrderNow(completeRes.paymentRef);
+    } catch (err) {
+      const apiErr = err as { status?: number; data?: { code?: string; message?: string }; message?: string };
+      const serverCode = apiErr?.data?.code;
+      const serverMessage = apiErr?.data?.message;
+      console.log("PAYMENT_DIAG", {
+        stage: "unifiedCheckoutComplete",
+        frontendEndpoint: "/api/payment/cybersource/unified-checkout/complete",
+        status: apiErr?.status ?? null,
+        code: serverCode ?? null,
+      });
+      if (serverCode === "payment_not_approved" || serverCode === "result_mismatch" || serverCode === "verification_failed") {
+        // Paid gate rejected the result — the order was NOT placed.
+        toast({
+          title: t("checkout.toast.cybersourceDeclined"),
+          description: serverMessage || t("checkout.toast.cybersourceDeclinedDesc"),
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: t("checkout.toast.cybersourceUnavailable"),
+          description: serverMessage || t("checkout.toast.cybersourceUnavailableDesc"),
+          variant: "destructive",
+        });
+      }
+      trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+      trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "cybersource" } });
+    }
+  };
+
+  // mount() rejected: cancelled/failed 3DS challenge, declined card, session
+  // or SDK failure. Nothing was stored server-side, so the order stays unpaid.
+  const handleUnifiedCheckoutError = (message: string, reason?: string) => {
+    console.log("PAYMENT_DIAG", {
+      stage: "unifiedCheckout",
+      frontendEndpoint: "/api/payment/cybersource/unified-checkout/session",
+      reason: reason ?? null,
+      message,
+    });
+    const key = `${reason ?? ""} ${message}`.toUpperCase();
+    if (key.includes("AUTH") || key.includes("CHALLENGE")) {
+      // 3DS verification failed or was abandoned — bank-verification copy.
+      toast({ title: t("checkout.toast.csPayerAuthFailed"), variant: "destructive" });
+    } else if (key.includes("DECLIN")) {
+      toast({
+        title: t("checkout.toast.cybersourceDeclined"),
+        description: t("checkout.toast.cybersourceDeclinedDesc"),
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: t("checkout.toast.cybersourceUnavailable"),
+        description: t("checkout.toast.cybersourceUnavailableDesc"),
+        variant: "destructive",
+      });
+    }
+    trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+    trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "cybersource" } });
   };
 
   const handleSubmit = async () => {
@@ -3397,6 +3566,12 @@ function CheckoutForm() {
 
       // ── CyberSource inline card payment ─────────────────────────────────
       if (payMethod === "cybersource") {
+        // Unified Checkout owns the entire payment lifecycle (3DS + capture)
+        // inside its widget and finalizes via handleUnifiedCheckoutResult —
+        // its submit button is hidden, and this guard makes sure no stray
+        // call can ever run the legacy Microform/payer-auth pipeline below
+        // while UC is active.
+        if (unifiedCheckoutActive) return;
         // Step 1: Get capture context from server (re-use cached one if
         // already fetched for the same orderId).
         let captureCtx = csCaptureContext;
@@ -4430,18 +4605,55 @@ function CheckoutForm() {
                             </Suspense>
                           )}
                           {useCyberSource && m.id === "cybersource" && paymentMethod === "cybersource" && (
-                            <CyberSourceSection
-                              ref={csFormRef}
-                              captureContext={csCaptureContext ?? ""}
-                              prefetchError={csCaptureContextError}
-                              environment={csCaptureEnv}
-                              className="mt-3"
-                              onFieldsReady={() => setCsFieldsReady(true)}
-                              onFieldsFailed={(msg) => {
-                                setCsFieldsReady(false);
-                                setCsCaptureContextError(msg);
-                              }}
-                            />
+                            unifiedCheckoutActive ? (
+                              ucOrderId && (noAddress || Boolean(_selectedDistrict)) ? (
+                                <CyberSourceUnifiedCheckout
+                                  key={ucSessionKey}
+                                  payload={{
+                                    items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+                                    orderId: ucOrderId,
+                                    district: _selectedDistrict || undefined,
+                                    expressDelivery: deliveryMode === "express",
+                                    noAddress,
+                                    deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+                                    ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+                                    ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+                                    targetOrigin: window.location.origin,
+                                    billingDetails: {
+                                      firstName: sender.firstName,
+                                      lastName: sender.lastName,
+                                      email: sender.email,
+                                      phone: sender.phone,
+                                    },
+                                    paymentAttemptId: ucAttemptIdRef.current ?? undefined,
+                                  }}
+                                  sessionKey={ucSessionKey}
+                                  onResult={handleUnifiedCheckoutResult}
+                                  onError={handleUnifiedCheckoutError}
+                                />
+                              ) : (
+                                <div
+                                  className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/30 py-6 text-sm text-muted-foreground"
+                                  data-testid="loading-unified-checkout-init"
+                                >
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span>{t("checkout.cybersource.loading")}</span>
+                                </div>
+                              )
+                            ) : (
+                              <CyberSourceSection
+                                ref={csFormRef}
+                                captureContext={csCaptureContext ?? ""}
+                                prefetchError={csCaptureContextError}
+                                environment={csCaptureEnv}
+                                className="mt-3"
+                                onFieldsReady={() => setCsFieldsReady(true)}
+                                onFieldsFailed={(msg) => {
+                                  setCsFieldsReady(false);
+                                  setCsCaptureContextError(msg);
+                                }}
+                              />
+                            )
                           )}
                         </div>
                       );
@@ -4492,10 +4704,14 @@ function CheckoutForm() {
                     )}
                   </div>
 
-                  {/* Payment CTA */}
-                  <div className="flex gap-3 mt-4">
-                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(displaySubtotal, displayDistrictFee + displayExpressFee + displaySlotFee, displayCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict) || (paymentMethod === "cybersource" && !csFieldsReady)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
-                  </div>
+                  {/* Payment CTA — hidden on the Unified Checkout path: the UC
+                      widget renders its own Pay button and drives the payment
+                      itself (autoProcessing). */}
+                  {!(paymentMethod === "cybersource" && unifiedCheckoutActive) && (
+                    <div className="flex gap-3 mt-4">
+                      <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(displaySubtotal, displayDistrictFee + displayExpressFee + displaySlotFee, displayCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict) || (paymentMethod === "cybersource" && !csFieldsReady)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
+                    </div>
+                  )}
 
                   {/* Secure payment badge */}
                   <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-muted-foreground">

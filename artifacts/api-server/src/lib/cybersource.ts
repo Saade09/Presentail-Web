@@ -252,6 +252,349 @@ export function getCybersourceEnvironment(): "test" | "live" {
   return (process.env.CYBERSOURCE_ENVIRONMENT ?? "test") === "live" ? "live" : "test";
 }
 
+// ── Unified Checkout (v1) ─────────────────────────────────────────────────────
+// CyberSource-mandated migration for the LB+USD web card flow: Unified
+// Checkout v1 replaces Microform v2 + the manual Payer Auth REST pipeline.
+// UC owns device-data collection, 3DS enrollment, and the challenge UI
+// internally, and — because the session carries completeMandate
+// { type: "CAPTURE", consumerAuthentication: "3DS" } — the SDK also performs
+// the authorization+capture itself (autoProcessing), so the server never
+// calls /pts/v2/payments for this path.
+//
+// Rollout gate: CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED === "true" (same pattern
+// as isPayerAuthEnabled). Absent/false → the Microform path runs unchanged.
+export function isUnifiedCheckoutEnabled(): boolean {
+  return process.env.CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED === "true";
+}
+
+// Exposed for the Unified Checkout complete route: a UC payment result may
+// only be treated as paid when its status is in the same allowlist the
+// server-side charge path uses (AUTHORIZED_RISK_DECLINED is never paid).
+export function isApprovedPaymentStatus(status: string): boolean {
+  return APPROVED_PAYMENT_STATUSES.has(status);
+}
+
+// ── generateUnifiedCheckoutSession ───────────────────────────────────────────
+// Calls POST /uc/v1/sessions (the Unified Checkout v1 Sessions API — the v0
+// equivalent was /up/v1/capture-contexts) and returns the short-lived session
+// JWT ("capture context") the client passes to VAS.UnifiedCheckout().
+//
+// clientVersion is deliberately OMITTED: per the v1 docs, omitting it opts the
+// merchant into automatic future enhancements, while pinned versions receive
+// critical updates only. /uc/v1/sessions is inherently the v1 contract.
+//
+// The response body is a plain JWT string (Accept must be application/jwt,
+// like /microform/v2/sessions). Its decoded payload carries the versioned
+// clientLibrary URL + SRI integrity hash the browser must use to load the SDK
+// — those are extracted by the route, never hardcoded client-side.
+export async function generateUnifiedCheckoutSession(opts: {
+  targetOrigins: string[];
+  totalAmount: string;
+  currency: string;
+  orderId: string;
+  billingDetails?: BillingDetails;
+}): Promise<{ ok: true; sessionJwt: string } | { ok: false; message: string }> {
+  const { targetOrigins, totalAmount, currency, orderId, billingDetails } = opts;
+  const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
+  const base = getCybersourceBase();
+  const path = "/uc/v1/sessions";
+
+  // Same defaulting rules as authorizeAndCapture's billTo — the shopper's
+  // billing identity was already collected by our own checkout form, so the
+  // UC widget must not re-ask for it (captureMandate.billingType: "NONE").
+  // Per the UC docs, billingType NONE requires the payment-required fields to
+  // be supplied in the session's data block instead.
+  const billTo = {
+    firstName: billingDetails?.firstName ?? "Guest", // i18n-ignore
+    lastName: billingDetails?.lastName ?? "Customer", // i18n-ignore
+    email: billingDetails?.email ?? "guest@presentail.com", // i18n-ignore
+    address1: billingDetails?.address ?? "N/A", // i18n-ignore
+    locality: billingDetails?.city ?? "Beirut", // i18n-ignore
+    country: billingDetails?.country ?? "LB", // i18n-ignore
+    postalCode: billingDetails?.postalCode ?? "00000",
+    ...(billingDetails?.phone ? { phoneNumber: billingDetails.phone } : {}),
+  };
+
+  const payload = {
+    targetOrigins,
+    country: "LB", // i18n-ignore
+    locale: "en_US", // i18n-ignore
+    // PANENTRY only for this migration — Apple Pay / Google Pay through UC are
+    // explicitly out of scope (wallets keep their existing /wallet-charge flow).
+    allowedPaymentTypes: ["PANENTRY"], // i18n-ignore
+    allowedCardNetworks: ["VISA", "MASTERCARD", "AMEX"], // i18n-ignore
+    captureMandate: {
+      billingType: "NONE", // i18n-ignore — billTo supplied via data block below
+      requestEmail: false,
+      requestPhone: false,
+      requestShipping: false,
+      showAcceptedNetworkIcons: true,
+      showConfirmationStep: false,
+    },
+    // Service orchestration: UC runs 3DS consumer authentication and then a
+    // combined authorization+capture on our behalf. In the v1 Sessions API
+    // consumerAuthentication is an enum ("3DS" | "NONE") — the v0 boolean
+    // form is retired with /up/v1/capture-contexts.
+    completeMandate: {
+      type: "CAPTURE", // i18n-ignore
+      consumerAuthentication: "3DS", // i18n-ignore
+    },
+    // Shown by the UC UI (amount display) — must match the data block below.
+    orderInformation: {
+      amountDetails: { totalAmount, currency },
+    },
+    // Payment template consumed by the completeMandate orchestration — this is
+    // what /pts sees when UC processes the payment. Server-computed totals
+    // only; client-supplied prices never reach this block.
+    data: {
+      clientReferenceInformation: { code: orderId },
+      orderInformation: {
+        amountDetails: { totalAmount, currency },
+        billTo,
+      },
+    },
+  };
+
+  const body = JSON.stringify(payload);
+  const headers = buildHeaders({ method: "POST", path, body, merchantId, apiKeyId, sharedSecretKey, accept: "application/jwt" });
+
+  // Sanitized diagnostic record (no secret values, no shopper PII beyond what
+  // the caller already logs).
+  const diag = {
+    env: getCybersourceEnvironment(),
+    host: new URL(base).hostname,
+    path,
+    merchantId,
+    keyIdPrefix: apiKeyId.slice(0, 8) + "…",
+    accept: headers["Accept"],
+  };
+
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers,
+      body,
+    });
+
+    const rawBody = await res.text();
+
+    if (!res.ok) {
+      let errorMessage = `CyberSource Unified Checkout session failed (HTTP ${res.status}): ${rawBody.slice(0, 500)}`; // i18n-ignore
+      try {
+        const errData = JSON.parse(rawBody) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+        const detail =
+          errData?.message ??
+          errData?.response?.rmsg ??
+          errData?.errors?.[0]?.message ??
+          errData?.reason;
+        if (detail) errorMessage = `CyberSource ${res.status}: ${detail} — raw: ${rawBody.slice(0, 400)}`; // i18n-ignore
+      } catch {
+        // not JSON — raw body already included in errorMessage
+      }
+      return {
+        ok: false,
+        message: errorMessage,
+        diag: { ...diag, httpStatus: res.status, respBody: rawBody.slice(0, 800) },
+      } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    }
+
+    // Success — response is a plain JWT string (or a JSON wrapper on some
+    // gateway configs; tolerate both like generateCaptureContext does).
+    const sessionJwt = rawBody.trim().startsWith("{")
+      ? ((JSON.parse(rawBody) as any)?.captureContext ?? rawBody.trim()) // eslint-disable-line @typescript-eslint/no-explicit-any
+      : rawBody.trim();
+
+    if (!sessionJwt) {
+      return { ok: false, message: "CyberSource returned an empty Unified Checkout session" }; // i18n-ignore
+    }
+
+    return { ok: true, sessionJwt };
+  } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    return { ok: false, message: err?.message ?? "CyberSource Unified Checkout session request failed" }; // i18n-ignore
+  }
+}
+
+// ── verifyUnifiedCheckoutPayment ──────────────────────────────────────────────
+// Server-authoritative verification of a Unified Checkout payment.
+//
+// The browser posts the widget's completed-payment result to our complete
+// route, but NOTHING the client sends (including the UC result JWT — we only
+// payload-decode it, we do not verify its signature) can be trusted to mark an
+// order paid. Before a payment intent is stored, the transaction is confirmed
+// against CyberSource's own system of record via the Transaction Details API:
+//
+//   GET /tss/v2/transactions/{requestId}
+//
+// signed with the same HTTP Signature credentials as every other server-side
+// CyberSource call (the GET signing string carries no digest — see
+// buildHeaders).
+//
+// Fail-closed contract:
+//   • ok:true ONLY when CyberSource itself reports approved auth evidence AND
+//     the transaction amount + currency match the server-recomputed total.
+//   • Anything else — not found, declined, amount/currency drift, HTTP error,
+//     network failure, missing amount fields — returns ok:false and the
+//     caller must NOT mark the order paid.
+//
+// Transaction Details indexing can lag a beat behind the widget completing,
+// so 404s and 5xx are retried a few times (attempts/retryDelayMs are test
+// hooks; production callers use the defaults).
+
+export type UnifiedCheckoutVerification =
+  | { ok: true; status: string; totalAmount: number; currency: string; reconciliationId?: string }
+  | {
+      ok: false;
+      code: "not_found" | "not_approved" | "amount_mismatch" | "unavailable";
+      message: string;
+    };
+
+export async function verifyUnifiedCheckoutPayment(opts: {
+  requestId: string;
+  expectedTotalUsd: number;
+  attempts?: number;
+  retryDelayMs?: number;
+}): Promise<UnifiedCheckoutVerification> {
+  if (!isCybersourceConfigured()) {
+    return { ok: false, code: "unavailable", message: "CyberSource is not configured" }; // i18n-ignore
+  }
+  const requestId = String(opts.requestId ?? "").trim();
+  // Defense in depth: a forged requestId with path characters must not be
+  // able to rewrite the signed request-target.
+  if (!requestId || !/^[A-Za-z0-9_-]+$/.test(requestId)) {
+    return { ok: false, code: "not_found", message: "Invalid CyberSource requestId" }; // i18n-ignore
+  }
+
+  const { merchantId, apiKeyId, sharedSecretKey } = getCredentials();
+  const base = getCybersourceBase();
+  const path = `/tss/v2/transactions/${requestId}`;
+  const attempts = Math.max(1, opts.attempts ?? 3);
+  const retryDelayMs = Math.max(0, opts.retryDelayMs ?? 1500);
+
+  let lastMessage = "CyberSource transaction lookup failed"; // i18n-ignore
+  let sawNotFound = false;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+
+    let res: Response;
+    let rawBody = "";
+    try {
+      const headers = buildHeaders({
+        method: "GET",
+        path,
+        body: "",
+        merchantId,
+        apiKeyId,
+        sharedSecretKey,
+        accept: "application/hal+json;charset=utf-8",
+      });
+      res = await fetch(`${base}${path}`, { method: "GET", headers });
+      rawBody = await res.text();
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      lastMessage = err?.message ?? "CyberSource transaction lookup network failure"; // i18n-ignore
+      continue; // network errors are retryable
+    }
+
+    if (res.status === 404) {
+      // Indexing lag — or a requestId CyberSource has never seen. Retry, then
+      // fail closed as not_found.
+      sawNotFound = true;
+      lastMessage = `CyberSource transaction ${requestId} not found`; // i18n-ignore
+      continue;
+    }
+    if (!res.ok) {
+      lastMessage = `CyberSource ${res.status}: ${rawBody.slice(0, 300)}`;
+      if (res.status >= 500) continue; // gateway hiccup — retryable
+      break; // 401/403/other 4xx — retrying cannot help
+    }
+
+    let tx: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    try {
+      tx = JSON.parse(rawBody);
+    } catch {
+      lastMessage = "CyberSource returned a non-JSON transaction detail"; // i18n-ignore
+      break;
+    }
+
+    const txId = String(tx?.id ?? "").trim();
+    if (txId && txId !== requestId) {
+      lastMessage = `CyberSource returned transaction ${txId} for lookup ${requestId}`; // i18n-ignore
+      break; // fail closed — wrong record
+    }
+
+    // ── Approval evidence ────────────────────────────────────────────────────
+    // Positive evidence is REQUIRED (fail closed when absent):
+    //   • the ics_auth application succeeded (rFlag SOK / reasonCode 100), or
+    //   • top-level applicationInformation reports SOK / an approved status.
+    // Explicit decline evidence on ics_auth / ics_decision, or a *_DECLINED
+    // top-level status (e.g. AUTHORIZED_RISK_DECLINED), always rejects.
+    const appInfo = tx?.applicationInformation ?? {};
+    const apps: any[] = Array.isArray(appInfo?.applications) ? appInfo.applications : []; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const appNamed = (name: string) => apps.find((a) => String(a?.name ?? "").toLowerCase() === name);
+    const appSucceeded = (a: any) => // eslint-disable-line @typescript-eslint/no-explicit-any
+      Boolean(a) && (String(a?.rFlag ?? "") === "SOK" || String(a?.reasonCode ?? "") === "100");
+    const appDeclined = (a: any) => // eslint-disable-line @typescript-eslint/no-explicit-any
+      Boolean(a) && String(a?.rFlag ?? "") !== "" && String(a?.rFlag ?? "") !== "SOK";
+
+    const authApp = appNamed("ics_auth");
+    const decisionApp = appNamed("ics_decision");
+    const topStatus = String(appInfo?.status ?? "").trim().toUpperCase();
+
+    const declineEvidence =
+      appDeclined(authApp) ||
+      appDeclined(decisionApp) ||
+      (topStatus !== "" && topStatus.includes("DECLINED"));
+    const approvalEvidence =
+      appSucceeded(authApp) ||
+      String(appInfo?.rFlag ?? "") === "SOK" ||
+      isApprovedPaymentStatus(topStatus);
+
+    if (declineEvidence || !approvalEvidence) {
+      return {
+        ok: false,
+        code: "not_approved",
+        message: `CyberSource does not report this transaction as approved (status: ${topStatus || "unknown"})`, // i18n-ignore
+      };
+    }
+
+    // ── Amount verification ──────────────────────────────────────────────────
+    const amountDetails = tx?.orderInformation?.amountDetails ?? {};
+    const amountRaw = amountDetails?.totalAmount ?? amountDetails?.authorizedAmount ?? null;
+    const currency = String(amountDetails?.currency ?? "").trim().toUpperCase();
+    const amount = amountRaw == null || amountRaw === "" ? Number.NaN : Number(amountRaw);
+    if (!Number.isFinite(amount) || !currency) {
+      return {
+        ok: false,
+        code: "unavailable",
+        message: "CyberSource transaction detail is missing amount/currency — cannot verify", // i18n-ignore
+      };
+    }
+    if (currency !== "USD" || Math.abs(amount - opts.expectedTotalUsd) > 0.005) {
+      return {
+        ok: false,
+        code: "amount_mismatch",
+        message: `CyberSource captured ${amount} ${currency}, expected ${opts.expectedTotalUsd.toFixed(2)} USD`, // i18n-ignore
+      };
+    }
+
+    return {
+      ok: true,
+      status: topStatus || (appSucceeded(authApp) ? "AUTHORIZED" : "APPROVED"),
+      totalAmount: amount,
+      currency,
+      ...(tx?.reconciliationId ? { reconciliationId: String(tx.reconciliationId) } : {}),
+    };
+  }
+
+  return {
+    ok: false,
+    code: sawNotFound ? "not_found" : "unavailable",
+    message: lastMessage,
+  };
+}
+
 // ── Payer Authentication (3DS) ────────────────────────────────────────────────
 // Three-step flow:
 //   1. setupPayerAuth      — device fingerprint setup (POST /risk/v1/authentication-setups)

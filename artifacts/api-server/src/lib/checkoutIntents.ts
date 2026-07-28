@@ -70,6 +70,11 @@ export type PaymentIntent = {
   // time. The WC order route compares the submitted cart against this snapshot
   // before accepting the intent as proof of payment.
   snapshot: CartSnapshot;
+  // Optional provider-side payment metadata stored alongside the intent (and
+  // therefore alongside the order it finalizes). Used by the CyberSource
+  // Unified Checkout flow to persist safe auth metadata (authenticationStatus,
+  // ecommerceIndicator, cavvPresent, …) — never card data or secrets.
+  paymentMeta?: Record<string, string | number | boolean | null | undefined>;
   expiresAt: number; // ms
   consumed: boolean;
 };
@@ -105,6 +110,8 @@ export function storePaymentIntent(params: {
   currency: string;
   totalUsd: number;
   snapshot: CartSnapshot;
+  /** Optional safe provider metadata persisted with the intent (see PaymentIntent.paymentMeta). */
+  paymentMeta?: Record<string, string | number | boolean | null | undefined>;
 }): void {
   sweep();
   // If there was a previous paymentRef for this orderId (e.g. the PI was
