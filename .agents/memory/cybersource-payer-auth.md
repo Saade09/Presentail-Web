@@ -27,3 +27,16 @@ The step-up iframe form-POSTs the `returnUrl` when the issuer challenge ends. Po
 The Payer Auth REST endpoints (`/risk/v1/authentication-setups`, `/risk/v1/authentications`, `/risk/v1/authentication-results`) use the **same HTTP Signature (HMAC-SHA256) as Payments** — `buildHeaders()` from `cybersource.ts`. The Cardinal/Cruise Control credentials (`CYBERSOURCE_PA_API_IDENTIFIER`, `CYBERSOURCE_PA_API_KEY`) are NOT used for server-side REST auth; they are merchant-configuration identifiers. `CYBERSOURCE_PA_ORG_UNIT_ID` IS passed as an extra `OrgUnitId` header on every PA REST call so CyberSource links the session to the correct Cardinal merchant account.
 **Why:** The original implementation used `Authorization: Basic <apiIdentifier:apiKey>` which caused 401s from CyberSource on every PA setup call — "Card verification could not be started".
 **How to apply:** Any new PA endpoint added to `cybersource-payer-auth.ts` must call `getCredentials()` + `buildHeaders()` for auth; never use Basic auth with PA credentials for REST calls.
+
+## PA token field name = `transientTokenJwt` everywhere
+All three PA REST endpoints (`authentication-setups`, `authentications`, `authentication-results`) use `tokenInformation.transientTokenJwt` — NOT `transientToken`. Despite the CyberSource docs suggesting `authentications` uses `transientToken`, the live API rejects it with "One or more fields in the request contains invalid data". Both setup and enrollment were wrong.
+**Why:** The shorter `transientToken` key is rejected by live CyberSource Payer Auth API even though some docs show it.
+**How to apply:** Always use `transientTokenJwt` in all PA REST payloads.
+
+## PA enrollment billTo must have address to be sent
+The `/risk/v1/authentications` endpoint rejects a `billTo` object that has only name+email (no `address1`/`locality`/`country`). Guard: only send `billTo` if it has at least `country` or `address1`.
+
+## 3DS challenge iframe: use parent form-target, NOT contentDocument.write
+`CyberSourceChallengeModal` renders the step-up challenge. `iframe.contentDocument` returns `null` for sandboxed iframes in many browsers, leaving the dialog blank. Fix: create a `<form method="POST" target="cs-3ds-challenge">` on `document.body` and submit it — the browser POSTs `JWT={accessToken}` into the named iframe. Remove the form with `requestAnimationFrame` after submit.
+**Why:** The `contentDocument.write` approach silently failed when the iframe was sandboxed.
+**How to apply:** For any future CyberSource step-up iframe, always use the parent-form-target pattern.

@@ -99,27 +99,29 @@ export function CyberSourceChallengeModal({ stepUpUrl, accessToken, onComplete, 
     // 5-minute timeout — treat as cancellation so the shopper can retry.
     timerId = setTimeout(() => settleCancel(), TIMEOUT_MS);
 
-    // Post the form into the iframe.
-    const iframe = iframeRef.current;
-    if (iframe?.contentDocument) {
-      try {
-        const doc = iframe.contentDocument;
-        doc.open();
-        doc.write("<!DOCTYPE html><html><body></body></html>");
-        doc.close();
-        const form = doc.createElement("form");
-        form.method = "POST";
-        form.action = stepUpUrl;
-        const input = doc.createElement("input");
-        input.type = "hidden";
-        input.name = "JWT";
-        input.value = accessToken;
-        form.appendChild(input);
-        doc.body.appendChild(form);
-        form.submit();
-      } catch {
-        settleCancel();
-      }
+    // Post the step-up form into the named iframe using a parent-document
+    // form with target="cs-3ds-challenge".  This is more reliable than
+    // contentDocument.write(), which returns null for sandboxed iframes in
+    // many browsers, leaving the dialog blank.
+    try {
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = stepUpUrl;
+      form.target = "cs-3ds-challenge"; // i18n-ignore — must match iframe name
+      form.style.display = "none";
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "JWT"; // i18n-ignore — CyberSource field name
+      input.value = accessToken;
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+      // Remove form from parent DOM after submission
+      requestAnimationFrame(() => {
+        if (document.body.contains(form)) document.body.removeChild(form);
+      });
+    } catch {
+      settleCancel();
     }
 
     return () => {
@@ -142,9 +144,10 @@ export function CyberSourceChallengeModal({ stepUpUrl, accessToken, onComplete, 
         </DialogHeader>
         <iframe
           ref={iframeRef}
+          name="cs-3ds-challenge" // i18n-ignore — must match form target below
           title="3ds-challenge" // i18n-ignore
           className="flex-1 w-full border-0"
-          sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+          sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation-by-user-activation"
           onError={() => onCancelRef.current()}
         />
       </DialogContent>
