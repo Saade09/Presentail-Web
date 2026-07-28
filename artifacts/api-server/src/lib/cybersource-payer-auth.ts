@@ -149,7 +149,9 @@ export async function setupPayerAuth(opts: {
 
   const payload = {
     clientReferenceInformation: { code: orderId },
-    tokenInformation: { transientToken: transientTokenJwt },
+    // NOTE: authentication-setups uses the key "transientTokenJwt" (same as /pts/v2/payments).
+    // The sibling endpoint /risk/v1/authentications uses the shorter "transientToken" key.
+    tokenInformation: { transientTokenJwt },
   };
 
   // Payer Auth REST endpoints use HTTP Signature (same as Payments) — NOT Basic auth.
