@@ -28,7 +28,7 @@ import {
   useCybersourcePayerAuthValidate,
   useFxRates,
 } from "@/lib/queries";
-import { CyberSourceSection, type CyberSourceSectionRef } from "./CyberSourceSection";
+import { CyberSourceSection, type CyberSourceSectionRef, isCaptureContextExpiredSoon } from "./CyberSourceSection";
 import { CyberSourceDeviceDataFrame } from "./CyberSourceDeviceDataFrame";
 import { CyberSourceChallengeModal } from "./CyberSourceChallengeModal";
 import CyberSourceUnifiedCheckout from "./CyberSourceUnifiedCheckout";
@@ -3575,6 +3575,16 @@ function CheckoutForm() {
         // Step 1: Get capture context from server (re-use cached one if
         // already fetched for the same orderId).
         let captureCtx = csCaptureContext;
+
+        // CyberSource capture contexts expire after ~15 minutes.  If the
+        // cached one is already expired (or within 30 s of expiry), drop it so
+        // a fresh one is fetched below — using a stale context makes
+        // createToken() fail with "Server-side validation has rejected your
+        // request." and the Microform must be re-initialised before retrying.
+        const contextWasStale =
+          captureCtx !== null && isCaptureContextExpiredSoon(captureCtx, 30);
+        if (contextWasStale) captureCtx = null;
+
         if (!captureCtx) {
           const ccRes = await cybersourceCapture.mutateAsync({
             items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
@@ -3604,6 +3614,18 @@ function CheckoutForm() {
           }
           captureCtx = ccRes.captureContext;
           setCsCaptureContext(captureCtx);
+
+          // If we just replaced a stale context the Microform is now
+          // re-initialising asynchronously with the new one.  createToken()
+          // cannot succeed until that completes — abort this attempt and ask
+          // the shopper to re-enter their card details once the form reloads.
+          if (contextWasStale) {
+            toast({
+              title: t("checkout.toast.csFormExpired"),
+              description: t("checkout.toast.csFormExpiredDesc"),
+            });
+            return;
+          }
         }
 
         // Step 2: Tokenize card in-browser via the CyberSource Microform SDK.

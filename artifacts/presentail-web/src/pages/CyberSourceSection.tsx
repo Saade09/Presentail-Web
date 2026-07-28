@@ -30,6 +30,30 @@ function decodeCaptureContextPayload(jwt: string): Record<string, unknown> | nul
   }
 }
 
+/**
+ * Returns true if the capture context has already expired or will expire
+ * within `bufferSecs` seconds.  Use before submitting a cached context to
+ * avoid the "Server-side validation has rejected your request" Microform error
+ * that fires when createToken() is called against an expired context.
+ */
+export function isCaptureContextExpiredSoon(
+  captureContext: string,
+  bufferSecs = 30,
+): boolean {
+  try {
+    const parts = captureContext.split(".");
+    if (parts.length !== 3) return true; // malformed — treat as expired
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
+    const exp = typeof payload.exp === "number" ? (payload.exp as number) : null;
+    if (exp === null) return false; // no exp claim — don't invalidate
+    return exp - bufferSecs <= Math.floor(Date.now() / 1000);
+  } catch {
+    return false; // decode error — don't invalidate
+  }
+}
+
 /** Extract the versioned SDK URL, SRI hash, targetOrigins and expiry from the capture-context JWT. */
 function extractSdkInfo(captureContext: string): {
   url: string | null;

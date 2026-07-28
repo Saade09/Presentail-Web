@@ -242,6 +242,8 @@ export const checkoutStrings: Dict = {
   "checkout.toast.cybersourceDeclinedDesc": { en: "Your card was declined. Please check your details and try again, or use a different card.", ar: "تم رفض بطاقتك. يرجى التحقق من بياناتك والمحاولة مجدداً أو استخدام بطاقة أخرى." },
   "checkout.toast.csTokenFailed": { en: "Card details could not be secured", ar: "تعذر تأمين بيانات البطاقة" },
   "checkout.toast.csTokenFailedDesc": { en: "Please re-enter your card details and try again.", ar: "يرجى إعادة إدخال بيانات البطاقة والمحاولة مجدداً." },
+  "checkout.toast.csFormExpired": { en: "Card form refreshed", ar: "تم تجديد نموذج البطاقة" },
+  "checkout.toast.csFormExpiredDesc": { en: "Your card session expired. Please re-enter your card details and try again.", ar: "انتهت صلاحية جلسة البطاقة. يرجى إعادة إدخال بيانات البطاقة والمحاولة مجدداً." },
   "checkout.toast.csEndpointNotFound": { en: "Payment service endpoint not found", ar: "نقطة خدمة الدفع غير موجودة" },
   "checkout.toast.csAuthFailed": { en: "Payment service authentication failed", ar: "فشلت مصادقة خدمة الدفع" },
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth setup failure path in Checkout.tsx
@@ -470,6 +472,8 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.cybersourceDeclinedDesc": "Votre carte a été refusée. Vérifiez vos informations et réessayez, ou utilisez une autre carte.",
   "checkout.toast.csTokenFailed": "Les informations de carte n'ont pas pu être sécurisées",
   "checkout.toast.csTokenFailedDesc": "Veuillez saisir à nouveau les informations de votre carte et réessayer.",
+  "checkout.toast.csFormExpired": "Formulaire de carte actualisé",
+  "checkout.toast.csFormExpiredDesc": "Votre session de carte a expiré. Veuillez saisir à nouveau vos coordonnées et réessayer.",
   "checkout.toast.csEndpointNotFound": "Point de service de paiement introuvable",
   "checkout.toast.csAuthFailed": "Échec de l'authentification du service de paiement",
   "checkout.toast.csSetupFailed": "La vérification de la carte n'a pas pu démarrer",
