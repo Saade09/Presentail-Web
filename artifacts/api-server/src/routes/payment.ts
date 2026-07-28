@@ -1151,8 +1151,15 @@ router.post("/payment/cybersource/decode-context", (req, res) => {
   }
 });
 
+// Rollout gate: set CYBERSOURCE_CHECKOUT_ENABLED=true to show the CyberSource
+// card tile in the web checkout for Lebanon+USD shoppers.  When absent or any
+// other value, the tile is hidden and Stripe handles LB+USD cards instead.
+function isCybersourceCheckoutEnabled(): boolean {
+  return process.env.CYBERSOURCE_CHECKOUT_ENABLED === "true";
+}
+
 router.get("/payment/cybersource/available", (_req, res) => {
-  const available = isCybersourceConfigured();
+  const available = isCybersourceConfigured() && isCybersourceCheckoutEnabled();
   return res.json({
     available,
     merchantId: available ? getCybersourceMerchantId() : undefined,
