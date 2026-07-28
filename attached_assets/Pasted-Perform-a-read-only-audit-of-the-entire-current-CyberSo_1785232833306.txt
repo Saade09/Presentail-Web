@@ -1,0 +1,309 @@
+Perform a read-only audit of the entire current CyberSource implementation.
+
+Do not make any code changes.
+
+Do not edit files, create files, run migrations, update packages, change environment variables, restart services, deploy, commit, or apply fixes.
+
+I need the complete code exactly as it exists now so it can be independently reviewed.
+
+## Output requirements
+
+Return the complete, unsanitized contents of every CyberSource-related file.
+
+Do not:
+
+* redact values
+* replace values with `[REDACTED]`
+* summarize code
+* omit imports
+* omit helper functions
+* shorten repeated sections
+* use placeholders
+* provide pseudocode
+* provide diffs
+* propose fixes
+* change formatting
+* silently exclude files
+* show only selected snippets
+
+Preserve the code exactly as currently written, including:
+
+* full imports
+* environment-variable references
+* hardcoded configuration
+* endpoint URLs
+* request bodies
+* response handling
+* database operations
+* feature flags
+* comments
+* logging
+* error handling
+* authentication logic
+* authorization logic
+* order creation logic
+
+For each file, provide:
+
+```text
+FILE: exact/project/path/to/file
+```
+
+Then place the complete file contents in a code block.
+
+If the output is too large, divide it into numbered responses or sections. Do not truncate files. Finish one complete file before moving to the next.
+
+## Search the entire project
+
+Search recursively through the complete repository for all occurrences of:
+
+* `cybersource`
+* `CyberSource`
+* `UnifiedCheckout`
+* `Unified Checkout`
+* `unified-checkout`
+* `capture-context`
+* `captureContext`
+* `completeMandate`
+* `consumerAuthentication`
+* `autoProcessing`
+* `payer-auth`
+* `payerAuth`
+* `setup`
+* `check-enrollment`
+* `checkEnrollment`
+* `validate-authentication`
+* `validateAuthentication`
+* `authenticationTransactionId`
+* `transientToken`
+* `transientTokenJwt`
+* `threeDS`
+* `3DS`
+* `Cardinal`
+* `Cruise Control`
+* `window.VAS`
+* `Microform`
+* `Flex`
+* `REST API`
+* `cs_payment_attempts`
+* `cs_request_id`
+* `cs_authentication_transaction_id`
+
+Also inspect files that are referenced or imported by the matching files, even when those referenced files do not contain the word CyberSource.
+
+## Backend files
+
+Return the complete current code for all backend files involved in:
+
+* CyberSource configuration
+* REST Shared Secret authentication
+* HTTP Signature generation
+* JWT creation or decoding
+* capture-context creation
+* Unified Checkout session creation
+* transient-token processing
+* Payer Authentication setup
+* device-data collection
+* Check Enrollment
+* challenge creation
+* challenge return handling
+* Validate Authentication
+* payment authorization
+* payment capture
+* sale processing
+* transaction lookup
+* voids
+* refunds
+* payment-attempt creation
+* payment-attempt retrieval
+* payment-attempt status polling
+* payment resumption
+* reconciliation
+* Presentail website order creation
+* OS order creation and synchronization
+* confirmation-page response generation
+* CyberSource error handling
+* CyberSource logging
+
+Include all related:
+
+* route files
+* controllers
+* services
+* API clients
+* middleware
+* utility files
+* schema validators
+* database repositories
+* job processors
+* queue workers
+* retry functions
+* shared payment modules
+
+## Frontend files
+
+Return the complete current code for all frontend files involved in:
+
+* CyberSource checkout eligibility
+* Lebanon IP detection
+* USD currency detection
+* payment-method selection
+* Unified Checkout SDK loading
+* CyberSource script URLs
+* SDK version selection
+* Subresource Integrity hashes
+* JWT decoding
+* `window.VAS.UnifiedCheckout`
+* Unified Checkout initialization
+* Unified Checkout `show` calls
+* Unified Checkout event handlers
+* card fields
+* Apple Pay
+* Google Pay
+* Microform
+* Flex
+* transient-token submission
+* Payer Authentication setup calls
+* Check Enrollment calls
+* 3DS iframe rendering
+* 3DS popup or separate-tab handling
+* `window.open`
+* `window.opener`
+* `window.parent`
+* `postMessage`
+* challenge completion
+* payment-attempt polling
+* resume logic
+* order creation calls
+* confirmation-page redirects
+* checkout error handling
+
+Include complete React components, hooks, utilities, API clients, types, interfaces, and state-management code.
+
+## Return and relay pages
+
+Return the complete current implementation of:
+
+* Payer Authentication return endpoint
+* 3DS challenge return page
+* challenge relay HTML
+* popup return page
+* iframe return page
+* top-frame fallback page
+* payment resume page
+* inline JavaScript used by any return page
+
+Include the exact HTML, JavaScript, headers, query-parameter handling, POST-body handling, redirect logic, `postMessage` logic, and window-closing behavior.
+
+## Database files
+
+Return the complete current code for:
+
+* `cs_payment_attempts`
+* CyberSource-related migrations
+* CyberSource-related table definitions
+* status enums
+* indexes
+* unique constraints
+* foreign keys
+* order relationships
+* cart relationships
+* customer relationships
+* OS order relationships
+* checkout snapshots
+* reconciliation records
+
+Also return the exact SQL generated by migrations where available.
+
+## Configuration and environment files
+
+Return the complete current CyberSource-related configuration.
+
+Include:
+
+* `.env` files
+* environment templates
+* Replit configuration files
+* deployment configuration
+* server configuration
+* frontend build configuration
+* secret-loading code
+* merchant configuration
+* test/live environment selection
+* return URLs
+* checkout origins
+* feature flags
+* organization ID
+* merchant ID
+* key ID
+* shared secret configuration
+* access-key configuration
+* profile ID
+* Apple Pay configuration
+* Google Pay configuration
+
+Do not redact or mask values. Show the files exactly as they currently exist.
+
+Do not print values that are not stored in project files and are only available through Replit’s protected Secrets interface. For those, list the exact secret name and every code location that reads it. Do not modify or expose the protected Secrets store.
+
+## Dependencies
+
+Return the complete relevant contents of:
+
+* `package.json`
+* lock files
+* CyberSource package configuration
+* CyberSource SDK dependencies
+* CardinalCommerce dependencies
+* frontend SDK script definitions
+* build configuration affecting CyberSource
+* TypeScript path aliases affecting imported payment modules
+
+## Runtime execution map
+
+After returning all code, provide a factual execution map based only on the current implementation.
+
+Identify:
+
+1. The first frontend function called when CyberSource is selected.
+2. The exact eligibility conditions for displaying CyberSource.
+3. The backend endpoint called first.
+4. Whether a Unified Checkout capture context is created.
+5. The complete capture-context request body.
+6. The exact `completeMandate` configuration.
+7. The exact `consumerAuthentication` configuration.
+8. Whether `autoProcessing` is enabled.
+9. The CyberSource browser SDK URL and version.
+10. Whether `window.VAS.UnifiedCheckout` is invoked.
+11. Whether Microform or Flex is also invoked.
+12. Whether Payer Authentication setup is called separately.
+13. Whether Check Enrollment is called separately.
+14. Whether Validate Authentication is called separately.
+15. How the challenge is displayed.
+16. Whether it uses an iframe, popup, separate tab, or multiple methods.
+17. The exact challenge return URL.
+18. The exact code executed when the challenge completes.
+19. Which endpoint performs authorization.
+20. The complete authorization request body.
+21. Whether authorization uses a Unified Checkout transient token.
+22. Whether authorization manually supplies Payer Authentication fields.
+23. Which code creates the website order.
+24. Which code creates or synchronizes the OS order.
+25. Which code redirects to the confirmation page.
+26. Which state exists only in React memory.
+27. Which state exists in browser storage.
+28. Which state exists in the database.
+29. Why CyberSource Core labels the transaction as `REST API`.
+30. Why it does not appear as a Unified Checkout transaction.
+
+## Required conclusion
+
+Based only on the code, select exactly one conclusion:
+
+* Unified Checkout is used end-to-end.
+* Unified Checkout is used only for card collection or tokenization, while authorization is processed through REST APIs.
+* The custom Payer Authentication REST flow is used instead of Unified Checkout.
+* Unified Checkout and the custom REST Payer Authentication flow both run for the same payment.
+* The implementation cannot be determined because specified files or code paths are missing.
+
+Do not make changes after completing the audit. Stop after returning the code and execution analysis.

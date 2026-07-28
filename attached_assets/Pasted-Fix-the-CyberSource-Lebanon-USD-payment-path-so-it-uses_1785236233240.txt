@@ -1,0 +1,209 @@
+Fix the CyberSource Lebanon + USD payment path so it uses Unified Checkout end-to-end and completes authorization, capture, order creation, and confirmation redirect.
+
+There are two confirmed issues.
+
+## Issue 1: Transactions appear in CyberSource/BLOM as REST API
+
+Current behavior:
+
+* Microform is the active default.
+* Custom REST Payer Authentication is used.
+* Unified Checkout is flag-gated and not the effective production path.
+* BLOM sees the transaction source as REST API.
+
+Required behavior:
+
+* Lebanon + USD CyberSource card payments must use Unified Checkout end-to-end.
+* The browser must initialize and use `window.VAS.UnifiedCheckout`.
+* The backend must create the Unified Checkout capture context.
+* The capture context must include the required payment mandate and 3DS configuration.
+* The custom Microform + REST Payer Authentication flow must not run for the same payment.
+* Stripe and non-Lebanon/non-USD paths must remain unchanged.
+
+First trace and confirm which path is currently executed in production. Do not assume Unified Checkout is active because the component or SDK exists.
+
+## Issue 2: Authentication starts but payment never reaches authorization or settlement
+
+Current behavior observed in CyberSource/BLOM:
+
+* Payer Authentication Setup is sent.
+* Enrollment is sent.
+* Authentication may return challenge/success.
+* The authentication result does not enter the final payment transaction.
+* No authorization is completed.
+* No capture or settlement is completed.
+* No Presentail order is recorded.
+* No OS order is created.
+* The customer is not redirected to confirmation.
+
+Required behavior:
+
+```text
+Unified Checkout initialization
+→ 3DS authentication
+→ challenge completion when required
+→ payment authorization
+→ capture or sale according to the configured mandate
+→ Presentail order creation
+→ OS synchronization
+→ confirmation-page redirect
+```
+
+## Unified Checkout requirements
+
+For the Lebanon + USD path:
+
+1. Create the capture context server-side.
+2. Use the correct production merchant configuration.
+3. Set the required `completeMandate`.
+4. Enable `consumerAuthentication: "3DS"`.
+5. Confirm whether `autoProcessing` is enabled.
+6. Initialize the CyberSource Unified Checkout SDK using the returned capture context.
+7. Submit payment through Unified Checkout.
+8. Use the Unified Checkout completion result as the active payment result.
+9. Verify the resulting payment server-side before creating the order.
+10. Never run the custom REST setup/check-enrollment/validate sequence in parallel for the same attempt.
+
+If Unified Checkout is configured for automatic processing, do not manually issue a second REST authorization.
+
+If Unified Checkout returns a transient token for manual processing, process that token exactly once server-side using the documented Unified Checkout payment flow.
+
+## Disable conflicting legacy flow
+
+For Lebanon + USD when Unified Checkout is enabled:
+
+* Do not render `CyberSourceSection` Microform.
+* Do not call the legacy Payer Authentication setup endpoint.
+* Do not call legacy Check Enrollment.
+* Do not open the legacy challenge modal.
+* Do not call legacy Validate Authentication.
+* Do not perform a separate legacy REST authorization.
+* Do not allow both flows to run for one checkout attempt.
+
+Keep the legacy path available only behind an explicit fallback flag until Unified Checkout is validated, but never execute both paths simultaneously.
+
+## Persistent payment-attempt state
+
+Replace in-memory-only CyberSource payment state with a database-backed payment-attempt record.
+
+Store:
+
+* attempt ID
+* checkout/cart ID
+* customer or guest-session ID
+* frozen checkout snapshot
+* amount
+* currency
+* CyberSource capture-context reference
+* authentication status
+* authorization status
+* capture status
+* CyberSource request ID
+* order ID
+* OS order ID
+* final status
+* error details
+* timestamps
+
+The backend must remain able to complete the payment if:
+
+* the challenge opens in a separate tab
+* the customer refreshes the checkout
+* the browser closes
+* the frontend misses a message
+* the server restarts
+* another server instance handles the return
+
+## Challenge completion
+
+Support:
+
+* Unified Checkout internal challenge handling
+* iframe return where applicable
+* popup or separate-tab return where applicable
+* top-frame fallback
+
+The original checkout page must not be the authority for payment completion.
+
+The backend must be able to determine the attempt status and complete order creation independently.
+
+## Authorization and capture
+
+Explicitly verify after authentication:
+
+* whether an authorization request was created
+* the CyberSource request ID
+* authorization decision
+* processor response
+* amount
+* currency
+* 3DS authentication values attached to the payment
+* whether capture was completed or queued
+* whether settlement is expected later
+
+Store authorization and capture separately.
+
+Do not mark the payment completed based only on Setup or Enrollment success.
+
+The payment is successful only when the final CyberSource payment result is approved.
+
+## Order creation
+
+After approved payment:
+
+1. Create exactly one Presentail website order.
+2. Save the CyberSource request and authorization references.
+3. Return the same order on repeated callbacks or retries.
+4. Synchronize the order to OS idempotently.
+5. Redirect the original checkout to the confirmation page.
+
+Website order creation must not depend on OS being available. If OS sync fails, keep the local order and retry OS synchronization separately.
+
+## Reconciliation
+
+Add a read-only diagnostic first for affected transactions:
+
+* retrieve the Setup record
+* retrieve the Enrollment record
+* retrieve any authentication validation result
+* search for an authorization request
+* search for a capture request
+* search for an existing Presentail order
+* search for an existing OS order
+* identify the exact step where the chain stopped
+
+Do not retry authorization automatically until confirming that no approved authorization already exists.
+
+## Logging
+
+Add structured logs for:
+
+* Unified Checkout capture-context creation
+* frontend Unified Checkout initialization
+* payment submission
+* authentication result
+* challenge start and completion
+* Unified Checkout completion callback
+* authorization request and result
+* capture request and result
+* website order creation
+* OS synchronization
+* confirmation redirect
+* duplicate callback handling
+* reconciliation result
+
+## Acceptance criteria
+
+* BLOM/CyberSource identifies the Lebanon + USD transaction as Unified Checkout, not REST API.
+* Only one CyberSource integration path runs per payment.
+* A frictionless 3DS payment completes authorization and order creation.
+* A challenged 3DS payment completes authorization after challenge success.
+* Setup or Enrollment success alone never marks payment successful.
+* An approved payment creates exactly one Presentail order.
+* An approved payment creates or queues exactly one OS order.
+* The original checkout redirects to confirmation.
+* Refreshing or closing the browser does not lose the payment.
+* Duplicate callbacks do not duplicate charges or orders.
+* Stripe and other payment paths remain unchanged.
+
+Do not deploy until the execution logs prove that the active path is Unified Checkout and the final payment request reaches authorization and capture.
