@@ -1,0 +1,202 @@
+OBJECTIVE
+
+Build a dedicated, high-converting Presentail landing page for Google Ads visitors who searched for a competitor’s brand but clicked a Presentail ad.
+
+The page must make Presentail’s identity immediately clear, provide compelling reasons to stay, and let customers begin shopping without navigating through the normal homepage. It should feel fully native to presentail.com while using the more persuasive campaign-specific elements approved in the final mockup.
+
+IMPORTANT
+
+- Do not replace the existing homepage or collection pages.
+- Build this as a reusable campaign landing-page template.
+- Do not display, imitate, or reference any competitor name, logo, color system, or branding.
+- Keep the current Presentail product-card design.
+- The experience must be mobile-first because most ad traffic will be mobile.
+
+DESIGN DIRECTION
+
+Use the current Presentail website as the design system:
+
+- Bright white base
+- Existing Presentail teal
+- Existing serif heading typography and sans-serif body typography
+- Current utility bar and mobile header
+- Existing rounded pills, borders, spacing, icons, and product-card styling
+- Minimal shadows and restrained use of blush accents
+- Premium, editorial flower photography
+
+The page should use the approved hybrid concept: authentic Presentail catalog styling combined with a richer campaign hero banner and stronger conversion cues.
+
+PAGE STRUCTURE
+
+1. EXISTING PRESENTAIL HEADER
+
+Reuse the production header rather than creating a separate version:
+
+- Same-day delivery utility message
+- Current selected city and country flag
+- Language selector
+- Menu and search icons
+- Centered Presentail wordmark
+- Account and cart icons
+
+The city, language and currency must follow the visitor’s current selection.
+
+2. BREADCRUMB
+
+Display:
+
+Home › Flower Delivery
+
+3. CAMPAIGN HERO BANNER
+
+Create a premium rounded hero banner containing:
+
+Headline:
+Beautiful Flowers Delivered in [City] Today
+
+Supporting copy:
+Fresh arrangements, reliable delivery and personal support—7 days a week.
+
+Visual:
+
+- One premium Presentail-style flower arrangement
+- Bouquet positioned to the right on desktop/tablet
+- Copy and CTA positioned to the left
+- On narrower mobile screens, reflow without placing text over visually busy flowers
+- Hero should be visually strong but not so tall that it delays the product section
+
+Promotion:
+
+- Display “10% OFF YOUR FIRST ORDER”
+- Supporting text: “Applied automatically”
+- Use a refined outlined promotional treatment
+- The offer must only display when the visitor is eligible
+- If shown, the discount must actually apply automatically at checkout
+- Do not ask the customer to remember or manually enter a coupon code
+
+Primary CTA:
+Shop Best Sellers
+
+Secondary CTA:
+Shop Under [currency-adjusted amount]
+
+For Dubai, use AED 250. Amounts must be configurable by market.
+
+4. TRUST ROW
+
+Place immediately below the hero:
+
+- 4.8 ★ Rating
+- Secure Payment
+- Delivery Updates
+
+Use compact icons and thin separators. On small screens, keep the row legible without creating large reassurance cards.
+
+5. BEST SELLERS SECTION
+
+Heading:
+Best Sellers Available Today
+
+Include a “View all” link.
+
+Requirements:
+
+- Load products dynamically for the selected delivery city
+- Only show active and deliverable products
+- Prioritize best sellers that are actually available for same-day delivery
+- Use the existing two-column Presentail product cards
+- Keep the current product image treatment, serif product name, price placement and teal Best Seller badge
+- Do not add boxed card borders, heart icons, or large Add to Cart buttons to the cards
+- Product clicks must open the normal product page while preserving city, language, currency and campaign attribution
+
+6. SHOPPING SHORTCUTS
+
+Add a horizontally scrollable row of existing Presentail-style pills:
+
+- Birthday
+- Anniversary
+- Romantic
+- Under AED 250 / market-equivalent amount
+
+Each pill should take the user to the corresponding filtered catalog view while preserving the selected city and tracking parameters.
+
+7. SOCIAL PROOF
+
+Add one compact review panel beneath the products:
+
+- Five-star rating
+- Short verified review
+- Reviewer first name and last initial
+- Verified Buyer label
+
+Review content must come from real approved customer reviews. Do not hard-code a fictional review in production.
+
+8. STICKY MOBILE CTA
+
+Add a sticky bottom CTA:
+
+Shop Flowers Available Today
+
+Requirements:
+
+- Display on mobile only
+- Do not cover product content, cookie consent, checkout controls, chat/support controls, or iOS safe-area content
+- Route to the best-sellers section or the appropriate available-products collection
+- Hide or adapt when another critical sticky action is active
+
+CAMPAIGN AND URL BEHAVIOR
+
+- Create dedicated URLs for each supported market/city or use a clean reusable route with city-aware content
+- Keep competitor trademarks out of the visible page content and URL
+- Ensure the headline, currency, delivery promise, products, cutoff time and offer are generated from the selected city
+- Preserve gclid, UTM parameters and other campaign identifiers through product selection, cart and checkout
+- Ensure browser back behavior works normally
+- The landing page must work in English, Arabic and French using the existing localization architecture
+- Arabic must render RTL correctly
+
+TRACKING
+
+Implement and verify:
+
+- Landing-page view
+- Hero primary CTA click
+- Hero secondary CTA click
+- Promotion impression and click
+- Product impression
+- Product click
+- “View all” click
+- Category-pill click
+- Sticky CTA impression and click
+- Add to cart
+- Begin checkout
+- Purchase
+
+Send appropriate events to the existing Google Ads/GA4 setup and ensure Microsoft Clarity records the page correctly. Preserve campaign attribution through checkout.
+
+PERFORMANCE AND ACCESSIBILITY
+
+- Mobile-first responsive implementation
+- Avoid loading an oversized hero asset
+- Use properly sized responsive images and modern image formats
+- Prevent layout shift while product and hero images load
+- Target LCP below 2.5 seconds on representative mobile connections
+- Ensure buttons and pills have accessible tap targets
+- Maintain sufficient color contrast
+- Provide meaningful image alt text
+- Ensure keyboard navigation and visible focus states
+- Respect reduced-motion settings
+
+ACCEPTANCE CRITERIA
+
+- The page clearly identifies Presentail before the visitor scrolls
+- The final design closely matches the approved hybrid mockup and the live Presentail design system
+- A customer can understand the city, delivery availability, offer and primary CTA immediately
+- Best sellers appear directly below the hero and are dynamically valid for the selected city
+- The 10% offer is shown only to eligible users and applies automatically when displayed
+- City, language, currency, cart and campaign attribution remain intact across the entire journey
+- No competitor trademark or misleading affiliation appears anywhere
+- Mobile sticky CTA does not cover content or conflict with other sticky controls
+- All specified analytics events are visible in test/debug mode
+- The page passes responsive QA on current iPhone/Android sizes and desktop
+- No regressions occur in the existing homepage, collection page, product page, cart or checkout
+- Final QA screenshots should be attached to this task before completion
