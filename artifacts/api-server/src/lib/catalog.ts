@@ -199,7 +199,7 @@ type CatalogProduct = { price: number; name: string };
  * the price the customer should be charged. The raw osProduct.price is the
  * regular/list price and must NOT be used when a sale is active.
  */
-function resolveOsEffectivePrice(osProduct: { osNumericId?: number | string; price: number }): number {
+export function resolveOsEffectivePrice(osProduct: { osNumericId?: number | string; price: number }): number {
   const key = osProduct.osNumericId != null ? String(osProduct.osNumericId) : "";
   if (key) {
     const entry = getOsProductPricingMap().get(key);

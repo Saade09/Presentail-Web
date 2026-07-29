@@ -61,6 +61,7 @@ vi.mock("@workspace/db", () => ({
     state: "state",
     updatedAt: "updatedAt",
     customerId: "customerId",
+    currencyCode: "currencyCode",
   },
   customersTable: {
     id: "id",
@@ -162,6 +163,7 @@ function makeOrderRow(overrides: Partial<{
   deliverySlot: string | null;
   totalUsdCents: number | null;
   lineItemsJson: string | null;
+  currencyCode: string | null;
 }> = {}) {
   return {
     appOrderId: APP_ORDER_ID,
@@ -175,6 +177,7 @@ function makeOrderRow(overrides: Partial<{
     deliverySlot: "Morning",
     totalUsdCents: 10000,
     lineItemsJson: null,
+    currencyCode: null,
     ...overrides,
   };
 }
@@ -299,6 +302,36 @@ describe("handleOrderStatusUpdated — customer email lookup", () => {
 
     const arg = sendOrderEventEmailMock.mock.calls[0][0] as Record<string, unknown>;
     expect(arg.lineItems).toEqual(lineItems);
+  });
+
+  it("forwards currencyCode from app_orders row to the email notifier", async () => {
+    limitMock
+      .mockResolvedValueOnce([makeOrderRow({
+        customerId: 7,
+        totalUsdCents: 51000,
+        currencyCode: "AUD",
+      })])
+      .mockResolvedValueOnce([makeCustomerRow("aud-customer@example.com")]);
+
+    await sendStatusUpdated({ app_order_id: APP_ORDER_ID, status: "confirmed" });
+
+    const arg = sendOrderEventEmailMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg.currencyCode).toBe("AUD");
+    expect(arg.totalUsdCents).toBe(51000);
+  });
+
+  it("passes null currencyCode when not stored on the row (legacy USD orders)", async () => {
+    limitMock
+      .mockResolvedValueOnce([makeOrderRow({
+        customerId: 8,
+        currencyCode: null,
+      })])
+      .mockResolvedValueOnce([makeCustomerRow("legacy-customer@example.com")]);
+
+    await sendStatusUpdated({ app_order_id: APP_ORDER_ID, status: "confirmed" });
+
+    const arg = sendOrderEventEmailMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg.currencyCode).toBeNull();
   });
 });
 

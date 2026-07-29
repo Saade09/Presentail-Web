@@ -497,6 +497,109 @@ describe("sendOrderEventEmail — lang normalisation", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Currency-aware total formatting
+// ---------------------------------------------------------------------------
+
+describe("sendOrderEventEmail — currency-aware total", () => {
+  beforeEach(() => setSmtpEnv());
+
+  it("renders total as 'AUD 510.00' when currencyCode is AUD", async () => {
+    await sendOrderEventEmail({
+      state: "confirmed",
+      appOrderId: ORDER_ID,
+      customerEmail: CUSTOMER_EMAIL,
+      lang: "en",
+      totalUsdCents: 51000,
+      currencyCode: "AUD",
+    });
+    const body = (sendMailMock.mock.calls[0][0] as Record<string, string>).text;
+    expect(body).toContain("AUD 510.00");
+    expect(body).not.toContain("$510.00");
+  });
+
+  it("renders total as '$150.00' when currencyCode is USD", async () => {
+    await sendOrderEventEmail({
+      state: "confirmed",
+      appOrderId: ORDER_ID,
+      customerEmail: CUSTOMER_EMAIL,
+      lang: "en",
+      totalUsdCents: 15000,
+      currencyCode: "USD",
+    });
+    const body = (sendMailMock.mock.calls[0][0] as Record<string, string>).text;
+    expect(body).toContain("$150.00");
+    expect(body).not.toContain("USD 150.00");
+  });
+
+  it("falls back to '$' format when currencyCode is absent (legacy behaviour)", async () => {
+    await sendOrderEventEmail({
+      state: "confirmed",
+      appOrderId: ORDER_ID,
+      customerEmail: CUSTOMER_EMAIL,
+      lang: "en",
+      totalUsdCents: 10000,
+      // No currencyCode
+    });
+    const body = (sendMailMock.mock.calls[0][0] as Record<string, string>).text;
+    expect(body).toContain("$100.00");
+  });
+
+  it("omits line-item prices when currencyCode is non-USD (item prices are in USD, would be misleading)", async () => {
+    await sendOrderEventEmail({
+      state: "confirmed",
+      appOrderId: ORDER_ID,
+      customerEmail: CUSTOMER_EMAIL,
+      lang: "en",
+      totalUsdCents: 51000,
+      currencyCode: "AUD",
+      lineItems: [
+        { name: "Rose Bouquet", quantity: 1, priceUsdCents: 15000 },
+        { name: "Balloon", quantity: 2, priceUsdCents: 5000 },
+      ],
+    });
+    const body = (sendMailMock.mock.calls[0][0] as Record<string, string>).text;
+    // Item names still appear
+    expect(body).toContain("Rose Bouquet");
+    expect(body).toContain("Balloon");
+    // But USD line-item prices are NOT shown
+    expect(body).not.toContain("$150.00");
+    expect(body).not.toContain("$50.00");
+    // Order total IS shown in AUD
+    expect(body).toContain("AUD 510.00");
+  });
+
+  it("includes line-item prices for USD orders", async () => {
+    await sendOrderEventEmail({
+      state: "confirmed",
+      appOrderId: ORDER_ID,
+      customerEmail: CUSTOMER_EMAIL,
+      lang: "en",
+      totalUsdCents: 15000,
+      currencyCode: "USD",
+      lineItems: [
+        { name: "Rose Bouquet", quantity: 1, priceUsdCents: 15000 },
+      ],
+    });
+    const body = (sendMailMock.mock.calls[0][0] as Record<string, string>).text;
+    expect(body).toContain("Rose Bouquet");
+    expect(body).toContain("$150.00");
+  });
+
+  it("renders AED total correctly for UAE customers", async () => {
+    await sendOrderEventEmail({
+      state: "confirmed",
+      appOrderId: ORDER_ID,
+      customerEmail: CUSTOMER_EMAIL,
+      lang: "en",
+      totalUsdCents: 50000,
+      currencyCode: "AED",
+    });
+    const body = (sendMailMock.mock.calls[0][0] as Record<string, string>).text;
+    expect(body).toContain("AED 500.00");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tracking URL base
 // ---------------------------------------------------------------------------
 

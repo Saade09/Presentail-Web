@@ -40,9 +40,16 @@ type EmailCopy = {
 const TRACKING_URL_BASE = () =>
   (process.env.SMS_TRACKING_URL_BASE ?? "https://presentail.com/orders").replace(/\/$/, "");
 
-// Format USD cents → human-readable string, e.g. 15000 → "$150.00"
-function formatUsd(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`; // i18n-ignore
+// Format an amount in minor units for display, using the ISO currency code.
+// When currencyCode is "USD" or absent, falls back to the legacy "$" prefix.
+// For other currencies, emits e.g. "AUD 510.00", "AED 125.00".
+// All known currencies use 2 decimal places; this is correct for the currencies
+// Presentail currently supports (USD, AED, AUD, SAR, KWD, OMR, QAR, etc.).
+function formatAmount(cents: number, currencyCode?: string | null): string {
+  const amount = (cents / 100).toFixed(2);
+  const code = (currencyCode ?? "").toUpperCase().trim();
+  if (!code || code === "USD") return `$${amount}`; // i18n-ignore
+  return `${code} ${amount}`; // i18n-ignore
 }
 
 type EmailLineItem = { name: string; quantity: number; priceUsdCents: number };
@@ -57,23 +64,60 @@ function buildEmailCopy(
     deliverySlot?: string | null;
     totalUsdCents?: number | null;
     lineItems?: EmailLineItem[] | null;
+    /** ISO 4217 currency code the customer actually paid in (e.g. "AUD", "AED"). */
+    currencyCode?: string | null;
   },
 ): EmailCopy {
   const trackUrl = `${TRACKING_URL_BASE()}/${encodeURIComponent(appOrderId)}`;
   const recipient = recipientName ? ` for ${recipientName}` : "";
+  const currency = opts?.currencyCode ?? null;
+
+  // Line items store priceUsdCents in USD. When the payment currency is not USD,
+  // we omit per-item prices from the email rather than showing misleading USD
+  // amounts to a customer who paid in a different currency. The order total is
+  // always shown in the correct payment currency (totalUsdCents stores payment-
+  // currency minor units despite the field name). Full currency-aware itemisation
+  // is a separate future task.
+  const showItemPrices = !currency || currency.toUpperCase() === "USD";
 
   // Render one line per item, e.g. "  - Red Rose Bouquet × 2  ($58.00)"
+  // Price is omitted for non-USD orders to avoid showing USD amounts to a
+  // customer who paid in a different currency.
   function itemLinesEn(): string[] {
     if (!opts?.lineItems?.length) return [];
-    return [`Items:`, ...opts.lineItems.map((it) => `  - ${it.name} × ${it.quantity}  (${formatUsd(it.priceUsdCents)})`), ``]; // i18n-ignore
+    return [
+      `Items:`, // i18n-ignore
+      ...opts.lineItems.map((it) =>
+        showItemPrices
+          ? `  - ${it.name} × ${it.quantity}  (${formatAmount(it.priceUsdCents, "USD")})` // i18n-ignore
+          : `  - ${it.name} × ${it.quantity}`, // i18n-ignore
+      ),
+      ``,
+    ];
   }
   function itemLinesAr(): string[] {
     if (!opts?.lineItems?.length) return [];
-    return [`المنتجات:`, ...opts.lineItems.map((it) => `  - ${it.name} × ${it.quantity}  (${formatUsd(it.priceUsdCents)})`), ``]; // i18n-ignore
+    return [
+      `المنتجات:`, // i18n-ignore
+      ...opts.lineItems.map((it) =>
+        showItemPrices
+          ? `  - ${it.name} × ${it.quantity}  (${formatAmount(it.priceUsdCents, "USD")})` // i18n-ignore
+          : `  - ${it.name} × ${it.quantity}`, // i18n-ignore
+      ),
+      ``,
+    ];
   }
   function itemLinesFr(): string[] {
     if (!opts?.lineItems?.length) return [];
-    return [`Articles :`, ...opts.lineItems.map((it) => `  - ${it.name} × ${it.quantity}  (${formatUsd(it.priceUsdCents)})`), ``]; // i18n-ignore
+    return [
+      `Articles :`, // i18n-ignore
+      ...opts.lineItems.map((it) =>
+        showItemPrices
+          ? `  - ${it.name} × ${it.quantity}  (${formatAmount(it.priceUsdCents, "USD")})` // i18n-ignore
+          : `  - ${it.name} × ${it.quantity}`, // i18n-ignore
+      ),
+      ``,
+    ];
   }
 
   // Build a summary block for the confirmed email.
@@ -85,7 +129,7 @@ function buildEmailCopy(
     if (opts?.deliverySlot) lines.push(`Delivery slot    : ${opts.deliverySlot}`); // i18n-ignore
     lines.push(``);
     lines.push(...itemLinesEn());
-    if (opts?.totalUsdCents != null) lines.push(`Order total      : ${formatUsd(opts.totalUsdCents)}`); // i18n-ignore
+    if (opts?.totalUsdCents != null) lines.push(`Order total      : ${formatAmount(opts.totalUsdCents, currency)}`); // i18n-ignore
     return lines;
   }
   function confirmedSummaryAr(): string[] {
@@ -96,7 +140,7 @@ function buildEmailCopy(
     if (opts?.deliverySlot) lines.push(`وقت التوصيل: ${opts.deliverySlot}`); // i18n-ignore
     lines.push(``);
     lines.push(...itemLinesAr());
-    if (opts?.totalUsdCents != null) lines.push(`إجمالي الطلب: ${formatUsd(opts.totalUsdCents)}`); // i18n-ignore
+    if (opts?.totalUsdCents != null) lines.push(`إجمالي الطلب: ${formatAmount(opts.totalUsdCents, currency)}`); // i18n-ignore
     return lines;
   }
   function confirmedSummaryFr(): string[] {
@@ -107,7 +151,7 @@ function buildEmailCopy(
     if (opts?.deliverySlot) lines.push(`Créneau de livraison  : ${opts.deliverySlot}`); // i18n-ignore
     lines.push(``);
     lines.push(...itemLinesFr());
-    if (opts?.totalUsdCents != null) lines.push(`Total de la commande  : ${formatUsd(opts.totalUsdCents)}`); // i18n-ignore
+    if (opts?.totalUsdCents != null) lines.push(`Total de la commande  : ${formatAmount(opts.totalUsdCents, currency)}`); // i18n-ignore
     return lines;
   }
 
@@ -303,10 +347,23 @@ export type EmailNotifyInput = {
   deliveryDate?: string | null;
   /** Human-readable slot label (e.g. "Morning (9am–1pm)"). */
   deliverySlot?: string | null;
-  /** Order total in USD cents. */
+  /**
+   * Order total in the payment currency's minor units.
+   * Despite the field name, this stores payment-currency minor units
+   * (e.g. 51000 for AUD 510.00) — not necessarily USD cents.
+   * Pair with `currencyCode` to display the correct amount and symbol.
+   */
   totalUsdCents?: number | null;
   /** Resolved line item snapshot — rendered in the confirmed email body. */
   lineItems?: { name: string; quantity: number; priceUsdCents: number }[] | null;
+  /**
+   * ISO 4217 currency code the customer actually paid in (e.g. "AUD", "AED").
+   * When present and non-USD, the total is rendered with the currency code
+   * (e.g. "AUD 510.00"). Line-item prices are omitted for non-USD orders
+   * because they are stored in USD and would be misleading.
+   * Absent → falls back to USD formatting.
+   */
+  currencyCode?: string | null;
 };
 
 export type EmailNotifyResult = {
@@ -324,7 +381,7 @@ export type EmailNotifyResult = {
 export async function sendOrderEventEmail(
   input: EmailNotifyInput,
 ): Promise<EmailNotifyResult> {
-  const { state, appOrderId, customerEmail, recipientName, lang, deliveryDate, deliverySlot, totalUsdCents, lineItems } = input;
+  const { state, appOrderId, customerEmail, recipientName, lang, deliveryDate, deliverySlot, totalUsdCents, lineItems, currencyCode } = input;
 
   // Skip when the state is not in the notify list.
   if (!notifyStates().has(state)) {
@@ -354,6 +411,7 @@ export async function sendOrderEventEmail(
     deliverySlot,
     totalUsdCents,
     lineItems,
+    currencyCode,
   });
 
   try {

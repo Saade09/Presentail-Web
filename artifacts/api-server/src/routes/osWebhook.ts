@@ -817,6 +817,7 @@ export async function handleOrderStatusUpdated(
       marketingAttributionJson: appOrdersTable.marketingAttributionJson,
       gadsConversionUploadedAt: appOrdersTable.gadsConversionUploadedAt,
       state: appOrdersTable.state,
+      currencyCode: appOrdersTable.currencyCode,
     })
     .from(appOrdersTable)
     .where(where)
@@ -971,6 +972,9 @@ export async function handleOrderStatusUpdated(
     deliverySlot: row.deliverySlot,
     totalUsdCents: row.totalUsdCents,
     lineItems: parsedLineItems,
+    // Pass through the payment currency so the email total shows e.g. "AUD 510.00"
+    // rather than "$510.00" for non-USD customers.
+    currencyCode: row.currencyCode,
   }).catch(() => ({ emailSent: false, emailSkipped: true }));
 
   req.log.info?.(

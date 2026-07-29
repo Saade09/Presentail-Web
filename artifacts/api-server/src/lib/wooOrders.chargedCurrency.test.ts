@@ -48,8 +48,12 @@ vi.mock("./fx", () => ({
 vi.mock("./catalog", () => ({
   fetchWcProductPrice: vi.fn().mockResolvedValue({ price: 25, name: "Rose" }),
   computeDistrictFeeUsd: vi.fn().mockReturnValue(0),
+  computeSlotFeeUsd: vi.fn().mockReturnValue(0),
   countryForDistrict: vi.fn().mockReturnValue("LB"),
   expressSurchargeUsd: vi.fn().mockReturnValue(0),
+  // resolveOsEffectivePrice is used in attemptCreateOsOrder for OS-native items.
+  // Default: return the product's own price (no discount). Tests override per-case.
+  resolveOsEffectivePrice: vi.fn((p: { price: number }) => p.price),
 }));
 
 vi.mock("./wooStore", () => ({
@@ -80,6 +84,7 @@ vi.mock("./osProductsCache", () => ({
   getOsProductBySlug: vi.fn().mockReturnValue(null),
   getOsProductByWcId: vi.fn().mockReturnValue(null),
   hasOsProducts: vi.fn().mockReturnValue(true),
+  getOsProductPricingMap: vi.fn().mockReturnValue(new Map()),
 }));
 
 vi.mock("./ordersSheet.js", () => ({
@@ -95,6 +100,8 @@ vi.mock("./orderEvents", () => ({
 // ---------------------------------------------------------------------------
 
 import { attemptCreateOsOrder, type WooOrderPayload } from "./wooOrders";
+import * as catalogMock from "./catalog";
+import * as osProductsCacheMock from "./osProductsCache";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -227,5 +234,107 @@ describe("attemptCreateOsOrder — charge currency routing", () => {
     if (result.ok) {
       expect(result.osOrderId).toBe("os-order-abc");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OS-native product price resolution (Bug 1 fix)
+// ---------------------------------------------------------------------------
+// These tests verify that the OS-native product path in attemptCreateOsOrder
+// uses resolveOsEffectivePrice (i.e. the enriched sale price from the pricing
+// map) rather than the bare osProduct.price (the list price).
+// ---------------------------------------------------------------------------
+
+describe("attemptCreateOsOrder — OS-native price resolution", () => {
+  beforeEach(() => {
+    process.env.PRESENTAIL_OS_API_KEY = "test-api-key";
+    process.env.PRESENTAIL_OS_API_URL = "https://os.example.com";
+    createOsOrderMock.mockResolvedValue({ order_id: "os-order-xyz" });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    delete process.env.PRESENTAIL_OS_API_KEY;
+    delete process.env.PRESENTAIL_OS_API_URL;
+  });
+
+  it("uses resolveOsEffectivePrice (discount price) for OS-native item, not bare osProduct.price", async () => {
+    // Simulate OS-native product (wcId=0, osSlug set)
+    const body: WooOrderPayload = {
+      orderId: "order-os-001",
+      items: [{ name: "Bear Gift Set", quantity: 1, price: 45, wcId: 0, osSlug: "bear-gift-set" }],
+      billing: { firstName: "Alice", lastName: "Smith", email: "alice@example.com", phone: "+96170000000" },
+      recipient: { firstName: "Bob", lastName: "Jones", phone: "+96170000001" },
+      district: "Beirut",
+      districtFee: 0,
+      expressFee: 0,
+      deliveryDetails: "",
+      deliveryDate: "",
+      deliverySlot: "",
+      paymentMethod: "card",
+      paymentRef: "pi_os_001",
+      currencyCode: "AUD",
+    };
+
+    // getOsProductBySlug returns a product with a high list price
+    vi.mocked(osProductsCacheMock.getOsProductBySlug).mockReturnValue({
+      id: "bear-gift-set",
+      wcId: 0,
+      osNumericId: 99,
+      name: "Bear Gift Set",
+      price: 45, // list price (base)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    // resolveOsEffectivePrice returns the discounted price (sale active)
+    vi.mocked(catalogMock.resolveOsEffectivePrice).mockReturnValue(30);
+
+    const result = await attemptCreateOsOrder(body, {
+      paymentVerified: true,
+      // No preVerifiedItems — exercises the cache-lookup fallback path
+    });
+
+    expect(result.ok).toBe(true);
+    // The OS order payload line items should use the enriched price (30), not list price (45)
+    const [, osPayload] = createOsOrderMock.mock.calls[0] as [unknown, { items: { priceUsd: number }[] }];
+    expect(osPayload.items[0].priceUsd).toBe(30);
+  });
+
+  it("reconcile worker path (no preVerifiedItems): uses enriched price, not bare list price", async () => {
+    const body: WooOrderPayload = {
+      orderId: "order-os-002",
+      items: [{ name: "Flower Box", quantity: 2, price: 60, wcId: 0, osSlug: "flower-box" }],
+      billing: { firstName: "Carol", lastName: "Lee", email: "carol@example.com", phone: "+96170000002" },
+      recipient: { firstName: "Dan", lastName: "Kim", phone: "+96170000003" },
+      district: "Beirut",
+      districtFee: 0,
+      expressFee: 0,
+      deliveryDetails: "",
+      deliveryDate: "",
+      deliverySlot: "",
+      paymentMethod: "whish",
+      currencyCode: "USD",
+    };
+
+    vi.mocked(osProductsCacheMock.getOsProductBySlug).mockReturnValue({
+      id: "flower-box",
+      wcId: 0,
+      osNumericId: 101,
+      name: "Flower Box",
+      price: 60, // list price
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    // Sale price is 48 (discount active)
+    vi.mocked(catalogMock.resolveOsEffectivePrice).mockReturnValue(48);
+
+    const result = await attemptCreateOsOrder(body, {
+      paymentVerified: false,
+      // preVerifiedItems absent — simulates reconcile worker retry
+    });
+
+    expect(result.ok).toBe(true);
+    const [, osPayload] = createOsOrderMock.mock.calls[0] as [unknown, { items: { priceUsd: number }[] }];
+    expect(osPayload.items[0].priceUsd).toBe(48);
   });
 });

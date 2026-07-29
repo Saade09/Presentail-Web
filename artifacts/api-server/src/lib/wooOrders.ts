@@ -21,6 +21,7 @@ import {
   computeSlotFeeUsd,
   countryForDistrict,
   expressSurchargeUsd,
+  resolveOsEffectivePrice,
 } from "./catalog";
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
@@ -947,10 +948,24 @@ export async function attemptCreateOsOrder(
       const osProduct =
         getOsProductBySlug(item.osSlug, opts.store?.storeKey) ??
         getOsProductBySlug(item.osSlug);
-      if (osProduct && osProduct.price > 0) {
-        catalog = { price: osProduct.price, name: osProduct.name };
-        resolvedOsId = osProduct.id;
-        if (osProduct.osNumericId != null) resolvedOsNumericId = String(osProduct.osNumericId);
+      if (osProduct) {
+        // Use resolveOsEffectivePrice so the pricing enrichment map's
+        // discountPriceUsd (sale price) is applied when active, exactly
+        // as checkout does via resolveCartItems. Using osProduct.price
+        // directly would send the base list price to OS even when a sale
+        // is running, causing OS totals to diverge from what was charged.
+        const effectivePrice = resolveOsEffectivePrice(osProduct);
+        if (effectivePrice > 0) {
+          if (effectivePrice !== osProduct.price) {
+            logger.debug(
+              { osSlug: item.osSlug, basePrice: osProduct.price, effectivePrice, appOrderId: body.orderId },
+              "osOrders: enriched sale price applied (discount active)",
+            );
+          }
+          catalog = { price: effectivePrice, name: osProduct.name };
+          resolvedOsId = osProduct.id;
+          if (osProduct.osNumericId != null) resolvedOsNumericId = String(osProduct.osNumericId);
+        }
       }
     }
     if (!catalog) {
