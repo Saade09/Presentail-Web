@@ -166,7 +166,16 @@ type AnalyticsEventName =
   | "product_impression"
   /** Product card clicked by the user within a homepage section. */
   | "product_card_click"
-  | "checkout_render_error";
+  | "checkout_render_error"
+  /** Campaign landing page (e.g. /flower-delivery) events. */
+  | "campaign_page_view"
+  | "campaign_hero_cta_click"
+  | "campaign_promo_impression"
+  | "campaign_promo_click"
+  | "campaign_view_all_click"
+  | "campaign_pill_click"
+  | "campaign_sticky_cta_impression"
+  | "campaign_sticky_cta_click";
 
 type AnalyticsSurface =
   | "cart"

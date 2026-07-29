@@ -450,11 +450,19 @@ export default function Shop() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bearSizeFilteredProducts, aiColorHints]);
 
+  // Optional ?maxUsd= cap (campaign landing "Shop Under …" links). Filters on
+  // the USD list price; the amount shown to the shopper is the converted value.
+  const maxUsdParam = useMemo(() => {
+    const raw = Number(searchParams.get("maxUsd"));
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  }, [searchParams]);
+
   const filteredProducts: Product[] = useMemo(() => {
     const bucketTest = selectedPriceBucket
       ? convertedBucketDefs.find((d) => d.key === selectedPriceBucket)?.test ?? null
       : null;
     return bearSizeFilteredProducts.filter((p) => {
+      if (maxUsdParam != null && p.priceValue > maxUsdParam) return false;
       if (bucketTest && !bucketTest(p)) return false;
       if (selectedColors.length > 0) {
         const c = resolveColor(p);
@@ -463,7 +471,7 @@ export default function Shop() {
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bearSizeFilteredProducts, selectedPriceBucket, selectedColors, aiColorHints, convertedBucketDefs]);
+  }, [bearSizeFilteredProducts, selectedPriceBucket, selectedColors, aiColorHints, convertedBucketDefs, maxUsdParam]);
 
   const products = useMemo(() => {
     const p = [...filteredProducts];

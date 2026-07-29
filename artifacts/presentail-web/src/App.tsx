@@ -122,6 +122,7 @@ const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
 const BestSellers = lazy(() => import("@/pages/BestSellers"));
+const CampaignLanding = lazy(() => import("@/pages/CampaignLanding"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const CheckoutPaymentResume = lazy(() => import("@/pages/CheckoutPaymentResume"));
@@ -155,6 +156,7 @@ const PrivacyRoute = withSuspense(Privacy, PageLoader);
 const ShippingPolicyRoute = withSuspense(ShippingPolicy, PageLoader);
 const ReturnPolicyRoute = withSuspense(ReturnPolicy, PageLoader);
 const BestSellersRoute = withSuspense(BestSellers, ShopPageSkeleton);
+const CampaignLandingRoute = withSuspense(CampaignLanding, ShopPageSkeleton);
 const NotFoundRoute = withSuspense(NotFound, PageLoader);
 
 const OS_PRODUCTS_CACHE_KEY = "presentail-os-products-cache-v1";
@@ -258,6 +260,7 @@ function ShopShell() {
             <Route path="/" component={HomeRoute} />
             <Route path="/shop" component={ShopRoute} />
             <Route path="/best-sellers" component={BestSellersRoute} />
+            <Route path="/flower-delivery" component={CampaignLandingRoute} />
             <Route path="/occasion/:slug" component={ShopRoute} />
             <Route path="/category/:slug" component={ShopRoute} />
             <Route path="/product/:slug" component={ProductDetailRoute} />

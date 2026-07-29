@@ -132,6 +132,7 @@ import { seoStrings, seoStringsFr } from "./seo";
 import { footerStrings, footerStringsFr } from "./footer";
 import { commonStrings, commonStringsFr } from "./common";
 import { partnerStrings, partnerStringsFr } from "./partner";
+import { campaignStrings, campaignStringsFr } from "./campaign";
 
 export type { Dict };
 
@@ -150,6 +151,7 @@ export const STRINGS: Dict = {
   ...footerStrings,
   ...commonStrings,
   ...partnerStrings,
+  ...campaignStrings,
 };
 
 export const STRINGS_FR: Record<string, string> = {
@@ -167,4 +169,5 @@ export const STRINGS_FR: Record<string, string> = {
   ...footerStringsFr,
   ...commonStringsFr,
   ...partnerStringsFr,
+  ...campaignStringsFr,
 };

@@ -15,6 +15,12 @@ import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_
 const CS_3DS_ATTEMPT_KEY = "cs_3ds_active_attempt_id"; // i18n-ignore
 import { buildCardFrom } from "@/lib/cardFrom";
 import {
+  FIRST_ORDER_COUPON_CODE,
+  isFirstOrderPromoActive,
+  clearFirstOrderPromo,
+  markHasOrdered,
+} from "@/lib/campaign";
+import {
   useCreateOrder,
   useDeliveryLocations,
   useStripeCheckoutSession,
@@ -1066,6 +1072,62 @@ function CheckoutForm() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, step]);
+
+  // ── Campaign first-order auto-discount ────────────────────────────────────
+  // When the campaign landing page showed the "10% off your first order"
+  // promo (localStorage flag), silently auto-apply the virtual FIRST10 coupon
+  // once a sender email is available. Failures never surface an error — the
+  // flag is simply cleared when the server says the shopper is not eligible.
+  const autoPromoAttemptedFor = useRef<string | null>(null);
+  const autoPromoEmail = (sender.email || user?.email || "").trim();
+  useEffect(() => {
+    if (!isFirstOrderPromoActive()) return;
+    if (couponApplied || couponValidating) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(autoPromoEmail)) return;
+    if (items.length === 0 || subtotal <= 0) return;
+    if (autoPromoAttemptedFor.current === autoPromoEmail.toLowerCase()) return;
+    autoPromoAttemptedFor.current = autoPromoEmail.toLowerCase();
+    let cancelled = false;
+    apiFetch<{ ok: boolean; error?: string; discountAmountUsd?: number }>("/coupons/validate", {
+      method: "POST",
+      body: JSON.stringify({
+        code: FIRST_ORDER_COUPON_CODE,
+        customerEmail: autoPromoEmail,
+        cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
+        cartTotalUsd: subtotal,
+      }),
+    })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          const discount = res.discountAmountUsd ?? 0;
+          try {
+            localStorage.setItem(COUPON_STORAGE_KEY, FIRST_ORDER_COUPON_CODE);
+            localStorage.setItem(COUPON_DISCOUNT_KEY, String(discount));
+          } catch { /* best-effort */ }
+          setCouponInput(FIRST_ORDER_COUPON_CODE);
+          setCouponApplied(true);
+          setConfirmedCouponDiscount(discount);
+          setCouponError(null);
+        } else if (res.error === "not_first_order") {
+          clearFirstOrderPromo();
+        }
+      })
+      .catch((err: unknown) => {
+        // apiFetch throws on non-2xx and attaches the parsed body as `.data`.
+        // Clear the promo flag on definite ineligibility (structured `error`
+        // field), never on transient/network failures.
+        if (cancelled) return;
+        const data = (err as { data?: { error?: string } } | null)?.data;
+        if (data?.error === "not_first_order") {
+          clearFirstOrderPromo();
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPromoEmail, couponApplied, couponValidating, items.length, subtotal]);
 
   const handleCouponApply = async (codeOverride?: string) => {
     const code = (codeOverride !== undefined ? codeOverride : couponInput).trim().toUpperCase();
@@ -2422,6 +2484,10 @@ function CheckoutForm() {
       // Update the confirmed discount in state so the summary briefly shows
       // the deduction before the redirect (and WC returns it in the response).
       if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
+      // Campaign first-order promo: this browser has now ordered — clear the
+      // auto-apply flag and remember the order so the promo stays hidden.
+      markHasOrdered();
+      clearFirstOrderPromo();
       clearCart();
       // Clear the coupon after a successful order so it doesn't persist into
       // the next checkout session. Remove both keys together — discount key
@@ -2881,6 +2947,8 @@ function CheckoutForm() {
               if (walletStashed) {
                 clearCart();
                 try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); localStorage.removeItem(ORDER_NOTE_KEY); } catch { /* best-effort */ }
+                markHasOrdered();
+                clearFirstOrderPromo();
                 setLocation(`/order-confirmed?status=success`);
               } else {
                 // Storage failed — call the order API directly. The payload
@@ -2892,6 +2960,8 @@ function CheckoutForm() {
                   const r = await createOrder.mutateAsync(payload) as CreateOrderResponse;
                   clearCart();
                   try { localStorage.removeItem(COUPON_STORAGE_KEY); localStorage.removeItem(COUPON_DISCOUNT_KEY); localStorage.removeItem(ORDER_NOTE_KEY); } catch { /* best-effort */ }
+                  markHasOrdered();
+                  clearFirstOrderPromo();
                   if (r.ok) {
                     setLocation(`/order-confirmed?status=success&ref=${encodeURIComponent(payload.orderId)}`);
                   }

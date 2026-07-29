@@ -17,6 +17,15 @@ export type AdsPurchaseConversionParams = {
  * Fire a Google Ads purchase conversion event.
  * No-ops when gtag is not loaded (e.g. blocked by an ad blocker or missing script).
  */
+/**
+ * Fire a generic GA4/Ads gtag event (e.g. campaign landing interactions).
+ * No-ops when gtag is not loaded (ad blocker or missing script).
+ */
+export function fireGtagEvent(name: string, params?: Record<string, unknown>): void {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  window.gtag("event", name, params ?? {});
+}
+
 export function fireAdsPurchaseConversion({
   transactionId,
   value,

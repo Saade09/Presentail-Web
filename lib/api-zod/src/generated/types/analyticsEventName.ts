@@ -111,4 +111,14 @@ export const AnalyticsEventName = {
   free_delivery_qualification_message_viewed:
     "free_delivery_qualification_message_viewed",
   product_lifecycle_410: "product_lifecycle_410",
+  product_impression: "product_impression",
+  product_card_click: "product_card_click",
+  campaign_page_view: "campaign_page_view",
+  campaign_hero_cta_click: "campaign_hero_cta_click",
+  campaign_promo_impression: "campaign_promo_impression",
+  campaign_promo_click: "campaign_promo_click",
+  campaign_view_all_click: "campaign_view_all_click",
+  campaign_pill_click: "campaign_pill_click",
+  campaign_sticky_cta_impression: "campaign_sticky_cta_impression",
+  campaign_sticky_cta_click: "campaign_sticky_cta_click",
 } as const;

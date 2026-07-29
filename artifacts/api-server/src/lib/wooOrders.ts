@@ -1198,7 +1198,11 @@ export async function attemptCreateOsOrder(
     couponCode: body.couponCode || undefined,
     ...(opts.couponValidated
       ? {
-          couponId: opts.couponValidated.couponId,
+          // The virtual first-order coupon has no OS coupon record — omit the
+          // sentinel couponId so OS redemption tracking never sees an unknown id.
+          ...(opts.couponValidated.couponId !== "first-order-10"
+            ? { couponId: opts.couponValidated.couponId }
+            : {}),
           couponDiscountUsd: opts.couponValidated.couponDiscountUsd,
         }
       : {}),
