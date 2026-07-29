@@ -335,17 +335,27 @@ export function Footer() {
                 {t("footer.ownedOperatedCyprus")}
               </p>
             )}
-            <p data-testid="footer-address">
-              {t(
-                isCY
-                  ? "footer.addressCyprus"
-                  : cityId === "ae-abu-dhabi"
-                    ? "footer.addressAbuDhabi"
-                    : cityId?.startsWith("ae-")
-                      ? "footer.addressDubai"
-                      : "footer.address",
-              )}
-            </p>
+            {isCY || cityId?.startsWith("ae-") ? (
+              <p data-testid="footer-address">
+                {t(
+                  isCY
+                    ? "footer.addressCyprus"
+                    : cityId === "ae-abu-dhabi"
+                      ? "footer.addressAbuDhabi"
+                      : "footer.addressDubai",
+                )}
+              </p>
+            ) : (
+              <a
+                data-testid="footer-address"
+                href={t("footer.addressUrl")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {t("footer.address")}
+              </a>
+            )}
           </div>
 
           {/* Legal links — centered column */}

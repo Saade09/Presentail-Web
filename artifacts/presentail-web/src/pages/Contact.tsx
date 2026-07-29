@@ -36,10 +36,9 @@ const SUPPORT_EMAIL = "hello@presentail.com";
 const PHONE_DISPLAY = "+961 3 136 532";
 const PHONE_E164 = "+9613136532";
 const WHATSAPP_URL = "https://wa.me/9613136532";
-const ADDRESS =
-  "3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon";
+const ADDRESS = "Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon";
 const MAPS_URL =
-  "https://www.google.com/maps/search/?api=1&query=Karam+w+Mwannes+Abdel+Wahab+El+Inglizi+Achrafieh+Beirut+Lebanon";
+  "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D";
 
 const COPY: Record<Language, Copy> = {
   en: {
@@ -90,8 +89,7 @@ const COPY: Record<Language, Copy> = {
     openNow: "مفتوح الآن",
     closedNow: "مغلق",
     addressHeading: "مكتبنا",
-    addressBody:
-      "الطابق الثالث، كرم ومونّس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
+    addressBody: "شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
     viewOnMaps: "عرض على الخريطة",
     ctaHeading: "لا تزال لديك سؤال؟",
     ctaBody: "يرد فريقنا عادةً خلال دقائق على واتساب.",
@@ -118,8 +116,7 @@ const COPY: Record<Language, Copy> = {
     openNow: "Ouvert maintenant",
     closedNow: "Fermé",
     addressHeading: "Notre bureau",
-    addressBody:
-      "3e étage, Karam w Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban",
+    addressBody: "Abdel Wahab El Inglizi St, Achrafieh, Beyrouth, Liban",
     viewOnMaps: "Voir sur Maps",
     ctaHeading: "Vous avez encore une question ?",
     ctaBody: "Notre équipe répond généralement en quelques minutes sur WhatsApp.",

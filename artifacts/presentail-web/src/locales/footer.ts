@@ -41,8 +41,13 @@ export const footerStrings: Dict = {
   },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.address": {
-    en: "3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon",
-    ar: "الطابق الثالث، كرم المونس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
+    en: "Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon",
+    ar: "شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
+  },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "footer.addressUrl": {
+    en: "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
+    ar: "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
   },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.addressDubai": {
@@ -99,7 +104,8 @@ export const footerStringsFr: Record<string, string> = {
   "footer.allRightsReserved": "Tous droits réservés © {year} Presentail SAL",
   "footer.allRightsReservedDubai": "Tous droits réservés © {year} Presentail Flowers Trading L.L.C",
   "footer.allRightsReservedAbuDhabi": "Tous droits réservés © {year} Presentail Flowers Trading L.L.C - Succursale d'Abu Dhabi",
-  "footer.address": "3ème étage, Karam w Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban",
+  "footer.address": "Abdel Wahab El Inglizi St, Achrafieh, Beyrouth, Liban",
+  "footer.addressUrl": "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
   "footer.addressDubai": "Boutique 41, Al Barsha 1, Al Attar Business Center, Dubaï, Émirats arabes unis",
   "footer.addressAbuDhabi": "Al Nahyan, Est 19, Immeuble Mina Ahmed Mohammed Khalifa, Abu Dhabi, Émirats arabes unis",
   "footer.allRightsReservedCyprus": "Tous droits réservés © {year} Presentail LTD",
