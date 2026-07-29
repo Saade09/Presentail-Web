@@ -24,7 +24,7 @@ import {
   loadShop,
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
-import { CATEGORY_GROUPS, CATEGORY_STATIC_IMAGES } from "@/lib/categoryGroups";
+import { CATEGORY_GROUPS, CATEGORY_STATIC_IMAGES, OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
 
 const LABEL_EXPLORE_PRESENTAIL = "Explore Presentail"; // i18n-ignore
 
@@ -231,11 +231,15 @@ export function MainNavbar() {
   const visibleOsOccasions = osOccasions.filter((o) => (o.count ?? 0) > 0 && o.featured === true);
   const occasionItems: MegaItem[] =
     hasOccasionApiData
-      ? visibleOsOccasions.map((o) => ({
-          label: o.name,
-          href: `/occasion/${o.slug}`,
-          ...(o.image ? { img: o.image } : { emoji: "🎉" }),
-        }))
+      ? visibleOsOccasions.map((o) => {
+          // Prefer the OS-proxied image, then a local static asset, then the emoji fallback.
+          const img = o.image ?? OCCASION_STATIC_IMAGES[o.slug];
+          return {
+            label: o.name,
+            href: `/occasion/${o.slug}`,
+            ...(img ? { img } : { emoji: "🎉" }),
+          };
+        })
       : OCCASION_OPTIONS.map((o) => ({
           label: o.label,
           href: `/occasion/${o.value}`,

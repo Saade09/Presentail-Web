@@ -23,6 +23,7 @@ import {
   type ProductPricingEntry,
 } from "../lib/osProductsCache";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
+import { getOsOccasionStatsMap } from "../lib/osOccasionStats";
 import { categories as staticCategories } from "@workspace/catalog-data";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 
@@ -336,38 +337,34 @@ async function buildOsCategories(
 export function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
   const osOccasions = getOsOccasions();
   if (!osOccasions || osOccasions.length === 0) return null;
-  // Only surface occasions that OS has flagged as featured.
-  const featured = osOccasions.filter((o) => o.featured === true);
-  if (featured.length === 0) return null;
-  // Collect all featured occasions into a flat list; scoring will apply ordering.
-  const bySlug = new Map(featured.map((o) => [o.slug, o]));
-  const result: HomepageCollectionItem[] = [];
-  for (const slug of DEFAULT_OCCASION_SLUGS) {
-    const o = bySlug.get(slug);
-    if (!o) continue;
-    result.push({
-      id: o.id,
-      name: o.name,
-      slug: o.slug,
-      imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
-      sortOrder: result.length,
-      isActive: true,
-    });
-  }
-  // Append featured occasions not already added via DEFAULT_OCCASION_SLUGS.
-  for (const o of featured) {
-    if (!DEFAULT_OCCASION_SLUGS.includes(o.slug)) {
-      result.push({
-        id: o.id,
-        name: o.name,
-        slug: o.slug,
-        imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
-        sortOrder: result.length,
-        isActive: true,
-      });
-    }
-  }
-  return result.length > 0 ? result : null;
+
+  // Prefer occasions flagged as featured by OS. When none are featured (e.g.
+  // in development or on a fresh OS instance), fall back to all active
+  // occasions so the homepage carousel is never empty.
+  const isActive = (o: { isActive?: boolean; status?: string }) =>
+    o.isActive !== false && o.status !== "inactive";
+
+  const featured = osOccasions.filter((o) => o.featured === true && isActive(o));
+  const pool = featured.length > 0 ? featured : osOccasions.filter((o) => isActive(o));
+
+  if (pool.length === 0) return null;
+
+  // Base order: OS best-selling rank (osPosition = index in the OS
+  // best_selling-sorted response). Scoring downstream re-orders using
+  // osOccasionStats when available; this keeps a sensible order otherwise.
+  const sorted = [...pool].sort((a, b) => {
+    const ap = typeof a.osPosition === "number" ? a.osPosition : Infinity;
+    const bp = typeof b.osPosition === "number" ? b.osPosition : Infinity;
+    return ap - bp;
+  });
+  return sorted.map((o, i) => ({
+    id: String(o.id),
+    name: o.name,
+    slug: o.slug,
+    imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
+    sortOrder: i,
+    isActive: true,
+  }));
 }
 
 async function buildOsOccasions(
@@ -378,7 +375,16 @@ async function buildOsOccasions(
   if (!raw) return { items: null, debugMap: new Map() };
   const configRows = await getRankingConfig();
   const osProducts = getOsProducts(cityId === "ae-dubai" ? "dubai" : cityId === "ae-abu-dhabi" ? "abudhabi" : countryCode === "AE" ? "dubai" : countryCode === "CY" ? "cyprus" : "lebanon") ?? [];
-  const clickScores = await getCollectionClickScores("occasion", countryCode).catch(() => new Map<string, number>());
+  const [clickScores, osOccasionStats] = await Promise.all([
+    getCollectionClickScores("occasion", countryCode).catch(() => new Map<string, number>()),
+    getOsOccasionStatsMap().catch(() => new Map<string, number>()),
+  ]);
+  // OS best-selling positions (index in the best_selling-sorted OS response):
+  // acts as the ordering key when the stats endpoint has no data.
+  const osPositions = new Map<string, number>();
+  for (const o of getOsOccasions() ?? []) {
+    if (typeof o.osPosition === "number") osPositions.set(o.slug, o.osPosition);
+  }
   const { items, debugMap } = scoreCollections<HomepageCollectionItem>(raw, {
     kind: "occasion",
     countryCode,
@@ -386,10 +392,21 @@ async function buildOsOccasions(
     configRows,
     osProducts,
     clickScores,
+    osOccasionStats,
     defaultOrder: DEFAULT_OCCASION_SLUGS,
     availabilityFloor: 3,
+    osPositions,
   });
-  return { items: items.map((item, i) => ({ ...item, sortOrder: i })), debugMap };
+  // Final order: OS best-selling rank (osPosition from the best_selling-sorted
+  // OS occasions endpoint — the same ranking as the OS admin "Top occasions"
+  // chart). Scoring above still applies availability filtering and hidden
+  // overrides; occasions without an OS rank keep their scored relative order
+  // after the ranked ones.
+  const ranked = items
+    .map((item, scoredIdx) => ({ item, scoredIdx, pos: osPositions.get(item.slug) ?? Infinity }))
+    .sort((a, b) => (a.pos !== b.pos ? a.pos - b.pos : a.scoredIdx - b.scoredIdx))
+    .map(({ item }) => item);
+  return { items: ranked.map((item, i) => ({ ...item, sortOrder: i })), debugMap };
 }
 
 function isDebugRequest(req: import("express").Request): boolean {

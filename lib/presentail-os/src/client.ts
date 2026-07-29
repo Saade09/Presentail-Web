@@ -611,9 +611,32 @@ export async function fetchOsOccasions(
     }>;
   };
 
-  // Support both the snake_case paginated shape { items } and the legacy { occasions } shape.
+  const toAbsUrl = (u: string | null | undefined) =>
+    u ? (u.startsWith("http") ? u : `${baseUrl}${u}`) : null;
+
+  // Support both the snake_case paginated shape { items } and the legacy
+  // { occasions } shape. The legacy shape may still carry snake_case fields
+  // (image_public_url, is_featured, numeric id), so normalise it too instead
+  // of passing it through raw.
   if (Array.isArray(raw.occasions)) {
-    return { occasions: raw.occasions };
+    return {
+      occasions: raw.occasions.map((item) => {
+        const o = item as Record<string, unknown> & typeof item;
+        return {
+          id: String(o.id),
+          slug: o.slug,
+          name: o.name,
+          isActive: (o.isActive as boolean | undefined) ?? (o.is_active as boolean | undefined),
+          featured:
+            o.featured ?? (o.is_featured as boolean | undefined) ?? false,
+          imagePublicUrl: toAbsUrl(
+            (o.imagePublicUrl as string | null | undefined) ??
+              (o.image_public_url as string | null | undefined),
+          ),
+          image: toAbsUrl(o.image ?? (o.image_url as string | null | undefined)),
+        };
+      }),
+    };
   }
 
   const items = raw.items ?? [];
