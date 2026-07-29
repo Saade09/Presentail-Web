@@ -36,4 +36,5 @@
 - [CS Microform sessions CARD-only](cybersource-microform-wallets.md) — wallet types in /microform/v2/sessions 400 every capture context; silent Stripe fallback masks the outage
 - [CyberSource paid-status gate](cybersource-paid-gate.md) — paid needs 2xx + requestId + approved allowlist; 201 can be DECLINED; AUTHORIZED_RISK_DECLINED is never paid
 - [CyberSource Unified Checkout](cybersource-unified-checkout.md) — /uc/v1/sessions JWT; SDK URL+SRI from JWT claims; enum "3DS"; server must tss-verify before paid; dual flags else Microform fallback
+- [Slack order alerts via Replit connector](slack-order-alerts.md) — UAE order alerts post via the Slack connection (not webhooks); bot must be invited to each channel; AD channel is #abudhabi-orders (plural)
 - [CyberSource 3DS backend-driven completion](cs-3ds-backend-driven.md) — cs_payment_attempts table owns the chain; relay covers opener/iframe/top-level; poll /attempt/:id/status; frictionless path unchanged

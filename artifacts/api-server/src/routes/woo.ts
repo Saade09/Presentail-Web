@@ -37,6 +37,76 @@ import {
 import { creditReferralRedemption } from "../lib/loyalty";
 import { validateCoupon } from "../lib/couponValidation";
 import { sendCapiPurchase } from "../lib/fbConversions";
+import { sendUaeOrderSlackNotification, type UaeOrderNotification } from "../lib/orderSlackNotify";
+import { getOsProductByWcId } from "../lib/osProductsCache";
+import type { WooOrderPayload } from "../lib/wooOrders";
+import type { WooStoreConfig } from "../lib/wooStore";
+
+// Normalise a product name for comparison: decode entities, lowercase,
+// collapse whitespace. Used to make sure the image we attach to the Slack
+// alert belongs to the product the customer actually ordered.
+function normaliseProductName(name: string): string {
+  return decodeHtmlEntities(name).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+// Resolve the catalog image for an ordered item, guarding against wrong-product
+// matches: a slug/wcId lookup is only trusted when the resolved product's name
+// matches the ordered item's name. Otherwise fall back to an exact name search
+// in the store's OS catalog. When nothing matches by name, return null — no
+// image is safer than the wrong product's image.
+function resolveOrderItemImageUrl(
+  item: { name: string; wcId?: number; osSlug?: string },
+  store: WooStoreConfig,
+): string | null {
+  const wanted = normaliseProductName(item.name);
+  const candidates: (OSProduct | null | undefined)[] = [
+    item.osSlug ? getOsProductBySlug(item.osSlug, store.storeKey) : undefined,
+    item.osSlug ? getOsProductBySlug(item.osSlug) : undefined,
+    item.wcId && item.wcId > 0 ? getOsProductByWcId(item.wcId, store.storeKey) : undefined,
+  ];
+  for (const p of candidates) {
+    if (p && normaliseProductName(p.name) === wanted) {
+      return p.images?.[0]?.url ?? null;
+    }
+  }
+  // Name-based fallback: exact (normalised) name match in the store's catalog.
+  const all = getOsProducts(store.storeKey) ?? getOsProducts() ?? [];
+  const byName = all.find((p) => normaliseProductName(p.name) === wanted);
+  return byName?.images?.[0]?.url ?? null;
+}
+
+// Build the Slack notification payload for a UAE order from the validated
+// order body, resolving product images from the OS catalog cache.
+function buildUaeOrderNotification(
+  body: WooOrderPayload,
+  store: WooStoreConfig,
+  extras: { osOrderId?: number | string | null; totalUsd?: number | null; chargedCurrency?: string | null },
+): UaeOrderNotification {
+  return {
+    orderId: body.orderId,
+    osOrderId: extras.osOrderId ?? null,
+    customerName: `${body.billing.firstName} ${body.billing.lastName}`.trim(),
+    customerPhone: body.billing.phone,
+    recipientName: `${body.recipient.firstName} ${body.recipient.lastName}`.trim(),
+    recipientPhone: body.recipient.phone,
+    address: body.noAddress
+      ? "Contact recipient for address"
+      : body.deliveryDetails || undefined,
+    district: body.district,
+    deliveryDate: body.deliveryDate || undefined,
+    deliverySlot: body.deliverySlot || undefined,
+    cardMessage: body.cardMessage,
+    cardTo: body.cardTo,
+    cardFrom: body.cardFrom,
+    totalUsd: extras.totalUsd ?? null,
+    chargedCurrency: extras.chargedCurrency ?? null,
+    items: body.items.map((i) => ({
+      name: i.name,
+      quantity: i.quantity,
+      imageUrl: resolveOrderItemImageUrl(i, store),
+    })),
+  };
+}
 import { db, appOrdersTable } from "@workspace/db";
 import { and, eq, isNull } from "drizzle-orm";
 import {
@@ -1816,6 +1886,13 @@ router.post("/woo/order", async (req, res) => {
         { appOrderId: body.orderId, paymentRef: body.paymentRef },
         "woo.order: payment verified but OS order failed — enqueued for reconciliation",
       );
+      // The customer's payment is captured and they will see a confirmation
+      // screen, so from the ops team's perspective the order IS placed —
+      // notify Slack now rather than waiting for the reconciliation retry.
+      void sendUaeOrderSlackNotification(
+        buildUaeOrderNotification(body, store, { chargedCurrency: verifiedCurrency ?? null }),
+        req.log,
+      );
       return res.json({
         ok: true,
         wcOrderId: null,
@@ -1850,6 +1927,18 @@ router.post("/woo/order", async (req, res) => {
     currencyCode: verifiedCurrency,
     log: req.log,
   });
+
+  // ── UAE order Slack notification (fire-and-forget) ──────────────────────
+  // Abu Dhabi orders → #abudhabi-order; all other AE districts → #dubai-order.
+  // Non-UAE orders are a no-op inside the helper. Never blocks the response.
+  void sendUaeOrderSlackNotification(
+    buildUaeOrderNotification(body, store, {
+      osOrderId: result.osOrderId ?? null,
+      totalUsd: result.totalUsdCents != null ? result.totalUsdCents / 100 : null,
+      chargedCurrency: verifiedCurrency ?? null,
+    }),
+    req.log,
+  );
 
   // ── Facebook Conversions API — Purchase (fire-and-forget, deduplicated) ──
   // Send a server-side Purchase event to Meta CAPI so Lebanon and UAE ad
