@@ -41,7 +41,6 @@ describe("buildSitemapXml", () => {
     origin: ORIGIN,
     basePath: "/",
     ...MOCK,
-    lastmod: "2026-06-27",
   });
 
   it("produces well-formed XML", () => {
@@ -80,7 +79,6 @@ describe("buildSitemapXml", () => {
         },
         { slug: "no-image" },
       ],
-      lastmod: "2026-06-27",
     });
 
     expect(xmlWithImage).toContain("<image:image>");
@@ -95,7 +93,6 @@ describe("buildSitemapXml", () => {
       origin: ORIGIN,
       basePath: "/",
       products: [{ slug: "bouquet", name: "Bouquet", imageUrl }],
-      lastmod: "2026-06-27",
     });
 
     const match = xmlWithImage.match(/<image:loc>(.+?)<\/image:loc>/);
@@ -114,7 +111,6 @@ describe("buildSitemapXml", () => {
           imageUrl: "https://os.presentail.com/api/storage/public-objects/flowers.jpg",
         },
       ],
-      lastmod: "2026-06-27",
     });
 
     const match = xmlWithImage.match(/<image:title>(.+?)<\/image:title>/);
@@ -133,7 +129,6 @@ describe("buildSitemapXml", () => {
           imageUrl: "https://os.presentail.com/api/storage/public-objects/spring.jpg",
         },
       ],
-      lastmod: "2026-06-27",
     });
 
     const match = xmlWithImage.match(/<image:caption>(.+?)<\/image:caption>/);
@@ -148,7 +143,6 @@ describe("buildSitemapXml", () => {
       origin: ORIGIN,
       basePath: "/",
       products: [{ slug: "red-roses" }],
-      lastmod: "2026-06-27",
     });
     expect(xmlNoImage).not.toContain("<image:image>");
   });
@@ -226,13 +220,38 @@ describe("buildSitemapXml", () => {
     }
   });
 
-  it("includes a <lastmod> on every entry", () => {
+  it("omits <lastmod> on catalog/static entries (no fabricated dates)", () => {
     const doc = parse(xml);
     const urlNodes = Array.from(doc.getElementsByTagName("url"));
     expect(urlNodes.length).toBeGreaterThan(0);
     for (const url of urlNodes) {
+      const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
+      // Blog articles carry a real datePublished and are allowed a <lastmod>;
+      // everything else must omit the field.
+      if (loc.includes("/blog/")) continue;
+      expect(url.getElementsByTagName("lastmod").length, `no lastmod on ${loc}`).toBe(0);
+    }
+  });
+
+  it("emits the real datePublished as <lastmod> on blog article entries only", () => {
+    const xmlBlog = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products: [{ slug: "red-roses" }],
+      blogPosts: {
+        "dated-post": { en: { datePublished: "2025-03-15" } },
+        "undated-post": {},
+      },
+    });
+    const doc = parse(xmlBlog);
+    for (const url of Array.from(doc.getElementsByTagName("url"))) {
+      const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
       const lastmod = url.getElementsByTagName("lastmod")[0]?.textContent;
-      expect(lastmod).toBe("2026-06-27");
+      if (loc.includes("/blog/dated-post")) {
+        expect(lastmod).toBe("2025-03-15");
+      } else {
+        expect(lastmod).toBeUndefined();
+      }
     }
   });
 });
@@ -545,7 +564,6 @@ describe("buildSitemapXml — top-level route type coverage", () => {
     occasions: [{ id: "birthday", count: 5 }],
     categories: [{ id: "bouquets", count: 12 }],
     blogPosts: { "top-10-flowers": {} },
-    lastmod: "2026-01-01",
     // totalProductCount: 30 keeps every entity's ratio >= UNIQUENESS_RATIO_MIN (0.15):
     // brand 5/30 = 0.167, occasion 5/30 = 0.167, category 12/30 = 0.40
     totalProductCount: 30,
@@ -619,7 +637,6 @@ describe("buildSitemapXml — per-country city coverage", () => {
   const xmlStatic = buildSitemapXml({
     origin: ORIGIN,
     basePath: "/",
-    lastmod: "2026-01-01",
   });
 
   it("includes static page URLs for every Lebanon city", () => {
@@ -669,7 +686,6 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     occasions: [{ id: "birthday", count: 5 }],
     categories: [{ id: "bouquets", count: 12 }],
     blogPosts: { "hello-world": {} },
-    lastmod: "2026-01-01",
     totalProductCount: 30,
   });
 
@@ -711,7 +727,6 @@ describe("buildSitemapXml — product availability lifecycle filtering", () => {
       origin: ORIGIN,
       basePath: "/",
       products,
-      lastmod: "2026-07-19",
     });
 
   it("includes ACTIVE products (no inStock / status fields) at priority 0.8", () => {

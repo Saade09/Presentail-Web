@@ -65,7 +65,6 @@ export function escXml(s) {
  * @param {Array}  [args.brands]     - [{ slug }]
  * @param {Array}  [args.occasions]  - [{ id, count }]
  * @param {Array}  [args.categories] - [{ id, count }]
- * @param {string} [args.lastmod]    - YYYY-MM-DD; defaults to today (UTC).
  * @returns {string} sitemap XML
  */
 export function buildSitemapXml({
@@ -76,7 +75,6 @@ export function buildSitemapXml({
   occasions = [],
   categories = [],
   blogPosts: blogPostsArg = null,
-  lastmod = new Date().toISOString().slice(0, 10),
   /**
    * Optional mutable report collector. When provided, the function accumulates
    * per-pageType eligible/ineligible counts into `reportRef.counts` so callers
@@ -111,15 +109,20 @@ export function buildSitemapXml({
   };
 
   // Plain <url> entry for un-prefixed, language-agnostic paths (root, llms.txt).
+  // No <lastmod>: there is no real modification timestamp for these pages, and
+  // fabricating one (e.g. "today") teaches crawlers to distrust the field.
   const urlEntry = (loc, priority, changefreq) =>
-    `  <url><loc>${escXml(origin + cleanBase + loc)}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+    `  <url><loc>${escXml(origin + cleanBase + loc)}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 
   // <url> entry for a locale-prefixed path that also lists every language
   // variant via <xhtml:link rel="alternate" hreflang>. `rest` is the path after
   // the `/{lang}-{country}/{city}` prefix ("" for the home page, otherwise
   // beginning with "/"). x-default points at the English variant.
   // `imageBlock` is an optional <image:image> XML string to embed for product URLs.
-  const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "") => {
+  // `lastmod` is only emitted when a real per-entry date is known (e.g. blog
+  // article publish dates); all other entries omit it rather than fabricating
+  // a request-time value.
+  const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "", lastmod = null) => {
     const loc = origin + cleanBase + `/en-${country}/${city}${rest}`;
     const alternates = SITEMAP_LANGS.map((altLang) => {
       const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
@@ -131,7 +134,8 @@ export function buildSitemapXml({
       `    <xhtml:link rel="alternate" hreflang="x-default" href="${escXml(xDefaultHref)}"/>`,
     );
     const imageSection = imageBlock ? `\n${imageBlock}` : "";
-    return `  <url>\n    <loc>${escXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n${alternates.join("\n")}${imageSection}\n  </url>`;
+    const lastmodLine = lastmod ? `\n    <lastmod>${escXml(lastmod)}</lastmod>` : "";
+    return `  <url>\n    <loc>${escXml(loc)}</loc>${lastmodLine}\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n${alternates.join("\n")}${imageSection}\n  </url>`;
   };
 
   /**
@@ -316,11 +320,18 @@ export function buildSitemapXml({
   for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
     urls.push(urlEntryWithAlternates("0.6", "weekly", country, city, "/blog"));
   }
-  for (const slug of Object.keys(blogPostsSource)) {
+  for (const [slug, langs] of Object.entries(blogPostsSource)) {
     if (!slug) continue;
     const encoded = encodeURIComponent(slug);
+    // Blog articles carry a real publish date (`datePublished` on the per-lang
+    // content), so emit it as <lastmod>. Fall back to omitting the field if a
+    // post somehow lacks it — never fabricate a date.
+    const datePublished =
+      langs?.en?.datePublished ?? Object.values(langs ?? {})[0]?.datePublished ?? null;
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      urls.push(urlEntryWithAlternates("0.6", "monthly", country, city, `/blog/${encoded}`));
+      urls.push(
+        urlEntryWithAlternates("0.6", "monthly", country, city, `/blog/${encoded}`, "", datePublished),
+      );
     }
   }
 
@@ -340,11 +351,9 @@ ${urls.join("\n")}
  * @returns {Promise<string>} sitemap XML
  */
 export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
-  // lastmod for all entries — today's date, refreshed with the sitemap cache.
-  // The catalog metadata / product / brand endpoints don't expose a reliable
-  // per-entity update timestamp, so a single daily date is used throughout.
-  const lastmod = new Date().toISOString().slice(0, 10);
-
+  // No blanket lastmod: the catalog endpoints don't expose per-entity update
+  // timestamps, so catalog/static entries omit <lastmod> entirely. Blog posts
+  // carry their real datePublished (handled inside buildSitemapXml).
   const [productsData, brandsData, catalogData] = await Promise.all([
     fetchJson(`${apiBaseUrl}/api/woo/products?lang=en&countryCode=LB`),
     fetchJson(`${apiBaseUrl}/api/woo/brands`),
@@ -373,7 +382,6 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
     brands: brandsData?.brands ?? [],
     occasions: catalogData?.occasions ?? [],
     categories: catalogData?.categories ?? [],
-    lastmod,
     // Pass the total product count so eligibility ratio/identical-inventory
     // rules can fire at sitemap build time (see buildSitemapXml JSDoc).
     totalProductCount: productsData?.products?.length ?? null,
