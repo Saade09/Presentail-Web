@@ -40,4 +40,5 @@
 - [CyberSource 3DS backend-driven completion](cs-3ds-backend-driven.md) — cs_payment_attempts table owns the chain; relay covers opener/iframe/top-level; poll /attempt/:id/status; frictionless path unchanged
 - [Markdown mirror product slug](markdown-mirror-product-slug.md) — products API slug lives in `id` not `slug`; new locale subroutes need App.tsx + serve.mjs guard + seo-inject route key
 - [Hub-city canonicals + intra-city hreflang](hub-city-canonicals.md) — entity pages canonicalize to hub city (beirut/dubai/nicosia); hreflang is same-city en/ar/fr + x-default only, never cross-country
+- [OnlineStore schema gating](onlinestore-schema-gating.md) — org JSON-LD is OnlineStore on hub-city homes only; breadcrumb on every city home; product links sr-only outside display:none
 - [Campaign first-order discount](campaign-first-order-discount.md) — FIRST10 is a virtual coupon intercepted in validateCoupon; omit its couponId from OS payload; eligibility endpoint advisory, fails open

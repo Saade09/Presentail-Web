@@ -17,6 +17,13 @@ import {
 } from "@workspace/delivery";
 import { roundToNearestFive } from "@workspace/display-currency";
 
+// Hub city per country — only these pages emit the OnlineStore organisation
+// block.  Declaring a near-identical Florist on all 37 city homepages sharing
+// one phone number and one address is the multi-location spam pattern that
+// Google's local-search systems penalise.  The hub cities match HUB_CITY in
+// src/lib/hreflang.mjs; keep them in sync if that file ever changes.
+const ORGANIZATION_HUB_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosia" };
+
 // Returns window (days) for the Google Merchant Listings hasMerchantReturnPolicy node.
 // Must match the satisfaction-guarantee window documented in /faqs and Terms.tsx.
 // Exported so returns-window-sync.test.ts can assert the FAQ/terms copy agrees.
@@ -588,26 +595,39 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     }
   }
 
-  // LocalBusiness (Florist) + Home > {City} breadcrumb on city homepages —
-  // anchors the brand to the served city/country for local search visibility.
+  // OnlineStore organisation block + Home > {City} breadcrumb, emitted ONLY on
+  // the canonical hub-city homepage for each country (Beirut/LB, Dubai/AE,
+  // Nicosia/CY).  Non-hub city pages carry breadcrumb and product-list markup
+  // only — repeating a near-identical local business schema across all 37 city
+  // homepages with one shared phone/address is a false multi-location claim.
+  const isHubCityHome =
+    parsed.city &&
+    parsed.country &&
+    ORGANIZATION_HUB_CITIES[parsed.country] === parsed.city;
   if (emitJsonLd && routeKey === "home" && hasValidCity) {
-    const countryPlain = parsed.country
-      ? COUNTRY_PLAIN_NAMES[lang]?.[parsed.country] ??
-        COUNTRY_PLAIN_NAMES.en[parsed.country] ??
-        countryLabel
-      : countryLabel;
-    const cityCanonicalUrl = parsed.city
-      ? `${origin}${cleanBase}/${lang}-${parsed.country}/${parsed.city}`
-      : siteUrl;
-    jsonLdNodes.push(
-      buildLocalBusinessSchema({
-        siteUrl,
-        cityName: cityLabel,
-        countryName: countryPlain,
-        countryCode: parsed.country,
-        cityUrl: cityCanonicalUrl,
-      }),
-    );
+    // OnlineStore organisation node only on the hub-city homepage.
+    if (isHubCityHome) {
+      const countryPlain = parsed.country
+        ? COUNTRY_PLAIN_NAMES[lang]?.[parsed.country] ??
+          COUNTRY_PLAIN_NAMES.en[parsed.country] ??
+          countryLabel
+        : countryLabel;
+      const cityCanonicalUrl = parsed.city
+        ? `${origin}${cleanBase}/${lang}-${parsed.country}/${parsed.city}`
+        : siteUrl;
+      jsonLdNodes.push(
+        buildLocalBusinessSchema({
+          siteUrl,
+          cityName: cityLabel,
+          countryName: countryPlain,
+          countryCode: parsed.country,
+          cityUrl: cityCanonicalUrl,
+        }),
+      );
+    }
+    // Home > {City} breadcrumb on EVERY city homepage (hub or not) — the
+    // hierarchy trail is per-page navigation context, not an organisation
+    // claim, so it must not be gated by the hub-city rule.
     jsonLdNodes.push(
       buildBreadcrumbListSchema([
         { name: "Home", url: siteUrl },
@@ -2185,7 +2205,11 @@ export function buildLocalBusinessSchema({ siteUrl, cityName, countryName, count
   const loc = LOCATION_DATA[cc] ?? LOCATION_DATA.lb;
   const schema = {
     "@context": "https://schema.org",
-    "@type": "Florist",
+    // OnlineStore, not Florist: Presentail delivers to customers rather than
+    // receiving them at storefronts. Google's guidance for businesses that
+    // travel to customers is a single profile with a service area — not one
+    // LocalBusiness node per city.
+    "@type": "OnlineStore",
     name: "Presentail",
     url: cityUrl || siteUrl,
     image: `${siteUrl}/android-chrome-512x512.png`,
@@ -2205,14 +2229,11 @@ export function buildLocalBusinessSchema({ siteUrl, cityName, countryName, count
       ...(countryName ? { addressCountry: countryName } : {}),
     };
   }
-  // Use an AdministrativeArea array for each service area so search engines
-  // can associate the LocalBusiness with all cities served in the country.
-  if (loc.serviceAreas.length > 0) {
-    schema.areaServed = loc.serviceAreas.map((name) => ({
-      "@type": "AdministrativeArea",
-      name,
-    }));
-  } else if (countryName || cityName) {
+  // Single country-level areaServed string on the organisation node.
+  // The previous AdministrativeArea array (26 governorates per city page) is
+  // not a supported property of Google's local business rich result and,
+  // repeated across 37 pages, read as a false multi-location claim.
+  if (countryName || cityName) {
     schema.areaServed = countryName || cityName;
   }
   return schema;
@@ -3562,9 +3583,13 @@ function buildShopEntityHead({
     entityProductsHtml += `<p>${escapeHtml(String(productCount))} products available</p>`; // i18n-ignore
   }
   if (locBase && Array.isArray(items) && items.length > 0) {
+    // No .slice() cap: every deliverable product on the listing page becomes a
+    // crawlable link in the initial HTML so non-rendering crawlers (Bing, AI
+    // answer engines, and Google's crawl queue before render) can discover the
+    // full catalogue. Links are name+href only — no images — so even a
+    // 300-product list adds just a few KB to the compressed response.
     const productLinks = items
       .filter((p) => p && typeof p.slug === "string" && p.slug.trim() && typeof p.name === "string")
-      .slice(0, 10)
       .map((p) =>
         `<li><a href="${locBase}/product/${escapeAttr(p.slug)}">${escapeHtml(p.name.trim())}</a></li>`,
       );
@@ -3577,13 +3602,17 @@ function buildShopEntityHead({
   // the rest of the page. sr-only hides it visually while keeping it in the
   // accessibility tree and the crawlable DOM. React's createRoot() replaces
   // all children of #root on hydration, so JS users see the normal SPA h1.
+  // Product links live OUTSIDE the display:none wrapper (like the h1) so
+  // Google indexes them rather than merely crawling them — display:none
+  // content is potentially deweighted or treated as cloaked. sr-only keeps
+  // them out of the visual layout; React replaces all of #root on mount.
   const bodyHtml = (
     `<h1 class="sr-only">${safeEntityTitle}</h1>` +
+    (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
     `<div style="display:none">` +
     (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
     (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
     (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +
-    entityProductsHtml +
     entityFaqBodyHtml +
     entityNav +
     `</div>`

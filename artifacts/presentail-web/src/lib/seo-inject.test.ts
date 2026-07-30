@@ -5294,13 +5294,13 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
     expect(site.potentialAction).toBeUndefined();
   });
 
-  it("emits a Florist (LocalBusiness/Store) and a Home > City breadcrumb on a city homepage", () => {
+  it("emits an OnlineStore organisation block and a Home > City breadcrumb on a hub-city homepage", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
       basePath: "",
     });
     const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
-    const florist = byType(blocks, "Florist");
+    const florist = byType(blocks, "OnlineStore");
     expect(florist).toBeTruthy();
     expect(florist.name).toBe("Presentail");
     expect(florist.address["@type"]).toBe("PostalAddress");
@@ -5329,7 +5329,7 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
       origin: "https://presentail.test",
       basePath: "",
     });
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
     expect(florist).toBeTruthy();
     expect(florist.currenciesAccepted).toBe("AED");
   });
@@ -5339,7 +5339,7 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
       origin: "https://presentail.test",
       basePath: "",
     });
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
     expect(florist).toBeTruthy();
     expect(florist.currenciesAccepted).toBe("EUR");
   });
@@ -5656,7 +5656,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(byType(blocks, "WebSite")).toBeTruthy();
   });
 
-  it("city homepage /en-lb/beirut emits Organization + WebSite + Florist + BreadcrumbList with all required fields", () => {
+  it("city homepage /en-lb/beirut emits Organization + WebSite + OnlineStore + BreadcrumbList with all required fields", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
       basePath: "",
@@ -5665,7 +5665,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
       `<head>${headSnippet}</head>`,
       "city home /en-lb/beirut",
     );
-    expect(byType(blocks, "Florist")).toBeTruthy();
+    expect(byType(blocks, "OnlineStore")).toBeTruthy();
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 
@@ -6271,7 +6271,7 @@ describe("Non-product JSON-LD — Breadcrumb/FAQ/Org/Article rich-result require
     const nodes = mod.extractAllJsonLd(`<head>${headSnippet}</head>`);
     const types = nodes.map((n: { "@type": string }) => n["@type"]);
     expect(types).toContain("Organization");
-    expect(types).toContain("Florist");
+    expect(types).toContain("OnlineStore");
     expect(types).toContain("BreadcrumbList");
     for (const node of nodes) expect(mod.validateNode(node)).toEqual([]);
   });
@@ -7093,74 +7093,80 @@ describe("injectSeoTagsAsync — homepage LCP preload tag", () => {
 
 const LOCAL_SEO_OPTS = { origin: "https://presentail.test", basePath: "" };
 
-describe("Local SEO — enriched LocalBusiness schema on city home pages", () => {
-  it("Tripoli page includes telephone in LocalBusiness JSON-LD", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
+describe("Local SEO — OnlineStore organisation schema on hub-city home pages only", () => {
+  it("Beirut (hub) page includes telephone in OnlineStore JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
     const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
-    const florist = byType(blocks, "Florist");
-    expect(florist).toBeTruthy();
-    expect(florist.telephone).toBe("+9613136532");
+    const store = byType(blocks, "OnlineStore");
+    expect(store).toBeTruthy();
+    expect(store.telephone).toBe("+9613136532");
   });
 
-  it("Tripoli page includes email in LocalBusiness JSON-LD", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(florist?.email).toBe("hello@presentail.com");
+  it("Beirut page includes email in OnlineStore JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(store?.email).toBe("hello@presentail.com");
   });
 
-  it("Tripoli page includes openingHours in LocalBusiness JSON-LD", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(Array.isArray(florist?.openingHours)).toBe(true);
-    expect(florist?.openingHours[0]).toMatch(/Mo-Su/);
+  it("Beirut page includes openingHours in OnlineStore JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(Array.isArray(store?.openingHours)).toBe(true);
+    expect(store?.openingHours[0]).toMatch(/Mo-Su/);
   });
 
-  it("Tripoli page includes hasMap in LocalBusiness JSON-LD", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(typeof florist?.hasMap).toBe("string");
-    expect(florist?.hasMap.length).toBeGreaterThan(0);
+  it("Beirut page includes hasMap in OnlineStore JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(typeof store?.hasMap).toBe("string");
+    expect(store?.hasMap.length).toBeGreaterThan(0);
   });
 
-  it("Tripoli page has priceRange in LocalBusiness JSON-LD", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(florist?.priceRange).toBe("$$$");
+  it("Beirut page has priceRange in OnlineStore JSON-LD", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(store?.priceRange).toBe("$$$");
   });
 
-  it("Tripoli page url points to the city-level canonical", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(florist?.url).toContain("/en-lb/tripoli");
+  it("Beirut page url points to the city-level canonical", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(store?.url).toContain("/en-lb/beirut");
   });
 
-  it("Tripoli areaServed is an AdministrativeArea array containing Tripoli", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    const areas: { "@type": string; name: string }[] = florist?.areaServed ?? [];
-    expect(Array.isArray(areas)).toBe(true);
-    expect(areas.length).toBeGreaterThan(1);
-    expect(areas[0]["@type"]).toBe("AdministrativeArea");
-    expect(areas.some((a) => a.name === "Tripoli")).toBe(true);
+  it("areaServed is a single country-level string, not an AdministrativeArea array", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(typeof store?.areaServed).toBe("string");
+    expect(store?.areaServed).toBe("Lebanon");
   });
 
-  it("Dubai page has AED currency and no Cash on Delivery", () => {
+  it("non-hub city pages (Tripoli, Limassol, Abu Dhabi) emit NO organisation block", () => {
+    for (const path of ["/en-lb/tripoli", "/en-cy/limassol", "/en-ae/abu-dhabi"]) {
+      const { headSnippet } = buildSeoHead(path, LOCAL_SEO_OPTS);
+      const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
+      expect(byType(blocks, "OnlineStore"), path).toBeFalsy();
+      expect(byType(blocks, "Florist"), path).toBeFalsy();
+    }
+  });
+
+  it("Dubai (hub) page has AED currency and no Cash on Delivery", () => {
     const { headSnippet } = buildSeoHead("/en-ae/dubai", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(florist?.currenciesAccepted).toBe("AED");
-    expect(florist?.paymentAccepted as string).not.toContain("Cash on Delivery");
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(store?.currenciesAccepted).toBe("AED");
+    expect(store?.paymentAccepted as string).not.toContain("Cash on Delivery");
   });
 
-  it("Limassol page has EUR currency", () => {
-    const { headSnippet } = buildSeoHead("/en-cy/limassol", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(florist?.currenciesAccepted).toBe("EUR");
+  it("Nicosia (hub) page has EUR currency", () => {
+    const { headSnippet } = buildSeoHead("/en-cy/nicosia", LOCAL_SEO_OPTS);
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(store?.currenciesAccepted).toBe("EUR");
   });
 
   it("LB page includes Cash on Delivery in paymentAccepted", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
-    expect(florist?.paymentAccepted as string).toContain("Cash on Delivery");
+    const store = byType(extractJsonLd(`<head>${headSnippet}</head>`), "OnlineStore");
+    expect(store?.paymentAccepted as string).toContain("Cash on Delivery");
   });
 });
 

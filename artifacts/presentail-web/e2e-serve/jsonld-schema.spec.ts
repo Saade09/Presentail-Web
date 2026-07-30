@@ -212,7 +212,7 @@ function validateNode(node: Record<string, unknown>): string[] {
   switch (type) {
     case "Organization":
     case "WebSite":
-    case "Florist":
+    case "OnlineStore":
     case "WebPage":
     case "ContactPage":
       return validateNameUrl(node, type);
@@ -249,7 +249,7 @@ const JSONLD_ROUTE_CASES: JsonLdRouteCase[] = [
   {
     label: "city homepage /en-lb/beirut/",
     path: "/en-lb/beirut/",
-    expectTypes: ["Organization", "WebSite", "Florist", "BreadcrumbList"],
+    expectTypes: ["Organization", "WebSite", "OnlineStore", "BreadcrumbList"],
   },
   {
     label: "FAQs page /en-lb/beirut/faqs",

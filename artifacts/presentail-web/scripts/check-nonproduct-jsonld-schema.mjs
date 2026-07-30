@@ -6,7 +6,7 @@
  *
  * Besides the product Offer (Merchant Listing) JSON-LD — which has its own
  * strict guard in check-product-jsonld-schema.mjs — the storefront also emits:
- *   BreadcrumbList, FAQPage, Organization, WebSite, LocalBusiness (Florist),
+ *   BreadcrumbList, FAQPage, Organization, WebSite, organisation (OnlineStore),
  *   WebPage, ContactPage, ItemList, and Article JSON-LD.
  *
  * Those were only soft-checked by the in-module `validateJsonLd` in
@@ -24,7 +24,7 @@
  * CI, never in production.
  *
  * Required field sets validated here:
- *   Organization / WebSite / Florist / WebPage / ContactPage : name, url
+ *   Organization / WebSite / OnlineStore / WebPage / ContactPage : name, url
  *   Article                                                   : headline, datePublished
  *   FAQPage          : mainEntity[].{name, acceptedAnswer.text}
  *   BreadcrumbList   : itemListElement[].{position, name}; item (URL) on every
@@ -85,7 +85,7 @@ export const NONPRODUCT_FIXTURES = [
   },
   {
     label: "Locale city homepage (/en-lb/beirut)",
-    expectTypes: ["Organization", "WebSite", "Florist", "BreadcrumbList"],
+    expectTypes: ["Organization", "WebSite", "OnlineStore", "BreadcrumbList"],
     build: () => buildSeoHead("/en-lb/beirut", SHARED_OPTS).headSnippet,
   },
   {
@@ -238,7 +238,7 @@ export const NONPRODUCT_FIXTURES = [
 export const EXPECTED_TYPES = [
   "Organization",
   "WebSite",
-  "Florist",
+  "OnlineStore",
   "WebPage",
   "ContactPage",
   "FAQPage",
@@ -378,7 +378,7 @@ export function validateNode(node) {
   switch (type) {
     case "Organization":
     case "WebSite":
-    case "Florist":
+    case "OnlineStore":
     case "WebPage":
     case "ContactPage":
       return validateNameUrl(node, type);
