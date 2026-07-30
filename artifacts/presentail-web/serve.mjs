@@ -446,7 +446,7 @@ function resolveProductLifecycleResponse(pathname, lifecycleOut, origin, basePat
       status: 301,
       headers: {
         location,
-        "cache-control": "max-age=31536000, immutable",
+        "cache-control": "public, max-age=31536000, immutable",
         "x-robots-tag": "noindex",
       },
       body: `<!doctype html><html lang="en"><head><title>Moved</title>` + // i18n-ignore
@@ -460,7 +460,7 @@ function resolveProductLifecycleResponse(pathname, lifecycleOut, origin, basePat
     status: 410,
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": "max-age=86400",
+      "cache-control": "public, max-age=86400",
       "x-robots-tag": "noindex",
     },
     body: `<!doctype html><html lang="en"><head><title>Gone – Presentail</title></head>` + // i18n-ignore
@@ -2327,6 +2327,24 @@ const server = http.createServer(async (req, res) => {
       }
       res.writeHead(spaLifecycleResponse.status, spaLifecycleResponse.headers);
       res.end(spaLifecycleResponse.body);
+      return;
+    }
+    // Brand, category or occasion slug definitively absent from the upstream
+    // API (HTTP 404 from fetchEntityForSeoCached). Serve a real 404 with noindex
+    // so stale/junk slugs are never indexed by search engines.
+    if (spaLifecycleOut.entityNotFound) {
+      const notFoundBody =
+        `<!doctype html><html lang="en"><head><title>Not Found – Presentail</title></head>` + // i18n-ignore
+        `<body><h1>Page Not Found</h1><p>The page you are looking for does not exist.</p>` + // i18n-ignore
+        `<p><a href="/">Return to homepage</a></p></body></html>`; // i18n-ignore
+      res.writeHead(404, {
+        "content-type": "text/html; charset=utf-8",
+        "x-robots-tag": "noindex",
+        "cache-control": "no-cache",
+        "expires": "0",
+        "link": `<${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"`,
+      });
+      res.end(notFoundBody);
       return;
     }
     let spaOut = injectModulePreloads(injectFontPreloads(injectGmcMeta(seoOut)));

@@ -24,6 +24,15 @@ const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = 
 
 const BG = "#ffffff";
 
+// Static fallback landing hrefs for each country — used before city data loads.
+// Points at the most prominent city for each country so crawlers always get a
+// real navigable destination from the country-picker links.
+const COUNTRY_FALLBACK_HREFS: Record<string, string> = {
+  LB: buildLocalePath({ lang: "en", country: "lb" as CountrySlug, city: "beirut" }),
+  AE: buildLocalePath({ lang: "en", country: "ae" as CountrySlug, city: "dubai" }),
+  CY: buildLocalePath({ lang: "en", country: "cy" as CountrySlug, city: "nicosia" }),
+};
+
 type LandingProps = {
   initialCountryCode?: string | null;
 };
@@ -287,28 +296,35 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
               ) : null)
             : (
               <div className="rounded-2xl overflow-hidden border border-gray-200/80 bg-white/70 backdrop-blur-sm shadow-sm">
-                {rows.map((row, idx) => (
-                  <button
-                    key={row.code}
-                    type="button"
-                    onClick={() => handleCountryClick(row.code, row.ready)}
-                    disabled={!row.ready}
-                    className={`w-full flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors hover:bg-gray-50/80 disabled:opacity-50 ${
-                      idx > 0 ? "border-t border-gray-200/70" : ""
-                    }`}
-                    data-testid={`button-country-${row.code.toLowerCase()}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CountryFlag code={row.code} className="w-6 aspect-[3/2] shrink-0" />
-                      <span className="text-sm font-medium leading-tight text-foreground">
-                        {countryName(row.code, row.name)}
-                      </span>
-                    </div>
-                    <ChevronRight
-                      className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                ))}
+                {rows.map((row, idx) => {
+                  const countrySlug = countryCodeToSlug(row.code) as CountrySlug;
+                  const firstActive = row.cities.find((c) => c.isActive !== false);
+                  const countryHref = firstActive
+                    ? buildLocalePath({ lang: "en", country: countrySlug, city: cityIdToSlug(firstActive.id) })
+                    : (COUNTRY_FALLBACK_HREFS[row.code] ?? "/");
+                  return (
+                    <a
+                      key={row.code}
+                      href={countryHref}
+                      onClick={(e) => { e.preventDefault(); handleCountryClick(row.code, row.ready); }}
+                      aria-disabled={!row.ready ? "true" : undefined}
+                      className={`w-full flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors hover:bg-gray-50/80 ${
+                        !row.ready ? "opacity-50 cursor-default" : ""
+                      } ${idx > 0 ? "border-t border-gray-200/70" : ""}`}
+                      data-testid={`button-country-${row.code.toLowerCase()}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <CountryFlag code={row.code} className="w-6 aspect-[3/2] shrink-0" />
+                        <span className="text-sm font-medium leading-tight text-foreground">
+                          {countryName(row.code, row.name)}
+                        </span>
+                      </div>
+                      <ChevronRight
+                        className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
+                      />
+                    </a>
+                  );
+                })}
               </div>
             )
           }

@@ -5,6 +5,7 @@ Disallow: /checkout
 Disallow: /auth
 Disallow: /account
 Disallow: /admin
+Allow: /api/img/proxy
 Disallow: /api/
 Disallow: /order-confirmed
 Disallow: /sign-in

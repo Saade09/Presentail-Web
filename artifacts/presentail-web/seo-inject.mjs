@@ -4179,10 +4179,11 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       }
     }
   } else if (brandSlug) {
+    const _brandFetchOut = {};
     const brand = await fetchEntityForSeoCached("brand", fetchBrandForSeo, {
       slug: brandSlug,
       ...fetchOpts,
-    });
+    }, _brandFetchOut);
     if (brand) {
       const brandImageUrl = typeof brand.image === "string" && brand.image ? brand.image : null;
       // Pre-generated branded OG image URL (1200×630 JPEG). When publicOrigin is
@@ -4261,12 +4262,16 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       if (!brandEligibility.eligible) {
         result = applyEligibilityNoindex(result);
       }
+    } else if (lifecycleOut && _brandFetchOut.definitelyNotFound) {
+      lifecycleOut.entityNotFound = true;
     }
   } else if (categorySlug) {
+    const _categoryFetchOut = {};
     const category = await fetchEntityForSeoCached(
       "category",
       fetchCategoryForSeo,
       { slug: categorySlug, ...fetchOpts },
+      _categoryFetchOut,
     );
     if (category) {
       const catImageUrl = typeof category.image === "string" && category.image ? category.image : null;
@@ -4342,12 +4347,15 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       if (!categoryEligibility.eligible) {
         result = applyEligibilityNoindex(result);
       }
+    } else if (lifecycleOut && _categoryFetchOut.definitelyNotFound) {
+      lifecycleOut.entityNotFound = true;
     }
   } else if (occasionSlug) {
+    const _occasionFetchOut = {};
     const occasion = await fetchEntityForSeoCached("occasion", fetchOccasionForSeo, {
       slug: occasionSlug,
       ...fetchOpts,
-    });
+    }, _occasionFetchOut);
     if (occasion) {
       // Use the branded per-occasion OG image (generated on demand by the API
       // server) instead of the raw occasion photo.
@@ -4430,6 +4438,8 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       if (!occasionEligibility.eligible) {
         result = applyEligibilityNoindex(result);
       }
+    } else if (lifecycleOut && _occasionFetchOut.definitelyNotFound) {
+      lifecycleOut.entityNotFound = true;
     }
   } else if (recipientSlug) {
     // Recipient city pages are not yet implemented (no route in App.tsx), so

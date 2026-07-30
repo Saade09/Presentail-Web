@@ -521,6 +521,40 @@ function fontPreloadPlugin(outDir: string, basePath: string): Plugin {
 }
 
 /**
+ * After the Vite build, scan the built index.html for any unsubstituted
+ * %VITE_*% env placeholders and fail the build if any remain.  This turns a
+ * silent misconfiguration (missing production env var) into a loud CI failure
+ * so placeholder strings can never reach production and break tracking scripts.
+ *
+ * Caveat: the check runs BEFORE logoPreloadPlugin / fontPreloadPlugin inject
+ * their tags, so if those plugins ever introduce a %VITE_*% pattern the order
+ * would need adjusting.  For current usage (gtag IDs only) this is fine.
+ */
+function envPlaceholderGuardPlugin(outDir: string): Plugin {
+  return {
+    name: "presentail-env-placeholder-guard",
+    apply: "build",
+    // Run in writeBundle (after all other closeBundle transforms) so we check
+    // the final written file, not an intermediate in-memory copy.
+    writeBundle() {
+      const htmlPath = path.join(outDir, "index.html");
+      if (!fs.existsSync(htmlPath)) return;
+      const html = fs.readFileSync(htmlPath, "utf8");
+      const remaining = [...html.matchAll(/%VITE_[A-Z0-9_]+%/g)].map((m) => m[0]);
+      if (remaining.length > 0) {
+        const unique = [...new Set(remaining)];
+        throw new Error(
+          `[env-placeholder-guard] Build failed: ${unique.length} unsubstituted env placeholder(s) remain in index.html.\n` +
+          unique.map((p) => `  ${p}  →  set ${p.replace(/%/g, "")} in your Replit environment secrets`).join("\n") +
+          "\nSet these variables before publishing so tracking scripts receive real IDs.",
+        );
+      }
+      console.log("[env-placeholder-guard] All %VITE_*% placeholders substituted ✓");
+    },
+  };
+}
+
+/**
  * Convert every hashed CSS asset link in the built index.html from a
  * render-blocking <link rel="stylesheet"> into the LoadCSS preload+swap
  * pattern, eliminating the CSS file from the render-blocking critical path.
@@ -652,6 +686,7 @@ export default defineConfig(async ({ command, mode }) => {
       fontPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
       lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
+      envPlaceholderGuardPlugin(path.resolve(import.meta.dirname, "dist/public")),
       ...clarityPluginsForMode(mode),
       ...(process.env.NODE_ENV !== "production" &&
       process.env.REPL_ID !== undefined
