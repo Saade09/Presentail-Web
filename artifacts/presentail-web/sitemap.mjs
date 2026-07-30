@@ -13,6 +13,7 @@ import {
   getProductAvailabilityState,
   PRODUCT_AVAILABILITY_STATE,
 } from "./seo-inject.mjs";
+import { HUB_CITY } from "./src/lib/hreflang.mjs";
 
 const PAGINATION_PAGE_SIZE = 24;
 const PAGINATION_SITEMAP_MAX_PAGES = 10;
@@ -29,8 +30,10 @@ export const SITEMAP_CITIES = {
   cy: ["larnaca", "limassol", "nicosia", "paphos"],
 };
 export const SITEMAP_LANGS = ["en", "ar", "fr"];
-// Representative city per country for product / brand canonical URLs.
-export const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosia" };
+// Hub city per country for product / brand canonical URLs. Re-exported from
+// the shared hreflang module so entity-page canonicals (seo-inject.mjs) and
+// sitemap URLs can never disagree about which city is the hub.
+export const SITEMAP_CANONICAL_CITIES = HUB_CITY;
 // Static sub-paths included for every lang / country / city combination.
 // /shop is intentionally omitted — category and occasion clean paths
 // (/category/<slug>, /occasion/<slug>) are emitted dynamically below so

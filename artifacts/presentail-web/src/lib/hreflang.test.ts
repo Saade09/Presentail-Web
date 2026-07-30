@@ -1,144 +1,177 @@
 import { describe, it, expect } from "vitest";
-import { buildHreflangSet, CANONICAL_CITY, ALL_COUNTRIES } from "./hreflang.mjs";
+import {
+  buildHreflangSet,
+  remapPathnameToHubCity,
+  HUB_CITY,
+  ALL_COUNTRIES,
+} from "./hreflang.mjs";
 
-describe("buildHreflangSet — full set", () => {
-  it("emits 10 entries for all three countries (9 locales + x-default)", () => {
-    const result = buildHreflangSet("product/roses", ["lb", "ae", "cy"], "https://presentail.com");
-    expect(result).toHaveLength(10);
+describe("buildHreflangSet — intra-city cluster", () => {
+  it("emits 4 entries (en, ar, fr + x-default) for a single city", () => {
+    const result = buildHreflangSet(
+      "product/roses",
+      { country: "lb", city: "beirut" },
+      "https://presentail.com",
+    );
+    expect(result).toHaveLength(4);
+    expect(result.map((e) => e.hreflang)).toEqual(["en-LB", "ar-LB", "fr-LB", "x-default"]);
   });
 
-  it("emits entries in lb → ae → cy language order (en, ar, fr per country)", () => {
-    const result = buildHreflangSet("product/roses", ["lb", "ae", "cy"], "https://presentail.com");
-    const codes = result.map((e) => e.hreflang);
-    expect(codes).toEqual([
-      "en-LB", "ar-LB", "fr-LB",
-      "en-AE", "ar-AE", "fr-AE",
-      "en-CY", "ar-CY", "fr-CY",
-      "x-default",
+  it("uses the passed city — never a different city or country", () => {
+    const result = buildHreflangSet(
+      "product/roses",
+      { country: "lb", city: "tripoli" },
+      "https://presentail.com",
+    );
+    expect(result.map((e) => e.href)).toEqual([
+      "https://presentail.com/en-lb/tripoli/product/roses",
+      "https://presentail.com/ar-lb/tripoli/product/roses",
+      "https://presentail.com/fr-lb/tripoli/product/roses",
+      "https://presentail.com/en-lb/tripoli/product/roses",
     ]);
   });
 
-  it("uses canonical cities (not the requesting city)", () => {
-    const result = buildHreflangSet("product/roses", ["lb", "ae", "cy"], "https://presentail.com");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    const enAE = result.find((e) => e.hreflang === "en-AE")!;
-    const enCY = result.find((e) => e.hreflang === "en-CY")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/product/roses");
-    expect(enAE.href).toBe("https://presentail.com/en-ae/dubai/product/roses");
-    expect(enCY.href).toBe("https://presentail.com/en-cy/limassol/product/roses");
+  it("never emits cross-country alternates", () => {
+    const result = buildHreflangSet(
+      "shop",
+      { country: "ae", city: "dubai" },
+      "https://presentail.com",
+    );
+    const codes = result.map((e) => e.hreflang);
+    expect(codes).toEqual(["en-AE", "ar-AE", "fr-AE", "x-default"]);
+    expect(codes.some((c) => c.includes("LB") || c.includes("CY"))).toBe(false);
   });
 
-  it("x-default always points to en-lb/beirut regardless of which countries are requested", () => {
-    const result = buildHreflangSet("product/roses", ["lb", "ae", "cy"], "https://presentail.com");
+  it("x-default points at the en variant of the SAME city", () => {
+    const result = buildHreflangSet(
+      "shop",
+      { country: "cy", city: "larnaca" },
+      "https://presentail.com",
+    );
     const xDefault = result.find((e) => e.hreflang === "x-default")!;
-    expect(xDefault.href).toBe("https://presentail.com/en-lb/beirut/product/roses");
+    expect(xDefault.href).toBe("https://presentail.com/en-cy/larnaca/shop");
+  });
+
+  it("the cluster contains the page itself (self-reference)", () => {
+    // An ar-AE page for /ar-ae/sharjah/shop must appear in its own cluster.
+    const result = buildHreflangSet(
+      "shop",
+      { country: "ae", city: "sharjah" },
+      "https://presentail.com",
+    );
+    const arAE = result.find((e) => e.hreflang === "ar-AE")!;
+    expect(arAE.href).toBe("https://presentail.com/ar-ae/sharjah/shop");
   });
 });
 
-describe("buildHreflangSet — availability gating", () => {
-  it("emits 7 entries when CY is excluded (no CY alternates)", () => {
-    const result = buildHreflangSet("product/roses", ["lb", "ae"], "https://presentail.com");
-    expect(result).toHaveLength(7);
-    const codes = result.map((e) => e.hreflang);
-    expect(codes).toEqual([
-      "en-LB", "ar-LB", "fr-LB",
-      "en-AE", "ar-AE", "fr-AE",
-      "x-default",
-    ]);
-    expect(codes.some((c) => c.includes("CY"))).toBe(false);
+describe("buildHreflangSet — suppression / invalid input", () => {
+  it("returns empty array when origin is empty", () => {
+    expect(buildHreflangSet("shop", { country: "lb", city: "beirut" }, "")).toHaveLength(0);
   });
 
-  it("emits 4 entries when only LB is available (3 LB + x-default)", () => {
-    const result = buildHreflangSet("shop", ["lb"], "https://presentail.com");
-    expect(result).toHaveLength(4);
-    const codes = result.map((e) => e.hreflang);
-    expect(codes).toEqual(["en-LB", "ar-LB", "fr-LB", "x-default"]);
+  it("returns empty array when country is missing", () => {
+    expect(
+      buildHreflangSet("shop", { country: undefined, city: "beirut" }, "https://presentail.com"),
+    ).toHaveLength(0);
   });
 
-  it("returns empty array when availableCountries is empty", () => {
-    const result = buildHreflangSet("shop", [], "https://presentail.com");
-    expect(result).toHaveLength(0);
+  it("returns empty array when country is unsupported", () => {
+    expect(
+      buildHreflangSet("shop", { country: "us", city: "nyc" }, "https://presentail.com"),
+    ).toHaveLength(0);
   });
 
-  it("preserves lb → ae → cy order even when input order differs", () => {
-    const result = buildHreflangSet("shop", ["cy", "lb", "ae"], "https://presentail.com");
-    const codes = result.map((e) => e.hreflang);
-    expect(codes.slice(0, 3)).toEqual(["en-LB", "ar-LB", "fr-LB"]);
-    expect(codes.slice(3, 6)).toEqual(["en-AE", "ar-AE", "fr-AE"]);
-    expect(codes.slice(6, 9)).toEqual(["en-CY", "ar-CY", "fr-CY"]);
+  it("returns empty array when city is missing", () => {
+    expect(
+      buildHreflangSet("shop", { country: "lb", city: "" }, "https://presentail.com"),
+    ).toHaveLength(0);
   });
 });
 
 describe("buildHreflangSet — home / empty entityPath", () => {
   it("produces paths without a trailing slash for empty entityPath", () => {
-    const result = buildHreflangSet("", ["lb", "ae", "cy"], "https://presentail.com");
+    const result = buildHreflangSet("", { country: "lb", city: "beirut" }, "https://presentail.com");
     const xDefault = result.find((e) => e.hreflang === "x-default")!;
     expect(xDefault.href).toBe("https://presentail.com/en-lb/beirut");
     expect(xDefault.href).not.toMatch(/\/$/);
   });
 
-  it("emits 10 entries for the home route", () => {
-    const result = buildHreflangSet("", ["lb", "ae", "cy"], "https://presentail.com");
-    expect(result).toHaveLength(10);
-  });
-
-  it("uses canonical city in locale hrefs for home", () => {
-    const result = buildHreflangSet("", ["lb"], "https://presentail.com");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut");
+  it("emits 4 entries for the home route", () => {
+    const result = buildHreflangSet("", { country: "lb", city: "beirut" }, "https://presentail.com");
+    expect(result).toHaveLength(4);
   });
 });
 
 describe("buildHreflangSet — input normalisation", () => {
+  const LOC = { country: "lb", city: "beirut" };
+
   it("strips a leading slash from entityPath", () => {
-    const result = buildHreflangSet("/product/roses", ["lb"], "https://presentail.com");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/product/roses");
+    const result = buildHreflangSet("/product/roses", LOC, "https://presentail.com");
+    expect(result[0].href).toBe("https://presentail.com/en-lb/beirut/product/roses");
   });
 
   it("strips a query string from entityPath", () => {
-    const result = buildHreflangSet("product/roses?orderby=price", ["lb", "ae", "cy"], "https://presentail.com");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/product/roses");
+    const result = buildHreflangSet("product/roses?orderby=price", LOC, "https://presentail.com");
+    expect(result[0].href).toBe("https://presentail.com/en-lb/beirut/product/roses");
   });
 
   it("strips a fragment from entityPath", () => {
-    const result = buildHreflangSet("shop#section", ["lb"], "https://presentail.com");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/shop");
+    const result = buildHreflangSet("shop#section", LOC, "https://presentail.com");
+    expect(result[0].href).toBe("https://presentail.com/en-lb/beirut/shop");
   });
 
   it("strips a trailing slash from entityPath", () => {
-    const result = buildHreflangSet("shop/", ["lb"], "https://presentail.com");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/shop");
+    const result = buildHreflangSet("shop/", LOC, "https://presentail.com");
+    expect(result[0].href).toBe("https://presentail.com/en-lb/beirut/shop");
   });
 
   it("strips a trailing slash from origin", () => {
-    const result = buildHreflangSet("shop", ["lb"], "https://presentail.com/");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/shop");
-  });
-
-  it("returns empty array when origin is empty", () => {
-    const result = buildHreflangSet("shop", ["lb", "ae", "cy"], "");
-    expect(result).toHaveLength(0);
+    const result = buildHreflangSet("shop", LOC, "https://presentail.com/");
+    expect(result[0].href).toBe("https://presentail.com/en-lb/beirut/shop");
   });
 });
 
 describe("buildHreflangSet — base path prefix", () => {
   it("prepends the base path prefix from origin when provided", () => {
-    const result = buildHreflangSet("shop", ["lb"], "https://presentail.com/web");
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/web/en-lb/beirut/shop");
+    const result = buildHreflangSet(
+      "shop",
+      { country: "lb", city: "beirut" },
+      "https://presentail.com/web",
+    );
+    expect(result[0].href).toBe("https://presentail.com/web/en-lb/beirut/shop");
   });
 });
 
-describe("CANONICAL_CITY", () => {
-  it("has the correct canonical city for each country", () => {
-    expect(CANONICAL_CITY.lb).toBe("beirut");
-    expect(CANONICAL_CITY.ae).toBe("dubai");
-    expect(CANONICAL_CITY.cy).toBe("limassol");
+describe("buildHreflangSet — tracking params in entityPath", () => {
+  it("strips srsltid/utm_source from alternate hrefs", () => {
+    const result = buildHreflangSet(
+      "product/roses?srsltid=test123&utm_source=google",
+      { country: "lb", city: "beirut" },
+      "https://presentail.com",
+    );
+    expect(result).toHaveLength(4);
+    for (const { href } of result) {
+      expect(href).not.toContain("srsltid");
+      expect(href).not.toContain("utm_source");
+      expect(href).toContain("/product/roses");
+    }
+  });
+
+  it("strips gclid and fbclid from alternate hrefs", () => {
+    const result = buildHreflangSet(
+      "product/roses?gclid=Cj0abc&fbclid=xyz",
+      { country: "lb", city: "beirut" },
+      "https://presentail.com",
+    );
+    expect(result[0].href).toBe("https://presentail.com/en-lb/beirut/product/roses");
+  });
+});
+
+describe("HUB_CITY", () => {
+  it("has the correct hub city for each country (matches SITEMAP_CANONICAL_CITIES)", () => {
+    expect(HUB_CITY.lb).toBe("beirut");
+    expect(HUB_CITY.ae).toBe("dubai");
+    expect(HUB_CITY.cy).toBe("nicosia");
   });
 });
 
@@ -148,30 +181,43 @@ describe("ALL_COUNTRIES", () => {
   });
 });
 
-describe("buildHreflangSet — tracking params in entityPath", () => {
-  it("strips tracking params from alternate hrefs when entityPath contains a query string with srsltid", () => {
-    const result = buildHreflangSet(
-      "product/roses?srsltid=test123&utm_source=google",
-      ["lb", "ae", "cy"],
-      "https://presentail.com",
+describe("remapPathnameToHubCity", () => {
+  it("remaps a non-hub city to the hub city, preserving the rest", () => {
+    expect(remapPathnameToHubCity("/en-lb/tripoli/product/roses")).toBe(
+      "/en-lb/beirut/product/roses",
     );
-    expect(result).toHaveLength(10);
-    for (const { href } of result) {
-      expect(href, `alternate href must not contain srsltid: ${href}`).not.toContain("srsltid");
-      expect(href, `alternate href must not contain utm_source: ${href}`).not.toContain("utm_source");
-      expect(href, `alternate href must contain the product path: ${href}`).toContain("/product/roses");
-    }
+    expect(remapPathnameToHubCity("/ar-ae/sharjah/brand/patchi")).toBe(
+      "/ar-ae/dubai/brand/patchi",
+    );
+    expect(remapPathnameToHubCity("/fr-cy/limassol/category/roses")).toBe(
+      "/fr-cy/nicosia/category/roses",
+    );
   });
 
-  it("strips gclid and fbclid from alternate hrefs", () => {
-    const result = buildHreflangSet(
-      "product/roses?gclid=Cj0abc&fbclid=xyz",
-      ["lb"],
-      "https://presentail.com",
+  it("leaves hub-city paths unchanged", () => {
+    expect(remapPathnameToHubCity("/en-lb/beirut/product/roses")).toBe(
+      "/en-lb/beirut/product/roses",
     );
-    const enLB = result.find((e) => e.hreflang === "en-LB")!;
-    expect(enLB.href).toBe("https://presentail.com/en-lb/beirut/product/roses");
-    expect(enLB.href).not.toContain("gclid");
-    expect(enLB.href).not.toContain("fbclid");
+    expect(remapPathnameToHubCity("/en-ae/dubai/occasion/birthday")).toBe(
+      "/en-ae/dubai/occasion/birthday",
+    );
+  });
+
+  it("leaves city-only paths at the hub city (no trailing rest)", () => {
+    expect(remapPathnameToHubCity("/en-lb/tripoli")).toBe("/en-lb/beirut");
+  });
+
+  it("passes through non-locale paths unchanged", () => {
+    expect(remapPathnameToHubCity("/")).toBe("/");
+    expect(remapPathnameToHubCity("/cart")).toBe("/cart");
+    expect(remapPathnameToHubCity("/favorites/share/abc12345")).toBe(
+      "/favorites/share/abc12345",
+    );
+  });
+
+  it("passes through unknown-country locale paths unchanged", () => {
+    expect(remapPathnameToHubCity("/en-us/nyc/product/roses")).toBe(
+      "/en-us/nyc/product/roses",
+    );
   });
 });

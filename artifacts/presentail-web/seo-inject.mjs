@@ -140,7 +140,7 @@ import {
   formatTemplate,
 } from "./src/lib/seo.mjs";
 
-import { buildHreflangSet, ALL_COUNTRIES } from "./src/lib/hreflang.mjs";
+import { buildHreflangSet, HUB_CITY, remapPathnameToHubCity } from "./src/lib/hreflang.mjs";
 
 import {
   BRAND_FAQ_COPY,
@@ -788,13 +788,19 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   }
 
   if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey)) {
-    // Build the full 9-locale + x-default hreflang set using canonical cities
-    // (not the requesting city), consistent x-default pointing at en-lb/beirut,
-    // and soft-404 alternates pointing at locale homes (entityPath = "").
+    // Build the intra-city hreflang cluster: en/ar/fr variants of the SAME
+    // city plus x-default pointing at the en variant of that city. No
+    // cross-country links — each city's cluster stays self-contained so
+    // Google never merges different cities. Soft-404 alternates point at the
+    // locale home (entityPath = "").
     const entityPathForHreflang = isUnknownSubRoute
       ? ""
       : (parsed.rest || "").replace(/^\//, "").replace(/\/$/, "");
-    const hreflangSet = buildHreflangSet(entityPathForHreflang, ALL_COUNTRIES, origin + cleanBase);
+    const hreflangSet = buildHreflangSet(
+      entityPathForHreflang,
+      { country: parsed.country, city: parsed.city || HUB_CITY[parsed.country] },
+      origin + cleanBase,
+    );
     for (const { hreflang, href } of hreflangSet) {
       lines.push(
         `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
@@ -802,17 +808,10 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     }
   }
 
-  if (isLanding && !parsed.hasLocalePrefix) {
-    // Root landing page (/) needs hreflang so search engines discover all
-    // locale variants. Guard with !hasLocalePrefix so paths like
-    // /en-ae/al-ain/ (invalid city → isLanding=true) don't get hreflang.
-    const landingHreflangSet = buildHreflangSet("", ALL_COUNTRIES, origin + cleanBase);
-    for (const { hreflang, href } of landingHreflangSet) {
-      lines.push(
-        `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
-      );
-    }
-  }
+  // Root landing page (/) intentionally emits NO hreflang: with intra-city
+  // clusters, listing every locale home here would create a non-reciprocal
+  // cross-country cluster (the locale homes only reference their own city's
+  // language variants), which Google ignores or misreads.
 
   const localeBase = inLocale && parsed.lang && parsed.country && parsed.city
     ? `${origin}${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`
@@ -2575,12 +2574,21 @@ function buildEntityHead({
   country,
   robots,
   extraLines = [],
+  remapCityToHub = false,
 }) {
   const cleanBase = basePath.replace(/\/$/, "");
   // Use buildCanonicalUrl so entity page canonicals strip both tracking params
   // AND filter/utility params (sort, currency, page, etc.) from the canonical
   // href, consistent with the faceted-navigation crawl-budget controls.
-  const canonicalHref = buildCanonicalUrl(pathname + (search || ""), { origin, basePath });
+  //
+  // remapCityToHub: entity pages (product/brand/category/occasion) at non-hub
+  // cities canonicalize to the hub city for their country (e.g.
+  // /en-lb/tripoli/product/roses → /en-lb/beirut/product/roses) so ranking
+  // signals consolidate instead of fragmenting across near-duplicate city
+  // URLs. City-level pages (home, shop, listings, static pages) keep
+  // self-canonical — their stock/delivery content is genuinely city-specific.
+  const canonicalPathname = remapCityToHub ? remapPathnameToHubCity(pathname) : pathname;
+  const canonicalHref = buildCanonicalUrl(canonicalPathname + (search || ""), { origin, basePath });
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
@@ -2996,6 +3004,7 @@ export function buildProductHead({
       lang,
       country,
       extraLines,
+      remapCityToHub: true,
     }),
     bodyHtml,
   };
@@ -3326,6 +3335,7 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       lang,
       country,
       extraLines,
+      remapCityToHub: true,
     }),
     bodyHtml,
   };
@@ -3599,56 +3609,10 @@ function buildShopEntityHead({
       country,
       robots,
       extraLines,
+      remapCityToHub: true,
     }),
     bodyHtml,
   };
-}
-
-/**
- * Consults the in-process entity SEO cache to determine which countries have
- * confirmed availability for the given entity. Only countries with a warm cache
- * entry (using the canonical city for that country) are considered confirmed.
- *
- * The `requestingCountry` is always marked available — it was just successfully
- * fetched by the caller. Countries not in the cache are omitted with a WARN so
- * Google never receives a broken cross-country alternate pointing at a 404.
- *
- * No upstream fetches are made; this is a pure synchronous cache read.
- *
- * @param {object} opts
- * @param {string} opts.entityKind  "product" | "brand" | "category" | "occasion"
- * @param {string} opts.slug        decoded entity slug
- * @param {string} opts.lang        request language (en | ar | fr)
- * @param {string|undefined} opts.requestingCountry  two-letter country code (lb|ae|cy) — always included
- * @returns {string[]} subset of ALL_COUNTRIES confirmed available
- */
-function deriveAvailableCountriesForEntity({ entityKind, slug, lang, requestingCountry }) {
-  const CANONICAL_CITY_ID = { lb: "lb-beirut", ae: "ae-dubai", cy: "cy-limassol" };
-  const available = [];
-  for (const country of ALL_COUNTRIES) {
-    if (country === requestingCountry) {
-      // The requesting country's entity was just successfully fetched — include unconditionally.
-      available.push(country);
-      continue;
-    }
-    // Check the entity cache using the canonical city for this country.
-    // Cache key must match exactly what fetchEntityForSeoCached stores.
-    const key = entityCacheKey({
-      kind: entityKind,
-      slug,
-      lang,
-      countryCode: country.toUpperCase(),
-      cityId: CANONICAL_CITY_ID[country],
-    });
-    if (getCachedEntity(key) !== null) {
-      available.push(country);
-    } else {
-      console.warn(
-        `seo: omitted hreflang for country=${country.toUpperCase()} on ${entityKind}/${slug} — availability unconfirmed`,
-      );
-    }
-  }
-  return available;
 }
 
 /**
@@ -4133,18 +4097,12 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         ogImageUrl: productOgImageUrl,
         ...headOpts,
       });
-      // Append hreflang alternates gated on confirmed per-country availability.
-      // Only countries with a warm entity-cache entry are included; cold-cache
-      // countries are omitted with a WARN rather than emitting a broken alternate.
-      const _prodAvail = deriveAvailableCountriesForEntity({
-        entityKind: "product",
-        slug: productSlug,
-        lang: generic.lang,
-        requestingCountry: parsed.country,
-      });
+      // Append the intra-city hreflang cluster. The canonical for entity
+      // pages is remapped to the hub city, so the hreflang cluster uses the
+      // hub city too — canonical and hreflang must agree as a set.
       const _prodHreflangSet = buildHreflangSet(
         `product/${encodeURIComponent(productSlug)}`,
-        _prodAvail,
+        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
         (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
       );
       if (_prodHreflangSet.length > 0) {
@@ -4261,15 +4219,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         brandProducts: brandListing?.products,
         ...headOpts,
       });
-      const _brandAvail = deriveAvailableCountriesForEntity({
-        entityKind: "brand",
-        slug: brandSlug,
-        lang: generic.lang,
-        requestingCountry: parsed.country,
-      });
       const _brandHreflangSet = buildHreflangSet(
         `brand/${encodeURIComponent(brandSlug)}`,
-        _brandAvail,
+        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
         (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
       );
       if (_brandHreflangSet.length > 0) {
@@ -4346,15 +4298,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         items: listing?.items ?? [],
         ...headOpts,
       });
-      const _catAvail = deriveAvailableCountriesForEntity({
-        entityKind: "category",
-        slug: categorySlug,
-        lang: generic.lang,
-        requestingCountry: parsed.country,
-      });
       const _catHreflangSet = buildHreflangSet(
         `category/${encodeURIComponent(categorySlug)}`,
-        _catAvail,
+        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
         (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
       );
       if (_catHreflangSet.length > 0) {
@@ -4437,15 +4383,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         items: listing?.items ?? [],
         ...headOpts,
       });
-      const _occAvail = deriveAvailableCountriesForEntity({
-        entityKind: "occasion",
-        slug: occasionSlug,
-        lang: generic.lang,
-        requestingCountry: parsed.country,
-      });
       const _occHreflangSet = buildHreflangSet(
         `occasion/${encodeURIComponent(occasionSlug)}`,
-        _occAvail,
+        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
         (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
       );
       if (_occHreflangSet.length > 0) {

@@ -10,27 +10,32 @@ export interface HreflangEntry {
   href: string;
 }
 
-/** Fixed canonical city slug for each supported country. */
-export const CANONICAL_CITY: Record<CountrySlugHreflang, string>;
+/** Hub city slug per country — canonical target for entity-page consolidation. */
+export const HUB_CITY: Record<CountrySlugHreflang, string>;
 
 /** All three supported countries in the canonical lb → ae → cy order. */
 export const ALL_COUNTRIES: Array<CountrySlugHreflang>;
 
 /**
- * Build the complete set of hreflang <link rel="alternate"> descriptors for a
- * given entity path, scoped to the countries where the entity is available.
+ * Replace the city segment of a locale-prefixed pathname with the hub city
+ * for its country. Non-locale paths and hub-city paths pass through unchanged.
+ */
+export function remapPathnameToHubCity(pathname: string): string;
+
+/**
+ * Build the intra-city hreflang cluster for a page: en/ar/fr variants of the
+ * SAME city plus x-default pointing at the en variant of that city.
  *
  * @param entityPath - Locale-agnostic entity path fragment, e.g. "product/red-roses".
  *   Leading slashes, query strings, and fragments are stripped automatically.
- * @param availableCountries - Countries where the entity has real content.
- *   Pass ALL_COUNTRIES for generic routes; omit unavailable countries for entity pages.
- *   An empty array returns [].
- * @param origin - Canonical site origin, e.g. "https://presentail.com" (no trailing slash).
- * @returns Array of hreflang descriptor objects including x-default, or [] when
- *   availableCountries is empty or origin is empty.
+ * @param locale - Country (lb|ae|cy) and city slug of the page. For entity
+ *   pages whose canonical is remapped to the hub city, pass the hub city.
+ * @param origin - Canonical site origin, e.g. "https://presentail.com".
+ * @returns Array of hreflang descriptor objects including x-default, or []
+ *   when origin/country/city is missing or invalid.
  */
 export function buildHreflangSet(
   entityPath: string,
-  availableCountries: Array<CountrySlugHreflang>,
+  locale: { country: string | null | undefined; city: string | null | undefined },
   origin: string,
 ): HreflangEntry[];

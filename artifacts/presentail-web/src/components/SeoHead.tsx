@@ -8,7 +8,7 @@ import {
   type Lang,
 } from "@/lib/locale-route";
 import { NONINDEX_ROUTE_KEYS } from "@/lib/seo";
-import { buildHreflangSet, ALL_COUNTRIES } from "@/lib/hreflang";
+import { buildHreflangSet, HUB_CITY } from "@/lib/hreflang";
 
 const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "" || r === "/", key: "home" },
@@ -302,11 +302,12 @@ export function SeoHead() {
       head,
     );
 
-    // Emit the full 9-locale + x-default hreflang set (matching the server
-    // injector), but only for indexable locale routes. Entity pages bail out
-    // early above — their hreflang is already server-injected and must not be
-    // overwritten here. Noindex routes (cart, checkout, auth, etc.) also skip
-    // hreflang to stay consistent with the server.
+    // Emit the intra-city hreflang cluster (matching the server injector):
+    // en/ar/fr variants of the SAME city plus x-default pointing at the en
+    // variant of that city — no cross-country links. Only for indexable
+    // locale routes. Entity pages bail out early above — their hreflang is
+    // already server-injected and must not be overwritten here. Noindex
+    // routes (cart, checkout, auth, etc.) also skip hreflang.
     if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey)) {
       // Mirror the server's isUnknownSubRoute guard so soft-404 alternates
       // point at locale homes rather than the unknown path.
@@ -316,7 +317,12 @@ export function SeoHead() {
 
       const hreflangEntries = buildHreflangSet(
         entityPathForHreflang,
-        ALL_COUNTRIES,
+        {
+          country: parsed.country,
+          city:
+            parsed.city ||
+            (parsed.country ? HUB_CITY[parsed.country as keyof typeof HUB_CITY] : undefined),
+        },
         origin + basePrefix,
       );
 

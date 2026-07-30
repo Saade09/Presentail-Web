@@ -784,7 +784,7 @@ describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
   });
 });
 
-describe("injectSeoTagsAsync — entity hreflang gating (per-country availability)", () => {
+describe("injectSeoTagsAsync — entity hreflang (intra-city hub cluster)", () => {
   // Reusable mock: succeeds for any entity or listing fetch, fails image dims.
   function makeFetchMock(entityKey: string, entityBody: unknown) {
     return vi.fn().mockImplementation(async (url: string) => {
@@ -814,7 +814,7 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     });
   }
 
-  it("product: emits hreflang only for requesting country when other countries are cold cache", async () => {
+  it("product: emits only same-country hreflang (en/ar/fr + x-default), never cross-country", async () => {
     const slug = "hrl-gating-product-cold-1";
     const fetchMock = makeFetchMock("/api/woo/product", {
       ok: true,
@@ -824,20 +824,20 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
 
     const out = await injectSeoTagsAsync(HTML, `/en-lb/beirut/product/${slug}`, OPTS);
 
-    // Requesting country (LB) — always included with all 3 locale alternates + x-default.
+    // Same-country cluster: all 3 locale alternates + x-default.
     expect(out).toContain('hreflang="en-LB"');
     expect(out).toContain('hreflang="ar-LB"');
     expect(out).toContain('hreflang="fr-LB"');
     expect(out).toContain('hreflang="x-default"');
 
-    // Other countries (AE, CY) — cold cache → must be absent.
+    // Cross-country alternates must never be emitted.
     expect(out).not.toContain('hreflang="en-AE"');
     expect(out).not.toContain('hreflang="ar-AE"');
     expect(out).not.toContain('hreflang="en-CY"');
     expect(out).not.toContain('hreflang="ar-CY"');
   });
 
-  it("product: includes all 3 countries once all are warm in the entity cache", async () => {
+  it("product: hreflang cluster uses the hub city and matches the hub-remapped canonical", async () => {
     const slug = "hrl-gating-product-warm-1";
     const fetchMock = makeFetchMock("/api/woo/product", {
       ok: true,
@@ -845,24 +845,27 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    // Pre-warm LB and CY entity cache entries with their canonical cities.
-    await injectSeoTagsAsync(HTML, `/en-lb/beirut/product/${slug}`, OPTS);
-    await injectSeoTagsAsync(HTML, `/en-cy/limassol/product/${slug}`, OPTS);
+    // Non-hub LB city (tripoli): canonical + hreflang both point at beirut.
+    const out = await injectSeoTagsAsync(HTML, `/en-lb/tripoli/product/${slug}`, OPTS);
 
-    // AE request — LB and CY entries are now in cache with canonical city keys.
-    const out = await injectSeoTagsAsync(HTML, `/en-ae/dubai/product/${slug}`, OPTS);
-
-    expect(out).toContain('hreflang="en-LB"');
-    expect(out).toContain('hreflang="en-AE"');
-    expect(out).toContain('hreflang="en-CY"');
-    // x-default always points at en-lb/beirut.
     expect(out).toContain(
-      `href="https://presentail.test/en-lb/beirut/product/${slug}"`,
+      `rel="canonical" href="https://presentail.test/en-lb/beirut/product/${slug}"`,
     );
-    // All 9 locale alternates (3 langs × 3 countries) plus x-default.
-    expect(out).toContain('hreflang="ar-LB"');
-    expect(out).toContain('hreflang="fr-AE"');
-    expect(out).toContain('hreflang="ar-CY"');
+    expect(out).toContain(
+      `hreflang="en-LB" href="https://presentail.test/en-lb/beirut/product/${slug}"`,
+    );
+    expect(out).toContain(
+      `hreflang="ar-LB" href="https://presentail.test/ar-lb/beirut/product/${slug}"`,
+    );
+    expect(out).toContain(
+      `hreflang="x-default" href="https://presentail.test/en-lb/beirut/product/${slug}"`,
+    );
+    // No alternate/canonical link points at the browsed (non-hub) city.
+    // (Product JSON-LD keeps the raw pathname — schema changes are out of scope.)
+    expect(out).not.toContain(`href="https://presentail.test/en-lb/tripoli/product/${slug}"`);
+    // No cross-country alternates.
+    expect(out).not.toContain('hreflang="en-AE"');
+    expect(out).not.toContain('hreflang="en-CY"');
   });
 
   it("product: hreflang href contains encoded slug", async () => {
@@ -877,7 +880,7 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     expect(out).toContain(`href="https://presentail.test/en-lb/beirut/product/${slug}"`);
   });
 
-  it("brand: emits hreflang only for requesting country when other countries are cold cache", async () => {
+  it("brand: emits only same-country hreflang, never cross-country", async () => {
     const slug = "hrl-gating-brand-cold-1";
     const fetchMock = makeFetchMock("/api/woo/brand", {
       ok: true,
@@ -892,11 +895,11 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     expect(out).toContain('hreflang="fr-AE"');
     expect(out).not.toContain('hreflang="en-LB"');
     expect(out).not.toContain('hreflang="en-CY"');
-    // x-default still emitted (points at en-lb/beirut even if LB cold — it's the canonical default locale).
+    // x-default points at the en variant of the same (hub) city.
     expect(out).toContain('hreflang="x-default"');
   });
 
-  it("brand: includes all 3 countries once all are warm in entity cache", async () => {
+  it("brand: non-hub AE city canonical + hreflang remap to dubai", async () => {
     const slug = "hrl-gating-brand-warm-1";
     const fetchMock = makeFetchMock("/api/woo/brand", {
       ok: true,
@@ -904,16 +907,18 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await injectSeoTagsAsync(HTML, `/en-lb/beirut/brand/${slug}`, OPTS);
-    await injectSeoTagsAsync(HTML, `/en-ae/dubai/brand/${slug}`, OPTS);
-    const out = await injectSeoTagsAsync(HTML, `/en-cy/limassol/brand/${slug}`, OPTS);
+    const out = await injectSeoTagsAsync(HTML, `/en-ae/sharjah/brand/${slug}`, OPTS);
 
-    expect(out).toContain('hreflang="en-LB"');
     expect(out).toContain('hreflang="en-AE"');
-    expect(out).toContain('hreflang="en-CY"');
+    expect(out).not.toContain('hreflang="en-LB"');
+    expect(out).not.toContain('hreflang="en-CY"');
+    expect(out).toContain(
+      `hreflang="en-AE" href="https://presentail.test/en-ae/dubai/brand/${slug}"`,
+    );
+    expect(out).not.toContain(`/en-ae/sharjah/brand/${slug}"`);
   });
 
-  it("category: emits hreflang only for requesting country when cold cache", async () => {
+  it("category: emits only same-country hreflang", async () => {
     const slug = "hrl-gating-category-cold-1";
     const fetchMock = makeFetchMock("/api/woo/category", {
       ok: true,
@@ -929,7 +934,7 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     expect(out).toContain(`href="https://presentail.test/en-lb/beirut/category/${slug}"`);
   });
 
-  it("occasion: emits hreflang only for requesting country when cold cache", async () => {
+  it("occasion: emits only same-country hreflang", async () => {
     const slug = "hrl-gating-occasion-cold-1";
     const fetchMock = makeFetchMock("/api/woo/occasion", {
       ok: true,
@@ -945,7 +950,7 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     expect(out).toContain(`href="https://presentail.test/en-ae/dubai/occasion/${slug}"`);
   });
 
-  it("occasion: includes all 3 countries once all are warm in entity cache", async () => {
+  it("occasion: non-hub CY city canonical + hreflang remap to nicosia", async () => {
     const slug = "hrl-gating-occasion-warm-1";
     const fetchMock = makeFetchMock("/api/woo/occasion", {
       ok: true,
@@ -953,13 +958,14 @@ describe("injectSeoTagsAsync — entity hreflang gating (per-country availabilit
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await injectSeoTagsAsync(HTML, `/en-lb/beirut/occasion/${slug}`, OPTS);
-    await injectSeoTagsAsync(HTML, `/en-cy/limassol/occasion/${slug}`, OPTS);
-    const out = await injectSeoTagsAsync(HTML, `/en-ae/dubai/occasion/${slug}`, OPTS);
+    const out = await injectSeoTagsAsync(HTML, `/en-cy/limassol/occasion/${slug}`, OPTS);
 
-    expect(out).toContain('hreflang="en-LB"');
-    expect(out).toContain('hreflang="en-AE"');
     expect(out).toContain('hreflang="en-CY"');
+    expect(out).not.toContain('hreflang="en-LB"');
+    expect(out).not.toContain('hreflang="en-AE"');
+    expect(out).toContain(
+      `hreflang="en-CY" href="https://presentail.test/en-cy/nicosia/occasion/${slug}"`,
+    );
   });
 
   it("brandsFilter (/brands?category=<slug>) does NOT emit entity-gated hreflang", async () => {
@@ -1019,7 +1025,7 @@ describe("buildSeoHead — city slug allowlist", () => {
   });
 });
 
-describe("buildSeoHead — hreflang alternates (full 10-alternate set)", () => {
+describe("buildSeoHead — hreflang alternates (intra-city cluster)", () => {
   const ORIGIN = "https://presentail.com";
   const OPTS_FULL = { origin: ORIGIN, basePath: "" };
 
@@ -1037,33 +1043,30 @@ describe("buildSeoHead — hreflang alternates (full 10-alternate set)", () => {
     genericSeoCache.clear();
   });
 
-  it("emits exactly 10 alternates for /en-lb/tripoli/shop (all 9 locales + x-default)", () => {
+  it("emits exactly 4 same-city alternates for /en-lb/tripoli/shop (en/ar/fr + x-default)", () => {
     const { headSnippet } = buildSeoHead("/en-lb/tripoli/shop", OPTS_FULL);
     const alts = getAlternates(headSnippet);
-    expect(alts).toHaveLength(10);
-    expect(alts.map((a) => a.hreflang)).toEqual([
-      "en-LB", "ar-LB", "fr-LB",
-      "en-AE", "ar-AE", "fr-AE",
-      "en-CY", "ar-CY", "fr-CY",
-      "x-default",
-    ]);
+    expect(alts).toHaveLength(4);
+    expect(alts.map((a) => a.hreflang)).toEqual(["en-LB", "ar-LB", "fr-LB", "x-default"]);
+    const byHreflang = Object.fromEntries(alts.map((a) => [a.hreflang, a.href]));
+    // Cluster stays in the browsed city — no hub remap for city-level pages.
+    expect(byHreflang["en-LB"]).toBe(`${ORIGIN}/en-lb/tripoli/shop`);
+    expect(byHreflang["ar-LB"]).toBe(`${ORIGIN}/ar-lb/tripoli/shop`);
+    expect(byHreflang["fr-LB"]).toBe(`${ORIGIN}/fr-lb/tripoli/shop`);
+    expect(byHreflang["x-default"]).toBe(`${ORIGIN}/en-lb/tripoli/shop`);
   });
 
-  it("uses canonical cities (not the browsed city) when building alternate hrefs — /en-ae/dubai/shop", () => {
+  it("emits only same-country alternates for /en-ae/dubai/shop (no LB/CY links)", () => {
     const { headSnippet } = buildSeoHead("/en-ae/dubai/shop", OPTS_FULL);
     const alts = getAlternates(headSnippet);
-    expect(alts).toHaveLength(10);
+    expect(alts).toHaveLength(4);
     const byHreflang = Object.fromEntries(alts.map((a) => [a.hreflang, a.href]));
-    expect(byHreflang["en-LB"]).toBe(`${ORIGIN}/en-lb/beirut/shop`);
-    expect(byHreflang["ar-LB"]).toBe(`${ORIGIN}/ar-lb/beirut/shop`);
-    expect(byHreflang["fr-LB"]).toBe(`${ORIGIN}/fr-lb/beirut/shop`);
     expect(byHreflang["en-AE"]).toBe(`${ORIGIN}/en-ae/dubai/shop`);
     expect(byHreflang["ar-AE"]).toBe(`${ORIGIN}/ar-ae/dubai/shop`);
     expect(byHreflang["fr-AE"]).toBe(`${ORIGIN}/fr-ae/dubai/shop`);
-    expect(byHreflang["en-CY"]).toBe(`${ORIGIN}/en-cy/limassol/shop`);
-    expect(byHreflang["ar-CY"]).toBe(`${ORIGIN}/ar-cy/limassol/shop`);
-    expect(byHreflang["fr-CY"]).toBe(`${ORIGIN}/fr-cy/limassol/shop`);
-    expect(byHreflang["x-default"]).toBe(`${ORIGIN}/en-lb/beirut/shop`);
+    expect(byHreflang["x-default"]).toBe(`${ORIGIN}/en-ae/dubai/shop`);
+    expect(byHreflang["en-LB"]).toBeUndefined();
+    expect(byHreflang["en-CY"]).toBeUndefined();
   });
 
   it("emits zero alternates for /en-lb/beirut/checkout (noindex guard)", () => {
@@ -1072,38 +1075,37 @@ describe("buildSeoHead — hreflang alternates (full 10-alternate set)", () => {
     expect(alts).toHaveLength(0);
   });
 
-  it("x-default always points to en-lb/beirut/{entityPath} regardless of requesting locale", () => {
+  it("x-default points to the en variant of the SAME city for every locale", () => {
     const paths = [
-      { path: "/en-lb/tripoli/shop", entity: "shop" },
-      { path: "/ar-lb/beirut/shop", entity: "shop" },
-      { path: "/fr-ae/dubai/shop", entity: "shop" },
-      { path: "/en-cy/limassol/shop", entity: "shop" },
+      { path: "/en-lb/tripoli/shop", expected: `${ORIGIN}/en-lb/tripoli/shop` },
+      { path: "/ar-lb/beirut/shop", expected: `${ORIGIN}/en-lb/beirut/shop` },
+      { path: "/fr-ae/dubai/shop", expected: `${ORIGIN}/en-ae/dubai/shop` },
+      { path: "/en-cy/limassol/shop", expected: `${ORIGIN}/en-cy/limassol/shop` },
     ];
-    for (const { path, entity } of paths) {
+    for (const { path, expected } of paths) {
       genericSeoCache.clear();
       const { headSnippet } = buildSeoHead(path, OPTS_FULL);
       const alts = getAlternates(headSnippet);
       const xDefault = alts.find((a) => a.hreflang === "x-default");
       expect(xDefault, `x-default missing for ${path}`).toBeDefined();
-      expect(xDefault!.href).toBe(`${ORIGIN}/en-lb/beirut/${entity}`);
+      expect(xDefault!.href).toBe(expected);
     }
   });
 
-  it("alternates for an unknown sub-route point to locale homes (soft-404 guard)", () => {
+  it("alternates for an unknown sub-route point to the same-city locale home (soft-404 guard)", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut/some-unknown-route", OPTS_FULL);
     const alts = getAlternates(headSnippet);
-    expect(alts).toHaveLength(10);
+    expect(alts).toHaveLength(4);
     const byHreflang = Object.fromEntries(alts.map((a) => [a.hreflang, a.href]));
     expect(byHreflang["en-LB"]).toBe(`${ORIGIN}/en-lb/beirut`);
     expect(byHreflang["ar-LB"]).toBe(`${ORIGIN}/ar-lb/beirut`);
     expect(byHreflang["fr-LB"]).toBe(`${ORIGIN}/fr-lb/beirut`);
-    expect(byHreflang["en-AE"]).toBe(`${ORIGIN}/en-ae/dubai`);
-    expect(byHreflang["ar-AE"]).toBe(`${ORIGIN}/ar-ae/dubai`);
-    expect(byHreflang["fr-AE"]).toBe(`${ORIGIN}/fr-ae/dubai`);
-    expect(byHreflang["en-CY"]).toBe(`${ORIGIN}/en-cy/limassol`);
-    expect(byHreflang["ar-CY"]).toBe(`${ORIGIN}/ar-cy/limassol`);
-    expect(byHreflang["fr-CY"]).toBe(`${ORIGIN}/fr-cy/limassol`);
     expect(byHreflang["x-default"]).toBe(`${ORIGIN}/en-lb/beirut`);
+  });
+
+  it("root landing page (/) emits no hreflang (no cross-country cluster)", () => {
+    const { headSnippet } = buildSeoHead("/", OPTS_FULL);
+    expect(getAlternates(headSnippet)).toHaveLength(0);
   });
 });
 

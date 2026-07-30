@@ -16,6 +16,7 @@ export interface HreflangEntry {
 
 export {
   buildHreflangSet,
-  CANONICAL_CITY,
+  remapPathnameToHubCity,
+  HUB_CITY,
   ALL_COUNTRIES,
 } from "./hreflang.mjs";
