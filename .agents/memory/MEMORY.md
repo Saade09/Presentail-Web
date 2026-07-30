@@ -38,4 +38,5 @@
 - [CyberSource Unified Checkout](cybersource-unified-checkout.md) — /uc/v1/sessions JWT; SDK URL+SRI from JWT claims; enum "3DS"; server must tss-verify before paid; dual flags else Microform fallback
 - [Slack order alerts via Replit connector](slack-order-alerts.md) — UAE order alerts post via the Slack connection (not webhooks); bot must be invited to each channel; AD channel is #abudhabi-orders (plural)
 - [CyberSource 3DS backend-driven completion](cs-3ds-backend-driven.md) — cs_payment_attempts table owns the chain; relay covers opener/iframe/top-level; poll /attempt/:id/status; frictionless path unchanged
+- [Markdown mirror product slug](markdown-mirror-product-slug.md) — products API slug lives in `id` not `slug`; new locale subroutes need App.tsx + serve.mjs guard + seo-inject route key
 - [Campaign first-order discount](campaign-first-order-discount.md) — FIRST10 is a virtual coupon intercepted in validateCoupon; omit its couponId from OS payload; eligibility endpoint advisory, fails open

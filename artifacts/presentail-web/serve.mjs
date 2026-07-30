@@ -915,7 +915,7 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 const LOCALE_PATH_RE = /^\/([a-z]{2})-([a-z]{2})\/([^/]+)(\/.*)?$/;
 const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
-  "/shop", "/brands", "/occasions", "/cart", "/checkout",
+  "/shop", "/best-sellers", "/brands", "/occasions", "/cart", "/checkout",
   "/order-confirmed", "/careers", "/blog", "/partner",
   "/weddings", "/corporate", "/contact", "/faqs", "/terms", "/privacy",
   "/shipping-policy", "/return-policy",

@@ -32,7 +32,61 @@ export const MARKDOWN_RETRY_WINDOW_MS = 5 * 60 * 1000;
 
 const CATALOG_CACHE_TTL_MS = 15 * 60 * 1000;
 const MAX_PRODUCTS_IN_LIST = 20;
+// The shop mirror is the primary product listing for AI crawlers — it gets a
+// higher cap than the other listing mirrors.
+const MAX_PRODUCTS_IN_SHOP = 30;
 const CANONICAL_DOMAIN = "https://presentail.com";
+
+// ---------------------------------------------------------------------------
+// Product field helpers
+//
+// The live /api/woo/products response carries the product slug in `id`
+// (e.g. "ivory-rose-vase") and has no `slug` field; older fixtures and tests
+// use `slug`. Accept both so mirrors are populated with real catalog data.
+// ---------------------------------------------------------------------------
+
+function productSlugOf(p) {
+  const s = p?.slug ?? p?.id;
+  return typeof s === "string" && s.length > 0 ? s : null;
+}
+
+function isListableProduct(p) {
+  return Boolean(
+    p?.name && productSlugOf(p) && p.inStock !== false && p.status !== "discontinued"
+  );
+}
+
+/**
+ * Human-readable price string, discount-aware:
+ *   "$40 (was $50)" when a discount price applies, "$50" otherwise, "" when
+ *   no numeric price is available.
+ */
+function productPriceStr(p) {
+  const regular = typeof p?.priceValue === "number" ? p.priceValue : null;
+  const discount =
+    typeof p?.discountPriceValue === "number" && p.discountPriceValue > 0
+      ? p.discountPriceValue
+      : null;
+  if (discount != null && regular != null && discount < regular) {
+    return ` — $${Math.round(discount)} (was $${Math.round(regular)})`;
+  }
+  if (regular != null) return ` — $${Math.round(regular)}`;
+  return "";
+}
+
+/** One "- [Name by Brand — $price](url)" Markdown bullet for a product. */
+function productLine(p, { origin, cleanBase, localePath }) {
+  const brand = (p.brandNames ?? [])[0] ?? null;
+  const brandStr = brand ? ` by ${brand}` : "";
+  return `- [${p.name}${brandStr}${productPriceStr(p)}](${origin}${cleanBase}${localePath}/product/${encodeURIComponent(productSlugOf(p))})`;
+}
+
+/** Sort most-relevant first: best sellers, then popularity. */
+function byRelevance(a, b) {
+  const bs = (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
+  if (bs !== 0) return bs;
+  return (b.popularity ?? 0) - (a.popularity ?? 0);
+}
 
 const LOCALE_RE = /^\/([a-z]{2})-([a-z]{2})\/([^/]+)(\/.*)?$/;
 
@@ -240,15 +294,13 @@ function buildCityHomeMarkdown({
   });
 
   const topProducts = products
-    .filter((p) => p?.name && p?.slug && p.inStock !== false && p.status !== "discontinued")
+    .filter(isListableProduct)
+    .sort(byRelevance)
     .slice(0, MAX_PRODUCTS_IN_LIST);
   const topCategories = categories.slice(0, 8);
   const topOccasions = occasions.slice(0, 8);
 
-  const productLines = topProducts.map((p) => {
-    const priceStr = typeof p.priceValue === "number" ? ` (~$${Math.round(p.priceValue)})` : "";
-    return `- [${p.name}${priceStr}](${origin}${cleanBase}${localePath}/product/${encodeURIComponent(p.slug)})`;
-  });
+  const productLines = topProducts.map((p) => productLine(p, { origin, cleanBase, localePath }));
 
   const categoryLines = topCategories
     .filter((c) => c?.id && c?.name)
@@ -309,8 +361,9 @@ function buildShopMarkdown({
   });
 
   const topProducts = products
-    .filter((p) => p?.name && p?.slug && p.inStock !== false && p.status !== "discontinued")
-    .slice(0, MAX_PRODUCTS_IN_LIST);
+    .filter(isListableProduct)
+    .sort(byRelevance)
+    .slice(0, MAX_PRODUCTS_IN_SHOP);
 
   const categoryLines = categories
     .filter((c) => c?.id && c?.name)
@@ -322,12 +375,7 @@ function buildShopMarkdown({
     .slice(0, 8)
     .map((o) => `- [${o.name}](${origin}${cleanBase}${localePath}/occasion/${encodeURIComponent(o.id)})`);
 
-  const productLines = topProducts.map((p) => {
-    const brand = (p.brandNames ?? [])[0] ?? null;
-    const priceStr = typeof p.priceValue === "number" ? ` (~$${Math.round(p.priceValue)})` : "";
-    const brandStr = brand ? ` by ${brand}` : "";
-    return `- [${p.name}${brandStr}${priceStr}](${origin}${cleanBase}${localePath}/product/${encodeURIComponent(p.slug)})`;
-  });
+  const productLines = topProducts.map((p) => productLine(p, { origin, cleanBase, localePath }));
 
   const body = [
     `# Shop Flowers & Gifts in ${cityLbl}`,
@@ -462,20 +510,15 @@ function buildCategoryMarkdown({
 
   const categoryProducts = products
     .filter((p) => {
-      if (!p?.slug || !p?.name) return false;
-      if (p.status === "discontinued") return false;
+      if (!isListableProduct(p)) return false;
       const cats = Array.isArray(p.categories) ? p.categories : (Array.isArray(p.categoryIds) ? p.categoryIds : []);
       if (cats.length === 0) return false;
       return cats.some((c) => (typeof c === "string" ? c : c?.id ?? c?.slug) === categorySlug);
     })
+    .sort(byRelevance)
     .slice(0, MAX_PRODUCTS_IN_LIST);
 
-  const productLines = categoryProducts.map((p) => {
-    const brand = (p.brandNames ?? [])[0] ?? null;
-    const priceStr = typeof p.priceValue === "number" ? ` (~$${Math.round(p.priceValue)})` : "";
-    const brandStr = brand ? ` by ${brand}` : "";
-    return `- [${p.name}${brandStr}${priceStr}](${origin}${cleanBase}${localePath}/product/${encodeURIComponent(p.slug)})`;
-  });
+  const productLines = categoryProducts.map((p) => productLine(p, { origin, cleanBase, localePath }));
 
   const body = [
     `# ${categoryName} — Gift Delivery in ${cityLbl}`,
@@ -522,19 +565,14 @@ function buildOccasionMarkdown({
 
   const occasionProducts = products
     .filter((p) => {
-      if (!p?.slug || !p?.name) return false;
-      if (p.status === "discontinued") return false;
+      if (!isListableProduct(p)) return false;
       const occ = Array.isArray(p.occasions) ? p.occasions : [];
       return occ.includes(occasionSlug);
     })
+    .sort(byRelevance)
     .slice(0, MAX_PRODUCTS_IN_LIST);
 
-  const productLines = occasionProducts.map((p) => {
-    const brand = (p.brandNames ?? [])[0] ?? null;
-    const priceStr = typeof p.priceValue === "number" ? ` (~$${Math.round(p.priceValue)})` : "";
-    const brandStr = brand ? ` by ${brand}` : "";
-    return `- [${p.name}${brandStr}${priceStr}](${origin}${cleanBase}${localePath}/product/${encodeURIComponent(p.slug)})`;
-  });
+  const productLines = occasionProducts.map((p) => productLine(p, { origin, cleanBase, localePath }));
 
   const body = [
     `# ${occasionName} Gifts in ${cityLbl}`,
@@ -559,7 +597,7 @@ function buildProductMarkdown({
   const canonicalUrl = `${origin}${cleanBase}${localePath}/product/${encodeURIComponent(productSlug)}`;
   const markdownUrl = `${canonicalUrl}.md`;
 
-  const product = products.find((p) => p?.slug === productSlug) ?? null;
+  const product = products.find((p) => productSlugOf(p) === productSlug) ?? null;
   const productName = product?.name ?? productSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   const descTemplate =
@@ -587,7 +625,13 @@ function buildProductMarkdown({
   });
 
   const productBrand = product ? (Array.isArray(product.brandNames) ? product.brandNames[0] : null) : null;
-  const productPrice = product && typeof product.priceValue === "number" ? `~$${Math.round(product.priceValue)}` : null;
+  // Discount-aware price: "$40 (was $50)" or "$50". productPriceStr returns
+  // " — <price>"; strip the leading separator for the detail line.
+  const priceStr = product ? productPriceStr(product).replace(/^ — /, "") : "";
+  const productPrice = priceStr || null;
+  const productCategories = product && Array.isArray(product.categoryNames)
+    ? product.categoryNames.filter(Boolean)
+    : [];
   const productOccasions = product && Array.isArray(product.occasions)
     ? product.occasions
         .map((slug) => occasions.find((o) => o?.id === slug)?.name ?? slug)
@@ -597,6 +641,7 @@ function buildProductMarkdown({
   const detailLines = [
     productBrand ? `- **Brand**: ${productBrand}` : null,
     productPrice ? `- **Price**: ${productPrice}` : null,
+    productCategories.length > 0 ? `- **Categories**: ${productCategories.join(", ")}` : null,
     `- **Availability**: ${availability}`,
     `- **Delivery**: ${cityLbl}, ${countryLbl}`,
     productOccasions.length > 0 ? `- **Perfect for**: ${productOccasions.join(", ")}` : null,
@@ -653,17 +698,14 @@ function buildBrandMarkdown({
 
   const brandProducts = products
     .filter((p) => {
-      if (!p?.slug || !p?.name) return false;
-      if (p.status === "discontinued") return false;
+      if (!isListableProduct(p)) return false;
       const names = Array.isArray(p.brandNames) ? p.brandNames : [];
       return names.some((n) => typeof n === "string" && n.toLowerCase() === brandName.toLowerCase());
     })
+    .sort(byRelevance)
     .slice(0, MAX_PRODUCTS_IN_LIST);
 
-  const productLines = brandProducts.map((p) => {
-    const priceStr = typeof p.priceValue === "number" ? ` (~$${Math.round(p.priceValue)})` : "";
-    return `- [${p.name}${priceStr}](${origin}${cleanBase}${localePath}/product/${encodeURIComponent(p.slug)})`;
-  });
+  const productLines = brandProducts.map((p) => productLine(p, { origin, cleanBase, localePath }));
 
   const body = [
     `# ${brandName}`,
@@ -707,16 +749,11 @@ function buildBestSellersMarkdown({
   });
 
   const topProducts = products
-    .filter((p) => p?.name && p?.slug && p.inStock !== false && p.status !== "discontinued")
-    .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+    .filter(isListableProduct)
+    .sort(byRelevance)
     .slice(0, MAX_PRODUCTS_IN_LIST);
 
-  const productLines = topProducts.map((p) => {
-    const brand = (p.brandNames ?? [])[0] ?? null;
-    const priceStr = typeof p.priceValue === "number" ? ` (~$${Math.round(p.priceValue)})` : "";
-    const brandStr = brand ? ` by ${brand}` : "";
-    return `- [${p.name}${brandStr}${priceStr}](${origin}${cleanBase}${localePath}/product/${encodeURIComponent(p.slug)})`;
-  });
+  const productLines = topProducts.map((p) => productLine(p, { origin, cleanBase, localePath }));
 
   const body = [
     `# Best Sellers in ${cityLbl}`,
@@ -865,9 +902,9 @@ export function buildSitemapMd({
     .map((b) => `- [${b.name}](${origin}${cleanBase}/en-lb/beirut/brand/${encodeURIComponent(b.slug)}.md)`);
 
   const productLines = products
-    .filter((p) => p?.slug && p?.name && p.status !== "discontinued")
+    .filter((p) => productSlugOf(p) && p?.name && p.status !== "discontinued")
     .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
-    .map((p) => `- [${p.name}](${origin}${cleanBase}/en-lb/beirut/product/${encodeURIComponent(p.slug)}.md)`);
+    .map((p) => `- [${p.name}](${origin}${cleanBase}/en-lb/beirut/product/${encodeURIComponent(productSlugOf(p))}.md)`);
 
   // Enumerate all per-city best-sellers + shop pages for canonical cities.
   const shopLines = [];
@@ -1030,7 +1067,7 @@ export async function getMarkdownForPath(
     const productSlug = decodeURIComponent(subroute.slice("/product/".length));
     if (!productSlug) return null;
     if (catalog.products.length === 0) return null;
-    if (!catalog.products.some((p) => p?.slug === productSlug)) return null;
+    if (!catalog.products.some((p) => productSlugOf(p) === productSlug)) return null;
     return buildProductMarkdown({ ...baseArgs, productSlug });
   }
   if (subroute.startsWith("/brand/")) {

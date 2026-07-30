@@ -175,6 +175,7 @@ export const TITLES = {
     landing: "Online Flower & Gift Delivery | Presentail | Express Delivery",
     home: "Flower & Gift Delivery in {city} | Presentail",
     shop: "Shop Flowers & Gifts in {city} | Presentail",
+    bestSellers: "Best Sellers in {city} | Presentail",
     product: "Gift Delivery in {city} | Presentail",
     allOccasions: "Shop by Occasion in {city} | Presentail",
     brands: "Partner Brands in {city} | Presentail",
@@ -205,6 +206,7 @@ export const TITLES = {
     landing: "توصيل الأزهار والهدايا أونلاين | Presentail | توصيل سريع",
     home: "توصيل الأزهار والهدايا في {city} | Presentail",
     shop: "تسوّق الأزهار والهدايا في {city} | Presentail",
+    bestSellers: "الأكثر مبيعاً في {city} | Presentail",
     product: "توصيل الهدايا في {city} | Presentail",
     allOccasions: "تسوّق حسب المناسبة في {city} | Presentail",
     brands: "العلامات الشريكة في {city} | Presentail",
@@ -236,6 +238,7 @@ export const TITLES = {
     landing: "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
     home: "Livraison de fleurs et cadeaux à {city} | Presentail",
     shop: "Boutique fleurs et cadeaux à {city} | Presentail",
+    bestSellers: "Meilleures ventes à {city} | Presentail",
     product: "Livraison de cadeaux à {city} | Presentail",
     allOccasions: "Acheter par occasion à {city} | Presentail",
     brands: "Marques partenaires à {city} | Presentail",
@@ -462,6 +465,7 @@ export const DESCRIPTIONS = {
       "Send flowers, cakes, balloons, plants, chocolates and more gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
     home: "Send flowers, cakes, balloons, plants, chocolates and gifts online in {city}. Express same-day delivery available with Presentail.",
     shop: "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
+    bestSellers: "Discover Presentail's best-selling bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
     product: "Order this gift for delivery in {city}, {country} with Presentail.",
     allOccasions:
       "Browse all occasions — birthdays, anniversaries, weddings and more — and find the perfect gift for delivery in {city}, {country}.",
@@ -503,6 +507,7 @@ export const DESCRIPTIONS = {
     brands:
       "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}، {country}.",
     brand: "تسوّق المجموعة الكاملة لهذه العلامة للتوصيل في {city}، {country} عبر Presentail.",
+    bestSellers: "اكتشف باقات Presentail وكعكها وهداياها الفاخرة الأكثر مبيعاً للتوصيل في {city}، {country}.",
     occasions: "تصفّح الهدايا حسب المناسبة في {city}، {country} — أعياد الميلاد والذكريات والأعراس والتعازي والمزيد.",
     occasion: "تسوّق الهدية المثالية لهذه المناسبة في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
     category: "اطلب من هذه الفئة للتوصيل في {city}، {country} مع Presentail.",
@@ -531,6 +536,7 @@ export const DESCRIPTIONS = {
       "Envoyez des fleurs, des gâteaux, des ballons, des plantes, des chocolats et plus encore avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
     home: "Envoyez fleurs, gâteaux, ballons, plantes, chocolats et cadeaux en ligne à {city}. Livraison express le jour même disponible avec Presentail.",
     shop: "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
+    bestSellers: "Découvrez les bouquets, gâteaux et cadeaux de luxe les plus vendus de Presentail pour livraison à {city}, {country}.",
     product: "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail.",
     allOccasions:
       "Parcourez toutes les occasions — anniversaires, mariages et plus encore — et trouvez le cadeau idéal pour livraison à {city}, {country}.",
