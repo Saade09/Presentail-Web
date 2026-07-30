@@ -16,6 +16,7 @@ import {
   escXml,
   generateSitemap,
   buildSitemapXml,
+  buildSitemapIndexXml,
   resolveSitemap,
 } from "./sitemap.mjs";
 import {
@@ -941,8 +942,12 @@ function isKnownLocaleSubRoute(rest) {
   return false;
 }
 
-let sitemapCache = null;
-let sitemapCacheTsMs = 0;
+// Per-locale sitemap caches — /sitemap.xml is a static <sitemapindex> pointing
+// at /sitemap-en.xml, /sitemap-ar.xml and /sitemap-fr.xml; each child sitemap
+// is generated and cached independently.
+const sitemapCaches = Object.fromEntries(
+  SITEMAP_LANGS.map((lang) => [lang, { value: null, tsMs: 0 }]),
+);
 const SITEMAP_CACHE_TTL_MS = 15 * 60 * 1000;
 
 let llmsTxtCache = null;
@@ -1599,8 +1604,10 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: false, message: "Unauthorized" })); // i18n-ignore
         return;
       }
-      sitemapCache = null;
-      sitemapCacheTsMs = 0;
+      for (const lang of SITEMAP_LANGS) {
+        sitemapCaches[lang].value = null;
+        sitemapCaches[lang].tsMs = 0;
+      }
       console.info("[sitemap] cache invalidated via internal webhook hook");
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
@@ -1615,25 +1622,46 @@ const server = http.createServer(async (req, res) => {
     // static, catalog-free sitemap (root + locale pages) is served so crawlers
     // never receive an empty body or a 500.
     if (pathname === "/sitemap.xml") {
+      // /sitemap.xml is now a static <sitemapindex> pointing at the per-locale
+      // child sitemaps — no catalog fetch needed, so no cache or fallback.
+      const indexXml = buildSitemapIndexXml(origin, BASE_PATH);
+      const encoding = pickEncoding(req, ".xml");
+      const body = await compressBuffer(indexXml, encoding);
+      const headers = {
+        "content-type": MIME[".xml"],
+        "cache-control": "public, max-age=3600, must-revalidate",
+        "vary": "Accept-Encoding",
+      };
+      if (encoding) headers["content-encoding"] = encoding;
+      res.writeHead(200, headers);
+      res.end(body);
+      return;
+    }
+
+    // Per-locale child sitemaps: /sitemap-en.xml, /sitemap-ar.xml, /sitemap-fr.xml.
+    const sitemapLocaleMatch = pathname.match(/^\/sitemap-([a-z]{2})\.xml$/);
+    if (sitemapLocaleMatch && SITEMAP_LANGS.includes(sitemapLocaleMatch[1])) {
+      const lang = sitemapLocaleMatch[1];
+      const cacheRef = sitemapCaches[lang];
       const resolved = await resolveSitemap({
-        cache: { value: sitemapCache, tsMs: sitemapCacheTsMs },
+        cache: { value: cacheRef.value, tsMs: cacheRef.tsMs },
         nowMs: Date.now(),
         ttlMs: SITEMAP_CACHE_TTL_MS,
         generateFull: () =>
-          generateSitemap(origin, BASE_PATH, fetchSitemapJson, INTERNAL_API_BASE_URL),
-        generateStatic: () => buildSitemapXml({ origin, basePath: BASE_PATH }),
+          generateSitemap(origin, BASE_PATH, fetchSitemapJson, INTERNAL_API_BASE_URL, lang),
+        generateStatic: () => buildSitemapXml({ origin, basePath: BASE_PATH, locale: lang }),
         onError: (err, mode) => {
           // Log so ops can tell when regeneration is consistently failing.
-          console.warn("[sitemap.xml] regeneration failed; serving %s. Error: %s",
+          console.warn(`[sitemap-${lang}.xml] regeneration failed; serving %s. Error: %s`,
             mode === "stale" ? "stale cache" : "static fallback",
             err?.message ?? err,
           );
         },
       });
-      sitemapCache = resolved.value;
-      sitemapCacheTsMs = resolved.tsMs;
+      cacheRef.value = resolved.value;
+      cacheRef.tsMs = resolved.tsMs;
       const encoding = pickEncoding(req, ".xml");
-      const body = await compressBuffer(sitemapCache, encoding);
+      const body = await compressBuffer(cacheRef.value, encoding);
       const headers = {
         "content-type": MIME[".xml"],
         "cache-control": "public, max-age=3600, must-revalidate",

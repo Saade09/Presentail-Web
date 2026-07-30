@@ -1,8 +1,8 @@
 /**
- * /sitemap.xml resilience test — catalog API outage
+ * /sitemap-en.xml resilience test — catalog API outage
  *
  * Verifies that when every catalog API endpoint responds with HTTP 503 (or is
- * otherwise unreachable), GET /sitemap.xml still returns:
+ * otherwise unreachable), GET /sitemap-en.xml still returns:
  *   • HTTP 200
  *   • Content-Type: application/xml
  *   • A non-empty body containing at least the <urlset opening tag
@@ -79,7 +79,7 @@ function closeServer(server: http.Server): Promise<void> {
 /**
  * Poll until serve.mjs is accepting TCP connections on the given port.
  *
- * Deliberately avoids sending any HTTP request so the /sitemap.xml cache is
+ * Deliberately avoids sending any HTTP request so the /sitemap-en.xml cache is
  * still cold when the tests run their first fetch — the cold-cache response is
  * precisely what we need to validate.
  */
@@ -139,7 +139,7 @@ let servePort: number;
 // Test suite
 // ---------------------------------------------------------------------------
 
-test.describe("/sitemap.xml — static fallback when catalog API is down", () => {
+test.describe("/sitemap-en.xml — static fallback when catalog API is down", () => {
   test.beforeAll(async () => {
     // 1. Mock catalog API — always 503.
     const mockResult = await startServer((_req, res) => {
@@ -155,7 +155,7 @@ test.describe("/sitemap.xml — static fallback when catalog API is down", () =>
     await closeServer(portResult.server);
 
     // 3. Spawn serve.mjs. It does not need a dist/ directory to serve the
-    //    /sitemap.xml route — that handler runs before the static-file branch.
+    //    /sitemap-en.xml route — that handler runs before the static-file branch.
     serveProcess = cp.spawn(process.execPath, [SERVE_MJS], {
       env: {
         ...process.env,
@@ -181,23 +181,34 @@ test.describe("/sitemap.xml — static fallback when catalog API is down", () =>
   // Shared response (fetch once for assertions that only inspect body shape)
   // -------------------------------------------------------------------------
 
+  test("/sitemap.xml returns a <sitemapindex> pointing at the per-locale child sitemaps", async () => {
+    const { status, body } = await getUrl(
+      `http://127.0.0.1:${servePort}/sitemap.xml`,
+    );
+    expect(status).toBe(200);
+    expect(body).toContain("<sitemapindex");
+    expect(body).toContain("/sitemap-en.xml");
+    expect(body).toContain("/sitemap-ar.xml");
+    expect(body).toContain("/sitemap-fr.xml");
+  });
+
   test("returns HTTP 200", async () => {
     const { status } = await getUrl(
-      `http://127.0.0.1:${servePort}/sitemap.xml`,
+      `http://127.0.0.1:${servePort}/sitemap-en.xml`,
     );
     expect(status).toBe(200);
   });
 
   test("returns Content-Type: application/xml", async () => {
     const { headers } = await getUrl(
-      `http://127.0.0.1:${servePort}/sitemap.xml`,
+      `http://127.0.0.1:${servePort}/sitemap-en.xml`,
     );
     expect(headers["content-type"]).toMatch(/application\/xml/);
   });
 
   test("returns a non-empty body containing <urlset", async () => {
     const { body } = await getUrl(
-      `http://127.0.0.1:${servePort}/sitemap.xml`,
+      `http://127.0.0.1:${servePort}/sitemap-en.xml`,
     );
     expect(body.trim().length).toBeGreaterThan(0);
     expect(body).toContain("<urlset");
@@ -205,7 +216,7 @@ test.describe("/sitemap.xml — static fallback when catalog API is down", () =>
 
   test("contains static locale city pages even without catalog data", async () => {
     const { body } = await getUrl(
-      `http://127.0.0.1:${servePort}/sitemap.xml`,
+      `http://127.0.0.1:${servePort}/sitemap-en.xml`,
     );
     // Static locale pages are generated from the hardcoded SITEMAP_CITIES
     // constant and must appear regardless of catalog API availability.
@@ -216,7 +227,7 @@ test.describe("/sitemap.xml — static fallback when catalog API is down", () =>
 
   test("body is well-formed XML (opens with XML declaration, closes with </urlset>)", async () => {
     const { body } = await getUrl(
-      `http://127.0.0.1:${servePort}/sitemap.xml`,
+      `http://127.0.0.1:${servePort}/sitemap-en.xml`,
     );
     expect(body).toMatch(/^<\?xml/);
     expect(body).toContain("</urlset>");

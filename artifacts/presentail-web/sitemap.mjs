@@ -68,11 +68,16 @@ export function escXml(s) {
  * @param {Array}  [args.brands]     - [{ slug }]
  * @param {Array}  [args.occasions]  - [{ id, count }]
  * @param {Array}  [args.categories] - [{ id, count }]
+ * @param {string} [args.locale]     - "en" | "ar" | "fr"; each <loc> uses this
+ *                                     language prefix so the sitemap can be
+ *                                     generated once per locale (child sitemaps
+ *                                     of the /sitemap.xml index). Defaults "en".
  * @returns {string} sitemap XML
  */
 export function buildSitemapXml({
   origin,
   basePath,
+  locale = "en",
   products = [],
   brands = [],
   occasions = [],
@@ -102,6 +107,7 @@ export function buildSitemapXml({
   totalProductCount = null,
 } = {}) {
   const cleanBase = (basePath ?? "/").replace(/\/$/, "");
+  const lang = SITEMAP_LANGS.includes(locale) ? locale : "en";
 
   // Accumulate eligibility counts into reportRef when provided.
   const recordEligibility = (pageType, eligible) => {
@@ -120,13 +126,16 @@ export function buildSitemapXml({
   // <url> entry for a locale-prefixed path that also lists every language
   // variant via <xhtml:link rel="alternate" hreflang>. `rest` is the path after
   // the `/{lang}-{country}/{city}` prefix ("" for the home page, otherwise
-  // beginning with "/"). x-default points at the English variant.
+  // beginning with "/"). The <loc> uses this builder's `lang` prefix; the
+  // alternates always list all three languages reciprocally (same city, same
+  // country) so every child sitemap's entries agree with the page-level
+  // hreflang. x-default points at the English variant.
   // `imageBlock` is an optional <image:image> XML string to embed for product URLs.
   // `lastmod` is only emitted when a real per-entry date is known (e.g. blog
   // article publish dates); all other entries omit it rather than fabricating
   // a request-time value.
   const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "", lastmod = null) => {
-    const loc = origin + cleanBase + `/en-${country}/${city}${rest}`;
+    const loc = origin + cleanBase + `/${lang}-${country}/${city}${rest}`;
     const alternates = SITEMAP_LANGS.map((altLang) => {
       const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
       const code = `${altLang}-${country.toUpperCase()}`;
@@ -161,7 +170,11 @@ export function buildSitemapXml({
   const urls = [];
 
   // 0. Root landing page (un-prefixed, language-agnostic entry point).
-  urls.push(urlEntry("/", "1.0", "weekly"));
+  // Emitted only in the English child sitemap so the URL appears exactly once
+  // across the sitemap index (duplicating it per locale would inflate counts).
+  if (lang === "en") {
+    urls.push(urlEntry("/", "1.0", "weekly"));
+  }
 
   // 1. Static locale pages — one <url> per country × city, each carrying its
   // language alternates (so the three languages collapse into a single block
@@ -203,7 +216,7 @@ export function buildSitemapXml({
           ? buildImageBlock(
               product.imageUrl,
               product.name,
-              buildProductImageAlt({ name: product.name }, "en", city.charAt(0).toUpperCase() + city.slice(1)),
+              buildProductImageAlt({ name: product.name }, lang, city.charAt(0).toUpperCase() + city.slice(1)),
             )
           : "";
       urls.push(urlEntryWithAlternates(priority, "weekly", country, city, `/product/${encoded}`, imageBlock));
@@ -345,15 +358,39 @@ ${urls.join("\n")}
 }
 
 /**
- * Fetch the live catalog and build the sitemap XML.
+ * Build the <sitemapindex> served at /sitemap.xml, pointing at one child
+ * sitemap per locale (/sitemap-en.xml, /sitemap-ar.xml, /sitemap-fr.xml).
+ * Google requires every URL in an hreflang cluster to appear as a sitemap
+ * entry of its own; the per-locale children guarantee the Arabic and French
+ * URLs referenced by the hreflang alternates are also listed.
+ *
+ * @param {string} origin   - e.g. "https://presentail.com"
+ * @param {string} basePath - deploy prefix, e.g. "/" or "/web"
+ * @returns {string} sitemap index XML
+ */
+export function buildSitemapIndexXml(origin, basePath) {
+  const cleanBase = (basePath ?? "/").replace(/\/$/, "");
+  const entries = SITEMAP_LANGS.map(
+    (lang) =>
+      `  <sitemap><loc>${escXml(`${origin}${cleanBase}/sitemap-${lang}.xml`)}</loc></sitemap>`,
+  );
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries.join("\n")}
+</sitemapindex>`;
+}
+
+/**
+ * Fetch the live catalog and build one locale's sitemap XML.
  *
  * @param {string} origin
  * @param {string} basePath
  * @param {(url: string) => Promise<any>} fetchJson - returns parsed JSON or null
  * @param {string} apiBaseUrl - internal API base, e.g. "http://localhost:80"
+ * @param {string} [locale] - "en" | "ar" | "fr" (defaults to "en")
  * @returns {Promise<string>} sitemap XML
  */
-export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
+export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, locale = "en") {
   // No blanket lastmod: the catalog endpoints don't expose per-entity update
   // timestamps, so catalog/static entries omit <lastmod> entirely. Blog posts
   // carry their real datePublished (handled inside buildSitemapXml).
@@ -381,6 +418,7 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
   return buildSitemapXml({
     origin,
     basePath,
+    locale,
     products,
     brands: brandsData?.brands ?? [],
     occasions: catalogData?.occasions ?? [],

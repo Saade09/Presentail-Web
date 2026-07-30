@@ -1,8 +1,8 @@
 /**
- * /sitemap.xml recovery test — catalog comes back up after outage
+ * /sitemap-en.xml recovery test — catalog comes back up after outage
  *
  * Verifies that once the catalog API recovers (starts returning valid category,
- * occasion, and product data), GET /sitemap.xml switches from the static
+ * occasion, and product data), GET /sitemap-en.xml switches from the static
  * fallback (root + locale/city pages only) to the live catalog data —
  * specifically that a category slug which is present in the live feed but
  * absent from the static fallback appears in the XML after the catalog
@@ -20,10 +20,10 @@
  *
  * 2. Two serve.mjs processes — one per phase.
  *    Phase 1 uses a process spawned while the mock is in "down" state so its
- *    cold-cache /sitemap.xml fetch fails and falls back to the static XML
+ *    cold-cache /sitemap-en.xml fetch fails and falls back to the static XML
  *    (root + locale pages, no catalog entities).
  *    Phase 2 uses a FRESH process spawned after the mock flips to "up":
- *    because /sitemap.xml has an in-process stale-while-revalidate cache
+ *    because /sitemap-en.xml has an in-process stale-while-revalidate cache
  *    (SITEMAP_CACHE_TTL_MS + SITEMAP_RETRY_WINDOW_MS), reusing the same
  *    process would require waiting minutes for the retry window to expire.
  *    A fresh process has a cold cache and immediately fetches from the now-
@@ -153,7 +153,7 @@ async function spawnServe(mockApiPort: number): Promise<{
  *
  * "recovery-bouquets" is deliberately chosen as the live category id because
  * it does NOT appear in the static fallback produced by buildSitemapXml when
- * all catalog fetches return null.  Its presence in /sitemap.xml unambiguously
+ * all catalog fetches return null.  Its presence in /sitemap-en.xml unambiguously
  * proves the live catalog path was taken.
  *
  * The category must have count > 0 to pass the generateSitemap count filter.
@@ -222,7 +222,7 @@ let servePort2: number;
 // ---------------------------------------------------------------------------
 
 test.describe(
-  "/sitemap.xml — switch to live data after catalog recovery",
+  "/sitemap-en.xml — switch to live data after catalog recovery",
   () => {
     test.beforeAll(async () => {
       // 1. Start the mock catalog API (initially down).
@@ -247,26 +247,26 @@ test.describe(
     // Phase 1 — catalog is down: static fallback must be served
     // -----------------------------------------------------------------------
 
-    test("phase 1 (catalog down): /sitemap.xml returns HTTP 200", async () => {
+    test("phase 1 (catalog down): /sitemap-en.xml returns HTTP 200", async () => {
       mockState = "down";
       const { status } = await getUrl(
-        `http://127.0.0.1:${servePort1}/sitemap.xml`,
+        `http://127.0.0.1:${servePort1}/sitemap-en.xml`,
       );
       expect(status).toBe(200);
     });
 
-    test("phase 1 (catalog down): /sitemap.xml returns Content-Type: application/xml", async () => {
+    test("phase 1 (catalog down): /sitemap-en.xml returns Content-Type: application/xml", async () => {
       mockState = "down";
       const { headers } = await getUrl(
-        `http://127.0.0.1:${servePort1}/sitemap.xml`,
+        `http://127.0.0.1:${servePort1}/sitemap-en.xml`,
       );
       expect(headers["content-type"]).toMatch(/application\/xml/);
     });
 
-    test("phase 1 (catalog down): /sitemap.xml body is well-formed XML with static pages", async () => {
+    test("phase 1 (catalog down): /sitemap-en.xml body is well-formed XML with static pages", async () => {
       mockState = "down";
       const { body } = await getUrl(
-        `http://127.0.0.1:${servePort1}/sitemap.xml`,
+        `http://127.0.0.1:${servePort1}/sitemap-en.xml`,
       );
       expect(body).toMatch(/^<\?xml/);
       expect(body).toContain("<urlset");
@@ -275,10 +275,10 @@ test.describe(
       expect(body).toContain("/en-lb/beirut");
     });
 
-    test("phase 1 (catalog down): /sitemap.xml does NOT contain live category slug", async () => {
+    test("phase 1 (catalog down): /sitemap-en.xml does NOT contain live category slug", async () => {
       mockState = "down";
       const { body } = await getUrl(
-        `http://127.0.0.1:${servePort1}/sitemap.xml`,
+        `http://127.0.0.1:${servePort1}/sitemap-en.xml`,
       );
       // LIVE_CATEGORY_ID must be absent when catalog returns 503.
       expect(body).not.toContain(LIVE_CATEGORY_ID);
@@ -287,7 +287,7 @@ test.describe(
     // -----------------------------------------------------------------------
     // Between phases — flip mock to "up" and spawn a fresh serve.mjs process.
     //
-    // A fresh process is required because /sitemap.xml has an in-process
+    // A fresh process is required because /sitemap-en.xml has an in-process
     // stale-while-revalidate cache.  Reusing the phase-1 process would
     // require waiting for the retry window to expire before live data could
     // be fetched again.  A fresh process has a cold cache and will immediately
@@ -305,7 +305,7 @@ test.describe(
 
       // Confirm the new process is healthy before the phase-2 assertions.
       const { status } = await getUrl(
-        `http://127.0.0.1:${servePort2}/sitemap.xml`,
+        `http://127.0.0.1:${servePort2}/sitemap-en.xml`,
       );
       expect(status).toBe(200);
     });
@@ -314,41 +314,41 @@ test.describe(
     // Phase 2 — catalog recovered: live data must appear in the response
     // -----------------------------------------------------------------------
 
-    test("phase 2 (catalog up): /sitemap.xml returns HTTP 200", async () => {
+    test("phase 2 (catalog up): /sitemap-en.xml returns HTTP 200", async () => {
       const { status } = await getUrl(
-        `http://127.0.0.1:${servePort2}/sitemap.xml`,
+        `http://127.0.0.1:${servePort2}/sitemap-en.xml`,
       );
       expect(status).toBe(200);
     });
 
-    test("phase 2 (catalog up): /sitemap.xml returns Content-Type: application/xml", async () => {
+    test("phase 2 (catalog up): /sitemap-en.xml returns Content-Type: application/xml", async () => {
       const { headers } = await getUrl(
-        `http://127.0.0.1:${servePort2}/sitemap.xml`,
+        `http://127.0.0.1:${servePort2}/sitemap-en.xml`,
       );
       expect(headers["content-type"]).toMatch(/application\/xml/);
     });
 
-    test("phase 2 (catalog up): /sitemap.xml body is well-formed XML", async () => {
+    test("phase 2 (catalog up): /sitemap-en.xml body is well-formed XML", async () => {
       const { body } = await getUrl(
-        `http://127.0.0.1:${servePort2}/sitemap.xml`,
+        `http://127.0.0.1:${servePort2}/sitemap-en.xml`,
       );
       expect(body).toMatch(/^<\?xml/);
       expect(body).toContain("<urlset");
       expect(body).toContain("</urlset>");
     });
 
-    test("phase 2 (catalog up): /sitemap.xml contains live category slug", async () => {
+    test("phase 2 (catalog up): /sitemap-en.xml contains live category slug", async () => {
       const { body } = await getUrl(
-        `http://127.0.0.1:${servePort2}/sitemap.xml`,
+        `http://127.0.0.1:${servePort2}/sitemap-en.xml`,
       );
       // The live catalog is up, so the category section must now include the
       // live category slug (as /category/recovery-bouquets or similar).
       expect(body).toContain(LIVE_CATEGORY_ID);
     });
 
-    test("phase 2 (catalog up): /sitemap.xml still contains static locale pages", async () => {
+    test("phase 2 (catalog up): /sitemap-en.xml still contains static locale pages", async () => {
       const { body } = await getUrl(
-        `http://127.0.0.1:${servePort2}/sitemap.xml`,
+        `http://127.0.0.1:${servePort2}/sitemap-en.xml`,
       );
       // Static pages must survive catalog recovery unchanged.
       expect(body).toContain("/en-lb/beirut");
@@ -356,9 +356,9 @@ test.describe(
       expect(body).toContain("/en-cy/nicosia");
     });
 
-    test("phase 2 (catalog up): /sitemap.xml body is longer than a bare static fallback", async () => {
+    test("phase 2 (catalog up): /sitemap-en.xml body is longer than a bare static fallback", async () => {
       const { body } = await getUrl(
-        `http://127.0.0.1:${servePort2}/sitemap.xml`,
+        `http://127.0.0.1:${servePort2}/sitemap-en.xml`,
       );
       // A live-catalog sitemap includes category/occasion/product entries,
       // making it substantially longer than the minimal static-only output.

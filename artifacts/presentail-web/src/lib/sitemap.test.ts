@@ -3,6 +3,7 @@ import { JSDOM } from "jsdom";
 
 import {
   buildSitemapXml,
+  buildSitemapIndexXml,
   generateSitemap,
   resolveSitemap,
   SITEMAP_RETRY_WINDOW_MS,
@@ -35,6 +36,136 @@ const MOCK = {
 function parse(xml: string): Document {
   return new DOMParser().parseFromString(xml, "text/xml") as Document;
 }
+
+describe("buildSitemapIndexXml", () => {
+  const xml = buildSitemapIndexXml(ORIGIN, "/");
+
+  it("is a well-formed <sitemapindex>", () => {
+    const doc = parse(xml);
+    expect(doc.documentElement?.nodeName).toBe("sitemapindex");
+    expect(doc.getElementsByTagName("parsererror").length).toBe(0);
+  });
+
+  it("points at one child sitemap per locale", () => {
+    for (const lang of SITEMAP_LANGS) {
+      expect(xml).toContain(`<loc>${ORIGIN}/sitemap-${lang}.xml</loc>`);
+    }
+    const doc = parse(xml);
+    expect(doc.getElementsByTagName("sitemap").length).toBe(SITEMAP_LANGS.length);
+  });
+
+  it("respects a non-root basePath", () => {
+    const prefixed = buildSitemapIndexXml(ORIGIN, "/web/");
+    expect(prefixed).toContain(`<loc>${ORIGIN}/web/sitemap-en.xml</loc>`);
+  });
+});
+
+describe("buildSitemapXml — per-locale generation", () => {
+  const xmlByLocale = Object.fromEntries(
+    SITEMAP_LANGS.map((lang: string) => [
+      lang,
+      buildSitemapXml({ origin: ORIGIN, basePath: "/", locale: lang, ...MOCK }),
+    ]),
+  );
+
+  it("each locale's <loc> entries use that locale's language prefix", () => {
+    for (const lang of SITEMAP_LANGS) {
+      expect(xmlByLocale[lang]).toContain(
+        `<loc>${ORIGIN}/${lang}-lb/beirut</loc>`,
+      );
+      // No <loc> in another language prefix (alternates are fine).
+      for (const other of SITEMAP_LANGS) {
+        if (other === lang) continue;
+        expect(xmlByLocale[lang]).not.toContain(
+          `<loc>${ORIGIN}/${other}-lb/beirut</loc>`,
+        );
+      }
+    }
+  });
+
+  it("every locale's entries carry reciprocal alternates for all three languages plus x-default", () => {
+    for (const lang of SITEMAP_LANGS) {
+      const doc = parse(xmlByLocale[lang]);
+      const firstUrl = Array.from(doc.getElementsByTagName("url")).find(
+        (u) => u.getElementsByTagName("xhtml:link").length > 0,
+      )!;
+      const links = Array.from(firstUrl.getElementsByTagName("xhtml:link"));
+      const hreflangs = links.map((l) => l.getAttribute("hreflang"));
+      expect(hreflangs).toEqual(
+        expect.arrayContaining(["en-LB", "ar-LB", "fr-LB", "x-default"]),
+      );
+      // x-default always points at the English variant.
+      const xDefault = links.find((l) => l.getAttribute("hreflang") === "x-default")!;
+      expect(xDefault.getAttribute("href")).toContain("/en-lb/");
+    }
+  });
+
+  it("each locale sitemap has the same number of locale-prefixed entries (deterministic, no per-city inflation)", () => {
+    const counts = SITEMAP_LANGS.map(
+      (lang: string) => parse(xmlByLocale[lang]).getElementsByTagName("url").length,
+    );
+    // The en sitemap carries one extra entry: the un-prefixed root "/".
+    expect(counts[0]).toBe(counts[1] + 1);
+    expect(counts[1]).toBe(counts[2]);
+  });
+
+  it("only the en sitemap lists the un-prefixed root URL", () => {
+    expect(xmlByLocale.en).toContain(`<loc>${ORIGIN}/</loc>`);
+    expect(xmlByLocale.ar).not.toContain(`<loc>${ORIGIN}/</loc>`);
+    expect(xmlByLocale.fr).not.toContain(`<loc>${ORIGIN}/</loc>`);
+  });
+
+  it("products appear at hub-city canonical URLs only, per locale", () => {
+    for (const lang of SITEMAP_LANGS) {
+      expect(xmlByLocale[lang]).toContain(
+        `<loc>${ORIGIN}/${lang}-lb/beirut/product/red-roses</loc>`,
+      );
+      // Not per-city: no product entry for a non-hub city.
+      expect(xmlByLocale[lang]).not.toContain(
+        `<loc>${ORIGIN}/${lang}-lb/tripoli/product/red-roses</loc>`,
+      );
+    }
+  });
+
+  it("the blog index appears in all three locale sitemaps at hub cities", () => {
+    for (const lang of SITEMAP_LANGS) {
+      expect(xmlByLocale[lang]).toContain(
+        `<loc>${ORIGIN}/${lang}-lb/beirut/blog</loc>`,
+      );
+    }
+  });
+
+  it("product <image:image> blocks carry over into non-English locale sitemaps", () => {
+    const xmlAr = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      locale: "ar",
+      products: [
+        { slug: "red-roses", name: "Red Roses", imageUrl: "https://cdn.example.com/red.jpg" },
+      ],
+    });
+    expect(xmlAr).toContain("<image:image>");
+    expect(xmlAr).toContain("<image:loc>https://cdn.example.com/red.jpg</image:loc>");
+  });
+
+  it("falls back to English for an unknown locale", () => {
+    const xml = buildSitemapXml({ origin: ORIGIN, basePath: "/", locale: "zz", ...MOCK });
+    expect(xml).toContain(`<loc>${ORIGIN}/en-lb/beirut</loc>`);
+  });
+});
+
+describe("generateSitemap — locale pass-through", () => {
+  it("generates the requested locale's URL prefix", async () => {
+    const fakeFetch = async (url: string) => {
+      if (url.includes("/api/woo/products")) return { products: [{ slug: "p1" }] };
+      if (url.includes("/api/woo/brands")) return { brands: [] };
+      return { occasions: [], categories: [] };
+    };
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80", "fr");
+    expect(xml).toContain(`<loc>${ORIGIN}/fr-lb/beirut/product/p1</loc>`);
+    expect(xml).not.toContain(`<loc>${ORIGIN}/en-lb/beirut/product/p1</loc>`);
+  });
+});
 
 describe("buildSitemapXml", () => {
   const xml = buildSitemapXml({
