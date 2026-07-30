@@ -650,7 +650,12 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     },
   };
   const crumbLabels = ROUTE_CRUMB_LABELS[lang] ?? ROUTE_CRUMB_LABELS.en;
-  if (emitJsonLd && inLocale && crumbLabels[routeKey]) {
+  // Skip the "home" route here: city homepages already emit their own
+  // Home > {City} breadcrumb alongside LocalBusiness above, and a plain
+  // locale home needs no trail. Without this guard the generic builder
+  // produced a second, malformed list ending in "Home" again, and search
+  // engines discard pages with conflicting BreadcrumbList structures.
+  if (emitJsonLd && inLocale && routeKey !== "home" && crumbLabels[routeKey]) {
     const localePathBase = parsed.city
       ? `${origin}${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`
       : `${origin}${cleanBase}/${parsed.lang}-${parsed.country}`;

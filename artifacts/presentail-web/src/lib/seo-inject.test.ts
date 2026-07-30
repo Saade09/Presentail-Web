@@ -5667,6 +5667,35 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 
+  it("city homepage emits exactly ONE well-formed BreadcrumbList (no duplicate/malformed trail)", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = assertAllJsonLdValid(
+      `<head>${headSnippet}</head>`,
+      "city home /en-lb/beirut",
+    );
+    const crumbs = blocks.filter((b: any) => b["@type"] === "BreadcrumbList");
+    expect(crumbs).toHaveLength(1);
+    const items = crumbs[0].itemListElement;
+    expect(items).toHaveLength(2);
+    expect(items[0].name).toBe("Home");
+    expect(items[1].name).toBe("Beirut");
+  });
+
+  it("locale homepage without city emits no BreadcrumbList", () => {
+    const { headSnippet } = buildSeoHead("/en-lb", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = assertAllJsonLdValid(
+      `<head>${headSnippet}</head>`,
+      "locale home /en-lb",
+    );
+    expect(blocks.filter((b: any) => b["@type"] === "BreadcrumbList")).toHaveLength(0);
+  });
+
   it("product page emits a Product (with priced Offer) + BreadcrumbList with all required fields", async () => {
     mockFetchOnce({
       ok: true,
