@@ -12,10 +12,11 @@
  *      is a warning — very large inlined CSS can delay first paint on slow
  *      connections. → WARN (not fail)
  *
- *   3. Font preload present: at least one <link rel="preload" as="font">
- *      must exist in index.html. Font preloads allow the browser to fetch
- *      woff2 files in parallel with the CSS bundle, improving LCP on all
- *      pages. Added by fontPreloadPlugin in vite.config.ts. → FAIL if absent
+ *   3. No build-time font preloads: font preload hints are injected
+ *      per-request by serve.mjs (filtered by the active language, so Arabic
+ *      fonts are only preloaded on /ar-* routes). Any <link rel="preload"
+ *      as="font"> baked into the built index.html would be duplicated in
+ *      every served response. → FAIL if present
  *
  * Usage:
  *   node artifacts/presentail-web/scripts/check-web-vitals-budget.mjs [distDir]
@@ -124,31 +125,30 @@ if (warnings.length === 0) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 3: Font preload present
+// Check 3: No build-time font preloads
 //
-// At least one <link rel="preload" as="font"> must be present in index.html.
-// This is injected by fontPreloadPlugin in vite.config.ts, which reads the
-// Vite manifest and injects hashed woff2 URLs. Without this preload the
-// browser cannot discover fonts until the CSS bundle is fully parsed, adding
-// ~100–200 ms to first paint (LCP regression).
+// Font preload hints are injected per-request by serve.mjs so the set can be
+// filtered by the active language (Arabic woff2 only on /ar-* routes). Any
+// font preload baked into the built index.html would appear a second time in
+// every served response (duplicate hints) and would preload Arabic fonts on
+// English pages. The built index.html must therefore contain none.
 // ---------------------------------------------------------------------------
 
 const fontPreloadRe = /<link\b[^>]*\brel\s*=\s*["']preload["'][^>]*\bas\s*=\s*["']font["'][^>]*>/i;
 const altFontPreloadRe = /<link\b[^>]*\bas\s*=\s*["']font["'][^>]*\brel\s*=\s*["']preload["'][^>]*>/i;
 const hasFontPreload = fontPreloadRe.test(html) || altFontPreloadRe.test(html);
 
-if (!hasFontPreload) {
+if (hasFontPreload) {
   failures.push(
-    `  FAIL  No <link rel="preload" as="font"> found in index.html.\n` +
-      `        Without font preloads the browser must wait for CSS to fully parse\n` +
-      `        before discovering font URLs — this delays LCP by 100–200 ms.\n` +
-      `        Fix: ensure fontPreloadPlugin is registered in vite.config.ts and\n` +
-      `        the build has run so .woff2 entries appear in the Vite manifest.`,
+    `  FAIL  <link rel="preload" as="font"> found in built index.html.\n` +
+      `        Font preloads must come only from serve.mjs (per-request,\n` +
+      `        language-filtered). A build-time hint duplicates every font in\n` +
+      `        the served <head> and preloads Arabic fonts on English pages.\n` +
+      `        Fix: remove the build-time font preload injection from vite.config.ts.`,
   );
 } else {
-  const fontPreloadTags = [...html.matchAll(/<link\b[^>]*\brel\s*=\s*["']preload["'][^>]*\bas\s*=\s*["']font["'][^>]*>/gi)];
   passes.push(
-    `  PASS  Font preload: ${fontPreloadTags.length} <link rel="preload" as="font"> tag(s) found.`,
+    `  PASS  No build-time font preloads in index.html (injected per-request by serve.mjs).`,
   );
 }
 

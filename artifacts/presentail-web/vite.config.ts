@@ -380,28 +380,22 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
 /**
  * After the Vite build, read the manifest and inject `<link rel="modulepreload">`
  * tags for named chunks that are lazy-loaded but will always be needed on the
- * first page view (HomepageHeader → vendor-framer, app-shared, etc.).
+ * first page view.
  *
  * Rationale: Vite only auto-injects modulepreload for *statically* imported
- * chunks. By making HomepageHeader and Footer lazy we removed vendor-framer
- * from the automatic preload list (which reduces the initial render-blocking
- * chain). But we still want those chunks to be fetched in parallel while the
- * entry JS is executing, not in a second waterfall after it runs. This plugin
- * bridges the gap: it adds explicit preloads for the most critical lazy chunks
- * so browsers can fetch them from the HTML without waiting for JS discovery.
+ * chunks. Route-level pages are lazy, so without an explicit hint the browser
+ * discovers Home/Shop only after the entry JS executes (a second waterfall).
+ * This plugin adds explicit preloads for exactly the page chunks that render
+ * the typical entry route (Home, Shop) — and nothing else. Preload hints for
+ * chunks that don't paint the current page (cart, checkout, payment, vendor
+ * extras) compete with the LCP resource for bandwidth, so they are
+ * intentionally excluded.
  *
- * Matching strategy:
- *  - Named vendor chunks are matched by `chunk.name` (manualChunks key).
- *  - Page-level route chunks have Rollup-generated names that vary by build.
- *    They are matched by the manifest entry key (= the Vite source path, e.g.
- *    "src/pages/Home.tsx"), which is stable across builds.
+ * Matching strategy: page-level route chunks have Rollup-generated names that
+ * vary by build, so they are matched by the manifest entry key (= the Vite
+ * source path, e.g. "src/pages/Home.tsx"), which is stable across builds.
  */
 function lazyChunkPreloadPlugin(outDir: string): Plugin {
-  const ALWAYS_NEEDED_CHUNK_NAMES = new Set([
-    "vendor-framer",
-    "vendor-embla",
-  ]);
-
   // Page source paths (relative to the artifact root) for chunks that are
   // always needed on the first user-facing page view. Matched against the
   // manifest entry key so they are correctly identified regardless of the
@@ -427,11 +421,6 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
       const preloadFiles: string[] = [];
       for (const [key, chunk] of Object.entries(manifest)) {
         if (!chunk.file) continue;
-        // Match vendor chunks by their manualChunks name.
-        if (chunk.name && ALWAYS_NEEDED_CHUNK_NAMES.has(chunk.name)) {
-          preloadFiles.push(chunk.file);
-          continue;
-        }
         // Match page-level route chunks by their source path (manifest key).
         // The key is the Vite source path relative to the project root, e.g.
         // "src/pages/Home.tsx". Normalise to forward slashes for cross-platform.
@@ -473,52 +462,11 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
 
 
 
-/**
- * Inject <link rel="preload" as="font"> tags for all self-hosted woff2 font
- * files into the built index.html. Without preloads the browser must wait for
- * the CSS bundle to download and parse before discovering font URLs, adding
- * ~100–200 ms to first paint. With preloads it can fetch fonts in parallel
- * with the CSS bundle, improving LCP on all pages.
- *
- * Reads the Vite manifest to resolve content-hashed filenames and injects tags
- * immediately before </head>. Runs only at build time (not dev server).
- */
-function fontPreloadPlugin(outDir: string, basePath: string): Plugin {
-  const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
-  return {
-    name: "presentail-font-preload",
-    apply: "build",
-    async closeBundle() {
-      const htmlPath = path.join(outDir, "index.html");
-      const manifestPath = path.join(outDir, ".vite", "manifest.json");
-      if (!fs.existsSync(htmlPath) || !fs.existsSync(manifestPath)) return;
-
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<
-        string,
-        { file: string }
-      >;
-
-      const links = Object.values(manifest)
-        .filter((entry) => typeof entry.file === "string" && entry.file.endsWith(".woff2"))
-        .map((entry) => {
-          const href = `${base}/${entry.file}`;
-          return `  <link rel="preload" as="font" type="font/woff2" crossorigin href="${href}">`;
-        });
-
-      if (links.length === 0) {
-        console.warn("[font-preload] No .woff2 entries found in Vite manifest — font preloads not injected");
-        return;
-      }
-
-      const html = fs.readFileSync(htmlPath, "utf8");
-      const injection = links.join("\n");
-      const patched = html.replace("</head>", `${injection}\n</head>`);
-      if (patched === html) return;
-      fs.writeFileSync(htmlPath, patched, "utf8");
-      console.log(`[font-preload] Injected ${links.length} woff2 preload hint(s) into index.html`);
-    },
-  };
-}
+// NOTE: font preloads are intentionally NOT injected at build time. serve.mjs
+// injects them per-request so the font set can be filtered by the active
+// language (Arabic woff2 files only on /ar-* routes). Injecting here too would
+// duplicate every font hint in the served <head> and preload Arabic fonts on
+// English pages.
 
 /**
  * After the Vite build, scan the built index.html for any unsubstituted
@@ -683,7 +631,6 @@ export default defineConfig(async ({ command, mode }) => {
       markdownMirrorDevPlugin(basePath),
       seoInjectPlugin(basePath),
       logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
-      fontPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
       lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       envPlaceholderGuardPlugin(path.resolve(import.meta.dirname, "dist/public")),

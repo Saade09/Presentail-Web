@@ -106,8 +106,12 @@ const PersonalInformation = lazy(() => import("@/pages/PersonalInformation"));
 const SignInPage = lazy(loadSignIn);
 const SignUpPage = lazy(loadSignUp);
 const Unauthorized = lazy(() => import("@/pages/Unauthorized"));
-// Dev-only standalone CyberSource Microform diagnostic page.
-const CyberSourceTest = lazy(() => import("@/pages/CyberSourceTest"));
+// Dev-only standalone CyberSource Microform diagnostic page. The dynamic
+// import sits inside a statically-false branch in production builds so
+// Rollup never emits the CyberSourceTest chunk into dist/.
+const CyberSourceTest = import.meta.env.DEV
+  ? lazy(() => import("@/pages/CyberSourceTest"))
+  : null;
 const Careers = lazy(() => import("@/pages/Careers"));
 const Blog = lazy(() => import("@/pages/Blog"));
 const BlogPost = lazy(() => import("@/pages/BlogPost"));
@@ -142,7 +146,9 @@ const SignInRoute = withSuspense(SignInPage, PageLoader);
 const SignUpRoute = withSuspense(SignUpPage, PageLoader);
 const ResetPasswordRoute = withSuspense(ResetPassword, PageLoader);
 const UnauthorizedRoute = withSuspense(Unauthorized, PageLoader);
-const CyberSourceTestRoute = withSuspense(CyberSourceTest, PageLoader);
+const CyberSourceTestRoute = CyberSourceTest
+  ? withSuspense(CyberSourceTest, PageLoader)
+  : () => null;
 const CareersRoute = withSuspense(Careers, PageLoader);
 const BlogRoute = withSuspense(Blog, PageLoader);
 const BlogPostRoute = withSuspense(BlogPost, PageLoader);
