@@ -169,6 +169,10 @@ export default function OrderConfirmed() {
   const createOrder = useCreateOrder();
   const { clearCart } = useCart();
 
+  // PayPal appends ?token=<PAYPAL_TOKEN>&PayerID=<ID> to the returnUrl. Extract
+  // the token separately so we can distinguish a PayPal return from other flows.
+  const paypalToken = searchParams.get("token") ?? undefined;
+
   const initial: FinalizeState = (() => {
     if (status !== "success") return { kind: "failed" };
     if (refFromUrl) return { kind: "success", ref: refFromUrl };
@@ -189,7 +193,16 @@ export default function OrderConfirmed() {
     }
     // A missing OR stale (expired) stash short-circuits to a graceful failure so
     // we never enter the finalizing state and call createOrder for an old payload.
-    if (!readStashedEntry()) return { kind: "failed", message: t("order.fail.cantFind") };
+    const stash = readStashedEntry();
+    if (!stash) {
+      // PayPal return with missing stash (e.g. iOS Safari cleared sessionStorage
+      // during the cross-origin redirect). Enter the processing / polling state
+      // using the PayPal token as the reference ID so the shopper can follow up
+      // with support if polling exhausts. Any other redirect return without a
+      // stash hard-fails since we have no payment reference to poll with.
+      if (paypalToken) return { kind: "processing", piId: paypalToken };
+      return { kind: "failed", message: t("order.fail.cantFind") };
+    }
     return { kind: "finalizing" };
   })();
 
@@ -197,6 +210,11 @@ export default function OrderConfirmed() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const triedRef = useRef(false);
   const purchaseFiredRef = useRef(false);
+  // Counts iterations of the processing-state poll loop. After
+  // MAX_POLL_RETRIES × 4 s (~2 minutes) we give up and show the "contact us
+  // with your payment reference" screen so the shopper isn't stuck spinning.
+  const pollRetryCountRef = useRef(0);
+  const MAX_POLL_RETRIES = 30; // 30 × 4 s = 120 s
   // True once the payment-status fallback confirms the PI succeeded.
   // Used to show the shopper a "payment received" message instead of the
   // generic failure screen when the sessionStorage stash was lost after a
@@ -260,18 +278,32 @@ export default function OrderConfirmed() {
   // the event from being sent more than once.
   }, [state, authLoading, user]);
 
-  // Poll /api/stripe/payment-status when Klarna returns with redirect_status=processing.
+  // Poll /api/stripe/payment-status when Klarna returns with redirect_status=processing,
+  // or when a PayPal return lands without a sessionStorage stash (iOS Safari ITP).
   // Klarna approval can be asynchronous — the webhook updates the DB record when the
   // payment_intent.succeeded event fires. When we detect payment_succeeded we
   // transition to finalizing so the normal createOrder flow takes over.
+  // For PayPal tokens the Stripe endpoint won't return payment_succeeded, so the
+  // poll will exhaust MAX_POLL_RETRIES and surface the "contact us with your payment
+  // reference" screen — giving the shopper a reference to quote support.
   useEffect(() => {
     if (state.kind !== "processing") return;
+    // Reset the poll counter each time we (re-)enter processing state.
+    pollRetryCountRef.current = 0;
     const piId = state.piId;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
     const poll = async () => {
       if (cancelled) return;
+      pollRetryCountRef.current += 1;
+      if (pollRetryCountRef.current > MAX_POLL_RETRIES) {
+        // Exhausted retries — show the "contact us" screen with the payment
+        // reference visible so the shopper can quote it to support.
+        setFailedAttempts(MAX_FINALIZE_ATTEMPTS);
+        setState({ kind: "failed", message: t("order.fail.contactUs") });
+        return;
+      }
       try {
         const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
         const res = await fetch(`${base}/api/stripe/payment-status?pi=${encodeURIComponent(piId)}`);
@@ -312,6 +344,7 @@ export default function OrderConfirmed() {
       cancelled = true;
       clearTimeout(timer);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, t]);
 
   useEffect(() => {

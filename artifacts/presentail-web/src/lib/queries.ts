@@ -786,6 +786,14 @@ export const usePaypalPayment = () => {
       returnUrl: string;
       cancelUrl: string;
       orderId: string;
+      /** Delivery slot label (e.g. "2:00 PM – 6:00 PM"). Omit for express delivery. */
+      deliverySlot?: string;
+      /** Delivery slot ID from Presentail OS. Omit for express delivery. */
+      deliverySlotId?: string;
+      /** Presentail OS city ID for the selected delivery city. */
+      cityId?: string;
+      /** ISO date of the selected delivery day (YYYY-MM-DD). Omit for express. */
+      deliveryDate?: string;
     }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/paypal", {
       method: "POST",
       body: JSON.stringify(data),

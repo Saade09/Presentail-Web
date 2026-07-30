@@ -53,6 +53,12 @@ type Props = {
    * (mode: "payment", amount, currency) — no clientSecret at mount time.
    */
   usePaymentElement?: boolean;
+  /**
+   * Called when the <PaymentElement> finishes mounting and is ready for input.
+   * Only relevant when usePaymentElement is true. Used by the submit handler to
+   * guard elements.submit() against calling it before the element is mounted.
+   */
+  onPaymentElementReady?: (ready: boolean) => void;
 };
 
 function cardBrandIcon(brand: string): string {
@@ -75,6 +81,7 @@ export function StripeCardFields({
   onSelectSavedCard,
   onRemoveSavedCard,
   usePaymentElement,
+  onPaymentElementReady,
 }: Props) {
   const { t } = useLocale();
   const stripe = useStripe();
@@ -161,6 +168,7 @@ export function StripeCardFields({
                 layout: "accordion",
                 defaultValues: { billingDetails: { address: { country: undefined } } },
               }}
+              onReady={() => onPaymentElementReady?.(true)}
             />
           ) : (
             /* Legacy split card fields — kept as fallback when PaymentElement

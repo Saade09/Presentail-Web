@@ -530,6 +530,12 @@ function CheckoutForm() {
   const [elements, setElements] = useState<import("@stripe/stripe-js").StripeElements | null>(null);
   // Stays true once set so LazyStripeSection is never unmounted after first load.
   const [stripeNeeded, setStripeNeeded] = useState(false);
+  // Tracks whether the Stripe <PaymentElement> has fired its onReady callback.
+  // Only relevant when klarnaEnabled=true (usePaymentElement mode). Guards
+  // elements.submit() in the Path A submit branch so we never call it before
+  // the element has mounted — the root cause of the "elements should have a
+  // mounted Payment Element" error.
+  const [isPaymentElementReady, setIsPaymentElementReady] = useState(false);
 
   const triggerStripeLoad = useCallback(() => {
     setStripePromise(getStripePromise(countryCode ?? undefined));
@@ -657,6 +663,12 @@ function CheckoutForm() {
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
   const [klarnaEnabled, setKlarnaEnabled] = useState(false);
+  // Reset PaymentElement readiness whenever Klarna is disabled so a stale
+  // "ready" flag from a previous klarnaEnabled=true session can't short-circuit
+  // the guard on the next Klarna-enabled session.
+  useEffect(() => {
+    if (!klarnaEnabled) setIsPaymentElementReady(false);
+  }, [klarnaEnabled]);
 
   // ── Klarna billing country ────────────────────────────────────────────────
   // Separate editable state for the payer's billing country — distinct from
@@ -3090,6 +3102,14 @@ function CheckoutForm() {
         // to validate) and when Klarna is off (split card fields use a different
         // confirmation path that doesn't need submit()).
         if (klarnaEnabled && !selectedSavedCardId && elements) {
+          // Guard: the PaymentElement must be mounted before elements.submit()
+          // is called, otherwise Stripe throws "elements should have a mounted
+          // Payment Element". This can happen if the shopper taps "Pay" before
+          // the lazy-loaded Stripe iframe finishes rendering.
+          if (!isPaymentElementReady) {
+            setStripeCardError(t("checkout.toast.cardUnavailable"));
+            return;
+          }
           const { error: submitError } = await elements.submit();
           if (submitError) {
             setStripeCardError(submitError.message ?? t("checkout.toast.cardPaymentFailed"));
@@ -3310,6 +3330,12 @@ function CheckoutForm() {
           returnUrl,
           cancelUrl: failureUrl,
           orderId,
+          // Include delivery-slot fields so the backend calculates the same fee
+          // that the checkout page computed for the shopper's chosen time slot.
+          deliverySlot: deliveryMode === "express" ? undefined : deliverySlot || undefined,
+          ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+          ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+          deliveryDate: deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
         });
         if (!res.ok || !res.url) {
           toast({
@@ -3319,7 +3345,9 @@ function CheckoutForm() {
           });
           return;
         }
-        stashAndRedirect(res.url, orderId);
+        // Pass "paypal" as paymentMethodOverride so the stashed payload carries
+        // the correct payment method for the order-confirmation step.
+        stashAndRedirect(res.url, orderId, "paypal");
         return;
       }
 
@@ -5011,9 +5039,10 @@ function CheckoutForm() {
                                 selectedSavedCardId={selectedSavedCardId}
                                 onSelectSavedCard={setSelectedSavedCardId}
                                 onRemoveSavedCard={handleRemoveSavedCard}
-                                usePaymentElement={false}
-                                paymentAmount={undefined}
-                                paymentCurrency={undefined}
+                                usePaymentElement={klarnaEnabled}
+                                onPaymentElementReady={setIsPaymentElementReady}
+                                paymentAmount={klarnaEnabled ? estimatedStripeMinorUnits : undefined}
+                                paymentCurrency={klarnaEnabled ? checkoutCurrency.toLowerCase() : undefined}
                               />
                             </Suspense>
                           )}

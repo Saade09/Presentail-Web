@@ -17,6 +17,8 @@ type InnerProps = {
   onRemoveSavedCard?: (id: string) => void;
   /** When true, renders <PaymentElement> (supports cards + Klarna + wallets) instead of split card fields. */
   usePaymentElement?: boolean;
+  /** Called when the <PaymentElement> is ready for interaction (usePaymentElement=true only). */
+  onPaymentElementReady?: (ready: boolean) => void;
 };
 
 function StripeInner({
@@ -32,6 +34,7 @@ function StripeInner({
   onSelectSavedCard,
   onRemoveSavedCard,
   usePaymentElement,
+  onPaymentElementReady,
 }: InnerProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -55,6 +58,7 @@ function StripeInner({
         onSelectSavedCard={onSelectSavedCard}
         onRemoveSavedCard={onRemoveSavedCard}
         usePaymentElement
+        onPaymentElementReady={onPaymentElementReady}
       />
     );
   }
@@ -80,6 +84,7 @@ type Props = InnerProps & {
   paymentAmount?: number;
   /** ISO 4217 currency code (lowercase) — required when paymentAmount is set. */
   paymentCurrency?: string;
+  // onPaymentElementReady is inherited from InnerProps
 };
 
 export function StripeCheckoutSection({
@@ -96,6 +101,7 @@ export function StripeCheckoutSection({
   onSelectSavedCard,
   onRemoveSavedCard,
   usePaymentElement,
+  onPaymentElementReady,
   paymentAmount,
   paymentCurrency,
 }: Props) {
@@ -142,6 +148,7 @@ export function StripeCheckoutSection({
         onSelectSavedCard={onSelectSavedCard}
         onRemoveSavedCard={onRemoveSavedCard}
         usePaymentElement={usePaymentElement}
+        onPaymentElementReady={onPaymentElementReady}
       />
     </Elements>
   );
