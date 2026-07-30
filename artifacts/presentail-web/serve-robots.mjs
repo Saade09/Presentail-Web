@@ -14,14 +14,14 @@
  * Deny-list of route tokens that must carry noindex regardless of host.
  * Must mirror NONINDEX_ROUTE_KEYS in src/lib/seo.mjs:
  *   cart, checkout, orderConfirmed, auth, account, favorites,
- *   privacy, terms, careers, partner, blog.
+ *   privacy, terms, careers, partner.
  * Also covers auth-adjacent routes not in NONINDEX_ROUTE_KEYS directly:
  *   sign-in, sign-up, reset-password (mapped to key "auth" by detectRouteKey).
  * Keep in sync with public/robots.txt Disallow entries.
  *
- * "blog" is deliberately excluded from this regex: the listing page /blog IS
- * noindex (route key "blog"), but individual posts /blog/{slug} ARE indexed
- * (route key "blogPost"). A separate blog-listing check handles this case.
+ * "blog" is deliberately excluded from this regex: both the listing page
+ * /blog (route key "blog") and individual posts /blog/{slug} (route key
+ * "blogPost") are indexable.
  */
 export const PRIVATE_ROUTE_RE =
   /(?:^|\/)(?:cart|checkout|order-confirmed|auth|sign-in|sign-up|reset-password|account|personal-information|favorites|privacy|terms|careers|partner)(?:\/|$)/;
@@ -34,19 +34,14 @@ export const PRIVATE_ROUTE_RE =
  * Implemented as a deny-list (not an allow-list) so new public pages are
  * automatically indexable without a code change.
  *
- * IMPORTANT: `blog` (the listing) is noindex but individual blog posts
- * (/blog/<slug>) are fully indexable. The two clauses below keep them
- * distinct — do not collapse them into a single pattern that matches both.
+ * The blog listing (/blog) and individual blog posts (/blog/<slug>) are both
+ * fully indexable — the listing is the internal-link hub for the articles.
  *
  * @param {string} pathname
  * @returns {boolean}
  */
 export function isPrivatePath(pathname) {
-  if (PRIVATE_ROUTE_RE.test(pathname)) return true;
-  // Blog listing page (/blog or /{lang-country}/{city}/blog) is noindex;
-  // individual blog posts (/blog/{slug}) are public. Match listing only by
-  // requiring "blog" at the end of the path (with optional trailing slash).
-  return /(?:^|\/)blog\/?$/.test(pathname);
+  return PRIVATE_ROUTE_RE.test(pathname);
 }
 
 // ---------------------------------------------------------------------------

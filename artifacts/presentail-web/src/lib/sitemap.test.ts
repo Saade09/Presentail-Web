@@ -685,15 +685,10 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     });
   }
 
-  it("does not include the blog index page (only article pages are indexed)", () => {
-    const locs = [...xmlFull.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
-      (m: RegExpMatchArray) => m[1],
-    );
-    for (const loc of locs) {
-      expect(loc, `loc "${loc}" must not be the bare blog index`).not.toMatch(
-        /\/blog\/?$/,
-      );
-    }
+  it("includes the blog index (Journal hub) at the canonical hub cities", () => {
+    expect(xmlFull).toContain(`${ORIGIN}/en-lb/beirut/blog<`);
+    expect(xmlFull).toContain(`${ORIGIN}/en-ae/dubai/blog<`);
+    expect(xmlFull).toContain(`${ORIGIN}/en-cy/nicosia/blog<`);
   });
 
   it("does not include llms.txt or llms-full.txt", () => {

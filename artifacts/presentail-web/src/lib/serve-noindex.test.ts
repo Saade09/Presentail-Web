@@ -214,12 +214,12 @@ describe("serve.mjs — blog post pages are indexable (not noindex)", () => {
     expect(robotsHeader).toBe("index, follow");
   });
 
-  it("emits X-Robots-Tag: noindex for the blog listing page", async () => {
+  it("emits X-Robots-Tag: index, follow for the blog listing page (Journal hub)", async () => {
     const { status, robotsHeader } = await get(serverPort, "/en-lb/beirut/blog", {
       host: "presentail.com",
     });
     expect(status).toBe(200);
-    expect(robotsHeader).toBe("noindex");
+    expect(robotsHeader).toBe("index, follow");
   });
 });
 

@@ -109,20 +109,20 @@ describe("isPrivatePath — locale-prefixed private paths", () => {
 // ---------------------------------------------------------------------------
 
 describe("isPrivatePath — blog listing vs. blog post", () => {
-  it("returns true for bare /blog (listing page is noindex)", () => {
-    expect(isPrivatePath("/blog")).toBe(true);
+  it("returns false for bare /blog (Journal hub is indexable)", () => {
+    expect(isPrivatePath("/blog")).toBe(false);
   });
 
-  it("returns true for /blog/ (trailing slash)", () => {
-    expect(isPrivatePath("/blog/")).toBe(true);
+  it("returns false for /blog/ (trailing slash)", () => {
+    expect(isPrivatePath("/blog/")).toBe(false);
   });
 
-  it("returns true for /en-lb/beirut/blog (locale-prefixed listing)", () => {
-    expect(isPrivatePath("/en-lb/beirut/blog")).toBe(true);
+  it("returns false for /en-lb/beirut/blog (locale-prefixed listing)", () => {
+    expect(isPrivatePath("/en-lb/beirut/blog")).toBe(false);
   });
 
-  it("returns true for /en-lb/beirut/blog/ (locale-prefixed listing with trailing slash)", () => {
-    expect(isPrivatePath("/en-lb/beirut/blog/")).toBe(true);
+  it("returns false for /en-lb/beirut/blog/ (locale-prefixed listing with trailing slash)", () => {
+    expect(isPrivatePath("/en-lb/beirut/blog/")).toBe(false);
   });
 
   it("returns false for /blog/valentines-day-gift-guide (individual post is public)", () => {
@@ -197,8 +197,6 @@ describe("resolveXRobotsTag — private path yields noindex on any host", () => 
     "/en-lb/beirut/cart",
     "/en-lb/beirut/account",
     "/en-lb/beirut/sign-in",
-    "/blog",
-    "/en-lb/beirut/blog",
   ] as const;
 
   for (const pathname of PRIVATE_PATHS) {
@@ -227,6 +225,7 @@ describe("resolveXRobotsTag — public path + canonical host yields index, follo
     "/en-lb/beirut/category/flowers",
     "/en-lb/beirut/brand/bloomingdale",
     "/en-lb/beirut/blog/valentines-day-gift-guide",
+    "/en-lb/beirut/blog",
     "/product/favorites-bundle",
   ] as const;
 

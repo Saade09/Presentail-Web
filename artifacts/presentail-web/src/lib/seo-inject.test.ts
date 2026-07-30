@@ -6247,7 +6247,7 @@ describe("Non-product JSON-LD — Breadcrumb/FAQ/Org/Article rich-result require
 });
 
 describe("Group B static pages — noindex on city-prefixed URLs", () => {
-  const GROUP_B = ["careers", "privacy", "terms", "partner", "blog"] as const;
+  const GROUP_B = ["careers", "privacy", "terms", "partner"] as const;
 
   it.each(GROUP_B)(
     "%s emits noindex even when accessed via a city-prefixed URL",
@@ -6344,14 +6344,14 @@ describe("STATIC_PAGE_GROUP exports", () => {
     expect(STATIC_PAGE_GROUP.A.size).toBe(4);
   });
 
-  it("Group B contains exactly privacy, terms, careers, partner, blog", async () => {
+  it("Group B contains exactly privacy, terms, careers, partner", async () => {
     const { STATIC_PAGE_GROUP } = await import("../../src/lib/seo.mjs");
     expect(STATIC_PAGE_GROUP.B.has("privacy")).toBe(true);
     expect(STATIC_PAGE_GROUP.B.has("terms")).toBe(true);
     expect(STATIC_PAGE_GROUP.B.has("careers")).toBe(true);
     expect(STATIC_PAGE_GROUP.B.has("partner")).toBe(true);
-    expect(STATIC_PAGE_GROUP.B.has("blog")).toBe(true);
-    expect(STATIC_PAGE_GROUP.B.size).toBe(5);
+    expect(STATIC_PAGE_GROUP.B.has("blog")).toBe(false);
+    expect(STATIC_PAGE_GROUP.B.size).toBe(4);
   });
 
   it("NONINDEX_ROUTE_KEYS includes all Group B keys", async () => {

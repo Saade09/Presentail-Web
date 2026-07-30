@@ -880,7 +880,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     });
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel });
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang });
 
   return {
     lang,
@@ -1011,12 +1011,34 @@ function buildNavLinks(localeBase) {
     `<li><a href="${localeBase}/occasions">Occasions</a></li>` + // i18n-ignore
     `<li><a href="${localeBase}/contact">Contact</a></li>` + // i18n-ignore
     `<li><a href="${localeBase}/faqs">FAQs</a></li>` +
+    `<li><a href="${localeBase}/blog">Journal</a></li>` + // i18n-ignore
     `</ul>` +
     `</nav>`
   );
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "" }) {
+/**
+ * Build the article-link list for the blog index page. Emits an <ul> of
+ * locale-prefixed <a href> links to every published article so the posts are
+ * part of the crawlable internal link graph (the SPA renders the visible UI;
+ * this fragment exists for non-rendering crawlers).
+ */
+export function buildBlogIndexBodyHtml(lang, { localeBase }) {
+  if (!localeBase) return "";
+  const items = Object.entries(BLOG_POSTS ?? {})
+    .map(([slug, byLang]) => {
+      const article = byLang?.[lang] ?? byLang?.en;
+      const title = article?.title;
+      if (!slug || !title) return "";
+      return `<li><a href="${localeBase}/blog/${escapeAttr(encodeURIComponent(slug))}">${escapeHtml(title)}</a></li>`;
+    })
+    .filter(Boolean);
+  if (items.length === 0) return "";
+  // i18n-ignore — static EN heading in crawlers-only body fragment
+  return `<h2>Latest Articles</h2><ul>${items.join("")}</ul>`; // i18n-ignore
+}
+
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en" }) {
   const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   const safeDesc = escapeHtml(description);
@@ -1074,6 +1096,11 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
       `</ul>`;
   }
 
+  // Blog index route: list every published article as a crawlable link so
+  // the Journal hub passes link equity to the posts (and vice versa).
+  const blogExtras =
+    routeKey === "blog" ? buildBlogIndexBodyHtml(lang, { localeBase }) : "";
+
   return (
     `<h1 class="sr-only">${safeTitle}</h1>` +
     `<div style="display:none">` +
@@ -1082,6 +1109,7 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
     homeExtras +
     shopExtras +
+    blogExtras +
     faqHtml +
     buildNavLinks(localeBase) +
     `</div>` +

@@ -36,8 +36,10 @@ export const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosi
 // (/category/<slug>, /occasion/<slug>) are emitted dynamically below so
 // crawlers discover the canonical destinations without following a redirect.
 // Group A pages (city-specific, indexable) are included per city × lang.
-// Group B pages (privacy, terms, careers, partner, blog) are noindex and
+// Group B pages (privacy, terms, careers, partner) are noindex and
 // excluded from the sitemap entirely to avoid wasting crawl budget.
+// The blog index (/blog) is indexable but emitted separately below at the
+// canonical hub cities only (like blog posts) rather than per city.
 export const SITEMAP_STATIC_PATHS = [
   "/", "/brands", "/occasions", "/contact", "/faqs",
   "/weddings", "/corporate",
@@ -308,6 +310,12 @@ export function buildSitemapXml({
   // Blog *article* pages carry Article structured data and are meant to be
   // indexed; only the blog index (a Group-B noindex page) is excluded.
   const blogPostsSource = blogPostsArg ?? BLOG_POSTS ?? {};
+  // Blog index (Journal hub) — indexable and the internal-link hub for the
+  // articles, so it is included at the canonical hub city per country (each
+  // block carries all language alternates).
+  for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    urls.push(urlEntryWithAlternates("0.6", "weekly", country, city, "/blog"));
+  }
   for (const slug of Object.keys(blogPostsSource)) {
     if (!slug) continue;
     const encoded = encodeURIComponent(slug);
