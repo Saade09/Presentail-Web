@@ -506,7 +506,7 @@ function CheckoutForm() {
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
   const { data: fxRatesData } = useFxRates();
-  const ipCountry = useIpDetectedCountry();
+  const { country: ipCountry, settled: ipCountrySettled } = useIpDetectedCountry();
 
   // The checkout currency always matches the shopper's display currency,
   // regardless of delivery country. The Gulf Stripe account (AE) and the
@@ -4807,21 +4807,31 @@ function CheckoutForm() {
 
                   {!hasProfilePhone && (
                     <div className="mb-4">
-                      <LazyWebPhoneField
-                        label={t("checkout.phoneNumber")}
-                        value={sender.phone}
-                        onChange={(v) => setSender({ ...sender, phone: v })}
-                        defaultCountry={ipCountry ?? "LB"}
-                        required
-                        showError={phoneSubmitAttempted}
-                        errorMessage={t("checkout.phoneInvalidNumber")}
-                        data-testid="input-sender-phone"
-                        onValidityChange={setSenderPhoneValid}
-                        onCountryChange={(country, dialCode) => {
-                          setSenderPhoneCountry(country ?? null);
-                          setSenderPhoneDialCode(dialCode ?? null);
-                        }}
-                      />
+                      {ipCountrySettled ? (
+                        <LazyWebPhoneField
+                          label={t("checkout.phoneNumber")}
+                          value={sender.phone}
+                          onChange={(v) => setSender({ ...sender, phone: v })}
+                          defaultCountry={ipCountry ?? "LB"}
+                          required
+                          showError={phoneSubmitAttempted}
+                          errorMessage={t("checkout.phoneInvalidNumber")}
+                          data-testid="input-sender-phone"
+                          onValidityChange={setSenderPhoneValid}
+                          onCountryChange={(country, dialCode) => {
+                            setSenderPhoneCountry(country ?? null);
+                            setSenderPhoneDialCode(dialCode ?? null);
+                          }}
+                        />
+                      ) : (
+                        <div aria-hidden>
+                          <div className="text-sm font-medium block mb-2">
+                            {t("checkout.phoneNumber")}
+                            <span className="text-destructive ms-0.5"> *</span>
+                          </div>
+                          <div className="h-12 rounded-sm bg-muted/60 animate-pulse" />
+                        </div>
+                      )}
                     </div>
                   )}
 

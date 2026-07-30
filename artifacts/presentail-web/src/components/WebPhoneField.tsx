@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PhoneInput, {
   getCountries,
   getCountryCallingCode,
@@ -77,11 +77,29 @@ export function WebPhoneField({
     [],
   );
 
+  // Freeze the defaultCountry so re-renders from the parent (e.g. each
+  // keystroke in Checkout) never snap the picker back to the geo-detected
+  // country after the user has chosen a different one.
+  //
+  // The ref is allowed to update exactly once: when the frozen value is still
+  // the undetected fallback ("LB") and the parent now provides a geo-resolved
+  // country. This lets the one-time auto-detection propagate before the user
+  // has interacted, while subsequent changes are ignored.
+  const frozenDefaultCountryRef = useRef<string>(defaultCountry);
+  if (
+    frozenDefaultCountryRef.current === "LB" &&
+    defaultCountry !== "LB" &&
+    defaultCountry !== ""
+  ) {
+    frozenDefaultCountryRef.current = defaultCountry;
+  }
+  const frozenDefaultCountry = frozenDefaultCountryRef.current;
+
   // Mirror of the country the picker currently displays. Initialised from the
-  // prefilled value (or defaultCountry) and kept in sync via PhoneInput's own
-  // onCountryChange, so it can never diverge from the visible flag/prefix.
+  // prefilled value (or frozenDefaultCountry) and kept in sync via PhoneInput's
+  // own onCountryChange, so it can never diverge from the visible flag/prefix.
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>(() =>
-    deriveInitialCountry(value, defaultCountry),
+    deriveInitialCountry(value, frozenDefaultCountry),
   );
   // Notify parent on mount and on every change. onCountryChange is treated
   // like onChange — stable reference not required in deps.
@@ -135,7 +153,7 @@ export function WebPhoneField({
       >
         <PhoneInput
           international
-          defaultCountry={defaultCountry as any}
+          defaultCountry={frozenDefaultCountry as any}
           value={(value as PhoneValue) || undefined}
           onChange={(v) => onChange(v ?? "")}
           onCountryChange={(c) => setSelectedCountry(c ?? undefined)}
