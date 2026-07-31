@@ -562,11 +562,13 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     `<meta name="twitter:description" content="${escapeAttr(twitterDescription)}" />`,
   );
   // Default OG / Twitter image for generic (non-entity) pages.
-  const defaultImage = `${origin}${cleanBase}/opengraph.jpg`;
+  const defaultImage = `${origin}${cleanBase}/opengraph.jpg?v=2`;
   const defaultImageAlt = "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(defaultImage)}" />`);
-  lines.push(`<meta property="og:image:width" content="1280" />`);
-  lines.push(`<meta property="og:image:height" content="720" />`);
+  lines.push(`<meta property="og:image:secure_url" content="${escapeAttr(defaultImage)}" />`);
+  lines.push(`<meta property="og:image:type" content="image/jpeg" />`);
+  lines.push(`<meta property="og:image:width" content="1200" />`);
+  lines.push(`<meta property="og:image:height" content="630" />`);
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
@@ -2626,12 +2628,20 @@ function buildEntityHead({
     `<meta property="og:locale" content="${escapeAttr((country && OG_LOCALE_COUNTRY[lang]?.[country]) || OG_LOCALE[lang] || "en_US")}" />`,
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
-  const effectiveImageUrl = imageUrl || `${origin}${cleanBase}/opengraph.jpg`;
+  const effectiveImageUrl = imageUrl || `${origin}${cleanBase}/opengraph.jpg?v=2`;
   const effectiveImageAlt = imageAlt || "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(effectiveImageUrl)}" />`);
+  lines.push(`<meta property="og:image:secure_url" content="${escapeAttr(effectiveImageUrl)}" />`);
+  // Emit image/jpeg only when the URL is known to serve JPEG: the static
+  // opengraph.jpg fallback, the /api/og-image/* branded card endpoints (which
+  // always return JPEG), or blog-post fallback. CDN entity photos have an
+  // unknown format and must not have a type declared.
+  if (!imageUrl || effectiveImageUrl.includes("/api/og-image/")) {
+    lines.push(`<meta property="og:image:type" content="image/jpeg" />`);
+  }
   if (!imageUrl) {
-    lines.push(`<meta property="og:image:width" content="1280" />`);
-    lines.push(`<meta property="og:image:height" content="720" />`);
+    lines.push(`<meta property="og:image:width" content="1200" />`);
+    lines.push(`<meta property="og:image:height" content="630" />`);
   } else if (imageWidth && imageHeight) {
     lines.push(`<meta property="og:image:width" content="${escapeAttr(String(imageWidth))}" />`);
     lines.push(`<meta property="og:image:height" content="${escapeAttr(String(imageHeight))}" />`);

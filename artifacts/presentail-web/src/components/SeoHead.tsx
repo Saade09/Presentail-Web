@@ -269,7 +269,7 @@ export function SeoHead() {
       );
     }
 
-    const defaultOgImage = `${origin}${basePrefix}/opengraph.jpg`;
+    const defaultOgImage = `${origin}${basePrefix}/opengraph.jpg?v=2`;
     const defaultOgImageAlt = "Presentail — Luxury Flower & Gift Delivery";
     setMeta(
       'meta[property="og:image"]',
@@ -277,13 +277,23 @@ export function SeoHead() {
       head,
     );
     setMeta(
+      'meta[property="og:image:secure_url"]',
+      { property: "og:image:secure_url", content: defaultOgImage },
+      head,
+    );
+    setMeta(
+      'meta[property="og:image:type"]',
+      { property: "og:image:type", content: "image/jpeg" },
+      head,
+    );
+    setMeta(
       'meta[property="og:image:width"]',
-      { property: "og:image:width", content: "1280" },
+      { property: "og:image:width", content: "1200" },
       head,
     );
     setMeta(
       'meta[property="og:image:height"]',
-      { property: "og:image:height", content: "720" },
+      { property: "og:image:height", content: "630" },
       head,
     );
     setMeta(

@@ -24,7 +24,7 @@
  */
 
 /** Site-root-relative path of the fallback OG image for articles with no hero. */
-export const BLOG_OG_FALLBACK_IMAGE_PATH = "/opengraph.jpg";
+export const BLOG_OG_FALLBACK_IMAGE_PATH = "/opengraph.jpg?v=2";
 
 /**
  * Build the Article JSON-LD schema object for a blog post page.

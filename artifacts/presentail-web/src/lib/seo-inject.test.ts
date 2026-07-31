@@ -306,7 +306,7 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
     expect(out).toContain("<title>Roses Delivery in Beirut | Presentail</title>");
     // When entity has no image the fallback opengraph.jpg is used → always summary_large_image.
     expect(out).toContain('<meta name="twitter:card" content="summary_large_image"');
-    expect(out).toContain('<meta property="og:image" content="https://presentail.test/opengraph.jpg"');
+    expect(out).toContain('<meta property="og:image" content="https://presentail.test/opengraph.jpg?v=2"');
   });
 
   it("falls back to the generic shop preview when no category param is present", async () => {
@@ -1326,30 +1326,30 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
 });
 
 describe("buildSeoHead — OG image dimensions and alt tags on generic pages", () => {
-  it("always emits og:image pointing to /opengraph.jpg on a landing-page path", () => {
+  it("always emits og:image pointing to /opengraph.jpg?v=2 on a landing-page path", () => {
     const { headSnippet } = buildSeoHead("/", {
       origin: "https://presentail.test",
       basePath: "",
     });
     expect(headSnippet).toContain(
-      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+      'property="og:image" content="https://presentail.test/opengraph.jpg?v=2"',
     );
   });
 
-  it("emits og:image:width = 1280 on a generic locale page", () => {
+  it("emits og:image:width = 1200 on a generic locale page", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
       basePath: "",
     });
-    expect(headSnippet).toContain('<meta property="og:image:width" content="1280"');
+    expect(headSnippet).toContain('<meta property="og:image:width" content="1200"');
   });
 
-  it("emits og:image:height = 720 on a generic locale page", () => {
+  it("emits og:image:height = 630 on a generic locale page", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
       basePath: "",
     });
-    expect(headSnippet).toContain('<meta property="og:image:height" content="720"');
+    expect(headSnippet).toContain('<meta property="og:image:height" content="630"');
   });
 
   it("emits og:image:alt on a generic locale page", () => {
@@ -1374,8 +1374,8 @@ describe("buildSeoHead — OG image dimensions and alt tags on generic pages", (
       basePath: "",
     });
     expect(headSnippet).toContain('property="og:image"');
-    expect(headSnippet).toContain('<meta property="og:image:width" content="1280"');
-    expect(headSnippet).toContain('<meta property="og:image:height" content="720"');
+    expect(headSnippet).toContain('<meta property="og:image:width" content="1200"');
+    expect(headSnippet).toContain('<meta property="og:image:height" content="630"');
     expect(headSnippet).toMatch(/property="og:image:alt" content="[^"]+"/);
     expect(headSnippet).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
@@ -1505,9 +1505,9 @@ describe("injectSeoTagsAsync — entity pages with no image: branded API og:imag
     );
     // origin="" → no branded OG URL → product.image=null → opengraph.jpg fallback
     // The URL is relative (no hostname) because origin is empty.
-    expect(out).toContain('property="og:image" content="/opengraph.jpg"');
-    expect(out).toContain('<meta property="og:image:width" content="1280"');
-    expect(out).toContain('<meta property="og:image:height" content="720"');
+    expect(out).toContain('property="og:image" content="/opengraph.jpg?v=2"');
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
     expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
@@ -1564,10 +1564,10 @@ describe("injectSeoTagsAsync — entity pages with no image: branded API og:imag
       search: "?n=candles",
     });
     expect(out).toContain(
-      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+      'property="og:image" content="https://presentail.test/opengraph.jpg?v=2"',
     );
-    expect(out).toContain('<meta property="og:image:width" content="1280"');
-    expect(out).toContain('<meta property="og:image:height" content="720"');
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
     expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
     expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
   });
@@ -2037,7 +2037,7 @@ describe("og:image:width / og:image:height via injectSeoTagsAsync", () => {
     expect(out).not.toContain('property="og:image:height"');
   });
 
-  it("emits the default 1280×720 dimensions when no product image is present (opengraph.jpg fallback)", async () => {
+  it("emits the default 1200×630 dimensions when no product image is present (opengraph.jpg fallback)", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (String(url).includes("/api/woo/product")) {
         return {
@@ -2064,8 +2064,8 @@ describe("og:image:width / og:image:height via injectSeoTagsAsync", () => {
       DIMS_OPTS,
     );
 
-    expect(out).toContain('<meta property="og:image:width" content="1280"');
-    expect(out).toContain('<meta property="og:image:height" content="720"');
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
     // Should fall back to the default opengraph image, not a product image
     expect(out).toContain("opengraph.jpg");
   });

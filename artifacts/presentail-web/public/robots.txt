@@ -6,6 +6,7 @@ Disallow: /auth
 Disallow: /account
 Disallow: /admin
 Allow: /api/img/proxy
+Allow: /api/og-image/
 Disallow: /api/
 Disallow: /order-confirmed
 Disallow: /sign-in
