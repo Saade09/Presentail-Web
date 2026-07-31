@@ -407,7 +407,10 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
   // products and lower crawl priority for sold-out / seasonal ones.
   const rawProducts = productsData?.products ?? [];
   const products = rawProducts.map((p) => ({
-    slug: p.slug,
+    // transformProduct() in woo.ts stores the OS product slug in the 'id'
+    // field (WC product shape uses id as the slug string), so the listing
+    // API response has the slug in p.id rather than a separate p.slug field.
+    slug: p.slug ?? p.id,
     name: p.name ?? null,
     imageUrl: p.image?.uri ?? p.images?.[0]?.url ?? p.images?.[0]?.uri ?? null,
     inStock: p.inStock,

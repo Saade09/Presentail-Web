@@ -2354,7 +2354,14 @@ const server = http.createServer(async (req, res) => {
     }
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(spaOut, encoding);
-    const spaCanonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
+    // Extract the resolved canonical from the SEO-injected HTML so the HTTP
+    // Link header agrees with the <link rel="canonical"> tag in the document.
+    // For entity pages (product / brand / category / occasion) the canonical
+    // is remapped to the hub city by seo-inject.mjs; using the raw pathname
+    // here would send a conflicting self-canonical that overrides the remap.
+    const _spaCanonMatch = seoOut.match(/<link rel="canonical" href="([^"]+)"/);
+    const spaCanonicalHref = _spaCanonMatch?.[1]
+      ?? `${origin}${pathname.replace(/\/$/, "") || "/"}`;
     const xRobotsTagSpa = resolveXRobotsTag(normalizeHostHeader(host), pathname, url.search);
     const spaCleanBase = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
     const spaMdAlternateLink = isMirroredPath(pathname)

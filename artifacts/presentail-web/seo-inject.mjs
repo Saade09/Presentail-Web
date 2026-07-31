@@ -1896,7 +1896,11 @@ async function fetchEntityForSeo({
       return null;
     }
     const value = body[responseKey] ?? null;
-    if (!value) return null;
+    // A successful (ok: true) response with no entity data is a definitive
+    // absence — not a transient error.  Return the same sentinel as HTTP 404
+    // so callers can issue proper 404/410 responses rather than a misleading
+    // 200 with an indexable page for a slug that simply does not exist.
+    if (!value) return { notFound: true };
     // Capture validation headers so subsequent requests can use them for
     // conditional fetches, avoiding a full round-trip when nothing changed.
     const etag = res.headers?.get?.("etag") ?? null;
@@ -3964,6 +3968,23 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           });
         }
       }
+    }
+    // For the root landing page (/), inject crawlable country hub-city anchor
+    // links into the initial HTML.  The React country-picker renders real
+    // <a href> elements client-side, but non-rendering crawlers only see the
+    // server-injected content.  These sr-only links give search engines a
+    // route into each country's catalogue without needing to execute JS.
+    const _isRootLanding =
+      !parsed.hasLocalePrefix && (pathname === "/" || pathname === "");
+    if (_isRootLanding) {
+      const _landingBase = (rest.basePath ?? "").replace(/\/$/, "");
+      const _landingBodyHtml =
+        `<nav aria-label="Delivery countries" class="sr-only">` +
+        `<a href="${_landingBase}/en-lb/beirut">Lebanon \u2014 Flower &amp; Gift Delivery</a>` +
+        `<a href="${_landingBase}/en-ae/dubai">UAE \u2014 Flower &amp; Gift Delivery</a>` +
+        `<a href="${_landingBase}/en-cy/nicosia">Cyprus \u2014 Flower &amp; Gift Delivery</a>` +
+        `</nav>`;
+      return assembleHtml(html, { ...generic, bodyHtml: _landingBodyHtml });
     }
     return assembleHtml(html, generic);
   }
