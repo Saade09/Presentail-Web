@@ -3,6 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes, createHash, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { authenticate, signServerToken, isWcAuthEnabled } from "../lib/auth";
+import { reconcileGuestOrders } from "../lib/orderReconciliation";
 import { logger } from "../lib/logger";
 import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull, isNotNull, gt } from "drizzle-orm";
@@ -950,7 +951,7 @@ router.get("/auth/verify-email", async (req, res) => {
   try {
     const now = new Date();
     const [row] = await db
-      .select({ id: customersTable.id, expiresAt: customersTable.emailVerificationTokenExpiresAt })
+      .select({ id: customersTable.id, email: customersTable.email, expiresAt: customersTable.emailVerificationTokenExpiresAt })
       .from(customersTable)
       .where(eq(customersTable.emailVerificationToken, token))
       .limit(1);
@@ -973,6 +974,13 @@ router.get("/auth/verify-email", async (req, res) => {
         updatedAt: now,
       })
       .where(eq(customersTable.id, row.id));
+
+    // Back-fill any guest orders placed with this email before the account
+    // was verified.  Non-fatal: errors are swallowed so they never block the
+    // verification response.
+    if (row.email) {
+      reconcileGuestOrders(row.id, row.email, req.log).catch(() => {});
+    }
 
     res.json({ ok: true });
   } catch (e: any) {

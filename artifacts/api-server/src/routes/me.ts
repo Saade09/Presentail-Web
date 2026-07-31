@@ -4,6 +4,7 @@ import { db, appOrdersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { getCustomerById, getCustomerByWcId } from "../lib/customers";
+import { reconcileGuestOrders } from "../lib/orderReconciliation";
 import { fetchOsOrderStatus } from "@workspace/presentail-os";
 import { getOsProducts } from "../lib/osProductsCache";
 
@@ -107,6 +108,21 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
     // Customer profile not found — return an empty list rather than an error.
     res.json({ ok: true, orders: [] });
     return;
+  }
+
+  // Back-fill any guest orders whose sender_email matches this customer but
+  // whose customer_id is still NULL (placed before email was verified, or
+  // placed as a guest with a matching email).
+  //
+  // SECURITY: only reconcile when the customer's email is verified.  An
+  // unverified account can register with someone else's email and would
+  // otherwise be able to claim that person's guest orders before the real
+  // owner proves ownership.  Reconciliation after /auth/verify-email (where
+  // verification has just been persisted) is the safe path for that case.
+  // Non-fatal: errors are swallowed so they never block the main response.
+  const customer = await getCustomerById(resolved.customerId);
+  if (customer?.email && customer.emailVerified) {
+    await reconcileGuestOrders(resolved.customerId, customer.email, (req as any).log).catch(() => {});
   }
 
   const rows = await db

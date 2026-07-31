@@ -123,16 +123,11 @@ async function verifyServerToken(token: string, req?: { query: any; headers: any
       typeof payload.local_customer_id === "number" && payload.local_customer_id > 0
         ? payload.local_customer_id
         : undefined;
-    // When the JWT carries store_base_url, validate it against the request
-    // store so a Lebanon-issued token can't authenticate against Dubai.
-    // Tokens minted by local-only registrations omit store_base_url (they
-    // are not store-scoped), so we only enforce the check when present.
-    if (req && typeof payload.store_base_url === "string") {
-      const requestStore = resolveStoreFromRequest(req);
-      if (payload.store_base_url !== requestStore.baseUrl) {
-        return { ok: false, status: 401, message: "Session belongs to a different store. Please sign in again." }; // i18n-ignore
-      }
-    }
+    // NOTE: store_base_url is no longer validated here.  Profile endpoints
+    // like /me/orders are not store-scoped — a user who signed up in Lebanon
+    // must be able to view their orders while browsing in a UAE context.
+    // If per-checkout store enforcement is ever needed, add it in the checkout
+    // route, not in the shared token verifier.
     return { ok: true, customerId: id, localCustomerId, token };
   } catch {
     return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore

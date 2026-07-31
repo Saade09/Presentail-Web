@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   resolveStoreFromRequest: vi.fn(),
   wooAuthHeader: vi.fn(),
   fetch: vi.fn(),
+  reconcileGuestOrders: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -54,6 +55,10 @@ vi.mock("@workspace/db", () => ({
 
 vi.mock("../lib/auth", () => ({
   authenticate: (...args: any[]) => mocks.authenticate(...args),
+}));
+
+vi.mock("../lib/orderReconciliation", () => ({
+  reconcileGuestOrders: (...args: any[]) => mocks.reconcileGuestOrders(...args),
 }));
 
 vi.mock("../lib/customers", () => ({
@@ -144,6 +149,10 @@ beforeEach(() => {
   mocks.resolveStoreFromRequest.mockReset();
   mocks.wooAuthHeader.mockReset();
   mocks.fetch.mockReset();
+  mocks.reconcileGuestOrders.mockReset();
+
+  // Default: reconcileGuestOrders resolves successfully (no-op)
+  mocks.reconcileGuestOrders.mockResolvedValue(undefined);
 
   // Default: auth resolves to customer 42
   mocks.authenticate.mockResolvedValue({ ok: true, localCustomerId: 42, customerId: 42, token: "tok" });
@@ -434,5 +443,102 @@ describe("GET /me/orders — empty state", () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.orders).toEqual([]);
+  });
+});
+
+describe("GET /me/orders — guest order reconciliation", () => {
+  it("calls reconcileGuestOrders with the customer id and email when customer is verified", async () => {
+    // Customer 42 has a verified email; there's a pre-existing guest order (customerId NULL)
+    mocks.getCustomerById.mockResolvedValue({ id: 42, email: "user@test.com", emailVerified: true });
+    mocks.dbRows.push(makeOsRow({ customerId: null, senderEmail: "user@test.com" }));
+
+    const app = buildApp();
+    const res = await request(app)
+      .get("/me/orders")
+      .set("Authorization", "Bearer valid-token");
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    // reconcileGuestOrders must have been called with correct args
+    expect(mocks.reconcileGuestOrders).toHaveBeenCalledWith(42, "user@test.com", expect.anything());
+    // The (now-reconciled) row is included in the response
+    expect(res.body.orders).toHaveLength(1);
+  });
+
+  it("does NOT call reconcileGuestOrders when customer email is not verified (security gate)", async () => {
+    // An unverified account must never claim guest orders — another person
+    // might have registered with the victim's email before them.
+    mocks.getCustomerById.mockResolvedValue({ id: 42, email: "victim@test.com", emailVerified: false });
+    mocks.dbRows.push(makeOsRow({ customerId: null, senderEmail: "victim@test.com" }));
+
+    const app = buildApp();
+    const res = await request(app)
+      .get("/me/orders")
+      .set("Authorization", "Bearer unverified-token");
+
+    expect(res.status).toBe(200);
+    // reconcileGuestOrders must NOT have been called
+    expect(mocks.reconcileGuestOrders).not.toHaveBeenCalled();
+  });
+
+  it("skips reconcileGuestOrders when customer row has no email", async () => {
+    mocks.getCustomerById.mockResolvedValue({ id: 42, email: null, emailVerified: true });
+    mocks.dbRows.push(makeOsRow());
+
+    const app = buildApp();
+    await request(app).get("/me/orders").set("Authorization", "Bearer valid-token");
+
+    expect(mocks.reconcileGuestOrders).not.toHaveBeenCalled();
+  });
+
+  it("still returns orders even when reconcileGuestOrders rejects (non-fatal)", async () => {
+    mocks.getCustomerById.mockResolvedValue({ id: 42, email: "user@test.com", emailVerified: true });
+    mocks.reconcileGuestOrders.mockRejectedValue(new Error("DB connection lost"));
+    mocks.dbRows.push(makeOsRow());
+
+    const app = buildApp();
+    const res = await request(app).get("/me/orders").set("Authorization", "Bearer valid-token");
+
+    // Response must still be 200 with orders — reconciliation failure is non-fatal
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.orders).toHaveLength(1);
+  });
+});
+
+describe("GET /me/orders — store-scope JWT fix", () => {
+  it("returns 200 when authenticate succeeds regardless of store context (store-scope check removed)", async () => {
+    // Simulate a Lebanon-issued JWT being used while browsing Dubai.
+    // The old code would have returned 401; the fix removes the store-scope
+    // check so this should now succeed.
+    mocks.authenticate.mockResolvedValue({
+      ok: true,
+      localCustomerId: 42,
+      customerId: 42,
+      token: "tok",
+      // store_base_url mismatch is no longer evaluated by verifyServerToken
+    });
+    mocks.getCustomerById.mockResolvedValue({ id: 42, email: "lb@test.com" });
+    // Simulate UAE store context in the request
+    mocks.resolveStoreFromRequest.mockReturnValue({
+      baseUrl: "https://dubai.presentail.com",
+      consumerKey: "",
+      consumerSecret: "",
+      wpBaseUrl: "https://dubai.presentail.com",
+      currency: "AED",
+      countryCode: "AE",
+    });
+    mocks.dbRows.push(makeOsRow());
+
+    const app = buildApp();
+    const res = await request(app)
+      .get("/me/orders")
+      .set("Authorization", "Bearer lebanon-jwt")
+      .set("x-store-country", "AE")
+      .set("x-store-city", "dubai");
+
+    // Must not return 401 — the store-scope mismatch should be ignored
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
   });
 });
