@@ -1,0 +1,74 @@
+Fix the incorrect social-link preview image across the production Presentail website.
+
+Current problem:
+
+When a Presentail URL is shared, platforms display a small screenshot of the webpage instead of the preview image already created for social sharing. Previous attempts have not fixed the production result. Treat this as a metadata delivery and crawler-access problem, not an image-design task.
+
+Investigate the actual root cause before changing code.
+
+Requirements:
+
+1. Inspect the HTML returned directly by the production server for URLs such as:
+
+`https://presentail.com/en-lb/beirut/category/electronics`
+
+Test the raw server response without running JavaScript. Confirm what Facebook, WhatsApp, LinkedIn, Slack, Telegram, iMessage and X crawlers receive.
+
+2. Implement complete server-rendered metadata inside the initial `<head>` response:
+
+```html
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Presentail">
+<meta property="og:title" content="...">
+<meta property="og:description" content="...">
+<meta property="og:url" content="https://presentail.com/...">
+<meta property="og:image" content="https://presentail.com/.../social-preview.jpg">
+<meta property="og:image:secure_url" content="https://presentail.com/.../social-preview.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Presentail – Send gifts and flowers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="...">
+<meta name="twitter:description" content="...">
+<meta name="twitter:image" content="https://presentail.com/.../social-preview.jpg">
+<link rel="canonical" href="https://presentail.com/...">
+```
+
+3. The metadata must be rendered on the server for every public route. Do not inject or replace it only after React/JavaScript loads. Crawlers must receive the final metadata in the first HTTP response.
+
+4. Use the intended Presentail link-preview image. Do not use a screenshot of the login page, current page or browser viewport.
+
+5. Ensure the image:
+
+* Is exactly 1200 × 630 pixels or another valid 1.91:1 social-preview size.
+* Uses JPEG or PNG.
+* Has a reasonable file size, preferably below 1 MB.
+* Uses a permanent absolute HTTPS URL.
+* Returns HTTP 200 without authentication, cookies, redirects or signed/expiring URLs.
+* Returns the correct `Content-Type`.
+* Is not blocked by `robots.txt`, middleware, CDN rules, hotlink protection or bot protection.
+* Can be retrieved using crawler user agents.
+
+6. Check for and remove conflicting or duplicated Open Graph and Twitter tags. There must be one authoritative value for each tag.
+
+7. Check route metadata generation. Category and product pages may use their own title, description and preview image, but they must fall back to the correct Presentail default social image when no route-specific image exists.
+
+8. Verify that localization does not break metadata. URLs under `/en-lb/`, other English markets and Arabic routes must return correct titles, descriptions, canonical URLs and valid images.
+
+9. Check redirects and response headers. The shared URL and the image URL must not enter redirect loops, return HTML instead of an image, require authentication or serve a production-blocking `X-Robots-Tag`.
+
+10. Add a versioned image URL or safe cache-busting query parameter after fixing the metadata so platforms do not keep using the old broken preview.
+
+Required production verification:
+
+* Fetch the deployed URL using ordinary `curl`.
+* Fetch it using Facebook, WhatsApp, LinkedIn, Slack and Twitter/X crawler user agents.
+* Confirm the intended `og:image` appears in the raw HTML every time.
+* Fetch the exact `og:image` URL and confirm HTTP 200, correct image content type and correct dimensions.
+* Test at least the homepage, one category page and one product page.
+* Validate with Facebook Sharing Debugger, LinkedIn Post Inspector and an X/Twitter card validator or equivalent crawler test.
+* Re-scrape the affected URLs to clear cached metadata.
+* Share an actual production URL in WhatsApp or another link-preview service and confirm that the large intended image appears.
+
+Do not report completion based only on local development, Replit Preview, browser inspection after JavaScript execution or the existence of the image file. Deploy the fix and verify the raw production responses. Provide the root cause, changed files, deployed URL, final `og:image` URL and verification results.
