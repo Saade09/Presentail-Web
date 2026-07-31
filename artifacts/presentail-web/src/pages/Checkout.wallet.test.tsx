@@ -106,6 +106,10 @@ vi.mock("@/lib/queries", () => ({
   useCybersourceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceApplePaySession: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceWalletCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourcePayerAuthSetup: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourcePayerAuthCheckEnrollment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourcePayerAuthValidate: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCybersourceUnifiedCheckoutComplete: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCybersourceAvailable: () => ({ data: { available: false }, isLoading: false }),
   useDeliveryLocations: () => ({
     data: { countries: [], cities: [] },
