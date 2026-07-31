@@ -815,6 +815,8 @@ const EN = {
   contactLocHQ: "Our Headquarters",
   contactLocDubai: "Dubai Boutique",
   contactLocAbuDhabi: "Abu Dhabi Boutique",
+  contactAddress: "Abdel Wahab El Inglizi, Beirut, Lebanon",
+  contactViewOnMaps: "View on Maps",
   contactFAQTitle: "Frequently Asked Questions",
   contactFAQDesc: "Find quick answers to common questions",
 
@@ -1798,6 +1800,8 @@ const AR: typeof EN = {
   contactLocHQ: "مقرّنا الرئيسي",
   contactLocDubai: "بوتيك دبي",
   contactLocAbuDhabi: "بوتيك أبوظبي",
+  contactAddress: "عبد الوهاب الإنجليزي، بيروت، لبنان",
+  contactViewOnMaps: "عرض على الخرائط",
   contactFAQTitle: "الأسئلة الشائعة",
   contactFAQDesc: "اعثر على إجابات سريعة للأسئلة الشائعة",
 
@@ -2784,6 +2788,8 @@ const FR: typeof EN = {
   contactLocHQ: "Notre siège",
   contactLocDubai: "Boutique de Dubaï",
   contactLocAbuDhabi: "Boutique d'Abou Dabi",
+  contactAddress: "Abdel Wahab El Inglizi, Beyrouth, Liban",
+  contactViewOnMaps: "Voir sur Maps",
   contactFAQTitle: "Questions fréquentes",
   contactFAQDesc: "Trouvez rapidement les réponses aux questions courantes",
 

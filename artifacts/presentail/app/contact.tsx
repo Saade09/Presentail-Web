@@ -50,6 +50,9 @@ const SOCIALS = [
   },
 ];
 
+const MAPS_URL =
+  "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D";
+
 function ContactScreen() {
   const colors = useColors();
   const headingFontSemiBold = useHeadingFont("600SemiBold");
@@ -331,6 +334,54 @@ function ContactScreen() {
                 </AppText>
               </View>
             ))}
+            <Pressable
+              onPress={() => Linking.openURL(MAPS_URL)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 14,
+                paddingVertical: 15,
+                paddingHorizontal: 18,
+                borderTopWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.secondary,
+              }}
+            >
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 8,
+                  backgroundColor: "#fff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name="map" size={15} color={colors.gold} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 13,
+                    color: colors.primary,
+                  }}
+                >
+                  {t.contactAddress}
+                </AppText>
+                <AppText
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                    color: colors.gold,
+                    marginTop: 2,
+                  }}
+                >
+                  {t.contactViewOnMaps}
+                </AppText>
+              </View>
+              <Feather name="external-link" size={14} color={colors.mutedForeground} />
+            </Pressable>
           </View>
         </View>
 
