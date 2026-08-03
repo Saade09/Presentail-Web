@@ -94,7 +94,6 @@ import {
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { createMamoPayment, createPayPalOrder, createTabbyPayment, finalizeHostedPayment } from "@/lib/payments";
-import { fetchCybersourceCaptureContext, chargeCybersource } from "@/lib/cybersource";
 import { WebView } from "react-native-webview";
 import {
   isPayMethodSupported,
@@ -762,41 +761,7 @@ function CheckoutScreen() {
   // Separate ref guards against running the probe more than once.
   const walletProbedRef = useRef(false);
 
-  // ── CyberSource server availability probe ──────────────────────────────────
-  // Fetched once on mount; null = loading (show tile optimistically), false = hide.
-  const [csServerAvailable, setCsServerAvailable] = useState<boolean | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_BASE}/api/payment/cybersource/available`)
-      .then((r) => r.json())
-      .then((d: { available?: boolean }) => { if (!cancelled) setCsServerAvailable(d.available !== false); })
-      .catch(() => { if (!cancelled) setCsServerAvailable(false); });
-    return () => { cancelled = true; };
-  }, []);
 
-  // ── CyberSource WebView tokenizer state ────────────────────────────────────
-  // When payMethod === "cybersource", we open a Modal with the WebView tokenizer.
-  // The flow: fetch capture context → show WebView → get transient token → charge.
-  const [csWebViewVisible, setCsWebViewVisible] = useState(false);
-  const [csCaptureContext, setCsCaptureContext] = useState<string | null>(null);
-  const [csCaptureEnv, setCsCaptureEnv] = useState<"test" | "live">("test");
-  // Callback set by placeOrder when CS tokenization starts; called by the WebView
-  // modal once the transient token arrives so we can charge + finish from modal scope.
-  const csOnTokenRef = useRef<((transientToken: string) => Promise<void>) | null>(null);
-  // Pending submit params — stored so the handler can resume after WebView returns.
-  const csPendingRef = useRef<{
-    orderId: string;
-    items: { wcId: number; quantity: number; osSlug?: string }[];
-    district?: string;
-    expressDelivery?: boolean;
-    noAddress?: boolean;
-    deliverySlot?: string;
-    deliverySlotId?: string;
-    cityId?: string;
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-  } | null>(null);
   useEffect(() => {
     if (walletProbedRef.current) return;
     walletProbedRef.current = true;
@@ -822,22 +787,19 @@ function CheckoutScreen() {
       if (!supported) {
         // Advance to the first supported non-wallet method so the shopper
         // is never left on a tile that would fail at submission.
-        //   • AED      → mamo        (Stripe doesn't settle AED; Mamo is the card option)
-        //   • LB + USD → cybersource (CyberSource is the card processor for Lebanon USD)
-        //   • else     → card        (Stripe settles all other supported currencies)
-        const isLbUsd = currencyCode === "USD" && (effectiveCountry ?? "LB") === "LB";
+        //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
+        //   • else → card  (Stripe settles all other supported currencies)
         setPayMethod((current) => {
           if (current !== "apple_pay" && current !== "google_pay") return current;
-          return currencyCode === "AED" ? "mamo" : (isLbUsd ? "cybersource" : "card");
+          return currencyCode === "AED" ? "mamo" : "card";
         });
       }
     }).catch(() => {
       // Probe failed — assume unsupported so rows are hidden and selection falls back.
       setWalletSupported(false);
-      const isLbUsd = currencyCode === "USD" && (effectiveCountry ?? "LB") === "LB";
       setPayMethod((current) => {
         if (current !== "apple_pay" && current !== "google_pay") return current;
-        return currencyCode === "AED" ? "mamo" : (isLbUsd ? "cybersource" : "card");
+        return currencyCode === "AED" ? "mamo" : "card";
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -849,20 +811,12 @@ function CheckoutScreen() {
   useEffect(() => {
     if (payMethod !== "apple_pay" && payMethod !== "google_pay") return;
     if (walletSupported === false) {
-      const isLbUsd = currencyCode === "USD" && (effectiveCountry ?? "LB") === "LB";
-      setPayMethod(currencyCode === "AED" ? "mamo" : (isLbUsd ? "cybersource" : "card"));
+      setPayMethod(currencyCode === "AED" ? "mamo" : "card");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payMethod, walletSupported]);
 
-  // Safety net: if the shopper ends up on "cybersource" but the server
-  // reports credentials are unavailable, fall back to Stripe card.
-  useEffect(() => {
-    if (payMethod !== "cybersource") return;
-    if (csServerAvailable === false) {
-      setPayMethod("card");
-    }
-  }, [payMethod, csServerAvailable]);
+
 
   // Maps known Stripe decline codes to plain-language, actionable messages.
   // stripe-react-native exposes the decline code in error.code for card declines.
@@ -1816,87 +1770,6 @@ function CheckoutScreen() {
       return;
     }
 
-    // CyberSource: fetch capture context then open the WebView tokenizer.
-    // The actual charge + finalizeOrderNow happen in onMessage (below).
-    if (payMethod === "cybersource") {
-      const itemsPayload = detailed.map(({ product, qty }) => ({
-        wcId: product.wcId ?? 0,
-        quantity: qty,
-        osSlug: product.id,
-      }));
-      const ccRes = await fetchCybersourceCaptureContext({
-        orderId,
-        items: itemsPayload,
-        district: district?.name,
-        expressDelivery: deliveryMode === "express",
-        noAddress,
-        ...(slot ? { deliverySlot: slot.label } : {}),
-        ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
-        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
-        targetOrigin: String(process.env.EXPO_PUBLIC_API_BASE_URL ?? ""),
-      } as any);
-
-      if (!ccRes.ok) {
-        Alert.alert(
-          t.checkoutPaymentErrorTitle,
-          ccRes.message ?? t.checkoutPaymentNetworkError,
-        );
-        setPaying(false);
-        return;
-      }
-
-      // Register callback so the WebView modal can charge + finish without
-      // needing access to finishAfterPayment (which is defined in this scope).
-      csOnTokenRef.current = async (transientToken: string) => {
-        const pending = csPendingRef.current;
-        csPendingRef.current = null;
-        if (!pending) return;
-        const chargeRes = await chargeCybersource({
-          orderId: pending.orderId,
-          items: pending.items,
-          transientTokenJwt: transientToken,
-          district: pending.district,
-          expressDelivery: pending.expressDelivery,
-          noAddress: pending.noAddress,
-          ...(pending.deliverySlot ? { deliverySlot: pending.deliverySlot } : {}),
-          ...(pending.deliverySlotId ? { deliverySlotId: pending.deliverySlotId } : {}),
-          ...(pending.cityId ? { cityId: pending.cityId } : {}),
-          billingDetails: {
-            firstName: pending.firstName,
-            lastName: pending.lastName,
-            email: pending.email,
-          },
-        });
-        if (!chargeRes.ok) {
-          Alert.alert(
-            t.checkoutCybersourceDeclinedTitle,
-            chargeRes.message ?? t.checkoutPaymentNetworkError,
-          );
-          setPaying(false);
-          return;
-        }
-        await finishAfterPayment(chargeRes.paymentRef);
-      };
-      // Store pending params for the callback.
-      csPendingRef.current = {
-        orderId,
-        items: itemsPayload,
-        district: district?.name,
-        expressDelivery: deliveryMode === "express",
-        noAddress,
-        ...(slot ? { deliverySlot: slot.label } : {}),
-        ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
-        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
-        firstName: senderFirst,
-        lastName: senderLast,
-        email: senderEmail,
-      };
-      setCsCaptureContext(ccRes.captureContext);
-      setCsCaptureEnv(ccRes.environment);
-      setCsWebViewVisible(true);
-      // setPaying stays true until the WebView finishes or errors
-      return;
-    }
 
     // Whish / Western Union: no online payment, but the WC order must
     // still be recorded reliably or the customer's offline payment will
@@ -2212,7 +2085,6 @@ function CheckoutScreen() {
               selectedSavedCardId={selectedSavedCardId}
               setSelectedSavedCardId={setSelectedSavedCardId}
               onRemoveSavedCard={handleRemoveSavedCard}
-              csServerAvailable={csServerAvailable}
             />
             <CardMessageReviewCard
               colors={colors}
@@ -2284,66 +2156,6 @@ function CheckoutScreen() {
           </Pressable>
         )}
       </View>
-      {/* CyberSource WebView tokenizer modal */}
-      {csWebViewVisible && csCaptureContext ? (
-        <Modal
-          visible
-          animationType="slide"
-          onRequestClose={() => {
-            setCsWebViewVisible(false);
-            setPaying(false);
-          }}
-        >
-          <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: colors.primary }}>
-              <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 16, color: "#fff" }}>
-                {t.checkoutPayCybersourceTitle}
-              </AppText>
-              <Pressable
-                onPress={() => { setCsWebViewVisible(false); setPaying(false); }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: "rgba(255,255,255,0.9)" }}>
-                  {t.checkoutPayCybersourceCancel}
-                </AppText>
-              </Pressable>
-            </View>
-            <WebView
-              style={{ flex: 1 }}
-              source={{
-                uri: `${API_BASE}/cybersource-tokenise.html?captureContext=${encodeURIComponent(csCaptureContext)}&env=${csCaptureEnv}`,
-              }}
-              javaScriptEnabled
-              onMessage={async (event) => {
-                try {
-                  const msg = JSON.parse(event.nativeEvent.data) as any;
-                  if (msg?.type === "ready") {
-                    return;
-                  }
-                  if (msg?.type === "error") {
-                    setCsWebViewVisible(false);
-                    Alert.alert(
-                      t.checkoutCybersourceDeclinedTitle,
-                      msg.message ?? t.checkoutPaymentNetworkError,
-                    );
-                    setPaying(false);
-                    return;
-                  }
-                  if (msg?.type === "token" && msg?.token && csOnTokenRef.current) {
-                    setCsWebViewVisible(false);
-                    const handler = csOnTokenRef.current;
-                    csOnTokenRef.current = null;
-                    await handler(msg.token);
-                  }
-                } catch {
-                  setCsWebViewVisible(false);
-                  setPaying(false);
-                }
-              }}
-            />
-          </View>
-        </Modal>
-      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -3731,7 +3543,7 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef, walletSupported, isAuthenticated, saveCard, setSaveCard, savedPaymentMethods, selectedSavedCardId, setSelectedSavedCardId, onRemoveSavedCard, csServerAvailable }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef, walletSupported, isAuthenticated, saveCard, setSaveCard, savedPaymentMethods, selectedSavedCardId, setSelectedSavedCardId, onRemoveSavedCard }: any) {
   const { currencyCode } = useCurrency();
   const t = useT();
   const { isRTL } = useLanguage();
@@ -3833,34 +3645,19 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           {t.secureAndEncrypted}
         </AppText>
 
-        {((csAvailFromServer: boolean | null) => {
-          // walletSupported === null  → probe not yet resolved; show rows
-          //                             so they don't flash away on fast devices.
-          // walletSupported === true  → device supports native wallet; show rows.
-          // walletSupported === false → probe resolved unsupported; hide rows.
+        {(() => {
           const walletRowVisible = walletSupported !== false;
-          const csbVisible =
-            supports("cybersource") &&
-            csAvailFromServer !== false &&
-            (country?.code ?? "LB") === "LB" &&
-            currencyCode === "USD";
           const visible = {
             mamo: supports("mamo"),
-            // CyberSource is the card processor for Lebanon + USD; hide all
-            // Stripe-backed card/wallet tiles when the CS tile is active.
-            card: supports("card") && !csbVisible,
-            apple_pay: supports("apple_pay") && walletRowVisible && !csbVisible,
-            google_pay: supports("google_pay") && walletRowVisible && !csbVisible,
+            card: supports("card"),
+            apple_pay: supports("apple_pay") && walletRowVisible,
+            google_pay: supports("google_pay") && walletRowVisible,
             paypal: supports("paypal"),
             tabby: supports("tabby"),
             whish: supports("whish"),
             western: supports("western"),
           };
-          // Defensive fallback: if no method passes (shouldn't happen
-          // with the current tables), force-show card so the shopper
-          // isn't stuck on an empty list.
-          if (!Object.values(visible).some(Boolean)) visible.card = true;
-          return (
+          if (!Object.values(visible).some(Boolean)) visible.card = true;          return (
             <View style={{ gap: 8 }}>
               {visible.apple_pay ? (
         <PayOption
@@ -4093,18 +3890,9 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           payIcons="western"
         />
               ) : null}
-              {csbVisible ? (
-        <PayOption
-          colors={colors}
-          active={payMethod === "cybersource"}
-          onPress={() => tap("cybersource")}
-          title={t.checkoutPayCybersource}
-          payIcons="card"
-        />
-              ) : null}
             </View>
           );
-        })(csServerAvailable)}
+        })()}
       </Card>
     </View>
   );

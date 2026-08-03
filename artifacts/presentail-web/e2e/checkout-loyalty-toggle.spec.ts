@@ -255,11 +255,6 @@ async function installBaseStubs(page: Page): Promise<void> {
   await page.route("**/api/coupons/validate", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(STUB_COUPON_VALIDATE_OK) }),
   );
-  // CyberSource availability — return `available: false` so the Stripe card
-  // tile renders for LB+USD (csAvailable=true hides the Stripe tile).
-  await page.route("**/api/payment/cybersource/available", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: false }) }),
-  );
   // Default woo/order stub (tests that capture the body override this per-test).
   await page.route("**/api/woo/order", (route) =>
     route.fulfill({

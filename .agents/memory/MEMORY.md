@@ -31,14 +31,9 @@
 - [Best-seller badge annotation](best-seller-annotation.md) — OS totalSales is 0 for all products; must blend app_orders DB data for correct isBestSeller flag
 - [Klarna rollout](klarna-rollout.md) — payer IP country (not delivery country) for eligibility; KLARNA_ROLLOUT env var gate; confirmPayment type cast; elements.submit() required; Gulf always off; rollout off by default pending Ahmad approval
 - [Payment return-URL validation](payment-return-url-validation.md) — never path-restrict PayPal/Mamo/Tabby returnUrl to the bridge; host allowlist is the open-redirect guard (July 2026 outage)
-- [CyberSource checkout integration](cybersource-checkout.md) — CS tile gated LB+USD; csOnTokenRef pattern bridges placeOrder→WebView modal scope; createToken() uses component-internal expiry; wooOrders.ts Zod enum must include "cybersource"
-- [CyberSource Payer Auth (3DS)](cybersource-payer-auth.md) — setup→check-enrollment→validate; responses are FLAT (no nested payerAuthData); challenge ends via same-origin return-relay page, validate keyed by enrollment txn id
-- [CS Microform sessions CARD-only](cybersource-microform-wallets.md) — wallet types in /microform/v2/sessions 400 every capture context; silent Stripe fallback masks the outage
-- [CyberSource paid-status gate](cybersource-paid-gate.md) — paid needs 2xx + requestId + approved allowlist; 201 can be DECLINED; AUTHORIZED_RISK_DECLINED is never paid
-- [CyberSource Unified Checkout](cybersource-unified-checkout.md) — /uc/v1/sessions JWT; SDK URL+SRI from JWT claims; enum "3DS"; server must tss-verify before paid; dual flags else Microform fallback
 - [Slack order alerts via Replit connector](slack-order-alerts.md) — UAE order alerts post via the Slack connection (not webhooks); bot must be invited to each channel; AD channel is #abudhabi-orders (plural)
-- [CyberSource 3DS backend-driven completion](cs-3ds-backend-driven.md) — cs_payment_attempts table owns the chain; relay covers opener/iframe/top-level; poll /attempt/:id/status; frictionless path unchanged
 - [Markdown mirror product slug](markdown-mirror-product-slug.md) — products API slug lives in `id` not `slug`; new locale subroutes need App.tsx + serve.mjs guard + seo-inject route key
 - [Hub-city canonicals + intra-city hreflang](hub-city-canonicals.md) — entity pages canonicalize to hub city (beirut/dubai/nicosia); hreflang is same-city en/ar/fr + x-default only, never cross-country
 - [OnlineStore schema gating](onlinestore-schema-gating.md) — org JSON-LD is OnlineStore on hub-city homes only; breadcrumb on every city home; product links sr-only outside display:none
 - [Campaign first-order discount](campaign-first-order-discount.md) — FIRST10 is a virtual coupon intercepted in validateCoupon; omit its couponId from OS payload; eligibility endpoint advisory, fails open
+- [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice

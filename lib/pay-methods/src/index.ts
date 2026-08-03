@@ -15,8 +15,7 @@ export type PayMethodId =
   | "western"
   | "mamo"
   | "paypal"
-  | "tabby"
-  | "cybersource";
+  | "tabby";
 
 export const PAY_METHOD_CURRENCIES: Record<
   PayMethodId,
@@ -43,8 +42,6 @@ export const PAY_METHOD_CURRENCIES: Record<
   western: ["USD"],
   // Tabby Buy-Now-Pay-Later — AED only, UAE shoppers only.
   tabby: ["AED"],
-  // CyberSource Unified Checkout — USD only, Lebanon shoppers only.
-  cybersource: ["USD"],
 };
 
 /**
@@ -59,7 +56,6 @@ export const PAY_METHOD_COUNTRIES: Partial<Record<PayMethodId, readonly string[]
   whish: ["LB"],
   western: ["LB"],
   tabby: ["AE"],
-  cybersource: ["LB"],
 };
 
 /**
@@ -158,7 +154,6 @@ export function payMethodAvailability(
     "mamo",
     "paypal",
     "tabby",
-    "cybersource",
   ];
   const out = {} as Record<PayMethodId, { enabled: boolean }>;
   for (const id of ids) {

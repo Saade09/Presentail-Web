@@ -82,6 +82,7 @@ export const checkoutStrings: Dict = {
   // Payment method labels (used via webPaymentMethodLabelKey in checkoutPayMethods.ts — dynamic key, not a direct t() call)
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.card": { en: "Credit / Debit Card", ar: "بطاقة ائتمان / دفع" },
+  "checkout.pay.cardTemporarilyUnavailable": { en: "Card payment is temporarily unavailable for Lebanon USD orders.", ar: "الدفع بالبطاقة غير متاح مؤقتاً للطلبات باللبناني الأمريكي." },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.apple_pay": { en: "Apple Pay", ar: "Apple Pay" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
@@ -229,35 +230,8 @@ export const checkoutStrings: Dict = {
   "checkout.loyalty.usePoints": { en: "Use {n} pts", ar: "استخدم {n} نقطة" },
   "checkout.loyalty.off": { en: "{n}% off", ar: "خصم {n}٪" },
 
-  "checkout.pay.cybersource": { en: "Credit / Debit Card", ar: "بطاقة ائتمان / دفع" },
-  "checkout.pay.cybersourceDesc": { en: "Secure card payment — Visa, Mastercard, or Amex.", ar: "دفع آمن بالبطاقة — فيزا أو ماستركارد أو أمريكان إكسبريس." },
-  "checkout.cybersource.cardNumber": { en: "Card number", ar: "رقم البطاقة" },
-  "checkout.cybersource.cvv": { en: "CVC", ar: "رمز الأمان" },
-  "checkout.cybersource.expiry": { en: "Expiry date", ar: "تاريخ الانتهاء" },
-  "checkout.cybersource.expiryPlaceholder": { en: "MM / YY", ar: "شهر / سنة" },
-  "checkout.cybersource.expiryError": { en: "Please enter a valid expiry date.", ar: "يرجى إدخال تاريخ انتهاء صلاحية صحيح." },
-  "checkout.toast.cybersourceUnavailable": { en: "Card payment unavailable", ar: "الدفع بالبطاقة غير متوفر" },
-  "checkout.toast.cybersourceUnavailableDesc": { en: "Card payment isn't available right now.", ar: "الدفع بالبطاقة غير متوفر حالياً." },
-  "checkout.toast.cybersourceDeclined": { en: "Card declined", ar: "تم رفض البطاقة" },
-  "checkout.toast.cybersourceDeclinedDesc": { en: "Your card was declined. Please check your details and try again, or use a different card.", ar: "تم رفض بطاقتك. يرجى التحقق من بياناتك والمحاولة مجدداً أو استخدام بطاقة أخرى." },
-  "checkout.toast.csTokenFailed": { en: "Card details could not be secured", ar: "تعذر تأمين بيانات البطاقة" },
-  "checkout.toast.csTokenFailedDesc": { en: "Please re-enter your card details and try again.", ar: "يرجى إعادة إدخال بيانات البطاقة والمحاولة مجدداً." },
-  "checkout.toast.csFormExpired": { en: "Card form refreshed", ar: "تم تجديد نموذج البطاقة" },
-  "checkout.toast.csFormExpiredDesc": { en: "Your card session expired. Please re-enter your card details and try again.", ar: "انتهت صلاحية جلسة البطاقة. يرجى إعادة إدخال بيانات البطاقة والمحاولة مجدداً." },
-  "checkout.toast.csEndpointNotFound": { en: "Payment service endpoint not found", ar: "نقطة خدمة الدفع غير موجودة" },
-  "checkout.toast.csAuthFailed": { en: "Payment service authentication failed", ar: "فشلت مصادقة خدمة الدفع" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth setup failure path in Checkout.tsx
-  "checkout.toast.csSetupFailed": { en: "Card verification could not be started", ar: "تعذّر بدء التحقق من البطاقة" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth device-data timeout path in Checkout.tsx
-  "checkout.toast.csDeviceDataTimeout": { en: "Card verification timed out", ar: "انتهت مهلة التحقق من البطاقة" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth challenge cancellation path in Checkout.tsx
-  "checkout.toast.csChallengeCancelled": { en: "Card verification was cancelled", ar: "تم إلغاء التحقق من البطاقة" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key -- used in payer-auth bank-decline path in Checkout.tsx
-  "checkout.toast.csPayerAuthFailed": { en: "Your bank could not verify this payment", ar: "لم يتمكن بنكك من التحقق من هذه الدفعة" },
   "checkout.finalizingOrder": { en: "Finalizing your order\u2026", ar: "\u062c\u0627\u0631\u064a \u0627\u0633\u062a\u0643\u0645\u0627\u0644 \u0637\u0644\u0628\u0643\u2026" },
   "checkout.backToCheckout": { en: "Back to checkout", ar: "\u0627\u0644\u0639\u043e\u062f\u0629 \u0625\u0644\u0649 \u0627\u0644\u062f\u0641\u0639" },
-  "checkout.cybersource.loading": { en: "Loading secure card form…", ar: "جارٍ تحميل نموذج الدفع الآمن…" },
-  "checkout.cybersource.challengeTitle": { en: "Secure Verification", ar: "التحقق الآمن" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -382,6 +356,7 @@ export const checkoutStringsFr: Record<string, string> = {
 
   // Payment method labels
   "checkout.pay.card": "Carte de crédit / débit",
+  "checkout.pay.cardTemporarilyUnavailable": "Le paiement par carte est temporairement indisponible pour les commandes Liban USD.",
   "checkout.pay.apple_pay": "Apple Pay",
   "checkout.pay.google_pay": "Google Pay",
   "checkout.pay.mamo": "Mamo",
@@ -461,29 +436,6 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.loyalty.usePoints": "Utiliser {n} pts",
   "checkout.loyalty.off": "{n}% de réduction",
 
-  "checkout.pay.cybersource": "Carte de crédit / débit",
-  "checkout.pay.cybersourceDesc": "Paiement sécurisé par carte — Visa, Mastercard ou Amex.",
-  "checkout.cybersource.cardNumber": "Numéro de carte",
-  "checkout.cybersource.cvv": "CVC",
-  "checkout.cybersource.expiry": "Date d'expiration",
-  "checkout.cybersource.expiryPlaceholder": "MM / AA",
-  "checkout.cybersource.expiryError": "Veuillez saisir une date d'expiration valide.",
-  "checkout.toast.cybersourceUnavailable": "Paiement par carte indisponible",
-  "checkout.toast.cybersourceUnavailableDesc": "Le paiement par carte n'est pas disponible pour le moment.",
-  "checkout.toast.cybersourceDeclined": "Carte refusée",
-  "checkout.toast.cybersourceDeclinedDesc": "Votre carte a été refusée. Vérifiez vos informations et réessayez, ou utilisez une autre carte.",
-  "checkout.toast.csTokenFailed": "Les informations de carte n'ont pas pu être sécurisées",
-  "checkout.toast.csTokenFailedDesc": "Veuillez saisir à nouveau les informations de votre carte et réessayer.",
-  "checkout.toast.csFormExpired": "Formulaire de carte actualisé",
-  "checkout.toast.csFormExpiredDesc": "Votre session de carte a expiré. Veuillez saisir à nouveau vos coordonnées et réessayer.",
-  "checkout.toast.csEndpointNotFound": "Point de service de paiement introuvable",
-  "checkout.toast.csAuthFailed": "Échec de l'authentification du service de paiement",
-  "checkout.toast.csSetupFailed": "La vérification de la carte n'a pas pu démarrer",
-  "checkout.toast.csDeviceDataTimeout": "La vérification de la carte a expiré",
-  "checkout.toast.csChallengeCancelled": "La vérification de la carte a été annulée",
-  "checkout.toast.csPayerAuthFailed": "Votre banque n'a pas pu vérifier ce paiement",
   "checkout.finalizingOrder": "Finalisation de votre commande\u2026",
   "checkout.backToCheckout": "Retour au paiement",
-  "checkout.cybersource.loading": "Chargement du formulaire de paiement sécurisé…",
-  "checkout.cybersource.challengeTitle": "Vérification sécurisée",
 };

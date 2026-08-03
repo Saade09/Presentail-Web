@@ -57,8 +57,6 @@ Required:
 - CI/CD: `EXPO_TOKEN`, `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `ASC_API_KEY_P8`. Optional: `SITEMAP_URL`, `INDEXNOW_KEY` (both have safe defaults).
 
 Payments:
-- CyberSource (LB + USD card payments only, web & mobile): `CYBERSOURCE_MERCHANT_ID`, `CYBERSOURCE_API_KEY_ID`, `CYBERSOURCE_SHARED_SECRET_KEY` (base64 REST shared secret), `CYBERSOURCE_ENVIRONMENT` (`test`|`live`, default `test`). Any missing → capture-context 503s and the tile is hidden.
-- CyberSource Unified Checkout (LB + USD web card flow, CyberSource-mandated migration off Microform+payer-auth): `CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED=true` (API server — activates `/payment/cybersource/unified-checkout/*` and advertises `unifiedCheckoutEnabled` on `/payment/cybersource/available`) **and** `VITE_CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED=true` (web build). BOTH must be true or the web checkout transparently falls back to the legacy Microform + payer-auth path (rollback: unset either flag). UC runs 3DS + capture inside its own widget (`completeMandate { type: CAPTURE, consumerAuthentication: "3DS" }`); the `/payer-auth/*` endpoints are never called on the UC path.
 - Stripe web: `VITE_STRIPE_PUBLISHABLE_KEY`; `VITE_STRIPE_MERCHANT_COUNTRY` (Stripe account's country, default `US` — NOT shopper country; wrong value makes `stripe.paymentRequest()` throw).
 - Stripe mobile: `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` — Replit secret (dev `pk_test_…`) AND EAS project secret (live `pk_live_…`, inlined into both iOS + Android binaries).
 - Stripe Apple Pay domain file: `STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION` (served by `serve.mjs` at `/.well-known/apple-developer-merchantid-domain-association`; API server also auto-registers the domain with Stripe on startup).
@@ -101,7 +99,7 @@ Monitors & alerting (all optional; Slack via `ALERTS_SLACK_WEBHOOK_URL`, WARN lo
 
 ## Product
 
-Luxury flower & gift delivery across Lebanon, UAE, Cyprus. Multi-step checkout (card message, recipient details, district/city, date/slot or Express, payments: Stripe, CyberSource, Whish, Western Union, Mamo, PayPal, Tabby). Push notifications, optional accounts, OTA updates.
+Luxury flower & gift delivery across Lebanon, UAE, Cyprus. Multi-step checkout (card message, recipient details, district/city, date/slot or Express, payments: Stripe, Whish, Western Union, Mamo, PayPal, Tabby). Push notifications, optional accounts, OTA updates.
 
 ## User preferences
 

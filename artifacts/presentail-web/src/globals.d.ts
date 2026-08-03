@@ -13,7 +13,7 @@ type FbqFunction = {
 
 declare global {
   // ── Apple Pay types ─────────────────────────────────────────────────────────
-  // Minimal Apple Pay JS API surface used by CyberSourceWalletSection.tsx.
+  // Minimal Apple Pay JS API surface used by web checkout wallet section.
   namespace ApplePayJS {
     interface ApplePayPaymentRequest {
       countryCode: string;

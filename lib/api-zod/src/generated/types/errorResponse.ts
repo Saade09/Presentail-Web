@@ -15,10 +15,7 @@ export interface ErrorResponse {
   /** Sanitized processor status/reason (e.g. DECLINED, "HTTP 404") for payment failures. Never contains card data.
    */
   declineCode?: string;
-  /** Sanitized upstream request identifier (e.g. the CyberSource request id) for support correlation. Never contains card data.
+  /** Sanitized upstream request identifier for support correlation. Never contains card data.
    */
   requestId?: string;
-  /** HTTP status returned by the CyberSource payments endpoint, when the failure originated there.
-   */
-  cybersourceStatus?: number;
 }

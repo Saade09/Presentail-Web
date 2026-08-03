@@ -49,18 +49,6 @@ vi.mock("../lib/fx", () => ({
   roundForCurrency: vi.fn().mockImplementation((amount: number) => amount),
 }));
 
-vi.mock("../lib/cybersource", () => ({
-  getCybersourceMerchantId: () => "test_merchant",
-  getCybersourceGooglePayMerchantId: () => "",
-  getCybersourceEnvironment: () => "test",
-  isCybersourceConfigured: () => true,
-  generateCaptureContext: vi.fn(),
-  authorizeAndCapture: vi.fn(),
-  authorizeAndCaptureGooglePay: vi.fn(),
-  authorizeAndCaptureApplePay: vi.fn(),
-  validateApplePayMerchant: vi.fn(),
-}));
-
 vi.mock("../lib/checkoutIntents", () => ({ storePaymentIntent: storePaymentIntentMock }));
 vi.mock("../lib/wooStore", () => ({
   resolveStoreFromRequest: vi.fn().mockReturnValue({ storeKey: "lebanon" }),

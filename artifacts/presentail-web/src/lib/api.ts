@@ -48,7 +48,7 @@ export async function apiFetch<T>(
     const errorData = await res.json().catch(() => ({}));
     // Attach the full parsed error body as `.data` so callers can read
     // server-provided fields (message, code, declineCode, requestId,
-    // cybersourceStatus, …). Checkout's payment error mapping depends on
+    // declineCode, requestId, …). Checkout's payment error mapping depends on
     // this shape — without it every payment failure collapses into the
     // generic "unavailable" toast instead of the server's honest message.
     const err = new Error(

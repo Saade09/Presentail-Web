@@ -613,11 +613,8 @@ const EN = {
   checkoutDayTomorrow: "Tom",
   dateStripMoreLabel: "More",
   checkoutPayCard: "Credit / Debit Card",
+  checkoutCardTemporarilyUnavailable: "Card payment is temporarily unavailable.",
   checkoutPayByCard: "Pay by card",
-  checkoutPayCybersource: "Pay by Card (Lebanon)",
-  checkoutPayCybersourceTitle: "Card Payment",
-  checkoutPayCybersourceCancel: "Cancel",
-  checkoutCybersourceDeclinedTitle: "Card Declined",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name, identical across all locales
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name, identical across all locales
   checkoutSaveCard: "Save card for future orders",
@@ -1603,11 +1600,8 @@ const AR: typeof EN = {
   checkoutDayTomorrow: "غداً",
   dateStripMoreLabel: "المزيد",
   checkoutPayCard: "بطاقة ائتمان / خصم",
+  checkoutCardTemporarilyUnavailable: "الدفع بالبطاقة غير متاح مؤقتاً.",
   checkoutPayByCard: "ادفع بالبطاقة",
-  checkoutPayCybersource: "الدفع بالبطاقة (لبنان)",
-  checkoutPayCybersourceTitle: "الدفع بالبطاقة",
-  checkoutPayCybersourceCancel: "إلغاء",
-  checkoutCybersourceDeclinedTitle: "تم رفض البطاقة",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
   checkoutSaveCard: "حفظ البطاقة للطلبات القادمة",
@@ -2588,11 +2582,8 @@ const FR: typeof EN = {
   checkoutDayTomorrow: "Dem.",
   dateStripMoreLabel: "Plus",
   checkoutPayCard: "Carte de crédit / débit",
+  checkoutCardTemporarilyUnavailable: "Le paiement par carte est temporairement indisponible.",
   checkoutPayByCard: "Payer par carte",
-  checkoutPayCybersource: "Payer par carte (Liban)",
-  checkoutPayCybersourceTitle: "Paiement par carte",
-  checkoutPayCybersourceCancel: "Annuler",
-  checkoutCybersourceDeclinedTitle: "Carte refusée",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
   checkoutSaveCard: "Enregistrer la carte pour mes prochaines commandes",

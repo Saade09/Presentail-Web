@@ -180,7 +180,7 @@ app.use("/api", router);
 
 // Any request reaching this middleware hit /api but matched NO route above —
 // the 404 originates from OUR backend, not an upstream provider. Logging it
-// at WARN makes "is this 404 ours or CyberSource's?" answerable from logs.
+// at WARN makes it easy to distinguish from upstream-provider 404s in logs.
 app.use("/api", (req, res) => {
   // Optional chaining: req.log is always present in production (pino-http is
   // mounted above), but bare express() test harnesses may not attach it.

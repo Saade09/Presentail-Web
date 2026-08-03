@@ -53,7 +53,7 @@ export type CartSnapshot = {
 export type PaymentIntent = {
   orderId: string;
   paymentRef: string;
-  provider: "stripe" | "mamo" | "paypal" | "tabby" | "cybersource";
+  provider: "stripe" | "mamo" | "paypal" | "tabby";
   // Which Stripe account was used: "main" (CY) or "gulf" (AE).
   stripeAccount?: "main" | "gulf";
   // The exact currency the provider was instructed to charge (e.g. "QAR",
@@ -71,9 +71,7 @@ export type PaymentIntent = {
   // before accepting the intent as proof of payment.
   snapshot: CartSnapshot;
   // Optional provider-side payment metadata stored alongside the intent (and
-  // therefore alongside the order it finalizes). Used by the CyberSource
-  // Unified Checkout flow to persist safe auth metadata (authenticationStatus,
-  // ecommerceIndicator, cavvPresent, …) — never card data or secrets.
+  // therefore alongside the order it finalizes). Never card data or secrets.
   paymentMeta?: Record<string, string | number | boolean | null | undefined>;
   expiresAt: number; // ms
   consumed: boolean;
@@ -104,7 +102,7 @@ function sweep(): void {
 export function storePaymentIntent(params: {
   orderId: string;
   paymentRef: string;
-  provider: "stripe" | "mamo" | "paypal" | "tabby" | "cybersource";
+  provider: "stripe" | "mamo" | "paypal" | "tabby";
   stripeAccount?: "main" | "gulf";
   /** The exact currency the provider was charged in (e.g. "QAR", "AED", "USD"). */
   currency: string;
