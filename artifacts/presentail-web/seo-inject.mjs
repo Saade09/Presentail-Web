@@ -3979,10 +3979,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     if (_isRootLanding) {
       const _landingBase = (rest.basePath ?? "").replace(/\/$/, "");
       const _landingBodyHtml =
-        `<nav aria-label="Delivery countries" class="sr-only">` +
-        `<a href="${_landingBase}/en-lb/beirut">Lebanon \u2014 Flower &amp; Gift Delivery</a>` +
-        `<a href="${_landingBase}/en-ae/dubai">UAE \u2014 Flower &amp; Gift Delivery</a>` +
-        `<a href="${_landingBase}/en-cy/nicosia">Cyprus \u2014 Flower &amp; Gift Delivery</a>` +
+        `<nav aria-label="Delivery countries" class="sr-only">` + // i18n-ignore — crawler-facing static nav; not rendered in the client UI
+        `<a href="${_landingBase}/en-lb/beirut">Lebanon \u2014 Flower &amp; Gift Delivery</a>` + // i18n-ignore — static EN-only SEO anchor text
+        `<a href="${_landingBase}/en-ae/dubai">UAE \u2014 Flower &amp; Gift Delivery</a>` + // i18n-ignore — static EN-only SEO anchor text
+        `<a href="${_landingBase}/en-cy/nicosia">Cyprus \u2014 Flower &amp; Gift Delivery</a>` + // i18n-ignore — static EN-only SEO anchor text
         `</nav>`;
       return assembleHtml(html, { ...generic, bodyHtml: _landingBodyHtml });
     }

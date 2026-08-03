@@ -269,4 +269,92 @@ describe("OrderConfirmed — PayPal return with the stash present", () => {
     // The payment-status poll never ran — the stash path won.
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("shows the failure screen and KEEPS the stash when the API returns ok:false", async () => {
+    // Simulate a server-side order-creation failure (e.g. downstream WC error).
+    mockMutate.mockImplementation(
+      (
+        _payload: unknown,
+        { onSuccess }: { onSuccess: (res: unknown) => void },
+      ) => {
+        onSuccess({ ok: false, message: "Payment capture failed" });
+      },
+    );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+    });
+
+    // Failure screen is shown — shopper sees an explicit error, not a blank page.
+    await screen.findByTestId("icon-failed");
+    expect(
+      screen.getByTestId("text-confirmation-message").textContent,
+    ).toContain("Payment capture failed");
+
+    // The stash must be preserved so the shopper can retry on reload.
+    expect(sessionStorage.getItem(PENDING_ORDER_KEY)).not.toBeNull();
+    // Cart must NOT be cleared — the shopper has not successfully placed an order.
+    expect(mockClearCart).not.toHaveBeenCalled();
+  });
+
+  it("shows the failure screen and KEEPS the stash when createOrder throws a network error", async () => {
+    // Simulate a transient network error (e.g. API server unreachable).
+    mockMutate.mockImplementation(
+      (
+        _payload: unknown,
+        { onError }: { onError: (err: unknown) => void },
+      ) => {
+        onError(new Error("Network request failed"));
+      },
+    );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+    });
+
+    // Failure screen is shown with the network error message — not a blank page.
+    await screen.findByTestId("icon-failed");
+    expect(
+      screen.getByTestId("text-confirmation-message").textContent,
+    ).toContain("Network request failed");
+
+    // Stash kept so the shopper can reload and retry without re-entering payment.
+    expect(sessionStorage.getItem(PENDING_ORDER_KEY)).not.toBeNull();
+    expect(mockClearCart).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. PayPal cancellation — shopper hits Back/Cancel on PayPal
+// ---------------------------------------------------------------------------
+
+describe("OrderConfirmed — PayPal cancellation (status=cancel)", () => {
+  it("shows the failure screen and preserves the stash so the shopper can retry", async () => {
+    // PayPal appends status=cancel (not success) when the shopper cancels.
+    // The token may still be present; status alone drives the initial state.
+    mockUseSearch.mockReturnValue(
+      `?status=cancel&token=${PAYPAL_TOKEN}`,
+    );
+    seedSessionStorage();
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    // Failure screen is shown immediately — no processing spinner, no createOrder.
+    await screen.findByTestId("icon-failed");
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(mockClearCart).not.toHaveBeenCalled();
+
+    // The pending stash is kept intact so a retry is possible.
+    expect(sessionStorage.getItem(PENDING_ORDER_KEY)).not.toBeNull();
+  });
 });
