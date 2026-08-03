@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Logo } from "@/components/Logo";
+import { trackEvent } from "@/lib/analytics";
 
 type Step = "name-password" | "phone";
 
@@ -37,11 +38,36 @@ function mapApiUser(u: NonNullable<ApiAuthResponse["user"]>): ShimUser {
   };
 }
 
+const AppleLogo = () => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    width="18"
+    height="18"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.39.07 2.35.74 3.15.8 1.2-.24 2.35-.93 3.63-.84 1.54.12 2.7.72 3.46 1.83-3.18 1.9-2.43 5.86.32 7.04-.63 1.55-1.41 3.05-2.56 4.05ZM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25Z" />
+  </svg>
+);
+
+const APPLE_SERVICE_ID = import.meta.env.VITE_APPLE_SERVICE_ID as
+  | string
+  | undefined;
+
+function isInAppBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /Instagram|FBAN|FBAV|BytedanceWebview|TikTok/i.test(ua);
+}
+
 export default function SignUpPage() {
   const [, setLocation] = useLocation();
   const { t, dir } = useLocale();
   const { toast } = useToast();
   const { login } = useAuth();
+  const [inAppBrowser] = useState(() => isInAppBrowser());
+  const [oauthBusy, setOauthBusy] = useState(false);
 
   // Pre-fetch Google GSI and Apple auth scripts on mount so they are ready
   // if the user navigates back to sign-in. loadAuthScripts() is idempotent.
@@ -68,6 +94,74 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const redirectAfterAuth = initial.redirectTo || "/account";
+
+  const onOAuthApple = async () => {
+    if (!APPLE_SERVICE_ID) {
+      toast({
+        title: t("auth.toast.error"),
+        description: "Apple sign-in is not configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setOauthBusy(true);
+    try {
+      await loadAuthScripts();
+      if (!window.AppleID?.auth) {
+        toast({
+          title: t("auth.toast.error"),
+          description: t("auth.toast.oauthFailed", { provider: "Apple" }),
+          variant: "destructive",
+        });
+        return;
+      }
+      trackEvent({ name: "signin_page_action", action: "apple" });
+      window.AppleID.auth.init({
+        clientId: APPLE_SERVICE_ID,
+        scope: "name email",
+        redirectURI: `${window.location.origin}/sign-in`,
+        usePopup: true,
+      });
+      const appleRes = await window.AppleID.auth.signIn();
+      const idToken = appleRes?.authorization?.id_token;
+      if (!idToken) throw new Error("Apple did not return an identity token");
+
+      const res = await fetch("/api/auth/oauth/apple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_token: idToken,
+          user: appleRes.user ?? null,
+        }),
+      });
+      const data = (await res.json()) as ApiAuthResponse;
+      if (!res.ok || !data.ok || !data.token || !data.user) {
+        throw new Error(data.message ?? t("auth.toast.error"));
+      }
+      login(data.token, mapApiUser(data.user), "apple");
+      setLocation(redirectAfterAuth);
+    } catch (err: any) {
+      const appleErrorCode: string | undefined =
+        err && typeof err === "object" && typeof err.error === "string"
+          ? err.error
+          : undefined;
+      const silentCancels = ["popup_closed_by_user", "user_cancelled_authorize"];
+      if (appleErrorCode && silentCancels.includes(appleErrorCode)) {
+        return;
+      }
+      toast({
+        title: t("auth.toast.oauthFailed", { provider: "Apple" }),
+        description: appleErrorCode
+          ? appleErrorCode
+          : err instanceof Error
+          ? err.message
+          : t("auth.toast.error"),
+        variant: "destructive",
+      });
+    } finally {
+      setOauthBusy(false);
+    }
+  };
 
   const onContinueToPhone = () => {
     const errs: Record<string, string> = {};
@@ -195,6 +289,28 @@ export default function SignUpPage() {
                 {t("auth.signupDesc")}
               </p>
             </div>
+
+            {APPLE_SERVICE_ID && !inAppBrowser && (
+              <div className="mb-5 space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-12 rounded-xl flex items-center gap-2"
+                  onClick={() => void onOAuthApple()}
+                  disabled={oauthBusy}
+                  data-testid="button-signup-apple"
+                >
+                  <AppleLogo />
+                  {t("auth.continueWithApple")}
+                </Button>
+                <div className="relative flex items-center gap-3 py-1">
+                  <div className="flex-1 border-t" />
+                  <span className="text-xs text-muted-foreground">{t("auth.orContinueWith")}</span>
+                  <div className="flex-1 border-t" />
+                </div>
+              </div>
+            )}
 
             {initial.email && (
               <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm">

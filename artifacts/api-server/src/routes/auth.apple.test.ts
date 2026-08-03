@@ -9,6 +9,7 @@ import request from "supertest";
 const mocks = vi.hoisted(() => ({
   jwtVerify: vi.fn(),
   upsertCustomer: vi.fn(),
+  getCustomerByAppleSub: vi.fn(),
   signServerToken: vi.fn(),
   isWcAuthEnabled: vi.fn(),
   isClerkConfigured: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock("../lib/auth", () => ({
 
 vi.mock("../lib/customers", () => ({
   upsertCustomer: (...args: any[]) => mocks.upsertCustomer(...args),
+  getCustomerByAppleSub: (...args: any[]) => mocks.getCustomerByAppleSub(...args),
   getCustomerByWcId: vi.fn(),
   getCustomerById: vi.fn(),
   normalizePhoneE164: vi.fn((p: string) => p),
@@ -188,6 +190,9 @@ beforeEach(() => {
   mocks.jwtVerify.mockResolvedValue({
     payload: { email: FAKE_EMAIL, sub: "apple.user.001" },
   });
+
+  // Default: sub fallback lookup returns nothing (no match)
+  mocks.getCustomerByAppleSub.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -254,8 +259,9 @@ describe("POST /auth/oauth/apple — request validation", () => {
     expect(res.body.ok).toBe(false);
   });
 
-  it("returns 400 when the verified token has no email", async () => {
-    mocks.jwtVerify.mockResolvedValue({ payload: { sub: "apple.001" } });
+  it("returns 400 when the verified token has no email and sub is unknown", async () => {
+    mocks.jwtVerify.mockResolvedValue({ payload: { sub: "apple.unknown.001" } });
+    // getCustomerByAppleSub returns null by default (unknown sub)
 
     const app = buildApp();
     const res = await request(app)
@@ -264,6 +270,161 @@ describe("POST /auth/oauth/apple — request validation", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);
+  });
+});
+
+describe("POST /auth/oauth/apple — appleSub persistence and fallback lookup", () => {
+  beforeEach(() => {
+    process.env.APPLE_SERVICE_IDS = "com.presentail.web1";
+  });
+
+  it("passes appleSub to upsertCustomer on a normal sign-in with email", async () => {
+    const app = buildApp();
+    await request(app)
+      .post("/auth/oauth/apple")
+      .send({ idToken: FAKE_TOKEN });
+
+    expect(mocks.upsertCustomer).toHaveBeenCalledOnce();
+    const input = mocks.upsertCustomer.mock.calls[0][0];
+    expect(input.appleSub).toBe("apple.user.001");
+  });
+
+  it("resolves an existing customer by appleSub when payload.email is absent", async () => {
+    // Token has sub but no email
+    mocks.jwtVerify.mockResolvedValue({ payload: { sub: "apple.user.known" } });
+    // Sub lookup finds the customer
+    mocks.getCustomerByAppleSub.mockResolvedValue({
+      ...FAKE_CUSTOMER,
+      appleSub: "apple.user.known",
+    });
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/oauth/apple")
+      .send({ idToken: FAKE_TOKEN });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.token).toBe(FAKE_SESSION_TOKEN);
+    // Should have attempted sub lookup
+    expect(mocks.getCustomerByAppleSub).toHaveBeenCalledWith("apple.user.known");
+    // Should have called upsertCustomer with the resolved email
+    expect(mocks.upsertCustomer).toHaveBeenCalledOnce();
+    const input = mocks.upsertCustomer.mock.calls[0][0];
+    expect(input.email).toBe(FAKE_EMAIL);
+    expect(input.appleSub).toBe("apple.user.known");
+  });
+
+  it("still returns 400 when email is absent and sub lookup returns null", async () => {
+    mocks.jwtVerify.mockResolvedValue({ payload: { sub: "apple.new.user" } });
+    mocks.getCustomerByAppleSub.mockResolvedValue(null);
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/oauth/apple")
+      .send({ idToken: FAKE_TOKEN });
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(mocks.upsertCustomer).not.toHaveBeenCalled();
+  });
+
+  it("still returns 400 when email is absent and sub itself is absent", async () => {
+    mocks.jwtVerify.mockResolvedValue({ payload: {} }); // no email, no sub
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/oauth/apple")
+      .send({ idToken: FAKE_TOKEN });
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(mocks.getCustomerByAppleSub).not.toHaveBeenCalled();
+    expect(mocks.upsertCustomer).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// WC-auth-enabled path: appleSub threaded through mirrorAndPropagateToClerk
+// ===========================================================================
+
+describe("POST /auth/oauth/apple — WC-auth-enabled path persists appleSub", () => {
+  const WC_CUSTOMER = {
+    id: 42,
+    email: FAKE_EMAIL,
+    first_name: "John",
+    last_name: "Doe",
+    username: "johndoe",
+    billing: { phone: "+96170000000" },
+    meta_data: [],
+  };
+
+  beforeEach(() => {
+    process.env.APPLE_SERVICE_IDS = "com.presentail.web1";
+
+    // Enable WC auth path
+    mocks.isWcAuthEnabled.mockReturnValue(true);
+
+    // Store must have a non-empty consumerKey to pass the guard
+    mocks.resolveStoreFromRequest.mockReturnValue({
+      baseUrl: "https://woo.example.com",
+      consumerKey: "ck_test",
+      consumerSecret: "cs_test",
+      wpBaseUrl: "https://woo.example.com",
+      currency: "USD",
+      countryCode: "LB",
+    });
+
+    // Mock WC fetch: findCustomerByEmail returns the WC customer
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [WC_CUSTOMER],
+      headers: new Headers({ "content-type": "application/json" }),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("passes appleSub to upsertCustomer via mirrorWcCustomerLocally when WC auth is enabled", async () => {
+    // getCustomerByWcId returns null (no pre-existing local row)
+    const { getCustomerByWcId } = await import("../lib/customers");
+    vi.mocked(getCustomerByWcId).mockResolvedValue(null);
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/oauth/apple")
+      .send({ idToken: FAKE_TOKEN });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    // mirrorAndPropagateToClerk is fire-and-forget; flush the microtask queue
+    await new Promise((r) => setImmediate(r));
+
+    // upsertCustomer must have been called with appleSub from the JWT
+    expect(mocks.upsertCustomer).toHaveBeenCalled();
+    const input = mocks.upsertCustomer.mock.calls[0][0];
+    expect(input.appleSub).toBe("apple.user.001");
+  });
+
+  it("passes appleSub via mirrorWcCustomerLocally for /auth/social/apple too", async () => {
+    const { getCustomerByWcId } = await import("../lib/customers");
+    vi.mocked(getCustomerByWcId).mockResolvedValue(null);
+
+    const app = buildApp();
+    const res = await request(app)
+      .post("/auth/social/apple")
+      .send({ identityToken: FAKE_TOKEN });
+
+    expect(res.status).toBe(200);
+
+    await new Promise((r) => setImmediate(r));
+
+    expect(mocks.upsertCustomer).toHaveBeenCalled();
+    const input = mocks.upsertCustomer.mock.calls[0][0];
+    expect(input.appleSub).toBe("apple.user.001");
   });
 });
 

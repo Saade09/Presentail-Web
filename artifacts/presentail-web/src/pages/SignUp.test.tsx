@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
@@ -16,6 +16,25 @@ vi.mock("@/hooks/use-toast", () => ({
 const mockSetLocation = vi.fn();
 vi.mock("wouter", () => ({
   useLocation: vi.fn(() => ["/sign-up", mockSetLocation]),
+}));
+
+vi.mock("@/lib/authScripts", () => ({
+  loadAuthScripts: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("@/lib/analytics", () => ({
+  trackEvent: vi.fn(),
+}));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: vi.fn(() => ({ login: vi.fn() })),
+  AuthOverrideContext: {
+    Provider: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  },
+}));
+
+vi.mock("@/components/Logo", () => ({
+  Logo: () => <svg data-testid="logo" />,
 }));
 
 vi.mock("@/components/ui/button", () => ({
@@ -356,6 +375,90 @@ describe("SignUp — duplicate email returns generic registration_failed code", 
     const redirectUrl = mockSetLocation.mock.calls[0][0] as string;
     expect(redirectUrl).toContain("/sign-in");
     expect(redirectUrl).not.toContain("social_provider=");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Apple button on sign-up page
+// These tests use vi.stubEnv + vi.resetModules() + dynamic import so the
+// module-level APPLE_SERVICE_ID constant is set before the module loads,
+// ensuring the Apple button is actually rendered.
+// ---------------------------------------------------------------------------
+
+describe("SignUp — Apple button renders and triggers OAuth", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    delete (window as any).AppleID;
+  });
+
+  it("renders the Apple button on the name-password step when APPLE_SERVICE_ID is set", async () => {
+    vi.stubEnv("VITE_APPLE_SERVICE_ID", "com.test.app");
+    vi.resetModules();
+
+    Object.defineProperty(window, "location", {
+      value: { search: "", href: "" },
+      writable: true,
+    });
+
+    // Import SignUpPage AND renderWithProviders fresh so they share
+    // the same LocaleContext (and other context) module instances.
+    const { default: FreshSignUpPage } = await import("./SignUp");
+    const { renderWithProviders: freshRender } = await import("@/test-utils");
+
+    freshRender(<FreshSignUpPage />);
+
+    // The Apple button must be present — not just maybe present
+    expect(screen.getByTestId("button-signup-apple")).toBeTruthy();
+    // The normal continue button is also present on the same step
+    expect(screen.getByTestId("button-signup-continue")).toBeTruthy();
+  });
+
+  it("calls AppleID.auth.signIn and then /api/auth/oauth/apple when the button is clicked", async () => {
+    vi.stubEnv("VITE_APPLE_SERVICE_ID", "com.test.app");
+    vi.resetModules();
+
+    Object.defineProperty(window, "location", {
+      value: { search: "", href: "", origin: "https://example.com" },
+      writable: true,
+    });
+
+    const signInMock = vi.fn().mockResolvedValue({
+      authorization: { id_token: "fake.apple.token" },
+      user: { name: { firstName: "Test", lastName: "User" } },
+    });
+    (window as any).AppleID = {
+      auth: { init: vi.fn(), signIn: signInMock },
+    };
+
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        token: "apple-tok",
+        user: { id: 1, email: "apple@example.com", firstName: "Test", lastName: "User" },
+      }),
+    } as Response);
+
+    // Import both fresh so they share the same context module instances
+    const { default: FreshSignUpPage } = await import("./SignUp");
+    const { renderWithProviders: freshRender } = await import("@/test-utils");
+
+    const user = userEvent.setup();
+    freshRender(<FreshSignUpPage />);
+
+    const appleBtn = screen.getByTestId("button-signup-apple");
+    await user.click(appleBtn);
+
+    await waitFor(() => {
+      expect(signInMock).toHaveBeenCalledOnce();
+    });
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/api/auth/oauth/apple",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
   });
 });
 

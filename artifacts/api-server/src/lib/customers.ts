@@ -41,6 +41,9 @@ export type UpsertCustomerInput = {
   source?: string | null;
   authProvider?: string | null;
   authUserId?: string | null;
+  // Stable Apple `sub` (subject) claim. Stored on every Apple sign-in so the
+  // account can be resolved by Apple identity if email is absent in the future.
+  appleSub?: string | null;
   // Preferred language for push notifications and locale-aware copy.
   // Valid values: "en" | "ar" | "fr". When provided, overwrites any existing
   // value so the most recent device locale is always stored.
@@ -112,6 +115,11 @@ function buildPatch(
   // emailVerified=true so returning users get the flag set on sign-in.
   if (input.emailVerified === true && !existing.emailVerified) {
     patch.emailVerified = true;
+  }
+
+  // appleSub: always persist when provided (stable Apple identity claim).
+  if (input.appleSub && !existing.appleSub) {
+    patch.appleSub = input.appleSub;
   }
 
   return patch;
@@ -203,6 +211,7 @@ export async function upsertCustomer(
       input.authProvider && input.authUserId ? input.authProvider : null,
     authUserId:
       input.authProvider && input.authUserId ? input.authUserId : null,
+    ...(input.appleSub ? { appleSub: input.appleSub } : {}),
     // emailVerified defaults to true for all auth paths except local password
     // registration, which explicitly passes false so the email must be
     // confirmed before order history is accessible.
@@ -277,6 +286,17 @@ export async function getCustomerByAuthUserId(
         eq(customersTable.authProvider, authProvider),
       ),
     )
+    .limit(1);
+  return row ?? null;
+}
+
+export async function getCustomerByAppleSub(
+  appleSub: string,
+): Promise<Customer | null> {
+  const [row] = await db
+    .select()
+    .from(customersTable)
+    .where(eq(customersTable.appleSub, appleSub))
     .limit(1);
   return row ?? null;
 }

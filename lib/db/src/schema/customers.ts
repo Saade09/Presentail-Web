@@ -60,6 +60,10 @@ export const customersTable = pgTable(
     // Orders are not attached to unverified accounts so a fraudulent
     // registration cannot pre-claim another user's order history.
     emailVerified: boolean("email_verified").notNull().default(true),
+    // Stable Apple `sub` (subject) claim from the Apple ID JWT.
+    // Stored on every Apple sign-in so we can resolve the account by Apple
+    // identity if the email claim is ever absent (e.g. private-relay rotation).
+    appleSub: text("apple_sub"),
     // scrypt-hashed password for locally-registered (password) accounts.
     // Null for social (Google/Apple) accounts that never set a password.
     passwordHash: text("password_hash"),

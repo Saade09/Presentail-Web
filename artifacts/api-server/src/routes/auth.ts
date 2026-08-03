@@ -8,7 +8,7 @@ import { logger } from "../lib/logger";
 import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull, isNotNull, gt } from "drizzle-orm";
 import { db, customersTable, CUSTOMER_GENDERS, phoneOtpsTable } from "@workspace/db";
-import { upsertCustomer, getCustomerByWcId, getCustomerById, normalizePhoneE164 } from "../lib/customers";
+import { upsertCustomer, getCustomerByWcId, getCustomerById, getCustomerByAppleSub, normalizePhoneE164 } from "../lib/customers";
 import { validateStoredPhone } from "../lib/phoneValidation";
 import {
   ensureClerkUserInBackground,
@@ -181,6 +181,7 @@ async function mirrorWcCustomerLocally(
     phone?: string;
     provider?: "apple" | "google" | "password";
     preferredLang?: string;
+    appleSub?: string | null;
   },
   log?: { warn?: (...args: any[]) => void },
 ): Promise<Customer | null> {
@@ -196,6 +197,7 @@ async function mirrorWcCustomerLocally(
       preferredCustomerId: existing?.id ?? null,
       source: "presentail.com",
       preferredLang: profile.preferredLang,
+      appleSub: profile.appleSub ?? null,
     });
     // Ensure the WC linkage is set on the local row. We already know the
     // WC id from the auth flow, so persist it directly rather than going
@@ -242,6 +244,7 @@ function mirrorAndPropagateToClerk(
     phone?: string;
     provider?: "apple" | "google" | "password";
     preferredLang?: string;
+    appleSub?: string | null;
   },
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void },
 ): void {
@@ -2059,7 +2062,7 @@ async function issueSocialSession(
   res: import("express").Response,
   req: import("express").Request,
   provider: "apple" | "google",
-  profile: { email: string; firstName: string; lastName: string },
+  profile: { email: string; firstName: string; lastName: string; appleSub?: string | null },
 ) {
   const store = resolveStoreFromRequest(req);
 
@@ -2074,6 +2077,7 @@ async function issueSocialSession(
         lastName: profile.lastName,
         authProvider: provider,
         authUserId: profile.email,
+        appleSub: profile.appleSub ?? null,
         source: "presentail.com",
         preferredLang: langFromRequest(req),
         // Apple and Google verify the email themselves.
@@ -2142,6 +2146,7 @@ async function issueSocialSession(
         phone: mapped.phone,
         provider,
         preferredLang: langFromRequest(req),
+        appleSub: profile.appleSub ?? null,
       },
       req.log,
     );
@@ -2401,12 +2406,14 @@ router.post("/auth/social/apple", socialIpLimiter, async (req, res) => {
         "Your Apple ID didn't share an email. Please retry and choose 'Share My Email'.",
     });
   }
+  const appleSub = String(payload.sub ?? "").trim() || null;
   const givenName = String(fullName?.givenName ?? "").trim();
   const familyName = String(fullName?.familyName ?? "").trim();
   return issueSocialSession(res, req, "apple", {
     email,
     firstName: givenName,
     lastName: familyName,
+    appleSub,
   });
 });
 
@@ -2498,8 +2505,34 @@ router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
       .status(401)
       .json({ ok: false, message: "Apple sign-in could not be verified" });
   }
-  const email = String(payload.email ?? "").trim().toLowerCase();
-  if (!email || !EMAIL_RE.test(email)) {
+  const rawEmail = String(payload.email ?? "").trim().toLowerCase();
+  const appleSub = String(payload.sub ?? "").trim() || null;
+  if (!rawEmail || !EMAIL_RE.test(rawEmail)) {
+    // Fallback: try to resolve the account by the stable Apple sub claim.
+    // Apple's email claim is normally always present but may be absent in edge
+    // cases (e.g. private-relay reconfiguration). Resolving by sub prevents a
+    // hard-400 for accounts we already know.
+    if (appleSub) {
+      try {
+        const existing = await getCustomerByAppleSub(appleSub);
+        if (existing) {
+          const givenNameFb = String(
+            body.user?.name?.firstName ?? body.fullName?.givenName ?? "",
+          ).trim();
+          const familyNameFb = String(
+            body.user?.name?.lastName ?? body.fullName?.familyName ?? "",
+          ).trim();
+          return issueSocialSession(res, req, "apple", {
+            email: existing.email,
+            firstName: givenNameFb || existing.firstName,
+            lastName: familyNameFb || existing.lastName,
+            appleSub,
+          });
+        }
+      } catch (e: any) {
+        req.log?.warn?.({ err: e?.message }, "auth.oauth.apple: appleSub fallback lookup failed");
+      }
+    }
     return res.status(400).json({
       ok: false,
       message:
@@ -2513,9 +2546,10 @@ router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
     body.user?.name?.lastName ?? body.fullName?.familyName ?? "",
   ).trim();
   return issueSocialSession(res, req, "apple", {
-    email,
+    email: rawEmail,
     firstName: givenName,
     lastName: familyName,
+    appleSub,
   });
 });
 

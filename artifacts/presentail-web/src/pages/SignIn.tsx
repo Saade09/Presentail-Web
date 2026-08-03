@@ -454,8 +454,13 @@ export default function SignInPage() {
       <CompleteProfileDialog
         open={pendingAppleAuth !== null}
         onOpenChange={(v) => {
-          if (!v && pendingAppleAuth) {
-            handleAuthSuccess(pendingAppleAuth.token, pendingAppleAuth.user, "apple");
+          // Only clear pendingAppleAuth state here — do NOT call handleAuthSuccess.
+          // handleAuthSuccess is called exclusively from onComplete (via the Save
+          // or Skip buttons, or the dialog's own onOpenChange calling onSkip).
+          // Calling it here too causes a double-navigation race because
+          // onOpenChange(false) fires synchronously after onComplete, while the
+          // pendingAppleAuth closure still holds the pre-setState value.
+          if (!v) {
             setPendingAppleAuth(null);
           }
         }}
