@@ -1,0 +1,294 @@
+Completely remove the existing CyberSource integration from the entire Presentail application. The objective is to return the codebase to a clean pre-CyberSource state so a new Unified Checkout integration with Payer Authentication can later be built from scratch.
+
+Do not reinstall or rebuild CyberSource during this task.
+
+## Mandatory preservation rule
+
+Do not delete or alter:
+
+* Completed orders
+* Captured payment amounts
+* Refund records
+* Existing CyberSource transaction IDs
+* Accounting or reconciliation records
+* Historical payment-provider values needed to display old orders
+
+Historical CyberSource data must become read-only legacy data. It must never trigger API calls or active CyberSource behavior.
+
+## 1. Inventory the existing integration
+
+Search the entire repository, including frontend, backend, mobile app, tests, configuration, migrations, documentation, scheduled jobs and deployment files.
+
+Search case-insensitively for at least:
+
+* `cybersource`
+* `CyberSource`
+* `CYBERSOURCE`
+* `cyber_source`
+* `microform`
+* `Flex`
+* `transientToken`
+* `capture-context`
+* `unified-checkout`
+* `UnifiedCheckout`
+* `consumerAuthentication`
+* `payer-auth`
+* `Payer Authentication`
+* `Cardinal`
+* `Cruise Control`
+* `Visa Acceptance Solutions`
+* `window.VAS`
+* `BLOM`
+* CyberSource merchant IDs, API hosts and SDK URLs
+* CyberSource webhook paths
+* CyberSource-specific payment-provider enum values
+* CyberSource feature flags and eligibility helpers
+
+Before editing, produce an internal inventory of every affected file and dependency. Then perform the removal.
+
+## 2. Remove all frontend integration code
+
+Delete all CyberSource-specific:
+
+* Payment components
+* Microform fields
+* Unified Checkout components
+* Capture-context handling
+* Client-library loading
+* JWT decoding used for CyberSource
+* SRI lookup and SDK version selection
+* Device-data collection
+* 3DS challenge modals and iframes
+* Payer Authentication state
+* Transient-token handling
+* CyberSource loading, timeout and retry states
+* CyberSource error messages
+* Browser event listeners
+* `window.VAS` declarations
+* CyberSource-specific TypeScript types
+* Apple Pay and Google Pay configuration implemented through CyberSource
+* CyberSource eligibility logic based on IP, currency or delivery country
+
+Remove dead imports, exports, hooks, state variables, feature flags and conditional branches left behind.
+
+Do not leave commented-out CyberSource code.
+
+## 3. Remove all mobile integration code
+
+Remove CyberSource from the iOS and Android application code, including:
+
+* Mobile tokenization
+* WebViews
+* Redirect handling
+* Deep-link or return handling
+* 3DS challenge screens
+* CyberSource-specific environment configuration
+* Native package configuration
+* Expo configuration values
+* Mobile-only fallback logic
+
+The mobile apps must compile without any CyberSource configuration.
+
+## 4. Remove all backend integration code
+
+Delete every active CyberSource route, service and helper, including any implementation of:
+
+* Session or capture-context creation
+* Microform session creation
+* Unified Checkout sessions
+* Payment authorization
+* Capture
+* Sale
+* Void
+* Refund
+* Transaction lookup
+* Transaction reconciliation
+* Payer Authentication setup
+* Enrollment checking
+* Authentication validation
+* Webhook handling
+* Webhook signature validation
+* Message-level encryption or decryption
+* HTTP Signature generation
+* CyberSource authentication headers
+* CyberSource API request helpers
+* CyberSource retry or fallback processing
+
+Remove associated:
+
+* Controllers
+* Route registrations
+* Schemas
+* Validation code
+* Types
+* Constants
+* Feature flags
+* Background jobs
+* Scheduled reconciliation tasks
+* Queues
+* Webhook subscriptions in application code
+* CyberSource-specific logging and analytics
+
+No server startup path may require a CyberSource secret.
+
+## 5. Remove CyberSource dependencies
+
+Remove packages used exclusively for CyberSource from every package manifest and lockfile.
+
+Do not remove a shared dependency unless repository analysis confirms nothing else uses it.
+
+Run a clean dependency installation afterward and confirm that there are no unresolved or unused imports.
+
+## 6. Remove configuration and secret references
+
+Remove all CyberSource variables from:
+
+* Environment schemas
+* `.env.example` files
+* Replit configuration
+* Deployment configuration
+* CI/CD configuration
+* Runtime validation
+* Server startup checks
+* Expo and mobile build configuration
+* Documentation
+
+This includes variables for:
+
+* Merchant ID
+* Key ID
+* Shared secret
+* REST API credentials
+* Unified Checkout
+* Microform
+* Payer Authentication
+* MLE keys
+* Webhook secrets
+* CyberSource feature flags
+* Environment or API hostname selection
+
+Delete the corresponding Replit Secrets if permissions allow. Never print or expose secret values.
+
+If Replit does not allow the agent to delete secrets, return only the exact secret names that remain for manual deletion.
+
+## 7. Clean payment routing
+
+Remove CyberSource from payment-provider selection and checkout routing.
+
+Requirements:
+
+* No customer may be routed to CyberSource.
+* No CyberSource component, request or SDK may load.
+* Existing non-CyberSource payment methods must remain unchanged.
+* Do not silently reroute Lebanon + USD payments to Stripe unless that route was already independently supported and valid.
+* If Lebanon + USD has no valid card processor after removal, show a controlled “card payment is temporarily unavailable” state instead of attempting CyberSource or creating an invalid payment.
+* Cash or other independently supported payment methods must continue working.
+* Order creation must not expect a CyberSource request ID, token, authorization result or webhook.
+
+## 8. Handle database artifacts safely
+
+Inspect all CyberSource-specific database columns, tables, enums and indexes.
+
+Do not modify or delete historical financial data.
+
+Apply these rules:
+
+* Remove tables or columns only when they contain no historical transaction or reconciliation data.
+* Do not edit old migration files that may already have run in production.
+* Use a new forward migration for safe schema cleanup.
+* Preserve old provider and transaction identifiers required to display historical orders.
+* Convert active CyberSource processing fields into read-only legacy metadata where required.
+* No new order may write CyberSource-specific data.
+* No historical CyberSource record may cause a webhook, refund, reconciliation or API call.
+* The application must still open and display historical orders whose provider was CyberSource.
+
+## 9. Remove tests and fixtures tied to the old implementation
+
+Delete obsolete CyberSource tests, mocks, fixtures and test credentials.
+
+Update the remaining tests to confirm:
+
+* Checkout works without CyberSource configuration.
+* Server startup works without CyberSource secrets.
+* Frontend and mobile builds work without CyberSource packages.
+* No CyberSource SDK or API request occurs.
+* Existing payment methods still work.
+* Lebanon + USD fails safely if no replacement card processor is available.
+* Historical CyberSource orders remain readable.
+* Historical orders cannot initiate active CyberSource actions.
+
+Do not preserve old CyberSource tests for use in the future reinstall. The future integration must receive new tests based on its new architecture.
+
+## 10. Remove documentation and generated artifacts
+
+Delete obsolete CyberSource:
+
+* Setup guides
+* Integration plans
+* Troubleshooting notes
+* API examples
+* Sample payloads
+* Certificates
+* Public keys
+* Private-key references
+* Postman collections
+* Generated files
+* Screenshots and test artifacts
+* Comments and TODO entries
+
+Never commit certificates, secrets, decrypted payloads or transaction data.
+
+## 11. Verification
+
+Run all applicable:
+
+* Type checking
+* Linting
+* Unit tests
+* Integration tests
+* Backend build
+* Web production build
+* iOS/Expo build validation
+* Android/Expo build validation
+* Database migration validation
+* Dependency and unused-code checks
+
+Perform a final repository-wide search using all inventory terms.
+
+The only acceptable remaining CyberSource references are minimal read-only compatibility values required to identify and display historical payments. Document every such reference with its file, purpose and reason it cannot be removed.
+
+There must be no remaining:
+
+* Active CyberSource routes
+* API hosts
+* SDK URLs
+* Webhooks
+* Feature flags
+* Runtime secrets
+* Payment routing
+* Tokenization
+* Payer Authentication logic
+* Unified Checkout logic
+* Microform logic
+* Refund or reconciliation calls
+* Background jobs
+* Client-side global declarations
+
+## 12. Final report
+
+Return:
+
+1. Every file deleted
+2. Every file modified
+3. Every dependency removed
+4. Every route removed
+5. Every scheduled job or webhook removed
+6. Every database migration added
+7. Any historical compatibility references retained
+8. Exact Replit Secret names requiring manual deletion
+9. Test and build results
+10. Confirmation that the application starts and builds with no CyberSource secrets
+11. Confirmation that no active code can contact CyberSource
+12. Confirmation that the next CyberSource implementation can be developed independently from scratch
+
+Do not claim completion if searches still find unexplained CyberSource code, configuration, endpoints, SDK references or active database behavior.
