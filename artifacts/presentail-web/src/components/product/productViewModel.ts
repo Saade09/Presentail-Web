@@ -54,7 +54,12 @@ export function buildProductViewModel(product: Product): ProductViewModel {
 
   const { intro, items } = parseDescriptionParts(rawDescription);
 
-  const description = intro !== "" ? intro : items.length === 0 ? (rawDescription || fallbackDescription) : "";
+  // If the intro is just a bare label ("Bundle includes:", "Flower box includes:"),
+  // fall back to the full rawDescription so no content is lost — the BOUQUET INCLUDES
+  // section will be hidden automatically when description already contains bullet chars.
+  const isBareLabel = intro.endsWith(":") && intro.length <= 40;
+  const effectiveIntro = isBareLabel ? rawDescription : intro;
+  const description = effectiveIntro !== "" ? effectiveIntro : items.length === 0 ? (rawDescription || fallbackDescription) : "";
   const bouquetIncludes = items.length ? items : DEFAULT_INCLUDES;
 
   const rewardPoints = calcRewardPoints(product.priceValue);

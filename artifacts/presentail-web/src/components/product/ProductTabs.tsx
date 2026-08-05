@@ -36,6 +36,79 @@ const CARE_ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   devices: Cpu,
 };
 
+/** Renders a description string.
+ *  If it contains inline bullet characters (raw fallback), each bullet segment
+ *  is shown as its own readable line. Otherwise it renders as a plain paragraph.
+ */
+function DescriptionBlock({ text }: { text: string }) {
+  const hasBullets = /[•\u2022]/.test(text);
+  if (hasBullets) {
+    const parts = text
+      .split(/[•\u2022]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return (
+      <ul className="space-y-2">
+        {parts.map((part, i) => (
+          // eslint-disable-next-line react/no-array-index-key
+          <li key={i} className="flex gap-3 text-sm text-foreground">
+            <span className="text-gold leading-6 shrink-0">•</span>
+            <span className="flex-1 leading-6">{part}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <p className="text-sm md:text-base leading-relaxed text-muted-foreground">
+      {text}
+    </p>
+  );
+}
+
+/**
+ * Description tab content.
+ *
+ * Two modes:
+ * 1. description has bullet chars → it IS the full item list (raw or fallback).
+ *    Render it as DescriptionBlock only; hide the BOUQUET INCLUDES section to
+ *    avoid showing the same items twice.
+ * 2. description is plain text (or empty) → show it as an intro paragraph above
+ *    the BOUQUET INCLUDES list, separated by a rule.
+ */
+function DescriptionTab({
+  description,
+  bouquetIncludes,
+  includesLabel,
+}: {
+  description: string;
+  bouquetIncludes: string[];
+  includesLabel: string;
+}) {
+  const descHasBullets = !!description && /[•\u2022]/.test(description);
+
+  return (
+    <div className="space-y-6">
+      {description && <DescriptionBlock text={description} />}
+      {bouquetIncludes.length > 0 && !descHasBullets && (
+        <div className={description ? "pt-1 border-t border-border" : ""}>
+          <p className="text-xs uppercase tracking-[0.16em] text-foreground font-semibold mb-4 mt-5">
+            {includesLabel}
+          </p>
+          <ul className="space-y-3">
+            {bouquetIncludes.map((line) => (
+              <li key={line} className="flex gap-3 text-sm text-foreground">
+                <span className="text-gold leading-6 shrink-0">•</span>
+                <span className="flex-1 leading-6">{line}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProductTabs({ description, bouquetIncludes, careGroup, careIconName }: Props) {
   const [tab, setTab] = useState<Tab>("description");
   const { t } = useLocale();
@@ -87,28 +160,11 @@ export function ProductTabs({ description, bouquetIncludes, careGroup, careIconN
         className="pt-6 outline-none"
       >
         {tab === "description" ? (
-          <div className="space-y-5">
-            {description && bouquetIncludes.length === 0 && (
-              <p className="text-sm md:text-base leading-relaxed text-muted-foreground">
-                {description}
-              </p>
-            )}
-            {bouquetIncludes.length > 0 && (
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-foreground font-semibold mb-3">
-                  {t("product.bouquetIncludes")}
-                </p>
-                <ul className="space-y-2">
-                  {bouquetIncludes.map((line) => (
-                    <li key={line} className="flex gap-3 text-sm text-foreground">
-                      <span className="text-gold leading-6">•</span>
-                      <span className="flex-1 leading-6">{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          <DescriptionTab
+            description={description}
+            bouquetIncludes={bouquetIncludes}
+            includesLabel={t("product.bouquetIncludes")}
+          />
         ) : (
           <ul className="space-y-3">
             {([1, 2, 3, 4] as const).map((n) => (
