@@ -925,6 +925,9 @@ const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
   // /auth is a recognised route in seo-inject.mjs (maps to routeKey "auth");
   // it must be listed here too so the SPA route guard does not 404 it.
   "/auth",
+  // Campaign landing page — served as the SPA shell so the React route
+  // /flower-delivery can render inside the locale-prefixed context.
+  "/flower-delivery",
 ]);
 function isKnownLocaleSubRoute(rest) {
   if (!rest || rest === "/" || rest === "") return true;

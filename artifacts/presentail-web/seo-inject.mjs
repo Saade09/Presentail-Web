@@ -244,6 +244,10 @@ const ROUTE_KEYS = [
   { test: (r) => r === "/privacy", key: "privacy" },
   { test: (r) => r === "/return-policy", key: "return-policy" },
   { test: (r) => r === "/shipping-policy", key: "shipping-policy" },
+  // Campaign landing — needs its own key so detectRouteKey does not fall
+  // back to "home", which would set isUnknownSubRoute = true and suppress
+  // the page's canonical / JSON-LD.
+  { test: (r) => r === "/flower-delivery", key: "flower-delivery" },
 ];
 
 function detectRouteKey(rest) {
