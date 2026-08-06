@@ -10,6 +10,8 @@ type Props = {
   onSelectExpress: () => void;
   onSelectScheduled: () => void;
   expressLabel: string;
+  /** Second subtitle line on the express card — destination-local ETA, e.g. "Estimated by 1:30 PM Lebanon time". */
+  expressEtaLine?: string | null;
   expressAvailable?: boolean;
   expressUnavailableLabel?: string;
   scheduledSubtitle?: string;
@@ -32,6 +34,7 @@ export function DeliveryOptions({
   onSelectExpress,
   onSelectScheduled,
   expressLabel,
+  expressEtaLine,
   expressAvailable = true,
   expressUnavailableLabel,
   scheduledSubtitle,
@@ -47,7 +50,7 @@ export function DeliveryOptions({
   return (
     <div className="space-y-3 lg:space-y-2" data-testid="delivery-options">
       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        {t("product.deliveryOptions")}
+        {t("product.delivery.whenShouldItArrive")}
       </p>
 
       {expressAvailable && (
@@ -58,6 +61,7 @@ export function DeliveryOptions({
             icon={<Zap className="w-4 h-4" />}
             title={t("checkout.expressDelivery")}
             subtitle={expressLabel}
+            subtitleExtra={expressEtaLine ?? undefined}
             feeLabel={expressFeeLabel}
             feeSubLabel={expressFeeSubLabel}
             isFree={expressIsFree}
@@ -89,6 +93,7 @@ function DeliveryRow({
   icon,
   title,
   subtitle,
+  subtitleExtra,
   feeLabel,
   feeSubLabel,
   isFree,
@@ -100,6 +105,8 @@ function DeliveryRow({
   icon: React.ReactNode;
   title: string;
   subtitle: string;
+  /** Optional second subtitle line (e.g. destination-local ETA for express). */
+  subtitleExtra?: string;
   feeLabel?: string;
   feeSubLabel?: string;
   isFree?: boolean;
@@ -129,9 +136,14 @@ function DeliveryRow({
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-semibold text-foreground">{title}</span>
-        <span className="block text-xs text-muted-foreground mt-0.5 whitespace-normal line-clamp-2">
+        <span className="block text-xs text-muted-foreground mt-0.5 whitespace-normal">
           {subtitle}
         </span>
+        {subtitleExtra && (
+          <span className="block text-xs text-muted-foreground mt-0.5 whitespace-normal">
+            {subtitleExtra}
+          </span>
+        )}
       </span>
       {feeLabel && (
         <span className="shrink-0 text-right max-w-[110px]">

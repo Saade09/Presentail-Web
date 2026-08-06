@@ -53,6 +53,24 @@ export const productStrings: Dict = {
   "product.fbt.items": { en: "items", ar: "عناصر" },
   "product.badge.bestSeller": { en: "Best Seller", ar: "الأكثر مبيعاً" },
 
+  // ── Inherited delivery summary (cart-reuse States 2 & 3) ──
+  "product.delivery.whenShouldItArrive": { en: "WHEN SHOULD IT ARRIVE?", ar: "متى يجب أن يصل؟" },
+  "product.delivery.deliveryForThisOrder": { en: "DELIVERY FOR THIS ORDER", ar: "التوصيل لهذا الطلب" },
+  "product.delivery.selectedInCart": { en: "Selected in cart", ar: "محدد في السلة" },
+  "product.delivery.alreadyApplied": { en: "Already applied to this order", ar: "مُطبَّق بالفعل على هذا الطلب" },
+  "product.delivery.inheritedExpressOne": { en: "This item will use the same delivery as the other item in your cart.", ar: "سيستخدم هذا المنتج نفس التوصيل كالمنتج الآخر في سلتك." },
+  "product.delivery.inheritedExpressMany": { en: "This item will use the same delivery as the other items in your cart.", ar: "سيستخدم هذا المنتج نفس التوصيل كالمنتجات الأخرى في سلتك." },
+  "product.delivery.inheritedScheduledOne": { en: "This item will use the same delivery window as the other item in your cart.", ar: "سيستخدم هذا المنتج نفس نافذة التوصيل كالمنتج الآخر في سلتك." },
+  "product.delivery.inheritedScheduledMany": { en: "This item will use the same delivery window as the other items in your cart.", ar: "سيستخدم هذا المنتج نفس نافذة التوصيل كالمنتجات الأخرى في سلتك." },
+  "product.delivery.changeDelivery": { en: "Change delivery", ar: "تغيير التوصيل" },
+  "product.delivery.changeDateOrTime": { en: "Change date or time", ar: "تغيير التاريخ أو الوقت" },
+  "product.delivery.estimatedBy": { en: "Estimated by {time} Lebanon time", ar: "متوقع بحلول {time} بتوقيت لبنان" },
+  "product.delivery.estimatedByUae": { en: "Estimated by {time} UAE time", ar: "متوقع بحلول {time} بتوقيت الإمارات" },
+  "product.delivery.expressDelivery": { en: "Express Delivery", ar: "توصيل سريع" },
+  "product.delivery.scheduledDelivery": { en: "Scheduled Delivery", ar: "توصيل مجدوَل" },
+  "product.delivery.scheduledTime": { en: "{time} Lebanon time", ar: "{time} بتوقيت لبنان" },
+  "product.delivery.scheduledTimeUae": { en: "{time} UAE time", ar: "{time} بتوقيت الإمارات" },
+
   // ── Delivery option fee labels ──
   "product.delivery.expressTotal": { en: "{amount} delivery fee", ar: "رسوم التوصيل {amount}" },
   "product.delivery.expressBreakdown": { en: "{standard} standard + {express} express upgrade", ar: "{standard} عادي + {express} ترقية سريعة" },
@@ -187,6 +205,23 @@ export const productStringsFr: Record<string, string> = {
   "product.fbt.total": "Total",
   "product.fbt.items": "articles",
   "product.badge.bestSeller": "Meilleures ventes",
+
+  // ── Inherited delivery summary (cart-reuse States 2 & 3) ──
+  "product.delivery.whenShouldItArrive": "QUAND DOIT-IL ARRIVER ?",
+  "product.delivery.deliveryForThisOrder": "LIVRAISON POUR CETTE COMMANDE",
+  "product.delivery.selectedInCart": "Sélectionné dans le panier",
+  "product.delivery.alreadyApplied": "Déjà appliqué à cette commande",
+  "product.delivery.inheritedExpressOne": "Cet article utilisera la même livraison que l'autre article dans votre panier.",
+  "product.delivery.inheritedExpressMany": "Cet article utilisera la même livraison que les autres articles dans votre panier.",
+  "product.delivery.inheritedScheduledOne": "Cet article utilisera le même créneau de livraison que l'autre article dans votre panier.",
+  "product.delivery.inheritedScheduledMany": "Cet article utilisera le même créneau de livraison que les autres articles dans votre panier.",
+  "product.delivery.changeDelivery": "Modifier la livraison",
+  "product.delivery.changeDateOrTime": "Modifier la date ou l'heure",
+  "product.delivery.estimatedBy": "Prévu pour {time} heure du Liban",
+  "product.delivery.estimatedByUae": "Prévu pour {time} heure des Émirats",
+  "product.delivery.scheduledDelivery": "Livraison planifiée",
+  "product.delivery.scheduledTime": "{time} heure du Liban",
+  "product.delivery.scheduledTimeUae": "{time} heure des Émirats",
 
   // ── Delivery option fee labels ──
   "product.delivery.expressTotal": "{amount} frais de livraison",

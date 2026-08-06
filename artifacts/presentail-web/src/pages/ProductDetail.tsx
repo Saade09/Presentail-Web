@@ -22,6 +22,7 @@ import {
   DeliveryOptions,
   type DeliveryChoice,
 } from "@/components/product/DeliveryOptions";
+import { InheritedDeliverySummary } from "@/components/product/InheritedDeliverySummary";
 import { ProductBenefits } from "@/components/product/ProductBenefits";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { TrustpilotMicroWidget } from "@/components/product/TrustpilotMicroWidget";
@@ -39,6 +40,7 @@ import {
   formatDeliveryRow,
   freeDeliveryThresholdUsd,
   getCountryHour,
+  getLocalIso,
   isExpressDeliveryAvailable,
   slotTimeRangeShortForLabel,
   timeSlotsForCountry,
@@ -69,7 +71,7 @@ export default function ProductDetail() {
   const slug = params?.slug;
   const { t, language, cityName, countryName } = useLocale();
   const { toast } = useToast();
-  const { addItem, subtotal: cartSubtotal } = useCart();
+  const { addItem, subtotal: cartSubtotal, itemCount } = useCart();
   const { user } = useAuth();
   const isSignedIn = !!user;
   const { isFavorited, toggleFavorite } = useFavorites();
@@ -164,6 +166,13 @@ export default function ProductDetail() {
     deliverySelection.mode !== "express" &&
     !!deliverySelection.slotLabel,
   );
+
+  // When the cart already has items with a committed delivery, the PDP shows a
+  // compact inherited-delivery summary instead of the full selector. The shopper
+  // can click "Change delivery" / "Change date or time" to expand the selector.
+  // Reset to summary mode whenever the shopper navigates to a different product.
+  const [isEditingDelivery, setIsEditingDelivery] = useState(false);
+  useEffect(() => { setIsEditingDelivery(false); }, [slug]);
 
   // Fire delivery_method_defaulted once after initial mount to record the
   // automatic standard-delivery default. Only fires for the auto-default,
@@ -377,6 +386,55 @@ export default function ProductDetail() {
       expressSurchargeFormatted: fmt(expressSurcharge),
     };
   }, [delivery, cityId, freeDeliveryMet, formatPrice, t]);
+
+  // ── Inherited delivery detection ─────────────────────────────────────────
+  // The PDP shows a compact inherited-delivery summary when the cart already has
+  // items and a delivery selection exists. "isEditingDelivery" overrides this so
+  // the shopper can change the window via the full selector.
+  const isInherited =
+    itemCount > 0 &&
+    deliverySelection.hasSelection &&
+    !isEditingDelivery;
+
+  // Express ETA: current time + 90 min, formatted in the recipient country's
+  // timezone so shoppers browsing from abroad see the correct local time.
+  const expressEtaLabel = useMemo(() => {
+    if (!expressAvailable) return null;
+    const etaDate = new Date(now.getTime() + 90 * 60 * 1000);
+    const tz = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
+    const timeStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(etaDate);
+    return countryCode === "AE"
+      ? t("product.delivery.estimatedByUae").replace("{time}", timeStr)
+      : t("product.delivery.estimatedBy").replace("{time}", timeStr);
+  }, [now, expressAvailable, countryCode, t]);
+
+  // Labels for the inherited scheduled summary card.
+  const scheduledDateLabel = useMemo(() => {
+    if (!deliverySelection.date) return undefined;
+    const dateObj = new Date(deliverySelection.date + "T12:00:00");
+    const monthDay = dateObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+    const todayLocal = getLocalIso(countryCode, now);
+    const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrowLocal = getLocalIso(countryCode, tomorrowDate);
+    if (deliverySelection.date === todayLocal) return `Today, ${monthDay}`;
+    if (deliverySelection.date === tomorrowLocal) return `Tomorrow, ${monthDay}`;
+    const dowShort = dateObj.toLocaleDateString("en-US", { weekday: "short" });
+    return `${dowShort}, ${monthDay}`;
+  }, [deliverySelection.date, countryCode, now]);
+
+  const scheduledSlotWithTz = useMemo(() => {
+    if (!deliverySelection.slotLabel) return null;
+    const slotRange = slotTimeRangeShortForLabel(deliverySelection.slotLabel, cityTimeSlots);
+    const timeRange = slotRange ?? deliverySelection.slotLabel;
+    return countryCode === "AE"
+      ? t("product.delivery.scheduledTimeUae").replace("{time}", timeRange)
+      : t("product.delivery.scheduledTime").replace("{time}", timeRange);
+  }, [deliverySelection.slotLabel, cityTimeSlots, countryCode, t]);
 
   // All-in price shown in the sticky CTA: product price + district fee + express/slot surcharge.
   // Returns null when the city fee is unknown (no location selected) — falls back to product price only.
@@ -651,45 +709,67 @@ export default function ProductDetail() {
               </div>
             ) : null}
 
-            <DeliveryOptions
-              value={deliveryChoice}
-              onSelectExpress={handleSelectExpress}
-              onSelectScheduled={handleSelectScheduled}
-              expressLabel={delivery.expressDeliveryTimeLabel}
-              expressAvailable={expressAvailable}
-              expressUnavailableLabel={t("checkout.expressUnavailable")}
-              scheduledSubtitle={scheduledRowSubtitle}
-              expressFeeLabel={deliveryCardLabels.expressFeeLabel}
-              expressFeeSubLabel={deliveryCardLabels.expressFeeSubLabel}
-              expressIsFree={deliveryCardLabels.expressIsFree}
-              scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
-              scheduledFeeSubLabel={deliveryCardLabels.scheduledFeeSubLabel}
-              scheduledIsFree={deliveryCardLabels.scheduledIsFree}
-            />
-
-            {deliveryChoice === "scheduled" && (
-              <div ref={schedulePanelRef}>
-                <ScheduleInlinePanel
-                  countryCode={countryCode}
-                  timeSlots={city?.timeSlots}
-                  slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
-                  initialDate={deliverySelection.date}
-                  initialSlotLabel={deliverySelection.slotLabel}
-                  freeDeliveryMet={freeDeliveryMet}
-                  onChange={({ mode, date, slotLabel }) => {
-                    deliverySelection.setSelection({ mode, date, slotLabel });
-                    // Commit the ref whenever the panel reports a valid selection,
-                    // including its automatic initial selection on mount. This lets
-                    // first-time visitors click Add to Cart with the default slot
-                    // without needing to manually tap a date or time chip first.
-                    windowCommittedRef.current = true;
-                  }}
-                  onUserInteracted={() => {
-                    windowCommittedRef.current = true;
-                    trackEvent({ name: "delivery_window_selected", deliveryMethod: "standard", deliverySource: "user" });
-                  }}
+            {isInherited ? (
+              <InheritedDeliverySummary
+                mode={deliverySelection.mode === "express" ? "express" : "scheduled"}
+                expressLabel={delivery.expressDeliveryTimeLabel}
+                expressEtaLine={expressEtaLabel}
+                expressFeeLabel={deliveryCardLabels.expressFeeLabel}
+                expressFeeSubLabel={deliveryCardLabels.expressFeeSubLabel}
+                dateLabel={scheduledDateLabel}
+                slotWithTimezone={scheduledSlotWithTz}
+                scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
+                scheduledIsFree={deliveryCardLabels.scheduledIsFree}
+                cartItemCount={itemCount}
+                onChangeDelivery={() => {
+                  setIsEditingDelivery(true);
+                  trackEvent({ name: "delivery_change_opened", deliveryMethod: deliverySelection.mode === "express" ? "express" : "standard", deliverySource: "user" });
+                }}
+              />
+            ) : (
+              <>
+                <DeliveryOptions
+                  value={deliveryChoice}
+                  onSelectExpress={handleSelectExpress}
+                  onSelectScheduled={handleSelectScheduled}
+                  expressLabel={delivery.expressDeliveryTimeLabel}
+                  expressEtaLine={expressEtaLabel}
+                  expressAvailable={expressAvailable}
+                  expressUnavailableLabel={t("checkout.expressUnavailable")}
+                  scheduledSubtitle={scheduledRowSubtitle}
+                  expressFeeLabel={deliveryCardLabels.expressFeeLabel}
+                  expressFeeSubLabel={deliveryCardLabels.expressFeeSubLabel}
+                  expressIsFree={deliveryCardLabels.expressIsFree}
+                  scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
+                  scheduledFeeSubLabel={deliveryCardLabels.scheduledFeeSubLabel}
+                  scheduledIsFree={deliveryCardLabels.scheduledIsFree}
                 />
-              </div>
+
+                {deliveryChoice === "scheduled" && (
+                  <div ref={schedulePanelRef}>
+                    <ScheduleInlinePanel
+                      countryCode={countryCode}
+                      timeSlots={city?.timeSlots}
+                      slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
+                      initialDate={deliverySelection.date}
+                      initialSlotLabel={deliverySelection.slotLabel}
+                      freeDeliveryMet={freeDeliveryMet}
+                      onChange={({ mode, date, slotLabel }) => {
+                        deliverySelection.setSelection({ mode, date, slotLabel });
+                        // Commit the ref whenever the panel reports a valid selection,
+                        // including its automatic initial selection on mount. This lets
+                        // first-time visitors click Add to Cart with the default slot
+                        // without needing to manually tap a date or time chip first.
+                        windowCommittedRef.current = true;
+                      }}
+                      onUserInteracted={() => {
+                        windowCommittedRef.current = true;
+                        trackEvent({ name: "delivery_window_selected", deliveryMethod: "standard", deliverySource: "user" });
+                      }}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {!expressAvailable && !deliveryCardLabels.helperIsQualified && (
