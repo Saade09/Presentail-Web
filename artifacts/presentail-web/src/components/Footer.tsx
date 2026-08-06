@@ -367,6 +367,10 @@ export function Footer() {
             <InLink href="/privacy" testId="footer-link-privacy">
               {t("footer.privacy")}
             </InLink>
+            <span className="text-white/30" aria-hidden>|</span>
+            <InLink href="/account-deletion" testId="footer-link-account-deletion">
+              {t("footer.accountDeletion")}
+            </InLink>
           </div>
 
           {/* Payment logos — flat logos on a single white rounded card */}

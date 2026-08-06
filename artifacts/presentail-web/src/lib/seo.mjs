@@ -201,6 +201,7 @@ export const TITLES = {
     privacy: "Privacy Policy | Presentail",
     "return-policy": "Return Policy | Presentail",
     "shipping-policy": "Shipping & Delivery Policy | Presentail",
+    "account-deletion": "Account Deletion Policy | Presentail",
   },
   ar: {
     landing: "توصيل الأزهار والهدايا أونلاين | Presentail | توصيل سريع",
@@ -233,6 +234,7 @@ export const TITLES = {
     privacy: "سياسة الخصوصية | Presentail",
     "return-policy": "سياسة الإرجاع | Presentail",
     "shipping-policy": "سياسة الشحن والتوصيل | Presentail",
+    "account-deletion": "سياسة حذف الحساب | Presentail",
   },
   fr: {
     landing: "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
@@ -265,6 +267,7 @@ export const TITLES = {
     privacy: "Politique de confidentialité | Presentail",
     "return-policy": "Politique de retour | Presentail",
     "shipping-policy": "Politique de livraison | Presentail",
+    "account-deletion": "Politique de suppression de compte | Presentail",
   },
 };
 
@@ -495,6 +498,7 @@ export const DESCRIPTIONS = {
     privacy: "How Presentail collects, uses and protects your personal information across our website, mobile apps and social channels.",
     "return-policy": "Presentail's return and satisfaction-guarantee policy — how to request a return, our 7-day photo window, and what's covered.",
     "shipping-policy": "How Presentail delivers flowers and gifts across Lebanon, the UAE and Cyprus — delivery windows, same-day options, and cut-off times.",
+    "account-deletion": "How to delete your Presentail account in-app or by email, what data is erased, and the 15-day processing window.",
   },
   ar: {
     landing:
@@ -530,6 +534,7 @@ export const DESCRIPTIONS = {
     privacy: "كيف تجمع بريزانتيل معلوماتك الشخصية وتستخدمها وتحميها عبر الموقع والتطبيقات والقنوات الاجتماعية.",
     "return-policy": "سياسة الإرجاع وضمان الرضا من Presentail — كيفية طلب الإرجاع، نافذة الـ7 أيام لإرسال الصورة، وما يشمله الضمان.",
     "shipping-policy": "كيف توصّل Presentail الأزهار والهدايا في لبنان والإمارات وقبرص — مواعيد التوصيل وخيارات نفس اليوم وأوقات الإغلاق.",
+    "account-deletion": "كيفية حذف حسابك في Presentail من داخل التطبيق أو عبر البريد الإلكتروني، والبيانات التي تُمسح، ومهلة المعالجة البالغة 15 يوماً.",
   },
   fr: {
     landing:
@@ -566,6 +571,7 @@ export const DESCRIPTIONS = {
     privacy: "Comment Presentail collecte, utilise et protège vos informations personnelles sur le site, les applications et les canaux sociaux.",
     "return-policy": "La politique de retour et de garantie de satisfaction de Presentail — comment demander un retour, notre fenêtre de 7 jours et ce qui est couvert.",
     "shipping-policy": "Comment Presentail livre fleurs et cadeaux au Liban, aux Émirats et à Chypre — délais de livraison, options le jour même et heures limites.",
+    "account-deletion": "Comment supprimer votre compte Presentail depuis l'application ou par e-mail, les données effacées et le délai de traitement de 15 jours.",
   },
 };
 

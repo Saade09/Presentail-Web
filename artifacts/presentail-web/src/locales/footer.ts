@@ -75,6 +75,7 @@ export const footerStrings: Dict = {
   },
   "footer.terms": { en: "Terms of Use", ar: "شروط الاستخدام" },
   "footer.privacy": { en: "Privacy Policy", ar: "سياسة الخصوصية" },
+  "footer.accountDeletion": { en: "Account Deletion", ar: "حذف الحساب" },
 };
 
 export const footerStringsFr: Record<string, string> = {
@@ -113,4 +114,5 @@ export const footerStringsFr: Record<string, string> = {
   "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ème étage, Bureau 403-405 1076, Nicosie, Chypre",
   "footer.terms": "Conditions d'utilisation",
   "footer.privacy": "Politique de confidentialité",
+  "footer.accountDeletion": "Suppression de compte",
 };

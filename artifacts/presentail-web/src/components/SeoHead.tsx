@@ -37,6 +37,7 @@ const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "/faqs", key: "faqs" },
   { test: (r) => r === "/terms", key: "terms" },
   { test: (r) => r === "/privacy", key: "privacy" },
+  { test: (r) => r === "/account-deletion", key: "account-deletion" },
 ];
 
 function detectRouteKey(rest: string): string {

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Presentail",
     "slug": "presentail",
+    "privacyPolicyUrl": "https://presentail.com/account-deletion",
     "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

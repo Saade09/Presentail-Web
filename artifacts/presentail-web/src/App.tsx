@@ -116,6 +116,7 @@ const Contact = lazy(() => import("@/pages/Contact"));
 const Faqs = lazy(() => import("@/pages/Faqs"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
+const AccountDeletion = lazy(() => import("@/pages/AccountDeletion"));
 const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
@@ -150,6 +151,7 @@ const ContactRoute = withSuspense(Contact, PageLoader);
 const FaqsRoute = withSuspense(Faqs, PageLoader);
 const TermsRoute = withSuspense(Terms, PageLoader);
 const PrivacyRoute = withSuspense(Privacy, PageLoader);
+const AccountDeletionRoute = withSuspense(AccountDeletion, PageLoader);
 const ShippingPolicyRoute = withSuspense(ShippingPolicy, PageLoader);
 const ReturnPolicyRoute = withSuspense(ReturnPolicy, PageLoader);
 const BestSellersRoute = withSuspense(BestSellers, ShopPageSkeleton);
@@ -288,6 +290,7 @@ function ShopShell() {
             <Route path="/faqs" component={FaqsRoute} />
             <Route path="/terms" component={TermsRoute} />
             <Route path="/privacy" component={PrivacyRoute} />
+            <Route path="/account-deletion" component={AccountDeletionRoute} />
             <Route path="/shipping-policy" component={ShippingPolicyRoute} />
             <Route path="/return-policy" component={ReturnPolicyRoute} />
             <Route path="/sign-in/:rest*" component={SignInRoute} />

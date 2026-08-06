@@ -919,7 +919,7 @@ const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
   "/shop", "/best-sellers", "/brands", "/occasions", "/cart", "/checkout",
   "/order-confirmed", "/careers", "/blog", "/partner",
   "/weddings", "/corporate", "/contact", "/faqs", "/terms", "/privacy",
-  "/shipping-policy", "/return-policy",
+  "/shipping-policy", "/return-policy", "/account-deletion",
   "/reset-password", "/unauthorized", "/account", "/favorites",
   "/sign-in", "/sign-up",
   // /auth is a recognised route in seo-inject.mjs (maps to routeKey "auth");
@@ -1857,7 +1857,7 @@ const server = http.createServer(async (req, res) => {
         "- **Pricing**: All prices shown in local currency (LBP, USD, AED, EUR).",
         "- **Payment methods**: Credit/debit card (Stripe), Mamo Pay, PayPal, Whish Money, Western Union.",
         "- **Corporate gifting**: Bulk orders, branded packaging, recurring gift programmes.",
-        "- **Policies**: Terms, privacy policy, returns and refunds.",
+        "- **Policies**: Terms, privacy policy, returns and refunds, account deletion.",
         "",
         "## Countries and cities served",
         "",
