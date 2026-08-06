@@ -35,8 +35,10 @@ import { SalePrice } from "@/components/SalePrice";
 import {
   dayLabels,
   expressSurchargeForCountry,
+  firstAvailableDay,
   formatDeliveryRow,
   freeDeliveryThresholdUsd,
+  getCountryHour,
   isExpressDeliveryAvailable,
   slotTimeRangeShortForLabel,
   timeSlotsForCountry,
@@ -119,33 +121,59 @@ export default function ProductDetail() {
     [city, countryCode, now],
   );
 
-  // Tracks whether the shopper has explicitly picked "scheduled" during this
-  // session. A persisted "schedule" from a previous visit must not suppress
-  // the express upgrade; only an in-session explicit pick should.
-  const userPickedScheduledRef = useRef(false);
+  // Standard delivery is eligible when the scheduler can produce at least one
+  // future window for the shopper's country. In practice this is always true
+  // (firstAvailableDay falls back to tomorrow when today's slots are past), but
+  // the check is explicit so that the upgrade effect below fires correctly if the
+  // OS ever introduces cities/hours with no schedulable windows.
+  const standardEligible = useMemo(() => {
+    const slots = timeSlotsForCountry(countryCode);
+    const h = getCountryHour(countryCode);
+    const today = new Date().toISOString().slice(0, 10);
+    return firstAvailableDay(today, slots, h, today) !== null;
+  }, [countryCode]);
 
   // Local UI choice for the radio.
-  // We intentionally default to "scheduled" when city data hasn't loaded yet
-  // (city === null) so we never flash Express for a city where OS has it
-  // turned off (e.g. Akkar). The upgrade effect below switches to "express"
-  // once we confirm the city supports it.
-  const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>(() => {
-    // city === null means the delivery-locations query hasn't resolved yet —
-    // safe default is "scheduled"; the upgrade effect corrects it once loaded.
-    if (city === null) return "scheduled";
-    return expressAvailable ? "express" : "scheduled";
-  });
+  // Default to "scheduled" (free standard delivery) when it is eligible.
+  // Express is available as an explicit opt-in upgrade.
+  const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>("scheduled");
 
-  // Upgrade to express once city data loads and confirms express is available
-  // — unless the shopper has already made an explicit in-session scheduled
-  // pick. A persisted "schedule" from a prior session is not an explicit pick
-  // and must not block the upgrade.
+  // Eligibility upgrade effect: if standard becomes ineligible while the shopper
+  // is on the page (e.g. no schedulable windows at this hour) AND express is
+  // available, fall back to express. This is the canonical place for the
+  // express-only fallback required by the spec.
   useEffect(() => {
-    if (expressAvailable && deliveryChoice === "scheduled" && !userPickedScheduledRef.current) {
+    if (deliveryChoice === "scheduled" && !standardEligible && expressAvailable) {
       setDeliveryChoice("express");
+      deliverySelection.setSelection({
+        mode: "express",
+        date: new Date().toISOString().slice(0, 10),
+        slotLabel: null,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expressAvailable]);
+  }, [standardEligible, expressAvailable]);
+
+  // Tracks whether the shopper has explicitly interacted with the date/slot
+  // picker this session. Pre-committed for returning users who have a stored
+  // scheduled selection (mode is already set in the context from readInitial).
+  // First-time visitors have mode===null so the ref starts false — they must
+  // pick a window before Add to Cart proceeds.
+  const windowCommittedRef = useRef(
+    deliverySelection.mode !== null &&
+    deliverySelection.mode !== "express" &&
+    !!deliverySelection.slotLabel,
+  );
+
+  // Fire delivery_method_defaulted once after initial mount to record the
+  // automatic standard-delivery default. Only fires for the auto-default,
+  // not for explicit user selections.
+  const defaultedFiredRef = useRef(false);
+  useEffect(() => {
+    if (defaultedFiredRef.current) return;
+    defaultedFiredRef.current = true;
+    trackEvent({ name: "delivery_method_defaulted", deliveryMethod: "standard", deliverySource: "auto" });
+  }, []);
 
   // If the recipient-country clock crosses 10 PM (or express is disabled by
   // OS for this city) while the shopper is on the page, fall back to scheduled
@@ -370,20 +398,31 @@ export default function ProductDetail() {
     return productUsdForPricing + fees.districtFee + fees.expressFee + fees.slotFee;
   }, [delivery, cartSubtotal, productUsdForPricing, countryCode, deliveryChoice, cityTimeSlots, deliverySelection.slotLabel, deliverySelection.date]);
 
+  // Ref used to scroll the schedule panel into view when Add to Cart is
+  // tapped while scheduled is selected but no window has been committed yet.
+  const schedulePanelRef = useRef<HTMLDivElement | null>(null);
+
   const handleSelectExpress = () => {
     if (!expressAvailable) return;
-    userPickedScheduledRef.current = false;
     setDeliveryChoice("express");
     deliverySelection.setSelection({
       mode: "express",
       date: new Date().toISOString().slice(0, 10),
       slotLabel: null,
     });
+    trackEvent({ name: "express_upgrade_selected", deliveryMethod: "express", deliverySource: "user" });
+    trackEvent({ name: "delivery_method_selected", deliveryMethod: "express", deliverySource: "user" });
   };
 
   const handleSelectScheduled = () => {
-    userPickedScheduledRef.current = true;
     setDeliveryChoice("scheduled");
+    // Re-evaluate whether the user already has a committed window from a
+    // previous session (mode was a scheduled type and slotLabel is set).
+    // If not, they'll need to pick a window before Add to Cart proceeds.
+    windowCommittedRef.current =
+      deliverySelection.mode !== null &&
+      deliverySelection.mode !== "express" &&
+      !!deliverySelection.slotLabel;
     // The inline picker below the row handles the actual date/slot
     // selection; if the shopper has no persisted scheduled choice yet,
     // seed today + first available slot so the row's subtitle and the
@@ -395,10 +434,22 @@ export default function ProductDetail() {
         slotLabel: deliverySelection.slotLabel ?? null,
       });
     }
+    trackEvent({ name: "delivery_method_selected", deliveryMethod: "standard", deliverySource: "user" });
   };
 
   const handleAdd = () => {
     if (!product) return;
+
+    // Guard: if scheduled is selected but no delivery window has been
+    // explicitly committed by the user this session, scroll to the inline
+    // scheduler and abort the add. windowCommittedRef starts true only for
+    // returning users who already have a stored scheduled selection.
+    if (deliveryChoice === "scheduled" && !windowCommittedRef.current) {
+      schedulePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      trackEvent({ name: "delivery_scheduler_opened", deliveryMethod: "standard", deliverySource: "auto" });
+      return;
+    }
+
     if (!deliverySelection.mode) {
       if (deliveryChoice === "express") {
         deliverySelection.setSelection({
@@ -414,7 +465,13 @@ export default function ProductDetail() {
         });
       }
     }
-    addItem(product, 1, customNote || undefined);
+    const isExpressChoice = deliveryChoice === "express";
+    addItem(product, 1, customNote || undefined, {
+      deliveryMethod: isExpressChoice ? "express" : "standard",
+      // expressSurchargeForCountry is already imported and used in deliveryCardLabels;
+      // calling it here gives the configured surcharge for the analytics payload.
+      deliveryFeeUsd: isExpressChoice ? expressSurchargeForCountry(countryCode) : 0,
+    });
     setUpsellOpen(true);
   };
 
@@ -611,17 +668,23 @@ export default function ProductDetail() {
             />
 
             {deliveryChoice === "scheduled" && (
-              <ScheduleInlinePanel
-                countryCode={countryCode}
-                timeSlots={city?.timeSlots}
-                slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
-                initialDate={deliverySelection.date}
-                initialSlotLabel={deliverySelection.slotLabel}
-                freeDeliveryMet={freeDeliveryMet}
-                onChange={({ mode, date, slotLabel }) => {
-                  deliverySelection.setSelection({ mode, date, slotLabel });
-                }}
-              />
+              <div ref={schedulePanelRef}>
+                <ScheduleInlinePanel
+                  countryCode={countryCode}
+                  timeSlots={city?.timeSlots}
+                  slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
+                  initialDate={deliverySelection.date}
+                  initialSlotLabel={deliverySelection.slotLabel}
+                  freeDeliveryMet={freeDeliveryMet}
+                  onChange={({ mode, date, slotLabel }) => {
+                    deliverySelection.setSelection({ mode, date, slotLabel });
+                  }}
+                  onUserInteracted={() => {
+                    windowCommittedRef.current = true;
+                    trackEvent({ name: "delivery_window_selected", deliveryMethod: "standard", deliverySource: "user" });
+                  }}
+                />
+              </div>
             )}
 
             {!expressAvailable && !deliveryCardLabels.helperIsQualified && (

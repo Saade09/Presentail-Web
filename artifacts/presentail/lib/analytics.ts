@@ -30,7 +30,19 @@ type AnalyticsEventName =
   | "free_standard_delivery_qualified"
   | "free_standard_delivery_qualification_lost"
   | "delivery_price_recalculated"
-  | "free_delivery_qualification_message_viewed";
+  | "free_delivery_qualification_message_viewed"
+  /** Product added to cart */
+  | "add_to_cart"
+  /** Delivery method defaulted to standard on PDP load */
+  | "delivery_method_defaulted"
+  /** User explicitly chose standard or express delivery */
+  | "delivery_method_selected"
+  /** Scheduler panel was opened because a window had not been committed */
+  | "delivery_scheduler_opened"
+  /** User confirmed a scheduled delivery window */
+  | "delivery_window_selected"
+  /** User switched from standard to express (explicit upgrade) */
+  | "express_upgrade_selected";
 
 type AnalyticsSurface =
   | "cart"
@@ -96,6 +108,10 @@ export type AnalyticsEvent = {
   appOrderId?: string;
   wcOrderId?: string;
   metricValue?: number;
+  /** Delivery method associated with this event. */
+  deliveryMethod?: "standard" | "express";
+  /** Whether the method was chosen automatically ("auto") or by the user ("user"). */
+  deliverySource?: "auto" | "user";
 };
 
 const SESSION_STORAGE_KEY = "@presentail/analytics_session";

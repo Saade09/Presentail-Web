@@ -178,7 +178,13 @@ type AnalyticsEventName =
   | "campaign_view_all_click"
   | "campaign_pill_click"
   | "campaign_sticky_cta_impression"
-  | "campaign_sticky_cta_click";
+  | "campaign_sticky_cta_click"
+  /** Delivery method selection events on PDP */
+  | "delivery_method_defaulted"
+  | "delivery_method_selected"
+  | "delivery_scheduler_opened"
+  | "delivery_window_selected"
+  | "express_upgrade_selected";
 
 type AnalyticsSurface =
   | "cart"
@@ -239,6 +245,12 @@ export type AnalyticsEvent = {
   metricValue?: number;
   /** Optional platform override. When set, takes precedence over the default "web" value added by trackEvent. */
   platform?: string;
+  /** Delivery method associated with this event ("standard" | "express"). */
+  deliveryMethod?: "standard" | "express";
+  /** Whether the delivery method was chosen automatically ("auto") or by the user ("user"). */
+  deliverySource?: "auto" | "user";
+  /** Express surcharge in USD at the time of the event, for add_to_cart enrichment. */
+  deliveryFeeUsd?: number;
   /** banner_clicked fields */
   bannerId?: string;
   linkKind?: string;

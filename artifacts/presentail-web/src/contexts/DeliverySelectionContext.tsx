@@ -11,7 +11,6 @@ import {
 import {
   firstAvailableDay,
   getCountryHour,
-  isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 
@@ -127,22 +126,13 @@ function readInitial(): DeliverySelection {
     const countryCode = readStoredCountryCode();
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      const resolved = resolveFirstAvailableDate(countryCode);
-      const today = todayIso();
-      return {
-        mode: resolved.date !== today ? "schedule" : "today_slot",
-        date: resolved.date,
-        slotLabel: resolved.slotLabel,
-      };
+      // No stored selection for this visitor. Return null so ProductDetail can
+      // detect that no window has been committed and require an explicit picker
+      // interaction before Add to Cart. ScheduleInlinePanel will auto-pick a
+      // slot locally but the context stays uncommitted until the user acts.
+      return { mode: null, date: null, slotLabel: null };
     }
     const sanitized = sanitize(JSON.parse(raw), countryCode);
-    // When the stored selection is a scheduled mode but Express is currently
-    // available, seed with Express so ProductDetail opens in the correct state
-    // on first render (the upgrade effect also corrects it once city data
-    // arrives, but pre-seeding avoids a flash for users with cached city data).
-    if (sanitized.mode === "schedule" && isExpressDeliveryAvailable(countryCode, new Date())) {
-      return { mode: "express", date: todayIso(), slotLabel: null };
-    }
     return sanitized;
   } catch {
     return { mode: null, date: null, slotLabel: null };

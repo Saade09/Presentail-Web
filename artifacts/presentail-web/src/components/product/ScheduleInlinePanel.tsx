@@ -40,6 +40,13 @@ type Props = {
     /** OS-assigned stable slot ID, when available. */
     slotId?: string;
   }) => void;
+  /**
+   * Fired when the user explicitly clicks a date chip or time-slot chip.
+   * NOT fired for the automatic initial selection on mount.
+   * Used by ProductDetail to track whether the shopper has explicitly
+   * confirmed a delivery window before allowing Add to Cart.
+   */
+  onUserInteracted?: () => void;
 };
 
 // Inline date + time-slot picker that appears right below the
@@ -54,6 +61,7 @@ export function ScheduleInlinePanel({
   slotsByDay: propSlotsByDay,
   freeDeliveryMet = false,
   onChange,
+  onUserInteracted,
 }: Props) {
   const { t } = useLocale();
   const { formatPrice } = useDisplayCurrency();
@@ -395,6 +403,7 @@ export function ScheduleInlinePanel({
                       ? () => {
                           setDate(d.iso);
                           setCalendarOpen(false);
+                          onUserInteracted?.();
                         }
                       : undefined
                   }
@@ -501,7 +510,7 @@ export function ScheduleInlinePanel({
                 type="button"
                 disabled={past}
                 aria-pressed={active}
-                onClick={() => setSlotLabel(s.label)}
+                onClick={() => { setSlotLabel(s.label); onUserInteracted?.(); }}
                 className={cn(
                   "rounded-xl border px-3 py-2 text-center transition-colors min-w-[88px] relative",
                   active

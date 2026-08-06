@@ -15,7 +15,7 @@ export type CartItem = {
 
 export type CartContextType = {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number, customNote?: string) => void;
+  addItem: (product: Product, quantity?: number, customNote?: string, deliveryOptions?: { deliveryMethod?: "standard" | "express"; deliveryFeeUsd?: number }) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   updateCustomNote: (productId: string, note: string) => void;
@@ -76,7 +76,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items]);
 
-  const addItem = (product: Product, quantity = 1, customNote?: string) => {
+  const addItem = (product: Product, quantity = 1, customNote?: string, deliveryOptions?: { deliveryMethod?: "standard" | "express"; deliveryFeeUsd?: number }) => {
     setItems(current => {
       const existing = current.find(i => i.product.id === product.id);
       if (existing) {
@@ -116,6 +116,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       currency: currencyCode,
       ...(brandName ? { brand: brandName } : {}),
       ...(cityName ? { city: cityName } : {}),
+      ...(deliveryOptions?.deliveryMethod ? { deliveryMethod: deliveryOptions.deliveryMethod } : {}),
+      ...(deliveryOptions?.deliveryFeeUsd != null ? { deliveryFeeUsd: deliveryOptions.deliveryFeeUsd } : {}),
     });
   };
 

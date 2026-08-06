@@ -2,7 +2,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -243,6 +243,24 @@ function ProductDetail() {
     }
   };
 
+  // Used to open the reschedule sheet from the outer add-button handler when
+  // scheduled is selected but no delivery window has been committed yet.
+  const openRescheduleRef = useRef<(() => void) | null>(null);
+  // Tracks whether express delivery is available for the current city.
+  // ProductBody writes this ref during render so the outer add button guard
+  // can bypass the window-commitment check in express-unavailable markets.
+  const expressAvailableRef = useRef(false);
+  // True once city data has loaded (selectedCity is non-null and not loading).
+  // Used to distinguish "city still loading" from "express genuinely unavailable".
+  const cityLoadedRef = useRef(false);
+  // Holds the auto-computed default scheduled window from ProductBody.
+  // Used to seed the delivery selection when standard is the only option and
+  // the shopper adds to cart without an explicit window pick (no delivery UI shown).
+  const seededSelectionRef = useRef<{ mode: "today_slot" | "schedule"; date: string; slotLabel: string } | null>(null);
+  // Read delivery selection from context so the add button can gate on an
+  // incomplete schedule without requiring state to be lifted from ProductBody.
+  const deliverySelectionOuter = useDeliverySelection();
+
   const { products: allProducts, loading: productsLoading } = useWooProducts();
   const found = allProducts.find((p) => p.id === slug) ?? null;
   // Hide products that the live WC payload reports as out-of-stock so the
@@ -424,6 +442,10 @@ function ProductDetail() {
           router={router}
           customNote={customNote}
           setCustomNote={setCustomNote}
+          openRescheduleRef={openRescheduleRef}
+          expressAvailableRef={expressAvailableRef}
+          cityLoadedRef={cityLoadedRef}
+          seededSelectionRef={seededSelectionRef}
         />
         <FrequentlyBoughtTogether anchorSlug={slug} />
       </ScrollView>
@@ -446,7 +468,37 @@ function ProductDetail() {
         <Pressable
           disabled={product.personalisationRequired && customNote.trim().length === 0}
           onPress={() => {
+            // Guard: mode===null means no delivery window has been committed yet
+            // (first-time user; context starts null and hydrates from AsyncStorage).
+            if (deliverySelectionOuter.mode === null) {
+              if (!cityLoadedRef.current) {
+                // City data still resolving — expressAvailableRef is stale (false).
+                // Do not add to cart yet; wait for city data to load.
+                return;
+              }
+              if (expressAvailableRef.current) {
+                // Express is available → delivery options UI is visible.
+                // Require the shopper to explicitly pick a window via the sheet.
+                openRescheduleRef.current?.();
+                trackEvent({ name: "delivery_scheduler_opened", deliveryMethod: "standard", deliverySource: "auto" });
+                return;
+              }
+              // Express unavailable → delivery options UI is hidden in this market.
+              // Standard is the only option; auto-seed the computed default window
+              // so the cart is never submitted with an uncommitted delivery state.
+              const seeded = seededSelectionRef.current;
+              if (seeded) {
+                deliverySelectionOuter.setSelection(seeded);
+              }
+              // Fall through to add() below with the seeded window.
+            }
             add(product.id, 1, customNote || undefined);
+            // Internal analytics add_to_cart event with delivery method enrichment.
+            trackEvent({
+              name: "add_to_cart",
+              deliveryMethod: deliverySelectionOuter.mode === "express" ? "express" : "standard",
+              deliverySource: "user",
+            });
             if (cc) {
               trackFbMobileEvent("AddToCart", {
                 countryCode: cc,
@@ -522,10 +574,10 @@ function ProductDetail() {
   );
 }
 
-function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _router, customNote, setCustomNote }: any) {
+function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _router, customNote, setCustomNote, openRescheduleRef, expressAvailableRef, cityLoadedRef, seededSelectionRef }: any) {
   const deliverySelection = useDeliverySelection();
   const { formatNative, currencyCode } = useCurrency();
-  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const { selectedCountry, selectedCity, isLoading: locationLoading } = useDeliveryLocation();
   // RTL direction — used for pricing/helper layout and text-alignment guards.
   const isRTL = I18nManager.isRTL;
   // Coerce to a string before `.toUpperCase()` / fallback comparisons so
@@ -548,23 +600,42 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // loaded) evaluates to false — avoids flashing Express for cities that
   // have it disabled before the delivery-locations query resolves.
   const expressAvailable = selectedCity?.expressAvailable === true && isExpressDeliveryAvailable(cc, now);
-  // Tracks whether the shopper has explicitly confirmed a scheduled slot during
-  // this session. A persisted "schedule" from a prior session must not block
-  // the express upgrade; only an in-session explicit confirmation should.
-  const userPickedScheduledRef = useRef(false);
-  // Express wins on fresh page load unless the city doesn't support it or city
-  // data hasn't loaded yet. A persisted "schedule" is not an in-session pick.
-  const initialDelivery: "express" | "scheduled" = expressAvailable ? "express" : "scheduled";
-  const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
-  // Upgrade to express once city data loads and confirms express is available
-  // — unless the shopper has explicitly confirmed a scheduled slot this session.
+  // Standard delivery is eligible when the scheduler can produce at least one
+  // future window. In practice always true (firstAvailableDay falls back to
+  // tomorrow when today's slots are past), but computed explicitly so the
+  // eligibility upgrade effect fires if OS cities/hours change.
+  const standardEligible = useMemo(() => {
+    const slots = (selectedCity?.timeSlots?.length
+      ? selectedCity.timeSlots
+      : timeSlotsForCountry(cc)) as TimeSlot[];
+    const h = getCountryHour(cc);
+    const today = new Date().toISOString().slice(0, 10);
+    return firstAvailableDay(today, slots, h, today) !== null;
+  }, [cc, selectedCity]);
+  // Always default to scheduled so free standard delivery is pre-selected.
+  // Express is available as an explicit opt-in upgrade, never auto-applied.
+  const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">("scheduled");
+
+  // Expose city-loading state and expressAvailable to the outer ProductDetail
+  // add button guard so it can: (a) block while city data is still resolving,
+  // (b) open the reschedule sheet when express is available and no window is
+  // committed, (c) auto-seed a window when express is unavailable (delivery
+  // UI is hidden) so Add to Cart proceeds without requiring explicit picks.
+  if (expressAvailableRef) {
+    expressAvailableRef.current = expressAvailable;
+  }
+  if (cityLoadedRef) {
+    cityLoadedRef.current = !locationLoading && selectedCity !== null;
+  }
+
+  // Fire delivery_method_defaulted once after mount to record the automatic
+  // standard-delivery default. Not fired for explicit user selections.
+  const defaultedFiredRef = useRef(false);
   useEffect(() => {
-    if (expressAvailable && delivery === "scheduled" && !userPickedScheduledRef.current) {
-      setDeliveryLocal("express");
-      deliverySelection.setMode("express");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expressAvailable]);
+    if (defaultedFiredRef.current) return;
+    defaultedFiredRef.current = true;
+    trackEvent({ name: "delivery_method_defaulted", deliveryMethod: "standard", deliverySource: "auto" });
+  }, []);
   // Auto-fall back to scheduled if Express is currently selected but
   // unavailable for the recipient country (e.g. shopper sat across the
   // 10 PM cutoff). Mirrors the web checkout behaviour and keeps the
@@ -580,19 +651,24 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [delivery, expressAvailable]);
+  // Eligibility upgrade: if standard delivery has no valid scheduling window
+  // AND express is available, fall back to express automatically.
+  useEffect(() => {
+    if (delivery === "scheduled" && !standardEligible && expressAvailable) {
+      setDeliveryLocal("express");
+      deliverySelection.setMode("express");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standardEligible, expressAvailable]);
+
   // Keep the local delivery toggle in sync with the shared selection so
   // that confirming the reschedule sheet (which writes
   // `today_slot` / `schedule`) flips the PDP into the scheduled state,
   // and an external switch back to express (e.g. from the cart) flips
   // it back here too.
-  // Guard: only revert to scheduled if express is unavailable OR the shopper
-  // has explicitly confirmed a scheduled slot this session. Without this gate
-  // a context hydration of a persisted "schedule" (from a prior session) would
-  // immediately override the express-upgrade effect — making Express
-  // unreachable even when it's available right now.
   useEffect(() => {
     if (deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot") {
-      if (delivery !== "scheduled" && (!expressAvailable || userPickedScheduledRef.current)) {
+      if (delivery !== "scheduled") {
         setDeliveryLocal("scheduled");
       }
     } else if (deliverySelection.mode === "express" && expressAvailable) {
@@ -602,11 +678,12 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   }, [deliverySelection.mode]);
   const setDelivery = (next: "express" | "scheduled") => {
     if (next === "express" && !expressAvailable) return;
-    if (next === "express") userPickedScheduledRef.current = false;
     setDeliveryLocal(next);
     if (next === "express") {
       deliverySelection.setMode("express");
       trackEvent({ name: "express_delivery_selected", action: "express" });
+      trackEvent({ name: "express_upgrade_selected", deliveryMethod: "express", deliverySource: "user" });
+      trackEvent({ name: "delivery_method_selected", deliveryMethod: "express", deliverySource: "user" });
     } else {
       // Note: scheduled_delivery_selected is intentionally NOT emitted here.
       // The schedule card only opens the reschedule sheet; the actual selection
@@ -855,7 +932,20 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     nearestSlotForHour(PROD_SLOTS, false, localH) ??
     PROD_SLOTS[0]
   )!.label;
+  // Expose the computed default window so the outer add-button handler can
+  // auto-seed the delivery selection when express is unavailable (delivery
+  // options UI hidden) and no window has been committed yet.
+  if (seededSelectionRef) {
+    const seededMode = defaultDate === todayIso ? "today_slot" : "schedule";
+    seededSelectionRef.current = { mode: seededMode, date: defaultDate, slotLabel: defaultSlot };
+  }
   const [rescheduleVisible, setRescheduleVisible] = useState(false);
+  // Expose the sheet opener to the outer add-button handler so it can open
+  // the sheet when the user taps Add to Cart with no window selected yet.
+  // Ref assignment during render is safe in React for this pattern.
+  if (openRescheduleRef) {
+    openRescheduleRef.current = () => setRescheduleVisible(true);
+  }
 
   const categorySlug = product.category ?? "";
   const careTipGroup: CareTipGroup = CATEGORY_CARE_GROUP[categorySlug] ?? "flowers";
@@ -1009,14 +1099,11 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
             colors={colors}
             active={delivery === "scheduled"}
             onPress={() => {
-              // Fire selection intent on tap (matches express_delivery_selected
-              // symmetry); the sheet confirm updates the time slot but the
-              // shopper has already expressed their intent here.
-              trackEvent({ name: "scheduled_delivery_selected", action: "schedule" });
-              // Open the sheet; only flip local state to "scheduled" on Confirm.
+              // Open the sheet; flip local state to "scheduled" on Confirm.
               // Dismissing the sheet leaves the current mode unchanged so
               // "Keep Express" really does keep express on the PDP.
               setRescheduleVisible(true);
+              trackEvent({ name: "delivery_scheduler_opened", deliveryMethod: "standard", deliverySource: "user" });
             }}
             icon="calendar-clock"
             title={t.selectDateAndTime}
@@ -1058,7 +1145,11 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         visible={rescheduleVisible}
         onClose={() => setRescheduleVisible(false)}
         onConfirm={() => {
-          userPickedScheduledRef.current = true;
+          // Fire scheduled_delivery_selected only on explicit user confirmation
+          // via the sheet — not on card tap or automatic default.
+          trackEvent({ name: "scheduled_delivery_selected", action: "schedule" });
+          trackEvent({ name: "delivery_method_selected", deliveryMethod: "standard", deliverySource: "user" });
+          trackEvent({ name: "delivery_window_selected", deliveryMethod: "standard", deliverySource: "user" });
         }}
       />
 
