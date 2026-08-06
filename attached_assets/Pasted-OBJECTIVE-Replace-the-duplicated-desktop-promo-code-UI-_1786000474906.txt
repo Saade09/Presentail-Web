@@ -1,0 +1,107 @@
+OBJECTIVE
+Replace the duplicated desktop promo-code UI on the cart page with one stateful component that moves cleanly through Default → Expanded → Applied.
+
+IMPORTANT SCOPE LIMIT
+This change applies ONLY to the desktop cart experience. Do not redesign, restyle, or change the interaction on mobile or tablet. Use the product’s existing desktop breakpoint rather than introducing a new breakpoint. If the promo component is shared across breakpoints, isolate the desktop behavior/styles and verify that mobile/tablet remain unchanged.
+
+CURRENT PROBLEM
+After a promo code is applied, the desktop cart currently shows both:
+1. an applied-code header; and
+2. a second populated promo-code input with a separate Remove button.
+
+This repeats the same information, consumes unnecessary vertical space, and pushes the Delivery Summary and Order Summary downward.
+
+DESIRED DESKTOP STATES
+
+1) DEFAULT / COLLAPSED
+- Keep one compact white rounded row, using the current collapsed “Add a promo code” component as the visual baseline.
+- Left: outlined tag icon.
+- Label: “Add a promo code”.
+- Right: downward chevron.
+- The entire row should be clickable, not only the chevron.
+- Preserve the current desktop width, border, radius, shadow, spacing, and Presentail color tokens.
+
+2) EXPANDED / ENTRY
+- Clicking the default row expands the same component in place.
+- Header row:
+  - outlined tag icon;
+  - label “Promo code”;
+  - upward chevron on the right.
+- Below the header, show exactly one text input with placeholder “Enter promo code”.
+- Place one primary dark-teal “Apply” button to the right of the input.
+- Do not render a second title, second promo input, or duplicate action.
+- Pressing Enter while focused in the input should submit.
+- Disable Apply for empty or whitespace-only input.
+- Trim leading/trailing whitespace before submission.
+- While applying, prevent repeated submissions and show the existing loading treatment.
+- An invalid, expired, or ineligible code should keep the component expanded, preserve the entered code, and show the existing inline error treatment.
+- A network failure should not clear the customer’s input and should allow retry.
+
+3) APPLIED / COLLAPSED SUCCESS
+- On successful application, collapse the component automatically.
+- Keep the exact same resting height and width as the Default state to avoid layout shift.
+- Left: outlined tag icon.
+- Primary label: the applied code in uppercase, e.g. “SENDLOVEHOME”.
+- Beside the code: green check icon and green “Applied” status.
+- Far right: subtle text action “Remove”.
+- Do not show a chevron in this state.
+- Do not show the promo input.
+- Do not add a “You saved…” subtitle inside this component; the discount amount remains visible as a line item in Order Summary.
+- Removing the code returns the component to the Default state.
+- While removing, prevent duplicate actions and use the existing loading treatment.
+- Update the promo line, total, and component state together so the UI never temporarily shows an applied promo with an undiscounted total, or vice versa.
+
+LAYOUT REQUIREMENTS
+- In Default and Applied states, Delivery Summary must begin at the same vertical position.
+- The Expanded state may temporarily push Delivery Summary downward.
+- Removing or applying a code should not produce a large page jump.
+- Keep the component aligned with the Delivery Summary and Order Summary cards in the desktop right rail.
+- Preserve the current card width and page grid.
+- Do not change the product list, delivery selector, card-message form, header, checkout CTA, or other cart functionality as part of this task.
+
+ORDER SUMMARY
+- With no promo, do not display a promo discount row.
+- With a valid promo, display one discount line in Order Summary using the applied code as the label and the exact discount amount.
+- On removal, remove the discount line and recalculate the total immediately.
+- Display monetary precision consistently so the visible subtotal, fees, discount, and total reconcile exactly. Avoid rounded line items that make the displayed arithmetic appear incorrect.
+
+ACCESSIBILITY
+- Use semantic button controls for expand/collapse, Apply, and Remove.
+- Add correct aria-expanded and aria-controls behavior to the collapsible control.
+- Provide a programmatic label for the promo input.
+- Maintain a logical keyboard focus order.
+- After a successful application, announce the applied status and updated total to assistive technology without moving focus unexpectedly.
+- After an error, associate the inline error with the input and move/retain focus appropriately.
+- Maintain visible focus states and existing contrast standards.
+- Preserve adequate desktop click targets.
+
+ANALYTICS
+Use the existing analytics naming and payload conventions. Ensure tracking exists for:
+- promo component opened;
+- apply attempted;
+- promo successfully applied;
+- apply failed, including the existing safe failure reason/category;
+- promo removed.
+Do not send the raw customer-entered promo code if current privacy/analytics conventions prohibit it.
+
+ACCEPTANCE CRITERIA
+- Desktop shows exactly one promo component in every state.
+- Default state matches “Add a promo code” collapsed treatment.
+- Expanded state contains one input and one Apply button.
+- Successful application collapses to the compact code + Applied + Remove row.
+- Default and Applied states have the same resting height.
+- No duplicate populated promo field appears after application.
+- Order Summary discount and total update correctly on apply/remove.
+- All visible monetary values reconcile.
+- Empty, invalid, expired, ineligible, network-error, loading, valid, removed, and page-refresh/session-restoration cases are tested.
+- Keyboard-only operation and screen-reader state announcements are verified.
+- Chrome and Safari desktop are checked at the currently supported desktop widths.
+- Mobile and tablet layouts/behavior are unchanged and pass regression QA.
+
+OUT OF SCOPE
+- Any mobile or tablet redesign.
+- Changes to promo eligibility, discount calculation rules, campaign configuration, or backend behavior beyond what is necessary to support the UI states.
+- Redesigning Delivery Summary, Order Summary, checkout CTA, product cards, or card-message fields.
+
+DONE WHEN
+The desktop cart has a single, accessible, stateful promo-code component; Default and Applied states occupy identical space; Expanded state supports entry and errors cleanly; the Order Summary reconciles exactly; and mobile/tablet remain unchanged.
