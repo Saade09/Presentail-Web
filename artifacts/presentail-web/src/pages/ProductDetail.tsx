@@ -678,6 +678,11 @@ export default function ProductDetail() {
                   freeDeliveryMet={freeDeliveryMet}
                   onChange={({ mode, date, slotLabel }) => {
                     deliverySelection.setSelection({ mode, date, slotLabel });
+                    // Commit the ref whenever the panel reports a valid selection,
+                    // including its automatic initial selection on mount. This lets
+                    // first-time visitors click Add to Cart with the default slot
+                    // without needing to manually tap a date or time chip first.
+                    windowCommittedRef.current = true;
                   }}
                   onUserInteracted={() => {
                     windowCommittedRef.current = true;
