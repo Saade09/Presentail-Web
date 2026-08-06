@@ -247,7 +247,7 @@ router.post("/checkout/session", async (req, res) => {
       const couponResult = await validateCoupon(sessionCouponCode.trim(), {
         customerEmail: email ?? "",
         cartItems: cartItemsForCoupon,
-        cartTotalUsd: sessionSubtotalUsd,
+        cartTotalUsd: sessionTotalUsd,
       });
       if (couponResult.valid) {
         sessionCouponDiscountUsd = couponResult.discountAmountUsd;
@@ -697,7 +697,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
     const couponResult = await validateCoupon(couponCode.trim(), {
       customerEmail: email ?? "",
       cartItems: cartItemsForCoupon,
-      cartTotalUsd: subtotalUsd,
+      cartTotalUsd: totalUsd,
     });
     if (couponResult.valid) {
       couponDiscountUsd = couponResult.discountAmountUsd;
@@ -1228,7 +1228,7 @@ router.post("/checkout/fees", async (req, res) => {
     const couponResult = await validateCoupon(couponCode.trim(), {
       customerEmail: email ?? "",
       cartItems: cartItemsForCoupon,
-      cartTotalUsd: subtotalUsd,
+      cartTotalUsd: rawTotalUsd,
     });
     if (couponResult.valid) {
       couponDiscountUsd = couponResult.discountAmountUsd;

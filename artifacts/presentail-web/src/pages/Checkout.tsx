@@ -1011,7 +1011,7 @@ function CheckoutForm() {
         code: FIRST_ORDER_COUPON_CODE,
         customerEmail: autoPromoEmail,
         cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
-        cartTotalUsd: subtotal,
+        cartTotalUsd: subtotal + districtFee + expressFee + slotFee,
       }),
     })
       .then((res) => {
@@ -1063,7 +1063,7 @@ function CheckoutForm() {
           code,
           customerEmail: user?.email ?? "",
           cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
-          cartTotalUsd: subtotal,
+          cartTotalUsd: subtotal + districtFee + expressFee + slotFee,
         }),
       });
       if (res.ok) {

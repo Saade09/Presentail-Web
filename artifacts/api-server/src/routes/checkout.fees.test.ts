@@ -13,6 +13,7 @@
 //   (j) Non-night slot with no extraFee → $0 slot fee
 //   (k) Night slot with a future date → $0 slot fee (same-day rule)
 //   (l) Night slot with explicit extraFee: 0 → $0 (OS explicit-free override wins)
+//   (m) Coupon face value > product subtotal but ≤ full cart total — full coupon applied
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
@@ -56,6 +57,7 @@ vi.mock("../lib/catalog", async (importActual) => {
 
 vi.mock("../lib/osLocationsCache", () => ({
   getDeliverySlots: getDeliverySlotsMock,
+  resolveOsDeliveryConfig: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("../lib/fx", () => ({
@@ -384,5 +386,45 @@ describe("POST /checkout/fees", () => {
     expect(res.body.ok).toBe(true);
     expect(res.body.slotFeeUsd).toBe(0);
     expect(res.body.totalUsd).toBe(100);
+  });
+
+  it("(m) coupon face value > product subtotal but ≤ full cart total — validateCoupon receives full cart total and full discount applied", async () => {
+    // Product subtotal: $10, delivery fee: $8, full cart total: $18.
+    // Coupon face value: $15 — exceeds the $10 subtotal but is within the $18 full total.
+    // Before the fix, cartTotalUsd=$10 would be sent to OS, capping the discount at $10.
+    // After the fix, cartTotalUsd=$18 is sent, so OS returns the full $15 discount.
+    vi.mocked(resolveCartItems).mockResolvedValue({
+      ok: true,
+      subtotalUsd: 10,
+      items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 10, name: "Rose", description: "", image: "" }],
+    });
+    computeDistrictFeeUsdMock.mockReturnValue(8);
+    vi.mocked(validateCoupon).mockResolvedValue({
+      valid: true,
+      couponId: "AMER100",
+      discountType: "fixed",
+      discountValue: 15,
+      discountAmountUsd: 15,
+      finalTotalUsd: 3,
+    });
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({ items: BASE_ITEMS, currency: "USD", district: "Beirut", couponCode: "AMER100" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.subtotalUsd).toBe(10);
+    expect(res.body.districtFeeUsd).toBe(8);
+    // Full $15 discount applied — not capped at the $10 product subtotal.
+    expect(res.body.couponDiscountUsd).toBe(15);
+    expect(res.body.totalUsd).toBe(3); // 10 + 8 - 15
+
+    // Verify validateCoupon was called with the full cart total (products + delivery).
+    expect(vi.mocked(validateCoupon)).toHaveBeenCalledWith(
+      "AMER100",
+      expect.objectContaining({ cartTotalUsd: 18 }),
+    );
   });
 });

@@ -224,7 +224,7 @@ export default function Cart() {
           code,
           customerEmail: user?.email ?? "",
           cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
-          cartTotalUsd: subtotal,
+          cartTotalUsd: subtotal + (effectiveDeliveryFeeUsd ?? 0) + slotFeeUsd,
         }),
       });
       if (res.ok) {

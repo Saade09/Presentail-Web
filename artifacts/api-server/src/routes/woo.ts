@@ -1374,7 +1374,7 @@ router.post("/woo/order", async (req, res) => {
               const recoveredCouponResult = await validateCoupon(body.couponCode.trim(), {
                 customerEmail: body.billing.email ?? "",
                 cartItems: recoveredCouponItems,
-                cartTotalUsd: cartResolution.subtotalUsd,
+                cartTotalUsd: recoveredTotalUsd,
               }).catch(() => null);
               if (recoveredCouponResult?.valid) {
                 recoveredCouponDiscountUsd = recoveredCouponResult.discountAmountUsd;
@@ -1751,10 +1751,14 @@ router.post("/woo/order", async (req, res) => {
         (sum, i) => sum + i.priceUsd * i.quantity,
         0,
       );
+      const authoritativeDeliveryFeeUsd =
+        (snapshotFees?.districtFeeUsd ?? 0) +
+        (snapshotFees?.expressFeeUsd ?? 0) +
+        (snapshotFees?.slotFeeUsd ?? 0);
       const couponResult = await validateCoupon(body.couponCode.trim(), {
         customerEmail: body.billing.email ?? "",
         cartItems: authoritativeCartItems,
-        cartTotalUsd: authoritativeCartTotal,
+        cartTotalUsd: authoritativeCartTotal + authoritativeDeliveryFeeUsd,
       }).catch(() => null);
       if (couponResult?.valid) {
         couponValidated = {
