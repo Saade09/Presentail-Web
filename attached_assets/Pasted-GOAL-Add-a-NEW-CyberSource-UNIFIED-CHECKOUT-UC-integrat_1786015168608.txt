@@ -1,0 +1,41 @@
+GOAL
+Add a NEW CyberSource UNIFIED CHECKOUT (UC) integration, including PAYER AUTHENTICATION / 3-D SECURE (3DS 2.x). There is currently NO CyberSource code in this repo (a previous task removed all traces of it) — build this cleanly from scratch. Do not look for or try to reuse any old CyberSource code.
+
+Match the existing tech stack in this repo. Follow these official docs as the source of truth for exact endpoints, request/response schemas, and the current SDK version:
+- https://developer.cybersource.com/docs/cybs/en-us/unified-checkout/developer/all/rest/unified-checkout/uc-intro.html
+- https://developer.cybersource.com/docs/cybs/en-us/unified-checkout/developer/all/rest/unified-checkout/uc-about-guide.html
+- https://developer.cybersource.com/docs/cybs/en-us/unified-checkout/developer/all/rest/unified-checkout.html
+
+PAYMENT ROUTING (enforce SERVER-SIDE — client-side checks are UX only, never security)
+- If the selected currency is USD AND the customer's IP geolocates to Lebanon (country code LB) → process via CyberSource Unified Checkout + 3DS.
+- In EVERY other case (any non-USD currency, or any non-Lebanon IP) → use our EXISTING Stripe integration, which is already configured. Leave the Stripe flow untouched.
+- Never create a UC capture context or send a payment to CyberSource unless the USD+Lebanon condition is met.
+
+IMPLEMENTATION — follow the UC flow:
+1. Backend: create the capture context (POST /up/v1/capture-contexts) using HTTP Signature auth with credentials from server-side secrets. Set amount, currency=USD, country, targetOrigins, allowed card networks, and ENABLE payer authentication / 3DS. Only call this if the USD+Lebanon gate passes.
+2. Frontend: load the UC SDK using the capture-context JWT, render the checkout UI, collect payment, and receive the transient token.
+3. Payer Authentication (3DS 2.x): run setup → enrollment check → handle the step-up challenge (iframe) if required → validate results, per the docs. Capture the 3DS auth data (CAVV/ECI/etc.).
+4. Backend: authorize/capture via the Payments API (POST /pts/v2/payments) using the transient token + 3DS data. RE-VERIFY the USD+Lebanon gate here before authorizing.
+
+GEO-IP
+Determine the client's country from the REAL client IP (respect x-forwarded-for / proxy headers). Use a geo-IP method (service or DB); Lebanon = LB. Note: IP geo is best-effort and can be bypassed via VPN — enforce it server-side anyway.
+
+SECURITY
+- Keep ALL secret keys and the capture-context + authorization calls server-side only. Never expose the shared secret / API secret key in client code or network responses.
+- Store all credentials as Replit Secrets / environment variables.
+
+ENVIRONMENT
+Make everything config-driven via environment variables — no manual toggle. Use CyberSource TEST/SANDBOX credentials and base URLs in the dev workspace, and PRODUCTION credentials and base URLs in the deployed/prod environment, selected automatically from env vars.
+
+DELIVERABLES
+- A working Unified Checkout + 3DS flow, routed by the USD+Lebanon rule, with Stripe handling all other cases.
+- A SETUP/CONFIG panel (or a clearly documented settings screen) that lists EVERY item I need to provide or register, each as a labeled input box, e.g.:
+    • Merchant ID
+    • API Key ID / Shared Secret Key (or whatever auth method the docs require) — test + prod
+    • Base URLs per environment
+    • Allowed card networks / payment methods
+    • Any webhook / notification URLs I must register in the CyberSource Business Center — give me the exact URL to paste and tell me where it goes
+    • Geo-IP service API key (if a paid service is used)
+- When you're done, show me a checklist of exactly what to fill in and where, and flag anything you had to assume.
+
+Please ASK ME questions if any requirement, credential, or endpoint is unclear before you finalize.
