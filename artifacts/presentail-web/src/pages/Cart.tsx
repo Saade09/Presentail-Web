@@ -200,11 +200,15 @@ export default function Cart() {
   const handleCouponToggle = () => {
     const next = !couponOpen;
     setCouponOpen(next);
+    if (next && !couponApplied) {
+      trackWebEvent({ type: "promo_opened" });
+    }
   };
 
   const handleCouponApply = async () => {
     const code = couponInput.trim().toUpperCase();
     if (!code || couponValidating) return;
+    trackWebEvent({ type: "promo_apply_attempted" });
     setCouponError(null);
     setCouponValidating(true);
     try {
@@ -261,6 +265,7 @@ export default function Cart() {
     setCouponOpen(false);
     setCouponError(null);
     setCouponDiscountUsd(0);
+    trackWebEvent({ type: "promo_removed" });
   };
 
   // Card message — persisted to localStorage so it pre-populates checkout.
@@ -652,76 +657,100 @@ export default function Cart() {
           {/* Order Summary */}
           <div className="hidden lg:block lg:col-start-2 lg:row-start-1 lg:row-span-2">
             <div className="bg-secondary/30 rounded-3xl px-8 pb-8 sticky top-32">
-              {/* Promo Code Accordion */}
-              <div className="mb-6">
-                <button
-                  type="button"
-                  onClick={handleCouponToggle}
-                  className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm transition-colors hover:bg-secondary/40"
-                  data-testid="button-promo-toggle"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Tag className="w-4 h-4 text-primary/60 shrink-0" />
-                    {couponApplied ? (
-                      <span className="font-medium text-primary">
-                        {couponInput}
-                        <span className="ml-2 inline-flex items-center gap-1 text-xs text-emerald-600">
-                          <Check className="w-3 h-3" />
-                          {t("cart.promoCodeApplied")}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">{t("cart.promoCode")}</span>
-                    )}
-                  </div>
-                  {couponOpen ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  )}
-                </button>
+              {/* Promo Code — three exclusive states: Applied | Expanded | Default */}
+              {/* aria-live region: announces applied/error to assistive technology */}
+              <div aria-live="polite" aria-atomic="true" className="sr-only">
+                {couponApplied
+                  ? t("cart.promoCodeAppliedAnnouncement").replace("{code}", couponInput)
+                  : couponError ?? ""}
+              </div>
 
-                {couponOpen && (
-                  <div className="mt-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={couponInput}
-                        onChange={(e) => {
-                          setCouponInput(e.target.value);
-                          if (couponError) setCouponError(null);
-                          if (couponApplied) { setCouponApplied(false); setCouponDiscountUsd(0); }
-                        }}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
-                        placeholder={t("cart.promoCodePlaceholder")}
-                        className={`rounded-lg text-sm${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
-                        data-testid="input-promo-code"
-                      />
-                      {couponApplied ? (
+              <div className="mb-6">
+                {couponApplied ? (
+                  /* ── Applied state ── */
+                  <div className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Tag className="w-4 h-4 text-primary/60 shrink-0" />
+                      <span className="font-medium text-primary truncate">{couponInput}</span>
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 shrink-0">
+                        <Check className="w-3 h-3" />
+                        {t("cart.promoCodeApplied")}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCouponRemove}
+                      className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      data-testid="button-promo-remove"
+                    >
+                      {t("cart.promoCodeRemove")}
+                    </button>
+                  </div>
+                ) : couponOpen ? (
+                  /* ── Expanded state ── */
+                  <div className="rounded-xl border border-primary/15 bg-white overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={handleCouponToggle}
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-secondary/40"
+                      data-testid="button-promo-toggle"
+                      aria-expanded="true"
+                      aria-controls="promo-panel"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Tag className="w-4 h-4 text-primary/60 shrink-0" />
+                        <span className="text-muted-foreground">{t("cart.promoCodeHeader")}</span>
+                      </div>
+                      <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
+                    <div id="promo-panel" className="px-3 pb-3">
+                      <div className="flex gap-2">
+                        <Input
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value);
+                            if (couponError) setCouponError(null);
+                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
+                          placeholder={t("cart.promoCodePlaceholder")}
+                          className={`rounded-xl text-sm${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                          data-testid="input-promo-code"
+                          aria-label={t("cart.promoCodeInputLabel")}
+                          aria-describedby={couponError ? "promo-error" : undefined}
+                        />
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCouponRemove}
-                          className="shrink-0 rounded-lg"
-                          data-testid="button-promo-remove"
-                        >
-                          {t("cart.promoCodeRemove")}
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
                           onClick={handleCouponApply}
                           disabled={!couponInput.trim() || couponValidating}
-                          className="shrink-0 rounded-lg"
+                          className="shrink-0 rounded-xl px-5"
                           data-testid="button-promo-apply"
                         >
                           {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
                         </Button>
+                      </div>
+                      {couponError && (
+                        <p id="promo-error" className="mt-1.5 text-xs text-destructive" data-testid="text-promo-error">
+                          {couponError}
+                        </p>
                       )}
                     </div>
-                    {couponError && <p className="mt-1.5 text-xs text-destructive" data-testid="text-promo-error">{couponError}</p>}
                   </div>
+                ) : (
+                  /* ── Default state ── */
+                  <button
+                    type="button"
+                    onClick={handleCouponToggle}
+                    className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm transition-colors hover:bg-secondary/40"
+                    data-testid="button-promo-toggle"
+                    aria-expanded="false"
+                    aria-controls="promo-panel"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Tag className="w-4 h-4 text-primary/60 shrink-0" />
+                      <span className="text-muted-foreground">{t("cart.promoCode")}</span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </button>
                 )}
               </div>
 

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 //
-// Unit tests for Cart.tsx's handleCouponApply:
-//   (a) valid code → couponApplied becomes true, discount stored in localStorage, row shown
-//   (b) 422 from server → couponError shows the server's message, not the generic fallback
+// Unit tests for Cart.tsx's promo code component:
+//   (a) valid code → Applied state shown, input panel gone, discount stored
+//   (b) server error → error shown, panel stays expanded
+//   (c) remove → returns to Default state
+//   (d) new state-machine assertions for the three-state design
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
@@ -181,7 +183,7 @@ describe("Cart — handleCouponApply", () => {
     localStorage.clear();
   });
 
-  it("(a) valid code → couponApplied shown, discount stored in localStorage, discount row visible", async () => {
+  it("(a) valid code → Applied state shown, input panel gone, toggle button gone, discount row visible", async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
       discountAmountUsd: 10,
@@ -195,7 +197,7 @@ describe("Cart — handleCouponApply", () => {
       currency: CURRENCY_FIXTURE,
     });
 
-    // Open the desktop promo accordion
+    // Open the desktop promo accordion (Default state)
     const promoToggle = await screen.findByTestId("button-promo-toggle");
     await user.click(promoToggle);
 
@@ -203,6 +205,18 @@ describe("Cart — handleCouponApply", () => {
     await user.type(input, "SAVE10");
 
     await user.click(screen.getByTestId("button-promo-apply"));
+
+    // After successful apply: Applied state row is present
+    await waitFor(() =>
+      expect(screen.getByTestId("button-promo-remove")).toBeTruthy(),
+    );
+
+    // The toggle button must NOT be in the DOM (Applied state has no chevron/toggle)
+    expect(screen.queryByTestId("button-promo-toggle")).toBeNull();
+
+    // The input panel must NOT be in the DOM
+    expect(screen.queryByTestId("input-promo-code")).toBeNull();
+    expect(screen.queryByTestId("button-promo-apply")).toBeNull();
 
     // Discount row must appear
     await waitFor(() =>
@@ -226,7 +240,50 @@ describe("Cart — handleCouponApply", () => {
     );
   });
 
-  it("(b) 422 from server → shows the server's message, not the generic fallback", async () => {
+  it("(a2) remove button in Applied state returns to Default (toggle visible, no remove, no input)", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      discountAmountUsd: 10,
+      finalTotalUsd: 50,
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    // Apply a code first
+    const promoToggle = await screen.findByTestId("button-promo-toggle");
+    await user.click(promoToggle);
+    await user.type(screen.getByTestId("input-promo-code"), "SAVE10");
+    await user.click(screen.getByTestId("button-promo-apply"));
+
+    // Wait for Applied state
+    await waitFor(() =>
+      expect(screen.getByTestId("button-promo-remove")).toBeTruthy(),
+    );
+
+    // Click Remove
+    await user.click(screen.getByTestId("button-promo-remove"));
+
+    // Should be back in Default state: toggle visible, no remove button, no input
+    await waitFor(() =>
+      expect(screen.getByTestId("button-promo-toggle")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("button-promo-remove")).toBeNull();
+    expect(screen.queryByTestId("input-promo-code")).toBeNull();
+
+    // Discount row must be gone
+    expect(screen.queryByTestId("row-cart-coupon-discount")).toBeNull();
+
+    // localStorage must be cleared
+    expect(localStorage.getItem(COUPON_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(COUPON_DISCOUNT_KEY)).toBeNull();
+  });
+
+  it("(b) 422 from server → shows the server's message, panel stays expanded with input still populated", async () => {
     const serverMessage = "Coupon not found";
     const err = Object.assign(new Error(serverMessage), { status: 422 });
     mockApiFetch.mockRejectedValue(err);
@@ -256,6 +313,13 @@ describe("Cart — handleCouponApply", () => {
     expect(screen.getByTestId("text-promo-error").textContent).not.toContain(
       "cart.promoCodeError",
     );
+
+    // Panel must remain expanded: input and apply button still present
+    expect(screen.getByTestId("input-promo-code")).toBeTruthy();
+    expect(screen.getByTestId("button-promo-apply")).toBeTruthy();
+
+    // Input must still contain the entered code
+    expect((screen.getByTestId("input-promo-code") as HTMLInputElement).value).toBe("BADCODE");
 
     // localStorage must stay clean
     expect(localStorage.getItem(COUPON_STORAGE_KEY)).toBeNull();
@@ -287,7 +351,7 @@ describe("Cart — handleCouponApply", () => {
     );
   });
 
-  it("(b3) network-only failure shows an error (not silent)", async () => {
+  it("(b3) network failure shows an error and does not clear the input", async () => {
     mockApiFetch.mockRejectedValue(new Error("Failed to fetch"));
 
     const user = userEvent.setup();
@@ -307,5 +371,8 @@ describe("Cart — handleCouponApply", () => {
     await waitFor(() =>
       expect(screen.getByTestId("text-promo-error")).toBeTruthy(),
     );
+
+    // Input must still be populated (network failure must not clear the code)
+    expect((screen.getByTestId("input-promo-code") as HTMLInputElement).value).toBe("NETFAIL");
   });
 });

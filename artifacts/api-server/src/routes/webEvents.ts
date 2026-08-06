@@ -11,8 +11,11 @@ const WEB_EVENT_TYPES = [
   "payment_started",
   "payment_completed",
   "payment_failed",
+  "promo_opened",
+  "promo_apply_attempted",
   "promo_applied",
   "promo_failed",
+  "promo_removed",
   "search",
   "search_no_result",
 ] as const;
