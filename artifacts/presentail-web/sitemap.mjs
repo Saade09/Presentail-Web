@@ -517,6 +517,7 @@ export async function resolveSitemap({
 //
 // In production with a live API:
 //   INTERNAL_API_BASE_URL=http://localhost:80 node sitemap.mjs --eligibility-report
+//   (in/against production, use the public apex instead: https://presentail.com)
 //
 // In CI (no live API — shows zero counts from empty catalog):
 //   node sitemap.mjs --eligibility-report

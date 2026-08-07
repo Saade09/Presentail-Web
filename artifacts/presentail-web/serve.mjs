@@ -67,11 +67,28 @@ const BASE_PATH = (process.env.BASE_PATH ?? "/").replace(/\/$/, "");
 // never set in production deployments.
 const SERVE_TEST_HOOKS = process.env.SERVE_TEST_HOOKS === "1";
 // Internal base URL used to fetch per-product data for server-rendered OG /
-// Twitter Card meta tags on `/product/<slug>` pages. Defaults to the shared
-// Replit proxy at localhost:80 so the API and web artifact can talk locally
-// without an external HTTPS round-trip; can be overridden in unusual deploys.
-const INTERNAL_API_BASE_URL =
-  process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
+// Twitter Card meta tags, entity JSON-LD, and the sitemap.
+//
+// Resolution order:
+//   1. INTERNAL_API_BASE_URL env var — explicit override.
+//   2. In production (NODE_ENV=production), the deployment's own public
+//      domain (first entry of REPLIT_DOMAINS). The web and API artifacts run
+//      as SEPARATE production deployments, so there is no localhost proxy —
+//      the only route to /api is the public domain. Without this, every
+//      entity fetch silently failed in prod: product/category pages fell
+//      back to Organization-only JSON-LD and the sitemap served its static
+//      fallback with no product/category URLs (Aug 2026 incident).
+//   3. Dev fallback: the shared Replit proxy at localhost:80, which
+//      path-routes /api to the API artifact inside the dev container.
+function resolveInternalApiBaseUrl() {
+  if (process.env.INTERNAL_API_BASE_URL) return process.env.INTERNAL_API_BASE_URL;
+  if (process.env.NODE_ENV === "production") {
+    const domain = (process.env.REPLIT_DOMAINS ?? "").split(",")[0]?.trim();
+    if (domain) return `https://${domain}`;
+  }
+  return "http://localhost:80";
+}
+const INTERNAL_API_BASE_URL = resolveInternalApiBaseUrl();
 
 // Canonical-domain redirect. Requests arriving on www.* or new.presentail.com
 // are hard-redirected to the apex unconditionally (cannot be disabled by env
