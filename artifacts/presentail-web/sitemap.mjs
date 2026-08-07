@@ -263,18 +263,18 @@ export function buildSitemapXml({
     if (!occasion?.id) continue;
     const encoded = encodeURIComponent(occasion.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      const parentEligibleOccasion =
-        totalProductCount !== null
-          ? totalProductCount >= MIN_PRODUCTS_BY_TYPE["city-occasion"]
-          : null;
+      // parentProductCount intentionally omitted: comparing an occasion's
+      // product count against the entire catalog total (which is the only
+      // figure available here) would cause Rule 4's uniqueness-ratio check
+      // to wrongly exclude small-but-real occasions (e.g. 7/334 = 0.021 <
+      // 0.15). The absolute minimum-count check (Rule 3, ≥4 products) is
+      // the correct gate; ratio vs. catalog total adds no meaningful signal.
       const eligibility = isPageEligible({
         pageType: "city-occasion",
         country,
         city,
         occasionSlug: occasion.id,
         productCount: occasion.count ?? 0,
-        parentProductCount: totalProductCount,
-        parentEligible: parentEligibleOccasion,
       });
       // Curated occasion pages (hand-written intro/sections/FAQs) carry
       // substantial unique content, so the thin/duplicate-page eligibility
@@ -309,18 +309,15 @@ export function buildSitemapXml({
     if (!category?.id) continue;
     const encoded = encodeURIComponent(category.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      const parentEligibleCategory =
-        totalProductCount !== null
-          ? totalProductCount >= MIN_PRODUCTS_BY_TYPE["city-category"]
-          : null;
+      // parentProductCount intentionally omitted — see occasion section above
+      // for the same reasoning: ratio vs. global catalog total incorrectly
+      // rejects small niche categories (cakes: 7/334 = 0.021 < 0.15).
       const eligibility = isPageEligible({
         pageType: "city-category",
         country,
         city,
         categorySlug: category.id,
         productCount: category.count ?? 0,
-        parentProductCount: totalProductCount,
-        parentEligible: parentEligibleCategory,
       });
       recordEligibility("city-category", eligibility.eligible);
       if (!eligibility.eligible) continue;

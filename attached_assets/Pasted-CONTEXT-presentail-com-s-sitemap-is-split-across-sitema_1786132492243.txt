@@ -1,0 +1,129 @@
+CONTEXT
+
+presentail.com's sitemap is split across sitemap-en.xml, sitemap-ar.xml, and
+sitemap-fr.xml (indexed from sitemap.xml). I pulled sitemap-en.xml directly
+and confirmed what page types are actually in it today, e.g. for Dubai:
+
+  https://presentail.com/en-ae/dubai
+  https://presentail.com/en-ae/dubai/brands
+  https://presentail.com/en-ae/dubai/occasions        <- the HUB page only
+  https://presentail.com/en-ae/dubai/contact
+  https://presentail.com/en-ae/dubai/faqs
+  https://presentail.com/en-ae/dubai/weddings
+  https://presentail.com/en-ae/dubai/corporate
+  https://presentail.com/en-ae/dubai/blog
+  https://presentail.com/en-ae/dubai/blog/inside-spring-sourcing-trip
+  https://presentail.com/en-ae/dubai/blog/chocolatiers-behind-our-gift-boxes
+  ...(same pattern repeats per city)
+
+Confirmed gaps (grepped the full file, zero matches for both):
+
+  grep -c "occasion/" sitemap-en.xml   -> 0
+  grep -c "category/" sitemap-en.xml   -> 0
+
+Not one individual `/{locale}/{city}/occasion/{slug}` page (birthday,
+anniversary, wedding, etc.) or `/{locale}/{city}/category/{slug}` page
+(cakes, flowers, balloons, etc.) is in the sitemap for ANY city — only the
+`/occasions` hub is listed, and category pages aren't referenced at all.
+These are exactly the pages we've been optimizing (unique titles/meta/H1
+were already shipped on them in a previous pass) — they need to be
+discoverable via the sitemap too, or the on-page SEO work doesn't get the
+crawl priority it deserves.
+
+I also didn't see `/{locale}/{city}/shop` in the sitemap either — flag this
+to me as a secondary finding if you confirm it's genuinely missing, but it's
+not the primary scope of this task; focus on occasion and category pages
+first.
+
+Here's the exact existing entry format to match (copied verbatim from the
+current sitemap-en.xml, for the /occasions hub entry) — every new entry must
+follow this same structure:
+
+  <url>
+    <loc>https://presentail.com/en-ae/dubai/occasions</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en-AE" href="https://presentail.com/en-ae/dubai/occasions"/>
+    <xhtml:link rel="alternate" hreflang="ar-AE" href="https://presentail.com/ar-ae/dubai/occasions"/>
+    <xhtml:link rel="alternate" hreflang="fr-AE" href="https://presentail.com/fr-ae/dubai/occasions"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://presentail.com/en-ae/dubai/occasions"/>
+  </url>
+
+TASK
+
+1. FIND THE SITEMAP GENERATOR
+   Locate whatever script/route/build step generates sitemap-en.xml,
+   sitemap-ar.xml, and sitemap-fr.xml (and the sitemap.xml index). It
+   currently iterates over locale × city to emit the homepage, /brands,
+   /occasions, /contact, /faqs, /weddings, /corporate, /blog, and individual
+   blog posts, each with the 4-way hreflang alternate block shown above.
+   Find where that loop/data source lives.
+
+2. FIND THE REAL OCCASION AND CATEGORY LISTS
+   Don't guess or hardcode a slug list from this prompt — pull the actual
+   occasion slugs and category slugs from wherever the codebase already
+   defines them (the same data source that drives the `/occasions` hub grid
+   and the `/shop` category filters/nav). Two things to get right:
+     - Confirm whether occasions/categories are a single global list applied
+       to every city, or whether they vary per city/country — the redirect
+       behavior I've observed suggests categories are a shared global slug
+       set (e.g. "hand-bouquets" is the same slug across Beirut, Dubai, Abu
+       Dhabi, and Nicosia), but verify this against the actual data rather
+       than assuming.
+     - Only include an occasion/category combination in the sitemap if it
+       actually has real, populated product content behind it — not just
+       because the slug exists in a list. I confirmed separately that this
+       app's page template will render a plausible-looking title for
+       literally ANY slug typed into the URL, populated or not (I tested a
+       made-up slug and got a fully formed title back), so slug existence
+       alone is not proof of real content. Use whatever "has products"
+       signal already exists in the codebase (the same check that presumably
+       keeps empty categories out of the /shop nav or the /occasions hub
+       grid) to filter what goes into the sitemap. Submitting a sitemap URL
+       for a page with zero products is worse than not listing it — it reads
+       to Google as a soft-404 signal.
+
+3. GENERATE THE NEW SITEMAP ENTRIES
+   For every valid (locale, city) pair already used elsewhere in the
+   sitemap, and every occasion/category confirmed populated for that pair,
+   emit a `<url>` entry for:
+     - /{locale}/{city}/occasion/{slug}
+     - /{locale}/{city}/category/{slug}
+   using the exact same block structure as the reference entry above:
+   `<changefreq>weekly</changefreq>`, `<priority>0.7</priority>` (match
+   whatever priority convention the generator already uses for comparable
+   page types — 0.7 was the /occasions hub's value; category/occasion detail
+   pages might reasonably use the same or a slightly different tier,
+   whatever's consistent with how /brands or /blog posts are prioritized
+   today), and all 4 hreflang alternates (en-XX, ar-XX, fr-XX, x-default)
+   with the correct country code substituted per market (AE for UAE cities,
+   LB for Lebanon cities, CY for Cyprus cities — check the existing hreflang
+   values per country to get the exact casing/codes right).
+
+4. REGENERATE ALL THREE LOCALE SITEMAPS
+   Make sure sitemap-en.xml, sitemap-ar.xml, and sitemap-fr.xml all pick up
+   the new entries consistently (each locale's sitemap should list the same
+   set of pages, just with that locale's own URLs as the primary `<loc>` and
+   the same hreflang alternate block structure).
+
+VERIFICATION (do this before calling it done)
+
+- `curl` sitemap-en.xml and confirm `grep -c "occasion/"` and
+  `grep -c "category/"` are now both greater than zero, and specifically
+  confirm `en-ae/dubai/occasion/birthday` and `en-lb/beirut/category/cakes`
+  (the two pages we've already optimized) are present.
+- Spot-check 5-6 of the newly added URLs across different cities/countries by
+  curling them directly and confirming each returns HTTP 200 with a real,
+  non-generic title (not a 404, not a redirect loop).
+- Confirm the sitemap XML is still valid (well-formed, no duplicate `<loc>`
+  entries, no entries for slugs that don't actually resolve).
+- Confirm sitemap-ar.xml and sitemap-fr.xml were updated with the equivalent
+  entries, not just sitemap-en.xml.
+- Confirm you did NOT add any occasion/category combination that has no real
+  product content behind it — if you're not confident a given combination is
+  genuinely populated, leave it out and list it for me separately rather than
+  guessing.
+- Report back: (a) how many new URLs were added in total across all three
+  sitemaps, (b) whether occasions/categories turned out to be global or
+  city-specific, and (c) whether `/shop` pages were confirmed missing from
+  the sitemap too, as a separate follow-up item.
