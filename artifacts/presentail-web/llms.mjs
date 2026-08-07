@@ -13,6 +13,35 @@ import {
   LLMS_PAGES,
   LLMS_PAGE_SECTIONS,
 } from "./llms-content.mjs";
+import { BLOG_POSTS } from "@workspace/blog-content";
+
+/**
+ * Build the "## Journal" Markdown section listing the blog hub and every
+ * published article (English titles), so AI crawlers starting from llms.txt
+ * can discover the editorial content directly. Pure and synchronous —
+ * BLOG_POSTS is compiled into the bundle, no live fetch needed.
+ *
+ * @param {string} base - origin + clean base path, e.g. "https://presentail.com"
+ * @param {object} [posts] - injectable for tests; defaults to BLOG_POSTS
+ * @returns {string} Markdown section (ends without trailing blank line)
+ */
+export function buildJournalSection(base, posts = BLOG_POSTS) {
+  const hub = `${base}/en-lb/beirut/blog`;
+  const articles = Object.entries(posts ?? {})
+    .map(([slug, byLang]) => {
+      const post = byLang?.en;
+      if (!post?.title) return null;
+      return `- [${post.title}](${hub}/${encodeURIComponent(slug)})`;
+    })
+    .filter(Boolean)
+    .join("\n");
+  return (
+    `## Journal\n\n` +
+    `Editorial articles about gifting, sourcing, and the people behind Presentail.\n\n` +
+    `- [Journal hub](${hub})\n` +
+    (articles ? `${articles}\n` : "")
+  );
+}
 
 // Maximum number of featured products listed in /llms-full.txt.
 export const FEATURED_LIMIT = 50;
@@ -49,7 +78,7 @@ export function generateLlmsTxt(origin, basePath) {
     `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n` +
     `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n`;
 
-  return `# Presentail\n\n> ${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n\n${mdSection}`;
+  return `# Presentail\n\n> ${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n\n${buildJournalSection(base)}\n${mdSection}`;
 }
 
 /**
@@ -142,6 +171,7 @@ export function buildLlmsFullTxt({
     `${brandsSection}\n` +
     `${occasionsSection}\n` +
     (featuredSection ? `${featuredSection}\n` : "") +
+    `${buildJournalSection(base)}\n` +
     `${mdSection}\n` +
     `## Full content\n\n${fullContent}\n`
   );

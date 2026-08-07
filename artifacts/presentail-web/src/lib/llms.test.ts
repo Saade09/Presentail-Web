@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 
 // @ts-expect-error - mjs module without type declarations.
-import { generateLlmsTxt, buildLlmsFullTxt, generateLlmsFullTxt, resolveLlmsFullTxt, LLMS_FULL_TXT_RETRY_WINDOW_MS, FEATURED_LIMIT } from "../../llms.mjs";
+import { generateLlmsTxt, buildLlmsFullTxt, buildJournalSection, generateLlmsFullTxt, resolveLlmsFullTxt, LLMS_FULL_TXT_RETRY_WINDOW_MS, FEATURED_LIMIT } from "../../llms.mjs";
+import { BLOG_POSTS } from "@workspace/blog-content";
 
 const ORIGIN = "https://new.presentail.com";
 
@@ -43,6 +44,33 @@ describe("generateLlmsTxt", () => {
   it("respects the base path prefix", () => {
     const prefixed = generateLlmsTxt(ORIGIN, "/web");
     expect(prefixed).toContain(`${ORIGIN}/web/en-lb/beirut/brands`);
+  });
+
+  it("includes the Journal hub and every blog article", () => {
+    expect(txt).toContain("## Journal");
+    expect(txt).toContain(`- [Journal hub](${ORIGIN}/en-lb/beirut/blog)`);
+    for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
+      expect(txt).toContain(`[${byLang.en.title}](${ORIGIN}/en-lb/beirut/blog/${slug})`);
+    }
+  });
+});
+
+describe("buildJournalSection", () => {
+  it("lists the hub plus a link per article with English titles", () => {
+    const section = buildJournalSection("https://x", {
+      "first-post": { en: { title: "First Post" } },
+      "second-post": { en: { title: "Second Post" } },
+      "broken-post": { en: {} },
+    });
+    expect(section).toContain("- [Journal hub](https://x/en-lb/beirut/blog)");
+    expect(section).toContain("- [First Post](https://x/en-lb/beirut/blog/first-post)");
+    expect(section).toContain("- [Second Post](https://x/en-lb/beirut/blog/second-post)");
+    expect(section).not.toContain("broken-post");
+  });
+
+  it("still emits the hub link when there are no articles", () => {
+    const section = buildJournalSection("https://x", {});
+    expect(section).toContain("- [Journal hub](https://x/en-lb/beirut/blog)");
   });
 });
 
@@ -114,7 +142,9 @@ describe("buildLlmsFullTxt", () => {
       occasions: MOCK.occasions,
       products: many,
     });
-    const featuredSection = txt.split("## Featured Products")[1].split("## Full content")[0];
+    // Bound the slice by the next section (## Journal) so bullets from the
+    // Journal and Markdown-mirror sections are not miscounted as products.
+    const featuredSection = txt.split("## Featured Products")[1].split("## Journal")[0];
     const itemLines = featuredSection.split("\n").filter((l: string) => l.startsWith("- "));
     expect(itemLines.length).toBe(FEATURED_LIMIT);
   });
