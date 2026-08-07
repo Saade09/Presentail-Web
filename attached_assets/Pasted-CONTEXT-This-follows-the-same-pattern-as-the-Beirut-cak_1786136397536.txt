@@ -1,0 +1,141 @@
+CONTEXT
+
+This follows the same pattern as the Beirut cakes page task (if that one has
+already shipped, this task should reuse the exact same per-(city,category)
+override mechanism rather than building a new one — check for it first).
+
+Current live state of the target page, confirmed by curl:
+
+  /en-lb/beirut/category/chocolate
+  -> title: "Chocolate Delivery in Beirut | Presentail"
+  -> meta: "Shop Chocolate online in Beirut. Send beautiful Chocolate with
+     Presentail and enjoy express same-day delivery."
+  -> canonical: https://presentail.com/en-lb/beirut/category/chocolate
+  -> H1 in the raw DOM is `sr-only` (visually hidden) and duplicates the
+     title tag exactly.
+  -> no visible body copy, no FAQ, no BreadcrumbList/FAQPage schema — only
+     the sitewide Organization schema is present.
+  -> not in sitemap-en.xml (a separate sitemap-generation task covers this;
+     don't duplicate that work here, just don't regress it).
+
+Unlike several other legacy categories audited earlier, this one's legacy
+redirects are already correctly mapped and don't need touching:
+
+  /lebanon/product-category/chocolate/   -> 301 -> /en-lb/beirut/category/chocolate
+  /lebanon/product-category/chocolates/  -> 301 -> /en-lb/beirut/category/chocolate
+
+GOAL
+
+Same strategy as the Beirut cakes page: make this page the dual-purpose
+flagship for "chocolate delivery beirut" (local) and "chocolate delivery
+lebanon" (national), rather than building a separate national page. Beirut
+is the capital and highest-volume market, and the site's Organization schema
+already declares `"areaServed": ["LB","AE","CY"]`. Every other city's
+chocolate category page (Tripoli, Zahle, Jbeil, etc.) should keep using the
+current generic per-city template unchanged — do NOT add "Lebanon" wording
+to their titles or copy.
+
+TASK
+
+1. USE THE EXISTING PER-(CITY,CATEGORY) OVERRIDE MECHANISM
+   If the Beirut cakes page task already built a mechanism for overriding
+   the generic category template for a specific (city, category) pair, reuse
+   it here for (city = "beirut", category = "chocolate"). If it wasn't built
+   yet, build it now the same way the per-occasion content model works for
+   Dubai's occasion pages: an override keyed on the specific page that takes
+   priority over the generic template, leaving every other city × category
+   combination on the shared template.
+
+2. SHIP THIS CONTENT FOR /en-lb/beirut/category/chocolate (and its
+   ar-lb/fr-lb equivalents)
+
+   title: "Chocolate Delivery in Beirut, Lebanon | Same-Day | Presentail"
+
+   metaDescription: "Order chocolate gifts for same-day delivery in Beirut —
+     or send one anywhere else in Lebanon. Boxed chocolates, gift sets and
+     more, delivered today."
+
+   h1: "Chocolate Delivery in Beirut, Lebanon" — must render as real VISIBLE
+   content in the DOM, not `sr-only`, and must not be identical to the title
+   tag.
+
+   introParagraph: "Order same-day chocolate delivery in Beirut — Hamra,
+     Achrafieh, Gemmayzeh, Verdun and beyond — or send a box of chocolates
+     anywhere else in Lebanon, whether you're ordering from another city or
+     from abroad."
+
+   [VERIFY BEFORE SHIPPING: reuse the same confirmed Beirut-specific facts
+   used on the cakes page — same-day cutoff "before midday," payment methods
+   "Credit Card, Apple Pay, Google Pay, and Cash on Delivery" (from the
+   existing Beirut homepage FAQ). These are Lebanon-specific and different
+   from the Dubai facts used in an earlier, separate task — don't mix them
+   up. Confirm they're still accurate before using them below.]
+
+   sections:
+     - heading: "Shop Chocolate by Occasion"
+       body: short intro + links into existing occasion pages (birthday,
+       anniversary, thank-you/appreciation, sympathy if applicable) filtered
+       to chocolate, using the real occasion slugs from the actual occasion
+       data source.
+     - heading: "Delivering Chocolate Across Lebanon"
+       body: one short paragraph on nationwide delivery, followed by a
+       linked list of other city chocolate category pages (Tripoli, Zahle,
+       Jbeil, Saida, etc. — pull the real list of Lebanese city pages from
+       the codebase, there are ~26). Only link to cities where the chocolate
+       category actually has products — same caution as the cakes and
+       sitemap tasks about not linking to empty pages. This section does the
+       same double duty as on the cakes page: it's the internal-linking
+       signal for "chocolate delivery lebanon," and it hands each linked
+       city page relevant inbound anchor text for its own local keyword.
+
+   faqs (add FAQPage schema, only for content actually rendered on the
+   page):
+     - Q: "Can I get same-day chocolate delivery in Beirut?"
+       A: [use the verified Beirut cutoff time]
+     - Q: "Do you deliver chocolate gifts outside Beirut, anywhere in
+       Lebanon?"
+       A: [confirm actual coverage before writing this]
+     - Q: "Can I order chocolate from abroad for delivery in Lebanon?"
+       A: [confirm international payment support — targets diaspora
+       searchers typing "chocolate delivery lebanon"]
+     - Q: "What chocolate gifts are available?"
+       A: [pull from actual product catalog — assortment boxes, specific
+       brands, combos with flowers/cakes if those exist]
+     - Q: "Can I add a personalised message with the chocolate?"
+       A: [confirm actual checkout gift-note flow]
+     - Q: "Do you deliver chocolate gifts to hotels or offices in Beirut?"
+       A: [confirm actual delivery policy]
+
+3. ADD STRUCTURED DATA (Beirut chocolate page only, in this pass)
+   - `FAQPage` schema from the faqs array above, only if visibly rendered.
+   - `BreadcrumbList` schema: Home > Shop > Chocolate.
+   - Check whether `Product`/`ItemList` schema already exists on the
+     rendered product grid; if not, flag as a separate follow-up.
+
+4. DO NOT TOUCH OTHER CITIES' CHOCOLATE PAGES
+   Verify after your changes that `/en-lb/tripoli/category/chocolate`,
+   `/en-lb/zahle/category/chocolate`, etc. still render the original generic
+   "Chocolate Delivery in {City} | Presentail" template, unchanged.
+
+5. DO NOT TOUCH THE ALREADY-CORRECT LEGACY REDIRECTS
+   `/lebanon/product-category/chocolate/` and `/lebanon/product-category/chocolates/`
+   already redirect correctly to this page — leave them as-is.
+
+VERIFICATION (do this before calling it done)
+
+- `curl https://presentail.com/en-lb/beirut/category/chocolate` and confirm
+  the raw HTML contains the new title, meta description, and a VISIBLE
+  (not sr-only) H1 that differs from the title tag.
+- Confirm the "Delivering Chocolate Across Lebanon" links resolve
+  (spot-check 3-4) and point to cities with populated chocolate categories.
+- Validate the FAQPage and BreadcrumbList JSON-LD with Google's Rich Results
+  Test against the live/staging URL.
+- `curl https://presentail.com/en-lb/tripoli/category/chocolate` (and one
+  more city) and confirm the title/meta are UNCHANGED from the generic
+  template.
+- Confirm the two legacy redirects listed above still work and still point
+  to this page.
+- Confirm canonical and hreflang tags on the Beirut chocolate page are
+  unchanged/still correct after this change.
+- Report back any [VERIFY BEFORE SHIPPING] items you couldn't confirm from
+  existing site content.

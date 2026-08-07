@@ -51,6 +51,83 @@
 /** @type {Record<string, Record<string, CategorySeoEntry>>} */
 export const CATEGORY_SEO_CONTENT = {
   "lb/beirut": {
+    chocolate: {
+      title: "Chocolate Delivery in Beirut, Lebanon | Same-Day | Presentail",
+      metaDescription:
+        "Order chocolate gifts for same-day delivery in Beirut — or send one anywhere else in Lebanon. Boxed chocolates, gift sets and more, delivered today.",
+      h1: "Chocolate Delivery in Beirut, Lebanon",
+      intro:
+        "Order same-day chocolate delivery in Beirut — Hamra, Achrafieh, Gemmayzeh, Verdun and beyond — or send a box of chocolates anywhere else in Lebanon, whether you're ordering from another city or from abroad.",
+      sections: [
+        {
+          heading: "Shop Chocolate by Occasion",
+          body: "Chocolate makes the perfect gift for almost every occasion — from birthdays and anniversaries to a simple thank you. Pair a box of chocolates with flowers or a hamper for a fuller gift.",
+          links: [
+            { label: "Birthday chocolates", href: "/occasion/birthday" },
+            { label: "Anniversary chocolates", href: "/occasion/anniversary" },
+            { label: "Thank You chocolates", href: "/occasion/thank-you" },
+            { label: "Thinking of You", href: "/occasion/thinking-of-you" },
+          ],
+        },
+        {
+          heading: "Delivering Chocolate Across Lebanon",
+          body: "Presentail delivers chocolate gifts to every region of Lebanon. Order from Beirut for delivery in the capital, or send chocolates to friends and family anywhere else in the country.",
+          links: [
+            { label: "Chocolate delivery in Tripoli", href: "/en-lb/tripoli/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Saida", href: "/en-lb/saida/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Zahle", href: "/en-lb/zahle/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Jbeil", href: "/en-lb/jbeil/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Batroun", href: "/en-lb/batroun/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Tyre", href: "/en-lb/tyre/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Metn", href: "/en-lb/metn/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Kesserwan", href: "/en-lb/kesserwan/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Baabda", href: "/en-lb/baabda/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Aley", href: "/en-lb/aley/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Chouf", href: "/en-lb/chouf/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Nabatieh", href: "/en-lb/nabatieh/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Koura", href: "/en-lb/koura/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Bcharre", href: "/en-lb/bcharee/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Zgharta", href: "/en-lb/zghorta/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Akkar", href: "/en-lb/akkar/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Hermel", href: "/en-lb/hermel/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Baalbeck", href: "/en-lb/baalbeck/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in West Bekaa", href: "/en-lb/west-bekaa/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Rachaya", href: "/en-lb/rechaya/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Hasbaya", href: "/en-lb/hasbaya/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Marjayoun", href: "/en-lb/marjayoun/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Bint Jbeil", href: "/en-lb/bent-jbeil/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Jezzine", href: "/en-lb/jezzine/category/chocolate", absolute: true },
+            { label: "Chocolate delivery in Minnieh-Denniyeh", href: "/en-lb/minnieh-dennaya/category/chocolate", absolute: true },
+          ],
+        },
+      ],
+      faqs: [
+        {
+          q: "Can I get same-day chocolate delivery in Beirut?",
+          a: "Yes — order before midday for same-day chocolate delivery in Beirut. Orders placed after midday are scheduled for the next available delivery window.",
+        },
+        {
+          q: "Do you deliver chocolate gifts outside Beirut, anywhere in Lebanon?",
+          a: "Yes, Presentail delivers chocolate gifts across Lebanon — Tripoli, Saida, Zahle, Jbeil and every other city and region. Select your delivery address at checkout to confirm availability.",
+        },
+        {
+          q: "Can I order chocolate from abroad for delivery in Lebanon?",
+          a: "Yes — you can order from anywhere in the world and we'll deliver to the recipient in Lebanon. Presentail accepts international credit and debit cards at checkout.",
+        },
+        {
+          q: "What chocolate gifts are available?",
+          a: "Presentail's chocolate selection includes boxed chocolates, gift sets and assortment boxes. Browse this page for the current range — new products are added regularly.",
+        },
+        {
+          q: "Can I add a personalised message with the chocolate?",
+          a: "Yes — add your message in the gift note field at checkout and it will be included with the delivery.",
+        },
+        {
+          q: "Do you deliver chocolate gifts to hotels or offices in Beirut?",
+          a: "Yes — just enter the hotel or office address at checkout and we'll deliver there.",
+        },
+      ],
+    },
     cakes: {
       title: "Cake Delivery in Beirut, Lebanon | Same-Day | Presentail",
       metaDescription:
