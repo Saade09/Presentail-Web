@@ -1071,22 +1071,11 @@ const server = http.createServer(async (req, res) => {
       pathname = pathname.slice(BASE_PATH.length) || "/";
     }
 
-    // Handle bare `/product/<slug>` (shared links from the mobile app).
-    //
-    // WhatsApp, iMessage, and other social-preview crawlers may not follow
-    // 301 redirects, so a pure redirect means they never see the OG meta
-    // tags and the link preview falls back to the default site card.
-    //
-    // Fix: serve the OG-injected HTML directly on this path so crawlers see
-    // the product share card immediately.  A <meta http-equiv="refresh"> and
-    // an inline JS redirect send real browsers to the canonical locale-
-    // prefixed URL (e.g. /en-lb/beirut/product/<slug>) within milliseconds.
-    // x-robots-tag: noindex prevents the redirect intermediary from competing
-    // with the canonical page in search results.
-    //
-    // Fallback: if OG injection is unavailable (e.g. a cold-cache startup
-    // error before seo-inject.mjs is ready), fall back to the original 301
-    // so mobile share links still land on the correct page.
+    // Handle bare `/product/<slug>` (legacy WordPress URLs and mobile app
+    // share links). All major social-preview crawlers (WhatsApp, iMessage,
+    // Slack, Facebook) follow a single 301 hop, so the canonical locale-
+    // prefixed page serves the correct OG tags for share previews.
+    // A 301 also passes full link equity to the canonical page in Google.
     //
     // NOTE: Must run BEFORE the trailing-slash redirect so /product/<slug>/
     // (with trailing slash) is handled here rather than being stripped to
@@ -1097,40 +1086,10 @@ const server = http.createServer(async (req, res) => {
       // `slug` already contains the raw path segment from the request URL
       // (percent-encoded characters are preserved as-is); do NOT
       // encodeURIComponent here or we double-encode the slug.
-      const canonicalTarget = `${BASE_PATH}/en-lb/beirut/product/${slug}`;
-      if (typeof injectSeoTagsAsync === "function") {
-        try {
-          // Use the locale-prefixed virtual path so seo-inject resolves the
-          // correct product data and builds the product OG image URL.
-          const virtualPath = `/en-lb/beirut/product/${slug}`;
-          let productHtml = await injectSeoTagsAsync(indexHtml, virtualPath, {
-            basePath: BASE_PATH,
-            origin,
-            apiBaseUrl: INTERNAL_API_BASE_URL,
-            acceptLanguage: req.headers["accept-language"],
-          });
-          // Inject meta-refresh and JS redirect so real browsers navigate to
-          // the canonical page immediately (crawlers ignore these and read the
-          // OG tags instead).
-          const safeTarget = canonicalTarget.replace(/"/g, "&quot;");
-          const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
-          const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
-          productHtml = productHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
-          res.writeHead(200, {
-            "content-type": MIME[".html"],
-            "x-robots-tag": "noindex",
-            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
-            "expires": "0",
-            "vary": "Accept-Encoding",
-            "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
-          });
-          res.end(productHtml);
-          return;
-        } catch (_err) {
-          // OG injection failed — fall through to the 301 below.
-        }
-      }
-      res.writeHead(301, { location: canonicalTarget });
+      res.writeHead(301, {
+        location: `${BASE_PATH}/en-lb/beirut/product/${slug}` + stripTrackingParams(url.search),
+        "cache-control": "public, max-age=31536000, immutable",
+      });
       res.end();
       return;
     }
@@ -1435,8 +1394,16 @@ const server = http.createServer(async (req, res) => {
       "/best-seller":  `${BASE_PATH}/en-lb/beirut/shop`,
       "/new-arrivals": `${BASE_PATH}/en-lb/beirut/shop`,
       "/new-arrival":  `${BASE_PATH}/en-lb/beirut/shop`,
-      "/all-flowers":  `${BASE_PATH}/en-lb/beirut/category/hand-bouquets`,
-      "/flowers":      `${BASE_PATH}/en-lb/beirut/category/hand-bouquets`,
+      "/all-flowers":        `${BASE_PATH}/en-lb/beirut/category/hand-bouquets`,
+      "/flowers":            `${BASE_PATH}/en-lb/beirut/category/hand-bouquets`,
+      // Legacy WP top-level pages with no direct equivalent — redirect to
+      // the Beirut home (primary market) so they land on a working page
+      // rather than stripping the trailing slash and 404ing.
+      "/shop":               `${BASE_PATH}/en-lb/beirut/shop`,
+      "/wishlist":           `${BASE_PATH}/en-lb/beirut`,
+      "/country-selection":  `${BASE_PATH}/en-lb/beirut`,
+      "/tours":              `${BASE_PATH}/en-lb/beirut`,
+      "/tours/en":           `${BASE_PATH}/en-lb/beirut`,
     };
 
     const vanityKey =
@@ -1463,7 +1430,7 @@ const server = http.createServer(async (req, res) => {
     const COUNTRY_PREFIX_CONFIG = [
       { prefixes: ["lebanon"],      locale: "en-lb", city: "beirut" },
       { prefixes: ["cyprus"],       locale: "en-cy", city: "nicosia" },
-      { prefixes: ["uae", "dubai"], locale: "en-ae", city: "dubai" },
+      { prefixes: ["uae", "dubai", "abudhabi"], locale: "en-ae", city: "dubai" },
     ];
 
     for (const { prefixes, locale, city } of COUNTRY_PREFIX_CONFIG) {
