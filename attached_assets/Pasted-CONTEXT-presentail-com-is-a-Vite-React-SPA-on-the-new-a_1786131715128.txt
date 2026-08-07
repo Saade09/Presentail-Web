@@ -1,0 +1,162 @@
+CONTEXT
+
+presentail.com is a Vite + React SPA on the new architecture (routes like
+/en-lb/beirut/..., /en-ae/dubai/..., /en-ae/abu-dhabi/..., /en-cy/nicosia/...).
+The old WordPress site's URLs (/lebanon/..., /dubai/..., /abudhabi/...,
+/cyprus/..., /tips-and-tricks/..., etc.) are still indexed in Google and are
+handled by a legacy-URL redirect layer that 301s them into the new site.
+I don't know exactly where this redirect logic lives in the codebase (a
+_redirects file, a vercel.json/netlify.toml rewrites block, a middleware/edge
+function, or a hardcoded routing table) — locating it is the first step below.
+
+Two separate, confirmed bugs need fixing. Both were found by curling the live
+site on 2026-08-07 (no cache, no JS execution needed — these are plain HTTP
+redirect responses).
+
+BUG 1: Every legacy Abu Dhabi URL redirects to Dubai instead of Abu Dhabi
+
+`https://presentail.com/en-ae/abu-dhabi` is a real, fully-built page on the
+new site — it loads correctly with its own title ("Flower & Gift Delivery in
+Abu Dhabi | Presentail") and its own canonical tag. But every legacy
+`/abudhabi/*` URL currently redirects to the DUBAI equivalent instead of the
+Abu Dhabi equivalent:
+
+  curl -I https://presentail.com/abudhabi/
+  → 301 → /en-ae/dubai                              (should be /en-ae/abu-dhabi)
+
+  curl -I https://presentail.com/abudhabi/shop/
+  → 301 → /en-ae/dubai                              (should be /en-ae/abu-dhabi/shop)
+
+  curl -I https://presentail.com/abudhabi/categories/
+  → 301 → /en-ae/dubai                              (should be /en-ae/abu-dhabi or its shop/category hub)
+
+  curl -I https://presentail.com/abudhabi/product-category/flowers/
+  → 301 → /en-ae/dubai/category/hand-bouquets       (should be /en-ae/abu-dhabi/category/hand-bouquets)
+
+  curl -I https://presentail.com/abudhabi/product-category/valentines-day-gifts/
+  → 301 → /en-ae/dubai/shop                         (should be an Abu Dhabi category — see BUG 2's sibling task below)
+
+  curl -I https://presentail.com/abudhabi/product-category/balloons-bundles/
+  → 301 → /en-ae/dubai/shop                         (same — should target Abu Dhabi, not Dubai)
+
+  curl -I https://presentail.com/abudhabi/product-category/foil-helium-balloons/
+  → 301 → /en-ae/dubai/shop                         (same — should target Abu Dhabi, not Dubai)
+
+  curl -I https://presentail.com/abudhabi/product/happy-birthday-chocolate-box/
+  → 301 → /en-ae/dubai/product/happy-birthday-chocolate-box
+    (should be /en-ae/abu-dhabi/product/happy-birthday-chocolate-box —
+    ONLY if that product actually exists in the Abu Dhabi catalog; if it
+    doesn't, redirecting to Abu Dhabi's /shop is better than sending it to
+    Dubai)
+
+This looks like it's caused by ONE wrong constant/mapping entry (the legacy
+city segment "abudhabi" mapping to the string "dubai" instead of "abu-dhabi"
+somewhere in the redirect table), not dozens of individual mistakes — find
+that single source of truth and fix it there rather than patching each rule
+individually. Every `/abudhabi/*` path should preserve its Abu Dhabi
+destination throughout the redirect chain — same relative structure as the
+already-correct `/dubai/*` → `/en-ae/dubai/*` and `/cyprus/*` → `/en-cy/nicosia/*`
+mappings.
+
+BUG 2: Two real, currently-indexed URLs 404 via a self-redirect loop
+
+These aren't suboptimal redirects — they're dead ends right now for anyone who
+clicks through from Google:
+
+  curl -I https://presentail.com/birthday-gift-ideas-lebanon/
+  → 301 → /birthday-gift-ideas-lebanon   (redirects to itself, minus trailing slash)
+  → that URL renders "404 Not Found – Presentail"
+
+  curl -I https://presentail.com/tips-and-tricks/page/2/
+  → 301 → /tips-and-tricks/page/2        (redirects to itself, minus trailing slash)
+  → that URL renders "404 Not Found – Presentail"
+
+I checked and this second one isn't a one-off — the ENTIRE blog pagination
+range self-redirects into 404 the same way:
+
+  /tips-and-tricks/          → 301 → /tips-and-tricks          → 404
+  /tips-and-tricks/page/1/   → 301 → /tips-and-tricks/page/1   → 404
+  /tips-and-tricks/page/2/   → 301 → /tips-and-tricks/page/2   → 404
+  /tips-and-tricks/page/3/   → 301 → /tips-and-tricks/page/3   → 404
+  /tips-and-tricks/page/4/   → 301 → /tips-and-tricks/page/4   → 404
+  /tips-and-tricks/page/5/   → 301 → /tips-and-tricks/page/5   → 404
+
+Confirmed real destinations to redirect these to instead:
+
+  https://presentail.com/en-lb/beirut/occasion/birthday
+    → real page, loads correctly, title "Birthday Flowers & Gifts in Beirut |
+    Presentail" — this is where /birthday-gift-ideas-lebanon/ should redirect.
+
+  https://presentail.com/en-lb/beirut/blog
+    → real page, loads correctly, title "The Atelier Journal | Presentail" —
+    this is where the entire /tips-and-tricks/* pagination range should
+    redirect (the old blog archive doesn't need to map to specific paginated
+    URLs on the new blog; redirecting the whole family to the blog index is
+    fine — check whether the new blog supports its own pagination and only
+    bother mapping page numbers 1:1 if that's trivial, otherwise the index is
+    a perfectly good landing page for old blog-archive traffic).
+
+TASK
+
+1. FIND THE REDIRECT LOGIC
+   Locate wherever legacy-path redirects are defined (static redirects config,
+   middleware, edge function, or a routing table mapping old city/path
+   segments to new locale+city+path segments). This is very likely the same
+   place that already correctly handles `/dubai/*` → `/en-ae/dubai/*` and
+   `/cyprus/*` → `/en-cy/nicosia/*` — use those as the reference pattern for
+   what "correct" looks like.
+
+2. FIX BUG 1 — ABU DHABI CITY MISMATCH
+   Find where the legacy "abudhabi" city segment gets mapped to a new-site
+   city slug and correct it to map to "abu-dhabi" (matching the real,
+   already-live `/en-ae/abu-dhabi` page) instead of "dubai" for every path
+   under the legacy `/abudhabi/*` prefix — homepage, /shop/, /categories/,
+   every /product-category/{slug}/, every /product/{slug}/.
+   For product and product-category redirects specifically: only point at
+   the Abu Dhabi equivalent if that product/category actually exists in the
+   Abu Dhabi catalog. If it doesn't, redirect to `/en-ae/abu-dhabi/shop`
+   (Abu Dhabi's generic shop page) rather than defaulting to Dubai — wrong
+   city is worse than wrong specificity.
+
+3. FIX BUG 2 — THE TWO 404 LOOPS
+   a) Redirect `/birthday-gift-ideas-lebanon/` (and the trailing-slash-less
+      variant it currently loops to) to `/en-lb/beirut/occasion/birthday`.
+   b) Redirect `/tips-and-tricks/` and every `/tips-and-tricks/page/{n}/`
+      variant to `/en-lb/beirut/blog`. Check whether any individual
+      `/tips-and-tricks/{post-slug}/` article URLs are indexed too (search
+      Search Console or Google for `site:presentail.com/tips-and-tricks`) —
+      if so, those need their own case-by-case mapping to the equivalent new
+      blog post if it was migrated, or to `/en-lb/beirut/blog` if it wasn't.
+      Don't assume the pagination pages are the only casualties here without
+      checking.
+
+4. DOUBLE-CHECK FOR THE SAME SELF-REDIRECT BUG ELSEWHERE
+   The `/birthday-gift-ideas-lebanon/` and `/tips-and-tricks/*` cases both
+   follow the same failure shape: a redirect rule that strips the trailing
+   slash but points back at a path that was never migrated, causing a loop
+   into a genuine 404. Grep the redirect config for any other rule with this
+   shape (source path minus trailing slash used as the destination) and flag
+   any other legacy URL that has the same problem, even if I haven't
+   specifically listed it here.
+
+VERIFICATION (do this before calling it done)
+
+- `curl -I` every `/abudhabi/*` URL listed under BUG 1 and confirm each
+  Location header now points to an `/en-ae/abu-dhabi/...` path, never
+  `/en-ae/dubai/...`.
+- `curl -I -L` the same URLs and confirm the final destination returns HTTP
+  200 with a title that says "Abu Dhabi," not "Dubai."
+- `curl -I -L https://presentail.com/birthday-gift-ideas-lebanon/` and
+  confirm it lands on `/en-lb/beirut/occasion/birthday` with HTTP 200 (not a
+  404, not a loop back to itself).
+- `curl -I -L` every `/tips-and-tricks/` and `/tips-and-tricks/page/{1-5}/`
+  URL and confirm each lands on `/en-lb/beirut/blog` (or a real, non-404
+  destination) with HTTP 200.
+- Confirm you haven't touched the already-correct `/dubai/*` → `/en-ae/dubai/*`
+  or `/cyprus/*` → `/en-cy/nicosia/*` mappings — those are fine and out of
+  scope for this fix.
+- Report back: (a) whether the Abu Dhabi fix was a single shared config
+  change or required per-rule edits, (b) whether you found any individual
+  `/tips-and-tricks/{post-slug}/` article URLs that need their own mapping,
+  and (c) any other self-redirect-into-404 rule you found while grepping for
+  the pattern in step 4.
