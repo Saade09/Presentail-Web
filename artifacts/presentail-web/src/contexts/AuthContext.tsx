@@ -80,6 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               phone?: string;
             } | null;
           };
+          // NOTE: `setIsLoading(false)` must commit in the SAME update as
+          // `setUser(...)`. Wrapping only the user update in startTransition
+          // while flipping isLoading in `finally` lets React commit
+          // `isLoading=false, user=null` first, so a direct load of /account
+          // (which redirects to /sign-in when `!isLoading && !user`) bounces
+          // a signed-in user to the sign-in page.
           startTransition(() => {
             if (data.ok && data.user) {
               setUser({
@@ -95,17 +101,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setToken(null);
               setProvider(null);
             }
+            setIsLoading(false);
           });
-        } else if (res.status === 401 || res.status === 403) {
-          startTransition(() => {
-            localStorage.removeItem(TOKEN_KEY);
-            localStorage.removeItem(PROVIDER_KEY);
-            setToken(null);
-            setProvider(null);
-          });
+        } else {
+          if (res.status === 401 || res.status === 403) {
+            startTransition(() => {
+              localStorage.removeItem(TOKEN_KEY);
+              localStorage.removeItem(PROVIDER_KEY);
+              setToken(null);
+              setProvider(null);
+            });
+          }
+          // On network error we leave the token intact and just render as guest.
+          setIsLoading(false);
         }
-        // On network error we leave the token intact and just render as guest.
-      } finally {
+      } catch {
         setIsLoading(false);
       }
     })();

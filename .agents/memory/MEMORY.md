@@ -37,4 +37,5 @@
 - [OnlineStore schema gating](onlinestore-schema-gating.md) — org JSON-LD is OnlineStore on hub-city homes only; breadcrumb on every city home; product links sr-only outside display:none
 - [Campaign first-order discount](campaign-first-order-discount.md) — FIRST10 is a virtual coupon intercepted in validateCoupon; omit its couponId from OS payload; eligibility endpoint advisory, fails open
 - [Prod internal API base URL](prod-internal-api-base-url.md) — serve.mjs→API fetches must use the public apex in prod (separate deployments, no localhost proxy); localhost:80 default silently killed entity JSON-LD + catalog sitemap
+- [Web e2e against real API](web-e2e-real-api.md) — register rate limit means reuse fixed accounts; seed app_orders via pg; auth-restore setUser+setIsLoading must commit together
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice
