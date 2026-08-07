@@ -101,6 +101,25 @@ const LazyStripeSection = lazy(() =>
 );
 
 // Maps known Stripe decline codes to plain-language, actionable messages.
+/**
+ * Absolute return URL for payment providers, pointing at the order-confirmed
+ * page. Includes the current locale prefix (/en-lb/beirut) parsed from the
+ * URL: bare "/order-confirmed" is not a first-class server entry point
+ * (serve.mjs non-locale guard falls back to the SPA shell + client redirect),
+ * and a hosted/redirect payment must land directly on the locale route so
+ * order finalization runs immediately.
+ */
+function orderConfirmedReturnUrl(status: "success" | "failed", extraQuery = ""): string {
+  const origin = window.location.origin;
+  const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+  const withoutBase = base && window.location.pathname.startsWith(base)
+    ? window.location.pathname.slice(base.length)
+    : window.location.pathname;
+  const localeMatch = withoutBase.match(/^\/[a-z]{2}-[a-z]{2}\/[a-z0-9-]+/);
+  const localePrefix = localeMatch ? localeMatch[0] : "";
+  return `${origin}${base}${localePrefix}/order-confirmed?status=${status}${extraQuery}`;
+}
+
 function toTitleCase(s: string): string {
   return s.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
@@ -2209,12 +2228,13 @@ function CheckoutForm() {
       // for hosted-payment flows where we never return to this page.
       void maybeSaveNewAddress();
 
-      const origin = window.location.origin;
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const _successUrl = `${origin}${base}/order-confirmed?status=success&pid={CHECKOUT_SESSION_ID}`;
-      const _cancelUrl = `${origin}${base}/order-confirmed?status=failed`;
-      const returnUrl = `${origin}${base}/order-confirmed?status=success`;
-      const failureUrl = `${origin}${base}/order-confirmed?status=failed`;
+      // Locale-prefixed provider return URLs. Bare "/order-confirmed" landed
+      // customers on a hard 404 after hosted/redirect payments and skipped
+      // order finalization (Aug 2026 incident).
+      const _successUrl = orderConfirmedReturnUrl("success", "&pid={CHECKOUT_SESSION_ID}");
+      const _cancelUrl = orderConfirmedReturnUrl("failed");
+      const returnUrl = orderConfirmedReturnUrl("success");
+      const failureUrl = orderConfirmedReturnUrl("failed");
 
       const isWalletMethod = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
 
@@ -2675,7 +2695,7 @@ function CheckoutForm() {
               // stash; Klarna payments may fail to auto-finalize on return.
             }
 
-            const _klarnaReturnUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL ?? "/"}order-confirmed?status=success`;
+            const _klarnaReturnUrl = orderConfirmedReturnUrl("success");
 
             // For saved cards: pass the payment method ID via confirmParams.
             // For new cards via PaymentElement: pass elements so Stripe reads
@@ -3004,9 +3024,7 @@ function CheckoutForm() {
 
         // Step 4: Redirect to Klarna. Stripe appends ?payment_intent=pi_xxx
         // &redirect_status=succeeded|processing to the return_url.
-        const origin = window.location.origin;
-        const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-        const klarnaReturnUrl = `${origin}${base}/order-confirmed?status=success`;
+        const klarnaReturnUrl = orderConfirmedReturnUrl("success");
 
         const { error } = await stripe.confirmPayment({
           clientSecret: klarnaClientSecret,

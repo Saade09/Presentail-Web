@@ -2171,7 +2171,15 @@ const server = http.createServer(async (req, res) => {
       // Bare /brand or /brand/ (no slug) passes through to the SPA shell so
       // the client can render a 404 page; the brand redirect above only fires
       // when a slug is present.
-      !pathname.match(/^\/brand\/?$/)
+      !pathname.match(/^\/brand\/?$/) &&
+      // Bare /order-confirmed is a REAL entry point: payment providers
+      // (Stripe redirect flows, PayPal, Mamo, Tabby) return customers to
+      // this path after charging them. It must reach the SPA shell so the
+      // client can prepend the locale prefix and finalize/reconcile the
+      // order — a 404 here strands a paid customer with no order created.
+      // Older checkout sessions issued non-locale return URLs, so this
+      // exception must remain even now that new return URLs are prefixed.
+      !pathname.match(/^\/order-confirmed\/?$/)
     ) {
       res.writeHead(404, {
         "content-type": "text/html; charset=utf-8",
