@@ -184,6 +184,7 @@ type AnalyticsEventName =
   | "delivery_method_selected"
   | "delivery_scheduler_opened"
   | "delivery_window_selected"
+  | "delivery_change_opened"
   | "express_upgrade_selected";
 
 type AnalyticsSurface =
