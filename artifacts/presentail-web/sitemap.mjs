@@ -8,6 +8,7 @@
 
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
+import { getOccasionSeoContent } from "./src/data/occasionSeoContent.mjs";
 import { buildProductImageAlt } from "./imageAlt.mjs";
 import {
   getProductAvailabilityState,
@@ -275,8 +276,20 @@ export function buildSitemapXml({
         parentProductCount: totalProductCount,
         parentEligible: parentEligibleOccasion,
       });
-      recordEligibility("city-occasion", eligibility.eligible);
-      if (!eligibility.eligible) continue;
+      // Curated occasion pages (hand-written intro/sections/FAQs) carry
+      // substantial unique content, so the thin/duplicate-page eligibility
+      // gate does not apply to them — keep them in the sitemap. Scoped to
+      // the locale that actually has curated copy (EN-only today): ar/fr
+      // variants still render template content, so they keep the normal
+      // eligibility gate. Mirrors the same bypass in seo-inject.mjs.
+      const hasCurated = !!getOccasionSeoContent({
+        country,
+        city,
+        slug: occasion.id,
+        lang: locale,
+      });
+      recordEligibility("city-occasion", eligibility.eligible || hasCurated);
+      if (!eligibility.eligible && !hasCurated) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/occasion/${encoded}`));
     }
     const occasionPageCount = Math.min(

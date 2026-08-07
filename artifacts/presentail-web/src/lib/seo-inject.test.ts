@@ -340,21 +340,99 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
         image: "https://cdn.test/birthday.jpg",
       },
     });
-    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+    // Beirut has no curated occasion content, so this exercises the
+    // template path (Dubai occasion pages use curated copy — covered below).
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
       ...OPTS,
       search: "?occasion=birthday",
     });
     expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + listing products fetch + parent listing fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday");
-    expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
+    expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Beirut | Presentail</title>");
     expect(out).toContain('content="Make every birthday memorable."');
     expect(out).toContain(
       '<meta property="og:image" content="https://presentail.test/api/og-image/occasion/birthday"',
     );
     expect(out).toContain(
-      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday"',
+      '<meta property="og:url" content="https://presentail.test/en-lb/beirut/occasion/birthday"',
     );
+  });
+
+  it("uses curated title/description for a curated Dubai occasion page", async () => {
+    mockFetchOnce({
+      ok: true,
+      occasion: {
+        name: "Birthday",
+        description: "<p>Generic API description.</p>",
+        image: "https://cdn.test/birthday.jpg",
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/occasion/birthday", {
+      ...OPTS,
+    });
+    expect(out).toContain("<title>Birthday Gift Delivery in Dubai | Same-Day | Presentail</title>");
+    expect(out).toContain("Order before 11 PM for delivery today.");
+  });
+
+  it("renders the visible curated body + matching FAQPage JSON-LD for every curated Dubai occasion", async () => {
+    // Real #root shell so the body fragment is actually injected.
+    const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+    const { OCCASION_SEO_CONTENT } = await import("../data/occasionSeoContent.mjs");
+    const curatedEntries = Object.entries(OCCASION_SEO_CONTENT["ae/dubai"]);
+    expect(curatedEntries.length).toBeGreaterThanOrEqual(6);
+    for (const [slug, entry] of curatedEntries) {
+      const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+        const u = String(url);
+        if (u.includes("/api/woo/occasion-products")) {
+          return { ok: true, json: async () => ({ ok: true, total: 12, groups: [{ count: 12, products: [{ name: "Sample", id: "sample" }] }] }) };
+        }
+        if (u.includes("/api/woo/occasion")) {
+          return { ok: true, json: async () => ({ ok: true, occasion: { name: "X", description: "", image: null } }) };
+        }
+        return { ok: true, json: async () => ({ ok: true }) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const out = await injectSeoTagsAsync(ROOT_HTML, `/en-ae/dubai/occasion/${slug}`, {
+        ...OPTS,
+      });
+      // Head: curated title + meta description.
+      // The injector escapes &/</> but leaves apostrophes raw.
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      expect(out).toContain(`<title>${esc(entry.title)}</title>`);
+      // Visible body: H1 (NOT sr-only), intro, every section heading, every FAQ Q&A.
+      expect(out).toContain(`<h1>${esc(entry.h1)}</h1>`);
+      expect(out).toContain(esc(entry.intro));
+      for (const section of entry.sections) {
+        expect(out).toContain(`<h2>${esc(section.heading)}</h2>`);
+      }
+      for (const { q, a } of entry.faqs) {
+        expect(out).toContain(`<h3>${esc(q)}</h3>`);
+        expect(out).toContain(esc(a));
+      }
+      // FAQPage JSON-LD matches the curated faqs 1:1 (anti-cloaking parity).
+      const faq = byType(extractJsonLd(out), "FAQPage");
+      expect(faq).toBeTruthy();
+      expect(faq.mainEntity).toHaveLength(entry.faqs.length);
+      expect(faq.mainEntity.map((m: { name: string }) => m.name)).toEqual(entry.faqs.map((f) => f.q));
+      // Indexable: curated pages bypass the thin-page eligibility noindex.
+      expect(out).not.toContain('content="noindex');
+      expect(out).toContain(`<link rel="canonical" href="https://presentail.test/en-ae/dubai/occasion/${slug}"`);
+    }
+  });
+
+  it("ar locale of a curated slug keeps template copy and the eligibility gate (no EN curated leak)", async () => {
+    mockFetchOnce({
+      ok: true,
+      occasion: { name: "عيد ميلاد", description: "", image: null },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/ar-ae/dubai/occasion/birthday", {
+      ...OPTS,
+    });
+    // No curated EN copy on the Arabic page.
+    expect(out).not.toContain("Birthday Gift Delivery in Dubai | Same-Day");
+    expect(out).not.toContain("Order before 11 PM for delivery today.");
   });
 
   it("falls back to the generic shop preview when the occasion 404s", async () => {
@@ -5265,8 +5343,10 @@ describe("JSON-LD — FAQPage on category and occasion listing pages", () => {
     });
     const faq = byType(extractJsonLd(out), "FAQPage");
     expect(faq).toBeTruthy();
-    expect(faq.mainEntity).toHaveLength(3);
-    expect(faq.mainEntity[0].name).toContain("Anniversary");
+    // Dubai anniversary is a curated occasion page: the legacy query-param
+    // route canonicalises to the same page, so it emits the curated FAQ set.
+    expect(faq.mainEntity).toHaveLength(5);
+    expect(faq.mainEntity[0].name).toContain("anniversary");
     expect(faq.mainEntity[0].name).toContain("Dubai");
   });
 });
@@ -7471,9 +7551,9 @@ describe("Prerender body — generic home page city intro and featured occasions
     expect(bodyHtml).toContain("/occasion/birthday");
     expect(bodyHtml).toContain("/occasion/anniversary");
     expect(bodyHtml).toContain("/occasion/valentines-day");
-    expect(bodyHtml).toContain("/occasion/mothers-day");
-    expect(bodyHtml).toContain("/occasion/new-baby");
-    expect(bodyHtml).toContain("/occasion/sympathy");
+    expect(bodyHtml).toContain("/occasion/wedding");
+    expect(bodyHtml).toContain("/occasion/new-born");
+    expect(bodyHtml).toContain("/occasion/funeral");
   });
 
   it("home page without city (root '/') does NOT emit city intro or occasion list", () => {

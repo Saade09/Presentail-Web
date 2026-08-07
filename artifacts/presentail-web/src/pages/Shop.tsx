@@ -26,6 +26,8 @@ import { Filter, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { buildCategorySeo, buildOccasionSeo } from "@/lib/seo";
+import { getOccasionSeoContent } from "@/data/occasionSeoContent.mjs";
+import { cityIdToSlug } from "@/lib/locale-route";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
 
@@ -540,6 +542,25 @@ export default function Shop() {
       ? (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) || catalogOccasion?.name || slugToTitle(occasion)
       : "";
 
+  // Curated per-occasion SEO content (Dubai EN pages for now). When present
+  // it overrides the template title/description, provides the visible H1 and
+  // intro, and renders dedicated content sections + FAQs below the grid —
+  // mirroring what the server prerender emits for crawlers.
+  const curatedSeo = useMemo(
+    () =>
+      occasion
+        ? getOccasionSeoContent({
+            country: countryCode?.toLowerCase() ?? null,
+            // city.id is the delivery API id ("ae-dubai"); curated content
+            // is keyed by URL slug ("dubai").
+            city: citySlug ? cityIdToSlug(citySlug) : null,
+            slug: occasion,
+            lang: language,
+          })
+        : null,
+    [occasion, countryCode, citySlug, language],
+  );
+
   useEffect(() => {
     if (typeof document === "undefined") return;
     if (!isCategoryRoute && !isOccasionRoute) return;
@@ -555,17 +576,21 @@ export default function Shop() {
     const seo = isCategoryRoute
       ? buildCategorySeo({ lang: language, categoryName: entityName, city: cityLabel, country: countryLabel })
       : buildOccasionSeo({ lang: language, occasionName: entityName, city: cityLabel, country: countryLabel });
-    document.title = seo.title;
+    // Curated occasion pages have hand-written title/meta copy that must
+    // match what the server prerender emits for crawlers.
+    const effTitle = curatedSeo?.title ?? seo.title;
+    const effDescription = curatedSeo?.metaDescription ?? seo.description;
+    document.title = effTitle;
     head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
-    setMeta('meta[name="description"]', { name: "description", content: seo.description }, head);
-    setMeta('meta[property="og:title"]', { property: "og:title", content: seo.ogTitle }, head);
-    setMeta('meta[property="og:description"]', { property: "og:description", content: seo.ogDescription }, head);
-    setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: seo.twitterTitle }, head);
-    setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: seo.twitterDescription }, head);
+    setMeta('meta[name="description"]', { name: "description", content: effDescription }, head);
+    setMeta('meta[property="og:title"]', { property: "og:title", content: curatedSeo?.title ?? seo.ogTitle }, head);
+    setMeta('meta[property="og:description"]', { property: "og:description", content: curatedSeo?.metaDescription ?? seo.ogDescription }, head);
+    setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: curatedSeo?.title ?? seo.twitterTitle }, head);
+    setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: curatedSeo?.metaDescription ?? seo.twitterDescription }, head);
     return () => {
       head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
     };
-  }, [entityName, isCategoryRoute, isOccasionRoute, city, country, language, cityName, countryName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entityName, isCategoryRoute, isOccasionRoute, city, country, language, cityName, countryName, curatedSeo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const capitalizeFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -648,7 +673,7 @@ export default function Shop() {
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
-              {birthdayContextTitle ?? pageTitle}
+              {birthdayContextTitle ?? curatedSeo?.h1 ?? pageTitle}
               {isLoading ? (
                 <span className="hidden md:inline ml-4 align-middle">
                   <Skeleton className="inline-block h-4 w-16 rounded" />
@@ -689,7 +714,11 @@ export default function Shop() {
         {/* Contextual description — server returns AI-generated copy or a
             deterministic fallback. Show nothing while loading; on error
             build a rich client-side description from the loaded products. */}
-        {(pageDescriptionData?.description || pageDescriptionError) && pageDescriptionType && pageDescriptionSlug && (
+        {curatedSeo ? (
+          <p className="text-sm font-medium text-muted-foreground max-w-[600px] mb-4 -mt-1"> {/* i18n-ignore — curated EN-only SEO copy */}
+            {curatedSeo.intro}
+          </p>
+        ) : (pageDescriptionData?.description || pageDescriptionError) && pageDescriptionType && pageDescriptionSlug && (
           <p className="text-sm font-medium text-muted-foreground max-w-[600px] mb-4 -mt-1"> {/* i18n-ignore */}
             {pageDescriptionData?.description
               ?? buildRichClientDescription(
@@ -966,6 +995,43 @@ export default function Shop() {
         const cityLabel = city ? cityName(city.id, city.name) : "";
         const availableCategoryIds = catalogMetadata?.categories.map((c) => c.id) ?? [];
         const availableOccasionIds = catalogMetadata?.occasions.map((o) => o.id) ?? [];
+        // Curated occasion pages render hand-written sections + FAQs (the
+        // same copy the server prerender emits, so structured data always
+        // matches visible content) instead of the template SEO section.
+        if (occasion && curatedSeo) {
+          return (
+            <section className="container mx-auto max-w-content px-page py-12 space-y-10">
+              {curatedSeo.sections.map((s) => (
+                <div key={s.heading} className="max-w-[720px]">
+                  <h2 className="text-2xl font-serif mb-3">{s.heading}</h2> {/* i18n-ignore — curated EN-only SEO copy */}
+                  <p className="text-sm text-muted-foreground leading-relaxed">{s.body}</p> {/* i18n-ignore */}
+                  {s.links && s.links.length > 0 && (
+                    <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                      {s.links.map((l) => (
+                        <li key={l.href}>
+                          <Link href={l.href} className="text-sm underline underline-offset-4 text-foreground/80 hover:text-foreground">
+                            {l.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+              <div className="max-w-[720px]">
+                <h2 className="text-2xl font-serif mb-4">{t("seo.content.faqTitle")}</h2>
+                <div className="space-y-5">
+                  {curatedSeo.faqs.map((f) => (
+                    <div key={f.q}>
+                      <h3 className="text-base font-medium mb-1">{f.q}</h3> {/* i18n-ignore — curated EN-only SEO copy */}
+                      <p className="text-sm text-muted-foreground leading-relaxed">{f.a}</p> {/* i18n-ignore */}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          );
+        }
         if ((category || occasion) && products.length > 0) {
           return (
             <SEOContentSection

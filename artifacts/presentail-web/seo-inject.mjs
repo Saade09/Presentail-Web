@@ -149,6 +149,8 @@ import {
 
 import { buildHreflangSet, HUB_CITY, remapPathnameToHubCity } from "./src/lib/hreflang.mjs";
 
+import { getOccasionSeoContent } from "./src/data/occasionSeoContent.mjs";
+
 import {
   BRAND_FAQ_COPY,
   BRAND_HEADING_COPY,
@@ -1053,9 +1055,9 @@ const FEATURED_HOME_OCCASIONS = [
   { slug: "birthday", name: "Birthday Flowers & Gifts" },
   { slug: "anniversary", name: "Anniversary Gifts" },
   { slug: "valentines-day", name: "Valentine's Day Flowers" },
-  { slug: "mothers-day", name: "Mother's Day Flowers" },
-  { slug: "new-baby", name: "New Baby Gifts" },
-  { slug: "sympathy", name: "Sympathy & Condolences" },
+  { slug: "wedding", name: "Wedding Gifts" },
+  { slug: "new-born", name: "New Baby Gifts" },
+  { slug: "funeral", name: "Funeral & Sympathy Flowers" },
 ];
 
 // Static descriptive copy for each generic route type (English only — the SEO
@@ -3513,6 +3515,22 @@ function buildShopEntityHead({
   ogImageUrl,
 }) {
   const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
+  // Curated per-occasion SEO content (title/description/H1/sections/FAQs).
+  // Only defined for specific country/city/slug combinations and EN locale;
+  // everything else keeps the template-based copy below.
+  let curated = null;
+  if (entityKind === "occasion") {
+    const parsedLoc = parseLocalePath(pathname);
+    const slugMatch = (parsedLoc.rest ?? "").match(/^\/occasion\/([^/?#]+)/);
+    if (parsedLoc.hasLocalePrefix && slugMatch) {
+      curated = getOccasionSeoContent({
+        country: parsedLoc.country,
+        city: parsedLoc.city,
+        slug: decodeURIComponent(slugMatch[1]),
+        lang,
+      });
+    }
+  }
   const seo =
     entityKind === "occasion"
       ? buildOccasionSeo({
@@ -3529,12 +3547,13 @@ function buildShopEntityHead({
           country: countryLabel || "",
           productCount,
         });
-  const title = rawName ? seo.title : "Presentail";
+  const title = curated ? curated.title : (rawName ? seo.title : "Presentail");
   const rawDesc = entity.description ? stripHtml(entity.description) : "";
-  const description =
-    clampDescription(rawDesc) ||
-    seo.description ||
-    genericFallbackDescription(lang, "shop");
+  const description = curated
+    ? curated.metaDescription
+    : (clampDescription(rawDesc) ||
+       seo.description ||
+       genericFallbackDescription(lang, "shop"));
   // Mark genuinely empty listing pages (zero deliverable products) as
   // noindex so search engines don't surface thin/empty results.
   const robots = seo.robots === "noindex, follow" ? "noindex, follow" : undefined;
@@ -3573,7 +3592,23 @@ function buildShopEntityHead({
   // page has deliverable products — a listing with no products never renders
   // the FAQ section in the UI, so the schema would not match visible content.
   let entityBodyFaqItems = [];
-  if (rawName && productCount > 0) {
+  if (curated) {
+    // Curated FAQ copy replaces the templates entirely. The client route
+    // renders the same curated Q&A visibly, so the schema always matches
+    // on-page content regardless of product count.
+    entityBodyFaqItems = curated.faqs.map(({ q, a }) => ({ q, a }));
+    extraLines.push(
+      jsonLdTag({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: entityBodyFaqItems.map(({ q, a }) => ({
+          "@type": "Question",
+          name: q,
+          acceptedAnswer: { "@type": "Answer", text: a },
+        })),
+      }),
+    );
+  } else if (rawName && productCount > 0) {
     const faqCopyMap =
       entityKind === "occasion" ? OCCASION_FAQ_COPY : CATEGORY_FAQ_COPY;
     const pickLangFaq = (/** @type {string} */ l) => {
@@ -3673,17 +3708,55 @@ function buildShopEntityHead({
   // Google indexes them rather than merely crawling them — display:none
   // content is potentially deweighted or treated as cloaked. sr-only keeps
   // them out of the visual layout; React replaces all of #root on mount.
-  const bodyHtml = (
-    `<h1 class="sr-only">${safeEntityTitle}</h1>` +
-    (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
-    `<div style="display:none">` +
-    (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
-    (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
-    (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +
-    entityFaqBodyHtml +
-    entityNav +
-    `</div>`
-  );
+  // Curated occasion pages render a VISIBLE content block in the prerendered
+  // body — visible H1 (differing from the <title>), intro paragraph, H2
+  // sections with category links, and the FAQ Q&A — so crawlers fetching raw
+  // HTML see real on-page content, not just sr-only/hidden fragments. React
+  // replaces all of #root on hydration and re-renders the same curated copy.
+  let curatedBodyHtml = "";
+  if (curated) {
+    const sectionsHtml = curated.sections
+      .map((s) => {
+        let linksHtml = "";
+        if (locBase && Array.isArray(s.links) && s.links.length > 0) {
+          linksHtml =
+            `<ul>` +
+            s.links
+              .map((l) => `<li><a href="${locBase}${escapeAttr(l.href)}">${escapeHtml(l.label)}</a></li>`)
+              .join("") +
+            `</ul>`;
+        }
+        return `<h2>${escapeHtml(s.heading)}</h2><p>${escapeHtml(s.body)}</p>${linksHtml}`;
+      })
+      .join("");
+    const curatedFaqHtml =
+      curated.faqs.length > 0
+        ? `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — curated content is EN-only
+          curated.faqs.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("")
+        : "";
+    curatedBodyHtml =
+      `<h1>${escapeHtml(curated.h1)}</h1>` +
+      `<p>${escapeHtml(curated.intro)}</p>` +
+      sectionsHtml +
+      curatedFaqHtml;
+  }
+  const bodyHtml = curated
+    ? (
+      curatedBodyHtml +
+      (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
+      (entityNav ? `<div style="display:none">${entityNav}</div>` : "")
+    )
+    : (
+      `<h1 class="sr-only">${safeEntityTitle}</h1>` +
+      (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
+      `<div style="display:none">` +
+      (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
+      (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
+      (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +
+      entityFaqBodyHtml +
+      entityNav +
+      `</div>`
+    );
   // When a pre-generated branded OG image URL is provided use fixed 1200×630
   // dimensions (no need to probe the URL with a Range request).
   const effectiveImageWidth = ogImageUrl ? 1200 : imageDimensions?.width;
@@ -4522,7 +4595,19 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             ? occParentCount >= MIN_PRODUCTS_BY_TYPE["city-occasion"]
             : null,
       });
-      if (!occasionEligibility.eligible) {
+      // Curated occasion pages carry substantial unique on-page content
+      // (hand-written intro, sections, FAQs), so the thin/duplicate-page
+      // rationale behind the eligibility gate does not apply — keep them
+      // indexable regardless of product-count ratios. Scoped to the locale
+      // that actually renders curated copy (EN-only today): ar/fr variants
+      // still show template content, so they keep the eligibility gate.
+      const hasCuratedOccasionContent = !!getOccasionSeoContent({
+        country: parsed.country,
+        city: parsed.city,
+        slug: occasionSlug,
+        lang: parsed.lang,
+      });
+      if (!occasionEligibility.eligible && !hasCuratedOccasionContent) {
         result = applyEligibilityNoindex(result);
       }
     } else if (lifecycleOut && _occasionFetchOut.definitelyNotFound) {
