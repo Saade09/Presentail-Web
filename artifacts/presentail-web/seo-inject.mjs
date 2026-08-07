@@ -150,6 +150,7 @@ import {
 import { buildHreflangSet, HUB_CITY, remapPathnameToHubCity } from "./src/lib/hreflang.mjs";
 
 import { getOccasionSeoContent } from "./src/data/occasionSeoContent.mjs";
+import { getCategorySeoContent } from "./src/data/categorySeoContent.mjs";
 
 import {
   BRAND_FAQ_COPY,
@@ -3530,6 +3531,20 @@ function buildShopEntityHead({
         lang,
       });
     }
+  } else if (entityKind === "category") {
+    // Curated per-category SEO content (title/description/H1/sections/FAQs).
+    // Mirrors the occasion curated pattern: only specific country/city/slug
+    // combinations carry hand-written copy (currently lb/beirut + cakes).
+    const parsedLoc = parseLocalePath(pathname);
+    const slugMatch = (parsedLoc.rest ?? "").match(/^\/category\/([^/?#]+)/);
+    if (parsedLoc.hasLocalePrefix && slugMatch) {
+      curated = getCategorySeoContent({
+        country: parsedLoc.country,
+        city: parsedLoc.city,
+        slug: decodeURIComponent(slugMatch[1]),
+        lang,
+      });
+    }
   }
   const seo =
     entityKind === "occasion"
@@ -4510,7 +4525,17 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             ? catParentCount >= MIN_PRODUCTS_BY_TYPE["city-category"]
             : null,
       });
-      if (!categoryEligibility.eligible) {
+      // Curated category pages carry substantial unique on-page content
+      // (hand-written intro, sections, FAQs), so the thin/duplicate-page
+      // gate does not apply — keep them indexable regardless of product-count
+      // ratios. Scoped to EN only (ar/fr keep the normal eligibility gate).
+      const hasCuratedCategoryContent = !!getCategorySeoContent({
+        country: parsed.country,
+        city: parsed.city,
+        slug: categorySlug,
+        lang: parsed.lang,
+      });
+      if (!categoryEligibility.eligible && !hasCuratedCategoryContent) {
         result = applyEligibilityNoindex(result);
       }
     } else if (lifecycleOut && _categoryFetchOut.definitelyNotFound) {
