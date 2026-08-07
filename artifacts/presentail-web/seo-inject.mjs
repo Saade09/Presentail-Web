@@ -431,7 +431,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   const params = { city: cityLabel, country: countryLabel };
   // Contact and FAQs pages use a tiered title-length guardrail instead of the
   // plain TITLES template so all city names land in the 30–65 char audit window.
-  const title = routeKey === "contact"
+  let title = routeKey === "contact"
     ? buildContactSeo({ lang, city: cityLabel, country: countryLabel }).title
     : routeKey === "faqs"
     ? buildFaqsSeo({ lang, city: cityLabel, country: countryLabel }).title
@@ -444,12 +444,61 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       `SEO title exceeds 65 chars (${title.length}) [${routeKey}/${lang}]: "${title}"`,
     );
   }
-  const description = format(
+  let description = format(
     DESCRIPTIONS[lang]?.[routeKey] ??
       DESCRIPTIONS.en[routeKey] ??
       DESCRIPTIONS.en.landing,
     params,
   );
+
+  // For product / category / occasion routes, extract the URL slug and derive
+  // entity-specific title/description from it using the same builders that the
+  // live entity branches use.  This replaces the completely generic
+  // "Gift Delivery in {city} | Presentail" fallback with slug-specific copy
+  // (e.g. "Plum Florals — Beirut | Presentail") so cold-cache / API-unavailable
+  // responses are still meaningfully unique per page.  When the entity API
+  // does respond, injectSeoTagsAsync overwrites these with the real fetched
+  // title and description; this only affects the fallback path.
+  if (
+    (routeKey === "product" || routeKey === "category" || routeKey === "occasion") &&
+    parsed.rest
+  ) {
+    const slugMatch = parsed.rest.match(
+      /^\/(?:product|category|occasion)\/([^/?#]+)/,
+    );
+    if (slugMatch) {
+      const slugName = slugMatch[1]
+        .split("-")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+      if (slugName) {
+        const slugSeo =
+          routeKey === "product"
+            ? buildProductSeo({
+                lang,
+                productName: slugName,
+                city: cityLabel,
+                country: countryLabel,
+                shortDescription: "",
+              })
+            : routeKey === "category"
+            ? buildCategorySeo({
+                lang,
+                categoryName: slugName,
+                city: cityLabel,
+                country: countryLabel,
+              })
+            : buildOccasionSeo({
+                lang,
+                occasionName: slugName,
+                city: cityLabel,
+                country: countryLabel,
+              });
+        if (slugSeo.title) title = slugSeo.title;
+        if (slugSeo.description) description = slugSeo.description;
+      }
+    }
+  }
 
   const cleanBase = basePath.replace(/\/$/, "");
   // For locale-prefixed paths whose sub-route did not match any known route
