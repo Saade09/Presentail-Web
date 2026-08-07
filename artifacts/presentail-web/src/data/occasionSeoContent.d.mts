@@ -1,7 +1,8 @@
 export type OccasionSeoSection = {
   heading: string;
   body: string;
-  links?: Array<{ label: string; href: string }>;
+  /** When `absolute` is true seo-inject does NOT prepend locBase to href. */
+  links?: Array<{ label: string; href: string; absolute?: boolean }>;
 };
 
 export type OccasionSeoFaq = { q: string; a: string };

@@ -470,10 +470,23 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       /^\/(?:product|category|occasion)\/([^/?#]+)/,
     );
     if (slugMatch) {
-      const slugName = slugMatch[1]
-        .split("-")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+      // Possessive occasion slugs lose their apostrophe when derived purely
+      // from the URL (e.g. "mothers-day" → "Mothers Day"). Override the few
+      // known cases so the generic fallback title is correct from the start,
+      // before the entity fetch resolves and supplies the canonical name.
+      const POSSESSIVE_SLUG_OVERRIDES = {
+        "mothers-day": "Mother's Day",
+        "fathers-day": "Father's Day",
+        "valentines-day": "Valentine's Day",
+        "womens-day": "Women's Day",
+        "st-patricks-day": "St. Patrick's Day",
+      };
+      const slugName =
+        POSSESSIVE_SLUG_OVERRIDES[slugMatch[1]] ??
+        slugMatch[1]
+          .split("-")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
       if (slugName) {
         const slugSeo =
           routeKey === "product"
@@ -3737,7 +3750,9 @@ function buildShopEntityHead({
           linksHtml =
             `<ul>` +
             s.links
-              .map((l) => `<li><a href="${locBase}${escapeAttr(l.href)}">${escapeHtml(l.label)}</a></li>`)
+              // absolute:true links are already locale-prefixed full paths
+              // (cross-city hub-and-spoke); do NOT prepend locBase to them.
+              .map((l) => `<li><a href="${l.absolute ? escapeAttr(l.href) : locBase + escapeAttr(l.href)}">${escapeHtml(l.label)}</a></li>`)
               .join("") +
             `</ul>`;
         }

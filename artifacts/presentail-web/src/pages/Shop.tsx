@@ -107,7 +107,17 @@ const OCCASIONS = [
   { slug: "katb-kitab", labelKey: "shop.occ.katbKitab" },
 ];
 
+// Possessive occasion slugs lose their apostrophe when split on hyphens.
+// Override the known cases so the fallback heading is grammatically correct.
+const POSSESSIVE_SLUG_OVERRIDES: Record<string, string> = {
+  "mothers-day": "Mother's Day",
+  "fathers-day": "Father's Day",
+  "valentines-day": "Valentine's Day",
+  "womens-day": "Women's Day",
+  "st-patricks-day": "St. Patrick's Day",
+};
 const slugToTitle = (slug: string) =>
+  POSSESSIVE_SLUG_OVERRIDES[slug] ??
   slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
 const USD_BUCKET_THRESHOLDS = [50, 100, 200] as const;

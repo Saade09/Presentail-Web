@@ -31,7 +31,7 @@
 /* eslint-disable max-len */
 
 /**
- * @typedef {{ heading: string, body: string, links?: Array<{ label: string, href: string }> }} OccasionSeoSection
+ * @typedef {{ heading: string, body: string, links?: Array<{ label: string, href: string, absolute?: boolean }> }} OccasionSeoSection
  * @typedef {{ q: string, a: string }} OccasionSeoFaq
  * @typedef {{
  *   title: string,
@@ -45,6 +45,81 @@
 
 /** @type {Record<string, Record<string, OccasionSeoEntry>>} */
 export const OCCASION_SEO_CONTENT = {
+  "lb/beirut": {
+    "mothers-day": {
+      title: "Mother's Day Gifts in Beirut, Lebanon | Same-Day | Presentail",
+      metaDescription:
+        "Send Mother's Day flowers, cakes and gift hampers in Beirut with same-day delivery — or send one anywhere else in Lebanon. Order online today.",
+      h1: "Mother's Day Gifts in Beirut, Lebanon",
+      intro:
+        "Send Mother's Day gifts anywhere in Beirut — Hamra, Achrafieh, Gemmayzeh, Verdun, Jdeideh and beyond — with same-day delivery, or order from anywhere in the world to surprise your mum anywhere else in Lebanon.",
+      sections: [
+        {
+          heading: "Shop Mother's Day Gifts",
+          body: "From fresh flower bouquets and cakes to chocolate hampers and personalised gifts — every order is prepared on the day of delivery and sent with a message from you.",
+          links: [
+            { label: "Mother's Day flowers", href: "/category/hand-bouquets" },
+            { label: "cakes", href: "/category/cakes" },
+            { label: "chocolate & sweets", href: "/category/chocolate" },
+            { label: "gift hampers", href: "/category/baskets" },
+          ],
+        },
+        {
+          heading: "Delivering Mother's Day Gifts Across Lebanon",
+          body: "Presentail delivers Mother's Day gifts to every region of Lebanon. Order from Beirut for delivery in the capital, or send a gift to your mum anywhere else in the country.",
+          links: [
+            { label: "Mother's Day gifts in Tripoli", href: "/en-lb/tripoli/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Saida", href: "/en-lb/saida/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Zahle", href: "/en-lb/zahle/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Jbeil", href: "/en-lb/jbeil/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Batroun", href: "/en-lb/batroun/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Tyre", href: "/en-lb/tyre/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Metn", href: "/en-lb/metn/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Kesserwan", href: "/en-lb/kesserwan/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Baabda", href: "/en-lb/baabda/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Aley", href: "/en-lb/aley/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Chouf", href: "/en-lb/chouf/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Nabatieh", href: "/en-lb/nabatieh/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Koura", href: "/en-lb/koura/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Bcharre", href: "/en-lb/bcharee/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Zgharta", href: "/en-lb/zghorta/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Akkar", href: "/en-lb/akkar/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Hermel", href: "/en-lb/hermel/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Baalbeck", href: "/en-lb/baalbeck/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in West Bekaa", href: "/en-lb/west-bekaa/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Rachaya", href: "/en-lb/rechaya/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Hasbaya", href: "/en-lb/hasbaya/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Marjayoun", href: "/en-lb/marjayoun/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Bint Jbeil", href: "/en-lb/bent-jbeil/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Jezzine", href: "/en-lb/jezzine/occasion/mothers-day", absolute: true },
+            { label: "Mother's Day gifts in Minnieh-Denniyeh", href: "/en-lb/minnieh-dennaya/occasion/mothers-day", absolute: true },
+          ],
+        },
+      ],
+      faqs: [
+        {
+          q: "Can I get same-day Mother's Day gift delivery in Beirut?",
+          a: "Yes — order before midday for same-day Mother's Day delivery in Beirut. Orders placed after midday are scheduled for the next available delivery window.",
+        },
+        {
+          q: "Do you deliver Mother's Day gifts outside Beirut, anywhere in Lebanon?",
+          a: "Yes, Presentail delivers Mother's Day gifts across Lebanon — Tripoli, Saida, Zahle, Jbeil and every other city and region. Select your delivery address at checkout to confirm availability.",
+        },
+        {
+          q: "Can I order a Mother's Day gift from abroad for my mother in Lebanon?",
+          a: "Yes — you can order from anywhere in the world and we'll deliver to your mother in Lebanon. Presentail accepts international credit and debit cards at checkout.",
+        },
+        {
+          q: "What Mother's Day gifts are available?",
+          a: "Fresh flower bouquets, cakes, chocolates and curated gift hampers — all prepared on the day of delivery.",
+        },
+        {
+          q: "Can I add a personalised message with the gift?",
+          a: "Yes — add your message in the gift note field at checkout and it will be included with the delivery.",
+        },
+      ],
+    },
+  },
   "ae/dubai": {
     birthday: {
       title: "Birthday Gift Delivery in Dubai | Same-Day | Presentail",
