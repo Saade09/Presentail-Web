@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { Product } from "@/lib/queries";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { trackWebEvent } from "@/lib/analytics";
+import { fireGtagEvent } from "@/lib/gtag";
 import { AuthOverrideContext } from "@/contexts/AuthContext";
 import { LocationContext } from "@/contexts/LocationContext";
 import { getStartupItem } from "@/lib/startupState";
@@ -104,6 +105,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const newSubtotal = newItems.reduce((acc, item) => acc + effectivePrice(item.product) * item.quantity, 0);
     const cityName = locationCtx?.city?.name ?? locationCtx?.city?.id ?? undefined;
     const brandName = product.brandNames?.[0] ?? undefined;
+    // GA4 mirror — lets GA4/Google Ads attribute add_to_cart to the ad click
+    // (gclid/UTM) captured on the session's landing page.
+    fireGtagEvent("add_to_cart", {
+      currency: currencyCode,
+      value: newSubtotal,
+      items: newItems.map(i => ({
+        item_id: i.product.id,
+        item_name: i.product.name,
+        price: effectivePrice(i.product),
+        quantity: i.quantity,
+      })),
+    });
     trackWebEvent({
       type: "add_to_cart",
       items: newItems.map(i => ({

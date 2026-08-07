@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
-import { fireAdsPurchaseConversion } from "@/lib/gtag";
+import { fireAdsPurchaseConversion, fireGtagEvent } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 import { markHasOrdered, clearFirstOrderPromo } from "@/lib/campaign";
@@ -271,6 +271,9 @@ export default function OrderConfirmed() {
         : {}),
     });
     fireAdsPurchaseConversion({ transactionId: state.ref, value, currency });
+    // GA4 mirror — standard e-commerce purchase event so GA4 attributes the
+    // conversion to the campaign (gclid/UTM) that started the session.
+    fireGtagEvent("purchase", { transaction_id: state.ref, value, currency });
     try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
   // state is included so the effect re-runs if the FinalizeState reference changes.
   // authLoading/user are included so the event fires after session hydration on
@@ -412,6 +415,8 @@ export default function OrderConfirmed() {
               ...(user?.email ? { userData: { em: user.email } } : {}),
             });
             fireAdsPurchaseConversion({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency });
+            // GA4 mirror — see the inline-success effect above.
+            fireGtagEvent("purchase", { transaction_id: orderRef, value: purchaseValue, currency: purchaseCurrency });
             try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
           } else {
             purchaseFiredRef.current = true;

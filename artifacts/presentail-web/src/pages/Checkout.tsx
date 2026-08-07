@@ -57,6 +57,7 @@ import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
 import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
+import { fireGtagEvent } from "@/lib/gtag";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -1245,6 +1246,18 @@ function CheckoutForm() {
           },
         }
       : undefined);
+    // GA4 mirror — begin_checkout so the campaign funnel is visible in
+    // GA4 DebugView / reports alongside the internal checkout_step event.
+    fireGtagEvent("begin_checkout", {
+      currency: checkoutCurrency,
+      value: subtotal,
+      items: items.map((i) => ({
+        item_id: i.product.id,
+        item_name: i.product.name,
+        price: i.product.priceValue,
+        quantity: i.quantity,
+      })),
+    });
     trackWebEvent({
       type: "checkout_step",
       items: items.map((i) => ({
@@ -1919,11 +1932,6 @@ function CheckoutForm() {
     setServerFeesOverride(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, deliveryMode, _selectedDistrict, noAddress, confirmedCouponDiscount, deliverySlot]);
-
-
-
-
-
 
 
   // Derived display values: prefer server-authoritative USD amounts when the
