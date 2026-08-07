@@ -267,7 +267,7 @@ function fmt(template, params) {
 // ---------------------------------------------------------------------------
 
 function buildCityHomeMarkdown({
-  lang, country, city, origin, cleanBase, lastmod,
+  lang, country, city, origin, cleanBase,
   products, categories, occasions,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -290,7 +290,6 @@ function buildCityHomeMarkdown({
     locale: `${lang}-${country}`,
     page_type: "city_home",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const topProducts = products
@@ -334,7 +333,7 @@ function buildCityHomeMarkdown({
 }
 
 function buildShopMarkdown({
-  lang, country, city, origin, cleanBase, lastmod,
+  lang, country, city, origin, cleanBase,
   products, categories, occasions,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -357,7 +356,6 @@ function buildShopMarkdown({
     locale: `${lang}-${country}`,
     page_type: "shop",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const topProducts = products
@@ -391,7 +389,7 @@ function buildShopMarkdown({
 }
 
 function buildBrandsListMarkdown({
-  lang, country, city, origin, cleanBase, lastmod,
+  lang, country, city, origin, cleanBase,
   brands,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -414,7 +412,6 @@ function buildBrandsListMarkdown({
     locale: `${lang}-${country}`,
     page_type: "brands_list",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const brandLines = brands
@@ -434,7 +431,7 @@ function buildBrandsListMarkdown({
 }
 
 function buildOccasionsListMarkdown({
-  lang, country, city, origin, cleanBase, lastmod,
+  lang, country, city, origin, cleanBase,
   occasions,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -457,7 +454,6 @@ function buildOccasionsListMarkdown({
     locale: `${lang}-${country}`,
     page_type: "occasions_list",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const occasionLines = occasions
@@ -479,7 +475,7 @@ function buildOccasionsListMarkdown({
 }
 
 function buildCategoryMarkdown({
-  lang, country, city, categorySlug, origin, cleanBase, lastmod,
+  lang, country, city, categorySlug, origin, cleanBase,
   products, categories,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -505,7 +501,6 @@ function buildCategoryMarkdown({
     locale: `${lang}-${country}`,
     page_type: "category",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const categoryProducts = products
@@ -534,7 +529,7 @@ function buildCategoryMarkdown({
 }
 
 function buildOccasionMarkdown({
-  lang, country, city, occasionSlug, origin, cleanBase, lastmod,
+  lang, country, city, occasionSlug, origin, cleanBase,
   products, occasions,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -560,7 +555,6 @@ function buildOccasionMarkdown({
     locale: `${lang}-${country}`,
     page_type: "occasion",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const occasionProducts = products
@@ -588,7 +582,7 @@ function buildOccasionMarkdown({
 }
 
 function buildProductMarkdown({
-  lang, country, city, productSlug, origin, cleanBase, lastmod,
+  lang, country, city, productSlug, origin, cleanBase,
   products, occasions,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -621,7 +615,6 @@ function buildProductMarkdown({
     locale: `${lang}-${country}`,
     page_type: "product",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const productBrand = product ? (Array.isArray(product.brandNames) ? product.brandNames[0] : null) : null;
@@ -667,7 +660,7 @@ function buildProductMarkdown({
 }
 
 function buildBrandMarkdown({
-  lang, country, city, brandSlug, origin, cleanBase, lastmod,
+  lang, country, city, brandSlug, origin, cleanBase,
   products, brands,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
@@ -693,7 +686,6 @@ function buildBrandMarkdown({
     locale: `${lang}-${country}`,
     page_type: "brand",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const brandProducts = products
@@ -722,7 +714,7 @@ function buildBrandMarkdown({
 }
 
 function buildBestSellersMarkdown({
-  lang, country, city, origin, cleanBase, lastmod, products,
+  lang, country, city, origin, cleanBase, products,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
   const countryLbl = getCountryLabel(lang, country);
@@ -745,7 +737,6 @@ function buildBestSellersMarkdown({
     locale: `${lang}-${country}`,
     page_type: "best_sellers",
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const topProducts = products
@@ -770,7 +761,7 @@ function buildBestSellersMarkdown({
 }
 
 function buildStaticPageMarkdown({
-  lang, country, city, pageKey, origin, cleanBase, lastmod,
+  lang, country, city, pageKey, origin, cleanBase,
 }) {
   const cityLbl = getCityLabel(lang, country, city);
   const countryLbl = getCountryLabel(lang, country);
@@ -807,7 +798,6 @@ function buildStaticPageMarkdown({
     locale: `${lang}-${country}`,
     page_type: pageKey,
     site_name: "Presentail",
-    last_modified: lastmod,
   });
 
   const headingMap = {
@@ -856,7 +846,8 @@ function buildStaticPageMarkdown({
  * @param {Array}  args.occasions    - [{ id, name }]
  * @param {Array}  args.brands       - [{ slug, name }]
  * @param {Array}  args.products     - [{ slug, name }]
- * @param {string} args.lastmod      - YYYY-MM-DD
+ * @param {string} [args.lastmod]    - YYYY-MM-DD; omitted from the frontmatter
+ *                                     when no real last-modified date is known.
  * @returns {string}
  */
 export function buildSitemapMd({
@@ -866,7 +857,7 @@ export function buildSitemapMd({
   occasions = [],
   brands = [],
   products = [],
-  lastmod = new Date().toISOString().slice(0, 10),
+  lastmod,
 } = {}) {
   const cleanBase = (basePath ?? "").replace(/\/$/, "");
   const markdownUrl = `${origin}${cleanBase}/sitemap.md`;
@@ -925,7 +916,7 @@ export function buildSitemapMd({
     `language: "en"`,
     `locale: "global"`,
     `site_name: "Presentail"`,
-    `last_modified: "${lastmod}"`,
+    ...(lastmod ? [`last_modified: "${lastmod}"`] : []),
     "---",
     "",
     "# Presentail — Markdown Mirror Index",
@@ -994,12 +985,7 @@ export async function getMarkdownForPath(
     if (fetchJson && apiBaseUrl) {
       catalog = await getCatalogData(fetchJson, apiBaseUrl);
     }
-    return buildSitemapMd({
-      origin,
-      basePath,
-      ...catalog,
-      lastmod: new Date().toISOString().slice(0, 10),
-    });
+    return buildSitemapMd({ origin, basePath, ...catalog });
   }
 
   if (!isMirroredPath(htmlPath)) return null;
@@ -1009,7 +995,6 @@ export async function getMarkdownForPath(
   const [, lang, country, city, rest = ""] = m;
   const subroute = rest || "";
   const cleanBase = (basePath ?? "").replace(/\/$/, "");
-  const lastmod = new Date().toISOString().slice(0, 10);
 
   // Fetch catalog data (cached, non-fatal)
   let catalog = { products: [], brands: [], occasions: [], categories: [] };
@@ -1017,7 +1002,10 @@ export async function getMarkdownForPath(
     catalog = await getCatalogData(fetchJson, apiBaseUrl);
   }
 
-  const baseArgs = { lang, country, city, origin, cleanBase, lastmod, ...catalog };
+  // No real last-modified date is known for these pages, so `lastmod` is
+  // deliberately not set — buildFrontmatter skips undefined values, keeping
+  // fabricated request-date stamps out of the mirrors.
+  const baseArgs = { lang, country, city, origin, cleanBase, ...catalog };
 
   if (subroute === "" || subroute === "/") {
     return buildCityHomeMarkdown(baseArgs);
@@ -1085,7 +1073,7 @@ export async function getMarkdownForPath(
     if (!articlesByLang) return null;
     const article = articlesByLang[lang] ?? articlesByLang.en;
     if (!article) return null;
-    return buildBlogPostMarkdown({ article, lang, country, city, origin, cleanBase, lastmod });
+    return buildBlogPostMarkdown({ article, lang, country, city, origin, cleanBase });
   }
 
   return null;
@@ -1101,10 +1089,9 @@ export async function getMarkdownForPath(
  * @param {string} opts.city        - City slug
  * @param {string} opts.origin      - Site origin
  * @param {string} opts.cleanBase   - Base path prefix (no trailing slash)
- * @param {string} opts.lastmod     - ISO date string for frontmatter
  * @returns {string}
  */
-function buildBlogPostMarkdown({ article, lang, country, city, origin, cleanBase, lastmod }) {
+function buildBlogPostMarkdown({ article, lang, country, city, origin, cleanBase }) {
   const localeBase = `${origin}${cleanBase}/${lang}-${country}/${city}`;
   const slug = article.slug ?? "";
   const canonical = `${localeBase}/blog/${slug}`;
@@ -1113,7 +1100,9 @@ function buildBlogPostMarkdown({ article, lang, country, city, origin, cleanBase
     `title: "${(article.title ?? "").replace(/"/g, '\\"')}"`,
     `description: "${(article.description ?? "").replace(/"/g, '\\"')}"`,
     `url: "${canonical}"`,
-    `date_published: "${article.datePublished ?? lastmod}"`,
+    // Only the article's real publication date is emitted — never a
+    // fabricated request-date fallback.
+    ...(article.datePublished ? [`date_published: "${article.datePublished}"`] : []),
     `lang: "${lang}"`,
     `country: "${country}"`,
     `city: "${city}"`,

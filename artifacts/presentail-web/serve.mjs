@@ -1742,7 +1742,6 @@ const server = http.createServer(async (req, res) => {
         origin,
         basePath: BASE_PATH,
         ...catalogData,
-        lastmod: new Date().toISOString().slice(0, 10),
       });
       const encoding = pickEncoding(req, ".txt");
       const body = await compressBuffer(sitemapMd, encoding);

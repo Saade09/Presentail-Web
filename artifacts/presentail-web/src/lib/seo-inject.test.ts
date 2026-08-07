@@ -73,8 +73,8 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       "/en-ae/dubai/product/missing-product",
       OPTS,
     );
-    expect(out).not.toContain("missing-product | Presentail");
-    expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+    // Fallback derives slug-specific copy so cold-cache responses stay unique.
+    expect(out).toContain("<title>Missing Product — Dubai | Presentail</title>");
     expect(out).not.toContain('property="product:price:amount"');
   });
 
@@ -95,7 +95,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       (c) => !String(c[0]).includes("/api/analytics/events"),
     );
     expect(entityCalls).toHaveLength(1);
-    expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+    expect(out).toContain("<title>Anything — Dubai | Presentail</title>");
   });
 
   /**
@@ -1359,8 +1359,8 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
       "/en-lb/beirut/category/roses",
       ORIGIN_OPTS,
     );
-    // The page <title> keeps the longer template…
-    expect(title).toBe("Gift Delivery in Beirut | Presentail");
+    // The page <title> uses slug-derived category copy…
+    expect(title).toBe("Roses Delivery in Beirut | Presentail");
     // …while og:/twitter: use the dedicated shorter category copy.
     expect(getMeta(headSnippet, 'property="og:title"')).toBe(
       "Shop Gifts by Category in Beirut | Presentail",
@@ -3217,7 +3217,7 @@ describe("seo_entity_fetch_failed analytics event — emitted on entity lookup f
       "/en-ae/dubai/product/any-slug",
       OPTS,
     );
-    expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+    expect(out).toContain("<title>Any Slug — Dubai | Presentail</title>");
     expect(out).not.toContain('property="product:price:amount"');
   });
 });
@@ -4392,8 +4392,8 @@ describe("shared-link preview cache — null result is NOT cached", () => {
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(1);
-    // Null result → generic title, not the product name.
-    expect(out1).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+    // Null result → slug-derived fallback title, not the fetched product name.
+    expect(out1).toContain("<title>Preview Null Not Cached Unique — Dubai | Presentail</title>");
 
     // Second call: because null was NOT cached, the upstream must be retried.
     const out2 = await injectSeoTagsAsync(
