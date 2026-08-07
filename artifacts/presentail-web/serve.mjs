@@ -1421,6 +1421,10 @@ const server = http.createServer(async (req, res) => {
       "/country-selection":  `${BASE_PATH}/en-lb/beirut`,
       "/tours":              `${BASE_PATH}/en-lb/beirut`,
       "/tours/en":           `${BASE_PATH}/en-lb/beirut`,
+      // Legacy WP blog/campaign pages — previously hit the trailing-slash
+      // redirect, which stripped the slash but pointed at a path that was never
+      // migrated, creating a self-redirect-into-404 loop (Aug 2026).
+      "/birthday-gift-ideas-lebanon": `${BASE_PATH}/en-lb/beirut/occasion/birthday`,
     };
 
     const vanityKey =
@@ -1437,6 +1441,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Section 7b: Legacy WP blog paths — /tips-and-tricks/* (301) --------------
+    // The entire /tips-and-tricks tree (root, pagination, article slugs) maps
+    // to the new blog index. Previously these hit the trailing-slash redirect,
+    // which stripped the slash but pointed at an unmigrated path, creating a
+    // self-redirect-into-404 loop (Aug 2026). Catch all sub-paths here so no
+    // variant escapes into the trailing-slash handler.
+    if (
+      pathname === "/tips-and-tricks" ||
+      pathname === "/tips-and-tricks/" ||
+      pathname.startsWith("/tips-and-tricks/")
+    ) {
+      res.writeHead(301, {
+        location: `${BASE_PATH}/en-lb/beirut/blog`,
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
     // Section 8: Legacy WordPress country-prefix redirects (301) ---------------
     // Maps old WordPress country-prefixed paths to the correct new locale-city
     // equivalents in a single hop. Sub-paths with /product/, /product-category/,
@@ -1447,7 +1470,10 @@ const server = http.createServer(async (req, res) => {
     const COUNTRY_PREFIX_CONFIG = [
       { prefixes: ["lebanon"],      locale: "en-lb", city: "beirut" },
       { prefixes: ["cyprus"],       locale: "en-cy", city: "nicosia" },
-      { prefixes: ["uae", "dubai", "abudhabi"], locale: "en-ae", city: "dubai" },
+      { prefixes: ["uae", "dubai"],             locale: "en-ae", city: "dubai" },
+      // "abudhabi" was previously grouped here with city:"dubai" — wrong city.
+      // Corrected to its own entry so /abudhabi/* → /en-ae/abu-dhabi/* (Aug 2026).
+      { prefixes: ["abudhabi"],                 locale: "en-ae", city: "abu-dhabi" },
     ];
 
     for (const { prefixes, locale, city } of COUNTRY_PREFIX_CONFIG) {
