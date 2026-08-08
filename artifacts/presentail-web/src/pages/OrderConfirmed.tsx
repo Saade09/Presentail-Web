@@ -13,9 +13,23 @@ import { fireAdsPurchaseConversion, fireGtagEvent } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 import { markHasOrdered, clearFirstOrderPromo } from "@/lib/campaign";
+import { fireAdsPurchaseConversion, fireGA4PurchaseEvent } from "@/lib/gtag";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 const ADS_CONVERSION_KEY_PREFIX = "presentail_ads_conversion_fired_";
+
+// ── Google Merchant Center (GMC) conversion tracking ────────────────────────
+// Configure GMC to watch for the URL pattern:
+//   https://presentail.com/order-confirmed
+// with query parameter: status=success
+//
+// The GA4 `purchase` event fired on this page carries:
+//   transaction_id → matches the `ref` query param on this URL
+//   value          → order total in the shopper's display currency
+//   currency       → ISO 4217 currency code (e.g. "USD", "AED", "EUR")
+//   items[]        → one entry per line item with item_id (osSlug), item_name,
+//                    price, and quantity
+// ────────────────────────────────────────────────────────────────────────────
 
 // A stashed pending-order payload older than this is treated as missing. This
 // stops a stale tab (or a bookmarked /order-confirmed URL) left open for hours
@@ -35,7 +49,7 @@ type FinalizeState =
   | { kind: "success"; ref: string }
   | { kind: "failed"; message?: string };
 
-type OrderItem = { name: string; quantity: number; price: number; image?: string; customInput?: string };
+type OrderItem = { name: string; quantity: number; price: number; image?: string; customInput?: string; osSlug?: string };
 
 type ConfirmedOrder = {
   items?: OrderItem[];
@@ -248,12 +262,21 @@ export default function OrderConfirmed() {
     purchaseFiredRef.current = true;
     let value = 0;
     let currency = "USD";
+    let ga4Items: { item_id: string; item_name: string; price: number; quantity: number }[] = [];
     try {
       const stashed = sessionStorage.getItem(PENDING_ORDER_KEY);
       if (stashed) {
         const parsed = JSON.parse(stashed) as { payload?: Record<string, unknown> };
         if (typeof parsed?.payload?.totalUsd === "number") value = parsed.payload.totalUsd;
         if (typeof parsed?.payload?.currencyCode === "string") currency = parsed.payload.currencyCode;
+        if (Array.isArray(parsed?.payload?.items)) {
+          ga4Items = (parsed.payload.items as OrderItem[]).map((item) => ({
+            item_id: item.osSlug ?? item.name,
+            item_name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          }));
+        }
       }
     } catch { /* best-effort — safe fallback to 0 / USD */ }
     trackFbEvent("Purchase", {
@@ -271,9 +294,7 @@ export default function OrderConfirmed() {
         : {}),
     });
     fireAdsPurchaseConversion({ transactionId: state.ref, value, currency });
-    // GA4 mirror — standard e-commerce purchase event so GA4 attributes the
-    // conversion to the campaign (gclid/UTM) that started the session.
-    fireGtagEvent("purchase", { transaction_id: state.ref, value, currency });
+    fireGA4PurchaseEvent({ transactionId: state.ref, value, currency, items: ga4Items });
     try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
   // state is included so the effect re-runs if the FinalizeState reference changes.
   // authLoading/user are included so the event fires after session hydration on
@@ -415,8 +436,15 @@ export default function OrderConfirmed() {
               ...(user?.email ? { userData: { em: user.email } } : {}),
             });
             fireAdsPurchaseConversion({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency });
-            // GA4 mirror — see the inline-success effect above.
-            fireGtagEvent("purchase", { transaction_id: orderRef, value: purchaseValue, currency: purchaseCurrency });
+            const ga4ItemsFinalize = Array.isArray(payload.items)
+              ? (payload.items as OrderItem[]).map((item) => ({
+                  item_id: item.osSlug ?? item.name,
+                  item_name: item.name,
+                  price: item.price,
+                  quantity: item.quantity,
+                }))
+              : [];
+            fireGA4PurchaseEvent({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency, items: ga4ItemsFinalize });
             try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
           } else {
             purchaseFiredRef.current = true;

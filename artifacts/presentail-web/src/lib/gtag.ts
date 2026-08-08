@@ -13,6 +13,20 @@ export type AdsPurchaseConversionParams = {
   currency: string;
 };
 
+export type GA4PurchaseItem = {
+  item_id: string;
+  item_name: string;
+  price: number;
+  quantity: number;
+};
+
+export type GA4PurchaseEventParams = {
+  transactionId: string;
+  value: number;
+  currency: string;
+  items: GA4PurchaseItem[];
+};
+
 /**
  * Fire a Google Ads purchase conversion event.
  * No-ops when gtag is not loaded (e.g. blocked by an ad blocker or missing script).
@@ -24,6 +38,26 @@ export type AdsPurchaseConversionParams = {
 export function fireGtagEvent(name: string, params?: Record<string, unknown>): void {
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
   window.gtag("event", name, params ?? {});
+}
+
+/**
+ * Fire a GA4 purchase event for Google Merchant Center attribution.
+ * Includes structured items[] array with item_id (osSlug), item_name, price, and quantity.
+ * No-ops when gtag is not loaded (ad blocker or missing script).
+ */
+export function fireGA4PurchaseEvent({
+  transactionId,
+  value,
+  currency,
+  items,
+}: GA4PurchaseEventParams): void {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  window.gtag("event", "purchase", {
+    transaction_id: transactionId,
+    value,
+    currency,
+    items,
+  });
 }
 
 export function fireAdsPurchaseConversion({
