@@ -10,6 +10,9 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
     <link rel="manifest" href="/site.webmanifest?v=2" />
     <meta name="theme-color" content="#0A404E" />
+    <!-- perf: warm up third-party origins before their scripts fire -->
+    <link rel="preconnect" href="https://www.googletagmanager.com">
+    <link rel="preconnect" href="https://www.clarity.ms">
     <!-- perf: deferred for INP — async prevents blocking the main thread during page load -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=%VITE_GTAG_ADS_ID%"></script>
     <!-- perf: inline init only (no external fetch); dataLayer must be ready before async gtag.js executes -->
