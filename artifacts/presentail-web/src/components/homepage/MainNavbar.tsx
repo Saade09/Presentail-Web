@@ -9,7 +9,7 @@ import { ChevronDown, ChevronRight, Menu, Search, ShoppingCart, User, X } from "
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { SearchOverlay } from "@/components/search/SearchOverlay";
+import { LazySearchOverlay } from "@/components/search/LazySearchOverlay";
 import { useBrands, useCatalogMetadata, useCatalogOccasions } from "@/lib/queries";
 import { CATEGORY_SLUG_REMAP, CATEGORY_NAV_BLOCKLIST } from "@/lib/categoryGroups";
 import { OCCASION_OPTIONS } from "@/data/occasions";
@@ -204,6 +204,9 @@ export function MainNavbar() {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
   const [searchOpen, setSearchOpen] = useState(false);
+  // Gate mounting until first open so the cmdk chunk is never fetched on
+  // initial page load — it only loads when the user first clicks search.
+  const [hasOpenedSearch, setHasOpenedSearch] = useState(false);
   const [isSignInRoute] = useRoute("/sign-in");
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
@@ -576,7 +579,7 @@ export function MainNavbar() {
             className="md:hidden"
             aria-label={t("nav.searchAria")}
             data-testid="button-search-mobile"
-            onClick={() => setSearchOpen(true)}
+            onClick={() => { setSearchOpen(true); setHasOpenedSearch(true); }}
           >
             <Search className="!w-[22px] !h-[22px]" />
           </Button>
@@ -623,16 +626,18 @@ export function MainNavbar() {
             className="hidden md:inline-flex"
             aria-label={t("nav.searchAria")}
             data-testid="button-search"
-            onClick={() => setSearchOpen(true)}
+            onClick={() => { setSearchOpen(true); setHasOpenedSearch(true); }}
           >
             <Search className="!w-[22px] !h-[22px]" />
           </Button>
-          <SearchOverlay
-            open={searchOpen}
-            onClose={() => setSearchOpen(false)}
-            brandSlug={activeBrandSlug ?? undefined}
-            brandName={activeBrand?.name ?? undefined}
-          />
+          {hasOpenedSearch && (
+            <LazySearchOverlay
+              open={searchOpen}
+              onClose={() => setSearchOpen(false)}
+              brandSlug={activeBrandSlug ?? undefined}
+              brandName={activeBrand?.name ?? undefined}
+            />
+          )}
 
           {user ? (
             <span {...prefetchProps(loadAccount, loadFavorites)}>

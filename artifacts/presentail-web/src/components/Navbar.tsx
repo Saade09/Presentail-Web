@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/Logo";
-import { SearchOverlay } from "@/components/search/SearchOverlay";
+import { LazySearchOverlay } from "@/components/search/LazySearchOverlay";
 import { useBrands } from "@/lib/queries";
 
 export function Navbar() {
@@ -18,6 +18,9 @@ export function Navbar() {
   const [_location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Gate mounting until first open so the cmdk chunk is never fetched on
+  // initial page load — it only loads when the user first clicks search.
+  const [hasOpenedSearch, setHasOpenedSearch] = useState(false);
   const { city, countryCode, cityId, openPicker } = useLocationSelection();
   const { t, language, cityName } = useLocale();
   const rafRef = useRef<number | null>(null);
@@ -82,7 +85,7 @@ export function Navbar() {
             size="icon"
             className="flex md:hidden"
             aria-label={t("nav.searchAria")}
-            onClick={() => setSearchOpen(true)}
+            onClick={() => { setSearchOpen(true); setHasOpenedSearch(true); }}
           >
             <Search className="w-5 h-5" />
           </Button>
@@ -114,16 +117,18 @@ export function Navbar() {
             size="icon"
             className="hidden md:flex"
             aria-label={t("nav.searchAria")}
-            onClick={() => setSearchOpen(true)}
+            onClick={() => { setSearchOpen(true); setHasOpenedSearch(true); }}
           >
             <Search className="w-5 h-5" />
           </Button>
-          <SearchOverlay
-            open={searchOpen}
-            onClose={() => setSearchOpen(false)}
-            brandSlug={activeBrandSlug ?? undefined}
-            brandName={activeBrand?.name ?? undefined}
-          />
+          {hasOpenedSearch && (
+            <LazySearchOverlay
+              open={searchOpen}
+              onClose={() => setSearchOpen(false)}
+              brandSlug={activeBrandSlug ?? undefined}
+              brandName={activeBrand?.name ?? undefined}
+            />
+          )}
 
           <Link href={user ? "/account" : "/sign-in"}>
             <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")}>
