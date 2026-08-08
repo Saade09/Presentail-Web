@@ -1079,6 +1079,7 @@ const FEATURED_HOME_OCCASIONS = [
 // crawlers that benefit from additional prose rather than needing exact
 // translations).
 const ROUTE_BODY_INTRO = {
+  landing: "Presentail delivers premium flowers, plants, chocolates, cakes and curated gift sets across Lebanon, UAE, and Cyprus. Same-day delivery available on orders placed before midday.",
   home: "Shop luxury flowers, bouquets, plants, and curated gift sets with same-day and scheduled delivery across Lebanon, UAE, and Cyprus.",
   shop: "Browse our full catalogue of premium fresh flowers, chocolates, hampers, candles, perfumes, and gift sets available for delivery.",
   brands: "Presentail works with the finest florists and luxury gift producers to bring you hand-picked arrangements and carefully curated gifts.",
@@ -4134,12 +4135,16 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       !parsed.hasLocalePrefix && (pathname === "/" || pathname === "");
     if (_isRootLanding) {
       const _landingBase = (rest.basePath ?? "").replace(/\/$/, "");
-      const _landingBodyHtml =
+      const _landingNavHtml =
         `<nav aria-label="Delivery countries" class="sr-only">` + // i18n-ignore — crawler-facing static nav; not rendered in the client UI
         `<a href="${_landingBase}/en-lb/beirut">Lebanon \u2014 Flower &amp; Gift Delivery</a>` + // i18n-ignore — static EN-only SEO anchor text
         `<a href="${_landingBase}/en-ae/dubai">UAE \u2014 Flower &amp; Gift Delivery</a>` + // i18n-ignore — static EN-only SEO anchor text
         `<a href="${_landingBase}/en-cy/nicosia">Cyprus \u2014 Flower &amp; Gift Delivery</a>` + // i18n-ignore — static EN-only SEO anchor text
         `</nav>`;
+      // Prepend the generic H1 + description block (from buildGenericBodyHtml) so
+      // crawlers landing on the bare root URL see an sr-only H1 and description,
+      // not just the hub-country nav.  The nav follows the content block.
+      const _landingBodyHtml = (generic.bodyHtml ?? "") + _landingNavHtml;
       return assembleHtml(html, { ...generic, bodyHtml: _landingBodyHtml });
     }
     return assembleHtml(html, generic);

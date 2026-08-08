@@ -400,10 +400,12 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
   // always needed on the first user-facing page view. Matched against the
   // manifest entry key so they are correctly identified regardless of the
   // Rollup-generated chunk name.
-  const ALWAYS_NEEDED_SRCS = new Set([
-    "src/pages/Home.tsx",
-    "src/pages/Shop.tsx",
-  ]);
+  // Route-specific preloads are now injected per-request by serve.mjs
+  // (injectPageChunkPreload) so only the chunk for the current route fires,
+  // rather than preloading Home + Shop on every route regardless of which
+  // page the visitor is actually viewing. Keep the set empty so the plugin
+  // silently no-ops at build time.
+  const ALWAYS_NEEDED_SRCS = new Set<string>([]);
 
   return {
     name: "presentail-lazy-chunk-preload",

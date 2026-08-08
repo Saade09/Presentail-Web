@@ -712,16 +712,93 @@ function injectFontPreloads(html, pathname = "/") {
 }
 
 // ---------------------------------------------------------------------------
-// Module preload hints — intentionally NOT injected at request time.
+// Page chunk preload hints — injected per-request so only the chunk for the
+// current route is preloaded, rather than baking Home+Shop hints into the
+// static index.html for every route (the previous approach via
+// lazyChunkPreloadPlugin in vite.config.ts, which has since been cleared).
 //
-// A previous iteration injected <link rel="modulepreload"> for every non-page
-// shared chunk in the Vite manifest. That produced 50+ preload hints per
-// response (cart, Stripe checkout, phone-number lib, QR code, policies, …),
-// none of which paint the landing page, and the competing downloads delayed
-// the LCP resource. Module preloads now come only from the built index.html:
-// Vite's own entry-graph hints plus lazyChunkPreloadPlugin (vite.config.ts),
-// which adds exactly the Home and Shop page chunks.
+// At startup: read the Vite manifest and build a routeKey → preload-tag map
+// for the main page chunks (Landing, Home, Shop, ProductDetail).
+// At request time: injectPageChunkPreload() resolves the current route and
+// injects exactly one <link rel="modulepreload"> before </head>.
+//
+// Vendor/framework hints (vendor-react, vendor-radix, …) come from the
+// built index.html via Vite's own entry-graph pass — unchanged.
 // ---------------------------------------------------------------------------
+const pageChunkPreloadTags = {}; // routeKey → "<link rel=modulepreload …>" string
+{
+  const _pcManifestPath = path.join(DIST, ".vite", "manifest.json");
+  try {
+    const _pcRaw = fs.readFileSync(_pcManifestPath, "utf8");
+    const _pcManifest = JSON.parse(_pcRaw);
+    const _PAGE_SRCS = {
+      landing: "src/pages/Landing.tsx",
+      home:    "src/pages/Home.tsx",
+      shop:    "src/pages/Shop.tsx",
+      product: "src/pages/ProductDetail.tsx",
+    };
+    for (const [_pcKey, _pcChunk] of Object.entries(_pcManifest)) {
+      const _pcNorm = _pcKey.replace(/\\/g, "/");
+      for (const [_pcRoute, _pcSrc] of Object.entries(_PAGE_SRCS)) {
+        if (_pcNorm === _pcSrc && _pcChunk.file) {
+          const _pcHref = `${BASE_PATH}/${_pcChunk.file}`;
+          pageChunkPreloadTags[_pcRoute] =
+            `<link rel="modulepreload" href="${_pcHref}" crossorigin fetchpriority="low">`;
+        }
+      }
+    }
+    const _pcFound = Object.keys(pageChunkPreloadTags).length;
+    if (_pcFound > 0) {
+      console.log(
+        `Page chunk preloads: ${_pcFound} route(s) registered (${Object.keys(pageChunkPreloadTags).join(", ")})`,
+      );
+    } else {
+      console.warn("WARN: Page chunk preloads: no matching page chunks found in Vite manifest");
+    }
+  } catch (_pcErr) {
+    console.warn(`WARN: Page chunk preloads: could not read manifest — ${_pcErr.message}`);
+  }
+}
+
+/**
+ * Map a request pathname to a pageChunkPreloadTags route key.
+ * Returns null for routes that should not get a page-chunk preload hint
+ * (transactional pages, blog posts, account, etc.) to avoid bandwidth
+ * competition with their own LCP resources.
+ * @param {string} pathname  request pathname (BASE_PATH already stripped)
+ */
+function resolveRouteKeyForPreload(pathname) {
+  const p = String(pathname);
+  if (p === "/" || p === "") return "landing";
+  // Locale-prefixed paths: /en-lb/beirut/... /ar-ae/dubai/... /fr-cy/nicosia/...
+  const m = p.match(/^\/(?:en|ar|fr)-[a-z]{2}\/[^/]+(?:\/(.*))?$/);
+  if (!m) return "landing"; // non-locale, non-root — treat as landing
+  const rest = (m[1] ?? "").replace(/\/$/, "");
+  if (!rest) return "home";
+  if (
+    rest === "shop" || rest.startsWith("shop?") ||
+    rest.startsWith("category/") || rest.startsWith("occasion/") ||
+    rest === "occasions" || rest === "best-sellers"
+  ) return "shop";
+  if (rest.startsWith("product/")) return "product";
+  // cart, checkout, account, sign-in, blog, etc. — no preload
+  return null;
+}
+
+/**
+ * Inject a <link rel="modulepreload"> for the page chunk matching the current
+ * route. No-op when the route has no registered chunk or the map is empty.
+ * @param {string} html
+ * @param {string} pathname  request pathname
+ * @returns {string}
+ */
+function injectPageChunkPreload(html, pathname) {
+  const routeKey = resolveRouteKeyForPreload(pathname);
+  if (!routeKey) return html;
+  const tag = pageChunkPreloadTags[routeKey];
+  if (!tag) return html;
+  return html.replace("</head>", `    ${tag}\n  </head>`);
+}
 
 // ---------------------------------------------------------------------------
 // Check site.webmanifest — present in every Vite build; its absence suggests
@@ -2003,7 +2080,7 @@ const server = http.createServer(async (req, res) => {
           res.end(lifecycleResponse.body);
           return;
         }
-        let out = injectFontPreloads(injectGmcMeta(seoOut), pathname);
+        let out = injectPageChunkPreload(injectFontPreloads(injectGmcMeta(seoOut), pathname), pathname);
         // Inject <link rel="alternate" type="text/markdown"> for pages with a
         // Markdown mirror. This allows crawlers and AI agents to discover the
         // structured Markdown version directly from the HTML head.
@@ -2362,7 +2439,7 @@ const server = http.createServer(async (req, res) => {
       res.end(notFoundBody);
       return;
     }
-    let spaOut = injectFontPreloads(injectGmcMeta(seoOut), pathname);
+    let spaOut = injectPageChunkPreload(injectFontPreloads(injectGmcMeta(seoOut), pathname), pathname);
     // Inject <link rel="alternate" type="text/markdown"> for pages with a mirror.
     if (isMirroredPath(pathname)) {
       const cleanBaseSpa = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
