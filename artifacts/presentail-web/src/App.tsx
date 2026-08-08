@@ -8,10 +8,7 @@ import {
 import { lazy, Suspense, useEffect, useRef, startTransition } from "react";
 import { captureAttribution } from "@/lib/attribution";
 import { trackWebEvent } from "@/lib/analytics";
-import { QueryClient } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { prefetchOnIdle } from "@/lib/prefetch";
 import { initPixel, trackFbPageView } from "@/lib/fbPixel";
 import {
@@ -170,17 +167,72 @@ const queryClient = new QueryClient({
   },
 });
 
-const idbStorage = {
-  getItem: (key: string) => idbGet<string>(key).then((v) => v ?? null),
-  setItem: (key: string, value: string) => idbSet(key, value),
-  removeItem: (key: string) => idbDel(key),
-};
+/**
+ * Deferred query-persistence bootstrap.
+ *
+ * Renders nothing. On first mount it dynamically imports the three persistence
+ * packages (@tanstack/react-query-persist-client, @tanstack/query-async-storage-persister,
+ * idb-keyval) — which are NOT part of the initial JS bundle — then calls
+ * persistQueryClient() directly on the shared queryClient instance. This:
+ *   1. Restores any previously-cached query data from IndexedDB into the live
+ *      queryClient, so stale-while-revalidate works across hard reloads.
+ *   2. Subscribes to future queryClient mutations so new data is persisted.
+ *
+ * Using plain QueryClientProvider + this component instead of
+ * PersistQueryClientProvider lets the app render immediately without waiting
+ * on the persist packages. Cache is restored ~a render or two after first
+ * paint rather than before it — imperceptible in practice.
+ */
+function QueryPersistenceUpgrade() {
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
 
-const persister = createAsyncStoragePersister({
-  storage: idbStorage,
-  key: OS_PRODUCTS_CACHE_KEY,
-  throttleTime: 1000,
-});
+    Promise.all([
+      import("@tanstack/react-query-persist-client"),
+      import("@tanstack/query-async-storage-persister"),
+      import("idb-keyval"),
+    ]).then(
+      ([
+        { persistQueryClient },
+        { createAsyncStoragePersister },
+        { get, set, del },
+      ]) => {
+        const storage = {
+          getItem: (key: string) => get<string>(key).then((v) => v ?? null),
+          setItem: (key: string, value: string) => set(key, value),
+          removeItem: (key: string) => del(key),
+        };
+        const persister = createAsyncStoragePersister({
+          storage,
+          key: OS_PRODUCTS_CACHE_KEY,
+          throttleTime: 1000,
+        });
+        const [unsub] = persistQueryClient({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          queryClient: queryClient as any, // pnpm resolves two minor versions of @tanstack/query-core; cast is safe at runtime
+          persister,
+          maxAge: OS_PRODUCTS_MAX_AGE,
+          dehydrateOptions: {
+            shouldDehydrateQuery: (query) => {
+              if (
+                !Array.isArray(query.queryKey) ||
+                query.state.status !== "success"
+              )
+                return false;
+              const key = query.queryKey[0];
+              return key === "os-products" || key === "product-color-hints-v3";
+            },
+          },
+        });
+        unsubscribe = unsub;
+      },
+    );
+
+    return () => unsubscribe?.();
+  }, []);
+
+  return null;
+}
 
 function CustomerOnly({ children }: { children: React.ReactNode }) {
   const { user, userType, isLoading } = useAuth();
@@ -542,20 +594,8 @@ function App() {
   }, []);
 
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister,
-        maxAge: OS_PRODUCTS_MAX_AGE,
-        dehydrateOptions: {
-          shouldDehydrateQuery: (query) => {
-            if (!Array.isArray(query.queryKey) || query.state.status !== "success") return false;
-            const key = query.queryKey[0];
-            return key === "os-products" || key === "product-color-hints-v3";
-          },
-        },
-      }}
-    >
+    <QueryClientProvider client={queryClient}>
+      <QueryPersistenceUpgrade />
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <LocaleProvider>
@@ -582,7 +622,7 @@ function App() {
           </LocaleProvider>
         </WouterRouter>
       </TooltipProvider>
-    </PersistQueryClientProvider>
+    </QueryClientProvider>
   );
 }
 

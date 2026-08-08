@@ -695,6 +695,12 @@ export default defineConfig(async ({ command, mode }) => {
           manualChunks(id) {
             if (id.includes("node_modules/@clerk/")) return "vendor-clerk";
             if (
+              id.includes("node_modules/@tanstack/react-query-persist-client") ||
+              id.includes("node_modules/@tanstack/query-async-storage-persister") ||
+              id.includes("node_modules/idb-keyval/")
+            )
+              return "vendor-query-persist";
+            if (
               id.includes("node_modules/@tanstack/react-query") ||
               id.includes("node_modules/react-query")
             )
