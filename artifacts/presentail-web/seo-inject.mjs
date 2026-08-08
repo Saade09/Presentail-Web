@@ -3127,7 +3127,17 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
     clampDescription(article.description) ||
     genericFallbackDescription(lang, "blogPost");
   const cleanBase = basePath.replace(/\/$/, "");
-  const canonicalHref = origin + cleanBase + pathname;
+  // Blog posts carry a single cross-country canonical: the LB/Beirut hub-city
+  // version. All country variants (/en-ae/dubai/blog/slug, /en-cy/nicosia/blog/slug)
+  // point to the Beirut URL so Google consolidates ranking signals on one URL
+  // per article rather than fragmenting them across three country copies.
+  // hreflang and breadcrumbs use the same LB base so canonical and hreflang
+  // always agree as a set (Google requires this).
+  const blogPostSlug = String(pathname).match(/\/blog\/([^/?#]+)/)?.[1] ?? "";
+  const canonicalPathname = blogPostSlug
+    ? `/en-lb/beirut/blog/${blogPostSlug}`
+    : pathname;
+  const canonicalHref = origin + cleanBase + canonicalPathname;
 
   // Per-article hero image (src/data/blogPostsCopy.js) — a site-root-relative
   // path resolved to an absolute URL here so crawlers get a self-contained
@@ -3170,7 +3180,9 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
   );
 
   // BreadcrumbList JSON-LD — Home > Journal > Article Title.
-  const locBase = localeBaseUrl(pathname, origin, basePath);
+  // Use canonicalPathname (always LB/Beirut) so breadcrumb URLs stay
+  // consistent with the canonical — Dubai/Nicosia pages link back to Beirut.
+  const locBase = localeBaseUrl(canonicalPathname, origin, basePath);
   extraLines.push(
     jsonLdTag(
       buildBreadcrumbListSchema([
@@ -3196,10 +3208,10 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
       imageHeight,
       basePath,
       origin,
-      pathname,
+      pathname: canonicalPathname, // always LB/Beirut — drives canonical, og:url, hreflang
       search: "",
       lang,
-      country,
+      country: "lb", // consistent with canonicalPathname; hreflang uses lb variants
       extraLines,
     }),
     bodyHtml,

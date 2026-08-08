@@ -37,6 +37,7 @@
 - [OnlineStore schema gating](onlinestore-schema-gating.md) — org JSON-LD is OnlineStore on hub-city homes only; breadcrumb on every city home; product links sr-only outside display:none
 - [Campaign first-order discount](campaign-first-order-discount.md) — FIRST10 is a virtual coupon intercepted in validateCoupon; omit its couponId from OS payload; eligibility endpoint advisory, fails open
 - [Prod internal API base URL](prod-internal-api-base-url.md) — serve.mjs→API fetches must use the public apex in prod (separate deployments, no localhost proxy); localhost:80 default silently killed entity JSON-LD + catalog sitemap
+- [Sitemap production failure](sitemap-production-failure.md) — INTERNAL_API_BASE_URL env var set but no redeploy → running server still uses stale REPLIT_DOMAINS fallback → 272 static-only URLs; fix is deploy not just setting the env var
 - [Web e2e against real API](web-e2e-real-api.md) — register rate limit means reuse fixed accounts; seed app_orders via pg; auth-restore setUser+setIsLoading must commit together
 - [GA4 campaign funnel mirrors](ga4-funnel-mirrors.md) — add_to_cart/begin_checkout/purchase gtag mirrors exist alongside internal web-events; e2e asserts via inline dataLayer shim; e2e pages need delivery_location seeded
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice

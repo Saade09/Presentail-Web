@@ -410,6 +410,18 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     fetchJson(`${apiBaseUrl}/api/catalog/metadata`),
   ]);
 
+  // If every catalog fetch returned null the API server is unreachable (wrong
+  // INTERNAL_API_BASE_URL, network partition, or startup failure). Throw so
+  // resolveSitemap can serve the stale cache or log the miss — silently
+  // returning a valid but empty sitemap would cache the empty result as "fresh"
+  // and leave crawlers with no catalog URLs until the next regeneration window.
+  if (productsData === null && brandsData === null && catalogData === null) {
+    throw new Error(
+      "generateSitemap: all catalog fetches returned null — API unreachable; " +
+      "check INTERNAL_API_BASE_URL in the deployment environment",
+    );
+  }
+
   // Normalise the product list: extract the slug, primary image URL, and name
   // so buildSitemapXml can embed <image:image> extensions without knowing the
   // raw API response shape. Also forward the availability fields so
