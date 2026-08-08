@@ -2077,11 +2077,11 @@ const server = http.createServer(async (req, res) => {
       // pick up updates promptly while still reducing origin load.
       // perf: short-lived cache for unhashed SEO config files
       const isSeoConfigFile = baseName === "robots.txt" || baseName === "llms.txt";
-      const maxAgeSeconds = isWellKnown || isSeoConfigFile ? 3600 : isIconAsset ? 86400 : 31536000;
+      const maxAgeSeconds = isWellKnown || isSeoConfigFile ? 3600 : isIconAsset ? 604800 : 31536000;
       const cacheControl = isWellKnown || isSeoConfigFile
         ? "public, max-age=3600, must-revalidate"
         : isIconAsset
-          ? "public, max-age=86400, must-revalidate"
+          ? "public, max-age=604800, must-revalidate" // 7 days; ?v= query string is the escape hatch on icon changes
           : "public, max-age=31536000, immutable";
       // apple-app-site-association has no extension — serve it as JSON so
       // Apple's CDN crawler accepts it. assetlinks.json already has .json.
