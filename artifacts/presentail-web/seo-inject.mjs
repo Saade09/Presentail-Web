@@ -630,9 +630,19 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   lines.push(
     `<meta name="twitter:description" content="${escapeAttr(twitterDescription)}" />`,
   );
-  // Default OG / Twitter image for generic (non-entity) pages.
-  const defaultImage = `${origin}${cleanBase}/opengraph.jpg?v=2`;
-  const defaultImageAlt = "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
+  // OG / Twitter image for generic (non-entity) pages.
+  // City pages (inLocale + valid city) get a per-city branded card from the
+  // /api/og-image/city/:country/:city endpoint (same visual style as
+  // product/brand/occasion cards — dark-green panel with city + country name).
+  // All other pages fall back to the static opengraph.jpg.
+  const hasCityOgImage = inLocale && hasValidCity && parsed.country && parsed.city;
+  const cityOgImageUrl = hasCityOgImage
+    ? `${origin}/api/og-image/city/${encodeURIComponent(parsed.country)}/${encodeURIComponent(parsed.city)}`
+    : null;
+  const defaultImage = cityOgImageUrl ?? `${origin}${cleanBase}/opengraph.jpg?v=2`;
+  const defaultImageAlt = hasCityOgImage
+    ? `${cityLabel}, ${countryLabel} — Presentail` // i18n-ignore — city/country name + brand
+    : "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta property="og:image:secure_url" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta property="og:image:type" content="image/jpeg" />`);
@@ -952,8 +962,11 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   // City-specific intro paragraph — injected into the prerendered body so
   // same-country city pages are distinct enough to pass the check-city-similarity
   // Jaccard-80% gate. Look up by the same "{country}-{city}" key used in CITY_SEO.
+  // Extended to brands, occasions, and shop listing pages so those pages are
+  // also textually differentiated per city, not just the home page.
+  const CITY_SEO_ROUTES = new Set(["home", "brands", "occasions", "shop"]);
   let citySpecificContent = "";
-  if (routeKey === "home" && hasValidCity && cityKey) {
+  if (CITY_SEO_ROUTES.has(routeKey) && hasValidCity && cityKey) {
     const cityEntry = CITY_SEO[cityKey];
     if (cityEntry) {
       citySpecificContent = cityEntry[lang] ?? cityEntry.en ?? "";

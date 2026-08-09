@@ -1,0 +1,208 @@
+CONTEXT
+
+This combines two fixes for the Beirut balloons category page: a redirect fix
+for a currently-ranking legacy content page, and the same dual-city content
+buildout already applied to the Beirut cakes and chocolate category pages
+(reuse that per-(city,category) override mechanism here if it exists — check
+for it first rather than building a new one).
+
+FIX 1 CONTEXT: A top-ranking legacy page is being wasted — rebuild it, don't
+just redirect it
+
+I searched "balloon delivery beirut lebanon" and this site's OWN old page is
+the #1 organic result, ahead of every competitor:
+
+  "Balloons Delivered Near You: Reliable, Same Day Balloon Delivery in
+  Lebanon" — presentail.com/lebanon/balloons-delivered-near-you-reliable-
+  same-day-balloon-delivery-in-lebanon/
+
+I checked where that URL currently redirects:
+
+  curl -I https://presentail.com/lebanon/balloons-delivered-near-you-reliable-same-day-balloon-delivery-in-lebanon/
+  → 301 → /en-lb/beirut   (the bare Beirut homepage, title "Flower & Gift
+    Delivery in Beirut | Presentail" — completely generic, no balloon
+    relevance at all)
+
+DECISION: rebuild this as a real article on the new blog rather than just
+redirecting straight to the category page — preserves the content-type match
+(informational article ranks for an informational-style query) and gives us
+a second indexed, keyword-matched page instead of just funneling equity into
+the commercial category page. The rebuilt post should itself link prominently
+to `/en-lb/beirut/category/balloons`, so the category page still benefits via
+a strong internal link either way.
+
+FIX 2 CONTEXT: current state of the balloons category page itself
+
+  /en-lb/beirut/category/balloons
+  -> title: "Balloons Delivery in Beirut | Presentail"
+  -> meta: "Shop Balloons online in Beirut. Send beautiful Balloons with
+     Presentail and enjoy express same-day delivery."
+  -> canonical: https://presentail.com/en-lb/beirut/category/balloons
+  -> H1 in the raw DOM is `sr-only` (hidden) and duplicates the title tag.
+  -> no visible body copy, no FAQ, no BreadcrumbList/FAQPage schema — only
+     the sitewide Organization schema.
+  -> not in sitemap-en.xml (separate sitemap task covers this, don't
+     duplicate or regress it here).
+
+The category page's OWN legacy redirects are already correct and must not be
+touched:
+
+  /lebanon/product-category/balloons/  → 301 → /en-lb/beirut/category/balloons  (correct, leave as-is)
+  /dubai/product-category/balloons/    → 301 → /en-ae/dubai/category/balloons   (correct, leave as-is)
+
+GOAL
+
+Target keywords: "balloon delivery" (bare — too broad/globally-contested to
+target directly, just needs to appear early in the title/H1), "balloon
+delivery beirut" (local), "balloon delivery lebanon" (national). Same
+strategy as cakes and chocolate: make Beirut's balloons page the dual-
+purpose flagship for local + national intent rather than building a
+separate national page — Beirut is the capital/highest-volume market, and
+the site's Organization schema already declares
+`"areaServed": ["LB","AE","CY"]`. Every other city's balloons category page
+(Tripoli, Zahle, Jbeil, etc.) keeps the current generic per-city template
+unchanged — do not add "Lebanon" wording to their titles or copy.
+
+TASK
+
+1. REBUILD THE RANKING PAGE AS A NEW BLOG POST, THEN REDIRECT TO IT
+
+   a) First, check whether the ORIGINAL article content is recoverable —
+      look for an old WordPress database export/backup, a CMS content table,
+      or any migration artifact that might still hold the original body copy
+      for this URL. If you can recover the real original text, use it as the
+      basis for the new post (updated for current branding/tone/facts,
+      including the confirmed delivery-coverage fact in step 3 below).
+
+   b) If the original content is NOT recoverable anywhere in the codebase or
+      database, write a fresh article covering the same topic and keywords
+      ("same-day balloon delivery," "balloon delivery Lebanon," "reliable
+      balloon delivery near you") — roughly 500-800 words, in whatever
+      editorial voice/format the existing blog already uses (check the
+      existing posts — e.g. "inside-spring-sourcing-trip",
+      "chocolatiers-behind-our-gift-boxes" — for tone and structure to
+      match). Don't fabricate specific claims (awards, years in business,
+      specific delivery-area lists) that you can't verify from existing site
+      content.
+
+   c) Publish this as a new post at `/en-lb/beirut/blog/{slug}` (choose a
+      slug consistent with the existing blog's naming convention). The post
+      MUST include a clear, prominent link to
+      `/en-lb/beirut/category/balloons` (e.g. a "Shop balloon delivery in
+      Beirut" CTA), so the category page benefits from this page's authority
+      regardless of which URL ends up ranking.
+
+   d) Update the redirect for
+      `/lebanon/balloons-delivered-near-you-reliable-same-day-balloon-delivery-in-lebanon/`
+      to point at the NEW blog post URL from step (c) — not at the homepage,
+      and not directly at the category page (the category page gets the
+      benefit via the in-article link instead).
+
+2. USE THE EXISTING PER-(CITY,CATEGORY) OVERRIDE MECHANISM
+   Reuse whatever mechanism already overrides the generic category template
+   for the Beirut cakes and/or chocolate pages (if those tasks have shipped)
+   for (city = "beirut", category = "balloons"). If it doesn't exist yet,
+   build it the same way as the per-occasion content model for Dubai's
+   occasion pages: an override keyed to this specific page that takes
+   priority over the shared template, leaving every other city × category
+   combination untouched.
+
+3. SHIP THIS CONTENT FOR /en-lb/beirut/category/balloons (and its
+   ar-lb/fr-lb equivalents)
+
+   title: "Balloon Delivery in Beirut, Lebanon | Same-Day | Presentail"
+
+   metaDescription: "Same-day balloon delivery in Beirut — helium, mylar and
+     balloon bouquets for birthdays, graduations and celebrations. We also
+     deliver across Lebanon."
+
+   h1: "Balloon Delivery in Beirut, Lebanon" — must render as real VISIBLE
+   content in the DOM, not `sr-only`, and must differ from the title tag.
+
+   introParagraph: "Order same-day balloon delivery in Beirut — Hamra,
+     Achrafieh, Gemmayzeh, Verdun and beyond — or send balloons anywhere
+     else in Lebanon, whether you're ordering from another city or from
+     abroad."
+
+   [VERIFY BEFORE SHIPPING: reuse the same confirmed Beirut-specific facts
+   as the cakes/chocolate pages — same-day cutoff "before midday," payment
+   methods "Credit Card, Apple Pay, Google Pay, and Cash on Delivery" (from
+   the existing Beirut homepage FAQ). Do not mix these up with the
+   Dubai-specific facts (11 PM cutoff, no COD) used in a separate, earlier
+   task.]
+
+   sections:
+     - heading: "Shop Balloons by Type"
+       body: helium balloons, mylar/foil balloons, balloon bouquets,
+       number/letter balloons — pull the ACTUAL product range from the
+       catalog rather than assuming all of these exist; only mention types
+       you actually sell.
+     - heading: "Shop Balloons by Occasion"
+       body: birthday, new baby, graduation, get-well-soon — link into
+       existing occasion pages filtered to balloons, using the real
+       occasion slugs from the actual occasion data source (don't assume
+       "graduation" and "get-well-soon" exist as occasions without
+       checking).
+     - heading: "Delivering Balloons Across Lebanon"
+       body: one short paragraph on nationwide delivery, followed by a
+       linked list of other city balloon category pages (Tripoli, Zahle,
+       Jbeil, Saida, etc. — pull the real list of ~26 Lebanese city pages
+       from the codebase). Only link to cities where the balloons category
+       actually has products.
+
+   faqs (add FAQPage schema, only for content actually rendered on the
+   page). The site owner has confirmed delivery coverage is nationwide with
+   no restrictions ("we deliver everywhere") — use that confidently for the
+   coverage-related questions below, no need to hedge or omit them:
+     - Q: "Can I get same-day balloon delivery in Beirut?"
+       A: [use the verified Beirut cutoff time]
+     - Q: "Do you deliver balloons to hospitals in Beirut?"
+       A: "Yes — we deliver balloons to hospitals, schools, offices and
+       homes anywhere in Beirut."
+     - Q: "Do you deliver balloons to schools in Beirut?"
+       A: "Yes, we deliver to schools as well as homes, offices and
+       hospitals."
+     - Q: "Do you deliver balloons outside Beirut, anywhere in Lebanon?"
+       A: "Yes — we deliver balloons everywhere in Lebanon, not just
+       Beirut."
+     - Q: "What types of balloons do you offer?"
+       A: [pull from actual product catalog]
+
+4. ADD STRUCTURED DATA (Beirut balloons page only, in this pass)
+   - `FAQPage` schema from the faqs array above, only if visibly rendered.
+   - `BreadcrumbList` schema: Home > Shop > Balloons.
+   - Check whether `Product`/`ItemList` schema already exists on the
+     rendered product grid; if not, flag as a separate follow-up.
+
+5. DO NOT TOUCH OTHER CITIES' BALLOON PAGES, AND DO NOT TOUCH THE
+   ALREADY-CORRECT LEGACY CATEGORY REDIRECTS
+   Verify `/en-lb/tripoli/category/balloons`, `/en-lb/zahle/category/balloons`,
+   etc. still render the original generic template, unchanged. Verify
+   `/lebanon/product-category/balloons/` and `/dubai/product-category/balloons/`
+   still redirect exactly as they did before (only the ranking blog post's
+   redirect from FIX 1 should change).
+
+VERIFICATION (do this before calling it done)
+
+- `curl -I -L https://presentail.com/lebanon/balloons-delivered-near-you-reliable-same-day-balloon-delivery-in-lebanon/`
+  and confirm it now lands on the NEW blog post URL (not the homepage, and
+  not directly on the category page) with HTTP 200.
+- Load the new blog post and confirm it contains a real, visible, clickable
+  link to `/en-lb/beirut/category/balloons`.
+- `curl https://presentail.com/en-lb/beirut/category/balloons` and confirm
+  the raw HTML contains the new title, meta description, and a VISIBLE
+  (not sr-only) H1 that differs from the title tag.
+- Confirm the "Delivering Balloons Across Lebanon" links resolve and point
+  to cities with populated balloon categories.
+- Validate the FAQPage and BreadcrumbList JSON-LD with Google's Rich Results
+  Test against the live/staging URL.
+- `curl https://presentail.com/en-lb/tripoli/category/balloons` (and one
+  more city) and confirm the title/meta are UNCHANGED from the generic
+  template.
+- Confirm the two already-correct legacy category redirects
+  (`/lebanon/product-category/balloons/`, `/dubai/product-category/balloons/`)
+  still work exactly as before.
+- Report back: (a) whether the original blog article content was recoverable
+  from an old backup/database or had to be written fresh, (b) the final slug
+  chosen for the new blog post, and (c) confirm you didn't accidentally
+  touch the Dubai balloons page or its redirect while working on this.

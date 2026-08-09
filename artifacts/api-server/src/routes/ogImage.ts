@@ -499,4 +499,60 @@ router.get("/og-image/occasion/:slug", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/og-image/city/:country/:city
+ *
+ * Returns a 1200×630 JPEG branded card for a city listing page (home, shop,
+ * brands, occasions, weddings, corporate, etc.). City pages have no entity
+ * photo, so the card is text-only: city + country name rendered on the
+ * standard dark-green Presentail brand panel.
+ *
+ * Using the same visual style as product/brand/occasion cards means all
+ * share images on presentail.com are recognisably on-brand.
+ *
+ * The URL is stable (city slug never changes) so we cache for 24 h.
+ * An invalid country or city slug still returns a valid JPEG (the name
+ * is just the raw slug, capitalised) so og:image URLs never 404.
+ */
+
+const CITY_COUNTRY_LABELS: Record<string, string> = {
+  lb: "Lebanon",
+  ae: "UAE",
+  cy: "Cyprus",
+};
+
+function slugToLabel(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
+    .join(" ");
+}
+
+router.get("/og-image/city/:country/:city", async (req, res) => {
+  const countrySlug = (req.params.country ?? "").trim().toLowerCase();
+  const citySlug = (req.params.city ?? "").trim().toLowerCase();
+  if (!countrySlug || !citySlug) return res.status(400).end();
+
+  const cacheKey = `city:${countrySlug}:${citySlug}`;
+  const cached = getCached(cacheKey);
+  if (cached) return sendJpeg(res, cached, 86400);
+
+  const cityName = slugToLabel(citySlug);
+  const countryName = CITY_COUNTRY_LABELS[countrySlug] ?? slugToLabel(countrySlug);
+  // "Beirut · Lebanon", "Dubai · UAE", "Nicosia · Cyprus", etc.
+  const name = `${cityName} \u00b7 ${countryName}`;
+
+  try {
+    // imageUrl = null → text-only card; generateOgImage handles this gracefully.
+    const buffer = await generateOgImage(name, null);
+    checkJpegBudget(req, buffer, cacheKey);
+    setCached(cacheKey, buffer);
+    // City slugs never change — cache aggressively at the CDN / client layer.
+    return sendJpeg(res, buffer, 86400);
+  } catch (err) {
+    req.log.warn({ err, countrySlug, citySlug }, "og-image city: generation failed");
+    return res.status(500).end();
+  }
+});
+
 export default router;
