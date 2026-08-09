@@ -172,7 +172,7 @@ export const CITY_NAMES = {
 
 export const TITLES = {
   en: {
-    landing: "Online Flower & Gift Delivery | Presentail | Express Delivery",
+    landing: "Online Flower & Gift Delivery | Presentail",
     home: "Flower & Gift Delivery in {city} | Presentail",
     shop: "Shop Flowers & Gifts in {city} | Presentail",
     bestSellers: "Best Sellers in {city} | Presentail",
@@ -204,7 +204,7 @@ export const TITLES = {
     "account-deletion": "Account Deletion Policy | Presentail",
   },
   ar: {
-    landing: "توصيل الأزهار والهدايا أونلاين | Presentail | توصيل سريع",
+    landing: "توصيل الأزهار والهدايا أونلاين | Presentail",
     home: "توصيل الأزهار والهدايا في {city} | Presentail",
     shop: "تسوّق الأزهار والهدايا في {city} | Presentail",
     bestSellers: "الأكثر مبيعاً في {city} | Presentail",
@@ -237,7 +237,7 @@ export const TITLES = {
     "account-deletion": "سياسة حذف الحساب | Presentail",
   },
   fr: {
-    landing: "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
+    landing: "Livraison de fleurs et cadeaux en ligne | Presentail",
     home: "Livraison de fleurs et cadeaux à {city} | Presentail",
     shop: "Boutique fleurs et cadeaux à {city} | Presentail",
     bestSellers: "Meilleures ventes à {city} | Presentail",

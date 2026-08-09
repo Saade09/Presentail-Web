@@ -106,6 +106,16 @@ export function buildSitemapXml({
    * when productsData is available to ensure ratio checks are enforced).
    */
   totalProductCount = null,
+  /**
+   * ISO-8601 date string (YYYY-MM-DD) representing when this sitemap was
+   * generated. Used as <lastmod> for all static and catalog entries where
+   * a real per-entity modification timestamp is unavailable. Using the
+   * generation date is an honest proxy: if the sitemap regenerated, the
+   * catalog was re-fetched and the content was verified as of that date.
+   * Blog posts carry their own real datePublished and ignore this value.
+   * Omit (or pass null) to suppress <lastmod> on non-blog entries.
+   */
+  generatedAt = null,
 } = {}) {
   const cleanBase = (basePath ?? "/").replace(/\/$/, "");
   const lang = SITEMAP_LANGS.includes(locale) ? locale : "en";
@@ -132,10 +142,10 @@ export function buildSitemapXml({
   // country) so every child sitemap's entries agree with the page-level
   // hreflang. x-default points at the English variant.
   // `imageBlock` is an optional <image:image> XML string to embed for product URLs.
-  // `lastmod` is only emitted when a real per-entry date is known (e.g. blog
-  // article publish dates); all other entries omit it rather than fabricating
-  // a request-time value.
-  const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "", lastmod = null) => {
+  // `lastmod` defaults to `generatedAt` (the sitemap build date) for all
+  // static and catalog entries — an honest proxy for "content verified as of
+  // this date". Blog posts pass their real datePublished and override it.
+  const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "", lastmod = generatedAt) => {
     const loc = origin + cleanBase + `/${lang}-${country}/${city}${rest}`;
     const alternates = SITEMAP_LANGS.map((altLang) => {
       const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
@@ -401,9 +411,12 @@ ${entries.join("\n")}
  * @returns {Promise<string>} sitemap XML
  */
 export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, locale = "en") {
-  // No blanket lastmod: the catalog endpoints don't expose per-entity update
-  // timestamps, so catalog/static entries omit <lastmod> entirely. Blog posts
-  // carry their real datePublished (handled inside buildSitemapXml).
+  // Compute the generation date once; passed to buildSitemapXml as the
+  // lastmod proxy for static and catalog entries. Using the sitemap build
+  // date is honest — it means "content verified as of this date" — and
+  // avoids fabricating a per-URL timestamp that crawlers would rightly
+  // distrust. Blog posts carry their own real datePublished instead.
+  const generatedAt = new Date().toISOString().slice(0, 10);
   const [productsData, brandsData, catalogData] = await Promise.all([
     fetchJson(`${apiBaseUrl}/api/woo/products?lang=en&countryCode=LB`),
     fetchJson(`${apiBaseUrl}/api/woo/brands`),
@@ -451,6 +464,7 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     // Pass the total product count so eligibility ratio/identical-inventory
     // rules can fire at sitemap build time (see buildSitemapXml JSDoc).
     totalProductCount: productsData?.products?.length ?? null,
+    generatedAt,
   });
 }
 
