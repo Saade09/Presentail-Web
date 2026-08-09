@@ -9,11 +9,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
-import { fireAdsPurchaseConversion, fireGtagEvent } from "@/lib/gtag";
+import { fireAdsPurchaseConversion, fireGtagEvent, fireGA4PurchaseEvent } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 import { markHasOrdered, clearFirstOrderPromo } from "@/lib/campaign";
-import { fireAdsPurchaseConversion, fireGA4PurchaseEvent } from "@/lib/gtag";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 const ADS_CONVERSION_KEY_PREFIX = "presentail_ads_conversion_fired_";
