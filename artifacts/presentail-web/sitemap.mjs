@@ -9,6 +9,7 @@
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 import { getOccasionSeoContent } from "./src/data/occasionSeoContent.mjs";
+import { getCategorySeoContent } from "./src/data/categorySeoContent.mjs";
 import { buildProductImageAlt } from "./imageAlt.mjs";
 import {
   getProductAvailabilityState,
@@ -329,8 +330,20 @@ export function buildSitemapXml({
         categorySlug: category.id,
         productCount: category.count ?? 0,
       });
-      recordEligibility("city-category", eligibility.eligible);
-      if (!eligibility.eligible) continue;
+      // Curated category pages (hand-written intro/sections/FAQs) carry
+      // substantial unique content, so the thin/duplicate-page eligibility
+      // gate does not apply to them — keep them in the sitemap. Scoped to
+      // the locale that actually has curated copy (EN-only today): ar/fr
+      // variants still render template content, so they keep the normal
+      // eligibility gate. Mirrors the same bypass in occasion pages above.
+      const hasCuratedCategory = !!getCategorySeoContent({
+        country,
+        city,
+        slug: category.id,
+        lang: locale,
+      });
+      recordEligibility("city-category", eligibility.eligible || hasCuratedCategory);
+      if (!eligibility.eligible && !hasCuratedCategory) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
     }
     const categoryPageCount = Math.min(
