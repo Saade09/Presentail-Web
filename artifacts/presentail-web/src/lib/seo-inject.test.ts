@@ -5100,6 +5100,57 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     ]);
   });
 
+  it("emits ItemList on /en-lb/beirut/category/balloons with in-stock balloon products", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            count: 3,
+            products: [
+              { name: "Happy Birthday Balloon Bouquet", id: "happy-birthday-balloon-bouquet" },
+              { name: "Number Balloons Set", id: "number-balloons-set" },
+              { name: "Foil Star Balloon", id: "foil-star-balloon" },
+            ],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            category: { name: "Balloons", description: "Balloon delivery in Beirut." },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/category/balloons", OPTS);
+    const blocks = extractJsonLd(out);
+    // BreadcrumbList: Home > Beirut > Balloons
+    const crumb = byType(blocks, "BreadcrumbList");
+    expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
+      "Home",
+      "Beirut",
+      "Balloons",
+    ]);
+    // ItemList: in-stock balloon products are visible to Google
+    const list = byType(blocks, "ItemList");
+    expect(list).toBeTruthy();
+    expect(list.numberOfItems).toBe(3);
+    expect(list.itemListElement.map((i: any) => i.name)).toEqual([
+      "Happy Birthday Balloon Bouquet",
+      "Number Balloons Set",
+      "Foil Star Balloon",
+    ]);
+    // Each ListItem has a canonical product URL under the Beirut locale base
+    expect(list.itemListElement[0].url).toContain("/en-lb/beirut/product/happy-birthday-balloon-bouquet");
+  });
+
   it("emits Home > City > Occasions > Occasion on an occasion page", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
