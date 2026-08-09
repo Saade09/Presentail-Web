@@ -61,7 +61,7 @@ export const OCCASION_SEO_CONTENT = {
             { label: "Mother's Day flowers", href: "/category/hand-bouquets" },
             { label: "cakes", href: "/category/cakes" },
             { label: "chocolate & sweets", href: "/category/chocolate" },
-            { label: "gift hampers", href: "/category/baskets" },
+            { label: "gift hampers", href: "/category/gift-baskets" },
           ],
         },
         {
@@ -136,7 +136,7 @@ export const OCCASION_SEO_CONTENT = {
             { label: "birthday flowers", href: "/category/hand-bouquets" },
             { label: "birthday cakes", href: "/category/cakes" },
             { label: "balloons", href: "/category/balloons" },
-            { label: "gift hampers", href: "/category/baskets" },
+            { label: "gift hampers", href: "/category/gift-baskets" },
           ],
         },
         {
@@ -182,7 +182,7 @@ export const OCCASION_SEO_CONTENT = {
             { label: "romantic bouquets", href: "/category/hand-bouquets" },
             { label: "anniversary cakes", href: "/category/cakes" },
             { label: "chocolates", href: "/category/chocolate" },
-            { label: "gift hampers", href: "/category/baskets" },
+            { label: "gift hampers", href: "/category/gift-baskets" },
           ],
         },
         {
@@ -226,7 +226,7 @@ export const OCCASION_SEO_CONTENT = {
           body: "Elegant flowers, gift hampers, cakes and personalised congratulations gifts for newlyweds — prepared fresh and delivered across Dubai.",
           links: [
             { label: "wedding flowers", href: "/category/hand-bouquets" },
-            { label: "gift hampers", href: "/category/baskets" },
+            { label: "gift hampers", href: "/category/gift-baskets" },
             { label: "cakes", href: "/category/cakes" },
           ],
         },
@@ -272,7 +272,7 @@ export const OCCASION_SEO_CONTENT = {
           links: [
             { label: "flowers", href: "/category/hand-bouquets" },
             { label: "balloons", href: "/category/balloons" },
-            { label: "gift hampers", href: "/category/baskets" },
+            { label: "gift hampers", href: "/category/gift-baskets" },
             { label: "bears", href: "/category/stuffed-animals" },
           ],
         },
@@ -318,7 +318,7 @@ export const OCCASION_SEO_CONTENT = {
           links: [
             { label: "sympathy flowers", href: "/category/hand-bouquets" },
             { label: "flower boxes", href: "/category/flower-boxes" },
-            { label: "gift baskets", href: "/category/baskets" },
+            { label: "gift baskets", href: "/category/gift-baskets" },
           ],
         },
         {
@@ -359,7 +359,7 @@ export const OCCASION_SEO_CONTENT = {
           links: [
             { label: "roses & bouquets", href: "/category/hand-bouquets" },
             { label: "chocolates", href: "/category/chocolate" },
-            { label: "romantic hampers", href: "/category/baskets" },
+            { label: "romantic hampers", href: "/category/gift-baskets" },
           ],
         },
         {
