@@ -754,6 +754,14 @@ export default defineConfig(async ({ command, mode }) => {
               id.includes("node_modules/stripe/")
             )
               return "vendor-stripe";
+            // cmdk is only reachable via the lazy SearchOverlay chunk
+            // (LazySearchOverlay → React.lazy → SearchOverlay → cmdk).
+            // Without this rule the vendor catch-all below grabs it and folds
+            // it into the eagerly-evaluated instant vendor bundle, negating the
+            // entire point of the lazy wrapper. Giving it a dedicated chunk
+            // keeps it out of the critical path — it only loads when the user
+            // first opens search.
+            if (id.includes("node_modules/cmdk/")) return "vendor-cmdk";
             if (id.includes("node_modules/")) return "vendor";
 
             // Collapse small app-level shared components into a single chunk so
