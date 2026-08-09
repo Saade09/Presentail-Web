@@ -47,6 +47,26 @@ export function buildJournalSection(base, posts = BLOG_POSTS) {
 export const FEATURED_LIMIT = 50;
 
 /**
+ * Build the list of blog article Markdown twin links for the
+ * "Machine-Readable Markdown Pages" section. Pure and synchronous.
+ *
+ * @param {string} base  - origin + clean base path, e.g. "https://presentail.com"
+ * @param {object} [posts] - injectable for tests; defaults to BLOG_POSTS
+ * @returns {string} zero or more `- [title](<url>.md)\n` lines (no trailing blank line)
+ */
+export function buildBlogMdLinks(base, posts = BLOG_POSTS) {
+  const hub = `${base}/en-lb/beirut/blog`;
+  return Object.entries(posts ?? {})
+    .map(([slug, byLang]) => {
+      const post = byLang?.en;
+      if (!post?.title) return null;
+      return `- [${post.title}](${hub}/${encodeURIComponent(slug)}.md)`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
  * Build the static /llms.txt index. Pure and synchronous.
  *
  * generateLlmsTxt is intentionally static: LLMS_INTRO is a fixed service
@@ -66,6 +86,7 @@ export function generateLlmsTxt(origin, basePath) {
   const pagesList = LLMS_PAGES
     .map(({ label, path }) => `- [${label}](${base}${path})`)
     .join("\n");
+  const blogMdLinks = buildBlogMdLinks(base);
   const mdSection =
     `## Machine-Readable Markdown Pages\n\n` +
     `Every public Presentail page has a Markdown twin served at \`<path>.md\` and via \`Accept: text/markdown\` content negotiation.\n\n` +
@@ -76,7 +97,8 @@ export function generateLlmsTxt(origin, basePath) {
     `- [Shop — Beirut (Lebanon)](${base}/en-lb/beirut/shop.md)\n` +
     `- [Best Sellers — Beirut (Lebanon)](${base}/en-lb/beirut/best-sellers.md)\n` +
     `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n` +
-    `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n`;
+    `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n` +
+    (blogMdLinks ? `${blogMdLinks}\n` : "");
 
   return `# Presentail\n\n> ${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n\n${buildJournalSection(base)}\n${mdSection}`;
 }
@@ -151,6 +173,7 @@ export function buildLlmsFullTxt({
     : "";
 
   const firstProduct = allProducts[0] ?? null;
+  const blogMdLinks = buildBlogMdLinks(base);
   const mdSection =
     `## Machine-Readable Markdown Pages\n\n` +
     `Every public Presentail page has a Markdown twin served at \`<path>.md\` and via \`Accept: text/markdown\` content negotiation.\n\n` +
@@ -163,7 +186,8 @@ export function buildLlmsFullTxt({
     (firstProduct?.slug
       ? `- [${firstProduct.name} (product example)](${base}/en-lb/beirut/product/${encodeURIComponent(firstProduct.slug)}.md)\n`
       : `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n`) +
-    `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n`;
+    `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n` +
+    (blogMdLinks ? `${blogMdLinks}\n` : "");
 
   return (
     `# Presentail\n\n${LLMS_INTRO}\n\n` +

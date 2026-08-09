@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 // @ts-expect-error - mjs module without type declarations.
-import { generateLlmsTxt, buildLlmsFullTxt, buildJournalSection, generateLlmsFullTxt, resolveLlmsFullTxt, LLMS_FULL_TXT_RETRY_WINDOW_MS, FEATURED_LIMIT } from "../../llms.mjs";
+import { generateLlmsTxt, buildLlmsFullTxt, buildJournalSection, buildBlogMdLinks, generateLlmsFullTxt, resolveLlmsFullTxt, LLMS_FULL_TXT_RETRY_WINDOW_MS, FEATURED_LIMIT } from "../../llms.mjs";
 import { BLOG_POSTS } from "@workspace/blog-content";
 
 const ORIGIN = "https://new.presentail.com";
@@ -52,6 +52,36 @@ describe("generateLlmsTxt", () => {
     for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
       expect(txt).toContain(`[${byLang.en.title}](${ORIGIN}/en-lb/beirut/blog/${slug})`);
     }
+  });
+
+  it("includes .md twin links for every blog article in the Markdown Pages section", () => {
+    for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
+      expect(txt).toContain(`${ORIGIN}/en-lb/beirut/blog/${slug}.md`);
+    }
+  });
+});
+
+describe("buildBlogMdLinks", () => {
+  it("returns a .md link for each article that has an English title", () => {
+    const links = buildBlogMdLinks("https://x", {
+      "first-post": { en: { title: "First Post" } },
+      "second-post": { en: { title: "Second Post" } },
+      "broken-post": { en: {} },
+    });
+    expect(links).toContain("- [First Post](https://x/en-lb/beirut/blog/first-post.md)");
+    expect(links).toContain("- [Second Post](https://x/en-lb/beirut/blog/second-post.md)");
+    expect(links).not.toContain("broken-post");
+  });
+
+  it("returns an empty string when there are no posts", () => {
+    expect(buildBlogMdLinks("https://x", {})).toBe("");
+  });
+
+  it("respects the base path prefix", () => {
+    const links = buildBlogMdLinks("https://x/web", {
+      "my-post": { en: { title: "My Post" } },
+    });
+    expect(links).toContain("https://x/web/en-lb/beirut/blog/my-post.md");
   });
 });
 
@@ -163,6 +193,13 @@ describe("buildLlmsFullTxt", () => {
     // Full content sections are H3 entries from LLMS_PAGE_SECTIONS.
     expect(txt).toContain("### Home");
     expect(txt).toContain("### FAQs");
+  });
+
+  it("includes .md twin links for every blog article in the Markdown Pages section", () => {
+    const txt = buildLlmsFullTxt({ origin: ORIGIN, basePath: "/", ...MOCK });
+    for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
+      expect(txt).toContain(`${ORIGIN}/en-lb/beirut/blog/${slug}.md`);
+    }
   });
 
   it("includes Pages and Full content even when all catalog data is empty", () => {
