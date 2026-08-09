@@ -205,6 +205,16 @@ export default function Home() {
 
     </div>
 
+    {/* From the journal — cross-link to the Achrafieh flower shop post for Lebanese cities */}
+    {countryCode === "LB" && (
+      <div className="container mx-auto px-4 pb-4 max-w-content text-center text-sm text-muted-foreground">
+        From the Presentail journal:{" "}
+        <Link href="/blog/flower-shop-in-achrafieh" className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
+          The best flower shop in Achrafieh, Beirut →
+        </Link>
+      </div>
+    )}
+
     <SEOContentSection
       pageType="homepage"
       cityLabel={cityLabel}

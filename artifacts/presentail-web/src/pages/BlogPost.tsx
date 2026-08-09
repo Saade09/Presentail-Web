@@ -12,9 +12,13 @@ import {
   BLOG_OG_FALLBACK_IMAGE_PATH,
 } from "../../blog-article-schema.mjs";
 
+type FaqItem = { q: string; a: string };
+
 type Section = {
   heading?: string;
-  body: string;
+  body?: string;
+  items?: string[];
+  faqItems?: FaqItem[];
 };
 
 type OgImage = {
@@ -27,12 +31,17 @@ type Article = {
   slug: string;
   eyebrow: string;
   title: string;
+  /** Visible H1. Falls back to `title` when absent. */
+  h1?: string;
   description: string;
   datePublished: string;
   ogImage?: OgImage;
+  /** Alt text for the hero image. Falls back to `title` when absent. */
+  ogImageAlt?: string;
   sections: Section[];
   ctaHref?: string;
   ctaLabel?: string;
+  extraJsonLd?: object[];
 };
 
 const ARTICLES = BLOG_POSTS as Record<string, Record<Language, Article>>;
@@ -69,7 +78,10 @@ export default function BlogPost() {
 
   useEffect(() => {
     if (!article) return;
-    const title = `${article.title} | Presentail`;
+    // When an article has a separate H1 field the `title` is already the
+    // complete meta title (e.g. "Flower Shop in Achrafieh | Presentail's
+    // Beirut Boutique") and must NOT have "| Presentail" appended again.
+    const title = article.h1 ? article.title : `${article.title} | Presentail`;
     document.title = title;
 
     const upsertMeta = (selector: string, attr: string, value: string) => {
@@ -125,9 +137,25 @@ export default function BlogPost() {
       }),
     );
 
+    // Emit any article-specific extra JSON-LD schemas (e.g. LocalBusiness, FAQPage).
+    (article.extraJsonLd ?? []).forEach((schemaObj, idx) => {
+      const extraId = `blog-post-schema-extra-${idx}`;
+      let extraEl = document.getElementById(extraId);
+      if (!extraEl) {
+        extraEl = document.createElement("script");
+        extraEl.setAttribute("type", "application/ld+json");
+        extraEl.id = extraId;
+        document.head.appendChild(extraEl);
+      }
+      extraEl.textContent = JSON.stringify(schemaObj);
+    });
+
     return () => {
       document.head.querySelectorAll("[data-seo-blog]").forEach((el) => el.remove());
       document.getElementById(schemaId)?.remove();
+      (article.extraJsonLd ?? []).forEach((_, idx) => {
+        document.getElementById(`blog-post-schema-extra-${idx}`)?.remove();
+      });
     };
   }, [article]);
 
@@ -160,7 +188,7 @@ export default function BlogPost() {
               sizes="(min-width: 768px) 768px, 100vw"
               width={article.ogImage.width}
               height={article.ogImage.height}
-              alt={article.title}
+              alt={article.ogImageAlt ?? article.title}
               loading="eager"
               fetchPriority="high"
               decoding="async"
@@ -179,7 +207,7 @@ export default function BlogPost() {
             data-testid="blog-post-title"
             itemProp="headline"
           >
-            {article.title}
+            {article.h1 ?? article.title}
           </h1>
           <p className="text-sm text-muted-foreground" itemProp="datePublished" content={article.datePublished}>
             {formatDate(article.datePublished, language)}
@@ -192,7 +220,26 @@ export default function BlogPost() {
               {section.heading && (
                 <h2 className="font-serif text-2xl mb-3">{section.heading}</h2>
               )}
-              <p className="text-base text-foreground leading-relaxed">{section.body}</p>
+              {section.body && (
+                <p className="text-base text-foreground leading-relaxed">{section.body}</p>
+              )}
+              {section.items && section.items.length > 0 && (
+                <ul className="list-disc list-inside space-y-1 text-base text-foreground leading-relaxed">
+                  {section.items.map((item, j) => (
+                    <li key={j}>{item}</li>
+                  ))}
+                </ul>
+              )}
+              {section.faqItems && section.faqItems.length > 0 && (
+                <dl className="space-y-4">
+                  {section.faqItems.map((faq, j) => (
+                    <div key={j}>
+                      <dt className="font-semibold text-foreground">{faq.q}</dt>
+                      <dd className="text-base text-muted-foreground leading-relaxed mt-1">{faq.a}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
             </div>
           ))}
         </div>

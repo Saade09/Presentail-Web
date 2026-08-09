@@ -1367,7 +1367,8 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
  * read the full article copy without executing JavaScript.
  */
 function buildBlogPostBodyHtml(article, { localeBase }) {
-  const safeTitle = escapeHtml(article.title ?? "");
+  // Use the display heading (h1) when set; fall back to the SEO title.
+  const safeTitle = escapeHtml(article.h1 ?? article.title ?? "");
   const sections = Array.isArray(article.sections) ? article.sections : [];
   let inner = "";
   if (article.datePublished) {
@@ -1375,7 +1376,13 @@ function buildBlogPostBodyHtml(article, { localeBase }) {
   }
   for (const sec of sections) {
     if (sec.heading) inner += `<h2>${escapeHtml(sec.heading)}</h2>`;
-    if (sec.body) inner += `<p>${escapeHtml(sec.body)}</p>`;
+    if (Array.isArray(sec.items) && sec.items.length > 0) {
+      inner += `<ul>${sec.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    } else if (Array.isArray(sec.faqItems) && sec.faqItems.length > 0) {
+      inner += `<dl>${sec.faqItems.map((faq) => `<dt>${escapeHtml(faq.q)}</dt><dd>${escapeHtml(faq.a)}</dd>`).join("")}</dl>`;
+    } else if (sec.body) {
+      inner += `<p>${escapeHtml(sec.body)}</p>`;
+    }
   }
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/blog">Journal</a></nav>` // i18n-ignore — breadcrumb labels
@@ -3161,7 +3168,11 @@ export function buildProductHead({
  */
 export function buildBlogPostHead({ article, lang, country, basePath, origin, pathname }) {
   const rawTitle = typeof article.title === "string" ? article.title.trim() : "";
-  const title = rawTitle ? `${rawTitle} | Presentail` : "Presentail";
+  // When an article carries a separate display heading (`h1`), `title` is
+  // already the complete meta title and must NOT have "| Presentail" appended.
+  const title = article.h1
+    ? rawTitle || "Presentail"
+    : rawTitle ? `${rawTitle} | Presentail` : "Presentail";
   const description =
     clampDescription(article.description) ||
     genericFallbackDescription(lang, "blogPost");
@@ -3231,6 +3242,12 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
       ]),
     ),
   );
+
+  // Extra article-specific JSON-LD (e.g. LocalBusiness, FAQPage).
+  // Defined per-article in blogPostsCopy.js as `extraJsonLd: [...]`.
+  for (const schemaObj of article.extraJsonLd ?? []) {
+    extraLines.push(jsonLdTag(schemaObj));
+  }
 
   // Prerendered body fragment — includes the h1, publish date, and all
   // article sections so non-rendering crawlers can read the full copy.
