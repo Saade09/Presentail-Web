@@ -40,6 +40,10 @@ args = "API Server"
 task = "workflow.run"
 args = "e2e-serve-blog"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check-social-share-previews"
+
 [[workflows.workflow]]
 name = "check-hardcoded-web-strings"
 author = "agent"
@@ -106,6 +110,38 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "SERVE_E2E_SPEC=blog-image-perf.spec.ts bash artifacts/presentail-web/scripts/run-serve-e2e.sh"
+
+[[workflows.workflow]]
+name = "check-social-share-previews"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = """
+bash -c 'set -e
+pnpm --filter @workspace/presentail-web run build
+pnpm --filter @workspace/api-server run build
+
+PORT=8080 node artifacts/api-server/dist/index.mjs &
+API_PID=$!
+PORT=19235 BASE_PATH=\"/\" INTERNAL_API_BASE_URL=\"http://localhost:8080\" node artifacts/presentail-web/serve.mjs &
+WEB_PID=$!
+trap \"kill $API_PID $WEB_PID 2>/dev/null\" EXIT INT TERM
+
+echo \"Waiting for API server on :8080...\"
+for i in $(seq 1 30); do nc -z localhost 8080 2>/dev/null && break; sleep 1; done
+nc -z localhost 8080 2>/dev/null || { echo \"FAIL: API server did not start on :8080 within 30s\"; exit 1; }
+echo \"API server ready.\"
+
+echo \"Waiting for web server on :19235...\"
+for i in $(seq 1 30); do nc -z localhost 19235 2>/dev/null && break; sleep 1; done
+nc -z localhost 19235 2>/dev/null || { echo \"FAIL: web server did not start on :19235 within 30s\"; exit 1; }
+echo \"Web server ready.\"
+
+node artifacts/presentail-web/scripts/check-social-share-previews.mjs http://localhost:19235 http://localhost:8080'"""
 
 [agent]
 stack = "PNPM_WORKSPACE"
