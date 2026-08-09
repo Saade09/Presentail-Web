@@ -128,6 +128,87 @@ export const CATEGORY_SEO_CONTENT = {
         },
       ],
     },
+    balloons: {
+      title: "Balloon Delivery in Beirut, Lebanon | Same-Day | Presentail",
+      metaDescription:
+        "Same-day balloon delivery in Beirut — helium, mylar and balloon bouquets for birthdays, graduations and celebrations. We also deliver across Lebanon.",
+      h1: "Balloon Delivery in Beirut, Lebanon",
+      intro:
+        "Order same-day balloon delivery in Beirut — Hamra, Achrafieh, Gemmayzeh, Verdun and beyond — or send balloons anywhere else in Lebanon, whether you're ordering from another city or from abroad.",
+      sections: [
+        {
+          heading: "Shop Balloons by Type",
+          body: "Presentail carries helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone occasions. Every type is available for same-day delivery across Beirut.",
+          links: [
+            { label: "Helium balloons", href: "/category/balloons" },
+            { label: "Foil & mylar balloons", href: "/category/balloons" },
+            { label: "Balloon bouquets", href: "/category/balloons" },
+            { label: "Number & letter balloons", href: "/category/balloons" },
+          ],
+        },
+        {
+          heading: "Shop Balloons by Occasion",
+          body: "Balloons suit almost every celebration — from birthdays and anniversaries to a new baby's arrival or a graduation. Pair balloons with flowers, chocolates or a cake for a complete gift.",
+          links: [
+            { label: "Birthday balloons", href: "/occasion/birthday" },
+            { label: "Anniversary balloons", href: "/occasion/anniversary" },
+          ],
+        },
+        {
+          heading: "Delivering Balloons Across Lebanon",
+          body: "Presentail delivers balloons to every region of Lebanon. Order from Beirut for delivery in the capital, or send balloons to friends and family anywhere else in the country.",
+          links: [
+            { label: "Balloon delivery in Tripoli", href: "/en-lb/tripoli/category/balloons", absolute: true },
+            { label: "Balloon delivery in Saida", href: "/en-lb/saida/category/balloons", absolute: true },
+            { label: "Balloon delivery in Zahle", href: "/en-lb/zahle/category/balloons", absolute: true },
+            { label: "Balloon delivery in Jbeil", href: "/en-lb/jbeil/category/balloons", absolute: true },
+            { label: "Balloon delivery in Batroun", href: "/en-lb/batroun/category/balloons", absolute: true },
+            { label: "Balloon delivery in Tyre", href: "/en-lb/tyre/category/balloons", absolute: true },
+            { label: "Balloon delivery in Metn", href: "/en-lb/metn/category/balloons", absolute: true },
+            { label: "Balloon delivery in Kesserwan", href: "/en-lb/kesserwan/category/balloons", absolute: true },
+            { label: "Balloon delivery in Baabda", href: "/en-lb/baabda/category/balloons", absolute: true },
+            { label: "Balloon delivery in Aley", href: "/en-lb/aley/category/balloons", absolute: true },
+            { label: "Balloon delivery in Chouf", href: "/en-lb/chouf/category/balloons", absolute: true },
+            { label: "Balloon delivery in Nabatieh", href: "/en-lb/nabatieh/category/balloons", absolute: true },
+            { label: "Balloon delivery in Koura", href: "/en-lb/koura/category/balloons", absolute: true },
+            { label: "Balloon delivery in Bcharre", href: "/en-lb/bcharee/category/balloons", absolute: true },
+            { label: "Balloon delivery in Zgharta", href: "/en-lb/zghorta/category/balloons", absolute: true },
+            { label: "Balloon delivery in Akkar", href: "/en-lb/akkar/category/balloons", absolute: true },
+            { label: "Balloon delivery in Hermel", href: "/en-lb/hermel/category/balloons", absolute: true },
+            { label: "Balloon delivery in Baalbeck", href: "/en-lb/baalbeck/category/balloons", absolute: true },
+            { label: "Balloon delivery in West Bekaa", href: "/en-lb/west-bekaa/category/balloons", absolute: true },
+            { label: "Balloon delivery in Rachaya", href: "/en-lb/rechaya/category/balloons", absolute: true },
+            { label: "Balloon delivery in Hasbaya", href: "/en-lb/hasbaya/category/balloons", absolute: true },
+            { label: "Balloon delivery in Marjayoun", href: "/en-lb/marjayoun/category/balloons", absolute: true },
+            { label: "Balloon delivery in Bint Jbeil", href: "/en-lb/bent-jbeil/category/balloons", absolute: true },
+            { label: "Balloon delivery in Jezzine", href: "/en-lb/jezzine/category/balloons", absolute: true },
+            { label: "Balloon delivery in Minnieh-Denniyeh", href: "/en-lb/minnieh-dennaya/category/balloons", absolute: true },
+          ],
+        },
+      ],
+      faqs: [
+        {
+          q: "Can I get same-day balloon delivery in Beirut?",
+          a: "Yes — order before midday for same-day balloon delivery in Beirut. Orders placed after midday are scheduled for the next available delivery window.",
+        },
+        {
+          q: "Do you deliver balloons to hospitals in Beirut?",
+          a: "Yes — we deliver balloons to hospitals, schools, offices and homes anywhere in Beirut.",
+        },
+        {
+          q: "Do you deliver balloons to schools in Beirut?",
+          a: "Yes, we deliver to schools as well as homes, offices and hospitals.",
+        },
+        {
+          q: "Do you deliver balloons outside Beirut, anywhere in Lebanon?",
+          a: "Yes — we deliver balloons everywhere in Lebanon, not just Beirut.",
+        },
+        {
+          q: "What types of balloons do you offer?",
+          a: "Presentail offers helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone celebrations. Browse this page for the current range.",
+        },
+      ],
+    },
     cakes: {
       title: "Cake Delivery in Beirut, Lebanon | Same-Day | Presentail",
       metaDescription:

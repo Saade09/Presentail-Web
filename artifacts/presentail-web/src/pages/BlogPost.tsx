@@ -31,6 +31,8 @@ type Article = {
   datePublished: string;
   ogImage?: OgImage;
   sections: Section[];
+  ctaHref?: string;
+  ctaLabel?: string;
 };
 
 const ARTICLES = BLOG_POSTS as Record<string, Record<Language, Article>>;
@@ -198,9 +200,9 @@ export default function BlogPost() {
 
       <section className="container mx-auto px-4 pb-20 md:pb-24 max-w-3xl">
         <div className="rounded-lg bg-primary text-primary-foreground p-8 text-center">
-          <Link href="/shop">
+          <Link href={article.ctaHref ?? "/shop"}>
             <Button variant="secondary" data-testid="blog-post-cta-shop">
-              {ui.shopCta}
+              {article.ctaLabel ?? ui.shopCta}
             </Button>
           </Link>
         </div>

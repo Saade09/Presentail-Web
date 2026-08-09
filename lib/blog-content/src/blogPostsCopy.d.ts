@@ -25,6 +25,17 @@ export interface BlogPostContent {
   datePublished: string;
   ogImage?: BlogOgImage;
   sections: BlogSection[];
+  /**
+   * Optional CTA button href. When present, overrides the default "/shop" target
+   * so a blog post can link directly to a relevant category or landing page.
+   */
+  ctaHref?: string;
+  /**
+   * Optional CTA button label. When present, overrides the locale-specific
+   * shopCta string so the button text matches the post's specific offer.
+   * Only used when ctaHref is also set.
+   */
+  ctaLabel?: string;
 }
 
 /** Map of article slug → per-language content. */

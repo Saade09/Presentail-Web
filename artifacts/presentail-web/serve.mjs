@@ -1502,6 +1502,11 @@ const server = http.createServer(async (req, res) => {
       // redirect, which stripped the slash but pointed at a path that was never
       // migrated, creating a self-redirect-into-404 loop (Aug 2026).
       "/birthday-gift-ideas-lebanon": `${BASE_PATH}/en-lb/beirut/occasion/birthday`,
+      // Legacy WP balloon-delivery blog post that holds organic rankings for
+      // "balloon delivery beirut lebanon". Redirect to the new blog post at its
+      // canonical URL so link equity is preserved and the informational
+      // content-type signal is maintained (Aug 2026).
+      "/lebanon/balloons-delivered-near-you-reliable-same-day-balloon-delivery-in-lebanon": `${BASE_PATH}/en-lb/beirut/blog/balloon-delivery-beirut-lebanon`,
     };
 
     const vanityKey =
