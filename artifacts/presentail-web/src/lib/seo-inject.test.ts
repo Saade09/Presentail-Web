@@ -7697,11 +7697,14 @@ describe("Prerender body — generic shop page featured categories", () => {
     expect(bodyHtml).toContain("/category/hand-bouquets");
     expect(bodyHtml).toContain("/category/flower-boxes");
     expect(bodyHtml).toContain("/category/cakes");
-    expect(bodyHtml).toContain("/category/chocolates");
+    // "chocolate" (singular) is the canonical OS slug — was "chocolates"
+    expect(bodyHtml).toContain("/category/chocolate");
     expect(bodyHtml).toContain("/category/plants");
-    expect(bodyHtml).toContain("/category/hampers");
+    // "gift-baskets" is the canonical OS slug for hampers — was "hampers"
+    expect(bodyHtml).toContain("/category/gift-baskets");
     expect(bodyHtml).toContain("/category/candles");
-    expect(bodyHtml).toContain("/category/perfumes");
+    // "perfume" (singular) is the canonical OS slug — was "perfumes"
+    expect(bodyHtml).toContain("/category/perfume");
   });
 
   it("shop page category links use the correct localeBase prefix", () => {

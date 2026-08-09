@@ -94,7 +94,22 @@ export function buildSitemapXml({
   productsByCountry = null,
   brands = [],
   occasions = [],
+  /**
+   * Per-hub-city occasion lists keyed by country code ("lb", "ae", "cy"),
+   * each containing occasion objects whose `count` reflects the per-country
+   * product count. When provided, a city's occasion URLs are only emitted
+   * when that country's data shows count > 0 (i.e. the occasion actually has
+   * products deliverable there). Falls back to the global `occasions` list.
+   */
+  occasionsByCountry = null,
   categories = [],
+  /**
+   * Per-hub-city category lists keyed by country code ("lb", "ae", "cy"),
+   * each containing category objects whose `count` reflects the per-country
+   * product count. When provided, a city's category URLs are only emitted
+   * when that country's data shows count > 0. Falls back to `categories`.
+   */
+  categoriesByCountry = null,
   blogPosts: blogPostsArg = null,
   /**
    * Optional mutable report collector. When provided, the function accumulates
@@ -289,10 +304,16 @@ export function buildSitemapXml({
 
   // 4. Occasion pages — canonical city per country × all languages. Skip any
   // occasion that fails the eligibility check (thin/empty/duplicate pages).
-  for (const occasion of occasions) {
-    if (!occasion?.id) continue;
-    const encoded = encodeURIComponent(occasion.id);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+  //
+  // Per-city filtering: when `occasionsByCountry` is supplied each hub city
+  // uses its own occasion list (counts reflecting per-country product stock),
+  // so we never emit a URL for an occasion with 0 products in that city.
+  // Pagination page count is also per-city so pages without content are omitted.
+  for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    const cityOccasions = occasionsByCountry?.[country] ?? occasions;
+    for (const occasion of cityOccasions) {
+      if (!occasion?.id) continue;
+      const encoded = encodeURIComponent(occasion.id);
       // parentProductCount intentionally omitted: comparing an occasion's
       // product count against the entire catalog total (which is the only
       // figure available here) would cause Rule 4's uniqueness-ratio check
@@ -321,13 +342,13 @@ export function buildSitemapXml({
       recordEligibility("city-occasion", eligibility.eligible || hasCurated);
       if (!eligibility.eligible && !hasCurated) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/occasion/${encoded}`));
-    }
-    const occasionPageCount = Math.min(
-      Math.ceil((occasion.count ?? 0) / PAGINATION_PAGE_SIZE),
-      PAGINATION_SITEMAP_MAX_PAGES + 1,
-    );
-    for (let pageNum = 2; pageNum <= occasionPageCount; pageNum++) {
-      for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      // Pagination: use this city's product count so we don't emit page/N
+      // entries for pages that have no products in this city.
+      const occasionPageCount = Math.min(
+        Math.ceil((occasion.count ?? 0) / PAGINATION_PAGE_SIZE),
+        PAGINATION_SITEMAP_MAX_PAGES + 1,
+      );
+      for (let pageNum = 2; pageNum <= occasionPageCount; pageNum++) {
         urls.push(urlEntryWithAlternates("0.4", "weekly", country, city, `/occasion/${encoded}/page/${pageNum}`));
       }
     }
@@ -335,10 +356,14 @@ export function buildSitemapXml({
 
   // 5. Category pages — canonical city per country × all languages. Skip any
   // category that fails the eligibility check (thin/empty/duplicate pages).
-  for (const category of categories) {
-    if (!category?.id) continue;
-    const encoded = encodeURIComponent(category.id);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+  //
+  // Per-city filtering: same pattern as occasions above — `categoriesByCountry`
+  // provides per-country counts so empty city/category combinations are omitted.
+  for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    const cityCategories = categoriesByCountry?.[country] ?? categories;
+    for (const category of cityCategories) {
+      if (!category?.id) continue;
+      const encoded = encodeURIComponent(category.id);
       // parentProductCount intentionally omitted — see occasion section above
       // for the same reasoning: ratio vs. global catalog total incorrectly
       // rejects small niche categories (cakes: 7/334 = 0.021 < 0.15).
@@ -364,13 +389,13 @@ export function buildSitemapXml({
       recordEligibility("city-category", eligibility.eligible || hasCuratedCategory);
       if (!eligibility.eligible && !hasCuratedCategory) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
-    }
-    const categoryPageCount = Math.min(
-      Math.ceil((category.count ?? 0) / PAGINATION_PAGE_SIZE),
-      PAGINATION_SITEMAP_MAX_PAGES + 1,
-    );
-    for (let pageNum = 2; pageNum <= categoryPageCount; pageNum++) {
-      for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      // Pagination: use this city's product count to avoid emitting page/N
+      // entries that would have no products and serve thin/noindex pages.
+      const categoryPageCount = Math.min(
+        Math.ceil((category.count ?? 0) / PAGINATION_PAGE_SIZE),
+        PAGINATION_SITEMAP_MAX_PAGES + 1,
+      );
+      for (let pageNum = 2; pageNum <= categoryPageCount; pageNum++) {
         urls.push(urlEntryWithAlternates("0.4", "weekly", country, city, `/category/${encoded}/page/${pageNum}`));
       }
     }
@@ -478,28 +503,34 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     { country: "cy", city: "nicosia", countryCode: "CY" },
   ];
 
-  const [brandsData, catalogData, ...cityProductsData] = await Promise.all([
+  const [brandsData, ...perCityData] = await Promise.all([
     fetchJson(`${apiBaseUrl}/api/woo/brands`),
-    fetchJson(`${apiBaseUrl}/api/catalog/metadata`),
-    // Fetch products filtered by each hub city so only deliverable products
-    // get a sitemap URL for that city.
-    ...HUB_CITY_FETCH.map(({ countryCode, country, city }) =>
+    // Fetch products AND catalog metadata (categories/occasions) per hub city
+    // so the sitemap only emits URLs that are actually available in each city.
+    // Products: city-filtered by isDeliverable() → prevents 410 product URLs.
+    // Catalog metadata: per-country counts → prevents empty category/occasion URLs.
+    ...HUB_CITY_FETCH.flatMap(({ countryCode, country, city }) => [
       fetchJson(
         `${apiBaseUrl}/api/woo/products?lang=en&countryCode=${countryCode}&cityId=${country}-${city}`,
       ),
-    ),
+      fetchJson(`${apiBaseUrl}/api/catalog/metadata?countryCode=${countryCode}`),
+    ]),
   ]);
+
+  // perCityData is [lbProducts, lbMeta, aeProducts, aeMeta, cyProducts, cyMeta]
+  const cityProducts = HUB_CITY_FETCH.map((_, i) => perCityData[i * 2]);
+  const cityMetas   = HUB_CITY_FETCH.map((_, i) => perCityData[i * 2 + 1]);
 
   // Primary (LB) data used for backward-compat fallback and totalProductCount
   // (LB typically has the largest catalog, so it's the best proxy for the
-  // brand/category eligibility ratio checks).
-  const lbData = cityProductsData[0] ?? null;
+  // brand eligibility ratio checks).
+  const lbData = cityProducts[0] ?? null;
+  const lbMeta = cityMetas[0] ?? null;
 
-  // If every catalog fetch returned null the API server is unreachable (wrong
-  // INTERNAL_API_BASE_URL, network partition, or startup failure). Return a
-  // static-only sitemap rather than throwing so resolveSitemap can cache and
-  // serve it instead of cascading into an error that leaves crawlers with nothing.
-  if (lbData === null && brandsData === null && catalogData === null) {
+  // If every catalog fetch returned null the API server is unreachable. Return
+  // a static-only sitemap so resolveSitemap can cache and serve it instead of
+  // cascading into an error that leaves crawlers with nothing.
+  if (lbData === null && brandsData === null && lbMeta === null) {
     return buildSitemapXml({ origin, basePath, locale, products: [], brands: [], occasions: [], generatedAt });
   }
 
@@ -518,13 +549,24 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
       tags: Array.isArray(p.tags) ? p.tags : [],
     }));
 
-  // Build per-country product maps for city-aware URL filtering.
+  // Build per-country product maps for city-aware product URL filtering.
   const productsByCountry = Object.fromEntries(
-    HUB_CITY_FETCH.map(({ country }, i) => [country, normalizeProducts(cityProductsData[i])]),
+    HUB_CITY_FETCH.map(({ country }, i) => [country, normalizeProducts(cityProducts[i])]),
   );
 
-  // Keep the flat `products` list as a fallback for any backward-compat code
-  // path that doesn't use productsByCountry.
+  // Build per-country occasion/category maps for city-aware listing URL filtering.
+  // Each entry's `count` reflects per-country in-stock product counts (returned
+  // by /api/catalog/metadata?countryCode=…) so isPageEligible naturally skips
+  // occasions/categories with 0 products in a given city.
+  const occasionsByCountry = Object.fromEntries(
+    HUB_CITY_FETCH.map(({ country }, i) => [country, cityMetas[i]?.occasions ?? []]),
+  );
+  const categoriesByCountry = Object.fromEntries(
+    HUB_CITY_FETCH.map(({ country }, i) => [country, cityMetas[i]?.categories ?? []]),
+  );
+
+  // Keep flat fallback lists from LB metadata for any backward-compat path
+  // (and for the brands list which is not per-city filtered here).
   const products = normalizeProducts(lbData);
 
   return buildSitemapXml({
@@ -534,10 +576,12 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     products,
     productsByCountry,
     brands: brandsData?.brands ?? [],
-    occasions: catalogData?.occasions ?? [],
-    categories: catalogData?.categories ?? [],
-    // Pass the LB total as the totalProductCount proxy for brand/category
-    // eligibility ratio checks (see buildSitemapXml JSDoc).
+    occasions: lbMeta?.occasions ?? [],
+    occasionsByCountry,
+    categories: lbMeta?.categories ?? [],
+    categoriesByCountry,
+    // Pass the LB total as the totalProductCount proxy for brand eligibility
+    // ratio checks (see buildSitemapXml JSDoc).
     totalProductCount: lbData?.products?.length ?? null,
     generatedAt,
   });

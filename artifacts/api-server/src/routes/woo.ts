@@ -1025,17 +1025,38 @@ router.get("/woo/occasion", (req, res) => {
   }
 
   const osOccasions = getOsOccasions();
-  // Validate against live OS occasions (warm cache). Fall back to the static
-  // OCCASION_SLUGS list on cold start so the endpoint never fails.
+  // Accept if present in live OS occasions OR in the static OCCASION_SLUGS
+  // allowlist. The allowlist covers hardcoded occasions (colleague, friend,
+  // children, etc.) that are defined in catalog-data and shown on the
+  // shop/occasions pages but may not yet have a formal OS occasion catalog
+  // entry. Accepting both prevents those pages from returning 404 when the
+  // OS cache is warm but doesn't include them.
   const isValid = osOccasions
-    ? osOccasions.some((o) => o.slug === slug)
+    ? osOccasions.some((o) => o.slug === slug) || OCCASION_SLUGS.includes(slug)
     : OCCASION_SLUGS.includes(slug);
   if (!isValid) {
     return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
   }
 
   const o = osOccasions?.find((occ) => occ.slug === slug);
-  if (!o) return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
+  if (!o) {
+    // Slug is in OCCASION_SLUGS but not in the live OS catalog. Return the
+    // static label so occasion detail pages render correctly instead of 404-ing.
+    const fallbackName = OCCASION_LABELS[slug];
+    if (!fallbackName) {
+      return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
+    }
+    return res.json({
+      ok: true,
+      occasion: {
+        id: slug,
+        name: fallbackName,
+        slug,
+        description: "",
+        image: null,
+      },
+    });
+  }
   return res.json({
     ok: true,
     occasion: {

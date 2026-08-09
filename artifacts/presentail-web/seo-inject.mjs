@@ -1067,11 +1067,14 @@ const FEATURED_SHOP_CATEGORIES = [
   { slug: "hand-bouquets", name: "Hand Bouquets" },
   { slug: "flower-boxes", name: "Flower Boxes" },
   { slug: "cakes", name: "Cakes" },
-  { slug: "chocolates", name: "Chocolates" },
+  // "chocolate" (singular) is the canonical OS category slug — "chocolates" was wrong.
+  { slug: "chocolate", name: "Chocolates" },
   { slug: "plants", name: "Plants" },
-  { slug: "hampers", name: "Gift Hampers" },
+  // "gift-baskets" is the canonical OS slug for hampers/baskets — "hampers" was wrong.
+  { slug: "gift-baskets", name: "Gift Hampers" },
   { slug: "candles", name: "Candles" },
-  { slug: "perfumes", name: "Perfumes" },
+  // "perfume" (singular) is the canonical OS category slug — "perfumes" was wrong.
+  { slug: "perfume", name: "Perfumes" },
 ];
 
 // Static featured occasion list for the city homepage body fragment.
