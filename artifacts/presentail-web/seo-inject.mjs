@@ -3052,18 +3052,13 @@ export function buildProductHead({
     url: canonicalUrl,
     // itemCondition applies to the product itself, not just the offer.
     itemCondition: "https://schema.org/NewCondition",
-    // Canonical return-policy page. LB is the authoritative policy URL;
-    // other country pages inherit the same policy.
-    returnPolicy: "https://presentail.com/en-lb/beirut/return-policy",
-    // seller at the Product level identifies Presentail as the merchant.
-    // Also present inside the Offer node; having it at both levels satisfies
-    // both the Google Merchant Listings validator and the schema.org spec.
-    seller: {
-      "@type": "Organization",
-      name: "Presentail",
-      url: "https://presentail.com",
-    },
-    // hasMerchantReturnPolicy on the Product node as required by task spec §3.
+    // hasMerchantReturnPolicy is the correct schema.org property for return
+    // policy on a Product node (a nested MerchantReturnPolicy object).
+    // The previously present top-level "returnPolicy" (a flat URL string) and
+    // "seller" (an Organization object) are not recognised Product properties
+    // and were causing ~7,373 Google structured-data validation errors.
+    // The correct equivalents already exist: hasMerchantReturnPolicy below
+    // and offers.seller inside the Offer node — those are kept as-is.
     hasMerchantReturnPolicy: merchantReturnPolicy,
     ...(brandName ? { brand: { "@type": "Brand", name: brandName } } : {}),
     ...(hasRating

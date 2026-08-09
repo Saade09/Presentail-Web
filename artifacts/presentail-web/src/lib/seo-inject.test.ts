@@ -7528,7 +7528,7 @@ describe("JSON-LD — Merchant Listings fields on /product/<slug>", () => {
     expect(parseFloat(product.offers.price)).toBe(45);
   });
 
-  it("seller node is present on the Product and on the Offer", async () => {
+  it("seller node is present on the Offer only (not a stray top-level Product field)", async () => {
     mockFetchOnce(productMock());
     const out = await injectSeoTagsAsync(
       HTML,
@@ -7536,7 +7536,10 @@ describe("JSON-LD — Merchant Listings fields on /product/<slug>", () => {
       OPTS,
     );
     const product = byType(extractJsonLd(out), "Product");
-    expect(product.seller?.name).toBe("Presentail");
+    // seller belongs inside offers, not at the top level of the Product node.
+    // The top-level "seller" field is not a recognised schema.org Product property
+    // and was causing Google structured-data validation errors.
+    expect(product.seller).toBeUndefined();
     expect(product.offers.seller?.name).toBe("Presentail");
   });
 
