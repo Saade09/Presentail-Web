@@ -22,7 +22,7 @@ describe("webVisiblePayMethods — visibility matrix", () => {
   it("AE × AED: apple_pay, google_pay, card via Gulf Stripe account (Mamo disabled; PayPal UAE-excluded)", () => {
     expect(
       webVisiblePayMethods({ countryCode: "AE", activeCurrency: "AED" }),
-    ).toEqual(["apple_pay", "google_pay", "card"]);
+    ).toEqual(["apple_pay", "google_pay", "card", "tabby"]);
   });
 
   it("AE × USD: apple_pay, google_pay, then card (PayPal UAE-excluded, Whish LB-only, Mamo AED-only)", () => {

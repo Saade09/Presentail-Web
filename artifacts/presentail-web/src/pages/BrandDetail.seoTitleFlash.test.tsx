@@ -55,6 +55,7 @@ vi.mock("@/lib/queries", () => ({
     data: { products: [], brandName: "Bloom This" },
     isLoading: false,
   })),
+  useCatalogMetadata: vi.fn(() => ({ data: null })),
 }));
 
 vi.mock("@/components/ProductCard", () => ({ ProductCard: () => null }));
@@ -121,7 +122,7 @@ describe("BrandDetail — city-switch SEO title flash guard", () => {
       renderWithProviders(<BrandDetail />);
     });
 
-    expect(document.title).toBe("Bloom This | Presentail");
+    expect(document.title).toBe("Bloom This Delivery in Beirut | Presentail");
     expect(document.title).not.toMatch(/  /);
   });
 
@@ -191,7 +192,7 @@ describe("BrandDetail — city-switch SEO title flash guard", () => {
     const descAfterDubai = getMetaContent("name", "description");
     expect(descAfterDubai).toContain("Dubai");
     expect(descAfterDubai).not.toMatch(/  /);
-    expect(document.title).toBe("Bloom This | Presentail");
+    expect(document.title).toBe("Bloom This Delivery in Dubai | Presentail");
     expect(document.title).not.toMatch(/  /);
   });
 });

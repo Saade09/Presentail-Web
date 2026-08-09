@@ -118,11 +118,17 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   const slotFee = (() => {
     if (deliveryMode === "express") return 0;
     // Prefer ID-based lookup when available to handle same-label/different-config slots.
-    const bookedSlot = deliverySlotId
-      ? (timeSlots.find((s) => s.slotId === deliverySlotId) ?? timeSlots.find((s) => s.label === deliverySlot))
-      : timeSlots.find((s) => s.label === deliverySlot);
+    const bookedSlotById = deliverySlotId
+      ? (timeSlots.find((s) => s.slotId === deliverySlotId) ?? null)
+      : null;
+    const bookedSlot = bookedSlotById ?? timeSlots.find((s) => s.label === deliverySlot);
     if (!bookedSlot) return 0;
-    // When the OS has configured an explicit surcharge (> 0), use it directly.
+    // When the slot was found by OS-assigned slotId, any explicit extraFee (including 0)
+    // is authoritative — extraFee: 0 means this slot is explicitly free.
+    if (bookedSlotById !== null && bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
+      return bookedSlot.extraFee;
+    }
+    // When found by label only, only apply explicit non-zero surcharges.
     if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
       return bookedSlot.extraFee;
     }

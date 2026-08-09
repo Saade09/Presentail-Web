@@ -78,6 +78,8 @@ vi.mock("@/lib/queries", () => ({
   })),
   useCurrenciesData: vi.fn(() => ({ data: null, isLoading: false })),
   useFxRates: vi.fn(() => ({ data: null })),
+  useOsProductPricing: vi.fn(() => ({ data: null })),
+  useProductAvailability: vi.fn(() => ({ data: null, isLoading: false })),
 }));
 
 vi.mock("@/contexts/DeliverySelectionContext", () => ({
@@ -132,14 +134,20 @@ vi.mock("@/components/FormattedPrice", () => ({
   FormattedPrice: ({ value }: { value: number }) => <span>{value}</span>,
 }));
 
-vi.mock("@workspace/delivery", () => ({
-  dayLabels: vi.fn(() => []),
-  expressSurchargeForCountry: vi.fn(() => 0),
-  formatDeliveryRow: vi.fn(() => ""),
-  isExpressDeliveryAvailable: vi.fn(() => false),
-  slotTimeRangeForLabel: vi.fn(() => ""),
-  timeSlotsForCountry: vi.fn(() => []),
-}));
+vi.mock("@workspace/delivery", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@workspace/delivery")>();
+  return {
+    ...actual,
+    dayLabels: vi.fn(() => []),
+    expressSurchargeForCountry: vi.fn(() => 0),
+    formatDeliveryRow: vi.fn(() => ""),
+    isExpressDeliveryAvailable: vi.fn(() => false),
+    slotTimeRangeForLabel: vi.fn(() => ""),
+    timeSlotsForCountry: vi.fn(() => []),
+    getCountryHour: vi.fn(() => 12),
+    firstAvailableDay: vi.fn(() => null),
+  };
+});
 
 vi.mock("@/components/product/productViewModel", () => ({
   buildProductViewModel: vi.fn((p) => p),

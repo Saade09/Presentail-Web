@@ -219,6 +219,7 @@ export const productStringsFr: Record<string, string> = {
   "product.delivery.changeDateOrTime": "Modifier la date ou l'heure",
   "product.delivery.estimatedBy": "Prévu pour {time} heure du Liban",
   "product.delivery.estimatedByUae": "Prévu pour {time} heure des Émirats",
+  "product.delivery.expressDelivery": "Livraison express",
   "product.delivery.scheduledDelivery": "Livraison planifiée",
   "product.delivery.scheduledTime": "{time} heure du Liban",
   "product.delivery.scheduledTimeUae": "{time} heure des Émirats",

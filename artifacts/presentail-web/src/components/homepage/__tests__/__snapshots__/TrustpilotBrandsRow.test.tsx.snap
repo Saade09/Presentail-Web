@@ -11,7 +11,7 @@ exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded br
       class="flex-1 h-px bg-border/40"
     />
     <span
-      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/60"
+      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground"
     >
       brands.featuredEyebrow
     </span>
@@ -79,7 +79,7 @@ exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded br
       class="flex-1 h-px bg-border/40"
     />
     <span
-      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/60"
+      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground"
     >
       brands.featuredEyebrow
     </span>
@@ -162,7 +162,7 @@ exports[`TrustpilotBrandsRow — snapshot (loading state) > matches the loading 
       class="flex-1 h-px bg-border/40"
     />
     <span
-      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/60"
+      class="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground"
     >
       brands.featuredEyebrow
     </span>

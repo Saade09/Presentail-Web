@@ -37,6 +37,34 @@ vi.mock("@/lib/queries", async (importOriginal) => {
   };
 });
 
+vi.mock("@/contexts/LocaleContext", () => ({
+  useLocale: vi.fn(() => ({
+    language: "en",
+    dir: "ltr",
+    t: (k: string) => k,
+    setLanguage: vi.fn(),
+    countryName: (_: string, fb: string) => fb,
+    cityName: (_: string, fb: string) => fb,
+  })),
+}));
+
+vi.mock("@/contexts/LocationContext", () => ({
+  useLocationSelection: vi.fn(() => ({
+    countryCode: "LB",
+    cityId: "lb-beirut",
+    country: { code: "LB", name: "Lebanon", cities: [] },
+    city: { id: "lb-beirut", name: "Beirut" },
+    countries: [],
+    isLoadingCountries: false,
+    setLocation: vi.fn(),
+    clearLocation: vi.fn(),
+    isPickerOpen: false,
+    pickerForceCountryStep: false,
+    openPicker: vi.fn(),
+    closePicker: vi.fn(),
+  })),
+}));
+
 vi.mock("@/lib/prefetch", () => ({
   prefetchProps: vi.fn(() => ({})),
 }));
@@ -62,7 +90,9 @@ const osStorageProduct: Product = {
   name: "Red Roses",
   price: "$65",
   priceValue: 65,
-  image: { uri: "https://storage.presentail.com/products/red-roses.webp" },
+  // Must be a valid OS storage URL so buildOsImageSrcset returns a srcset
+  // and ProductImage renders the <source> element with the sizes hint.
+  image: { uri: "https://os.presentail.com/api/storage/products/red-roses.webp" },
   category: "flowers",
   categories: ["flowers"],
   inStock: true,
@@ -74,14 +104,15 @@ const osStorageProduct: Product = {
 // ---------------------------------------------------------------------------
 
 describe("ProductCard — image sizes attribute", () => {
-  it("renders an <img> with the correct responsive sizes hint", () => {
+  it("renders a <source> with the correct responsive sizes hint", () => {
     const { container } = render(
       <ProductCard product={osStorageProduct} index={0} />,
     );
-    const img = container.querySelector("img");
-    expect(img).toBeTruthy();
-    expect(img!.sizes).toBe(
-      "(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw",
+    // sizes is set on the <source> inside the <picture>, not on <img>
+    const source = container.querySelector("source");
+    expect(source).toBeTruthy();
+    expect(source!.getAttribute("sizes")).toBe(
+      "(max-width: 640px) 45vw, (max-width: 768px) 33vw, 25vw",
     );
   });
 
@@ -89,10 +120,10 @@ describe("ProductCard — image sizes attribute", () => {
     const { container } = render(
       <ProductCard product={osStorageProduct} index={5} />,
     );
-    const img = container.querySelector("img");
-    expect(img).toBeTruthy();
-    expect(img!.sizes).toBe(
-      "(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw",
+    const source = container.querySelector("source");
+    expect(source).toBeTruthy();
+    expect(source!.getAttribute("sizes")).toBe(
+      "(max-width: 640px) 45vw, (max-width: 768px) 33vw, 25vw",
     );
   });
 });
@@ -104,7 +135,8 @@ describe("ProductCard — image alt text (WCAG 1.1.1)", () => {
     );
     const img = container.querySelector("img");
     expect(img).toBeTruthy();
-    expect(img!.alt).toBe(osStorageProduct.name);
+    // alt now includes city context ("Red Roses – delivered in Beirut")
+    expect(img!.alt).toContain(osStorageProduct.name);
   });
 
   it("renders no <img> element when the product has no image URL", () => {

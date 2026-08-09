@@ -1098,22 +1098,29 @@ const server = http.createServer(async (req, res) => {
         .split(":")[0]
         .toLowerCase();
 
-    // Hard guard: requests arriving on any www.* hostname are unconditionally
-    // redirected to the apex. This fires even if WEB_CANONICAL_REDIRECT_FROM_HOST
-    // is overridden or cleared, so the www→apex consolidation can never be
-    // accidentally disabled by a misconfigured env var.
+    // Configurable canonical-domain redirect: controlled by
+    // WEB_CANONICAL_REDIRECT_FROM_HOST (default: "www.presentail.com").
+    // Set to an empty string to disable the redirect entirely (useful when
+    // deploying under a different apex or in test environments).
     const normalizedHost    = normalizeHostHeader(req.headers.host);
     const normalizedFwdHost = normalizeHostHeader(req.headers["x-forwarded-host"]);
-    const isWwwHost =
-      normalizedHost.startsWith("www.") || normalizedFwdHost.startsWith("www.");
-    if (isWwwHost) {
-      const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
-      // stripTrackingParamsFromReqUrl removes utm_*, srsltid, fbclid, etc.
-      // from the path+search before forwarding, so tracking params can never
-      // appear in a server-issued Location header.
-      res.writeHead(301, { location: `${apexOrigin}${stripTrackingParamsFromReqUrl(req.url)}` });
-      res.end();
-      return;
+    const canonicalFromHostRaw = process.env.WEB_CANONICAL_REDIRECT_FROM_HOST;
+    const canonicalFromHost = canonicalFromHostRaw === undefined
+      ? "www.presentail.com"
+      : canonicalFromHostRaw.trim();
+    if (canonicalFromHost) {
+      const fromHostLower = canonicalFromHost.toLowerCase();
+      const isCanonicalSource =
+        normalizedHost === fromHostLower || normalizedFwdHost === fromHostLower;
+      if (isCanonicalSource) {
+        const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
+        // stripTrackingParamsFromReqUrl removes utm_*, srsltid, fbclid, etc.
+        // from the path+search before forwarding, so tracking params can never
+        // appear in a server-issued Location header.
+        res.writeHead(301, { location: `${apexOrigin}${stripTrackingParamsFromReqUrl(req.url)}` });
+        res.end();
+        return;
+      }
     }
 
     // Hard guard: the retired new.presentail.com subdomain is permanently
@@ -1180,10 +1187,40 @@ const server = http.createServer(async (req, res) => {
       // `slug` already contains the raw path segment from the request URL
       // (percent-encoded characters are preserved as-is); do NOT
       // encodeURIComponent here or we double-encode the slug.
-      res.writeHead(301, {
-        location: `${BASE_PATH}/en-lb/beirut/product/${slug}` + stripTrackingParams(url.search),
-        "cache-control": "public, max-age=31536000, immutable",
-      });
+      const canonicalTarget = `${BASE_PATH}/en-lb/beirut/product/${slug}`;
+      if (typeof injectSeoTagsAsync === "function") {
+        try {
+          // Use the locale-prefixed virtual path so seo-inject resolves the
+          // correct product data and builds the branded OG image URL.
+          const virtualPath = `/en-lb/beirut/product/${slug}`;
+          let productHtml = await injectSeoTagsAsync(indexHtml, virtualPath, {
+            basePath: BASE_PATH,
+            origin,
+            apiBaseUrl: INTERNAL_API_BASE_URL,
+            acceptLanguage: req.headers["accept-language"],
+          });
+          // Inject meta-refresh and JS redirect so real browsers navigate to
+          // the canonical page immediately (crawlers ignore these and read the
+          // OG tags instead).
+          const safeTarget = canonicalTarget.replace(/"/g, "&quot;");
+          const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
+          const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
+          productHtml = productHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
+          res.writeHead(200, {
+            "content-type": MIME[".html"],
+            "x-robots-tag": "noindex",
+            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
+            "expires": "0",
+            "vary": "Accept-Encoding",
+            "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
+          });
+          res.end(productHtml);
+          return;
+        } catch (_err) {
+          // OG injection failed — fall through to the 301 below.
+        }
+      }
+      res.writeHead(301, { location: canonicalTarget });
       res.end();
       return;
     }

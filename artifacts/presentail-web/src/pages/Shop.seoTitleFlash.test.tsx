@@ -47,15 +47,23 @@ vi.mock("wouter", () => ({
   ),
 }));
 
-vi.mock("@/lib/queries", () => ({
-  useProducts: vi.fn(() => ({ data: { products: [] }, isLoading: false })),
-  useCategoryProducts: vi.fn(() => ({ data: { products: [] }, isLoading: false })),
-  useOccasionProducts: vi.fn(() => ({ data: { products: [] }, isLoading: false })),
-  useBrandProducts: vi.fn(() => ({ data: { products: [], brandName: "" }, isLoading: false })),
-  useCatalogMetadata: vi.fn(() => ({
-    data: { categories: [{ id: "hand-bouquets", name: "Hand Bouquets" }], occasions: [] },
-  })),
-}));
+vi.mock("@/lib/queries", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/queries")>();
+  return {
+    ...actual,
+    useProducts: vi.fn(() => ({ data: { products: [] }, isLoading: false })),
+    useCategoryProducts: vi.fn(() => ({ data: { products: [] }, isLoading: false })),
+    useOccasionProducts: vi.fn(() => ({ data: { products: [] }, isLoading: false })),
+    useBrandProducts: vi.fn(() => ({ data: { products: [], brandName: "" }, isLoading: false })),
+    useCatalogMetadata: vi.fn(() => ({
+      data: { categories: [{ id: "hand-bouquets", name: "Hand Bouquets" }], occasions: [] },
+    })),
+    useCurrenciesData: vi.fn(() => ({ data: null })),
+    useFxRates: vi.fn(() => ({ data: null })),
+    useCatalogOccasions: vi.fn(() => ({ data: null })),
+    usePageDescription: vi.fn(() => ({ data: null, isError: false })),
+  };
+});
 
 vi.mock("@/lib/colorExtractor", () => ({
   extractColor: vi.fn(() => null),

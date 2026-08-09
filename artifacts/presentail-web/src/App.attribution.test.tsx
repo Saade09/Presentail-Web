@@ -51,6 +51,7 @@ vi.mock("@tanstack/react-query-persist-client", async () => {
       children: React.ReactNode;
       client: InstanceType<typeof rq.QueryClient>;
     }) => React.createElement(rq.QueryClientProvider, { client }, children),
+    persistQueryClient: vi.fn(() => [() => {}]),
   };
 });
 
@@ -193,6 +194,7 @@ vi.mock("@/lib/fbPixel", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
+  trackWebEvent: vi.fn(),
 }));
 
 vi.mock("@workspace/clerk-types", () => ({

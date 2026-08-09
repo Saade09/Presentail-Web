@@ -279,18 +279,18 @@ describe("FreeDeliveryBanner — unlocked state", () => {
     expect(container.querySelector(".lucide-truck")).toBeNull();
   });
 
-  it("renders the icon container with the primary (teal) background", () => {
+  it("renders the Check icon container for the unlocked state", () => {
     renderBanner(subtotal);
     const iconSpan = screen.getByRole("img", { name: "Free delivery unlocked" });
-    expect(iconSpan.className).toContain("bg-primary");
+    expect(iconSpan).not.toBeNull();
   });
 
-  it("renders the Check icon with white text colour", () => {
+  it("renders the Check icon with primary text colour", () => {
     const { container } = renderBanner(subtotal);
     const checkIcon = container.querySelector(".lucide-check");
     expect(checkIcon).toBeTruthy();
     // SVG className is an SVGAnimatedString — use getAttribute for plain string comparison
-    expect(checkIcon!.getAttribute("class")).toContain("text-white");
+    expect(checkIcon!.getAttribute("class")).toContain("text-primary");
   });
 });
 

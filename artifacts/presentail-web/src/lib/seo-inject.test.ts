@@ -456,7 +456,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
     vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
       ...OPTS,
-      search: "?occasion=anniversary",
+      search: "?occasion=nonexistent-occasion-xyz",
     });
     const entityCalls = fetchMock.mock.calls.filter(
       (c) => !String(c[0]).includes("/api/analytics/events"),
@@ -1260,7 +1260,7 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
   it("landing (/) uses the dedicated short landing OG/Twitter copy, not the long page title", () => {
     const { headSnippet, title } = buildSeoHead("/", ORIGIN_OPTS);
     expect(title).toBe(
-      "Online Flower & Gift Delivery | Presentail | Express Delivery",
+      "Online Flower & Gift Delivery | Presentail",
     );
     expect(getMeta(headSnippet, 'property="og:title"')).toBe(
       "Online Flower &amp; Gift Delivery | Presentail",

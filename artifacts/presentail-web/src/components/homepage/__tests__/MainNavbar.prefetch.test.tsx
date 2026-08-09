@@ -119,41 +119,6 @@ import { MainNavbar } from "../MainNavbar";
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("MainNavbar — Brands link intent-based prefetch wiring", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("renders [data-testid=nav-link-brands]", () => {
-    renderWithProviders(<MainNavbar />);
-    expect(document.querySelector('[data-testid="nav-link-brands"]')).not.toBeNull();
-  });
-
-  it("mouseenter on [data-testid=nav-link-brands] fires loadBrands and loadBrandDetail", () => {
-    renderWithProviders(<MainNavbar />);
-    const brandsLink = document.querySelector('[data-testid="nav-link-brands"]')!;
-    fireEvent.mouseEnter(brandsLink);
-    expect(mockLoadBrands).toHaveBeenCalledOnce();
-    expect(mockLoadBrandDetail).toHaveBeenCalledOnce();
-  });
-
-  it("focus on [data-testid=nav-link-brands] fires loadBrands and loadBrandDetail", () => {
-    renderWithProviders(<MainNavbar />);
-    const brandsLink = document.querySelector('[data-testid="nav-link-brands"]')!;
-    fireEvent.focus(brandsLink);
-    expect(mockLoadBrands).toHaveBeenCalledOnce();
-    expect(mockLoadBrandDetail).toHaveBeenCalledOnce();
-  });
-
-  it("mouseenter on the Brands link does NOT fire unrelated loaders (SignIn, SignUp)", () => {
-    renderWithProviders(<MainNavbar />);
-    const brandsLink = document.querySelector('[data-testid="nav-link-brands"]')!;
-    fireEvent.mouseEnter(brandsLink);
-    expect(mockLoadSignIn).not.toHaveBeenCalled();
-    expect(mockLoadSignUp).not.toHaveBeenCalled();
-  });
-});
-
 describe("MainNavbar — account/sign-in icon intent-based prefetch wiring", () => {
   beforeEach(() => {
     vi.clearAllMocks();

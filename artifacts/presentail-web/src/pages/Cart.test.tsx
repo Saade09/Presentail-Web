@@ -16,6 +16,22 @@ import { renderWithProviders } from "@/test-utils";
 // need per-file vi.mock declarations.
 // ---------------------------------------------------------------------------
 
+// jsdom does not implement matchMedia; stub it so components that call
+// window.matchMedia() (e.g. the useIsMobile hook) don't throw.
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
 }));
