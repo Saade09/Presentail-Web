@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
+import { buildOsProxyUrl, buildOsImageSrcset, isOsStorageUrl } from "@/lib/imageUtils";
 
 type Image = { uri: string };
 
@@ -270,20 +271,30 @@ export function ProductLightbox({
             onWheel={onWheel}
             data-testid="lightbox-stage"
           >
-            <img
-              src={current.uri}
-              alt={productName}
-              draggable={false}
-              className={cn(
-                "absolute inset-0 m-auto max-h-full max-w-full object-contain transition-transform duration-150 ease-out will-change-transform",
-                zoom > 1 ? "cursor-zoom-out" : "cursor-zoom-in",
-                dragRef.current?.active && "cursor-grabbing",
-              )}
-              style={{
-                transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-                transitionDuration: dragRef.current?.active ? "0ms" : "150ms",
-              }}
-            />
+            {/* Serve optimized WebP via the image proxy; raw URI is the JPEG
+                fallback for non-OS-storage URLs (e.g. legacy Woo images). */}
+            <picture>
+              {isOsStorageUrl(current.uri) && (() => {
+                const srcset = buildOsImageSrcset(current.uri, "100vw");
+                return srcset ? (
+                  <source type="image/webp" srcSet={srcset.srcset} sizes="100vw" />
+                ) : null;
+              })()}
+              <img
+                src={isOsStorageUrl(current.uri) ? buildOsProxyUrl(current.uri, 1600, "jpeg") : current.uri}
+                alt={productName}
+                draggable={false}
+                className={cn(
+                  "absolute inset-0 m-auto max-h-full max-w-full object-contain transition-transform duration-150 ease-out will-change-transform",
+                  zoom > 1 ? "cursor-zoom-out" : "cursor-zoom-in",
+                  dragRef.current?.active && "cursor-grabbing",
+                )}
+                style={{
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                  transitionDuration: dragRef.current?.active ? "0ms" : "150ms",
+                }}
+              />
+            </picture>
           </div>
 
           {list.length > 1 && (
@@ -323,7 +334,11 @@ export function ProductLightbox({
                     aria-label={t("lightbox.showImage", { n: i + 1 })}
                     data-testid={`lightbox-thumb-${i}`}
                   >
-                    <img src={img.uri} alt={`${productName} — image ${i + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={isOsStorageUrl(img.uri) ? buildOsProxyUrl(img.uri, 160) : img.uri}
+                      alt={`${productName} — image ${i + 1}`}
+                      className="w-full h-full object-cover"
+                    />
                   </button>
                 ))}
               </div>

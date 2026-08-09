@@ -81,6 +81,17 @@ export function buildSitemapXml({
   basePath,
   locale = "en",
   products = [],
+  /**
+   * Per-hub-city product lists keyed by country code ("lb", "ae", "cy").
+   * When provided, each hub city's product URLs are limited to the products
+   * that are actually deliverable there (i.e. returned by a city-filtered
+   * /api/woo/products?countryCode=…&cityId=… call). This prevents the sitemap
+   * from emitting URLs that the product route would return 410 for because the
+   * product is not offered in that city. Falls back to the global `products`
+   * list for any country key that is absent, preserving backward-compat with
+   * unit tests that supply a single flat list.
+   */
+  productsByCountry = null,
   brands = [],
   occasions = [],
   categories = [],
@@ -98,10 +109,10 @@ export function buildSitemapXml({
    * brand/occasion/category eligibility checks so the uniqueness-ratio and
    * identical-inventory rules can fire at sitemap build time.
    *
-   * Per-city product counts are not available at sitemap build time, so we use
-   * this global total as a conservative proxy: if the collection represents a
-   * very small or identical fraction of the whole catalog, the city page is
-   * treated as thin/duplicate and excluded.
+   * Per-city product counts are not available at sitemap build time for
+   * brands/occasions/categories, so we use this global total as a conservative
+   * proxy: if the collection represents a very small or identical fraction of
+   * the whole catalog, the city page is treated as thin/duplicate and excluded.
    *
    * null = unknown (ratio rules are skipped — callers should always supply this
    * when productsData is available to ensure ratio checks are enforced).
@@ -212,17 +223,25 @@ export function buildSitemapXml({
   //    lower crawl-priority signal (0.4 vs 0.8) so Googlebot deprioritises
   //    re-crawling pages that are currently out of stock.
   //  - ACTIVE (or unknown) → standard priority 0.8.
-  for (const product of products) {
-    if (!product?.slug) continue;
-    const availState = getProductAvailabilityState(product);
-    if (availState === PRODUCT_AVAILABILITY_STATE.DISCONTINUED) continue;
-    const priority =
-      availState === PRODUCT_AVAILABILITY_STATE.SOLD_OUT_TEMPORARILY ||
-      availState === PRODUCT_AVAILABILITY_STATE.SEASONAL_UNAVAILABLE
-        ? "0.4"
-        : "0.8";
-    const encoded = encodeURIComponent(product.slug);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+  //
+  // Per-city deliverability: when `productsByCountry` is supplied each hub
+  // city only emits URLs for products returned by the city-filtered API call,
+  // so we never submit a URL that the product route would serve as 410.
+  // The outer loop is keyed by city so per-city product lists can be applied
+  // directly; when `productsByCountry` is absent the single `products` list
+  // is used for every city (backward-compat for unit tests).
+  for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    const cityProducts = productsByCountry?.[country] ?? products;
+    for (const product of cityProducts) {
+      if (!product?.slug) continue;
+      const availState = getProductAvailabilityState(product);
+      if (availState === PRODUCT_AVAILABILITY_STATE.DISCONTINUED) continue;
+      const priority =
+        availState === PRODUCT_AVAILABILITY_STATE.SOLD_OUT_TEMPORARILY ||
+        availState === PRODUCT_AVAILABILITY_STATE.SEASONAL_UNAVAILABLE
+          ? "0.4"
+          : "0.8";
+      const encoded = encodeURIComponent(product.slug);
       const imageBlock =
         product.imageUrl && product.name
           ? buildImageBlock(
@@ -446,53 +465,80 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
   // avoids fabricating a per-URL timestamp that crawlers would rightly
   // distrust. Blog posts carry their own real datePublished instead.
   const generatedAt = new Date().toISOString().slice(0, 10);
-  const [productsData, brandsData, catalogData] = await Promise.all([
-    fetchJson(`${apiBaseUrl}/api/woo/products?lang=en&countryCode=LB`),
+
+  // Hub-city fetch config — must mirror SITEMAP_CANONICAL_CITIES / HUB_CITY.
+  // Products are fetched per hub city so the sitemap only emits URLs for
+  // products that are actually deliverable in each city (matching the
+  // per-city isDeliverable() filter that the product API applies at request
+  // time). This prevents submitting URLs that the product route would return
+  // 410 Gone for because the product is not offered in that city.
+  const HUB_CITY_FETCH = [
+    { country: "lb", city: "beirut",  countryCode: "LB" },
+    { country: "ae", city: "dubai",   countryCode: "AE" },
+    { country: "cy", city: "nicosia", countryCode: "CY" },
+  ];
+
+  const [brandsData, catalogData, ...cityProductsData] = await Promise.all([
     fetchJson(`${apiBaseUrl}/api/woo/brands`),
     fetchJson(`${apiBaseUrl}/api/catalog/metadata`),
+    // Fetch products filtered by each hub city so only deliverable products
+    // get a sitemap URL for that city.
+    ...HUB_CITY_FETCH.map(({ countryCode, country, city }) =>
+      fetchJson(
+        `${apiBaseUrl}/api/woo/products?lang=en&countryCode=${countryCode}&cityId=${country}-${city}`,
+      ),
+    ),
   ]);
 
+  // Primary (LB) data used for backward-compat fallback and totalProductCount
+  // (LB typically has the largest catalog, so it's the best proxy for the
+  // brand/category eligibility ratio checks).
+  const lbData = cityProductsData[0] ?? null;
+
   // If every catalog fetch returned null the API server is unreachable (wrong
-  // INTERNAL_API_BASE_URL, network partition, or startup failure). Throw so
-  // resolveSitemap can serve the stale cache or log the miss — silently
-  // returning a valid but empty sitemap would cache the empty result as "fresh"
-  // and leave crawlers with no catalog URLs until the next regeneration window.
-  if (productsData === null && brandsData === null && catalogData === null) {
-    // All catalog fetches failed — API unreachable. Return a static-only sitemap
-    // rather than throwing so resolveSitemap can cache and serve it instead of
-    // cascading into an error that leaves crawlers with nothing.
+  // INTERNAL_API_BASE_URL, network partition, or startup failure). Return a
+  // static-only sitemap rather than throwing so resolveSitemap can cache and
+  // serve it instead of cascading into an error that leaves crawlers with nothing.
+  if (lbData === null && brandsData === null && catalogData === null) {
     return buildSitemapXml({ origin, basePath, locale, products: [], brands: [], occasions: [], generatedAt });
   }
 
-  // Normalise the product list: extract the slug, primary image URL, and name
-  // so buildSitemapXml can embed <image:image> extensions without knowing the
-  // raw API response shape. Also forward the availability fields so
-  // buildSitemapXml can call getProductAvailabilityState to filter discontinued
-  // products and lower crawl priority for sold-out / seasonal ones.
-  const rawProducts = productsData?.products ?? [];
-  const products = rawProducts.map((p) => ({
-    // transformProduct() in woo.ts stores the OS product slug in the 'id'
-    // field (WC product shape uses id as the slug string), so the listing
-    // API response has the slug in p.id rather than a separate p.slug field.
-    slug: p.slug ?? p.id,
-    name: p.name ?? null,
-    imageUrl: p.image?.uri ?? p.images?.[0]?.url ?? p.images?.[0]?.uri ?? null,
-    inStock: p.inStock,
-    status: p.status ?? null,
-    tags: Array.isArray(p.tags) ? p.tags : [],
-  }));
+  // Normalise a raw API products response into the shape buildSitemapXml
+  // expects: slug, name, imageUrl, and availability fields.
+  // transformProduct() in woo.ts stores the OS product slug in the 'id' field
+  // (WC product shape uses id as the slug string), so the listing API response
+  // has the slug in p.id rather than a separate p.slug field.
+  const normalizeProducts = (data) =>
+    (data?.products ?? []).map((p) => ({
+      slug: p.slug ?? p.id,
+      name: p.name ?? null,
+      imageUrl: p.image?.uri ?? p.images?.[0]?.url ?? p.images?.[0]?.uri ?? null,
+      inStock: p.inStock,
+      status: p.status ?? null,
+      tags: Array.isArray(p.tags) ? p.tags : [],
+    }));
+
+  // Build per-country product maps for city-aware URL filtering.
+  const productsByCountry = Object.fromEntries(
+    HUB_CITY_FETCH.map(({ country }, i) => [country, normalizeProducts(cityProductsData[i])]),
+  );
+
+  // Keep the flat `products` list as a fallback for any backward-compat code
+  // path that doesn't use productsByCountry.
+  const products = normalizeProducts(lbData);
 
   return buildSitemapXml({
     origin,
     basePath,
     locale,
     products,
+    productsByCountry,
     brands: brandsData?.brands ?? [],
     occasions: catalogData?.occasions ?? [],
     categories: catalogData?.categories ?? [],
-    // Pass the total product count so eligibility ratio/identical-inventory
-    // rules can fire at sitemap build time (see buildSitemapXml JSDoc).
-    totalProductCount: productsData?.products?.length ?? null,
+    // Pass the LB total as the totalProductCount proxy for brand/category
+    // eligibility ratio checks (see buildSitemapXml JSDoc).
+    totalProductCount: lbData?.products?.length ?? null,
     generatedAt,
   });
 }

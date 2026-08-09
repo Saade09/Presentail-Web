@@ -204,22 +204,38 @@ describe("serve.mjs — meta robots noindex in HTML body for private pages", () 
 // ---------------------------------------------------------------------------
 
 describe("serve.mjs — blog post pages are indexable (not noindex)", () => {
-  it("emits X-Robots-Tag: index, follow for a blog post URL", async () => {
+  it("emits X-Robots-Tag: index, follow for a blog post URL (canonical /{lang}/blog/:slug)", async () => {
     const { status, robotsHeader } = await get(
       serverPort,
-      "/en-lb/beirut/blog/valentines-day-gift-guide",
+      "/en/blog/valentines-day-gift-guide",
       { host: "presentail.com" },
     );
     expect(status).toBe(200);
     expect(robotsHeader).toBe("index, follow");
   });
 
-  it("emits X-Robots-Tag: index, follow for the blog listing page (Journal hub)", async () => {
-    const { status, robotsHeader } = await get(serverPort, "/en-lb/beirut/blog", {
+  it("emits X-Robots-Tag: index, follow for the blog listing page (canonical /{lang}/blog)", async () => {
+    const { status, robotsHeader } = await get(serverPort, "/en/blog", {
       host: "presentail.com",
     });
     expect(status).toBe(200);
     expect(robotsHeader).toBe("index, follow");
+  });
+
+  it("redirects old city-prefixed blog post URL to canonical (301)", async () => {
+    const { status } = await get(
+      serverPort,
+      "/en-lb/beirut/blog/valentines-day-gift-guide",
+      { host: "presentail.com" },
+    );
+    expect(status).toBe(301);
+  });
+
+  it("redirects old city-prefixed blog listing URL to canonical (301)", async () => {
+    const { status } = await get(serverPort, "/en-lb/beirut/blog", {
+      host: "presentail.com",
+    });
+    expect(status).toBe(301);
   });
 });
 
