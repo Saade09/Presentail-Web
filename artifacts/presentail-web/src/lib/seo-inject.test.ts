@@ -772,6 +772,60 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
     );
     expect(out).not.toContain("gclid");
   });
+
+  it("renders the visible curated body + matching FAQPage JSON-LD for /en-lb/beirut/category/balloons (anti-cloaking parity)", async () => {
+    // Real #root shell so the prerender body fragment is actually injected.
+    const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+    const { getCategorySeoContent } = await import("../../src/data/categorySeoContent.mjs");
+    const curated = getCategorySeoContent({ country: "lb", city: "beirut", slug: "balloons", lang: "en" });
+    // Sanity: the curated entry must exist and have at least one FAQ so the
+    // test is not vacuously passing on an empty array.
+    expect(curated).toBeTruthy();
+    if (!curated) throw new Error("Missing curated balloons entry in CATEGORY_SEO_CONTENT[\"lb/beirut\"]");
+    expect(curated.faqs.length).toBeGreaterThanOrEqual(1);
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, count: 12, products: [{ name: "Sample Balloon", id: "sample-balloon" }] }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, category: { name: "Balloons", description: "", image: null } }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(ROOT_HTML, "/en-lb/beirut/category/balloons", CLEAN_PATH_OPTS);
+
+    // Visible body: each curated FAQ question must appear as <h3> and each
+    // answer must appear as visible text so Google's structured-data policy
+    // is satisfied (FAQPage markup must correspond to content on the page).
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    for (const { q, a } of curated.faqs) {
+      expect(out).toContain(`<h3>${esc(q)}</h3>`);
+      expect(out).toContain(esc(a));
+    }
+
+    // FAQPage JSON-LD must match the curated faqs 1:1 — both question name and
+    // acceptedAnswer.text must equal the visible copy so the rich result and
+    // the rendered body can never drift out of sync (anti-cloaking parity).
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(curated.faqs.length);
+    for (let i = 0; i < curated.faqs.length; i++) {
+      const { q, a } = curated.faqs[i] as { q: string; a: string };
+      expect(faq.mainEntity[i].name).toBe(q);
+      expect(faq.mainEntity[i].acceptedAnswer?.text).toBe(a);
+    }
+  });
 });
 
 describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
