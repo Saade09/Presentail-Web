@@ -3599,7 +3599,7 @@ function buildShopEntityHead({
   } else if (entityKind === "category") {
     // Curated per-category SEO content (title/description/H1/sections/FAQs).
     // Mirrors the occasion curated pattern: only specific country/city/slug
-    // combinations carry hand-written copy (currently lb/beirut + cakes).
+    // combinations carry hand-written copy (currently lb/beirut: chocolate + cakes, all locales).
     const parsedLoc = parseLocalePath(pathname);
     const slugMatch = (parsedLoc.rest ?? "").match(/^\/category\/([^/?#]+)/);
     if (parsedLoc.hasLocalePrefix && slugMatch) {
@@ -4599,7 +4599,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       // Curated category pages carry substantial unique on-page content
       // (hand-written intro, sections, FAQs), so the thin/duplicate-page
       // gate does not apply — keep them indexable regardless of product-count
-      // ratios. Scoped to EN only (ar/fr keep the normal eligibility gate).
+      // ratios. Applies to all locales that have a curated entry.
       const hasCuratedCategoryContent = !!getCategorySeoContent({
         country: parsed.country,
         city: parsed.city,

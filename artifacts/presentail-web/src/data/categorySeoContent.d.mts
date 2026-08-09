@@ -16,9 +16,10 @@ export type CategorySeoEntry = {
   faqs: CategorySeoFaq[];
 };
 
+/** Keyed by lang → `${countryCode}/${citySlug}` → category slug. */
 export declare const CATEGORY_SEO_CONTENT: Record<
   string,
-  Record<string, CategorySeoEntry>
+  Record<string, Record<string, CategorySeoEntry>>
 >;
 
 export declare function getCategorySeoContent(opts: {
