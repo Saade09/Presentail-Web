@@ -205,13 +205,20 @@ export default function Home() {
 
     </div>
 
-    {/* From the journal — cross-link to the Achrafieh flower shop post for Lebanese cities */}
+    {/* From the journal — cross-links to editorial posts for Lebanese cities */}
     {countryCode === "LB" && (
-      <div className="container mx-auto px-4 pb-4 max-w-content text-center text-sm text-muted-foreground">
-        From the Presentail journal:{" "}
-        <Link href="/blog/flower-shop-in-achrafieh" className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
-          The best flower shop in Achrafieh, Beirut →
-        </Link>
+      <div className="container mx-auto px-4 pb-4 max-w-content text-center text-sm text-muted-foreground space-y-1">
+        <div>
+          From the Presentail journal:{" "}
+          <Link href="/blog/flower-shop-in-achrafieh" className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
+            The best flower shop in Achrafieh, Beirut →
+          </Link>
+        </div>
+        <div>
+          <Link href="/blog/send-roses-to-lebanon" className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
+            Send roses to Lebanon: same-day delivery, nationwide →
+          </Link>
+        </div>
       </div>
     )}
 
