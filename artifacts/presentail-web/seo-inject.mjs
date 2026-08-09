@@ -3177,16 +3177,16 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
     clampDescription(article.description) ||
     genericFallbackDescription(lang, "blogPost");
   const cleanBase = basePath.replace(/\/$/, "");
-  // Blog posts carry a single cross-country canonical: the LB/Beirut hub-city
-  // version. All country variants (/en-ae/dubai/blog/slug, /en-cy/nicosia/blog/slug)
-  // point to the Beirut URL so Google consolidates ranking signals on one URL
-  // per article rather than fragmenting them across three country copies.
-  // hreflang and breadcrumbs use the same LB base so canonical and hreflang
-  // always agree as a set (Google requires this).
+  // Blog posts carry a single language-scoped canonical: /{lang}/blog/:slug.
+  // No city or country segment — blog content does not vary by delivery
+  // location. All city-prefixed URLs 301-redirect here (serve.mjs § 7c);
+  // other-language readers get /ar/blog/:slug or /fr/blog/:slug.
+  // Using the lang prefix (instead of a bare /blog/:slug) lets Google serve
+  // the right language variant to each reader via hreflang differentiation.
   const blogPostSlug = String(pathname).match(/\/blog\/([^/?#]+)/)?.[1] ?? "";
   const canonicalPathname = blogPostSlug
-    ? `/en-lb/beirut/blog/${blogPostSlug}`
-    : pathname;
+    ? `/${lang}/blog/${blogPostSlug}`
+    : `/${lang}/blog`;
   const canonicalHref = origin + cleanBase + canonicalPathname;
 
   // Per-article hero image (src/data/blogPostsCopy.js) — a site-root-relative
@@ -3230,14 +3230,16 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
   );
 
   // BreadcrumbList JSON-LD — Home > Journal > Article Title.
-  // Use canonicalPathname (always LB/Beirut) so breadcrumb URLs stay
-  // consistent with the canonical — Dubai/Nicosia pages link back to Beirut.
-  const locBase = localeBaseUrl(canonicalPathname, origin, basePath);
+  // Home links to the site root; Journal links to /{lang}/blog (the canonical
+  // blog index). No city in the breadcrumb chain — consistent with the
+  // city-independent canonical /{lang}/blog/:slug.
+  const siteBase = `${origin}${cleanBase}`;
+  const blogIndexUrl = `${siteBase}/${lang}/blog`;
   extraLines.push(
     jsonLdTag(
       buildBreadcrumbListSchema([
-        { name: "Home", url: locBase },
-        { name: "Journal", url: `${locBase}/blog` },
+        { name: "Home", url: siteBase || "/" },
+        { name: "Journal", url: blogIndexUrl },
         { name: rawTitle || "Article" },
       ]),
     ),
@@ -3251,7 +3253,9 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
 
   // Prerendered body fragment — includes the h1, publish date, and all
   // article sections so non-rendering crawlers can read the full copy.
-  const bodyHtml = buildBlogPostBodyHtml(article, { localeBase: locBase || null });
+  // localeBase uses the lang-only prefix so in-article links point to
+  // /{lang}/blog/... (canonical) rather than city-prefixed variants.
+  const bodyHtml = buildBlogPostBodyHtml(article, { localeBase: `${siteBase}/${lang}` });
 
   return {
     ...buildEntityHead({
@@ -3264,10 +3268,11 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
       imageHeight,
       basePath,
       origin,
-      pathname: canonicalPathname, // always LB/Beirut — drives canonical, og:url, hreflang
+      pathname: canonicalPathname, // /{lang}/blog/:slug — city-independent canonical
       search: "",
       lang,
-      country: "lb", // consistent with canonicalPathname; hreflang uses lb variants
+      // country omitted: blog canonicals have no country segment; og:locale
+      // falls back to OG_LOCALE[lang] (lang-level default, e.g. "en_US").
       extraLines,
     }),
     bodyHtml,
@@ -4153,6 +4158,78 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           headSnippet: result.headSnippet,
           titleTag: `<title>${escapeHtml(result.title)}</title>`,
           bodyHtml: result.bodyHtml ?? null,
+        });
+      }
+    }
+
+    // Canonical lang-only blog paths: /{lang}/blog and /{lang}/blog/:slug.
+    // These are the authoritative URLs for all blog content after the blog
+    // canonical refactor (serve.mjs § 7c 301-redirects city-prefixed variants
+    // here). The lang prefix routes language-specific content; no city needed
+    // since articles are city-independent.
+    const langOnlyBlogMatch = pathname.match(/^\/([a-z]{2})\/(blog(?:\/[^/?#]*)?)$/);
+    if (langOnlyBlogMatch && SUPPORTED_LANGS.includes(langOnlyBlogMatch[1])) {
+      const blogLang = langOnlyBlogMatch[1];
+      const blogPath = `/${langOnlyBlogMatch[2]}`; // "/blog" or "/blog/slug"
+      const blogSlugMatch = blogPath.match(/^\/blog\/([^/?#]+)$/);
+      if (blogSlugMatch) {
+        // /{lang}/blog/:slug — blog article page
+        const slug = decodeURIComponent(blogSlugMatch[1]);
+        const articlesByLang = BLOG_POSTS[slug];
+        const article = articlesByLang?.[blogLang] ?? articlesByLang?.en;
+        if (article) {
+          const result = buildBlogPostHead({
+            article,
+            lang: blogLang,
+            basePath: rest.basePath ?? "",
+            origin: rest.origin ?? "",
+            pathname,
+          });
+          return assembleHtml(html, {
+            lang: blogLang,
+            dir: blogLang === "ar" ? "rtl" : "ltr",
+            headSnippet: result.headSnippet,
+            titleTag: `<title>${escapeHtml(result.title)}</title>`,
+            bodyHtml: result.bodyHtml ?? null,
+          });
+        }
+      } else if (blogPath === "/blog") {
+        // /{lang}/blog — blog index page
+        const cleanBase = (rest.basePath ?? "").replace(/\/$/, "");
+        const siteOrigin = (rest.origin ?? "").replace(/\/$/, "");
+        const blogIndexHref = `${siteOrigin}${cleanBase}/${blogLang}/blog`;
+        const blogLocaleBase = `${siteOrigin}${cleanBase}/${blogLang}`;
+        const blogBodyHtml = buildBlogIndexBodyHtml(blogLang, { localeBase: blogLocaleBase });
+        const blogIndexTitle =
+          blogLang === "ar" ? "مدونة Presentail" : blogLang === "fr" ? "Journal Presentail" : "Presentail Journal";
+        const indexDescription = genericFallbackDescription(blogLang, "blog");
+        const ogImage = `${siteOrigin}${cleanBase}/opengraph.jpg?v=2`;
+        const indexLines = [
+          `<meta name="description" content="${escapeAttr(indexDescription)}" />`,
+          `<link rel="canonical" href="${escapeAttr(blogIndexHref)}" />`,
+          `<meta property="og:title" content="${escapeAttr(blogIndexTitle)}" />`,
+          `<meta property="og:description" content="${escapeAttr(indexDescription)}" />`,
+          `<meta property="og:type" content="website" />`,
+          `<meta property="og:site_name" content="Presentail" />`,
+          `<meta property="og:locale" content="${escapeAttr(OG_LOCALE[blogLang] || "en_US")}" />`,
+          `<meta property="og:url" content="${escapeAttr(blogIndexHref)}" />`,
+          `<meta property="og:image" content="${escapeAttr(ogImage)}" />`,
+          `<meta property="og:image:secure_url" content="${escapeAttr(ogImage)}" />`,
+          `<meta property="og:image:type" content="image/jpeg" />`,
+          `<meta property="og:image:width" content="1200" />`,
+          `<meta property="og:image:height" content="630" />`,
+          `<meta name="twitter:card" content="summary_large_image" />`,
+          `<meta name="twitter:title" content="${escapeAttr(blogIndexTitle)}" />`,
+          `<meta name="twitter:description" content="${escapeAttr(indexDescription)}" />`,
+          `<meta name="twitter:image" content="${escapeAttr(ogImage)}" />`,
+          jsonLdTag(buildOrganizationSchema(`${siteOrigin}${cleanBase}`)),
+        ];
+        return assembleHtml(html, {
+          lang: blogLang,
+          dir: blogLang === "ar" ? "rtl" : "ltr",
+          headSnippet: indexLines.join("\n    "),
+          titleTag: `<title>${escapeHtml(`${blogIndexTitle} | Presentail`)}</title>`,
+          bodyHtml: blogBodyHtml,
         });
       }
     }

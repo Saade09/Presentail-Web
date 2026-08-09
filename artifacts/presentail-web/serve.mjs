@@ -1579,6 +1579,34 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Section 7c: Blog canonical redirect — strip city prefix from blog URLs ---
+    // Blog content does not vary by city or country; the canonical URL for
+    // every article is /{lang}/blog/:slug (language-scoped only, no city or
+    // country segment). All city-prefixed blog paths redirect here permanently
+    // so link equity consolidates on one URL per article and crawl budget is
+    // not wasted on dozens of near-duplicate city copies.
+    //
+    // Examples:
+    //   /en-lb/beirut/blog         → /en/blog
+    //   /ar-ae/dubai/blog/slug     → /ar/blog/slug
+    //   /fr-cy/nicosia/blog/slug   → /fr/blog/slug
+    //
+    // NOTE: this fires before seo-inject so the SEO head injection
+    // for city-prefixed blog paths never runs — only the canonical path does.
+    const blogCityMatch = pathname.match(
+      /^\/([a-z]{2})-[a-z]+\/[^/]+\/(blog(?:\/[^/?#]*)?)$/,
+    );
+    if (blogCityMatch) {
+      const lang = blogCityMatch[1]; // "en", "ar", or "fr"
+      const blogRest = blogCityMatch[2]; // "blog" or "blog/some-slug"
+      res.writeHead(301, {
+        location: `${BASE_PATH}/${lang}/${blogRest}${stripTrackingParams(url.search)}`,
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
     // Section 8: Legacy WordPress country-prefix redirects (301) ---------------
     // Maps old WordPress country-prefixed paths to the correct new locale-city
     // equivalents in a single hop. Sub-paths with /product/, /product-category/,
@@ -2325,6 +2353,11 @@ const server = http.createServer(async (req, res) => {
       pathname !== "/" &&
       !pathname.match(/^\/favorites\/share\/[A-Za-z0-9_-]{8,}\/?$/) &&
       !pathname.match(/^\/[a-z]{2}-[a-z]{2}\//) &&
+      // Canonical lang-only blog URLs (/{lang}/blog and /{lang}/blog/:slug) are
+      // valid SPA entry points — they render Blog/BlogPost in BlogShell without
+      // a city/country prefix. Without this exception they 404 because they
+      // don't match the /en-lb/... locale pattern checked above.
+      !pathname.match(/^\/(?:en|ar|fr)\/blog(?:\/[^/?#]*)?$/) &&
       // Bare /product or /product/ (no slug) passes through to the SPA shell so
       // the client can render a 404 page; the product redirect above only fires
       // when a slug is present.

@@ -152,12 +152,16 @@ export function Footer() {
   });
 
   // "Get to Know Us" — all in-app routes.
-  const knowUs: { label: string; href: string; testId: string; external?: boolean }[] = [
+  const knowUs: { label: string; href: string; testId: string; external?: boolean; absolute?: boolean }[] = [
     { label: t("footer.know.partner"), href: "/partner", testId: "footer-link-partner" },
     { label: t("footer.know.weddings"), href: "/weddings", testId: "footer-link-weddings" },
     { label: t("footer.know.corporate"), href: "/corporate", testId: "footer-link-corporate" },
     { label: t("footer.know.careers"), href: "/careers", testId: "footer-link-careers" },
-    { label: t("footer.know.blogs"), href: "/blog", testId: "footer-link-blogs" },
+    // Blog link points to the canonical /{lang}/blog path (not city-prefixed /blog)
+    // and uses a native <a> element to bypass the wouter router base — the
+    // city-scoped router would otherwise prepend the city prefix, creating a
+    // redirect chain before reaching the BlogShell at /{lang}/blog.
+    { label: t("footer.know.blogs"), href: `/${language}/blog`, testId: "footer-link-blogs", absolute: true },
   ];
 
   return (
@@ -268,6 +272,16 @@ export function Footer() {
                       <ExtLink href={item.href} testId={item.testId}>
                         {item.label}
                       </ExtLink>
+                    ) : item.absolute ? (
+                      // absolute items bypass the city-scoped wouter router so
+                      // their href (e.g. /{lang}/blog) is used exactly as-is.
+                      <a
+                        href={item.href}
+                        className="text-sm text-white/75 hover:text-white transition-colors"
+                        data-testid={item.testId}
+                      >
+                        {item.label}
+                      </a>
                     ) : (
                       <InLink href={item.href} testId={item.testId}>
                         {item.label}

@@ -378,6 +378,35 @@ function ShopShell() {
   );
 }
 
+// Standalone blog shell for canonical /{lang}/blog/* routes.
+// Blog content does not vary by city — LocationPickerGate and the city-scoped
+// WouterRouter are intentionally omitted. Readers get the full layout
+// (header + footer) without the delivery location requirement.
+function BlogShell() {
+  return (
+    <>
+      <ScrollToTop />
+      <div className="min-h-screen flex flex-col">
+        <Suspense fallback={<HeaderSkeleton />}>
+          <HomepageHeader />
+        </Suspense>
+        <main className="flex-1">
+          <RouteErrorBoundary>
+            <Switch>
+              <Route path="/blog/:slug" component={BlogPostRoute} />
+              <Route path="/blog" component={BlogRoute} />
+              <Route component={NotFoundRoute} />
+            </Switch>
+          </RouteErrorBoundary>
+        </main>
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
+      </div>
+    </>
+  );
+}
+
 function CityFallbackRedirect({
   lang,
   country,
@@ -467,6 +496,20 @@ function RootRouter() {
     return (
       <WouterRouter base={base} key={base}>
         <ShopShell />
+      </WouterRouter>
+    );
+  }
+
+  // Canonical lang-only blog routes: /en/blog, /en/blog/:slug, etc.
+  // All city-prefixed blog URLs 301-redirect here (serve.mjs § 7c).
+  // Mount BlogShell with base /{lang} — no city/country context needed for blog.
+  const BLOG_LANG_SET = new Set<string>(["en", "ar", "fr"]);
+  const blogLangMatch = path.match(/^\/([a-z]{2})\/(blog(?:\/[^?#]*)?)(\?.*)?$/);
+  if (blogLangMatch && BLOG_LANG_SET.has(blogLangMatch[1])) {
+    const lang = blogLangMatch[1];
+    return (
+      <WouterRouter base={`/${lang}`} key={`blog-${lang}`}>
+        <BlogShell />
       </WouterRouter>
     );
   }

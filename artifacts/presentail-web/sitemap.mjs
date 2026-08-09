@@ -357,31 +357,47 @@ export function buildSitemapXml({
     }
   }
 
-  // 6. Blog article pages — one canonical-city URL per country × all
-  // languages. Uses the module-level BLOG_POSTS source unless a caller
-  // overrides it via blogPostsArg (useful in unit tests with mock data).
-  // Blog *article* pages carry Article structured data and are meant to be
-  // indexed; only the blog index (a Group-B noindex page) is excluded.
+  // 6. Blog pages — city-independent, language-scoped canonical URLs.
+  // Blog content does not vary by city or country; the canonical URL for
+  // every article is /{lang}/blog/:slug. The city-prefixed blog URLs that
+  // previously appeared here (/{lang}-{country}/{city}/blog/:slug) now
+  // 301-redirect to these canonical paths (serve.mjs § 7c), so emitting
+  // them in the sitemap would waste crawl budget and re-introduce duplication.
+  //
+  // Format: /en/blog, /ar/blog, /fr/blog and /en/blog/:slug, etc.
+  // hreflang alternates link the three language variants together.
+  // Uses the module-level BLOG_POSTS source unless overridden via blogPostsArg
+  // (useful in unit tests with mock data).
   const blogPostsSource = blogPostsArg ?? BLOG_POSTS ?? {};
-  // Blog index (Journal hub) — indexable and the internal-link hub for the
-  // articles, so it is included at the canonical hub city per country (each
-  // block carries all language alternates).
-  for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-    urls.push(urlEntryWithAlternates("0.6", "weekly", country, city, "/blog"));
-  }
+
+  /** Build a /{lang}/blog or /{lang}/blog/:slug sitemap entry with hreflang. */
+  const urlEntryBlog = (rest, lastmod = generatedAt) => {
+    // `rest` is either "" (blog index) or "/:slug" (article).
+    const loc = `${origin}${cleanBase}/${lang}/blog${rest}`;
+    const alternates = SITEMAP_LANGS.map((altLang) => {
+      const href = `${origin}${cleanBase}/${altLang}/blog${rest}`;
+      return `    <xhtml:link rel="alternate" hreflang="${escXml(altLang)}" href="${escXml(href)}"/>`;
+    });
+    alternates.push(
+      `    <xhtml:link rel="alternate" hreflang="x-default" href="${escXml(`${origin}${cleanBase}/en/blog${rest}`)}"/>`,
+    );
+    const lastmodLine = lastmod ? `\n    <lastmod>${escXml(lastmod)}</lastmod>` : "";
+    return `  <url>\n    <loc>${escXml(loc)}</loc>${lastmodLine}\n    <changefreq>${rest ? "monthly" : "weekly"}</changefreq>\n    <priority>0.6</priority>\n${alternates.join("\n")}\n  </url>`;
+  };
+
+  // Blog index: /{lang}/blog
+  urls.push(urlEntryBlog(""));
+
+  // Blog articles: /{lang}/blog/:slug
   for (const [slug, langs] of Object.entries(blogPostsSource)) {
     if (!slug) continue;
     const encoded = encodeURIComponent(slug);
-    // Blog articles carry a real publish date (`datePublished` on the per-lang
-    // content), so emit it as <lastmod>. Fall back to omitting the field if a
-    // post somehow lacks it — never fabricate a date.
+    // Use the real publish date as lastmod when available; fall back to the
+    // sitemap generation date. Never omit lastmod on articles — crawlers use
+    // it to prioritise recrawling recently updated content.
     const datePublished =
       langs?.en?.datePublished ?? Object.values(langs ?? {})[0]?.datePublished ?? null;
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      urls.push(
-        urlEntryWithAlternates("0.6", "monthly", country, city, `/blog/${encoded}`, "", datePublished),
-      );
-    }
+    urls.push(urlEntryBlog(`/${encoded}`, datePublished ?? generatedAt));
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>

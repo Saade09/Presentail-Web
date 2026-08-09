@@ -127,10 +127,12 @@ describe("buildSitemapXml — per-locale generation", () => {
     }
   });
 
-  it("the blog index appears in all three locale sitemaps at hub cities", () => {
+  it("the blog index appears in all three locale sitemaps as a lang-only canonical URL", () => {
     for (const lang of SITEMAP_LANGS) {
+      // Blog content is city-independent; each locale sitemap emits the
+      // lang-only canonical (/{lang}/blog) instead of a city-prefixed variant.
       expect(xmlByLocale[lang]).toContain(
-        `<loc>${ORIGIN}/${lang}-lb/beirut/blog</loc>`,
+        `<loc>${ORIGIN}/${lang}/blog</loc>`,
       );
     }
   });
@@ -750,10 +752,16 @@ describe("buildSitemapXml — top-level route type coverage", () => {
     expect(xmlFull).toContain("/en-cy/nicosia/occasion/birthday");
   });
 
-  it("emits blog article URLs for all three canonical countries", () => {
-    expect(xmlFull).toContain("/en-lb/beirut/blog/top-10-flowers");
-    expect(xmlFull).toContain("/en-ae/dubai/blog/top-10-flowers");
-    expect(xmlFull).toContain("/en-cy/nicosia/blog/top-10-flowers");
+  it("emits blog article URLs as lang-only canonical paths (no city/country)", () => {
+    // Blog articles are city-independent; each locale sitemap emits one URL
+    // per article using the /{lang}/blog/:slug format (no city or country).
+    expect(xmlFull).toContain("/en/blog/top-10-flowers");
+    expect(xmlFull).toContain("/ar/blog/top-10-flowers");
+    expect(xmlFull).toContain("/fr/blog/top-10-flowers");
+    // Old city-prefixed blog URLs must NOT appear (they 301-redirect to these).
+    expect(xmlFull).not.toContain("/en-lb/beirut/blog/top-10-flowers");
+    expect(xmlFull).not.toContain("/en-ae/dubai/blog/top-10-flowers");
+    expect(xmlFull).not.toContain("/en-cy/nicosia/blog/top-10-flowers");
   });
 });
 
@@ -832,10 +840,17 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     });
   }
 
-  it("includes the blog index (Journal hub) at the canonical hub cities", () => {
-    expect(xmlFull).toContain(`${ORIGIN}/en-lb/beirut/blog<`);
-    expect(xmlFull).toContain(`${ORIGIN}/en-ae/dubai/blog<`);
-    expect(xmlFull).toContain(`${ORIGIN}/en-cy/nicosia/blog<`);
+  it("includes the blog index as a lang-only canonical URL (not city-prefixed)", () => {
+    // xmlFull is built for the default locale (en), so <loc> carries /en/blog.
+    // The ar and fr variants appear as hreflang alternates in the same <url> block.
+    expect(xmlFull).toContain(`${ORIGIN}/en/blog<`);
+    // hreflang alternates for the other languages must also be present.
+    expect(xmlFull).toContain(`href="${ORIGIN}/ar/blog"`);
+    expect(xmlFull).toContain(`href="${ORIGIN}/fr/blog"`);
+    // Old city-prefixed blog index URLs must NOT appear (they 301-redirect here).
+    expect(xmlFull).not.toContain(`${ORIGIN}/en-lb/beirut/blog<`);
+    expect(xmlFull).not.toContain(`${ORIGIN}/en-ae/dubai/blog<`);
+    expect(xmlFull).not.toContain(`${ORIGIN}/en-cy/nicosia/blog<`);
   });
 
   it("does not include llms.txt or llms-full.txt", () => {

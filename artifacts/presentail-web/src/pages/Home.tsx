@@ -210,14 +210,16 @@ export default function Home() {
       <div className="container mx-auto px-4 pb-4 max-w-content text-center text-sm text-muted-foreground space-y-1">
         <div>
           From the Presentail journal:{" "}
-          <Link href="/blog/flower-shop-in-achrafieh" className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
+          {/* Plain <a> bypasses the city-scoped wouter router so the link goes
+              directly to the canonical /{lang}/blog/:slug URL without a redirect. */}
+          <a href={`/${language}/blog/flower-shop-in-achrafieh`} className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
             The best flower shop in Achrafieh, Beirut →
-          </Link>
+          </a>
         </div>
         <div>
-          <Link href="/blog/send-roses-to-lebanon" className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
+          <a href={`/${language}/blog/send-roses-to-lebanon`} className="text-primary underline underline-offset-2 hover:text-primary/70 transition-colors">
             Send roses to Lebanon: same-day delivery, nationwide →
-          </Link>
+          </a>
         </div>
       </div>
     )}
