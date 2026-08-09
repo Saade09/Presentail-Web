@@ -1096,6 +1096,24 @@ const ROUTE_BODY_INTRO = {
   privacy: "Presentail collects only the personal data needed to process your order. Read how we collect, use, store, and protect your information.",
 };
 
+// Distinct H1 text per page type — covers the same topic as <title> but
+// uses different phrasing and drops the "| Presentail" suffix, giving
+// crawlers two separate text signals from the same page (title keyword
+// density ≠ heading keyword density). Uses the same {city} placeholder
+// convention as TITLES; format() resolves it at render time.
+// i18n-ignore — these are static EN-only sr-only headings for crawlers;
+// the SPA renders its own translated h1 after hydration.
+const ROUTE_H1 = {
+  home:      "Fresh Flowers & Gifts, Delivered in {city}",
+  shop:      "The Full Collection — Flowers, Gifts & Plants in {city}",
+  brands:    "Curated Partner Brands Available in {city}",
+  occasions: "Gifts for Every Occasion, Delivered to {city}",
+  contact:   "Talk to Us — Order & Delivery Help in {city}",
+  faqs:      "Flower & Gift Delivery in {city} — Your Questions Answered",
+  weddings:  "Bridal Flowers, Table Arrangements & Wedding Gifts in {city}",
+  corporate: "Hampers, Branded Gifts & Bulk Delivery for Teams in {city}",
+};
+
 function buildNavLinks(localeBase) {
   if (!localeBase) return "";
   // i18n-ignore — crawler-facing static nav; not rendered in the client UI
@@ -1138,6 +1156,14 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
 function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en" }) {
   const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
+  // Compute a distinct H1 from ROUTE_H1 — same topic as <title> but
+  // different phrasing, no "| Presentail" suffix. Falls back to title
+  // when the route has no entry or cityLabel is unavailable.
+  const h1Template = ROUTE_H1[routeKey];
+  const h1Text = h1Template && cityLabel
+    ? format(h1Template, { city: cityLabel })
+    : title;
+  const safeH1 = escapeHtml(h1Text);
   const safeDesc = escapeHtml(description);
   const safeIntro = escapeHtml(intro);
   // City-specific paragraph for city home pages — provides unique vocabulary
@@ -1199,7 +1225,7 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     routeKey === "blog" ? buildBlogIndexBodyHtml(lang, { localeBase }) : "";
 
   return (
-    `<h1 class="sr-only">${safeTitle}</h1>` +
+    `<h1 class="sr-only">${safeH1}</h1>` +
     `<div style="display:none">` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
