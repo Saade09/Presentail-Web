@@ -4466,21 +4466,30 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         ogImageUrl: productOgImageUrl,
         ...headOpts,
       });
-      // Append the intra-city hreflang cluster. The canonical for entity
-      // pages is remapped to the hub city, so the hreflang cluster uses the
-      // hub city too — canonical and hreflang must agree as a set.
-      const _prodHreflangSet = buildHreflangSet(
-        `product/${encodeURIComponent(productSlug)}`,
-        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
-        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
-      );
-      if (_prodHreflangSet.length > 0) {
-        const _prodHreflangLines = _prodHreflangSet
-          .map(({ hreflang, href }) =>
-            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
-          )
-          .join("\n    ");
-        result = { ...result, headSnippet: result.headSnippet + "\n    " + _prodHreflangLines };
+      // Emit the intra-city hreflang cluster only when this page IS the hub
+      // city for its country. Entity pages at satellite cities already point
+      // their canonical at the hub city (remapCityToHub); if they also emit
+      // hreflang alternates, every satellite URL simultaneously claims to be
+      // a language alternate of the same handful of Beirut/Dubai/Nicosia URLs
+      // without any of those satellite URLs appearing in the hub city's own
+      // cluster — exactly the "no self-referencing hreflang" / "conflicting
+      // hreflang" pattern Semrush flags at scale. Canonical alone is the
+      // correct and sufficient signal for duplicate consolidation; hreflang is
+      // for the canonical set only.
+      if (parsed.city === HUB_CITY[parsed.country]) {
+        const _prodHreflangSet = buildHreflangSet(
+          `product/${encodeURIComponent(productSlug)}`,
+          { country: parsed.country, city: HUB_CITY[parsed.country] },
+          (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+        );
+        if (_prodHreflangSet.length > 0) {
+          const _prodHreflangLines = _prodHreflangSet
+            .map(({ hreflang, href }) =>
+              `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+            )
+            .join("\n    ");
+          result = { ...result, headSnippet: result.headSnippet + "\n    " + _prodHreflangLines };
+        }
       }
 
       // Inject a <link rel="preload" as="image" fetchpriority="high"> for the
@@ -4588,18 +4597,22 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         brandProducts: brandListing?.products,
         ...headOpts,
       });
-      const _brandHreflangSet = buildHreflangSet(
-        `brand/${encodeURIComponent(brandSlug)}`,
-        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
-        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
-      );
-      if (_brandHreflangSet.length > 0) {
-        const _brandHreflangLines = _brandHreflangSet
-          .map(({ hreflang, href }) =>
-            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
-          )
-          .join("\n    ");
-        result = { ...result, headSnippet: result.headSnippet + "\n    " + _brandHreflangLines };
+      // Hub-city guard: same rationale as the product hreflang block above —
+      // only the hub city's entity pages should carry hreflang alternates.
+      if (parsed.city === HUB_CITY[parsed.country]) {
+        const _brandHreflangSet = buildHreflangSet(
+          `brand/${encodeURIComponent(brandSlug)}`,
+          { country: parsed.country, city: HUB_CITY[parsed.country] },
+          (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+        );
+        if (_brandHreflangSet.length > 0) {
+          const _brandHreflangLines = _brandHreflangSet
+            .map(({ hreflang, href }) =>
+              `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+            )
+            .join("\n    ");
+          result = { ...result, headSnippet: result.headSnippet + "\n    " + _brandHreflangLines };
+        }
       }
       const brandParentCount = brandParentListing?.count ?? null;
       const brandEligibility = isPageEligible({
@@ -4667,18 +4680,22 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         items: listing?.items ?? [],
         ...headOpts,
       });
-      const _catHreflangSet = buildHreflangSet(
-        `category/${encodeURIComponent(categorySlug)}`,
-        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
-        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
-      );
-      if (_catHreflangSet.length > 0) {
-        const _catHreflangLines = _catHreflangSet
-          .map(({ hreflang, href }) =>
-            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
-          )
-          .join("\n    ");
-        result = { ...result, headSnippet: result.headSnippet + "\n    " + _catHreflangLines };
+      // Hub-city guard: same rationale as the product hreflang block above —
+      // only the hub city's entity pages should carry hreflang alternates.
+      if (parsed.city === HUB_CITY[parsed.country]) {
+        const _catHreflangSet = buildHreflangSet(
+          `category/${encodeURIComponent(categorySlug)}`,
+          { country: parsed.country, city: HUB_CITY[parsed.country] },
+          (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+        );
+        if (_catHreflangSet.length > 0) {
+          const _catHreflangLines = _catHreflangSet
+            .map(({ hreflang, href }) =>
+              `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+            )
+            .join("\n    ");
+          result = { ...result, headSnippet: result.headSnippet + "\n    " + _catHreflangLines };
+        }
       }
       const catParentCount = catParentListing?.count ?? null;
       const categoryEligibility = isPageEligible({
@@ -4762,18 +4779,22 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         items: listing?.items ?? [],
         ...headOpts,
       });
-      const _occHreflangSet = buildHreflangSet(
-        `occasion/${encodeURIComponent(occasionSlug)}`,
-        { country: parsed.country, city: HUB_CITY[parsed.country] ?? parsed.city },
-        (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
-      );
-      if (_occHreflangSet.length > 0) {
-        const _occHreflangLines = _occHreflangSet
-          .map(({ hreflang, href }) =>
-            `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
-          )
-          .join("\n    ");
-        result = { ...result, headSnippet: result.headSnippet + "\n    " + _occHreflangLines };
+      // Hub-city guard: same rationale as the product hreflang block above —
+      // only the hub city's entity pages should carry hreflang alternates.
+      if (parsed.city === HUB_CITY[parsed.country]) {
+        const _occHreflangSet = buildHreflangSet(
+          `occasion/${encodeURIComponent(occasionSlug)}`,
+          { country: parsed.country, city: HUB_CITY[parsed.country] },
+          (rest.origin ?? "") + (rest.basePath ?? "").replace(/\/$/, ""),
+        );
+        if (_occHreflangSet.length > 0) {
+          const _occHreflangLines = _occHreflangSet
+            .map(({ hreflang, href }) =>
+              `<link rel="alternate" hreflang="${escapeAttr(hreflang)}" href="${escapeAttr(href)}" />`,
+            )
+            .join("\n    ");
+          result = { ...result, headSnippet: result.headSnippet + "\n    " + _occHreflangLines };
+        }
       }
       const occParentCount = occParentListing?.count ?? null;
       const occasionEligibility = isPageEligible({

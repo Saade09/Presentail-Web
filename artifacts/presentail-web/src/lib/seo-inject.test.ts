@@ -969,7 +969,7 @@ describe("injectSeoTagsAsync — entity hreflang (intra-city hub cluster)", () =
     expect(out).not.toContain('hreflang="ar-CY"');
   });
 
-  it("product: hreflang cluster uses the hub city and matches the hub-remapped canonical", async () => {
+  it("product: satellite city has hub-remapped canonical and NO hreflang", async () => {
     const slug = "hrl-gating-product-warm-1";
     const fetchMock = makeFetchMock("/api/woo/product", {
       ok: true,
@@ -977,27 +977,25 @@ describe("injectSeoTagsAsync — entity hreflang (intra-city hub cluster)", () =
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    // Non-hub LB city (tripoli): canonical + hreflang both point at beirut.
+    // Non-hub LB city (tripoli): canonical remaps to beirut; NO hreflang block
+    // emitted — satellite city entity pages carry canonical only so they don't
+    // flood the hub city's hreflang cluster with thousands of conflicting entries.
     const out = await injectSeoTagsAsync(HTML, `/en-lb/tripoli/product/${slug}`, OPTS);
 
+    // Canonical correctly remaps to hub city.
     expect(out).toContain(
       `rel="canonical" href="https://presentail.test/en-lb/beirut/product/${slug}"`,
     );
-    expect(out).toContain(
-      `hreflang="en-LB" href="https://presentail.test/en-lb/beirut/product/${slug}"`,
-    );
-    expect(out).toContain(
-      `hreflang="ar-LB" href="https://presentail.test/ar-lb/beirut/product/${slug}"`,
-    );
-    expect(out).toContain(
-      `hreflang="x-default" href="https://presentail.test/en-lb/beirut/product/${slug}"`,
-    );
-    // No alternate/canonical link points at the browsed (non-hub) city.
-    // (Product JSON-LD keeps the raw pathname — schema changes are out of scope.)
-    expect(out).not.toContain(`href="https://presentail.test/en-lb/tripoli/product/${slug}"`);
+    // No hreflang alternates at all — satellite city entity pages omit them.
+    expect(out).not.toContain('hreflang="en-LB"');
+    expect(out).not.toContain('hreflang="ar-LB"');
+    expect(out).not.toContain('hreflang="fr-LB"');
+    expect(out).not.toContain('hreflang="x-default"');
     // No cross-country alternates.
     expect(out).not.toContain('hreflang="en-AE"');
     expect(out).not.toContain('hreflang="en-CY"');
+    // No link references the non-hub city at all (apart from JSON-LD which keeps raw pathname).
+    expect(out).not.toContain(`href="https://presentail.test/en-lb/tripoli/product/${slug}"`);
   });
 
   it("product: hreflang href contains encoded slug", async () => {
@@ -1031,7 +1029,7 @@ describe("injectSeoTagsAsync — entity hreflang (intra-city hub cluster)", () =
     expect(out).toContain('hreflang="x-default"');
   });
 
-  it("brand: non-hub AE city canonical + hreflang remap to dubai", async () => {
+  it("brand: satellite AE city has hub-remapped canonical and NO hreflang", async () => {
     const slug = "hrl-gating-brand-warm-1";
     const fetchMock = makeFetchMock("/api/woo/brand", {
       ok: true,
@@ -1039,14 +1037,14 @@ describe("injectSeoTagsAsync — entity hreflang (intra-city hub cluster)", () =
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // Non-hub AE city (sharjah): canonical remaps to dubai; NO hreflang emitted.
     const out = await injectSeoTagsAsync(HTML, `/en-ae/sharjah/brand/${slug}`, OPTS);
 
-    expect(out).toContain('hreflang="en-AE"');
+    // No hreflang alternates at all for satellite city brand pages.
+    expect(out).not.toContain('hreflang="en-AE"');
     expect(out).not.toContain('hreflang="en-LB"');
     expect(out).not.toContain('hreflang="en-CY"');
-    expect(out).toContain(
-      `hreflang="en-AE" href="https://presentail.test/en-ae/dubai/brand/${slug}"`,
-    );
+    // No link references the non-hub city.
     expect(out).not.toContain(`/en-ae/sharjah/brand/${slug}"`);
   });
 
@@ -1082,7 +1080,7 @@ describe("injectSeoTagsAsync — entity hreflang (intra-city hub cluster)", () =
     expect(out).toContain(`href="https://presentail.test/en-ae/dubai/occasion/${slug}"`);
   });
 
-  it("occasion: non-hub CY city canonical + hreflang remap to nicosia", async () => {
+  it("occasion: satellite CY city has hub-remapped canonical and NO hreflang", async () => {
     const slug = "hrl-gating-occasion-warm-1";
     const fetchMock = makeFetchMock("/api/woo/occasion", {
       ok: true,
@@ -1090,14 +1088,13 @@ describe("injectSeoTagsAsync — entity hreflang (intra-city hub cluster)", () =
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    // Non-hub CY city (limassol): canonical remaps to nicosia; NO hreflang emitted.
     const out = await injectSeoTagsAsync(HTML, `/en-cy/limassol/occasion/${slug}`, OPTS);
 
-    expect(out).toContain('hreflang="en-CY"');
+    // No hreflang alternates at all for satellite city occasion pages.
+    expect(out).not.toContain('hreflang="en-CY"');
     expect(out).not.toContain('hreflang="en-LB"');
     expect(out).not.toContain('hreflang="en-AE"');
-    expect(out).toContain(
-      `hreflang="en-CY" href="https://presentail.test/en-cy/nicosia/occasion/${slug}"`,
-    );
   });
 
   it("brandsFilter (/brands?category=<slug>) does NOT emit entity-gated hreflang", async () => {
