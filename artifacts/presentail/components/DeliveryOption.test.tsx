@@ -117,10 +117,10 @@ const COLORS = {
 };
 
 /**
- * Render a <DeliveryOption> with the given feeLabel and return the
- * react-test-renderer JSON tree.
+ * Render a <DeliveryOption> with the given feeLabel (and optional
+ * feeSubLabel) and return the react-test-renderer JSON tree.
  */
-function renderOption(feeLabel: string) {
+function renderOption(feeLabel: string, feeSubLabel?: string) {
   let tree!: RTR.ReactTestRenderer;
   act(() => {
     tree = RTR.create(
@@ -132,6 +132,7 @@ function renderOption(feeLabel: string) {
         title="Express delivery"
         subtitle="Arrives in 90 min"
         feeLabel={feeLabel}
+        feeSubLabel={feeSubLabel}
       />,
     );
   });
@@ -213,6 +214,85 @@ describe("DeliveryOption — fee label currency formats", () => {
       const feeTextNode = feeText as { children?: unknown[] };
       const textContent = (feeTextNode.children ?? []).join("");
       expect(textContent).toContain(feeLabel);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Tests — sub-label layout constraints
+// ---------------------------------------------------------------------------
+
+describe("DeliveryOption — fee sub-label layout constraints", () => {
+  it("fee sub-label Text has numberOfLines={1}", () => {
+    const tree = renderOption("KWD 1.500", "Free + KWD 0.750 express fee");
+    const texts = findAllNodes(tree, "Text") as { props: Record<string, unknown> }[];
+    // At least two Text nodes must have numberOfLines={1}: the fee label and the sub-label.
+    const singleLineTexts = texts.filter((t) => t.props.numberOfLines === 1);
+    expect(singleLineTexts.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("fee sub-label Text has adjustsFontSizeToFit={true}", () => {
+    const tree = renderOption("KWD 1.500", "Free + KWD 0.750 express fee");
+    const texts = findAllNodes(tree, "Text") as { props: Record<string, unknown> }[];
+    // At least two Text nodes must have both guards: fee label + sub-label.
+    const guardedTexts = texts.filter(
+      (t) => t.props.numberOfLines === 1 && t.props.adjustsFontSizeToFit === true,
+    );
+    expect(guardedTexts.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — sub-label currency formats (KWD / OMR)
+// ---------------------------------------------------------------------------
+
+describe("DeliveryOption — fee sub-label currency formats", () => {
+  const subLabelCases: Array<{ label: string; feeLabel: string; feeSubLabel: string }> = [
+    {
+      label: "KWD free+express",
+      feeLabel: "KWD 1.500",
+      feeSubLabel: "Free + KWD 0.750 express fee",
+    },
+    {
+      label: "KWD std+express",
+      feeLabel: "KWD 1.500",
+      feeSubLabel: "KWD 0.750 std + KWD 0.750 express",
+    },
+    {
+      label: "OMR free+express",
+      feeLabel: "OMR 2.000",
+      feeSubLabel: "Free + OMR 1.000 express fee",
+    },
+    {
+      label: "OMR std+express",
+      feeLabel: "OMR 2.000",
+      feeSubLabel: "OMR 1.000 std + OMR 1.000 express",
+    },
+  ];
+
+  for (const { label, feeLabel, feeSubLabel } of subLabelCases) {
+    it(`${label} sub-label is confined by numberOfLines={1} + adjustsFontSizeToFit`, () => {
+      const tree = renderOption(feeLabel, feeSubLabel);
+
+      // Both the fee label and sub-label Text nodes must carry the single-line guards.
+      const texts = findAllNodes(tree, "Text") as { props: Record<string, unknown> }[];
+      const guardedTexts = texts.filter(
+        (t) => t.props.numberOfLines === 1 && t.props.adjustsFontSizeToFit === true,
+      );
+      expect(
+        guardedTexts.length,
+        `Expected at least 2 guarded Text nodes (feeLabel + feeSubLabel) for "${label}"`,
+      ).toBeGreaterThanOrEqual(2);
+
+      // The sub-label string must appear in one of the guarded Text nodes.
+      const subLabelNode = guardedTexts.find((t) => {
+        const content = ((t as { children?: unknown[] }).children ?? []).join("");
+        return content.includes(feeSubLabel);
+      });
+      expect(
+        subLabelNode,
+        `feeSubLabel text must appear in a guarded Text node for "${label}"`,
+      ).toBeDefined();
     });
   }
 });

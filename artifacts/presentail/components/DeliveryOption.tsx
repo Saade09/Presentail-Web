@@ -91,6 +91,8 @@ export function DeliveryOption({
           </AppText>
           {feeSubLabel ? (
             <AppText
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 10,
