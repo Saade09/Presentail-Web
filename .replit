@@ -34,15 +34,11 @@ args = "check-api-compression"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "API Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "e2e-serve-blog"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "check-social-share-previews"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check-social-share-previews-prod"
 
 [[workflows.workflow]]
 name = "check-hardcoded-web-strings"
@@ -89,29 +85,6 @@ args = "bash -c 'set -e; HEADERS=$(curl -sf -D - --compressed -o /dev/null http:
 isValidation = true
 
 [[workflows.workflow]]
-name = "API Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
-waitForPort = 8080
-
-[[workflows.workflow]]
-name = "e2e-serve-blog"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "SERVE_E2E_SPEC=blog-image-perf.spec.ts bash artifacts/presentail-web/scripts/run-serve-e2e.sh"
-
-[[workflows.workflow]]
 name = "check-social-share-previews"
 author = "agent"
 
@@ -142,6 +115,17 @@ nc -z localhost 19235 2>/dev/null || { echo \"FAIL: web server did not start on 
 echo \"Web server ready.\"
 
 node artifacts/presentail-web/scripts/check-social-share-previews.mjs http://localhost:19235 http://localhost:8080'"""
+
+[[workflows.workflow]]
+name = "check-social-share-previews-prod"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node artifacts/presentail-web/scripts/check-social-share-previews-prod.mjs"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"
