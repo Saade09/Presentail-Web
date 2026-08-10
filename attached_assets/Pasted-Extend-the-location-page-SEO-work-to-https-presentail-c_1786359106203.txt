@@ -1,0 +1,384 @@
+Extend the location-page SEO work to:
+
+https://presentail.com/en-lb/batroun
+
+Primary keyword:
+
+Flower Delivery Batroun
+
+Secondary variants:
+
+* flower delivery in Batroun
+* flower delivery Batroun Lebanon
+* same-day flower delivery Batroun
+* send flowers to Batroun
+* order flowers online Batroun
+* florist Batroun Lebanon
+* roses delivery Batroun
+* bouquet delivery Batroun
+
+The objective is to make this page the strongest possible commercial result for flower-delivery searches in Batroun. Do not promise or claim a guaranteed Google ranking.
+
+## Architecture requirement
+
+Do not create another one-off Batroun SEO solution.
+
+If the Tripoli improvements are underway or already implemented, extract or extend a reusable, data-driven location landing-page system. Shared functionality should include:
+
+* SSR or static rendering
+* Metadata generation
+* Visible product grid
+* Delivery-area content
+* Occasion links
+* FAQ rendering
+* Structured data
+* Canonical and hreflang generation
+* Internal linking
+* Markdown endpoint headers
+* Route-specific tests
+
+Batroun must have unique facts and wording stored in city-specific configuration or content. Do not create templated doorway pages where only the city name changes.
+
+## Current Batroun findings
+
+Confirm these findings before editing:
+
+* Current title: `Flower & Gift Delivery in Batroun | Presentail`
+* Current H1: `Fresh Flowers & Gifts, Delivered in Batroun`
+* The server-rendered H1 uses `sr-only`.
+* Most landing-page copy is inside `<div style="display:none">`.
+* Real products, prices, and product links are absent from the initial HTML.
+* `/en-lb/batroun/shop` has overlapping shopping intent.
+* `/en-lb/batroun.md` returns 200 without an `X-Robots-Tag: noindex` header.
+* Canonical, redirects, sitemap inclusion, and English/Arabic/French hreflang appear to be configured and should be preserved.
+* The existing location copy incorrectly places Sfeireh within the Batroun coverage grouping. Sfeireh is associated with Danniyeh, not Batroun District.
+* The page contains tourism and history copy that is less useful than actual delivery, inventory, cutoff, payment, and service-area information.
+
+## 1. Final metadata
+
+Use:
+
+Title:
+
+Flower Delivery in Batroun, Lebanon | Presentail
+
+Meta description:
+
+Order fresh flowers online for delivery in Batroun, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.
+
+H1:
+
+Flower Delivery in Batroun, Lebanon
+
+OG title:
+
+Flower Delivery in Batroun, Lebanon | Presentail
+
+OG description:
+
+Send fresh flowers, bouquets and gifts to Batroun with same-day delivery available on eligible orders.
+
+Primary CTA:
+
+Shop Flowers in Batroun
+
+Ensure all metadata exists in the initial HTML response and is not added only after JavaScript executes.
+
+## 2. Fix hidden and client-only content
+
+The actual customer-facing Batroun page must be indexable in the initial HTML.
+
+Requirements:
+
+* Remove the hidden `display:none` SEO block.
+* Render the H1 visibly in the page design.
+* Use exactly one H1.
+* Do not hide the primary heading with `sr-only`.
+* Do not add bot-only or user-agent-specific content.
+* Server-render or statically render the same meaningful content users see.
+* Hydration must not delete, duplicate, or materially alter the content.
+* Include a selection of real Batroun-eligible products in the initial HTML.
+* Render at least 8 products when sufficient inventory exists.
+* Every product card must include a crawlable canonical product link, product name, current price, currency, image, and accurate alt text.
+* Use live inventory and pricing data. Never hard-code product names or prices into SEO HTML.
+* Do not require scrolling, clicking, or filtering before the initial product links become discoverable.
+
+## 3. Recommended page structure
+
+Use this order:
+
+1. Breadcrumbs
+2. Visible hero with H1, delivery message, and CTA
+3. Real Batroun-eligible flower products
+4. Flower types and popular collections
+5. Why order from Presentail
+6. Batroun delivery coverage
+7. Popular occasions
+8. How ordering works
+9. FAQs
+10. Contextual links to supporting Batroun pages
+
+Keep products near the top. Do not put a long SEO article before the catalogue.
+
+## 4. Batroun-specific copy
+
+Use this as the starting copy, adjusting it to Presentail’s established brand voice.
+
+Hero:
+
+Send fresh flowers, bouquets and thoughtful gifts across Batroun. Choose your delivery date, include a personalised card message and order securely online, with same-day delivery available on eligible arrangements.
+
+Intro:
+
+Looking for flower delivery in Batroun, Lebanon? Presentail makes it easy to send fresh arrangements for birthdays, anniversaries, weddings, congratulations, sympathy and everyday surprises. Browse flowers available for the recipient’s location, select a delivery date and complete your order online.
+
+Delivery information:
+
+Same-day flower delivery in Batroun is available for eligible products ordered before the applicable daily cutoff. Retrieve the real cutoff and delivery availability from the operational configuration rather than hard-coding an unverified time. Show final availability based on the recipient’s address and selected delivery date.
+
+Why Presentail:
+
+Display short, verified benefits such as:
+
+* Fresh flower arrangements
+* Same-day options on eligible orders
+* Scheduled delivery dates
+* Personalised card messages
+* Secure online payment
+* Convenient ordering from Lebanon or abroad
+
+Only include benefits that are genuinely supported.
+
+How it works:
+
+1. Choose flowers or a gift available for Batroun.
+2. Enter the recipient’s address and preferred delivery date.
+3. Add a card message and complete secure checkout.
+
+Do not claim a physical Batroun flower shop, temperature-controlled transport, locally grown flowers, live tracking, or guarantees unless the company can verify those claims.
+
+## 5. Delivery-area accuracy
+
+The word “Batroun” can refer to the coastal city or the wider district. Make the distinction clear.
+
+Use operational delivery data as the source of truth. Do not assume that every town in Batroun District is served merely because it is geographically within the district.
+
+Possible areas already mentioned in the existing content include:
+
+* Batroun
+* Hamat
+* Douma
+* Tannourine
+* Rachkida
+
+Verify each one against the delivery system before publishing it.
+
+Remove Sfeireh from the Batroun-area list. It should not be described as a Batroun District locality.
+
+If additional places such as Kfar Abida, Thoum, Chekka, Eddeh, Smar Jbeil, Hardine or Rachana are served, add them only after confirming operational coverage.
+
+Suggested wording:
+
+Presentail delivers within Batroun and selected surrounding towns in Batroun District. Enter the recipient’s address at checkout to confirm product availability, delivery fees and available dates.
+
+Do not publish a long list of towns solely to rank for location keywords.
+
+## 6. Commercial sections and internal links
+
+Add visible, crawlable links to real collections where available:
+
+* Roses
+* Mixed bouquets
+* Birthday flowers
+* Anniversary flowers
+* Wedding flowers
+* Sympathy flowers
+* New baby gifts
+* Congratulations flowers
+* Valentine’s Day flowers
+
+Use real canonical URLs returning 200.
+
+Make `/en-lb/batroun` the primary page for generic “Flower Delivery Batroun” intent.
+
+Add contextual links to it from:
+
+* Batroun child-page breadcrumbs
+* `/en-lb/batroun/shop`
+* Batroun occasion pages
+* Batroun FAQs
+* Batroun brands
+* Batroun wedding and corporate pages
+* Relevant journal articles
+* Appropriate Lebanon location-navigation components
+
+Use varied natural anchor text:
+
+* flower delivery in Batroun
+* send flowers to Batroun
+* Batroun flowers and gifts
+* delivery across Batroun
+
+Do not repeat the same exact-match anchor sitewide.
+
+## 7. Resolve `/shop` cannibalisation
+
+Inspect:
+
+`https://presentail.com/en-lb/batroun/shop`
+
+If it provides a genuinely distinct full-catalogue experience, keep it indexable with:
+
+Title:
+
+Shop All Flowers & Gifts in Batroun | Presentail
+
+H1:
+
+Shop All Flowers & Gifts in Batroun
+
+It should link contextually to the main Batroun delivery page.
+
+If `/shop` substantially duplicates `/en-lb/batroun`, consolidate the two routes rather than maintaining competing pages. Do not change canonicals until actual content and functionality have been compared.
+
+Specific occasion, FAQ, wedding, corporate and brand pages should retain their narrower intent and must not reuse the primary page’s title or H1.
+
+## 8. FAQs
+
+Display concise answers based on real business policies:
+
+* Does Presentail deliver flowers in Batroun?
+* Is same-day flower delivery available in Batroun?
+* What is the same-day ordering cutoff?
+* Which Batroun areas do you deliver to?
+* Can I schedule a future delivery date?
+* Can I send flowers to Batroun from outside Lebanon?
+* Can I add a personalised card message?
+* Which payment methods are accepted?
+* What happens if the recipient is unavailable?
+
+The FAQs must be visible to users and must not repeat the keyword unnaturally.
+
+Retain FAQPage JSON-LD only if it exactly matches the visible questions and answers. Do not claim that FAQ schema will generate a Google rich result.
+
+## 9. Structured data
+
+Preserve the existing Organization and WebSite entities.
+
+Add or improve a server-rendered `CollectionPage` or `WebPage` entity containing:
+
+* Canonical `@id`
+* `url`
+* `name`
+* `description`
+* `inLanguage: en-LB`
+* `isPartOf`
+* `publisher`
+* Reference to BreadcrumbList
+
+A `Service` entity may be added for flower delivery only if the service details and geographic coverage are accurate.
+
+Do not add LocalBusiness schema unless Presentail operates a genuine, staffed and publicly represented Batroun business location.
+
+Do not invent:
+
+* Address
+* Coordinates
+* Opening hours
+* Telephone numbers
+* Reviews
+* Aggregate ratings
+* Review counts
+* Guarantees
+* Delivery prices
+* Product availability
+
+Product and Offer structured data should match visible live information on canonical product pages. An ItemList may reference the server-rendered product selection, but every product must also be visible and crawlable.
+
+## 10. Markdown duplicate
+
+For:
+
+`https://presentail.com/en-lb/batroun.md`
+
+return:
+
+`X-Robots-Tag: noindex, follow`
+
+Preserve its HTTP canonical reference to:
+
+`https://presentail.com/en-lb/batroun`
+
+Do not block the Markdown URL in robots.txt; crawlers must fetch it to observe `noindex`.
+
+Do not include Markdown alternatives in XML sitemaps.
+
+If the earlier Tripoli work already applies this rule globally to equivalent `.md` routes, verify Batroun is covered by automated tests.
+
+## 11. Optional supporting article
+
+Do not create a generic article titled “Flower Delivery Batroun,” because that could compete with the landing page.
+
+A better supporting topic is:
+
+Title:
+
+Sending Flowers for Weddings and Celebrations in Batroun
+
+Suggested URL:
+
+`/en-lb/batroun/blog/flowers-for-weddings-and-celebrations`
+
+The article should target narrower informational searches, discuss choosing flowers for weddings, engagements, birthdays, guesthouse surprises and celebrations, and link naturally to the main Batroun delivery page.
+
+Do not publish this article unless it contains genuinely useful Batroun-specific information. Do not reuse a city-name-swapped version of the Tripoli article.
+
+## 12. Acceptance tests
+
+Verify:
+
+* `/en-lb/batroun` returns 200.
+* `/en-lb/batroun/` permanently redirects to the canonical URL.
+* The canonical is exactly `https://presentail.com/en-lb/batroun`.
+* English, Arabic, French and x-default hreflang remain reciprocal.
+* The English sitemap still contains the canonical Batroun HTML page.
+* The HTML page remains `index, follow`.
+* The `.md` response returns `X-Robots-Tag: noindex, follow`.
+* `/en-lb/batroun.md` is absent from XML sitemaps.
+* The initial HTML contains the final title, description, H1, visible text, products, prices, product links, FAQs and JSON-LD.
+* The initial HTML does not contain the old hidden SEO block.
+* The primary H1 is not hidden.
+* No hydration warnings or duplicate content appear.
+* Product selection, locale, currency, cart, delivery date and checkout behavior continue working.
+* New internal links return 200 or an intentional redirect.
+* Structured data validates.
+* Mobile layout, accessibility and Core Web Vitals do not regress.
+* Build, lint, type checks and automated tests pass.
+
+Add automated regression tests for:
+
+* Batroun metadata
+* Visible server-rendered H1
+* Server-rendered product links
+* Canonical and hreflang
+* Markdown noindex header
+* No `display:none` SEO content
+* No accidental references classifying Sfeireh as Batroun
+* Distinct Batroun and Tripoli location copy
+
+## Final report
+
+After implementation, report:
+
+1. Files changed.
+2. Whether the solution was added to the shared location-page system.
+3. Final title, meta description and H1.
+4. Final verified delivery-area list.
+5. How Batroun and Tripoli content remain distinct.
+6. Proof products are present in the initial HTML.
+7. Canonical, hreflang, sitemap and `.md` results.
+8. Test and build output.
+9. Before-and-after mobile and desktop screenshots.
+10. Any delivery details that still require confirmation.
+
+Do not stop at recommendations. Implement, test and provide evidence.
