@@ -1004,6 +1004,66 @@ export function isNonIndexableRouteKey(routeKey) {
  * }>>>}
  */
 export const CITY_HOME_SEO_OVERRIDES = {
+  "lb-batroun": {
+    en: {
+      title: "Flower Delivery in Batroun, Lebanon | Presentail", // i18n-ignore — crawler-facing EN SEO copy
+      description:
+        "Order fresh flowers online for delivery in Batroun, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.", // i18n-ignore
+      h1: "Flower Delivery in Batroun, Lebanon", // i18n-ignore
+      intro:
+        "Send fresh flowers to Batroun, Lebanon from anywhere in the world. Hand-arranged bouquets, roses and thoughtful gifts delivered across Batroun, Hamat, Douma, Tannourine and Rachkida, with same-day delivery available on eligible orders.", // i18n-ignore
+      whyHeading: "Why Presentail", // i18n-ignore
+      whyPoints: [
+        "Same-day flower delivery in Batroun on eligible orders", // i18n-ignore
+        "Hand-arranged bouquets from trusted local florists", // i18n-ignore
+        "Free personalised card message with every order", // i18n-ignore
+        "Order from anywhere in the world and pay in your own currency", // i18n-ignore
+      ],
+      // Shared FAQ source of truth: rendered visibly in the server-injected
+      // body AND in the hydrated React page (SEOContentSection overrides),
+      // and mirrored 1:1 into FAQPage JSON-LD — all three must stay identical.
+      // i18n-ignore-block — crawler-facing EN copy for the Batroun landing page
+      faqs: [
+        {
+          question: "Does Presentail deliver flowers in Batroun?",
+          answer: "Yes. Presentail delivers fresh flowers, bouquets and curated gifts to Batroun, Lebanon, with same-day delivery available on eligible orders.",
+        },
+        {
+          question: "Is same-day flower delivery available in Batroun?",
+          answer: "Yes. Same-day flower delivery is available in Batroun on eligible orders placed early enough in the day. Orders placed later are delivered the next day.",
+        },
+        {
+          question: "What is the same-day ordering cutoff?",
+          answer: "The exact cutoff depends on the products in your order — checkout shows the delivery dates available for your address, so you always see before paying whether same-day is possible.",
+        },
+        {
+          question: "Which Batroun areas do you deliver to?",
+          answer: "Presentail delivers across Batroun and its surrounding areas, including Hamat, Douma, Tannourine and Rachkida.",
+        },
+        {
+          question: "Can I schedule a future delivery date?",
+          answer: "Yes. During checkout you can choose a future delivery date, so your flowers arrive exactly on the birthday, anniversary or occasion you are celebrating.",
+        },
+        {
+          question: "Can I send flowers to Batroun from outside Lebanon?",
+          answer: "Yes. Presentail is built for sending gifts from abroad — order online from anywhere in the world, pay in your own currency, and we deliver to your recipient in Batroun.",
+        },
+        {
+          question: "Can I add a personalised card message?",
+          answer: "Yes. Every order can include a free personalised card message — add it at checkout and it is delivered with your flowers.",
+        },
+        {
+          question: "Which payment methods are accepted?",
+          answer: `We accept ${LOCATION_DATA.lb.paymentAccepted} for all orders delivered in Batroun.`,
+        },
+        {
+          question: "What happens if the recipient is unavailable?",
+          answer: "Our team will contact the recipient to arrange delivery. If they cannot be reached, we coordinate with you to redeliver or leave the order with someone at the address.",
+        },
+      ],
+    },
+  },
+
   "lb-tripoli": {
     en: {
       title: "Flower Delivery in Tripoli, Lebanon | Presentail", // i18n-ignore — crawler-facing EN SEO copy

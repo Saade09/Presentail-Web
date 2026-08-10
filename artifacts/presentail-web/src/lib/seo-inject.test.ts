@@ -8223,3 +8223,127 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
     expect(title).not.toBe(TRIPOLI_TITLE);
   });
 });
+
+describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
+  const BATROUN_TITLE = "Flower Delivery in Batroun, Lebanon | Presentail";
+  const BATROUN_DESC =
+    "Order fresh flowers online for delivery in Batroun, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.";
+  const BATROUN_H1 = "Flower Delivery in Batroun, Lebanon";
+  const B_OPTS = { origin: "https://presentail.test", basePath: "" };
+
+  beforeEach(() => genericSeoCache.clear());
+
+  it("title is the hand-written Batroun value", () => {
+    const { title, titleTag } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    expect(title).toBe(BATROUN_TITLE);
+    expect(titleTag).toBe(`<title>${BATROUN_TITLE}</title>`);
+  });
+
+  it("meta description, OG and Twitter copy all match the Batroun value", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    expect(headSnippet).toContain(`<meta name="description" content="${BATROUN_DESC}"`);
+    expect(headSnippet).toContain(`<meta property="og:title" content="${BATROUN_TITLE}"`);
+    expect(headSnippet).toContain(`<meta property="og:description" content="${BATROUN_DESC}"`);
+    expect(headSnippet).toContain(`<meta name="twitter:title" content="${BATROUN_TITLE}"`);
+    expect(headSnippet).toContain(`<meta name="twitter:description" content="${BATROUN_DESC}"`);
+  });
+
+  it("body H1 is visible (no sr-only) and matches the spec text", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    expect(bodyHtml).toContain(`<h1>${BATROUN_H1}</h1>`);
+    expect(bodyHtml).not.toContain("sr-only");
+  });
+
+  it("body copy is not wrapped in display:none", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    expect(bodyHtml).not.toContain("display:none");
+  });
+
+  it("body contains intro, delivery coverage areas, and Why Presentail points as visible text", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    for (const area of ["Hamat", "Douma", "Tannourine", "Rachkida"]) {
+      expect(bodyHtml).toContain(area);
+    }
+    expect(bodyHtml).toContain("<h2>Why Presentail</h2>");
+    expect(bodyHtml).toContain("Send fresh flowers to Batroun, Lebanon");
+  });
+
+  it("'Sfeireh' does not appear anywhere in the Batroun SEO output", () => {
+    const { bodyHtml, headSnippet } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    expect(bodyHtml).not.toContain("Sfeireh");
+    expect(headSnippet).not.toContain("Sfeireh");
+  });
+
+  it("FAQPage JSON-LD has the 9 spec questions and mirrors the visible FAQ block exactly", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/batroun", B_OPTS);
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(9);
+    const questions = faq.mainEntity.map((q: any) => q.name);
+    expect(questions).toEqual([
+      "Does Presentail deliver flowers in Batroun?",
+      "Is same-day flower delivery available in Batroun?",
+      "What is the same-day ordering cutoff?",
+      "Which Batroun areas do you deliver to?",
+      "Can I schedule a future delivery date?",
+      "Can I send flowers to Batroun from outside Lebanon?",
+      "Can I add a personalised card message?",
+      "Which payment methods are accepted?",
+      "What happens if the recipient is unavailable?",
+    ]);
+    // Visible FAQ block mirrors JSON-LD 1:1 (questions AND answers).
+    const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    for (const q of faq.mainEntity) {
+      expect(bodyHtml).toContain(`<h3>${q.name}</h3>`);
+      expect(bodyHtml).toContain(`<p>${q.acceptedAnswer.text}</p>`);
+    }
+  });
+
+  it("emits a CollectionPage entity with the required fields", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/batroun", B_OPTS);
+    const nodes = extractJsonLd(out);
+    const page = byType(nodes, "CollectionPage");
+    expect(page).toBeTruthy();
+    const canonical = "https://presentail.test/en-lb/batroun";
+    expect(page["@id"]).toBe(canonical);
+    expect(page.url).toBe(canonical);
+    expect(page.name).toBe(BATROUN_H1);
+    expect(page.description).toBe(BATROUN_DESC);
+    expect(page.inLanguage).toBe("en-LB");
+    expect(page.isPartOf["@id"]).toBe("https://presentail.test/#website");
+    expect(page.breadcrumb["@id"]).toBe(`${canonical}#breadcrumb`);
+    expect(page.publisher["@id"]).toBe("https://presentail.test/#organization");
+    const crumb = byType(nodes, "BreadcrumbList");
+    expect(crumb["@id"]).toBe(`${canonical}#breadcrumb`);
+  });
+
+  it("Batroun and Tripoli delivery paragraphs are distinct strings", () => {
+    const { bodyHtml: batrounBody } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    const { bodyHtml: tripoliBody } = buildSeoHead("/en-lb/tripoli", B_OPTS);
+    // Extract intro text to compare (the intro is the unique delivery-area copy).
+    expect(batrounBody).not.toBe(tripoliBody);
+    // Batroun intro mentions Batroun-specific areas, not Tripoli areas.
+    expect(batrounBody).not.toContain("El Mina");
+    expect(batrounBody).not.toContain("Bab El Tabbaneh");
+    expect(tripoliBody).not.toContain("Hamat");
+    expect(tripoliBody).not.toContain("Rachkida");
+  });
+
+  it("Batroun sub-routes keep template titles (override is home-only)", () => {
+    const { title } = buildSeoHead("/en-lb/batroun/shop", B_OPTS);
+    expect(title).not.toBe(BATROUN_TITLE);
+  });
+
+  it("AR Batroun home keeps template output (override is EN-only)", () => {
+    const { title } = buildSeoHead("/ar-lb/batroun", B_OPTS);
+    expect(title).not.toBe(BATROUN_TITLE);
+  });
+
+  it("other city pages are not regressed (Tripoli and Beirut unaffected)", async () => {
+    const { title: tripoliTitle } = buildSeoHead("/en-lb/tripoli", B_OPTS);
+    expect(tripoliTitle).toBe("Flower Delivery in Tripoli, Lebanon | Presentail");
+    const { title: beirutTitle } = buildSeoHead("/en-lb/beirut", B_OPTS);
+    expect(beirutTitle).toContain("Beirut");
+    expect(beirutTitle).not.toBe(BATROUN_TITLE);
+  });
+});
