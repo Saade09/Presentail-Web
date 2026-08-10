@@ -28,17 +28,18 @@ const __dir     = dirname(__filename);
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const PROD_BASE = process.argv[2] ?? "https://presentail.com";
-const INNER     = join(__dir, "check-social-share-previews.mjs");
-const WEBHOOK   = process.env.ALERTS_SLACK_WEBHOOK_URL;
+const PROD_BASE     = process.argv[2] ?? "https://presentail.com";
+const INNER         = join(__dir, "check-social-share-previews.mjs");
+const SITEMAP_CHECK = join(__dir, "check-sitemap-prod.mjs");
+const WEBHOOK       = process.env.ALERTS_SLACK_WEBHOOK_URL;
 
-// ── Run the inner check, capturing all output ─────────────────────────────────
+// ── Run a child check script, capturing all output ───────────────────────────
 
 /** @returns {Promise<{ exitCode: number; output: string }>} */
-function runCheck() {
+function runScript(scriptPath) {
   return new Promise((resolve) => {
     const chunks = [];
-    const child = spawn(process.execPath, [INNER, PROD_BASE], {
+    const child = spawn(process.execPath, [scriptPath, PROD_BASE], {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -52,6 +53,16 @@ function runCheck() {
       });
     });
   });
+}
+
+/** Run the social-share preview check. */
+function runCheck() {
+  return runScript(INNER);
+}
+
+/** Run the sitemap blog-post check. */
+function runSitemapCheck() {
+  return runScript(SITEMAP_CHECK);
 }
 
 // ── Slack helper ──────────────────────────────────────────────────────────────
@@ -122,10 +133,18 @@ async function postSlackAlert(output, exitCode) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const { exitCode, output } = await runCheck();
+// Run social-share preview check first, then sitemap check.
+// Both are always run so all failures are visible in one pass.
+const { exitCode: shareExitCode, output: shareOutput } = await runCheck();
 
-if (exitCode !== 0) {
-  await postSlackAlert(output, exitCode);
+console.log("\n── Sitemap blog-post check ─────────────────────────────────────\n");
+const { exitCode: sitemapExitCode, output: sitemapOutput } = await runSitemapCheck();
+
+const combinedExitCode = shareExitCode !== 0 || sitemapExitCode !== 0 ? 1 : 0;
+const combinedOutput   = shareOutput + "\n" + sitemapOutput;
+
+if (combinedExitCode !== 0) {
+  await postSlackAlert(combinedOutput, combinedExitCode);
 }
 
-process.exit(exitCode);
+process.exit(combinedExitCode);
