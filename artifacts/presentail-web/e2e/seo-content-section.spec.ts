@@ -62,6 +62,11 @@
  *  43. Brand detail page (/brand/:slug) FR locale → FAQ count >= 3 guard (catches silently empty FR copy).
  *  44. FR category page (/fr-lb/beirut/category/cakes): click Tripoli cross-city link → URL is
  *      /fr-lb/tripoli/category/cakes with no duplicated locale/city segments.
+ *  45. Occasion page (/en-lb/beirut/occasion/birthday): auto-generated SEOContentSection
+ *      category chip href is root-relative (/category/hand-bouquets) — no locale/city prefix
+ *      prepended by Wouter.
+ *  46. Brand page (/en-lb/beirut/brand/:slug): auto-generated SEOContentSection occasion chip
+ *      href is root-relative (/occasion/birthday) — no locale/city prefix prepended by Wouter.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -2541,7 +2546,13 @@ test.describe("SEO content section — French occasion page (direct navigation)"
 //      click Tripoli cross-city link → URL must be /ar-lb/tripoli/category/cakes.
 //   C. EN occasion page (/en-lb/beirut/occasion/mothers-day):
 //      click Tripoli cross-city link → URL must be /en-lb/tripoli/occasion/mothers-day.
-//   D. Normal city-relative chip link (/occasion/birthday) in SEOContentSection:
+//   D. Normal city-relative chip link (/occasion/birthday) in SEOContentSection (category page):
+//      href attribute is the exact root-relative value — no locale/city prefix
+//      appended by Wouter.
+//   E. Normal city-relative chip link (/category/hand-bouquets) in SEOContentSection (occasion page):
+//      href attribute is the exact root-relative value — no locale/city prefix
+//      appended by Wouter.
+//   F. Normal city-relative chip link (/occasion/birthday) in SEOContentSection (brand page):
 //      href attribute is the exact root-relative value — no locale/city prefix
 //      appended by Wouter.
 // ---------------------------------------------------------------------------
@@ -2694,6 +2705,68 @@ test.describe("Cross-city SEO link navigation — no duplicated locale/city segm
     expect(chipHref).toBe("/occasion/birthday");
     // Wouter's base prepend would produce /en-lb/beirut/occasion/birthday
     // as the href attribute — assert that did NOT happen.
+    expect(chipHref).not.toContain("en-lb");
+    expect(chipHref).not.toContain("beirut");
+  });
+
+  // ---------------------------------------------------------------------------
+  // E. Occasion page — auto-generated category chips stay root-relative
+  // ---------------------------------------------------------------------------
+  test("SEOContentSection chip (occasion page): href attribute is root-relative with no locale prefix", async ({
+    page,
+  }) => {
+    // Birthday occasion page → SEOContentSection renders OCCASION_CATEGORY_CHIPS
+    // (e.g. /category/hand-bouquets). These must be raw root-relative hrefs, not
+    // locale-prefixed by Wouter's base-path rewrites.
+    await stubProducts(page, [STUB_PRODUCT]);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/occasion/birthday");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    // The hand-bouquets chip is in OCCASION_CATEGORY_CHIPS and is included in
+    // the stub catalog metadata — it must appear with a root-relative href.
+    const chip = section.locator('a[href="/category/hand-bouquets"]').first();
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+
+    const chipHref = await chip.getAttribute("href");
+    expect(chipHref).toBe("/category/hand-bouquets");
+    // A Wouter Link would produce /en-lb/beirut/category/hand-bouquets as the
+    // href attribute — assert that did NOT happen.
+    expect(chipHref).not.toContain("en-lb");
+    expect(chipHref).not.toContain("beirut");
+  });
+
+  // ---------------------------------------------------------------------------
+  // F. Brand page — auto-generated occasion chips stay root-relative
+  // ---------------------------------------------------------------------------
+  test("SEOContentSection chip (brand page): href attribute is root-relative with no locale prefix", async ({
+    page,
+  }) => {
+    // Brand detail page → SEOContentSection renders BRAND_OCCASION_CHIPS
+    // (e.g. /occasion/birthday). These must be raw root-relative hrefs, not
+    // locale-prefixed by Wouter's base-path rewrites.
+    await stubWooBrands(page);
+    await stubBrandProducts(page, [STUB_PRODUCT]);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto(`/en-lb/beirut/brand/${BRAND_SLUG}`);
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    // The birthday chip is in BRAND_OCCASION_CHIPS and in stub catalog metadata.
+    const chip = section.locator('a[href="/occasion/birthday"]').first();
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+
+    const chipHref = await chip.getAttribute("href");
+    expect(chipHref).toBe("/occasion/birthday");
+    // A Wouter Link would produce /en-lb/beirut/occasion/birthday as the href
+    // attribute — assert that did NOT happen.
     expect(chipHref).not.toContain("en-lb");
     expect(chipHref).not.toContain("beirut");
   });
