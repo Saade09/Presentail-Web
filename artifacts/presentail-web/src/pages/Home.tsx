@@ -199,16 +199,10 @@ export default function Home() {
           {cityOverride.intro}
         </p>
       )}
-      {/* Delivery-coverage paragraph: same CITY_SEO copy the server injects
-          into the initial HTML — rendered here too so it stays visible after
-          hydration (server/client content parity). */}
-      {cityOverride && cityCoverageText && (
-        <p className="px-4 md:px-0 pb-4 text-sm md:text-base text-muted-foreground max-w-3xl">
-          {cityCoverageText}
-        </p>
-      )}
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
-      <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
+      <div data-testid="hero-section">
+        <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
+      </div>
 
       {isCyprus ? (
         /* ── Cyprus: 4×4 grid of the first 16 products sorted by display price asc ── */
@@ -329,6 +323,19 @@ export default function Home() {
       </div>
     )}
 
+    {/* Delivery-coverage paragraph: same CITY_SEO copy the server injects
+        into the initial HTML — rendered here too so it stays visible after
+        hydration (server/client content parity). Placed below the product
+        grid so the hero and shopping content appear immediately above the fold. */}
+    {cityOverride && cityCoverageText && (
+      <p
+        data-testid="city-coverage-text"
+        className="container mx-auto px-4 pb-4 max-w-content text-sm md:text-base text-muted-foreground"
+      >
+        {cityCoverageText}
+      </p>
+    )}
+
     {/* "Why Presentail" points for overridden city landings — mirrors the
         server-injected list so the visible content survives hydration. */}
     {cityOverride?.whyPoints && cityOverride.whyPoints.length > 0 && (
@@ -342,15 +349,17 @@ export default function Home() {
       </section>
     )}
 
-    <SEOContentSection
-      pageType="homepage"
-      cityLabel={cityLabel}
-      lang={language}
-      countryCode={countryCode ?? ""}
-      suppressFaqJsonLd
-      overrides={cityOverride?.faqs ? { faqs: cityOverride.faqs } : undefined}
-      faqsAlwaysVisible={Boolean(cityOverride?.faqs)}
-    />
+    <div data-testid="seo-content-section-wrapper">
+      <SEOContentSection
+        pageType="homepage"
+        cityLabel={cityLabel}
+        lang={language}
+        countryCode={countryCode ?? ""}
+        suppressFaqJsonLd
+        overrides={cityOverride?.faqs ? { faqs: cityOverride.faqs } : undefined}
+        faqsAlwaysVisible={Boolean(cityOverride?.faqs)}
+      />
+    </div>
     </>
   );
 }

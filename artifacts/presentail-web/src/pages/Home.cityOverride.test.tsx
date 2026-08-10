@@ -7,7 +7,7 @@
 // disappears once JavaScript loads (anti-cloaking requirement).
 
 import { describe, it, expect, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
 import Home from "./Home";
 import { getCityHomeSeoOverride } from "@/lib/seo";
