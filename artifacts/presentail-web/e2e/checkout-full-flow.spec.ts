@@ -273,6 +273,276 @@ async function installStubs(page: Page): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// GA4 dataLayer helper
+// ---------------------------------------------------------------------------
+
+type DataLayerEntry = { name: string; params: Record<string, unknown> };
+
+/**
+ * Read gtag "event" entries from window.dataLayer.
+ * gtag() pushes `arguments` objects, so entries arrive as array-likes:
+ *   { 0: "event", 1: name, 2: params }
+ * Mirrors the same helper in campaign-ga4-funnel.spec.ts.
+ */
+async function readGtagEvents(page: Page): Promise<DataLayerEntry[]> {
+  return page.evaluate(() => {
+    const dl = (window as unknown as { dataLayer?: unknown[] }).dataLayer ?? [];
+    return dl
+      .map((entry) => {
+        const e = entry as Record<number, unknown>;
+        if (e && e[0] === "event") {
+          return {
+            name: String(e[1]),
+            params: (e[2] ?? {}) as Record<string, unknown>,
+          };
+        }
+        return null;
+      })
+      .filter((x): x is DataLayerEntry => x !== null);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Product stub — used by the add_to_cart GA4 test
+// ---------------------------------------------------------------------------
+
+const GA4_STUB_PRODUCT = {
+  id: "test-rose-bouquet",
+  name: "Rose Bouquet",
+  slug: "rose-bouquet",
+  priceValue: 65,
+  wcId: 0,
+  inStock: true,
+  image: { uri: "" },
+  category: "flowers",
+  categories: ["flowers"],
+  occasions: [],
+  brandNames: [],
+  description: "E2E stub product for GA4 add_to_cart regression test.",
+};
+
+/**
+ * Stub /api/woo/products so ProductDetail renders without a live backend.
+ * fetchProductsPricing() and fetchBestSellerIds() already degrade gracefully
+ * on network failures (return {} / empty Set), so only the product list needs
+ * an explicit stub.
+ */
+async function installProductPageStubs(page: Page): Promise<void> {
+  await page.route("**/api/woo/products**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, products: [GA4_STUB_PRODUCT] }),
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GA4 e-commerce events — dataLayer regression
+// ---------------------------------------------------------------------------
+
+/**
+ * Guard the three GA4 conversion mirrors so a checkout refactor can't silently
+ * drop them:
+ *
+ *   add_to_cart   — CartContext.addToCart() → fireGtagEvent("add_to_cart", …)
+ *   begin_checkout — Checkout useEffect → fireGtagEvent("begin_checkout", …)
+ *   purchase       — OrderConfirmed useEffect → fireGA4PurchaseEvent(…)
+ *
+ * The inline gtag shim in index.html (function gtag(){dataLayer.push(arguments)})
+ * makes these events land in window.dataLayer even without the real gtag.js CDN,
+ * so the assertions are fully deterministic in the headed/headless test runner.
+ */
+test.describe("GA4 e-commerce events — dataLayer regression", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(MOCK_STRIPE_SCRIPT);
+    // Seed delivery location; individual tests add the cart when they need it.
+    await page.addInitScript(
+      ({ location }) => {
+        window.localStorage.setItem(
+          "presentail_delivery_location_v1",
+          JSON.stringify(location),
+        );
+      },
+      { location: LOCATION },
+    );
+    await installStubs(page);
+  });
+
+  // ── add_to_cart ─────────────────────────────────────────────────────────────
+
+  test("add_to_cart fires into dataLayer when a product is added via the product page", async ({
+    page,
+  }) => {
+    // Stub the product list so ProductDetail renders without a live OS API key.
+    await installProductPageStubs(page);
+
+    // Product detail URL uses the /product/:slug route registered in App.tsx.
+    await page.goto("/en-lb/beirut/product/rose-bouquet");
+
+    const addBtn = page.getByTestId("button-add-to-cart");
+    await expect(addBtn).toBeVisible({ timeout: 15_000 });
+    await addBtn.click();
+
+    // CartContext.addToCart() calls fireGtagEvent synchronously; poll in case
+    // the dataLayer push arrives on a subsequent microtask.
+    await expect
+      .poll(async () => (await readGtagEvents(page)).map((e) => e.name), {
+        timeout: 10_000,
+      })
+      .toContain("add_to_cart");
+
+    const events = await readGtagEvents(page);
+    const atc = events.find((e) => e.name === "add_to_cart");
+    expect(typeof atc?.params?.currency, "add_to_cart must carry currency").toBe("string");
+    expect(Array.isArray(atc?.params?.items), "add_to_cart must carry items[]").toBe(true);
+    expect(
+      (atc?.params?.items as unknown[]).length,
+      "add_to_cart items must be non-empty",
+    ).toBeGreaterThan(0);
+  });
+
+  // ── begin_checkout ──────────────────────────────────────────────────────────
+
+  test("begin_checkout fires into dataLayer when the checkout page mounts", async ({
+    page,
+  }) => {
+    // A non-empty cart is required for the checkout to render step 1.
+    await page.addInitScript(
+      ({ cart }) => {
+        window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
+      },
+      { cart: [CART_ITEM] },
+    );
+
+    // ?guest=1 bypasses the login gate so begin_checkout fires on first mount.
+    await page.goto("/en-lb/beirut/checkout?guest=1");
+
+    // Wait for step-1 to be visible — confirms the login gate is bypassed and
+    // the checkout useEffect has had a chance to run.
+    await expect(page.getByTestId("input-recipient-first-name")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await expect
+      .poll(async () => (await readGtagEvents(page)).map((e) => e.name), {
+        timeout: 10_000,
+      })
+      .toContain("begin_checkout");
+
+    const events = await readGtagEvents(page);
+    const bc = events.find((e) => e.name === "begin_checkout");
+    expect(typeof bc?.params?.currency, "begin_checkout must carry currency").toBe("string");
+    expect(Array.isArray(bc?.params?.items), "begin_checkout must carry items[]").toBe(true);
+  });
+
+  // ── purchase (fire + sessionStorage dedupe) ─────────────────────────────────
+
+  test("purchase fires into dataLayer on order-confirmed and does not re-fire on reload", async ({
+    page,
+  }) => {
+    // Pre-seed the cart so Checkout.tsx has line items to stash in sessionStorage.
+    // OrderConfirmed reads that stash to populate value + currency in the event.
+    await page.addInitScript(
+      ({ cart }) => {
+        window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
+      },
+      { cart: [CART_ITEM] },
+    );
+
+    // Run the full checkout flow — Checkout.tsx writes the PENDING_ORDER_KEY
+    // sessionStorage stash just before navigating to order-confirmed.
+    await page.goto("/en-lb/beirut/checkout?guest=1");
+
+    const guestBtn = page.getByTestId("button-checkout-as-guest");
+    if (await guestBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await guestBtn.click();
+    }
+
+    const recipientFirstName = page.getByTestId("input-recipient-first-name");
+    await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId("check-no-address").click();
+    await recipientFirstName.fill("Ahmad");
+    await page.getByTestId("input-recipient-phone").fill(VALID_LB_PHONE);
+    await page.getByTestId("input-sender-first-name").fill("Test");
+    await page.getByTestId("input-sender-email").fill("guest@example.com");
+    await page.getByTestId("input-sender-phone").fill(VALID_LB_PHONE);
+
+    const continueBtn = page.getByTestId("button-continue-to-payment");
+    await expect(continueBtn).toBeEnabled({ timeout: 5_000 });
+    await continueBtn.click();
+
+    const cardOption = page.getByTestId("option-payment-card");
+    await expect(cardOption).toBeVisible({ timeout: 10_000 });
+    await cardOption.click();
+
+    await expect(
+      page.locator('[data-mock-stripe-field="cardNumber"]').or(
+        page.locator('iframe[title*="card number" i]'),
+      ),
+    ).toBeVisible({ timeout: 20_000 });
+
+    const submitBtn = page.getByTestId("button-submit-payment");
+    await expect(submitBtn).toBeEnabled({ timeout: 5_000 });
+    await submitBtn.click();
+
+    await page.waitForURL(/\/order-confirmed/, { timeout: 20_000 });
+    expect(page.url()).toContain("status=success");
+
+    // ── Assert purchase fires with required fields ───────────────────────────
+
+    await expect
+      .poll(async () => (await readGtagEvents(page)).map((e) => e.name), {
+        timeout: 10_000,
+      })
+      .toContain("purchase");
+
+    const events = await readGtagEvents(page);
+    const purchase = events.find((e) => e.name === "purchase");
+
+    expect(
+      typeof purchase?.params?.transaction_id,
+      "purchase must carry transaction_id",
+    ).toBe("string");
+    expect(
+      (purchase?.params?.transaction_id as string).length,
+      "purchase transaction_id must be non-empty",
+    ).toBeGreaterThan(0);
+    expect(
+      typeof purchase?.params?.value,
+      "purchase must carry numeric value",
+    ).toBe("number");
+    expect(
+      typeof purchase?.params?.currency,
+      "purchase must carry currency",
+    ).toBe("string");
+
+    // ── Dedupe guard: reload must NOT fire purchase again ───────────────────
+    // OrderConfirmed writes `presentail_ads_conversion_fired_<ref>` to
+    // sessionStorage immediately after firing.  On reload the component
+    // remounts and the useEffect finds the key → returns early without
+    // re-pushing to dataLayer.  sessionStorage survives same-origin reloads,
+    // so the guard is fully exercised here.
+
+    await page.reload();
+    await page.waitForURL(/\/order-confirmed/, { timeout: 10_000 });
+
+    // Allow effects to settle after the reload.
+    await page.waitForTimeout(2_000);
+
+    const eventsAfterReload = await readGtagEvents(page);
+    const purchasesAfterReload = eventsAfterReload.filter((e) => e.name === "purchase");
+
+    // dataLayer is blank after reload (new page context).  If the dedupe guard
+    // works, it stays blank — exactly 0 purchase events.
+    expect(
+      purchasesAfterReload.length,
+      "purchase must not fire again on reload — sessionStorage dedupe guard must prevent double-count",
+    ).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Test
 // ---------------------------------------------------------------------------
 
