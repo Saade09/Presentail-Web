@@ -201,6 +201,37 @@ const OCCASIONS = {
 // /fixtures/hero.png above.
 const SHARED_FAVORITES = [{ productSlug: "rose-bouquet", countryCode: "LB" }];
 
+// ---------------------------------------------------------------------------
+// City product listing fixture — answers /api/woo/products for SSR-enabled
+// city homes (Tripoli, Batroun). fetchCityProducts in seo-inject.mjs calls
+// this endpoint; without it the SSR product grid is empty and batroun-product-
+// links.spec.ts cannot extract any hrefs to follow.
+// ---------------------------------------------------------------------------
+
+const CITY_PRODUCTS = [
+  {
+    name: "Rose Bouquet",
+    id: "rose-bouquet",
+    price: "$89",
+    priceValue: 89,
+    image: { uri: HERO_IMAGE_URL },
+  },
+  {
+    name: "Velvet Rose Bouquet",
+    id: "velvet-rose-bouquet",
+    price: "$89.50",
+    priceValue: 89.5,
+    image: { uri: HERO_IMAGE_URL },
+  },
+  {
+    name: "Orchid Arrangement",
+    id: "orchid-arrangement",
+    price: "$65",
+    priceValue: 65,
+    image: { uri: HERO_IMAGE_URL },
+  },
+];
+
 function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -266,6 +297,12 @@ const server = http.createServer((req, res) => {
       return occasion
         ? sendJson(res, 200, { ok: true, occasion })
         : notFound(res);
+    }
+    case "/api/woo/products": {
+      // City product listing used by fetchCityProducts (SSR product grid).
+      // Returns the same small fixture catalogue regardless of query params so
+      // any city-keyed request (batroun, tripoli, …) gets a non-empty response.
+      return sendJson(res, 200, { ok: true, products: CITY_PRODUCTS });
     }
     case "/api/woo/category-products": {
       if (!CATEGORIES[slug]) return notFound(res);
