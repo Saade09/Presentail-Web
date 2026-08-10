@@ -280,6 +280,131 @@ export const CATEGORY_SEO_CONTENT = {
         ],
       },
     },
+    "ae/dubai": {
+      balloons: {
+        title: "Balloon Delivery in Dubai, UAE | Same-Day | Presentail",
+        metaDescription:
+          "Same-day balloon delivery in Dubai — helium, foil and mylar balloon bouquets for birthdays, graduations and celebrations. We also deliver across the UAE.",
+        h1: "Balloon Delivery in Dubai, UAE",
+        intro:
+          "Order same-day balloon delivery in Dubai — Downtown, Marina, Jumeirah, Business Bay and beyond — or send balloons anywhere else in the UAE, whether you're ordering from another emirate or from abroad.",
+        sections: [
+          {
+            heading: "Shop Balloons by Type",
+            body: "Presentail carries helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone occasions. Every type is available for same-day delivery across Dubai.",
+            links: [
+              { label: "Helium balloons", href: "/category/balloons" },
+              { label: "Foil & mylar balloons", href: "/category/balloons" },
+              { label: "Balloon bouquets", href: "/category/balloons" },
+              { label: "Number & letter balloons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Shop Balloons by Occasion",
+            body: "Balloons suit almost every celebration — from birthdays and anniversaries to a new baby's arrival or a graduation. Pair balloons with flowers, chocolates or a cake for a complete gift.",
+            links: [
+              { label: "Birthday balloons", href: "/occasion/birthday" },
+              { label: "Anniversary balloons", href: "/occasion/anniversary" },
+            ],
+          },
+          {
+            heading: "Delivering Balloons Across the UAE",
+            body: "Presentail delivers balloons to every emirate in the UAE. Order from Dubai for delivery in the city, or send balloons to friends and family anywhere else in the country.",
+            links: [
+              { label: "Balloon delivery in Abu Dhabi", href: "/en-ae/abu-dhabi/category/balloons", absolute: true },
+              { label: "Balloon delivery in Sharjah", href: "/en-ae/sharjah/category/balloons", absolute: true },
+              { label: "Balloon delivery in Ajman", href: "/en-ae/ajman/category/balloons", absolute: true },
+              { label: "Balloon delivery in Ras Al Khaimah", href: "/en-ae/ras-al-khaimah/category/balloons", absolute: true },
+              { label: "Balloon delivery in Fujairah", href: "/en-ae/fujairah/category/balloons", absolute: true },
+              { label: "Balloon delivery in Umm Al Quwain", href: "/en-ae/umm-al-quwain/category/balloons", absolute: true },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "Can I get same-day balloon delivery in Dubai?",
+            a: "Yes — order before 11 PM for same-day balloon delivery in Dubai. Orders placed after 11 PM are scheduled for the next available delivery window.",
+          },
+          {
+            q: "Do you deliver balloons to hotels in Dubai?",
+            a: "Yes — we deliver balloons to hotels, offices, homes and event venues anywhere in Dubai.",
+          },
+          {
+            q: "Do you deliver balloons outside Dubai, anywhere in the UAE?",
+            a: "Yes — we deliver balloons everywhere in the UAE, including Abu Dhabi, Sharjah, Ajman, Ras Al Khaimah and beyond.",
+          },
+          {
+            q: "Can I order balloons from abroad for delivery in Dubai?",
+            a: "Yes — you can order from anywhere in the world and we'll deliver to the recipient in Dubai. Presentail accepts international credit and debit cards at checkout.",
+          },
+          {
+            q: "What types of balloons do you offer?",
+            a: "Presentail offers helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone celebrations. Browse this page for the current range.",
+          },
+        ],
+      },
+    },
+    "cy/nicosia": {
+      balloons: {
+        title: "Balloon Delivery in Nicosia, Cyprus | Same-Day | Presentail",
+        metaDescription:
+          "Same-day balloon delivery in Nicosia — helium, foil and mylar balloon bouquets for birthdays, graduations and celebrations. We also deliver across Cyprus.",
+        h1: "Balloon Delivery in Nicosia, Cyprus",
+        intro:
+          "Order same-day balloon delivery in Nicosia or send balloons anywhere else in Cyprus, whether you're ordering from another city or from abroad.",
+        sections: [
+          {
+            heading: "Shop Balloons by Type",
+            body: "Presentail carries helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone occasions. Every type is available for same-day delivery across Nicosia.",
+            links: [
+              { label: "Helium balloons", href: "/category/balloons" },
+              { label: "Foil & mylar balloons", href: "/category/balloons" },
+              { label: "Balloon bouquets", href: "/category/balloons" },
+              { label: "Number & letter balloons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Shop Balloons by Occasion",
+            body: "Balloons suit almost every celebration — from birthdays and anniversaries to a new baby's arrival or a graduation. Pair balloons with flowers, chocolates or a cake for a complete gift.",
+            links: [
+              { label: "Birthday balloons", href: "/occasion/birthday" },
+              { label: "Anniversary balloons", href: "/occasion/anniversary" },
+            ],
+          },
+          {
+            heading: "Delivering Balloons Across Cyprus",
+            body: "Presentail delivers balloons to every city in Cyprus. Order from Nicosia for delivery in the capital, or send balloons to friends and family anywhere else on the island.",
+            links: [
+              { label: "Balloon delivery in Limassol", href: "/en-cy/limassol/category/balloons", absolute: true },
+              { label: "Balloon delivery in Larnaca", href: "/en-cy/larnaca/category/balloons", absolute: true },
+              { label: "Balloon delivery in Paphos", href: "/en-cy/paphos/category/balloons", absolute: true },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "Can I get same-day balloon delivery in Nicosia?",
+            a: "Yes — order before midday for same-day balloon delivery in Nicosia. Orders placed after midday are scheduled for the next available delivery window.",
+          },
+          {
+            q: "Do you deliver balloons to hotels and offices in Nicosia?",
+            a: "Yes — we deliver balloons to hotels, offices, homes and event venues anywhere in Nicosia.",
+          },
+          {
+            q: "Do you deliver balloons outside Nicosia, anywhere in Cyprus?",
+            a: "Yes — we deliver balloons everywhere in Cyprus, including Limassol, Larnaca and Paphos.",
+          },
+          {
+            q: "Can I order balloons from abroad for delivery in Cyprus?",
+            a: "Yes — you can order from anywhere in the world and we'll deliver to the recipient in Cyprus. Presentail accepts international credit and debit cards at checkout.",
+          },
+          {
+            q: "What types of balloons do you offer?",
+            a: "Presentail offers helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone celebrations. Browse this page for the current range.",
+          },
+        ],
+      },
+    },
   },
 
   ar: {

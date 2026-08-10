@@ -826,6 +826,106 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
       expect(faq.mainEntity[i].acceptedAnswer?.text).toBe(a);
     }
   });
+
+  it("renders the visible curated body + matching FAQPage JSON-LD for /en-ae/dubai/category/balloons (anti-cloaking parity)", async () => {
+    const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+    const { getCategorySeoContent } = await import("../../src/data/categorySeoContent.mjs");
+    const curated = getCategorySeoContent({ country: "ae", city: "dubai", slug: "balloons", lang: "en" });
+    expect(curated).toBeTruthy();
+    if (!curated) throw new Error('Missing curated balloons entry in CATEGORY_SEO_CONTENT["ae/dubai"]');
+    expect(curated.faqs.length).toBeGreaterThanOrEqual(1);
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, count: 12, products: [{ name: "Sample Balloon", id: "sample-balloon" }] }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, category: { name: "Balloons", description: "", image: null } }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(ROOT_HTML, "/en-ae/dubai/category/balloons", CLEAN_PATH_OPTS);
+
+    // Head: curated title must be present.
+    expect(out).toContain("<title>Balloon Delivery in Dubai, UAE | Same-Day | Presentail</title>");
+
+    // Visible body: each curated FAQ question as <h3> and answer as visible text.
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    for (const { q, a } of curated.faqs) {
+      expect(out).toContain(`<h3>${esc(q)}</h3>`);
+      expect(out).toContain(esc(a));
+    }
+
+    // FAQPage JSON-LD must match the curated faqs 1:1 (anti-cloaking parity).
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(curated.faqs.length);
+    for (let i = 0; i < curated.faqs.length; i++) {
+      const { q, a } = curated.faqs[i] as { q: string; a: string };
+      expect(faq.mainEntity[i].name).toBe(q);
+      expect(faq.mainEntity[i].acceptedAnswer?.text).toBe(a);
+    }
+  });
+
+  it("renders the visible curated body + matching FAQPage JSON-LD for /en-cy/nicosia/category/balloons (anti-cloaking parity)", async () => {
+    const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+    const { getCategorySeoContent } = await import("../../src/data/categorySeoContent.mjs");
+    const curated = getCategorySeoContent({ country: "cy", city: "nicosia", slug: "balloons", lang: "en" });
+    expect(curated).toBeTruthy();
+    if (!curated) throw new Error('Missing curated balloons entry in CATEGORY_SEO_CONTENT["cy/nicosia"]');
+    expect(curated.faqs.length).toBeGreaterThanOrEqual(1);
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, count: 10, products: [{ name: "Sample Balloon", id: "sample-balloon" }] }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, category: { name: "Balloons", description: "", image: null } }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(ROOT_HTML, "/en-cy/nicosia/category/balloons", CLEAN_PATH_OPTS);
+
+    // Head: curated title must be present.
+    expect(out).toContain("<title>Balloon Delivery in Nicosia, Cyprus | Same-Day | Presentail</title>");
+
+    // Visible body: each curated FAQ question as <h3> and answer as visible text.
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    for (const { q, a } of curated.faqs) {
+      expect(out).toContain(`<h3>${esc(q)}</h3>`);
+      expect(out).toContain(esc(a));
+    }
+
+    // FAQPage JSON-LD must match the curated faqs 1:1 (anti-cloaking parity).
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(curated.faqs.length);
+    for (let i = 0; i < curated.faqs.length; i++) {
+      const { q, a } = curated.faqs[i] as { q: string; a: string };
+      expect(faq.mainEntity[i].name).toBe(q);
+      expect(faq.mainEntity[i].acceptedAnswer?.text).toBe(a);
+    }
+  });
 });
 
 describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
