@@ -1283,14 +1283,22 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   if (routeKey === "home" && cityLabel && localeBase) {
     const safeCityLabel = escapeHtml(cityLabel);
     const safeCountryLabel = escapeHtml(countryLabel || cityLabel);
+    // Batroun occasion pages are all noindexed (Batroun has too few products to
+    // pass the isPageEligible threshold: ≥4 products, ≥15% unique vs parent).
+    // Omit the generic "Shop by Occasion" occasion list for lb-batroun so the
+    // landing page does not link to noindexed child pages. Re-enable once
+    // Batroun inventory grows enough for those pages to become indexable.
+    const emitOccasionList = cityKey !== "lb-batroun";
     homeExtras =
       `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>` + // i18n-ignore — static EN-only crawlers-only copy
-      `<h2>Shop by Occasion in ${safeCityLabel}</h2>` + // i18n-ignore
-      `<ul>` +
-      FEATURED_HOME_OCCASIONS.map(({ slug, name }) =>
-        `<li><a href="${localeBase}/occasion/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
-      ).join("") +
-      `</ul>`;
+      (emitOccasionList
+        ? `<h2>Shop by Occasion in ${safeCityLabel}</h2>` + // i18n-ignore
+          `<ul>` +
+          FEATURED_HOME_OCCASIONS.map(({ slug, name }) =>
+            `<li><a href="${localeBase}/occasion/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
+          ).join("") +
+          `</ul>`
+        : "");
     // Tripoli landing page: visible "Popular flower types" section with
     // crawlable links to real, indexable category/occasion URLs — strengthens
     // the internal link graph between the landing page and its child pages.
@@ -1314,29 +1322,14 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
         ).join("") +
         `</ul>`;
     }
-    // Batroun landing page: visible "Popular flower types" section with
-    // crawlable links to real, indexable category/occasion URLs.
-    // Every href below is a canonical, sitemapped URL (spot-checked to 200).
-    if (cityKey === "lb-batroun" && lang === "en") {
-      // i18n-ignore-block — crawler-facing EN copy for the Batroun landing page
-      const batrounFlowerTypes = [
-        { href: "/category/hand-bouquets", name: "Roses & Mixed Bouquets" },
-        { href: "/occasion/birthday", name: "Birthday Flowers" },
-        { href: "/occasion/anniversary", name: "Anniversary Flowers" },
-        { href: "/occasion/wedding", name: "Wedding Flowers" },
-        { href: "/occasion/funeral", name: "Sympathy Flowers" },
-        { href: "/occasion/new-born", name: "New Baby Gifts" },
-        { href: "/occasion/congratulations", name: "Congratulations Flowers" },
-        { href: "/occasion/valentines-day", name: "Valentine's Day Flowers" },
-      ];
-      homeExtras +=
-        `<h2>Popular Flower Types in Batroun</h2>` + // i18n-ignore — crawler-facing EN copy
-        `<ul>` +
-        batrounFlowerTypes.map(({ href, name }) =>
-          `<li><a href="${localeBase}${escapeAttr(href)}">${escapeHtml(name)}</a></li>`,
-        ).join("") +
-        `</ul>`;
-    }
+    // Batroun landing page: the "Popular flower types" block was removed after
+    // an end-to-end check confirmed that all candidate category/occasion URLs
+    // (/en-lb/batroun/category/*, /en-lb/batroun/occasion/*) return
+    // noindex, follow — Batroun has too few products to pass the isPageEligible
+    // threshold (≥4 products, ≥15% unique vs parent city). Linking to noindexed
+    // pages from the landing page wastes crawl budget and PageRank, so the
+    // block was not added. Re-enable once Batroun inventory grows enough for
+    // those pages to become indexable.
   }
 
   // Shop route: add a featured category list so AI crawlers can follow

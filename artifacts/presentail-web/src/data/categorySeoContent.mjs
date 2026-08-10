@@ -75,7 +75,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "Chocolate delivery in Saida", href: "/en-lb/saida/category/chocolate", absolute: true },
               { label: "Chocolate delivery in Zahle", href: "/en-lb/zahle/category/chocolate", absolute: true },
               { label: "Chocolate delivery in Jbeil", href: "/en-lb/jbeil/category/chocolate", absolute: true },
-              { label: "Chocolate delivery in Batroun", href: "/en-lb/batroun/category/chocolate", absolute: true },
+              // Batroun omitted — /en-lb/batroun/category/chocolate is noindex (too few products)
               { label: "Chocolate delivery in Tyre", href: "/en-lb/tyre/category/chocolate", absolute: true },
               { label: "Chocolate delivery in Metn", href: "/en-lb/metn/category/chocolate", absolute: true },
               { label: "Chocolate delivery in Kesserwan", href: "/en-lb/kesserwan/category/chocolate", absolute: true },
@@ -151,7 +151,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "Cake delivery in Saida", href: "/en-lb/saida/category/cakes", absolute: true },
               { label: "Cake delivery in Zahle", href: "/en-lb/zahle/category/cakes", absolute: true },
               { label: "Cake delivery in Jbeil", href: "/en-lb/jbeil/category/cakes", absolute: true },
-              { label: "Cake delivery in Batroun", href: "/en-lb/batroun/category/cakes", absolute: true },
+              // Batroun omitted — /en-lb/batroun/category/cakes is noindex (too few products)
               { label: "Cake delivery in Tyre", href: "/en-lb/tyre/category/cakes", absolute: true },
               { label: "Cake delivery in Metn", href: "/en-lb/metn/category/cakes", absolute: true },
               { label: "Cake delivery in Kesserwan", href: "/en-lb/kesserwan/category/cakes", absolute: true },
@@ -232,7 +232,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "Balloon delivery in Saida", href: "/en-lb/saida/category/balloons", absolute: true },
               { label: "Balloon delivery in Zahle", href: "/en-lb/zahle/category/balloons", absolute: true },
               { label: "Balloon delivery in Jbeil", href: "/en-lb/jbeil/category/balloons", absolute: true },
-              { label: "Balloon delivery in Batroun", href: "/en-lb/batroun/category/balloons", absolute: true },
+              // Batroun omitted — /en-lb/batroun/category/balloons is noindex (too few products)
               { label: "Balloon delivery in Tyre", href: "/en-lb/tyre/category/balloons", absolute: true },
               { label: "Balloon delivery in Metn", href: "/en-lb/metn/category/balloons", absolute: true },
               { label: "Balloon delivery in Kesserwan", href: "/en-lb/kesserwan/category/balloons", absolute: true },
@@ -435,7 +435,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "توصيل الشوكولاتة في صيدا", href: "/ar-lb/saida/category/chocolate", absolute: true },
               { label: "توصيل الشوكولاتة في زحلة", href: "/ar-lb/zahle/category/chocolate", absolute: true },
               { label: "توصيل الشوكولاتة في جبيل", href: "/ar-lb/jbeil/category/chocolate", absolute: true },
-              { label: "توصيل الشوكولاتة في البترون", href: "/ar-lb/batroun/category/chocolate", absolute: true },
+              // Batroun omitted — /ar-lb/batroun/category/chocolate is noindex (too few products)
               { label: "توصيل الشوكولاتة في صور", href: "/ar-lb/tyre/category/chocolate", absolute: true },
               { label: "توصيل الشوكولاتة في المتن", href: "/ar-lb/metn/category/chocolate", absolute: true },
               { label: "توصيل الشوكولاتة في كسروان", href: "/ar-lb/kesserwan/category/chocolate", absolute: true },
@@ -511,7 +511,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "توصيل الكيك في صيدا", href: "/ar-lb/saida/category/cakes", absolute: true },
               { label: "توصيل الكيك في زحلة", href: "/ar-lb/zahle/category/cakes", absolute: true },
               { label: "توصيل الكيك في جبيل", href: "/ar-lb/jbeil/category/cakes", absolute: true },
-              { label: "توصيل الكيك في البترون", href: "/ar-lb/batroun/category/cakes", absolute: true },
+              // Batroun omitted — /ar-lb/batroun/category/cakes is noindex (too few products)
               { label: "توصيل الكيك في صور", href: "/ar-lb/tyre/category/cakes", absolute: true },
               { label: "توصيل الكيك في المتن", href: "/ar-lb/metn/category/cakes", absolute: true },
               { label: "توصيل الكيك في كسروان", href: "/ar-lb/kesserwan/category/cakes", absolute: true },
@@ -589,7 +589,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "Livraison de chocolat à Saida", href: "/fr-lb/saida/category/chocolate", absolute: true },
               { label: "Livraison de chocolat à Zahle", href: "/fr-lb/zahle/category/chocolate", absolute: true },
               { label: "Livraison de chocolat à Jbeil", href: "/fr-lb/jbeil/category/chocolate", absolute: true },
-              { label: "Livraison de chocolat à Batroun", href: "/fr-lb/batroun/category/chocolate", absolute: true },
+              // Batroun omitted — /fr-lb/batroun/category/chocolate is noindex (too few products)
               { label: "Livraison de chocolat à Tyr", href: "/fr-lb/tyre/category/chocolate", absolute: true },
               { label: "Livraison de chocolat au Metn", href: "/fr-lb/metn/category/chocolate", absolute: true },
               { label: "Livraison de chocolat à Kesserwan", href: "/fr-lb/kesserwan/category/chocolate", absolute: true },
@@ -665,7 +665,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "Livraison de gâteaux à Saida", href: "/fr-lb/saida/category/cakes", absolute: true },
               { label: "Livraison de gâteaux à Zahle", href: "/fr-lb/zahle/category/cakes", absolute: true },
               { label: "Livraison de gâteaux à Jbeil", href: "/fr-lb/jbeil/category/cakes", absolute: true },
-              { label: "Livraison de gâteaux à Batroun", href: "/fr-lb/batroun/category/cakes", absolute: true },
+              // Batroun omitted — /fr-lb/batroun/category/cakes is noindex (too few products)
               { label: "Livraison de gâteaux à Tyr", href: "/fr-lb/tyre/category/cakes", absolute: true },
               { label: "Livraison de gâteaux au Metn", href: "/fr-lb/metn/category/cakes", absolute: true },
               { label: "Livraison de gâteaux à Kesserwan", href: "/fr-lb/kesserwan/category/cakes", absolute: true },

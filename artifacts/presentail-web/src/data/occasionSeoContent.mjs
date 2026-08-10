@@ -72,7 +72,7 @@ export const OCCASION_SEO_CONTENT = {
             { label: "Mother's Day gifts in Saida", href: "/en-lb/saida/occasion/mothers-day", absolute: true },
             { label: "Mother's Day gifts in Zahle", href: "/en-lb/zahle/occasion/mothers-day", absolute: true },
             { label: "Mother's Day gifts in Jbeil", href: "/en-lb/jbeil/occasion/mothers-day", absolute: true },
-            { label: "Mother's Day gifts in Batroun", href: "/en-lb/batroun/occasion/mothers-day", absolute: true },
+            // Batroun omitted — /en-lb/batroun/occasion/mothers-day is noindex (too few products)
             { label: "Mother's Day gifts in Tyre", href: "/en-lb/tyre/occasion/mothers-day", absolute: true },
             { label: "Mother's Day gifts in Metn", href: "/en-lb/metn/occasion/mothers-day", absolute: true },
             { label: "Mother's Day gifts in Kesserwan", href: "/en-lb/kesserwan/occasion/mothers-day", absolute: true },

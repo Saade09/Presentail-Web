@@ -8880,10 +8880,17 @@ describe("Batroun internal links & /shop canonicalization", () => {
     expect(bodyHtml).toContain("flower delivery in Batroun");
   });
 
-  it("/en-lb/batroun home body contains the Popular Flower Types section with crawlable links", () => {
+  it("/en-lb/batroun home body does NOT contain occasion or category links (all Batroun child pages are noindexed)", () => {
+    // All /en-lb/batroun/occasion/* and /en-lb/batroun/category/* URLs return
+    // noindex, follow in production — Batroun lacks the product inventory to
+    // pass isPageEligible (≥4 products, ≥15% unique vs parent city). Both the
+    // city-specific "Popular Flower Types" block and the generic "Shop by
+    // Occasion" list are suppressed for lb-batroun to avoid linking the landing
+    // page to noindexed child pages.
     const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);
-    expect(bodyHtml).toContain("<h2>Popular Flower Types in Batroun</h2>");
-    for (const href of [
+    expect(bodyHtml).not.toContain("<h2>Popular Flower Types in Batroun</h2>");
+    expect(bodyHtml).not.toContain("<h2>Shop by Occasion in Batroun</h2>");
+    for (const path of [
       "/en-lb/batroun/category/hand-bouquets",
       "/en-lb/batroun/occasion/birthday",
       "/en-lb/batroun/occasion/anniversary",
@@ -8893,7 +8900,7 @@ describe("Batroun internal links & /shop canonicalization", () => {
       "/en-lb/batroun/occasion/congratulations",
       "/en-lb/batroun/occasion/valentines-day",
     ]) {
-      expect(bodyHtml).toContain(`href="${ORIGIN}${href}"`);
+      expect(bodyHtml).not.toContain(`href="${ORIGIN}${path}"`);
     }
   });
 
@@ -8957,5 +8964,34 @@ describe("Batroun internal links & /shop canonicalization", () => {
     );
     expect(out).toContain(`href="${OPTS.origin}/en-lb/batroun/"`);
     expect(out).toContain("Batroun flowers and gifts");
+  });
+
+  it("curated SEO content files contain no Batroun category or occasion hrefs (all are noindexed)", async () => {
+    // Regression guard: all /[locale]-lb/batroun/category/* and
+    // /[locale]-lb/batroun/occasion/* URLs return noindex, follow on production
+    // because Batroun lacks enough inventory to pass isPageEligible. Any href
+    // containing "/batroun/" in these files links an indexed page to a noindexed
+    // one — wastes crawl budget and PageRank. Re-enable once Batroun inventory
+    // grows enough for those pages to become indexable.
+    const [{ OCCASION_SEO_CONTENT }, { CATEGORY_SEO_CONTENT }] = await Promise.all([
+      import("../data/occasionSeoContent.mjs") as Promise<{ OCCASION_SEO_CONTENT: unknown }>,
+      import("../data/categorySeoContent.mjs") as Promise<{ CATEGORY_SEO_CONTENT: unknown }>,
+    ]);
+
+    // Stringify both objects and scan for any href containing "/batroun/".
+    // This catches all locales and all nesting levels in one pass.
+    const batrounHrefPattern = /"href"\s*:\s*"[^"]*\/batroun\//g;
+
+    const occasionMatches = JSON.stringify(OCCASION_SEO_CONTENT).match(batrounHrefPattern) ?? [];
+    const categoryMatches = JSON.stringify(CATEGORY_SEO_CONTENT).match(batrounHrefPattern) ?? [];
+
+    expect(
+      occasionMatches,
+      `occasionSeoContent.mjs still contains Batroun hrefs: ${occasionMatches.join(", ")}`,
+    ).toHaveLength(0);
+    expect(
+      categoryMatches,
+      `categorySeoContent.mjs still contains Batroun hrefs: ${categoryMatches.join(", ")}`,
+    ).toHaveLength(0);
   });
 });
