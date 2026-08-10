@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { JSDOM } from "jsdom";
+import { BLOG_POSTS } from "@workspace/blog-content";
 
 import {
   buildSitemapXml,
@@ -978,6 +979,121 @@ describe("buildSitemapXml — product availability lifecycle filtering", () => {
     expect(xml).toContain("/product/active-one");
     expect(xml).not.toContain("/product/disc-one");
     expect(xml).toContain("/product/sold-out-one");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Blog posts: Achrafieh and Roses — language coverage confirmation
+//
+// Both "flower-shop-in-achrafieh" and "send-roses-to-lebanon" have full
+// en/ar/fr translations in BLOG_POSTS. This suite confirms they appear in
+// each locale sitemap with the correct /{lang}/blog/:slug canonical URL and
+// reciprocal hreflang alternates covering all three languages + x-default.
+//
+// This is a regression guard: if either post loses its ar/fr content or the
+// sitemap generator starts filtering by translation completeness, these tests
+// fail immediately instead of silently dropping the pages from the sitemap.
+// ---------------------------------------------------------------------------
+describe("buildSitemapXml — Achrafieh and Roses blog posts in all locale sitemaps", () => {
+  const CHECKED_SLUGS = ["flower-shop-in-achrafieh", "send-roses-to-lebanon"] as const;
+
+  it("both posts exist in BLOG_POSTS with en, ar, and fr translations", () => {
+    for (const slug of CHECKED_SLUGS) {
+      const entry = (BLOG_POSTS as Record<string, Record<string, unknown>>)[slug];
+      expect(entry, `BLOG_POSTS["${slug}"] is missing`).toBeDefined();
+      for (const lang of ["en", "ar", "fr"]) {
+        const variant = entry?.[lang] as Record<string, unknown> | undefined;
+        expect(variant, `BLOG_POSTS["${slug}"]["${lang}"] is missing`).toBeDefined();
+        // Must have real content — at minimum a non-empty title and description.
+        expect(
+          typeof variant?.title === "string" && variant.title.length > 0,
+          `BLOG_POSTS["${slug}"]["${lang}"].title is empty or missing`,
+        ).toBe(true);
+        expect(
+          typeof variant?.description === "string" && variant.description.length > 0,
+          `BLOG_POSTS["${slug}"]["${lang}"].description is empty or missing`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  /**
+   * Find the <url> node whose <loc> exactly matches `loc`, or return null.
+   * Used to scope hreflang assertions to the article's own sitemap entry rather
+   * than searching the whole XML string (which could match sibling entries or
+   * the blog-index block and give a false-positive).
+   */
+  function findUrlNodeByLoc(doc: Document, loc: string): Element | null {
+    const urlNodes = Array.from(doc.getElementsByTagName("url"));
+    return (
+      urlNodes.find((u) => u.getElementsByTagName("loc")[0]?.textContent === loc) ?? null
+    );
+  }
+
+  for (const locale of ["en", "ar", "fr"] as const) {
+    it(`"${locale}" sitemap includes both posts as /${locale}/blog/<slug> canonical URLs`, () => {
+      const xml = buildSitemapXml({
+        origin: ORIGIN,
+        basePath: "/",
+        locale,
+        // Use the real BLOG_POSTS so this test reflects the live content file.
+      });
+      for (const slug of CHECKED_SLUGS) {
+        expect(xml, `/${locale}/blog/${slug} must appear in the ${locale} sitemap`).toContain(
+          `<loc>${ORIGIN}/${locale}/blog/${slug}</loc>`,
+        );
+      }
+    });
+
+    it(`"${locale}" sitemap blog entries for both posts carry en/ar/fr hreflang alternates on the article's own <url> node`, () => {
+      const xml = buildSitemapXml({
+        origin: ORIGIN,
+        basePath: "/",
+        locale,
+      });
+      const doc = parse(xml);
+      for (const slug of CHECKED_SLUGS) {
+        const canonicalLoc = `${ORIGIN}/${locale}/blog/${slug}`;
+        const urlNode = findUrlNodeByLoc(doc, canonicalLoc);
+        expect(urlNode, `<url> node for <loc>${canonicalLoc}</loc> not found in ${locale} sitemap`).not.toBeNull();
+
+        const links = Array.from(urlNode!.getElementsByTagName("xhtml:link"));
+        const hreflangMap = Object.fromEntries(
+          links
+            .map((l) => [l.getAttribute("hreflang"), l.getAttribute("href")])
+            .filter(([hl]) => hl !== null),
+        );
+
+        // Each article's own <url> must have reciprocal alternates for all three languages.
+        for (const altLang of ["en", "ar", "fr"]) {
+          expect(
+            hreflangMap[altLang],
+            `hreflang="${altLang}" missing from the <url> node for ${slug} in ${locale} sitemap`,
+          ).toBe(`${ORIGIN}/${altLang}/blog/${slug}`);
+        }
+
+        // x-default must be present on this node and point at the English variant.
+        expect(
+          hreflangMap["x-default"],
+          `hreflang="x-default" missing from the <url> node for ${slug} in ${locale} sitemap`,
+        ).toBe(`${ORIGIN}/en/blog/${slug}`);
+      }
+    });
+  }
+
+  it("blog entries for both posts do NOT use the old city-prefixed URL format", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      locale: "en",
+    });
+    for (const slug of CHECKED_SLUGS) {
+      // City-prefixed blog URLs 301-redirect to the canonical /{lang}/blog/:slug
+      // form; they must never appear in the sitemap.
+      expect(xml, `city-prefixed blog URL for ${slug} must not appear in sitemap`).not.toContain(
+        `/beirut/blog/${slug}`,
+      );
+    }
   });
 });
 
