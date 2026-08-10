@@ -25,6 +25,27 @@ GA4 session attribution (linking these events to the ad click) is done by
 GA4 itself from the `gclid`/UTM params on the landing-page URL — nothing else
 needs to be passed on the individual events.
 
+## Pre-flight: confirm Google Ads auto-tagging is enabled
+
+> ⚠️ **Do this before any ad spend.** Auto-tagging is the mechanism that
+> appends `gclid=` to every click URL. Without it, no gclid reaches the
+> landing page and Google Ads has nothing to attribute conversions to —
+> the campaign will spend budget with zero measurable ROI.
+
+1. Sign in to [Google Ads](https://ads.google.com) with the account that
+   owns the flower-delivery campaign.
+2. Go to **Settings → Account settings → Auto-tagging**.
+3. Confirm the **"Tag the URL that people click through from my ad"**
+   checkbox is **checked** (enabled). Enable it and save if it is not.
+4. Sanity-check: on a **fresh browser profile** (no ad blocker, no cached
+   gclid), click the served flower-delivery ad from a Google search result.
+   The landing URL must contain a real `gclid=<value>` query parameter — if
+   it is absent, auto-tagging is still off or cached; recheck the setting
+   and wait a few minutes for it to propagate.
+
+✅ Only proceed to the steps below once a real `gclid=` is visible in the
+landing URL.
+
 ## Manual steps (deployed environment)
 
 1. **Open a test visit with debug mode.** On a device with the
