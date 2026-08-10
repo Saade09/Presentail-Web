@@ -1,0 +1,446 @@
+You are working on Presentail’s production ecommerce codebase.
+
+Your objective is to make this page the strongest possible result for high-intent flower-delivery searches in Tripoli, Lebanon:
+
+https://presentail.com/en-lb/tripoli
+
+Primary target queries:
+
+1. flower delivery lebanon tripoli
+2. flower delivery tripoli lebanon
+
+Secondary natural-language variants:
+
+* flower delivery Tripoli
+* flower delivery in Tripoli Lebanon
+* same-day flower delivery Tripoli
+* send flowers to Tripoli Lebanon
+* online florist Tripoli
+* order flowers online Tripoli
+* roses and bouquets delivery Tripoli
+
+The goal is to compete for position #1, but do not claim or guarantee a ranking. Rankings depend on Google, competitors, authority, links, engagement, and other factors outside this codebase.
+
+Do not stop after writing an audit or recommendations. Inspect the repository, implement the changes, test them, and provide a concise completion report with modified files and verification evidence.
+
+## Current problems found in production
+
+Before editing, independently confirm each finding against the codebase and production response:
+
+* The current title is “Flower & Gift Delivery in Tripoli | Presentail.”
+* The current H1 is “Fresh Flowers & Gifts, Delivered in Tripoli.”
+* In the initial HTML response, the H1 uses `sr-only`.
+* Most indexable landing-page copy is inside a `<div style="display:none">`.
+* The initial HTML does not contain the actual visible product catalogue, product names, prices, images, or crawlable product links.
+* Google therefore has to render JavaScript to understand the commercial page.
+* The Markdown endpoint `/en-lb/tripoli.md` is publicly indexable and has appeared separately in search results.
+* The `/en-lb/tripoli/shop` route has overlapping flower-shopping intent and could compete with the landing page.
+* The present content spends space on Tripoli history but offers comparatively little concrete purchasing and delivery information.
+
+Do not create bot-only content, cloaking, hidden keyword blocks, or doorway-page content.
+
+## Preserve what is already correct
+
+Do not regress these existing features:
+
+* `https://presentail.com/en-lb/tripoli` returns HTTP 200.
+* `/en-lb/tripoli/` redirects permanently to the non-trailing-slash URL.
+* `www` redirects to the canonical host.
+* The page has a self-referencing canonical.
+* English, Arabic, French, and `x-default` hreflang annotations exist.
+* Reciprocal hreflang URLs must remain correct.
+* The canonical URL is in the English XML sitemap.
+* The page already has Organization, WebSite, BreadcrumbList, and FAQ-related JSON-LD.
+* Existing checkout, cart, locale, currency, analytics, product, and delivery behavior must continue working.
+
+Scope route-specific content to Tripoli. Do not accidentally add Tripoli copy to every city page.
+
+## 1. Fix rendering and visible content
+
+The most important change is to make the real landing-page content available in the initial HTML and visible to customers.
+
+Implement SSR, SSG, or hydration-compatible prerendering for this route using the project’s existing architecture. Do not use user-agent detection or serve a special version to crawlers.
+
+Requirements:
+
+* The initial HTML must contain the same meaningful content customers see after JavaScript loads.
+* Remove the `display:none` SEO content block.
+* Make the primary H1 visibly rendered in the page design.
+* Use exactly one H1.
+* Do not use `sr-only`, zero opacity, off-screen positioning, collapsed accordions, or other hiding techniques for the primary keyword content.
+* The content must not disappear or duplicate after hydration.
+* The initial HTML must include a useful selection of real Tripoli-eligible products.
+* Include at least 8 real product cards when inventory is available.
+* Each server-rendered product card must include:
+
+  * Crawlable `<a href>` to the canonical product URL
+  * Product name
+  * Current price and currency
+  * Product image
+  * Accurate descriptive alt text
+  * Availability or delivery indication only when supported by live data
+* Never render stale prices or products unavailable for Tripoli.
+* Do not require scrolling, clicking, or filter interaction before Google can discover the initial products.
+* Additional products may load client-side after the initial indexable selection.
+
+## 2. Replace the SEO metadata
+
+Use:
+
+Title:
+
+Flower Delivery in Tripoli, Lebanon | Presentail
+
+Meta description:
+
+Order fresh flowers online for delivery in Tripoli, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.
+
+H1:
+
+Flower Delivery in Tripoli, Lebanon
+
+Suggested hero supporting text:
+
+Send fresh flowers, bouquets and thoughtful gifts across Tripoli. Choose your delivery date, add a personalised card message and order securely online, with same-day delivery available on eligible orders.
+
+Primary CTA:
+
+Shop Flowers in Tripoli
+
+Ensure:
+
+* Title, H1, OG title, Twitter title, description, canonical, and visible content agree on the page’s purpose.
+* The title and description are generated in the server response, not added only after JavaScript executes.
+* The keyword is used naturally, without repetition or awkward word order.
+* Open Graph metadata continues using the existing valid Tripoli image.
+* The page remains `index, follow`.
+* JavaScript never replaces the canonical with another URL.
+
+## 3. Build a useful transactional page
+
+Use the following page order:
+
+1. Breadcrumbs
+2. Visible hero with H1, supporting text, delivery reassurance, and CTA
+3. Real flower-product selection
+4. Popular flower types or collections
+5. Why order from Presentail
+6. Tripoli delivery coverage and cutoff information
+7. Popular occasions
+8. Simple ordering process
+9. FAQs
+10. Contextual links to relevant Tripoli pages
+
+Keep the product selection near the top. Do not place a long SEO essay before the products.
+
+### Suggested visible copy
+
+Use this as a starting point, adapting it to the existing brand voice. Verify every operational statement against the repository or business configuration before publishing.
+
+Intro:
+
+Looking for reliable flower delivery in Tripoli, Lebanon? Presentail makes it easy to send fresh bouquets and thoughtful gifts for birthdays, anniversaries, congratulations, sympathy, weddings and everyday surprises. Select an arrangement, choose the recipient’s delivery details and include a personalised card message at checkout.
+
+Same-day section:
+
+Same-day flower delivery in Tripoli is available on eligible arrangements ordered before the applicable daily cutoff. Show the real cutoff from the delivery configuration rather than hard-coding an unverified time. Customers should see final availability and delivery options before payment.
+
+Coverage section:
+
+Presentail delivers across Tripoli and surrounding service areas, including El Mina, Bab El Tabbaneh, Qobbeh, Beddawi and Zahrieh where available. Confirm this list using operational delivery data. Do not list any area that is not genuinely served.
+
+If availability varies by address, say so clearly and ask customers to confirm their address at checkout.
+
+Why Presentail section:
+
+Create concise cards based only on verified features, such as:
+
+* Fresh flower arrangements
+* Same-day options on eligible orders
+* Scheduled delivery dates
+* Personalised card messages
+* Secure online payment
+* Credit card, Apple Pay, Google Pay, or cash on delivery
+
+Only display payment and service claims currently supported in Lebanon.
+
+Ordering process:
+
+1. Choose flowers or a gift.
+2. Enter the Tripoli delivery address and preferred date.
+3. Add a card message and complete secure checkout.
+
+Do not claim live tracking, guarantees, temperature-controlled transport, locally grown flowers, or a physical Tripoli florist unless the business genuinely offers and can substantiate those things.
+
+## 4. Strengthen internal linking without cannibalisation
+
+Make `/en-lb/tripoli` the primary generic flower-delivery landing page.
+
+Add natural, crawlable links to it from:
+
+* Relevant Lebanon navigation or location pages
+* Tripoli child-page breadcrumbs
+* Tripoli occasions
+* Tripoli brands
+* Tripoli FAQs
+* Relevant Tripoli journal articles
+* Nearby-city or delivery-area modules where contextually appropriate
+
+Use anchors such as:
+
+* Flower delivery in Tripoli
+* Tripoli flower delivery
+* Flowers and gifts in Tripoli
+
+Do not use the same exact-match anchor everywhere.
+
+Review `/en-lb/tripoli/shop`:
+
+* Keep it only if it provides a genuinely distinct full-catalogue experience.
+* Its title/H1 should focus on “Shop All Flowers & Gifts in Tripoli,” not compete for the generic delivery query.
+* Link from `/shop` back to the landing page using a descriptive contextual link.
+* Keep a self-canonical only if `/shop` is meaningfully distinct.
+* If `/shop` duplicates the landing page, choose one indexable canonical destination and consolidate carefully. Do not make this decision without comparing content and functionality.
+
+Child occasion, FAQ, wedding, corporate, brand, and article pages should target their specific intent rather than repeating the landing page’s primary title and H1.
+
+## 5. Improve sections and crawlable links
+
+Add visible links for useful, existing collections such as:
+
+* Roses
+* Mixed bouquets
+* Birthday flowers
+* Anniversary flowers
+* Sympathy flowers
+* Wedding flowers
+* New baby gifts
+* Valentine’s Day flowers
+
+Only link to real, indexable URLs that return 200 and have appropriate canonicals.
+
+Do not create thin tag pages merely to increase URL count. Filters, sorting parameters, and internal-search results should not become indexable landing pages.
+
+## 6. Add customer-focused FAQs
+
+Show the questions and answers visibly on the page. Answers must come from real business rules.
+
+Recommended questions:
+
+* Does Presentail offer same-day flower delivery in Tripoli?
+* What areas of Tripoli do you deliver to?
+* What is the cutoff for same-day delivery?
+* Can I schedule flowers for a future date?
+* Can I include a personalised card message?
+* Which payment methods are accepted in Lebanon?
+* Can I send flowers to Tripoli from outside Lebanon?
+* What happens if the recipient is unavailable?
+
+Do not create repetitive keyword-heavy answers.
+
+Google generally limits FAQ rich results to authoritative government and health sites, so do not describe FAQ schema as a likely ranking or rich-result win. If FAQPage JSON-LD is retained, it must exactly match visible content.
+
+## 7. Structured data
+
+Preserve the valid sitewide Organization and WebSite entities.
+
+For the Tripoli page:
+
+* Add a server-rendered `CollectionPage` or `WebPage` entity with:
+
+  * `@id`
+  * canonical `url`
+  * `name`
+  * `description`
+  * `inLanguage: en-LB`
+  * `isPartOf` referencing the WebSite
+  * `breadcrumb` referencing BreadcrumbList
+  * `publisher` referencing Presentail
+* Keep BreadcrumbList valid.
+* The final breadcrumb may omit `item`, but all preceding breadcrumb items must use real canonical URLs.
+* A `Service` entity for flower delivery may be added only if its provider and service area are accurate.
+* Do not add LocalBusiness schema unless Presentail has a genuine staffed and publicly represented Tripoli business location.
+* Do not invent ratings, reviews, review counts, prices, addresses, opening hours, phone numbers, or geographic coordinates.
+* Do not add aggregate ratings unless they are based on real reviews shown to customers.
+* Product and Offer data must match the visible product pages and live catalogue.
+* Product rich-result markup should remain primarily on canonical product-detail pages.
+* An `ItemList` may describe the visible product selection, but every listed URL must be crawlable, canonical, and visible on the page.
+* Ensure all JSON-LD parses successfully and contains no duplicate conflicting entities.
+
+## 8. Stop the Markdown version competing in search
+
+The HTML page must remain the only indexable version of this content.
+
+For:
+
+`https://presentail.com/en-lb/tripoli.md`
+
+return this HTTP header:
+
+`X-Robots-Tag: noindex, follow`
+
+Also preserve an HTTP canonical link pointing to:
+
+`https://presentail.com/en-lb/tripoli`
+
+Apply the same rule consistently to other machine-readable `.md` alternatives if they are duplicates of canonical HTML pages.
+
+Important:
+
+* Do not block these `.md` URLs in robots.txt, because crawlers need to fetch them to see `noindex`.
+* Do not add `.md` URLs to XML sitemaps.
+* This must not remove or noindex the canonical HTML page.
+* Preserve the Markdown endpoint for legitimate AI/agent access if that is part of the platform design.
+
+## 9. Performance and image SEO
+
+Protect conversion rate and Core Web Vitals:
+
+* LCP target: 2.5 seconds or less at the 75th percentile
+* INP target: 200 milliseconds or less
+* CLS target: 0.1 or less
+* Set image width and height or aspect ratio to avoid layout shifts.
+* Use responsive `srcset` and `sizes`.
+* Use WebP or AVIF where supported.
+* Do not lazy-load the hero/LCP image.
+* Lazy-load below-the-fold product images.
+* Preload only truly critical assets.
+* Avoid fetching the same product data twice during hydration.
+* Keep analytics non-blocking.
+* Do not add a heavy SEO library when the existing server/template layer can emit the tags.
+
+Use descriptive product-image alt text. Do not stuff “flower delivery Tripoli Lebanon” into every alt attribute.
+
+## 10. Content-quality rules
+
+* Write for customers, not keyword density.
+* Do not repeat either target query unnaturally.
+* Do not copy competitors.
+* Remove or shorten generic Tripoli-history material unless it helps delivery decisions.
+* Prioritise assortment, delivery coverage, cutoffs, payment, occasions, freshness, and ordering instructions.
+* Do not generate near-identical city pages with only the city name replaced.
+* Do not invent local facts or service claims.
+* Avoid filler written merely to reach a word count.
+* Do not publish AI-generated customer testimonials, fake reviews, or fake local florist profiles.
+
+## 11. Technical acceptance tests
+
+After implementation, verify all of the following:
+
+### HTTP and canonicalisation
+
+* Canonical page returns 200.
+* Trailing-slash version returns a single permanent redirect to the canonical URL.
+* `www` redirects to the canonical host.
+* HTTP redirects to HTTPS.
+* Canonical tag is exactly `https://presentail.com/en-lb/tripoli`.
+* No query-string or locale logic overwrites the canonical incorrectly.
+* The HTML page is indexable.
+* The Markdown response has `X-Robots-Tag: noindex, follow`.
+
+### Initial HTML
+
+Run:
+
+`curl -sS https://presentail.com/en-lb/tripoli`
+
+Confirm the response contains:
+
+* Final title
+* Final meta description
+* Self-canonical
+* Reciprocal hreflang tags
+* One visible H1
+* Hero copy
+* Real product names and product links
+* Product prices generated from live data
+* Visible delivery and FAQ content
+* Valid JSON-LD
+
+Confirm it does not contain:
+
+* A broad SEO block using `display:none`
+* A hidden primary H1
+* Duplicate H1 elements
+* Bot-specific content
+* Stale products or prices
+
+### Browser tests
+
+Test desktop and mobile widths:
+
+* No hydration warnings
+* No console errors
+* Products are clickable
+* Locale switching still works
+* Currency and pricing still work
+* Cart additions still work
+* Checkout routing still works
+* Delivery-date selection still works
+* No duplicated text after hydration
+* No layout overflow
+* Keyboard navigation and focus states work
+* Images have useful alt text
+* Heading hierarchy is logical
+
+### SEO validation
+
+* Validate structured data with Schema.org Validator.
+* Test supported entities with Google Rich Results Test.
+* Crawl all new internal links and confirm they return 200 or an intentional redirect.
+* Ensure the Tripoli URL remains in `sitemap-en.xml`.
+* Confirm the English, Arabic, French, and x-default annotations are reciprocal.
+* Confirm `/en-lb/tripoli.md` is not in any XML sitemap.
+* Confirm no accidental `noindex` reaches the HTML page.
+
+Run the project’s complete build, lint, type-check, and automated test suite. Add focused tests for route metadata, server-rendered content, `.md` headers, canonicalization, and hreflang behavior.
+
+## 12. Post-deployment deliverables
+
+When finished, report:
+
+1. Root cause of each issue.
+2. Files changed.
+3. SEO and rendering changes implemented.
+4. Final title, description, H1, canonical, and schema types.
+5. Proof that products and content appear in the initial HTML.
+6. Test and build results.
+7. Before-and-after mobile and desktop screenshots.
+8. Any claims or delivery details that still require business confirmation.
+9. Any work that cannot be completed in code.
+
+Create a short `SEO_POST_DEPLOY_CHECKLIST.md` containing these manual actions:
+
+* Inspect the canonical URL in Google Search Console.
+* Request recrawling/indexing after deployment.
+* Resubmit or confirm the English sitemap.
+* Inspect the rendered HTML Google sees.
+* Monitor the exact two target queries and broader variants.
+* Track impressions, clicks, CTR, average position, product clicks, add-to-cart rate, and orders.
+* Record baselines before deployment.
+* Review after approximately 14, 28, 56, and 90 days.
+* Confirm the `.md` URL moves out of search results.
+* Build legitimate links and mentions from Lebanese directories, Tripoli-area partners, media coverage, event partners, and brands already sold by Presentail.
+* Do not buy links, automate spam links, or create fake local listings.
+
+Use these official references during implementation:
+
+* Google title guidance: https://developers.google.com/search/docs/appearance/title-link
+* JavaScript SEO: https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics
+* Server/static rendering guidance: https://developers.google.com/search/docs/crawling-indexing/javascript/dynamic-rendering
+* Crawlable links: https://developers.google.com/search/docs/crawling-indexing/links-crawlable
+* Canonical guidance: https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls
+* Robots and X-Robots-Tag: https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag
+* Hreflang: https://developers.google.com/search/docs/specialty/international/localized-versions
+* Structured-data policies: https://developers.google.com/search/docs/appearance/structured-data/sd-policies
+* Product structured data: https://developers.google.com/search/docs/appearance/structured-data/product
+* Google spam policies: https://developers.google.com/search/docs/essentials/spam-policies
+
+Prioritise, in order:
+
+1. Visible server-rendered content and products
+2. Search intent, metadata, and page copy
+3. Internal-link authority and cannibalisation
+4. Duplicate `.md` indexing
+5. Structured data
+6. Performance and final QA
