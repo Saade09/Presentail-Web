@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -15,10 +15,73 @@ import { ProductCard } from "@/components/ProductCard";
 import { Link } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SEOContentSection } from "@/components/SEOContentSection";
-import { useGetHomepageBestSellers } from "@workspace/api-client-react";
+import {
+  useGetHomepageBestSellers,
+  getGetHomepageBestSellersQueryKey,
+} from "@workspace/api-client-react";
 import { useProducts, type Product } from "@/lib/queries";
 
 const LABEL_FLOWER_COLLECTION = "Flower Collection"; // i18n-ignore
+
+/**
+ * Read the server-rendered product block (SSR-enabled city homes, e.g.
+ * /en-lb/tripoli) from the initial document. seo-inject.mjs embeds the
+ * product data as an inert JSON script inside the section flagged with
+ * data-ssr-products="true".
+ *
+ * Must be called during the FIRST render (e.g. a useState initializer):
+ * React's createRoot().render() replaces all children of #root on commit,
+ * so the server-rendered markup is only readable before that point.
+ * Returns null when no SSR block is present (every other city / SPA nav).
+ */
+function readSsrProducts(): Product[] | null {
+  if (typeof document === "undefined") return null;
+  const script = document.querySelector(
+    '[data-ssr-products="true"] script[data-ssr-products-data]',
+  );
+  const raw = script?.textContent;
+  if (!raw) return null;
+  try {
+    const items = JSON.parse(raw) as Array<{
+      name?: string;
+      price?: string;
+      priceValue?: number;
+      discountPriceValue?: number | null;
+      discountPriceAed?: number | null;
+      slug?: string;
+      imageUrl?: string;
+    }>;
+    if (!Array.isArray(items) || items.length === 0) return null;
+    const products: Product[] = [];
+    for (const it of items) {
+      if (!it || !it.slug || !it.name || !it.price) continue;
+      products.push({
+        id: it.slug,
+        name: it.name,
+        price: it.price,
+        priceValue: typeof it.priceValue === "number" ? it.priceValue : 0,
+        // Preserve sale pricing so ProductCard/SalePrice keeps showing the
+        // discounted price and sale badge after SSR adoption.
+        discountPriceValue:
+          typeof it.discountPriceValue === "number" ? it.discountPriceValue : null,
+        discountPriceAed:
+          typeof it.discountPriceAed === "number" ? it.discountPriceAed : null,
+        image: it.imageUrl ? { uri: it.imageUrl } : null,
+        images: it.imageUrl ? [{ uri: it.imageUrl }] : [],
+        inStock: true,
+        popularity: 0,
+        isBestSeller: true,
+        wcId: 0,
+        category: "",
+        categories: [],
+        occasions: [],
+      });
+    }
+    return products.length > 0 ? products : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
@@ -36,15 +99,32 @@ export default function Home() {
   });
   const ipCountry = geoData?.countryCode ?? null;
 
-  const { data: bestSellersData, isLoading: isBestSellersLoading } = useGetHomepageBestSellers({
+  // Server-rendered products (SSR-enabled city homes, e.g. Tripoli): adopted
+  // from the initial document on first mount so we skip the redundant
+  // best-sellers fetch on hydration. Lazy useState initializer — runs during
+  // the first render, before React replaces the server-rendered #root children.
+  const [ssrProducts] = useState<Product[] | null>(readSsrProducts);
+
+  const bestSellersParams = {
     ...(countryCode ? { countryCode } : {}),
     ...(cityId ? { cityId } : {}),
-  });
+  };
+  const { data: bestSellersData, isLoading: isBestSellersLoading } = useGetHomepageBestSellers(
+    bestSellersParams,
+    // Skip the network round-trip when the server already embedded products.
+    {
+      query: {
+        queryKey: getGetHomepageBestSellersQueryKey(bestSellersParams),
+        enabled: !ssrProducts,
+      },
+    },
+  );
   // Only pass products when the API has resolved with real data.
   // When undefined (loading, error, or empty cache), BestSellersPreview falls
   // back to its default seeded-shuffle hand-bouquets path so the rail is never blank.
-  const bestSellerProducts: Product[] | undefined =
-    bestSellersData !== undefined && bestSellersData.products.length > 0
+  const bestSellerProducts: Product[] | undefined = ssrProducts
+    ? ssrProducts
+    : bestSellersData !== undefined && bestSellersData.products.length > 0
       ? bestSellersData.products.map((p) => ({
           id: p.id,
           name: p.name,

@@ -1300,6 +1300,12 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     `<div>` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
+    // Insertion slot for the server-rendered product grid (see
+    // buildProductGridHtml / injectSeoTagsAsync). Kept as an HTML comment so
+    // the sync/cached body builder stays product-free; the async injector
+    // replaces it for SSR-product-enabled city homes and it is invisible
+    // (a comment node) everywhere else.
+    SSR_PRODUCTS_SLOT +
     (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
     whyHtml +
     homeExtras +
@@ -2228,6 +2234,194 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Server-rendered product cards for selected city home pages
+// ---------------------------------------------------------------------------
+
+// City homes whose initial HTML embeds a server-rendered product grid.
+// Keyed by "{country}-{city}". Deliberately scoped (Tripoli-only for now) —
+// each addition puts a live product-API fetch on that city's HTML hot path,
+// so cities are enabled one at a time after verifying response-time impact.
+export const SSR_PRODUCT_CITY_KEYS = new Set(["lb-tripoli"]);
+
+// Marker comment emitted by buildGenericBodyHtml where the product grid is
+// spliced in (after the hero/intro copy, before delivery-coverage copy,
+// city history, "Why Presentail" and FAQ blocks).
+export const SSR_PRODUCTS_SLOT = "<!--ssr-products-slot-->";
+
+// Localised heading for the server-rendered product grid.
+const SSR_PRODUCTS_HEADING = { // i18n-ignore — locale-keyed heading map for the crawler-visible product grid
+  en: "Shop Flowers & Gifts in {city}",
+  ar: "تسوّق الأزهار والهدايا في {city}",
+  fr: "Fleurs et cadeaux à {city}",
+};
+
+// In-process TTL cache for city product lists so high-traffic city homes
+// don't hit the product API on every request. 5-minute TTL matches the
+// API server's own listing cache windows.
+const CITY_PRODUCTS_CACHE_TTL_MS = 5 * 60 * 1000;
+const cityProductsCache = new Map();
+
+/**
+ * Fetch Tripoli-style city-eligible products from the live products API and
+ * normalise them for server-side card rendering.
+ *
+ * Resolves to an empty array on ANY failure (timeout, network error, non-OK
+ * response, malformed body) so the page never hangs or breaks — the city home
+ * simply renders without the product block, exactly as before this feature.
+ *
+ * @returns {Promise<Array<{name:string, price:string, priceValue:number, slug:string, imageUrl:string, altText:string, canonicalPath:string}>>}
+ */
+export async function fetchCityProducts(
+  apiBaseUrl,
+  countryCode,
+  cityId,
+  lang,
+  { limit = 12, timeoutMs = 2500 } = {},
+) {
+  if (!apiBaseUrl || !countryCode || !cityId) return [];
+  const params = new URLSearchParams({
+    countryCode,
+    cityId,
+    sort: "best_sellers",
+  });
+  if (lang) params.set("lang", lang);
+  const url = `${apiBaseUrl.replace(/\/$/, "")}/api/woo/products?${params.toString()}`;
+  const cacheKey = `${url}\u0000${limit}`;
+  const cached = cityProductsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    if (!res.ok) return [];
+    const body = await res.json();
+    if (!body || body.ok !== true || !Array.isArray(body.products)) return [];
+    const items = [];
+    for (const p of body.products) {
+      const name = p && typeof p.name === "string" ? p.name.trim() : "";
+      const slug = p && typeof p.id === "string" ? p.id.trim() : "";
+      const price = p && typeof p.price === "string" ? p.price.trim() : "";
+      const priceValue =
+        p && typeof p.priceValue === "number" && isFinite(p.priceValue)
+          ? p.priceValue
+          : 0;
+      const imageUrl =
+        (p && p.image && typeof p.image.uri === "string" && p.image.uri) || "";
+      // Sale pricing fields must ride along so the hydrated React cards keep
+      // showing the discounted price / sale badge after adoption (ProductCard
+      // reads discountPriceValue / discountPriceAed via SalePrice).
+      const discountPriceValue =
+        p && typeof p.discountPriceValue === "number" && isFinite(p.discountPriceValue)
+          ? p.discountPriceValue
+          : null;
+      const discountPriceAed =
+        p && typeof p.discountPriceAed === "number" && isFinite(p.discountPriceAed)
+          ? p.discountPriceAed
+          : null;
+      // Only fully renderable, crawlable products make the grid: a card
+      // without a name, slug, visible price, or image would be thin markup
+      // and its ItemList entry would point at a non-canonical URL.
+      if (!name || !slug || !price || priceValue <= 0 || !imageUrl) continue;
+      items.push({
+        name,
+        price,
+        priceValue,
+        discountPriceValue,
+        discountPriceAed,
+        slug,
+        imageUrl,
+        // i18n-ignore — crawler-facing EN alt text for the server-rendered grid
+        altText: `${name} — flower & gift delivery`,
+        canonicalPath: `/product/${encodeURIComponent(slug)}`,
+      });
+      if (items.length >= limit) break;
+    }
+    cityProductsCache.set(cacheKey, {
+      value: items,
+      expiresAt: Date.now() + CITY_PRODUCTS_CACHE_TTL_MS,
+    });
+    return items;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Render the server-side product grid: a semantic <section> (flagged with
+ * data-ssr-products="true" so React can detect it on hydration and skip its
+ * redundant first fetch) containing an <h2> heading and a <ul> of product
+ * cards. Each card is a crawlable <a href> wrapping an <img> (explicit
+ * width/height + aspect-ratio to prevent CLS; first image eager for LCP,
+ * the rest lazy), the product name, and the formatted price with currency.
+ *
+ * A JSON payload of the same products is embedded so the client can adopt
+ * the data without re-fetching (script[type=application/json] is inert).
+ *
+ * `localeBase` is the locale+city URL prefix (e.g. "/en-lb/tripoli").
+ */
+export function buildProductGridHtml(products, localeBase, { cityLabel = "", lang = "en" } = {}) {
+  if (!Array.isArray(products) || products.length === 0) return "";
+  const headingTemplate =
+    SSR_PRODUCTS_HEADING[lang] ?? SSR_PRODUCTS_HEADING.en;
+  const heading = format(headingTemplate, { city: cityLabel });
+  const cards = products
+    .map((p, i) => {
+      const href = `${localeBase}${p.canonicalPath}`;
+      const loading = i === 0 ? "eager" : "lazy";
+      const priority = i === 0 ? ` fetchpriority="high"` : "";
+      return (
+        `<li>` +
+        `<a href="${escapeAttr(href)}">` +
+        `<img src="${escapeAttr(p.imageUrl)}" alt="${escapeAttr(p.altText)}" width="400" height="400" style="aspect-ratio:1/1;object-fit:cover" loading="${loading}"${priority} />` +
+        `<span>${escapeHtml(p.name)}</span>` +
+        `<span>${escapeHtml(p.price)}</span>` +
+        `</a>` +
+        `</li>`
+      );
+    })
+    .join("");
+  const jsonPayload = JSON.stringify(
+    products.map(({ name, price, priceValue, discountPriceValue, discountPriceAed, slug, imageUrl }) => ({
+      name,
+      price,
+      priceValue,
+      discountPriceValue: discountPriceValue ?? null,
+      discountPriceAed: discountPriceAed ?? null,
+      slug,
+      imageUrl,
+    })),
+  ).replace(/<\/script>/gi, "<\\/script>");
+  return (
+    `<section data-ssr-products="true">` +
+    `<h2>${escapeHtml(heading)}</h2>` +
+    `<ul>${cards}</ul>` +
+    `<script type="application/json" data-ssr-products-data>${jsonPayload}</script>` +
+    `</section>`
+  );
+}
+
+/**
+ * Build an ItemList JSON-LD node for the server-rendered product grid. Each
+ * ListItem's url is the absolute canonical product URL — the same URLs the
+ * visible cards link to (anti-cloaking parity).
+ */
+export function buildCityProductsItemListSchema(products, absoluteLocaleBase) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: p.name,
+      url: `${absoluteLocaleBase}${p.canonicalPath}`,
+    })),
+  };
 }
 
 // Strip basic HTML tags and collapse whitespace. WooCommerce category and
@@ -4422,6 +4616,50 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     !occasionSlug &&
     !brandsFilter
   ) {
+    // Server-rendered product grid for SSR-enabled city home pages
+    // (currently Tripoli only — see SSR_PRODUCT_CITY_KEYS). Fetch live
+    // Tripoli-eligible products, splice a crawlable card grid into the body
+    // (replacing the SSR_PRODUCTS_SLOT marker emitted by buildGenericBodyHtml
+    // just after the hero copy, before coverage copy / city history / FAQ),
+    // and add an ItemList JSON-LD plus an LCP preload for the first image.
+    // Every failure path degrades to the plain city home — never blocks.
+    const isCityHomeRest = parsed.rest === "" || parsed.rest === "/";
+    const ssrCityKey =
+      parsed.hasLocalePrefix && parsed.country && parsed.city && isCityHomeRest
+        ? `${parsed.country}-${parsed.city}`
+        : null;
+    if (ssrCityKey && SSR_PRODUCT_CITY_KEYS.has(ssrCityKey)) {
+      const ssrProducts = await fetchCityProducts(
+        apiBaseUrl,
+        parsed.country.toUpperCase(),
+        ssrCityKey,
+        generic.lang,
+      );
+      if (ssrProducts.length > 0) {
+        const cleanBase = (rest.basePath ?? "").replace(/\/$/, "");
+        const siteOrigin = (rest.origin ?? "").replace(/\/$/, "");
+        const relLocaleBase = `${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`;
+        const gridHtml = buildProductGridHtml(ssrProducts, relLocaleBase, {
+          cityLabel: generic.cityLabel,
+          lang: generic.lang,
+        });
+        const bodyHtml = (generic.bodyHtml ?? "").includes(SSR_PRODUCTS_SLOT)
+          ? generic.bodyHtml.replace(SSR_PRODUCTS_SLOT, gridHtml)
+          : (generic.bodyHtml ?? "") + gridHtml;
+        let headSnippet =
+          generic.headSnippet +
+          `\n    ${jsonLdTag(
+            buildCityProductsItemListSchema(
+              ssrProducts,
+              `${siteOrigin}${relLocaleBase}`,
+            ),
+          )}`;
+        // Preload the first (eager / LCP-candidate) product image so the
+        // browser preload scanner fetches it before the JS bundle executes.
+        headSnippet += `\n    <link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(ssrProducts[0].imageUrl)}">`;
+        return assembleHtml(html, { ...generic, headSnippet, bodyHtml });
+      }
+    }
     return assembleHtml(html, generic);
   }
 

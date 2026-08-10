@@ -40,6 +40,7 @@ vi.mock("@/lib/banners", () => ({ useHomepageBanners: vi.fn(() => ({ data: undef
 vi.mock("@/lib/api", () => ({ apiFetch: vi.fn(async () => ({ countryCode: null })) }));
 vi.mock("@workspace/api-client-react", () => ({
   useGetHomepageBestSellers: vi.fn(() => ({ data: undefined, isLoading: false })),
+  getGetHomepageBestSellersQueryKey: vi.fn(() => ["homepage-best-sellers"]),
 }));
 vi.mock("@/lib/queries", () => ({
   useProducts: vi.fn(() => ({ data: undefined, isLoading: false })),

@@ -8347,3 +8347,159 @@ describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
     expect(beirutTitle).not.toBe(BATROUN_TITLE);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Server-rendered product grid — Tripoli city home (SSR products)
+// ---------------------------------------------------------------------------
+
+describe("injectSeoTagsAsync — Tripoli city home server-rendered products", () => {
+  const SSR_ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+
+  const FIXTURE_PRODUCTS = Array.from({ length: 10 }, (_, i) => ({
+    id: i === 0 ? "roses-bouquet" : `tripoli-product-${i}`,
+    name: i === 0 ? "Roses Bouquet" : `Tripoli Product ${i}`,
+    price: `$${45 + i}`,
+    priceValue: 45 + i,
+    image: { uri: `https://cdn.test/tripoli-${i}.jpg` },
+  }));
+
+  function mockProductsFetch(apiHost: string, products: unknown[] | null) {
+    const fn = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/products")) {
+        if (products === null) throw new Error("ETIMEDOUT");
+        return { ok: true, json: async () => ({ ok: true, products, count: (products as unknown[]).length }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fn);
+    return fn;
+  }
+
+  it("embeds ≥8 crawlable product cards, names, prices, images, and ItemList JSON-LD", async () => {
+    const fetchMock = mockProductsFetch("ssr-a", FIXTURE_PRODUCTS);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/tripoli", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-a.test",
+    });
+    // Products fetch is scoped to LB / lb-tripoli.
+    const productCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/woo/products"),
+    );
+    expect(productCalls).toHaveLength(1);
+    expect(String(productCalls[0][0])).toContain("countryCode=LB");
+    expect(String(productCalls[0][0])).toContain("cityId=lb-tripoli");
+
+    // Semantic section with heading + data attribute for React adoption.
+    expect(out).toContain('<section data-ssr-products="true">');
+    expect(out).toContain("<h2>Shop Flowers &amp; Gifts in Tripoli</h2>");
+
+    // Crawlable canonical product link, visible name and price.
+    expect(out).toContain('<a href="/en-lb/tripoli/product/roses-bouquet">');
+    expect(out).toContain("<span>Roses Bouquet</span>");
+    expect(out).toContain("<span>$45</span>");
+
+    // At least 8 cards.
+    const cardLinks = [...out.matchAll(/<a href="\/en-lb\/tripoli\/product\/[^"]+">/g)];
+    expect(cardLinks.length).toBeGreaterThanOrEqual(8);
+
+    // Images: real src, alt text, width/height + aspect-ratio; first eager, rest lazy.
+    const imgs = [...out.matchAll(/<img src="https:\/\/cdn\.test\/tripoli-[^"]+"[^>]*>/g)].map((m) => m[0]);
+    expect(imgs.length).toBeGreaterThanOrEqual(8);
+    expect(imgs[0]).toContain('loading="eager"');
+    expect(imgs[0]).toContain('alt="Roses Bouquet');
+    for (const img of imgs.slice(1)) expect(img).toContain('loading="lazy"');
+    for (const img of imgs) {
+      expect(img).toContain('width="400"');
+      expect(img).toContain('height="400"');
+      expect(img).toContain("aspect-ratio:1/1");
+    }
+
+    // LCP preload for the first product image in <head>.
+    expect(out).toContain(
+      '<link rel="preload" as="image" fetchpriority="high" href="https://cdn.test/tripoli-0.jpg">',
+    );
+
+    // Product block appears before the FAQ section and before city-history copy.
+    const gridIdx = out.indexOf('data-ssr-products="true"');
+    const faqIdx = out.indexOf("Frequently Asked Questions");
+    expect(gridIdx).toBeGreaterThan(-1);
+    expect(faqIdx).toBeGreaterThan(gridIdx);
+
+    // ItemList JSON-LD with absolute canonical product URLs.
+    const itemList = byType(extractJsonLd(out), "ItemList");
+    expect(itemList).toBeTruthy();
+    expect(itemList.itemListElement.length).toBeGreaterThanOrEqual(8);
+    expect(itemList.itemListElement[0].url).toBe(
+      "https://presentail.test/en-lb/tripoli/product/roses-bouquet",
+    );
+    expect(itemList.itemListElement[0].name).toBe("Roses Bouquet");
+
+    // Embedded JSON payload for React adoption (no double fetch).
+    expect(out).toContain('<script type="application/json" data-ssr-products-data>');
+  });
+
+  it("carries sale pricing fields through the embedded JSON payload", async () => {
+    mockProductsFetch("ssr-sale", [
+      { id: "sale-tulips", name: "Sale Tulips", price: "$60", priceValue: 60, discountPriceValue: 39, discountPriceAed: 143, image: { uri: "https://cdn.test/tulips.jpg" } },
+      { id: "full-price", name: "Full Price", price: "$45", priceValue: 45, image: { uri: "https://cdn.test/full.jpg" } },
+    ]);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/tripoli", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-sale.test",
+    });
+    const m = out.match(/<script type="application\/json" data-ssr-products-data>([\s\S]*?)<\/script>/);
+    expect(m).toBeTruthy();
+    const payload = JSON.parse(m![1]);
+    const sale = payload.find((p: { slug: string }) => p.slug === "sale-tulips");
+    expect(sale.discountPriceValue).toBe(39);
+    expect(sale.discountPriceAed).toBe(143);
+    const full = payload.find((p: { slug: string }) => p.slug === "full-price");
+    expect(full.discountPriceValue).toBeNull();
+    expect(full.discountPriceAed).toBeNull();
+  });
+
+  it("degrades gracefully when the products API times out (page renders, no product block)", async () => {
+    mockProductsFetch("ssr-b", null);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/tripoli", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-b.test",
+    });
+    expect(out).toContain("<title>");
+    expect(out).not.toContain('data-ssr-products="true"');
+    expect(out).not.toContain('"@type":"ItemList"');
+    // The slot marker stays as an inert comment.
+    expect(out).toContain("<h1>");
+  });
+
+  it("does not fetch products for non-SSR city homes (Beirut)", async () => {
+    const fetchMock = mockProductsFetch("ssr-c", FIXTURE_PRODUCTS);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/beirut", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-c.test",
+    });
+    const productCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/woo/products"),
+    );
+    expect(productCalls).toHaveLength(0);
+    expect(out).not.toContain('data-ssr-products="true"');
+  });
+
+  it("skips products missing a name, slug, price, or image", async () => {
+    mockProductsFetch("ssr-d", [
+      { id: "good-one", name: "Good One", price: "$50", priceValue: 50, image: { uri: "https://cdn.test/g.jpg" } },
+      { id: "", name: "No Slug", price: "$10", priceValue: 10, image: { uri: "https://cdn.test/x.jpg" } },
+      { id: "no-image", name: "No Image", price: "$10", priceValue: 10, image: null },
+      { id: "no-price", name: "No Price", price: "", priceValue: 0, image: { uri: "https://cdn.test/y.jpg" } },
+    ]);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/tripoli", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-d.test",
+    });
+    expect(out).toContain('<a href="/en-lb/tripoli/product/good-one">');
+    expect(out).not.toContain("no-image");
+    expect(out).not.toContain("no-price");
+    const itemList = byType(extractJsonLd(out), "ItemList");
+    expect(itemList.itemListElement).toHaveLength(1);
+  });
+});
