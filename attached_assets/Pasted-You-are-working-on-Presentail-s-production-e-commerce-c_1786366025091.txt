@@ -1,0 +1,438 @@
+You are working on Presentail’s production e-commerce codebase.
+
+Optimize this existing page for organic search without changing its URL, breaking its design, or disrupting product browsing, cart, localization, analytics, or checkout:
+
+https://presentail.com/en-lb/beirut/occasion/valentines-day
+
+## Objective
+
+Recover and improve organic rankings and conversions for the following keyword cluster:
+
+Primary keyword:
+
+* Valentine’s Day Lebanon
+
+Primary commercial variant:
+
+* Valentine’s Day gifts in Lebanon
+
+Secondary keywords:
+
+* Valentine’s Day gifts
+* Valentine gifts Lebanon
+* Valentine’s gifts Beirut
+* Valentine’s Day flowers Lebanon
+* Valentine flower delivery Beirut
+* Valentine gift delivery Lebanon
+* same-day Valentine’s gifts Beirut
+* romantic gifts Lebanon
+* Valentine’s gifts for her
+* Valentine’s gifts for him
+
+The page has transactional intent. It should primarily help visitors browse and order Valentine’s Day gifts, while providing enough visible, useful content for search engines to understand the page.
+
+Do not optimize the page for the generic worldwide keyword “Valentine’s Day” at the expense of its Lebanon and Beirut relevance.
+
+## Critical issue to fix first
+
+The production HTML currently contains:
+
+```html
+<meta name="robots" content="noindex, follow">
+```
+
+It also lacks a canonical link.
+
+This URL is listed in the XML sitemap while simultaneously being marked `noindex`, which creates contradictory indexing signals. This is likely the main reason the page lost its previous ranking.
+
+Find the application logic responsible for assigning `noindex` to occasion/category pages. Make this specific canonical HTML page indexable year-round:
+
+```html
+<meta name="robots" content="index, follow">
+<link
+  rel="canonical"
+  href="https://presentail.com/en-lb/beirut/occasion/valentines-day"
+/>
+```
+
+It is also acceptable to omit the robots meta tag if the default behavior is `index, follow`.
+
+Requirements:
+
+* Do not remove `noindex` globally from unrelated thin, empty, filtered, search, account, cart, or checkout pages.
+* Scope the change to this index-worthy Valentine’s Day landing page or to a clearly defined allowlist of indexable occasion pages.
+* Ensure the HTTP response does not send an `X-Robots-Tag: noindex` header.
+* Keep the `.md` version of the page `noindex, follow`; it must not compete with the canonical HTML URL.
+* Keep the canonical URL clean and free of query parameters.
+* Do not create a new URL or redirect the current URL.
+* Continue returning HTTP 200 when products are available.
+* If the collection is temporarily empty, preserve the canonical landing page with helpful alternative content instead of redirecting it or returning a soft 404.
+* Keep this evergreen URL indexable throughout the year. Do not switch it back to `noindex` after February 14.
+
+## Metadata
+
+Use the following English metadata for this route:
+
+```text
+Title:
+Valentine's Day Gifts in Lebanon | Presentail
+
+Meta description:
+Shop Valentine's Day gifts in Lebanon, from romantic flowers and red roses to cakes, balloons and curated gifts. Same-day delivery in Beirut by Presentail.
+```
+
+Requirements:
+
+* Output the title and description in the initial server HTML.
+* Use the same title and description for Open Graph and Twitter metadata.
+* Keep the existing Open Graph image if it works and returns a valid 1200×630 image.
+* Set `og:url` to the canonical URL.
+* Do not append a year to the title, URL, or H1.
+* Do not generate multiple canonical or robots tags during hydration.
+* Do not overwrite Arabic or French metadata with English copy.
+
+## Visible page heading and introduction
+
+The current H1 is effectively screen-reader-only, while supporting SEO text is placed inside `display:none`. Replace that approach with useful content visibly rendered for users.
+
+There must be exactly one visible H1:
+
+```text
+Valentine’s Day Gifts in Lebanon
+```
+
+Immediately beneath it, add this concise introduction:
+
+```text
+Make February 14 unforgettable with Valentine’s Day gifts delivered in Lebanon. Explore romantic flowers, red roses, thoughtful gift sets, cakes, balloons and sweet surprises, with same-day delivery available in Beirut.
+```
+
+Add a clear CTA that scrolls to the product collection:
+
+```text
+Shop Valentine’s Day Gifts
+```
+
+Requirements:
+
+* Keep the H1 and introduction above or immediately before the product grid.
+* Keep this section visually compact so products remain prominent above the fold.
+* Match Presentail’s existing typography, spacing, colors, buttons and responsive system.
+* Do not create a large, performance-heavy hero, carousel, autoplay media, or intrusive popup.
+* Do not hide this copy using `display:none`, `visibility:hidden`, zero-height containers, off-screen positioning, or an SEO-only duplicate.
+* Screen-reader utilities may still be used for legitimate accessibility labels, but not as a substitute for visible page content.
+
+## Product collection
+
+Preserve the existing product grid, sorting, filters, product cards, availability logic, pricing, localization, favorites, cart behavior and checkout behavior.
+
+Ensure the initial crawlable HTML contains the real collection information, not only an empty React root that appears after client-side JavaScript.
+
+For every displayed product, ensure its crawlable card contains:
+
+* Product name
+* Product detail URL
+* Primary product image
+* Accurate image alt text
+* Current display price
+* Availability state when applicable
+
+Requirements:
+
+* Product links must be standard crawlable anchor elements.
+* Do not maintain a separate hidden list of product links if the actual product cards can be server-rendered.
+* Do not hardcode product names, prices, stock or product count into the page template.
+* Source them from the same live collection data used by the UI.
+* Do not include unavailable products in the structured data unless they are visibly shown and clearly marked.
+* Keep image lazy loading below the fold.
+* Give images explicit dimensions or a stable aspect ratio to prevent layout shifts.
+* Prioritize only the true above-the-fold/LCP image.
+* Preserve all existing product tracking events.
+
+## Add useful shopping pathways
+
+Add a compact “Shop Valentine’s Gifts by Type” section using existing valid category routes or existing collection filters.
+
+Suggested labels:
+
+* Valentine’s Flowers
+* Red Roses
+* Cakes and Chocolates
+* Balloons and Bears
+* Romantic Gift Bundles
+* Gifts for Her
+* Gifts for Him
+
+Implementation rules:
+
+* First inspect the codebase and route configuration.
+* Link only to real, indexable URLs that already exist.
+* If a valid landing page does not exist, use the current page’s existing client-side filter functionality.
+* Do not invent URLs that return 404s.
+* Do not create crawlable parameter URLs for sort, currency, price or availability filters.
+* Avoid duplicating links already prominent in the global navigation.
+
+## Visible supporting copy below the product grid
+
+Add a polished, visibly rendered editorial section of approximately 300–450 words below the product grid and above the FAQ. Keep it helpful and commercial rather than generic or repetitive.
+
+Use this structure and copy:
+
+### H2: Valentine’s Day Gift Delivery in Lebanon
+
+```text
+Celebrate Valentine’s Day in Lebanon with a thoughtful surprise chosen for the person you love. Presentail brings together romantic flowers, classic red roses and memorable gifts in one convenient collection, making it easy to send something special in Beirut.
+
+Choose an elegant bouquet for a timeless gesture, a flower box for a modern presentation, or a curated gift that combines several Valentine’s favorites. The collection also includes playful and sweet options for different tastes and budgets. Product availability may change as Valentine’s Day approaches, so the products shown above should always remain the source of truth.
+```
+
+### H2: Find the Right Valentine’s Day Gift
+
+```text
+A Valentine’s gift should feel personal. Roses and romantic flower arrangements are ideal for a classic expression of love, while cakes, chocolates, balloons and gift bundles can turn the delivery into a larger surprise. Use the available collection filters to narrow the choices, then open any product to review its contents, price and available delivery options.
+
+Whether you are planning ahead or arranging a last-minute Valentine’s Day delivery in Beirut, select the delivery slot shown during checkout. Ordering early is recommended for February 14 because popular products and delivery times may become limited.
+```
+
+### H2: Same-Day Valentine’s Delivery in Beirut
+
+```text
+Same-day delivery is available in Beirut when an eligible order is placed before the displayed cutoff time. Customers can also schedule delivery in advance. Final delivery dates and time slots must always come from the live checkout configuration so the page never promises an unavailable service.
+```
+
+Implementation requirements:
+
+* Render this copy as normal semantic HTML.
+* Use real `<h2>` elements for the three section headings.
+* Do not repeat the primary keyword unnaturally.
+* Do not add unverifiable statements such as “best,” “cheapest,” “number one,” “free delivery,” or “delivery across all Lebanon.”
+* If any statement conflicts with current operational rules, update it to match the verified delivery configuration before publishing.
+* Keep product shopping more prominent than editorial copy.
+* Do not add outbound competitor links.
+
+## FAQ
+
+Keep the FAQ visible on the page and expand it only with verified operational information.
+
+Use these questions:
+
+### What Valentine’s Day gifts can I send in Beirut?
+
+Presentail offers Valentine’s Day flowers, rose bouquets, flower boxes, cakes, balloons and curated gifts in Beirut. The live collection above shows the products currently available to order.
+
+### Is same-day Valentine’s Day gift delivery available in Beirut?
+
+Same-day delivery is available for eligible orders placed before the displayed cutoff time. Check the delivery options on the product page and at checkout for current availability.
+
+### Can I schedule a Valentine’s Day delivery in advance?
+
+Yes. Choose an available future delivery date during checkout. Ordering early is recommended for February 14 because popular delivery slots can fill up.
+
+### Does Presentail deliver Valentine’s gifts on weekends?
+
+Presentail normally delivers seven days a week in Beirut, including weekends. The checkout calendar is the final source for available dates and time slots.
+
+### When should I order for Valentine’s Day in Lebanon?
+
+Ordering ahead gives you the widest choice of products and delivery slots. Last-minute and same-day options may be available, but availability can become limited close to February 14.
+
+Requirements:
+
+* Confirm every answer against current business and checkout rules.
+* Adjust or omit any answer that cannot be verified.
+* The visible FAQ wording and FAQ structured data must match exactly.
+* Use accessible disclosure components if the answers are collapsible.
+* The answer content must remain present in the rendered HTML even when collapsed.
+* Do not add FAQ schema for questions that are not visible.
+
+## Structured data
+
+Retain the valid `Organization` schema and improve the page-specific schema.
+
+The page should provide:
+
+1. `CollectionPage`
+2. `BreadcrumbList`
+3. `ItemList`
+4. `FAQPage`
+
+Use stable `@id` values tied to the canonical URL.
+
+Recommended graph structure:
+
+```json
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": "https://presentail.com/en-lb/beirut/occasion/valentines-day#webpage",
+      "url": "https://presentail.com/en-lb/beirut/occasion/valentines-day",
+      "name": "Valentine's Day Gifts in Lebanon | Presentail",
+      "description": "Shop Valentine's Day gifts in Lebanon, from romantic flowers and red roses to cakes, balloons and curated gifts. Same-day delivery in Beirut by Presentail.",
+      "inLanguage": "en-LB",
+      "breadcrumb": {
+        "@id": "https://presentail.com/en-lb/beirut/occasion/valentines-day#breadcrumb"
+      },
+      "mainEntity": {
+        "@id": "https://presentail.com/en-lb/beirut/occasion/valentines-day#itemlist"
+      },
+      "isPartOf": {
+        "@id": "https://presentail.com/#website"
+      }
+    }
+  ]
+}
+```
+
+For `BreadcrumbList`, use:
+
+* Home
+* Beirut
+* Occasions
+* Valentine’s Day Gifts
+
+For `ItemList`:
+
+* Generate entries from the same live products displayed in the grid.
+* Maintain accurate sequential positions.
+* Include product name, canonical product URL and image.
+* Keep `numberOfItems` synchronized with the rendered list.
+* Never hardcode the current count of 23 products.
+* Do not fabricate reviews, ratings, discounts, inventory or shipping information.
+* Do not add category-level `Product` or `AggregateOffer` markup unless the implementation fully meets Google and Schema.org requirements.
+
+Validate all JSON-LD as valid JSON and ensure it is present in the initial HTML.
+
+## Hreflang and localization
+
+Preserve the current language alternates:
+
+* `en-LB`
+* `ar-LB`
+* `fr-LB`
+* `x-default`
+
+Requirements:
+
+* The English page must self-reference with `hreflang="en-LB"`.
+* Every alternate must point to the equivalent Valentine’s Day page, not a homepage or generic category.
+* `x-default` can continue pointing to the English Lebanon version.
+* Do not translate the English page content automatically.
+* Do not change Arabic or French content unless required to keep shared components functioning.
+* If an alternate page is not indexable or does not return 200, report it instead of silently creating a broken hreflang relationship.
+
+## Sitemap
+
+Keep the canonical English page in `sitemap-en.xml`.
+
+Correct the sitemap behavior if necessary:
+
+* Include only canonical, indexable, HTTP-200 URLs.
+* Ensure this URL appears once.
+* Keep its hreflang annotations consistent with the HTML.
+* Set `<lastmod>` to the date of a genuine page, content or collection modification.
+* Do not regenerate `<lastmod>` as today’s date on every request or deployment when nothing changed.
+* Do not include the `.md` URL in the XML sitemap.
+
+## Internal linking
+
+Find appropriate existing, indexable pages and add contextual links where useful, such as:
+
+* Beirut shop
+* Flower delivery in Beirut
+* Roses
+* Cakes
+* Chocolates
+* Gifts for her
+* Gifts for him
+* Love and romance gifts
+
+Also add links pointing to the Valentine’s Day page from relevant existing areas such as the occasions menu, love-and-romance collection, Beirut gifting hub or seasonal navigation.
+
+Rules:
+
+* Use natural, varied anchor text.
+* Do not add the same exact-match anchor site-wide.
+* Do not add links from unrelated pages.
+* Do not create new thin doorway pages just to target keyword variations.
+
+## Performance and accessibility
+
+Do not sacrifice Core Web Vitals for the SEO work.
+
+Requirements:
+
+* Avoid adding large third-party scripts.
+* Avoid adding an autoplay carousel or background video.
+* Preserve or improve LCP, CLS and INP.
+* Use semantic landmarks and heading hierarchy.
+* Maintain keyboard accessibility.
+* Give interactive filters and FAQ controls accessible labels.
+* Ensure text contrast meets WCAG AA.
+* Test at approximately 360px, 768px and 1440px widths.
+* Prevent hydration mismatch and duplicate content after React mounts.
+
+## Guardrails
+
+* Do not redesign the entire page.
+* Do not change the URL slug.
+* Do not remove products, filters, cart behavior or analytics.
+* Do not hardcode a calendar year.
+* Do not keyword-stuff titles, headings, product names, image alt text or body copy.
+* Do not create hidden SEO content.
+* Do not fabricate business claims, inventory, reviews, ratings or delivery coverage.
+* Do not change every occasion page to `index` without evaluating its quality.
+* Reuse the project’s current SEO utilities and component patterns where possible.
+
+## Validation and tests
+
+After implementation, run the project’s lint, type-check, unit tests and production build.
+
+Add or update automated tests that verify:
+
+1. The page returns HTTP 200.
+2. The initial HTML has exactly one visible H1.
+3. The H1 is “Valentine’s Day Gifts in Lebanon.”
+4. The page is indexable.
+5. No HTML or HTTP `noindex` directive is present.
+6. Exactly one self-referencing canonical exists.
+7. The title and meta description match the approved copy.
+8. Open Graph and Twitter metadata are present.
+9. `en-LB`, `ar-LB`, `fr-LB` and `x-default` alternates are present and valid.
+10. Visible product links exist without client-side JavaScript.
+11. The editorial copy is visibly rendered and not inside `display:none`.
+12. FAQ questions and answers are visible in the HTML.
+13. `CollectionPage`, `BreadcrumbList`, `ItemList` and `FAQPage` JSON-LD parse successfully.
+14. The ItemList count and entries are derived from current product data.
+15. The canonical URL appears once in the correct sitemap.
+16. The `.md` endpoint remains `noindex, follow`.
+17. No hydration warnings or console errors occur.
+18. Product filters, product navigation, cart actions and checkout still work.
+
+Use a production-like local preview and inspect the raw response HTML, not only the browser DOM after JavaScript executes.
+
+Useful checks include:
+
+```bash
+curl -sS https://YOUR-PREVIEW-URL/en-lb/beirut/occasion/valentines-day
+curl -sSI https://YOUR-PREVIEW-URL/en-lb/beirut/occasion/valentines-day
+```
+
+Confirm the raw HTML contains the title, description, canonical, visible H1, visible editorial content, product links and JSON-LD.
+
+## Final response
+
+When finished, report:
+
+* The root cause of the lost indexability
+* Files changed
+* Exact metadata implemented
+* How the `noindex` logic was scoped
+* Structured-data changes
+* Visible content and internal-link changes
+* Tests and build commands run
+* Any assumptions or operational claims that still require confirmation
+* Before/after raw-HTML evidence for robots, canonical, H1 and structured data
+
+Do not claim success unless the built preview passes the validation checks above.
