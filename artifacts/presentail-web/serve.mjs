@@ -2061,6 +2061,9 @@ const server = http.createServer(async (req, res) => {
         "cache-control": "public, max-age=900, stale-while-revalidate=60",
         "vary": "Accept-Encoding",
         "link": `<${origin}/>; rel="canonical"; type="text/html"`,
+        // Same noindex,follow policy as the per-page .md mirrors below — the
+        // Markdown homepage must never compete with / in search results.
+        "x-robots-tag": "noindex, follow",
       };
       if (encoding) headers["content-encoding"] = encoding;
       res.writeHead(200, headers);
@@ -2093,6 +2096,10 @@ const server = http.createServer(async (req, res) => {
           "cache-control": "public, max-age=900, stale-while-revalidate=60",
           "vary": "Accept-Encoding",
           "link": `<${canonicalHtmlHref}>; rel="canonical"; type="text/html"`,
+          // The .md mirror duplicates the canonical HTML page's content — keep
+          // it out of the index (noindex) while still letting crawlers follow
+          // links (follow). The HTML page stays index,follow.
+          "x-robots-tag": "noindex, follow",
         };
         if (encoding) headers["content-encoding"] = encoding;
         res.writeHead(200, headers);

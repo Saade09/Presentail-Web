@@ -12,6 +12,7 @@ export type {
   SeoMeta,
   LocaleStringMap,
   EntityTemplateMap,
+  CityHomeSeoOverride,
 } from "./seo.mjs";
 
 export {
@@ -44,4 +45,6 @@ export {
   buildNonIndexableSeo,
   isNonIndexableRouteKey,
   isGroupAStaticPage,
+  CITY_HOME_SEO_OVERRIDES,
+  getCityHomeSeoOverride,
 } from "./seo.mjs";

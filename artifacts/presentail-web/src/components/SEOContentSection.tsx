@@ -8,12 +8,6 @@ const FLOWER_CATEGORY_SLUGS = new Set([
   "flower-boxes",
   "flower-baskets",
 ]);
-
-const FOOD_CATEGORY_SLUGS = new Set([
-  "cakes",
-  "chocolate",
-]);
-
 const SEO_LD_ATTR = "data-seo-faq-ld";
 
 function isFlowerCategory(slug: string): boolean {
@@ -140,6 +134,9 @@ interface SEOContentSectionProps {
   availableOccasionIds?: string[];
   brandCategory?: BrandCategory;
   suppressFaqJsonLd?: boolean;
+  /** Render FAQ answers always visible (no accordion) so the hydrated DOM
+      matches server-injected initial HTML for hand-written landing pages. */
+  faqsAlwaysVisible?: boolean;
 }
 
 function format(template: string, params?: Record<string, string>): string {
@@ -157,12 +154,12 @@ function SEOContentSectionInner({
   entityName = "",
   entitySlug = "",
   cityLabel,
-  lang,
   overrides,
   availableCategoryIds = [],
   availableOccasionIds = [],
   brandCategory = "general",
   suppressFaqJsonLd = false,
+  faqsAlwaysVisible = false,
 }: SEOContentSectionProps) {
   const { t, language, dir } = useLocale();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -482,6 +479,21 @@ function SEOContentSectionInner({
           </p>
           <dl className="divide-y divide-stone-100">
             {faqs.map((faq, i) => {
+              // faqsAlwaysVisible: hand-written landing-page FAQ sets (e.g.
+              // Tripoli) must stay visibly readable after hydration so the
+              // hydrated DOM matches the server-injected initial HTML —
+              // hiding them in a closed accordion would make the crawlable
+              // answers disappear for real users (a cloaking signal).
+              if (faqsAlwaysVisible) {
+                return (
+                  <div key={i} className="py-3">
+                    <dt className="py-1 text-sm font-medium text-foreground">{faq.question}</dt>
+                    <dd className="pt-2 pb-1 text-sm text-muted-foreground leading-relaxed">
+                      {faq.answer}
+                    </dd>
+                  </div>
+                );
+              }
               const isOpen = openFaqIndex === i;
               const panelId = `seo-faq-panel-${i}`;
               const btnId = `seo-faq-btn-${i}`;

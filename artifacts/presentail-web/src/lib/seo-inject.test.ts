@@ -7379,10 +7379,10 @@ describe("Local SEO — city-specific FAQPage JSON-LD on city home pages", () =>
     expect(faq?.mainEntity?.[0]?.name).toMatch(/[\u0600-\u06FF]/);
   });
 
-  it("Tripoli FAQPage has 3 questions", () => {
+  it("Tripoli FAQPage has the expanded 8-question set (hand-written landing-page copy)", () => {
     const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
     const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
-    expect(faq?.mainEntity).toHaveLength(3);
+    expect(faq?.mainEntity).toHaveLength(8);
   });
 
   it("non-city shop page (/en-lb/beirut/shop) does not include city-delivery FAQ question", () => {
@@ -8111,5 +8111,115 @@ describe("Prerender body — category/occasion page product count and links", ()
     );
     expect(out).not.toContain("0 products available");
     expect(out).not.toContain("<ul></ul>");
+  });
+});
+
+describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
+  const TRIPOLI_TITLE = "Flower Delivery in Tripoli, Lebanon | Presentail";
+  const TRIPOLI_DESC =
+    "Order fresh flowers online for delivery in Tripoli, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.";
+  const TRIPOLI_H1 = "Flower Delivery in Tripoli, Lebanon";
+  const T_OPTS = { origin: "https://presentail.test", basePath: "" };
+
+  beforeEach(() => genericSeoCache.clear());
+
+  it("title is the hand-written Tripoli value", () => {
+    const { title, titleTag } = buildSeoHead("/en-lb/tripoli", T_OPTS);
+    expect(title).toBe(TRIPOLI_TITLE);
+    expect(titleTag).toBe(`<title>${TRIPOLI_TITLE}</title>`);
+  });
+
+  it("meta description, OG and Twitter copy all match the Tripoli value", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli", T_OPTS);
+    expect(headSnippet).toContain(`<meta name="description" content="${TRIPOLI_DESC}"`);
+    expect(headSnippet).toContain(`<meta property="og:title" content="${TRIPOLI_TITLE}"`);
+    expect(headSnippet).toContain(`<meta property="og:description" content="${TRIPOLI_DESC}"`);
+    expect(headSnippet).toContain(`<meta name="twitter:title" content="${TRIPOLI_TITLE}"`);
+    expect(headSnippet).toContain(`<meta name="twitter:description" content="${TRIPOLI_DESC}"`);
+  });
+
+  it("body H1 is visible (no sr-only) and matches the spec text", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/tripoli", T_OPTS);
+    expect(bodyHtml).toContain(`<h1>${TRIPOLI_H1}</h1>`);
+    expect(bodyHtml).not.toContain("sr-only");
+  });
+
+  it("body copy is not wrapped in display:none", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/tripoli", T_OPTS);
+    expect(bodyHtml).not.toContain("display:none");
+  });
+
+  it("body contains intro, coverage areas, and Why Presentail points as visible text", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/tripoli", T_OPTS);
+    for (const area of ["El Mina", "Bab El Tabbaneh", "Qobbeh", "Beddawi", "Zahrieh"]) {
+      expect(bodyHtml).toContain(area);
+    }
+    expect(bodyHtml).toContain("<h2>Why Presentail</h2>");
+    expect(bodyHtml).toContain("Send fresh flowers to Tripoli, Lebanon");
+  });
+
+  it("FAQPage JSON-LD has the 8 spec questions and mirrors the visible FAQ block exactly", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/tripoli", T_OPTS);
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(8);
+    const questions = faq.mainEntity.map((q: any) => q.name);
+    expect(questions).toEqual([
+      "Is same-day flower delivery available in Tripoli?",
+      "Which areas of Tripoli does Presentail deliver to?",
+      "What is the cutoff time for same-day delivery in Tripoli?",
+      "Can I schedule a flower delivery in Tripoli for a future date?",
+      "Can I include a personalised card message with my Tripoli order?",
+      "What payment methods are accepted for Tripoli orders?",
+      "Can I order flowers for Tripoli from outside Lebanon?",
+      "What happens if the recipient is unavailable at delivery time?",
+    ]);
+    // Visible FAQ block mirrors JSON-LD 1:1 (questions AND answers).
+    // The bare test HTML has no #root, so assert against the body fragment
+    // that serve.mjs injects into the real index.html.
+    const { bodyHtml } = buildSeoHead("/en-lb/tripoli", T_OPTS);
+    for (const q of faq.mainEntity) {
+      expect(bodyHtml).toContain(`<h3>${q.name}</h3>`);
+      expect(bodyHtml).toContain(`<p>${q.acceptedAnswer.text}</p>`);
+    }
+  });
+
+  it("emits a CollectionPage entity with the required fields", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/tripoli", T_OPTS);
+    const nodes = extractJsonLd(out);
+    const page = byType(nodes, "CollectionPage");
+    expect(page).toBeTruthy();
+    const canonical = "https://presentail.test/en-lb/tripoli";
+    expect(page["@id"]).toBe(canonical);
+    expect(page.url).toBe(canonical);
+    expect(page.name).toBe(TRIPOLI_H1);
+    expect(page.description).toBe(TRIPOLI_DESC);
+    expect(page.inLanguage).toBe("en-LB");
+    expect(page.isPartOf["@id"]).toBe("https://presentail.test/#website");
+    expect(page.breadcrumb["@id"]).toBe(`${canonical}#breadcrumb`);
+    expect(page.publisher["@id"]).toBe("https://presentail.test/#organization");
+    const crumb = byType(nodes, "BreadcrumbList");
+    expect(crumb["@id"]).toBe(`${canonical}#breadcrumb`);
+  });
+
+  it("other city pages are not regressed (Beirut keeps template title, 3 FAQs, no CollectionPage)", async () => {
+    const { title: beirutTitle } = buildSeoHead("/en-lb/beirut", T_OPTS);
+    expect(beirutTitle).not.toBe(TRIPOLI_TITLE);
+    expect(beirutTitle).toContain("Beirut");
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", T_OPTS);
+    const nodes = extractJsonLd(out);
+    expect(byType(nodes, "CollectionPage")).toBeUndefined();
+    const faq = byType(nodes, "FAQPage");
+    expect(faq.mainEntity).toHaveLength(3);
+  });
+
+  it("Tripoli sub-routes keep template titles (override is home-only)", () => {
+    const { title } = buildSeoHead("/en-lb/tripoli/shop", T_OPTS);
+    expect(title).not.toBe(TRIPOLI_TITLE);
+  });
+
+  it("AR Tripoli home keeps template output (override is EN-only)", () => {
+    const { title } = buildSeoHead("/ar-lb/tripoli", T_OPTS);
+    expect(title).not.toBe(TRIPOLI_TITLE);
   });
 });

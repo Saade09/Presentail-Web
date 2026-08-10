@@ -145,6 +145,7 @@ import {
   buildFaqsSeo,
   buildContactSeo,
   formatTemplate,
+  getCityHomeSeoOverride,
 } from "./src/lib/seo.mjs";
 
 import { buildHreflangSet, HUB_CITY, remapPathnameToHubCity } from "./src/lib/hreflang.mjs";
@@ -454,6 +455,18 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     params,
   );
 
+  // Per-city home-page overrides (hand-written, high-intent copy for selected
+  // city landing pages, e.g. /en-lb/tripoli). Applied only on the exact city
+  // home route so sub-routes and other cities keep template output.
+  const cityHomeOverride =
+    routeKey === "home" && cityKey && (parsed.rest === "" || parsed.rest === "/")
+      ? getCityHomeSeoOverride(cityKey, lang)
+      : null;
+  if (cityHomeOverride) {
+    title = cityHomeOverride.title;
+    description = cityHomeOverride.description;
+  }
+
   // For product / category / occasion routes, extract the URL slug and derive
   // entity-specific title/description from it using the same builders that the
   // live entity branches use.  This replaces the completely generic
@@ -588,12 +601,21 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     twitterTitle = twLang.title;
     twitterDescription = twLang.description;
   } else if (isHome) {
-    const ogLang = HOME_OG[lang] ?? HOME_OG.en;
-    const twLang = HOME_TWITTER[lang] ?? HOME_TWITTER.en;
-    ogTitle = format(ogLang.title, params);
-    ogDescription = format(ogLang.description, params);
-    twitterTitle = format(twLang.title, params);
-    twitterDescription = format(twLang.description, params);
+    if (cityHomeOverride) {
+      // Overridden city homes share the exact page title/description so the
+      // OG/Twitter share cards agree with the SERP snippet.
+      ogTitle = title;
+      ogDescription = description;
+      twitterTitle = title;
+      twitterDescription = description;
+    } else {
+      const ogLang = HOME_OG[lang] ?? HOME_OG.en;
+      const twLang = HOME_TWITTER[lang] ?? HOME_TWITTER.en;
+      ogTitle = format(ogLang.title, params);
+      ogDescription = format(ogLang.description, params);
+      twitterTitle = format(twLang.title, params);
+      twitterDescription = format(twLang.description, params);
+    }
   } else if (hasGenericShareCopy) {
     const ogLang = GENERIC_OG[routeKey][lang] ?? GENERIC_OG[routeKey].en;
     const twLang = GENERIC_TWITTER[routeKey][lang] ?? GENERIC_TWITTER[routeKey].en;
@@ -709,12 +731,34 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     // Home > {City} breadcrumb on EVERY city homepage (hub or not) — the
     // hierarchy trail is per-page navigation context, not an organisation
     // claim, so it must not be gated by the hub-city rule.
-    jsonLdNodes.push(
-      buildBreadcrumbListSchema([
-        { name: "Home", url: siteUrl },
-        { name: cityLabel },
-      ]),
-    );
+    const cityBreadcrumb = buildBreadcrumbListSchema([
+      { name: "Home", url: siteUrl },
+      { name: cityLabel },
+    ]);
+    // Give the breadcrumb a stable @id when the city home also emits a
+    // CollectionPage node below, so the CollectionPage can reference it.
+    if (cityHomeOverride) {
+      cityBreadcrumb["@id"] = `${canonicalHref}#breadcrumb`;
+    }
+    jsonLdNodes.push(cityBreadcrumb);
+
+    // CollectionPage entity for overridden city homes (e.g. /en-lb/tripoli):
+    // ties the page's canonical URL, H1 and meta description together and
+    // anchors it to the WebSite, BreadcrumbList and Organization nodes.
+    if (cityHomeOverride) {
+      jsonLdNodes.push({
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "@id": canonicalHref,
+        url: canonicalHref,
+        name: cityHomeOverride.h1,
+        description: cityHomeOverride.description,
+        inLanguage: `${lang}-${(parsed.country || "").toUpperCase()}`,
+        isPartOf: { "@id": `${siteUrl}/#website` },
+        breadcrumb: { "@id": `${canonicalHref}#breadcrumb` },
+        publisher: { "@id": `${siteUrl}/#organization` },
+      });
+    }
   }
 
   // BreadcrumbList on navigable non-home locale pages. Gives search engines a
@@ -932,7 +976,10 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
         (parsed.country || "").toUpperCase(),
         lang,
       );
-      bodyFaqItems = cityFaqsBody.slice(0, 3).map(({ question, answer }) => ({
+      // Emit the FULL city FAQ set (not a slice) so the visible FAQ block in
+      // the initial HTML matches the FAQPage JSON-LD above exactly — Google
+      // treats hidden/mismatched FAQ schema as a cloaking signal.
+      bodyFaqItems = cityFaqsBody.map(({ question, answer }) => ({
         q: question,
         a: answer,
       }));
@@ -989,7 +1036,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     });
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang });
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang, h1Override: cityHomeOverride?.h1, introOverride: cityHomeOverride?.intro, whyPoints: cityHomeOverride?.whyPoints });
 
   return {
     lang,
@@ -1169,16 +1216,17 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
   return `<h2>Latest Articles</h2><ul>${items.join("")}</ul>`; // i18n-ignore
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en" }) {
-  const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", h1Override = undefined, introOverride = undefined, whyPoints = undefined }) {
+  const intro = introOverride ?? ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   // Compute a distinct H1 from ROUTE_H1 — same topic as <title> but
   // different phrasing, no "| Presentail" suffix. Falls back to title
-  // when the route has no entry or cityLabel is unavailable.
+  // when the route has no entry or cityLabel is unavailable. An explicit
+  // h1Override (per-city hand-written copy, e.g. Tripoli) wins over both.
   const h1Template = ROUTE_H1[routeKey];
-  const h1Text = h1Template && cityLabel
+  const h1Text = h1Override ?? (h1Template && cityLabel
     ? format(h1Template, { city: cityLabel })
-    : title;
+    : title);
   const safeH1 = escapeHtml(h1Text);
   const safeDesc = escapeHtml(description);
   const safeIntro = escapeHtml(intro);
@@ -1193,16 +1241,17 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
       `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
       faqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
   }
-  // The sr-only h1 lives OUTSIDE the display:none wrapper so Google (which
-  // treats display:none as potentially cloaked content) indexes it alongside
-  // the rest of the page. sr-only hides it visually while keeping it in the
-  // accessibility tree and the crawlable DOM. React's createRoot() replaces
-  // all children of #root on hydration, so JS users see the normal SPA h1.
   // Nearby-city links go in a <noscript> block so they are visible to
   // non-JS crawlers and AI bots but never rendered to end-users (React
   // replaces #root children on hydration, removing the noscript element).
   const nearbyCityNoscript = nearbyCityHtml
     ? `<noscript>${nearbyCityHtml}</noscript>`
+    : "";
+
+  // "Why Presentail" bullet points for overridden city homes (e.g. Tripoli) —
+  // rendered as visible list content between the coverage copy and the FAQ.
+  const whyHtml = Array.isArray(whyPoints) && whyPoints.length > 0
+    ? `<h2>Why Presentail</h2><ul>${whyPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>` // i18n-ignore — crawler-facing static heading
     : "";
 
   // Home route: add a city intro paragraph and featured occasion links so
@@ -1240,12 +1289,19 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   const blogExtras =
     routeKey === "blog" ? buildBlogIndexBodyHtml(lang, { localeBase }) : "";
 
+  // The H1 and body copy are emitted as VISIBLE HTML — no sr-only, no
+  // display:none. Google treats hidden keyword content as potentially cloaked
+  // and can deweight it; the copy here is legitimate on-page content, so it
+  // must be readable in the initial document. React's createRoot() replaces
+  // all children of #root on hydration, so JS users only see this content for
+  // the brief pre-hydration window before the SPA renders its own UI.
   return (
-    `<h1 class="sr-only">${safeH1}</h1>` +
-    `<div style="display:none">` +
+    `<h1>${safeH1}</h1>` +
+    `<div>` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
     (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
+    whyHtml +
     homeExtras +
     shopExtras +
     blogExtras +
@@ -2377,6 +2433,17 @@ export function buildCityFaqSchema(cityName, countryCode, locale) {
 
   const loc = LOCATION_DATA[cc.toLowerCase()] ?? LOCATION_DATA.lb;
   const paymentAccepted = loc.paymentAccepted; // i18n-ignore — payment methods
+
+  // Cities with hand-written landing-page overrides (e.g. Tripoli) carry an
+  // expanded FAQ set defined once in CITY_HOME_SEO_OVERRIDES — the same array
+  // feeds this JSON-LD, the server-injected visible FAQ block, and the
+  // hydrated React page (SEOContentSection overrides), keeping all three
+  // exactly in sync. Other cities and locales keep the generic set below.
+  const overrideFaqs = getCityHomeSeoOverride(
+    `${cc.toLowerCase()}-${String(cityName).toLowerCase()}`,
+    lang,
+  )?.faqs;
+  if (overrideFaqs) return overrideFaqs;
 
   const questions = {
     en: [

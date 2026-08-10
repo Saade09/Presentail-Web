@@ -40,4 +40,5 @@
 - [Sitemap production failure](sitemap-production-failure.md) — INTERNAL_API_BASE_URL env var set but no redeploy → running server still uses stale REPLIT_DOMAINS fallback → 272 static-only URLs; fix is deploy not just setting the env var
 - [Web e2e against real API](web-e2e-real-api.md) — register rate limit means reuse fixed accounts; seed app_orders via pg; auth-restore setUser+setIsLoading must commit together
 - [GA4 campaign funnel mirrors](ga4-funnel-mirrors.md) — add_to_cart/begin_checkout/purchase gtag mirrors exist alongside internal web-events; e2e asserts via inline dataLayer shim; e2e pages need delivery_location seeded
+- [City home SEO overrides](city-home-seo-overrides.md) — per-city hand-written title/H1/FAQ/CollectionPage pattern (Tripoli); city-home body copy is now visible HTML; all .md mirrors noindex,follow
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice

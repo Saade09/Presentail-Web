@@ -41,6 +41,22 @@ export const STATIC_PAGE_GROUP: { A: Set<string>; B: Set<string> };
 export const NONINDEX_ROUTE_KEYS: Set<string>;
 export function isGroupAStaticPage(routeKey: string): boolean;
 
+/** Hand-written per-city home-page SEO override (e.g. Tripoli). */
+export interface CityHomeSeoOverride {
+  title: string;
+  description: string;
+  h1: string;
+  intro: string;
+  whyHeading?: string;
+  whyPoints?: string[];
+  faqs?: Array<{ question: string; answer: string }>;
+}
+export const CITY_HOME_SEO_OVERRIDES: Record<string, Partial<Record<Lang, CityHomeSeoOverride>>>;
+export function getCityHomeSeoOverride(
+  cityKey: string | null | undefined,
+  lang: string,
+): CityHomeSeoOverride | null;
+
 export function formatTemplate(
   template: string,
   params?: { name?: string; city?: string; country?: string },

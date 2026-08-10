@@ -11,6 +11,8 @@
 //
 // Templates use `{city}` and `{country}` placeholders, filled by `formatTemplate`.
 
+import { LOCATION_DATA } from "./locationData.mjs";
+
 export const SUPPORTED_LANGS = ["en", "ar", "fr"];
 
 export const OG_LOCALE = { en: "en_US", ar: "ar_AE", fr: "fr_FR" };
@@ -977,4 +979,95 @@ export function buildNonIndexableSeo({ lang, routeKey, city, country } = {}) {
 /** True when a route key should carry a noindex directive. */
 export function isNonIndexableRouteKey(routeKey) {
   return NONINDEX_ROUTE_KEYS.has(routeKey);
+}
+
+// ---------------------------------------------------------------------------
+// Per-city home-page SEO overrides.
+//
+// Some city landing pages carry hand-written, high-intent title/description/H1
+// copy instead of the generic "{routeKey} in {city}" templates. Keyed by the
+// "{country}-{city}" cityKey, then language. Only cities listed here are
+// affected — every other city keeps the template output unchanged.
+//
+// The override also feeds OG/Twitter copy (share cards must agree with the
+// page title/description) and the server-injected visible H1 + hero intro.
+// ---------------------------------------------------------------------------
+/**
+ * @type {Record<string, Partial<Record<"en" | "ar" | "fr", {
+ *   title: string;
+ *   description: string;
+ *   h1: string;
+ *   intro: string;
+ *   whyHeading?: string;
+ *   whyPoints?: string[];
+ *   faqs?: Array<{ question: string; answer: string }>;
+ * }>>>}
+ */
+export const CITY_HOME_SEO_OVERRIDES = {
+  "lb-tripoli": {
+    en: {
+      title: "Flower Delivery in Tripoli, Lebanon | Presentail", // i18n-ignore — crawler-facing EN SEO copy
+      description:
+        "Order fresh flowers online for delivery in Tripoli, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.", // i18n-ignore
+      h1: "Flower Delivery in Tripoli, Lebanon", // i18n-ignore
+      intro:
+        "Send fresh flowers to Tripoli, Lebanon from anywhere in the world. Hand-arranged bouquets, roses and thoughtful gifts delivered across El Mina, Bab El Tabbaneh, Qobbeh, Beddawi and Zahrieh, with same-day delivery available on eligible orders.", // i18n-ignore
+      whyHeading: "Why Presentail", // i18n-ignore
+      whyPoints: [
+        "Same-day flower delivery in Tripoli on eligible orders", // i18n-ignore
+        "Hand-arranged bouquets from trusted local florists", // i18n-ignore
+        "Free personalised card message with every order", // i18n-ignore
+        "Order from anywhere in the world and pay in your own currency", // i18n-ignore
+      ],
+      // Shared FAQ source of truth: rendered visibly in the server-injected
+      // body AND in the hydrated React page (SEOContentSection overrides),
+      // and mirrored 1:1 into FAQPage JSON-LD — all three must stay identical.
+      // i18n-ignore-block — crawler-facing EN copy for the Tripoli landing page
+      faqs: [
+        {
+          question: "Is same-day flower delivery available in Tripoli?",
+          answer: "Yes. Same-day flower delivery is available in Tripoli, Lebanon on eligible orders placed early enough in the day. Orders placed later are delivered the next day.",
+        },
+        {
+          question: "Which areas of Tripoli does Presentail deliver to?",
+          answer: "Presentail delivers across Tripoli and its district, including El Mina, Bab El Tabbaneh, Qobbeh, Beddawi and Zahrieh.",
+        },
+        {
+          question: "What is the cutoff time for same-day delivery in Tripoli?",
+          answer: "Same-day delivery in Tripoli is available for orders placed early enough in the day. The exact cutoff depends on the products in your order — checkout shows the delivery dates available for your address, so you always see before paying whether same-day is possible.",
+        },
+        {
+          question: "Can I schedule a flower delivery in Tripoli for a future date?",
+          answer: "Yes. During checkout you can choose a future delivery date, so your flowers arrive exactly on the birthday, anniversary or occasion you are celebrating.",
+        },
+        {
+          question: "Can I include a personalised card message with my Tripoli order?",
+          answer: "Yes. Every order can include a free personalised card message — add it at checkout and it is delivered with your flowers.",
+        },
+        {
+          question: "What payment methods are accepted for Tripoli orders?",
+          answer: `We accept ${LOCATION_DATA.lb.paymentAccepted} for all orders delivered in Tripoli.`,
+        },
+        {
+          question: "Can I order flowers for Tripoli from outside Lebanon?",
+          answer: "Yes. Presentail is built for sending gifts from abroad — order online from anywhere in the world, pay in your own currency, and we deliver to your recipient in Tripoli.",
+        },
+        {
+          question: "What happens if the recipient is unavailable at delivery time?",
+          answer: "Our team will contact the recipient to arrange delivery. If they cannot be reached, we coordinate with you to redeliver or leave the order with someone at the address.",
+        },
+      ],
+    },
+  },
+};
+
+/**
+ * Return the home-page SEO override for a cityKey + lang, or null when the
+ * city has no override (the caller falls back to the generic templates).
+ */
+export function getCityHomeSeoOverride(cityKey, lang) {
+  if (!cityKey) return null;
+  const entry = CITY_HOME_SEO_OVERRIDES[cityKey];
+  if (!entry) return null;
+  return entry[lang] ?? null;
 }

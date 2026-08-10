@@ -332,3 +332,46 @@ describe("SEOContentSection — cross-city internal links use native anchors", (
     expect(birthdayLink!.getAttribute("href")).toBe("/occasion/birthday");
   });
 });
+
+describe("SEOContentSection — faqsAlwaysVisible (hand-written landing FAQ parity)", () => {
+  const FAQS = [
+    { question: "Is same-day flower delivery available in Tripoli?", answer: "Yes. Same-day delivery is available on eligible orders." },
+    { question: "Which areas of Tripoli does Presentail deliver to?", answer: "El Mina, Bab El Tabbaneh, Qobbeh, Beddawi and Zahrieh." },
+  ];
+
+  it("renders every FAQ answer visibly (no closed accordion, no hidden attribute)", () => {
+    renderWithProviders(
+      <SEOContentSection
+        {...SHARED_PROPS}
+        pageType="homepage"
+        cityLabel="Tripoli"
+        suppressFaqJsonLd
+        overrides={{ faqs: FAQS }}
+        faqsAlwaysVisible
+      />,
+      { locale: EN_LOCALE },
+    );
+    for (const { question, answer } of FAQS) {
+      expect(screen.getByText(question)).toBeTruthy();
+      const answerEl = screen.getByText(answer);
+      expect(answerEl).toBeTruthy();
+      expect(answerEl.closest("[hidden]")).toBeNull();
+    }
+    // No accordion toggle buttons in always-visible mode.
+    expect(screen.queryByRole("button", { name: FAQS[0].question })).toBeNull();
+  });
+
+  it("default (no faqsAlwaysVisible) keeps the accordion behaviour", () => {
+    renderWithProviders(
+      <SEOContentSection
+        {...SHARED_PROPS}
+        pageType="homepage"
+        suppressFaqJsonLd
+        overrides={{ faqs: FAQS }}
+      />,
+      { locale: EN_LOCALE },
+    );
+    const btn = screen.getAllByRole("button")[0];
+    expect(btn).toBeTruthy();
+  });
+});

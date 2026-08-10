@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Calendar, CircleCheck, Circle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -36,7 +35,7 @@ export function DeliveryOptions({
   expressLabel,
   expressEtaLine,
   expressAvailable = true,
-  expressUnavailableLabel,
+  expressUnavailableLabel: _expressUnavailableLabel,
   scheduledSubtitle,
   expressFeeLabel,
   expressFeeSubLabel,

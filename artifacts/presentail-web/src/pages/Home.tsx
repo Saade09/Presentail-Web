@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { getCityHomeSeoOverride } from "@/lib/seo";
+import { CITY_SEO } from "@/data/city-seo.mjs";
 import { useHomepageBanners } from "@/lib/banners";
 import { apiFetch } from "@/lib/api";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
@@ -9,7 +11,6 @@ import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
-import { ProductCollectionCarousel } from "@/components/homepage/ProductCollectionCarousel";
 import { ProductCard } from "@/components/ProductCard";
 import { Link } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -89,7 +90,15 @@ export default function Home() {
           .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
           .join(" ")
       : "";
-  const h1Text = cityLabel ? t("home.h1", { city: cityLabel }) : "";
+  // Hand-written per-city landing overrides (e.g. Tripoli): the same shared
+  // data feeds the server-injected initial HTML, so the H1, intro, "why"
+  // points and FAQs stay identical before and after hydration.
+  // cityId is already the "{country}-{city}" key (e.g. "lb-tripoli").
+  const cityOverride = getCityHomeSeoOverride(cityId?.toLowerCase() ?? null, language);
+  const cityCoverageText = cityId
+    ? (CITY_SEO[cityId.toLowerCase()]?.[language] ?? CITY_SEO[cityId.toLowerCase()]?.en ?? "")
+    : "";
+  const h1Text = cityOverride?.h1 ?? (cityLabel ? t("home.h1", { city: cityLabel }) : "");
 
   const trustpilotTitle =
     ipCountry === "LB"
@@ -99,8 +108,24 @@ export default function Home() {
   return (
     <>
     <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
+      {/* Visible H1 — matches the server-injected H1 so there is exactly one
+          visible page heading before and after hydration. Google deweights
+          sr-only/hidden headings, so the H1 must be readable on-page. */}
       {h1Text && (
-        <h1 className="sr-only">{h1Text}</h1>
+        <h1 className="px-4 md:px-0 pt-4 pb-2 font-serif text-xl md:text-2xl text-primary">{h1Text}</h1>
+      )}
+      {cityOverride?.intro && (
+        <p className="px-4 md:px-0 pb-4 text-sm md:text-base text-muted-foreground max-w-3xl">
+          {cityOverride.intro}
+        </p>
+      )}
+      {/* Delivery-coverage paragraph: same CITY_SEO copy the server injects
+          into the initial HTML — rendered here too so it stays visible after
+          hydration (server/client content parity). */}
+      {cityOverride && cityCoverageText && (
+        <p className="px-4 md:px-0 pb-4 text-sm md:text-base text-muted-foreground max-w-3xl">
+          {cityCoverageText}
+        </p>
       )}
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
@@ -224,12 +249,27 @@ export default function Home() {
       </div>
     )}
 
+    {/* "Why Presentail" points for overridden city landings — mirrors the
+        server-injected list so the visible content survives hydration. */}
+    {cityOverride?.whyPoints && cityOverride.whyPoints.length > 0 && (
+      <section className="container mx-auto px-4 pb-6 max-w-content">
+        <h2 className="font-serif text-xl md:text-2xl text-primary mb-3">{cityOverride.whyHeading}</h2>
+        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base text-muted-foreground">
+          {cityOverride.whyPoints.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </section>
+    )}
+
     <SEOContentSection
       pageType="homepage"
       cityLabel={cityLabel}
       lang={language}
       countryCode={countryCode ?? ""}
       suppressFaqJsonLd
+      overrides={cityOverride?.faqs ? { faqs: cityOverride.faqs } : undefined}
+      faqsAlwaysVisible={Boolean(cityOverride?.faqs)}
     />
     </>
   );
