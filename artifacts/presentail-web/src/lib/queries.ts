@@ -504,6 +504,7 @@ export const useCatalogOccasions = (countryCode?: string | null, citySlug?: stri
 export type PageDescriptionResponse = {
   ok: boolean;
   description: string;
+  internal_links?: Array<{ label: string; href: string }> | null;
   is_fallback: boolean;
 };
 

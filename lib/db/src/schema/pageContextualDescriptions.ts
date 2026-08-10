@@ -1,5 +1,6 @@
 import {
   boolean,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -16,6 +17,7 @@ export const pageContextualDescriptionsTable = pgTable(
     deliveryAreaId: text("delivery_area_id").notNull(),
     language: text("language").notNull().$type<"en" | "ar" | "fr">(),
     description: text("description"),
+    internalLinks: jsonb("internal_links").$type<Array<{ label: string; href: string }>>(),
     isManualOverride: boolean("is_manual_override").notNull().default(false),
     generationStatus: text("generation_status")
       .notNull()

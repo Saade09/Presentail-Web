@@ -67,6 +67,8 @@
  *      prepended by Wouter.
  *  46. Brand page (/en-lb/beirut/brand/:slug): auto-generated SEOContentSection occasion chip
  *      href is root-relative (/occasion/birthday) — no locale/city prefix prepended by Wouter.
+ *  47. Category page with admin-supplied internal_links in page-description response → custom
+ *      chips appear; default occasion chips are replaced by the admin-curated ones.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -2769,5 +2771,62 @@ test.describe("Cross-city SEO link navigation — no duplicated locale/city segm
     // attribute — assert that did NOT happen.
     expect(chipHref).not.toContain("en-lb");
     expect(chipHref).not.toContain("beirut");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 47. Admin-supplied internal_links override the default chip list
+// ---------------------------------------------------------------------------
+
+test.describe("SEO content section — admin-supplied internal_links from page-description API", () => {
+  const CUSTOM_LINKS = [
+    { label: "Custom Roses", href: "/category/hand-bouquets" },
+    { label: "Custom Gifts", href: "/category/gift-baskets" },
+  ];
+
+  test.beforeEach(async ({ page }) => {
+    // Stub the page-description endpoint to return admin-curated internal_links.
+    await page.route(/\/api\/page-descriptions/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          description: "Admin-curated description for hand-bouquets.",
+          internal_links: CUSTOM_LINKS,
+          is_fallback: false,
+        }),
+      }),
+    );
+    await stubProducts(page);
+    await stubCatalogMetadata(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/category/hand-bouquets");
+  });
+
+  test("admin-supplied chips are visible", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    // Both custom links must appear as anchor elements.
+    await expect(
+      section.locator('a[href="/category/hand-bouquets"]').filter({ hasText: "Custom Roses" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      section.locator('a[href="/category/gift-baskets"]').filter({ hasText: "Custom Gifts" }),
+    ).toBeVisible();
+  });
+
+  test("default occasion chips are replaced by admin-supplied ones", async ({ page }) => {
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    await expect(
+      section.locator('a[href="/category/hand-bouquets"]').filter({ hasText: "Custom Roses" }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The default chip list for a category page points to occasion pages.
+    // With admin overrides in place, those default chips must not appear.
+    const defaultBirthdayChip = section.locator("a[href*='/occasion/birthday']");
+    await expect(defaultBirthdayChip).toHaveCount(0);
   });
 });

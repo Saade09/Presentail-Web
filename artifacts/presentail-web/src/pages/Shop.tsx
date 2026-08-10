@@ -1064,6 +1064,9 @@ export default function Shop() {
           );
         }
         if ((category || occasion) && products.length > 0) {
+          const pageDescOverrides = pageDescriptionData?.internal_links
+            ? { internal_links: pageDescriptionData.internal_links }
+            : undefined;
           return (
             <SEOContentSection
               pageType={category ? "category" : "occasion"}
@@ -1074,6 +1077,7 @@ export default function Shop() {
               countryCode={countryCode ?? ""}
               availableCategoryIds={availableCategoryIds}
               availableOccasionIds={availableOccasionIds}
+              overrides={pageDescOverrides}
               suppressFaqJsonLd
             />
           );

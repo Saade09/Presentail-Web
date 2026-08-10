@@ -70,7 +70,12 @@ router.get("/page-descriptions", async (req, res) => {
     const row = rows[0];
 
     if (row?.generationStatus === "done" && row.description) {
-      return res.json({ ok: true, description: row.description, is_fallback: false });
+      return res.json({
+        ok: true,
+        description: row.description,
+        internal_links: row.internalLinks ?? null,
+        is_fallback: false,
+      });
     }
 
     // Not ready — enqueue generation and return fallback immediately
@@ -138,7 +143,7 @@ router.put("/admin/page-descriptions/:id", async (req, res) => {
     return res.status(400).json({ ok: false, message: "Invalid id" }); // i18n-ignore
   }
 
-  const body = req.body as { description?: unknown };
+  const body = req.body as { description?: unknown; internal_links?: unknown };
   const description = typeof body.description === "string" ? body.description.trim() : null;
 
   if (!description) {
@@ -148,11 +153,30 @@ router.put("/admin/page-descriptions/:id", async (req, res) => {
     return res.status(400).json({ ok: false, message: "description must not exceed 300 characters" }); // i18n-ignore
   }
 
+  // Validate optional internal_links: must be null/undefined, or an array of { label: string; href: string }
+  let internalLinks: Array<{ label: string; href: string }> | null = null;
+  if (body.internal_links !== undefined && body.internal_links !== null) {
+    if (
+      !Array.isArray(body.internal_links) ||
+      !(body.internal_links as unknown[]).every(
+        (item) =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as Record<string, unknown>).label === "string" &&
+          typeof (item as Record<string, unknown>).href === "string",
+      )
+    ) {
+      return res.status(400).json({ ok: false, message: "internal_links must be an array of { label, href } objects" }); // i18n-ignore
+    }
+    internalLinks = body.internal_links as Array<{ label: string; href: string }>;
+  }
+
   try {
     const updated = await db
       .update(pageContextualDescriptionsTable)
       .set({
         description,
+        internalLinks,
         isManualOverride: true,
         generationStatus: "done",
         generatedAt: new Date(),

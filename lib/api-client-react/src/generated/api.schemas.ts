@@ -315,7 +315,6 @@ export const AnalyticsEventName = {
   delivery_price_recalculated: "delivery_price_recalculated",
   free_delivery_qualification_message_viewed:
     "free_delivery_qualification_message_viewed",
-  delivery_change_opened: "delivery_change_opened",
   product_lifecycle_410: "product_lifecycle_410",
   product_impression: "product_impression",
   product_card_click: "product_card_click",
