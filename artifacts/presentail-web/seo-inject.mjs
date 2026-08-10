@@ -1507,6 +1507,44 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
  * non-rendering crawlers (GPTBot, ClaudeBot, PerplexityBot, etc.) can
  * read the full article copy without executing JavaScript.
  */
+
+/**
+ * Safely render a section body string as HTML, emitting author-controlled
+ * `<a href="...">text</a>` anchors as real elements while HTML-escaping
+ * everything else. Only site-relative hrefs (starting with "/") are allowed —
+ * javascript:, data:, and external URLs are escaped to plain text.
+ *
+ * This function is deliberately narrow: it supports only the small subset of
+ * HTML that blog authors embed in body strings (internal links). All other
+ * markup is escaped normally, so there is no XSS risk.
+ *
+ * @param {string} body - Raw body string, may contain `<a href="...">...</a>`.
+ * @returns {string} - HTML-safe string with validated anchors preserved.
+ */
+function safeBodyHtml(body) {
+  const TOKEN_RE = /<a\s+href="([^"<>]*)"[^>]*>(.*?)<\/a>/g;
+  let result = "";
+  let lastIndex = 0;
+  let match;
+  while ((match = TOKEN_RE.exec(body)) !== null) {
+    // Escape the text before this anchor.
+    result += escapeHtml(body.slice(lastIndex, match.index));
+    const href = match[1];
+    const text = match[2];
+    // Only emit anchors with a single leading slash — rejects javascript:, data:,
+    // and protocol-relative //host URLs while permitting all valid site paths.
+    if (/^\/[^/]/.test(href)) {
+      result += `<a href="${escapeAttr(href)}">${escapeHtml(text)}</a>`;
+    } else {
+      // Fall back: emit the full anchor source as escaped text.
+      result += escapeHtml(match[0]);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  result += escapeHtml(body.slice(lastIndex));
+  return result;
+}
+
 function buildBlogPostBodyHtml(article, { localeBase }) {
   // Use the display heading (h1) when set; fall back to the SEO title.
   const safeTitle = escapeHtml(article.h1 ?? article.title ?? "");
@@ -1522,7 +1560,7 @@ function buildBlogPostBodyHtml(article, { localeBase }) {
     } else if (Array.isArray(sec.faqItems) && sec.faqItems.length > 0) {
       inner += `<dl>${sec.faqItems.map((faq) => `<dt>${escapeHtml(faq.q)}</dt><dd>${escapeHtml(faq.a)}</dd>`).join("")}</dl>`;
     } else if (sec.body) {
-      inner += `<p>${escapeHtml(sec.body)}</p>`;
+      inner += `<p>${safeBodyHtml(sec.body)}</p>`;
     }
   }
   const nav = localeBase

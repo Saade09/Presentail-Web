@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { Link, useParams, Redirect } from "wouter";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,44 @@ const UI_COPY: Record<Language, UiCopy> = {
   ar: { backToJournal: "العودة إلى اليوميّات", shopCta: "تسوّق المجموعة", blogNav: "المدوّنة" },
   fr: { backToJournal: "Retour au Journal", shopCta: "Voir la collection", blogNav: "Blog" },
 };
+
+/**
+ * Render a section body string, converting simple `<a href="...">text</a>` anchors
+ * into real clickable links. Only `<a>` tags with a href attribute are parsed —
+ * no other HTML is supported — so there is no XSS risk from other markup.
+ * All content is author-controlled (lives in blogPostsCopy.js, not user input).
+ */
+function renderBody(body: string): ReactNode {
+  // Split on <a href="...">...</a> patterns only.
+  const TOKEN_RE = /(<a\s+href="([^"]*)"[^>]*>(.*?)<\/a>)/g;
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = TOKEN_RE.exec(body)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(body.slice(lastIndex, match.index));
+    }
+    const href = match[2];
+    const text = match[3];
+    // Only accept strictly relative paths (single leading slash) — rejects
+    // javascript:, data:, and protocol-relative //host URLs.
+    if (!/^\/[^/]/.test(href)) {
+      parts.push(body.slice(match.index, match.index + match[0].length));
+      lastIndex = match.index + match[0].length;
+      continue;
+    }
+    parts.push(
+      <Link key={match.index} href={href} className="text-primary underline hover:no-underline">
+        {text}
+      </Link>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < body.length) {
+    parts.push(body.slice(lastIndex));
+  }
+  return parts.length === 1 ? parts[0] : parts;
+}
 
 function formatDate(iso: string, language: Language): string {
   try {
@@ -229,7 +268,7 @@ export default function BlogPost() {
                 <h2 className="font-serif text-2xl mb-3">{section.heading}</h2>
               )}
               {section.body && (
-                <p className="text-base text-foreground leading-relaxed">{section.body}</p>
+                <p className="text-base text-foreground leading-relaxed">{renderBody(section.body)}</p>
               )}
               {section.items && section.items.length > 0 && (
                 <ul className={`list-disc space-y-1 text-base text-foreground leading-relaxed ${isRtl ? "list-inside text-right" : "list-inside"}`}>
