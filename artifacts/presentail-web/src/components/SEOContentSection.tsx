@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "wouter";
 import { Truck, Clock, Gift, Sparkles, Star, Shield, Heart, Package, Flower2, Award, ShoppingBag, Users, Building2 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { STRINGS, STRINGS_FR } from "@/locales/index";
@@ -465,13 +464,13 @@ function SEOContentSectionInner({
             </p>
             <div className="flex flex-wrap gap-2">
               {internalLinks.map((link) => (
-                <Link
+                <a
                   key={link.href}
                   href={link.href}
                   className="inline-flex items-center px-4 py-1.5 rounded-full border border-stone-200 bg-white text-sm text-foreground hover:border-primary hover:text-primary transition-colors"
                 >
                   {link.label}
-                </Link>
+                </a>
               ))}
             </div>
           </div>

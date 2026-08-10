@@ -2523,3 +2523,139 @@ test.describe("SEO content section — French occasion page (direct navigation)"
     expect(count).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cross-city SEO link navigation regression
+//
+// Clicking a cross-city link (e.g. "Cake delivery in Tripoli") from the
+// curated SEO section on /en-lb/beirut/category/cakes must navigate to
+// /en-lb/tripoli/category/cakes — NOT to a malformed URL like
+// /en-lb/beirut/en-lb/tripoli/category/cakes.
+//
+// Coverage:
+//   A. EN category page (/en-lb/beirut/category/cakes):
+//      click Tripoli cross-city link → URL must be /en-lb/tripoli/category/cakes.
+//   B. AR category page (/ar-lb/beirut/category/cakes):
+//      click Tripoli cross-city link → URL must be /ar-lb/tripoli/category/cakes.
+//   C. EN occasion page (/en-lb/beirut/occasion/mothers-day):
+//      click Tripoli cross-city link → URL must be /en-lb/tripoli/occasion/mothers-day.
+//   D. Normal city-relative chip link (/occasion/birthday) in SEOContentSection:
+//      href attribute is the exact root-relative value — no locale/city prefix
+//      appended by Wouter.
+// ---------------------------------------------------------------------------
+
+test.describe("Cross-city SEO link navigation — no duplicated locale/city segments", () => {
+  test("EN category page: clicking Tripoli cross-city link navigates to correct URL", async ({
+    page,
+  }) => {
+    // The curated cakes section renders regardless of products, but stub to
+    // avoid real API calls.
+    await stubProducts(page, []);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/category/cakes");
+
+    // Wait for the curated section link to appear.
+    const tripoliLink = page.locator('a[href="/en-lb/tripoli/category/cakes"]').first();
+    await expect(tripoliLink).toBeVisible({ timeout: 15_000 });
+
+    // Verify the href attribute itself is the exact root-relative path — no
+    // locale/city prefix should have been prepended.
+    const href = await tripoliLink.getAttribute("href");
+    expect(href).toBe("/en-lb/tripoli/category/cakes");
+    expect(href).not.toContain("beirut/en-lb");
+
+    // Click and verify the resulting navigation URL.
+    await tripoliLink.click();
+    await expect(page).toHaveURL(/\/en-lb\/tripoli\/category\/cakes/, {
+      timeout: 10_000,
+    });
+    // The URL must NOT contain the duplicated segment.
+    const finalUrl = page.url();
+    expect(finalUrl).not.toContain("beirut/en-lb");
+    expect(finalUrl).not.toContain("beirut/ar-lb");
+  });
+
+  test("AR category page: clicking Tripoli cross-city link navigates to correct URL", async ({
+    page,
+  }) => {
+    await stubProducts(page, []);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/ar-lb/beirut/category/cakes");
+
+    const tripoliLink = page.locator('a[href="/ar-lb/tripoli/category/cakes"]').first();
+    await expect(tripoliLink).toBeVisible({ timeout: 15_000 });
+
+    const href = await tripoliLink.getAttribute("href");
+    expect(href).toBe("/ar-lb/tripoli/category/cakes");
+    expect(href).not.toContain("beirut/ar-lb");
+
+    await tripoliLink.click();
+    await expect(page).toHaveURL(/\/ar-lb\/tripoli\/category\/cakes/, {
+      timeout: 10_000,
+    });
+    const finalUrl = page.url();
+    expect(finalUrl).not.toContain("beirut/ar-lb");
+  });
+
+  test("EN occasion page: clicking Tripoli cross-city link navigates to correct URL", async ({
+    page,
+  }) => {
+    await stubProducts(page, []);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/occasion/mothers-day");
+
+    const tripoliLink = page
+      .locator('a[href="/en-lb/tripoli/occasion/mothers-day"]')
+      .first();
+    await expect(tripoliLink).toBeVisible({ timeout: 15_000 });
+
+    const href = await tripoliLink.getAttribute("href");
+    expect(href).toBe("/en-lb/tripoli/occasion/mothers-day");
+    expect(href).not.toContain("beirut/en-lb");
+
+    await tripoliLink.click();
+    await expect(page).toHaveURL(/\/en-lb\/tripoli\/occasion\/mothers-day/, {
+      timeout: 10_000,
+    });
+    const finalUrl = page.url();
+    expect(finalUrl).not.toContain("beirut/en-lb");
+  });
+
+  test("SEOContentSection chip: href attribute is the exact root-relative value with no locale prefix added", async ({
+    page,
+  }) => {
+    // Use a non-curated category so SEOContentSection (template) is rendered
+    // instead of the curated block in Shop.tsx.
+    const handBouquetProduct = {
+      ...STUB_PRODUCT,
+      category: "hand-bouquets",
+      categories: ["hand-bouquets"],
+    };
+    await stubProducts(page, [handBouquetProduct]);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/en-lb/beirut/category/hand-bouquets");
+
+    const section = page.getByTestId("seo-content-section");
+    await expect(section).toBeVisible({ timeout: 15_000 });
+
+    // The birthday chip should render with href="/occasion/birthday" — the
+    // exact root-relative value. Wouter must NOT have prepended the base.
+    const birthdayChip = section.locator('a[href="/occasion/birthday"]').first();
+    await expect(birthdayChip).toBeVisible({ timeout: 10_000 });
+
+    const chipHref = await birthdayChip.getAttribute("href");
+    expect(chipHref).toBe("/occasion/birthday");
+    // Wouter's base prepend would produce /en-lb/beirut/occasion/birthday
+    // as the href attribute — assert that did NOT happen.
+    expect(chipHref).not.toContain("en-lb");
+    expect(chipHref).not.toContain("beirut");
+  });
+});

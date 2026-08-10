@@ -1040,9 +1040,9 @@ export default function Shop() {
                     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
                       {s.links.map((l) => (
                         <li key={l.href}>
-                          <Link href={l.href} className="text-sm underline underline-offset-4 text-foreground/80 hover:text-foreground">
+                          <a href={l.href} className="text-sm underline underline-offset-4 text-foreground/80 hover:text-foreground">
                             {l.label}
-                          </Link>
+                          </a>
                         </li>
                       ))}
                     </ul>

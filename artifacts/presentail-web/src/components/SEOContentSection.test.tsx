@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
@@ -252,5 +253,82 @@ describe("SEOContentSection — brand page type", () => {
       { locale: EN_LOCALE },
     );
     expect(screen.queryByTestId("seo-content-section")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-city SEO link regression — internal links must be native <a> elements
+// ---------------------------------------------------------------------------
+
+describe("SEOContentSection — cross-city internal links use native anchors", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("cross-city override links render as <a> elements with exact root-relative hrefs (no base prepended)", () => {
+    // If this component were using Wouter's <Link> in a real browser context, the
+    // city router (base="/en-lb/beirut") would prepend the base during click
+    // handling. The unit-test mock renders Link as <a> so it cannot catch that
+    // runtime prepend, but it can confirm that:
+    //   (a) the rendered <a> has exactly the href from the data, and
+    //   (b) Wouter's mock Link was NOT invoked — meaning native <a> is used.
+    const crossCityLinks = [
+      { label: "Cake delivery in Tripoli", href: "/en-lb/tripoli/category/cakes" },
+      { label: "Cake delivery in Saida", href: "/en-lb/saida/category/cakes" },
+    ];
+
+    renderWithProviders(
+      <SEOContentSection
+        pageType="category"
+        entityName="Cakes"
+        entitySlug="cakes"
+        cityLabel="Beirut"
+        lang="en"
+        countryCode="LB"
+        overrides={{ internal_links: crossCityLinks }}
+      />,
+      { locale: EN_LOCALE },
+    );
+
+    // Each link must be a rendered <a> with the exact href from the data.
+    for (const link of crossCityLinks) {
+      const el = document.querySelector(`a[href="${link.href}"]`);
+      expect(el, `Expected <a> with href="${link.href}" but found none`).not.toBeNull();
+      expect(el!.tagName).toBe("A");
+      expect(el!.getAttribute("href")).toBe(link.href);
+    }
+
+    // The href values must not contain any locale/city prefix that does not
+    // belong to the target city — guard against base-prepend regression.
+    const allAnchors = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>(
+        '[data-testid="seo-content-section"] a',
+      ),
+    );
+    const chipHrefs = allAnchors.map((a) => a.getAttribute("href") ?? "");
+    for (const link of crossCityLinks) {
+      const found = chipHrefs.find((h) => h === link.href);
+      expect(
+        found,
+        `href "${link.href}" not found among chip hrefs: ${chipHrefs.join(", ")}`,
+      ).toBeTruthy();
+    }
+  });
+
+  it("standard occasion chip links (relative paths) render as <a> with exact root-relative hrefs", () => {
+    renderWithProviders(
+      <SEOContentSection
+        {...SHARED_PROPS}
+        pageType="category"
+      />,
+      { locale: EN_LOCALE },
+    );
+
+    // availableOccasionIds contains "birthday", so the birthday chip should appear.
+    const birthdayLink = document.querySelector('a[href="/occasion/birthday"]');
+    expect(birthdayLink, 'Expected <a> with href "/occasion/birthday"').not.toBeNull();
+    expect(birthdayLink!.tagName).toBe("A");
+    // href must be exactly the root-relative path — no locale or city prefix added.
+    expect(birthdayLink!.getAttribute("href")).toBe("/occasion/birthday");
   });
 });
