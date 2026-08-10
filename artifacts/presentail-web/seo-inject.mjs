@@ -2287,7 +2287,7 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
 // Keyed by "{country}-{city}". Deliberately scoped (Tripoli-only for now) —
 // each addition puts a live product-API fetch on that city's HTML hot path,
 // so cities are enabled one at a time after verifying response-time impact.
-export const SSR_PRODUCT_CITY_KEYS = new Set(["lb-tripoli"]);
+export const SSR_PRODUCT_CITY_KEYS = new Set(["lb-tripoli", "lb-batroun"]);
 
 // Marker comment emitted by buildGenericBodyHtml where the product grid is
 // spliced in (after the hero/intro copy, before delivery-coverage copy,

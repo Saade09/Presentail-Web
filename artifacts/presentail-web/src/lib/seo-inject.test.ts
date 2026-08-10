@@ -8622,3 +8622,135 @@ describe("Tripoli internal links & /shop canonicalization", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Server-rendered product grid — Batroun city home (SSR products)
+// ---------------------------------------------------------------------------
+
+describe("injectSeoTagsAsync — Batroun city home server-rendered products", () => {
+  const SSR_ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+
+  const FIXTURE_PRODUCTS = Array.from({ length: 10 }, (_, i) => ({
+    id: i === 0 ? "roses-bouquet" : `batroun-product-${i}`,
+    name: i === 0 ? "Roses Bouquet" : `Batroun Product ${i}`,
+    price: `$${45 + i}`,
+    priceValue: 45 + i,
+    image: { uri: `https://cdn.test/batroun-${i}.jpg` },
+  }));
+
+  function mockProductsFetch(apiHost: string, products: unknown[] | null) {
+    const fn = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/products")) {
+        if (products === null) throw new Error("ETIMEDOUT");
+        return { ok: true, json: async () => ({ ok: true, products, count: (products as unknown[]).length }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fn);
+    return fn;
+  }
+
+  it("embeds ≥8 crawlable product cards, names, prices, images, and ItemList JSON-LD", async () => {
+    const fetchMock = mockProductsFetch("ssr-bat-a", FIXTURE_PRODUCTS);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/batroun", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-bat-a.test",
+    });
+    // Products fetch is scoped to LB / lb-batroun.
+    const productCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/woo/products"),
+    );
+    expect(productCalls).toHaveLength(1);
+    expect(String(productCalls[0][0])).toContain("countryCode=LB");
+    expect(String(productCalls[0][0])).toContain("cityId=lb-batroun");
+
+    // Semantic section with heading + data attribute for React adoption.
+    expect(out).toContain('<section data-ssr-products="true">');
+    expect(out).toContain("<h2>Shop Flowers &amp; Gifts in Batroun</h2>");
+
+    // Crawlable canonical product link, visible name and price.
+    expect(out).toContain('<a href="/en-lb/batroun/product/roses-bouquet">');
+    expect(out).toContain("<span>Roses Bouquet</span>");
+    expect(out).toContain("<span>$45</span>");
+
+    // At least 8 <a href> cards — not wrapped in display:none.
+    const cardLinks = [...out.matchAll(/<a href="\/en-lb\/batroun\/product\/[^"]+">/g)];
+    expect(cardLinks.length).toBeGreaterThanOrEqual(8);
+
+    // Section must not be hidden.
+    const sectionMatch = out.match(/<section data-ssr-products="true"[^>]*>/);
+    expect(sectionMatch).toBeTruthy();
+    expect(sectionMatch![0]).not.toContain("display:none");
+    expect(sectionMatch![0]).not.toContain("visibility:hidden");
+
+    // Each card link must contain a non-empty price text node.
+    for (const [, href] of out.matchAll(/<a href="(\/en-lb\/batroun\/product\/[^"]+)">([\s\S]*?)<\/a>/g)) {
+      const cardHtml = out.slice(out.indexOf(`href="${href}"`));
+      const priceMatch = cardHtml.match(/<span>([^<]+)<\/span>\s*<\/a>/);
+      expect(priceMatch).toBeTruthy();
+      expect(priceMatch![1].trim().length).toBeGreaterThan(0);
+    }
+
+    // Images: real src, alt text, width/height + aspect-ratio; first eager, rest lazy.
+    const imgs = [...out.matchAll(/<img src="https:\/\/cdn\.test\/batroun-[^"]+"[^>]*>/g)].map((m) => m[0]);
+    expect(imgs.length).toBeGreaterThanOrEqual(8);
+    expect(imgs[0]).toContain('loading="eager"');
+    expect(imgs[0]).toContain('fetchpriority="high"');
+    expect(imgs[0]).toContain('alt="Roses Bouquet');
+    for (const img of imgs.slice(1)) expect(img).toContain('loading="lazy"');
+    for (const img of imgs) {
+      expect(img).toContain('width="400"');
+      expect(img).toContain('height="400"');
+      expect(img).toContain("aspect-ratio:1/1");
+    }
+
+    // LCP preload for the first product image in <head>.
+    expect(out).toContain(
+      '<link rel="preload" as="image" fetchpriority="high" href="https://cdn.test/batroun-0.jpg">',
+    );
+
+    // Product block appears before the FAQ section.
+    const gridIdx = out.indexOf('data-ssr-products="true"');
+    const faqIdx = out.indexOf("Frequently Asked Questions");
+    expect(gridIdx).toBeGreaterThan(-1);
+    expect(faqIdx).toBeGreaterThan(gridIdx);
+
+    // ItemList JSON-LD with absolute canonical product URLs.
+    const itemList = byType(extractJsonLd(out), "ItemList");
+    expect(itemList).toBeTruthy();
+    expect(itemList.itemListElement.length).toBeGreaterThanOrEqual(8);
+    expect(itemList.itemListElement[0].url).toBe(
+      "https://presentail.test/en-lb/batroun/product/roses-bouquet",
+    );
+    expect(itemList.itemListElement[0].name).toBe("Roses Bouquet");
+
+    // Embedded JSON payload for React adoption (no double fetch).
+    expect(out).toContain('<script type="application/json" data-ssr-products-data>');
+  });
+
+  it("degrades gracefully when the products API times out (page renders, no product block)", async () => {
+    mockProductsFetch("ssr-bat-b", null);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/batroun", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-bat-b.test",
+    });
+    expect(out).toContain("<title>");
+    expect(out).not.toContain('data-ssr-products="true"');
+    expect(out).not.toContain('"@type":"ItemList"');
+    expect(out).toContain("<h1>");
+  });
+
+  it("does not fetch products for non-SSR city homes (Beirut unaffected by Batroun addition)", async () => {
+    const fetchMock = mockProductsFetch("ssr-bat-c", FIXTURE_PRODUCTS);
+    const out = await injectSeoTagsAsync(SSR_ROOT_HTML, "/en-lb/beirut", {
+      ...OPTS,
+      apiBaseUrl: "https://api.ssr-bat-c.test",
+    });
+    const productCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/woo/products"),
+    );
+    expect(productCalls).toHaveLength(0);
+    expect(out).not.toContain('data-ssr-products="true"');
+  });
+});
