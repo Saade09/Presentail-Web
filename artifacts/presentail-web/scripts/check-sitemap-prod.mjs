@@ -22,7 +22,7 @@ const BLOG_SLUGS = [
   "send-roses-to-lebanon",
 ];
 
-const LOCALE_SITEMAPS = ["ar", "fr"];
+const LOCALE_SITEMAPS = ["en", "ar", "fr"];
 
 // hreflang values expected on every blog-article <url> entry.
 const EXPECTED_HREFLANGS = ["en", "ar", "fr", "x-default"];
