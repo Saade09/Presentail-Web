@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
+import { getFallbackUri } from "@/utils/imageUrl";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -18,20 +19,45 @@ type Props = {
   height?: number;
 };
 
-type ImageLoadState = "loading" | "loaded" | "error";
+/**
+ * "loading"  — first attempt in progress; shimmer visible.
+ * "retrying" — first attempt failed; shimmer still visible; re-fetching with
+ *              the fallback URI (raw OS URL if primary was proxied, same URL
+ *              otherwise — key change forces a fresh network request).
+ * "loaded"   — image displayed; shimmer hidden.
+ * "error"    — both attempts failed; grey placeholder shown.
+ */
+type ImageLoadState = "loading" | "retrying" | "loaded" | "error";
 
 function SingleHero({ source, height }: { source: { uri: string } | null; height: number }) {
   const [state, setState] = useState<ImageLoadState>("loading");
+
+  const fallbackUri = source ? getFallbackUri(source.uri) : null;
+
+  // Derive the source to use for the current attempt.
+  const retrySource: { uri: string } | null =
+    state === "retrying" && fallbackUri ? { uri: fallbackUri } : source;
+
   return (
     <View style={{ width: SCREEN_W, height }}>
-      {state === "loading" && <ShimmerPlaceholder />}
-      {source ? (
+      {(state === "loading" || state === "retrying") && <ShimmerPlaceholder />}
+      {retrySource ? (
         <Image
-          source={source}
+          // Changing the key on the "retrying" render unmounts the previous
+          // Image and mounts a fresh one, forcing a new network request even
+          // when the fallback URI equals the original (transient failure).
+          key={state === "retrying" ? "retry" : "initial"}
+          source={retrySource}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           onLoad={() => setState("loaded")}
-          onError={() => setState("error")}
+          onError={() => {
+            if (state === "loading") {
+              setState("retrying");
+            } else {
+              setState("error");
+            }
+          }}
           accessibilityLabel="" // decorative
         />
       ) : null}
@@ -129,15 +155,30 @@ function CarouselSlide({
   total: number;
 }) {
   const [state, setState] = useState<ImageLoadState>("loading");
+
+  const fallbackUri = getFallbackUri(uri);
+
+  // On retry, use the fallback URI (may equal uri for direct CDN URLs — the
+  // key change below still forces expo-image to make a fresh network request).
+  const retrySource = state === "retrying" ? { uri: fallbackUri } : { uri };
+
   return (
     <View style={{ width, height }}>
-      {state === "loading" && <ShimmerPlaceholder />}
+      {(state === "loading" || state === "retrying") && <ShimmerPlaceholder />}
       <Image
-        source={{ uri }}
+        // Key change on "retrying" forces a remount and fresh network request.
+        key={state === "retrying" ? "retry" : "initial"}
+        source={retrySource}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         onLoad={() => setState("loaded")}
-        onError={() => setState("error")}
+        onError={() => {
+          if (state === "loading") {
+            setState("retrying");
+          } else {
+            setState("error");
+          }
+        }}
         accessibilityLabel={`Photo ${index + 1} of ${total}`} // i18n-ignore
       />
       <LinearGradient

@@ -18,6 +18,7 @@ import {
 } from "@/lib/prefetchScreens";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { isDiscountActive } from "@/lib/salePriceHelpers";
+import { getFallbackUri } from "@/utils/imageUrl";
 
 const imageLoadedCache = new Set<string>();
 
@@ -27,6 +28,15 @@ function getImageUri(image: Product["image"]): string | null {
   if (typeof image === "object" && "uri" in image) return (image as { uri: string }).uri || null;
   return null;
 }
+
+/**
+ * "loading"  — first attempt in progress; shimmer visible.
+ * "retrying" — first attempt failed; shimmer still visible; re-fetching with
+ *              the fallback URI (raw OS URL if primary was proxied, same URL
+ *              otherwise — key change forces a fresh network request).
+ * "done"     — image loaded or both attempts failed; shimmer hidden.
+ */
+type ImageState = "loading" | "retrying" | "done";
 
 type Props = {
   product: Product;
@@ -44,9 +54,10 @@ export function ProductCard({ product, width, onPress }: Props) {
   const { freeDeliveryEnabled, freeDeliveryThresholdNative: threshold } = useDeliveryConfig();
   const convertedPrice = convert(Number.isFinite(product.priceValue) ? product.priceValue : 0);
   const imageUri = getImageUri(product.image);
-  const [imageLoaded, setImageLoaded] = React.useState(() =>
-    imageUri !== null && imageLoadedCache.has(imageUri),
+  const [imgState, setImgState] = React.useState<ImageState>(() =>
+    imageUri !== null && imageLoadedCache.has(imageUri) ? "done" : "loading",
   );
+  const imageLoaded = imgState === "done";
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -85,17 +96,31 @@ export function ProductCard({ product, width, onPress }: Props) {
       >
         {!imageLoaded && <ShimmerPlaceholder />}
         <Image
-          source={product.image}
+          // Key change on "retrying" unmounts the previous Image and mounts a
+          // fresh one, forcing a new network request even when the fallback URI
+          // equals the original (handles transient network failures).
+          key={imgState === "retrying" ? "retry" : "initial"}
+          source={
+            imgState === "retrying" && imageUri
+              ? { uri: getFallbackUri(imageUri) }
+              : product.image
+          }
           style={styles.image}
           contentFit="cover"
           transition={200}
           onLoad={() => {
             if (imageUri) imageLoadedCache.add(imageUri);
-            setImageLoaded(true);
+            setImgState("done");
           }}
           onError={() => {
-            if (imageUri) imageLoadedCache.add(imageUri);
-            setImageLoaded(true);
+            if (imgState === "loading") {
+              // First failure — keep shimmer visible and retry once.
+              setImgState("retrying");
+            } else {
+              // Second failure — give up and show the grey placeholder.
+              if (imageUri) imageLoadedCache.add(imageUri);
+              setImgState("done");
+            }
           }}
         />
         {onSale ? (
