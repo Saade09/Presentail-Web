@@ -8503,3 +8503,122 @@ describe("injectSeoTagsAsync — Tripoli city home server-rendered products", ()
     expect(itemList.itemListElement).toHaveLength(1);
   });
 });
+
+describe("Tripoli internal links & /shop canonicalization", () => {
+  const ORIGIN = "https://presentail.test";
+  const L_OPTS = { origin: ORIGIN, basePath: "" };
+
+  beforeEach(() => {
+    genericSeoCache.clear();
+  });
+
+  it("/en-lb/tripoli/shop uses the differentiated full-catalogue title and matching H1", () => {
+    const { title, bodyHtml, headSnippet } = buildSeoHead("/en-lb/tripoli/shop", L_OPTS);
+    expect(title).toBe("Shop All Flowers & Gifts in Tripoli | Presentail");
+    expect(bodyHtml).toContain("<h1>Shop All Flowers &amp; Gifts in Tripoli</h1>");
+    // Self-referencing canonical is retained.
+    expect(headSnippet).toContain(
+      `rel="canonical" href="${ORIGIN}/en-lb/tripoli/shop"`,
+    );
+  });
+
+  it("other city /shop pages keep the template title", () => {
+    const { title } = buildSeoHead("/en-lb/batroun/shop", L_OPTS);
+    expect(title).toBe("Shop Flowers & Gifts in Batroun | Presentail");
+    genericSeoCache.clear();
+    const { title: arTitle } = buildSeoHead("/ar-lb/tripoli/shop", L_OPTS);
+    expect(arTitle).not.toContain("Shop All Flowers");
+  });
+
+  it("/en-lb/tripoli/shop body contains a crawlable back-link to the landing page", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/tripoli/shop", L_OPTS);
+    expect(bodyHtml).toContain(
+      `<a href="${ORIGIN}/en-lb/tripoli/">flower delivery in Tripoli</a>`,
+    );
+  });
+
+  it("/en-lb/tripoli home body contains the Popular Flower Types section with crawlable links", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/tripoli", L_OPTS);
+    expect(bodyHtml).toContain("<h2>Popular Flower Types in Tripoli</h2>");
+    for (const href of [
+      "/en-lb/tripoli/category/hand-bouquets",
+      "/en-lb/tripoli/category/flower-boxes",
+      "/en-lb/tripoli/occasion/birthday",
+      "/en-lb/tripoli/occasion/anniversary",
+      "/en-lb/tripoli/occasion/funeral",
+      "/en-lb/tripoli/occasion/wedding",
+      "/en-lb/tripoli/occasion/new-born",
+    ]) {
+      expect(bodyHtml).toContain(`href="${ORIGIN}${href}"`);
+    }
+  });
+
+  it("other city home pages do not get the Popular Flower Types section", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/beirut", L_OPTS);
+    expect(bodyHtml).not.toContain("Popular Flower Types");
+  });
+
+  it("Tripoli occasion body contains a crawlable landing-page link", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        return { ok: true, json: async () => ({ ok: true, total: 8, groups: [{ count: 8, products: [{ name: "Sample", id: "sample" }] }] }) };
+      }
+      if (u.includes("/api/woo/occasion")) {
+        return { ok: true, json: async () => ({ ok: true, occasion: { name: "Birthday", description: "Birthday gifts.", image: null } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-lb/tripoli/occasion/birthday",
+      OPTS,
+    );
+    expect(out).toContain(
+      `<a href="${OPTS.origin}/en-lb/tripoli/">flowers and gifts in Tripoli</a>`,
+    );
+  });
+
+  it("non-Tripoli occasion body has no Tripoli landing-page link", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        return { ok: true, json: async () => ({ ok: true, total: 8, groups: [] }) };
+      }
+      if (u.includes("/api/woo/occasion")) {
+        return { ok: true, json: async () => ({ ok: true, occasion: { name: "Birthday", description: "Birthday gifts.", image: null } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-lb/beirut/occasion/birthday",
+      OPTS,
+    );
+    expect(out).not.toContain("flowers and gifts in Tripoli");
+  });
+
+  it("Tripoli brand body contains a crawlable landing-page link with a varied anchor", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 4, products: [] }) };
+      }
+      if (u.includes("/api/woo/brand")) {
+        return { ok: true, json: async () => ({ ok: true, brand: { name: "Acme Florals", description: "Bouquets.", image: null } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-lb/tripoli/brand/acme-florals",
+      OPTS,
+    );
+    expect(out).toContain(
+      `<a href="${OPTS.origin}/en-lb/tripoli/">Tripoli flower delivery</a>`,
+    );
+  });
+});

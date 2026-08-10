@@ -467,6 +467,18 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     description = cityHomeOverride.description;
   }
 
+  // /shop differentiation for Tripoli (EN): the landing page /en-lb/tripoli
+  // owns the "flower delivery Tripoli" query; /shop is repositioned as the
+  // full-catalogue browse experience so the two pages stop competing for the
+  // same intent. Other cities keep the template title unchanged.
+  const isTripoliShop =
+    routeKey === "shop" && cityKey === "lb-tripoli" && lang === "en";
+  if (isTripoliShop) {
+    title = "Shop All Flowers & Gifts in Tripoli | Presentail"; // i18n-ignore — crawler-facing EN SEO copy
+    description =
+      "Browse Presentail's complete catalogue for Tripoli — every bouquet, rose arrangement, cake, chocolate box, plant and gift set available to order in one place."; // i18n-ignore
+  }
+
   // For product / category / occasion routes, extract the URL slug and derive
   // entity-specific title/description from it using the same builders that the
   // live entity branches use.  This replaces the completely generic
@@ -1036,7 +1048,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     });
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang, h1Override: cityHomeOverride?.h1, introOverride: cityHomeOverride?.intro, whyPoints: cityHomeOverride?.whyPoints });
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang, cityKey, h1Override: cityHomeOverride?.h1 ?? (isTripoliShop ? "Shop All Flowers & Gifts in Tripoli" : undefined), introOverride: cityHomeOverride?.intro, whyPoints: cityHomeOverride?.whyPoints });
 
   return {
     lang,
@@ -1216,7 +1228,7 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
   return `<h2>Latest Articles</h2><ul>${items.join("")}</ul>`; // i18n-ignore
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", h1Override = undefined, introOverride = undefined, whyPoints = undefined }) {
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined }) {
   const intro = introOverride ?? ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   // Compute a distinct H1 from ROUTE_H1 — same topic as <title> but
@@ -1268,6 +1280,29 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
         `<li><a href="${localeBase}/occasion/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
       ).join("") +
       `</ul>`;
+    // Tripoli landing page: visible "Popular flower types" section with
+    // crawlable links to real, indexable category/occasion URLs — strengthens
+    // the internal link graph between the landing page and its child pages.
+    // Every href below is a canonical, sitemapped URL (spot-checked to 200).
+    if (cityKey === "lb-tripoli" && lang === "en") {
+      // i18n-ignore-block — crawler-facing EN copy for the Tripoli landing page
+      const popularFlowerTypes = [
+        { href: "/category/hand-bouquets", name: "Roses & Mixed Hand Bouquets" },
+        { href: "/category/flower-boxes", name: "Flower Boxes" },
+        { href: "/occasion/birthday", name: "Birthday Flowers" },
+        { href: "/occasion/anniversary", name: "Anniversary Flowers" },
+        { href: "/occasion/funeral", name: "Sympathy Flowers" },
+        { href: "/occasion/wedding", name: "Wedding Flowers" },
+        { href: "/occasion/new-born", name: "New Baby Gifts" },
+      ];
+      homeExtras +=
+        `<h2>Popular Flower Types in Tripoli</h2>` + // i18n-ignore — crawler-facing EN copy
+        `<ul>` +
+        popularFlowerTypes.map(({ href, name }) =>
+          `<li><a href="${localeBase}${escapeAttr(href)}">${escapeHtml(name)}</a></li>`,
+        ).join("") +
+        `</ul>`;
+    }
   }
 
   // Shop route: add a featured category list so AI crawlers can follow
@@ -1282,6 +1317,14 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
         `<li><a href="${localeBase}/category/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
       ).join("") +
       `</ul>`;
+    // Tripoli /shop: contextual back-link to the flower-delivery landing page.
+    // /shop is the full-catalogue experience; the landing page owns the
+    // delivery-intent query, so pass authority back to it with a natural anchor.
+    if (cityKey === "lb-tripoli" && lang === "en") {
+      // i18n-ignore — crawler-facing EN copy for the Tripoli shop page
+      shopExtras +=
+        `<p>Looking for a curated selection? See our <a href="${localeBase}/">flower delivery in Tripoli</a> page for hand-picked bouquets and same-day options.</p>`; // i18n-ignore
+    }
   }
 
   // Blog index route: list every published article as a crawlable link so
@@ -3741,8 +3784,20 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   // alongside the page. sr-only hides it visually while keeping it in the
   // accessibility tree and the crawlable DOM. React replaces all children of
   // #root on hydration, so JS users see the normal SPA h1 without any flash.
+  // Tripoli brand pages: crawlable contextual link back to the city landing
+  // page. sr-only (not display:none) so Google indexes it; anchor text
+  // deliberately varied vs. the occasion-page and /shop back-links.
+  const parsedBrandLoc = parseLocalePath(pathname);
+  const tripoliBrandLinkHtml =
+    parsedBrandLoc.country === "lb" &&
+    parsedBrandLoc.city === "tripoli" &&
+    lang === "en" &&
+    locBase
+      ? `<div class="sr-only"><p>Discover our full <a href="${locBase}/">Tripoli flower delivery</a> service.</p></div>` // i18n-ignore — crawler-facing EN copy
+      : "";
   const bodyHtml = (
     `<h1 class="sr-only">${safeBrandTitle}</h1>` +
+    tripoliBrandLinkHtml +
     `<div style="display:none">` +
     (safeBrandDesc ? `<p>${safeBrandDesc}</p>` : "") +
     (safeBrandHeading ? `<h2>${safeBrandHeading}</h2>` : "") +
@@ -4103,15 +4158,31 @@ function buildShopEntityHead({
       sectionsHtml +
       curatedFaqHtml;
   }
+  // Tripoli occasion pages: crawlable contextual link back to the city
+  // landing page (/en-lb/tripoli). Lives in the sr-only region (indexed by
+  // Google, unlike display:none) so it strengthens the landing page's inbound
+  // internal-link graph without altering the visible React UI. Anchor text
+  // intentionally differs from the /shop back-link and brand-page anchors.
+  const parsedEntityLoc = parseLocalePath(pathname);
+  const tripoliOccasionLinkHtml =
+    entityKind === "occasion" &&
+    parsedEntityLoc.country === "lb" &&
+    parsedEntityLoc.city === "tripoli" &&
+    lang === "en" &&
+    locBase
+      ? `<p>Explore more <a href="${locBase}/">flowers and gifts in Tripoli</a> for every occasion.</p>` // i18n-ignore — crawler-facing EN copy
+      : "";
   const bodyHtml = curated
     ? (
       curatedBodyHtml +
       (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
+      (tripoliOccasionLinkHtml ? `<div class="sr-only">${tripoliOccasionLinkHtml}</div>` : "") +
       (entityNav ? `<div style="display:none">${entityNav}</div>` : "")
     )
     : (
       `<h1 class="sr-only">${safeEntityTitle}</h1>` +
       (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
+      (tripoliOccasionLinkHtml ? `<div class="sr-only">${tripoliOccasionLinkHtml}</div>` : "") +
       `<div style="display:none">` +
       (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
       (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
