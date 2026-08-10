@@ -1357,9 +1357,11 @@ function DeliveryOption({
       {feeLabel ? (
         <View style={{ alignItems: "flex-end", marginEnd: 6, flexShrink: 0, maxWidth: 110 }}>
           <AppText
+            numberOfLines={1}
+            adjustsFontSizeToFit
             style={{
               fontFamily: "Inter_600SemiBold",
-              fontSize: 13,
+              fontSize: 11,
               color: isFree ? colors.primary : colors.text,
               // In RTL the fee column sits at the left card edge; align text there.
               textAlign: I18nManager.isRTL ? "left" : "right",

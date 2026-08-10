@@ -146,17 +146,17 @@ function DeliveryRow({
         )}
       </span>
       {feeLabel && (
-        <span className="shrink-0 text-right max-w-[110px]">
+        <span className="shrink-0 text-right">
           <span
             className={cn(
-              "block text-sm font-semibold",
+              "block text-[11px] font-semibold whitespace-nowrap",
               isFree ? "text-primary" : "text-foreground",
             )}
           >
             {feeLabel}
           </span>
           {feeSubLabel && (
-            <span className="block text-[11px] text-muted-foreground leading-tight mt-0.5 whitespace-normal">
+            <span className="block max-w-[110px] ml-auto text-[11px] text-muted-foreground leading-tight mt-0.5 whitespace-normal">
               {feeSubLabel}
             </span>
           )}
