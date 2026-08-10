@@ -285,6 +285,36 @@ describe("buildSitemapXml", () => {
     expect(xml).not.toContain("/category/empty-category");
   });
 
+  it("includes a curated category with count 0 in the EN sitemap (curated-bypass)", () => {
+    // "balloons" has curated SEO content for lb/beirut in English — even with
+    // count: 0 it must appear in the English sitemap so the hand-written page
+    // is always discoverable by Googlebot.
+    const xmlEn = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      locale: "en",
+      categories: [{ id: "balloons", count: 0 }],
+    });
+    expect(xmlEn).toContain("/category/balloons");
+  });
+
+  it("excludes a curated category with count 0 from AR and FR sitemaps (curated content is EN-only)", () => {
+    // The curated bypass is scoped to the locale that actually has hand-written
+    // copy. For AR and FR, no curated balloons copy exists, so the normal
+    // eligibility gate applies — a zero-count category must be omitted.
+    for (const locale of ["ar", "fr"]) {
+      const xmlNonEn = buildSitemapXml({
+        origin: ORIGIN,
+        basePath: "/",
+        locale,
+        categories: [{ id: "balloons", count: 0 }],
+      });
+      expect(xmlNonEn, `locale ${locale}: zero-count curated category must be absent`).not.toContain(
+        "/category/balloons",
+      );
+    }
+  });
+
   it("excludes occasions with count 0 and includes those with count > 0", () => {
     expect(xml).toContain("/occasion/birthday");
     expect(xml).not.toContain("/occasion/empty-occasion");

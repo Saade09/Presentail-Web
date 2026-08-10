@@ -380,11 +380,18 @@ export function buildSitemapXml({
       // the locale that actually has curated copy (EN-only today): ar/fr
       // variants still render template content, so they keep the normal
       // eligibility gate. Mirrors the same bypass in occasion pages above.
-      const hasCuratedCategory = !!getCategorySeoContent({
+      //
+      // getCategorySeoContent falls back to English when no native-locale
+      // copy exists. We must NOT use that fallback for the bypass decision
+      // or the eligibility gate would be disabled for AR/FR too. Check
+      // strictly: bypass only when lang === "en" (the locale that actually
+      // carries the curated content). When AR/FR gain their own curated
+      // copy the condition here should be widened accordingly.
+      const hasCuratedCategory = lang === "en" && !!getCategorySeoContent({
         country,
         city,
         slug: category.id,
-        lang: locale,
+        lang: "en",
       });
       recordEligibility("city-category", eligibility.eligible || hasCuratedCategory);
       if (!eligibility.eligible && !hasCuratedCategory) continue;
