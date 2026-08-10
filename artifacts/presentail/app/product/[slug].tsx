@@ -26,6 +26,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, PayPalBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { Price } from "@/components/Price";
+import { DirhamSymbol } from "@/components/DirhamSymbol";
+import { RiyalSymbol } from "@/components/RiyalSymbol";
 import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -847,6 +849,76 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // Build display labels for delivery option cards
   const { standardFee, expressSurcharge, expressTotal, isFreeStandard, pricingState } = deliveryPricing;
 
+  // For AED/SAR we render SVG currency symbols (same as the <Price> component)
+  // instead of the plain text currency code that fmtNative() would produce.
+  // Returns a ReactNode for AED/SAR and a plain string for all other currencies.
+  const hasSvgSymbol = currencyCode === "AED" || currencyCode === "SAR";
+  const FeeSymbol = currencyCode === "AED" ? DirhamSymbol : currencyCode === "SAR" ? RiyalSymbol : null;
+
+  // Render a single native-currency amount with proper symbol (for fee label).
+  const symAmount = (amount: number, nodeColor: string): React.ReactNode => {
+    if (!hasSvgSymbol || !FeeSymbol) return fmtNative(amount);
+    const Sym = FeeSymbol;
+    return (
+      <View style={{ flexDirection: I18nManager.isRTL ? "row-reverse" : "row", alignItems: "center", gap: 2 }}>
+        <Sym size={8} color={nodeColor} />
+        <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: nodeColor }}>
+          {Math.round(amount).toString()}
+        </AppText>
+      </View>
+    );
+  };
+
+  // Render a localised template string, replacing {key} placeholders with
+  // proper currency symbol + number nodes for AED/SAR, plain text otherwise.
+  const symTemplate = (
+    template: string,
+    amounts: Record<string, number>,
+    nodeColor: string,
+    fontSize: number,
+    fontFamily: string,
+  ): React.ReactNode => {
+    if (!hasSvgSymbol || !FeeSymbol) {
+      return Object.entries(amounts).reduce(
+        (s, [k, v]) => s.replace(`{${k}}`, fmtNative(v)),
+        template,
+      );
+    }
+    const Sym = FeeSymbol;
+    const symSize = fontSize <= 10 ? 7 : 8;
+    const textStyle = { fontFamily, fontSize, color: nodeColor } as const;
+    const re = /\{(\w+)\}/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let pi = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(template)) !== null) {
+      if (m.index > lastIndex) {
+        parts.push(<AppText key={pi++} style={textStyle}>{template.slice(lastIndex, m.index)}</AppText>);
+      }
+      const key = m[1];
+      if (key in amounts) {
+        parts.push(
+          <React.Fragment key={pi++}>
+            <Sym size={symSize} color={nodeColor} />
+            <AppText style={textStyle}>{Math.round(amounts[key]).toString()}</AppText>
+          </React.Fragment>,
+        );
+      } else {
+        parts.push(<AppText key={pi++} style={textStyle}>{m[0]}</AppText>);
+      }
+      lastIndex = m.index + m[0].length;
+    }
+    if (lastIndex < template.length) {
+      parts.push(<AppText key={pi++} style={textStyle}>{template.slice(lastIndex)}</AppText>);
+    }
+    return (
+      <View style={{ flexDirection: I18nManager.isRTL ? "row-reverse" : "row", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
+        {parts}
+      </View>
+    );
+  };
+
   const expressCardFeeLabel = (() => {
     if (pricingState === "error") return t.deliveryCalculatedAtCheckout;
     if (pricingState === "unknown_area" || pricingState === "from_min") {
@@ -854,21 +926,19 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       // area/standard-fee is unknown.  expressTotal = standard(≥0) + surcharge,
       // so surcharge is the true lower-bound → "From {surcharge}" is the
       // correct label per the task spec ("From $X when a reliable minimum exists").
-      return t.deliveryFromMin.replace("{amount}", fmtNative(expressSurcharge));
+      return symTemplate(t.deliveryFromMin, { amount: expressSurcharge }, colors.text, 11, "Inter_600SemiBold");
     }
     const total = expressTotal ?? expressSurcharge;
-    return t.deliveryExpressTotal.replace("{amount}", fmtNative(total));
+    return symTemplate(t.deliveryExpressTotal, { amount: total }, colors.text, 11, "Inter_600SemiBold");
   })();
 
   const expressCardFeeSubLabel = (() => {
     if (pricingState === "error" || pricingState === "unknown_area" || pricingState === "from_min") return undefined;
     if (isFreeStandard) {
-      return t.deliveryFreeBreakdown.replace("{express}", fmtNative(expressSurcharge));
+      return symTemplate(t.deliveryFreeBreakdown, { express: expressSurcharge }, colors.mutedForeground, 10, "Inter_400Regular");
     }
     if (standardFee !== null) {
-      return t.deliveryExpressBreakdown
-        .replace("{standard}", fmtNative(standardFee))
-        .replace("{express}", fmtNative(expressSurcharge));
+      return symTemplate(t.deliveryExpressBreakdown, { standard: standardFee, express: expressSurcharge }, colors.mutedForeground, 10, "Inter_400Regular");
     }
     return undefined;
   })();
@@ -886,7 +956,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       return t.deliveryCalculatedAtCheckout;
     }
     if (isFreeStandard) return t.deliveryFreeLabel;
-    if (standardFee !== null) return fmtNative(standardFee);
+    if (standardFee !== null) return symAmount(standardFee, colors.text);
     return t.deliveryCalculatedAtCheckout;
   })();
 

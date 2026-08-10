@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Calendar, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -7,12 +8,12 @@ type Props = {
   // Express-specific
   expressLabel?: string;           // "Arrives in approximately 90 minutes"
   expressEtaLine?: string | null;  // "Estimated by 1:30 PM Lebanon time"
-  expressFeeLabel?: string;        // "$22 delivery fee"
-  expressFeeSubLabel?: string;     // "$7 standard + $15 express upgrade"
+  expressFeeLabel?: ReactNode;     // "$22 delivery fee"
+  expressFeeSubLabel?: ReactNode;  // "$7 standard + $15 express upgrade"
   // Scheduled-specific
   dateLabel?: string;              // "Today, 6 Aug"
   slotWithTimezone?: string | null; // "6 PM–10 PM Lebanon time"
-  scheduledFeeLabel?: string;      // "$23 delivery fee"
+  scheduledFeeLabel?: ReactNode;   // "$23 delivery fee"
   scheduledIsFree?: boolean;
   // Common
   cartItemCount: number;

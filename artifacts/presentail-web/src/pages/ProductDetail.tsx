@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { Info, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,36 @@ import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
 import { FormattedPrice } from "@/components/FormattedPrice";
+
+/**
+ * Splits a localised fee template on `{key}` placeholders and replaces each
+ * with a <FormattedPrice> element so AED/SAR get their proper SVG symbols.
+ * For all other currencies the result is a plain string wrapped in a fragment,
+ * which renders identically to the old string-replacement approach.
+ */
+function buildFeeNode(
+  template: string,
+  amounts: Record<string, number>,
+): React.ReactNode {
+  const re = /\{(\w+)\}/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(template)) !== null) {
+    if (m.index > lastIndex) parts.push(template.slice(lastIndex, m.index));
+    const key = m[1];
+    parts.push(
+      key in amounts
+        ? <FormattedPrice key={`${key}-${m.index}`} usdValue={amounts[key]} />
+        : m[0],
+    );
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < template.length) parts.push(template.slice(lastIndex));
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0];
+  return <>{parts.map((p, i) => <Fragment key={i}>{p}</Fragment>)}</>;
+}
 import { SalePrice } from "@/components/SalePrice";
 import {
   dayLabels,
@@ -349,11 +379,11 @@ export default function ProductDetail() {
         ? t("product.delivery.calculatedAtCheckout")   // from_min
         : t("product.delivery.calculatedAfterArea");   // unknown_area
       return {
-        expressFeeLabel: t("product.delivery.fromMin").replace("{amount}", fmt(expressSurcharge)),
-        expressFeeSubLabel: undefined as string | undefined,
+        expressFeeLabel: buildFeeNode(t("product.delivery.fromMin"), { amount: expressSurcharge }),
+        expressFeeSubLabel: undefined as React.ReactNode,
         expressIsFree: false,
-        scheduledFeeLabel: scheduleLabel,
-        scheduledFeeSubLabel: undefined as string | undefined,
+        scheduledFeeLabel: scheduleLabel as React.ReactNode,
+        scheduledFeeSubLabel: undefined as React.ReactNode,
         scheduledIsFree: false,
         helperIsQualified: false,
         expressSurchargeFormatted: fmt(expressSurcharge),
@@ -367,20 +397,18 @@ export default function ProductDetail() {
     const expressTotal = isFree
       ? expressSurcharge
       : cityFeeUsd + expressSurcharge;
-    const expressBreakdown = isFree
-      ? t("product.delivery.expressBreakdownFree").replace("{express}", fmt(expressSurcharge))
-      : t("product.delivery.expressBreakdown")
-          .replace("{standard}", fmt(cityFeeUsd))
-          .replace("{express}", fmt(expressSurcharge));
+    const expressBreakdown: React.ReactNode = isFree
+      ? buildFeeNode(t("product.delivery.expressBreakdownFree"), { express: expressSurcharge })
+      : buildFeeNode(t("product.delivery.expressBreakdown"), { standard: cityFeeUsd, express: expressSurcharge });
 
     return {
-      expressFeeLabel: t("product.delivery.expressTotal").replace("{amount}", fmt(expressTotal)),
+      expressFeeLabel: buildFeeNode(t("product.delivery.expressTotal"), { amount: expressTotal }),
       expressFeeSubLabel: expressBreakdown,
       expressIsFree: false,
       scheduledFeeLabel: isFree
-        ? t("product.deliveryFree")
-        : t("product.delivery.standardFeeLabel").replace("{amount}", fmt(cityFeeUsd)),
-      scheduledFeeSubLabel: t("product.delivery.standardDelivery"),
+        ? (t("product.deliveryFree") as React.ReactNode)
+        : buildFeeNode(t("product.delivery.standardFeeLabel"), { amount: cityFeeUsd }),
+      scheduledFeeSubLabel: t("product.delivery.standardDelivery") as React.ReactNode,
       scheduledIsFree: isFree,
       helperIsQualified: isFree,
       expressSurchargeFormatted: fmt(expressSurcharge),

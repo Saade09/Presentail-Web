@@ -26,8 +26,8 @@ export function DeliveryOption({
   subtitle: string;
   badge?: string;
   disabled?: boolean;
-  feeLabel?: string;
-  feeSubLabel?: string;
+  feeLabel?: React.ReactNode;
+  feeSubLabel?: React.ReactNode;
   isFree?: boolean;
 }) {
   return (
@@ -74,35 +74,39 @@ export function DeliveryOption({
           {subtitle}
         </AppText>
       </View>
-      {feeLabel ? (
+      {feeLabel != null ? (
         <View style={{ alignItems: "flex-end", marginEnd: 6, flexShrink: 0, maxWidth: 110 }}>
-          <AppText
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            style={{
-              fontFamily: "Inter_600SemiBold",
-              fontSize: 11,
-              color: isFree ? colors.primary : colors.text,
-              // In RTL the fee column sits at the left card edge; align text there.
-              textAlign: I18nManager.isRTL ? "left" : "right",
-            }}
-          >
-            {feeLabel}
-          </AppText>
-          {feeSubLabel ? (
+          {typeof feeLabel === "string" ? (
             <AppText
               numberOfLines={1}
               adjustsFontSizeToFit
               style={{
-                fontFamily: "Inter_400Regular",
-                fontSize: 10,
-                color: colors.mutedForeground,
-                marginTop: 1,
+                fontFamily: "Inter_600SemiBold",
+                fontSize: 11,
+                color: isFree ? colors.primary : colors.text,
+                // In RTL the fee column sits at the left card edge; align text there.
                 textAlign: I18nManager.isRTL ? "left" : "right",
               }}
             >
-              {feeSubLabel}
+              {feeLabel}
             </AppText>
+          ) : feeLabel}
+          {feeSubLabel != null ? (
+            typeof feeSubLabel === "string" ? (
+              <AppText
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 10,
+                  color: colors.mutedForeground,
+                  marginTop: 1,
+                  textAlign: I18nManager.isRTL ? "left" : "right",
+                }}
+              >
+                {feeSubLabel}
+              </AppText>
+            ) : feeSubLabel
           ) : null}
         </View>
       ) : null}

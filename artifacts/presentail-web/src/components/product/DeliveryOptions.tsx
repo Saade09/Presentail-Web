@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Calendar, CircleCheck, Circle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -15,15 +16,15 @@ type Props = {
   expressUnavailableLabel?: string;
   scheduledSubtitle?: string;
   /** Right-side fee label for the express card (e.g. "$24 total"). */
-  expressFeeLabel?: string;
+  expressFeeLabel?: ReactNode;
   /** Secondary line under the express fee label (e.g. "$9 delivery + $15 express"). */
-  expressFeeSubLabel?: string;
+  expressFeeSubLabel?: ReactNode;
   /** When true the express card fee is styled in primary/green. */
   expressIsFree?: boolean;
   /** Right-side fee label for the scheduled card (e.g. "$9"). */
-  scheduledFeeLabel?: string;
+  scheduledFeeLabel?: ReactNode;
   /** Secondary line under the scheduled fee label (e.g. "Standard delivery"). */
-  scheduledFeeSubLabel?: string;
+  scheduledFeeSubLabel?: ReactNode;
   /** When true the scheduled card fee is styled in primary/green. */
   scheduledIsFree?: boolean;
 };
@@ -106,8 +107,8 @@ function DeliveryRow({
   subtitle: string;
   /** Optional second subtitle line (e.g. destination-local ETA for express). */
   subtitleExtra?: string;
-  feeLabel?: string;
-  feeSubLabel?: string;
+  feeLabel?: ReactNode;
+  feeSubLabel?: ReactNode;
   isFree?: boolean;
   testId?: string;
   disabled?: boolean;
