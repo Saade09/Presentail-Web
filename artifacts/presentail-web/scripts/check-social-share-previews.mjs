@@ -49,6 +49,7 @@ const PAGES = [
   { path: "/en-ae/dubai",       label: "city home (EN-AE)" },
   { path: "/en-lb/beirut/shop", label: "shop collection" },
 ];
+// Product page entries are injected dynamically by Phase 0 below.
 
 /** Scraper user-agents to rotate through */
 const SCRAPERS = [
@@ -157,6 +158,112 @@ function fail(label, detail = "") {
   console.error(`FAIL  ${label}${detail ? `  — ${detail}` : ""}`);
 }
 
+// ── Phase 0: Discover live product slugs from the API ────────────────────────
+//
+// Product pages must advertise the branded /api/og-image/product/:slug card,
+// not the site-wide opengraph.jpg fallback.  We sample the first in-stock
+// product from the LB and AE catalogs so the check stays green as the catalog
+// evolves — no hardcoded slugs that silently go 410.
+//
+// Failure behaviour: if the API is unreachable or returns no products, we emit
+// a WARN line and skip the dynamic product pages; the remaining collection-page
+// checks still run.  This keeps the check useful during local runs where only
+// the web server (not the API server) is up.
+
+{
+  /**
+   * The /api/woo/products response serialises the product slug as the `id`
+   * field (transformProduct: `id: p.slug`).  There is no separate `slug` key.
+   *
+   * The OS products cache is populated asynchronously after the API server
+   * starts.  An empty products list on the first request is a transient cold-
+   * cache condition, not a permanent failure.  We retry up to MAX_ATTEMPTS
+   * times so the check remains stable in validation environments where the API
+   * server was just launched.
+   */
+  async function fetchFirstProductSlug(countryCode) {
+    const url = `${API_BASE}/api/woo/products?countryCode=${countryCode}`;
+    const MAX_ATTEMPTS = 6;
+    const RETRY_DELAY_MS = 3_000;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
+        if (!res.ok) return null; // definitive API error — don't retry
+        const json = await res.json();
+        const products = Array.isArray(json?.products) ? json.products : [];
+        // `id` is the slug string; `wcId` is the numeric WC/OS identifier.
+        const found = products.find(
+          (p) => typeof p?.id === "string" && p.id.length > 0,
+        );
+        if (found) return found.id;
+        // Empty list → cache may still be warming; retry unless final attempt.
+        if (attempt < MAX_ATTEMPTS) {
+          console.log(`Phase 0: ${countryCode} products list empty (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${RETRY_DELAY_MS / 1000}s…`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
+      } catch {
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Whether the caller passed an explicit separate API server.
+   * When API_BASE differs from BASE the check is running in a full validation
+   * environment (both the web server and the API server are expected to be
+   * running), so failure to discover products is a hard failure — not a skip.
+   * When they are the same the caller only started the web server; skip with
+   * a warning instead so purely-web local runs are not broken.
+   */
+  const apiIsExplicit = API_BASE !== BASE;
+
+  const [lbSlug, aeSlug] = await Promise.all([
+    fetchFirstProductSlug("LB"),
+    fetchFirstProductSlug("AE"),
+  ]);
+
+  if (lbSlug) {
+    PAGES.push({
+      path: `/en-lb/beirut/product/${encodeURIComponent(lbSlug)}`,
+      label: `product page LB (${lbSlug})`,
+      // Exact pathname the og:image URL must carry — any other /api/og-image/*
+      // variant (city, brand, occasion) is a regression, not a pass.
+      expectedOgImagePath: `/api/og-image/product/${encodeURIComponent(lbSlug)}`,
+    });
+    console.log(`Phase 0: LB product slug discovered — ${lbSlug}`);
+  } else if (apiIsExplicit) {
+    fail(
+      "Phase 0: discover LB product slug",
+      `GET ${API_BASE}/api/woo/products?countryCode=LB returned no products — API server may be down or catalog empty`,
+    );
+  } else {
+    console.warn(
+      "WARN  Phase 0: no separate API_BASE given — LB product-page og:image check skipped",
+    );
+  }
+
+  if (aeSlug) {
+    PAGES.push({
+      path: `/en-ae/dubai/product/${encodeURIComponent(aeSlug)}`,
+      label: `product page AE (${aeSlug})`,
+      expectedOgImagePath: `/api/og-image/product/${encodeURIComponent(aeSlug)}`,
+    });
+    console.log(`Phase 0: AE product slug discovered — ${aeSlug}`);
+  } else if (apiIsExplicit) {
+    fail(
+      "Phase 0: discover AE product slug",
+      `GET ${API_BASE}/api/woo/products?countryCode=AE returned no products — API server may be down or catalog empty`,
+    );
+  } else {
+    console.warn(
+      "WARN  Phase 0: no separate API_BASE given — AE product-page og:image check skipped",
+    );
+  }
+}
+
 // ── Phase 1: Meta tag checks per page × scraper UA ────────────────────────────
 
 console.log(`\nSocial Share Preview Check — ${BASE}`);
@@ -214,6 +321,28 @@ for (const page of PAGES) {
       }
     } else {
       fail(`${prefix}: og:image`, "missing or empty");
+    }
+
+    // 2a. Product pages must use the exact branded /api/og-image/product/:slug
+    //     endpoint for this product — not the site-wide opengraph.jpg fallback
+    //     and not an /api/og-image/city|brand|occasion/* card from another entity.
+    //     A missing og:image is already caught by check 2 above.
+    if (page.expectedOgImagePath && ogImage) {
+      let actualPath = "";
+      try {
+        actualPath = new URL(ogImage, BASE).pathname;
+      } catch {
+        actualPath = ogImage; // not a valid URL — will fail the comparison below
+      }
+      actualPath === page.expectedOgImagePath
+        ? pass(
+            `${prefix}: og:image is product branded card`,
+            actualPath,
+          )
+        : fail(
+            `${prefix}: og:image is product branded card`,
+            `expected pathname "${page.expectedOgImagePath}", got "${actualPath}"`,
+          );
     }
 
     // 3. twitter:card
