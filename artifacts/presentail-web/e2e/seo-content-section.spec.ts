@@ -60,6 +60,8 @@
  *  41. Occasion page (/occasion/birthday) FR locale → FAQ count >= 3 guard (catches silently empty FR copy).
  *  42. Brand detail page (/brand/:slug) AR locale → FAQ count >= 3 guard (catches silently empty AR copy).
  *  43. Brand detail page (/brand/:slug) FR locale → FAQ count >= 3 guard (catches silently empty FR copy).
+ *  44. FR category page (/fr-lb/beirut/category/cakes): click Tripoli cross-city link → URL is
+ *      /fr-lb/tripoli/category/cakes with no duplicated locale/city segments.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -2625,6 +2627,43 @@ test.describe("Cross-city SEO link navigation — no duplicated locale/city segm
     });
     const finalUrl = page.url();
     expect(finalUrl).not.toContain("beirut/en-lb");
+  });
+
+  test("FR category page: clicking Tripoli cross-city link navigates to correct URL", async ({
+    page,
+  }) => {
+    // The curated FR cakes section has a Tripoli link with
+    // href="/fr-lb/tripoli/category/cakes" (absolute: true).
+    // Clicking it must land on /fr-lb/tripoli/category/cakes — NOT on a
+    // malformed URL such as /fr-lb/beirut/fr-lb/tripoli/category/cakes.
+    await stubProducts(page, []);
+    await stubCatalogMetadata(page);
+    await stubDeliveryLocations(page);
+    await seedLocation(page);
+    await page.goto("/fr-lb/beirut/category/cakes");
+
+    // Wait for the curated section link to appear.
+    const tripoliLink = page
+      .locator('a[href="/fr-lb/tripoli/category/cakes"]')
+      .first();
+    await expect(tripoliLink).toBeVisible({ timeout: 15_000 });
+
+    // Verify the href attribute itself is the exact root-relative path — no
+    // locale/city prefix should have been prepended by Wouter.
+    const href = await tripoliLink.getAttribute("href");
+    expect(href).toBe("/fr-lb/tripoli/category/cakes");
+    expect(href).not.toContain("beirut/fr-lb");
+
+    // Click and verify the resulting navigation URL.
+    await tripoliLink.click();
+    await expect(page).toHaveURL(/\/fr-lb\/tripoli\/category\/cakes/, {
+      timeout: 10_000,
+    });
+    // The URL must NOT contain any duplicated locale/city segment.
+    const finalUrl = page.url();
+    expect(finalUrl).not.toContain("beirut/fr-lb");
+    expect(finalUrl).not.toContain("beirut/en-lb");
+    expect(finalUrl).not.toContain("beirut/ar-lb");
   });
 
   test("SEOContentSection chip: href attribute is the exact root-relative value with no locale prefix added", async ({
