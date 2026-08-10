@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link, useParams, Redirect } from "wouter";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
@@ -165,12 +165,20 @@ export default function BlogPost() {
 
   if (!article) return null;
 
+  const isRtl = language === "ar";
+  const BackArrow = isRtl ? ArrowRight : ArrowLeft;
+
   return (
-    <div className="bg-background" data-testid="blog-post-page" lang={language}>
+    <div
+      className="bg-background"
+      data-testid="blog-post-page"
+      lang={language}
+      dir={isRtl ? "rtl" : "ltr"}
+    >
       <div className="container mx-auto px-4 pt-10 pb-4 max-w-3xl">
         <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: ui.blogNav, href: "/blog" }, { label: article.title }]} />
         <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mt-2">
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <BackArrow className="w-3.5 h-3.5" />
           {ui.backToJournal}
         </Link>
       </div>
@@ -224,7 +232,7 @@ export default function BlogPost() {
                 <p className="text-base text-foreground leading-relaxed">{section.body}</p>
               )}
               {section.items && section.items.length > 0 && (
-                <ul className="list-disc list-inside space-y-1 text-base text-foreground leading-relaxed">
+                <ul className={`list-disc space-y-1 text-base text-foreground leading-relaxed ${isRtl ? "list-inside text-right" : "list-inside"}`}>
                   {section.items.map((item, j) => (
                     <li key={j}>{item}</li>
                   ))}
