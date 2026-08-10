@@ -479,6 +479,17 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       "Browse Presentail's complete catalogue for Tripoli — every bouquet, rose arrangement, cake, chocolate box, plant and gift set available to order in one place."; // i18n-ignore
   }
 
+  // /shop differentiation for Batroun (EN): mirrors the Tripoli pattern.
+  // /en-lb/batroun owns the "flower delivery Batroun" query; /shop is the
+  // full-catalogue browse experience so the two pages don't compete.
+  const isBatrounShop =
+    routeKey === "shop" && cityKey === "lb-batroun" && lang === "en";
+  if (isBatrounShop) {
+    title = "Shop All Flowers & Gifts in Batroun | Presentail"; // i18n-ignore — crawler-facing EN SEO copy
+    description =
+      "Browse Presentail's complete catalogue for Batroun — every bouquet, rose arrangement, cake, chocolate box, plant and gift set available to order in one place."; // i18n-ignore
+  }
+
   // For product / category / occasion routes, extract the URL slug and derive
   // entity-specific title/description from it using the same builders that the
   // live entity branches use.  This replaces the completely generic
@@ -1303,6 +1314,29 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
         ).join("") +
         `</ul>`;
     }
+    // Batroun landing page: visible "Popular flower types" section with
+    // crawlable links to real, indexable category/occasion URLs.
+    // Every href below is a canonical, sitemapped URL (spot-checked to 200).
+    if (cityKey === "lb-batroun" && lang === "en") {
+      // i18n-ignore-block — crawler-facing EN copy for the Batroun landing page
+      const batrounFlowerTypes = [
+        { href: "/category/hand-bouquets", name: "Roses & Mixed Bouquets" },
+        { href: "/occasion/birthday", name: "Birthday Flowers" },
+        { href: "/occasion/anniversary", name: "Anniversary Flowers" },
+        { href: "/occasion/wedding", name: "Wedding Flowers" },
+        { href: "/occasion/funeral", name: "Sympathy Flowers" },
+        { href: "/occasion/new-born", name: "New Baby Gifts" },
+        { href: "/occasion/congratulations", name: "Congratulations Flowers" },
+        { href: "/occasion/valentines-day", name: "Valentine's Day Flowers" },
+      ];
+      homeExtras +=
+        `<h2>Popular Flower Types in Batroun</h2>` + // i18n-ignore — crawler-facing EN copy
+        `<ul>` +
+        batrounFlowerTypes.map(({ href, name }) =>
+          `<li><a href="${localeBase}${escapeAttr(href)}">${escapeHtml(name)}</a></li>`,
+        ).join("") +
+        `</ul>`;
+    }
   }
 
   // Shop route: add a featured category list so AI crawlers can follow
@@ -1324,6 +1358,12 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
       // i18n-ignore — crawler-facing EN copy for the Tripoli shop page
       shopExtras +=
         `<p>Looking for a curated selection? See our <a href="${localeBase}/">flower delivery in Tripoli</a> page for hand-picked bouquets and same-day options.</p>`; // i18n-ignore
+    }
+    // Batroun /shop: contextual back-link to the Batroun landing page.
+    if (cityKey === "lb-batroun" && lang === "en") {
+      // i18n-ignore — crawler-facing EN copy for the Batroun shop page
+      shopExtras +=
+        `<p>Looking for a curated selection? See our <a href="${localeBase}/">flower delivery in Batroun</a> page for hand-picked bouquets and same-day options.</p>`; // i18n-ignore
     }
   }
 
@@ -3795,9 +3835,21 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     locBase
       ? `<div class="sr-only"><p>Discover our full <a href="${locBase}/">Tripoli flower delivery</a> service.</p></div>` // i18n-ignore — crawler-facing EN copy
       : "";
+  // Batroun brand pages: crawlable contextual link back to the city landing
+  // page. Anchor text deliberately varied vs. the Tripoli brand and Batroun
+  // occasion/shop back-links ("Batroun flowers and gifts" vs.
+  // "flower delivery in Batroun" and "flowers and gifts in Batroun").
+  const batrounBrandLinkHtml =
+    parsedBrandLoc.country === "lb" &&
+    parsedBrandLoc.city === "batroun" &&
+    lang === "en" &&
+    locBase
+      ? `<div class="sr-only"><p>Discover our full range of <a href="${locBase}/">Batroun flowers and gifts</a>.</p></div>` // i18n-ignore — crawler-facing EN copy
+      : "";
   const bodyHtml = (
     `<h1 class="sr-only">${safeBrandTitle}</h1>` +
     tripoliBrandLinkHtml +
+    batrounBrandLinkHtml +
     `<div style="display:none">` +
     (safeBrandDesc ? `<p>${safeBrandDesc}</p>` : "") +
     (safeBrandHeading ? `<h2>${safeBrandHeading}</h2>` : "") +
@@ -4172,17 +4224,29 @@ function buildShopEntityHead({
     locBase
       ? `<p>Explore more <a href="${locBase}/">flowers and gifts in Tripoli</a> for every occasion.</p>` // i18n-ignore — crawler-facing EN copy
       : "";
+  // Batroun occasion pages: crawlable contextual link back to the city landing
+  // page (/en-lb/batroun). Anchor text varied vs. the /shop and brand back-links.
+  const batrounOccasionLinkHtml =
+    entityKind === "occasion" &&
+    parsedEntityLoc.country === "lb" &&
+    parsedEntityLoc.city === "batroun" &&
+    lang === "en" &&
+    locBase
+      ? `<p>Explore more <a href="${locBase}/">flowers and gifts in Batroun</a> for every occasion.</p>` // i18n-ignore — crawler-facing EN copy
+      : "";
   const bodyHtml = curated
     ? (
       curatedBodyHtml +
       (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
       (tripoliOccasionLinkHtml ? `<div class="sr-only">${tripoliOccasionLinkHtml}</div>` : "") +
+      (batrounOccasionLinkHtml ? `<div class="sr-only">${batrounOccasionLinkHtml}</div>` : "") +
       (entityNav ? `<div style="display:none">${entityNav}</div>` : "")
     )
     : (
       `<h1 class="sr-only">${safeEntityTitle}</h1>` +
       (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
       (tripoliOccasionLinkHtml ? `<div class="sr-only">${tripoliOccasionLinkHtml}</div>` : "") +
+      (batrounOccasionLinkHtml ? `<div class="sr-only">${batrounOccasionLinkHtml}</div>` : "") +
       `<div style="display:none">` +
       (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
       (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +

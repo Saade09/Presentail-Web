@@ -8522,9 +8522,10 @@ describe("Tripoli internal links & /shop canonicalization", () => {
     );
   });
 
-  it("other city /shop pages keep the template title", () => {
-    const { title } = buildSeoHead("/en-lb/batroun/shop", L_OPTS);
-    expect(title).toBe("Shop Flowers & Gifts in Batroun | Presentail");
+  it("other city /shop pages keep the template title (non-differentiated cities)", () => {
+    // Batroun is now differentiated like Tripoli — checked separately below.
+    const { title: beirutTitle } = buildSeoHead("/en-lb/beirut/shop", L_OPTS);
+    expect(beirutTitle).toBe("Shop Flowers & Gifts in Beirut | Presentail");
     genericSeoCache.clear();
     const { title: arTitle } = buildSeoHead("/ar-lb/tripoli/shop", L_OPTS);
     expect(arTitle).not.toContain("Shop All Flowers");
@@ -8752,5 +8753,109 @@ describe("injectSeoTagsAsync — Batroun city home server-rendered products", ()
     );
     expect(productCalls).toHaveLength(0);
     expect(out).not.toContain('data-ssr-products="true"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Batroun internal links & /shop canonicalization
+// ---------------------------------------------------------------------------
+
+describe("Batroun internal links & /shop canonicalization", () => {
+  const ORIGIN = "https://presentail.test";
+  const B_OPTS = { origin: ORIGIN, basePath: "" };
+  const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+
+  beforeEach(() => {
+    genericSeoCache.clear();
+  });
+
+  it("/en-lb/batroun/shop uses the differentiated full-catalogue title", () => {
+    const { title } = buildSeoHead("/en-lb/batroun/shop", B_OPTS);
+    expect(title).toBe("Shop All Flowers & Gifts in Batroun | Presentail");
+  });
+
+  it("/en-lb/batroun/shop body contains a crawlable back-link to the landing page", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/batroun/shop", B_OPTS);
+    expect(bodyHtml).toContain(`href="${ORIGIN}/en-lb/batroun/"`);
+    expect(bodyHtml).toContain("flower delivery in Batroun");
+  });
+
+  it("/en-lb/batroun home body contains the Popular Flower Types section with crawlable links", () => {
+    const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);
+    expect(bodyHtml).toContain("<h2>Popular Flower Types in Batroun</h2>");
+    for (const href of [
+      "/en-lb/batroun/category/hand-bouquets",
+      "/en-lb/batroun/occasion/birthday",
+      "/en-lb/batroun/occasion/anniversary",
+      "/en-lb/batroun/occasion/wedding",
+      "/en-lb/batroun/occasion/funeral",
+      "/en-lb/batroun/occasion/new-born",
+      "/en-lb/batroun/occasion/congratulations",
+      "/en-lb/batroun/occasion/valentines-day",
+    ]) {
+      expect(bodyHtml).toContain(`href="${ORIGIN}${href}"`);
+    }
+  });
+
+  it("Batroun occasion page body contains a crawlable landing-page link", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        return { ok: true, json: async () => ({ ok: true, total: 8, groups: [{ count: 8, products: [{ name: "Sample", id: "sample" }] }] }) };
+      }
+      if (u.includes("/api/woo/occasion")) {
+        return { ok: true, json: async () => ({ ok: true, occasion: { name: "Birthday", description: "Birthday gifts.", image: null } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-lb/batroun/occasion/birthday",
+      OPTS,
+    );
+    expect(out).toContain(`href="${OPTS.origin}/en-lb/batroun/"`);
+    expect(out).toContain("flowers and gifts in Batroun");
+  });
+
+  it("non-Batroun occasion body has no Batroun landing-page link", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        return { ok: true, json: async () => ({ ok: true, total: 8, groups: [] }) };
+      }
+      if (u.includes("/api/woo/occasion")) {
+        return { ok: true, json: async () => ({ ok: true, occasion: { name: "Birthday", description: "Birthday gifts.", image: null } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-lb/beirut/occasion/birthday",
+      OPTS,
+    );
+    expect(out).not.toContain("flowers and gifts in Batroun");
+  });
+
+  it("Batroun brand page body contains a crawlable landing-page link with varied anchor text", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 4, products: [] }) };
+      }
+      if (u.includes("/api/woo/brand")) {
+        return { ok: true, json: async () => ({ ok: true, brand: { name: "Acme Florals", description: "Bouquets.", image: null } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-lb/batroun/brand/acme-florals",
+      OPTS,
+    );
+    expect(out).toContain(`href="${OPTS.origin}/en-lb/batroun/"`);
+    expect(out).toContain("Batroun flowers and gifts");
   });
 });
