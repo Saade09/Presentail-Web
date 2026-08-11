@@ -8,6 +8,13 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
+import {
+  buildLocalePath,
+  cityIdToSlug,
+  countryCodeToSlug,
+  isSupportedCountrySlug,
+  type Lang,
+} from "@/lib/locale-route";
 
 // TikTok ships its own glyph below since lucide-react doesn't export one.
 function TikTokIcon({ className }: { className?: string }) {
@@ -127,6 +134,20 @@ export function Footer() {
   const isOnContactPage = currentPath === "/contact" || currentPath.endsWith("/contact");
   const isAE = countryCode?.toUpperCase() === "AE";
   const isCY = countryCode?.toUpperCase() === "CY";
+
+  // Build city-scoped base so footer links work from non-city shells (e.g. /en/blog).
+  // Wouter's "~" prefix makes a Link href absolute, bypassing the nested router base.
+  const _countrySlug = countryCode ? countryCodeToSlug(countryCode) : null;
+  const _cityBase =
+    _countrySlug && isSupportedCountrySlug(_countrySlug) && cityId
+      ? buildLocalePath({
+          lang: language as Lang,
+          country: _countrySlug,
+          city: cityIdToSlug(cityId),
+        })
+      : null;
+  const toCityHref = (path: string): string =>
+    _cityBase ? `~${_cityBase}${path}` : path;
   const year = new Date().getFullYear();
   const cityLabel = city ? city.name : t("footer.selectCity");
 
@@ -227,13 +248,13 @@ export function Footer() {
                       {t("footer.contactUs")}
                     </button>
                   ) : (
-                    <InLink href="/contact" testId="footer-link-contact">
+                    <InLink href={toCityHref("/contact")} testId="footer-link-contact">
                       {t("footer.contactUs")}
                     </InLink>
                   )}
                 </li>
                 <li>
-                  <InLink href="/faqs" testId="footer-link-faqs">
+                  <InLink href={toCityHref("/faqs")} testId="footer-link-faqs">
                     {t("footer.faqs")}
                   </InLink>
                 </li>
@@ -252,7 +273,7 @@ export function Footer() {
                         {item.label}
                       </ExtLink>
                     ) : (
-                      <InLink href={item.href} testId={item.testId}>
+                      <InLink href={toCityHref(item.href)} testId={item.testId}>
                         {item.label}
                       </InLink>
                     )}
@@ -283,7 +304,7 @@ export function Footer() {
                         {item.label}
                       </a>
                     ) : (
-                      <InLink href={item.href} testId={item.testId}>
+                      <InLink href={toCityHref(item.href)} testId={item.testId}>
                         {item.label}
                       </InLink>
                     )}
@@ -374,11 +395,11 @@ export function Footer() {
 
           {/* Legal links — centered column */}
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-center">
-            <InLink href="/terms" testId="footer-link-terms">
+            <InLink href={toCityHref("/terms")} testId="footer-link-terms">
               {t("footer.terms")}
             </InLink>
             <span className="text-white/30" aria-hidden>|</span>
-            <InLink href="/privacy" testId="footer-link-privacy">
+            <InLink href={toCityHref("/privacy")} testId="footer-link-privacy">
               {t("footer.privacy")}
             </InLink>
           </div>

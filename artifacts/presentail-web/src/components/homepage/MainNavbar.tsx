@@ -9,6 +9,13 @@ import { ChevronDown, ChevronRight, Menu, Search, ShoppingCart, User, X } from "
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import {
+  buildLocalePath,
+  cityIdToSlug,
+  countryCodeToSlug,
+  isSupportedCountrySlug,
+  type Lang,
+} from "@/lib/locale-route";
 import { LazySearchOverlay } from "@/components/search/LazySearchOverlay";
 import { useBrands, useCatalogMetadata, useCatalogOccasions } from "@/lib/queries";
 import { CATEGORY_SLUG_REMAP, CATEGORY_NAV_BLOCKLIST } from "@/lib/categoryGroups";
@@ -137,11 +144,15 @@ function MegaMenuPanel({
   onClose,
   onMouseEnter,
   onMouseLeave,
+  toHref,
 }: {
   def: MegaMenuDef;
   onClose: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  /** Converts a root-relative path to a wouter-absolute href that bypasses any
+   *  nested router base, so links work correctly from non-city shells (e.g. blog). */
+  toHref: (path: string) => string;
 }) {
   return (
     <motion.div
@@ -166,7 +177,7 @@ function MegaMenuPanel({
             : def.items.map((item) => (
                 <Link
                   key={item.label + item.href}
-                  href={item.href}
+                  href={toHref(item.href)}
                   onClick={onClose}
                   data-testid={`megamenu-item-${item.label.toLowerCase().replace(/[\s']+/g, "-")}`}
                   className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white shadow-sm hover:shadow-md hover:ring-1 hover:ring-primary/25 transition-all group"
@@ -184,7 +195,7 @@ function MegaMenuPanel({
         {def.footer && (
           <div className="mt-4 pt-4 border-t border-border/50">
             <Link
-              href={def.footer.href}
+              href={toHref(def.footer.href)}
               onClick={onClose}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-2"
             >
@@ -203,6 +214,23 @@ export function MainNavbar() {
   const { user } = useAuth();
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
+
+  // Build the city-scoped base path (e.g. "/en-lb/beirut") so that nav links
+  // work correctly from any shell, including the /en/blog shell whose wouter
+  // base is "/{lang}" rather than "/{lang}-{country}/{city}".
+  // Wouter's "~" prefix makes a Link href absolute (bypasses the nested base).
+  const _countrySlug = countryCode ? countryCodeToSlug(countryCode) : null;
+  const cityBase =
+    _countrySlug && isSupportedCountrySlug(_countrySlug) && cityId
+      ? buildLocalePath({
+          lang: language as Lang,
+          country: _countrySlug,
+          city: cityIdToSlug(cityId),
+        })
+      : null;
+  const toCityHref = (path: string): string =>
+    cityBase ? `~${cityBase}${path}` : path;
+
   const [searchOpen, setSearchOpen] = useState(false);
   // Gate mounting until first open so the cmdk chunk is never fetched on
   // initial page load — it only loads when the user first clicks search.
@@ -540,7 +568,7 @@ export function MainNavbar() {
                           <div className="grid grid-cols-4 gap-2">
                             {(subDef?.items ?? []).map((item) => (
                               <SheetClose asChild key={item.label + item.href}>
-                                <Link href={item.href} className="flex flex-col items-center gap-1.5 group">
+                                <Link href={toCityHref(item.href)} className="flex flex-col items-center gap-1.5 group">
                                   <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
                                     <MobileSubPanelTile img={item.img} emoji={item.emoji} />
                                   </div>
@@ -555,7 +583,7 @@ export function MainNavbar() {
                         {subDef?.footer && (
                           <SheetClose asChild>
                             <Link
-                              href={subDef.footer.href}
+                              href={toCityHref(subDef.footer.href)}
                               className="flex items-center justify-center gap-2 mt-5 w-full py-3.5 rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors"
                             >
                               {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label}
@@ -613,7 +641,7 @@ export function MainNavbar() {
 
         {/* ── Center: logo ──────────────────────────────────── */}
         <div className="flex justify-center">
-          <Link href="/" className="flex items-center" aria-label={t("nav.logoAria")} data-testid="link-logo">
+          <Link href={toCityHref("/")} className="flex items-center" aria-label={t("nav.logoAria")} data-testid="link-logo">
             <Logo height={88} />
           </Link>
         </div>
@@ -645,7 +673,7 @@ export function MainNavbar() {
             </span>
           ) : !isSignInRoute ? (
             <Link
-              href="/sign-in"
+              href={toCityHref("/sign-in")}
               aria-label={t("nav.accountAria")}
               {...prefetchProps(loadSignIn, loadSignUp)}
             >
@@ -661,7 +689,7 @@ export function MainNavbar() {
             </span>
           )}
 
-          <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart, loadCheckout)}>
+          <Link href={toCityHref("/cart")} aria-label={t("nav.bagAria")} {...prefetchProps(loadCart, loadCheckout)}>
             <Button variant="ghost" size="icon" className="relative" aria-label={t("nav.bagAria")} data-testid="button-cart">
               <ShoppingCart className="!w-[22px] !h-[22px]" />
               <AnimatePresence>
@@ -689,6 +717,7 @@ export function MainNavbar() {
             onClose={closeMenu}
             onMouseEnter={cancelClose}
             onMouseLeave={scheduleClose}
+            toHref={toCityHref}
           />
         )}
       </AnimatePresence>
