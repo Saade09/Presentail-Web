@@ -31,3 +31,4 @@ export * from "./seoAuditRuns";
 export * from "./stripeWebhookEvents";
 export * from "./klarnaPendingCheckouts";
 export * from "./csPaymentAttempts";
+export * from "./firstOrderCouponClaims";

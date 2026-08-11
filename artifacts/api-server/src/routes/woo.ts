@@ -35,7 +35,7 @@ import {
   syncCustomerToWoo,
 } from "../lib/customers";
 import { creditReferralRedemption } from "../lib/loyalty";
-import { validateCoupon } from "../lib/couponValidation";
+import { validateCoupon, acquireFirst10Lock, FIRST_ORDER_COUPON_CODE } from "../lib/couponValidation";
 import { sendCapiPurchase } from "../lib/fbConversions";
 import { sendUaeOrderSlackNotification, type UaeOrderNotification } from "../lib/orderSlackNotify";
 import { getOsProductByWcId } from "../lib/osProductsCache";
@@ -1810,10 +1810,29 @@ router.post("/woo/order", async (req, res) => {
         cartTotalUsd: authoritativeCartTotal + authoritativeDeliveryFeeUsd,
       }).catch(() => null);
       if (couponResult?.valid) {
-        couponValidated = {
-          couponId: couponResult.couponId,
-          couponDiscountUsd: couponResult.discountAmountUsd,
-        };
+        // For FIRST10: check the durable DB claim before recording the discount.
+        // The claim must have been acquired at PI/session creation for this orderId.
+        // A missing or stale claim means either a concurrent race or a restarted
+        // process where a different session already holds the discount — deny here.
+        let applyOrderCoupon = true;
+        if (body.couponCode.trim().toUpperCase() === FIRST_ORDER_COUPON_CODE) {
+          const emailForLock = (body.billing.email ?? "").trim().toLowerCase();
+          if (emailForLock) {
+            applyOrderCoupon = await acquireFirst10Lock(emailForLock, body.orderId).catch(() => false);
+            if (!applyOrderCoupon) {
+              req.log?.warn?.(
+                { email: emailForLock, orderId: body.orderId },
+                "FIRST10: order-creation claim check failed — recording no discount", // i18n-ignore
+              );
+            }
+          }
+        }
+        if (applyOrderCoupon) {
+          couponValidated = {
+            couponId: couponResult.couponId,
+            couponDiscountUsd: couponResult.discountAmountUsd,
+          };
+        }
       }
     }
   }

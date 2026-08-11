@@ -3,6 +3,8 @@ import { db, couponsTable, couponRedemptionsTable } from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
 import { validateCoupon, redeemCoupon, type CartItemForCoupon } from "../lib/couponValidation";
 import { fetchOsCoupons } from "@workspace/presentail-os";
+import { getOsProductBySlug } from "../lib/osProductsCache";
+import { resolveOsEffectivePrice } from "../lib/catalog";
 
 const router = Router();
 
@@ -39,23 +41,72 @@ router.get("/coupons", async (_req, res) => {
 type ValidateBody = {
   code: string;
   customerEmail?: string;
-  cartItems: { osSlug: string; priceUsd: number; quantity: number }[];
-  cartTotalUsd: number;
+  // priceUsd is accepted for backwards-compat but intentionally ignored when
+  // the OS product cache is populated — server-authoritative prices are used
+  // instead to prevent inflated discount-preview responses.
+  cartItems: { osSlug: string; priceUsd?: number; quantity: number }[];
+  // cartTotalUsd is accepted for backwards-compat but re-derived from server
+  // prices so a manipulated total cannot bypass minimum-order thresholds.
+  cartTotalUsd?: number;
 };
 
 router.post("/coupons/validate", async (req, res) => {
   const body = req.body as ValidateBody;
   const code = (body.code ?? "").trim();
   const customerEmail = (body.customerEmail ?? "").trim();
-  const cartItems: CartItemForCoupon[] = Array.isArray(body.cartItems) ? body.cartItems : [];
-  const cartTotalUsd = Number(body.cartTotalUsd);
+  const rawItems = Array.isArray(body.cartItems) ? body.cartItems : [];
 
   if (!code) {
     return res.status(400).json({ ok: false, error: "missing_code", message: "Coupon code is required." }); // i18n-ignore
   }
-  if (!Array.isArray(body.cartItems) || cartItems.length === 0) {
+  if (!Array.isArray(body.cartItems) || rawItems.length === 0) {
     return res.status(400).json({ ok: false, error: "missing_items", message: "Cart items are required." }); // i18n-ignore
   }
+
+  // Resolve server-authoritative prices for each cart item.
+  // Client-supplied priceUsd is intentionally ignored — only the OS product
+  // cache is trusted. If any item's price cannot be resolved from the catalog
+  // (e.g. unknown slug or cache not yet filled), the request is rejected so
+  // client-supplied prices can never influence the discount computation.
+  const cartItems: CartItemForCoupon[] = [];
+  for (const item of rawItems) {
+    const slug = (item.osSlug ?? "").trim();
+    if (!slug) {
+      return res.status(400).json({ ok: false, error: "invalid_item", message: "Each cart item must have an osSlug." }); // i18n-ignore
+    }
+    // Reject non-finite, fractional, and non-positive quantities directly.
+    // Do not round or coerce — a fractional quantity (e.g. 1.5) is a malformed
+    // request and must not be silently priced as a different integer.
+    const qty = Number(item.quantity);
+    if (!Number.isFinite(qty) || !Number.isInteger(qty) || qty < 1) {
+      return res.status(400).json({ ok: false, error: "invalid_quantity", message: `Quantity for item "${slug}" must be a positive integer.` }); // i18n-ignore
+    }
+    const osProduct = getOsProductBySlug(slug) ?? undefined;
+    if (!osProduct) {
+      // Fail closed: if the product is not in the catalog cache we cannot
+      // compute an authoritative price. Reject rather than fall back to an
+      // untrusted client-supplied value.
+      return res.status(422).json({
+        ok: false,
+        error: "product_not_found", // i18n-ignore
+        message: "One or more cart items could not be found in the catalog. Please refresh and try again.", // i18n-ignore
+      });
+    }
+    const serverPrice = resolveOsEffectivePrice(osProduct);
+    if (!serverPrice || serverPrice <= 0) {
+      return res.status(422).json({
+        ok: false,
+        error: "product_price_unavailable", // i18n-ignore
+        message: "Price information is temporarily unavailable. Please try again.", // i18n-ignore
+      });
+    }
+    cartItems.push({ osSlug: slug, quantity: qty, priceUsd: serverPrice });
+  }
+
+  // Re-derive cartTotalUsd from server-resolved item prices so a manipulated
+  // total cannot be used to bypass minimum-order coupon thresholds.
+  const cartTotalUsd = cartItems.reduce((sum, i) => sum + i.priceUsd * i.quantity, 0);
+
   if (!Number.isFinite(cartTotalUsd) || cartTotalUsd <= 0) {
     return res.status(400).json({ ok: false, error: "invalid_total", message: "Invalid cart total." }); // i18n-ignore
   }

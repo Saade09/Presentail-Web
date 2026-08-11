@@ -1,6 +1,7 @@
 import { db, couponsTable, couponRedemptionsTable, appOrdersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { validateOsCoupon } from "@workspace/presentail-os";
+import { logger } from "./logger";
 
 /**
  * Reserved code for the campaign-landing first-order promotion.
@@ -9,6 +10,70 @@ import { validateOsCoupon } from "@workspace/presentail-os";
  * being delegated to Presentail OS.
  */
 export const FIRST_ORDER_COUPON_CODE = "FIRST10";
+
+/**
+ * Durable DB-backed lock preventing concurrent FIRST10 claims for the same email.
+ *
+ * Rationale: `isFirstOrderEligible` queries app_orders, but the row for the
+ * current order is written only after payment is captured. Two simultaneous
+ * checkout sessions can therefore both see "no prior order" and both receive
+ * the 10 % discount. A row in `first_order_coupon_claims` (keyed by email)
+ * is the authoritative single-claim gate — durable across process restarts
+ * and consistent across all code paths that can create a discounted payment.
+ *
+ * Claim TTL: 15 minutes. Claims older than this are evicted atomically by the
+ * same INSERT statement, so no background cleanup job is needed.
+ *
+ * Idempotency: repeated calls from the *same* orderId (e.g. PI amount update
+ * after a cart change) refresh the claim timestamp and return `true`.
+ */
+
+/**
+ * Attempts to atomically acquire a FIRST10 claim for (email, orderId).
+ *
+ * Returns `true` when the claim was acquired or refreshed (discount allowed).
+ * Returns `false` when a *different*, non-expired orderId already holds the
+ * claim — concurrent race detected; caller must deny the coupon.
+ *
+ * Fails closed: if the DB is unavailable the function returns `false` so the
+ * discount is denied rather than granted without a durable record.
+ *
+ * Call this AFTER `validateCoupon` returns valid (eligibility confirmed) so
+ * only requests that passed the first-order check can compete for the claim.
+ */
+export async function acquireFirst10Lock(email: string, orderId: string): Promise<boolean> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized || !orderId) return false;
+  try {
+    // Atomic claim via PostgreSQL INSERT … ON CONFLICT.
+    //
+    // Outcomes:
+    //  - No existing row → INSERT succeeds, row returned → claim acquired.
+    //  - Existing row, same orderId → UPDATE refreshes claimed_at, row returned
+    //    → idempotent re-acquisition (same checkout session retrying).
+    //  - Existing row, different orderId, claim EXPIRED (≥ 15 min) → UPDATE
+    //    replaces the stale claim, row returned → allow (prior session abandoned).
+    //  - Existing row, different orderId, claim FRESH (< 15 min) → DO NOTHING,
+    //    no row returned → deny (active concurrent claim).
+    const result = await db.execute(sql`
+      INSERT INTO first_order_coupon_claims (email, order_id, claimed_at)
+      VALUES (${normalized}, ${orderId}, now())
+      ON CONFLICT (email) DO UPDATE
+        SET order_id   = EXCLUDED.order_id,
+            claimed_at = now()
+        WHERE first_order_coupon_claims.order_id = EXCLUDED.order_id
+           OR first_order_coupon_claims.claimed_at < now() - interval '15 minutes'
+      RETURNING email
+    `);
+    return (result.rows?.length ?? 0) > 0;
+  } catch (err) {
+    logger.warn(
+      { err, email: normalized, orderId },
+      "FIRST10: DB claim failed — denying coupon (fail-closed)", // i18n-ignore
+    );
+    return false;
+  }
+}
 /** Sentinel couponId marking the virtual first-order coupon (not an OS coupon). */
 export const FIRST_ORDER_COUPON_ID = "first-order-10";
 const FIRST_ORDER_DISCOUNT_PCT = 10;

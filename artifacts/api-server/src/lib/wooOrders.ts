@@ -25,6 +25,57 @@ import {
 } from "./catalog";
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
+
+/**
+ * Maximum price in USD accepted for a single non-catalog fee-line item
+ * (e.g. card-printing fees). Requests above this ceiling are rejected so a
+ * malicious client cannot inflate WooCommerce / OS order totals or offline
+ * payment invoices beyond a small margin above the actual catalog price.
+ */
+const MAX_FEE_ITEM_PRICE_USD = 50;
+/**
+ * Maximum quantity allowed per non-catalog fee-line item.
+ * Bounding quantity prevents quantity × clamped-price inflation
+ * (e.g. $50 × 1 000 = $50 000 fee line). Requests that exceed this are rejected.
+ */
+const MAX_FEE_ITEM_QUANTITY = 10;
+/**
+ * Maximum aggregate non-catalog fee total in USD per order after per-item
+ * price and quantity are within bounds. Requests that still exceed this are
+ * rejected so the combination of price × quantity cannot escape the cap.
+ */
+const MAX_FEE_TOTAL_USD = 100;
+
+/**
+ * Validates non-catalog fee items (those without wcId / osSlug) and returns
+ * either an error reason string or null when the items are within bounds.
+ *
+ * Checks:
+ *  1. Per-item price ≤ MAX_FEE_ITEM_PRICE_USD (after clamping negatives to 0)
+ *  2. Per-item quantity ≤ MAX_FEE_ITEM_QUANTITY (positive integer)
+ *  3. Aggregate (price × quantity) ≤ MAX_FEE_TOTAL_USD
+ *
+ * Caller must reject the order (status 422) when a non-null string is returned.
+ */
+function validateFeeItems(
+  feeItems: { price: number; quantity: number; name?: string }[],
+): string | null {
+  let total = 0;
+  for (const item of feeItems) {
+    const price = Math.max(0, item.price);
+    if (price > MAX_FEE_ITEM_PRICE_USD) {
+      return `Fee item price $${price.toFixed(2)} exceeds the allowed maximum of $${MAX_FEE_ITEM_PRICE_USD}`; // i18n-ignore
+    }
+    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > MAX_FEE_ITEM_QUANTITY) {
+      return `Fee item quantity ${item.quantity} is invalid (must be 1–${MAX_FEE_ITEM_QUANTITY})`; // i18n-ignore
+    }
+    total += price * item.quantity;
+  }
+  if (total > MAX_FEE_TOTAL_USD) {
+    return `Total fee items $${total.toFixed(2)} exceeds the allowed maximum of $${MAX_FEE_TOTAL_USD} per order`; // i18n-ignore
+  }
+  return null;
+}
 import {
   getDeliverySlots,
   resolveOsDeliveryConfig,
@@ -295,12 +346,25 @@ export async function attemptCreateWcOrder(
   // manipulation even when the payment verification step was somehow bypassed.
   // Accumulate the catalog subtotal in USD for delivery fee computation.
   const catalogItemInputs = body.items.filter((item) => !!item.wcId);
-  // Sum non-catalog fee-line items (those without wcId — typically client-
-  // added line items like card-printing fees). Their `price` is already in
-  // USD on the wire, same as catalog prices.
-  const nonCatalogFeesUsd = body.items
-    .filter((item) => !item.wcId)
-    .reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Validate non-catalog fee items (those without wcId — typically client-
+  // added line items like card-printing fees). Each item's price and quantity
+  // are checked against server-enforced maximums and the request is rejected
+  // when any limit is exceeded, so a manipulated payload cannot inflate WC
+  // order totals or offline-payment invoices.
+  const rawFeeItems = body.items.filter((item) => !item.wcId);
+  const feeValidationError = validateFeeItems(rawFeeItems);
+  if (feeValidationError) {
+    return {
+      ok: false,
+      status: 422,
+      message: feeValidationError,
+      recipientName: recipientFullName,
+    };
+  }
+  const nonCatalogFeesUsd = rawFeeItems.reduce(
+    (sum, item) => sum + Math.max(0, item.price) * item.quantity,
+    0,
+  );
   let catalogSubtotalUsd = 0;
   const lineItemData: { wcId: number | undefined; quantity: number; priceUsd: number }[] = [];
 
@@ -344,17 +408,17 @@ export async function attemptCreateWcOrder(
     }),
   );
 
+  // rawFeeItems have already been validated by validateFeeItems() above.
+  // Use the validated items directly — no further clamping needed.
   const feeLines = await Promise.all(
-    body.items
-      .filter((item) => !item.wcId)
-      .map(async (item) => {
-        const lineTotal = (await conv(item.price)) * item.quantity;
-        return {
-          name: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
-          total: fmt(lineTotal),
-          tax_status: "none",
-        };
-      }),
+    rawFeeItems.map(async (item) => {
+      const lineTotal = (await conv(Math.max(0, item.price))) * item.quantity;
+      return {
+        name: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+        total: fmt(lineTotal),
+        tax_status: "none",
+      };
+    }),
   );
 
   const shippingLines: any[] = [];
@@ -897,8 +961,21 @@ export async function attemptCreateOsOrder(
       recipientName: recipientFullName,
     };
   }
+  // Validate non-catalog fee items before accumulating. Each item's price and
+  // quantity are checked against server-enforced maximums; the request is
+  // rejected when any limit is exceeded so a manipulated payload cannot inflate
+  // OS order totals or offline-payment invoices.
+  const feeValidationError = validateFeeItems(nonCatalogFeeItems);
+  if (feeValidationError) {
+    return {
+      ok: false,
+      status: 422,
+      message: feeValidationError,
+      recipientName: recipientFullName,
+    };
+  }
   const nonCatalogFeesUsd = nonCatalogFeeItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + Math.max(0, item.price) * item.quantity,
     0,
   );
 
@@ -1097,10 +1174,11 @@ export async function attemptCreateOsOrder(
       priceUsd: d.priceUsd,
       ...(d.customInput ? { customInput: d.customInput } : {}),
     })),
+    // nonCatalogFeeItems have already been validated by validateFeeItems() above.
     feeItems: nonCatalogFeeItems.map((item) => ({
       name: item.name,
       quantity: item.quantity,
-      priceUsd: item.price,
+      priceUsd: Math.max(0, item.price),
     })),
     billing: {
       firstName: body.billing.firstName,

@@ -27,7 +27,7 @@ import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
 import { storePaymentIntent, getPaymentIntentForOrder } from "../lib/checkoutIntents";
 import { validateRedirectUrl } from "../lib/validateRedirectUrl";
 import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
-import { validateCoupon } from "../lib/couponValidation";
+import { validateCoupon, FIRST_ORDER_COUPON_CODE, acquireFirst10Lock } from "../lib/couponValidation";
 import { authenticate } from "../lib/auth";
 import { db, customersTable, klarnaPendingCheckoutsTable } from "@workspace/db";
 
@@ -239,22 +239,39 @@ router.post("/checkout/session", async (req, res) => {
     let sessionCouponDiscountUsd = 0;
     let sessionCouponDiscountMinorUnits = 0;
     if (sessionCouponCode && sessionCouponCode.trim()) {
+      const trimmedSessionCouponCode = sessionCouponCode.trim();
       const cartItemsForCoupon = catalogResult.items.map((i) => ({
         osSlug: i.osSlug ?? "",
         priceUsd: i.priceUsd,
         quantity: i.quantity,
       }));
-      const couponResult = await validateCoupon(sessionCouponCode.trim(), {
+      const couponResult = await validateCoupon(trimmedSessionCouponCode, {
         customerEmail: email ?? "",
         cartItems: cartItemsForCoupon,
         cartTotalUsd: sessionTotalUsd,
       });
       if (couponResult.valid) {
-        sessionCouponDiscountUsd = couponResult.discountAmountUsd;
-        sessionCouponDiscountMinorUnits = toStripeMinorUnits(
-          roundToNearestFive(await convertFromUsd(sessionCouponDiscountUsd, currency), currency),
-          currency,
-        );
+        // Guard against concurrent FIRST10 claims — same logic as /checkout/payment-intent.
+        // Lock is acquired AFTER eligibility is confirmed to prevent lock-poisoning DoS
+        // by unauthenticated / ineligible callers submitting arbitrary email addresses.
+        let applySessionDiscount = true;
+        if (trimmedSessionCouponCode.toUpperCase() === FIRST_ORDER_COUPON_CODE) {
+          const emailForLock = (email ?? "").trim().toLowerCase();
+          if (emailForLock && !(await acquireFirst10Lock(emailForLock, orderId))) {
+            req.log.warn(
+              { email: emailForLock, orderId },
+              "FIRST10: concurrent claim detected on session checkout — denying coupon", // i18n-ignore
+            );
+            applySessionDiscount = false;
+          }
+        }
+        if (applySessionDiscount) {
+          sessionCouponDiscountUsd = couponResult.discountAmountUsd;
+          sessionCouponDiscountMinorUnits = toStripeMinorUnits(
+            roundToNearestFive(await convertFromUsd(sessionCouponDiscountUsd, currency), currency),
+            currency,
+          );
+        }
       }
     }
     // The session totalUsd after coupon deduction — used for the intent snapshot.
@@ -689,18 +706,44 @@ router.post("/checkout/payment-intent", async (req, res) => {
   // Resolved before computeStripeAmounts so the helper receives the final discount.
   let couponDiscountUsd = 0;
   if (couponCode && couponCode.trim()) {
+    const trimmedCouponCode = couponCode.trim();
     const cartItemsForCoupon = catalogResult.items.map((i) => ({
       osSlug: i.osSlug ?? "",
       priceUsd: i.priceUsd,
       quantity: i.quantity,
     }));
-    const couponResult = await validateCoupon(couponCode.trim(), {
+    const couponResult = await validateCoupon(trimmedCouponCode, {
       customerEmail: email ?? "",
       cartItems: cartItemsForCoupon,
       cartTotalUsd: totalUsd,
     });
     if (couponResult.valid) {
-      couponDiscountUsd = couponResult.discountAmountUsd;
+      // Guard against concurrent FIRST10 claims for the same email address.
+      // The lock is acquired AFTER eligibility is confirmed so only callers
+      // that actually passed the first-order check can compete for the lock —
+      // preventing lock-poisoning DoS by unauthenticated / ineligible callers.
+      //
+      // The lock is keyed by (email, orderId): repeated calls from the same
+      // orderId (e.g. PI amount update) are idempotent. A different orderId
+      // for the same email is denied (concurrent race detected).
+      //
+      // Single-process guard — sufficient for the current single-instance
+      // deployment; a distributed lock (Redis, DB advisory lock, etc.) would
+      // be needed for multi-replica environments.
+      let applyDiscount = true;
+      if (trimmedCouponCode.toUpperCase() === FIRST_ORDER_COUPON_CODE) {
+        const emailForLock = (email ?? "").trim().toLowerCase();
+        if (emailForLock && !(await acquireFirst10Lock(emailForLock, orderId))) {
+          req.log.warn(
+            { email: emailForLock, orderId },
+            "FIRST10: concurrent claim detected — denying coupon for this session", // i18n-ignore
+          );
+          applyDiscount = false;
+        }
+      }
+      if (applyDiscount) {
+        couponDiscountUsd = couponResult.discountAmountUsd;
+      }
     }
   }
 
