@@ -93,7 +93,7 @@ PORT="$SERVE_PORT" \
   BASE_PATH=/ \
   NODE_ENV=production \
   SERVE_TEST_HOOKS=1 \
-  INTERNAL_API_BASE_URL="http://localhost:$FIXTURE_PORT" \
+  INTERNAL_API_BASE_URL="http://127.0.0.1:$FIXTURE_PORT" \
   STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION="000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" \
   node "$ARTIFACT_DIR/serve.mjs" &
 
@@ -101,11 +101,11 @@ PORT="$SERVE_PORT" \
 # Wait for both servers
 # ---------------------------------------------------------------------------
 
-echo "==> Waiting for fixture server (http://localhost:$FIXTURE_PORT/healthz)..."
-npx --yes wait-on "http://localhost:$FIXTURE_PORT/healthz" --timeout 30000
+echo "==> Waiting for fixture server (http://127.0.0.1:$FIXTURE_PORT/healthz)..."
+npx --yes wait-on "http://127.0.0.1:$FIXTURE_PORT/healthz" --timeout 30000
 
-echo "==> Waiting for serve.mjs (http://localhost:$SERVE_PORT/)..."
-npx --yes wait-on "http://localhost:$SERVE_PORT/" --timeout 30000
+echo "==> Waiting for serve.mjs (http://127.0.0.1:$SERVE_PORT/)..."
+npx --yes wait-on "http://127.0.0.1:$SERVE_PORT/" --timeout 30000
 
 # ---------------------------------------------------------------------------
 # Run the serve-backed e2e tests
@@ -125,7 +125,7 @@ if [[ -n "${SERVE_E2E_SPEC:-}" ]]; then
   echo "    (scoped to: $SERVE_E2E_SPEC)"
 fi
 
-PLAYWRIGHT_BASE_URL="http://localhost:$SERVE_PORT" \
+PLAYWRIGHT_BASE_URL="http://127.0.0.1:$SERVE_PORT" \
   WISHLIST_SHARE_TOKEN="local-e2e-serve-token" \
   PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$CHROMIUM_PATH" \
   SERVE_TEST_HOOKS=1 \

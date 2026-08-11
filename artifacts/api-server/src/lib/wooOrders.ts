@@ -175,7 +175,7 @@ export const WooOrderSchema = z.object({
   qrLink: z.string().optional(),
   qrLabel: z.string().optional(),
   orderNotes: z.string().optional(),
-  paymentMethod: z.enum(["card", "wallet", "apple_pay", "google_pay", "whish", "western", "mamo", "paypal", "klarna"]),
+  paymentMethod: z.enum(["card", "wallet", "apple_pay", "google_pay", "whish", "western", "mamo", "paypal", "klarna", "cybersource"]),
   identitySecret: z.boolean().optional(),
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
@@ -276,6 +276,7 @@ const PAYMENT_TITLES: Record<string, string> = {
   western: "Western Union",
   mamo: "Mamo (UAE Wallets)",
   paypal: "PayPal",
+  cybersource: "Credit Card (CyberSource)",
 };
 
 // Build the WooCommerce REST payload and POST it. Pure function w.r.t. the

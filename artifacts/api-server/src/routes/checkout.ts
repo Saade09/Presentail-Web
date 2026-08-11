@@ -161,7 +161,6 @@ router.post("/checkout/session", async (req, res) => {
 
   const currency = normalizeCurrency(rawCurrency ?? "USD");
 
-  // Resolve catalog prices server-side. Client-supplied amounts are ignored.
   const store = resolveStoreFromRequest(req);
   const isGulf = isGulfStore(store.storeKey);
   const key = resolveStripeKey(store.storeKey);
@@ -240,23 +239,23 @@ router.post("/checkout/session", async (req, res) => {
     let sessionCouponDiscountMinorUnits = 0;
     if (sessionCouponCode && sessionCouponCode.trim()) {
       const trimmedSessionCouponCode = sessionCouponCode.trim();
-      const cartItemsForCoupon = catalogResult.items.map((i) => ({
-        osSlug: i.osSlug ?? "",
-        priceUsd: i.priceUsd,
-        quantity: i.quantity,
-      }));
-      const couponResult = await validateCoupon(trimmedSessionCouponCode, {
-        customerEmail: email ?? "",
-        cartItems: cartItemsForCoupon,
-        cartTotalUsd: sessionTotalUsd,
-      });
+    const cartItemsForCoupon = catalogResult.items.map((i) => ({
+      osSlug: i.osSlug ?? "",
+      priceUsd: i.priceUsd,
+      quantity: i.quantity,
+    }));
+    const couponResult = await validateCoupon(couponCode.trim(), {
+      customerEmail: email ?? "",
+      cartItems: cartItemsForCoupon,
+      cartTotalUsd: rawTotalUsd,
+    });
       if (couponResult.valid) {
         // Guard against concurrent FIRST10 claims — same logic as /checkout/payment-intent.
         // Lock is acquired AFTER eligibility is confirmed to prevent lock-poisoning DoS
         // by unauthenticated / ineligible callers submitting arbitrary email addresses.
         let applySessionDiscount = true;
         if (trimmedSessionCouponCode.toUpperCase() === FIRST_ORDER_COUPON_CODE) {
-          const emailForLock = (email ?? "").trim().toLowerCase();
+        const emailForLock = (email ?? "").trim().toLowerCase();
           if (emailForLock && !(await acquireFirst10Lock(emailForLock, orderId))) {
             req.log.warn(
               { email: emailForLock, orderId },
@@ -631,19 +630,11 @@ router.post("/checkout/payment-intent", async (req, res) => {
         items: items.map((i) => ({ wcId: i.wcId, osSlug: i.osSlug })),
         reason: catalogResult.message,
       },
-      "checkout: resolveCartItems failed (PaymentIntent)",
+      "checkout: resolveCartItems failed (Mamo/PayPal)",
     );
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
-  // Compute delivery fees server-side from authoritative tables. The client-
-  // supplied deliveryFeeUsd is intentionally ignored — trusting it would allow
-  // an attacker to send deliveryFeeUsd:0 and have Stripe charge only the product
-  // subtotal, then finalize a fully-paid order with expensive delivery options.
-  //
-  // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
-  // PI fee exactly matches the fee wooOrders.ts will use at order creation.
-  // When cityId is absent, fall back to the city-name lookup for backwards compat.
   const subtotalUsd = catalogResult.subtotalUsd;
   const piCountry = countryForDistrict(district ?? "Beirut");
   const piOsConfig = cityId ? resolveOsDeliveryConfig(piCountry, cityId) : null;
@@ -675,7 +666,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
     district,
   });
   const serverDeliveryFeeUsd = serverDistrictFeeUsd + serverExpressFeeUsd + serverSlotFeeUsd;
-  const totalUsd = subtotalUsd + serverDeliveryFeeUsd;
+  const totalUsd = Math.max(0, rawTotalUsd - couponDiscountUsd);
 
   // Resolve Stripe Customer for any authenticated request.
   // - When saveCard=true: also sets setup_future_usage so the card is saved.
@@ -687,16 +678,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
   let stripeCustomerId: string | undefined;
   const authHeader = req.header("authorization");
   if (authHeader) {
-    const auth = await authenticate(authHeader, req);
+  const auth = await authenticate(req.header("authorization"), req);
     if (auth.ok && auth.localCustomerId != null) {
-      const stripe = new Stripe(key);
-      const customerId = await getOrCreateStripeCustomer(
-        auth.localCustomerId,
-        stripe,
-        isGulf ? "gulf" : "main",
-        email,
-        req.log,
-      );
+    const stripe = new Stripe(key);
+    const customerId = gulf ? row?.stripeCustomerIdGulf : row?.stripeCustomerId;
       if (customerId) stripeCustomerId = customerId;
     }
   }
@@ -712,10 +697,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
       priceUsd: i.priceUsd,
       quantity: i.quantity,
     }));
-    const couponResult = await validateCoupon(trimmedCouponCode, {
+    const couponResult = await validateCoupon(couponCode.trim(), {
       customerEmail: email ?? "",
       cartItems: cartItemsForCoupon,
-      cartTotalUsd: totalUsd,
+      cartTotalUsd: rawTotalUsd,
     });
     if (couponResult.valid) {
       // Guard against concurrent FIRST10 claims for the same email address.
@@ -1038,7 +1023,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       klarnaAllowed,
     });
   } catch (err: any) {
-    req.log.error(
+    req.log?.error?.(
       { err, storeKey: store.storeKey, currency },
       "checkout: Stripe PaymentIntent failed", // i18n-ignore
     );
@@ -1076,7 +1061,9 @@ router.get("/checkout/payment-methods", async (req, res) => {
   const store = resolveStoreFromRequest(req);
   const gulf = isGulfStore(store.storeKey);
   const stripeKey = resolveStripeKey(store.storeKey);
-  if (!stripeKey) return res.json({ ok: true, paymentMethods: [] });
+  if (!stripeKey) {
+    return res.status(503).json({ ok: false, message: "Stripe not configured" }); // i18n-ignore
+  }
 
   try {
     const [row] = await db
@@ -1089,9 +1076,11 @@ router.get("/checkout/payment-methods", async (req, res) => {
       .limit(1);
 
     const customerId = gulf ? row?.stripeCustomerIdGulf : row?.stripeCustomerId;
-    if (!row || !customerId) return res.json({ ok: true, paymentMethods: [] });
+    if (!row || !customerId) {
+      return res.status(404).json({ ok: false, message: "No saved payment methods" }); // i18n-ignore
+    }
 
-    const stripe = new Stripe(stripeKey);
+    const stripe = new Stripe(key);
     const list = await stripe.paymentMethods.list({ customer: customerId, type: "card" });
     const results = list.data
       .filter((pm) => pm.card)
@@ -1149,7 +1138,7 @@ router.delete("/checkout/payment-methods/:id", async (req, res) => {
       return res.status(404).json({ ok: false, message: "No saved payment methods" }); // i18n-ignore
     }
 
-    const stripe = new Stripe(stripeKey);
+    const stripe = new Stripe(key);
     const pm = await stripe.paymentMethods.retrieve(pmId);
     if (pm.customer !== customerId) {
       return res.status(404).json({ ok: false, message: "Payment method not found" }); // i18n-ignore
@@ -1345,7 +1334,7 @@ router.post("/checkout/fees", async (req, res) => {
 //
 // Response: { ok: true, status: string, orderId: string | null, amount: number, currency: string }
 router.get("/checkout/payment-status", async (req, res) => {
-  const piId = (req.query["paymentIntentId"] as string | undefined)?.trim();
+  const piId = req.query.pi;
   if (!piId || !piId.startsWith("pi_")) {
     return res.status(400).json({ ok: false, message: "paymentIntentId is required and must start with pi_" }); // i18n-ignore
   }

@@ -48,12 +48,17 @@ export type CartSnapshot = {
   districtFeeUsd?: number;
   expressFeeUsd?: number;
   slotFeeUsd?: number;
+  // Coupon applied at payment-session creation time. Stored so /woo/order can
+  // include the exact coupon code and discount that was applied to the charge,
+  // preventing over-charge on discounted orders (e.g. CyberSource).
+  couponDiscountUsd?: number;
+  couponCode?: string;
 };
 
 export type PaymentIntent = {
   orderId: string;
   paymentRef: string;
-  provider: "stripe" | "mamo" | "paypal" | "tabby";
+  provider: "stripe" | "mamo" | "paypal" | "tabby" | "cybersource";
   // Which Stripe account was used: "main" (CY) or "gulf" (AE).
   stripeAccount?: "main" | "gulf";
   // The exact currency the provider was instructed to charge (e.g. "QAR",
@@ -102,7 +107,7 @@ function sweep(): void {
 export function storePaymentIntent(params: {
   orderId: string;
   paymentRef: string;
-  provider: "stripe" | "mamo" | "paypal" | "tabby";
+  provider: "stripe" | "mamo" | "paypal" | "tabby" | "cybersource";
   stripeAccount?: "main" | "gulf";
   /** The exact currency the provider was charged in (e.g. "QAR", "AED", "USD"). */
   currency: string;
@@ -267,4 +272,64 @@ export function verifyCartMatchesSnapshot(
 // Peek without consuming — used only in tests / diagnostics.
 export function peekPaymentIntent(paymentRef: string): PaymentIntent | undefined {
   return store.get(paymentRef);
+}
+
+// Validate a payment intent (orderId binding + consumed + expiry checks) but do
+// NOT mark it consumed. Used by payment flows that want retry-safe finalization:
+// the caller validates the intent before the downstream write, then calls
+// markPaymentIntentConsumed after the write succeeds. If the write fails, the
+// intent remains valid and the client can safely retry.
+//
+// Returns the intent on success; returns null using the same conditions as
+// consumePaymentIntent (not found, orderId mismatch, already consumed, expired).
+export function peekAndValidatePaymentIntent(
+  paymentRef: string,
+  orderId: string,
+): PaymentIntent | null {
+  const intent = store.get(paymentRef);
+  if (!intent) return null;
+  if (intent.expiresAt < Date.now()) {
+    store.delete(paymentRef);
+    return null;
+  }
+  if (intent.consumed) return null;
+  if (intent.orderId !== orderId) return null;
+  return intent;
+}
+
+// Mark a previously validated intent as consumed. Called after a successful
+// order write so the single-use invariant is enforced without blocking retries
+// on transient downstream failures. A no-op when the intent does not exist
+// (already consumed or expired — both indicate the order already went through).
+export function markPaymentIntentConsumed(paymentRef: string): void {
+  const intent = store.get(paymentRef);
+  if (intent && !intent.consumed) {
+    intent.consumed = true;
+  }
+}
+
+// Release a previously consumed intent back to an unconsumed state.
+//
+// Used exclusively by the CyberSource finalization path to enable retry-safe
+// atomicity: `consumePaymentIntent` is called first to atomically claim the
+// single-use slot (preventing concurrent duplicate submissions), then the
+// downstream OS write is attempted. If the write fails with a retryable error,
+// `releasePaymentIntent` un-claims the slot so the shopper can retry.
+//
+// Node.js's single-threaded event loop makes `consumePaymentIntent` an atomic
+// synchronous claim: two concurrent requests cannot both see `consumed:false`
+// in the synchronous check, so only one will get the intent. If that request
+// later fails before the write, releasing allows the shopper to retry without
+// starting the payment over.
+//
+// IMPORTANT: Call release ONLY when the downstream write has definitively
+// failed (not on network-timeout ambiguity, where the write may have
+// succeeded). For ambiguous failures, leave the intent consumed and rely on
+// the pending-order reconciliation queue, matching the behavior for Stripe /
+// Mamo / PayPal today.
+export function releasePaymentIntent(paymentRef: string): void {
+  const intent = store.get(paymentRef);
+  if (intent && intent.consumed) {
+    intent.consumed = false;
+  }
 }

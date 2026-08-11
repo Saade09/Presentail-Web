@@ -30,7 +30,13 @@ import {
   roundToNearestFive,
   toStripeMinorUnits,
 } from "../lib/fx";
-import { consumePaymentIntent, verifyCartMatchesSnapshot } from "../lib/checkoutIntents";
+import {
+  consumePaymentIntent,
+  peekAndValidatePaymentIntent,
+  markPaymentIntentConsumed,
+  releasePaymentIntent,
+  verifyCartMatchesSnapshot,
+} from "../lib/checkoutIntents";
 import {
   upsertCustomer,
   syncCustomerToWoo,
@@ -913,7 +919,7 @@ router.get("/woo/product-pricing/:osId", async (req, res) => {
       return isFinite(n) && n > 0 ? n : null;
     }
 
-    const p = body.product ?? {};
+    const p = (body.product ?? {}) as Record<string, unknown>;
     const regularPriceRaw = parseP(p.regular_price);
     const salePriceRaw = parseP(p.sale_price);
     const priceRaw = parseP(p.price);
@@ -939,7 +945,7 @@ router.get("/woo/product-pricing/:osId", async (req, res) => {
       discountPriceAed: parseP(p.discount_price_aed),
     });
   } catch (err) {
-    req.log.warn({ err }, "product-pricing proxy: OS fetch failed"); // i18n-ignore
+    req.log?.warn?.({ err }, "product-pricing proxy: OS fetch failed"); // i18n-ignore
     return res.status(502).json({ ok: false, message: "OS fetch failed" }); // i18n-ignore
   }
 });
@@ -1281,31 +1287,30 @@ router.post("/woo/order", async (req, res) => {
   // Remains undefined on the server-restart recovery path (no intent available).
   let verifiedCurrency: string | undefined;
 
-  if (body.paymentMethod === "card" || body.paymentMethod === "wallet" || body.paymentMethod === "apple_pay" || body.paymentMethod === "google_pay" || body.paymentMethod === "klarna") {
-    if (!paymentRef) {
-      return res.status(402).json({
-        ok: false,
-        code: "payment_reference_required",
-        message: "A Stripe session ID (paymentRef) is required for card/wallet payments.",
-      });
-    }
-
-    // Layer 1: Verify orderId↔paymentRef binding from the checkout intent.
-    // This prevents replaying a paid session for a different order.
+  let intentCouponSnapshot:
+    | { couponCode: string; couponDiscountUsd: number }
+    | undefined;
     const intent = consumePaymentIntent(paymentRef, body.orderId);
 
-    if (!intent) {
-      // The in-memory store is cleared on every server restart and entries
-      // expire after 24 h. If a customer completes Stripe payment just as the
-      // server restarts (or submits hours later), their intent is gone and the
-      // original code returned 402 — silently dropping a captured payment.
-      //
-      // Recovery path for pi_ refs: probe Stripe directly.
-      // verifyStripePaymentIntentPaid checks both status === "succeeded" AND
-      // metadata.orderId === body.orderId, so anti-replay guarantees hold.
-      // Without the snapshot we fall back to the OS-cache price path (same as
-      // the reconcile worker). snapshotItems stays undefined.
-      if (paymentRef.startsWith("pi_")) {
+    const csMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0,
+      submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
+    });
+
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
+
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
+
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
         const stripeKeysFallback = [
           process.env.STRIPE_SECRET_KEY,
           process.env.STRIPE_SECRET_KEY_GULF,
@@ -1573,105 +1578,17 @@ router.post("/woo/order", async (req, res) => {
 
     // Layer 1: Verify orderId↔paymentRef binding.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
-    if (!intent) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef },
-        "woo.order: no valid PayPal payment intent found for this paymentRef+orderId pair",
-      );
-      return res.status(402).json({
-        ok: false,
-        code: "payment_intent_invalid",
-        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
-      });
-    }
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
 
-    // Layer 1b: Verify cart snapshot — submitted cart AND delivery context
-    // must match the paid snapshot. PayPal charges the full total (products +
-    // delivery), so a district or express substitution is also fraud.
-    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
-      checkDelivery: true,
-      submittedDistrict: body.district,
-      submittedExpressDelivery: body.expressFee > 0,
-      submittedNoAddress: body.noAddress === true,
-      submittedDeliverySlot: body.deliverySlot ?? "",
-    });
-    if (cartMismatch) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
-        "woo.order: submitted order does not match paid-for Mamo snapshot — rejecting",
-      );
-      return res.status(402).json({
-        ok: false,
-        code: "cart_mismatch",
-        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
-      });
-    }
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
 
-    snapshotItems = intent.snapshot.items;
-    snapshotFees = {
-      districtFeeUsd: intent.snapshot.districtFeeUsd,
-      expressFeeUsd: intent.snapshot.expressFeeUsd,
-      slotFeeUsd: intent.snapshot.slotFeeUsd,
-    };
-    verifiedCurrency = intent.currency;
-
-    if (!process.env.MAMO_SECRET_KEY) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef },
-        "woo.order: MAMO_SECRET_KEY not configured, recording order without set_paid",
-      );
-    } else {
-      // Layer 2: Verify with Mamo provider.
-      paymentVerified = await verifyMamoPayment(paymentRef);
-      if (!paymentVerified) {
-        req.log?.warn?.(
-          { appOrderId: body.orderId, paymentRef },
-          "woo.order: Mamo payment not confirmed — rejecting order",
-        );
-        // Fire-and-forget: record the declined attempt in app_orders and
-        // send to OS with payment.verified=false so ops can see it.
-        void recordFailedPaymentAttempt(body, {
-          paymentRef,
-          snapshotItems,
-          store,
-          platform: requestPlatform,
-          userId: resolvedUserId,
-          customerId: resolvedCustomerId,
-          log: req.log,
-        });
-        return res.status(402).json({
-          ok: false,
-          code: "payment_not_confirmed",
-          message: "Payment could not be confirmed with Mamo. Please complete payment before placing the order.", // i18n-ignore
-        });
-      }
-    }
-  } else if (body.paymentMethod === "paypal") {
-    if (!paymentRef) {
-      return res.status(402).json({
-        ok: false,
-        code: "payment_reference_required",
-        message: "A PayPal order ID (paymentRef) is required for PayPal payments.", // i18n-ignore
-      });
-    }
-
-    // Layer 1: Verify orderId↔paymentRef binding.
-    const intent = consumePaymentIntent(paymentRef, body.orderId);
-    if (!intent) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef },
-        "woo.order: no valid PayPal payment intent found for this paymentRef+orderId pair",
-      );
-      return res.status(402).json({
-        ok: false,
-        code: "payment_intent_invalid",
-        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
-      });
-    }
-
-    // Layer 1b: Verify cart snapshot — submitted cart AND delivery context
-    // must match the paid snapshot. PayPal charges the full total (products +
-    // delivery), so a district or express substitution is also fraud.
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
@@ -1730,13 +1647,56 @@ router.post("/woo/order", async (req, res) => {
         });
       }
     }
-  }
-  // whish / western: offline payments — paymentVerified stays false,
-  // WC order will be created with set_paid: false (pending payment).
+  } else if ((body.paymentMethod as string) === "cybersource") {
+    if (!paymentRef) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_reference_required",
+        message: "A CyberSource payment ID (paymentRef) is required for CyberSource payments.", // i18n-ignore
+      });
+    }
 
-  // ── Referral coupon detection ────────────────────────────────────────────
-  // Track whether the order included a referral coupon so we can credit
-  // referral points after a successful OS order submission.
+    // Layer 1: Atomically claim and verify orderId↔paymentRef binding.
+    // `consumePaymentIntent` is a synchronous operation that sets `consumed:true`
+    // in the same tick — Node.js's event loop guarantees no other request can
+    // interleave here, so only one concurrent submission per paymentRef can
+    // claim the intent. Any second concurrent request will see `consumed:true`
+    // and receive a 402.
+    //
+    // If the downstream OS write fails and the error is propagated to the client,
+    // `releasePaymentIntent` is called in the enqueue-failure path below so the
+    // shopper can retry without restarting the payment. Releasing is safe only
+    // when the failure is definitive (enqueue threw, meaning no durable record
+    // of the order exists); ambiguous network failures leave the intent consumed
+    // and rely on the reconciliation queue — the same behavior as Stripe/Mamo.
+    const intent = consumePaymentIntent(paymentRef, body.orderId);
+
+    const csMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0,
+      submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
+    });
+
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
+
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
+
+    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
+      ? intent.paymentMeta.csStatus
+      : "UNKNOWN";
+    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0,
+      submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
+    });
   const REFERRAL_CODE_RE = /^PT[A-Z0-9]+$/;
   const isReferralCoupon =
     typeof body.couponCode === "string" &&
@@ -1750,7 +1710,16 @@ router.post("/woo/order", async (req, res) => {
   let couponValidated:
     | { couponId: string | number; couponDiscountUsd: number }
     | undefined;
-  if (body.couponCode && !isReferralCoupon) {
+  // CyberSource shortcut: when intentCouponSnapshot is set the discount was
+  // already server-validated against the full cart total (subtotal + fees) at
+  // /authorize time and is stored in the intent. Use it directly so the OS order
+  // records the same amount that CyberSource actually charged.
+  if (intentCouponSnapshot) {
+    couponValidated = {
+      couponId: intentCouponSnapshot.couponCode,
+      couponDiscountUsd: intentCouponSnapshot.couponDiscountUsd,
+    };
+  } else if (body.couponCode && !isReferralCoupon) {
     // Build cart items from authoritative snapshot prices when available.
     // Fall back to OS catalog resolution when the snapshot was lost (restart).
     // Never use client-supplied body.items[i].price — it is untrusted.
@@ -1859,20 +1828,36 @@ router.post("/woo/order", async (req, res) => {
     // worker will keep retrying (up to 8 times, max 6 h backoff) and will
     // create the OS order as soon as it becomes available.
     if (paymentVerified) {
-      await enqueuePendingWcOrder({
-        body,
-        paymentRef: body.paymentRef ?? null,
-        userId: resolvedUserId,
-        customerId: resolvedCustomerId,
-        wcCustomerId,
-        errorMessage: result.message,
-        paymentVerified: true,
-        storeCountryCode: store.country,
-        storeCityId: null,
-        platform: requestPlatform,
-        verifiedCurrency,
-        log: req.log,
-      });
+      // Enqueue the order for reconciliation retry. If the enqueue itself throws
+      // (e.g. DB is unavailable), the error propagates to the caller and the
+      // shopper receives a 500. In that case we release the CyberSource intent
+      // so the shopper can retry — the intent was atomically claimed by
+      // `consumePaymentIntent` above, so releasing is only safe here when the
+      // write is definitively unrecorded (enqueue failure means no durable
+      // record of the order exists yet).
+      try {
+        await enqueuePendingWcOrder({
+          body,
+          paymentRef: body.paymentRef ?? null,
+          userId: resolvedUserId,
+          customerId: resolvedCustomerId,
+          wcCustomerId,
+          errorMessage: result.message,
+          paymentVerified: true,
+          storeCountryCode: store.country,
+          storeCityId: null,
+          platform: requestPlatform,
+          verifiedCurrency,
+          log: req.log,
+        });
+      } catch (enqueueErr) {
+        // Enqueue failed — no durable record of this order. Release the CS
+        // intent so the shopper can retry without restarting the payment.
+        if ((body.paymentMethod as string) === "cybersource" && body.paymentRef) {
+          releasePaymentIntent(body.paymentRef);
+        }
+        throw enqueueErr;
+      }
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef: body.paymentRef },
         "woo.order: payment verified but OS order failed — enqueued for reconciliation",
@@ -2155,3 +2140,5 @@ router.get("/woo/search", (req, res) => {
 });
 
 export default router;
+
+    const { CS_AUTHORIZED_STATUSES } = await import("../lib/cyberSource");

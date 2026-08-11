@@ -44,3 +44,4 @@
 - [SSR city product grid](ssr-city-product-grid.md) — city-home SSR product cards: add city key to SSR_PRODUCT_CITY_KEYS; payload must carry discount fields or sale prices vanish after hydration
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice
 - [AR/FR product translation layer](product-translation.md) — /woo/product reads lang=ar/fr, translates via OpenAI, 7-day cache; seo-inject already sends lang so no web changes needed
+- [CyberSource capture-context schema](cybersource-capture-context-schema.md) — required fields, valid enums (PANENTRY not CARD), locale underscore format, forbidden fields, JWT clientLibrary = UC SDK URL

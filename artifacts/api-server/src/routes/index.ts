@@ -50,6 +50,7 @@ import adminPlantClassificationsRouter from "./adminPlantClassifications";
 import seoAuditRouter from "./seoAuditRoutes";
 import adminSeoDashboardRouter from "./adminSeoDashboard";
 import stripeWebhookRouter from "./stripeWebhook";
+import cyberSourceRouter from "./cyberSource";
 
 const router: IRouter = Router();
 
@@ -104,5 +105,6 @@ router.use(webEventsRouter);
 router.use(seoAuditRouter);
 router.use(adminSeoDashboardRouter);
 router.use(stripeWebhookRouter);
+router.use(cyberSourceRouter);
 
 export default router;

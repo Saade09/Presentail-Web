@@ -306,7 +306,7 @@ export function OrderSummaryPanel({
                             size="sm"
                             variant="outline"
                             className="h-10 shrink-0"
-                            onClick={handleCouponApply}
+                            onClick={() => handleCouponApply()}
                             disabled={!couponInput.trim() || couponValidating}
                             data-testid="button-coupon-apply-checkout"
                           >
@@ -591,7 +591,7 @@ export function OrderSummaryPanel({
                             size="sm"
                             variant="outline"
                             className="h-10 shrink-0"
-                            onClick={handleCouponApply}
+                            onClick={() => handleCouponApply()}
                             disabled={!couponInput.trim() || couponValidating}
                             data-testid="button-coupon-apply-checkout"
                           >

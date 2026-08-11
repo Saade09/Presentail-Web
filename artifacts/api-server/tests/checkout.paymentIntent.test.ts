@@ -25,7 +25,13 @@ vi.mock("../src/lib/catalog", () => ({
   verifyStripePayment: vi.fn().mockResolvedValue(false),
   verifyStripePaymentIntentPaid: vi.fn().mockResolvedValue(false),
   verifyMamoPayment: vi.fn().mockResolvedValue(false),
+  fetchStripePaymentIntentDetails: vi.fn().mockResolvedValue(null),
   DISTRICT_FEES: {},
+  computeDistrictFeeUsd: vi.fn().mockReturnValue(0),
+  computeSlotFeeUsd: vi.fn().mockReturnValue(0),
+  expressSurchargeUsd: vi.fn().mockReturnValue(5),
+  countryForDistrict: vi.fn().mockReturnValue("LB"),
+  recordFailedPaymentAttempt: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../src/lib/fx", () => ({
@@ -33,10 +39,12 @@ vi.mock("../src/lib/fx", () => ({
   normalizeCurrency: (v: unknown) =>
     typeof v === "string" && v.length === 3 ? v.toUpperCase() : "USD",
   toStripeMinorUnits: (amount: number) => Math.round(amount * 100),
+  roundToNearestFive: (amount: number) => amount,
 }));
 
 vi.mock("../src/lib/wooStore", () => ({
-  resolveStoreFromRequest: vi.fn().mockReturnValue({ baseUrl: "https://store.example.com" }),
+  resolveStoreFromRequest: vi.fn().mockReturnValue({ baseUrl: "https://store.example.com", storeKey: "lb" }),
+  isGulfStore: vi.fn().mockReturnValue(false),
 }));
 
 // Stripe constructor mock — vi.hoisted so it is available before the checkout
@@ -61,7 +69,12 @@ const { mockStripeCreate, dbInsertChain, dbMock } = vi.hoisted(() => {
 // is bound correctly when the route does `new Stripe(key)`.
 vi.mock("stripe", () => ({
   default: vi.fn(function (this: Record<string, unknown>) {
-    this.paymentIntents = { create: mockStripeCreate };
+    this.paymentIntents = {
+      create: mockStripeCreate,
+      retrieve: vi.fn().mockRejectedValue(new Error("not found")),
+      search: vi.fn().mockResolvedValue({ data: [] }),
+      update: vi.fn().mockResolvedValue({ id: "pi_test_abc123", client_secret: "pi_test_abc123_secret_xyz", amount: 5000, currency: "usd", status: "requires_payment_method" }),
+    };
     this.checkout = { sessions: { create: vi.fn() } };
   }),
 }));
@@ -72,6 +85,8 @@ vi.mock("@workspace/db", () => ({
   db: dbMock,
   appOrdersTable: { appOrderId: "appOrderId" },
   pushTokensTable: {},
+  customersTable: {},
+  klarnaPendingCheckoutsTable: {},
 }));
 
 vi.mock("../src/lib/customers", () => ({
@@ -79,12 +94,14 @@ vi.mock("../src/lib/customers", () => ({
     customer: { id: 7, wcCustomerId: 777, email: "jane@example.com" },
     created: false,
   }),
+  getCustomerById: vi.fn().mockResolvedValue({ id: 7, emailVerified: true, wcCustomerId: 777 }),
   syncCustomerToWoo: vi.fn().mockResolvedValue(777),
   getCustomerByWcId: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../src/lib/auth", () => ({
   authenticate: vi.fn().mockResolvedValue({ ok: false }),
+  resolveAuthenticatedCustomer: vi.fn().mockResolvedValue({ ok: false }),
 }));
 
 vi.mock("../src/lib/orderEvents", () => ({
@@ -338,7 +355,7 @@ describe("Replay-attack prevention — POST /api/woo/order with a card paymentRe
       districtFee: 8,
       expressFee: 0,
       deliveryDetails: "Main Street",
-      deliveryDate: "2026-07-01",
+      deliveryDate: "2027-06-01",
       deliverySlot: "9:00 AM – 2:00 PM",
       appDeviceId: "device-replay-test",
     };
@@ -357,6 +374,7 @@ describe("Replay-attack prevention — POST /api/woo/order with a card paymentRe
         items: [{ wcId: 99, quantity: 1, priceUsd: 50 }],
         district: "Beirut",
         expressDelivery: false,
+        deliverySlot: "9:00 AM – 2:00 PM",
       },
     });
   }
