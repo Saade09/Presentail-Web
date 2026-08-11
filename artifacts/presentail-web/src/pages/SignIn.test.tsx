@@ -192,9 +192,12 @@ describe("SignIn — onContinueEmail with new email preserves redirect_url", () 
       );
     });
 
-    const body = JSON.parse(
-      (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
+    // fetchSpy.mock.calls[0] is the nonce GET (no body);
+    // fetchSpy.mock.calls[1] is the web-bridge POST.
+    const bridgeCall = fetchSpy.mock.calls.find(
+      ([url]) => url === "/api/auth/web-bridge",
     );
+    const body = JSON.parse((bridgeCall![1] as RequestInit).body as string);
     expect(body.email).toBe("new@example.com");
   });
 

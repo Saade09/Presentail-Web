@@ -31,6 +31,25 @@ export const existsIpLimiter = rateLimit({
   message: undefined,
 });
 
+/**
+ * POST /auth/web-bridge — 10 lookups / 15 min per IP.
+ *
+ * This endpoint returns `userExists: true/false`, making it an email
+ * enumeration oracle. A dedicated, stricter limiter bounds the rate of
+ * automated lookups to ≈40 per hour per source IP. Distributed attacks
+ * rotating many IPs are not fully preventable by rate limiting alone;
+ * the trade-off between UX friction and enumeration risk is acknowledged
+ * in the API spec. This limiter is separate from `existsIpLimiter` so that
+ * an unrelated burst of /auth/exists traffic does not reduce the budget here
+ * and vice-versa.
+ */
+export const webBridgeIpLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  message: undefined,
+});
+
 /** POST /auth/login — 10 attempts / 15 min per IP */
 export const loginIpLimiter = rateLimit({
   ...baseOptions,

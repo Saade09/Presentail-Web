@@ -28,6 +28,7 @@ vi.mock("../src/lib/auth", () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
   signServerToken: vi.fn(),
   decodeJwtPayload: vi.fn(() => null),
+  isWcAuthEnabled: vi.fn(() => false),
 }));
 
 const getCustomerByWcIdMock = vi.fn();
@@ -46,6 +47,7 @@ vi.mock("../src/lib/auth-rate-limit", () => {
   const noop = (_req: unknown, _res: unknown, next: () => void) => next();
   return {
     existsIpLimiter: noop,
+    webBridgeIpLimiter: noop,
     loginIpLimiter: noop,
     registerIpLimiter: noop,
     resetRequestIpLimiter: noop,
@@ -136,16 +138,13 @@ const baseLocal = {
 
 describe("PUT /api/auth/me — authentication", () => {
   it("returns 401 when no Authorization header is provided", async () => {
-    authenticateMock.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      message: "Missing token",
-    });
-
+    // requireUserType rejects completely unauthenticated requests before the
+    // handler even runs, so authenticate() is never reached.  The response
+    // body comes from requireUserType, not from authenticate().
     const res = await request(app).put("/api/auth/me").send({ firstName: "X" });
 
     expect(res.status).toBe(401);
-    expect(res.body).toEqual({ ok: false, message: "Missing token" });
+    expect(res.body).toMatchObject({ ok: false, code: "unauthenticated" });
     expect(dbUpdateSet).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });

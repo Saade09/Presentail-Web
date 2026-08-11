@@ -74,6 +74,15 @@ export const customersTable = pgTable(
       "email_verification_token_expires_at",
       { withTimezone: true },
     ),
+    // One-time token for the local password reset flow (used when
+    // WC_AUTH_ENABLED=false and the account has a local scrypt password hash).
+    // Hex-encoded 32-byte random value. Cleared once the reset is completed
+    // or a new token is issued.  Expires after 1 hour.
+    passwordResetToken: text("password_reset_token"),
+    passwordResetTokenExpiresAt: timestamp(
+      "password_reset_token_expires_at",
+      { withTimezone: true },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

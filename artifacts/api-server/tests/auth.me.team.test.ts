@@ -31,6 +31,10 @@ vi.mock("../src/lib/auth", () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
   signServerToken: vi.fn(),
   decodeJwtPayload: vi.fn(() => null),
+  // Team tests that exercise deletion expect the WC REST calls (fetchSpy ×2).
+  // isWcAuthEnabled=true keeps the handler on the WC deletion path; the local-only
+  // path (isWcAuthEnabled=false) is covered by separate integration tests.
+  isWcAuthEnabled: vi.fn(() => true),
 }));
 
 const upsertCustomerMock = vi.fn();
@@ -44,6 +48,7 @@ vi.mock("../src/lib/auth-rate-limit", () => {
   const noop = (_req: unknown, _res: unknown, next: () => void) => next();
   return {
     existsIpLimiter: noop,
+    webBridgeIpLimiter: noop,
     loginIpLimiter: noop,
     registerIpLimiter: noop,
     resetRequestIpLimiter: noop,
@@ -172,9 +177,24 @@ describe("requireUserType(['customer','team']) — role filtering", () => {
     );
   });
 
-  it("passes through when there is no Clerk session (userId null)", async () => {
+  it("returns 401 when there is no Clerk session AND no Authorization header", async () => {
+    // requireUserType now rejects completely unauthenticated requests (no
+    // Clerk session AND no bearer token) rather than silently passing them
+    // through.  Legacy JWT callers (mobile app) always supply an Authorization
+    // header; a truly anonymous request must not bypass the middleware.
     getAuthMock.mockReturnValue({ userId: null, sessionClaims: null });
     const res = await request(middlewareApp).get("/probe");
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ ok: false, code: "unauthenticated" });
+  });
+
+  it("passes through when there is no Clerk session but an Authorization header is present", async () => {
+    // Legacy JWT callers (mobile) carry a bearer token; requireUserType must
+    // pass them through so downstream authenticate() calls can verify the token.
+    getAuthMock.mockReturnValue({ userId: null, sessionClaims: null });
+    const res = await request(middlewareApp)
+      .get("/probe")
+      .set("Authorization", "Bearer some-legacy-token");
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });

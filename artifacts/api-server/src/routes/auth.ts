@@ -17,6 +17,7 @@ import {
 import type { Customer } from "@workspace/db";
 import {
   existsIpLimiter,
+  webBridgeIpLimiter,
   loginIpLimiter,
   registerIpLimiter,
   resetRequestIpLimiter,
@@ -345,6 +346,13 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
 // frontend can route unknown emails to /sign-up and known emails to the
 // password step. No WC/WP or Clerk JIT-provisioning is involved.
 //
+// Enumeration trade-off: this endpoint returns `userExists: true/false`, making
+// it an email oracle. The mitigation is a dedicated per-IP rate limiter
+// (webBridgeIpLimiter: 10 requests / 15 min) that is stricter than the shared
+// existsIpLimiter used on /auth/exists. Distributed attacks rotating many IPs
+// are not fully preventable by per-IP rate limiting alone — this is a deliberate
+// product trade-off for UX routing purposes, documented in the OpenAPI spec.
+//
 // We still call `recordAuthExistsOutcome` so the existing monitoring
 // taxonomy (exists_true_local / exists_false) continues to work.
 //
@@ -354,7 +362,7 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
 //   - { ok: true, userExists: false, passwordLoginAvailable: true }
 //                                    → unknown email; frontend redirects to
 //                                      /sign-up?email_address=<email>
-router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
+router.post("/auth/web-bridge", webBridgeIpLimiter, async (req, res) => {
   const platformHeader = String(req.header("x-app-platform") ?? "")
     .trim()
     .toLowerCase() || null;
@@ -2169,17 +2177,66 @@ async function issueSocialSession(
 }
 
 // ── Password reset ───────────────────────────────────────────────────────────
-// We proxy WordPress's standard `wp-login.php` form endpoints. The lostpassword
-// action triggers WP's reset email; the resetpass action consumes the key from
-// the email link plus a new password. WP responds with HTML / 302 redirects, so
-// we treat status codes and the Location header as the source of truth and
-// always return a JSON envelope to the client.
+// Two paths depending on WC_AUTH_ENABLED:
 //
-// WP `wp-login.php?action=lostpassword` redirects to `?checkemail=confirm` on
-// success and to `?action=lostpassword&error=...` on a failed lookup (unknown
-// email, invalid login, etc.). We map those into structured codes so the UI
-// can show an inline "we don't recognise that email" error per the product
-// spec, while still treating upstream/network failures as generic.
+//  Local-only (WC_AUTH_ENABLED=false, the default):
+//    POST /auth/reset/request — generates a one-time token stored in
+//      customers.password_reset_token (expires 1 h) and sends it by email.
+//      The email link uses ?key=<token>&login=<email> (same as WP shape) so
+//      the existing mobile +native-intent.tsx handler works unchanged.
+//    POST /auth/reset/confirm — accepts { key, login, password }; verifies the
+//      token+email pair, hashes the new password, writes it, and clears the token.
+//
+//  WC/WP proxy (WC_AUTH_ENABLED=true, legacy migration window):
+//    Both endpoints proxy WordPress's wp-login.php form flow unchanged.
+
+// ── Password reset email helper ──────────────────────────────────────────────
+// Sends a one-time reset link to the given email via SMTP (best-effort).
+// Mirrors the pattern of sendEmailVerification above.
+function sendPasswordResetEmail(opts: {
+  email: string;
+  token: string;
+  log?: { warn?: (...args: any[]) => void };
+}): void {
+  const smtpHost = process.env.SMTP_HOST;
+  if (!smtpHost) return; // SMTP not configured — skip silently.
+
+  const { email, token, log } = opts;
+  const domain =
+    (process.env.EXPO_PUBLIC_DOMAIN ?? "presentail.com").replace(/\/$/, "");
+  // Use the same ?key=...&login=... URL shape as the WP flow so that:
+  //   • The mobile +native-intent.tsx handler already intercepts it and routes
+  //     to /reset-password?key=...&login=... without any mobile-side changes.
+  //   • The web ResetPassword page detects these params and shows the confirm form.
+  const resetUrl = `https://${domain}/reset-password?key=${encodeURIComponent(token)}&login=${encodeURIComponent(email)}`;
+  const from =
+    process.env.EMAIL_FROM ?? process.env.SMTP_USER ?? "no-reply@presentail.com"; // i18n-ignore
+
+  import("nodemailer")
+    .then(({ createTransport }) => {
+      const transport = createTransport({
+        host: smtpHost,
+        port: Number(process.env.SMTP_PORT ?? 587),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: process.env.SMTP_USER
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? "" }
+          : undefined,
+      });
+      return transport.sendMail({
+        from,
+        to: email,
+        subject: "Reset your Presentail password", // i18n-ignore
+        text: `You requested a password reset for your Presentail account.\n\nVisit the link below to set a new password:\n${resetUrl}\n\nThis link expires in 1 hour. If you did not request a reset, you can safely ignore this email.`, // i18n-ignore
+        html: `<p>You requested a password reset for your Presentail account.</p><p><a href="${resetUrl}">Reset your password</a></p><p>This link expires in 1 hour. If you did not request a reset, you can safely ignore this email.</p>`, // i18n-ignore
+      });
+    })
+    .catch((err: any) => {
+      log?.warn?.(
+        { err: err?.message, email },
+        "auth.reset.request: reset email send failed (non-fatal)",
+      );
+    });
+}
 
 router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
   const email = String((req.body as any)?.email ?? "").trim().toLowerCase();
@@ -2188,9 +2245,8 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
   }
 
   // Email-based cap prevents one address from being flooded with reset emails.
-  // Record the attempt before forwarding — every request to this endpoint
-  // causes WordPress to attempt to send a reset email, so we cap at the
-  // Express layer regardless of whether the email is known.
+  // Record before doing any work — each request would otherwise trigger an
+  // email attempt, so we cap at the Express layer unconditionally.
   const emailCheck = resetEmailLimiter.check(email);
   if (!emailCheck.allowed) {
     return res.status(429).json({
@@ -2201,6 +2257,51 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
   }
   resetEmailLimiter.record(email);
 
+  // ── Local-only path (WC_AUTH_ENABLED=false) ──────────────────────────────
+  // Look up the customer, generate a scoped token, store it, and send the
+  // reset email.  We always return `ok:true` regardless of whether the email
+  // is found — standard "if an account exists you will receive an email"
+  // pattern that prevents enumeration of valid addresses.
+  if (!isWcAuthEnabled()) {
+    try {
+      const [customer] = await db
+        .select({ id: customersTable.id, passwordHash: customersTable.passwordHash })
+        .from(customersTable)
+        .where(eq(customersTable.email, email))
+        .limit(1);
+
+      if (customer && customer.passwordHash) {
+        // Only send a reset email to password-bearing accounts.  Social
+        // sign-in accounts (no passwordHash) have nothing to reset and
+        // should use their social provider instead.
+        //
+        // Security: we store only the SHA-256 digest of the raw token so
+        // that a database read, backup, or query-log leak does NOT expose a
+        // bearer credential that can immediately reset accounts.  The raw
+        // token is sent only in the email.
+        const rawToken = randomBytes(32).toString("hex");
+        const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        await db
+          .update(customersTable)
+          .set({
+            passwordResetToken: tokenHash,   // store digest, not raw token
+            passwordResetTokenExpiresAt: expiresAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(customersTable.id, customer.id));
+        sendPasswordResetEmail({ email, token: rawToken, log: req.log });
+      }
+      // No `else` branch — return ok:true silently for unknown emails and
+      // social-only accounts to prevent enumeration.
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.reset.request: local DB error");
+      return res.status(500).json({ ok: false, message: "Reset service unavailable. Please try again later." }); // i18n-ignore
+    }
+    return res.json({ ok: true });
+  }
+
+  // ── WC/WP proxy path (WC_AUTH_ENABLED=true, legacy migration window) ─────
   try {
     const form = new URLSearchParams({
       user_login: email,
@@ -2272,6 +2373,74 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
     login?: string;
     password?: string;
   };
+
+  // ── Local-only path (WC_AUTH_ENABLED=false) ──────────────────────────────
+  // Accepts { key, login, password } — the same fields the WP flow uses so
+  // the existing mobile `completePasswordReset` contract and the mobile
+  // +native-intent.tsx deep-link handler work without any changes:
+  //   key   = the hex reset token (stored in customers.password_reset_token)
+  //   login = the email address (used as an additional identity check)
+  if (!isWcAuthEnabled()) {
+    if (!key || !login || !password) {
+      return res.status(400).json({
+        ok: false,
+        code: "missing_link",
+        message: "Missing reset link details or new password.", // i18n-ignore
+      });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({
+        ok: false,
+        code: "weak_password",
+        message: "Password must be at least 8 characters.", // i18n-ignore
+      });
+    }
+    try {
+      const now = new Date();
+      // Hash the provided key before comparing — the DB stores the SHA-256
+      // digest of the raw token, not the raw token itself, so a database read
+      // cannot be used to derive a bearer token.
+      const keyHash = createHash("sha256").update(key).digest("hex");
+      // Match by hash AND email so the token cannot be used for a different account.
+      const [customer] = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(
+          and(
+            eq(customersTable.email, login.toLowerCase().trim()),
+            eq(customersTable.passwordResetToken, keyHash),
+            gt(customersTable.passwordResetTokenExpiresAt, now),
+          ),
+        )
+        .limit(1);
+      if (!customer) {
+        return res.status(400).json({
+          ok: false,
+          code: "expired_link",
+          message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
+        });
+      }
+      const newHash = await hashPassword(password);
+      await db
+        .update(customersTable)
+        .set({
+          passwordHash: newHash,
+          passwordResetToken: null,
+          passwordResetTokenExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(customersTable.id, customer.id));
+      return res.json({ ok: true });
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.reset.confirm: local DB error");
+      return res.status(500).json({
+        ok: false,
+        message: "Could not reset your password right now. Please try again.", // i18n-ignore
+      });
+    }
+  }
+
+  // ── WC/WP proxy path (WC_AUTH_ENABLED=true, legacy migration window) ─────
   if (!key || !login || !password) {
     return res.status(400).json({
       ok: false,

@@ -31,6 +31,10 @@ vi.mock("../src/lib/auth", () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
   signServerToken: vi.fn(),
   decodeJwtPayload: vi.fn(() => null),
+  // GET /auth/me tests exercise the WC-fallback read path; isWcAuthEnabled=true
+  // keeps the handler on the legacy WC path so the local-first/WC-fallback
+  // assertions hold. The local-only path is covered by separate auth.reset tests.
+  isWcAuthEnabled: vi.fn(() => true),
 }));
 
 const getCustomerByWcIdMock = vi.fn();
@@ -46,6 +50,7 @@ vi.mock("../src/lib/auth-rate-limit", () => {
   const noop = (_req: unknown, _res: unknown, next: () => void) => next();
   return {
     existsIpLimiter: noop,
+    webBridgeIpLimiter: noop,
     loginIpLimiter: noop,
     registerIpLimiter: noop,
     resetRequestIpLimiter: noop,

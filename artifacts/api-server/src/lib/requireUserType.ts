@@ -56,9 +56,14 @@ async function resolveClerkUserType(
 }
 
 // Express middleware factory. Behaviour:
-//   * No Clerk session on the request → pass through (legacy WP / social
-//     JWT flow used by the mobile app handles its own authentication
-//     downstream).
+//   * No Clerk session AND no Authorization header → reject 401. A request
+//     with no credentials at all must never silently pass through an auth-
+//     required middleware (defence-in-depth against future handlers that rely
+//     on this middleware as the sole auth gate).
+//   * No Clerk session but Authorization header present → pass through.
+//     The legacy JWT flow (mobile app / server-minted tokens) carries its own
+//     token in the Authorization header; downstream `authenticate()` calls in
+//     each handler are responsible for verifying that token fully.
 //   * Clerk session present → require `publicMetadata.userType` to be in
 //     the allowed list. Missing claims are resolved against the live
 //     Clerk user record; if still missing, the user is bootstrapped to
@@ -72,6 +77,19 @@ export function requireUserType(allowed: readonly UserType[]): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     const auth = getAuth(req);
     if (!auth?.userId) {
+      // Reject completely unauthenticated requests immediately.  A caller
+      // without a Clerk session must supply a bearer token (Authorization
+      // header) for the legacy JWT path; an empty request has no credentials
+      // at all and must not silently bypass this middleware.
+      const hasLegacyToken = Boolean(req.headers["authorization"]);
+      if (!hasLegacyToken) {
+        res.status(401).json({
+          ok: false,
+          code: "unauthenticated",
+          message: "Authentication required.", // i18n-ignore
+        });
+        return;
+      }
       next();
       return;
     }

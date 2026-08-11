@@ -61,14 +61,15 @@ vi.mock("../lib/auth-rate-limit", () => {
   const passThrough = (_req: any, _res: any, next: any) => next();
   return {
     existsIpLimiter: passThrough,
+    webBridgeIpLimiter: passThrough,
     loginIpLimiter: passThrough,
     registerIpLimiter: passThrough,
     resetRequestIpLimiter: passThrough,
     resetConfirmIpLimiter: passThrough,
     socialIpLimiter: passThrough,
-    loginEmailLimiter: passThrough,
-    resetEmailLimiter: passThrough,
-    otpPhoneLimiter: passThrough,
+    loginEmailLimiter: { check: () => ({ allowed: true, retryAfterMs: 0 }), record: () => {} },
+    resetEmailLimiter: { check: () => ({ allowed: true, retryAfterMs: 0 }), record: () => {} },
+    otpPhoneLimiter: { check: () => ({ allowed: true, retryAfterMs: 0 }), record: () => {} },
     otpSendIpLimiter: passThrough,
   };
 });
