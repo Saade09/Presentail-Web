@@ -48,15 +48,15 @@ describe("generateLlmsTxt", () => {
 
   it("includes the Journal hub and every blog article", () => {
     expect(txt).toContain("## Journal");
-    expect(txt).toContain(`- [Journal hub](${ORIGIN}/en-lb/beirut/blog)`);
+    expect(txt).toContain(`- [Journal hub](${ORIGIN}/en/blog)`);
     for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
-      expect(txt).toContain(`[${byLang.en.title}](${ORIGIN}/en-lb/beirut/blog/${slug})`);
+      expect(txt).toContain(`[${byLang.en.title}](${ORIGIN}/en/blog/${slug})`);
     }
   });
 
   it("includes .md twin links for every blog article in the Markdown Pages section", () => {
     for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
-      expect(txt).toContain(`${ORIGIN}/en-lb/beirut/blog/${slug}.md`);
+      expect(txt).toContain(`${ORIGIN}/en/blog/${slug}.md`);
     }
   });
 });
@@ -68,8 +68,8 @@ describe("buildBlogMdLinks", () => {
       "second-post": { en: { title: "Second Post" } },
       "broken-post": { en: {} },
     });
-    expect(links).toContain("- [First Post](https://x/en-lb/beirut/blog/first-post.md)");
-    expect(links).toContain("- [Second Post](https://x/en-lb/beirut/blog/second-post.md)");
+    expect(links).toContain("- [First Post](https://x/en/blog/first-post.md)");
+    expect(links).toContain("- [Second Post](https://x/en/blog/second-post.md)");
     expect(links).not.toContain("broken-post");
   });
 
@@ -81,7 +81,7 @@ describe("buildBlogMdLinks", () => {
     const links = buildBlogMdLinks("https://x/web", {
       "my-post": { en: { title: "My Post" } },
     });
-    expect(links).toContain("https://x/web/en-lb/beirut/blog/my-post.md");
+    expect(links).toContain("https://x/web/en/blog/my-post.md");
   });
 });
 
@@ -92,15 +92,15 @@ describe("buildJournalSection", () => {
       "second-post": { en: { title: "Second Post" } },
       "broken-post": { en: {} },
     });
-    expect(section).toContain("- [Journal hub](https://x/en-lb/beirut/blog)");
-    expect(section).toContain("- [First Post](https://x/en-lb/beirut/blog/first-post)");
-    expect(section).toContain("- [Second Post](https://x/en-lb/beirut/blog/second-post)");
+    expect(section).toContain("- [Journal hub](https://x/en/blog)");
+    expect(section).toContain("- [First Post](https://x/en/blog/first-post)");
+    expect(section).toContain("- [Second Post](https://x/en/blog/second-post)");
     expect(section).not.toContain("broken-post");
   });
 
   it("still emits the hub link when there are no articles", () => {
     const section = buildJournalSection("https://x", {});
-    expect(section).toContain("- [Journal hub](https://x/en-lb/beirut/blog)");
+    expect(section).toContain("- [Journal hub](https://x/en/blog)");
   });
 });
 
@@ -198,7 +198,7 @@ describe("buildLlmsFullTxt", () => {
   it("includes .md twin links for every blog article in the Markdown Pages section", () => {
     const txt = buildLlmsFullTxt({ origin: ORIGIN, basePath: "/", ...MOCK });
     for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
-      expect(txt).toContain(`${ORIGIN}/en-lb/beirut/blog/${slug}.md`);
+      expect(txt).toContain(`${ORIGIN}/en/blog/${slug}.md`);
     }
   });
 

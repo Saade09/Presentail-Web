@@ -26,7 +26,7 @@ import { BLOG_POSTS } from "@workspace/blog-content";
  * @returns {string} Markdown section (ends without trailing blank line)
  */
 export function buildJournalSection(base, posts = BLOG_POSTS) {
-  const hub = `${base}/en-lb/beirut/blog`;
+  const hub = `${base}/en/blog`;
   const articles = Object.entries(posts ?? {})
     .map(([slug, byLang]) => {
       const post = byLang?.en;
@@ -55,7 +55,7 @@ export const FEATURED_LIMIT = 50;
  * @returns {string} zero or more `- [title](<url>.md)\n` lines (no trailing blank line)
  */
 export function buildBlogMdLinks(base, posts = BLOG_POSTS) {
-  const hub = `${base}/en-lb/beirut/blog`;
+  const hub = `${base}/en/blog`;
   return Object.entries(posts ?? {})
     .map(([slug, byLang]) => {
       const post = byLang?.en;

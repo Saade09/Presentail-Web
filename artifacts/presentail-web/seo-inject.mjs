@@ -1552,7 +1552,15 @@ function safeBodyHtml(body) {
   return result;
 }
 
-function buildBlogPostBodyHtml(article, { localeBase }) {
+// Localised heading for the related-articles section appended to each blog
+// post's prerendered body fragment so crawlers discover cross-post links.
+const RELATED_ARTICLES_LABEL = {
+  en: "Related Articles",
+  ar: "مقالات ذات صلة",
+  fr: "Articles similaires",
+};
+
+function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
   // Use the display heading (h1) when set; fall back to the SEO title.
   const safeTitle = escapeHtml(article.h1 ?? article.title ?? "");
   const sections = Array.isArray(article.sections) ? article.sections : [];
@@ -1570,6 +1578,36 @@ function buildBlogPostBodyHtml(article, { localeBase }) {
       inner += `<p>${safeBodyHtml(sec.body)}</p>`;
     }
   }
+
+  // Related articles — up to 3 other posts in the same language (falling back
+  // to English when a translation is absent), sorted newest-first. Emitted in
+  // the display:none fragment so crawlers can follow cross-post internal links
+  // even before client-side React hydrates the visible related-articles section.
+  if (localeBase && currentSlug) {
+    const effectiveLang = lang && RELATED_ARTICLES_LABEL[lang] ? lang : "en";
+    const relatedLabel = RELATED_ARTICLES_LABEL[effectiveLang];
+    const relatedPosts = Object.entries(BLOG_POSTS)
+      .filter(([s]) => s !== currentSlug)
+      .map(([s, byLang]) => {
+        const post = byLang?.[effectiveLang] ?? byLang?.en;
+        return post?.title ? { slug: s, title: post.title, datePublished: post.datePublished ?? "" } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.datePublished > a.datePublished ? 1 : -1))
+      .slice(0, 3);
+    if (relatedPosts.length > 0) {
+      inner +=
+        `<section><h2>${escapeHtml(relatedLabel)}</h2><ul>` +
+        relatedPosts
+          .map(
+            (p) =>
+              `<li><a href="${escapeAttr(`${localeBase}/blog/${encodeURIComponent(p.slug)}`)}">${escapeHtml(p.title)}</a></li>`,
+          )
+          .join("") +
+        `</ul></section>`;
+    }
+  }
+
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/blog">Journal</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
@@ -3635,7 +3673,11 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
   // article sections so non-rendering crawlers can read the full copy.
   // localeBase uses the lang-only prefix so in-article links point to
   // /{lang}/blog/... (canonical) rather than city-prefixed variants.
-  const bodyHtml = buildBlogPostBodyHtml(article, { localeBase: `${siteBase}/${lang}` });
+  const bodyHtml = buildBlogPostBodyHtml(article, {
+    localeBase: `${siteBase}/${lang}`,
+    lang,
+    currentSlug: blogPostSlug,
+  });
 
   return {
     ...buildEntityHead({

@@ -51,12 +51,13 @@ type UiCopy = {
   backToJournal: string;
   shopCta: string;
   blogNav: string;
+  relatedArticles: string;
 };
 
 const UI_COPY: Record<Language, UiCopy> = {
-  en: { backToJournal: "Back to the Journal", shopCta: "Shop the collection", blogNav: "Blog" },
-  ar: { backToJournal: "العودة إلى اليوميّات", shopCta: "تسوّق المجموعة", blogNav: "المدوّنة" },
-  fr: { backToJournal: "Retour au Journal", shopCta: "Voir la collection", blogNav: "Blog" },
+  en: { backToJournal: "Back to the Journal", shopCta: "Shop the collection", blogNav: "Blog", relatedArticles: "Related Articles" },
+  ar: { backToJournal: "العودة إلى اليوميّات", shopCta: "تسوّق المجموعة", blogNav: "المدوّنة", relatedArticles: "مقالات ذات صلة" },
+  fr: { backToJournal: "Retour au Journal", shopCta: "Voir la collection", blogNav: "Blog", relatedArticles: "Articles similaires" },
 };
 
 /**
@@ -204,6 +205,20 @@ export default function BlogPost() {
 
   if (!article) return null;
 
+  // Related articles — up to 3 other posts in the same language (falling back
+  // to English when no translation exists), sorted newest-first.
+  const relatedPosts = Object.entries(ARTICLES)
+    .filter(([s]) => s !== slug)
+    .map(([s, byLang]) => {
+      const post = byLang?.[language] ?? byLang?.["en"];
+      return post ? { slug: s, post } : null;
+    })
+    .filter((item): item is { slug: string; post: Article } => item !== null)
+    .sort((a, b) =>
+      (b.post.datePublished ?? "") > (a.post.datePublished ?? "") ? 1 : -1,
+    )
+    .slice(0, 3);
+
   const isRtl = language === "ar";
   const BackArrow = isRtl ? ArrowRight : ArrowLeft;
 
@@ -291,6 +306,35 @@ export default function BlogPost() {
           ))}
         </div>
       </article>
+
+      {relatedPosts.length > 0 && (
+        <section
+          className="container mx-auto px-4 pb-12 max-w-3xl"
+          data-testid="blog-post-related-articles"
+        >
+          <h2 className="font-serif text-2xl mb-6">{ui.relatedArticles}</h2>
+          <ul className="divide-y divide-border" role="list">
+            {relatedPosts.map(({ slug: relSlug, post: relPost }) => (
+              <li key={relSlug} className="py-4 first:pt-0">
+                {/* Use a native <a> so the canonical /{lang}/blog/:slug href is
+                    used exactly as-is, bypassing any city-scoped router base. */}
+                <a
+                  href={`/${language}/blog/${relSlug}`}
+                  className="group block"
+                  data-testid={`related-article-${relSlug}`}
+                >
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
+                    {relPost.eyebrow}
+                  </p>
+                  <p className="font-serif text-lg group-hover:text-primary transition-colors leading-snug">
+                    {relPost.h1 ?? relPost.title}
+                  </p>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="container mx-auto px-4 pb-20 md:pb-24 max-w-3xl">
         <div className="rounded-lg bg-primary text-primary-foreground p-8 text-center">

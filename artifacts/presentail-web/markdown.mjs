@@ -1179,7 +1179,7 @@ export function buildHomepageMarkdown({ origin = "https://presentail.com" } = {}
     `- [Shop — Beirut](${origin}/en-lb/beirut/shop)`,
     `- [Brands](${origin}/en-lb/beirut/brands)`,
     `- [Occasions](${origin}/en-lb/beirut/occasions)`,
-    `- [Blog / Journal](${origin}/en-lb/beirut/blog)`,
+    `- [Blog / Journal](${origin}/en/blog)`,
     `- [Corporate Gifting](${origin}/en-lb/beirut/corporate)`,
     `- [Weddings](${origin}/en-lb/beirut/weddings)`,
     `- [Contact](${origin}/en-lb/beirut/contact)`,

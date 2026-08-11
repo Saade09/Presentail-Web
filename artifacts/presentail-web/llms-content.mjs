@@ -43,7 +43,7 @@ export const LLMS_PAGES = [
   { label: "Brands",            path: "/en-lb/beirut/brands" },
   { label: "Occasions",         path: "/en-lb/beirut/occasions" },
   { label: "Categories",        path: "/en-lb/beirut/shop" },
-  { label: "Blog",              path: "/en-lb/beirut/blog" },
+  { label: "Blog",              path: "/en/blog" },
   { label: "Corporate gifting", path: "/en-lb/beirut/corporate" },
   { label: "Weddings",          path: "/en-lb/beirut/weddings" },
   { label: "Partner with us",   path: "/en-lb/beirut/partner" },
