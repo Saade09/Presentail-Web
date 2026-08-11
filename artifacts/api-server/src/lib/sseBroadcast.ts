@@ -19,16 +19,50 @@ import type { Response } from "express";
 
 const clients = new Set<Response>();
 
-export function addSseClient(res: Response): void {
+// ── Per-IP concurrent connection cap ─────────────────────────────────────────
+
+/**
+ * Maximum number of simultaneous SSE connections allowed from a single IP.
+ * This bounds the damage a single source can do even when rotating through
+ * many concurrent sockets.
+ */
+export const SSE_MAX_CONNECTIONS_PER_IP = 10;
+
+const ipConnectionCount = new Map<string, number>();
+
+/**
+ * Record a new connection from `ip`.
+ * Returns `false` (and does NOT add to the registry) when the caller is
+ * already at or above the per-IP cap.
+ */
+export function addSseClient(res: Response, ip: string): boolean {
+  const current = ipConnectionCount.get(ip) ?? 0;
+  if (current >= SSE_MAX_CONNECTIONS_PER_IP) {
+    return false;
+  }
+  ipConnectionCount.set(ip, current + 1);
   clients.add(res);
+  return true;
 }
 
-export function removeSseClient(res: Response): void {
+export function removeSseClient(res: Response, ip: string): void {
   clients.delete(res);
+  const current = ipConnectionCount.get(ip) ?? 0;
+  if (current <= 1) {
+    ipConnectionCount.delete(ip);
+  } else {
+    ipConnectionCount.set(ip, current - 1);
+  }
 }
 
 export function getSseClientCount(): number {
   return clients.size;
+}
+
+/** Only for use in unit tests — resets all connection state. */
+export function __resetSseBroadcastForTests(): void {
+  clients.clear();
+  ipConnectionCount.clear();
 }
 
 // ── Broadcast helpers ────────────────────────────────────────────────────────

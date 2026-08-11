@@ -1,5 +1,45 @@
-import { rateLimit, type Options } from "express-rate-limit";
+import { ipKeyGenerator, rateLimit, type Options } from "express-rate-limit";
 import type { Request, Response } from "express";
+import { isPrivateOrLoopback } from "./geoCurrency";
+
+// ── SSE client-IP key helper ─────────────────────────────────────────────────
+//
+// For security-sensitive rate limiting and connection accounting the key must
+// be an IP that cannot be forged by the connecting client. Using the LEFTMOST
+// (or any client-supplied) X-Forwarded-For entry is unsafe: ordinary proxy
+// behavior appends to XFF rather than replacing it, so a client can inject an
+// arbitrary public address to the left of their real IP and appear to be a
+// distinct source.
+//
+// The rightmost non-private XFF entry is spoof-resistant: clients can only
+// prepend entries; Replit's edge/CDN appends the real TCP-source IP. The
+// rightmost publicly-routable address in the chain is therefore the one
+// Replit's trusted infrastructure actually observed and cannot be forged by
+// the connecting party.
+//
+// This helper is exported so the SSE rate limiter and the concurrent-
+// connection map both key on the same canonical IP.
+export function sseClientIpKey(req: Request): string {
+  const xff = req.headers["x-forwarded-for"];
+  const raw = Array.isArray(xff) ? xff.join(",") : (xff ?? "");
+  const entries = raw
+    .split(",")
+    .map((s) => s.trim().replace(/^::ffff:/, ""))
+    .filter(Boolean);
+
+  // Walk right-to-left; the first publicly-routable address is Replit's
+  // view of the actual client and cannot have been injected by the client.
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (!isPrivateOrLoopback(entries[i])) {
+      return ipKeyGenerator(entries[i]);
+    }
+  }
+
+  // Fallback: req.ip (may be a shared proxy hop in some environments, but
+  // is the best available address when all XFF entries are private/absent).
+  const fallback = (req.ip ?? "").replace(/^::ffff:/, "") || "unknown";
+  return ipKeyGenerator(fallback);
+}
 
 // ── Shared response helper ────────────────────────────────────────────────────
 function tooManyHandler(_req: Request, res: Response) {
@@ -180,5 +220,22 @@ export const otpSendIpLimiter = rateLimit({
   ...baseOptions,
   windowMs: 10 * 60 * 1000,
   limit: 10,
+  message: undefined,
+});
+
+/**
+ * GET /events (SSE) — max 30 new connection attempts per IP per minute.
+ *
+ * Keyed on the real client IP via sseClientIpKey (XFF-aware) so each visitor
+ * gets an independent bucket even behind Replit's shared proxy. This throttles
+ * rapid reconnect loops and scripted connection flooding. The per-IP
+ * concurrent-connection cap in sseBroadcast.ts provides the complementary
+ * defence against long-lived connection exhaustion.
+ */
+export const sseConnectIpLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 60 * 1000,
+  limit: 30,
+  keyGenerator: sseClientIpKey,
   message: undefined,
 });
