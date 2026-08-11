@@ -43,3 +43,4 @@
 - [City home SEO overrides](city-home-seo-overrides.md) — per-city hand-written title/H1/FAQ/CollectionPage pattern (Tripoli); city-home body copy is now visible HTML; all .md mirrors noindex,follow
 - [SSR city product grid](ssr-city-product-grid.md) — city-home SSR product cards: add city key to SSR_PRODUCT_CITY_KEYS; payload must carry discount fields or sale prices vanish after hydration
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice
+- [AR/FR product translation layer](product-translation.md) — /woo/product reads lang=ar/fr, translates via OpenAI, 7-day cache; seo-inject already sends lang so no web changes needed

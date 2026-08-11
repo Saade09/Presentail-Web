@@ -39,6 +39,7 @@ import { validateCoupon } from "../lib/couponValidation";
 import { sendCapiPurchase } from "../lib/fbConversions";
 import { sendUaeOrderSlackNotification, type UaeOrderNotification } from "../lib/orderSlackNotify";
 import { getOsProductByWcId } from "../lib/osProductsCache";
+import { translateProductContent, type TranslationLang } from "../lib/productTranslation";
 import type { WooOrderPayload } from "../lib/wooOrders";
 import type { WooStoreConfig } from "../lib/wooStore";
 
@@ -815,13 +816,18 @@ router.get("/woo/products", (req, res) => {
   return res.json({ ok: true, products, count: products.length });
 });
 
-// GET /api/woo/product?slug=...
+// GET /api/woo/product?slug=...&lang=ar|fr|en
 //
 // Single-product lookup by slug, used primarily by the web app's server-side
 // SEO injector to render per-product Open Graph / Twitter Card meta tags so
 // that links pasted into WhatsApp, iMessage, Slack, etc. show a rich preview
 // (product name, description, image) instead of the generic site-wide one.
-router.get("/woo/product", (req, res) => {
+//
+// When lang=ar or lang=fr the product name and description are automatically
+// translated via the OpenAI API (same credentials as banner translation) and
+// cached in-process with a 7-day TTL so each product is only translated once.
+// Falls back to English transparently on any translation error.
+router.get("/woo/product", async (req, res) => {
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
@@ -837,10 +843,32 @@ router.get("/woo/product", (req, res) => {
   if (!isVisibleProduct(wcProduct)) {
     return res.status(404).json({ ok: false, message: "Product not found" }); // i18n-ignore
   }
-  return res.json({
-    ok: true,
-    product: transformProduct(wcProduct, store.currencySymbol),
-  });
+
+  const product = transformProduct(wcProduct, store.currencySymbol);
+  const lang = readLang(req);
+
+  if (lang === "ar" || lang === "fr") {
+    // Translate name + description in one cached API call.
+    // translateProductContent never throws — returns English on any failure.
+    const translated = await translateProductContent(
+      product.osNumericId ?? osProduct.id,
+      lang as TranslationLang,
+      product.name,
+      product.description ?? "",
+    );
+    return res.json({
+      ok: true,
+      product: {
+        ...product,
+        name: translated.name,
+        // Only override description when we actually got a translated string
+        // (translateProductContent returns "" when the English was also empty).
+        ...(translated.description ? { description: translated.description } : {}),
+      },
+    });
+  }
+
+  return res.json({ ok: true, product });
 });
 
 // GET /api/woo/product-pricing/:osId
