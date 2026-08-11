@@ -1248,9 +1248,15 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   // when the route has no entry or cityLabel is unavailable. An explicit
   // h1Override (per-city hand-written copy, e.g. Tripoli) wins over both.
   const h1Template = ROUTE_H1[routeKey];
-  const h1Text = h1Override ?? (h1Template && cityLabel
-    ? format(h1Template, { city: cityLabel })
-    : title);
+  // Use the template directly when it has no {city} placeholder (e.g. landing),
+  // or when a cityLabel is available to fill one. Fall back to title otherwise.
+  const h1Text = h1Override ?? (
+    h1Template
+      ? (h1Template.includes("{city}")
+          ? (cityLabel ? format(h1Template, { city: cityLabel }) : title)
+          : h1Template)
+      : title
+  );
   const safeH1 = escapeHtml(h1Text);
   const safeDesc = escapeHtml(description);
   const safeIntro = escapeHtml(intro);
