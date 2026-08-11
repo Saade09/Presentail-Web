@@ -914,14 +914,12 @@ router.post("/checkout/payment-intent", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalMinorUnits,
       currency: stripeCurrency,
-      // When Klarna is allowed, automatic_payment_methods surfaces it alongside
-      // card and wallets via Stripe's dynamic payment method selection. When
-      // excluded, enumerate "card" explicitly — this keeps the exclusion scope
-      // tight (redirect-based BNPL only) and avoids silently suppressing other
-      // redirect methods that may be added to the account in future.
-      ...(klarnaAllowed
-        ? { automatic_payment_methods: { enabled: true } }
-        : { payment_method_types: ["card"] }),
+      // Card PI always uses explicit payment_method_types so it is compatible
+      // with both legacy confirmCardPayment() and confirmPayment(). Klarna is
+      // paid via a separate PI (klarnaClientSecret) and does not share this PI.
+      // Using automatic_payment_methods here causes a Stripe rejection when the
+      // frontend Elements is initialised in explicit-type mode.
+      payment_method_types: ["card"],
       description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`, // i18n-ignore
       metadata: {
         ...(metadata ?? {}),

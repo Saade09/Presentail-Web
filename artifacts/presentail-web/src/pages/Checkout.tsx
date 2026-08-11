@@ -531,12 +531,6 @@ function CheckoutForm() {
   // Stays true once set so LazyStripeSection is never unmounted after first load.
   const [stripeNeeded, setStripeNeeded] = useState(false);
   // Tracks whether the Stripe <PaymentElement> has fired its onReady callback.
-  // Only relevant when klarnaEnabled=true (usePaymentElement mode). Guards
-  // elements.submit() in the Path A submit branch so we never call it before
-  // the element has mounted — the root cause of the "elements should have a
-  // mounted Payment Element" error.
-  const [isPaymentElementReady, setIsPaymentElementReady] = useState(false);
-
   const triggerStripeLoad = useCallback(() => {
     setStripePromise(getStripePromise(countryCode ?? undefined));
     setStripeNeeded(true);
@@ -593,13 +587,6 @@ function CheckoutForm() {
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
   const [klarnaEnabled, setKlarnaEnabled] = useState(false);
-  // Reset PaymentElement readiness whenever Klarna is disabled so a stale
-  // "ready" flag from a previous klarnaEnabled=true session can't short-circuit
-  // the guard on the next Klarna-enabled session.
-  useEffect(() => {
-    if (!klarnaEnabled) setIsPaymentElementReady(false);
-  }, [klarnaEnabled]);
-
   // ── Klarna billing country ────────────────────────────────────────────────
   // Separate editable state for the payer's billing country — distinct from
   // the delivery location. Defaults to "LB" and syncs from IP-detected
@@ -1945,24 +1932,6 @@ function CheckoutForm() {
   const displayCouponDiscount = serverFeesOverride?.couponDiscountUsd ?? confirmedCouponDiscount;
 
   // Estimated payment amount (minor units) for Stripe's deferred-intent /
-  // PaymentElement mode. Used only for display purposes inside the
-  // PaymentElement (e.g. Klarna installment plan amounts). The actual charge
-  // is always the server-verified total from the PaymentIntent.
-  const estimatedStripeMinorUnits = Math.max(
-    50,
-    toStripeMinorUnits(
-      roundToNearestFive(
-        computeCartTotal(
-          displaySubtotal,
-          displayDistrictFee + displayExpressFee + displaySlotFee,
-          displayCouponDiscount,
-        ) * (fxRatesData?.rates?.[checkoutCurrency] ?? 1),
-        checkoutCurrency,
-      ),
-      checkoutCurrency,
-    ),
-  );
-
   // True when the shopper's subtotal meets the free-standard-delivery threshold.
   // Uses exactly the same inputs and gate condition as calcCheckoutFees so the
   // two can never disagree: (freeDeliveryEnabled && subtotal >= threshold).
@@ -2605,28 +2574,6 @@ function CheckoutForm() {
         }
         setStripeCardError(null);
 
-        // Step 0 (Klarna / PaymentElement mode only): submit the Elements form
-        // before creating the PI. elements.submit() validates the form data and
-        // returns an error without creating a PI if the shopper's payment details
-        // are incomplete. Skip this step when a saved card is selected (no form
-        // to validate) and when Klarna is off (split card fields use a different
-        // confirmation path that doesn't need submit()).
-        if (klarnaEnabled && !selectedSavedCardId && elements) {
-          // Guard: the PaymentElement must be mounted before elements.submit()
-          // is called, otherwise Stripe throws "elements should have a mounted
-          // Payment Element". This can happen if the shopper taps "Pay" before
-          // the lazy-loaded Stripe iframe finishes rendering.
-          if (!isPaymentElementReady) {
-            setStripeCardError(t("checkout.toast.cardUnavailable"));
-            return;
-          }
-          const { error: submitError } = await elements.submit();
-          if (submitError) {
-            setStripeCardError(submitError.message ?? t("checkout.toast.cardPaymentFailed"));
-            return;
-          }
-        }
-
         // Step 1: Create a PaymentIntent server-side (prices resolved from
         // the Presentail OS catalog — client-supplied amounts are never used).
         // mutateAsync throws an ApiError on any non-2xx response, so we catch
@@ -2688,65 +2635,10 @@ function CheckoutForm() {
         setCardProcessing(true);
         let finalIntent: import("@stripe/stripe-js").PaymentIntent | undefined;
         try {
-          if (klarnaEnabled) {
-            // Path A: PaymentElement (cards + Klarna + other methods).
-            //
-            // Stash the order payload BEFORE calling confirmPayment so it
-            // survives a Klarna redirect away from this page. For card
-            // payments, confirmPayment resolves before any navigation.
-            const _piId = intentRes.clientSecret.split("_secret_")[0] ?? "";
-            const _stashPayload = buildOrderPayload({ paymentRef: _piId, orderId });
-            try {
-              sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify({ payload: _stashPayload, createdAt: Date.now() }));
-            } catch {
-              // Quota / private mode — proceed. Card payments won't need the
-              // stash; Klarna payments may fail to auto-finalize on return.
-            }
-
-            const _klarnaReturnUrl = orderConfirmedReturnUrl("success");
-
-            // For saved cards: pass the payment method ID via confirmParams.
-            // For new cards via PaymentElement: pass elements so Stripe reads
-            // the card details from the PaymentElement automatically.
-            // stripe.confirmPayment with redirect:'if_required' resolves
-            // immediately for card payments and redirects for Klarna/redirect-
-            // required methods. Cast needed because older @stripe/stripe-js
-            // type declarations only expose redirect:'always'.
-            const _peResult = await (stripe.confirmPayment as (
-              o: object,
-            ) => Promise<{
-              error?: import("@stripe/stripe-js").StripeError;
-              paymentIntent?: import("@stripe/stripe-js").PaymentIntent;
-            }>)({
-              ...(selectedSavedCardId ? {} : { elements }),
-              clientSecret: intentRes.clientSecret,
-              confirmParams: {
-                return_url: _klarnaReturnUrl,
-                ...(selectedSavedCardId
-                  ? { payment_method: selectedSavedCardId }
-                  : {
-                      payment_method_data: {
-                        billing_details: {
-                          ...(sender.email ? { email: sender.email } : {}),
-                          ...(senderName ? { name: senderName } : {}),
-                        },
-                      },
-                    }),
-              },
-              redirect: "if_required",
-            });
-            const peError = _peResult.error;
-            const peIntent = _peResult.paymentIntent;
-
-            if (peError) {
-              trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: peError.code ?? undefined });
-              trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "card_or_klarna", errorCode: peError.code ?? undefined } });
-              setStripeCardError(stripeDeclineMsg(peError, t) ?? peError.message ?? t("checkout.toast.cardPaymentFailed"));
-              return;
-            }
-            finalIntent = peIntent;
-          } else {
-            // Path B: Legacy split card fields (confirmCardPayment + 3DS).
+          {
+            // Split card fields path: confirmCardPayment + 3DS/SCA.
+            // Klarna is paid via a separate PI (klarnaClientSecret) triggered
+            // from the Klarna section — it does not share this code path.
             let stripeError: import("@stripe/stripe-js").StripeError | undefined;
             let confirmedIntent: import("@stripe/stripe-js").PaymentIntent | undefined;
 
@@ -3683,10 +3575,6 @@ function CheckoutForm() {
                                 selectedSavedCardId={selectedSavedCardId}
                                 onSelectSavedCard={setSelectedSavedCardId}
                                 onRemoveSavedCard={handleRemoveSavedCard}
-                                usePaymentElement={klarnaEnabled}
-                                onPaymentElementReady={setIsPaymentElementReady}
-                                paymentAmount={klarnaEnabled ? estimatedStripeMinorUnits : undefined}
-                                paymentCurrency={klarnaEnabled ? checkoutCurrency.toLowerCase() : undefined}
                               />
                             </Suspense>
                           )}                       </div>
