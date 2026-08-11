@@ -21,7 +21,7 @@
  * The shimmer stays visible during the retry — no flash of grey between attempts.
  */
 
-import { useState, type ReactNode } from "react";
+import { useState, useLayoutEffect, useRef, type ReactNode } from "react";
 import { buildProductImageAlt, type ProductAltInput } from "@/lib/imageAlt";
 import { buildOsImageSrcset, buildCatalogImageSrcset } from "@/lib/imageUtils";
 
@@ -61,6 +61,19 @@ export function ProductImage({
   const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Browsers may not fire onLoad for already-cached images — the image is
+  // decoded synchronously before React attaches the handler.  Check img.complete
+  // after mount (useLayoutEffect runs before paint, avoiding any flicker).
+  useLayoutEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0 && !loaded) {
+      loadedUrls.add(src);
+      setLoaded(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const alt = buildProductImageAlt(product, locale, cityName, { decorative });
 
@@ -89,6 +102,7 @@ export function ProductImage({
           <div className="absolute inset-0 animate-shimmer rounded-[inherit]" />
         )}
         <img
+          ref={imgRef}
           src={src}
           alt={alt}
           width={width}
@@ -126,6 +140,7 @@ export function ProductImage({
           />
         )}
         <img
+          ref={imgRef}
           src={resolvedSrc}
           alt={alt}
           width={width}
