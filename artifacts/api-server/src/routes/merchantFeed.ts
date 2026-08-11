@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getOsProducts } from "../lib/osProductsCache";
 import type { OSProduct } from "@workspace/presentail-os";
+import { checkAdminToken } from "../lib/admin-auth";
 
 // Market → storeKeys + currency + ISO country code (for deliverability filtering)
 // defaultCity: used in canonical product URLs so GMC links resolve to a locale-prefixed city path.
@@ -343,14 +344,7 @@ function buildRssFeed(items: FeedItem[], market: string): string {
 }
 
 function requireAdmin(req: Request, res: Response): boolean {
-  const expected = process.env.PUSH_ADMIN_TOKEN;
-  const provided =
-    req.header("x-push-admin-token") ?? req.header("x-admin-token");
-  if (!expected || !provided || provided !== expected) {
-    res.status(401).json({ error: "Unauthorized" });
-    return false;
-  }
-  return true;
+  return checkAdminToken(req, res);
 }
 
 function resolveMarketProducts(

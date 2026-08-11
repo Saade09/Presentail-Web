@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { timingSafeEqual, createHash } from "node:crypto";
 import {
   GetHomepageBannersQueryParams,
   GetHomepageBannersResponse,
@@ -477,9 +478,17 @@ async function buildOsOccasions(
 
 function isDebugRequest(req: import("express").Request): boolean {
   const expected = process.env.PUSH_ADMIN_TOKEN;
+  if (!expected) return false;
   const supplied = req.header("x-push-admin-token") ?? req.header("x-admin-token");
+  if (!supplied) return false;
   const debugParam = req.query.debug === "1" || req.query.debug === "true";
-  return debugParam && Boolean(expected) && supplied === expected;
+  if (!debugParam) return false;
+  // SHA-256 both values before comparing so the digest buffers are always
+  // 32 bytes regardless of token length — this prevents the early-return on
+  // unequal lengths from leaking whether the guessed value's length matched.
+  const aBuf = createHash("sha256").update(supplied).digest();
+  const bBuf = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(aBuf, bBuf);
 }
 
 router.get("/homepage/categories", async (req, res) => {

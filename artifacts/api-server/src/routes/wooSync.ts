@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { runWooSyncOnce } from "../lib/wooSync";
 import { logger } from "../lib/logger";
+import { checkAdminToken } from "../lib/admin-auth";
 
 const router: IRouter = Router();
 
@@ -9,13 +10,7 @@ const router: IRouter = Router();
 // Returns immediately; the sync runs in the background and its result is
 // observable in the server logs.
 router.post("/woo/sync/run", (req, res) => {
-  const adminToken = process.env.PUSH_ADMIN_TOKEN;
-  const supplied =
-    req.header("x-push-admin-token") ?? req.header("x-admin-token");
-  if (!adminToken || !supplied || supplied !== adminToken) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" });
-    return;
-  }
+  if (!checkAdminToken(req, res)) return;
   // Allow ?push=0 to suppress silent pushes for this run (useful when an
   // operator just wants to warm caches without notifying every device).
   const suppressPush = req.query.push === "0" || req.query.push === "false";

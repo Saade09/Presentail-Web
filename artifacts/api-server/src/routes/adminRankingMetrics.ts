@@ -13,6 +13,7 @@
  */
 
 import { Router, type IRouter, type Request, type Response } from "express";
+import { checkAdminToken } from "../lib/admin-auth";
 import {
   getMetricsCache,
   getMetricsCacheUpdatedAt,
@@ -24,14 +25,7 @@ import { forceProductMetricsSync } from "../lib/productMetricsSyncJob";
 const router: IRouter = Router();
 
 function requireAdmin(req: Request, res: Response): boolean {
-  const expected = process.env.PUSH_ADMIN_TOKEN;
-  const supplied =
-    req.header("x-push-admin-token") ?? req.header("x-admin-token");
-  if (!expected || !supplied || supplied !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
-    return false;
-  }
-  return true;
+  return checkAdminToken(req, res);
 }
 
 const KNOWN_SECTIONS = ["best-sellers", "rail-summer", "rail-boxes", "rail-balloons"];

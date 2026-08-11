@@ -1,4 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { checkAdminToken } from "../lib/admin-auth";
+import { adminTokenIpLimiter } from "../lib/auth-rate-limit";
 import {
   convertFromUsd,
   normalizeCurrency,
@@ -915,12 +917,23 @@ router.post("/payment/tabby/webhook", async (req, res) => {
 });
 
 // Admin-only refund endpoint. Protected by PUSH_ADMIN_TOKEN.
-router.post("/payment/tabby/refund", async (req, res) => {
-  const adminToken = process.env.PUSH_ADMIN_TOKEN;
-  const provided = req.headers["x-push-admin-token"] ?? req.body?.adminToken;
-  if (!adminToken || !provided || provided !== adminToken) {
-    return res.status(401).json({ ok: false, message: "Unauthorized." }); // i18n-ignore
-  }
+//
+// The global admin-token rate limiter (app.ts) only fires when the admin
+// token is carried in a header. This endpoint also accepts the token via
+// req.body.adminToken (legacy callers).  We apply the rate limiter directly
+// here so body-token requests are covered too — the 20-req/15-min cap is
+// enforced regardless of which input source is used.
+router.post(
+  "/payment/tabby/refund",
+  (req, res, next) => adminTokenIpLimiter(req, res, next),
+  async (req, res) => {
+  // Accept the token from the x-push-admin-token header (primary) or
+  // req.body.adminToken (legacy body field) — both paths use timing-safe
+  // comparison via checkAdminToken to prevent oracle attacks.
+  const supplied =
+    (req.headers["x-push-admin-token"] as string | undefined) ??
+    (typeof req.body?.adminToken === "string" ? req.body.adminToken : undefined);
+  if (!checkAdminToken(req, res, supplied)) return;
 
   const key = process.env.TABBY_SECRET_KEY;
   if (!key) {

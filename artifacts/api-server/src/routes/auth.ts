@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes, createHash, randomInt, scrypt, timingSafeEqual } from "node:crypto";
+import { checkAdminToken } from "../lib/admin-auth";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { authenticate, signServerToken, isWcAuthEnabled } from "../lib/auth";
 import { reconcileGuestOrders } from "../lib/orderReconciliation";
@@ -281,7 +282,7 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
     .trim()
     .toLowerCase() || null;
 
-  const email = normalizeAuthExistsEmail(req.query.email);
+  const email = String(payload.email ?? "").trim().toLowerCase();
   if (!email) {
     req.log?.info?.(
       { authExistsOutcome: "invalid_email", platform: platformHeader },
@@ -292,21 +293,12 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
     return;
   }
 
-  const result = await classifyAuthExists({
-    email,
-    localLookup: async (e) => {
-      const rows = await db
-        .select({ id: customersTable.id })
-        .from(customersTable)
-        .where(eq(customersTable.email, e))
-        .limit(1);
-      return rows.length > 0;
-    },
-    wcConfigured: false,
-    wcFetch: (path, init) => wcFetch(path, init, req),
-    wpFetch: (path, init) => wpFetch(path, init, req),
-    localOnly: true,
-  });
+    const result = await classifyAuthExists({
+      email: probeEmail,
+      wcConfigured,
+      wcFetch: (path, init) => wcFetch(path, init, req),
+      wpFetch: (path, init) => wpFetch(path, init, req),
+    });
 
   // Centralised structured log + persisted outcome row. Both feed the
   // scheduled monitor that alerts on inconclusive-rate spikes — i.e. the
@@ -335,7 +327,7 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
   // lookup_unavailable) are still surfaced so the mobile client can show a
   // "couldn't check, try again" error rather than silently routing the shopper
   // to sign-up — but the `exists` boolean is deliberately omitted.
-  const body: { ok: true; code?: string } = { ok: true };
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
   if (result.code) body.code = result.code;
   res.json(body);
 });
@@ -367,7 +359,7 @@ router.post("/auth/web-bridge", webBridgeIpLimiter, async (req, res) => {
     .trim()
     .toLowerCase() || null;
 
-  const email = normalizeAuthExistsEmail((req.body as any)?.email);
+  const email = String(payload.email ?? "").trim().toLowerCase();
   if (!email) {
     recordAuthExistsOutcome("invalid_email", platformHeader);
     res.json({ ok: true, userExists: false, passwordLoginAvailable: false });
@@ -376,47 +368,9 @@ router.post("/auth/web-bridge", webBridgeIpLimiter, async (req, res) => {
 
   // Local DB only — WC/WP no longer exists. A local miss is a definitive
   // "user does not exist" (all customers have been imported into the local DB).
-  const rows = await db
-    .select({ id: customersTable.id })
-    .from(customersTable)
-    .where(eq(customersTable.email, email))
-    .limit(1);
+  let rows: typeof phoneOtpsTable.$inferSelect[];
 
   const userExists = rows.length > 0;
-  recordAuthExistsOutcome(
-    userExists ? "exists_true_local" : "exists_false",
-    platformHeader,
-  );
-
-  // Return `userExists` so the frontend can route unknown emails to sign-up
-  // without showing an error. `passwordLoginAvailable: true` because all
-  // locally-registered accounts use a scrypt password hash stored in the DB.
-  res.json({
-    ok: true,
-    userExists,
-    passwordLoginAvailable: true,
-  });
-});
-
-// ── Admin diagnostic ─────────────────────────────────────────────────────────
-// Lets ops verify, in one call, that the two upstream signals the
-// `/auth/exists` lookup depends on are actually wired up. Returns a
-// per-check pass/fail so a regression (rotated WC keys, JWT plugin
-// disabled on prod) is obvious without having to read funnel charts.
-//
-// Gated by the same `PUSH_ADMIN_TOKEN` header used by the other admin
-// surfaces. The check email is a syntactically-valid value that's
-// guaranteed not to exist (`@example.invalid`) so the WP probe can't
-// authenticate against a real account even if someone misuses the
-// endpoint. We never echo WC creds, store URLs, or response bodies back.
-router.get("/auth/diagnostics", async (req, res) => {
-  const expected = process.env.PUSH_ADMIN_TOKEN;
-  const provided = req.header("x-push-admin-token");
-  if (!expected || provided !== expected) {
-    res.status(403).json({ ok: false, message: "Forbidden" }); // i18n-ignore
-    return;
-  }
-
   const wcConfigured = Boolean(process.env.WC_CONSUMER_KEY);
   const probeEmail =
     "diagnostic-" + Date.now().toString(36) + "@example.invalid";
@@ -431,7 +385,16 @@ router.get("/auth/diagnostics", async (req, res) => {
     checks.wcCustomers = { ok: false, detail: "WC_CONSUMER_KEY not set" };
   } else {
     try {
-      const r = await wcFetch(`/customers?per_page=1`, {}, req);
+    const r = await wcFetch("/customers", {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
+      }),
+    }, req);
       checks.wcCustomers = {
         ok: r.ok,
         status: r.status,
@@ -446,26 +409,19 @@ router.get("/auth/diagnostics", async (req, res) => {
   //    `invalid_username` / `invalid_user` code (since the email is
   //    guaranteed not to resolve). 404 means the plugin isn't installed.
   try {
-    const r = await wpFetch(
-      `/jwt-auth/v1/token`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          username: probeEmail,
-          password: "_diagnostic_" + Math.random().toString(36).slice(2),
-        }),
-      },
-      req,
-    );
-    if (r.status === 404) {
-      checks.wpJwtPlugin = {
-        ok: false,
-        status: 404,
-        detail: "JWT plugin missing (returns 404)",
-      };
-    } else {
-      const data = (await r.json().catch(() => ({}))) as any;
-      const code = String(data?.code ?? "");
+    const r = await wcFetch("/customers", {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
+      }),
+    }, req);
+
+    const data = (await r.json().catch(() => ({}))) as any;
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
       const recognised =
         /incorrect_password|invalid_email|invalid_username|invalid_user/i.test(
           code,
@@ -503,7 +459,7 @@ router.get("/auth/diagnostics", async (req, res) => {
   //    Both STRIPE_SECRET_KEY (server-side API calls) and STRIPE_PUBLISHABLE_KEY
   //    (returned to clients for Elements / mobile SDK) must be set and valid-looking.
   {
-    const secretKey = process.env.STRIPE_SECRET_KEY ?? "";
+    const secretKey = process.env.CLERK_SECRET_KEY;
     const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY ?? "";
     if (!secretKey) {
       checks.stripe = {
@@ -558,7 +514,7 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
   // Check per-email failure cap before forwarding. Successful logins do NOT
   // increment the counter — only failed auth responses do (see below). This
   // prevents locking out a legitimate user who logs in repeatedly.
-  const emailCheck = loginEmailLimiter.check(email);
+  const emailCheck = resetEmailLimiter.check(email);
   if (!emailCheck.allowed) {
     return res.status(429).json({
       ok: false,
@@ -569,20 +525,30 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
 
   try {
     const normalizedEmail = email.trim().toLowerCase();
-    const rows = await db
-      .select({
-        id: customersTable.id,
-        email: customersTable.email,
-        firstName: customersTable.firstName,
-        lastName: customersTable.lastName,
-        phoneE164: customersTable.phoneE164,
-        passwordHash: customersTable.passwordHash,
-      })
-      .from(customersTable)
-      .where(eq(customersTable.email, normalizedEmail))
+  let rows: typeof phoneOtpsTable.$inferSelect[];
+  try {
+    rows = await db
+      .select()
+      .from(phoneOtpsTable)
+      .where(
+        and(
+          eq(phoneOtpsTable.phone, normalizedPhone),
+          gt(phoneOtpsTable.expiresAt, now),
+        ),
+      )
       .limit(1);
+  } catch (err: any) {
+    req.log?.error?.({ err: err?.message }, "auth.otp.verify: DB select error");
+    res.status(500).json({ ok: false, code: "server_error", message: "Failed to look up OTP" }); // i18n-ignore
+    return;
+  }
 
-    const row = rows[0];
+  if (rows.length === 0) {
+    res.status(400).json({ ok: false, code: "expired_otp", message: "OTP not found or expired" }); // i18n-ignore
+    return;
+  }
+
+  const row = rows[0];
     if (!row || !row.passwordHash) {
       loginEmailLimiter.record(email);
       return res.status(401).json({
@@ -602,15 +568,8 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
       });
     }
 
-    const store = resolveStoreFromRequest(req);
-    const token = await signServerToken({
-      customerId: row.id,
-      email: normalizedEmail,
-      provider: "password",
-      storeBaseUrl: store.baseUrl,
-      localCustomerId: row.id,
-      localCustomer: true,
-    });
+      const store = resolveStoreFromRequest(req);
+    let token: string | null = null;
 
     return res.json({
       ok: true,
@@ -703,9 +662,8 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
   if (!isWcAuthEnabled()) {
     const normalizedEmail = email.trim().toLowerCase();
     try {
-      // Check for existing account first so we return a clear error.
       const existing = await db
-        .select({ id: customersTable.id, authProvider: customersTable.authProvider })
+        .select({ id: customersTable.id })
         .from(customersTable)
         .where(eq(customersTable.email, normalizedEmail))
         .limit(1);
@@ -725,7 +683,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
       // a phone-fallback (step 3) that would bind the new email to the existing
       // customer row — an account-takeover vector identical to the OTP path.
       if (phone) {
-        const normalizedPhone = normalizePhoneE164(phone);
+  const normalizedPhone = phone.trim();
         if (normalizedPhone) {
           const phoneConflict = await db
             .select({ id: customersTable.id, email: customersTable.email })
@@ -750,13 +708,13 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
         email: normalizedEmail,
         firstName: firstName?.trim() ?? "",
         lastName: lastName?.trim() ?? "",
-        phone,
+        phone: normalizedPhone,
         authProvider: null,
         authUserId: null,
         source: "presentail.com",
         preferredLang: langFromRequest(req),
-        // New local password registrations start unverified so a fraudulent
-        // registration cannot immediately read orders tied to that email.
+        // Phone OTP verifies phone ownership, not the email address. Mark
+        // email as unverified so the order-history guard still applies.
         emailVerified: false,
       });
 
@@ -770,8 +728,8 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 
       // Generate a secure email verification token and persist it.
       // Also persist the password hash in the same update.
-      const verificationToken = randomBytes(32).toString("hex");
-      const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 h
+    const verificationToken = randomBytes(32).toString("hex");
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
       await db
         .update(customersTable)
         .set({
@@ -797,73 +755,61 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
       }
 
       const store = resolveStoreFromRequest(req);
-      const token = await signServerToken({
-        customerId: customer.id,
-        email: normalizedEmail,
-        provider: "password",
-        storeBaseUrl: store.baseUrl,
-        localCustomerId: customer.id,
-        localCustomer: true,
-      });
+    let token: string | null = null;
 
-      return res.json({
+      res.json({
         ok: true,
         token,
-        emailVerificationRequired: true,
         user: {
           id: customer.id,
           email: customer.email,
           firstName: customer.firstName ?? "",
           lastName: customer.lastName ?? "",
           username: "",
-          phone: customer.phoneE164 ?? "",
+          phone: customer.phoneE164 ?? normalizedPhone,
           gender: null,
           birthday: null,
         },
       });
     } catch (e: any) {
-      return res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Registration failed" }); // i18n-ignore
+      res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Registration failed" }); // i18n-ignore
     }
+    return;
   }
 
-  // ── Legacy WC registration (WC_AUTH_ENABLED=true) ────────────────────────
+  // ── Legacy WC OTP registration (WC_AUTH_ENABLED=true) ───────────────────
   if (!process.env.WC_CONSUMER_KEY) {
-    return res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
+    res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
+    return;
   }
 
   try {
     const r = await wcFetch("/customers", {
       method: "POST",
       body: JSON.stringify({
-        email,
+        email: email.trim(),
         password,
-        first_name: firstName ?? "",
-        last_name: lastName ?? "",
-        billing: phone ? { phone } : undefined,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
       }),
     }, req);
 
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
-      // Never forward WC's HTTP status or message text verbatim:
-      //   - WC returns 409 + "already registered" for duplicate emails — a
-      //     direct existence oracle on a public endpoint.
-      //   - WC message text can contain "already registered with your email"
-      //     even when the status is 400.
-      // Use 400 + a generic message for all WC-path registration failures.
-      req.log?.info?.({ wcStatus: r.status }, "auth.register: WC rejected customer creation"); // i18n-ignore
-      return res.status(400).json({
+      res.status(r.status).json({
         ok: false,
         code: "registration_failed",
-        message: "Registration failed.", // i18n-ignore
+        message: data?.message?.replace(/<[^>]*>/g, "") ?? "Registration failed", // i18n-ignore
       });
+      return;
     }
 
     let token: string | null = null;
     try {
       const tokenRes = await wpFetch(`/jwt-auth/v1/token`, {
         method: "POST",
-        body: JSON.stringify({ username: email, password }),
+        body: JSON.stringify({ username: email.trim(), password }),
       }, req);
       const tokenData = (await tokenRes.json().catch(() => ({}))) as any;
       if (tokenRes.ok && tokenData?.token) token = tokenData.token;
@@ -896,7 +842,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
           });
           // Persist verification token and fire email (non-blocking — does not
           // hold up the registration response).
-          const verificationToken = randomBytes(32).toString("hex");
+    const verificationToken = randomBytes(32).toString("hex");
           void db
             .update(customersTable)
             .set({
@@ -954,17 +900,17 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 // A successful call marks the customer row as emailVerified=true and clears
 // the one-time token so the link cannot be replayed.
 router.get("/auth/verify-email", async (req, res) => {
-  const token = req.query.token;
+    let token: string | null = null;
   if (!token || typeof token !== "string" || !token.match(/^[0-9a-f]{64}$/)) {
     res.status(400).json({ ok: false, code: "invalid_token", message: "Invalid verification link" }); // i18n-ignore
     return;
   }
   try {
-    const now = new Date();
+  const now = new Date();
     const [row] = await db
-      .select({ id: customersTable.id, email: customersTable.email, expiresAt: customersTable.emailVerificationTokenExpiresAt })
+      .select({ id: customersTable.id, email: customersTable.email, emailVerified: customersTable.emailVerified })
       .from(customersTable)
-      .where(eq(customersTable.emailVerificationToken, token))
+      .where(eq(customersTable.id, localId))
       .limit(1);
 
     if (!row) {
@@ -1008,7 +954,11 @@ router.post("/auth/resend-verification", registerIpLimiter, async (req, res) => 
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
   }
-  const localId = auth.localCustomerId ?? auth.customerId;
+
+  // ── Local-only account deletion (WC_AUTH_ENABLED=false) ─────────────────
+  // Anonymise the local row and best-effort delete from Clerk. No WC calls.
+  if (!isWcAuthEnabled() || auth.localCustomerId) {
+    const localId = auth.localCustomerId ?? auth.customerId;
   try {
     const [row] = await db
       .select({ id: customersTable.id, email: customersTable.email, emailVerified: customersTable.emailVerified })
@@ -1048,19 +998,17 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   if (clerkUserId && sessionUserType === "team") {
     try {
       const claims = clerkSession?.sessionClaims as any;
-      let email: string | null = claims?.email ?? null;
+  const email = String(payload.email ?? "").trim().toLowerCase();
       let firstName: string = claims?.first_name ?? "";
       let lastName: string = claims?.last_name ?? "";
 
       // Fall back to a live Clerk API call only when the JWT claims are absent.
       if (!email) {
-        const secretKey = process.env.CLERK_SECRET_KEY;
-        if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
-          return;
-        }
-        const clerk = createClerkClient({ secretKey });
-        const clerkUser = await clerk.users.getUser(clerkUserId);
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (secretKey) {
+      try {
+        const clerk = createClerkClient({ secretKey: clerkSecretKey });
+        const clerkUser = await clerk.users.getUser(clerkPutUserId);
         email =
           clerkUser.emailAddresses.find(
             (e) => e.id === clerkUser.primaryEmailAddressId,
@@ -1169,7 +1117,16 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       res.status(404).json({ ok: false, message: "Account not found." }); // i18n-ignore
       return;
     }
-    const r = await wcFetch(`/customers/${auth.customerId}`, {}, req);
+    const r = await wcFetch("/customers", {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
+      }),
+    }, req);
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
       res.status(r.status).json({ ok: false, message: data?.message ?? "Not found" }); // i18n-ignore
@@ -1231,25 +1188,19 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   const sessionPutUserType = (clerkSession?.sessionClaims as any)
     ?.publicMetadata?.userType;
   if (clerkPutUserId && sessionPutUserType === "team") {
-    const body = (req.body ?? {}) as {
-      firstName?: string;
-      lastName?: string;
-      phone?: string;
-      gender?: string | null;
-      birthday?: string | null;
-    };
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
     let validatedTeamPhone: string | undefined;
     if (body.phone !== undefined) {
-      const phoneCheck = validateStoredPhone(
-        typeof body.phone === "string" ? body.phone : "",
-      );
-      if (!phoneCheck.ok) {
-        const message =
-          phoneCheck.reason === "too_short"
-            ? "Phone number is too short for the selected country"
-            : phoneCheck.reason === "too_long"
-              ? "Phone number is too long for the selected country"
-              : "Invalid phone number";
+    const phoneCheck = validateStoredPhone(
+      typeof body.phone === "string" ? body.phone : "",
+    );
+    if (!phoneCheck.ok) {
+      const message =
+        phoneCheck.reason === "too_short"
+          ? "Phone number is too short for the selected country"
+          : phoneCheck.reason === "too_long"
+            ? "Phone number is too long for the selected country"
+            : "Invalid phone number";
         res.status(400).json({ ok: false, message, code: phoneCheck.reason });
         return;
       }
@@ -1268,7 +1219,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     }
     let normalizedTeamBirthday: string | null | undefined;
     if (body.birthday !== undefined) {
-      const parsed = parseBirthday(body.birthday);
+    const parsed = parseBirthday(body.birthday);
       if (!parsed.ok) {
         res.status(400).json({ ok: false, message: "Invalid birthday" }); // i18n-ignore
         return;
@@ -1281,12 +1232,10 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
 
       // Fall back to a live Clerk API call only when the JWT claims are absent.
       if (!putEmail) {
-        const secretKey = process.env.CLERK_SECRET_KEY;
-        if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
-          return;
-        }
-        const clerk = createClerkClient({ secretKey });
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (secretKey) {
+      try {
+        const clerk = createClerkClient({ secretKey: clerkSecretKey });
         const clerkUser = await clerk.users.getUser(clerkPutUserId);
         putEmail =
           clerkUser.emailAddresses.find(
@@ -1314,12 +1263,12 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       }
       if (normalizedTeamGender !== undefined) patch.gender = normalizedTeamGender;
       if (normalizedTeamBirthday !== undefined) patch.birthday = normalizedTeamBirthday;
-      let local = existing;
+    const local = await getCustomerByWcId(auth.customerId);
       if (Object.keys(patch).length > 0) {
         const [updated] = await db
           .update(customersTable)
-          .set({ ...patch, updatedAt: new Date() })
-          .where(eq(customersTable.id, existing.id))
+          .set({ ...customerPatch, updatedAt: new Date() })
+          .where(eq(customersTable.id, existingCustomer.id))
           .returning();
         local = updated;
       }
@@ -1347,25 +1296,19 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   // performs a best-effort WC mirror so the WooCommerce billing record stays
   // in sync — same as the legacy JWT path below.
   if (clerkPutUserId) {
-    const body = (req.body ?? {}) as {
-      firstName?: string;
-      lastName?: string;
-      phone?: string;
-      gender?: string | null;
-      birthday?: string | null;
-    };
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
     let validatedCustomerPhone: string | undefined;
     if (body.phone !== undefined) {
-      const phoneCheck = validateStoredPhone(
-        typeof body.phone === "string" ? body.phone : "",
-      );
-      if (!phoneCheck.ok) {
-        const message =
-          phoneCheck.reason === "too_short"
-            ? "Phone number is too short for the selected country"
-            : phoneCheck.reason === "too_long"
-              ? "Phone number is too long for the selected country"
-              : "Invalid phone number";
+    const phoneCheck = validateStoredPhone(
+      typeof body.phone === "string" ? body.phone : "",
+    );
+    if (!phoneCheck.ok) {
+      const message =
+        phoneCheck.reason === "too_short"
+          ? "Phone number is too short for the selected country"
+          : phoneCheck.reason === "too_long"
+            ? "Phone number is too long for the selected country"
+            : "Invalid phone number";
         res.status(400).json({ ok: false, message, code: phoneCheck.reason });
         return;
       }
@@ -1384,7 +1327,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     }
     let normalizedCustomerBirthday: string | null | undefined;
     if (body.birthday !== undefined) {
-      const parsed = parseBirthday(body.birthday);
+    const parsed = parseBirthday(body.birthday);
       if (!parsed.ok) {
         res.status(400).json({ ok: false, message: "Invalid birthday" }); // i18n-ignore
         return;
@@ -1396,12 +1339,10 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       let customerEmail: string | null = customerClaims?.email ?? null;
 
       if (!customerEmail) {
-        const secretKey = process.env.CLERK_SECRET_KEY;
-        if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
-          return;
-        }
-        const clerk = createClerkClient({ secretKey });
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (secretKey) {
+      try {
+        const clerk = createClerkClient({ secretKey: clerkSecretKey });
         const clerkUser = await clerk.users.getUser(clerkPutUserId);
         customerEmail =
           clerkUser.emailAddresses.find(
@@ -1449,7 +1390,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       if (typeof body.firstName === "string") clerkNamePatch.firstName = body.firstName.trim();
       if (typeof body.lastName === "string") clerkNamePatch.lastName = body.lastName.trim();
       if (Object.keys(clerkNamePatch).length > 0) {
-        const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+      const clerkSecretKey = process.env.CLERK_SECRET_KEY;
         if (clerkSecretKey) {
           createClerkClient({ secretKey: clerkSecretKey })
             .users.updateUser(clerkPutUserId, clerkNamePatch)
@@ -1517,13 +1458,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
   }
-  const body = (req.body ?? {}) as {
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-    gender?: string | null;
-    birthday?: string | null;
-  };
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
 
   // When the client sends a phone, it must be a strict-E.164 string and
   // (when the dial code is known) fall inside the per-country length
@@ -1627,11 +1562,17 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   }
   if (metaUpdates.length > 0) wcPayload.meta_data = metaUpdates;
 
-  let mapped: CustomerProfile | null = null;
+    const mapped = mapCustomer(data);
   try {
-    const r = await wcFetch(`/customers/${auth.customerId}`, {
-      method: "PUT",
-      body: JSON.stringify(wcPayload),
+    const r = await wcFetch("/customers", {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
+      }),
     }, req);
     const data = (await r.json().catch(() => ({}))) as any;
     if (r.ok) {
@@ -1673,9 +1614,9 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
           const localForClerk = await getCustomerByWcId(auth.customerId);
           if (!localForClerk?.email) return;
           const clerkClientJwt = createClerkClient({ secretKey: jwtClerkSecretKey });
-          const { data: clerkUsers } = await clerkClientJwt.users.getUserList({
-            emailAddress: [localForClerk.email],
-          });
+        const { data: clerkUsers } = await (createClerkClient({ secretKey: clerkSecretKey })
+          .users.getUserList({ emailAddress: [tombstoneEmail] })
+          .catch(() => ({ data: [] })));
           if (clerkUsers.length === 0) return;
           await clerkClientJwt.users.updateUser(clerkUsers[0].id, jwtClerkNamePatch);
         } catch (err: any) {
@@ -1747,7 +1688,7 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
     const secretKey = process.env.CLERK_SECRET_KEY;
     if (secretKey) {
       try {
-        const clerk = createClerkClient({ secretKey });
+        const clerk = createClerkClient({ secretKey: clerkSecretKey });
         const liveUser = await clerk.users.getUser(clerkDelUserId);
         const liveUserType = (liveUser.publicMetadata as { userType?: unknown })?.userType;
         if (liveUserType === "team") {
@@ -1900,7 +1841,7 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
 
     const delRes = await wcFetch(`/customers/${id}?force=true`, { method: "DELETE" }, req);
     if (!delRes.ok) {
-      const data = (await delRes.json().catch(() => ({}))) as any;
+    const data = (await r.json().catch(() => ({}))) as any;
       // Even if the DELETE call fails, we've already wiped PII above, so
       // the account is functionally deleted from the user's perspective.
       req.log?.warn?.({ status: delRes.status, message: data?.message }, "auth.delete: WC delete failed but anonymised");
@@ -2239,7 +2180,7 @@ function sendPasswordResetEmail(opts: {
 }
 
 router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
-  const email = String((req.body as any)?.email ?? "").trim().toLowerCase();
+  const email = String(payload.email ?? "").trim().toLowerCase();
   if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
     return res.status(400).json({ ok: false, code: "invalid_email", message: "A valid email is required" }); // i18n-ignore
   }
@@ -2265,9 +2206,15 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
   if (!isWcAuthEnabled()) {
     try {
       const [customer] = await db
-        .select({ id: customersTable.id, passwordHash: customersTable.passwordHash })
+        .select({ id: customersTable.id })
         .from(customersTable)
-        .where(eq(customersTable.email, email))
+        .where(
+          and(
+            eq(customersTable.email, login.toLowerCase().trim()),
+            eq(customersTable.passwordResetToken, keyHash),
+            gt(customersTable.passwordResetTokenExpiresAt, now),
+          ),
+        )
         .limit(1);
 
       if (customer && customer.passwordHash) {
@@ -2281,7 +2228,7 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
         // token is sent only in the email.
         const rawToken = randomBytes(32).toString("hex");
         const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         await db
           .update(customersTable)
           .set({
@@ -2304,42 +2251,40 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
   // ── WC/WP proxy path (WC_AUTH_ENABLED=true, legacy migration window) ─────
   try {
     const form = new URLSearchParams({
-      user_login: email,
-      redirect_to: "",
+      pass1: password,
+      pass2: password,
+      "pass1-text": password,
       wp_lang: "",
     });
     const resetStore = resolveStoreFromRequest(req);
-    const wpLogin = resetStore.wpBaseUrl.replace(/\/wp-json$/, "") + "/wp-login.php";
-    const r = await fetch(`${wpLogin}?action=lostpassword`, {
+    const wpLogin = confirmStore.wpBaseUrl.replace(/\/wp-json$/, "") + "/wp-login.php";
+    const r = await wcFetch("/customers", {
       method: "POST",
-      redirect: "manual",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "PresentailApp/1.0",
-      },
-      body: form.toString(),
-    });
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
+      }),
+    }, req);
     if (r.status >= 500) {
       req.log?.warn?.({ status: r.status }, "auth.reset.request: upstream error");
       return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." }); // i18n-ignore
     }
     const location = r.headers.get("location") ?? "";
-    const isRedirect = r.status >= 300 && r.status < 400;
-    if (isRedirect && /checkemail=confirm/.test(location)) {
+    const isRedirect = resetRes.status >= 300 && resetRes.status < 400;
+    if (isRedirect && /password=changed|action=login/.test(resetLoc)) {
       return res.json({ ok: true });
     }
-    if (isRedirect && /[?&]error=/.test(location)) {
-      // WP error codes here include `invaliduserdata`, `invalid_email`,
-      // `invalidcombo` — all of which mean "we couldn't find this account".
-      // Return 200 instead of 404 to avoid disclosing whether the email is
-      // registered (standard "if an account exists you will receive an email"
-      // pattern — prevents enumeration of valid addresses).
-      return res.json({ ok: true });
+    if (isRedirect && /[?&]error=/.test(resetLoc)) {
+      return res.status(400).json({
+        ok: false,
+        code: "expired_link",
+        message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
+      });
     }
-    if (r.status === 200) {
-      // WP renders the form with errors inline when validation fails. Treat
-      // this as a silent success (same enumeration-prevention reason as above).
-      const body = await r.text().catch(() => "");
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
       if (/login_error|invalid|no.+user|user.+not/i.test(body)) {
         return res.json({ ok: true });
       }
@@ -2396,7 +2341,7 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
       });
     }
     try {
-      const now = new Date();
+  const now = new Date();
       // Hash the provided key before comparing — the DB stores the SHA-256
       // digest of the raw token, not the raw token itself, so a database read
       // cannot be used to derive a bearer token.
@@ -2510,7 +2455,7 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
         message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
       });
     }
-    const body = await resetRes.text().catch(() => "");
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
     if (/expired|invalid.+key|invalidkey/i.test(body)) {
       return res.status(400).json({
         ok: false,
@@ -2556,16 +2501,21 @@ router.post("/auth/social/apple", socialIpLimiter, async (req, res) => {
   }
   let payload: any;
   try {
-    const verified = await jwtVerify(identityToken, APPLE_JWKS, {
-      issuer: "https://appleid.apple.com",
-      audience: appleAudiences(),
+    const verified = await jwtVerify(idToken, GOOGLE_JWKS, {
+      issuer: ["https://accounts.google.com", "accounts.google.com"],
+      audience: audiences,
     });
     payload = verified.payload;
   } catch (e: any) {
-    req.log?.warn?.({ err: e?.message }, "auth.social.apple: token invalid");
+    req.log?.warn?.({ err: e?.message }, "auth.oauth.google: token invalid");
     return res
       .status(401)
-      .json({ ok: false, message: "Apple sign-in could not be verified" }); // i18n-ignore
+      .json({ ok: false, message: "Google sign-in could not be verified" });
+  }
+  if (payload.email_verified === false) {
+    return res
+      .status(401)
+      .json({ ok: false, message: "Your Google email is not verified." });
   }
   const email = String(payload.email ?? "").trim().toLowerCase();
   if (!email || !EMAIL_RE.test(email)) {
@@ -2576,8 +2526,8 @@ router.post("/auth/social/apple", socialIpLimiter, async (req, res) => {
     });
   }
   const appleSub = String(payload.sub ?? "").trim() || null;
-  const givenName = String(fullName?.givenName ?? "").trim();
-  const familyName = String(fullName?.familyName ?? "").trim();
+  const givenName = String(payload.given_name ?? "").trim();
+  const familyName = String(payload.family_name ?? "").trim();
   return issueSocialSession(res, req, "apple", {
     email,
     firstName: givenName,
@@ -2593,11 +2543,11 @@ router.post("/auth/social/google", socialIpLimiter, async (req, res) => {
       .status(400)
       .json({ ok: false, message: "Missing Google ID token" }); // i18n-ignore
   }
-  const audiences = googleAudiences();
+  const audiences = googleWebAudiences();
   if (!audiences.length) {
     return res.status(503).json({
       ok: false,
-      message: "Google sign-in is not configured on the server.", // i18n-ignore
+      message: "Google sign-in is not configured on the server.",
     });
   }
   let payload: any;
@@ -2608,64 +2558,43 @@ router.post("/auth/social/google", socialIpLimiter, async (req, res) => {
     });
     payload = verified.payload;
   } catch (e: any) {
-    req.log?.warn?.({ err: e?.message }, "auth.social.google: token invalid");
+    req.log?.warn?.({ err: e?.message }, "auth.oauth.google: token invalid");
     return res
       .status(401)
-      .json({ ok: false, message: "Google sign-in could not be verified" }); // i18n-ignore
+      .json({ ok: false, message: "Google sign-in could not be verified" });
   }
   if (payload.email_verified === false) {
     return res
       .status(401)
-      .json({ ok: false, message: "Your Google email is not verified." }); // i18n-ignore
+      .json({ ok: false, message: "Your Google email is not verified." });
   }
   const email = String(payload.email ?? "").trim().toLowerCase();
   if (!email || !EMAIL_RE.test(email)) {
     return res
       .status(400)
-      .json({ ok: false, message: "Google didn't share an email address." }); // i18n-ignore
+      .json({ ok: false, message: "Google didn't share an email address." });
   }
   const givenName = String(payload.given_name ?? "").trim();
   const familyName = String(payload.family_name ?? "").trim();
-  return issueSocialSession(res, req, "google", {
-    email,
+  return issueSocialSession(res, req, "apple", {
+    email: rawEmail,
     firstName: givenName,
     lastName: familyName,
+    appleSub,
   });
 });
 
-// ── Web OAuth: Apple & Google ────────────────────────────────────────────────
-// These mirror /auth/social/* but use the web Sign in with Apple / Google
-// Identity Services flows. The web SDKs return an identity token client-side;
-// we verify the signature against the provider JWKS, then resolve (or create)
-// the matching WC customer and mint a server-issued session JWT.
-//
-// Apple's web flow returns a payload shaped like:
-//   { authorization: { id_token, code, state }, user?: { name: { firstName, lastName }, email } }
-// The `user` object is sent only on the very first sign-in; we accept either
-// `user` (web shape) or `fullName` (mobile shape) for the name fields.
-
-router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
-  if (!envList("APPLE_SERVICE_IDS").length) {
-    return res.status(503).json({
-      ok: false,
-      message: "Apple sign-in is not configured on the server.", // i18n-ignore
-    });
-  }
-  const body = req.body as {
-    idToken?: string;
-    id_token?: string;
-    user?: { name?: { firstName?: string | null; lastName?: string | null } | null } | null;
-    fullName?: { givenName?: string | null; familyName?: string | null } | null;
-  };
-  const idToken = body.idToken ?? body.id_token;
+router.post("/auth/oauth/google", socialIpLimiter, async (req, res) => {
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
+  const idToken = body.idToken ?? body.id_token ?? body.credential;
   if (!idToken) {
     return res.status(400).json({ ok: false, message: "Missing Apple identity token" });
   }
   let payload: any;
   try {
-    const verified = await jwtVerify(idToken, APPLE_JWKS, {
-      issuer: "https://appleid.apple.com",
-      audience: appleWebAudiences(),
+    const verified = await jwtVerify(idToken, GOOGLE_JWKS, {
+      issuer: ["https://accounts.google.com", "accounts.google.com"],
+      audience: audiences,
     });
     payload = verified.payload;
   } catch (e: any) {
@@ -2683,7 +2612,11 @@ router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
     // hard-400 for accounts we already know.
     if (appleSub) {
       try {
-        const existing = await getCustomerByAppleSub(appleSub);
+      const existing = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(eq(customersTable.email, normalizedEmail))
+        .limit(1);
         if (existing) {
           const givenNameFb = String(
             body.user?.name?.firstName ?? body.fullName?.givenName ?? "",
@@ -2708,12 +2641,8 @@ router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
         "Your Apple ID didn't share an email. Please retry and choose 'Share My Email'.",
     });
   }
-  const givenName = String(
-    body.user?.name?.firstName ?? body.fullName?.givenName ?? "",
-  ).trim();
-  const familyName = String(
-    body.user?.name?.lastName ?? body.fullName?.familyName ?? "",
-  ).trim();
+  const givenName = String(payload.given_name ?? "").trim();
+  const familyName = String(payload.family_name ?? "").trim();
   return issueSocialSession(res, req, "apple", {
     email: rawEmail,
     firstName: givenName,
@@ -2723,12 +2652,7 @@ router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
 });
 
 router.post("/auth/oauth/google", socialIpLimiter, async (req, res) => {
-  const body = req.body as {
-    idToken?: string;
-    id_token?: string;
-    credential?: string;
-    accessToken?: string;
-  };
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
 
   // OAuth2 popup flow: web client sends an access token.
   // Step 1: call Google tokeninfo to validate the token and verify its audience
@@ -2737,7 +2661,7 @@ router.post("/auth/oauth/google", socialIpLimiter, async (req, res) => {
   // This two-step approach prevents cross-client token replay attacks — a
   // valid Google access token minted for a different OAuth app is rejected.
   if (body.accessToken) {
-    const audiences = googleWebAudiences();
+  const audiences = googleWebAudiences();
     if (!audiences.length) {
       return res.status(503).json({
         ok: false,
@@ -2805,14 +2729,14 @@ router.post("/auth/oauth/google", socialIpLimiter, async (req, res) => {
         .status(401)
         .json({ ok: false, message: "Your Google email is not verified." });
     }
-    const email = String(userInfo.email ?? "").trim().toLowerCase();
-    if (!email || !EMAIL_RE.test(email)) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Google didn't share an email address." });
-    }
-    const givenName = String(userInfo.given_name ?? "").trim();
-    const familyName = String(userInfo.family_name ?? "").trim();
+  const email = String(payload.email ?? "").trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    return res
+      .status(400)
+      .json({ ok: false, message: "Google didn't share an email address." });
+  }
+  const givenName = String(payload.given_name ?? "").trim();
+  const familyName = String(payload.family_name ?? "").trim();
     return issueSocialSession(res, req, "google", {
       email,
       firstName: givenName,
@@ -2923,14 +2847,16 @@ router.post("/auth/otp/send", otpSendIpLimiter, async (req, res) => {
   const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
   try {
-    const r = await fetch(twilioUrl, {
+    const r = await wcFetch("/customers", {
       method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ From: fromNumber, To: normalizedPhone, Body: body }).toString(),
-    });
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
+      }),
+    }, req);
     if (!r.ok) {
       const text = await r.text().catch(() => "");
       req.log?.warn?.({ phone: normalizedPhone, status: r.status, body: text.slice(0, 200) }, "auth.otp.send: Twilio error (non-fatal)");
@@ -3102,14 +3028,7 @@ router.post("/auth/otp/verify", registerIpLimiter, async (req, res) => {
       }
 
       const store = resolveStoreFromRequest(req);
-      const token = await signServerToken({
-        customerId: customer.id,
-        email: normalizedEmail,
-        provider: "password",
-        storeBaseUrl: store.baseUrl,
-        localCustomerId: customer.id,
-        localCustomer: true,
-      });
+    let token: string | null = null;
 
       res.json({
         ok: true,

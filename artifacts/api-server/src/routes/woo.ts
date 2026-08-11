@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { z } from "zod";
+import { checkAdminToken } from "../lib/admin-auth";
 import { authenticate, resolveAuthenticatedCustomer } from "../lib/auth";
 import { sortProducts, type ProductSortMode } from "../lib/productRanking";
 import {
@@ -526,7 +527,7 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
 router.get("/woo/brands", (_req, res) => {
   // Brands are served exclusively from the Presentail OS cache.
   // The WooCommerce fallback has been retired — add/manage brands in OS.
-  const osBrands = getOsBrands();
+  const osBrands = getOsBrands() ?? [];
   if (!osBrands) {
     return res.status(503).json({ ok: false, message: "OS catalog not yet available" }); // i18n-ignore
   }
@@ -534,7 +535,7 @@ router.get("/woo/brands", (_req, res) => {
   return res.json({
     ok: true,
     brands: osBrands.map((b) => {
-      const rawBrandEntry = rawBrands?.find((rb: OSCatalogAttributeBrand) => rb.slug === b.slug);
+  const rawBrandEntry = rawBrands?.find((b: OSCatalogAttributeBrand) => b.slug === brandSlug);
       // OS API returns banner_image_url (absolute CDN URL); cover_image is a
       // forward-compat alias kept for potential future OS API versions.
       const cover_image = rawBrandEntry?.banner_image_url ?? rawBrandEntry?.cover_image ?? null;
@@ -556,7 +557,7 @@ router.get("/woo/brand-products", (req, res) => {
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
-  const osBrands = getOsBrands();
+  const osBrands = getOsBrands() ?? [];
   const rawBrands = getOsRawCatalogBrands();
   const brandEntry = osBrands?.find((b) => b.slug === brandSlug);
   const rawBrandEntry = rawBrands?.find((b: OSCatalogAttributeBrand) => b.slug === brandSlug);
@@ -583,19 +584,9 @@ router.get("/woo/brand-products", (req, res) => {
   // (e.g. product brand slug "hallab" vs catalog slug "hallab-1881").
   const brandNameToCanonical = getOsBrandNameToCanonicalSlug();
   const eligible = osProducts
-    .filter((p) =>
-      p.brands.some((b) => {
-        if (b.slug === brandSlug) return true;
-        const canonical = brandNameToCanonical.get(normaliseBrandName(b.name));
-        return canonical === brandSlug;
-      }),
-    )
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, browseFilter))
-    // Override isBestSeller from the persistent set (keyed by OS product slug,
-    // same value that mapOsProductToWcShape writes to WcProduct.slug).
-    .map((p) => ({ ...p, isBestSeller: bestSellerIds.has(p.slug) }));
+    .filter((p) => isDeliverable(p, browseFilter));
   const products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length, brandName, brandImage, brandDescription, brandCoverImage });
@@ -664,10 +655,9 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
 ];
 
 router.get("/woo/category-products", (req, res) => {
-  const slug = String(req.query.slug ?? "");
-  if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
-  if (isHiddenCategory(slug)) {
-    return res.json({ ok: true, products: [], count: 0 });
+  const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
+  if (!slug) {
+    return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   }
 
   const store = resolveStoreFromRequest(req);
@@ -680,7 +670,6 @@ router.get("/woo/category-products", (req, res) => {
   const catName = catEntry?.name ?? slug;
 
   const eligible = osProducts
-    .filter((p) => p.categories.some((c) => c.slug === slug))
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter));
@@ -697,14 +686,15 @@ router.get("/woo/category-products", (req, res) => {
     const pageRaw = Number(pageParam);
     const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
     const offset = (page - 1) * pageSize;
-    const products = allProducts.slice(offset, offset + pageSize);
+  const products = sortOsShapedProducts(eligible, sortMode)
+    .map((p) => transformProduct(p, store.currencySymbol));
     return res.json({ ok: true, products, count, categoryName: catName });
   }
   return res.json({ ok: true, products: allProducts, count, categoryName: catName });
 });
 
 router.get("/woo/occasion-products", (req, res) => {
-  const slug = String(req.query.slug ?? "");
+  const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
     return res.json({ ok: true, groups: [] });
   }
@@ -726,7 +716,10 @@ router.get("/woo/occasion-products", (req, res) => {
   const filter = readDeliveryFilter(req);
   const lang = readLang(req);
   const sortMode = readSortMode(req);
-
+  // Product listings filter by country only. City-level delivery restrictions
+  // are enforced at checkout — not at browse time — because OS city IDs may not
+  // match the web app's city slug format, which would incorrectly exclude all
+  // products for unrecognised city slugs (e.g. "lb-akkar").
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const deliverable = osProducts
     .filter((p) => p.occasions.some((o) => o.slug === slug))
@@ -786,12 +779,15 @@ router.get("/woo/occasion-products", (req, res) => {
     });
   }
 
-  const result = Array.from(groups.entries()).map(([groupSlug, g]) => ({
-    slug: groupSlug,
-    label: g.label,
-    count: g.products.length,
-    products: g.products,
-  }));
+  const result = await attemptCreateOsOrder(body, {
+    paymentVerified,
+    store,
+    platform: requestPlatform,
+    preVerifiedItems: snapshotItems,
+    preVerifiedFees: snapshotFees,
+    verifiedCurrency,
+    couponValidated,
+  });
   const totalReturned = result.reduce((sum, g) => sum + g.count, 0);
   return res.json({ ok: true, groups: result, total: totalReturned, pageItems });
 });
@@ -909,15 +905,7 @@ router.get("/woo/product-pricing/:osId", async (req, res) => {
       return res.status(osRes.status).json({ ok: false, message: `OS returned ${osRes.status}` }); // i18n-ignore
     }
 
-    const body = (await osRes.json()) as {
-      product?: {
-        price?: string | number | null;
-        discount_price_usd?: string | number | null;
-        discount_price_aed?: string | number | null;
-        regular_price?: string | number | null;
-        sale_price?: string | number | null;
-      };
-    };
+  const body = parsed.data;
 
     function parseP(v: unknown): number | null {
       if (v == null || v === "" || v === "0" || v === 0) return null;
@@ -969,7 +957,7 @@ router.get("/woo/brand", (req, res) => {
     return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   }
 
-  const osBrands = getOsBrands();
+  const osBrands = getOsBrands() ?? [];
   const b = osBrands?.find((brand) => brand.slug === slug);
   if (!b) return res.status(404).json({ ok: false, message: "Brand not found" }); // i18n-ignore
   return res.json({
@@ -1011,8 +999,8 @@ router.get("/woo/category", (req, res) => {
   // Mirrors /woo/category-products, which already resolves products this way, so
   // category SEO/meta works even when getOsCategories() returns null.
   if (!resolved) {
-    const store = resolveStoreFromRequest(req);
-    const osProducts = getOsProducts(store.storeKey) ?? [];
+  const store = resolveStoreFromRequest(req);
+  const osProducts = getOsProducts(store.storeKey) ?? [];
     for (const p of osProducts) {
       const match = (p.categories ?? []).find((cat) => cat.slug === slug);
       if (match) {
@@ -1136,7 +1124,7 @@ router.post("/woo/order", async (req, res) => {
     });
   }
 
-  const parsed = WooOrderSchema.safeParse(req.body);
+  const parsed = SearchQuerySchema.safeParse(req.query);
   if (!parsed.success) {
     req.log?.warn?.(
       { issues: parsed.error.issues },
@@ -1497,13 +1485,13 @@ router.post("/woo/order", async (req, res) => {
       // sessions whose snapshot recorded district:"" (an attacker omitting
       // district gets snapshot.district="" and the submitted district must
       // also be "" — submitting any non-empty district will fail here).
-      const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
-        checkDelivery: true,
-        submittedDistrict: body.district,
-        submittedExpressDelivery: (body.expressFee ?? 0) > 0,
-        submittedNoAddress: body.noAddress === true,
-        submittedDeliverySlot: body.deliverySlot ?? "",
-      });
+    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0,
+      submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
+    });
       if (cartMismatch) {
         req.log?.warn?.(
           { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
@@ -1588,7 +1576,7 @@ router.post("/woo/order", async (req, res) => {
     if (!intent) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef },
-        "woo.order: no valid Mamo payment intent found for this paymentRef+orderId pair",
+        "woo.order: no valid PayPal payment intent found for this paymentRef+orderId pair",
       );
       return res.status(402).json({
         ok: false,
@@ -1598,7 +1586,7 @@ router.post("/woo/order", async (req, res) => {
     }
 
     // Layer 1b: Verify cart snapshot — submitted cart AND delivery context
-    // must match the paid snapshot. Mamo charges the full total (products +
+    // must match the paid snapshot. PayPal charges the full total (products +
     // delivery), so a district or express substitution is also fraud.
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
@@ -2135,18 +2123,6 @@ router.get("/woo/search", (req, res) => {
     .filter((b) => decodeHtmlEntities(b.name).toLowerCase().includes(lower))
     .slice(0, 5)
     .map((b) => ({ slug: b.slug, name: decodeHtmlEntities(b.name), image: b.image ?? null }));
-
-  return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
-});
-
-router.get("/woo/pending-orders", async (req, res) => {
-  const adminToken = process.env.PUSH_ADMIN_TOKEN;
-  const supplied = req.header("x-admin-token") ?? req.header("x-push-admin-token");
-  if (!adminToken || !supplied || supplied !== adminToken) {
-    return res
-      .status(401)
-      .json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
-  }
   const rawStatus = typeof req.query.status === "string" ? req.query.status : "";
   const status =
     rawStatus === "pending" || rawStatus === "succeeded" || rawStatus === "exhausted"

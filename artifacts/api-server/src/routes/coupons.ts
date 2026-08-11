@@ -5,17 +5,12 @@ import { validateCoupon, redeemCoupon, type CartItemForCoupon } from "../lib/cou
 import { fetchOsCoupons } from "@workspace/presentail-os";
 import { getOsProductBySlug } from "../lib/osProductsCache";
 import { resolveOsEffectivePrice } from "../lib/catalog";
+import { checkAdminToken } from "../lib/admin-auth";
 
 const router = Router();
 
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const expected = process.env.PUSH_ADMIN_TOKEN;
-  const provided =
-    req.header("x-push-admin-token") ?? req.header("x-admin-token");
-  if (!expected || !provided || provided !== expected) {
-    res.status(401).json({ ok: false, message: "Unauthorized" }); // i18n-ignore
-    return;
-  }
+  if (!checkAdminToken(req, res)) return;
   next();
 }
 
@@ -51,7 +46,7 @@ type ValidateBody = {
 };
 
 router.post("/coupons/validate", async (req, res) => {
-  const body = req.body as ValidateBody;
+  const body = req.body as Partial<CreateCouponBody>;
   const code = (body.code ?? "").trim();
   const customerEmail = (body.customerEmail ?? "").trim();
   const rawItems = Array.isArray(body.cartItems) ? body.cartItems : [];
@@ -140,7 +135,7 @@ type RedeemBody = {
 };
 
 router.post("/coupons/redeem", requireAdmin, async (req, res) => {
-  const body = req.body as RedeemBody;
+  const body = req.body as Partial<CreateCouponBody>;
   const code = (body.code ?? "").trim();
   const customerEmail = (body.customerEmail ?? "").trim();
   const orderId = (body.orderId ?? "").trim();
@@ -151,10 +146,10 @@ router.post("/coupons/redeem", requireAdmin, async (req, res) => {
   }
 
   const rows = await db
-    .select({ id: couponsTable.id })
-    .from(couponsTable)
-    .where(eq(sql`lower(${couponsTable.code})`, code.toLowerCase()))
-    .limit(1);
+    .select()
+    .from(couponRedemptionsTable)
+    .where(eq(couponRedemptionsTable.couponId, id))
+    .orderBy(desc(couponRedemptionsTable.createdAt));
 
   const coupon = rows[0];
   if (!coupon) {
@@ -170,8 +165,9 @@ router.post("/coupons/redeem", requireAdmin, async (req, res) => {
 router.get("/admin/coupons", requireAdmin, async (_req, res) => {
   const rows = await db
     .select()
-    .from(couponsTable)
-    .orderBy(desc(couponsTable.createdAt));
+    .from(couponRedemptionsTable)
+    .where(eq(couponRedemptionsTable.couponId, id))
+    .orderBy(desc(couponRedemptionsTable.createdAt));
   return res.json({ ok: true, coupons: rows });
 });
 
@@ -195,7 +191,7 @@ type CreateCouponBody = {
 };
 
 router.post("/admin/coupons", requireAdmin, async (req, res) => {
-  const body = req.body as CreateCouponBody;
+  const body = req.body as Partial<CreateCouponBody>;
 
   if (!body.code?.trim()) {
     return res.status(400).json({ ok: false, message: "code is required." }); // i18n-ignore

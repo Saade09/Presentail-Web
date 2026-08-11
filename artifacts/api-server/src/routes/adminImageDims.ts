@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { lt } from "drizzle-orm";
 import { db, imageDimsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { checkAdminToken } from "../lib/admin-auth";
 
 const router: IRouter = Router();
 
@@ -14,15 +15,7 @@ const IMAGE_DIMS_PRUNE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 //
 // Returns { ok: true, deleted: N } so the caller can see how many rows were removed.
 router.post("/admin/image-dims/prune", async (req, res) => {
-  const adminToken = process.env.PUSH_ADMIN_TOKEN;
-  const supplied =
-    req.header("x-push-admin-token") ?? req.header("x-admin-token");
-  if (!adminToken || !supplied || supplied !== adminToken) {
-    res
-      .status(401)
-      .json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
-    return;
-  }
+  if (!checkAdminToken(req, res)) return;
 
   try {
     const cutoff = new Date(Date.now() - IMAGE_DIMS_PRUNE_AGE_MS);

@@ -35,6 +35,7 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
+import { checkAdminToken } from "../lib/admin-auth";
 import { db, appOrdersTable, customersTable } from "@workspace/db";
 import { and, eq, isNull, or } from "drizzle-orm";
 import {
@@ -1136,17 +1137,7 @@ function requireAdminToken(
   req: Parameters<Parameters<IRouter["post"]>[1]>[0],
   res: Parameters<Parameters<IRouter["post"]>[1]>[1],
 ): boolean {
-  const adminToken = process.env.PUSH_ADMIN_TOKEN ?? "";
-  const provided = req.headers["x-push-admin-token"] ?? "";
-  if (!adminToken) {
-    res.status(503).json({ ok: false, message: "Admin token not configured" }); // i18n-ignore
-    return false;
-  }
-  if (provided !== adminToken) {
-    res.status(401).json({ ok: false, message: "Unauthorized" }); // i18n-ignore
-    return false;
-  }
-  return true;
+  return checkAdminToken(req as import("express").Request, res as import("express").Response);
 }
 
 router.post("/os/sync/products", (req, res) => {

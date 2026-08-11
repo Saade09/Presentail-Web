@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
+import { checkAdminToken } from "../lib/admin-auth";
 import { db, pushTokensTable, appOrdersTable, type AppOrder } from "@workspace/db";
 import { and, eq, isNull, or } from "drizzle-orm";
 import {
@@ -176,12 +177,7 @@ router.post("/push/unregister", async (req, res): Promise<void> => {
 });
 
 router.post("/push/order-event", async (req, res): Promise<void> => {
-  const adminToken = process.env.PUSH_ADMIN_TOKEN;
-  const supplied = req.header("x-push-admin-token");
-  if (!adminToken || !supplied || supplied !== adminToken) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
-    return;
-  }
+  if (!checkAdminToken(req, res)) return;
 
   const parsed = SendOrderEventPushBody.safeParse(req.body);
   if (!parsed.success) {

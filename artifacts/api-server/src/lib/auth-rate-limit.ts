@@ -224,6 +224,22 @@ export const otpSendIpLimiter = rateLimit({
 });
 
 /**
+ * Admin token endpoints — 20 requests / 15 min per IP.
+ *
+ * Applied to every request that carries an x-push-admin-token or
+ * x-admin-token header, regardless of path. This caps brute-force
+ * attempts against the PUSH_ADMIN_TOKEN shared secret to a rate that
+ * makes even a weak (e.g. 64-bit) token computationally infeasible to
+ * guess within the window, while allowing legitimate operator use.
+ */
+export const adminTokenIpLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  message: undefined,
+});
+
+/**
  * GET /events (SSE) — max 30 new connection attempts per IP per minute.
  *
  * Keyed on the real client IP via sseClientIpKey (XFF-aware) so each visitor

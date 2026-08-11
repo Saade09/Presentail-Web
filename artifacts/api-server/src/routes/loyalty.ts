@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { authenticate } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
+import { checkAdminToken } from "../lib/admin-auth";
 import { getCustomerById, getCustomerByWcId } from "../lib/customers";
 import {
   creditDeliveredOrder,
@@ -49,12 +50,7 @@ router.get("/loyalty/me", requireUserType(["customer", "team"]), async (req, res
 
 // GET /api/admin/loyalty/:customerId — operator support view.
 router.get("/admin/loyalty/:customerId", async (req, res) => {
-  const expected = process.env.PUSH_ADMIN_TOKEN;
-  const provided = req.header("x-push-admin-token");
-  if (!expected || !provided || provided !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
-    return;
-  }
+  if (!checkAdminToken(req, res)) return;
   const id = Number.parseInt(String(req.params.customerId ?? ""), 10);
   if (!Number.isFinite(id) || id <= 0) {
     res.status(400).json({ ok: false, message: "Invalid customerId" }); // i18n-ignore
@@ -74,12 +70,7 @@ router.get("/admin/loyalty/:customerId", async (req, res) => {
 // orders. Safe to call repeatedly: the underlying ledger insert is gated by
 // a `(customerId, source, reason)` unique constraint.
 router.post("/admin/loyalty/credit-order", async (req, res) => {
-  const expected = process.env.PUSH_ADMIN_TOKEN;
-  const provided = req.header("x-push-admin-token");
-  if (!expected || !provided || provided !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
-    return;
-  }
+  if (!checkAdminToken(req, res)) return;
   const body = (req.body ?? {}) as {
     customerId?: unknown;
     wcOrderId?: unknown;

@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { plantEnvironmentCacheTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { getOsProducts } from "../lib/osProductsCache";
+import { checkAdminToken } from "../lib/admin-auth";
 import { classifyPlantProducts } from "../lib/plantEnvironmentInference";
 import { logger } from "../lib/logger";
 
@@ -11,13 +12,7 @@ const router: IRouter = Router();
 const PLANTS_CATEGORY_SLUG = "plants";
 
 function requireAdmin(req: Request, res: Response): boolean {
-  const expected = process.env.PUSH_ADMIN_TOKEN;
-  const supplied = req.header("x-push-admin-token") ?? req.header("x-admin-token");
-  if (!expected || !supplied || supplied !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
-    return false;
-  }
-  return true;
+  return checkAdminToken(req, res);
 }
 
 function getPlantProducts() {

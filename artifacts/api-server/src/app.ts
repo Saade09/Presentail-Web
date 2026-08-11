@@ -15,6 +15,7 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import { logger } from "./lib/logger";
 import { resolveStoreLogContext } from "./lib/wooStore";
+import { adminTokenIpLimiter } from "./lib/auth-rate-limit";
 
 const app: Express = express();
 
@@ -175,6 +176,21 @@ app.use(
 // Product feed endpoints — served at /feeds (not under /api)
 // so GMC can access https://presentail.com/feeds/google-merchant/lb.xml directly.
 app.use("/feeds", feedsRouter);
+
+// Admin token rate limiting — applied globally to every request that
+// carries an x-push-admin-token or x-admin-token header, regardless of
+// path.  This prevents brute-force attacks against the PUSH_ADMIN_TOKEN
+// shared secret: even an attacker who rotates source IPs is rate-limited
+// per IP to 20 attempts per 15 minutes, making the token computationally
+// infeasible to guess.  Legitimate operator tooling makes far fewer
+// requests than this threshold.
+app.use((req, res, next) => {
+  if (req.header("x-push-admin-token") || req.header("x-admin-token")) {
+    adminTokenIpLimiter(req, res, next);
+  } else {
+    next();
+  }
+});
 
 app.use("/api", router);
 
