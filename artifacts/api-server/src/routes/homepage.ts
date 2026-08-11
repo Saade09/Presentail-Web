@@ -56,6 +56,27 @@ export async function getRankingConfig(): Promise<CollectionRankingConfigRow[]> 
 
 const router: IRouter = Router();
 
+// ── Homepage banner stale-on-error cache ──────────────────────────────────
+//
+// The OS storefront/homepage-banners endpoint occasionally returns HTTP 500.
+// Rather than surfacing a blank carousel, we cache the last successful
+// normalised banner list per (countryCode|"*"):device key and serve it as
+// a fallback whenever OS fails.  Fresh TTL is 10 min; stale entries are kept
+// indefinitely as a safety net so a persistent OS outage never empties the
+// banner slot for shoppers who already had a successful load.
+
+const BANNER_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min fresh window
+
+type BannerCacheEntry = {
+  banners: unknown[]; // normalised list (pre-translation)
+  fetchedAt: number;
+};
+const bannerSuccessCache = new Map<string, BannerCacheEntry>();
+
+function makeBannerCacheKey(cc: string | undefined, dev: string): string {
+  return `${cc ?? "*"}:${dev}`;
+}
+
 // Returns the active hero banner carousel sourced directly from Presentail OS.
 // OS handles all filtering (active status, schedule window, country/city
 // targeting, device) server-side. On any fetch error the route returns an
@@ -168,6 +189,26 @@ router.get("/homepage/banners", async (req, res) => {
       });
   }
 
+  const cacheKey = makeBannerCacheKey(countryCode, device);
+
+  // Serve a fresh cache hit without hitting OS at all.
+  const cached = bannerSuccessCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < BANNER_CACHE_TTL_MS) {
+    let banners = normaliseBanners(cached.banners);
+    if (resolvedLang === "ar" || resolvedLang === "fr") {
+      const textFields = banners.map((b) => ({
+        title: b.title,
+        headline: b.headline,
+        subtitle: b.subtitle,
+        ctaText: b.ctaText,
+      }));
+      const translated = await translateBanners(resolvedLang as BannerLang, textFields);
+      banners = banners.map((b, i) => ({ ...b, ...translated[i] }));
+    }
+    return res.json(GetHomepageBannersResponse.parse({ banners }));
+  }
+
   try {
     let rawList: unknown[];
 
@@ -194,7 +235,23 @@ router.get("/homepage/banners", async (req, res) => {
       }
     }
 
+    // Only update the cache when OS actually returned banners; an empty list
+    // from a 500 error must not overwrite a previously good entry.
+    if (rawList.length > 0) {
+      bannerSuccessCache.set(cacheKey, { banners: rawList, fetchedAt: now });
+    }
+
     let banners = normaliseBanners(rawList);
+
+    // If OS returned nothing (likely a transient 500), fall back to the stale
+    // cache entry rather than rendering an empty carousel.
+    if (banners.length === 0 && cached) {
+      req.log.warn(
+        { cacheKey, staleSecs: Math.round((now - cached.fetchedAt) / 1000) },
+        "homepage/banners: OS returned empty — serving stale cache",
+      );
+      banners = normaliseBanners(cached.banners);
+    }
 
     // For ar/fr: translate the English text we got from OS using our own LLM.
     // We always fetch English from OS and translate ourselves rather than relying
@@ -213,6 +270,15 @@ router.get("/homepage/banners", async (req, res) => {
     return res.json(GetHomepageBannersResponse.parse({ banners }));
   } catch (err: unknown) {
     req.log.warn({ err: (err as Error)?.message }, "homepage/banners: OS fetch failed");
+    // If we have any stale entry, serve it rather than returning empty.
+    if (cached) {
+      req.log.warn(
+        { cacheKey, staleSecs: Math.round((now - cached.fetchedAt) / 1000) },
+        "homepage/banners: exception — serving stale cache",
+      );
+      const banners = normaliseBanners(cached.banners);
+      return res.json(GetHomepageBannersResponse.parse({ banners }));
+    }
     return res.json(GetHomepageBannersResponse.parse({ banners: [] }));
   }
 });

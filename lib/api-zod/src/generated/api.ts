@@ -1246,6 +1246,7 @@ export const GetHomepageBannersQueryParams = zod.object({
     ),
   device: zod
     .enum(["desktop", "mobile"])
+    .default("desktop")
     .describe(
       "The requesting device type. OS uses this to return the correct\nmedia asset dimensions and crop for the viewport.\n",
     ),

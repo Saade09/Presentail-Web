@@ -966,7 +966,7 @@ async function refreshFirstBannerImageUrl() {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 5_000);
     const res = await fetch(
-      `${INTERNAL_API_BASE_URL}/api/homepage/banners?countryCode=LB`,
+      `${INTERNAL_API_BASE_URL}/api/homepage/banners?countryCode=LB&device=desktop`,
       { signal: ac.signal },
     );
     clearTimeout(timer);
