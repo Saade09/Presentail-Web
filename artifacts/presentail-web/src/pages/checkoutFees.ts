@@ -23,8 +23,9 @@ export interface CheckoutFeeInput {
   countryCode: string;
   /**
    * When true, the recipient's address will be collected later (ask-recipient
-   * flow). Does not affect the delivery fee — the district fee chosen before
-   * entering checkout is always used.
+   * flow). The standard district fee is still charged as normal, but the express
+   * surcharge is waived — we cannot guarantee an express time-window without a
+   * confirmed address.
    */
   noAddress: boolean;
   /**
@@ -114,7 +115,10 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
 
   const baseFee = cityFee;
   const districtFee = (freeDeliveryEnabled && subtotal >= threshold) ? 0 : baseFee;
-  const expressFee = deliveryMode === "express" ? surcharge : 0;
+  // Express surcharge is waived when the recipient will provide their own
+  // address later — we cannot commit to an express window without a confirmed
+  // address, so no surcharge is charged. Standard district fee is unaffected.
+  const expressFee = (deliveryMode === "express" && !input.noAddress) ? surcharge : 0;
   const slotFee = (() => {
     if (deliveryMode === "express") return 0;
     // Prefer ID-based lookup when available to handle same-label/different-config slots.

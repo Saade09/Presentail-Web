@@ -51,7 +51,7 @@ function buildFeeNode(
     if (m.index > lastIndex) parts.push(template.slice(lastIndex, m.index));
     const key = m[1];
     parts.push(
-      key in amounts
+      key in amounts // i18n-ignore — JS expression, not user-visible text
         ? <FormattedPrice key={`${key}-${m.index}`} usdValue={amounts[key]} />
         : m[0],
     );

@@ -451,8 +451,8 @@ describe("calcCheckoutFees: total = subtotal + districtFee + expressFee + slotFe
     expect(total).toBe(98);
   });
 
-  it("no-address express below threshold: subtotal + city fee + express surcharge (no $35 override)", () => {
-    const { total } = calcCheckoutFees({
+  it("no-address express below threshold: express surcharge is waived, only city fee charged", () => {
+    const { total, expressFee } = calcCheckoutFees({
       subtotal: 60,
       countryCode: "LB",
       noAddress: true,
@@ -461,7 +461,10 @@ describe("calcCheckoutFees: total = subtotal + districtFee + expressFee + slotFe
       timeSlots: [],
       deliverySlot: "",
     });
-    expect(total).toBe(83); // 60 + 8 (city fee) + 15 (LB express surcharge)
+    // Express surcharge is waived when the recipient provides their own address
+    // (noAddress=true). Only the standard city fee applies.
+    expect(expressFee).toBe(0);
+    expect(total).toBe(68); // 60 + 8 (city fee) + 0 (express surcharge waived)
   });
 });
 

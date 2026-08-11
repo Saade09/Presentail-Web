@@ -835,7 +835,9 @@ function CheckoutScreen() {
     const subtotal = total;
     const baseDeliveryFee = noAddress ? 35 : (district?.fee ?? 0);
     const districtFee = (isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryFee;
-    const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
+    // Express surcharge is waived when noAddress is on — no confirmed address
+    // means we cannot guarantee an express window, so the fee is removed.
+    const expressFee = (deliveryMode === "express" && !noAddress) ? expressSurcharge : 0;
     const slotFee = deliveryMode !== "express" ? (slot?.extraFee ?? 0) : 0;
     const grand = Math.max(0, subtotal + districtFee + expressFee + slotFee - couponDiscountUsd);
     return { subtotal, districtFee, expressFee, slotFee, grand };
