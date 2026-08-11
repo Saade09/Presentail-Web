@@ -4,6 +4,11 @@
 // the correct nav elements in MainNavbar.  These tests render the real
 // component (with heavy dependencies mocked out) and fire mouseenter / focus
 // events to assert that the correct page-chunk loaders are invoked.
+//
+// Also covers the blog-shell routing fix: when MainNavbar is mounted inside a
+// non-city-scoped shell (e.g. /en/blog), all nav links must use wouter's "~"
+// absolute-path prefix so they resolve to the correct city-scoped URL
+// regardless of the nested router base.
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -71,9 +76,17 @@ vi.mock("@/lib/prefetch", () => ({
   prefetchOnIdle: (_loaders: unknown[]) => () => {},
 }));
 
-// Context / hook dependencies
+// Context / hook dependencies.
+// useLocationSelection returns a city-selected state (LB / lb-beirut) so that
+// toCityHref() builds a real cityBase.  cityIdToSlug("lb-beirut") → "beirut",
+// countryCodeToSlug("LB") → "lb", so cityBase = "/en-lb/beirut".
 vi.mock("@/contexts/LocationContext", () => ({
-  useLocationSelection: vi.fn(() => ({ countryCode: "LB", cityId: "beirut" })),
+  useLocationSelection: vi.fn(() => ({
+    countryCode: "LB",
+    cityId: "lb-beirut",
+    countries: [],
+    isLoadingCountries: false,
+  })),
 }));
 
 vi.mock("@/lib/queries", () => ({
@@ -82,7 +95,9 @@ vi.mock("@/lib/queries", () => ({
   useCatalogOccasions: vi.fn(() => ({ data: undefined, isPending: false })),
 }));
 
-// Wouter: render Link as a plain anchor; useRoute always returns "not matched"
+// Wouter: render Link as a plain anchor; useRoute always returns "not matched".
+// This lets us inspect the exact href value the component passes to Link —
+// including the "~" absolute-path prefix used by the blog-shell routing fix.
 vi.mock("wouter", () => ({
   Link: ({
     children,
@@ -101,6 +116,10 @@ vi.mock("@/components/search/SearchOverlay", () => ({
   SearchOverlay: () => null,
 }));
 
+vi.mock("@/components/search/LazySearchOverlay", () => ({
+  LazySearchOverlay: () => null,
+}));
+
 vi.mock("@/components/account/AccountDropdown", () => ({
   AccountDropdown: () => <span data-testid="account-dropdown" />,
 }));
@@ -116,7 +135,15 @@ vi.mock("@/components/Logo", () => ({
 import { MainNavbar } from "../MainNavbar";
 
 // ---------------------------------------------------------------------------
-// Tests
+// Shared constant: the expected city-scoped base for LB / lb-beirut / en
+// ---------------------------------------------------------------------------
+// countryCodeToSlug("LB") = "lb"
+// cityIdToSlug("lb-beirut") = "beirut"
+// buildLocalePath({ lang: "en", country: "lb", city: "beirut" }) = "/en-lb/beirut"
+const CITY_BASE = "/en-lb/beirut";
+
+// ---------------------------------------------------------------------------
+// Tests: intent-based prefetch wiring
 // ---------------------------------------------------------------------------
 
 describe("MainNavbar — account/sign-in icon intent-based prefetch wiring", () => {
@@ -126,13 +153,16 @@ describe("MainNavbar — account/sign-in icon intent-based prefetch wiring", () 
 
   it("renders a sign-in link when the user is unauthenticated", () => {
     renderWithProviders(<MainNavbar />);
-    const signInLink = document.querySelector('a[href="/sign-in"]');
+    // With the blog-shell routing fix, the sign-in link uses a wouter-absolute
+    // href ("~" prefix + city base) so it works from any nested router.
+    const signInLink = document.querySelector(`a[href="~${CITY_BASE}/sign-in"]`);
     expect(signInLink).not.toBeNull();
   });
 
   it("mouseenter on the sign-in link fires loadSignIn and loadSignUp", () => {
     renderWithProviders(<MainNavbar />);
-    const signInLink = document.querySelector('a[href="/sign-in"]')!;
+    const signInLink = document.querySelector(`a[href="~${CITY_BASE}/sign-in"]`)!;
+    expect(signInLink).not.toBeNull();
     fireEvent.mouseEnter(signInLink);
     expect(mockLoadSignIn).toHaveBeenCalledOnce();
     expect(mockLoadSignUp).toHaveBeenCalledOnce();
@@ -140,7 +170,8 @@ describe("MainNavbar — account/sign-in icon intent-based prefetch wiring", () 
 
   it("focus on the sign-in link fires loadSignIn and loadSignUp", () => {
     renderWithProviders(<MainNavbar />);
-    const signInLink = document.querySelector('a[href="/sign-in"]')!;
+    const signInLink = document.querySelector(`a[href="~${CITY_BASE}/sign-in"]`)!;
+    expect(signInLink).not.toBeNull();
     fireEvent.focus(signInLink);
     expect(mockLoadSignIn).toHaveBeenCalledOnce();
     expect(mockLoadSignUp).toHaveBeenCalledOnce();
@@ -148,9 +179,93 @@ describe("MainNavbar — account/sign-in icon intent-based prefetch wiring", () 
 
   it("mouseenter on the sign-in link does NOT fire the Brands loaders", () => {
     renderWithProviders(<MainNavbar />);
-    const signInLink = document.querySelector('a[href="/sign-in"]')!;
+    const signInLink = document.querySelector(`a[href="~${CITY_BASE}/sign-in"]`)!;
+    expect(signInLink).not.toBeNull();
     fireEvent.mouseEnter(signInLink);
     expect(mockLoadBrands).not.toHaveBeenCalled();
     expect(mockLoadBrandDetail).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: blog-shell routing fix — nav links must use wouter-absolute hrefs
+// ---------------------------------------------------------------------------
+//
+// When MainNavbar is rendered inside a wouter Router with base="/en" (i.e. the
+// blog shell), plain hrefs like "/category/flower-boxes" would resolve to
+// "/en/category/flower-boxes" — wrong.  The fix uses wouter's "~" prefix so
+// the href bypasses the nested base entirely and always points to the correct
+// city-scoped URL.
+
+describe("MainNavbar — nav links use city-scoped wouter-absolute hrefs (blog-shell routing fix)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("logo link uses city-absolute href so it works from non-city-scoped shells", () => {
+    renderWithProviders(<MainNavbar />);
+    // Logo should navigate to the city home page, not just "/".
+    const logo = document.querySelector(`a[href="~${CITY_BASE}/"]`);
+    expect(logo).not.toBeNull();
+  });
+
+  it("cart link uses city-absolute href", () => {
+    renderWithProviders(<MainNavbar />);
+    const cartLink = document.querySelector(`a[href="~${CITY_BASE}/cart"]`);
+    expect(cartLink).not.toBeNull();
+  });
+
+  it("sign-in link uses city-absolute href", () => {
+    renderWithProviders(<MainNavbar />);
+    const signInLink = document.querySelector(`a[href="~${CITY_BASE}/sign-in"]`);
+    expect(signInLink).not.toBeNull();
+  });
+
+  it("mega-menu category links use city-absolute hrefs", () => {
+    renderWithProviders(<MainNavbar />);
+    // Open the Flowers & Plants mega menu so the items render.
+    const flowersTrigger = document.querySelector('[data-testid="nav-trigger-flowers"]');
+    expect(flowersTrigger).not.toBeNull();
+    fireEvent.click(flowersTrigger!);
+
+    // Flower Boxes is the first item in the Flowers & Plants menu.
+    const flowerBoxes = document.querySelector(
+      `a[href="~${CITY_BASE}/category/flower-boxes"]`,
+    );
+    expect(flowerBoxes).not.toBeNull();
+  });
+
+  it("mega-menu footer 'All Flowers & Plants' link uses city-absolute href", () => {
+    renderWithProviders(<MainNavbar />);
+    const flowersTrigger = document.querySelector('[data-testid="nav-trigger-flowers"]');
+    fireEvent.click(flowersTrigger!);
+
+    const allFlowers = document.querySelector(
+      `a[href="~${CITY_BASE}/category/flowers"]`,
+    );
+    expect(allFlowers).not.toBeNull();
+  });
+
+  it("no nav link produces a /lang/category/... double-prefix path", () => {
+    renderWithProviders(<MainNavbar />);
+    // Open all menus so items render.
+    const triggers = document.querySelectorAll("[data-testid^='nav-trigger-']");
+    triggers.forEach((t) => fireEvent.click(t));
+
+    // Collect every anchor href in the navbar.
+    const anchors = Array.from(document.querySelectorAll("a[href]"));
+    const hrefs = anchors.map((a) => a.getAttribute("href") ?? "");
+
+    // The bug produced paths like /en-lb/beirut/en/category/..., which would
+    // happen if a plain href ("/en/category/...") were appended to the city
+    // base by UnprefixedRedirect.  The symptom in the rendered anchor would be
+    // an href that starts with "/en/" or "~/en-lb/beirut/en/" — both indicate
+    // the language segment was double-stacked.
+    const doublePrefixed = hrefs.filter(
+      (h) =>
+        /^\/en\//.test(h) ||   // bare /en/... leaks out of blog shell
+        /~.*\/en\//.test(h),   // ~/{city}/en/... double-stacked
+    );
+    expect(doublePrefixed).toEqual([]);
   });
 });
