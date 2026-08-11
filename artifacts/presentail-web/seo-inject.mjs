@@ -17,7 +17,7 @@ import {
 } from "@workspace/delivery";
 import { roundToNearestFive } from "@workspace/display-currency";
 
-// Hub city per country — only these pages emit the OnlineStore organisation
+// Hub city per country — only these pages emit the LocalBusiness organisation
 // block.  Declaring a near-identical Florist on all 37 city homepages sharing
 // one phone number and one address is the multi-location spam pattern that
 // Google's local-search systems penalise.  The hub cities match HUB_CITY in
@@ -721,7 +721,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     }
   }
 
-  // OnlineStore organisation block + Home > {City} breadcrumb, emitted ONLY on
+  // LocalBusiness organisation block + Home > {City} breadcrumb, emitted ONLY on
   // the canonical hub-city homepage for each country (Beirut/LB, Dubai/AE,
   // Nicosia/CY).  Non-hub city pages carry breadcrumb and product-list markup
   // only — repeating a near-identical local business schema across all 37 city
@@ -731,7 +731,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     parsed.country &&
     ORGANIZATION_HUB_CITIES[parsed.country] === parsed.city;
   if (emitJsonLd && routeKey === "home" && hasValidCity) {
-    // OnlineStore organisation node only on the hub-city homepage.
+    // LocalBusiness organisation node only on the hub-city homepage.
     if (isHubCityHome) {
       const countryPlain = parsed.country
         ? COUNTRY_PLAIN_NAMES[lang]?.[parsed.country] ??
@@ -1190,6 +1190,7 @@ const ROUTE_BODY_INTRO = {
 // i18n-ignore — these are static EN-only sr-only headings for crawlers;
 // the SPA renders its own translated h1 after hydration.
 const ROUTE_H1 = {
+  landing:   "Flowers, Gifts & Cakes Delivered Across Lebanon, UAE & Cyprus", // i18n-ignore — static EN-only sr-only heading for crawlers
   home:      "Fresh Flowers & Gifts, Delivered in {city}",
   shop:      "The Full Collection — Flowers, Gifts & Plants in {city}",
   brands:    "Curated Partner Brands Available in {city}",
@@ -2694,11 +2695,11 @@ export function buildLocalBusinessSchema({ siteUrl, cityName, countryName, count
   const loc = LOCATION_DATA[cc] ?? LOCATION_DATA.lb;
   const schema = {
     "@context": "https://schema.org",
-    // OnlineStore, not Florist: Presentail delivers to customers rather than
-    // receiving them at storefronts. Google's guidance for businesses that
-    // travel to customers is a single profile with a service area — not one
-    // LocalBusiness node per city.
-    "@type": "OnlineStore",
+    // LocalBusiness (not OnlineStore): schema.org's OnlineStore inherits from
+    // Organization, which does not recognise openingHours, hasMap, priceRange,
+    // currenciesAccepted, or paymentAccepted — Google flags them as invalid.
+    // LocalBusiness (and its subtype Florist) does recognise all five fields.
+    "@type": "LocalBusiness",
     name: "Presentail",
     url: cityUrl || siteUrl,
     image: `${siteUrl}/android-chrome-512x512.png`,
