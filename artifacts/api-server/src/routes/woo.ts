@@ -785,17 +785,9 @@ router.get("/woo/occasion-products", (req, res) => {
     });
   }
 
-  const result = await attemptCreateOsOrder(body, {
-    paymentVerified,
-    store,
-    platform: requestPlatform,
-    preVerifiedItems: snapshotItems,
-    preVerifiedFees: snapshotFees,
-    verifiedCurrency,
-    couponValidated,
-  });
-  const totalReturned = result.reduce((sum, g) => sum + g.count, 0);
-  return res.json({ ok: true, groups: result, total: totalReturned, pageItems });
+  const groupsArr = Array.from(groups.values());
+  const totalReturned = groupsArr.reduce((sum, g) => sum + g.products.length, 0);
+  return res.json({ ok: true, groups: groupsArr, total: totalReturned, pageItems });
 });
 
 
@@ -1290,27 +1282,24 @@ router.post("/woo/order", async (req, res) => {
   let intentCouponSnapshot:
     | { couponCode: string; couponDiscountUsd: number }
     | undefined;
+
+  if (body.paymentMethod === "card" || body.paymentMethod === "wallet" || body.paymentMethod === "apple_pay" || body.paymentMethod === "google_pay" || body.paymentMethod === "klarna") {
+    if (!paymentRef) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_reference_required",
+        message: "A Stripe session ID (paymentRef) is required for card/wallet payments.", // i18n-ignore
+      });
+    }
+
+    // Layer 1: Verify orderId↔paymentRef binding from the checkout intent.
+    // This prevents replaying a paid session for a different order.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
 
-    const csMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
-      checkDelivery: true,
-      submittedDistrict: body.district,
-      submittedExpressDelivery: body.expressFee > 0,
-      submittedNoAddress: body.noAddress === true,
-      submittedDeliverySlot: body.deliverySlot ?? "",
-    });
-
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
-
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
-
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
+    if (!intent) {
+      // The in-memory store is cleared on every server restart and entries
+      // expire after 24 h. Recovery path for pi_ refs: probe Stripe directly.
+      if (paymentRef.startsWith("pi_")) {
         const stripeKeysFallback = [
           process.env.STRIPE_SECRET_KEY,
           process.env.STRIPE_SECRET_KEY_GULF,
@@ -1578,17 +1567,18 @@ router.post("/woo/order", async (req, res) => {
 
     // Layer 1: Verify orderId↔paymentRef binding.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
+    if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid Mamo payment intent found for this paymentRef+orderId pair",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
+      });
+    }
 
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
-
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
@@ -1599,7 +1589,7 @@ router.post("/woo/order", async (req, res) => {
     if (cartMismatch) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
-        "woo.order: submitted order does not match paid-for PayPal snapshot — rejecting",
+        "woo.order: submitted order does not match paid-for Mamo snapshot — rejecting",
       );
       return res.status(402).json({
         ok: false,
@@ -1671,25 +1661,6 @@ router.post("/woo/order", async (req, res) => {
     // and rely on the reconciliation queue — the same behavior as Stripe/Mamo.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
 
-    const csMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
-      checkDelivery: true,
-      submittedDistrict: body.district,
-      submittedExpressDelivery: body.expressFee > 0,
-      submittedNoAddress: body.noAddress === true,
-      submittedDeliverySlot: body.deliverySlot ?? "",
-    });
-
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
-
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
-
-    const storedCsStatus = typeof intent.paymentMeta?.csStatus === "string"
-      ? intent.paymentMeta.csStatus
-      : "UNKNOWN";
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
@@ -1697,6 +1668,28 @@ router.post("/woo/order", async (req, res) => {
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
     });
+    if (cartMismatch) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
+        "woo.order: CyberSource submitted cart does not match paid-for snapshot — rejecting",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "cart_mismatch",
+        message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
+      });
+    }
+    snapshotItems = intent?.snapshot?.items;
+    snapshotFees = {
+      districtFeeUsd: intent?.snapshot?.districtFeeUsd,
+      expressFeeUsd: intent?.snapshot?.expressFeeUsd,
+      slotFeeUsd: intent?.snapshot?.slotFeeUsd,
+    };
+    verifiedCurrency = intent?.currency;
+    paymentVerified = true; // CS payment was already captured at /authorize
+  }
+  // whish / western / offline: paymentVerified stays false, order recorded pending.
+
   const REFERRAL_CODE_RE = /^PT[A-Z0-9]+$/;
   const isReferralCoupon =
     typeof body.couponCode === "string" &&
@@ -2108,37 +2101,8 @@ router.get("/woo/search", (req, res) => {
     .filter((b) => decodeHtmlEntities(b.name).toLowerCase().includes(lower))
     .slice(0, 5)
     .map((b) => ({ slug: b.slug, name: decodeHtmlEntities(b.name), image: b.image ?? null }));
-  const rawStatus = typeof req.query.status === "string" ? req.query.status : "";
-  const status =
-    rawStatus === "pending" || rawStatus === "succeeded" || rawStatus === "exhausted"
-      ? rawStatus
-      : undefined;
-  try {
-    const rows = await listPendingWooOrders({ status });
-    return res.json({
-      ok: true,
-      count: rows.length,
-      orders: rows.map((r) => ({
-        id: r.id,
-        appOrderId: r.appOrderId,
-        paymentRef: r.paymentRef,
-        status: r.status,
-        attempts: r.attempts,
-        maxAttempts: r.maxAttempts,
-        nextAttemptAt: r.nextAttemptAt,
-        wcOrderId: r.wcOrderId,
-        lastError: r.lastError,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      })),
-    });
-  } catch (err: any) {
-    return res
-      .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to list pending orders" }); // i18n-ignore
-  }
+
+  return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
 });
 
 export default router;
-
-    const { CS_AUTHORIZED_STATUSES } = await import("../lib/cyberSource");

@@ -421,19 +421,18 @@ router.post("/auth/web-bridge", webBridgeIpLimiter, async (req, res) => {
     }, req);
 
     const data = (await r.json().catch(() => ({}))) as any;
-  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
-      const recognised =
-        /incorrect_password|invalid_email|invalid_username|invalid_user/i.test(
-          code,
-        );
-      checks.wpJwtPlugin = {
-        ok: recognised,
-        status: r.status,
-        detail: recognised
-          ? "plugin reachable, returns recognised code"
-          : `unexpected response code: ${code || "<none>"}`,
-      };
-    }
+    const code = (data?.code ?? data?.data?.code ?? "") as string;
+    const recognised =
+      /incorrect_password|invalid_email|invalid_username|invalid_user/i.test(
+        code,
+      );
+    checks.wpJwtPlugin = {
+      ok: recognised,
+      status: r.status,
+      detail: recognised
+        ? "plugin reachable, returns recognised code"
+        : `unexpected response code: ${code || "<none>"}`,
+    };
   } catch (e: any) {
     checks.wpJwtPlugin = { ok: false, detail: e?.message ?? "fetch failed" }; // i18n-ignore
   }
@@ -955,10 +954,7 @@ router.post("/auth/resend-verification", registerIpLimiter, async (req, res) => 
     return;
   }
 
-  // ── Local-only account deletion (WC_AUTH_ENABLED=false) ─────────────────
-  // Anonymise the local row and best-effort delete from Clerk. No WC calls.
-  if (!isWcAuthEnabled() || auth.localCustomerId) {
-    const localId = auth.localCustomerId ?? auth.customerId;
+  const localId = auth.localCustomerId ?? auth.customerId;
   try {
     const [row] = await db
       .select({ id: customersTable.id, email: customersTable.email, emailVerified: customersTable.emailVerified })
@@ -998,17 +994,19 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   if (clerkUserId && sessionUserType === "team") {
     try {
       const claims = clerkSession?.sessionClaims as any;
-  const email = String(payload.email ?? "").trim().toLowerCase();
+      let email: string | null = claims?.email ?? null;
       let firstName: string = claims?.first_name ?? "";
       let lastName: string = claims?.last_name ?? "";
 
       // Fall back to a live Clerk API call only when the JWT claims are absent.
       if (!email) {
-    const secretKey = process.env.CLERK_SECRET_KEY;
-    if (secretKey) {
-      try {
-        const clerk = createClerkClient({ secretKey: clerkSecretKey });
-        const clerkUser = await clerk.users.getUser(clerkPutUserId);
+        const secretKey = process.env.CLERK_SECRET_KEY;
+        if (!secretKey) {
+          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
+          return;
+        }
+        const clerk = createClerkClient({ secretKey });
+        const clerkUser = await clerk.users.getUser(clerkUserId);
         email =
           clerkUser.emailAddresses.find(
             (e) => e.id === clerkUser.primaryEmailAddressId,
@@ -1232,10 +1230,12 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
 
       // Fall back to a live Clerk API call only when the JWT claims are absent.
       if (!putEmail) {
-    const secretKey = process.env.CLERK_SECRET_KEY;
-    if (secretKey) {
-      try {
-        const clerk = createClerkClient({ secretKey: clerkSecretKey });
+        const secretKey = process.env.CLERK_SECRET_KEY;
+        if (!secretKey) {
+          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
+          return;
+        }
+        const clerk = createClerkClient({ secretKey });
         const clerkUser = await clerk.users.getUser(clerkPutUserId);
         putEmail =
           clerkUser.emailAddresses.find(
@@ -1263,7 +1263,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       }
       if (normalizedTeamGender !== undefined) patch.gender = normalizedTeamGender;
       if (normalizedTeamBirthday !== undefined) patch.birthday = normalizedTeamBirthday;
-    const local = await getCustomerByWcId(auth.customerId);
+    let local = await getCustomerByWcId(auth.customerId);
       if (Object.keys(patch).length > 0) {
         const [updated] = await db
           .update(customersTable)
@@ -1339,10 +1339,12 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       let customerEmail: string | null = customerClaims?.email ?? null;
 
       if (!customerEmail) {
-    const secretKey = process.env.CLERK_SECRET_KEY;
-    if (secretKey) {
-      try {
-        const clerk = createClerkClient({ secretKey: clerkSecretKey });
+        const secretKey = process.env.CLERK_SECRET_KEY;
+        if (!secretKey) {
+          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
+          return;
+        }
+        const clerk = createClerkClient({ secretKey });
         const clerkUser = await clerk.users.getUser(clerkPutUserId);
         customerEmail =
           clerkUser.emailAddresses.find(
@@ -1562,7 +1564,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   }
   if (metaUpdates.length > 0) wcPayload.meta_data = metaUpdates;
 
-    const mapped = mapCustomer(data);
+    let mapped = mapCustomer(data);
   try {
     const r = await wcFetch("/customers", {
       method: "POST",
@@ -2283,11 +2285,6 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
         code: "expired_link",
         message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
       });
-    }
-  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
-      if (/login_error|invalid|no.+user|user.+not/i.test(body)) {
-        return res.json({ ok: true });
-      }
     }
     // Anything else: treat as success rather than leak ambiguous state.
     return res.json({ ok: true });

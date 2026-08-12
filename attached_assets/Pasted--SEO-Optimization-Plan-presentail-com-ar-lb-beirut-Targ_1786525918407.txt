@@ -1,0 +1,89 @@
+# SEO Optimization Plan: presentail.com/ar-lb/beirut
+### Target keyword: توصيل هدايا لبنان (gift delivery Lebanon)
+
+## 1. What I found
+
+**Keyword data (Semrush):** The exact Arabic phrase "توصيل هدايا لبنان" has no tracked search volume in Semrush's Lebanon database — Semrush's keyword coverage for Arabic queries in small markets like Lebanon is generally thin, so this isn't a signal the term has zero demand, just that it isn't in their index. The closest tracked proxy, the English equivalent "gift delivery lebanon," gets ~20 searches/month with very low competition (KD ~0, CPC $0.29) — a low-volume but low-competition, winnable term. Treat this as a long-tail/local-intent keyword rather than a high-volume head term.
+
+**Current ranking:** I pulled every keyword presentail.com ranks for in Semrush's Lebanon database. The English site (`/lebanon/...`) ranks for dozens of terms — e.g. "gifts to lebanon" (position 3, 260 vol/mo), "flowers lebanon" (position 25, 720 vol/mo), "mother's day lebanon" (position 7). **The `/ar-lb/beirut` page itself has zero tracked organic rankings** — it isn't showing up for anything Semrush monitors in the Lebanon market. That's the real gap to close, more than any single tag tweak.
+
+**On-page audit of the live page:**
+
+| Element | Current state | Issue |
+|---|---|---|
+| Title tag | `توصيل الأزهار والهدايا في بيروت | Presentail` | No mention of "لبنان" (Lebanon) at all — only Beirut |
+| Meta description | `أرسل الأزهار والكعك والبالونات والنباتات والشوكولاتة والهدايا أونلاين في بيروت. توصيل سريع في نفس اليوم متاح مع Presentail.` | Same gap — no "لبنان" |
+| H1 | `Fresh Flowers & Gifts, Delivered in بيروت` | **Half English, half Arabic** — on an Arabic-locale (`ar-LB`) page, this is a strong negative relevance signal for an Arabic query |
+| H2s | "Shop by Occasion in بيروت", "Frequently Asked Questions" | Entirely in English, despite the page being served under `/ar-lb/` |
+| Body copy | ~250 words total, and several full sentences are pure English (e.g. "Presentail delivers flowers, cakes, chocolates, plants and gifts across بيروت, لبنان. Same-day delivery available when ordered before midday.") | Thin content, and mixed-language copy dilutes topical relevance for an Arabic search |
+| Images | **Zero `<img>` tags on the page** | No visual product content, no image alt text opportunity — a missed relevance and conversion signal for a gifting page |
+| Schema | `LocalBusiness` + `FAQPage` + `BreadcrumbList`, address country correctly set to `لبنان` | Good foundation, just needs the new copy reflected |
+| Hreflang | `ar-LB`, `en-LB`, `fr-LB`, `x-default` all correctly set | No changes needed — this part is solid |
+| Canonical | Self-referencing, correct | No changes needed |
+
+## 2. Strategic note before you implement
+
+"توصيل هدايا لبنان" is a **country-level** query, but `/ar-lb/beirut` is a **city-level** page. Two reasonable approaches:
+
+- **A (what's below):** Keep Beirut as the primary on-page focus (it's still your best-converting local intent), but naturally weave "لبنان" through the title, meta, H1, and body so the page is eligible for the broader national query too. This is the low-effort path and is what the rewrite below does.
+- **B (recommended in parallel):** Make sure you have one clearly dominant page for the exact national phrase — likely your `/ar-lb` homepage or a dedicated "توصيل هدايا لبنان" hub page that links out to Beirut, Jounieh, Tripoli, etc. — and have city pages like this one support it via internal links, rather than compete with it. Right now nothing in your Arabic subtree ranks at all, so this is more about fixing the foundation than picking the perfect target.
+
+## 3. Concrete rewrites
+
+**Title tag** (was: `توصيل الأزهار والهدايا في بيروت | Presentail`)
+```
+توصيل هدايا في لبنان وبيروت | Presentail
+```
+
+**Meta description** (was missing "لبنان" entirely)
+```
+اطلب توصيل هدايا في لبنان وبيروت: ورد، كيك، بالونات، شوكولاتة ونباتات. توصيل سريع في نفس اليوم إلى جميع المناطق مع Presentail.
+```
+
+**H1** (was: mixed-language "Fresh Flowers & Gifts, Delivered in بيروت")
+```
+توصيل الزهور والهدايا في لبنان وبيروت
+```
+
+**H2s** — translate fully into Arabic:
+```
+تسوّق حسب المناسبة في بيروت      (was "Shop by Occasion in بيروت")
+الأسئلة الشائعة                    (was "Frequently Asked Questions")
+```
+
+**Breadcrumb / schema `BreadcrumbList`** — currently just "Home > بيروت". Add the country level so it reinforces geo relevance:
+```
+الرئيسية > لبنان > بيروت
+```
+
+## 4. Content expansion (fixes the thin-content + mixed-language issues together)
+
+Replace the current ~250-word mixed-language body with genuinely unique Arabic paragraphs (aim for 400–600 words) that work the keyword and its natural variants in without stuffing: توصيل هدايا, توصيل هدايا لبنان, هدايا اونلاين, توصيل زهور بيروت, هدية للبنان. For example, expand the intro paragraph to something like:
+
+> تقدّم Presentail خدمة توصيل هدايا في لبنان تغطي بيروت وضواحيها بالكامل، مع باقات ورد طازجة، كيك، شوكولاتة، بالونات ونباتات فاخرة. سواء كنت ترسل هدية لصديق في الأشرفية أو تفاجئ عائلتك في الحمرا، يوفر فريقنا توصيلاً في نفس اليوم لجميع أنحاء بيروت ولبنان.
+
+Then keep (and fully Arabize) the existing neighborhood-specific paragraph — that's good, unique local content and should stay.
+
+## 5. Images
+
+Add at least one hero/lifestyle image and a few product images (flowers, cake, gift set) with descriptive Arabic alt text carrying the keyword naturally, e.g.:
+```html
+alt="توصيل هدايا وورد طازج في بيروت لبنان - Presentail"
+```
+This also gives you a shot at Google Image search traffic for gifting queries, which is meaningfully more common than exact-title term queries do.
+
+## 6. Technical / off-page follow-ups
+
+- Check Google Search Console coverage for the `/ar-lb/` subtree specifically — zero tracked rankings across the whole Arabic path suggests either thin/duplicate-feeling content (likely, given the audit above) or an indexing gap worth confirming directly.
+- Once content is expanded, request re-indexing via GSC for this URL.
+- Add internal links from your Arabic homepage and nav using anchor text that includes "توصيل هدايا" pointing to this page and to a national hub page if you build one.
+- Consider a `Product` or `Service`-level schema addition (flowers/cakes/gifts as `Offer`) if you want SERP rich-result eligibility beyond `LocalBusiness`/`FAQPage`, which are already in good shape.
+
+## 7. Priority order
+
+1. Fix H1 + H2s to full Arabic (quick win, biggest relevance signal fix)
+2. Add "لبنان" to title + meta description
+3. Expand body copy to 400–600 unique Arabic words, translate the remaining English sentences
+4. Add images with Arabic alt text
+5. Confirm/request indexing in GSC for the whole `/ar-lb/` subtree
+6. Decide on the city-page-vs-national-hub strategy (Section 2) so you're not diluting effort across pages competing for the same national term

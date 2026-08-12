@@ -1004,6 +1004,15 @@ export function isNonIndexableRouteKey(routeKey) {
  * }>>>}
  */
 export const CITY_HOME_SEO_OVERRIDES = {
+  "lb-beirut": {
+    ar: {
+      title: "توصيل هدايا في لبنان وبيروت | Presentail",
+      description:
+        "اطلب توصيل هدايا في لبنان وبيروت: ورد، كيك، بالونات، شوكولاتة ونباتات. توصيل سريع في نفس اليوم إلى جميع المناطق مع Presentail.",
+      h1: "توصيل الزهور والهدايا في لبنان وبيروت",
+    },
+  },
+
   "lb-batroun": {
     en: {
       title: "Flower Delivery in Batroun, Lebanon | Presentail", // i18n-ignore — crawler-facing EN SEO copy

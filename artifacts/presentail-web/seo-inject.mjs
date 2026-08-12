@@ -751,11 +751,19 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
         }),
       );
     }
-    // Home > {City} breadcrumb on EVERY city homepage (hub or not) — the
-    // hierarchy trail is per-page navigation context, not an organisation
-    // claim, so it must not be gated by the hub-city rule.
+    // Home > {Country} > {City} breadcrumb on EVERY city homepage. The
+    // country level reinforces geo relevance for country-level queries without
+    // needing a separate hub page to link through.
+    const breadcrumbHomeLabel =
+      lang === "ar" ? "الرئيسية" : lang === "fr" ? "Accueil" : "Home";
+    const breadcrumbCountryLabel = parsed.country
+      ? COUNTRY_PLAIN_NAMES[lang]?.[parsed.country] ??
+        COUNTRY_PLAIN_NAMES.en[parsed.country] ??
+        countryLabel
+      : null;
     const cityBreadcrumb = buildBreadcrumbListSchema([
-      { name: "Home", url: siteUrl },
+      { name: breadcrumbHomeLabel, url: siteUrl },
+      ...(breadcrumbCountryLabel ? [{ name: breadcrumbCountryLabel }] : []),
       { name: cityLabel },
     ]);
     // Give the breadcrumb a stable @id when the city home also emits a
@@ -1200,6 +1208,28 @@ const ROUTE_H1 = {
   weddings:  "Bridal Flowers, Table Arrangements & Wedding Gifts in {city}",
   corporate: "Hampers, Branded Gifts & Bulk Delivery for Teams in {city}",
 };
+// Locale-aware H1 templates for Arabic and French city pages so crawlers see
+// fully translated headings rather than mixed-language text.
+const ROUTE_H1_AR = {
+  home:      "توصيل الزهور والهدايا في {city}",
+  shop:      "المجموعة الكاملة — زهور وهدايا ونباتات في {city}",
+  brands:    "العلامات الشريكة المتاحة في {city}",
+  occasions: "هدايا لكل مناسبة توصّل إلى {city}",
+  contact:   "تواصل معنا — دعم الطلبات والتوصيل في {city}",
+  faqs:      "توصيل الزهور والهدايا في {city} — إجابات على أسئلتك",
+  weddings:  "زهور الزفاف وتنسيق الطاولات وهدايا الأعراس في {city}",
+  corporate: "هدايا الشركات والتوصيل بالجملة للفرق في {city}",
+};
+const ROUTE_H1_FR = {
+  home:      "Fleurs et cadeaux livrés à {city}",
+  shop:      "Toute la collection — fleurs, cadeaux et plantes à {city}",
+  brands:    "Marques partenaires disponibles à {city}",
+  occasions: "Cadeaux pour chaque occasion, livrés à {city}",
+  contact:   "Contactez-nous — aide commandes et livraisons à {city}",
+  faqs:      "Livraison de fleurs et cadeaux à {city} — vos questions",
+  weddings:  "Fleurs de mariage, compositions de table et cadeaux à {city}",
+  corporate: "Coffrets, cadeaux de marque et livraisons groupées à {city}",
+};
 
 function buildNavLinks(localeBase) {
   if (!localeBase) return "";
@@ -1247,7 +1277,9 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   // different phrasing, no "| Presentail" suffix. Falls back to title
   // when the route has no entry or cityLabel is unavailable. An explicit
   // h1Override (per-city hand-written copy, e.g. Tripoli) wins over both.
-  const h1Template = ROUTE_H1[routeKey];
+  const h1Template =
+    (lang === "ar" ? ROUTE_H1_AR[routeKey] : lang === "fr" ? ROUTE_H1_FR[routeKey] : null) ??
+    ROUTE_H1[routeKey];
   // Use the template directly when it has no {city} placeholder (e.g. landing),
   // or when a cityLabel is available to fill one. Fall back to title otherwise.
   const h1Text = h1Override ?? (
@@ -1267,8 +1299,12 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   // the required subheading structure for AI crawlers and the Agent Ready scan.
   let faqHtml = "";
   if (faqItems.length > 0) {
+    const faqH2 =
+      lang === "ar" ? "الأسئلة الشائعة" :
+      lang === "fr" ? "Questions fréquentes" :
+      "Frequently Asked Questions";
     faqHtml =
-      `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — crawlers-only heading in non-rendered body
+      `<h2>${escapeHtml(faqH2)}</h2>` +
       faqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
   }
   // Nearby-city links go in a <noscript> block so they are visible to
@@ -1296,10 +1332,22 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     // landing page does not link to noindexed child pages. Re-enable once
     // Batroun inventory grows enough for those pages to become indexable.
     const emitOccasionList = cityKey !== "lb-batroun";
+    const deliveryPara =
+      lang === "ar"
+        ? `<p>توصّل Presentail الزهور والكعك والشوكولاتة والنباتات والهدايا إلى ${safeCityLabel}، ${safeCountryLabel}. التوصيل في نفس اليوم متاح عند الطلب قبل الظهر.</p>`
+        : lang === "fr"
+        ? `<p>Presentail livre fleurs, gâteaux, chocolats, plantes et cadeaux à ${safeCityLabel}, ${safeCountryLabel}. Livraison le jour même disponible pour les commandes passées avant midi.</p>`
+        : `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>`; // i18n-ignore
+    const occasionH2 =
+      lang === "ar"
+        ? `<h2>تسوّق حسب المناسبة في ${safeCityLabel}</h2>`
+        : lang === "fr"
+        ? `<h2>Acheter par occasion à ${safeCityLabel}</h2>`
+        : `<h2>Shop by Occasion in ${safeCityLabel}</h2>`; // i18n-ignore
     homeExtras =
-      `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>` + // i18n-ignore — static EN-only crawlers-only copy
+      deliveryPara +
       (emitOccasionList
-        ? `<h2>Shop by Occasion in ${safeCityLabel}</h2>` + // i18n-ignore
+        ? occasionH2 +
           `<ul>` +
           FEATURED_HOME_OCCASIONS.map(({ slug, name }) =>
             `<li><a href="${localeBase}/occasion/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
