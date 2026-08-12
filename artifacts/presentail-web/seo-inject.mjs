@@ -1151,8 +1151,8 @@ const FEATURED_SHOP_CATEGORIES = [
   // "gift-baskets" is the canonical OS slug for hampers/baskets — "hampers" was wrong.
   { slug: "gift-baskets", name: "Gift Hampers" },
   { slug: "candles", name: "Candles" },
-  // "perfume" (singular) is the canonical OS category slug — "perfumes" was wrong.
-  { slug: "perfume", name: "Perfumes" },
+  // "stuffed-animals" replaces "perfume" which has no matching catalog category and 404s.
+  { slug: "stuffed-animals", name: "Bears & Stuffed Animals" },
 ];
 
 // Static featured occasion list for the city homepage body fragment.
@@ -1233,6 +1233,14 @@ const ROUTE_H1_FR = {
 
 function buildNavLinks(localeBase) {
   if (!localeBase) return "";
+  // Blog canonical is /{lang}/blog — never city-scoped — so derive the
+  // lang-only base from the localeBase which may be city-prefixed (e.g.
+  // "/en-lb/beirut" or "https://presentail.com/en-lb/beirut"). This avoids
+  // emitting city-prefixed blog links that Semrush flags as redirect hops.
+  // Works for both relative (/en-lb/beirut) and absolute (https://…/en-lb/beirut) bases.
+  const originPrefix = localeBase.match(/^https?:\/\/[^/]*/)?.[0] ?? "";
+  const langCode = localeBase.match(/\/([a-z]{2})(?:[^/a-z]|\/|$)/)?.[1] ?? null;
+  const blogBase = langCode ? `${originPrefix}/${langCode}` : localeBase;
   // i18n-ignore — crawler-facing static nav; not rendered in the client UI
   return (
     `<nav aria-label="Presentail">` + // i18n-ignore
@@ -1243,7 +1251,7 @@ function buildNavLinks(localeBase) {
     `<li><a href="${localeBase}/occasions">Occasions</a></li>` + // i18n-ignore
     `<li><a href="${localeBase}/contact">Contact</a></li>` + // i18n-ignore
     `<li><a href="${localeBase}/faqs">FAQs</a></li>` +
-    `<li><a href="${localeBase}/blog">Journal</a></li>` + // i18n-ignore
+    `<li><a href="${blogBase}/blog">Journal</a></li>` + // i18n-ignore — canonical /{lang}/blog, not city-scoped
     `</ul>` +
     `</nav>`
   );

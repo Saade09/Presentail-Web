@@ -114,17 +114,20 @@ export async function translateProductContent(
         description: englishDescription.trim(),
       };
 
-      const resp = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_completion_tokens: 4096,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
-          },
-        ],
-      });
+      const resp = await client.chat.completions.create(
+        {
+          model: "gpt-4o-mini",
+          max_completion_tokens: 4096,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
+            },
+          ],
+        },
+        { signal: AbortSignal.timeout(15_000) },
+      );
 
       const raw = (resp.choices[0]?.message?.content ?? "")
         .trim()
@@ -269,17 +272,20 @@ export async function translateProductNamesBatch(
         if (item.name.trim()) payload[String(item.osNumericId)] = item.name.trim();
       }
 
-      const resp = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_completion_tokens: 4096,
-        messages: [
-          { role: "system", content: BATCH_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
-          },
-        ],
-      });
+      const resp = await client.chat.completions.create(
+        {
+          model: "gpt-4o-mini",
+          max_completion_tokens: 4096,
+          messages: [
+            { role: "system", content: BATCH_SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
+            },
+          ],
+        },
+        { signal: AbortSignal.timeout(15_000) },
+      );
 
       const raw = (resp.choices[0]?.message?.content ?? "")
         .trim()

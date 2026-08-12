@@ -7803,8 +7803,8 @@ describe("Prerender body — generic shop page featured categories", () => {
     // "gift-baskets" is the canonical OS slug for hampers — was "hampers"
     expect(bodyHtml).toContain("/category/gift-baskets");
     expect(bodyHtml).toContain("/category/candles");
-    // "perfume" (singular) is the canonical OS slug — was "perfumes"
-    expect(bodyHtml).toContain("/category/perfume");
+    // "stuffed-animals" replaces "perfume" which has no catalog category and 404s
+    expect(bodyHtml).toContain("/category/stuffed-animals");
   });
 
   it("shop page category links use the correct localeBase prefix", () => {
