@@ -115,7 +115,7 @@ function buildUaeOrderNotification(
     })),
   };
 }
-import { db, appOrdersTable } from "@workspace/db";
+import { db, pool, appOrdersTable } from "@workspace/db";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   resolveStoreFromRequest,
@@ -1216,6 +1216,70 @@ router.post("/woo/order", async (req, res) => {
       .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues }); // i18n-ignore
   }
   const body = parsed.data;
+
+  // ── Cross-instance duplicate guard ─────────────────────────────────────
+  // The browser POST, the Stripe webhook, and the pending-checkout sweeper
+  // can all submit the same order (each is a safety net for the others).
+  // Serialize contenders on a Postgres advisory lock keyed by orderId —
+  // this works across autoscale instances because they share one database.
+  // The lock is released when the response closes, so the idempotency check
+  // below runs strictly after any concurrent creation finished.
+  try {
+    const lockClient = await pool.connect();
+    let lockReleased = false;
+    const releaseOrderLock = () => {
+      if (lockReleased) return;
+      lockReleased = true;
+      void lockClient
+        .query("SELECT pg_advisory_unlock(hashtext($1))", [body.orderId])
+        .catch(() => {})
+        .finally(() => lockClient.release());
+    };
+    try {
+      await lockClient.query("SELECT pg_advisory_lock(hashtext($1))", [body.orderId]);
+      res.once("close", releaseOrderLock);
+    } catch (lockErr) {
+      releaseOrderLock();
+      throw lockErr;
+    }
+  } catch (lockErr: any) {
+    // Non-fatal: fall back to the idempotency pre-check alone.
+    req.log?.warn?.(
+      { err: lockErr?.message, appOrderId: body.orderId },
+      "woo.order: advisory lock acquisition failed (non-fatal — proceeding unlocked)",
+    );
+  }
+
+  // ── Idempotency guard ──────────────────────────────────────────────────
+  // If a row for this appOrderId already exists with an OS order attached,
+  // the order was fully created — return the existing refs instead of
+  // creating a duplicate.
+  try {
+    const existingOrder = await db
+      .select({ osOrderId: appOrdersTable.osOrderId })
+      .from(appOrdersTable)
+      .where(eq(appOrdersTable.appOrderId, body.orderId))
+      .limit(1);
+    if (existingOrder.length > 0 && existingOrder[0].osOrderId) {
+      req.log?.info?.(
+        { appOrderId: body.orderId, osOrderId: existingOrder[0].osOrderId },
+        "woo.order: order already created — returning existing refs (idempotent)",
+      );
+      return res.json({
+        ok: true,
+        alreadyCreated: true,
+        orderId: body.orderId,
+        osOrderId: existingOrder[0].osOrderId,
+      });
+    }
+  } catch (idemErr: any) {
+    // Non-fatal: proceed with normal creation; the DB unique index on
+    // app_order_id is the last-resort duplicate barrier.
+    req.log?.warn?.(
+      { err: idemErr?.message, appOrderId: body.orderId },
+      "woo.order: idempotency pre-check failed (non-fatal)",
+    );
+  }
 
   // Server-side past-date guard — reject any scheduled delivery date that is
   // strictly before "today" in the recipient country's local timezone.  This

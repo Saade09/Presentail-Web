@@ -177,10 +177,14 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent): Promise<v
           // Merge the stored payload with paymentRef + paymentMethod so that
           // /woo/order can verify the Stripe PI using its existing validation
           // and recovery path (Stripe API fallback when in-memory store is gone).
+          // Keep the payload's own paymentMethod ("card" / "klarna" / …).
+          // WooOrderSchema has no "stripe" value — overriding with it made
+          // every webhook-driven order creation fail schema validation.
+          const storedPm = (orderPayload as Record<string, unknown>)?.["paymentMethod"];
           const body = JSON.stringify({
             ...(orderPayload as Record<string, unknown>),
             paymentRef: piId,
-            paymentMethod: "stripe",
+            paymentMethod: typeof storedPm === "string" && storedPm ? storedPm : "card",
           });
           const resp = await fetch(`http://127.0.0.1:${port}/api/woo/order`, {
             method: "POST",
@@ -515,10 +519,14 @@ router.post("/", async (req, res) => {
               void (async () => {
                 try {
                   const port = process.env.PORT ?? "8080";
+                  // Keep the payload's own paymentMethod ("card" / "klarna" / …).
+                  // WooOrderSchema has no "stripe" value — overriding with it made
+                  // every webhook-driven order creation fail schema validation.
+                  const storedPm = (orderPayload as Record<string, unknown>)?.["paymentMethod"];
                   const body = JSON.stringify({
                     ...(orderPayload as Record<string, unknown>),
                     paymentRef: piId,
-                    paymentMethod: "stripe",
+                    paymentMethod: typeof storedPm === "string" && storedPm ? storedPm : "card",
                   });
                   const resp = await fetch(`http://127.0.0.1:${port}/api/woo/order`, {
                     method: "POST",

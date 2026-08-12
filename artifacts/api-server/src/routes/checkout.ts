@@ -1481,7 +1481,35 @@ router.post("/checkout/klarna-pending", async (req, res) => {
   // create records for PIs they don't own.
   // getPaymentIntentForOrder returns the paymentRef string (pi_xxx) directly.
   const storedRef = getPaymentIntentForOrder(orderId);
-  if (!storedRef || storedRef !== piId) {
+  let piVerified = storedRef === piId;
+  if (!piVerified) {
+    // Autoscale / restart recovery: the PI may have been created on a
+    // different instance, so the in-memory store misses. Verify ownership
+    // directly with Stripe by checking the PI's metadata.orderId (set
+    // server-side at PI creation time — clients cannot forge it).
+    const verifyKeys = [
+      process.env.STRIPE_SECRET_KEY,
+      process.env.STRIPE_SECRET_KEY_GULF,
+    ].filter((k): k is string => !!k);
+    for (const key of verifyKeys) {
+      try {
+        const encoded = Buffer.from(`${key}:`).toString("base64");
+        const r = await fetch(
+          `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(piId)}`,
+          { headers: { Authorization: `Basic ${encoded}` } },
+        );
+        if (!r.ok) continue;
+        const data = (await r.json()) as { metadata?: Record<string, string> };
+        if (data.metadata?.orderId === orderId) {
+          piVerified = true;
+          break;
+        }
+      } catch {
+        // Try the next account key.
+      }
+    }
+  }
+  if (!piVerified) {
     req.log.warn(
       { orderId, piId, storedRef },
       "klarna-pending: piId does not match stored intent for orderId", // i18n-ignore

@@ -17,6 +17,7 @@ import { startSessionCoverageMonitor } from "./lib/sessionCoverageMonitor";
 import { startClerkSessionFallbackMonitor } from "./lib/clerkSessionFallbackMonitor";
 import { startSmsFailureMonitor } from "./lib/smsFailureMonitor";
 import { startFxRatesFallbackMonitor } from "./lib/fxRatesFallbackMonitor";
+import { startPendingCheckoutSweeper } from "./lib/pendingCheckoutSweeper";
 import { startSeoAuditMonitor } from "./lib/seoAuditMonitor";
 import { startWebVitalsMonitor } from "./lib/webVitalsMonitor";
 import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonitor";
@@ -87,6 +88,7 @@ app.listen(port, (err) => {
   startClerkSessionFallbackMonitor();
   startSmsFailureMonitor();
   startFxRatesFallbackMonitor();
+  startPendingCheckoutSweeper();
   startSeoAuditMonitor();
   startWebVitalsMonitor();
   startGeoCurrencyFallbackMonitor();

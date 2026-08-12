@@ -46,4 +46,5 @@
 - [AR/FR product translation layer](product-translation.md) — /woo/product reads lang=ar/fr, translates via OpenAI, 7-day cache; seo-inject already sends lang so no web changes needed
 - [CyberSource capture-context schema](cybersource-capture-context-schema.md) — required fields, valid enums (PANENTRY not CARD), locale underscore format, forbidden fields, JWT clientLibrary = UC SDK URL
 - [Task-agent splice corruption](task-agent-splice-corruption.md) — esbuild doesn't type-check; run tsc --noEmit after merges to catch undefined-identifier splices; main Stripe account is Cyprus, accepts all currencies (AED→Gulf)
+- [Charged-but-lost order net](charged-but-lost-orders.md) — card flows must persist order payload server-side before confirm; webhook+sweeper+advisory-lock idempotency rescue paid orders; "stripe" not in WooOrderSchema enum
 - [Stale lib/db dist declarations](db-dist-declarations.md) — phantom "column missing" tsc errors when lib/db/dist .d.ts is stale; run `npx tsc -b lib/db/tsconfig.json` to regenerate

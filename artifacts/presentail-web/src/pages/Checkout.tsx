@@ -2631,6 +2631,42 @@ function CheckoutForm() {
           return;
         }
 
+        // Persist the order payload server-side BEFORE confirming the card
+        // payment. If the browser dies between the charge succeeding and the
+        // /woo/order POST completing (3DS return failure, tab close, stale-
+        // chunk reload), the Stripe webhook / pending-checkout sweeper creates
+        // the order from this record — prevents charged-but-lost orders.
+        // This write is REQUIRED: without it, a browser loss after the charge
+        // leaves the customer charged with no recoverable order. Failing
+        // closed here means the shopper retries with no money taken — the
+        // safer trade-off.
+        {
+          const pendingBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+          const cardPiId = intentRes.clientSecret.split("_secret")[0];
+          const pendingBody = JSON.stringify({
+            orderId,
+            piId: cardPiId,
+            orderPayload: buildOrderPayload({ orderId, paymentMethod: "card", paymentRef: cardPiId }),
+          });
+          let pendingStored = false;
+          for (let attempt = 0; attempt < 2 && !pendingStored; attempt++) {
+            try {
+              const pendingRes = await fetch(`${pendingBase}/api/checkout/klarna-pending`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: pendingBody,
+              });
+              pendingStored = pendingRes.ok;
+            } catch {
+              // Network hiccup — retry once.
+            }
+          }
+          if (!pendingStored) {
+            setStripeCardError(t("checkout.toast.cardUnavailableDesc"));
+            return;
+          }
+        }
+
         // Step 2: Confirm the card payment on the client.
         //
         // Two paths:
