@@ -45,3 +45,4 @@
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice
 - [AR/FR product translation layer](product-translation.md) — /woo/product reads lang=ar/fr, translates via OpenAI, 7-day cache; seo-inject already sends lang so no web changes needed
 - [CyberSource capture-context schema](cybersource-capture-context-schema.md) — required fields, valid enums (PANENTRY not CARD), locale underscore format, forbidden fields, JWT clientLibrary = UC SDK URL
+- [Task-agent splice corruption](task-agent-splice-corruption.md) — esbuild doesn't type-check; run tsc --noEmit after merges to catch undefined-identifier splices; main Stripe account is Cyprus, accepts all currencies (AED→Gulf)

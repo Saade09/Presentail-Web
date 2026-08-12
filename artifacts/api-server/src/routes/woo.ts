@@ -564,7 +564,7 @@ router.get("/woo/brands", (_req, res) => {
   return res.json({
     ok: true,
     brands: osBrands.map((b) => {
-  const rawBrandEntry = rawBrands?.find((b: OSCatalogAttributeBrand) => b.slug === brandSlug);
+      const rawBrandEntry = rawBrands?.find((rb: OSCatalogAttributeBrand) => rb.slug === b.slug);
       // OS API returns banner_image_url (absolute CDN URL); cover_image is a
       // forward-compat alias kept for potential future OS API versions.
       const cover_image = rawBrandEntry?.banner_image_url ?? rawBrandEntry?.cover_image ?? null;
@@ -979,7 +979,7 @@ router.get("/woo/product-pricing/:osId", async (req, res) => {
       return res.status(osRes.status).json({ ok: false, message: `OS returned ${osRes.status}` }); // i18n-ignore
     }
 
-  const body = parsed.data;
+    const body = (await osRes.json()) as Record<string, unknown>;
 
     function parseP(v: unknown): number | null {
       if (v == null || v === "" || v === "0" || v === 0) return null;
@@ -1198,7 +1198,7 @@ router.post("/woo/order", async (req, res) => {
     });
   }
 
-  const parsed = SearchQuerySchema.safeParse(req.query);
+  const parsed = WooOrderSchema.safeParse(req.body);
   if (!parsed.success) {
     req.log?.warn?.(
       { issues: parsed.error.issues },
@@ -1643,6 +1643,13 @@ router.post("/woo/order", async (req, res) => {
 
     // Layer 1: Verify orderId↔paymentRef binding.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
+    if (!intent) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
+      });
+    }
 
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
@@ -1725,6 +1732,13 @@ router.post("/woo/order", async (req, res) => {
     // of the order exists); ambiguous network failures leave the intent consumed
     // and rely on the reconciliation queue — the same behavior as Stripe/Mamo.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
+    if (!intent) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
+      });
+    }
 
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,

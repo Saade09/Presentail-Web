@@ -254,10 +254,10 @@ router.post("/checkout/session", async (req, res) => {
       priceUsd: i.priceUsd,
       quantity: i.quantity,
     }));
-    const couponResult = await validateCoupon(couponCode.trim(), {
+    const couponResult = await validateCoupon(trimmedSessionCouponCode, {
       customerEmail: email ?? "",
       cartItems: cartItemsForCoupon,
-      cartTotalUsd: rawTotalUsd,
+      cartTotalUsd: sessionTotalUsd,
     });
       if (couponResult.valid) {
         // Guard against concurrent FIRST10 claims — same logic as /checkout/payment-intent.
@@ -1104,7 +1104,7 @@ router.get("/checkout/payment-methods", async (req, res) => {
       return res.status(404).json({ ok: false, message: "No saved payment methods" }); // i18n-ignore
     }
 
-    const stripe = new Stripe(key);
+    const stripe = new Stripe(stripeKey);
     const list = await stripe.paymentMethods.list({ customer: customerId, type: "card" });
     const results = list.data
       .filter((pm) => pm.card)
@@ -1162,7 +1162,7 @@ router.delete("/checkout/payment-methods/:id", async (req, res) => {
       return res.status(404).json({ ok: false, message: "No saved payment methods" }); // i18n-ignore
     }
 
-    const stripe = new Stripe(key);
+    const stripe = new Stripe(stripeKey);
     const pm = await stripe.paymentMethods.retrieve(pmId);
     if (pm.customer !== customerId) {
       return res.status(404).json({ ok: false, message: "Payment method not found" }); // i18n-ignore
@@ -1358,7 +1358,7 @@ router.post("/checkout/fees", async (req, res) => {
 //
 // Response: { ok: true, status: string, orderId: string | null, amount: number, currency: string }
 router.get("/checkout/payment-status", async (req, res) => {
-  const piId = req.query.pi;
+  const piId = typeof req.query.pi === "string" ? req.query.pi : "";
   if (!piId || !piId.startsWith("pi_")) {
     return res.status(400).json({ ok: false, message: "paymentIntentId is required and must start with pi_" }); // i18n-ignore
   }
