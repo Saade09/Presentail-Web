@@ -822,21 +822,6 @@ export const useTabbyPayment = () => {
   });
 };
 
-export const useCyberSourceCaptureContext = () => {
-  return useMutation({
-    mutationFn: (data: { currency?: string; amount?: number }) =>
-      apiFetch<{
-        ok: boolean;
-        captureContext?: string;
-        environment?: "test" | "production";
-        message?: string;
-        code?: string;
-      }>("/payment/cybersource/capture-context", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-  });
-};
 export type SearchProduct = {
   slug: string;
   name: string;
@@ -1008,48 +993,3 @@ export const useSearch = (q: string, params: LocalizedParams = {}) => {
   };
 };
 
-export const useCyberSourceAuthorize = () => {
-  return useMutation({
-    mutationFn: (data: {
-      transientToken: string;
-      orderId: string;
-      currency: string;
-      items: { wcId: number; osSlug?: string; quantity: number }[];
-      district?: string;
-      expressDelivery?: boolean;
-      noAddress?: boolean;
-      deliverySlot?: string;
-      deliverySlotId?: string;
-      cityId?: string;
-      deliveryDate?: string;
-      /** Coupon code to validate and apply server-side. Never trust the client-supplied discount amount. */
-      couponCode?: string;
-      /** Buyer email for coupon eligibility checks (e.g. first-order discount). */
-      customerEmail?: string;
-      threeDSAuthData?: {
-        cavv?: string;
-        eci?: string;
-        authenticationTransactionId?: string;
-        paReason?: string;
-      };
-    }) =>
-      apiFetch<{
-        ok: boolean;
-        paymentRef?: string;
-        status?: string;
-        message?: string;
-        code?: string;
-        csStatus?: string;
-        couponCode?: string;
-        /** True when a 3DS challenge must be completed before authorization. */
-        pending3DS?: boolean;
-        /** CyberSource ACS challenge URL — open in an iframe with JWT=accessToken. */
-        stepUpUrl?: string | null;
-        /** JWT to POST to stepUpUrl as the `JWT` form field. */
-        accessToken?: string | null;
-      }>("/payment/cybersource/authorize", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-  });
-};

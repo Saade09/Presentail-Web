@@ -82,7 +82,6 @@ export const checkoutStrings: Dict = {
   // Payment method labels (used via webPaymentMethodLabelKey in checkoutPayMethods.ts — dynamic key, not a direct t() call)
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.card": { en: "Credit / Debit Card", ar: "بطاقة ائتمان / دفع" },
-  "checkout.pay.cardTemporarilyUnavailable": { en: "Card payment is temporarily unavailable for Lebanon USD orders.", ar: "الدفع بالبطاقة غير متاح مؤقتاً للطلبات باللبناني الأمريكي." },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.apple_pay": { en: "Apple Pay", ar: "Apple Pay" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
@@ -356,7 +355,6 @@ export const checkoutStringsFr: Record<string, string> = {
 
   // Payment method labels
   "checkout.pay.card": "Carte de crédit / débit",
-  "checkout.pay.cardTemporarilyUnavailable": "Le paiement par carte est temporairement indisponible pour les commandes Liban USD.",
   "checkout.pay.apple_pay": "Apple Pay",
   "checkout.pay.google_pay": "Google Pay",
   "checkout.pay.mamo": "Mamo",

@@ -24,8 +24,6 @@ import {
   usePaypalPayment,
   useTabbyPayment,
   useFxRates,
-  useCyberSourceCaptureContext,
-  useCyberSourceAuthorize,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
@@ -103,15 +101,6 @@ const LazyStripeSection = lazy(() =>
   import("@/components/StripeCheckoutSection").then((m) => ({ default: m.StripeCheckoutSection })),
 );
 
-// CyberSource UC Microform — only loaded when the shopper picks the
-// CyberSource tile (Lebanon+USD only). Dynamic import avoids adding the
-// CyberSource SDK/component code to any other checkout bundle.
-import { Cs3dsChallenge } from "@/components/Cs3dsChallenge";
-const LazyCyberSourceSection = lazy(() =>
-  import("@/components/CyberSourceCheckoutSection").then((m) => ({
-    default: m.CyberSourceCheckoutSection,
-  })),
-);
 /**
  * Absolute return URL for payment providers, pointing at the order-confirmed
  * page. Includes the current locale prefix (/en-lb/beirut) parsed from the
@@ -212,11 +201,7 @@ function getStripePromise(deliveryCountryCode?: string) {
 // (no Western Union). All availability / label / fallback decisions go
 // through the pure helpers in `./checkoutPayMethods`, which wrap the shared
 // `@workspace/pay-methods` table and mirror the mobile checkout.
-// "cybersource" is a special-cased method for Lebanon+USD shoppers only —
-// it is not part of the WebPaymentMethodId union and not routed through the
-// shared compatibility table; its tile appears solely when the server confirms
-// the caller's IP is LB and the display currency is USD.
-type PaymentMethodId = WebPaymentMethodId | "klarna" | "cybersource";
+type PaymentMethodId = WebPaymentMethodId | "klarna";
 
 // Branded submit button — swaps the generic teal button for a method-specific
 // branded button when the shopper has selected Apple Pay, Google Pay, PayPal,
@@ -595,9 +580,6 @@ function CheckoutForm() {
   const mamoPayment = useMamoPayment();
   const paypalPayment = usePaypalPayment();
   const tabbyPayment = useTabbyPayment();
-  const csCaptureContextMutation = useCyberSourceCaptureContext();
-  const csAuthorizeMutation = useCyberSourceAuthorize();
-
   // Expiry field managed here so we can read it in the submit handler.
   const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
@@ -946,42 +928,6 @@ function CheckoutForm() {
     } catch { return 0; }
   });
   const [cardProcessing, setCardProcessing] = useState(false);
-  // ── CyberSource UC state ─────────────────────────────────────────────────
-  // csNeeded: stays true once set so LazyCyberSourceSection is never unmounted.
-  const [csNeeded, setCsNeeded] = useState(false);
-  // Capture-context JWT fetched from the backend for the current checkout attempt.
-  const [csCaptureContext, setCsCaptureContext] = useState<string | null>(null);
-  const [csCaptureEnvironment, setCsCaptureEnvironment] = useState<"test" | "production">("test");
-  const [csCardError, setCsCardError] = useState<string | null>(null);
-  // Expiry fields — plain inputs rendered inline in the CyberSource tile.
-  const [csExpiryMonth, setCsExpiryMonth] = useState("01");
-  const [csExpiryYear, setCsExpiryYear] = useState(String(new Date().getFullYear()));
-  // Ref to the CS section handle so we can call createToken() on submit.
-  const csSectionRef = useRef<import("@/components/CyberSourceCheckoutSection").CyberSourceSectionHandle | null>(null);
-  // 3DS challenge state: set when /authorize returns pending3DS:true + stepUpUrl.
-  // The Cs3dsChallenge overlay shows the ACS challenge in an iframe; when the
-  // shopper completes the challenge the overlay calls handleCs3dsComplete(tid).
-  const [cs3dsPending, setCs3dsPending] = useState<{
-    stepUpUrl: string;
-    accessToken: string;
-  } | null>(null);
-  // Saved authorize payload for the post-challenge validation call. Populated
-  // before showing the 3DS challenge so the re-submit can use the same cart state.
-  const cs3dsPendingPayloadRef = useRef<{
-    transientToken: string;
-    orderId: string;
-    currency: string;
-    items: { wcId: number; osSlug?: string; quantity: number }[];
-    district?: string;
-    expressDelivery?: boolean;
-    noAddress?: boolean;
-    deliverySlot?: string;
-    deliverySlotId?: string;
-    cityId?: string;
-    deliveryDate?: string;
-    couponCode?: string;
-    customerEmail?: string;
-  } | null>(null);
   // ─────────────────────────────────────────────────────────────────────────
   const couponInputRef = useRef<HTMLInputElement>(null);
   // Stores the server-assigned order ID for the current checkout attempt.
@@ -1474,10 +1420,9 @@ function CheckoutForm() {
   // If the currently selected payment method is no longer available for
   // the active currency / country, re-select a sensible default.
   useEffect(() => {
-    // "klarna" and "cybersource" are special-cased methods not in the
-    // WebPaymentMethodId union — skip the fallback logic for both so that
-    // selecting either tile does not get immediately overridden.
-    if (paymentMethod === "klarna" || paymentMethod === "cybersource") return;
+    // "klarna" is a special-cased method not in the WebPaymentMethodId union —
+    // skip the fallback logic so that selecting it does not get immediately overridden.
+    if (paymentMethod === "klarna") return;
     const fallback = webNextPaymentMethod(paymentMethod as WebPaymentMethodId, {
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
@@ -1976,52 +1921,6 @@ function CheckoutForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, deliveryMode, _selectedDistrict, noAddress, confirmedCouponDiscount, deliverySlot]);
 
-  // Track the last CyberSource-relevant total so we can detect genuine changes
-  // and avoid firing the invalidation effect on the initial render (when the total
-  // is already at its initial value and no context exists yet).
-  const prevCsTotalRef = useRef<number | null>(null);
-
-  // Invalidate the CyberSource capture context only when the payable total has
-  // actually changed after an initial value was recorded. This prevents the effect
-  // from firing on the very first render (when `prevCsTotalRef` is still null),
-  // which would race with the eager fetch initiated by tile selection and clear the
-  // context immediately after it arrives.
-  useEffect(() => {
-    const currentTotal = computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount);
-    if (prevCsTotalRef.current !== null && prevCsTotalRef.current !== currentTotal) {
-      // Total genuinely changed — the existing context is stale. Clear it so the
-      // auto-refetch effect below can fetch a fresh context with the new amount.
-      setCsCaptureContext(null);
-    }
-    prevCsTotalRef.current = currentTotal;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal, districtFee, expressFee, slotFee, confirmedCouponDiscount]);
-
-  // Auto-refetch the capture context when the CyberSource tile is already selected
-  // and the context has been invalidated (cleared by the effect above after a total
-  // change). Without this, the Microform disappears and the shopper is stuck: the
-  // form shows "not ready" but re-clicking the already-selected tile has no effect.
-  useEffect(() => {
-    if (paymentMethod !== "cybersource" || csCaptureContext !== null || csCaptureContextMutation.isPending) {
-      return;
-    }
-    const currentTotal = computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount);
-    csCaptureContextMutation.mutate(
-      { currency: checkoutCurrency, amount: currentTotal },
-      {
-        onSuccess(res) {
-          if (res.ok && res.captureContext) {
-            setCsCaptureContext(res.captureContext);
-            setCsCaptureEnvironment(res.environment ?? "test");
-          }
-        },
-      },
-    );
-    // Only re-run when paymentMethod changes or when the context was cleared.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentMethod, csCaptureContext]);
-
-
   // Derived display values: prefer server-authoritative USD amounts when the
   // override is set; fall back to client-computed fees otherwise. These drive
   // OrderSummaryPanel and PaymentSubmitButton so the visible total always
@@ -2094,19 +1993,7 @@ function CheckoutForm() {
     mamoPayment.isPending ||
     paypalPayment.isPending ||
     tabbyPayment.isPending ||
-    csCaptureContextMutation.isPending ||
-    csAuthorizeMutation.isPending ||
     cardProcessing;
-
-  // Gate: CyberSource tile is shown only when the shopper's IP geolocates to
-  // Lebanon AND the display currency is USD. Both conditions must hold
-  // simultaneously. ipCountry is set from the geo-currency query already in
-  // flight on checkout mount; we wait for it to settle before showing the tile
-  // to avoid a flash on non-LB shoppers.
-  const isLbUsdEligible =
-    ipCountrySettled &&
-    ipCountry === "LB" &&
-    checkoutCurrency === "USD";
 
   // Active display currency derived from the active country. Used both
   // by the payment-method picker (to hide unavailable methods) and by
@@ -2236,10 +2123,9 @@ function CheckoutForm() {
     }
   };
 
-  // Stable ref kept current on every render so memoised callbacks (e.g.
-  // handleCs3dsComplete, which is useCallback with limited deps) can always
+  // Stable ref kept current on every render so callbacks with limited deps can always
   // invoke the latest version of finalizeOrderNow — one that closes over the
-  // current cart state and orderIdRef. Without this, the memoised callback
+  // current cart state and orderIdRef. Without this, a memoised callback
   // would hold a stale snapshot of finalizeOrderNow from the render where it
   // was last recreated (deps unchanged = never recreated), which may predate
   // the ensureOrderId() call that populated orderIdRef.current.
@@ -2283,70 +2169,6 @@ function CheckoutForm() {
     // checkout that finalizes via `finalizeOrderNow`.
     window.location.href = url;
   };
-
-  // ── CyberSource 3DS challenge completion handler ─────────────────────────
-  // Called by the Cs3dsChallenge overlay when the ACS challenge completes and
-  // postMessages the transactionId back. This makes the validation authorize call
-  // (second /authorize call) with the transactionId in threeDSAuthData.
-  const handleCs3dsComplete = useCallback(
-    async (transactionId: string) => {
-      setCs3dsPending(null);
-      const savedPayload = cs3dsPendingPayloadRef.current;
-      if (!savedPayload) return;
-
-      setCsCardError(null);
-      setCardProcessing(true);
-      try {
-        const validationRes = await csAuthorizeMutation.mutateAsync({
-          ...savedPayload,
-          threeDSAuthData: { authenticationTransactionId: transactionId },
-        });
-
-        if (!validationRes.ok || !validationRes.paymentRef) {
-          const code = validationRes.code ?? "";
-          let description: string;
-          if (code === "cybersource_not_authorized" && validationRes.csStatus === "DECLINED") {
-            description = "Your card was declined. Please check your card details or try a different card."; // i18n-ignore
-          } else if (code === "cybersource_not_authorized") {
-            description = validationRes.message || "Card authorisation was not approved. Please try again."; // i18n-ignore
-          } else {
-            description = validationRes.message || t("checkout.toast.cardPaymentFailed");
-          }
-          setCsCardError(description);
-          setCsCaptureContext(null);
-          cs3dsPendingPayloadRef.current = null;
-          return;
-        }
-
-        void maybeSaveNewAddress();
-        void maybeSaveProfilePhone();
-        // Use finalizeOrderNowRef.current (not finalizeOrderNow) so this
-        // useCallback always invokes the LATEST version of finalizeOrderNow,
-        // which closes over the current orderIdRef value and cart state.
-        // Calling the stale-closure finalizeOrderNow captured at memoisation
-        // time (deps: [csAuthorizeMutation, t]) would use an older buildOrderPayload
-        // that may pre-date the ensureOrderId() call that populated orderIdRef,
-        // causing the /woo/order payload to fall back to "LB-0" while the
-        // CyberSource intent is bound to the real server-issued orderId.
-        await finalizeOrderNowRef.current(validationRes.paymentRef, "cybersource");
-        cs3dsPendingPayloadRef.current = null;
-      } finally {
-        setCardProcessing(false);
-      }
-    },
-    // finalizeOrderNowRef is a stable ref object (same identity across renders)
-    // so it intentionally omits finalizeOrderNow from deps — the ref always
-    // holds the latest version without triggering callback recreation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [csAuthorizeMutation, t],
-  );
-
-  const handleCs3dsCancel = useCallback(() => {
-    setCs3dsPending(null);
-    setCardProcessing(false);
-    cs3dsPendingPayloadRef.current = null;
-    setCsCardError("Card verification was cancelled. Please try again."); // i18n-ignore
-  }, []);
 
   const handleSubmit = async () => {
     try {
@@ -3141,146 +2963,6 @@ function CheckoutForm() {
         return;
       }
 
-      // ── CyberSource UC submit handler ────────────────────────────────────
-      if (payMethod === "cybersource") {
-        setCsCardError(null);
-        setCardProcessing(true);
-
-        try {
-          // Step 1: Use the capture context that was fetched when the shopper selected
-          // the CyberSource tile and used to initialize the Microform hosted fields.
-          // The transient token created by Microform is cryptographically bound to
-          // the context it was initialized with — regenerating the context here would
-          // create a mismatch between the Microform's active context and the one we
-          // pass to CyberSource, which would cause authorization to fail.
-          //
-          // Cart-change invalidation: when delivery fees, coupon, or items change after
-          // the tile was selected, `csCaptureContext` is set to null by the useEffect
-          // below, which triggers the Microform to remount with a fresh context fetched
-          // on the next tile interaction. The shopper must re-enter card details after
-          // a significant total change (same as native wallet flows).
-          const captureContext = csCaptureContext;
-          const captureEnv = csCaptureEnvironment;
-
-          if (!captureContext) {
-            // No context yet — the Microform hasn't initialized. This can happen if
-            // the shopper manually invokes submit before the eager fetch completes
-            // or after a total change invalidated the context.
-            toast({
-              title: t("checkout.toast.failTitle"),
-              description: "Card form is still loading. Please wait a moment — or use the Retry link if it has failed to load.", // i18n-ignore
-              variant: "destructive",
-            });
-            return;
-          }
-
-          // Step 2: Collect the transient token from the hosted Microform iframes.
-          const csSection = csSectionRef.current;
-          if (!csSection) {
-            toast({
-              title: t("checkout.toast.failTitle"),
-              description: "Card form is still loading. Please wait a moment — or use the Retry link if it has failed to load.", // i18n-ignore
-              variant: "destructive",
-            });
-            return;
-          }
-
-          let transientToken: string;
-          try {
-            transientToken = await csSection.createToken(csExpiryMonth, csExpiryYear);
-          } catch (tokenErr: unknown) {
-            const msg = tokenErr instanceof Error ? tokenErr.message : "Could not read your card details. Please check and try again."; // i18n-ignore
-            setCsCardError(msg);
-            return;
-          }
-
-          // Step 3: Ensure the order ID is reserved server-side before calling
-          // CyberSource. ensureOrderId() fetches a new ID from /orders/next-id on
-          // the first call and returns the cached value on retries — so retrying
-          // after a card decline always reuses the same orderId (binding preserved).
-          // Using `orderIdRef.current ?? "LB-0"` directly would risk sending "LB-0"
-          // if ensureOrderId had not been called yet in this session.
-          const csOrderId = await ensureOrderId();
-
-          // Step 3b: Call the backend authorize endpoint. Cart prices are
-          // resolved server-side — the server ignores any client-supplied amount.
-          // Coupon validation also happens server-side; the server applies the
-          // authoritative discount to the charged total.
-          //
-          // paReturnUrl is constructed entirely server-side from CYBERSOURCE_ALLOWED_ORIGINS.
-          // Do NOT send it from the client — a client-controlled return URL would
-          // allow an attacker to redirect ACS 3DS callbacks to an arbitrary origin.
-
-          const authorizePayload = {
-            transientToken,
-            orderId: csOrderId,
-            currency: checkoutCurrency,
-            items: items.map((i) => ({
-              wcId: i.product.wcId,
-              osSlug: i.product.id,
-              quantity: i.quantity,
-            })),
-            district: _selectedDistrict,
-            expressDelivery: deliveryMode === "express",
-            noAddress,
-            deliverySlot: deliveryMode === "express" ? "" : deliverySlot || undefined,
-            ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
-            ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
-            deliveryDate: deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
-            // Pass coupon code so the server can validate and apply the discount
-            // to the CyberSource charge (preventing over-charge on discounted orders).
-            ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
-            customerEmail: sender.email || undefined,
-          };
-
-          const authRes = await csAuthorizeMutation.mutateAsync(authorizePayload);
-
-          // ── 3DS challenge required ───────────────────────────────────────
-          // CyberSource requires a step-up authentication challenge before the
-          // card can be charged. Show the ACS challenge in an iframe; after the
-          // shopper completes it the Cs3dsChallenge overlay calls handleCs3dsComplete
-          // which re-calls /authorize with the resulting transactionId.
-          if (authRes.pending3DS && authRes.stepUpUrl && authRes.accessToken) {
-            // Save the current authorize payload so the post-challenge validation
-            // call can replay it (plus the threeDSAuthData from the ACS result).
-            cs3dsPendingPayloadRef.current = authorizePayload;
-            setCs3dsPending({
-              stepUpUrl: authRes.stepUpUrl,
-              accessToken: authRes.accessToken,
-            });
-            // Keep cardProcessing = true until the 3DS overlay is dismissed.
-            return;
-          }
-
-          if (!authRes.ok || !authRes.paymentRef) {
-            const code = authRes.code ?? "";
-            let description: string;
-            if (code === "cybersource_not_authorized" && authRes.csStatus === "DECLINED") {
-              description = "Your card was declined. Please check your card details or try a different card."; // i18n-ignore
-            } else if (code === "cybersource_not_authorized") {
-              description = authRes.message || "Card authorisation was not approved. Please try again."; // i18n-ignore
-            } else {
-              description = authRes.message || t("checkout.toast.cardPaymentFailed");
-            }
-            setCsCardError(description);
-            // Reset capture context so a fresh one is fetched on the next attempt.
-            setCsCaptureContext(null);
-            return;
-          }
-
-          // Step 4: Finalize the order immediately — no redirect needed.
-          // Pass "cybersource" explicitly so the order API receives the correct
-          // paymentMethod regardless of which value `paymentMethod` state holds
-          // in the closure at the time this handler runs.
-          void maybeSaveNewAddress();
-          void maybeSaveProfilePhone();
-          await finalizeOrderNow(authRes.paymentRef, "cybersource");
-          return;
-        } finally {
-          setCardProcessing(false);
-        }
-      }
-
       await finalizeOrderNow();
     } catch (err) {
       const isNetworkFailure = err instanceof TypeError;
@@ -3907,145 +3589,6 @@ function CheckoutForm() {
                       );
                     })}
 
-                    {/* CyberSource UC tile — Lebanon+USD only. Only rendered once the
-                        IP geo query has settled so there's no flash for non-LB shoppers. */}
-                    {isLbUsdEligible && (
-                      <div
-                        className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === "cybersource" ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}
-                        style={paymentMethod === "cybersource" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.04)", outlineColor: "hsl(var(--primary) / 0.15)" } : {}}
-                        onClick={() => {
-                          setPaymentMethod("cybersource");
-                          setStripeCardError(null);
-                          setCsCardError(null);
-                          setCsNeeded(true);
-                          // Eagerly fetch the capture context so the Microform can
-                          // initialise while the shopper reviews the order summary.
-                          // Always include the current estimated total so the
-                          // capture context has a meaningful amount; the context
-                          // will be regenerated on submit with the final amount.
-                          csCaptureContextMutation.mutate(
-                            {
-                              currency: checkoutCurrency,
-                              amount: computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount),
-                            },
-                            {
-                              onSuccess(res) {
-                                if (res.ok && res.captureContext) {
-                                  setCsCaptureContext(res.captureContext);
-                                  setCsCaptureEnvironment(res.environment ?? "test");
-                                }
-                              },
-                            },
-                          );
-                        }}
-                        data-testid="option-payment-cybersource"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors" style={paymentMethod === "cybersource" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary))" } : { borderColor: "rgba(0,0,0,0.25)" }}>
-                            {paymentMethod === "cybersource" && <div className="w-2 h-2 rounded-full bg-white" />}
-                          </div>
-                          <span className="font-medium text-sm">{t("checkout.pay.card")}</span>
-                          <div className="ml-auto flex items-center gap-1">
-                            {[
-                              { name: "Visa", src: visaLogo },
-                              { name: "Mastercard", src: mastercardLogo },
-                              { name: "Amex", src: amexLogo },
-                            ].map((logo) => (
-                              <span
-                                key={logo.name}
-                                title={logo.name}
-                                className="inline-flex overflow-hidden rounded-[4px]"
-                                style={{ width: 48, height: 34 }}
-                              >
-                                <img src={logo.src} alt={logo.name} className="block w-full h-full object-fill" loading="lazy" decoding="async" draggable={false} />
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Hosted Microform card fields — only rendered when this tile is selected */}
-                        {paymentMethod === "cybersource" && (
-                          <>
-                            <div className="mt-3 ms-8 grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                <label className="text-xs font-medium text-muted-foreground">{/* // i18n-ignore */}Expiry month</label>
-                                <select
-                                  value={csExpiryMonth}
-                                  onChange={(e) => setCsExpiryMonth(e.target.value)}
-                                  disabled={isProcessing}
-                                  className="w-full h-10 border border-input rounded-lg px-3 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                                  aria-label="Card expiry month" // i18n-ignore
-                                >
-                                  {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m) => (
-                                    <option key={m} value={m}>{m}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs font-medium text-muted-foreground">{/* // i18n-ignore */}Expiry year</label>
-                                <select
-                                  value={csExpiryYear}
-                                  onChange={(e) => setCsExpiryYear(e.target.value)}
-                                  disabled={isProcessing}
-                                  className="w-full h-10 border border-input rounded-lg px-3 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                                  aria-label="Card expiry year" // i18n-ignore
-                                >
-                                  {Array.from({ length: 12 }, (_, i) => String(new Date().getFullYear() + i)).map((y) => (
-                                    <option key={y} value={y}>{y}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                            {csNeeded && csCaptureContext && (
-                              <Suspense fallback={<p className="mt-3 ms-8 text-sm text-muted-foreground">{/* // i18n-ignore */}Loading card form…</p>}>
-                                <LazyCyberSourceSection
-                                  ref={csSectionRef}
-                                  captureContext={csCaptureContext}
-                                  environment={csCaptureEnvironment}
-                                  disabled={isProcessing}
-                                />
-                              </Suspense>
-                            )}
-                            {csCaptureContextMutation.isPending && !csCaptureContext && (
-                              <p className="mt-3 ms-8 text-sm text-muted-foreground">{/* // i18n-ignore */}Preparing secure card form…</p>
-                            )}
-                            {/* Retry prompt when the capture-context fetch failed (e.g. wrong
-                                credentials in dev, or a transient network error in prod). */}
-                            {csCaptureContextMutation.isError && !csCaptureContext && !csCaptureContextMutation.isPending && (
-                              <div className="mt-3 ms-8 flex items-center gap-2">
-                                <p className="text-sm text-destructive">{/* // i18n-ignore */}Could not load card form.</p>
-                                <button
-                                  type="button"
-                                  className="text-sm underline text-primary"
-                                  onClick={() =>
-                                    csCaptureContextMutation.mutate(
-                                      {
-                                        currency: checkoutCurrency,
-                                        amount: computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount),
-                                      },
-                                      {
-                                        onSuccess(res) {
-                                          if (res.ok && res.captureContext) {
-                                            setCsCaptureContext(res.captureContext);
-                                            setCsCaptureEnvironment(res.environment ?? "test");
-                                          }
-                                        },
-                                      },
-                                    )
-                                  }
-                                >
-                                  {/* // i18n-ignore */}Retry
-                                </button>
-                              </div>
-                            )}
-                            {csCardError && (
-                              <p className="mt-3 ms-8 text-sm text-destructive">{csCardError}</p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-
                     {klarnaEnabled && checkoutCurrency !== "AED" && countryCode !== "AE" && (
                       <div
                         className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === "klarna" ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}
@@ -4263,17 +3806,6 @@ function CheckoutForm() {
         cityExpressAvailable={selectedCityData?.expressAvailable === true}
       />
 
-      {/* CyberSource 3DS challenge overlay — rendered outside the form flow so
-          it sits above everything else and the shopper completes the challenge
-          before /authorize is called again with the resulting transactionId. */}
-      {cs3dsPending && (
-        <Cs3dsChallenge
-          stepUpUrl={cs3dsPending.stepUpUrl}
-          accessToken={cs3dsPending.accessToken}
-          onComplete={handleCs3dsComplete}
-          onCancel={handleCs3dsCancel}
-        />
-      )}
     </div>
   );
 }

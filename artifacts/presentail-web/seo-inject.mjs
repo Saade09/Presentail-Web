@@ -1334,15 +1334,15 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     const emitOccasionList = cityKey !== "lb-batroun";
     const deliveryPara =
       lang === "ar"
-        ? `<p>توصّل Presentail الزهور والكعك والشوكولاتة والنباتات والهدايا إلى ${safeCityLabel}، ${safeCountryLabel}. التوصيل في نفس اليوم متاح عند الطلب قبل الظهر.</p>`
+        ? `<p>توصّل Presentail الزهور والكعك والشوكولاتة والنباتات والهدايا إلى ${safeCityLabel}، ${safeCountryLabel}. التوصيل في نفس اليوم متاح عند الطلب قبل الظهر.</p>` // i18n-ignore
         : lang === "fr"
-        ? `<p>Presentail livre fleurs, gâteaux, chocolats, plantes et cadeaux à ${safeCityLabel}, ${safeCountryLabel}. Livraison le jour même disponible pour les commandes passées avant midi.</p>`
+        ? `<p>Presentail livre fleurs, gâteaux, chocolats, plantes et cadeaux à ${safeCityLabel}, ${safeCountryLabel}. Livraison le jour même disponible pour les commandes passées avant midi.</p>` // i18n-ignore
         : `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>`; // i18n-ignore
     const occasionH2 =
       lang === "ar"
-        ? `<h2>تسوّق حسب المناسبة في ${safeCityLabel}</h2>`
+        ? `<h2>تسوّق حسب المناسبة في ${safeCityLabel}</h2>` // i18n-ignore
         : lang === "fr"
-        ? `<h2>Acheter par occasion à ${safeCityLabel}</h2>`
+        ? `<h2>Acheter par occasion à ${safeCityLabel}</h2>` // i18n-ignore
         : `<h2>Shop by Occasion in ${safeCityLabel}</h2>`; // i18n-ignore
     homeExtras =
       deliveryPara +
