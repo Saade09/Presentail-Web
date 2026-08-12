@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { occasions as staticOccasions, type Occasion } from "@/data/catalog";
 import { fetchOsOccasions } from "@/lib/woo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Returns the live OS-filtered occasion list from /api/catalog/metadata.
@@ -11,19 +12,21 @@ import { fetchOsOccasions } from "@/lib/woo";
  * best-effort icon and no image).
  *
  * On network failure the static list is retained permanently.
+ * Occasion names are translated into the active app language (AR/FR) when set.
  */
 export function useOsOccasions(): Occasion[] {
   const [occs, setOccs] = useState<Occasion[]>(staticOccasions);
+  const { lang } = useLanguage();
 
   useEffect(() => {
     let cancelled = false;
-    fetchOsOccasions().then((result) => {
+    fetchOsOccasions(lang.toLowerCase()).then((result) => {
       if (!cancelled && result.length > 0) setOccs(result as Occasion[]);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lang]);
 
   return occs;
 }

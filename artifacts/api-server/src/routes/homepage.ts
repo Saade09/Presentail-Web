@@ -9,6 +9,7 @@ import {
 import type { z } from "zod";
 type HomepageCollectionItem = z.infer<typeof GetHomepageCategoriesResponse>["items"][number];
 import { translateBanners, type BannerLang } from "../lib/bannerTranslation";
+import { translateCategoryOccasionNames, type CategoryOccasionLang } from "../lib/categoryOccasionTranslation";
 import { db, appOrdersTable, collectionRankingConfigTable } from "@workspace/db";
 import type { CollectionRankingConfigRow } from "@workspace/db";
 import { inArray } from "drizzle-orm";
@@ -494,10 +495,17 @@ function isDebugRequest(req: import("express").Request): boolean {
 router.get("/homepage/categories", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
   const cityId = typeof req.query.cityId === "string" ? req.query.cityId : null;
+  const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
   const debug = isDebugRequest(req);
 
   const { items: scored, debugMap } = await buildOsCategories(countryCode, cityId);
-  const items = scored ?? [];
+  let items = scored ?? [];
+
+  if (lang === "ar" || lang === "fr") {
+    const englishNames = items.map((item) => item.name);
+    const translatedNames = await translateCategoryOccasionNames(englishNames, lang as CategoryOccasionLang);
+    items = items.map((item, i) => ({ ...item, name: translatedNames[i] ?? item.name }));
+  }
 
   if (debug) {
     return res.json({
@@ -515,10 +523,17 @@ router.get("/homepage/categories", async (req, res) => {
 router.get("/homepage/occasions", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
   const cityId = typeof req.query.cityId === "string" ? req.query.cityId : null;
+  const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
   const debug = isDebugRequest(req);
 
   const { items: scored, debugMap } = await buildOsOccasions(countryCode, cityId);
-  const items = scored ?? [];
+  let items = scored ?? [];
+
+  if (lang === "ar" || lang === "fr") {
+    const englishNames = items.map((item) => item.name);
+    const translatedNames = await translateCategoryOccasionNames(englishNames, lang as CategoryOccasionLang);
+    items = items.map((item, i) => ({ ...item, name: translatedNames[i] ?? item.name }));
+  }
 
   if (debug) {
     return res.json({

@@ -19,10 +19,17 @@ type CollectionItem = {
 
 function useHomepageCollection(endpoint: "categories" | "occasions") {
   const { countryCode, cityId } = useLocationSelection();
+  const { language } = useLocale();
   return useQuery({
-    queryKey: ["homepage", endpoint, countryCode, cityId],
-    queryFn: () =>
-      apiFetch<{ items: CollectionItem[] }>(`/homepage/${endpoint}`),
+    queryKey: ["homepage", endpoint, countryCode, cityId, language],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (countryCode) params.set("countryCode", countryCode);
+      if (cityId) params.set("cityId", cityId);
+      if (language && language !== "en") params.set("lang", language);
+      const qs = params.toString();
+      return apiFetch<{ items: CollectionItem[] }>(`/homepage/${endpoint}${qs ? `?${qs}` : ""}`);
+    },
   });
 }
 

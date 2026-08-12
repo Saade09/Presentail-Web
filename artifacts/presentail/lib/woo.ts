@@ -308,10 +308,13 @@ const OS_CATEGORY_ICONS_MOBILE: Record<string, string> = {
 // icon and image are merged from the local static list where available; OS-only
 // occasions fall back to a "star" icon and a null image.
 // Returns the full static list on network failure so the screen is never blank.
-export async function fetchOsOccasions(): Promise<{ id: string; name: string; icon: string; image: any; description?: string }[]> {
+export async function fetchOsOccasions(lang?: string): Promise<{ id: string; name: string; icon: string; image: any; description?: string }[]> {
   const { occasions: staticOccasions } = await import("@/data/catalog");
   try {
-    const res = await fetch(`${API_BASE}/api/catalog/metadata`);
+    const params = new URLSearchParams();
+    if (lang && lang !== "en") params.set("lang", lang);
+    const qs = params.toString();
+    const res = await fetch(`${API_BASE}/api/catalog/metadata${qs ? `?${qs}` : ""}`);
     if (!res.ok) return staticOccasions;
     const json = await res.json();
     if (!Array.isArray(json.occasions)) {
@@ -340,10 +343,13 @@ export async function fetchOsOccasions(): Promise<{ id: string; name: string; ic
 // local static list where available; OS-only categories fall back to the
 // OS_CATEGORY_ICONS_MOBILE map and a null image.
 // Returns the full static list on network failure so the screen is never blank.
-export async function fetchWcCategories(): Promise<{ id: string; name: string; icon: string; image: any; description?: string | null }[]> {
+export async function fetchWcCategories(lang?: string): Promise<{ id: string; name: string; icon: string; image: any; description?: string | null }[]> {
   const { categories: staticCategories } = await import("@/data/catalog");
   try {
-    const res = await fetch(`${API_BASE}/api/catalog/metadata`);
+    const params = new URLSearchParams();
+    if (lang && lang !== "en") params.set("lang", lang);
+    const qs = params.toString();
+    const res = await fetch(`${API_BASE}/api/catalog/metadata${qs ? `?${qs}` : ""}`);
     if (!res.ok) return staticCategories;
     const json = await res.json();
     if (!Array.isArray(json.categories) || json.categories.length === 0) {

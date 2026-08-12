@@ -19,6 +19,7 @@ import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../
 import { db } from "@workspace/db";
 import { plantEnvironmentCacheTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { translateCategoryOccasionNames, type CategoryOccasionLang } from "../lib/categoryOccasionTranslation";
 
 const router: IRouter = Router();
 
@@ -352,8 +353,9 @@ router.get("/catalog/occasions", async (req, res) => {
   }
 });
 
-router.get("/catalog/metadata", (req, res) => {
+router.get("/catalog/metadata", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
+  const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
   const osBrands = getOsBrands();
   const osOccasions = getOsOccasions();
 
@@ -397,7 +399,7 @@ router.get("/catalog/metadata", (req, res) => {
   // never needs to supply the API key. `count` is the number of in-stock products
   // tagged with this occasion across all stores — consumers (e.g. the sitemap)
   // use it to skip empty pages.
-  const mergedOccasions = occasions
+  let mergedOccasions = occasions
     .filter((occ) => {
       // Skip hardcoded occasions whose OS counterpart is marked inactive.
       const osOccAll = osOccasionBySlugAll.get(occ.id);
@@ -598,6 +600,25 @@ router.get("/catalog/metadata", (req, res) => {
       ];
       existingSlugs.add(slug);
     }
+  }
+
+  // Translate category and occasion names when the shopper is in AR or FR.
+  // We always fetch English names from OS and translate server-side so the
+  // client never needs to know about the translation layer.
+  if (lang === "ar" || lang === "fr") {
+    const catLang = lang as CategoryOccasionLang;
+    const [translatedCatNames, translatedOccNames] = await Promise.all([
+      translateCategoryOccasionNames(mergedCategories.map((c) => c.name), catLang),
+      translateCategoryOccasionNames(mergedOccasions.map((o) => o.name), catLang),
+    ]);
+    mergedCategories = mergedCategories.map((c, i) => ({
+      ...c,
+      name: translatedCatNames[i] ?? c.name,
+    }));
+    mergedOccasions = mergedOccasions.map((o, i) => ({
+      ...o,
+      name: translatedOccNames[i] ?? o.name,
+    }));
   }
 
   const data = GetCatalogMetadataResponse.parse({
