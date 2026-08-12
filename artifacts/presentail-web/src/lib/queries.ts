@@ -270,7 +270,10 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
     queryKey: ["os-products", params.countryCode ?? null, params.cityId ?? null, params.lang ?? "en"],
     queryFn: async () => {
       const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
-      if (osKey) {
+      // When lang=ar|fr, always route through the API server so server-side
+      // OpenAI translation is applied. The OS API does not translate names.
+      const needsTranslation = params.lang === "ar" || params.lang === "fr";
+      if (osKey && !needsTranslation) {
         try {
           const [raw, pricing, bestSellerIds, brandAllowlist] = await Promise.all([
             fetchOsProducts({
@@ -304,12 +307,13 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
           // CORS / network failure — fall through to API server proxy below
         }
       }
-      // Fallback: API server (already caches OS products; country/city resolved
-      // via x-store-country / x-store-city headers injected by apiFetch).
-      // Fetch pricing in parallel with the product list so collection pages
-      // get slash prices on the fallback path too.
+      // API server path: handles OS products from its in-process cache,
+      // applies name translation when lang=ar|fr, and resolves country/city
+      // via x-store-country / x-store-city headers injected by apiFetch.
+      // Fetch pricing in parallel so collection pages get slash prices too.
+      const langParam = params.lang && params.lang !== "en" ? `?lang=${encodeURIComponent(params.lang)}` : "";
       const [data, pricing] = await Promise.all([
-        apiFetch<{ ok: boolean; products: Product[] }>("/woo/products"),
+        apiFetch<{ ok: boolean; products: Product[] }>(`/woo/products${langParam}`),
         fetchProductsPricing(),
       ]);
       return mergeProductsPricing(data.products ?? [], pricing);
@@ -382,7 +386,9 @@ export const useBrandProducts = (
     queryFn: async () => {
       if (!slug) return { ok: true, products: [], count: 0 };
       const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
-      if (osKey) {
+      // When lang=ar|fr, route through the API server so translation is applied.
+      const needsTranslation = params.lang === "ar" || params.lang === "fr";
+      if (osKey && !needsTranslation) {
         try {
           const [raw, pricing, bestSellerIds, brandAllowlist] = await Promise.all([
             fetchOsProducts({
@@ -417,9 +423,10 @@ export const useBrandProducts = (
         }
       }
       // Fallback: API server brand-products endpoint
+      const langSuffix = params.lang && params.lang !== "en" ? `&lang=${encodeURIComponent(params.lang)}` : "";
       const [data, pricing] = await Promise.all([
         apiFetch<{ ok: boolean; products: Product[]; count: number; brandName?: string }>(
-          `/woo/brand-products?slug=${encodeURIComponent(slug)}`,
+          `/woo/brand-products?slug=${encodeURIComponent(slug)}${langSuffix}`,
         ),
         fetchProductsPricing(),
       ]);
@@ -992,4 +999,3 @@ export const useSearch = (q: string, params: LocalizedParams = {}) => {
     error: allProducts.error,
   };
 };
-

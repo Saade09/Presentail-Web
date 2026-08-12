@@ -176,9 +176,13 @@ export function invalidateProductTranslation(
 ): void {
   if (lang) {
     cache.delete(cacheKey(osNumericId, lang));
+    nameCache.delete(cacheKey(osNumericId, lang));
   } else {
     for (const k of cache.keys()) {
       if (k.startsWith(`${osNumericId}:`)) cache.delete(k);
+    }
+    for (const k of nameCache.keys()) {
+      if (k.startsWith(`${osNumericId}:`)) nameCache.delete(k);
     }
   }
 }
@@ -186,4 +190,128 @@ export function invalidateProductTranslation(
 /** Expose cache size for health/metrics endpoints. */
 export function getProductTranslationCacheSize(): number {
   return cache.size;
+}
+
+// ── Batch name-only cache ─────────────────────────────────────────────────
+//
+// Separate from the full-translation cache so that a batch name-only call
+// does not pollute the per-product description cache used by the PDP.
+// Cache key: `${osNumericId}:${lang}` — same format as the full cache.
+
+const nameCache = new Map<string, { data: string; expiresAt: number }>();
+
+/**
+ * Translate product names in bulk for listing pages (shop grid, category,
+ * occasion, brand, homepage rails).
+ *
+ * Checks the existing per-product full-translation cache first (populated by
+ * `translateProductContent`), then the name-only cache. Uncached items are
+ * translated in a single OpenAI call. The cache is populated for every
+ * translated item so a second request is O(1).
+ *
+ * Fails open: any error returns the English name for that product.
+ *
+ * @param items   Array of { osNumericId, name } in English.
+ * @param lang    Target language — "ar" or "fr".
+ * @returns Map from String(osNumericId) → translated name.
+ */
+export async function translateProductNamesBatch(
+  items: Array<{ osNumericId: number | string; name: string }>,
+  lang: TranslationLang,
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const uncached: Array<{ osNumericId: number | string; name: string }> = [];
+
+  for (const item of items) {
+    const key = cacheKey(item.osNumericId, lang);
+    // Full-translation cache hit (populated by translateProductContent).
+    const fullHit = cache.get(key);
+    if (fullHit && fullHit.expiresAt > Date.now()) {
+      result.set(String(item.osNumericId), fullHit.data.name);
+      continue;
+    }
+    // Name-only cache hit.
+    const nameHit = nameCache.get(key);
+    if (nameHit && nameHit.expiresAt > Date.now()) {
+      result.set(String(item.osNumericId), nameHit.data);
+      continue;
+    }
+    uncached.push(item);
+  }
+
+  if (uncached.length === 0) return result;
+
+  const client = buildClient();
+  if (!client) {
+    logger.warn("productTranslation: OpenAI client not configured; returning English names"); // i18n-ignore
+    for (const item of uncached) result.set(String(item.osNumericId), item.name);
+    return result;
+  }
+
+  const BATCH_SYSTEM_PROMPT =
+    `You are a professional translator for a luxury flower and gift delivery brand. ` + // i18n-ignore
+    `Translate each product name from English into the requested language. ` + // i18n-ignore
+    `Rules:\n` +
+    `- Keep the warm, elegant tone of a premium gifting brand.\n` + // i18n-ignore
+    `- Do NOT translate brand names (e.g. Presentail) or units (e.g. cm).\n` + // i18n-ignore
+    `- Return ONLY a valid JSON object mapping each numeric string key to its translated name. No extra text.`; // i18n-ignore
+
+  // Chunk uncached items to keep each OpenAI response well within the 4096-token
+  // output budget. 50 product names → ~300–500 output tokens (safe margin).
+  const CHUNK_SIZE = 50;
+  const langName = LANG_NAMES[lang];
+
+  for (let start = 0; start < uncached.length; start += CHUNK_SIZE) {
+    const chunk = uncached.slice(start, start + CHUNK_SIZE);
+    try {
+      const payload: Record<string, string> = {};
+      for (const item of chunk) {
+        if (item.name.trim()) payload[String(item.osNumericId)] = item.name.trim();
+      }
+
+      const resp = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_completion_tokens: 4096,
+        messages: [
+          { role: "system", content: BATCH_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
+          },
+        ],
+      });
+
+      const raw = (resp.choices[0]?.message?.content ?? "")
+        .trim()
+        .replace(/^```(?:json)?\n?/, "")
+        .replace(/\n?```$/, "");
+
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      const expiresAt = Date.now() + CACHE_TTL_MS;
+
+      for (const item of chunk) {
+        const idStr = String(item.osNumericId);
+        const translated = parsed[idStr];
+        const name =
+          typeof translated === "string" && translated.trim()
+            ? translated.trim()
+            : item.name;
+        nameCache.set(cacheKey(item.osNumericId, lang), { data: name, expiresAt });
+        result.set(idStr, name);
+      }
+
+      logger.info(
+        { lang, translated: chunk.length, chunk: Math.floor(start / CHUNK_SIZE) + 1 },
+        "productTranslation: batch names cached", // i18n-ignore
+      );
+    } catch (err) {
+      logger.warn(
+        { err: (err as Error)?.message, lang, count: chunk.length },
+        "productTranslation: batch translation chunk failed; returning English names", // i18n-ignore
+      );
+      for (const item of chunk) result.set(String(item.osNumericId), item.name);
+    }
+  }
+
+  return result;
 }

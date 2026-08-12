@@ -108,6 +108,7 @@ export default function Home() {
   const bestSellersParams = {
     ...(countryCode ? { countryCode } : {}),
     ...(cityId ? { cityId } : {}),
+    lang: language,
   };
   const { data: bestSellersData, isLoading: isBestSellersLoading } = useGetHomepageBestSellers(
     bestSellersParams,

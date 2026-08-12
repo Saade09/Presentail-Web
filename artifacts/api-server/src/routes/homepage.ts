@@ -9,6 +9,7 @@ import {
 import type { z } from "zod";
 type HomepageCollectionItem = z.infer<typeof GetHomepageCategoriesResponse>["items"][number];
 import { translateBanners, type BannerLang } from "../lib/bannerTranslation";
+import { translateProductNamesBatch, type TranslationLang } from "../lib/productTranslation";
 import { translateCategoryOccasionNames, type CategoryOccasionLang } from "../lib/categoryOccasionTranslation";
 import { db, appOrdersTable, collectionRankingConfigTable } from "@workspace/db";
 import type { CollectionRankingConfigRow } from "@workspace/db";
@@ -726,6 +727,24 @@ router.get("/homepage/best-sellers", async (req, res) => {
   const now = Date.now();
   const cached = bestSellersCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
+    // Apply name translation when lang=ar|fr — the cache stores English names
+    // so a lang-neutral cache entry can be reused across locales.
+    const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
+    if ((lang === "ar" || lang === "fr") && Array.isArray((cached.body as { products?: unknown[] }).products)) {
+      const cachedProducts = (cached.body as { products: Array<{ name: string; osNumericId?: number | string }> }).products;
+      const items = cachedProducts
+        .filter((p) => p.osNumericId != null)
+        .map((p) => ({ osNumericId: p.osNumericId as number | string, name: p.name }));
+      if (items.length > 0) {
+        const translations = await translateProductNamesBatch(items, lang as TranslationLang);
+        const translatedProducts = cachedProducts.map((p) => {
+          if (p.osNumericId == null) return p;
+          const translated = translations.get(String(p.osNumericId));
+          return translated ? { ...p, name: translated } : p;
+        });
+        return res.json({ ...cached.body, products: translatedProducts });
+      }
+    }
     return res.json(cached.body);
   }
 
@@ -757,6 +776,8 @@ router.get("/homepage/best-sellers", async (req, res) => {
 
   type ScoredEntry = {
     id: string;
+    /** Numeric OS DB primary key — used for name translation. */
+    osNumericId?: number | string;
     name: string;
     price: string;
     priceValue: number;
@@ -796,6 +817,7 @@ router.get("/homepage/best-sellers", async (req, res) => {
 
     entries.push({
       id,
+      osNumericId: osP?.osNumericId,
       name: decodeName(osP ? osP.name : sale.originalName),
       price: formatPrice(priceValue),
       priceValue,
@@ -824,6 +846,7 @@ router.get("/homepage/best-sellers", async (req, res) => {
       const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
       entries.push({
         id: osP.id,
+        osNumericId: osP.osNumericId,
         name: decodeName(osP.name),
         price: formatPrice(displayPrice),
         priceValue: displayPrice,
@@ -850,15 +873,42 @@ router.get("/homepage/best-sellers", async (req, res) => {
     totalSales: e.blendedScore,
   }));
   const { products: rankedEntries } = rankWithCache(rankableEntries, "best-sellers");
+  // Keep osNumericId in products so the translation step can key off it.
+  // Remove only the internal scoring fields (blendedScore, totalSales).
   const products = rankedEntries
     .slice(0, BEST_SELLERS_LIMIT)
     .map(({ blendedScore: _, totalSales: __, ...rest }) => rest);
 
   const body = { ok: true, products, rankingScoreVersion: RANKING_SCORE_VERSION };
   // Only cache when we have products (avoid caching empty cold-start responses).
+  // Cache stores English names — translation is applied per-request below so
+  // the lang-neutral cache can be reused for all locales.
   if (products.length > 0) {
     bestSellersCache.set(cacheKey, { fetchedAt: now, body });
   }
+
+  // Translate product names when lang=ar|fr (uses its own 7-day cache so the
+  // OpenAI call is only made once per product per language).
+  const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
+  if (lang === "ar" || lang === "fr") {
+    const items = products
+      .filter((p) => (p as { osNumericId?: number | string }).osNumericId != null)
+      .map((p) => ({
+        osNumericId: (p as { osNumericId: number | string }).osNumericId,
+        name: p.name,
+      }));
+    if (items.length > 0) {
+      const translations = await translateProductNamesBatch(items, lang as TranslationLang);
+      const translatedProducts = products.map((p) => {
+        const id = (p as { osNumericId?: number | string }).osNumericId;
+        if (id == null) return p;
+        const translated = translations.get(String(id));
+        return translated ? { ...p, name: translated } : p;
+      });
+      return res.json({ ...body, products: translatedProducts });
+    }
+  }
+
   return res.json(body);
 });
 
@@ -897,11 +947,28 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
 
   const filterKind = categorySlug ? "category" : "occasion";
   const filterSlug = (categorySlug ?? occasionSlug)!;
+  const collLang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
 
   const cacheKey = `${filterKind}:${filterSlug}::${store.storeKey}::${countryCode ?? ""}::${currencySymbol}`;
   const now = Date.now();
   const cached = collectionBestSellersCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
+    // Apply name translation when lang=ar|fr — cache always stores English names.
+    if ((collLang === "ar" || collLang === "fr") && Array.isArray((cached.body as { products?: unknown[] }).products)) {
+      const cachedProducts = (cached.body as { products: Array<{ name: string; osNumericId?: number | string }> }).products;
+      const items = cachedProducts
+        .filter((p) => p.osNumericId != null)
+        .map((p) => ({ osNumericId: p.osNumericId as number | string, name: p.name }));
+      if (items.length > 0) {
+        const translations = await translateProductNamesBatch(items, collLang as TranslationLang);
+        const translatedProducts = cachedProducts.map((p) => {
+          if (p.osNumericId == null) return p;
+          const translated = translations.get(String(p.osNumericId));
+          return translated ? { ...p, name: translated } : p;
+        });
+        return res.json({ ...cached.body, products: translatedProducts });
+      }
+    }
     return res.json(cached.body);
   }
 
@@ -945,6 +1012,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   type ScoredEntry = {
     id: string;
     name: string;
+    osNumericId?: number | string;
     price: string;
     priceValue: number;
     discountPriceValue: number | null;
@@ -976,6 +1044,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
+      osNumericId: osP.osNumericId,
       price: formatPrice(displayPrice),
       priceValue: displayPrice,
       discountPriceValue,
@@ -1002,6 +1071,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
+      osNumericId: osP.osNumericId,
       price: formatPrice(displayPrice),
       priceValue: displayPrice,
       discountPriceValue,
@@ -1026,6 +1096,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
+      osNumericId: osP.osNumericId,
       price: formatPrice(displayPrice),
       priceValue: displayPrice,
       discountPriceValue,
@@ -1059,6 +1130,27 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   if (products.length > 0) {
     collectionBestSellersCache.set(cacheKey, { fetchedAt: now, body });
   }
+
+  // Translate product names when lang=ar|fr — cache always stores English names.
+  if (collLang === "ar" || collLang === "fr") {
+    const items = products
+      .filter((p) => (p as { osNumericId?: number | string }).osNumericId != null)
+      .map((p) => ({
+        osNumericId: (p as { osNumericId: number | string }).osNumericId,
+        name: p.name,
+      }));
+    if (items.length > 0) {
+      const translations = await translateProductNamesBatch(items, collLang as TranslationLang);
+      const translatedProducts = products.map((p) => {
+        const id = (p as { osNumericId?: number | string }).osNumericId;
+        if (id == null) return p;
+        const translated = translations.get(String(id));
+        return translated ? { ...p, name: translated } : p;
+      });
+      return res.json({ ...body, products: translatedProducts });
+    }
+  }
+
   return res.json(body);
 });
 

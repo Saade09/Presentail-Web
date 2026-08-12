@@ -2325,11 +2325,12 @@ function fetchBrandForSeo(opts) {
  * failure so the page still renders without a count (FAQ will be suppressed
  * rather than risk emitting it for an empty page).
  */
-async function fetchBrandProductCountForSeo({ slug, countryCode, cityId, apiBaseUrl }) {
+async function fetchBrandProductCountForSeo({ slug, countryCode, cityId, lang, apiBaseUrl }) {
   if (!slug || !apiBaseUrl) return null;
   const params = new URLSearchParams({ slug });
   if (countryCode) params.set("countryCode", countryCode);
   if (cityId) params.set("cityId", cityId);
+  if (lang && lang !== "en") params.set("lang", lang);
   const url = `${apiBaseUrl.replace(/\/$/, "")}/api/woo/brand-products?${params.toString()}`;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);

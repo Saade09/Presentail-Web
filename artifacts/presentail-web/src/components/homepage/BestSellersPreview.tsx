@@ -88,8 +88,9 @@ export function BestSellersPreview({
     if (occasionSlug) p.occasionSlug = occasionSlug;
     if (countryCode) p.countryCode = countryCode;
     if (cityId) p.cityId = cityId;
+    if (language) p.lang = language;
     return p;
-  }, [categorySlug, occasionSlug, countryCode, cityId]);
+  }, [categorySlug, occasionSlug, countryCode, cityId, language]);
 
   const rankedQueryKey = getGetHomepageCollectionBestSellersQueryKey(collectionParams);
   const { data: rankedData, isLoading: isRankedLoading } = useGetHomepageCollectionBestSellers(

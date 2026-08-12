@@ -46,7 +46,7 @@ import { validateCoupon, acquireFirst10Lock, FIRST_ORDER_COUPON_CODE } from "../
 import { sendCapiPurchase } from "../lib/fbConversions";
 import { sendUaeOrderSlackNotification, type UaeOrderNotification } from "../lib/orderSlackNotify";
 import { getOsProductByWcId } from "../lib/osProductsCache";
-import { translateProductContent, type TranslationLang } from "../lib/productTranslation";
+import { translateProductContent, translateProductNamesBatch, type TranslationLang } from "../lib/productTranslation";
 import type { WooOrderPayload } from "../lib/wooOrders";
 import type { WooStoreConfig } from "../lib/wooStore";
 
@@ -486,6 +486,29 @@ function sortOsShapedProducts(products: WcProduct[], mode: ProductSortMode): WcP
   return sorted.map((a) => products[a._originalIndex]!);
 }
 
+/**
+ * Apply batch name translations to a list of transformed products.
+ * Returns a new array with translated names; falls back to English on any error.
+ * Only called when lang is "ar" or "fr".
+ */
+async function applyProductNameTranslations<
+  T extends { name: string; osNumericId?: number | string },
+>(products: T[], lang: "ar" | "fr"): Promise<T[]> {
+  const items = products
+    .filter((p) => p.osNumericId != null)
+    .map((p) => ({
+      osNumericId: p.osNumericId as number | string,
+      name: p.name,
+    }));
+  if (items.length === 0) return products;
+  const translations = await translateProductNamesBatch(items, lang as TranslationLang);
+  return products.map((p) => {
+    if (p.osNumericId == null) return p;
+    const translated = translations.get(String(p.osNumericId));
+    return translated ? { ...p, name: translated } : p;
+  });
+}
+
 export function transformProduct(p: WcProduct, currencySymbol = "$") {
   const price = parseFloat(p.price ?? "") || 0;
   const imageList = (p.images ?? [])
@@ -556,13 +579,14 @@ router.get("/woo/brands", (_req, res) => {
   });
 });
 
-router.get("/woo/brand-products", (req, res) => {
+router.get("/woo/brand-products", async (req, res) => {
   const brandSlug = String(req.query.slug ?? "");
   if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
 
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
+  const lang = readLang(req);
   const osBrands = getOsBrands() ?? [];
   const rawBrands = getOsRawCatalogBrands();
   const brandEntry = osBrands?.find((b) => b.slug === brandSlug);
@@ -589,12 +613,26 @@ router.get("/woo/brand-products", (req, res) => {
   // slugs so products are not missed when the embedded slug differs from the canonical one
   // (e.g. product brand slug "hallab" vs catalog slug "hallab-1881").
   const brandNameToCanonical = getOsBrandNameToCanonicalSlug();
-  const eligible = osProducts
+  // Filter OS products to those belonging to this brand before mapping.
+  // The brandNameToCanonical map is keyed by normaliseBrandName(b.name) so
+  // we must normalise the embedded brand name — not the embedded slug — to
+  // resolve mismatches (e.g. product brand slug "hallab" → catalog "hallab-1881").
+  const brandOsProducts = osProducts.filter((p) =>
+    p.brands.some((b) => {
+      if (b.slug === brandSlug) return true;
+      const canonical = brandNameToCanonical?.get(normaliseBrandName(b.name)) ?? b.slug;
+      return canonical === brandSlug;
+    }),
+  );
+  const eligible = brandOsProducts
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter));
-  const products = sortOsShapedProducts(eligible, sortMode)
+  let products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
+  if (lang === "ar" || lang === "fr") {
+    products = await applyProductNameTranslations(products, lang);
+  }
   return res.json({ ok: true, products, count: products.length, brandName, brandImage, brandDescription, brandCoverImage });
 });
 
@@ -660,7 +698,8 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "bundles", label: "Gift Bundles" },
 ];
 
-router.get("/woo/category-products", (req, res) => {
+router.get("/woo/category-products", async (req, res) => {
+  const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
     return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
@@ -670,6 +709,7 @@ router.get("/woo/category-products", (req, res) => {
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
   const sortMode = readSortMode(req);
+  const lang = readLang(req);
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const osCategories = getOsCategories();
   const catEntry = osCategories?.find((c) => c.slug === slug);
@@ -678,9 +718,14 @@ router.get("/woo/category-products", (req, res) => {
   const eligible = osProducts
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, browseFilter));
-  const allProducts = sortOsShapedProducts(eligible, sortMode)
+    .filter((p) => isDeliverable(p, browseFilter))
+    // Filter to products that belong to the requested category.
+    .filter((p) => (p.categories ?? []).some((c) => c.slug === slug));
+  let allProducts = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
+  if (lang === "ar" || lang === "fr") {
+    allProducts = await applyProductNameTranslations(allProducts, lang);
+  }
   const count = allProducts.length;
 
   // When `page` is explicitly provided (SEO injector for page 2+ noscript lists),
@@ -692,14 +737,14 @@ router.get("/woo/category-products", (req, res) => {
     const pageRaw = Number(pageParam);
     const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
     const offset = (page - 1) * pageSize;
-  const products = sortOsShapedProducts(eligible, sortMode)
-    .map((p) => transformProduct(p, store.currencySymbol));
+    const products = allProducts.slice(offset, offset + pageSize);
     return res.json({ ok: true, products, count, categoryName: catName });
   }
   return res.json({ ok: true, products: allProducts, count, categoryName: catName });
 });
 
-router.get("/woo/occasion-products", (req, res) => {
+router.get("/woo/occasion-products", async (req, res) => {
+  const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
     return res.json({ ok: true, groups: [] });
@@ -736,25 +781,48 @@ router.get("/woo/occasion-products", (req, res) => {
   // Apply sort before grouping so ranking is consistent within each group.
   const ranked = sortOsShapedProducts(deliverable, sortMode);
 
-  // Flat ordered list of all transformed products — used to derive pageItems
-  // (the correct slice for a given page) for noscript/SEO crawlers.
-  // Only computed (and included in the response) when `page` is explicitly
-  // requested — preserving the existing response shape for SPA clients.
+  // Transform ALL ranked products upfront so we can translate them in one
+  // batch call and use the same translated set for both groups and pageItems.
+  type TransformedProduct = ReturnType<typeof transformProduct>;
+  let allTransformedProducts: TransformedProduct[] = ranked.map((p) =>
+    transformProduct(p, store.currencySymbol),
+  );
+
+  // Translate product names when lang=ar|fr — one batch covers both the
+  // grouped response and the pageItems SEO slice.
+  if (lang === "ar" || lang === "fr") {
+    const itemsToTranslate = allTransformedProducts
+      .filter((p) => p.osNumericId != null)
+      .map((p) => ({ osNumericId: p.osNumericId as number | string, name: p.name }));
+    if (itemsToTranslate.length > 0) {
+      const translations = await translateProductNamesBatch(itemsToTranslate, lang as TranslationLang);
+      allTransformedProducts = allTransformedProducts.map((p) => {
+        if (p.osNumericId == null) return p;
+        const translated = translations.get(String(p.osNumericId));
+        return translated ? { ...p, name: translated } : p;
+      });
+    }
+  }
+
+  // Build a slug → translated product index for O(1) group lookups.
+  const transformedBySlug = new Map<string, TransformedProduct>(
+    allTransformedProducts.map((p) => [p.id, p]),
+  );
+
+  // pageItems: correct 24-item slice for noscript/SEO crawlers.
+  // Only included when `page` is explicitly provided.
   const pageSize = 24;
   const pageParam = req.query.page;
-  const allTransformed = pageParam !== undefined
-    ? ranked.map((p) => transformProduct(p, store.currencySymbol))
-    : null;
-  const pageItems = allTransformed !== null
-    ? (() => {
-        const pageRaw = Number(pageParam);
-        const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
-        const offset = (page - 1) * pageSize;
-        return allTransformed.slice(offset, offset + pageSize);
-      })()
-    : undefined;
+  const pageItems =
+    pageParam !== undefined
+      ? (() => {
+          const pageRaw = Number(pageParam);
+          const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+          const offset = (page - 1) * pageSize;
+          return allTransformedProducts.slice(offset, offset + pageSize);
+        })()
+      : undefined;
 
-  type TransformedProduct = ReturnType<typeof transformProduct>;
   const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
   const assigned = new Set<string>();
 
@@ -767,7 +835,9 @@ router.get("/woo/occasion-products", (req, res) => {
           const label = translateOccasionLabel(typecat.slug, typecat.label, lang);
           groups.set(typecat.slug, { label, products: [] });
         }
-        groups.get(typecat.slug)!.products.push(transformProduct(p, store.currencySymbol));
+        // Use the pre-translated product from the index.
+        const transformed = transformedBySlug.get(p.slug) ?? transformProduct(p, store.currencySymbol);
+        groups.get(typecat.slug)!.products.push(transformed);
         assigned.add(p.slug);
       }
     }
@@ -779,11 +849,11 @@ router.get("/woo/occasion-products", (req, res) => {
   const unassigned = ranked.filter((p) => !assigned.has(p.slug));
   if (unassigned.length > 0) {
     const catchAllLabel = translateOccasionLabel("other-gifts", "Other Gifts", lang);
-
-  const allGroups = [...groups.values()];
     groups.set("other-gifts", {
       label: catchAllLabel,
-      products: unassigned.map((p) => transformProduct(p, store.currencySymbol)),
+      products: unassigned.map(
+        (p) => transformedBySlug.get(p.slug) ?? transformProduct(p, store.currencySymbol),
+      ),
     });
   }
 
@@ -793,11 +863,12 @@ router.get("/woo/occasion-products", (req, res) => {
 });
 
 
-router.get("/woo/products", (req, res) => {
+router.get("/woo/products", async (req, res) => {
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
   const sortMode = readSortMode(req);
+  const lang = readLang(req);
   // Product listings filter by country only. City-level delivery restrictions
   // are enforced at checkout — not at browse time — because OS city IDs may not
   // match the web app's city slug format, which would incorrectly exclude all
@@ -807,8 +878,11 @@ router.get("/woo/products", (req, res) => {
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter));
-  const products = sortOsShapedProducts(eligible, sortMode)
+  let products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
+  if (lang === "ar" || lang === "fr") {
+    products = await applyProductNameTranslations(products, lang);
+  }
   return res.json({ ok: true, products, count: products.length });
 });
 
@@ -2023,19 +2097,21 @@ const SearchQuerySchema = z.object({
   q: z.string().min(2).max(100),
 });
 
-router.get("/woo/search", (req, res) => {
+router.get("/woo/search", async (req, res) => {
   const parsed = SearchQuerySchema.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, message: "q must be 2–100 characters" }); // i18n-ignore
   }
   const { q } = parsed.data;
   const lower = q.toLowerCase();
+  const lang = readLang(req);
 
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
 
   // Score each candidate: higher score = better match.
+  // Scoring always uses English names so queries work regardless of lang.
   // 4 = exact name, 3 = name prefix, 2 = name substring, 1 = brand/category/description
   type Scored = { score: number; p: WcProduct };
   const scored: Scored[] = [];
@@ -2061,13 +2137,15 @@ router.get("/woo/search", (req, res) => {
 
   scored.sort((a, b) => b.score - a.score);
 
-  const matchingProducts = scored
+  // Build with osNumericId so we can batch-translate names when lang=ar|fr.
+  const matchingProductsRaw = scored
     .slice(0, 10)
     .map(({ p }) => {
       const transformed = transformProduct(p, store.currencySymbol);
       return {
         slug: transformed.id,
         name: transformed.name,
+        osNumericId: transformed.osNumericId as number | string | undefined,
         image: transformed.image,
         price: transformed.price,
         priceValue: transformed.priceValue,
@@ -2075,6 +2153,25 @@ router.get("/woo/search", (req, res) => {
         discountPriceAed: transformed.discountPriceAed ?? null,
       };
     });
+
+  // Translate product names when lang=ar|fr; strip osNumericId from response.
+  let matchingProducts: Array<Omit<(typeof matchingProductsRaw)[number], "osNumericId">>;
+  if ((lang === "ar" || lang === "fr") && matchingProductsRaw.length > 0) {
+    const items = matchingProductsRaw
+      .filter((p) => p.osNumericId != null)
+      .map((p) => ({ osNumericId: p.osNumericId as number | string, name: p.name }));
+    const translations =
+      items.length > 0
+        ? await translateProductNamesBatch(items, lang as TranslationLang)
+        : new Map<string, string>();
+    matchingProducts = matchingProductsRaw.map(({ osNumericId, ...rest }) => {
+      if (osNumericId == null) return rest;
+      const translated = translations.get(String(osNumericId));
+      return translated ? { ...rest, name: translated } : rest;
+    });
+  } else {
+    matchingProducts = matchingProductsRaw.map(({ osNumericId: _id, ...rest }) => rest);
+  }
 
   const matchingCategories = OCCASION_TYPE_CATEGORIES
     .filter((c) => c.label.toLowerCase().includes(lower))

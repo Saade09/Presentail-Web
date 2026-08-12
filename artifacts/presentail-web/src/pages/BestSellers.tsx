@@ -74,7 +74,7 @@ const USD_BUCKET_THRESHOLDS = [50, 100, 200] as const;
 
 export default function BestSellers() {
   const { countryCode, cityId } = useLocationSelection();
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const { currencyCode, formatPrice } = useDisplayCurrency();
 
   const { data: fxData } = useFxRates();
@@ -118,6 +118,7 @@ export default function BestSellers() {
   const { data, isLoading } = useGetHomepageBestSellers({
     ...(countryCode ? { countryCode } : {}),
     ...(cityId ? { cityId } : {}),
+    lang: language,
   });
 
   const sourceProducts: Product[] = useMemo(

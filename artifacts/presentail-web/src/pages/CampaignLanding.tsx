@@ -48,7 +48,7 @@ function fireCampaignEvent(
 
 export default function CampaignLanding() {
   const { countryCode, cityId, city } = useLocationSelection();
-  const { t, dir, cityName } = useLocale();
+  const { t, dir, cityName, language } = useLocale();
   const { formatPrice } = useDisplayCurrency();
   const { user } = useAuth();
 
@@ -103,6 +103,7 @@ export default function CampaignLanding() {
   const { data, isLoading } = useGetHomepageBestSellers({
     ...(countryCode ? { countryCode } : {}),
     ...(cityId ? { cityId } : {}),
+    lang: language,
   });
 
   const products: Product[] = useMemo(
