@@ -359,7 +359,7 @@ router.post("/auth/web-bridge", webBridgeIpLimiter, async (req, res) => {
     .trim()
     .toLowerCase() || null;
 
-  const email = String(payload.email ?? "").trim().toLowerCase();
+  const email = String(req.body.email ?? "").trim().toLowerCase();
   if (!email) {
     recordAuthExistsOutcome("invalid_email", platformHeader);
     res.json({ ok: true, userExists: false, passwordLoginAvailable: false });
@@ -368,136 +368,22 @@ router.post("/auth/web-bridge", webBridgeIpLimiter, async (req, res) => {
 
   // Local DB only — WC/WP no longer exists. A local miss is a definitive
   // "user does not exist" (all customers have been imported into the local DB).
-  let rows: typeof phoneOtpsTable.$inferSelect[];
-
-  const userExists = rows.length > 0;
-  const wcConfigured = Boolean(process.env.WC_CONSUMER_KEY);
-  const probeEmail =
-    "diagnostic-" + Date.now().toString(36) + "@example.invalid";
-
-  const checks: Record<
-    string,
-    { ok: boolean; status?: number; reason?: string; detail?: string }
-  > = {};
-
-  // 1) WC customers endpoint reachable + creds accepted.
-  if (!wcConfigured) {
-    checks.wcCustomers = { ok: false, detail: "WC_CONSUMER_KEY not set" };
-  } else {
-    try {
-    const r = await wcFetch("/customers", {
-      method: "POST",
-      body: JSON.stringify({
-        email: email.trim(),
-        password,
-        first_name: firstName?.trim() ?? "",
-        last_name: lastName?.trim() ?? "",
-        billing: { phone: normalizedPhone },
-      }),
-    }, req);
-      checks.wcCustomers = {
-        ok: r.ok,
-        status: r.status,
-        detail: r.ok ? "ok" : "non-2xx response",
-      };
-    } catch (e: any) {
-      checks.wcCustomers = { ok: false, detail: e?.message ?? "fetch failed" }; // i18n-ignore
-    }
-  }
-
-  // 2) JWT plugin reachable. We expect a 4xx with an `invalid_email` /
-  //    `invalid_username` / `invalid_user` code (since the email is
-  //    guaranteed not to resolve). 404 means the plugin isn't installed.
   try {
-    const r = await wcFetch("/customers", {
-      method: "POST",
-      body: JSON.stringify({
-        email: email.trim(),
-        password,
-        first_name: firstName?.trim() ?? "",
-        last_name: lastName?.trim() ?? "",
-        billing: { phone: normalizedPhone },
-      }),
-    }, req);
+    const rows = await db
+      .select({ id: customersTable.id, passwordHash: customersTable.passwordHash })
+      .from(customersTable)
+      .where(eq(customersTable.email, email))
+      .limit(1);
 
-    const data = (await r.json().catch(() => ({}))) as any;
-  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
-    const recognised =
-      /incorrect_password|invalid_email|invalid_username|invalid_user/i.test(
-        code,
-      );
-    checks.wpJwtPlugin = {
-      ok: recognised,
-      status: r.status,
-      detail: recognised
-        ? "plugin reachable, returns recognised code"
-        : `unexpected response code: ${code || "<none>"}`,
-    };
-  } catch (e: any) {
-    checks.wpJwtPlugin = { ok: false, detail: e?.message ?? "fetch failed" }; // i18n-ignore
+    const userExists = rows.length > 0;
+    const passwordLoginAvailable = userExists && Boolean(rows[0]?.passwordHash);
+
+    recordAuthExistsOutcome(userExists ? "exists_true_local" : "exists_false", platformHeader);
+    res.json({ ok: true, userExists, passwordLoginAvailable });
+  } catch (err: any) {
+    req.log?.error?.({ err: err?.message }, "auth.web-bridge: DB select error"); // i18n-ignore
+    res.status(500).json({ ok: false, message: "Server error" }); // i18n-ignore
   }
-
-  // 3) End-to-end classifier on the guaranteed-not-to-exist email. We
-  //    expect `exists_false` when both upstreams are healthy.
-  try {
-    const result = await classifyAuthExists({
-      email: probeEmail,
-      wcConfigured,
-      wcFetch: (path, init) => wcFetch(path, init, req),
-      wpFetch: (path, init) => wpFetch(path, init, req),
-    });
-    checks.classifier = {
-      ok: result.outcome === "exists_false",
-      detail: `outcome=${result.outcome}`,
-    };
-  } catch (e: any) {
-    checks.classifier = { ok: false, detail: e?.message ?? "threw" };
-  }
-
-  // 4) Stripe key presence + format check (no network call required).
-  //    Both STRIPE_SECRET_KEY (server-side API calls) and STRIPE_PUBLISHABLE_KEY
-  //    (returned to clients for Elements / mobile SDK) must be set and valid-looking.
-  {
-    const secretKey = process.env.CLERK_SECRET_KEY;
-    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY ?? "";
-    if (!secretKey) {
-      checks.stripe = {
-        ok: false,
-        reason: "stripe_not_configured", // i18n-ignore
-        detail: "STRIPE_SECRET_KEY not set", // i18n-ignore
-      };
-    } else if (!secretKey.startsWith("sk_")) {
-      checks.stripe = {
-        ok: false,
-        reason: "stripe_not_configured", // i18n-ignore
-        detail: "STRIPE_SECRET_KEY does not start with sk_", // i18n-ignore
-      };
-    } else if (!publishableKey) {
-      checks.stripe = {
-        ok: false,
-        reason: "stripe_not_configured", // i18n-ignore
-        detail: "STRIPE_PUBLISHABLE_KEY not set", // i18n-ignore
-      };
-    } else if (!publishableKey.startsWith("pk_")) {
-      checks.stripe = {
-        ok: false,
-        reason: "stripe_not_configured", // i18n-ignore
-        detail: "STRIPE_PUBLISHABLE_KEY does not start with pk_", // i18n-ignore
-      };
-    } else {
-      const mode = secretKey.startsWith("sk_live_") ? "live" : "test";
-      checks.stripe = {
-        ok: true,
-        detail: `keys present (${mode} mode)`, // i18n-ignore
-      };
-    }
-  }
-
-  // All currencies are processed through the single Cyprus Stripe account.
-  const mandatoryChecks = Object.entries(checks)
-    .map(([, v]) => v);
-  const overallOk = mandatoryChecks.every((c) => c.ok);
-  res.status(overallOk ? 200 : 503).json({ ok: overallOk, checks });
 });
 
 // ── Login: local password auth (scrypt hash stored in customers.password_hash) ─
@@ -524,30 +410,20 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
 
   try {
     const normalizedEmail = email.trim().toLowerCase();
-  let rows: typeof phoneOtpsTable.$inferSelect[];
-  try {
-    rows = await db
-      .select()
-      .from(phoneOtpsTable)
-      .where(
-        and(
-          eq(phoneOtpsTable.phone, normalizedPhone),
-          gt(phoneOtpsTable.expiresAt, now),
-        ),
-      )
+    const rows = await db
+      .select({
+        id: customersTable.id,
+        email: customersTable.email,
+        passwordHash: customersTable.passwordHash,
+        firstName: customersTable.firstName,
+        lastName: customersTable.lastName,
+        phoneE164: customersTable.phoneE164,
+      })
+      .from(customersTable)
+      .where(eq(customersTable.email, normalizedEmail))
       .limit(1);
-  } catch (err: any) {
-    req.log?.error?.({ err: err?.message }, "auth.otp.verify: DB select error");
-    res.status(500).json({ ok: false, code: "server_error", message: "Failed to look up OTP" }); // i18n-ignore
-    return;
-  }
 
-  if (rows.length === 0) {
-    res.status(400).json({ ok: false, code: "expired_otp", message: "OTP not found or expired" }); // i18n-ignore
-    return;
-  }
-
-  const row = rows[0];
+    const row = rows[0];
     if (!row || !row.passwordHash) {
       loginEmailLimiter.record(email);
       return res.status(401).json({
@@ -567,8 +443,15 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
       });
     }
 
-      const store = resolveStoreFromRequest(req);
-    let token: string | null = null;
+    const store = resolveStoreFromRequest(req);
+    const token = await signServerToken({
+      customerId: row.id,
+      email: row.email,
+      provider: "password",
+      storeBaseUrl: store.baseUrl,
+      localCustomerId: row.id,
+      localCustomer: true,
+    });
 
     return res.json({
       ok: true,
@@ -754,7 +637,14 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
       }
 
       const store = resolveStoreFromRequest(req);
-    let token: string | null = null;
+      const token = await signServerToken({
+        customerId: customer.id,
+        email: customer.email,
+        provider: "password",
+        storeBaseUrl: store.baseUrl,
+        localCustomerId: customer.id,
+        localCustomer: true,
+      });
 
       res.json({
         ok: true,
@@ -899,24 +789,29 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 // A successful call marks the customer row as emailVerified=true and clears
 // the one-time token so the link cannot be replayed.
 router.get("/auth/verify-email", async (req, res) => {
-    let token: string | null = null;
-  if (!token || typeof token !== "string" || !token.match(/^[0-9a-f]{64}$/)) {
+  const token = String(req.query.token ?? "");
+  if (!token || !token.match(/^[0-9a-f]{64}$/)) {
     res.status(400).json({ ok: false, code: "invalid_token", message: "Invalid verification link" }); // i18n-ignore
     return;
   }
   try {
-  const now = new Date();
+    const now = new Date();
     const [row] = await db
-      .select({ id: customersTable.id, email: customersTable.email, emailVerified: customersTable.emailVerified })
+      .select({
+        id: customersTable.id,
+        email: customersTable.email,
+        emailVerified: customersTable.emailVerified,
+        emailVerificationTokenExpiresAt: customersTable.emailVerificationTokenExpiresAt,
+      })
       .from(customersTable)
-      .where(eq(customersTable.id, localId))
+      .where(eq(customersTable.emailVerificationToken, token))
       .limit(1);
 
     if (!row) {
       res.status(400).json({ ok: false, code: "invalid_token", message: "Invalid or already-used verification link" }); // i18n-ignore
       return;
     }
-    if (!row.expiresAt || row.expiresAt < now) {
+    if (!row.emailVerificationTokenExpiresAt || row.emailVerificationTokenExpiresAt < now) {
       res.status(400).json({ ok: false, code: "token_expired", message: "Verification link has expired. Please request a new one." }); // i18n-ignore
       return;
     }
@@ -3035,7 +2930,14 @@ router.post("/auth/otp/verify", registerIpLimiter, async (req, res) => {
       }
 
       const store = resolveStoreFromRequest(req);
-    let token: string | null = null;
+      const token = await signServerToken({
+        customerId: customer.id,
+        email: customer.email,
+        provider: "password",
+        storeBaseUrl: store.baseUrl,
+        localCustomerId: customer.id,
+        localCustomer: true,
+      });
 
       res.json({
         ok: true,
