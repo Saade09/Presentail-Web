@@ -15,6 +15,7 @@ import { CityList } from "@/components/location/CityList";
 import { CountryList } from "@/components/location/CountryList";
 import type { DeliveryCity, DeliveryCountry } from "@/constants/deliveryLocations";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { localizedCountryName } from "@/data/countryNamesLocalized";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
@@ -31,7 +32,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
   const colors = useColors();
   const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
-  const { isRTL } = useLanguage();
+  const { isRTL, lang } = useLanguage();
   const {
     selectedCountry,
     selectedCity,
@@ -143,7 +144,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
               }}
               numberOfLines={1}
             >
-              {draftCountry.name}
+              {localizedCountryName(lang, draftCountry.code, draftCountry.name)}
             </AppText>
           </View>
           <Pressable hitSlop={6} onPress={handleChangeCountry}>

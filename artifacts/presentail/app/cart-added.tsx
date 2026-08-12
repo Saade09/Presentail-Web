@@ -20,6 +20,8 @@ import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { localizedCityName } from "@/data/countryNamesLocalized";
 import { trackEvent } from "@/lib/analytics";
 import { loadCheckoutScreen, prefetchOnIdle } from "@/lib/prefetchScreens";
 import {
@@ -40,6 +42,7 @@ function CartAddedScreen() {
   const headingFontMedium = useHeadingFont("500Medium");
   const insets = useSafeAreaInsets();
   const t = useT();
+  const { lang } = useLanguage();
   const { count, total, detailed } = useCart();
   const { currencyCode, convert } = useCurrency();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
@@ -319,7 +322,7 @@ function CartAddedScreen() {
                     color: colors.mutedForeground,
                   }}
                 >
-                  {selectedCity.name}
+                  {localizedCityName(lang, selectedCity.id, selectedCity.name)}
                 </AppText>
               ) : null}
             </View>

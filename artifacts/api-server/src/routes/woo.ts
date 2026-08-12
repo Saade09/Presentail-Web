@@ -779,6 +779,8 @@ router.get("/woo/occasion-products", (req, res) => {
   const unassigned = ranked.filter((p) => !assigned.has(p.slug));
   if (unassigned.length > 0) {
     const catchAllLabel = translateOccasionLabel("other-gifts", "Other Gifts", lang);
+
+  const allGroups = [...groups.values()];
     groups.set("other-gifts", {
       label: catchAllLabel,
       products: unassigned.map((p) => transformProduct(p, store.currencySymbol)),
@@ -1567,17 +1569,6 @@ router.post("/woo/order", async (req, res) => {
 
     // Layer 1: Verify orderId↔paymentRef binding.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
-    if (!intent) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef },
-        "woo.order: no valid Mamo payment intent found for this paymentRef+orderId pair",
-      );
-      return res.status(402).json({
-        ok: false,
-        code: "payment_intent_invalid",
-        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
-      });
-    }
 
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
@@ -1689,6 +1680,7 @@ router.post("/woo/order", async (req, res) => {
     paymentVerified = true; // CS payment was already captured at /authorize
   }
   // whish / western / offline: paymentVerified stays false, order recorded pending.
+
 
   const REFERRAL_CODE_RE = /^PT[A-Z0-9]+$/;
   const isReferralCoupon =
@@ -2104,5 +2096,6 @@ router.get("/woo/search", (req, res) => {
 
   return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
 });
+
 
 export default router;

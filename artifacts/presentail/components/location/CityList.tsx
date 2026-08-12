@@ -7,6 +7,7 @@ import type { DeliveryCity } from "@/constants/deliveryLocations";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { localizedCityName } from "@/data/countryNamesLocalized";
 
 type Props = {
   cities: DeliveryCity[];
@@ -17,7 +18,7 @@ type Props = {
 
 export function CityList({ cities, onSelect, selectedId, trailingIcon = "check" }: Props) {
   const colors = useColors();
-  const { isRTL } = useLanguage();
+  const { isRTL, lang } = useLanguage();
   const t = useT();
 
   return (
@@ -54,7 +55,7 @@ export function CityList({ cities, onSelect, selectedId, trailingIcon = "check" 
                   textAlign: isRTL ? "right" : "left",
                 }}
               >
-                {city.name}
+                {localizedCityName(lang, city.id, city.name)}
               </AppText>
               {inactive && (
                 <Text

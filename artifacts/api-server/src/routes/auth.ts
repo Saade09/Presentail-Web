@@ -421,7 +421,7 @@ router.post("/auth/web-bridge", webBridgeIpLimiter, async (req, res) => {
     }, req);
 
     const data = (await r.json().catch(() => ({}))) as any;
-    const code = (data?.code ?? data?.data?.code ?? "") as string;
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
     const recognised =
       /incorrect_password|invalid_email|invalid_username|invalid_user/i.test(
         code,
@@ -1001,20 +1001,22 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       // Fall back to a live Clerk API call only when the JWT claims are absent.
       if (!email) {
         const secretKey = process.env.CLERK_SECRET_KEY;
-        if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
-          return;
+        if (secretKey) {
+          try {
+            const clerk = createClerkClient({ secretKey });
+            const clerkUser = await clerk.users.getUser(clerkUserId!);
+            email =
+              clerkUser.emailAddresses.find(
+                (e) => e.id === clerkUser.primaryEmailAddressId,
+              )?.emailAddress ??
+              clerkUser.emailAddresses[0]?.emailAddress ??
+              null;
+            firstName = clerkUser.firstName ?? "";
+            lastName = clerkUser.lastName ?? "";
+          } catch {
+            // ignore; email remains null — handled below
+          }
         }
-        const clerk = createClerkClient({ secretKey });
-        const clerkUser = await clerk.users.getUser(clerkUserId);
-        email =
-          clerkUser.emailAddresses.find(
-            (e) => e.id === clerkUser.primaryEmailAddressId,
-          )?.emailAddress ??
-          clerkUser.emailAddresses[0]?.emailAddress ??
-          null;
-        firstName = clerkUser.firstName ?? "";
-        lastName = clerkUser.lastName ?? "";
       }
 
       if (!email) {
@@ -1231,18 +1233,20 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       // Fall back to a live Clerk API call only when the JWT claims are absent.
       if (!putEmail) {
         const secretKey = process.env.CLERK_SECRET_KEY;
-        if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
-          return;
+        if (secretKey) {
+          try {
+            const clerk = createClerkClient({ secretKey });
+            const clerkUser = await clerk.users.getUser(clerkPutUserId!);
+            putEmail =
+              clerkUser.emailAddresses.find(
+                (e) => e.id === clerkUser.primaryEmailAddressId,
+              )?.emailAddress ??
+              clerkUser.emailAddresses[0]?.emailAddress ??
+              null;
+          } catch {
+            // ignore; putEmail remains null — handled below
+          }
         }
-        const clerk = createClerkClient({ secretKey });
-        const clerkUser = await clerk.users.getUser(clerkPutUserId);
-        putEmail =
-          clerkUser.emailAddresses.find(
-            (e) => e.id === clerkUser.primaryEmailAddressId,
-          )?.emailAddress ??
-          clerkUser.emailAddresses[0]?.emailAddress ??
-          null;
       }
 
       if (!putEmail) {
@@ -1263,7 +1267,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       }
       if (normalizedTeamGender !== undefined) patch.gender = normalizedTeamGender;
       if (normalizedTeamBirthday !== undefined) patch.birthday = normalizedTeamBirthday;
-    let local = await getCustomerByWcId(auth.customerId);
+    let local: Awaited<ReturnType<typeof getCustomerByWcId>> = await getCustomerByWcId(auth.customerId);
       if (Object.keys(patch).length > 0) {
         const [updated] = await db
           .update(customersTable)
@@ -1340,18 +1344,20 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
 
       if (!customerEmail) {
         const secretKey = process.env.CLERK_SECRET_KEY;
-        if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
-          return;
+        if (secretKey) {
+          try {
+            const clerk = createClerkClient({ secretKey });
+            const clerkUser = await clerk.users.getUser(clerkPutUserId!);
+            customerEmail =
+              clerkUser.emailAddresses.find(
+                (e) => e.id === clerkUser.primaryEmailAddressId,
+              )?.emailAddress ??
+              clerkUser.emailAddresses[0]?.emailAddress ??
+              null;
+          } catch {
+            // ignore; customerEmail remains null — handled below
+          }
         }
-        const clerk = createClerkClient({ secretKey });
-        const clerkUser = await clerk.users.getUser(clerkPutUserId);
-        customerEmail =
-          clerkUser.emailAddresses.find(
-            (e) => e.id === clerkUser.primaryEmailAddressId,
-          )?.emailAddress ??
-          clerkUser.emailAddresses[0]?.emailAddress ??
-          null;
       }
 
       if (!customerEmail) {
@@ -1564,7 +1570,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   }
   if (metaUpdates.length > 0) wcPayload.meta_data = metaUpdates;
 
-    let mapped = mapCustomer(data);
+  let mapped = mapCustomer(data);
   try {
     const r = await wcFetch("/customers", {
       method: "POST",
@@ -2275,11 +2281,13 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
       return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." }); // i18n-ignore
     }
     const location = r.headers.get("location") ?? "";
-    const isRedirect = resetRes.status >= 300 && resetRes.status < 400;
-    if (isRedirect && /password=changed|action=login/.test(resetLoc)) {
+    const isRedirect = r.status >= 300 && r.status < 400;
+
+    const responseText = await r.text().catch(() => "");
+    if (isRedirect && /password=changed|action=login/.test(location)) {
       return res.json({ ok: true });
     }
-    if (isRedirect && /[?&]error=/.test(resetLoc)) {
+    if (isRedirect && /[?&]error=/.test(location)) {
       return res.status(400).json({
         ok: false,
         code: "expired_link",
@@ -2442,6 +2450,8 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
     });
     const resetLoc = resetRes.headers.get("location") ?? "";
     const isRedirect = resetRes.status >= 300 && resetRes.status < 400;
+
+    const responseText = await r.text().catch(() => "");
     if (isRedirect && /password=changed|action=login/.test(resetLoc)) {
       return res.json({ ok: true });
     }

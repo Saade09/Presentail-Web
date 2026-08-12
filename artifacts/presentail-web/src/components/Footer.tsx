@@ -127,7 +127,7 @@ function InLink({
 }
 
 export function Footer() {
-  const { t, language } = useLocale();
+  const { t, language, cityName } = useLocale();
   const { city, cityId, countryCode, openPicker } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
   const [currentPath] = useLocation();
@@ -149,7 +149,7 @@ export function Footer() {
   const toCityHref = (path: string): string =>
     _cityBase ? `~${_cityBase}${path}` : path;
   const year = new Date().getFullYear();
-  const cityLabel = city ? city.name : t("footer.selectCity");
+  const cityLabel = city ? cityName(city.id, city.name) : t("footer.selectCity");
 
 
   const popularCategories: { label: string; href: string; external?: boolean; testId: string }[] = [

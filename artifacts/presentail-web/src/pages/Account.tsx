@@ -744,6 +744,7 @@ function AddAddressModal({
   t: (k: string) => string;
 }) {
   const { toast } = useToast();
+  const { cityName } = useLocale();
   const [busy, setBusy] = useState(false);
   const isEdit = !!editAddress;
   const { data: deliveryLocations } = useDeliveryLocations();
@@ -940,7 +941,7 @@ function AddAddressModal({
               <SelectContent>
                 {availableCities.map((city) => (
                   <SelectItem key={city.id} value={city.name}>
-                    {city.name}
+                    {cityName(city.id, city.name)}
                   </SelectItem>
                 ))}
               </SelectContent>

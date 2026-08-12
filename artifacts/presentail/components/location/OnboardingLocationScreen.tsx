@@ -14,6 +14,7 @@ import { CityList } from "@/components/location/CityList";
 import type { DeliveryCity, DeliveryCountry } from "@/constants/deliveryLocations";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { localizedCityName } from "@/data/countryNamesLocalized";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
@@ -42,7 +43,7 @@ export function OnboardingLocationScreen() {
   const typo = useTypography();
   const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
-  const { isRTL } = useLanguage();
+  const { isRTL, lang } = useLanguage();
   const {
     deliveryLocations,
     isLoading,
@@ -359,7 +360,7 @@ export function OnboardingLocationScreen() {
               {draftCountry && draftCity
                 ? t.onboardingContinueTo
                     .replace("[[flag]]", draftCountry.flag)
-                    .replace("[[city]]", draftCity.name)
+                    .replace("[[city]]", localizedCityName(lang, draftCity.id, draftCity.name))
                 : t.onboardingContinue}
             </AppText>
           </Pressable>

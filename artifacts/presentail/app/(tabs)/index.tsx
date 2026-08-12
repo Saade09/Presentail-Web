@@ -39,7 +39,7 @@ import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { localizedCountryName } from "@/data/countryNamesLocalized";
+import { localizedCountryName, localizedCityName } from "@/data/countryNamesLocalized";
 import { fetchCategoryProducts, applyPricingToProducts, type WooProduct } from "@/lib/woo";
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
@@ -140,7 +140,9 @@ function HomeHeader({
     selectedCountry?.code,
     selectedCountry?.name ?? "Lebanon",
   );
-  const deliveryPlaceName = selectedCity?.name ?? countryName;
+  const deliveryPlaceName = selectedCity
+    ? localizedCityName(lang, selectedCity.id, selectedCity.name)
+    : countryName;
 
   const sideRowDir = isRTL ? "row-reverse" : "row";
 
