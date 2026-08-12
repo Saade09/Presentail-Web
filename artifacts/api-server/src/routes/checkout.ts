@@ -53,6 +53,20 @@ function resolveStripeKey(storeKey: StoreKey): string | null {
   return process.env.STRIPE_SECRET_KEY ?? null;
 }
 
+// Currencies accepted by each Stripe account.
+// Main (LB) Stripe account: USD, EUR, GBP only.
+// Gulf (AE) Stripe account: AED, USD, EUR, GBP, SAR, QAR.
+// Display currencies outside these sets (e.g. CAD, AUD, CHF on LB) are
+// silently charged in USD so international visitors can still complete checkout.
+const STRIPE_MAIN_CURRENCIES: ReadonlySet<string> = new Set(["usd", "eur", "gbp"]);
+const STRIPE_GULF_CURRENCIES: ReadonlySet<string> = new Set(["aed", "usd", "eur", "gbp", "sar", "qar"]);
+
+function resolveStripeChargeCurrency(currency: SupportedCurrency, isGulf: boolean): SupportedCurrency {
+  const lower = currency.toLowerCase();
+  const supported = isGulf ? STRIPE_GULF_CURRENCIES : STRIPE_MAIN_CURRENCIES;
+  return supported.has(lower) ? currency : "USD";
+}
+
 /**
  * Maps a resolved StoreKey to a human-readable market name for the Stripe
  * payment description (e.g. "Order PR-123 from Presentail Lebanon").
@@ -620,7 +634,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
     });
   }
 
-  const stripeCurrency = currency.toLowerCase();
+  // Fall back to USD when the display currency isn't accepted by the Stripe
+  // account (e.g. CAD/AUD/CHF on the LB main account).
+  const chargeCurrency = resolveStripeChargeCurrency(currency, isGulf);
+  const stripeCurrency = chargeCurrency.toLowerCase();
 
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
@@ -738,7 +755,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
     const { subtotalMinorUnits, deliveryFeeMinorUnits, couponDiscountMinorUnits, totalMinorUnits } =
       await computeStripeAmounts({
         catalogItems: catalogResult.items,
-        currency,
+        currency: chargeCurrency,
         deliveryFeeUsd: serverDeliveryFeeUsd,
         couponDiscountUsd,
       });
@@ -793,7 +810,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               clientSecret: existing.client_secret,
               orderId,
               amount: totalMinorUnits,
-              currency,
+              currency: chargeCurrency,
             });
           }
           // Amount or currency changed (e.g. shopper switched delivery country) —
@@ -830,7 +847,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             clientSecret: updated.client_secret,
             orderId,
             amount: totalMinorUnits,
-            currency,
+            currency: chargeCurrency,
           });
         }
         // PI already paid or is being processed — do not create a duplicate.
@@ -901,7 +918,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
             clientSecret: resolvedPi.client_secret,
             orderId,
             amount: totalMinorUnits,
-            currency,
+            currency: chargeCurrency,
           });
         }
       }
@@ -1019,7 +1036,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       clientSecret: paymentIntent.client_secret,
       orderId,
       amount: totalMinorUnits,
-      currency,
+      currency: chargeCurrency,
       klarnaAllowed,
     });
   } catch (err: any) {

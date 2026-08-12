@@ -2321,9 +2321,13 @@ function CheckoutForm() {
             (serverFeesOverride?.slotFeeUsd ?? slotFee);
           const _wCouponUsd = serverFeesOverride?.couponDiscountUsd ?? confirmedCouponDiscount;
           const _wClientTotalUsd = computeCartTotal(_wSubtotalUsd, _wDeliveryUsd, _wCouponUsd);
-          const _wClientRate = fxRatesData?.rates?.[checkoutCurrency] ?? 1;
-          const _wClientDisplay = roundToNearestFive(_wClientTotalUsd * _wClientRate, checkoutCurrency);
-          const _wClientMinorUnits = toStripeMinorUnits(_wClientDisplay, checkoutCurrency);
+          // Use the PI's actual charge currency — may differ from checkoutCurrency
+          // when the Stripe account doesn't support the display currency (e.g. CAD
+          // on the LB main account falls back to USD server-side).
+          const _wPiCurrency: string = walletIntentRef.current?.currency?.toUpperCase() ?? checkoutCurrency;
+          const _wClientRate = (fxRatesData?.rates as Record<string, number> | undefined)?.[_wPiCurrency] ?? 1;
+          const _wClientDisplay = roundToNearestFive(_wClientTotalUsd * _wClientRate, _wPiCurrency);
+          const _wClientMinorUnits = toStripeMinorUnits(_wClientDisplay, _wPiCurrency);
           if (walletIntentRef.current && walletIntentRef.current.amount !== _wClientMinorUnits) {
             walletIntentRef.current = null;
             setWalletReadySig(null);
