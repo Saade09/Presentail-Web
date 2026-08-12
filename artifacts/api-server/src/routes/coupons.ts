@@ -46,7 +46,7 @@ type ValidateBody = {
 };
 
 router.post("/coupons/validate", async (req, res) => {
-  const body = req.body as Partial<ValidateBody>;
+  const body = req.body as ValidateBody;
   const code = (body.code ?? "").trim();
   const customerEmail = (body.customerEmail ?? "").trim();
   const rawItems = Array.isArray(body.cartItems) ? body.cartItems : [];
@@ -135,7 +135,7 @@ type RedeemBody = {
 };
 
 router.post("/coupons/redeem", requireAdmin, async (req, res) => {
-  const body = req.body as Partial<RedeemBody>;
+  const body = req.body as RedeemBody;
   const code = (body.code ?? "").trim();
   const customerEmail = (body.customerEmail ?? "").trim();
   const orderId = (body.orderId ?? "").trim();
@@ -146,9 +146,9 @@ router.post("/coupons/redeem", requireAdmin, async (req, res) => {
   }
 
   const rows = await db
-    .select()
+    .select({ id: couponsTable.id })
     .from(couponsTable)
-    .where(eq(couponsTable.code, code.toUpperCase()))
+    .where(eq(sql`lower(${couponsTable.code})`, code.toLowerCase()))
     .limit(1);
 
   const coupon = rows[0];

@@ -39,10 +39,16 @@ vi.mock("../src/lib/customers", () => ({
   }),
   syncCustomerToWoo: vi.fn().mockResolvedValue(777),
   getCustomerByWcId: vi.fn().mockResolvedValue(null),
+  getCustomerById: vi.fn().mockResolvedValue({ id: 7, emailVerified: true }),
 }));
 
 vi.mock("../src/lib/auth", () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
+  resolveAuthenticatedCustomer: async (...args: unknown[]) => {
+    const auth = await authenticateMock(...args);
+    if (auth?.ok) return { ok: true, customerId: auth.customerId ?? null, wcCustomerId: auth.userId ?? null };
+    return { ok: false };
+  },
 }));
 
 // Pretend FX is the identity for tests so we can assert exact monetary
@@ -137,7 +143,7 @@ function basePayload(overrides: Record<string, unknown> = {}) {
     districtFee: 8,
     expressFee: 0,
     deliveryDetails: "Some street",
-    deliveryDate: "2026-05-10",
+    deliveryDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
     deliverySlot: "9:00 AM – 2:00 PM",
     // Default to an offline method ("whish") so country / appDeviceId tests
     // bypass the card payment-intent gate (covered separately in
@@ -150,11 +156,11 @@ function basePayload(overrides: Record<string, unknown> = {}) {
 }
 
 describe("POST /api/woo/order — Zod validation", () => {
-  it("rejects an empty body with 400 and surfaces zod issues", async () => {
+  it("rejects an empty body before Zod via the recipient-phone guard (422)", async () => {
     const res = await request(app).post("/api/woo/order").send({});
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     expect(res.body.ok).toBe(false);
-    expect(Array.isArray(res.body.issues)).toBe(true);
+    expect(res.body.code).toBe("recipient_phone_required");
     // No outbound WC call should have happened on validation failure.
     expect(fetchSpy).not.toHaveBeenCalled();
   });

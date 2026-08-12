@@ -42,6 +42,7 @@ vi.mock("../src/lib/auth-rate-limit", () => {
   const noop = (_req: unknown, _res: unknown, next: () => void) => next();
   return {
     existsIpLimiter: noop,
+    webBridgeIpLimiter: noop,
     loginIpLimiter: noop,
     registerIpLimiter: noop,
     resetRequestIpLimiter: noop,

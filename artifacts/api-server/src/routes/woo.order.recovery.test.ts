@@ -28,10 +28,14 @@ import request from "supertest";
 const {
   consumePaymentIntentMock,
   verifyStripePaymentIntentPaidMock,
+  fetchStripePaymentIntentDetailsMock,
+  resolveCartItemsMock,
   attemptCreateOsOrderMock,
 } = vi.hoisted(() => ({
   consumePaymentIntentMock: vi.fn(),
   verifyStripePaymentIntentPaidMock: vi.fn(),
+  fetchStripePaymentIntentDetailsMock: vi.fn(),
+  resolveCartItemsMock: vi.fn(),
   attemptCreateOsOrderMock: vi.fn(),
 }));
 
@@ -67,6 +71,11 @@ vi.mock("../lib/catalog", () => ({
   verifyStripePaymentIntentPaid: verifyStripePaymentIntentPaidMock,
   verifyMamoPayment: vi.fn().mockResolvedValue(false),
   captureAndVerifyPayPalOrder: vi.fn().mockResolvedValue(false),
+  fetchStripePaymentIntentDetails: fetchStripePaymentIntentDetailsMock,
+  resolveCartItems: resolveCartItemsMock,
+  computeDistrictFeeUsd: vi.fn().mockReturnValue(0),
+  expressSurchargeUsd: vi.fn().mockReturnValue(0),
+  countryForDistrict: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("../lib/checkoutIntents", () => ({
@@ -81,6 +90,7 @@ vi.mock("../lib/customers", () => ({
   }),
   syncCustomerToWoo: vi.fn().mockResolvedValue(101),
   getCustomerByWcId: vi.fn().mockResolvedValue(null),
+  getCustomerById: vi.fn().mockResolvedValue({ id: 99, emailVerified: true }),
 }));
 
 vi.mock("../lib/loyalty", () => ({
@@ -108,6 +118,9 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsRawCatalogBrands: vi.fn().mockReturnValue([]),
   getOsOccasions: vi.fn().mockReturnValue([]),
   getOsProductBySlug: vi.fn().mockReturnValue(null),
+  getOsProductByWcId: vi.fn().mockReturnValue(null),
+  getOsBrandNameToCanonicalSlug: vi.fn().mockReturnValue(new Map()),
+  getCachedBestSellerIds: vi.fn().mockReturnValue(new Set()),
 }));
 
 vi.mock("../lib/logger", () => ({
@@ -178,6 +191,18 @@ describe("POST /woo/order — server-restart recovery branch", () => {
     consumePaymentIntentMock.mockReturnValue(null);
     // Stripe confirms the PI is paid
     verifyStripePaymentIntentPaidMock.mockResolvedValue(true);
+    // Recovery path probes Stripe directly for the PI's details and verifies
+    // amount_received covers the authoritative catalog cost of the cart.
+    fetchStripePaymentIntentDetailsMock.mockResolvedValue({
+      amountReceived: 2_500,
+      currency: "usd",
+      couponDiscountUsd: 0,
+    });
+    resolveCartItemsMock.mockResolvedValue({
+      ok: true,
+      items: [{ wcId: 42, osSlug: "rose-bouquet", priceUsd: 25, quantity: 1 }],
+      subtotalUsd: 25,
+    });
     // OS order creation succeeds
     attemptCreateOsOrderMock.mockResolvedValue({
       ok: true,
@@ -212,6 +237,7 @@ describe("POST /woo/order — server-restart recovery branch", () => {
 
   it("falls back to 402 when Stripe cannot confirm the PI either (no orphaned order)", async () => {
     verifyStripePaymentIntentPaidMock.mockResolvedValue(false);
+    fetchStripePaymentIntentDetailsMock.mockResolvedValue(null);
 
     const app = await buildApp();
     const res = await request(app).post("/woo/order").send(BASE_ORDER_BODY);

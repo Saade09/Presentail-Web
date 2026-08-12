@@ -45,6 +45,7 @@ vi.mock("../src/lib/customers", () => ({
   upsertCustomer: (...args: unknown[]) => upsertCustomerMock(...args),
   syncCustomerToWoo: (...args: unknown[]) => syncCustomerToWooMock(...args),
   getCustomerByWcId: vi.fn().mockResolvedValue(null),
+  getCustomerById: vi.fn().mockResolvedValue({ id: 55, emailVerified: true }),
 }));
 
 vi.mock("../src/lib/auth", () => ({
@@ -148,7 +149,7 @@ function basePayload(overrides: Record<string, unknown> = {}) {
     districtFee: 8,
     expressFee: 0,
     deliveryDetails: "Some street",
-    deliveryDate: "2026-05-10",
+    deliveryDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
     deliverySlot: "9:00 AM – 2:00 PM",
     paymentMethod: "whish",
     ...overrides,

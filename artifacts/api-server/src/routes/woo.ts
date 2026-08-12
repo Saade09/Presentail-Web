@@ -629,7 +629,11 @@ router.get("/woo/brand-products", async (req, res) => {
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter));
   let products = sortOsShapedProducts(eligible, sortMode)
-    .map((p) => transformProduct(p, store.currencySymbol));
+    .map((p) => transformProduct(p, store.currencySymbol))
+    // Override isBestSeller from the persisted best-seller ID set: the
+    // in-place p.isBestSeller annotation can be stale/undefined while a
+    // cache refresh is in-flight, so the Set is authoritative here.
+    .map((p) => ({ ...p, isBestSeller: bestSellerIds.has(String(p.id)) }));
   if (lang === "ar" || lang === "fr") {
     products = await applyProductNameTranslations(products, lang);
   }
@@ -857,7 +861,10 @@ router.get("/woo/occasion-products", async (req, res) => {
     });
   }
 
-  const groupsArr = Array.from(groups.values());
+  const groupsArr = Array.from(groups.entries()).map(([groupSlug, g]) => ({
+    slug: groupSlug,
+    ...g,
+  }));
   const totalReturned = groupsArr.reduce((sum, g) => sum + g.products.length, 0);
   return res.json({ ok: true, groups: groupsArr, total: totalReturned, pageItems });
 });
@@ -979,7 +986,7 @@ router.get("/woo/product-pricing/:osId", async (req, res) => {
       return res.status(osRes.status).json({ ok: false, message: `OS returned ${osRes.status}` }); // i18n-ignore
     }
 
-    const body = (await osRes.json()) as Record<string, unknown>;
+    const body = (await osRes.json()) as { product?: Record<string, unknown> };
 
     function parseP(v: unknown): number | null {
       if (v == null || v === "" || v === "0" || v === 0) return null;
@@ -1644,6 +1651,10 @@ router.post("/woo/order", async (req, res) => {
     // Layer 1: Verify orderId↔paymentRef binding.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
     if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid Mamo payment intent found for this paymentRef+orderId pair",
+      );
       return res.status(402).json({
         ok: false,
         code: "payment_intent_invalid",
@@ -1662,6 +1673,90 @@ router.post("/woo/order", async (req, res) => {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
         "woo.order: submitted order does not match paid-for Mamo snapshot — rejecting",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "cart_mismatch",
+        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
+      });
+    }
+
+    snapshotItems = intent.snapshot.items;
+    snapshotFees = {
+      districtFeeUsd: intent.snapshot.districtFeeUsd,
+      expressFeeUsd: intent.snapshot.expressFeeUsd,
+      slotFeeUsd: intent.snapshot.slotFeeUsd,
+    };
+    verifiedCurrency = intent.currency;
+
+    if (!process.env.MAMO_SECRET_KEY) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: MAMO_SECRET_KEY not configured, recording order without set_paid",
+      );
+    } else {
+      // Layer 2: Verify with Mamo provider.
+      paymentVerified = await verifyMamoPayment(paymentRef);
+      if (!paymentVerified) {
+        req.log?.warn?.(
+          { appOrderId: body.orderId, paymentRef },
+          "woo.order: Mamo payment not confirmed — rejecting order",
+        );
+        // Fire-and-forget: record the declined attempt in app_orders and
+        // send to OS with payment.verified=false so ops can see it.
+        void recordFailedPaymentAttempt(body, {
+          paymentRef,
+          snapshotItems,
+          store,
+          platform: requestPlatform,
+          userId: resolvedUserId,
+          customerId: resolvedCustomerId,
+          log: req.log,
+        });
+        return res.status(402).json({
+          ok: false,
+          code: "payment_not_confirmed",
+          message: "Payment could not be confirmed with Mamo. Please complete payment before placing the order.", // i18n-ignore
+        });
+      }
+    }
+  } else if (body.paymentMethod === "paypal") {
+    if (!paymentRef) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_reference_required",
+        message: "A PayPal order ID (paymentRef) is required for PayPal payments.", // i18n-ignore
+      });
+    }
+
+    // Layer 1: Verify orderId↔paymentRef binding.
+    const intent = consumePaymentIntent(paymentRef, body.orderId);
+    if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid PayPal payment intent found for this paymentRef+orderId pair",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
+      });
+    }
+
+    // Layer 1b: Verify cart snapshot — submitted cart AND delivery context
+    // must match the paid snapshot. PayPal charges the full total (products +
+    // delivery), so a district or express substitution is also fraud.
+    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0,
+      submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
+    });
+    if (cartMismatch) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
+        "woo.order: submitted order does not match paid-for PayPal snapshot — rejecting",
       );
       return res.status(402).json({
         ok: false,
@@ -1733,6 +1828,10 @@ router.post("/woo/order", async (req, res) => {
     // and rely on the reconciliation queue — the same behavior as Stripe/Mamo.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
     if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid CyberSource payment intent found for this paymentRef+orderId pair",
+      );
       return res.status(402).json({
         ok: false,
         code: "payment_intent_invalid",
