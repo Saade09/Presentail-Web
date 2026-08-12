@@ -53,18 +53,14 @@ function resolveStripeKey(storeKey: StoreKey): string | null {
   return process.env.STRIPE_SECRET_KEY ?? null;
 }
 
-// Currencies accepted by each Stripe account.
-// Main (LB) Stripe account: USD, EUR, GBP only.
-// Gulf (AE) Stripe account: AED, USD, EUR, GBP, SAR, QAR.
-// Display currencies outside these sets (e.g. CAD, AUD, CHF on LB) are
-// silently charged in USD so international visitors can still complete checkout.
-const STRIPE_MAIN_CURRENCIES: ReadonlySet<string> = new Set(["usd", "eur", "gbp"]);
-const STRIPE_GULF_CURRENCIES: ReadonlySet<string> = new Set(["aed", "usd", "eur", "gbp", "sar", "qar"]);
-
-function resolveStripeChargeCurrency(currency: SupportedCurrency, isGulf: boolean): SupportedCurrency {
-  const lower = currency.toLowerCase();
-  const supported = isGulf ? STRIPE_GULF_CURRENCIES : STRIPE_MAIN_CURRENCIES;
-  return supported.has(lower) ? currency : "USD";
+/**
+ * Return the currency Stripe will charge in for this account.
+ * The Cyprus main account supports all display currencies.
+ * The Gulf (AE) account handles AED and international currencies for UAE orders.
+ * Both accept any SupportedCurrency — no fallback is needed.
+ */
+function resolveStripeChargeCurrency(currency: SupportedCurrency, _isGulf: boolean): SupportedCurrency {
+  return currency;
 }
 
 /**
@@ -695,11 +691,20 @@ router.post("/checkout/payment-intent", async (req, res) => {
   let stripeCustomerId: string | undefined;
   const authHeader = req.header("authorization");
   if (authHeader) {
-  const auth = await authenticate(req.header("authorization"), req);
+    const auth = await authenticate(authHeader, req);
     if (auth.ok && auth.localCustomerId != null) {
-    const stripe = new Stripe(key);
-    const customerId = gulf ? row?.stripeCustomerIdGulf : row?.stripeCustomerId;
-      if (customerId) stripeCustomerId = customerId;
+      const [customerRow] = await db
+        .select({
+          stripeCustomerId: customersTable.stripeCustomerId,
+          stripeCustomerIdGulf: customersTable.stripeCustomerIdGulf,
+        })
+        .from(customersTable)
+        .where(eq(customersTable.id, auth.localCustomerId))
+        .limit(1);
+      if (customerRow) {
+        const customerId = isGulf ? customerRow.stripeCustomerIdGulf : customerRow.stripeCustomerId;
+        if (customerId) stripeCustomerId = customerId;
+      }
     }
   }
 
