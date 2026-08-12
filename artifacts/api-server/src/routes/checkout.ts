@@ -679,7 +679,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
     district,
   });
   const serverDeliveryFeeUsd = serverDistrictFeeUsd + serverExpressFeeUsd + serverSlotFeeUsd;
-  const totalUsd = Math.max(0, rawTotalUsd - couponDiscountUsd);
+  // Pre-coupon total in USD — used for coupon eligibility checks and as the
+  // baseline from which the coupon discount is subtracted.
+  const rawTotalUsd = subtotalUsd + serverDeliveryFeeUsd;
 
   // Resolve Stripe Customer for any authenticated request.
   // - When saveCard=true: also sets setup_future_usage so the card is saved.
@@ -767,7 +769,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
     // Post-coupon total in USD — the canonical amount the shopper is charged.
     // All storePaymentIntent calls use this so the snapshot's totalUsd reflects
     // what was actually collected, not the pre-discount subtotal.
-    const postCouponTotalUsd = Math.max(0, totalUsd - couponDiscountUsd);
+    const postCouponTotalUsd = Math.max(0, rawTotalUsd - couponDiscountUsd);
 
     const stripe = new Stripe(key);
 
