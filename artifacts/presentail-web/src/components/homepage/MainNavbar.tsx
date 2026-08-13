@@ -229,7 +229,10 @@ export function MainNavbar() {
         })
       : null;
   const toCityHref = (path: string): string =>
-    cityBase ? `~${cityBase}${path}` : path;
+    // Without a city context (e.g. the blog shell, whose nested router base is
+    // `/${lang}`), a relative path would resolve under that base — `/fr/` has
+    // no route and 404s. Escape to an absolute URL so "/" is the real root.
+    cityBase ? `~${cityBase}${path}` : `~${path}`;
 
   const [searchOpen, setSearchOpen] = useState(false);
   // Gate mounting until first open so the cmdk chunk is never fetched on

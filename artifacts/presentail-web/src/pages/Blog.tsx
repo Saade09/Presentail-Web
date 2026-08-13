@@ -96,7 +96,7 @@ export default function Blog() {
   return (
     <div className="bg-background" data-testid="blog-page" lang={language}>
       <section className="container mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-16 max-w-4xl">
-        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: c.eyebrow }]} />
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "~/" }, { label: c.eyebrow }]} />
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
           {c.eyebrow}
         </p>

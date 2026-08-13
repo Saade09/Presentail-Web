@@ -479,12 +479,15 @@ export type CatalogMetadataResponse = {
   brands: CatalogBrand[];
 };
 
-export const useCatalogMetadata = (countryCode?: string | null) => {
+export const useCatalogMetadata = (countryCode?: string | null, lang?: string | null) => {
   return useQuery({
-    queryKey: ["catalog-metadata", countryCode ?? null],
+    queryKey: ["catalog-metadata", countryCode ?? null, lang ?? null],
     queryFn: () => {
-      const url = countryCode ? `/catalog/metadata?countryCode=${encodeURIComponent(countryCode)}` : "/catalog/metadata";
-      return apiFetch<CatalogMetadataResponse>(url);
+      const params = new URLSearchParams();
+      if (countryCode) params.set("countryCode", countryCode);
+      if (lang) params.set("lang", lang);
+      const qs = params.toString();
+      return apiFetch<CatalogMetadataResponse>(qs ? `/catalog/metadata?${qs}` : "/catalog/metadata");
     },
     staleTime: 5 * 60 * 1000,
   });

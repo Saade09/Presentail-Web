@@ -230,7 +230,7 @@ export default function BlogPost() {
       dir={isRtl ? "rtl" : "ltr"}
     >
       <div className="container mx-auto px-4 pt-10 pb-4 max-w-3xl">
-        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: ui.blogNav, href: "/blog" }, { label: article.title }]} />
+        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "~/" }, { label: ui.blogNav, href: "/blog" }, { label: article.title }]} />
         <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mt-2">
           <BackArrow className="w-3.5 h-3.5" />
           {ui.backToJournal}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useGetHomepageBestSellers } from "@workspace/api-client-react";
-import { useFxRates } from "@/lib/queries";
+import { useFxRates, useCatalogMetadata } from "@/lib/queries";
 import { ProductCard } from "@/components/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
@@ -79,6 +79,25 @@ export default function BestSellers() {
   const { currencyCode } = useDisplayCurrency();
 
   const { data: fxData } = useFxRates();
+
+  // Category sidebar must reflect real per-country inventory (see Shop.tsx) —
+  // zero-count categories 404, so never render the static list as links.
+  const { data: catalogMetadata } = useCatalogMetadata(countryCode, language);
+  const visibleCategories = useMemo(() => {
+    const metaCats = catalogMetadata?.categories;
+    if (!metaCats) return [] as { slug: string; labelKey: string | null; name: string | null }[];
+    const available = new Map(metaCats.map((c) => [c.id, c]));
+    const known = CATEGORIES.filter((c) => (available.get(c.slug)?.count ?? 0) > 0).map((c) => ({
+      slug: c.slug,
+      labelKey: c.labelKey as string | null,
+      name: null as string | null,
+    }));
+    const staticSlugs = new Set(CATEGORIES.map((c) => c.slug));
+    const extras = metaCats
+      .filter((c) => !staticSlugs.has(c.id) && c.count > 0)
+      .map((c) => ({ slug: c.id, labelKey: null as string | null, name: c.name }));
+    return [...known, ...extras];
+  }, [catalogMetadata]);
   const currencyRate = useMemo(() => {
     if (currencyCode === "USD") return 1;
     const r = Number(((fxData?.rates ?? {}) as Record<string, number>)[currencyCode] ?? 0);
@@ -299,13 +318,13 @@ export default function BestSellers() {
             <div>
               <h2 className="font-serif text-lg mb-4">{t("shop.categoriesTitle")}</h2>
               <ul className="space-y-3">
-                {CATEGORIES.map((c) => (
+                {visibleCategories.map((c) => (
                   <li key={c.slug}>
                     <Link
                       href={`/category/${c.slug}`}
                       className="text-sm text-muted-foreground hover:text-primary transition-colors"
                     >
-                      {t(c.labelKey)}
+                      {c.labelKey ? t(c.labelKey) : c.name}
                     </Link>
                   </li>
                 ))}

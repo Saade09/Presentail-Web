@@ -6,6 +6,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { useCatalogMetadata } from "@/lib/queries";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
 import {
@@ -129,6 +130,7 @@ function InLink({
 export function Footer() {
   const { t, language, cityName } = useLocale();
   const { city, cityId, countryCode, openPicker } = useLocationSelection();
+  const { data: catalogMetadata } = useCatalogMetadata(countryCode, language);
   const { currencyCode } = useDisplayCurrency();
   const [currentPath] = useLocation();
   const isOnContactPage = currentPath === "/contact" || currentPath.endsWith("/contact");
@@ -152,13 +154,23 @@ export function Footer() {
   const cityLabel = city ? cityName(city.id, city.name) : t("footer.selectCity");
 
 
+  // Only link categories that actually have inventory in the current country
+  // (zero-count category pages 404 — e.g. most categories in Cyprus). While
+  // metadata is loading, show no category links rather than potentially dead
+  // ones; the /brands and /occasions entries below are always valid.
+  const availableCategorySlugs = new Set(
+    (catalogMetadata?.categories ?? []).filter((c) => c.count > 0).map((c) => c.id),
+  );
   const popularCategories: { label: string; href: string; external?: boolean; testId: string }[] = [
     { label: t("footer.popular.flowers"), href: "/category/hand-bouquets", testId: "footer-link-flowers" },
     { label: t("footer.popular.plants"), href: "/category/plants", testId: "footer-link-plants" },
     { label: t("footer.popular.giftBundles"), href: "/category/bundles", testId: "footer-link-bundles" },
     { label: t("footer.popular.cakesSweets"), href: "/category/cakes", testId: "footer-link-cakes" },
     { label: t("footer.popular.baskets"), href: "/category/gift-baskets", testId: "footer-link-baskets" },
-  ];
+  ].filter((item) => {
+    const slug = item.href.startsWith("/category/") ? item.href.slice("/category/".length) : null;
+    return !slug || availableCategorySlugs.has(slug);
+  });
   if (!isAE) {
     popularCategories.push({
       label: t("footer.popular.brands"),

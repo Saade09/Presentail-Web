@@ -46,6 +46,7 @@
 - [AR/FR product translation layer](product-translation.md) — /woo/product reads lang=ar/fr, translates via OpenAI, 7-day cache; seo-inject already sends lang so no web changes needed
 - [CyberSource capture-context schema](cybersource-capture-context-schema.md) — required fields, valid enums (PANENTRY not CARD), locale underscore format, forbidden fields, JWT clientLibrary = UC SDK URL
 - [Task-agent splice corruption](task-agent-splice-corruption.md) — esbuild doesn't type-check; run tsc --noEmit after merges to catch undefined-identifier splices; main Stripe account is Cyprus, accepts all currencies (AED→Gulf)
+- [Category nav inventory rule](category-nav-inventory.md) — never hardcode /category links; filter every nav surface by per-country catalog metadata counts; `~/` escapes lang-based router bases
 - [Charged-but-lost order net](charged-but-lost-orders.md) — card flows must persist order payload server-side before confirm; webhook+sweeper+advisory-lock idempotency rescue paid orders; "stripe" not in WooOrderSchema enum
 - [AED symbol in sentence copy](aed-symbol-sentence-copy.md) — never interpolate formatPrice() into sentences; use web buildFeeNode / mobile Price+symTemplate; plain-text Alerts/emails stay text
 - [Validation concurrent-build race](validation-concurrent-build-race.md) — compression-check + social-share-previews rebuild presentail-web dist/ in parallel and corrupt each other; verify serially, then skip with reason

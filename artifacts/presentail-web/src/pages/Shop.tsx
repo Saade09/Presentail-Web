@@ -536,7 +536,31 @@ export default function Shop() {
     );
   }
 
-  const { data: catalogMetadata } = useCatalogMetadata();
+  const { data: catalogMetadata } = useCatalogMetadata(countryCode, language);
+
+  // Category navigation must reflect real per-country inventory. The catalog
+  // metadata endpoint is country-scoped and excludes zero-count categories
+  // server-side, so build the nav from it instead of the static CATEGORIES
+  // list (which 404'd for e.g. Cyprus, where most categories have no stock).
+  const visibleCategories = useMemo(() => {
+    const metaCats = catalogMetadata?.categories;
+    if (!metaCats) {
+      // Metadata still loading (or failed) — render no category links rather
+      // than the static list, which could link to zero-inventory 404 pages.
+      return [] as { slug: string; labelKey: string | null; name: string | null }[];
+    }
+    const available = new Map(metaCats.map((c) => [c.id, c]));
+    const known = CATEGORIES.filter((c) => (available.get(c.slug)?.count ?? 0) > 0).map((c) => ({
+      slug: c.slug,
+      labelKey: c.labelKey as string | null,
+      name: null as string | null,
+    }));
+    const staticSlugs = new Set(CATEGORIES.map((c) => c.slug));
+    const extras = metaCats
+      .filter((c) => !staticSlugs.has(c.id) && c.count > 0)
+      .map((c) => ({ slug: c.id, labelKey: null as string | null, name: c.name }));
+    return [...known, ...extras];
+  }, [catalogMetadata]);
   const catalogCategory = category
     ? catalogMetadata?.categories.find((c) => c.id === category)
     : undefined;
@@ -810,14 +834,14 @@ export default function Shop() {
             <div>
               <h2 className="font-serif text-lg mb-4">{t("shop.categoriesTitle")}</h2>
               <ul className="space-y-3">
-                {CATEGORIES.map((c) => (
+                {visibleCategories.map((c) => (
                   <li key={c.slug}>
                     <Link
                       href={`/category/${c.slug}`}
                       className={`text-sm hover:text-primary transition-colors ${category === c.slug ? "font-medium text-primary" : "text-muted-foreground"}`}
                       data-testid={`link-category-${c.slug}`}
                     >
-                      {t(c.labelKey)}
+                      {c.labelKey ? t(c.labelKey) : c.name}
                     </Link>
                   </li>
                 ))}
