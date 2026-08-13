@@ -9,7 +9,7 @@ import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 
-type Logo = { name: string; src: string; maxH?: string; fill?: boolean };
+type Logo = { name: string; src: string; maxH?: string; fill?: boolean; noBorder?: boolean };
 
 type PaymentMethodsProps = {
   label?: string | null;
@@ -59,7 +59,7 @@ export function PaymentMethods({
   const logos: Logo[] = [
     ...(showCards
       ? [
-          { name: "American Express", src: amexLogo, fill: true },
+          { name: "American Express", src: amexLogo, fill: true, noBorder: true },
         ]
       : []),
     ...(showWallet
@@ -102,8 +102,8 @@ export function PaymentMethods({
             title={logo.name}
             className={
               logo.fill
-                ? `inline-flex shrink-0 overflow-hidden rounded-[4px] shadow-sm ${compact ? "w-[34px] h-[22px]" : "w-[42px] h-7"}`
-                : `inline-flex shrink-0 items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[3px] ${compact ? "w-[34px] h-[22px]" : "w-[42px] h-7"}`
+                ? `inline-flex shrink-0 overflow-hidden rounded-[4px] ${logo.noBorder ? "" : "border border-gray-200 "}shadow-sm ${compact ? "w-[34px] h-[22px]" : "w-[42px] h-7"}`
+                : `inline-flex shrink-0 items-center justify-center bg-white rounded-[4px] border border-gray-200 shadow-sm overflow-hidden p-[3px] ${compact ? "w-[34px] h-[22px]" : "w-[42px] h-7"}`
             }
           >
             <img

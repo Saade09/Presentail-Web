@@ -9,7 +9,7 @@ import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 
-type Logo = { name: string; src: string; padded?: boolean; maxW?: string };
+type Logo = { name: string; src: string; padded?: boolean; maxW?: string; noBorder?: boolean };
 
 type Props = {
   countryCode?: string | null;
@@ -31,7 +31,7 @@ export function SecurePaymentsTrustpilotCard({ countryCode, currencyCode }: Prop
   const showTabby = isPayMethodSupported("tabby", currency, ctx);
 
   const logos: Logo[] = [
-    ...(showCards ? [{ name: "American Express", src: amexLogo }] : []),
+    ...(showCards ? [{ name: "American Express", src: amexLogo, noBorder: true }] : []),
     ...(showWallet
       ? [
           { name: "Google Pay", src: googlePayLogo, padded: true, maxW: "max-w-[22px] sm:max-w-[14px]" },
@@ -67,8 +67,8 @@ export function SecurePaymentsTrustpilotCard({ countryCode, currencyCode }: Prop
               title={logo.name}
               className={
                 logo.padded
-                  ? "inline-flex shrink-0 items-center justify-center bg-white rounded-[3px] shadow-sm overflow-hidden p-[2px] w-[32px] h-[22px] sm:w-[22px] sm:h-[14px]"
-                  : "inline-flex shrink-0 overflow-hidden rounded-[3px] shadow-sm w-[32px] h-[22px] sm:w-[22px] sm:h-[14px]"
+                  ? "inline-flex shrink-0 items-center justify-center bg-white rounded-[3px] border border-gray-200 shadow-sm overflow-hidden p-[2px] w-[32px] h-[22px] sm:w-[22px] sm:h-[14px]"
+                  : `inline-flex shrink-0 overflow-hidden rounded-[3px] ${logo.noBorder ? "" : "border border-gray-200 "}shadow-sm w-[32px] h-[22px] sm:w-[22px] sm:h-[14px]`
               }
             >
               <img
