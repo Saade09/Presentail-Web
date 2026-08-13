@@ -9,7 +9,7 @@ import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 
-type Logo = { name: string; src: string; maxH?: string; fill?: boolean; noBorder?: boolean };
+type Logo = { name: string; src: string; maxH?: string; fill?: boolean; noBorder?: boolean; cover?: boolean };
 
 type PaymentMethodsProps = {
   label?: string | null;
@@ -76,7 +76,7 @@ export function PaymentMethods({
       : []),
     ...(showWhish ? [{ name: "Whish Money", src: whishLogo, fill: true }] : []),
     ...(showPayPal ? [{ name: "PayPal", src: paypalLogo, fill: true }] : []),
-    ...(showTabby ? [{ name: "Tabby", src: tabbyLogo, fill: true }] : []),
+    ...(showTabby ? [{ name: "Tabby", src: tabbyLogo, fill: true, cover: true }] : []),
   ];
 
   return (
@@ -111,7 +111,7 @@ export function PaymentMethods({
               alt={logo.name}
               className={
                 logo.fill
-                  ? "block w-full h-full object-fill"
+                  ? `block w-full h-full ${logo.cover ? "object-cover" : "object-fill"}`
                   : `block ${compact ? "max-w-[22px]" : "max-w-[26px]"} object-contain ${logo.maxH ?? ""}`
               }
               loading="lazy"

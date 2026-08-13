@@ -9,7 +9,7 @@ import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 
-type Logo = { name: string; src: string; padded?: boolean; maxW?: string; noBorder?: boolean };
+type Logo = { name: string; src: string; padded?: boolean; maxW?: string; noBorder?: boolean; cover?: boolean };
 
 type Props = {
   countryCode?: string | null;
@@ -46,7 +46,7 @@ export function SecurePaymentsTrustpilotCard({ countryCode, currencyCode }: Prop
       : []),
     ...(showWhish ? [{ name: "Whish Money", src: whishLogo }] : []),
     ...(showPayPal ? [{ name: "PayPal", src: paypalLogo }] : []),
-    ...(showTabby ? [{ name: "Tabby", src: tabbyLogo }] : []),
+    ...(showTabby ? [{ name: "Tabby", src: tabbyLogo, cover: true }] : []),
   ];
 
   return (
@@ -77,7 +77,7 @@ export function SecurePaymentsTrustpilotCard({ countryCode, currencyCode }: Prop
                 className={
                   logo.padded
                     ? `block object-contain ${logo.maxW ?? "max-w-full"}`
-                    : "block w-full h-full object-fill"
+                    : `block w-full h-full ${logo.cover ? "object-cover" : "object-fill"}`
                 }
                 loading="lazy"
                 decoding="async"

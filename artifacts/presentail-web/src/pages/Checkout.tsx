@@ -354,7 +354,7 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
         {isProcessing
           ? <span className="text-sm font-medium" style={{ color: "#1a1a1a" }}>{t("checkout.processing")}</span>
           : <>
-              <img src={tabbyLogo} alt={ALT_TABBY} style={{ height: 22, width: "auto" }} draggable={false} />
+              <img src={tabbyLogo} alt={ALT_TABBY} style={{ height: 36, width: "auto" }} draggable={false} />
               <span className="text-sm font-semibold" style={{ color: "#1a1a1a" }}>{LABEL_PAY_TABBY}</span>
             </>}
       </button>
