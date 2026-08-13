@@ -1,0 +1,109 @@
+OBJECTIVE
+Redesign and implement the delivery-selection popup on the cart page so the flow is simpler, clearer, and more premium. The customer should first choose the delivery mode, then the delivery date, then the available time slot. Keep the interaction inside a single modal.
+
+1. MODAL STRUCTURE
+- Title: When should we deliver?
+- Subtitle: Choose the best option for you
+- Keep the modal centered over a dimmed cart page.
+- Use the existing Presentail visual language: white background, rounded corners, subtle shadow, dark teal selected states, thin light-gray borders, generous spacing.
+- Keep the close icon in the top-right.
+
+2. DELIVERY OPTION
+Make the first decision explicitly about delivery mode. Show two cards side by side:
+- Express delivery — show approximate ETA (example: ~90 minutes) and the applicable surcharge (example: +$5 / local currency equivalent).
+- Schedule delivery — subtitle: Pick a date and time.
+- Only one option can be active at a time.
+- The active card should use a teal outline/highlight and a clear selected check/radio state.
+- If Express is selected, scheduled date/time controls should not compete for attention. Hide or collapse them as appropriate.
+
+3. DATE SELECTION
+For scheduled delivery, replace the redundant date input field with quick-select date cards:
+- Today + date
+- Tomorrow + date
+- Next relevant day (for example Sat) + date
+- Choose another date with calendar icon
+Do not show a separate raw date input like 13/08/2026 alongside these quick options.
+
+4. CHOOSE ANOTHER DATE INTERACTION
+When the customer clicks Choose another date, do not open a second modal. Expand a compact inline calendar directly inside the existing delivery popup, underneath the quick-date cards.
+- Calendar header should show month + year, with previous/next month arrows.
+- Disable dates that cannot be selected, including past dates and any dates blocked by delivery rules.
+- Show Today with a subtle outline if useful.
+- Show the customer’s selected date with a solid teal filled state.
+- Selecting a date should immediately update availability for that date.
+- No extra Apply/Done button is required for the calendar.
+- After selection, it is acceptable to collapse the calendar automatically to keep the popup compact. The chosen custom date should remain visibly selected in the date row.
+
+5. TIME SLOTS
+Use clear, customer-friendly time labels. Preferred examples:
+- 9:00 AM – 2:00 PM — Morning
+- 2:00 PM – 6:00 PM — Afternoon
+- 6:00 PM – 10:00 PM — Evening
+- 9:00 PM – 11:00 PM — Late night — +$5 if applicable
+Avoid incorrect labels such as calling 6 PM–10 PM “Afternoon.” Use the same time-format convention consistently across the modal and delivery summary.
+
+6. UNAVAILABLE SLOTS
+- Unavailable slots must look disabled but remain readable.
+- Include an explanation such as Unavailable today rather than simply fading the slot with no context.
+- Disabled slots must not be clickable or keyboard-selectable.
+
+7. REMOVE UNNECESSARY DELIVERY DISCLAIMER
+Do not include the sentence “Exact delivery time will be confirmed on the day of delivery” as a full-width informational row inside this popup. It adds visual noise and is unnecessary for the decision flow.
+If Product/Operations determines a disclaimer is legally or operationally required, surface it more subtly (for example via an info tooltip near the time section or later in confirmation), but do not restore the prominent full-row message without review.
+
+8. FOOTER / CONFIRMATION
+- Left secondary action: Cancel.
+- Right primary action: Confirm delivery.
+- When a scheduled time is selected, show the selected window inside the CTA, e.g. Confirm delivery + 2:00 PM – 6:00 PM.
+- If the selected option has a surcharge, make the additional charge clear before confirmation.
+- Primary CTA must remain visually dominant.
+
+9. DELIVERY SUMMARY SYNC
+After confirmation, update the Delivery Summary on the cart immediately with the chosen date, time window, and delivery mode. Ensure the total/order summary also updates correctly when a paid delivery option is selected.
+
+10. RESPONSIVE BEHAVIOR
+- Desktop: preserve a clean two-column layout for delivery cards and time slots where space allows.
+- Mobile: stack cards/slots cleanly without horizontal overflow.
+- The expanded custom-date calendar must fit within the modal width and remain usable on small screens.
+- Avoid excessive modal height. If the calendar makes the modal taller than the viewport, use sensible internal scrolling while keeping the main action reachable.
+
+11. ACCESSIBILITY
+- All option cards must have proper focus states.
+- Selection state must not rely on color alone; use a check/radio indicator.
+- Calendar navigation and dates should be keyboard accessible.
+- Disabled dates/time slots must expose the correct disabled state.
+- Ensure contrast remains adequate for labels, borders, and disabled-state explanatory text.
+
+12. LOGIC / EDGE CASES
+- If Today has no remaining available slots, reflect that immediately and make Tomorrow/custom dates easy to choose.
+- If a custom date is selected and no slots are available, show a clear empty-state message and allow another date to be selected.
+- If availability changes before the customer confirms, prevent stale/unavailable selection and prompt them to choose another slot.
+- Express surcharge and scheduled-slot surcharge logic must not be double-counted.
+- Changing from Schedule to Express and back should preserve or reset the previous selection consistently; choose one behavior and confirm it with Product if current logic is ambiguous.
+
+ACCEPTANCE CRITERIA
+1. The modal presents Delivery option → Date → Time in that order.
+2. Express and Schedule are visually and functionally mutually exclusive.
+3. No redundant raw date input is shown with the quick-date cards.
+4. Choose another date expands an inline calendar in the same modal.
+5. A customer can select a future date from the calendar without an extra Apply button.
+6. Time slots refresh based on the selected date.
+7. Unavailable slots display a readable reason/state.
+8. The “Exact delivery time will be confirmed…” information row is removed.
+9. Time-of-day labels are semantically correct (Morning/Afternoon/Evening/Late night).
+10. The Confirm delivery CTA displays the selected delivery window and reflects any surcharge.
+11. Cart Delivery Summary and order total update correctly after confirmation.
+12. The complete flow works on desktop and mobile and is keyboard accessible.
+
+QA SCENARIOS
+- Scheduled delivery for Today with an available afternoon slot.
+- Scheduled delivery for Tomorrow.
+- Custom future date selected from the calendar.
+- Navigate forward/backward between calendar months.
+- Date with zero available slots.
+- Disabled/past date cannot be selected.
+- Late-night paid slot correctly updates delivery charge and total.
+- Express selection correctly updates ETA/price and hides scheduled controls.
+- Switch Express → Schedule → Express and verify state/price integrity.
+- Mobile viewport with custom calendar expanded.
+- Keyboard-only navigation through the entire modal.

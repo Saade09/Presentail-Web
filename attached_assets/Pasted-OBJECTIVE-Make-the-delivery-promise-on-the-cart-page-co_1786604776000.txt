@@ -1,0 +1,176 @@
+OBJECTIVE
+
+Make the delivery promise on the cart page concrete and immediately understandable. Customers should clearly see when the order will arrive, with distinct language for scheduled standard delivery versus rolling 90-minute express delivery.
+
+BACKGROUND
+
+The current Delivery Summary can truncate the scheduled time and uses generic labels such as “Delivery: Express Delivery.” It also shows “Beirut,” which does not help the customer evaluate the delivery promise and adds unnecessary vertical space.
+
+The approved direction is:
+
+• Standard delivery = scheduled date/time window
+• Express delivery = dynamic deadline based on a 90-minute SLA
+• Remove “Beirut” from the delivery card
+• Reclaim the resulting vertical space and move the Order Summary/CTA upward
+
+SCOPE
+
+1. DELIVERY SUMMARY — STANDARD DELIVERY
+
+Display the selected standard option using this hierarchy:
+
+Standard delivery
+Arrives today, 2–5 PM
+Scheduled delivery window
+
+Requirements:
+
+• Use the actual selected date and delivery window; “today, 2–5 PM” is an example.
+• For a future date, show a clear date such as “Arrives tomorrow, 2–5 PM” or “Arrives Sat, 15 Aug, 2–5 PM.”
+• Never truncate the arrival window with an ellipsis.
+• Remove the city/location line (“Beirut”).
+• Keep the calendar icon.
+• Keep the “Change” action on the right.
+• “Arrives…” must be the most visually prominent line after the service type.
+
+2. DELIVERY SUMMARY — EXPRESS DELIVERY
+
+Display the selected express option using this hierarchy:
+
+Express delivery
+Arrives by 11:07 AM
+Within 90 minutes
+
+Requirements:
+
+• “11:07 AM” is an example based on a 9:37 AM quote time.
+• The displayed deadline must come from the delivery availability/quote logic and equal the valid 90-minute delivery promise.
+• Anchor the time to the quote returned for the cart. Do not let the deadline continuously creep forward every minute while the page remains open.
+• If the delivery quote expires, refresh/revalidate it and update the displayed deadline.
+• Use the correct market timezone, not the browser’s assumed timezone.
+• Remove the city/location line (“Beirut”).
+• Keep the calendar/delivery icon and the “Change” action.
+• “Arrives by…” must be the strongest line after the service type.
+
+3. ORDER SUMMARY LABELS
+
+Replace generic delivery labels with service-specific, promise-aware labels.
+
+Standard:
+Standard delivery · Today, 2–5 PM
+
+Express:
+Express delivery · Within 90 min
+
+Requirements:
+
+• Use the actual selected date/window for standard delivery.
+• Keep all existing delivery fees and total calculations unchanged.
+• Ensure the label and amount remain readable without overlap on desktop and mobile.
+• Do not duplicate or add a separate “Express fee” line when express delivery is already represented by the express delivery line, unless the fee model technically requires separate base-delivery and express-surcharge lines. If two fee lines must remain, label them clearly and preserve the correct total.
+
+4. EXPRESS COPY AND UPSELL
+
+Where the cart currently mentions express availability, use concrete copy:
+
+Express delivery arrives within 90 minutes for an additional fee.
+
+When standard delivery is selected, update the express upsell in the Order Summary to:
+
+Need it sooner? Express delivery within 90 min for AED [fee]
+
+Requirements:
+
+• Populate the fee dynamically for the active market/currency.
+• Do not hard-code AED 55.
+• If product direction allows, make the upsell actionable and open the delivery-selection flow with express preselected.
+• Hide the upsell when express delivery is unavailable for the cart/address/time.
+
+5. SPACING AND LAYOUT
+
+After removing “Beirut”:
+
+• Reduce the selected-delivery panel height by approximately 16–20 px.
+• Reduce the outer Delivery Summary card’s bottom padding proportionally.
+• Move the Order Summary upward by the reclaimed amount.
+• Preserve the existing spacing between the Delivery Summary and Order Summary cards.
+• Keep “Change” vertically centered with a comfortable clickable area.
+• Maintain a minimum 44 × 44 px interactive target.
+• Do not shrink type or make the card feel cramped.
+• Preserve the existing Presentail visual language: typography, colors, border radius, icon style, shadows, and sidebar width.
+
+6. RESPONSIVE BEHAVIOR
+
+Verify:
+
+• Desktop at common viewport widths
+• Tablet
+• Mobile cart layout
+• Long localized dates and delivery windows
+• Larger accessibility text sizes where supported
+• No clipping, overlap, or ellipsis on the delivery promise
+• The order total and checkout CTA remain visible and correctly positioned
+
+7. LOCALIZATION
+
+• Add/update translation keys rather than hard-coding English strings.
+• Verify English and Arabic.
+• Verify Arabic RTL alignment for the icon, copy hierarchy, time range, and “Change” action.
+• Use locale-aware date and time formatting, including 12-hour versus 24-hour conventions.
+• Keep numerals, punctuation, separators, and currency formatting consistent with the selected locale.
+
+8. ANALYTICS
+
+Preserve existing events and, if not already available, track:
+
+• Delivery Summary displayed, including selected delivery type
+• “Change” clicked
+• Express upsell clicked
+• Delivery type changed: standard → express or express → standard
+• Checkout clicked, with selected delivery type and promise/window metadata
+
+Do not send recipient addresses or other unnecessary personal information in analytics.
+
+ACCEPTANCE CRITERIA
+
+• Standard delivery shows the complete scheduled date/time window.
+• Express delivery shows a concrete “Arrives by [time]” deadline and “Within 90 minutes.”
+• Express deadline is calculated from the valid delivery quote and correct market timezone.
+• “Beirut” is absent from both delivery states.
+• Delivery Summary is approximately 16–20 px shorter without feeling cramped.
+• Order Summary moves upward by the reclaimed amount.
+• Order Summary identifies the selected delivery service and promise.
+• Existing fees and totals remain mathematically unchanged.
+• “Change” still opens the delivery-selection experience and has a minimum 44 × 44 px target.
+• Express upsell uses the actual localized fee and is hidden when express is unavailable.
+• No promise text is truncated on supported desktop, tablet, or mobile widths.
+• English and Arabic/RTL render correctly.
+• Automated tests cover standard and express copy/logic.
+• Analytics fire once with the correct delivery type.
+• Design/product review confirms that the implementation matches the approved compact mockup.
+
+QA SCENARIOS
+
+1. Standard delivery selected for today.
+2. Standard delivery selected for tomorrow.
+3. Standard delivery selected several days in the future.
+4. Express selected at a normal operating time.
+5. Express quote expires while the cart remains open.
+6. Express unavailable because of time, address, product, or operational capacity.
+7. Cart currency/market differs from AED.
+8. Long localized date and time strings.
+9. Arabic RTL.
+10. Mobile viewport with a long delivery window.
+11. Delivery selection changed after the cart has loaded.
+12. Checkout total before and after switching delivery types.
+
+OUT OF SCOPE
+
+• Changing delivery pricing or the free-delivery threshold.
+• Redesigning the delivery-selection modal.
+• Changing the underlying delivery SLA.
+• Broader cart-page redesign outside the delivery and spacing changes described above.
+
+IMPLEMENTATION NOTE
+
+Please attach screenshots of the final standard and express states to this task before marking complete.
