@@ -9013,8 +9013,13 @@ describe("pre-hydration fallback critical CSS", () => {
     failFetch();
     const out = await injectSeoTagsAsync(ROOT_HTML, path, OPTS);
     // Style + wrapper live INSIDE #root so React removes them on hydration.
-    expect(out).toContain('<div id="root"><style data-seo-fallback-css>');
+    // JS flag script runs before the fallback markup, then the critical CSS.
+    expect(out).toContain(
+      '<div id="root"><script>document.documentElement.setAttribute("data-seo-js","")</script><style data-seo-fallback-css>',
+    );
     expect(out).toContain('<div data-seo-fallback>');
+    // JS-enabled visitors never see the fallback flash; no-JS keeps it visible.
+    expect(out).toContain("html[data-seo-js] [data-seo-fallback]{display:none}");
     // Brand typography/colors — teal headings, Playfair serif, Inter body.
     expect(out).toContain("[data-seo-fallback] h1{font-family:'Playfair Display'");
     expect(out).toContain("hsl(190 100% 15%)");

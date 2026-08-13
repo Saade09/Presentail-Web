@@ -1102,6 +1102,13 @@ export function injectSeoTags(html, pathname, opts = {}) {
 // foreground 20 19% 13%, primary/teal 190 100% 15%, muted-foreground
 // 213 8% 40%, radius 18px, content max-width 1200px.
 export const SEO_FALLBACK_CRITICAL_CSS =
+  // JS-enabled visitors must never see the fallback flash: the inline
+  // SEO_FALLBACK_JS_FLAG_SCRIPT (emitted immediately before this stylesheet,
+  // inside #root) sets data-seo-js on <html> before first paint, and this
+  // rule hides the fallback under that flag. Without JavaScript the attribute
+  // is never set, so crawlers and no-JS clients still see the content — and
+  // the markup itself is unchanged in the served HTML either way.
+  "html[data-seo-js] [data-seo-fallback]{display:none}" +
   "[data-seo-fallback]{font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:hsl(20 19% 13%);background:#fff;max-width:1200px;margin:0 auto;padding:2rem 1rem;line-height:1.6;-webkit-font-smoothing:antialiased}" +
   "[data-seo-fallback] h1{font-family:'Playfair Display','Noto Naskh Arabic',Georgia,serif;font-size:1.75rem;font-weight:700;line-height:1.25;margin:0 0 1rem;color:hsl(190 100% 15%)}" +
   "[data-seo-fallback] h2{font-family:'Playfair Display','Noto Naskh Arabic',Georgia,serif;font-size:1.25rem;font-weight:700;line-height:1.3;margin:2rem 0 .75rem;color:hsl(190 100% 15%)}" +
@@ -1118,7 +1125,16 @@ export const SEO_FALLBACK_CRITICAL_CSS =
   "[data-seo-fallback] section[data-ssr-products] img{width:100%;height:auto;border-radius:18px;display:block;margin-bottom:.5rem;background:hsl(220 13% 95%)}" +
   "[data-seo-fallback] section[data-ssr-products] span{display:block;font-size:.875rem;color:hsl(20 19% 13%)}";
 
-const SEO_FALLBACK_STYLE_TAG = `<style data-seo-fallback-css>${SEO_FALLBACK_CRITICAL_CSS}</style>`;
+// Inline flag script emitted just before the fallback markup (inside #root,
+// so React's createRoot() removes it on hydration together with the style
+// and fallback nodes). It runs synchronously during HTML parsing — before
+// the fallback content can paint — so JS-enabled visitors go from blank
+// straight to the app with no flash of crawler-facing copy. No-JS clients
+// never execute it, keeping the fallback fully visible for them.
+export const SEO_FALLBACK_JS_FLAG_SCRIPT =
+  '<script>document.documentElement.setAttribute("data-seo-js","")</script>';
+
+const SEO_FALLBACK_STYLE_TAG = `${SEO_FALLBACK_JS_FLAG_SCRIPT}<style data-seo-fallback-css>${SEO_FALLBACK_CRITICAL_CSS}</style>`;
 
 function assembleHtml(html, { lang, dir, headSnippet, titleTag, bodyHtml = null }) {
   let out = html;
