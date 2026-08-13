@@ -1091,6 +1091,35 @@ export function injectSeoTags(html, pathname, opts = {}) {
   return assembleHtml(html, { lang, dir, headSnippet, titleTag, bodyHtml });
 }
 
+// Critical inline CSS for the pre-hydration SEO fallback content injected
+// into <div id="root">. Before the compiled stylesheet loads, the fallback
+// would otherwise paint as raw browser-default HTML (Times New Roman H1,
+// blue underlined links, visible "sr-only" links). This block gives it brand
+// typography/colors and an inline-safe .sr-only so screen-reader-only markup
+// is never visible. It is emitted INSIDE #root, next to the fallback markup,
+// so React's createRoot() removes both on hydration — the rules can never
+// leak into the live app's styling. Values mirror src/index.css tokens:
+// foreground 20 19% 13%, primary/teal 190 100% 15%, muted-foreground
+// 213 8% 40%, radius 18px, content max-width 1200px.
+export const SEO_FALLBACK_CRITICAL_CSS =
+  "[data-seo-fallback]{font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:hsl(20 19% 13%);background:#fff;max-width:1200px;margin:0 auto;padding:2rem 1rem;line-height:1.6;-webkit-font-smoothing:antialiased}" +
+  "[data-seo-fallback] h1{font-family:'Playfair Display','Noto Naskh Arabic',Georgia,serif;font-size:1.75rem;font-weight:700;line-height:1.25;margin:0 0 1rem;color:hsl(190 100% 15%)}" +
+  "[data-seo-fallback] h2{font-family:'Playfair Display','Noto Naskh Arabic',Georgia,serif;font-size:1.25rem;font-weight:700;line-height:1.3;margin:2rem 0 .75rem;color:hsl(190 100% 15%)}" +
+  "[data-seo-fallback] h3{font-size:1rem;font-weight:600;margin:1.25rem 0 .25rem}" +
+  "[data-seo-fallback] p{margin:0 0 .75rem;color:hsl(213 8% 40%)}" +
+  "[data-seo-fallback] a{color:hsl(190 100% 15%);text-decoration:none}" +
+  "[data-seo-fallback] ul{list-style:none;margin:0 0 1rem;padding:0}" +
+  "[data-seo-fallback] li{margin:.25rem 0}" +
+  "[data-seo-fallback] .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}" +
+  "[data-seo-fallback] section[data-ssr-products] ul{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}" +
+  "@media(min-width:768px){[data-seo-fallback] section[data-ssr-products] ul{grid-template-columns:repeat(4,1fr)}}" +
+  "[data-seo-fallback] section[data-ssr-products] li{margin:0}" +
+  "[data-seo-fallback] section[data-ssr-products] a{display:block}" +
+  "[data-seo-fallback] section[data-ssr-products] img{width:100%;height:auto;border-radius:18px;display:block;margin-bottom:.5rem;background:hsl(220 13% 95%)}" +
+  "[data-seo-fallback] section[data-ssr-products] span{display:block;font-size:.875rem;color:hsl(20 19% 13%)}";
+
+const SEO_FALLBACK_STYLE_TAG = `<style data-seo-fallback-css>${SEO_FALLBACK_CRITICAL_CSS}</style>`;
+
 function assembleHtml(html, { lang, dir, headSnippet, titleTag, bodyHtml = null }) {
   let out = html;
   out = out.replace(
@@ -1113,7 +1142,7 @@ function assembleHtml(html, { lang, dir, headSnippet, titleTag, bodyHtml = null 
   if (bodyHtml) {
     out = out.replace(
       /<div\s+id="root"\s*><\/div>/i,
-      `<div id="root">${bodyHtml}</div>`,
+      `<div id="root">${SEO_FALLBACK_STYLE_TAG}<div data-seo-fallback>${bodyHtml}</div></div>`,
     );
   }
 

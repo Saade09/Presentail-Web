@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS } from "../../seo-inject.mjs";
 import { buildProductSeo, buildCategorySeo, buildOccasionSeo, buildBrandSeo } from "../../src/lib/seo.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
@@ -8993,5 +8993,52 @@ describe("Batroun internal links & /shop canonicalization", () => {
       categoryMatches,
       `categorySeoContent.mjs still contains Batroun hrefs: ${categoryMatches.join(", ")}`,
     ).toHaveLength(0);
+  });
+});
+
+describe("pre-hydration fallback critical CSS", () => {
+  const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+
+  function failFetch() {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")));
+  }
+
+  it.each([
+    ["/", "root landing"],
+    ["/en-lb/beirut", "city home"],
+    ["/en-ae/dubai/product/velvet-rose-bouquet", "product entity page"],
+    ["/en-lb/beirut/category/hand-bouquets", "category entity page"],
+    ["/en-ae/dubai/occasion/birthday", "occasion entity page"],
+  ])("injects the critical style block + scoped wrapper on %s (%s)", async (path) => {
+    failFetch();
+    const out = await injectSeoTagsAsync(ROOT_HTML, path, OPTS);
+    // Style + wrapper live INSIDE #root so React removes them on hydration.
+    expect(out).toContain('<div id="root"><style data-seo-fallback-css>');
+    expect(out).toContain('<div data-seo-fallback>');
+    // Brand typography/colors — teal headings, Playfair serif, Inter body.
+    expect(out).toContain("[data-seo-fallback] h1{font-family:'Playfair Display'");
+    expect(out).toContain("hsl(190 100% 15%)");
+    // Inline-safe sr-only guard so screen-reader-only links never flash visible.
+    expect(out).toContain(
+      "[data-seo-fallback] .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}",
+    );
+  });
+
+  it("keeps the fallback H1 visible (no display:none on indexable copy)", async () => {
+    failFetch();
+    const out = await injectSeoTagsAsync(ROOT_HTML, "/en-lb/beirut", OPTS);
+    expect(out).toMatch(/<div data-seo-fallback><h1>/);
+    expect(SEO_FALLBACK_CRITICAL_CSS).not.toContain("h1{display:none");
+    expect(SEO_FALLBACK_CRITICAL_CSS).not.toContain("p{display:none");
+  });
+
+  it("does not inject the style block when there is no #root fallback markup", async () => {
+    failFetch();
+    const out = await injectSeoTagsAsync(
+      `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`,
+      "/en-lb/beirut",
+      OPTS,
+    );
+    expect(out).not.toContain("data-seo-fallback-css");
   });
 });
