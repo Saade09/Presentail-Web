@@ -392,7 +392,20 @@ export function buildSeoHead(pathname, { origin = "", basePath = "", search = ""
   const cached = getCachedGenericSeo(cacheKey);
   if (cached) return cached;
   const value = computeSeoHead(pathname, { origin, basePath, search });
-  setCachedGenericSeo(cacheKey, value);
+  // Don't cache a shop-route entry built while the per-country category
+  // availability is unknown — the body fragment omits the "Shop by Category"
+  // list in that state, and caching it would pin the list-less version for
+  // the full generic-cache TTL even after the metadata fetch succeeds.
+  const parsedForCache = parseLocalePath(pathname);
+  const isShopRoute =
+    parsedForCache.hasLocalePrefix &&
+    /^\/shop(?:\/|$)?/.test(parsedForCache.rest ?? "");
+  if (
+    !isShopRoute ||
+    getShopCategorySlugsSync(parsedForCache.country) !== null
+  ) {
+    setCachedGenericSeo(cacheKey, value);
+  }
   return value;
 }
 
@@ -1200,6 +1213,81 @@ const FEATURED_SHOP_CATEGORIES = [
   { slug: "stuffed-animals", name: "Bears & Stuffed Animals" },
 ];
 
+// Per-country available-category cache for the crawler-facing Shop fragment.
+// The React Shop/BestSellers/Footer views already filter category links by
+// per-country catalog metadata counts; the prerendered fragment must apply
+// the same filter or crawlers see links to empty categories (e.g. Cyprus
+// only stocks hand-bouquets/flower-vases/balloons, yet the static list used
+// to link cakes, chocolate, plants, …). Populated asynchronously by
+// ensureShopCategoriesForSeo(); read synchronously during body-fragment
+// generation. Fail-closed: when counts for a country are unknown, no
+// category list is emitted rather than a wrong one.
+const SHOP_CATEGORY_CACHE_TTL_MS = 10 * 60 * 1000;
+const SHOP_CATEGORY_FAILURE_TTL_MS = 60 * 1000;
+const shopCategorySlugsByCountry = new Map(); // countrySlug -> { slugs: Set, expiresAt }
+const shopCategoryInFlight = new Map(); // countrySlug -> Promise
+const shopCategoryFailedUntil = new Map(); // countrySlug -> epoch ms (negative cache)
+
+export async function ensureShopCategoriesForSeo(countrySlug, apiBaseUrl) {
+  if (!countrySlug || !apiBaseUrl) return;
+  const key = countrySlug.toLowerCase();
+  const hit = shopCategorySlugsByCountry.get(key);
+  if (hit && hit.expiresAt > Date.now()) return;
+  // Negative cache: after a failed fetch, don't re-attempt (and re-block the
+  // request path for up to 5s) for a short window — an API outage must not
+  // add latency to every shop render.
+  if ((shopCategoryFailedUntil.get(key) ?? 0) > Date.now()) return;
+  const existing = shopCategoryInFlight.get(key);
+  if (existing) return existing;
+  const p = (async () => {
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/api/catalog/metadata?countryCode=${encodeURIComponent(key.toUpperCase())}`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      if (!res.ok) {
+        shopCategoryFailedUntil.set(key, Date.now() + SHOP_CATEGORY_FAILURE_TTL_MS);
+        return;
+      }
+      const body = await res.json();
+      const slugs = new Set(
+        (body?.categories ?? [])
+          .filter((c) => (c?.count ?? 0) > 0 && typeof c?.id === "string")
+          .map((c) => c.id),
+      );
+      shopCategorySlugsByCountry.set(key, {
+        slugs,
+        expiresAt: Date.now() + SHOP_CATEGORY_CACHE_TTL_MS,
+      });
+      shopCategoryFailedUntil.delete(key);
+    } catch {
+      // Leave the data cache empty — the shop fragment falls back to emitting
+      // no category list for this country until a later fetch succeeds — but
+      // negatively cache the failure so we don't re-await per request.
+      shopCategoryFailedUntil.set(key, Date.now() + SHOP_CATEGORY_FAILURE_TTL_MS);
+    } finally {
+      shopCategoryInFlight.delete(key);
+    }
+  })();
+  shopCategoryInFlight.set(key, p);
+  return p;
+}
+
+function getShopCategorySlugsSync(countrySlug) {
+  if (!countrySlug) return null;
+  const hit = shopCategorySlugsByCountry.get(countrySlug.toLowerCase());
+  if (!hit || hit.expiresAt <= Date.now()) return null;
+  return hit.slugs;
+}
+
+// Test hook: seed the per-country category cache without a network fetch.
+export function __setShopCategorySlugsForTest(countrySlug, slugs) {
+  shopCategorySlugsByCountry.set(countrySlug.toLowerCase(), {
+    slugs: new Set(slugs),
+    expiresAt: Date.now() + SHOP_CATEGORY_CACHE_TTL_MS,
+  });
+}
+
 // Static featured occasion list for the city homepage body fragment.
 // Mirrors DEFAULT_OCCASION_SLUGS in api-server/src/routes/homepage.ts and
 // the homepage occasions carousel so the prerendered block matches the
@@ -1444,14 +1532,26 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   // category landing pages directly from the shop page body fragment.
   let shopExtras = "";
   if (routeKey === "shop" && localeBase) {
+    // Filter the featured list by per-country catalog availability so the
+    // crawler-facing fragment never links a category with zero inventory in
+    // this country (mirrors the hydrated Shop/Footer filtering). cityKey is
+    // "{country}-{city}" (e.g. "cy-paphos"). When counts are unknown (cold
+    // cache / metadata fetch failed) emit NO list — wrong links are worse
+    // than none.
+    const countrySlug = cityKey ? cityKey.split("-")[0] : null;
+    const availableSlugs = getShopCategorySlugsSync(countrySlug);
+    const visibleShopCategories = availableSlugs
+      ? FEATURED_SHOP_CATEGORIES.filter(({ slug }) => availableSlugs.has(slug))
+      : [];
     // i18n-ignore — static EN-only crawlers-only copy
-    shopExtras =
-      `<h2>Shop by Category</h2>` + // i18n-ignore
-      `<ul>` +
-      FEATURED_SHOP_CATEGORIES.map(({ slug, name }) =>
-        `<li><a href="${localeBase}/category/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
-      ).join("") +
-      `</ul>`;
+    shopExtras = visibleShopCategories.length
+      ? `<h2>Shop by Category</h2>` + // i18n-ignore
+        `<ul>` +
+        visibleShopCategories.map(({ slug, name }) =>
+          `<li><a href="${localeBase}/category/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
+        ).join("") +
+        `</ul>`
+      : "";
     // Tripoli /shop: contextual back-link to the flower-delivery landing page.
     // /shop is the full-catalogue experience; the landing page owns the
     // delivery-intent query, so pass authority back to it with a natural anchor.
@@ -4521,10 +4621,25 @@ function applyEligibilityNoindex(result) {
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, paginationRef, lifecycleOut, ...rest } = opts;
+  // Pre-warm the per-country available-category cache BEFORE building the
+  // head/body so the shop route's crawler-facing "Shop by Category" list can
+  // be filtered synchronously to categories with real inventory in this
+  // country (no-op for non-locale paths and warm caches).
+  const parsedEarly = parseLocalePath(pathname);
+  if (
+    parsedEarly.hasLocalePrefix &&
+    parsedEarly.country &&
+    apiBaseUrl &&
+    // Only the shop route consumes the category list — don't add fetch
+    // latency to every locale-prefixed page.
+    /^\/shop(?:\/|$)?/.test(parsedEarly.rest ?? "")
+  ) {
+    await ensureShopCategoriesForSeo(parsedEarly.country, apiBaseUrl);
+  }
   // Pass search so buildSeoHead can emit noindex meta for filter-parameterised
   // URLs and preserve curated filter page canonicals.
   const generic = buildSeoHead(pathname, { ...rest, search: search || "" });
-  const parsed = parseLocalePath(pathname);
+  const parsed = parsedEarly;
   const paginationMatch = parsed?.rest?.match?.(PAGINATION_SUFFIX_RE);
   const paginationPage = paginationMatch ? parseInt(paginationMatch[2], 10) : null;
   let paginationListingCount = 0;

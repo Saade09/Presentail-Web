@@ -1,6 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest } from "../../seo-inject.mjs";
+
+// Seed the per-country available-category cache so the shop-route body
+// fragment emits its (now country-filtered) "Shop by Category" list, and so
+// injectSeoTagsAsync's pre-warm doesn't consume mocked fetch calls.
+const ALL_FEATURED_CATEGORY_SLUGS = [
+  "hand-bouquets",
+  "flower-boxes",
+  "cakes",
+  "chocolate",
+  "plants",
+  "gift-baskets",
+  "candles",
+  "stuffed-animals",
+];
+for (const country of ["lb", "ae", "cy"]) {
+  __setShopCategorySlugsForTest(country, ALL_FEATURED_CATEGORY_SLUGS);
+}
 import { buildProductSeo, buildCategorySeo, buildOccasionSeo, buildBrandSeo } from "../../src/lib/seo.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;

@@ -1676,6 +1676,21 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Bare language roots (/en, /ar, /fr, with or without trailing slash) are
+    // not app routes: the SPA only mounts lang-only shells under /{lang}/blog.
+    // Old deployed HTML and external links may still point at them, so 301
+    // straight to the root landing page (which runs geo/lang detection) in a
+    // single hop — placed BEFORE the trailing-slash handler so /fr/ doesn't
+    // chain through /fr first.
+    if (pathname.match(/^\/(?:en|ar|fr)\/?$/)) {
+      res.writeHead(301, {
+        location: BASE_PATH + "/" || "/",
+        "cache-control": "public, max-age=3600",
+      });
+      res.end();
+      return;
+    }
+
     // Trailing-slash redirect: 301 any path that ends with "/" (other than the
     // root "/" itself, /.well-known/* paths, and bare /product/ which has no
     // slug and must fall through to the SPA shell) to the equivalent clean URL.
