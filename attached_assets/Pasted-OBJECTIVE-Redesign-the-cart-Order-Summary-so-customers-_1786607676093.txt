@@ -1,0 +1,519 @@
+OBJECTIVE
+
+Redesign the cart Order Summary so customers can understand the full price composition in under three seconds:
+
+Items → standard delivery → express upgrade (when selected) → promo → total → checkout.
+
+The current summary uses generic labels such as “Subtotal,” “Delivery charges,” and “Express fee,” which make the financial story harder to scan. The approved design uses concrete labels, separates the base standard-delivery charge from the express upgrade, moves promo code entry inside the summary, and supports qualified free-delivery states without creating pricing ambiguity.
+
+APPROVED INFORMATION HIERARCHY
+
+Order Summary
+
+1. Items
+2. Standard delivery
+3. Express upgrade, only when selected/applicable
+4. Promo code
+5. Divider
+6. Total
+7. Secure checkout CTA
+
+All monetary values must be server-authoritative and formatted consistently for the active locale and currency.
+
+GLOBAL LAYOUT REQUIREMENTS
+
+• Keep “Order Summary” as the card heading.
+• Replace “Subtotal” with “Items ([item count]).”
+• Right-align every amount to a single clean column.
+• Use medium weight for row labels and amounts.
+• Place supporting explanations directly beneath their corresponding label in smaller muted text.
+• Maintain compact but comfortable vertical spacing between financial groups.
+• Total and final amount should be visually dominant but restrained.
+• Do not use an oversized decorative total.
+• Keep the CTA full width inside the card.
+• Move “Add a promo code” from the standalone pill above Delivery Summary into the Order Summary.
+• Remove the standalone promo pill and move Delivery Summary upward into the reclaimed space.
+• Preserve a consistent vertical gap between Delivery Summary and Order Summary.
+• Order Summary height should adapt to visible rows; do not reserve blank space for absent rows.
+• Preserve Presentail’s existing typography, white cards, dark-teal accents, rounded corners, shadows, and sidebar width.
+
+DELIVERY SUMMARY COORDINATION
+
+This task should integrate with the approved Delivery Summary state:
+
+Express selected:
+
+Express delivery
+Arrives by 11:07 AM
+Within 90 minutes
+
+Standard selected:
+
+Standard delivery
+Arrives today, 2–5 PM
+Scheduled delivery window
+
+Requirements:
+
+• Use dynamic, server-authoritative date/time values.
+• Keep “Change” on the right.
+• Remove the city/location line (“Beirut”).
+• Keep the compact delivery card/panel spacing.
+• Never truncate the delivery promise with an ellipsis.
+• Do not duplicate the full delivery promise unnecessarily inside Order Summary; use short supporting copy there.
+
+STATE A — STANDARD DELIVERY, PAID
+
+Example exact structure:
+
+Items (1)                                  AED 55
+
+Standard delivery                         AED 25
+Arrives today, 2–5 PM
+
+[Promo row]
+
+[Divider]
+
+Total                                      AED 80
+
+[Lock icon] Checkout securely · AED 80
+
+Requirements:
+
+• Use the actual item count.
+• Use the actual scheduled standard-delivery date/window.
+• Do not show an Express upgrade row.
+• Total = items + standard delivery − discounts/credits + any other valid backend charges.
+• Do not show a generic express upsell sentence inside Order Summary.
+
+STATE B — EXPRESS DELIVERY, STANDARD DELIVERY PAID
+
+Approved example:
+
+Items (1)                                  AED 55
+
+Standard delivery                         AED 25
+Base delivery charge
+
+Express upgrade                           AED 60
+Delivery within 90 minutes
+
+[Promo row]
+
+[Divider]
+
+Total                                      AED 140
+
+[Lock icon] Checkout securely · AED 140
+
+Requirements:
+
+• Rename generic “Express fee” to “Express upgrade.”
+• Clearly show the base standard-delivery charge separately from the express upgrade.
+• Supporting copy beneath Express upgrade: “Delivery within 90 minutes.”
+• Supporting copy beneath Standard delivery: “Base delivery charge.”
+• Do not include the old express upsell sentence because express is already selected.
+• Ensure the total makes the math transparent: items + base delivery + express upgrade.
+• Use actual dynamic fees from the backend; example amounts are illustrative.
+
+STATE C — STANDARD DELIVERY, FREE DELIVERY UNLOCKED
+
+Approved example:
+
+Items (1)                                  AED 350
+
+Standard delivery                         Free
+Free delivery unlocked · You saved AED 25
+
+[Promo row]
+
+[Divider]
+
+Total                                      AED 350
+
+[Lock icon] Checkout securely · AED 350
+
+Requirements:
+
+• Show “Free” in dark teal; do not show AED 0.00 unless required by an established locale convention.
+• Remove the Express upgrade row entirely.
+• Show the actual removed delivery charge in the saving line.
+• If the exact saving cannot be determined reliably, use the fallback:
+  “Free delivery unlocked”
+• Total equals the backend-calculated payable amount.
+• Make the Order Summary shorter by reclaiming the space of the absent express group.
+• Do not add a separate free-delivery banner inside Order Summary.
+
+STATE D — EXPRESS DELIVERY, FREE STANDARD DELIVERY UNLOCKED
+
+Approved example:
+
+Items (1)                                  AED 350
+
+Standard delivery                         Free
+Free delivery unlocked · You saved AED 25
+
+Express upgrade                           AED 60
+Delivery within 90 minutes
+
+[Promo row]
+
+[Divider]
+
+Total                                      AED 410
+
+[Lock icon] Checkout securely · AED 410
+
+Business rule:
+
+• Free standard delivery removes the base standard-delivery charge.
+• Express upgrade remains payable.
+• In the example: AED 350 + AED 60 = AED 410.
+
+Requirements:
+
+• Never imply that qualifying for free standard delivery makes express free.
+• Keep “Free” and the express fee visually distinct.
+• Use backend pricing as the source of truth.
+• If the actual business rules do not waive the base charge when express is selected, reflect the backend calculation and update the label/supporting copy accordingly. Do not force the mockup’s arithmetic over production rules.
+• Do not show the separate free-delivery success banner in the main cart column while express is selected; communicate the saving inside Order Summary.
+
+PROMO CODE INTERACTION
+
+Collapsed row:
+
+[Tag icon] Add a promo code [Chevron]
+
+Requirements:
+
+• Place it below pricing groups and above the total divider.
+• Make it visually secondary.
+• Entire row is clickable.
+• Minimum target size: 44 × 44 px.
+• Preserve keyboard focus styling.
+• Chevron indicates collapsed/expanded state.
+• Do not open a modal unless the existing product pattern requires one.
+
+Expanded state:
+
+• Inline promo-code input.
+• “Apply” action.
+• Validation/loading state.
+• Clear inline error message for invalid, expired, ineligible, or usage-limited codes.
+• Applied-code state shows the code and a clear “Remove” action.
+• Prevent duplicate submissions while applying.
+• Preserve the cart if the request fails.
+• Announce result to assistive technology.
+
+When a promo is applied:
+
+• Add a discount row if the promotion changes the payable amount.
+• Example:
+  “Promo · FLOWERS10”                   “−AED 10”
+• Use a minus sign and consistent currency formatting.
+• Recalculate delivery eligibility, standard-delivery saving, express fee, and total atomically.
+• Do not show stale free-delivery copy after a promo changes the qualifying subtotal.
+• If the promo creates free delivery, label that benefit according to the actual promotion, not as threshold-unlocked unless that is true.
+
+CTA
+
+Approved format:
+
+[Lock icon] Checkout securely · [formatted total]
+
+Requirements:
+
+• Replace “Proceed to Checkout.”
+• Use the actual current payable total.
+• Keep the lock icon decorative if the text already conveys secure checkout.
+• Button spans the card width.
+• Preserve existing dark-teal background and white text.
+• Maintain a minimum 44 px height.
+• Show disabled/loading behavior only while checkout initialization requires it.
+• Do not make a security claim beyond the checkout’s actual secure transport/payment implementation.
+• If “securely” conflicts with legal/brand guidance, confirm the final CTA with Product before launch; otherwise use the approved wording.
+
+CURRENCY AND NUMBER FORMATTING
+
+• Use one currency format everywhere within the cart.
+• Example: “AED 140,” never a mix of “AED 140,” “د.إ 140,” and symbol-only amounts in the same locale.
+• Use the locale’s established format through the shared money formatter.
+• Never hard-code AED or any example amount.
+• Correctly support decimals, thousands separators, currencies with zero decimals, and RTL currencies.
+• Negative discounts/savings must be formatted consistently.
+• Values in Order Summary, CTA, and checkout payload must all derive from the same pricing response.
+
+ITEM COUNT
+
+• “Items (1)” should reflect the intended product-count definition.
+• Confirm whether item count means line items or total quantity; use the product-wide cart convention consistently.
+• Correct pluralization/localization.
+• Quantity changes update count and values immediately without a full refresh.
+
+ATOMIC PRICING UPDATES
+
+Update the following together from one authoritative cart/quote response:
+
+• Item count and items subtotal
+• Standard-delivery charge/free status
+• Standard-delivery saving
+• Express-upgrade row and amount
+• Promo/discount row
+• Other applicable taxes/fees, if any
+• Total
+• CTA total
+• Free-delivery state
+• Delivery promise metadata
+
+Avoid transient mismatches such as:
+
+• Summary total differs from CTA.
+• “Free” appears while the old delivery fee is still included.
+• Express row persists after switching to standard.
+• Discount applies to the total before the discount row appears.
+• Delivery promise updates without the related fee update.
+
+If recalculating:
+
+• Keep the previous stable values or use a restrained loading state.
+• Do not flash zeroes.
+• Prevent checkout using stale totals if the backend requires revalidation.
+• Do not block checkout for purely visual failures when pricing remains valid.
+
+OTHER CHARGE TYPES
+
+The hierarchy must safely accommodate legitimate additional rows such as:
+
+• Taxes/VAT
+• Service fee
+• Gift wrap
+• Credits/gift card
+• Discounts
+• Duties
+• Tips, if applicable
+
+Rules:
+
+• Show only charges returned by the authoritative pricing model.
+• Use clear customer-facing labels.
+• Place deductions before Total.
+• Keep Total as the final payable amount.
+• Do not collapse mandatory fees into ambiguous labels.
+• Prevent the card from becoming excessively tall; supporting text should be purposeful.
+
+RESPONSIVE BEHAVIOR
+
+Verify:
+
+• Large desktop
+• Standard laptop widths
+• Tablet
+• Mobile cart layout
+• Sticky mobile summary/CTA, if used
+• Long localized labels
+• Large totals
+• Multiple valid fee/discount rows
+• Larger accessibility text sizes
+
+Requirements:
+
+• Amounts must not overlap labels.
+• Supporting text must not push amounts out of alignment.
+• On narrow screens, allow label groups to wrap while keeping amounts readable.
+• Avoid ellipses for financial labels.
+• Promo input and actions remain usable on mobile.
+• CTA text and amount remain legible without reducing below accessible type sizes.
+• Delivery Summary and Order Summary retain logical reading order.
+
+LOCALIZATION AND RTL
+
+• Add/update translation keys; no hard-coded English.
+• Verify English and Arabic.
+• Verify Arabic RTL alignment for:
+  - headings
+  - row labels
+  - amount column
+  - supporting text
+  - tag/lock icons
+  - promo chevron
+  - total
+  - CTA
+• Use locale-aware date, time, number, and currency formatting.
+• Do not concatenate translated fragments.
+• Support correct pluralization for Items ([count]).
+• Ensure “Free” and saving messages translate naturally.
+
+ACCESSIBILITY
+
+• Use semantic headings and list/definition structure appropriate for financial rows.
+• Ensure screen readers announce label and amount together.
+• Do not rely on teal color alone to communicate “Free.”
+• Promo row is a semantic button with expanded/collapsed state.
+• Promo input has a visible label.
+• Errors are programmatically associated with the input.
+• CTA has a clear accessible name.
+• Preserve visible keyboard focus.
+• Interactive targets minimum 44 × 44 px.
+• Text contrast meets WCAG requirements.
+• Reading order follows the visual hierarchy.
+• Price updates are announced politely without causing repeated announcements on unrelated rerenders.
+• Respect reduced-motion preferences; no animation is required.
+
+ANALYTICS
+
+Preserve current cart/checkout analytics and add or verify:
+
+1. order_summary_viewed
+   • selected_delivery_type
+   • standard_delivery_free boolean
+   • express_upgrade_present boolean
+   • promo_applied boolean
+   • currency
+   • market
+   • total bucket if permitted
+
+2. promo_code_expanded
+
+3. promo_code_submitted
+   • outcome: success | invalid | expired | ineligible | error
+   • Do not send the raw promo code if analytics policy prohibits it.
+
+4. promo_code_removed
+
+5. checkout_clicked
+   • selected_delivery_type
+   • standard_delivery_free boolean
+   • express_upgrade_present boolean
+   • promo_applied boolean
+   • currency
+   • authoritative total
+   • quote/pricing version identifier if safe and useful
+
+Requirements:
+
+• Fire once per meaningful action/state transition, not every rerender.
+• No recipient address, card message, customer name, or other PII.
+• Validate events in staging.
+
+PERFORMANCE
+
+• Reuse the existing cart/pricing response; avoid separate requests for each row.
+• Do not cause layout shift after initial pricing resolution.
+• Avoid unnecessary rerenders during quantity edits.
+• Promo and delivery changes should feel immediate, with backend validation.
+• Monitor cart-page performance and error rate behind the feature flag.
+
+QA SCENARIOS
+
+1. Standard delivery paid, one item.
+2. Standard delivery paid, multiple quantities.
+3. Express selected with paid base delivery.
+4. Standard delivery free and selected.
+5. Standard delivery free with express selected.
+6. Customer crosses the free-delivery threshold.
+7. Customer falls below the threshold.
+8. Switch standard → express.
+9. Switch express → standard.
+10. Valid percentage promo.
+11. Valid fixed-value promo.
+12. Promo grants free delivery.
+13. Invalid/expired/ineligible promo.
+14. Remove promo.
+15. Promo causes threshold eligibility to change.
+16. Express unavailable after cart change.
+17. Delivery quote expires and refreshes.
+18. Additional legitimate tax/fee row.
+19. Gift card/credit exceeding or nearly covering total.
+20. Zero payable total if supported.
+21. Different market/currency.
+22. Currency with decimals.
+23. Large four/five-digit total.
+24. English desktop.
+25. English mobile.
+26. Arabic RTL desktop.
+27. Arabic RTL mobile.
+28. Large accessibility text.
+29. Slow/failing pricing update.
+30. Rapid quantity changes.
+31. Browser refresh/restored cart.
+32. CTA total matches checkout’s first screen exactly.
+
+ACCEPTANCE CRITERIA
+
+• “Subtotal” is replaced by localized “Items ([count]).”
+• All amounts align to one clear column.
+• Standard delivery and Express upgrade are distinct rows.
+• Express row appears only when express is selected/applicable.
+• Supporting explanations appear beneath their corresponding labels.
+• Standalone promo pill is removed.
+• Promo entry is inside Order Summary above Total.
+• Total is the strongest financial element without being oversized.
+• CTA reads “Checkout securely · [total]” with the correct current total.
+• Paid standard, paid express, free standard, and free-standard-plus-express states all render correctly.
+• “Free” is shown in teal with explicit saving text when reliable.
+• Express remains chargeable when business rules require it.
+• Order Summary collapses vertically when rows are absent.
+• Order Summary, CTA, and checkout always show the same backend-authoritative payable amount.
+• Updates are atomic with no stale or contradictory rows.
+• No financial label is truncated on supported widths.
+• English and Arabic/RTL are approved.
+• Keyboard and screen-reader flows are verified.
+• Analytics fire with correct non-PII properties.
+• Feature flag/rollback path exists.
+• Unit/integration tests cover row visibility and price arithmetic.
+• End-to-end tests cover delivery switching, free-delivery qualification, promo changes, and checkout handoff.
+• Final screenshots of the four approved pricing states are attached before completion.
+
+TEST COVERAGE
+
+Unit:
+
+• Row visibility by delivery/free status.
+• Item-count formatting and pluralization.
+• Currency formatting.
+• Total/CTA consistency.
+• Free label/fallback.
+• Express-upgrade visibility.
+• Promo expanded/applied/error states.
+• RTL order/alignment helpers where applicable.
+
+Integration:
+
+• Cart API response → financial rows.
+• Delivery switch → atomic summary update.
+• Promo → eligibility and total recalculation.
+• Threshold crossing → Free state.
+• Quote refresh → correct rows and CTA.
+• Backend errors → stable prior state/fallback.
+
+End-to-end:
+
+• Paid standard checkout.
+• Paid express checkout.
+• Free standard checkout.
+• Qualified express checkout.
+• Apply/remove promo.
+• Mobile and Arabic smoke tests.
+• Checkout first-screen total matches cart total.
+
+OUT OF SCOPE
+
+• Changing delivery fees, express pricing, promotion rules, or the free-delivery threshold.
+• Redesigning the delivery-selection flow/modal.
+• Redesigning product cards or card-message form.
+• Introducing new taxes/fees.
+• Changing checkout payment flow.
+• Broader cart-page redesign outside Delivery Summary positioning, promo placement, and Order Summary hierarchy.
+
+HANDOFF
+
+Before marking complete:
+
+• Attach desktop and mobile screenshots for all four pricing states.
+• Attach English and Arabic/RTL screenshots.
+• Provide test evidence for price/CTA consistency.
+• Confirm Product/Design QA.
+• Confirm analytics validation.
+• Document the feature flag and rollback procedure.
+

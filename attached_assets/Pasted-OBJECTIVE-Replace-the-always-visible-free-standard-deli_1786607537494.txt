@@ -1,0 +1,361 @@
+OBJECTIVE
+
+Replace the always-visible free-standard-delivery progress bar with a contextual three-state component that appears only when it helps the customer make a realistic decision.
+
+The current component can be counterproductive when the customer is far from the threshold—for example, showing that an AED 55 cart is AED 295 away from free standard delivery. In that state, the goal feels unattainable, adds visual noise, and pushes the product/cart content downward.
+
+The approved experience has three states:
+
+1. Far from threshold → hide the component entirely.
+2. Close to threshold → show a compact, achievable progress prompt.
+3. Threshold reached → replace progress with a compact success confirmation.
+
+PRODUCT RULES
+
+Use the backend’s existing free-standard-delivery eligibility calculation as the source of truth. Do not duplicate pricing/eligibility rules in the frontend.
+
+Initial display rule:
+
+• “Close” means the remaining qualifying amount is greater than zero and less than or equal to 25% of the active free-delivery threshold.
+• Example: threshold AED 340; show the progress state when AED 85 or less remains.
+• Keep the percentage configurable/feature-flagged so it can be adjusted after testing.
+• If the cart is farther away than the configured range, use the hidden state.
+• If the cart has reached or exceeded the threshold, use the unlocked state.
+• If the market, address, product mix, or delivery method is ineligible for free standard delivery, hide the component.
+• Hide this component while express delivery is selected. Free standard delivery is not the customer’s primary decision in that state.
+• If an eligible customer selects express, preserve the correct business logic in the price calculation: free standard delivery may remove the base standard-delivery charge, while the express upgrade remains payable. The Order Summary must reflect the backend calculation exactly.
+
+STATE 1 — FAR FROM THRESHOLD / HIDDEN
+
+Trigger:
+
+• Remaining qualifying amount is greater than 25% of the active threshold, or
+• The cart is not eligible for the promotion, or
+• Express delivery is selected.
+
+UI behavior:
+
+• Render no free-delivery card, progress bar, promotional sentence, or empty placeholder.
+• Product card should sit directly below the Cart heading using the normal vertical spacing.
+• Move subsequent content upward naturally.
+• Do not reserve the old component’s height.
+• The right sidebar should remain naturally aligned with the top cart content.
+• Do not show a generic “Free standard delivery on orders over…” message in this state.
+
+Purpose:
+
+Keep the cart focused when the customer cannot reasonably bridge the gap with one natural addition.
+
+STATE 2 — CLOSE TO THRESHOLD / COMPACT PROGRESS
+
+Trigger:
+
+• Remaining qualifying amount is greater than zero and less than or equal to the configured close-range value.
+• Standard delivery is selected or no conflicting delivery state exists.
+• Cart and market are eligible.
+
+Exact English headline:
+
+Add AED 40 more to unlock free standard delivery
+
+This is an example. Render the actual localized currency and remaining qualifying amount dynamically.
+
+Component contents:
+
+• Delivery-truck icon on the left.
+• Dynamic headline: “Add [formatted remaining amount] more to unlock free standard delivery”
+• Compact progress bar.
+• Current qualifying amount label under the left edge.
+• Threshold/goal label under the right edge.
+• Optional text action on the right: “Shop add-ons”
+• Remove the current secondary sentence about express delivery from this component.
+
+Layout:
+
+• Approximate component height: 68–76 px on desktop.
+• Preserve Presentail’s existing white card, subtle border/shadow, rounded corners, orange progress fill, and dark-teal accents.
+• The headline must remain the dominant element.
+• Avoid excessive vertical padding.
+• Progress bar reflects qualifying subtotal ÷ active threshold, capped visually at 100%.
+• “Shop add-ons” should be visually secondary to checkout.
+
+“Shop add-ons” behavior:
+
+• If an existing relevant add-on/recommendation destination exists, make the action open it.
+• Prefer products that are in stock, deliverable to the active destination/window, and reasonably close to the remaining amount.
+• Do not show the action if there is no useful destination.
+• Do not send the customer to a generic page that loses cart context.
+• Returning to the cart must preserve the cart and delivery selection.
+
+STATE 3 — FREE STANDARD DELIVERY UNLOCKED
+
+Trigger:
+
+• Qualifying subtotal is equal to or greater than the active threshold.
+• Standard delivery is selected and eligibility remains valid.
+
+Exact English copy:
+
+You’ve unlocked free standard delivery
+
+Supporting copy:
+
+AED 25 delivery charge removed
+
+Both values are examples. Format the actual standard-delivery saving dynamically. If the removed amount cannot be determined reliably, use the fallback:
+
+Standard delivery is now free
+
+Component contents:
+
+• Dark-teal circular check icon.
+• Strong success headline.
+• Subtle supporting savings line.
+• No progress bar.
+• No goal amount.
+• No countdown.
+• No “Shop add-ons” action.
+
+Layout:
+
+• Approximate component height: 64–72 px on desktop.
+• Use a restrained success treatment: white or very pale teal background with subtle teal border.
+• Avoid confetti, bright green, animation that delays interaction, or an oversized celebratory banner.
+• Keep the product card and following content close to the component.
+
+ORDER SUMMARY INTEGRATION
+
+When free standard delivery is unlocked:
+
+• Show the standard-delivery amount as “Free” in dark teal.
+• Do not show AED 0.00 unless required by an existing formatting convention.
+• Recalculate the total using the backend response.
+• Keep the delivery promise label, for example:
+  Standard delivery · Today, 2–5 PM
+• Ensure switching between standard and express updates the fee lines, total, and free-delivery component atomically.
+• Avoid a temporary state where the banner says delivery is free but the Order Summary still shows the old charge.
+
+When the threshold is lost because an item is removed, quantity changes, a discount is applied, or eligibility changes:
+
+• Immediately return to the correct hidden or close state.
+• Restore the applicable standard-delivery fee.
+• Update the total without requiring a page refresh.
+• Avoid celebratory success copy lingering after eligibility is lost.
+
+ELIGIBILITY AND CALCULATION
+
+Use the same server-authoritative values used by checkout:
+
+• Active market/currency
+• Free-delivery threshold
+• Qualifying merchandise subtotal
+• Remaining qualifying amount
+• Standard-delivery charge removed
+• Eligibility boolean and reason, if available
+• Selected delivery type
+• Promotion/discount effects
+
+Do not assume all merchandise qualifies. Respect current rules for discounts, gift cards, taxes, service charges, add-ons, and excluded SKUs.
+
+Frontend display values must never diverge from checkout calculations.
+
+RECALCULATION TRIGGERS
+
+Re-evaluate the state after:
+
+• Item added
+• Item removed
+• Quantity changed
+• Product variant changed
+• Promo code added or removed
+• Market/currency changed
+• Delivery destination changed
+• Delivery method changed
+• Delivery availability refreshed
+• Cart restored from a previous session
+• User signs in or out if pricing/eligibility can differ
+• Backend quote/eligibility response expires
+
+LOADING AND ERROR BEHAVIOR
+
+• Do not flash the wrong free-delivery state while eligibility is loading.
+• Prefer a stable layout or a very short skeleton only when required.
+• If eligibility cannot be determined, fail safely by hiding the component.
+• Never promise free delivery based solely on a stale client-side calculation.
+• Do not block checkout if the promotional component fails to load.
+
+RESPONSIVE DESIGN
+
+Verify:
+
+• Large desktop
+• Standard laptop widths
+• Tablet
+• Mobile cart layout
+• Long currency formats
+• Long localized remaining amounts
+• Large accessibility text sizes
+• No clipping, overlap, or ellipsis in the headline
+• “Shop add-ons” wraps or moves below the headline gracefully
+• Product content moves upward correctly when the component is hidden
+• Order Summary remains aligned and usable in sticky/mobile layouts
+
+LOCALIZATION
+
+• Add translation keys; do not hard-code English.
+• Verify English and Arabic.
+• Verify Arabic RTL layout for the icon, text, progress direction, amount labels, and “Shop add-ons.”
+• Use locale-aware currency and number formatting.
+• Use pluralization/interpolation correctly.
+• Do not concatenate fragments in a way that prevents correct translation.
+• The apostrophe in “You’ve” and all localized equivalents must render correctly.
+
+ACCESSIBILITY
+
+Close state:
+
+• Progress bar exposes an accessible name and correct min/current/max values.
+• Do not rely on orange color alone to communicate progress.
+• Headline must expose the remaining amount in readable text.
+• “Shop add-ons” must be a semantic link/button with visible keyboard focus.
+• Maintain a minimum 44 × 44 px interactive target where applicable.
+
+Unlocked state:
+
+• Check icon is decorative when the success text already communicates status.
+• Announce the state change politely when the user crosses the threshold due to a cart action.
+• Do not repeatedly announce the message on unrelated rerenders.
+
+All states:
+
+• Maintain WCAG-compliant text/background contrast.
+• Preserve keyboard order.
+• Respect reduced-motion preferences.
+• No animation is required for launch.
+
+ANALYTICS
+
+Preserve existing cart analytics and add/verify these events:
+
+1. free_delivery_prompt_viewed
+   • state: close | unlocked
+   • threshold
+   • qualifying_subtotal
+   • remaining_amount
+   • currency
+   • market
+   • selected_delivery_type
+
+2. free_delivery_addons_clicked
+   • threshold
+   • remaining_amount
+   • currency
+   • destination type/page
+
+3. free_delivery_unlocked
+   • threshold
+   • qualifying_subtotal
+   • currency
+   • trigger: add_item | quantity_change | promo_change | restored_cart | other
+
+4. free_delivery_lost
+   • threshold
+   • qualifying_subtotal
+   • currency
+   • trigger
+
+5. checkout_clicked
+   • include free_standard_delivery_eligible boolean and selected delivery type in the existing safe event schema
+
+Requirements:
+
+• Fire view events once per meaningful state transition, not on every rerender.
+• Do not send addresses, recipient information, gift-message text, or other PII.
+• Validate analytics in staging.
+
+EXPERIMENTATION
+
+Ship behind a feature flag if the cart supports experimentation.
+
+Suggested comparison:
+
+• Control: current always-visible progress bar.
+• Variant: contextual three-state behavior.
+
+Primary metrics:
+
+• Purchase conversion rate
+• Checkout-start rate
+• Cart abandonment rate
+
+Secondary metrics:
+
+• Average order value
+• Add-on click-through rate
+• Free-delivery qualification rate
+• Express versus standard selection mix
+• Delivery-related support/contact rate, if measurable
+
+Guardrails:
+
+• Incorrect free-delivery application rate
+• Price mismatch/error rate
+• Cart performance
+• Checkout failures
+
+QA SCENARIOS
+
+1. Cart is far below threshold: component is completely absent.
+2. Cart is exactly one minor currency unit outside the close range.
+3. Cart enters the close range.
+4. Cart is one minor currency unit below threshold.
+5. Cart equals threshold exactly.
+6. Cart exceeds threshold.
+7. Item removal moves unlocked → close.
+8. Item removal moves close → hidden.
+9. Promo code changes the qualifying subtotal.
+10. Non-qualifying product is added.
+11. Currency/market changes with a different threshold.
+12. Express delivery selected while far, close, and unlocked.
+13. Express becomes unavailable and standard is restored.
+14. Cart restored from an old session with stale eligibility.
+15. Slow/failed eligibility response.
+16. English desktop.
+17. English mobile.
+18. Arabic RTL desktop.
+19. Arabic RTL mobile.
+20. Large accessibility text.
+21. “Shop add-ons” destination unavailable.
+22. Rapid quantity changes do not cause stale or flickering states.
+23. Order Summary total always matches backend checkout total.
+
+ACCEPTANCE CRITERIA
+
+• Far state renders no component and reserves no space.
+• Close state appears only within the configured eligibility range.
+• Close state displays the exact dynamically formatted remaining amount.
+• Progress uses backend qualifying subtotal and threshold values.
+• “Shop add-ons” appears only when a useful destination exists.
+• Unlocked state replaces progress with a restrained success message.
+• Unlocked state shows the actual standard-delivery saving or the approved fallback.
+• Standard-delivery amount changes to “Free” when eligible.
+• Express upgrade remains correctly priced according to backend rules.
+• Component hides while express is selected.
+• Cart, fee lines, and total update atomically after every relevant change.
+• No client/server pricing mismatch occurs.
+• No incorrect state flashes during loading.
+• English and Arabic/RTL are verified.
+• Desktop, tablet, and mobile layouts are approved.
+• Progress and actions are keyboard/screen-reader accessible.
+• Analytics fire once with correct non-PII properties.
+• Feature flag and rollback path are available if experimentation is used.
+• Product/design QA confirms all three approved visual states.
+• Final screenshots for hidden, close, and unlocked states are attached before completion.
+
+OUT OF SCOPE
+
+• Changing the free-standard-delivery threshold itself.
+• Changing which products qualify.
+• Changing delivery fees or express pricing.
+• Redesigning the product recommendation/add-on experience.
+• Broader cart-page redesign outside this component and the resulting vertical reflow.
