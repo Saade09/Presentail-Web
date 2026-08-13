@@ -7,6 +7,7 @@ import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { buildFeeNode } from "@/lib/feeNode";
 import { roundToNearestFive } from "@workspace/display-currency";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
@@ -75,7 +76,7 @@ const USD_BUCKET_THRESHOLDS = [50, 100, 200] as const;
 export default function BestSellers() {
   const { countryCode, cityId } = useLocationSelection();
   const { t, language } = useLocale();
-  const { currencyCode, formatPrice } = useDisplayCurrency();
+  const { currencyCode } = useDisplayCurrency();
 
   const { data: fxData } = useFxRates();
   const currencyRate = useMemo(() => {
@@ -94,25 +95,25 @@ export default function BestSellers() {
       {
         key: "under50" as PriceBucket,
         test: (p: Product) => roundToNearestFive(p.priceValue * currencyRate, currencyCode) < cT50,
-        label: t("shop.filter.priceUnderAmount", { amount: formatPrice(50) }),
+        label: buildFeeNode(t("shop.filter.priceUnderAmount"), { amount: 50 }),
       },
       {
         key: "50to100" as PriceBucket,
         test: (p: Product) => { const cv = roundToNearestFive(p.priceValue * currencyRate, currencyCode); return cv >= cT50 && cv < cT100; },
-        label: t("shop.filter.priceRange", { from: formatPrice(50), to: formatPrice(100) }),
+        label: buildFeeNode(t("shop.filter.priceRange"), { from: 50, to: 100 }),
       },
       {
         key: "100to200" as PriceBucket,
         test: (p: Product) => { const cv = roundToNearestFive(p.priceValue * currencyRate, currencyCode); return cv >= cT100 && cv < cT200; },
-        label: t("shop.filter.priceRange", { from: formatPrice(100), to: formatPrice(200) }),
+        label: buildFeeNode(t("shop.filter.priceRange"), { from: 100, to: 200 }),
       },
       {
         key: "over200" as PriceBucket,
         test: (p: Product) => roundToNearestFive(p.priceValue * currencyRate, currencyCode) >= cT200,
-        label: t("shop.filter.priceOverAmount", { amount: formatPrice(200) }),
+        label: buildFeeNode(t("shop.filter.priceOverAmount"), { amount: 200 }),
       },
     ],
-    [currencyRate, currencyCode, cT50, cT100, cT200, formatPrice, t],
+    [currencyRate, currencyCode, cT50, cT100, cT200, t],
   );
 
   const { data, isLoading } = useGetHomepageBestSellers({

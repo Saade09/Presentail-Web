@@ -45,21 +45,24 @@ function RemainingText({ template, usdValue }: { template: string; usdValue: num
 
 export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }: Props) {
   const { t } = useLocale();
-  const { freeDeliveryThreshold, expressDeliveryTimeLabel } =
+  const { freeDeliveryThreshold, freeDeliveryThresholdUsd, expressDeliveryTimeLabel } =
     useDeliveryConfig();
 
   // When the caller provides an explicit city-level threshold (USD), use it;
-  // otherwise fall back to the formatted string from useDeliveryConfig.
+  // then the config's raw USD value; only parse the formatted string as a
+  // last resort.
   const effectiveThresholdAmount =
     typeof overrideThresholdUsd === "number" && overrideThresholdUsd > 0
       ? overrideThresholdUsd
-      : parseThresholdAmount(freeDeliveryThreshold);
+      : typeof freeDeliveryThresholdUsd === "number" && freeDeliveryThresholdUsd > 0
+        ? freeDeliveryThresholdUsd
+        : parseThresholdAmount(freeDeliveryThreshold);
   // For the display label: when we have a raw USD value, convert it to the
-  // visitor's display currency. Otherwise fall back to the pre-formatted string
-  // from useDeliveryConfig (no raw USD available to convert).
+  // visitor's display currency (FormattedPrice renders the dirham SVG for
+  // AED). Only fall back to the pre-formatted string when no USD value exists.
   const effectiveThresholdLabel: React.ReactNode =
-    typeof overrideThresholdUsd === "number" && overrideThresholdUsd > 0
-      ? <FormattedPrice usdValue={overrideThresholdUsd} />
+    Number.isFinite(effectiveThresholdAmount) && effectiveThresholdAmount > 0
+      ? <FormattedPrice usdValue={effectiveThresholdAmount} />
       : freeDeliveryThreshold;
 
   const showProgress = typeof subtotal === "number" && subtotal >= 0;

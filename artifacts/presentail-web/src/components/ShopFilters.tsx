@@ -8,7 +8,7 @@ export type PriceBucket = "under50" | "50to100" | "100to200" | "over200";
 
 export type PriceBucketDef = {
   key: PriceBucket;
-  label: string;
+  label: React.ReactNode;
   count: number;
 };
 

@@ -3,6 +3,7 @@ import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { buildFeeNode } from "@/lib/feeNode";
 import {
   dayLabels,
   firstAvailableSlot,
@@ -502,7 +503,7 @@ export function ScheduleInlinePanel({
             // already implicit when no fee amount is shown.
             const feeLabel =
               s.extraFee !== undefined && s.extraFee !== null && s.extraFee > 0
-                ? t("product.deliveryExtraFee").replace("{fee}", formatPrice(s.extraFee))
+                ? buildFeeNode(t("product.deliveryExtraFee"), { fee: s.extraFee })
                 : null;
             return (
               <button

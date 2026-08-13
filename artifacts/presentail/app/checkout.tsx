@@ -70,6 +70,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { Price } from "@/components/Price";
 import { toStripeMinorUnits, roundToNearestFive } from "@workspace/display-currency";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
@@ -2152,8 +2153,15 @@ function CheckoutScreen() {
                   ? t.continueToPayment
                   : paying
                     ? t.processingOrder
-                    : `${t.payLabel} ${formatPrice(displayFees.grand)}`}
+                    : t.payLabel}
             </AppText>
+            {step === 2 && !paying ? (
+              <Price
+                value={displayFees.grand}
+                style={{ fontFamily: "Inter_600SemiBold", color: "#fff", fontSize: 14, letterSpacing: 0.6 }}
+                symbolColor="#fff"
+              />
+            ) : null}
             <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
           </Pressable>
         )}
@@ -3103,9 +3111,18 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
                 {district?.name ?? ""}
               </AppText>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-                  {district ? `${formatPrice(district.fee)} ${t.checkoutDeliverySuffix}` : ""}
-                </AppText>
+                {district ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                    <Price
+                      value={district.fee}
+                      style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}
+                      symbolColor={colors.mutedForeground}
+                    />
+                    <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                      {t.checkoutDeliverySuffix}
+                    </AppText>
+                  </View>
+                ) : null}
                 <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
               </View>
             </Pressable>
@@ -3183,7 +3200,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
                         {item.name}
                       </AppText>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>{formatPrice(item.fee)}</AppText>
+                        <Price value={item.fee} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }} symbolColor={colors.gold} />
                         {selected && <Feather name="check" size={16} color={colors.gold} />}
                       </View>
                     </TouchableOpacity>
@@ -3393,9 +3410,13 @@ function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled,
         {subtitle}
       </AppText>
       {footer ? (
-        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: disabled ? colors.mutedForeground : colors.gold }}>
-          {footer}
-        </AppText>
+        typeof footer === "string" ? (
+          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: disabled ? colors.mutedForeground : colors.gold }}>
+            {footer}
+          </AppText>
+        ) : (
+          footer
+        )
       ) : null}
     </Pressable>
   );
@@ -3431,7 +3452,12 @@ function DeliveryTimeCard({
             icon="zap"
             title={t.expressDelivery}
             subtitle={t.oneToThreeHrs}
-            footer={`+${formatPrice(expressSurcharge)}`}
+            footer={
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.gold }}>+</AppText>
+                <Price value={expressSurcharge} style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.gold }} symbolColor={colors.gold} />
+              </View>
+            }
             active={deliveryMode === "express"}
             onPress={() => setDeliveryMode("express")}
             onInfoPress={() => Alert.alert(t.expressInfoPopupTitle, `${t.expressInfoPopupBody}\n\n+${formatPrice(expressSurcharge)}`)}
@@ -3503,19 +3529,23 @@ function DeliverySummaryCard({ colors, days, date, slot, mode }: any) {
   );
 }
 
-function SummaryRow({ label, value, colors, accent, bold, highlight }: any) {
+function SummaryRow({ label, value, valueUsd, valuePrefix, colors, accent, bold, highlight }: any) {
+  const valueStyle = {
+    fontFamily: bold ? "Inter_700Bold" : "Inter_600SemiBold",
+    fontSize: bold ? 16 : 13,
+    color: highlight ? "#2e7d32" : accent ? colors.gold : colors.primary,
+  } as const;
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
       <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{label}</AppText>
-      <AppText
-        style={{
-          fontFamily: bold ? "Inter_700Bold" : "Inter_600SemiBold",
-          fontSize: bold ? 16 : 13,
-          color: highlight ? "#2e7d32" : accent ? colors.gold : colors.primary,
-        }}
-      >
-        {value}
-      </AppText>
+      {valueUsd != null ? (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {valuePrefix ? <AppText style={valueStyle}>{valuePrefix}</AppText> : null}
+          <Price value={valueUsd} style={valueStyle} symbolColor={valueStyle.color} />
+        </View>
+      ) : (
+        <AppText style={valueStyle}>{value}</AppText>
+      )}
     </View>
   );
 }
@@ -4027,10 +4057,9 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
         {(() => {
           const itemCount = detailed.reduce((sum: number, { qty }: any) => sum + qty, 0);
           const itemLabel = itemCount === 1 ? t.checkoutSummaryItemOne : t.checkoutSummaryItemMany;
+          const showFeeAmount = showDeliveryFee && fees.districtFee !== 0;
           const deliveryLabel = showDeliveryFee
-            ? (fees.districtFee === 0
-                ? t.checkoutSummaryFreeDelivery
-                : `${t.checkoutSummaryDelivery} ${formatPrice(fees.districtFee)}`)
+            ? (fees.districtFee === 0 ? t.checkoutSummaryFreeDelivery : t.checkoutSummaryDelivery)
             : null;
           const secondLine = deliveryLabel
             ? `${itemCount} ${itemLabel} · ${deliveryLabel}`
@@ -4040,16 +4069,27 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
               <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground }}>
                 {t.checkoutOrderSummaryCard}
               </AppText>
-              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }} numberOfLines={1}>
-                {secondLine}
-              </AppText>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }} numberOfLines={1}>
+                  {secondLine}
+                </AppText>
+                {showFeeAmount ? (
+                  <Price
+                    value={fees.districtFee}
+                    style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}
+                    symbolColor={colors.mutedForeground}
+                  />
+                ) : null}
+              </View>
             </View>
           );
         })()}
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, paddingLeft: isRTL ? 0 : 12, paddingRight: isRTL ? 12 : 0 }}>
-          <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
-            {formatPrice(fees.grand)}
-          </AppText>
+          <Price
+            value={fees.grand}
+            style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}
+            symbolColor={colors.primary}
+          />
           <Feather
             name={open ? "chevron-up" : "chevron-down"}
             size={16}
@@ -4080,17 +4120,11 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
               <View style={{ alignItems: "flex-end", gap: 6 }}>
                 {isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed) ? (
                   <View style={{ alignItems: "flex-end", gap: 2 }}>
-                    <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: "#e11d48" }}>
-                      {formatPrice(lineTotal)}
-                    </AppText>
-                    <AppText style={{ fontFamily: headingFontMedium, fontSize: 12, color: colors.mutedForeground, textDecorationLine: "line-through" }}>
-                      {formatPrice(product.priceValue * qty)}
-                    </AppText>
+                    <Price value={lineTotal} style={{ fontFamily: headingFontMedium, fontSize: 14, color: "#e11d48" }} symbolColor="#e11d48" />
+                    <Price value={product.priceValue * qty} style={{ fontFamily: headingFontMedium, fontSize: 12, color: colors.mutedForeground, textDecorationLine: "line-through" }} symbolColor={colors.mutedForeground} />
                   </View>
                 ) : (
-                  <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }}>
-                    {formatPrice(lineTotal)}
-                  </AppText>
+                  <Price value={lineTotal} style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }} symbolColor={colors.primary} />
                 )}
                 <Pressable onPress={() => remove(product.id)} hitSlop={6}>
                   <Feather name="x-circle" size={14} color={colors.mutedForeground} />
@@ -4113,9 +4147,10 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
                   {t.checkoutLoyaltyUsePoints.replace("{n}", String(loyaltyCoupon.points))}
                 </AppText>
                 {loyaltyToggleOn && couponDiscountUsd > 0 ? (
-                  <AppText style={{ fontSize: 11, color: "#16a34a" }}>
-                    {"−"}{formatPrice(couponDiscountUsd)}
-                  </AppText>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <AppText style={{ fontSize: 11, color: "#16a34a" }}>{"−"}</AppText>
+                    <Price value={couponDiscountUsd} style={{ fontSize: 11, color: "#16a34a" }} symbolColor="#16a34a" />
+                  </View>
                 ) : (
                   <AppText style={{ fontSize: 11, color: colors.mutedForeground }}>
                     {t.checkoutLoyaltyOff.replace("{n}", String(loyaltyCoupon.discountPercent))}
@@ -4170,28 +4205,28 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
           ) : null}
 
           <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
-          <SummaryRow label={t.checkoutSubtotalLabel} value={formatPrice(fees.subtotal)} colors={colors} />
+          <SummaryRow label={t.checkoutSubtotalLabel} valueUsd={fees.subtotal} colors={colors} />
           {showDeliveryFee ? (
             <>
               <SummaryRow
                 label={t.checkoutDeliveryFeeLabel}
-                value={fees.districtFee === 0 ? t.checkoutFreeUpper : formatPrice(fees.districtFee)}
+                {...(fees.districtFee === 0 ? { value: t.checkoutFreeUpper } : { valueUsd: fees.districtFee })}
                 colors={colors}
                 highlight={fees.districtFee === 0}
               />
               {fees.expressFee > 0 ? (
-                <SummaryRow label={t.checkoutExpressUpgradeLabel} value={formatPrice(fees.expressFee)} colors={colors} />
+                <SummaryRow label={t.checkoutExpressUpgradeLabel} valueUsd={fees.expressFee} colors={colors} />
               ) : null}
               {fees.slotFee > 0 ? (
-                <SummaryRow label={t.checkoutTimeWindowFeeLabel} value={formatPrice(fees.slotFee)} colors={colors} />
+                <SummaryRow label={t.checkoutTimeWindowFeeLabel} valueUsd={fees.slotFee} colors={colors} />
               ) : null}
             </>
           ) : null}
           {couponApplied && couponDiscountUsd > 0 ? (
-            <SummaryRow label={t.checkoutCouponDiscount} value={`- ${formatPrice(couponDiscountUsd)}`} colors={colors} highlight />
+            <SummaryRow label={t.checkoutCouponDiscount} valueUsd={couponDiscountUsd} valuePrefix="- " colors={colors} highlight />
           ) : null}
           <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
-          <SummaryRow label={t.checkoutTotalLabel} value={formatPrice(fees.grand)} colors={colors} bold />
+          <SummaryRow label={t.checkoutTotalLabel} valueUsd={fees.grand} colors={colors} bold />
         </View>
       </Animated.View>
     </View>

@@ -17,6 +17,7 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
+import { buildFeeNode } from "@/lib/feeNode";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
@@ -796,7 +797,7 @@ export default function Cart() {
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        {t("cart.expressNote").replace("{{amount}}", formatPrice(expressSurcharge))}
+                        {buildFeeNode(t("cart.expressNote"), { amount: expressSurcharge })}
                       </p>
                     )
                   )}

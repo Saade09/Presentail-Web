@@ -434,13 +434,9 @@ export function CartDrawer() {
                       />
                     )}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
-                        {formatPrice(lineTotal)}
-                      </AppText>
+                      <Price value={lineTotal} style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }} symbolColor={colors.primary} />
                       {regularLineTotal !== null && (
-                        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, textDecorationLine: "line-through" }}>
-                          {formatPrice(regularLineTotal)}
-                        </AppText>
+                        <Price value={regularLineTotal} style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, textDecorationLine: "line-through" }} symbolColor={colors.mutedForeground} />
                       )}
                     </View>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>

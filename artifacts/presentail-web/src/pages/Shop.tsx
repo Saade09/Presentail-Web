@@ -33,6 +33,7 @@ import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
 
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { buildFeeNode } from "@/lib/feeNode";
 import { roundToNearestFive } from "@workspace/display-currency";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
 import {
@@ -126,7 +127,7 @@ export default function Shop() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
   const { t, language, cityName, countryName } = useLocale();
-  const { currencyCode, formatPrice } = useDisplayCurrency();
+  const { currencyCode } = useDisplayCurrency();
   const { data: fxData } = useFxRates();
 
   // Exchange rate for the active display currency (1 for USD or when unavailable).
@@ -149,25 +150,25 @@ export default function Shop() {
       {
         key: "under50" as PriceBucket,
         test: (p: Product) => roundToNearestFive(p.priceValue * currencyRate, currencyCode) < cT50,
-        label: t("shop.filter.priceUnderAmount", { amount: formatPrice(50) }),
+        label: buildFeeNode(t("shop.filter.priceUnderAmount"), { amount: 50 }),
       },
       {
         key: "50to100" as PriceBucket,
         test: (p: Product) => { const cv = roundToNearestFive(p.priceValue * currencyRate, currencyCode); return cv >= cT50 && cv < cT100; },
-        label: t("shop.filter.priceRange", { from: formatPrice(50), to: formatPrice(100) }),
+        label: buildFeeNode(t("shop.filter.priceRange"), { from: 50, to: 100 }),
       },
       {
         key: "100to200" as PriceBucket,
         test: (p: Product) => { const cv = roundToNearestFive(p.priceValue * currencyRate, currencyCode); return cv >= cT100 && cv < cT200; },
-        label: t("shop.filter.priceRange", { from: formatPrice(100), to: formatPrice(200) }),
+        label: buildFeeNode(t("shop.filter.priceRange"), { from: 100, to: 200 }),
       },
       {
         key: "over200" as PriceBucket,
         test: (p: Product) => roundToNearestFive(p.priceValue * currencyRate, currencyCode) >= cT200,
-        label: t("shop.filter.priceOverAmount", { amount: formatPrice(200) }),
+        label: buildFeeNode(t("shop.filter.priceOverAmount"), { amount: 200 }),
       },
     ],
-    [currencyRate, currencyCode, cT50, cT100, cT200, formatPrice, t],
+    [currencyRate, currencyCode, cT50, cT100, cT200, t],
   );
   const [location, navigate] = useLocation();
   const params = useParams<{ slug?: string }>();

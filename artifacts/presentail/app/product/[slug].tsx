@@ -328,17 +328,18 @@ function ProductDetail() {
       : saleDiscountUsd != null;
 
   // CTA price: mirrors the active selling price shown in the main price block.
-  // Sale + AED + native AED discount → format as-is (already in active currency).
-  // Sale + USD discount → convert from USD then format.
-  // No sale → convert regular USD price then format.
-  const ctaPrice = (() => {
+  // Sale + AED + native AED discount → already in active currency (native).
+  // Sale + USD discount → convert from USD.
+  // No sale → convert regular USD price.
+  // Rendered via <Price> so AED/SAR show their SVG symbol, not "AED"/"SAR" text.
+  const ctaPriceProps = (() => {
     if (currencyCode === "AED" && saleDiscountAed != null) {
-      return formatNative(saleDiscountAed);
+      return { value: saleDiscountAed, native: true };
     }
     if (saleDiscountUsd != null) {
-      return formatPrice(saleDiscountUsd);
+      return { value: saleDiscountUsd };
     }
-    return formatPrice(safePriceValue);
+    return { value: safePriceValue };
   })();
 
   // Build the images array for the carousel. Prefer the full list from the
@@ -527,17 +528,24 @@ function ProductDetail() {
           ]}
         >
           <Feather name="shopping-bag" size={16} color="#fff" />
-          <AppText
-            style={{
-              fontFamily: "Inter_600SemiBold",
-              color: "#fff",
-              fontSize: 13,
-              letterSpacing: 1.4,
-              textTransform: "uppercase",
-            }}
-          >
-            {t.addLabel} · {ctaPrice}
-          </AppText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <AppText
+              style={{
+                fontFamily: "Inter_600SemiBold",
+                color: "#fff",
+                fontSize: 13,
+                letterSpacing: 1.4,
+                textTransform: "uppercase",
+              }}
+            >
+              {t.addLabel} ·
+            </AppText>
+            <Price
+              {...ctaPriceProps}
+              style={{ fontFamily: "Inter_600SemiBold", color: "#fff", fontSize: 13, letterSpacing: 1.4 }}
+              symbolColor="#fff"
+            />
+          </View>
         </Pressable>
       </View>
 
@@ -1086,13 +1094,20 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
             accessible={false}
             style={{ marginTop: 1 }}
           />
-          <AppText
-            style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 18 }}
-          >
-            {delivery === "express"
-              ? t.freeDeliveryQualifiedExpress.replace("{amount}", fmtNative(expressSurcharge))
-              : t.freeDeliveryQualifiedStandard}
-          </AppText>
+          {(() => {
+            const node = delivery === "express"
+              ? symTemplate(t.freeDeliveryQualifiedExpress, { amount: expressSurcharge }, colors.primary, 13, "Inter_500Medium")
+              : t.freeDeliveryQualifiedStandard;
+            return typeof node === "string" ? (
+              <AppText
+                style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 18 }}
+              >
+                {node}
+              </AppText>
+            ) : (
+              <View style={{ flex: 1 }}>{node}</View>
+            );
+          })()}
         </View>
       )}
 
@@ -1229,7 +1244,15 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         const isRTL = I18nManager.isRTL;
         const textAlign = isRTL ? "right" : "center";
         const badges = [
-          freeDeliveryEnabled ? { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(freeDeliveryThresholdNative)}.` } : null,
+          freeDeliveryEnabled
+            ? {
+                icon: "truck-fast",
+                title: t.freeStandardDelivery,
+                sub: hasSvgSymbol
+                  ? symTemplate(`${t.onOrdersAbove} {amount}.`, { amount: freeDeliveryThresholdNative }, colors.mutedForeground, 9, "Inter_400Regular")
+                  : `${t.onOrdersAbove} ${formatNative(freeDeliveryThresholdNative)}.`,
+              }
+            : null,
           { icon: "map-marker-question", title: t.noAddressHassle, sub: t.ifNeeded },
           { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
         ].filter((b): b is NonNullable<typeof b> => b !== null);
@@ -1266,7 +1289,11 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
                     <MaterialCommunityIcons name={col.icon as any} size={15} color={colors.gold} />
                   </View>
                   <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: colors.primary, textAlign }}>{col.title}</AppText>
-                  <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground, textAlign, marginTop: 1 }}>{col.sub}</AppText>
+                  {typeof col.sub === "string" ? (
+                    <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground, textAlign, marginTop: 1 }}>{col.sub}</AppText>
+                  ) : (
+                    <View style={{ marginTop: 1 }}>{col.sub}</View>
+                  )}
                 </View>
               </React.Fragment>
             ))}

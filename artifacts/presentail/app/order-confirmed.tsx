@@ -4,6 +4,7 @@ import React from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppText } from "@/components/AppText";
+import { Price } from "@/components/Price";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/contexts/CartContext";
@@ -261,7 +262,7 @@ function OrderConfirmed() {
           ) : null}
           <Row colors={colors} icon="user" label={t.ocRecipient} value={String(recipient || "—")} />
           <Row colors={colors} icon="calendar" label={t.ocDelivery} value={`${date} · ${slot}`} />
-          <Row colors={colors} icon="dollar-sign" label={t.ocTotal} value={formatNative(Number(total || 0))} highlight />
+          <Row colors={colors} icon="dollar-sign" label={t.ocTotal} valueNative={Number(total || 0)} highlight />
         </View>
 
         {!isFailed && confirmedItems.some((i) => i.customInput) ? (
@@ -456,7 +457,7 @@ function OrderConfirmed() {
   );
 }
 
-function Row({ colors, icon, label, value, highlight }: any) {
+function Row({ colors, icon, label, value, valueNative, highlight }: any) {
   const headingFontMedium = useHeadingFont("500Medium");
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
@@ -476,9 +477,19 @@ function Row({ colors, icon, label, value, highlight }: any) {
         <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: colors.mutedForeground }}>
           {label}
         </AppText>
-        <Text style={{ fontFamily: highlight ? headingFontMedium : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary, marginTop: 2 }}>
-          {value}
-        </Text>
+        {valueNative != null ? (
+          <Price
+            value={valueNative}
+            native
+            style={{ fontFamily: highlight ? headingFontMedium : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary }}
+            containerStyle={{ marginTop: 2 }}
+            symbolColor={colors.primary}
+          />
+        ) : (
+          <Text style={{ fontFamily: highlight ? headingFontMedium : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary, marginTop: 2 }}>
+            {value}
+          </Text>
+        )}
       </View>
     </View>
   );

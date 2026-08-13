@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
+import { Price } from "@/components/Price";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -184,9 +185,7 @@ export function RescheduleDeliverySheet({
     ? t.rescheduleSheetSubtitle
     : t.rescheduleSheetSubtitleScheduled;
 
-  const expressSurchargeDisplay = expressSurchargeUsd > 0
-    ? ` · +${formatNative(convert(expressSurchargeUsd))}`
-    : "";
+  const showExpressSurcharge = expressSurchargeUsd > 0;
 
   return (
     <Modal
@@ -315,12 +314,23 @@ export function RescheduleDeliverySheet({
                   marginTop: 1,
                 }}
               >
-                {expressAvailable
-                  ? expressSurchargeDisplay
-                    ? `${t.expressDelivery}${expressSurchargeDisplay}`
-                    : t.expressDelivery
-                  : t.rescheduleExpressUnavailable}
+                {expressAvailable ? t.expressDelivery : t.rescheduleExpressUnavailable}
               </AppText>
+              {expressAvailable && showExpressSurcharge ? (
+                (() => {
+                  const feeColor = openedFromExpress ? "rgba(255,255,255,0.75)" : colors.mutedForeground;
+                  return (
+                    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 1 }}>
+                      <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: feeColor }}>{"+"}</AppText>
+                      <Price
+                        value={expressSurchargeUsd}
+                        style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: feeColor }}
+                        symbolColor={feeColor}
+                      />
+                    </View>
+                  );
+                })()
+              ) : null}
             </View>
             {openedFromExpress && (
               <Feather name="check" size={16} color="#fff" />

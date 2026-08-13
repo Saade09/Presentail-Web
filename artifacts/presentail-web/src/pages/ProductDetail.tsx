@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { Info, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,36 +32,7 @@ import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
 import { FormattedPrice } from "@/components/FormattedPrice";
-
-/**
- * Splits a localised fee template on `{key}` placeholders and replaces each
- * with a <FormattedPrice> element so AED/SAR get their proper SVG symbols.
- * For all other currencies the result is a plain string wrapped in a fragment,
- * which renders identically to the old string-replacement approach.
- */
-function buildFeeNode(
-  template: string,
-  amounts: Record<string, number>,
-): React.ReactNode {
-  const re = /\{(\w+)\}/g;
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(template)) !== null) {
-    if (m.index > lastIndex) parts.push(template.slice(lastIndex, m.index));
-    const key = m[1];
-    parts.push(
-      key in amounts // i18n-ignore — JS expression, not user-visible text
-        ? <FormattedPrice key={`${key}-${m.index}`} usdValue={amounts[key]} />
-        : m[0],
-    );
-    lastIndex = m.index + m[0].length;
-  }
-  if (lastIndex < template.length) parts.push(template.slice(lastIndex));
-  if (parts.length === 0) return null;
-  if (parts.length === 1) return parts[0];
-  return <>{parts.map((p, i) => <Fragment key={i}>{p}</Fragment>)}</>;
-}
+import { buildFeeNode } from "@/lib/feeNode";
 import { SalePrice } from "@/components/SalePrice";
 import {
   dayLabels,
@@ -370,7 +341,6 @@ export default function ProductDetail() {
     // always matches the OS-configured price ($15 for LB, etc.), not the
     // possibly-stale value the /delivery-config endpoint echoes back.
     const expressSurcharge = expressSurchargeForCountry(countryCode);
-    const fmt = (usd: number) => formatPrice(usd);
 
     if (cityFeeUsd === null) {
       // unknown_area: no city selected yet; from_min: city selected, fee unconfigured.
@@ -386,7 +356,7 @@ export default function ProductDetail() {
         scheduledFeeSubLabel: undefined as React.ReactNode,
         scheduledIsFree: false,
         helperIsQualified: false,
-        expressSurchargeFormatted: fmt(expressSurcharge),
+        expressSurchargeUsd: expressSurcharge,
       };
     }
 
@@ -411,7 +381,7 @@ export default function ProductDetail() {
       scheduledFeeSubLabel: t("product.delivery.standardDelivery") as React.ReactNode,
       scheduledIsFree: isFree,
       helperIsQualified: isFree,
-      expressSurchargeFormatted: fmt(expressSurcharge),
+      expressSurchargeUsd: expressSurcharge,
     };
   }, [delivery, cityId, freeDeliveryMet, formatPrice, t]);
 
@@ -674,7 +644,7 @@ export default function ProductDetail() {
               freeDeliveryBadge={
                 delivery.isLoaded && freeDeliveryMet
                   ? deliveryChoice === "express"
-                    ? t("product.delivery.qualifiedHelperExpress").replace("{amount}", deliveryCardLabels.expressSurchargeFormatted)
+                    ? buildFeeNode(t("product.delivery.qualifiedHelperExpress"), { amount: deliveryCardLabels.expressSurchargeUsd })
                     : t("product.delivery.qualifiedHelperStandard")
                   : undefined
               }
