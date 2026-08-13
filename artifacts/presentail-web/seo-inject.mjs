@@ -1894,7 +1894,16 @@ async function fetchEntityForSeoCached(kind, fetcher, opts, out = {}) {
   // surviving up to 1 hour when the CDN replaces an image at an unchanged URL.
   if (result && result.value) {
     for (const url of extractEntityImageUrls(result.value)) evictImageDims(url);
-    setCachedEntity(key, result.value, result.etag, result.lastModified);
+    // Do NOT cache an English fallback under an ar/fr cache key: when the
+    // upstream translation failed (contentLang === "en" despite lang=ar/fr),
+    // caching would pin English content on the localized page for the full
+    // entity TTL. Skipping the cache means the next hit retries translation.
+    const isTranslationFallback =
+      (opts.lang === "ar" || opts.lang === "fr") &&
+      result.value.__contentLang === "en";
+    if (!isTranslationFallback) {
+      setCachedEntity(key, result.value, result.etag, result.lastModified);
+    }
     out.freshlyFetched = true;
     return result.value;
   }
@@ -2342,6 +2351,14 @@ async function fetchEntityForSeo({
     // so callers can issue proper 404/410 responses rather than a misleading
     // 200 with an indexable page for a slug that simply does not exist.
     if (!value) return { notFound: true };
+    // The product API reports which language the payload is ACTUALLY in
+    // (contentLang === "en" when an ar/fr translation failed and English was
+    // served). Carry it on the entity so callers can (a) avoid emitting an
+    // hreflang that falsely claims translated content and (b) avoid caching
+    // the English fallback under the ar/fr cache key.
+    if (typeof body.contentLang === "string" && value && typeof value === "object") {
+      value.__contentLang = body.contentLang;
+    }
     // Capture validation headers so subsequent requests can use them for
     // conditional fetches, avoiding a full round-trip when nothing changed.
     const etag = res.headers?.get?.("etag") ?? null;
@@ -5093,7 +5110,17 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       // hreflang" pattern Semrush flags at scale. Canonical alone is the
       // correct and sufficient signal for duplicate consolidation; hreflang is
       // for the canonical set only.
-      if (parsed.city === HUB_CITY[parsed.country]) {
+      // Honesty guard: when an ar/fr page is actually serving the English
+      // fallback (upstream translation failed — product.__contentLang === "en"),
+      // emitting hreflang would falsely declare this URL as the ar/fr language
+      // alternate while crawlers detect English content — exactly the
+      // "hreflang/content language mismatch" Semrush flags. Suppress the
+      // cluster for this response; the fallback is uncached upstream, so the
+      // next crawl retries translation and gets the cluster back.
+      const _translationFellBack =
+        (generic.lang === "ar" || generic.lang === "fr") &&
+        product.__contentLang === "en";
+      if (parsed.city === HUB_CITY[parsed.country] && !_translationFellBack) {
         const _prodHreflangSet = buildHreflangSet(
           `product/${encodeURIComponent(productSlug)}`,
           { country: parsed.country, city: HUB_CITY[parsed.country] },

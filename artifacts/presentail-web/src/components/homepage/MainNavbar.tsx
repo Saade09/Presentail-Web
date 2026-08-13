@@ -232,7 +232,11 @@ export function MainNavbar() {
     // Without a city context (e.g. the blog shell, whose nested router base is
     // `/${lang}`), a relative path would resolve under that base — `/fr/` has
     // no route and 404s. Escape to an absolute URL so "/" is the real root.
-    cityBase ? `~${cityBase}${path}` : `~${path}`;
+    // For the city root ("/"), emit the slashless canonical form
+    // (`/fr-lb/beirut`, not `/fr-lb/beirut/`) — the server 301s the
+    // trailing-slash variant, so a slash-terminated href wastes a redirect
+    // on every internal navigation and crawl.
+    cityBase ? (path === "/" ? `~${cityBase}` : `~${cityBase}${path}`) : `~${path}`;
 
   const [searchOpen, setSearchOpen] = useState(false);
   // Gate mounting until first open so the cmdk chunk is never fetched on

@@ -43,7 +43,7 @@
 - [City home SEO overrides](city-home-seo-overrides.md) — per-city hand-written title/H1/FAQ/CollectionPage pattern (Tripoli); city-home body copy is now visible HTML; all .md mirrors noindex,follow
 - [SSR city product grid](ssr-city-product-grid.md) — city-home SSR product cards: add city key to SSR_PRODUCT_CITY_KEYS; payload must carry discount fields or sale prices vanish after hydration
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice
-- [AR/FR product translation layer](product-translation.md) — /woo/product reads lang=ar/fr, translates via OpenAI, 7-day cache; seo-inject already sends lang so no web changes needed
+- [AR/FR product translation layer](product-translation.md) — OpenAI w/ retries+semaphore, Postgres L2 cache, warm job; contentLang flag suppresses hreflang on English fallback; city-root links must be slashless
 - [CyberSource capture-context schema](cybersource-capture-context-schema.md) — required fields, valid enums (PANENTRY not CARD), locale underscore format, forbidden fields, JWT clientLibrary = UC SDK URL
 - [Task-agent splice corruption](task-agent-splice-corruption.md) — esbuild doesn't type-check; run tsc --noEmit after merges to catch undefined-identifier splices; main Stripe account is Cyprus, accepts all currencies (AED→Gulf)
 - [Category nav inventory rule](category-nav-inventory.md) — never hardcode /category links; filter every nav surface by per-country catalog metadata counts; `~/` escapes lang-based router bases

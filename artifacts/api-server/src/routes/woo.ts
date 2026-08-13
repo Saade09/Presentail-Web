@@ -936,6 +936,11 @@ router.get("/woo/product", async (req, res) => {
     );
     return res.json({
       ok: true,
+      // contentLang tells the caller which language the payload is ACTUALLY
+      // in: the requested lang on success, "en" when translation failed and
+      // the English fallback was served. The SEO injector uses this to avoid
+      // emitting an hreflang that falsely claims translated content.
+      contentLang: translated.translated ? lang : "en",
       product: {
         ...product,
         name: translated.name,

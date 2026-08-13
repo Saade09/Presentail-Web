@@ -27,6 +27,7 @@ export * from "./pageContextualDescriptions";
 export * from "./productDataSourceMapping";
 export * from "./productRankingMetrics";
 export * from "./plantEnvironmentCache";
+export * from "./productTranslationCache";
 export * from "./seoAuditRuns";
 export * from "./stripeWebhookEvents";
 export * from "./klarnaPendingCheckouts";

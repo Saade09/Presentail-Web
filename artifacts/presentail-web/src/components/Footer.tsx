@@ -149,7 +149,9 @@ export function Footer() {
         })
       : null;
   const toCityHref = (path: string): string =>
-    _cityBase ? `~${_cityBase}${path}` : path;
+    // City root ("/") must be slashless (`/fr-lb/beirut`) — the server 301s
+    // the trailing-slash variant, so a slash-terminated href wastes a redirect.
+    _cityBase ? (path === "/" ? `~${_cityBase}` : `~${_cityBase}${path}`) : path;
   const year = new Date().getFullYear();
   const cityLabel = city ? cityName(city.id, city.name) : t("footer.selectCity");
 

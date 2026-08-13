@@ -27,6 +27,14 @@ The API route (`woo.ts` `/woo/product`) now reads `readLang(req)`. When `lang ==
 
 **Why:** `buildProductHead` reads `product.name` and `product.description` directly; since the API returns translated strings, everything downstream sees translated content without extra work.
 
+## Reliability + hreflang honesty layer (Aug 2026)
+
+- Translations are now persisted in Postgres `product_translation_cache` (PK os_product_id+lang) as L2 under the in-memory L1 map — survives restarts, shared across autoscale replicas.
+- OpenAI calls: 3 attempts with backoff behind a slot-transfer semaphore (max 4 concurrent). `translated: true` only when EVERY nonempty source field came back translated; partial model JSON is treated as failure.
+- `/api/woo/product` returns `contentLang` ("en" when fallback served). `seo-inject.mjs` carries it as `product.__contentLang`, skips SEO-caching ar/fr responses whose contentLang is "en", and suppresses the product hreflang cluster on fallback responses — never declare fr-lb hreflang over English content.
+- Background warm job (`productTranslationWarmJob.ts`) pre-warms fr+ar for all stores 90s after startup + every 6h, guarded by a pg advisory lock across replicas and a consecutive-failure abort.
+- **Internal-link rule:** the slashless form is canonical everywhere (`/fr-lb/beirut`, not `/fr-lb/beirut/`); serve.mjs 301s the slash variant. City-root hrefs from `toCityHref("/")` (MainNavbar, Footer) must emit the base without a trailing slash or every logo click/crawl wastes a redirect.
+
 ## Invalidation
 
 `invalidateProductTranslation(osNumericId, lang?)` clears cache entries. Call it from the OS catalog refresh hook if product names change frequently enough to matter (not yet wired up — 7-day TTL is usually sufficient).

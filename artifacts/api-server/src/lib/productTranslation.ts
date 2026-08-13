@@ -16,6 +16,9 @@
  */
 
 import OpenAI from "openai";
+import { and, eq, gt } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { productTranslationCacheTable } from "@workspace/db/schema";
 import { logger } from "./logger";
 
 export type TranslationLang = "ar" | "fr";
@@ -23,6 +26,13 @@ export type TranslationLang = "ar" | "fr";
 export interface ProductTranslation {
   name: string;
   description: string;
+  /**
+   * True when the content is actually in the requested language (translation
+   * succeeded or was cached). False when the values are the English fallback,
+   * so callers (e.g. the SEO injector) can avoid claiming a language the
+   * response does not actually contain.
+   */
+  translated: boolean;
 }
 
 // 7-day TTL — product copy rarely changes
@@ -38,6 +48,47 @@ const LANG_NAMES: Record<TranslationLang, string> = {
   ar: "Modern Standard Arabic",
   fr: "French",
 };
+
+// ── Retry + concurrency control ───────────────────────────────────────────
+//
+// Under crawl load (e.g. Semrush auditing every fr-lb product page) hundreds
+// of distinct cold-cache products can hit the OpenAI API in a burst. Without
+// a cap, the burst trips rate limits, every call fails, and every page
+// silently falls back to English while its hreflang still claims French.
+// A small concurrency gate + per-call retries makes the fallback path rare.
+
+const MAX_ATTEMPTS = 3;
+const ATTEMPT_TIMEOUT_MS = 15_000;
+const RETRY_BACKOFF_MS = [500, 2_000];
+const MAX_CONCURRENT_CALLS = 4;
+
+let activeCalls = 0;
+const waitQueue: Array<() => void> = [];
+
+async function acquireSlot(): Promise<void> {
+  if (activeCalls < MAX_CONCURRENT_CALLS) {
+    activeCalls++;
+    return;
+  }
+  // The releaser hands its slot directly to the waiter (activeCalls is NOT
+  // decremented when a waiter exists), so a concurrent new acquirer can never
+  // sneak in between release and wake-up and push us over the cap.
+  await new Promise<void>((resolve) => waitQueue.push(resolve));
+}
+
+function releaseSlot(): void {
+  const next = waitQueue.shift();
+  if (next) {
+    // Transfer the slot to the waiter without touching activeCalls.
+    next();
+  } else {
+    activeCalls--;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 const SYSTEM_PROMPT =
   `You are a professional translator for a luxury flower and gift delivery brand. ` + // i18n-ignore
@@ -68,6 +119,80 @@ function cacheKey(osNumericId: number | string, lang: TranslationLang): string {
   return `${osNumericId}:${lang}`;
 }
 
+// ── Persistent (Postgres) cache layer ─────────────────────────────────────
+//
+// The in-memory Map is per-process: every restart/replica used to re-translate
+// the whole catalog. The DB layer makes translations survive restarts and be
+// shared across autoscale replicas; the Map remains a fast L1 in front of it.
+
+async function persistTranslation(
+  osNumericId: number | string,
+  lang: TranslationLang,
+  data: ProductTranslation,
+  expiresAtMs: number,
+): Promise<void> {
+  try {
+    await db
+      .insert(productTranslationCacheTable)
+      .values({
+        osProductId: String(osNumericId),
+        lang,
+        name: data.name,
+        description: data.description,
+        expiresAt: new Date(expiresAtMs),
+        translatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [
+          productTranslationCacheTable.osProductId,
+          productTranslationCacheTable.lang,
+        ],
+        set: {
+          name: data.name,
+          description: data.description,
+          expiresAt: new Date(expiresAtMs),
+          translatedAt: new Date(),
+        },
+      });
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error)?.message, osNumericId, lang },
+      "productTranslation: failed to persist translation", // i18n-ignore
+    );
+  }
+}
+
+async function loadPersistedTranslation(
+  osNumericId: number | string,
+  lang: TranslationLang,
+): Promise<{ data: ProductTranslation; expiresAtMs: number } | null> {
+  try {
+    const rows = await db
+      .select()
+      .from(productTranslationCacheTable)
+      .where(
+        and(
+          eq(productTranslationCacheTable.osProductId, String(osNumericId)),
+          eq(productTranslationCacheTable.lang, lang),
+          gt(productTranslationCacheTable.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      data: { name: row.name, description: row.description, translated: true },
+      expiresAtMs: row.expiresAt.getTime(),
+    };
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error)?.message, osNumericId, lang },
+      "productTranslation: failed to read persisted translation", // i18n-ignore
+    );
+    return null;
+  }
+}
+
 /**
  * Translate a product's name and description into `lang`.
  *
@@ -83,6 +208,7 @@ export async function translateProductContent(
   const fallback: ProductTranslation = {
     name: englishName,
     description: englishDescription,
+    translated: false,
   };
 
   // Nothing to translate if both fields are empty.
@@ -90,7 +216,7 @@ export async function translateProductContent(
 
   const key = cacheKey(osNumericId, lang);
 
-  // Cache hit
+  // L1 (in-memory) cache hit
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) {
     return hit.data;
@@ -102,6 +228,12 @@ export async function translateProductContent(
 
   const promise = (async (): Promise<ProductTranslation> => {
     try {
+      // L2 (Postgres) cache hit — survives restarts, shared across replicas.
+      const persisted = await loadPersistedTranslation(osNumericId, lang);
+      if (persisted) {
+        cache.set(key, { data: persisted.data, expiresAt: persisted.expiresAtMs });
+        return persisted.data;
+      }
       const client = buildClient();
       if (!client) {
         logger.warn("productTranslation: OpenAI client not configured; returning English"); // i18n-ignore
@@ -114,45 +246,86 @@ export async function translateProductContent(
         description: englishDescription.trim(),
       };
 
-      const resp = await client.chat.completions.create(
-        {
-          model: "gpt-4o-mini",
-          max_completion_tokens: 4096,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+      let lastErr: unknown = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        await acquireSlot();
+        try {
+          const resp = await client.chat.completions.create(
             {
-              role: "user",
-              content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
+              model: "gpt-4o-mini",
+              max_completion_tokens: 4096,
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                {
+                  role: "user",
+                  content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
+                },
+              ],
             },
-          ],
-        },
-        { signal: AbortSignal.timeout(15_000) },
+            { signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) },
+          );
+
+          const raw = (resp.choices[0]?.message?.content ?? "")
+            .trim()
+            .replace(/^```(?:json)?\n?/, "")
+            .replace(/\n?```$/, "");
+
+          const parsed = JSON.parse(raw) as { name?: string; description?: string };
+
+          const gotName =
+            typeof parsed.name === "string" && parsed.name.trim().length > 0;
+          const gotDescription =
+            typeof parsed.description === "string" &&
+            parsed.description.trim().length > 0;
+
+          // Only claim success when the model translated every nonempty
+          // source field. A partial response (e.g. missing description) would
+          // otherwise be cached and reported as localized while half the page
+          // is still English — the exact hreflang/content mismatch we guard
+          // against downstream.
+          const nameOk = !englishName.trim() || gotName;
+          const descriptionOk = !englishDescription.trim() || gotDescription;
+          if (!nameOk || !descriptionOk) {
+            throw new Error(
+              `incomplete translation (name: ${gotName}, description: ${gotDescription})`,
+            );
+          }
+
+          const result: ProductTranslation = {
+            name: gotName ? parsed.name!.trim() : englishName,
+            description: gotDescription
+              ? parsed.description!.trim()
+              : englishDescription,
+            translated: true,
+          };
+
+          const expiresAt = Date.now() + CACHE_TTL_MS;
+          cache.set(key, { data: result, expiresAt });
+          void persistTranslation(osNumericId, lang, result, expiresAt);
+          logger.info(
+            { osNumericId, lang, nameLen: result.name.length, attempt },
+            "productTranslation: cached translation", // i18n-ignore
+          );
+          return result;
+        } catch (err) {
+          lastErr = err;
+          logger.warn(
+            { err: (err as Error)?.message, osNumericId, lang, attempt },
+            "productTranslation: attempt failed", // i18n-ignore
+          );
+        } finally {
+          releaseSlot();
+        }
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 2_000);
+        }
+      }
+
+      logger.warn(
+        { err: (lastErr as Error)?.message, osNumericId, lang },
+        "productTranslation: all attempts failed; returning English", // i18n-ignore
       );
-
-      const raw = (resp.choices[0]?.message?.content ?? "")
-        .trim()
-        .replace(/^```(?:json)?\n?/, "")
-        .replace(/\n?```$/, "");
-
-      const parsed = JSON.parse(raw) as { name?: string; description?: string };
-
-      const result: ProductTranslation = {
-        name:
-          typeof parsed.name === "string" && parsed.name.trim()
-            ? parsed.name.trim()
-            : englishName,
-        description:
-          typeof parsed.description === "string" && parsed.description.trim()
-            ? parsed.description.trim()
-            : englishDescription,
-      };
-
-      cache.set(key, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
-      logger.info(
-        { osNumericId, lang, nameLen: result.name.length },
-        "productTranslation: cached translation", // i18n-ignore
-      );
-      return result;
+      return fallback;
     } catch (err) {
       logger.warn(
         { err: (err as Error)?.message, osNumericId, lang },
@@ -193,6 +366,15 @@ export function invalidateProductTranslation(
 /** Expose cache size for health/metrics endpoints. */
 export function getProductTranslationCacheSize(): number {
   return cache.size;
+}
+
+/** True when a fresh full translation is cached for this product+lang. */
+export function hasCachedProductTranslation(
+  osNumericId: number | string,
+  lang: TranslationLang,
+): boolean {
+  const hit = cache.get(cacheKey(osNumericId, lang));
+  return !!hit && hit.expiresAt > Date.now();
 }
 
 // ── Batch name-only cache ─────────────────────────────────────────────────
