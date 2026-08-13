@@ -650,3 +650,41 @@ describe("ScheduleInlinePanel — auto-switch to tomorrow when today has no slot
     expect(lastCall.date).toBe(TOMORROW_ISO);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Duplicate-label slot configs — emitted slotId must match the displayed variant
+// ---------------------------------------------------------------------------
+
+describe("ScheduleInlinePanel — duplicate-label slots emit the date-correct slotId", () => {
+  const DUP_SLOTS: TimeSlot[] = [
+    { label: "Night", slotId: "night-sameday-paid", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: true, nextDayEnabled: false, extraFee: 7 },
+    { label: "Night", slotId: "night-nextday-free", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: false, nextDayEnabled: true, extraFee: 0 },
+  ];
+
+  it("emits the paid same-day variant's slotId for today", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel countryCode="LB" timeSlots={DUP_SLOTS} onChange={onChange} />,
+      { locale },
+    );
+    expect(onChange).toHaveBeenCalled();
+    const last = onChange.mock.calls.at(-1)![0] as { slotLabel: string; slotId?: string };
+    expect(last.slotLabel).toBe("Night");
+    expect(last.slotId).toBe("night-sameday-paid");
+  });
+
+  it("emits the free next-day variant's slotId after switching to tomorrow", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel countryCode="LB" timeSlots={DUP_SLOTS} onChange={onChange} />,
+      { locale },
+    );
+    onChange.mockClear();
+    await user.click(screen.getByTestId(`schedule-day-${TOMORROW_ISO}`));
+    expect(onChange).toHaveBeenCalled();
+    const last = onChange.mock.calls.at(-1)![0] as { slotLabel: string; slotId?: string };
+    expect(last.slotLabel).toBe("Night");
+    expect(last.slotId).toBe("night-nextday-free");
+  });
+});

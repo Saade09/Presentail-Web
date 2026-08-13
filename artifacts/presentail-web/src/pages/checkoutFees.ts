@@ -7,6 +7,7 @@
  * All amounts are in USD — the cart's internal currency.
  */
 
+import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
 import {
   freeDeliveryThresholdUsd,
   expressSurchargeForCountry,
@@ -93,6 +94,12 @@ export interface CheckoutFeeOutput {
 /** $5 same-day night surcharge: applied when the OS sends no explicit fee override. */
 const NIGHT_SLOT_SURCHARGE_USD = 5;
 
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   const {
     subtotal,
@@ -121,18 +128,29 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   const expressFee = (deliveryMode === "express" && !input.noAddress) ? surcharge : 0;
   const slotFee = (() => {
     if (deliveryMode === "express") return 0;
-    // Prefer ID-based lookup when available to handle same-label/different-config slots.
+    // Resolve the slot against the same date-filtered/deduplicated view the UI
+    // displays (displayedSlotsForDate), slotId-first. A stale/date-ineligible
+    // slotId (e.g. a next-day free duplicate persisted overnight into "today")
+    // is normalized to the date-correct same-label variant — mirroring the
+    // server-side resolveSlotForDate — so the displayed and charged fee agree.
+    const todayForFee = getLocalIso(countryCode);
+    const dateForFee = deliveryDate || todayForFee;
+    const displayed = displayedSlotsForDate(
+      timeSlots,
+      dateForFee,
+      todayForFee,
+      addDaysIso(todayForFee, 1),
+    );
     const bookedSlotById = deliverySlotId
-      ? (timeSlots.find((s) => s.slotId === deliverySlotId) ?? null)
+      ? (displayed.find((s) => s.slotId === deliverySlotId) ?? null)
       : null;
-    const bookedSlot = bookedSlotById ?? timeSlots.find((s) => s.label === deliverySlot);
+    const bookedSlot = bookedSlotById ?? displayed.find((s) => s.label === deliverySlot);
     if (!bookedSlot) return 0;
-    // When the slot was found by OS-assigned slotId, any explicit extraFee (including 0)
-    // is authoritative — extraFee: 0 means this slot is explicitly free.
-    if (bookedSlotById !== null && bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
-      return bookedSlot.extraFee;
-    }
-    // When found by label only, only apply explicit non-zero surcharges.
+    // Explicit non-zero surcharges are authoritative regardless of how the
+    // slot was found. `extraFee: 0` (or undefined) falls through to the
+    // same-day night fallback below — mirroring displayedSlotsForDate, which
+    // is what the picker modal / cart display, so the amount shown before
+    // confirmation always matches the amount charged.
     if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
       return bookedSlot.extraFee;
     }

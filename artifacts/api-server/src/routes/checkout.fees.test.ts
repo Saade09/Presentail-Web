@@ -12,7 +12,7 @@
 //   (i) Night slot with explicit extraFee: 7 → $7 surcharge (OS override wins)
 //   (j) Non-night slot with no extraFee → $0 slot fee
 //   (k) Night slot with a future date → $0 slot fee (same-day rule)
-//   (l) Night slot with explicit extraFee: 0 → $0 (OS explicit-free override wins)
+//   (l) Night slot with explicit extraFee: 0 → $5 same-day night fallback (matches client display)
 //   (m) Coupon face value > product subtotal but ≤ full cart total — full coupon applied
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
@@ -361,14 +361,15 @@ describe("POST /checkout/fees", () => {
     expect(res.body.totalUsd).toBe(100);
   });
 
-  it("(l) night slot with explicit extraFee: 0 — OS explicit-free override wins, returns $0", async () => {
+  it("(l) same-day night slot with explicit extraFee: 0 — $5 night fallback still applies (matches client display)", async () => {
     computeDistrictFeeUsdMock.mockReturnValue(0);
-    // Night slot: startHour=21, but OS explicitly sets extraFee: 0 (free override).
+    // Night slot: startHour=21 with extraFee: 0. The client (displayedSlotsForDate)
+    // shows the $5 same-day night fallback for such slots, so the server must
+    // charge the same amount — extraFee: 0 is treated like "no real override".
     getDeliverySlotsMock.mockReturnValue([
       { label: "9:00 PM – 11:00 PM", cutoffHour: 21, startHour: 21, endHour: 23, extraFee: 0 },
     ]);
-    // getLocalIso returns "2026-07-20" (today) — would trigger the $5 surcharge if
-    // extraFee: 0 were conflated with extraFee: undefined.
+    // getLocalIso returns "2026-07-20" (today) — same-day → fallback applies.
 
     const app = await buildApp();
     const res = await request(app)
@@ -380,6 +381,30 @@ describe("POST /checkout/fees", () => {
         deliverySlot: "9:00 PM – 11:00 PM",
         cityId: "1",
         deliveryDate: "2026-07-20",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.slotFeeUsd).toBe(5);
+    expect(res.body.totalUsd).toBe(105);
+  });
+
+  it("(l2) NEXT-day night slot with explicit extraFee: 0 stays free (fallback is same-day only)", async () => {
+    computeDistrictFeeUsdMock.mockReturnValue(0);
+    getDeliverySlotsMock.mockReturnValue([
+      { label: "9:00 PM – 11:00 PM", cutoffHour: 21, startHour: 21, endHour: 23, extraFee: 0 },
+    ]);
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        deliverySlot: "9:00 PM – 11:00 PM",
+        cityId: "1",
+        deliveryDate: "2026-07-21",
       });
 
     expect(res.status).toBe(200);

@@ -135,6 +135,78 @@ export const NIGHT_SLOT_SURCHARGE_USD = 5;
  * `routes/checkout.ts`. Centralised here so Mamo/PayPal/Tabby session-
  * creation routes can charge the authoritative slot fee in the same way.
  */
+type SlotLike = {
+  label: string;
+  slotId?: string;
+  extraFee?: number | null;
+  startHour?: number;
+  cutoffHour?: number;
+  sameDayEnabled?: boolean;
+  nextDayEnabled?: boolean;
+};
+
+/**
+ * Date-aware server-side slot resolution — mirrors the client's
+ * `displayedSlotsForDate` semantics so the server always charges for the
+ * variant the UI displayed:
+ *
+ * 1. Filter by date eligibility: today → sameDayEnabled !== false,
+ *    tomorrow-or-later → nextDayEnabled !== false. When no slot in the city
+ *    list carries the relevant flag at all (legacy data), the filter is
+ *    skipped.
+ * 2. Deduplicate by label: today prefers sameDayEnabled=true then higher
+ *    extraFee; other dates prefer nextDayEnabled=true then lower extraFee.
+ * 3. Resolve the booked slot by slotId within the eligible set first; a
+ *    slotId that is not eligible for the date (e.g. a next-day-free duplicate
+ *    submitted for today) is normalized to the date-correct same-label
+ *    variant instead of being trusted.
+ */
+export function resolveSlotForDate<T extends SlotLike>(
+  citySlots: T[],
+  opts: { deliverySlot: string; deliverySlotId?: string; dateIso: string; todayIso: string },
+): T | undefined {
+  const { deliverySlot, deliverySlotId, dateIso, todayIso } = opts;
+  const isToday = dateIso === todayIso;
+
+  let eligible = citySlots;
+  if (isToday && citySlots.some((s) => s.sameDayEnabled !== undefined)) {
+    eligible = citySlots.filter((s) => s.sameDayEnabled !== false);
+  } else if (!isToday && citySlots.some((s) => s.nextDayEnabled !== undefined)) {
+    // Tomorrow and later both use the next-day flag (matches client).
+    eligible = citySlots.filter((s) => s.nextDayEnabled !== false);
+  }
+
+  // Deduplicate by label, keeping the variant best suited to the date.
+  const byLabel = new Map<string, T>();
+  for (const slot of eligible) {
+    const existing = byLabel.get(slot.label);
+    if (!existing) {
+      byLabel.set(slot.label, slot);
+      continue;
+    }
+    const prefer = (a: T, b: T): T => {
+      if (isToday) {
+        if ((a.sameDayEnabled === true) !== (b.sameDayEnabled === true)) {
+          return a.sameDayEnabled === true ? a : b;
+        }
+        return (a.extraFee ?? 0) >= (b.extraFee ?? 0) ? a : b;
+      }
+      if ((a.nextDayEnabled === true) !== (b.nextDayEnabled === true)) {
+        return a.nextDayEnabled === true ? a : b;
+      }
+      return (a.extraFee ?? 0) <= (b.extraFee ?? 0) ? a : b;
+    };
+    byLabel.set(slot.label, prefer(existing, slot));
+  }
+  const deduped = [...byLabel.values()];
+
+  if (deliverySlotId) {
+    const byId = deduped.find((s) => s.slotId === deliverySlotId);
+    if (byId) return byId;
+  }
+  return deduped.find((s) => s.label === deliverySlot);
+}
+
 export function computeSlotFeeUsd({
   expressDelivery,
   deliverySlot,
@@ -152,21 +224,27 @@ export function computeSlotFeeUsd({
 }): number {
   if (expressDelivery || !deliverySlot || !cityId) return 0;
   const citySlots = getDeliverySlots(cityId);
-  const bookedSlot = deliverySlotId
-    ? (citySlots.find((s) => s.slotId === deliverySlotId) ?? citySlots.find((s) => s.label === deliverySlot))
-    : citySlots.find((s) => s.label === deliverySlot);
+  const bookedCountry = countryForDistrict(district ?? "Beirut");
+  const todayIso = getLocalIso(bookedCountry);
+  const bookedSlot = resolveSlotForDate(citySlots, {
+    deliverySlot,
+    deliverySlotId,
+    dateIso: deliveryDate || todayIso,
+    todayIso,
+  });
   if (!bookedSlot) return 0;
-  // extraFee: 0  → OS explicitly marks this slot as free; skip the default surcharge.
-  // extraFee: N  → OS provides the exact fee; use it directly.
-  // extraFee: undefined/null → no OS override; fall through to the night-slot heuristic.
-  if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null) {
+  // extraFee: N > 0 → OS provides the exact fee; use it directly.
+  // extraFee: 0/undefined/null → no real OS override; fall through to the
+  // night-slot heuristic. This matches the client-side display logic
+  // (displayedSlotsForDate / checkoutFees.ts): a same-day night slot with an
+  // explicit 0 still shows and charges the $5 fallback, so the amount the
+  // shopper sees always equals the amount charged.
+  if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && Number(bookedSlot.extraFee) > 0) {
     return Number(bookedSlot.extraFee);
   }
   const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
   const isNightSlot = slotStartHour >= 21;
-  const countryCode = countryForDistrict(district ?? "Beirut");
-  const todayForCountry = getLocalIso(countryCode);
-  const isToday = !deliveryDate || deliveryDate === todayForCountry;
+  const isToday = !deliveryDate || deliveryDate === todayIso;
   if (isNightSlot && isToday) return NIGHT_SLOT_SURCHARGE_USD;
   return 0;
 }

@@ -75,6 +75,7 @@ vi.mock("../lib/catalog", () => ({
   resolveCartItems: resolveCartItemsMock,
   computeDistrictFeeUsd: vi.fn().mockReturnValue(0),
   expressSurchargeUsd: vi.fn().mockReturnValue(0),
+  computeSlotFeeUsd: vi.fn().mockReturnValue(0),
   countryForDistrict: vi.fn().mockReturnValue(null),
 }));
 

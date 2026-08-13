@@ -819,7 +819,9 @@ function CheckoutForm() {
   const [deliverySlot, setDeliverySlot] = useState<string>(
     deliverySelection.slotLabel ?? timeSlotsForCountry(countryCode)[0]?.label ?? "",
   );
-  const [deliverySlotId, setDeliverySlotId] = useState<string | undefined>(undefined);
+  const [deliverySlotId, setDeliverySlotId] = useState<string | undefined>(
+    deliverySelection.slotId ?? undefined,
+  );
   const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">(
     persistedScheduleMode,
   );
@@ -1140,6 +1142,10 @@ function CheckoutForm() {
       setDeliveryMode("schedule");
       if (sel.date) setRecipient((r) => ({ ...r, deliveryDate: sel.date }));
       if (sel.slotLabel) setDeliverySlot(sel.slotLabel);
+      // Always sync the slot ID (may be undefined for hardcoded/legacy slots)
+      // so a stale ID from a previous selection can't point fee lookups at a
+      // different same-label slot configuration than the one just confirmed.
+      setDeliverySlotId(sel.slotId ?? undefined);
     }
   };
 
@@ -1291,9 +1297,10 @@ function CheckoutForm() {
           ? new Date().toISOString().slice(0, 10)
           : recipient.deliveryDate || null,
       slotLabel: deliveryMode === "express" ? null : deliverySlot || null,
+      slotId: deliveryMode === "express" ? null : deliverySlotId ?? null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deliveryMode, deliverySlot, recipient.deliveryDate]);
+  }, [deliveryMode, deliverySlot, deliverySlotId, recipient.deliveryDate]);
 
   const prevCountryRef = useRef(countryCode);
   useEffect(() => {
@@ -1358,6 +1365,7 @@ function CheckoutForm() {
         mode: result.iso !== today ? "schedule" : "today_slot",
         date: result.iso,
         slotLabel: result.slot.label,
+        slotId: result.slot.slotId ?? null,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

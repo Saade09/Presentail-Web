@@ -533,8 +533,28 @@ describe("calcCheckoutFees: slotFee — ID-first lookup and $0 override guard", 
       timeSlots: slots,
       deliverySlot: "9:00 PM – 11:00 PM",
       deliverySlotId: "night-next-day",
+      // Next-day booking: an explicit future date. (For today, a $0-fee night
+      // slot would still incur the $5 same-day night fallback — see below.)
+      deliveryDate: "2099-01-01",
     });
     expect(slotFee).toBe(0);
+  });
+
+  it("ID lookup: a same-day night slot with explicit extraFee 0 still charges the $5 night fallback (matches the modal/cart display)", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 5,
+      deliveryMode: "schedule",
+      timeSlots: [
+        { label: "9:00 PM – 11:00 PM", cutoffHour: 22, startHour: 21, endHour: 23, extraFee: 0, slotId: "night-zero-fee" },
+      ],
+      deliverySlot: "9:00 PM – 11:00 PM",
+      deliverySlotId: "night-zero-fee",
+      deliveryDate: undefined, // today
+    });
+    expect(slotFee).toBe(5);
   });
 
   it("$0 extraFee override is treated as free (not charged)", () => {
@@ -626,5 +646,107 @@ describe("timeSlotsForCountry — default slot catalogue", () => {
   it("unknown country falls back to LB slots", () => {
     expect(timeSlotsForCountry("XX")).toEqual(timeSlotsForCountry("LB"));
     expect(timeSlotsForCountry(null)).toEqual(timeSlotsForCountry("LB"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Duplicate-label slot configs — slotId must disambiguate the fee
+// ---------------------------------------------------------------------------
+
+describe("calcCheckoutFees: duplicate-label slots resolved by deliverySlotId", () => {
+  const DUP_SLOTS = [
+    { label: "Night", slotId: "night-sameday-paid", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: true, nextDayEnabled: false, extraFee: 7 },
+    { label: "Night", slotId: "night-nextday-free", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: false, nextDayEnabled: true, extraFee: 0 },
+  ];
+
+  it("charges the paid variant's fee when its slotId is selected", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 4,
+      deliveryMode: "schedule",
+      deliverySlot: "Night",
+      deliverySlotId: "night-sameday-paid",
+      timeSlots: DUP_SLOTS,
+      deliveryDate: undefined,
+    });
+    expect(slotFee).toBe(7);
+  });
+
+  it("charges nothing when the free next-day variant's slotId is selected (label lookup would charge $7)", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 4,
+      deliveryMode: "schedule",
+      deliverySlot: "Night",
+      deliverySlotId: "night-nextday-free",
+      timeSlots: DUP_SLOTS,
+      deliveryDate: "2099-01-01",
+    });
+    expect(slotFee).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Date-aware normalization of stale/ineligible slotIds (matches server-side
+// resolveSlotForDate) and later-than-tomorrow eligibility
+// ---------------------------------------------------------------------------
+
+describe("calcCheckoutFees: stale/ineligible slotIds are normalized to the date-correct variant", () => {
+  const DUP_SLOTS: TimeSlot[] = [
+    { label: "Night", slotId: "night-sameday-paid", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: true, nextDayEnabled: false, extraFee: 7 },
+    { label: "Night", slotId: "night-nextday-free", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: false, nextDayEnabled: true, extraFee: 0 },
+  ];
+
+  it("a persisted next-day free slotId crossing into today charges the same-day paid fee", () => {
+    // Scenario: shopper picked the free next-day Night slot yesterday; the
+    // selection (slotId + date) persisted overnight so the date is now today.
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 4,
+      deliveryMode: "schedule",
+      deliverySlot: "Night",
+      deliverySlotId: "night-nextday-free", // ineligible today
+      timeSlots: DUP_SLOTS,
+      deliveryDate: undefined, // today
+    });
+    expect(slotFee).toBe(7);
+  });
+
+  it("a same-day paid slotId submitted for a custom date beyond tomorrow charges the free next-day fee", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 4,
+      deliveryMode: "schedule",
+      deliverySlot: "Night",
+      deliverySlotId: "night-sameday-paid", // ineligible for future dates
+      timeSlots: DUP_SLOTS,
+      deliveryDate: "2099-01-05", // far beyond tomorrow
+    });
+    expect(slotFee).toBe(0);
+  });
+
+  it("later-than-tomorrow dates exclude nextDayEnabled:false slots entirely (no fee, matching display)", () => {
+    const { slotFee } = calcCheckoutFees({
+      subtotal: 50,
+      countryCode: "LB",
+      noAddress: false,
+      cityFee: 4,
+      deliveryMode: "schedule",
+      deliverySlot: "Night",
+      deliverySlotId: "night-only-sameday",
+      timeSlots: [
+        { label: "Night", slotId: "night-only-sameday", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: true, nextDayEnabled: false, extraFee: 7 },
+      ],
+      deliveryDate: "2099-01-05",
+    });
+    expect(slotFee).toBe(0);
   });
 });

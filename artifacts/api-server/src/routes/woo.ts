@@ -20,6 +20,7 @@ import {
   computeDistrictFeeUsd,
   expressSurchargeUsd,
   countryForDistrict,
+  computeSlotFeeUsd,
   verifyMamoPayment,
   captureAndVerifyPayPalOrder,
 } from "../lib/catalog";
@@ -1525,15 +1526,17 @@ router.post("/woo/order", async (req, res) => {
                   ? recoveredOsConfig.expressSurchargeUsd
                   : expressSurchargeUsd(recoveredCountry))
               : 0;
-            const recoveredSlotFeeUsd = (() => {
-              if (isExpressRecovery || !body.deliverySlot || !body.cityId) return 0;
-              const citySlots = getDeliverySlots(body.cityId);
-              const bookedSlot = body.deliverySlotId
-                ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
-                : citySlots.find((s) => s.label === body.deliverySlot);
-              if (!bookedSlot || bookedSlot.extraFee === undefined || bookedSlot.extraFee === null) return 0;
-              return Number(bookedSlot.extraFee);
-            })();
+            // Use the shared authoritative resolver (date-aware, slotId-first,
+            // same-day-night $5 fallback) so the recovery path can never accept
+            // a payment that is short by the slot surcharge shown in the UI.
+            const recoveredSlotFeeUsd = computeSlotFeeUsd({
+              expressDelivery: isExpressRecovery,
+              deliverySlot: body.deliverySlot,
+              deliverySlotId: body.deliverySlotId,
+              cityId: body.cityId,
+              deliveryDate: body.deliveryDate,
+              district: recoveredDistrict,
+            });
             const recoveredTotalUsd =
               cartResolution.subtotalUsd + recoveredDistrictFeeUsd + recoveredExpressFeeUsd + recoveredSlotFeeUsd;
             // Subtract coupon discount so a coupon-paid order isn't falsely

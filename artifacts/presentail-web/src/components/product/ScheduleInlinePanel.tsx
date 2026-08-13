@@ -14,6 +14,7 @@ import {
   type TimeSlot,
 } from "@workspace/delivery";
 import { CalendarPopover } from "./CalendarPopover";
+import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
 
 type Props = {
   countryCode?: string | null;
@@ -203,21 +204,6 @@ export function ScheduleInlinePanel({
     return () => document.removeEventListener("keydown", handler);
   }, [calendarOpen]);
 
-  // Push the parent every time the local selection changes — there's no
-  // confirm button here, the inline picker is "live".
-  const lastEmittedRef = useRef<string>("");
-  useEffect(() => {
-    if (!slotLabel) return;
-    const mode: "today_slot" | "schedule" =
-      date === todayIso ? "today_slot" : "schedule";
-    const selectedSlot = timeSlots.find((s) => s.label === slotLabel);
-    const slotId = selectedSlot?.slotId;
-    const key = `${mode}|${date}|${slotLabel}|${slotId ?? ""}`;
-    if (key === lastEmittedRef.current) return;
-    lastEmittedRef.current = key;
-    onChange({ mode, date, slotLabel, slotId });
-  }, [date, slotLabel, todayIso, onChange, timeSlots]);
-
   /**
    * Date-filtered, deduplicated view of the slot list.
    *
@@ -235,105 +221,44 @@ export function ScheduleInlinePanel({
    *   - Today:        prefer sameDayEnabled=true, then higher extraFee
    *   - Other dates:  prefer nextDayEnabled=true, then lower/absent extraFee
    */
-  const displayedSlots = useMemo<TimeSlot[]>(() => {
-    const isToday = date === todayIso;
-    const isTomorrow = date === tomorrowIso;
+  const displayedSlots = useMemo<TimeSlot[]>(
+    () => displayedSlotsForDate(timeSlots, date, todayIso, tomorrowIso),
+    [timeSlots, date, todayIso, tomorrowIso],
+  );
 
-    // Step 1: date-based filter
-    let filtered: TimeSlot[];
-    if (isToday) {
-      const hasSameDayField = timeSlots.some((s) => s.sameDayEnabled !== undefined);
-      filtered = hasSameDayField ? timeSlots.filter((s) => s.sameDayEnabled !== false) : timeSlots;
-    } else if (isTomorrow) {
-      const hasNextDayField = timeSlots.some((s) => s.nextDayEnabled !== undefined);
-      filtered = hasNextDayField ? timeSlots.filter((s) => s.nextDayEnabled !== false) : timeSlots;
-    } else {
-      filtered = timeSlots;
-    }
-
-    // Step 2: deduplicate by label — always, even when step 1 returned all slots
-    const seen = new Map<string, TimeSlot>();
-    for (const slot of filtered) {
-      const existing = seen.get(slot.label);
-      if (!existing) {
-        seen.set(slot.label, slot);
-      } else {
-        // Choose which duplicate to keep based on date context
-        let preferNew: boolean;
-        if (isToday) {
-          // Today: prefer sameDayEnabled=true, then higher extraFee (the surcharge variant)
-          preferNew =
-            (slot.sameDayEnabled === true && existing.sameDayEnabled !== true) ||
-            (slot.sameDayEnabled === existing.sameDayEnabled &&
-              (slot.extraFee ?? 0) > (existing.extraFee ?? 0));
-        } else {
-          // Other dates: prefer nextDayEnabled=true, then lower/no extraFee (the free variant)
-          preferNew =
-            (slot.nextDayEnabled === true && existing.nextDayEnabled !== true) ||
-            (slot.nextDayEnabled === existing.nextDayEnabled &&
-              (slot.extraFee ?? 0) < (existing.extraFee ?? 0));
-        }
-        if (preferNew) seen.set(slot.label, slot);
-      }
-    }
-
-    const deduped = Array.from(seen.values());
-
-    // Same-day night surcharge: when OS hasn't configured a fee for a late slot,
-    // apply $5 for today only. This mirrors the Presentail OS same-day night
-    // delivery configuration. If the OS ever returns fee_override for this slot,
-    // extraFee will be defined and this fallback is skipped automatically.
-    //
-    // "Night" is defined as: delivery window starting at 21:00 or later.
-    // We resolve the delivery start hour using three sources in priority order:
-    //   1. slot.startHour — OS-provided delivery window start (most accurate)
-    //   2. Label parse   — extract "9 PM" from "9:00 PM – 11:00 PM" labels
-    //   3. slot.cutoffHour — works for hardcoded slots (LB night = 21)
-    // This is needed because some OS legacy responses omit start_time and set
-    // cutoff_time to the ORDER deadline (e.g. "18:00"), not the delivery hour.
-    if (isToday) {
-      return deduped.map((slot) => {
-        // Parse "9:00 PM – ..." or "21:00 – ..." style label → delivery start hour
-        const parsedLabelHour = (() => {
-          const m = slot.label.match(/^(\d+)(?::\d+)?\s*(AM|PM)?/i);
-          if (!m) return undefined;
-          let h = parseInt(m[1]!, 10);
-          const meridiem = m[2]?.toUpperCase();
-          if (meridiem === "PM" && h !== 12) h += 12;
-          else if (meridiem === "AM" && h === 12) h = 0;
-          return h;
-        })();
-        const deliveryStartHour = slot.startHour ?? parsedLabelHour ?? slot.cutoffHour;
-        const isNightSlot = deliveryStartHour >= 21;
-        // Apply $5 when: slot is a night window AND the OS has not configured a
-        // real surcharge (extraFee is absent or zero). `extraFee: 0` means the OS
-        // explicitly set it to zero OR no override was stored — either way the
-        // hardcoded same-day night rate should take over.
-        if (isNightSlot && !slot.extraFee) {
-          return { ...slot, extraFee: 5 };
-        }
-        return slot;
-      });
-    }
-
-    return deduped;
-  }, [timeSlots, date, todayIso, tomorrowIso]);
+  // Push the parent every time the local selection changes — there's no
+  // confirm button here, the inline picker is "live". The selected slot is
+  // resolved against the date-filtered/deduplicated displayedSlots so that
+  // duplicate-label configurations emit the slotId of the variant actually
+  // shown for the selected date (e.g. next-day free vs same-day paid).
+  const lastEmittedRef = useRef<string>("");
+  useEffect(() => {
+    if (!slotLabel) return;
+    const mode: "today_slot" | "schedule" =
+      date === todayIso ? "today_slot" : "schedule";
+    const selectedSlot = displayedSlots.find((s) => s.label === slotLabel);
+    const slotId = selectedSlot?.slotId;
+    const key = `${mode}|${date}|${slotLabel}|${slotId ?? ""}`;
+    if (key === lastEmittedRef.current) return;
+    lastEmittedRef.current = key;
+    onChange({ mode, date, slotLabel, slotId });
+  }, [date, slotLabel, todayIso, onChange, displayedSlots]);
 
   // Keep the slot valid when the date or available slot list changes (e.g.
   // switching from today to a future day, or the city's OS slots updating).
   useEffect(() => {
     const isToday = date === todayIso;
     if (!slotLabel) {
-      const initial = firstAvailableSlot(timeSlots, isToday, localHour);
+      const initial = firstAvailableSlot(displayedSlots, isToday, localHour);
       if (initial) setSlotLabel(initial.label);
       return;
     }
-    const found = timeSlots.find((s) => s.label === slotLabel);
+    const found = displayedSlots.find((s) => s.label === slotLabel);
     if (!found || (isToday && localHour >= found.cutoffHour)) {
-      const initial = firstAvailableSlot(timeSlots, isToday, localHour);
+      const initial = firstAvailableSlot(displayedSlots, isToday, localHour);
       setSlotLabel(initial?.label ?? null);
     }
-  }, [date, todayIso, timeSlots, localHour, slotLabel]);
+  }, [date, todayIso, displayedSlots, localHour, slotLabel]);
 
   // Whether the current date selection falls outside the visible chip strip.
   const dateInStrip = days.some((d) => d.iso === date);

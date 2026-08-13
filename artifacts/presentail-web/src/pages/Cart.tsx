@@ -31,6 +31,7 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
 import cardLogoEn from "@assets/Presentail_PNG-01_white.png";
 import cardLogoAr from "@assets/Presentail-Arabic-Logo-white.png";
+import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
 
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
@@ -106,7 +107,7 @@ export default function Cart() {
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
-  const { mode: deliveryMode, slotLabel, date: deliveryDate } = useDeliverySelection();
+  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate } = useDeliverySelection();
   const { formatPrice } = useDisplayCurrency();
   // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
   //   1. OS per-city value (most specific)
@@ -122,35 +123,35 @@ export default function Cart() {
     configThresholdUsd ??
     (freeDeliveryThresholdUsd(countryCode) || undefined);
 
-  // Same-day night slot surcharge — $5 when the OS sends no configured fee override.
-  // Mirrors the logic in calcCheckoutFees (checkoutFees.ts) so Cart and Checkout agree.
+  // Slot surcharge for the booked delivery window. Uses the same date-aware
+  // slot resolution as the picker modal (displayedSlotsForDate) so the fee
+  // shown here always matches the variant the shopper confirmed — including
+  // duplicate-label OS configs (same-day paid vs next-day free) and the $5
+  // same-day night fallback.
   const slotFeeUsd: number = (() => {
     if (deliveryMode === "express" || !slotLabel) return 0;
-    // Derive deduplicated flat slot list from city data, mirroring DeliveryDateRow.
+    // Raw (unfiltered) flat slot list from city data — date-aware dedup below.
     const raw = locationCity?.timeSlots?.length
       ? locationCity.timeSlots
       : locationCity?.slotsByDay
-        ? (() => {
-            const seen = new Set<string>();
-            return Object.values(locationCity.slotsByDay).flat().filter((s) => {
-              if (seen.has(s.label)) return false;
-              seen.add(s.label);
-              return true;
-            });
-          })()
+        ? Object.values(locationCity.slotsByDay).flat()
         : timeSlotsForCountry(countryCode);
-    const bookedSlot = raw.find((s) => s.label === slotLabel);
+    const todayIso = getLocalIso(countryCode);
+    const dateIso = deliveryDate || todayIso;
+    const dayIso = (n: number) => {
+      const [y, m, d] = todayIso.split("-").map(Number) as [number, number, number];
+      const dt = new Date(y, m - 1, d + n, 12, 0, 0);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    };
+    const displayed = displayedSlotsForDate(raw, dateIso, todayIso, dayIso(1));
+    // slotId (from the picker) is authoritative; fall back to label lookup.
+    const bookedSlot =
+      (slotId ? displayed.find((s) => s.slotId === slotId) : undefined) ??
+      displayed.find((s) => s.label === slotLabel);
     if (!bookedSlot) return 0;
-    if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
-      return bookedSlot.extraFee;
-    }
-    const slotStartHour = bookedSlot.startHour ?? bookedSlot.cutoffHour ?? 0;
-    if (slotStartHour >= 21) {
-      const todayIso = getLocalIso(countryCode);
-      const isToday = !deliveryDate || deliveryDate === todayIso;
-      if (isToday) return 5;
-    }
-    return 0;
+    // displayedSlotsForDate already folds the $5 same-day night fallback into
+    // extraFee, so the resolved slot's fee is final.
+    return bookedSlot.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
   })();
 
   // Delivery fee for the Order Summary sidebar (district fee only — slot fee shown separately).

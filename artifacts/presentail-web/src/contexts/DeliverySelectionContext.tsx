@@ -20,6 +20,12 @@ export type DeliverySelection = {
   mode: DeliveryMode | null;
   date: string | null;
   slotLabel: string | null;
+  /**
+   * OS-assigned stable slot ID for the selected slot configuration. Needed to
+   * disambiguate duplicate-label slots (e.g. a same-day paid "Night" config vs
+   * a next-day free one) so fee lookups charge the variant the shopper saw.
+   */
+  slotId: string | null;
 };
 
 type DeliverySelectionContextValue = DeliverySelection & {
@@ -69,7 +75,7 @@ function readStoredCountryCode(): string | null {
 }
 
 function sanitize(raw: unknown, countryCode?: string | null): DeliverySelection {
-  const empty: DeliverySelection = { mode: null, date: null, slotLabel: null };
+  const empty: DeliverySelection = { mode: null, date: null, slotLabel: null, slotId: null };
   if (!raw || typeof raw !== "object") return empty;
   const obj = raw as Record<string, unknown>;
   const mode =
@@ -93,9 +99,13 @@ function sanitize(raw: unknown, countryCode?: string | null): DeliverySelection 
     );
     if (!known.has(slotLabel)) slotLabel = null;
   }
+  const slotId =
+    slotLabel && typeof obj.slotId === "string" && obj.slotId.length > 0
+      ? obj.slotId
+      : null;
   if (!mode) return empty;
   if (mode === "express") {
-    return { mode, date: todayIso(), slotLabel: null };
+    return { mode, date: todayIso(), slotLabel: null, slotId: null };
   }
   const today = todayIso();
   if (!date || date === today) {
@@ -108,16 +118,17 @@ function sanitize(raw: unknown, countryCode?: string | null): DeliverySelection 
         mode: resolved.date !== today ? "schedule" : mode,
         date: resolved.date,
         slotLabel: resolved.slotLabel,
+        slotId: null,
       };
     }
     if (!date) date = today;
   }
-  return { mode, date, slotLabel };
+  return { mode, date, slotLabel, slotId };
 }
 
 function readInitial(): DeliverySelection {
   if (typeof window === "undefined")
-    return { mode: null, date: null, slotLabel: null };
+    return { mode: null, date: null, slotLabel: null, slotId: null };
   try {
     // Read the stored country so resolution uses the correct slot table and
     // timezone (Dubai for AE, Beirut for LB/CY). Falls back to LB when no
@@ -130,12 +141,12 @@ function readInitial(): DeliverySelection {
       // detect that no window has been committed and require an explicit picker
       // interaction before Add to Cart. ScheduleInlinePanel will auto-pick a
       // slot locally but the context stays uncommitted until the user acts.
-      return { mode: null, date: null, slotLabel: null };
+      return { mode: null, date: null, slotLabel: null, slotId: null };
     }
     const sanitized = sanitize(JSON.parse(raw), countryCode);
     return sanitized;
   } catch {
-    return { mode: null, date: null, slotLabel: null };
+    return { mode: null, date: null, slotLabel: null, slotId: null };
   }
 }
 
@@ -164,7 +175,7 @@ export function DeliverySelectionProvider({
     setSelectionState((prev) => ({ ...prev, ...next }));
   }, []);
   const clear = useCallback(
-    () => setSelectionState({ mode: null, date: null, slotLabel: null }),
+    () => setSelectionState({ mode: null, date: null, slotLabel: null, slotId: null }),
     [],
   );
 

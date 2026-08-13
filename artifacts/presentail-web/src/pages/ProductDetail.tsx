@@ -152,6 +152,7 @@ export default function ProductDetail() {
         mode: "express",
         date: new Date().toISOString().slice(0, 10),
         slotLabel: null,
+        slotId: null,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -449,10 +450,11 @@ export default function ProductDetail() {
       deliveryMode: deliveryChoice === "express" ? "express" : "schedule",
       timeSlots: cityTimeSlots,
       deliverySlot: deliverySelection.slotLabel ?? "",
+      deliverySlotId: deliverySelection.slotId ?? undefined,
       deliveryDate: deliverySelection.date ?? undefined,
     });
     return productUsdForPricing + fees.districtFee + fees.expressFee + fees.slotFee;
-  }, [delivery, cartSubtotal, productUsdForPricing, countryCode, deliveryChoice, cityTimeSlots, deliverySelection.slotLabel, deliverySelection.date]);
+  }, [delivery, cartSubtotal, productUsdForPricing, countryCode, deliveryChoice, cityTimeSlots, deliverySelection.slotLabel, deliverySelection.slotId, deliverySelection.date]);
 
   // Ref used to scroll the schedule panel into view when Add to Cart is
   // tapped while scheduled is selected but no window has been committed yet.
@@ -465,6 +467,7 @@ export default function ProductDetail() {
       mode: "express",
       date: new Date().toISOString().slice(0, 10),
       slotLabel: null,
+      slotId: null,
     });
     trackEvent({ name: "express_upgrade_selected", deliveryMethod: "express", deliverySource: "user" });
     trackEvent({ name: "delivery_method_selected", deliveryMethod: "express", deliverySource: "user" });
@@ -518,6 +521,7 @@ export default function ProductDetail() {
           mode: "today_slot",
           date: new Date().toISOString().slice(0, 10),
           slotLabel: null,
+          slotId: null,
         });
       }
     }
@@ -752,8 +756,8 @@ export default function ProductDetail() {
                       initialDate={deliverySelection.date}
                       initialSlotLabel={deliverySelection.slotLabel}
                       freeDeliveryMet={freeDeliveryMet}
-                      onChange={({ mode, date, slotLabel }) => {
-                        deliverySelection.setSelection({ mode, date, slotLabel });
+                      onChange={({ mode, date, slotLabel, slotId }) => {
+                        deliverySelection.setSelection({ mode, date, slotLabel, slotId: slotId ?? null });
                         // Commit the ref whenever the panel reports a valid selection,
                         // including its automatic initial selection on mount. This lets
                         // first-time visitors click Add to Cart with the default slot

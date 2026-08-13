@@ -97,8 +97,8 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
     );
 
     // Morning should be visually selected (it carries border-primary in its className).
-    const morningBtn = screen.getByText("09:00 – 13:00").closest("button") as HTMLButtonElement;
-    const eveningBtn = screen.getByText("18:00 – 22:00").closest("button") as HTMLButtonElement;
+    const morningBtn = screen.getByTestId("slot-Morning") as HTMLButtonElement;
+    const eveningBtn = screen.getByTestId("slot-Evening") as HTMLButtonElement;
 
     expect(morningBtn.className).toContain("border-primary");
     expect(eveningBtn.className).not.toContain("border-primary");
@@ -116,7 +116,7 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
     );
 
     // 1. Evening is available for today (cutoff=22 > 10). Click it so it becomes selected.
-    const eveningBtn = screen.getByText("18:00 – 22:00").closest("button") as HTMLButtonElement;
+    const eveningBtn = screen.getByTestId("slot-Evening") as HTMLButtonElement;
     await user.click(eveningBtn);
     expect(eveningBtn.className).toContain("border-primary");
 
@@ -124,7 +124,7 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
     await user.click(getTomorrowButton());
 
     // 3. After the date change, slot should reset to Morning (earliest by startHour).
-    const morningBtn = screen.getByText("09:00 – 13:00").closest("button") as HTMLButtonElement;
+    const morningBtn = screen.getByTestId("slot-Morning") as HTMLButtonElement;
     expect(morningBtn.className).toContain("border-primary");
     expect(eveningBtn.className).not.toContain("border-primary");
   });
@@ -140,7 +140,7 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
 
     // With currentHour=10 and Morning(cutoff=20 > 10), Morning is still available
     // and should be auto-selected for today.
-    const morningBtn = screen.getByText("09:00 – 13:00").closest("button") as HTMLButtonElement;
+    const morningBtn = screen.getByTestId("slot-Morning") as HTMLButtonElement;
     expect(morningBtn.className).toContain("border-primary");
   });
 });
@@ -177,5 +177,111 @@ describe("DeliveryPickerModal — handleConfirm uses local Beirut date at midnig
     const selection = onConfirm.mock.calls[0][0] as { date: string; mode: string };
     expect(selection.date).toBe("2026-07-03");
     expect(selection.date).not.toBe("2026-07-02");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Date-aware slot availability (sameDayEnabled / nextDayEnabled / duplicates)
+// ---------------------------------------------------------------------------
+
+describe("DeliveryPickerModal — same-day/next-day flags and duplicate labels", () => {
+  const FLAGGED_SLOTS = [
+    // Not deliverable same-day; only shows for tomorrow+.
+    { label: "Morning", cutoffHour: 20, startHour: 9, endHour: 13, sameDayEnabled: false, nextDayEnabled: true },
+    // Duplicate "Night" configs: same-day variant with a fee, next-day free variant.
+    { label: "Night", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: true, nextDayEnabled: false, extraFee: 7 },
+    { label: "Night", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: false, nextDayEnabled: true, extraFee: 0 },
+    // Evening available both days.
+    { label: "Evening", cutoffHour: 22, startHour: 18, endHour: 22, sameDayEnabled: true, nextDayEnabled: true },
+  ];
+
+  it("hides sameDayEnabled=false slots today and shows them tomorrow", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={FLAGGED_SLOTS} />,
+    );
+
+    // Today: Morning must not be rendered at all.
+    expect(screen.queryByTestId("slot-Morning")).toBeNull();
+    expect(screen.getByTestId("slot-Evening")).toBeTruthy();
+
+    // Tomorrow: Morning appears; same-day-only Night config is filtered out but
+    // the next-day Night variant remains.
+    await user.click(getTomorrowButton());
+    expect(screen.getByTestId("slot-Morning")).toBeTruthy();
+    expect(screen.getAllByTestId("slot-Night")).toHaveLength(1);
+  });
+
+  it("keeps the same-day (fee) Night variant today and the free variant tomorrow", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={FLAGGED_SLOTS} />,
+    );
+
+    // Today: only the sameDayEnabled=true Night config survives → fee badge shown.
+    const nightToday = screen.getByTestId("slot-Night");
+    expect(nightToday.textContent).toContain("+");
+
+    // Tomorrow: nextDayEnabled=true free variant survives → no fee badge.
+    await user.click(getTomorrowButton());
+    const nightTomorrow = screen.getByTestId("slot-Night");
+    expect(nightTomorrow.textContent).not.toContain("+");
+  });
+
+  it("does not render nextDayEnabled=false slots tomorrow", async () => {
+    const user = userEvent.setup();
+    const slots = [
+      { label: "Express window", cutoffHour: 20, startHour: 10, endHour: 12, sameDayEnabled: true, nextDayEnabled: false },
+      { label: "Evening", cutoffHour: 22, startHour: 18, endHour: 22, sameDayEnabled: true, nextDayEnabled: true },
+    ];
+    renderWithProviders(
+      <DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={slots} />,
+    );
+
+    expect(screen.getByTestId("slot-Express window")).toBeTruthy();
+    await user.click(getTomorrowButton());
+    expect(screen.queryByTestId("slot-Express window")).toBeNull();
+    expect(screen.getByTestId("slot-Evening")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Duplicate-label fee integrity: the confirmed selection must carry the slotId
+// of the exact variant shown, so checkout fee lookups (which prefer slotId)
+// can never resolve the other same-label configuration.
+// ---------------------------------------------------------------------------
+
+describe("DeliveryPickerModal — confirm carries the displayed variant's slotId", () => {
+  const DUP_SLOTS = [
+    { label: "Night", slotId: "night-sameday-paid", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: true, nextDayEnabled: false, extraFee: 7 },
+    { label: "Night", slotId: "night-nextday-free", cutoffHour: 22, startHour: 21, endHour: 23, sameDayEnabled: false, nextDayEnabled: true, extraFee: 0 },
+    { label: "Evening", slotId: "evening", cutoffHour: 22, startHour: 18, endHour: 22, sameDayEnabled: true, nextDayEnabled: true },
+  ];
+
+  it("today: confirming Night emits the paid same-day slotId", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    renderWithProviders(
+      <DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={DUP_SLOTS} onConfirm={onConfirm} />,
+    );
+    await user.click(screen.getByTestId("slot-Night"));
+    await user.click(screen.getByText("delivery.picker.confirm").closest("button") as HTMLButtonElement);
+    const sel = onConfirm.mock.calls[0][0] as { slotLabel: string; slotId: string };
+    expect(sel.slotLabel).toBe("Night");
+    expect(sel.slotId).toBe("night-sameday-paid");
+  });
+
+  it("tomorrow: confirming Night emits the free next-day slotId", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    renderWithProviders(
+      <DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={DUP_SLOTS} onConfirm={onConfirm} />,
+    );
+    await user.click(getTomorrowButton());
+    await user.click(screen.getByTestId("slot-Night"));
+    await user.click(screen.getByText("delivery.picker.confirm").closest("button") as HTMLButtonElement);
+    const sel = onConfirm.mock.calls[0][0] as { slotLabel: string; slotId: string };
+    expect(sel.slotLabel).toBe("Night");
+    expect(sel.slotId).toBe("night-nextday-free");
   });
 });
