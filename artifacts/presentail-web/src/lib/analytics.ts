@@ -28,7 +28,14 @@ type WebEventType =
   | "klarna_selected"
   | "klarna_redirect_started"
   | "klarna_payment_processing"
-  | "klarna_payment_failed";
+  | "klarna_payment_failed"
+  // Desktop checkout Delivery Details redesign events
+  | "desktop_checkout_delivery_confirmation_viewed"
+  | "desktop_checkout_delivery_change_clicked"
+  | "checkout_promo_expanded"
+  | "checkout_promo_applied"
+  | "checkout_anonymous_gift_toggled"
+  | "continue_to_payment_clicked";
 
 export type WebEventItem = {
   productId: string;

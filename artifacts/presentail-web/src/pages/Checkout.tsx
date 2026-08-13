@@ -221,6 +221,12 @@ type PaymentSubmitButtonProps = {
 // Brand-name string constants for the payment submit button.
 // These are proper nouns / product names exempt from i18n translation.
 const ALT_APPLE_PAY = "Apple Pay"; // i18n-ignore
+
+// Express delivery promise (desktop sidebar): SLA and quote-anchor TTL.
+// The "Arrives by" time = quote anchor + SLA; the quote re-anchors (and the
+// whole panel + pricing revalidate) once the anchor is older than the TTL.
+const EXPRESS_SLA_MINUTES = 90;
+const EXPRESS_QUOTE_TTL_MS = 10 * 60 * 1000;
 const ALT_GOOGLE_PAY = "Google Pay"; // i18n-ignore
 const ALT_PAYPAL = "PayPal"; // i18n-ignore
 const LABEL_PAY_PAYPAL = "Pay with PayPal"; // i18n-ignore
@@ -501,7 +507,7 @@ function CheckoutForm() {
   const guestContinuing = useRef(false);
   const showLoginGate = !authLoading && !user && !guestAcked;
   const { toast } = useToast();
-  const { t, dir, cityName } = useLocale();
+  const { t, dir, cityName, language } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
   const { data: fxRatesData } = useFxRates();
@@ -1084,7 +1090,17 @@ function CheckoutForm() {
         setCouponApplied(true);
         setConfirmedCouponDiscount(discount);
         setCouponError(null);
+        trackWebEvent({
+          type: "checkout_promo_applied",
+          value: discount,
+          currency: "USD",
+          properties: { outcome: "success", code },
+        });
       } else {
+        trackWebEvent({
+          type: "checkout_promo_applied",
+          properties: { outcome: "invalid", code },
+        });
         setCouponError(res.message ?? t("checkout.coupon.invalid"));
         setConfirmedCouponDiscount(0);
         try { localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
@@ -1115,8 +1131,19 @@ function CheckoutForm() {
     const next = !couponOpen;
     setCouponOpen(next);
     if (next) {
+      trackWebEvent({ type: "checkout_promo_expanded", properties: { step } });
       setTimeout(() => couponInputRef.current?.focus(), 80);
     }
+  };
+
+  // Desktop anonymous-gift checkbox — same underlying identitySecret flag as
+  // the mobile "Keep my identity secret" checkbox, plus an analytics event.
+  const handleAnonymousGiftToggle = (checked: boolean) => {
+    setIdentitySecret(checked);
+    trackWebEvent({
+      type: "checkout_anonymous_gift_toggled",
+      properties: { enabled: checked },
+    });
   };
 
   const loyaltyToggleOn =
@@ -1186,6 +1213,42 @@ function CheckoutForm() {
     return timeOk && cityOk;
   }, [countryCode, now, selectedCityData]);
   const expressSurcharge = expressSurchargeForCountry(countryCode);
+
+  // Quote-anchored express delivery promise (desktop sidebar panel).
+  // The "Arrives by" deadline is computed ONCE when express is selected (or
+  // when the delivery country/city changes) — it does not tick forward each
+  // minute. When the anchor grows stale (quote expiry, 10 min) the next
+  // minute tick re-anchors it; fees/total derive from the same render pass,
+  // so promise and pricing revalidate together (atomically).
+  const [expressQuote, setExpressQuote] = useState<{ anchorMs: number; deadlineMs: number } | null>(null);
+  useEffect(() => {
+    if (deliveryMode !== "express" || !expressAvailable) {
+      setExpressQuote(null);
+      return;
+    }
+    setExpressQuote((q) => {
+      const nowMs = Date.now();
+      if (q && nowMs - q.anchorMs < EXPRESS_QUOTE_TTL_MS) return q;
+      return { anchorMs: nowMs, deadlineMs: nowMs + EXPRESS_SLA_MINUTES * 60 * 1000 };
+    });
+    // `now` (minute tick) intentionally in deps: it drives the staleness check.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryMode, expressAvailable, countryCode, recipient.district, now]);
+
+  // Format the deadline in the market's timezone (not the shopper's device
+  // timezone) with locale-aware time formatting.
+  const marketTimeZone = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
+  const expressArrivesBy = useMemo(() => {
+    if (!expressQuote) return null;
+    try {
+      return new Intl.DateTimeFormat(
+        language === "ar" ? "ar" : language === "fr" ? "fr" : "en",
+        { hour: "numeric", minute: "2-digit", timeZone: marketTimeZone },
+      ).format(new Date(expressQuote.deadlineMs));
+    } catch {
+      return null;
+    }
+  }, [expressQuote, language, marketTimeZone]);
 
   // Use OS city time slots when available; fall back to hardcoded per-country defaults.
   // `selectedCityData?.timeSlots` is populated from /api/delivery-locations once loaded.
@@ -1994,6 +2057,14 @@ function CheckoutForm() {
   } catch {
     // safe fallback — delivery row will show the picker affordance
   }
+
+  // Delivery-promise payload for the desktop sidebar confirmation panel.
+  // Express: quote-anchored "Arrives by [time]"; Standard: "Arrives [day · window]".
+  const deliveryPromise =
+    deliveryMode === "express"
+      ? { type: "express" as const, arrivesBy: expressArrivesBy }
+      : { type: "standard" as const, when: deliveryRowText };
+
   const isProcessing =
     createOrder.isPending ||
     stripeSession.isPending ||
@@ -3063,6 +3134,25 @@ function CheckoutForm() {
   // Used by both the desktop sidebar CTA (always-clickable) and the email
   // field's Enter-key handler.
   const handleValidateAndAdvance = () => {
+    // Enriched continue-to-payment analytics — fired on every click (the
+    // spec's CTA event), with the same authoritative amounts the sidebar
+    // and CTA display. No PII.
+    trackWebEvent({
+      type: "continue_to_payment_clicked",
+      value: computeCartTotal(
+        displaySubtotal,
+        displayDistrictFee + displayExpressFee + displaySlotFee,
+        displayCouponDiscount,
+      ),
+      currency: "USD",
+      properties: {
+        deliveryType: deliveryMode === "express" ? "express" : "standard",
+        itemCount: items.reduce((n, i) => n + i.quantity, 0),
+        deliveryFeeUsd: displayDistrictFee + displayExpressFee + displaySlotFee,
+        freeDelivery: isFreeDeliveryUnlocked && displayDistrictFee === 0,
+        couponApplied,
+      },
+    });
     // Trigger phone-error UI for both phone fields.
     setPhoneSubmitAttempted(true);
 
@@ -3384,20 +3474,43 @@ function CheckoutForm() {
                   <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.senderDetails")}</p>
 
                   {isSignedIn ? (
-                    <div className="mb-4 rounded-xl border bg-secondary/40 p-4" data-testid="sender-summary">
-                      <p className="text-sm">
-                        {t("checkout.sendingAs", {
-                          summary: [
-                            `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
-                            user?.email ?? "",
-                            profilePhone,
-                          ].filter((s) => s && s.trim()).join(" · "),
-                        })}
-                      </p>
-                      <Link href="/account/personal-information" className="mt-1 inline-block text-xs underline" data-testid="link-edit-account">
-                        {t("checkout.editInAccount")}
-                      </Link>
-                    </div>
+                    <>
+                      {/* Mobile: original sender summary (unchanged — Task #3613 covers mobile) */}
+                      <div className="mb-4 rounded-xl border bg-secondary/40 p-4 lg:hidden" data-testid="sender-summary">
+                        <p className="text-sm">
+                          {t("checkout.sendingAs", {
+                            summary: [
+                              `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
+                              user?.email ?? "",
+                              profilePhone,
+                            ].filter((s) => s && s.trim()).join(" · "),
+                          })}
+                        </p>
+                        <Link href="/account/personal-information" className="mt-1 inline-block text-xs underline" data-testid="link-edit-account">
+                          {t("checkout.editInAccount")}
+                        </Link>
+                      </div>
+                      {/* Desktop: compact identity row — "Sending as [name] / email · phone / Edit" */}
+                      <div className="mb-4 rounded-xl border bg-secondary/40 p-4 hidden lg:flex items-center justify-between gap-3" data-testid="sender-summary-desktop">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {t("checkout.sender.sendingAsName", {
+                              name: `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || (user?.email ?? ""),
+                            })}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            {[user?.email ?? "", profilePhone].filter((s) => s && s.trim()).join(" · ")}
+                          </p>
+                        </div>
+                        <Link
+                          href="/account/personal-information"
+                          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 text-sm font-medium text-primary underline underline-offset-2"
+                          data-testid="link-edit-sender-desktop"
+                        >
+                          {t("checkout.sender.edit")}
+                        </Link>
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -3456,17 +3569,41 @@ function CheckoutForm() {
                     </div>
                   )}
 
-                  <label className="flex items-start gap-3 cursor-pointer select-none" data-testid="check-identity-secret-label">
-                    <input type="checkbox" checked={identitySecret} onChange={(e) => setIdentitySecret(e.target.checked)} className="mt-1 h-4 w-4 accent-primary cursor-pointer" data-testid="check-identity-secret" />
-                    <span className="text-sm">{t("checkout.keepIdentitySecret")}</span>
-                  </label>
-                  {identitySecret && (
-                    <p className="text-xs text-gray-500 mt-1 ml-7" data-testid="identity-secret-hint">{t("checkout.keepIdentitySecretHint")}</p>
-                  )}
+                  {/* Mobile: original identity-secret checkbox (unchanged) */}
+                  <div className="lg:hidden">
+                    <label className="flex items-start gap-3 cursor-pointer select-none" data-testid="check-identity-secret-label">
+                      <input type="checkbox" checked={identitySecret} onChange={(e) => setIdentitySecret(e.target.checked)} className="mt-1 h-4 w-4 accent-primary cursor-pointer" data-testid="check-identity-secret" />
+                      <span className="text-sm">{t("checkout.keepIdentitySecret")}</span>
+                    </label>
+                    {identitySecret && (
+                      <p className="text-xs text-gray-500 mt-1 ml-7" data-testid="identity-secret-hint">{t("checkout.keepIdentitySecretHint")}</p>
+                    )}
+                  </div>
+                  {/* Desktop: "Send this gift anonymously" with always-visible explanation */}
+                  <div className="hidden lg:block">
+                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-[44px]" data-testid="check-anonymous-gift-label">
+                      <input
+                        type="checkbox"
+                        checked={identitySecret}
+                        onChange={(e) => handleAnonymousGiftToggle(e.target.checked)}
+                        className="mt-1 h-4 w-4 accent-primary cursor-pointer"
+                        aria-describedby="anonymous-gift-hint"
+                        data-testid="check-anonymous-gift"
+                      />
+                      <span>
+                        <span className="block text-sm">{t("checkout.anonymousGift")}</span>
+                        <span id="anonymous-gift-hint" className="block text-xs text-muted-foreground mt-0.5" data-testid="anonymous-gift-hint">
+                          {t("checkout.anonymousGiftHint")}
+                        </span>
+                      </span>
+                    </label>
+                  </div>
                 </div>
 
-                {/* Delivery Time */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+                {/* Delivery Time — mobile only. On desktop the delivery choice
+                    carries in from the cart (shared delivery-selection state) and
+                    is changed via the sidebar DELIVERY panel's "Change" action. */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6 lg:hidden">
                   <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.deliveryTime")}</p>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <button
@@ -3762,6 +3899,7 @@ function CheckoutForm() {
             effectiveFreeDeliveryThresholdUsd={effectiveFreeDeliveryThresholdUsd}
             deliveryMode={deliveryMode}
             deliveryRowText={deliveryRowText}
+            deliveryPromise={deliveryPromise}
             selectedDistrict={_selectedDistrict}
             couponApplied={couponApplied}
             couponOpen={couponOpen}
@@ -3778,7 +3916,13 @@ function CheckoutForm() {
             loyaltyLoading={loyaltyLoading}
             loyaltyToggleOn={loyaltyToggleOn}
             onLoyaltyToggle={handleLoyaltyToggle}
-            onChangeDelivery={() => setDeliveryPickerOpen(true)}
+            onChangeDelivery={() => {
+              trackWebEvent({
+                type: "desktop_checkout_delivery_change_clicked",
+                properties: { deliveryType: deliveryMode === "express" ? "express" : "standard" },
+              });
+              setDeliveryPickerOpen(true);
+            }}
             step={step}
             step1CtaDisabled={step1CtaDisabled}
             handleValidateAndAdvance={handleValidateAndAdvance}

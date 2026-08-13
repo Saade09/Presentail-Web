@@ -359,3 +359,31 @@ id = "NcTD7tvngNYISp3bCaRX_"
 uri = "file://presentail_audit_summary.md"
 type = "text"
 title = "Presentail Audit Summary (Markdown)"
+
+[[outputs]]
+id = "c6miY7p4MfaTG7eBppVg3"
+uri = "file://artifacts/presentail-web/screenshots/checkout-paid-standard.png"
+type = "image"
+title = "Desktop checkout — paid standard delivery"
+description = "Redesigned Delivery Details: new Order Summary hierarchy, delivery confirmation panel, compact sender card."
+
+[[outputs]]
+id = "bz4b2BH2dsyx44G_6ysYV"
+uri = "file://artifacts/presentail-web/screenshots/checkout-paid-express.png"
+type = "image"
+title = "Desktop checkout — paid express"
+description = "Express upgrade row with 90-minute sub-line and quote-anchored 'Arrives by' promise panel."
+
+[[outputs]]
+id = "vAOnFtbJhewXYrJSYaq5N"
+uri = "file://artifacts/presentail-web/screenshots/checkout-free-standard.png"
+type = "image"
+title = "Desktop checkout — free standard delivery"
+description = "Free delivery shows strikethrough fee + dark-teal 'Free'; promo card removed."
+
+[[outputs]]
+id = "TbvPr1-o-V_Ev3NH2E_-o"
+uri = "file://artifacts/presentail-web/screenshots/checkout-free-express.png"
+type = "image"
+title = "Desktop checkout — free standard + express"
+description = "Free standard delivery combined with the express upgrade."

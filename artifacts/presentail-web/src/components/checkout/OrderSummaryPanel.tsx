@@ -1,4 +1,5 @@
-import { type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
+import { trackWebEvent } from "@/lib/analytics";
 import { Link } from "wouter";
 import {
   ChevronDown,
@@ -6,6 +7,7 @@ import {
   Tag,
   Loader2,
   CalendarDays,
+  Zap,
   ArrowRight,
   Lock,
   X,
@@ -17,7 +19,6 @@ import { Switch } from "@/components/ui/switch";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
-import { FreeDeliveryUnlockedStrip } from "@/components/cart/FreeDeliveryUnlockedStrip";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { computeCartTotal } from "@workspace/display-currency";
@@ -36,6 +37,12 @@ export type OrderSummaryPanelProps = {
   effectiveFreeDeliveryThresholdUsd: number | undefined;
   deliveryMode: "express" | "schedule";
   deliveryRowText: string | null;
+  /** Desktop sidebar delivery-promise panel payload (express quote-anchored
+   *  "Arrives by" time, or the standard "Arrives [day · window]" text). */
+  deliveryPromise?:
+    | { type: "express"; arrivesBy: string | null }
+    | { type: "standard"; when: string | null }
+    | null;
   selectedDistrict: string;
   couponApplied: boolean;
   couponOpen: boolean;
@@ -73,6 +80,7 @@ export function OrderSummaryPanel({
   effectiveFreeDeliveryThresholdUsd,
   deliveryMode,
   deliveryRowText,
+  deliveryPromise = null,
   selectedDistrict,
   couponApplied,
   couponOpen,
@@ -109,6 +117,25 @@ export function OrderSummaryPanel({
     items.length === 1
       ? t("checkout.summary.itemCount_one")
       : t("checkout.summary.itemCount_other", { n: String(items.length) });
+
+  // Total units across all lines — drives the "Items (N)" summary row.
+  const itemsQuantityCount = items.reduce((n, i) => n + i.quantity, 0);
+
+  // Rerender-safe "delivery confirmation viewed" analytics: fires once per
+  // delivery type change, and only when the desktop sidebar is actually
+  // visible (the desktop body is display-hidden below lg).
+  const lastConfirmationViewedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!deliveryPromise) return;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    if (lastConfirmationViewedRef.current === deliveryPromise.type) return;
+    lastConfirmationViewedRef.current = deliveryPromise.type;
+    trackWebEvent({
+      type: "desktop_checkout_delivery_confirmation_viewed",
+      properties: { deliveryType: deliveryPromise.type },
+    });
+  }, [deliveryPromise]);
 
   return (
     <div className="w-full lg:w-96 xl:w-[420px] shrink-0 order-first lg:order-last self-stretch">
@@ -495,9 +522,96 @@ export function OrderSummaryPanel({
                 </div>
               ) : null}
 
-              {/* Promo / gift-card control — outlined row */}
+              {/* Price hierarchy */}
+              <div className="mt-4 space-y-2.5" role="region" aria-label={t("checkout.summary")}>
+
+                {/* Items (N) */}
+                <div className="flex justify-between text-sm">
+                  <span className="text-foreground font-medium">
+                    {t("checkout.summary.itemsRow", { n: String(itemsQuantityCount) })}
+                  </span>
+                  <span className="text-foreground font-medium" data-testid="text-subtotal">
+                    <FormattedPrice usdValue={subtotal} />
+                  </span>
+                </div>
+
+                {/* Standard delivery + base-charge sub-line */}
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>
+                    <span className="block">{t("checkout.deliveryLabel")}</span>
+                    <span className="block text-xs text-muted-foreground/80 mt-0.5">
+                      {t("checkout.delivery.baseCharge")}
+                    </span>
+                  </span>
+                  {isFreeDeliveryUnlocked && deliveryMode !== "express" ? (
+                    <span className="flex items-start gap-1.5">
+                      <s className="text-muted-foreground/60">
+                        <FormattedPrice usdValue={originalCityFee} />
+                      </s>
+                      <span
+                        className="font-semibold"
+                        style={{ color: "hsl(var(--primary))" }}
+                        data-testid="text-delivery-free"
+                      >
+                        {t("checkout.freeDelivery.unlocked.freeLabel")}
+                      </span>
+                    </span>
+                  ) : (
+                    <span>
+                      {districtFee === 0
+                        ? (
+                          <span className="font-semibold" style={{ color: "hsl(var(--primary))" }}>
+                            {t("checkout.deliveryFree")}
+                          </span>
+                        )
+                        : <FormattedPrice usdValue={districtFee} />}
+                    </span>
+                  )}
+                </div>
+
+                {/* Express upgrade + 90-minute sub-line (only when express selected) */}
+                {deliveryMode === "express" && (
+                  <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
+                    <span>
+                      <span className="block">{t("checkout.expressUpgradeLabel")}</span>
+                      <span className="block text-xs text-muted-foreground/80 mt-0.5">
+                        {t("checkout.delivery.express90")}
+                      </span>
+                    </span>
+                    <span>
+                      {expressFee > 0
+                        ? <FormattedPrice usdValue={expressFee} />
+                        : t("checkout.deliveryFree")}
+                    </span>
+                  </div>
+                )}
+
+                {/* Slot fee */}
+                {slotFee > 0 && (
+                  <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-slot-fee">
+                    <span>{t("checkout.nightDeliverySurcharge")}</span>
+                    <span><FormattedPrice usdValue={slotFee} /></span>
+                  </div>
+                )}
+
+                {/* Coupon discount */}
+                {couponApplied && confirmedCouponDiscount > 0 && (
+                  <div
+                    className="flex justify-between text-sm"
+                    style={{ color: "hsl(var(--primary))" }}
+                  >
+                    <span className="font-medium">{t("checkout.coupon.applied")}</span>
+                    <span className="font-medium">
+                      −<FormattedPrice usdValue={confirmedCouponDiscount} />
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Promo / gift-card control — compact row inside the summary,
+                  above the Total divider */}
               {!loyaltyToggleOn && (
-              <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden">
+              <div className="mt-3 border border-gray-200 rounded-xl overflow-hidden [&_[data-testid=button-coupon-toggle]]:min-h-[44px]">
                 {couponApplied ? (
                   /* Applied state */
                   <div
@@ -618,79 +732,11 @@ export function OrderSummaryPanel({
               </div>
               )}
 
-              {/* Price hierarchy */}
-              <div className="mt-4 space-y-2.5" role="region" aria-label={t("checkout.summary")}>
+              {/* Divider + dominant Total */}
+              <div className="space-y-2.5">
+                <hr className="border-gray-100 mt-3.5" />
 
-                {/* Subtotal */}
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>{t("cart.subtotal")}</span>
-                  <span data-testid="text-subtotal">
-                    <FormattedPrice usdValue={subtotal} />
-                  </span>
-                </div>
-
-                {/* Delivery row */}
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>{t("checkout.deliveryLabel")}</span>
-                  {isFreeDeliveryUnlocked && deliveryMode !== "express" ? (
-                    <span className="flex items-center gap-1.5">
-                      <s className="text-muted-foreground/60">
-                        <FormattedPrice usdValue={originalCityFee} />
-                      </s>
-                      <span
-                        className="font-medium"
-                        style={{ color: "hsl(var(--primary))" }}
-                      >
-                        {t("checkout.freeDelivery.unlocked.freeLabel")}
-                      </span>
-                    </span>
-                  ) : (
-                    <span>
-                      {districtFee === 0
-                        ? t("checkout.deliveryFree")
-                        : <FormattedPrice usdValue={districtFee} />}
-                    </span>
-                  )}
-                </div>
-
-                {/* Express upgrade */}
-                {deliveryMode === "express" && (
-                  <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
-                    <span>{t("checkout.expressUpgradeLabel")}</span>
-                    <span>
-                      {expressFee > 0
-                        ? <FormattedPrice usdValue={expressFee} />
-                        : t("checkout.deliveryFree")}
-                    </span>
-                  </div>
-                )}
-
-                {/* Slot fee */}
-                {slotFee > 0 && (
-                  <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-slot-fee">
-                    <span>{t("checkout.nightDeliverySurcharge")}</span>
-                    <span><FormattedPrice usdValue={slotFee} /></span>
-                  </div>
-                )}
-
-                {/* Coupon discount */}
-                {couponApplied && confirmedCouponDiscount > 0 && (
-                  <div
-                    className="flex justify-between text-sm"
-                    style={{ color: "hsl(var(--primary))" }}
-                  >
-                    <span className="font-medium">{t("checkout.coupon.applied")}</span>
-                    <span className="font-medium">
-                      −<FormattedPrice usdValue={confirmedCouponDiscount} />
-                    </span>
-                  </div>
-                )}
-
-                {/* Divider */}
-                <hr className="border-gray-100 !mt-3.5" />
-
-                {/* Total — visually dominant + subtle currency code */}
-                <div className="flex justify-between items-baseline !mt-3.5">
+                <div className="flex justify-between items-baseline mt-3.5">
                   <span
                     className="text-base font-bold"
                     style={{ color: "hsl(var(--primary))" }}
@@ -711,65 +757,58 @@ export function OrderSummaryPanel({
                 </div>
               </div>
 
-              {/* Free delivery strip / banner */}
-              {isFreeDeliveryUnlocked ? (
-                <div className="mt-4">
-                  <FreeDeliveryUnlockedStrip
-                    savedAmountUsd={deliveryMode !== "express" ? originalCityFee : undefined}
-                    expressSelected={deliveryMode === "express"}
-                  />
-                </div>
-              ) : effectiveFreeDeliveryEnabled !== false ? (
-                <div className="mt-4">
-                  <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
-                </div>
-              ) : null}
-
-              {/* Delivery card */}
-              <div className="mt-4 rounded-xl border border-gray-200 overflow-hidden">
-                <div
-                  className="px-4 py-3 flex items-center justify-between border-b border-gray-100"
-                  style={{ backgroundColor: "hsl(var(--primary) / 0.04)" }}
-                >
-                  <p
-                    className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: "hsl(var(--primary))" }}
-                  >
-                    {t("checkout.delivery.sectionLabel")}
-                  </p>
+              {/* Delivery confirmation panel — compact, pale gray-blue */}
+              <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200/70 overflow-hidden" data-testid="delivery-confirmation-panel">
+                <div className="px-4 pt-3 pb-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    {deliveryPromise?.type === "express" ? (
+                      <Zap className="w-4 h-4 shrink-0 mt-0.5 text-slate-500" aria-hidden />
+                    ) : (
+                      <CalendarDays className="w-4 h-4 shrink-0 mt-0.5 text-slate-500" aria-hidden />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        {t("checkout.delivery.sectionLabel")}
+                      </p>
+                      {deliveryPromise?.type === "express" ? (
+                        <>
+                          <p className="text-xs text-muted-foreground mt-1">{t("checkout.promise.express")}</p>
+                          {deliveryPromise.arrivesBy ? (
+                            <p className="text-sm font-semibold text-foreground mt-0.5" data-testid="text-delivery-promise">
+                              {t("checkout.promise.arrivesBy", { time: deliveryPromise.arrivesBy })}
+                            </p>
+                          ) : (
+                            <p className="text-sm font-semibold text-foreground mt-0.5" data-testid="text-delivery-promise">
+                              {t("checkout.promise.within90")}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.promise.within90")}</p>
+                        </>
+                      ) : deliveryPromise?.type === "standard" && deliveryPromise.when ? (
+                        <>
+                          <p className="text-xs text-muted-foreground mt-1">{t("checkout.promise.standard")}</p>
+                          <p className="text-sm font-semibold text-foreground mt-0.5" data-testid="text-delivery-promise">
+                            {t("checkout.promise.arrives", { when: deliveryPromise.when })}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.promise.scheduledWindow")}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic mt-1">
+                          {t("checkout.delivery.notSelected")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={onChangeDelivery}
-                    className="text-xs font-medium underline underline-offset-2 hover:opacity-70 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-sm"
+                    className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 -my-2 text-xs font-medium underline underline-offset-2 hover:opacity-70 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-sm"
                     style={{ color: "hsl(var(--primary))" }}
                     aria-label={t("delivery.row.change")}
                     data-testid="button-change-delivery"
                   >
                     {t("delivery.row.change")}
                   </button>
-                </div>
-                <div className="px-4 py-3 space-y-2">
-                  {deliveryRowText ? (
-                    <div className="flex items-start gap-2.5">
-                      <CalendarDays
-                        className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <span className="text-sm text-foreground leading-snug">
-                        {deliveryRowText}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-2.5">
-                      <CalendarDays
-                        className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <span className="text-sm text-muted-foreground italic">
-                        {t("checkout.delivery.notSelected")}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
 
