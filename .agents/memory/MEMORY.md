@@ -49,5 +49,6 @@
 - [Charged-but-lost order net](charged-but-lost-orders.md) — card flows must persist order payload server-side before confirm; webhook+sweeper+advisory-lock idempotency rescue paid orders; "stripe" not in WooOrderSchema enum
 - [AED symbol in sentence copy](aed-symbol-sentence-copy.md) — never interpolate formatPrice() into sentences; use web buildFeeNode / mobile Price+symTemplate; plain-text Alerts/emails stay text
 - [Validation concurrent-build race](validation-concurrent-build-race.md) — compression-check + social-share-previews rebuild presentail-web dist/ in parallel and corrupt each other; verify serially, then skip with reason
+- [Free-delivery banner rules](free-delivery-banner-rules.md) — unlocked/lost analytics key on real threshold qualification, not banner visibility; Shop add-ons gated on upsells availability
 - [Stale lib/db dist declarations](db-dist-declarations.md) — phantom "column missing" tsc errors when lib/db/dist .d.ts is stale; run `npx tsc -b lib/db/tsconfig.json` to regenerate
 - [Slot fee invariant](slot-fee-single-source.md) — displayed slot fee must equal charged fee; resolve date-aware by slotId, never raw extraFee reads

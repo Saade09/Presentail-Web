@@ -34,6 +34,7 @@ Object.defineProperty(window, "matchMedia", {
 
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
+  trackWebEvent: vi.fn(),
 }));
 
 // Capture the mock setter so tests can assert it was called.
@@ -57,11 +58,8 @@ vi.mock("framer-motion", () => ({
   },
 }));
 
-// Replace heavy sub-components with lightweight stubs so we only exercise Cart's logic.
-// FreeDeliveryBanner renders a testid element so presence/absence can be asserted.
-vi.mock("@/components/cart/FreeDeliveryBanner", () => ({
-  FreeDeliveryBanner: () => <div data-testid="free-delivery-banner" />,
-}));
+// The FreeDeliveryStatusCard is NOT mocked — Cart drives its three-state logic
+// (hidden/close/unlocked) and the tests assert on the real testid element.
 
 // useDeliveryConfig — default returns freeDeliveryEnabled: true; individual tests
 // can override this via vi.mocked().mockReturnValue().
@@ -363,7 +361,12 @@ describe("Cart — delivery fee display states", () => {
     });
 
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
-    expect(screen.queryByText("$10")).toBeNull();
+    // The unlocked banner shows the $10 saving ("delivery charge removed"),
+    // so assert the fee line itself no longer renders the charge instead of a
+    // page-wide absence of "$10".
+    const banner = screen.getByTestId("free-delivery-banner");
+    expect(banner.getAttribute("data-state")).toBe("unlocked");
+    expect(screen.getAllByText("$10").every((el) => banner.contains(el))).toBe(true);
     expect(screen.queryByText("cart.expressLabel")).toBeNull();
   });
 
@@ -723,5 +726,107 @@ describe("Cart — Cyprus express surcharge ($15, same as LB fallback)", () => {
     // Total = 130 (subtotal) + 15 (surcharge) = 145
     const totals = screen.getAllByText("$145");
     expect(totals.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: free-delivery banner analytics transitions + Shop add-ons gating
+// ---------------------------------------------------------------------------
+
+import { trackWebEvent } from "@/lib/analytics";
+
+const eventsOfType = (type: string) =>
+  vi.mocked(trackWebEvent).mock.calls.filter(([e]) => (e as { type: string }).type === type);
+
+describe("Cart — free-delivery analytics transitions", () => {
+  const standardSelection = {
+    mode: "schedule",
+    date: null,
+    slotLabel: null,
+    hasSelection: false,
+    setSelection: vi.fn(),
+    clear: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.mocked(trackWebEvent).mockClear();
+    vi.mocked(useDeliveryConfig).mockReturnValue(DELIVERY_CONFIG_WITH_FEE);
+    mockUseDeliverySelection.mockReturnValue(standardSelection);
+  });
+
+  it("fires free_delivery_unlocked and prompt_viewed once, not per rerender", () => {
+    const { rerender } = renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+    rerender(<Cart />);
+    rerender(<Cart />);
+    expect(eventsOfType("free_delivery_unlocked")).toHaveLength(1);
+    expect(eventsOfType("free_delivery_prompt_viewed")).toHaveLength(1);
+    expect(eventsOfType("free_delivery_lost")).toHaveLength(0);
+  });
+
+  it("does NOT fire free_delivery_lost when express is selected while unlocked (display-only hide)", () => {
+    const { rerender } = renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+    expect(screen.getByTestId("free-delivery-banner").getAttribute("data-state")).toBe("unlocked");
+
+    mockUseDeliverySelection.mockReturnValue({ ...standardSelection, mode: "express" });
+    rerender(<Cart />);
+
+    // Banner hides, but the shopper is still qualified — no loss event.
+    expect(screen.queryByTestId("free-delivery-banner")).toBeNull();
+    expect(eventsOfType("free_delivery_lost")).toHaveLength(0);
+  });
+
+  it("fires free_delivery_lost once when threshold qualification is actually lost", () => {
+    const { rerender } = renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+    expect(eventsOfType("free_delivery_unlocked")).toHaveLength(1);
+
+    // Threshold rises above the subtotal → qualification genuinely lost.
+    vi.mocked(useDeliveryConfig).mockReturnValue({
+      ...DELIVERY_CONFIG_WITH_FEE,
+      freeDeliveryThreshold: "$200",
+      freeDeliveryThresholdUsd: 200,
+    });
+    rerender(<Cart />);
+    rerender(<Cart />);
+    expect(eventsOfType("free_delivery_lost")).toHaveLength(1);
+  });
+
+  it("enriches checkout_clicked with eligibility and delivery type", async () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_ABOVE_THRESHOLD,
+      currency: CURRENCY_FIXTURE,
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("link-proceed-to-checkout"));
+    const clicks = eventsOfType("checkout_clicked");
+    expect(clicks).toHaveLength(1);
+    expect((clicks[0][0] as { properties: Record<string, unknown> }).properties).toMatchObject({
+      free_standard_delivery_eligible: true,
+      selected_delivery_type: "standard",
+    });
+  });
+
+  it("hides the Shop add-ons action when the upsells section has no content", () => {
+    // CartUpsells is mocked to render null (never reports availability), so
+    // even in the close state the action must be absent.
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: { items: [FAKE_ITEM], subtotal: 80, itemCount: 1 },
+      currency: CURRENCY_FIXTURE,
+    });
+    expect(screen.getByTestId("free-delivery-banner").getAttribute("data-state")).toBe("close");
+    expect(screen.queryByTestId("button-shop-addons")).toBeNull();
   });
 });

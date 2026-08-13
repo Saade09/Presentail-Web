@@ -18,6 +18,15 @@ const WEB_EVENT_TYPES = [
   "promo_removed",
   "search",
   "search_no_result",
+  "klarna_selected",
+  "klarna_redirect_started",
+  "klarna_payment_processing",
+  "klarna_payment_failed",
+  "free_delivery_prompt_viewed",
+  "free_delivery_addons_clicked",
+  "free_delivery_unlocked",
+  "free_delivery_lost",
+  "checkout_clicked",
 ] as const;
 
 const webEventItemSchema = z.object({

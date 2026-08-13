@@ -61,7 +61,14 @@ function tabLabelKey(id: UpsellTabId): string {
   }
 }
 
-export function CartUpsells() {
+export function CartUpsells({
+  onAvailabilityChange,
+}: {
+  /** Reports whether the upsells section actually renders content, so callers
+   * (e.g. the free-delivery banner's "Shop add-ons" action) can hide
+   * affordances that would scroll to nothing. */
+  onAvailabilityChange?: (available: boolean) => void;
+} = {}) {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
   const { toast } = useToast();
@@ -92,6 +99,16 @@ export function CartUpsells() {
     }
   }, [tabs, activeId]);
 
+  const available = !isLoading && tabs.length > 0;
+  useEffect(() => {
+    onAvailabilityChange?.(available);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available]);
+  useEffect(() => {
+    return () => onAvailabilityChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleFirstAdd = (product: { name: string }) => {
     toast({
       title: t("product.toast.addedTitle"),
@@ -107,7 +124,8 @@ export function CartUpsells() {
 
   return (
     <section
-      className="mt-12 pt-8 border-t border-primary/10"
+      id="cart-upsells"
+      className="mt-12 pt-8 border-t border-primary/10 scroll-mt-24"
       data-testid="cart-upsells"
     >
       <h2 className="text-2xl font-serif">{t("cart.upsells.title")}</h2>

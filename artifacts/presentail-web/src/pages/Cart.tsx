@@ -12,7 +12,6 @@ import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
@@ -32,6 +31,11 @@ import cardStationery from "@assets/Elegant-dark-teal-stationery-design_17787422
 import cardLogoEn from "@assets/Presentail_PNG-01_white.png";
 import cardLogoAr from "@assets/Presentail-Arabic-Logo-white.png";
 import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
+import {
+  FreeDeliveryStatusCard,
+  resolveFreeDeliveryState,
+  type FreeDeliveryState,
+} from "@/components/cart/FreeDeliveryStatusCard";
 
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
@@ -104,6 +108,7 @@ export default function Cart() {
     freeDeliveryEnabled,
     cityFeeUsd,
     freeDeliveryThresholdUsd: configThresholdUsd,
+    isLoaded: deliveryConfigLoaded,
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
@@ -198,6 +203,117 @@ export default function Cart() {
   });
 
   const cartTotal = computeCartTotal(subtotal, (effectiveDeliveryFeeUsd ?? 0) + slotFeeUsd, couponDiscountUsd);
+
+  // ── Contextual three-state free-delivery banner ──────────────────────────
+  // hidden / close / unlocked — driven by the server threshold + enabled flag,
+  // the qualifying subtotal, and the selected delivery method. Fails safe to
+  // hidden while the delivery config loads.
+  const bannerState: FreeDeliveryState = resolveFreeDeliveryState({
+    subtotalUsd: subtotal,
+    thresholdUsd,
+    enabled: freeDeliveryEnabled,
+    configLoaded: deliveryConfigLoaded,
+    deliveryMode,
+  });
+  const freeDeliveryUnlocked =
+    freeDeliveryEnabled !== false &&
+    typeof thresholdUsd === "number" &&
+    subtotal >= thresholdUsd;
+  const selectedDeliveryType = deliveryMode === "express" ? "express" : "standard";
+
+  // Polite one-time announcement when the shopper crosses the threshold via a
+  // cart action (not on unrelated rerenders, not on initial mount).
+  const [unlockAnnouncement, setUnlockAnnouncement] = useState("");
+
+  // Fire analytics once per meaningful state transition, not per rerender.
+  // Display transitions (bannerState) drive prompt_viewed; actual eligibility
+  // transitions (freeDeliveryUnlocked) drive unlocked/lost — selecting express
+  // only hides the promotion and must NOT count as losing qualification.
+  const prevBannerStateRef = useRef<FreeDeliveryState | null>(null);
+  const prevQualifiedRef = useRef<boolean | null>(null);
+  const prevItemCountRef = useRef(itemCount);
+  const prevDiscountRef = useRef(couponDiscountUsd);
+  useEffect(() => {
+    if (!isHydrated || !deliveryConfigLoaded) return;
+    const prevState = prevBannerStateRef.current;
+    const prevQualified = prevQualifiedRef.current;
+    const itemCountChanged = itemCount !== prevItemCountRef.current;
+    const itemsIncreased = itemCount > prevItemCountRef.current;
+    const promoChanged = couponDiscountUsd !== prevDiscountRef.current;
+    const stateChanged = prevState !== bannerState;
+    const qualifiedChanged = prevQualified !== freeDeliveryUnlocked;
+    prevItemCountRef.current = itemCount;
+    prevDiscountRef.current = couponDiscountUsd;
+    if (!stateChanged && !qualifiedChanged) return;
+    prevBannerStateRef.current = bannerState;
+    prevQualifiedRef.current = freeDeliveryUnlocked;
+
+    const threshold = typeof thresholdUsd === "number" ? thresholdUsd : 0;
+    const remaining = Math.max(threshold - subtotal, 0);
+    const trigger = promoChanged
+      ? "promo_change"
+      : itemsIncreased
+        ? "add_item"
+        : itemCountChanged
+          ? "quantity_change"
+          : prevQualified === null
+            ? "restored_cart"
+            : "other";
+
+    if (stateChanged && (bannerState === "close" || bannerState === "unlocked")) {
+      trackWebEvent({
+        type: "free_delivery_prompt_viewed",
+        properties: {
+          state: bannerState,
+          threshold,
+          qualifying_subtotal: subtotal,
+          remaining_amount: remaining,
+          currency: "USD",
+          market: countryCode ?? "unknown",
+          selected_delivery_type: selectedDeliveryType,
+        },
+      });
+    }
+    if (qualifiedChanged && freeDeliveryUnlocked) {
+      trackWebEvent({
+        type: "free_delivery_unlocked",
+        properties: { threshold, qualifying_subtotal: subtotal, currency: "USD", trigger },
+      });
+      if (prevQualified !== null) setUnlockAnnouncement(t("cart.banner.unlockedTitle"));
+    }
+    if (qualifiedChanged && prevQualified === true && !freeDeliveryUnlocked) {
+      trackWebEvent({
+        type: "free_delivery_lost",
+        properties: { threshold, qualifying_subtotal: subtotal, currency: "USD", trigger },
+      });
+      setUnlockAnnouncement("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bannerState, freeDeliveryUnlocked, isHydrated, deliveryConfigLoaded, itemCount, couponDiscountUsd, subtotal, thresholdUsd, countryCode, selectedDeliveryType]);
+
+  // Whether the in-cart recommendations section actually has content —
+  // controls the banner's "Shop add-ons" affordance.
+  const [addonsAvailable, setAddonsAvailable] = useState(false);
+
+  // "Shop add-ons" — scroll to the in-cart recommendations without losing
+  // cart context. Respects reduced-motion preferences.
+  const handleShopAddons = () => {
+    trackWebEvent({
+      type: "free_delivery_addons_clicked",
+      properties: {
+        threshold: typeof thresholdUsd === "number" ? thresholdUsd : 0,
+        remaining_amount: Math.max((thresholdUsd ?? 0) - subtotal, 0),
+        currency: "USD",
+        destination: "cart_upsells",
+      },
+    });
+    const el = document.getElementById("cart-upsells");
+    if (!el) return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  };
 
   const handleCouponToggle = () => {
     const next = !couponOpen;
@@ -347,6 +463,15 @@ export default function Cart() {
   // shoppers (and the brief auth-loading window) bypass the prompt entirely.
   const [loginOpen, setLoginOpen] = useState(false);
   const handleProceed = (e: React.MouseEvent) => {
+    // Enrich the checkout click with free-delivery eligibility + delivery type
+    // (no PII) so the funnel can segment by promotion state.
+    trackWebEvent({
+      type: "checkout_clicked",
+      properties: {
+        free_standard_delivery_eligible: freeDeliveryUnlocked,
+        selected_delivery_type: selectedDeliveryType,
+      },
+    });
     if (user) return;
     e.preventDefault();
     if (authLoading) {
@@ -456,13 +581,18 @@ export default function Cart() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_26.4rem] gap-x-12 gap-y-6">
           {/* Cart Items – banner + items */}
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-            {freeDeliveryEnabled !== false && (
-              <FreeDeliveryBanner
-                subtotal={subtotal}
-                overrideThresholdUsd={thresholdUsd}
-                className="mb-6"
-              />
-            )}
+            {/* Polite live region — announces the unlocked state change once. */}
+            <div aria-live="polite" aria-atomic="true" className="sr-only">
+              {unlockAnnouncement}
+            </div>
+            <FreeDeliveryStatusCard
+              state={bannerState}
+              subtotalUsd={subtotal}
+              thresholdUsd={thresholdUsd ?? 0}
+              standardFeeUsd={cityFeeUsd}
+              onShopAddons={addonsAvailable ? handleShopAddons : undefined}
+              className="mb-6"
+            />
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
             {items.map((item, index) => (
               <motion.div
@@ -777,7 +907,7 @@ export default function Cart() {
                       {deliveryFeeUsd === null
                         ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
                         : deliveryFeeUsd === 0
-                          ? <span className="text-emerald-600">{t("cart.deliveryFree")}</span>
+                          ? <span className="text-primary font-semibold">{t("cart.deliveryFree")}</span>
                           : <FormattedPrice usdValue={deliveryFeeUsd} />
                       }
                     </span>
@@ -944,7 +1074,7 @@ export default function Cart() {
                 <DeliveryDateRow />
               </div>
 
-              <CartUpsells />
+              <CartUpsells onAvailabilityChange={setAddonsAvailable} />
             </div>
           </div>
         </div>

@@ -62,6 +62,13 @@ export const cartStrings: Dict = {
   "cart.expressNote": { en: "Express delivery may incur an additional fee of {amount}", ar: "قد تستلزم التوصيل السريع رسوماً إضافية بقيمة {amount}" },
   "cart.expressLabel": { en: "Express fee", ar: "رسوم التوصيل السريع" },
   "cart.lateNightFee": { en: "Late night fee", ar: "رسوم التوصيل الليلي المتأخر" },
+  // Contextual three-state free-delivery card (cart page)
+  "cart.banner.addMore": { en: "Add {amount} more to unlock free standard delivery", ar: "أضف {amount} أخرى لفتح التوصيل القياسي المجاني" },
+  "cart.banner.shopAddons": { en: "Shop add-ons", ar: "تسوّق الإضافات" },
+  "cart.banner.unlockedTitle": { en: "You’ve unlocked free standard delivery", ar: "لقد حصلت على التوصيل القياسي المجاني" },
+  "cart.banner.chargeRemoved": { en: "{amount} delivery charge removed", ar: "تمت إزالة رسوم توصيل بقيمة {amount}" },
+  "cart.banner.nowFree": { en: "Standard delivery is now free", ar: "التوصيل القياسي مجاني الآن" },
+  "cart.banner.progressAria": { en: "Progress towards free standard delivery", ar: "التقدّم نحو التوصيل القياسي المجاني" },
   // Banner — dynamic progress state (in-progress)
   "cart.banner.remaining": { en: "You're {amount} away from free standard delivery", ar: "أنت على بُعد {amount} من التوصيل القياسي المجاني" },
   "cart.banner.expressStillApplies": { en: "Express delivery is available for an additional fee.", ar: "التوصيل السريع متاح مقابل رسوم إضافية." },
@@ -165,6 +172,13 @@ export const cartStringsFr: Record<string, string> = {
   "cart.expressNote": "La livraison express peut entraîner des frais supplémentaires de {amount}",
   "cart.expressLabel": "Frais express",
   "cart.lateNightFee": "Frais de livraison tardive",
+  // Contextual three-state free-delivery card (cart page)
+  "cart.banner.addMore": "Ajoutez {amount} de plus pour débloquer la livraison standard gratuite",
+  "cart.banner.shopAddons": "Voir les extras",
+  "cart.banner.unlockedTitle": "Vous avez débloqué la livraison standard gratuite",
+  "cart.banner.chargeRemoved": "Frais de livraison de {amount} supprimés",
+  "cart.banner.nowFree": "La livraison standard est désormais gratuite",
+  "cart.banner.progressAria": "Progression vers la livraison standard gratuite",
   // Banner — dynamic progress state (in-progress)
   "cart.banner.remaining": "Il vous manque {amount} pour bénéficier de la livraison standard gratuite",
   "cart.banner.expressStillApplies": "La livraison express est disponible moyennant des frais supplémentaires.",
