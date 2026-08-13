@@ -21,11 +21,21 @@
  * The shimmer stays visible during the retry — no flash of grey between attempts.
  */
 
-import { useState, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useState, useLayoutEffect, useEffect, useRef, type ReactNode } from "react";
 import { buildProductImageAlt, type ProductAltInput } from "@/lib/imageAlt";
 import { buildOsImageSrcset, buildCatalogImageSrcset } from "@/lib/imageUtils";
 
 const loadedUrls = new Set<string>();
+
+/**
+ * Failsafe: maximum time an image may stay hidden behind the shimmer.  If
+ * neither onLoad nor the complete-check has flipped `loaded` by then, we
+ * resolve from the element's actual state — reveal when data is present,
+ * fall through to error/fallback when the load definitively failed, or
+ * reveal anyway so a slow load fades in as data arrives instead of leaving
+ * the card permanently gray.
+ */
+const LOAD_FAILSAFE_MS = 4000;
 
 export interface ProductImageProps {
   src: string;
@@ -62,18 +72,50 @@ export function ProductImage({
   const [failed, setFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
+  const loadedRef = useRef(loaded);
+  loadedRef.current = loaded;
 
   // Browsers may not fire onLoad for already-cached images — the image is
   // decoded synchronously before React attaches the handler.  Check img.complete
-  // after mount (useLayoutEffect runs before paint, avoiding any flicker).
+  // after mount AND whenever the rendered src changes (the proxy→raw retry
+  // path swaps the element/src, which can also complete before handlers
+  // attach).  useLayoutEffect runs before paint, avoiding any flicker.
   useLayoutEffect(() => {
     const img = imgRef.current;
-    if (img && img.complete && img.naturalWidth > 0 && !loaded) {
+    if (img && img.complete && img.naturalWidth > 0 && !loadedRef.current) {
       loadedUrls.add(src);
       setLoaded(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [src, retrying]);
+
+  // Bounded failsafe: no card may stay on the gray shimmer indefinitely.
+  // After LOAD_FAILSAFE_MS, resolve from the element's actual state:
+  // - data available → reveal
+  // - definitively failed (complete but no data) → error/fallback path
+  // - still in flight → reveal anyway so the image fades in when it arrives
+  //   instead of staying invisible if the load event is never delivered.
+  useEffect(() => {
+    if (loaded || failed) return;
+    const timer = window.setTimeout(() => {
+      if (loadedRef.current) return;
+      const img = imgRef.current;
+      if (img && img.complete && img.naturalWidth === 0) {
+        // Load finished with no data — a genuine failure the error handler
+        // missed. Route through the same retry/fallback logic as onError.
+        if (!retrying && (osProps?.src ?? catalogProps?.src ?? src) !== src) {
+          setRetrying(true);
+        } else {
+          setFailed(true);
+        }
+        return;
+      }
+      loadedUrls.add(src);
+      setLoaded(true);
+    }, LOAD_FAILSAFE_MS);
+    return () => window.clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, retrying, loaded, failed]);
 
   const alt = buildProductImageAlt(product, locale, cityName, { decorative });
 

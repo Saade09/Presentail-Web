@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, act } from "@testing-library/react";
 import React from "react";
 
 // ---------------------------------------------------------------------------
@@ -145,6 +145,80 @@ describe("ProductImage — proxy retry on error", () => {
 // ---------------------------------------------------------------------------
 // loadedUrls cache — retry path records a successful load
 // ---------------------------------------------------------------------------
+
+describe("ProductImage — stuck-load failsafe", () => {
+  it("reveals the image via the bounded timeout when onLoad never fires", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderImage({ src: "https://os.presentail.com/api/storage/img/never-onload.jpg" });
+      const img = container.querySelector("img")!;
+      expect(img.className).toContain("opacity-0");
+
+      act(() => { vi.advanceTimersByTime(5000); });
+
+      expect(container.querySelector("img")!.className).toContain("opacity-100");
+      expect(container.querySelector(".animate-shimmer")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("falls through to retry then fallback when the image completed with no data", () => {
+    vi.useFakeTimers();
+    try {
+      const fallback = <div data-testid="fallback-el">fallback</div>;
+      const { container, getByTestId } = renderImage({
+        src: "https://os.presentail.com/api/storage/img/broken.jpg",
+        fallback,
+      });
+      // Simulate an image that finished loading with no data (failure the
+      // error handler missed): complete=true, naturalWidth=0.
+      const defineBroken = () => {
+        const img = container.querySelector("img")!;
+        Object.defineProperty(img, "complete", { value: true, configurable: true });
+        Object.defineProperty(img, "naturalWidth", { value: 0, configurable: true });
+      };
+      defineBroken();
+
+      // First failsafe tick: proxy src ≠ raw src → retry path
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(container.querySelector("picture")).toBeNull();
+      expect(container.querySelector("img")).toBeTruthy();
+
+      // Retry img is also broken → second failsafe tick shows fallback
+      defineBroken();
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(getByTestId("fallback-el")).toBeTruthy();
+      expect(container.querySelector("img")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reveals immediately on the retry path when the raw image is already complete (cached)", () => {
+    const { container } = renderImage({ src: "https://os.presentail.com/api/storage/img/cached-raw.jpg" });
+    const proxyImg = container.querySelector("img")!;
+
+    // Simulate the retry img mounting already-complete with real data.
+    // Patch the prototype so the freshly-mounted retry <img> reports complete.
+    const proto = HTMLImageElement.prototype;
+    const origComplete = Object.getOwnPropertyDescriptor(proto, "complete");
+    const origNatural = Object.getOwnPropertyDescriptor(proto, "naturalWidth");
+    Object.defineProperty(proto, "complete", { get: () => true, configurable: true });
+    Object.defineProperty(proto, "naturalWidth", { get: () => 400, configurable: true });
+    try {
+      fireEvent.error(proxyImg); // proxy fails → retry renders; layout effect re-runs
+      const retryImg = container.querySelector("img")!;
+      expect(retryImg.className).toContain("opacity-100");
+      expect(container.querySelector(".animate-shimmer")).toBeNull();
+    } finally {
+      if (origComplete) Object.defineProperty(proto, "complete", origComplete);
+      else delete (proto as unknown as Record<string, unknown>)["complete"];
+      if (origNatural) Object.defineProperty(proto, "naturalWidth", origNatural);
+      else delete (proto as unknown as Record<string, unknown>)["naturalWidth"];
+    }
+  });
+});
 
 describe("ProductImage — loadedUrls cache on retry success", () => {
   it("adds src to loadedUrls after a successful raw-URL load so repeat views are instant", () => {
