@@ -1,5 +1,4 @@
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useBrands } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -16,12 +15,10 @@ function SpotlightCard({ brand, index }: SpotlightCardProps) {
   const { language } = useLocale();
   const { city } = useLocationSelection();
   return (
-    <motion.div
+    <div
       key={brand.id}
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.4, delay: index * 0.04 }}
+      className="animate-card-enter"
+      style={{ "--enter-delay": `${index * 0.04}s` } as React.CSSProperties}
     >
       <Link
         href={`/brand/${brand.slug}`}
@@ -47,7 +44,7 @@ function SpotlightCard({ brand, index }: SpotlightCardProps) {
           </span>
         )}
       </Link>
-    </motion.div>
+    </div>
   );
 }
 

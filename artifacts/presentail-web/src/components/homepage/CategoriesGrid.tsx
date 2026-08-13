@@ -1,5 +1,4 @@
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -65,13 +64,10 @@ export function CategoriesGrid() {
             const heroSrcsetResult =
               i === 0 && imgSrc ? buildCategoryHeroSrcset(imgSrc, CATEGORY_CARD_HERO_SIZES) : null;
             return (
-              <motion.div
+              <div
                 key={item.id}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.5, delay: i * 0.05 }}
-                className={`min-w-[calc(25vw-0.75rem)] md:min-w-0 ${spanClass}`}
+                className={`animate-card-enter min-w-[calc(25vw-0.75rem)] md:min-w-0 ${spanClass}`}
+                style={{ "--enter-delay": `${i * 0.05}s` } as React.CSSProperties}
               >
                 <Link
                   href={`/category/${encodeURIComponent(CATEGORY_SLUG_REMAP[item.slug] ?? item.slug)}`}
@@ -108,7 +104,7 @@ export function CategoriesGrid() {
                     </div>
                   </div>
                 </Link>
-              </motion.div>
+              </div>
             );
           })}
           </div>

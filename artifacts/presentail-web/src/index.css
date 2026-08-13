@@ -400,6 +400,28 @@
   }
 }
 
+/* Entrance animation for cards/grid items. Pure CSS so the resting state
+   is always the element's natural style — an interrupted animation (tab
+   backgrounded, remount, busy main thread) can never strand the element
+   faded/offset the way per-frame JS inline styles can. */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+.animate-card-enter {
+  animation: card-enter 0.5s ease-out backwards;
+  animation-delay: var(--enter-delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-enter {
+    animation: none;
+  }
+}
+
 .animate-shimmer {
   background: linear-gradient(
     90deg,

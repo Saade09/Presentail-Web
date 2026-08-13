@@ -1132,7 +1132,7 @@ export const SEO_FALLBACK_CRITICAL_CSS =
 // straight to the app with no flash of crawler-facing copy. No-JS clients
 // never execute it, keeping the fallback fully visible for them.
 export const SEO_FALLBACK_JS_FLAG_SCRIPT =
-  '<script>document.documentElement.setAttribute("data-seo-js","")</script>';
+  '<script>document.documentElement.setAttribute("data-seo-js","")</script>'; // i18n-ignore
 
 const SEO_FALLBACK_STYLE_TAG = `${SEO_FALLBACK_JS_FLAG_SCRIPT}<style data-seo-fallback-css>${SEO_FALLBACK_CRITICAL_CSS}</style>`;
 

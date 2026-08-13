@@ -2,7 +2,6 @@ import { useCatalogOccasions } from "@/lib/queries";
 import { buildCatalogImageSrcset } from "@/lib/imageUtils";
 import { buildCollectionImageAlt } from "@/lib/imageAlt";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -139,10 +138,9 @@ function OccasionCard({ slug, name, image, labelKey, index }: OccasionCardProps)
   const displayName = (labelKey ? t(labelKey, {}) : undefined) || name;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: Math.min(index * 0.03, 0.3) }}
+    <div
+      className="animate-card-enter"
+      style={{ "--enter-delay": `${Math.min(index * 0.03, 0.3)}s` } as React.CSSProperties}
     >
       <Link
         href={`/occasion/${slug}`}
@@ -182,7 +180,7 @@ function OccasionCard({ slug, name, image, labelKey, index }: OccasionCardProps)
           {displayName}
         </span>
       </Link>
-    </motion.div>
+    </div>
   );
 }
 

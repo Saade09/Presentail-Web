@@ -1,7 +1,6 @@
 import { useCatalogMetadata } from "@/lib/queries";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useState } from "react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -19,11 +18,10 @@ function BrandCard({ brand, index }: BrandCardProps) {
   const showImage = !!brand.image && !imgFailed;
 
   return (
-    <motion.div
+    <div
       key={brand.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.05 }}
+      className="animate-card-enter"
+      style={{ "--enter-delay": `${index * 0.05}s` } as React.CSSProperties}
     >
       <Link href={`/brand/${brand.slug}`} className="block group">
         <div
@@ -59,7 +57,7 @@ function BrandCard({ brand, index }: BrandCardProps) {
           {brand.name}
         </h3>
       </Link>
-    </motion.div>
+    </div>
   );
 }
 

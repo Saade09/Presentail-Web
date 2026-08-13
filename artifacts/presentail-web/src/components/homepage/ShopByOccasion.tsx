@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import { Cake, Heart, Sparkles, Trophy, Baby, Smile, Flower2, Gift, type LucideIcon } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ArrowRight } from "lucide-react";
@@ -108,13 +107,10 @@ export function ShopByOccasion() {
           {displayItems.map((it, i) => {
             const label = it.key ? t(it.key) : it.slug;
             return (
-              <motion.div
+              <div
                 key={it.slug}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.4, delay: i * 0.04 }}
-                className="min-w-[calc(25vw-0.75rem)] md:min-w-0"
+                className="animate-card-enter min-w-[calc(25vw-0.75rem)] md:min-w-0"
+                style={{ "--enter-delay": `${i * 0.04}s` } as React.CSSProperties}
               >
                 <Link
                   href={`/occasion/${it.slug}`}
@@ -126,7 +122,7 @@ export function ShopByOccasion() {
                   </span>
                   <span className="font-serif text-base md:text-lg text-primary">{label}</span>
                 </Link>
-              </motion.div>
+              </div>
             );
           })}
           </div>

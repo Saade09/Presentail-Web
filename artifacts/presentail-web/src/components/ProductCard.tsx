@@ -1,6 +1,5 @@
 import { Product } from "@/lib/queries";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import { ProductImage } from "./ProductImage";
 import { SalePrice, isDiscountActive } from "./SalePrice";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
@@ -33,11 +32,9 @@ export function ProductCard({
       : null;
 
   return (
-    <motion.div
-      initial={isPriority ? false : { opacity: 0, y: 20 }}
-      animate={isPriority ? undefined : { opacity: 1, y: 0 }}
-      transition={isPriority ? undefined : { duration: 0.5, delay: index * 0.1 }}
-      className="group relative"
+    <div
+      className={`group relative${isPriority ? "" : " animate-card-enter"}`}
+      style={isPriority ? undefined : ({ "--enter-delay": `${index * 0.1}s` } as React.CSSProperties)}
       data-testid={`card-product-${product.id}`}
     >
       <Link href={`/product/${product.id}`} {...prefetchProps(loadProductDetail)}>
@@ -98,6 +95,6 @@ export function ProductCard({
           </p>
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }
