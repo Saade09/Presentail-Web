@@ -65,6 +65,9 @@ export type OrderSummaryPanelProps = {
   handleValidateAndAdvance: () => void;
   summaryOpen: boolean;
   setSummaryOpen: (v: boolean) => void;
+  /** Optional wrapper used by the mobile header toggle so the page can fire
+      analytics alongside the state change. Falls back to setSummaryOpen. */
+  onSummaryOpenChange?: (v: boolean) => void;
 };
 
 export function OrderSummaryPanel({
@@ -103,6 +106,7 @@ export function OrderSummaryPanel({
   handleValidateAndAdvance,
   summaryOpen,
   setSummaryOpen,
+  onSummaryOpenChange,
 }: OrderSummaryPanelProps) {
   const { t, dir } = useLocale();
   useDisplayCurrency();
@@ -143,21 +147,33 @@ export function OrderSummaryPanel({
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
 
           {/* ══════════════════════════════════════════════════
-              MOBILE HEADER (original — visually unchanged)
+              MOBILE HEADER — collapsed summary row
+              "Order summary · [count]"  |  bold total + chevron
               ══════════════════════════════════════════════════ */}
           <button
             type="button"
-            className="lg:hidden w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0"
+            className={`lg:hidden w-full min-h-[52px] px-4 py-3.5 flex items-center justify-between gap-3 shrink-0 ${summaryOpen ? "rounded-t-2xl border-b border-gray-100" : "rounded-2xl"}`}
             style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
-            onClick={() => setSummaryOpen(!summaryOpen)}
+            onClick={() => (onSummaryOpenChange ?? setSummaryOpen)(!summaryOpen)}
             aria-expanded={summaryOpen}
             data-testid="button-summary-toggle"
           >
-            <h3 className="text-sm font-semibold" style={{ color: "hsl(var(--primary))" }}>
-              {t("checkout.summary")}
-            </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold" style={{ color: "hsl(var(--primary))" }}>
+            <span className="min-w-0 flex items-baseline gap-1.5 text-start">
+              <span className="text-sm font-semibold text-foreground truncate">
+                {t("checkout.summary")}
+              </span>
+              <span className="text-sm text-muted-foreground shrink-0">
+                · {itemCountLabel}
+              </span>
+            </span>
+            <span className="flex items-center gap-2 shrink-0">
+              <span
+                className="text-base font-bold"
+                style={{ color: "hsl(var(--primary))" }}
+                role="status"
+                aria-live="polite"
+                data-testid="text-summary-collapsed-total"
+              >
                 <FormattedPrice usdValue={grandTotal} />
               </span>
               <ChevronDown
@@ -165,7 +181,7 @@ export function OrderSummaryPanel({
                 style={{ color: "hsl(var(--primary))" }}
                 aria-hidden
               />
-            </div>
+            </span>
           </button>
 
           {/* ══════════════════════════════════════════════════
@@ -351,14 +367,18 @@ export function OrderSummaryPanel({
                 ) : null}
               </div>
 
-              {/* Price breakdown — original style */}
+              {/* Price breakdown — approved mobile hierarchy */}
               <div className="space-y-2.5 border-t border-gray-100 pt-4">
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>{t("cart.subtotal")}</span>
+                  <span>
+                    {items.length === 1
+                      ? t("checkout.summary.itemsWithCount_one")
+                      : t("checkout.summary.itemsWithCount_other", { n: String(items.length) })}
+                  </span>
                   <span data-testid="text-subtotal"><FormattedPrice usdValue={subtotal} /></span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>{t("checkout.deliveryLabel")}</span>
+                  <span>{t("delivery.promise.standardTitle")}</span>
                   {isFreeDeliveryUnlocked && deliveryMode !== "express" ? (
                     <span>{t("checkout.deliveryFree")}</span>
                   ) : (

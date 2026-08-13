@@ -32,6 +32,13 @@ const WEB_EVENT_TYPES = [
   "free_delivery_unlocked",
   "free_delivery_lost",
   "checkout_clicked",
+  "mobile_checkout_summary_toggled",
+  "mobile_checkout_delivery_confirmation_viewed",
+  "mobile_checkout_delivery_change_clicked",
+  "mobile_checkout_sender_edit_clicked",
+  "mobile_checkout_anonymous_toggled",
+  "mobile_checkout_continue_payment_clicked",
+  "mobile_checkout_validation_failed",
 ] as const;
 
 const webEventItemSchema = z.object({

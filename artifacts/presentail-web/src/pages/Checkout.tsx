@@ -26,7 +26,8 @@ import {
   useFxRates,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { ArrowLeft, Check, Lock, MapPin, BookUser, ChevronDown, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, CalendarDays, ChevronDown, Loader2, Plus, Zap } from "lucide-react";
+import { buildFeeNode } from "@/lib/feeNode";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -72,7 +73,6 @@ import {
   slotTimeRangeForLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
-import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import {
   isApplePayBrowser,
   webNextPaymentMethod,
@@ -2057,6 +2057,99 @@ function CheckoutForm() {
   } catch {
     // safe fallback — delivery row will show the picker affordance
   }
+  // ── Mobile checkout redesign: analytics + express arrival promise ──
+  // Authoritative quote-derived grand total shared by the sticky footer CTA
+  // (OrderSummaryPanel derives the identical value from the same inputs).
+  const mobileGrandTotal = computeCartTotal(
+    displaySubtotal,
+    displayDistrictFee + displayExpressFee + displaySlotFee,
+    displayCouponDiscount,
+  );
+  // Express arrival deadline — anchored when express is selected (does not
+  // continuously drift forward), cleared when the shopper leaves express.
+  const [expressDeadline, setExpressDeadline] = useState<Date | null>(null);
+  useEffect(() => {
+    if (deliveryMode === "express") {
+      setExpressDeadline((prev) => prev ?? new Date(Date.now() + 90 * 60 * 1000));
+    } else {
+      setExpressDeadline(null);
+    }
+  }, [deliveryMode]);
+  const expressDeadlineText = useMemo(() => {
+    if (!expressDeadline) return "";
+    try {
+      return new Intl.DateTimeFormat(
+        language === "ar" ? "ar" : language === "fr" ? "fr" : "en",
+        {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: (countryCode ?? "LB") === "AE" ? "Asia/Dubai" : "Asia/Beirut",
+        },
+      ).format(expressDeadline);
+    } catch {
+      return "";
+    }
+  }, [expressDeadline, countryCode, language]);
+  // Fire the delivery-confirmation-viewed event once per delivery type while
+  // the mobile step-1 confirmation card is on screen.
+  const deliveryConfirmationViewedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isMobile || step !== 1) return;
+    if (deliveryConfirmationViewedRef.current === deliveryMode) return;
+    deliveryConfirmationViewedRef.current = deliveryMode;
+    trackWebEvent({
+      type: "mobile_checkout_delivery_confirmation_viewed",
+      currency: checkoutCurrency,
+      properties: {
+        delivery_type: deliveryMode === "express" ? "express" : "standard",
+        promise_type: deliveryMode === "express" ? "deadline" : "scheduled_window",
+      },
+    });
+  }, [isMobile, step, deliveryMode, checkoutCurrency]);
+  // Summary toggle wrapper — OrderSummaryPanel calls this from the mobile
+  // header row; fires the analytics event once per toggle action.
+  const handleSummaryOpenChange = (open: boolean) => {
+    setSummaryOpen(open);
+    if (isMobile) {
+      trackWebEvent({
+        type: "mobile_checkout_summary_toggled",
+        currency: checkoutCurrency,
+        properties: {
+          expanded: open,
+          delivery_type: deliveryMode === "express" ? "express" : "standard",
+        },
+      });
+    }
+  };
+  const handleMobileDeliveryChange = () => {
+    trackWebEvent({
+      type: "mobile_checkout_delivery_change_clicked",
+      properties: {
+        current_delivery_type: deliveryMode === "express" ? "express" : "standard",
+      },
+    });
+    setDeliveryPickerOpen(true);
+  };
+  const handleMobileContinue = () => {
+    trackWebEvent({
+      type: "mobile_checkout_continue_payment_clicked",
+      currency: checkoutCurrency,
+      value: mobileGrandTotal,
+      properties: {
+        delivery_type: deliveryMode === "express" ? "express" : "standard",
+        standard_delivery_free: isFreeDeliveryUnlocked || displayDistrictFee === 0,
+        express_upgrade_present: deliveryMode === "express",
+        promo_or_gift_card_applied: couponApplied || displayCouponDiscount > 0,
+      },
+    });
+    const invalidField = handleValidateAndAdvance();
+    if (invalidField) {
+      trackWebEvent({
+        type: "mobile_checkout_validation_failed",
+        properties: { first_invalid_field: invalidField },
+      });
+    }
+  };
 
   // Delivery-promise payload for the desktop sidebar confirmation panel.
   // Express: quote-anchored "Arrives by [time]"; Standard: "Arrives [day · window]".
@@ -3133,7 +3226,9 @@ function CheckoutForm() {
   // and advance to Step 2 only when all fields are valid.
   // Used by both the desktop sidebar CTA (always-clickable) and the email
   // field's Enter-key handler.
-  const handleValidateAndAdvance = () => {
+  // Returns the field-category name of the first invalid field (for the
+  // mobile validation-failed analytics event), or null when advancing.
+  const handleValidateAndAdvance = (): string | null => {
     // Enriched continue-to-payment analytics — fired on every click (the
     // spec's CTA event), with the same authoritative amounts the sidebar
     // and CTA display. No PII.
@@ -3166,34 +3261,45 @@ function CheckoutForm() {
     // Walk required fields in top-to-bottom form order and bail on the first gap.
     if (!recipient.firstName) {
       focusInvalid(recipientFirstNameRef.current);
-      return;
+      return "recipient_first_name";
     }
     if (!recipientPhoneValid) {
-      focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input'));
-      return;
+      // PhoneInput renders the <input> with the data-testid directly on it;
+      // fall back to an inner input, then the wrapper itself.
+      focusInvalid(
+        document.querySelector<HTMLElement>('input[data-testid="input-recipient-phone"]') ??
+        document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input') ??
+        document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"]'),
+      );
+      return "recipient_phone";
     }
     if (!noAddress && !recipient.district) {
       focusInvalid(document.querySelector<HTMLElement>('[data-testid="select-district"]'));
-      return;
+      return "district";
     }
     if (!noAddress && !recipient.address) {
       focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-recipient-address"]'));
-      return;
+      return "address";
     }
     if (!isSignedIn && !sender.firstName) {
       focusInvalid(senderFirstNameRef.current);
-      return;
+      return "sender_first_name";
     }
     if (!isSignedIn && !sender.email) {
       focusInvalid(senderEmailRef.current);
-      return;
+      return "sender_email";
     }
     if (!hasProfilePhone && !senderPhoneValid) {
-      focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-sender-phone"] input'));
-      return;
+      focusInvalid(
+        document.querySelector<HTMLElement>('input[data-testid="input-sender-phone"]') ??
+        document.querySelector<HTMLElement>('[data-testid="input-sender-phone"] input') ??
+        document.querySelector<HTMLElement>('[data-testid="input-sender-phone"]'),
+      );
+      return "sender_phone";
     }
 
     setStep(2);
+    return null;
   };
 
   const stepLabels = [
@@ -3272,15 +3378,15 @@ function CheckoutForm() {
 
             {/* ── STEP 1 · Delivery Details ── */}
             {step === 1 && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-24 lg:pb-0">
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-40 lg:pb-0">
                 <div className="mb-6">
                   <h2 className="text-2xl font-serif text-primary mb-1">{t("checkout.step.deliveryDetails")}</h2>
                   <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
                 </div>
 
                 {/* Recipient Details */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.recipientDetails")}</p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-4">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4 lg:mb-5">{t("checkout.section.recipientDetails")}</p>
 
                   {savedAddresses.length > 0 && (
                     <div className="mb-5">
@@ -3356,7 +3462,8 @@ function CheckoutForm() {
                           {t("checkout.askRecipientForAddressTitle")}
                         </div>
                         <div className="text-xs text-muted-foreground leading-snug mt-0.5">
-                          {t("checkout.askRecipientForAddressNote")}
+                          <span className="lg:hidden">{t("checkout.askRecipientNoteShort")}</span>
+                          <span className="hidden lg:inline">{t("checkout.askRecipientForAddressNote")}</span>
                         </div>
                       </div>
                     </button>
@@ -3368,10 +3475,10 @@ function CheckoutForm() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
-                      <Input ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(recipientLastNameRef)} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" autoCapitalize="words" />
+                      <Input ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(recipientLastNameRef)} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" autoCapitalize="words" enterKeyHint="next" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
@@ -3385,7 +3492,7 @@ function CheckoutForm() {
                             document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input');
                           phoneInput?.focus();
                         }
-                      }} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
+                      }} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" enterKeyHint="next" />
                     </div>
                   </div>
 
@@ -3446,8 +3553,12 @@ function CheckoutForm() {
                       </div>
 
                       <div className="space-y-2 mb-4">
-                        <label className="text-sm font-medium">{t("checkout.address")}<span className="text-destructive ms-0.5">*</span></label>
-                        <Textarea rows={3} value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
+                        <label className="text-sm font-medium">
+                          <span className="lg:hidden">{t("checkout.addressLabelShort")}</span>
+                          <span className="hidden lg:inline">{t("checkout.address")}</span>
+                          <span className="text-destructive ms-0.5">*</span>
+                        </label>
+                        <Textarea rows={3} className="min-h-[76px]" value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={isMobile ? t("checkout.addressPhShort") : t("checkout.addressPh")} data-testid="input-recipient-address" />
                       </div>
 
                       {isSignedIn && (
@@ -3469,25 +3580,90 @@ function CheckoutForm() {
 
                 </div>
 
+                {/* Delivery confirmation card — mobile only. Replaces the large
+                    Delivery Time selector below (which stays desktop-only). */}
+                <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4" data-testid="card-delivery-confirmation">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-3">{t("checkout.delivery.sectionLabel")}</p>
+                  <div
+                    className="rounded-xl px-3.5 py-3 flex items-center gap-3"
+                    style={{ backgroundColor: "hsl(210 33% 96%)" }}
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-primary">
+                      {deliveryMode === "express" ? (
+                        <Zap className="h-[18px] w-[18px]" aria-hidden />
+                      ) : (
+                        <CalendarDays className="h-[18px] w-[18px]" aria-hidden />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {deliveryMode === "express" ? (
+                        <>
+                          <p className="text-xs text-muted-foreground">{t("delivery.promise.expressTitle")}</p>
+                          <p className="text-sm font-semibold text-foreground leading-snug" data-testid="text-delivery-promise">
+                            {expressDeadlineText
+                              ? t("delivery.promise.arrivesBy", { time: expressDeadlineText })
+                              : t("checkout.expressDeliveryLabel")}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t("delivery.promise.within90")}</p>
+                        </>
+                      ) : deliveryRowText ? (
+                        <>
+                          <p className="text-xs text-muted-foreground">{t("delivery.promise.standardTitle")}</p>
+                          <p className="text-sm font-semibold text-foreground leading-snug" data-testid="text-delivery-promise">
+                            {t("delivery.promise.arrives", { when: deliveryRowText })}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t("delivery.promise.scheduledCaption")}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-xs text-muted-foreground">{t("delivery.promise.standardTitle")}</p>
+                          <p className="text-sm font-semibold text-foreground leading-snug" data-testid="text-delivery-promise">
+                            {t("checkout.delivery.notSelected")}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleMobileDeliveryChange}
+                      className="shrink-0 min-h-11 min-w-11 px-2 flex items-center justify-center text-sm font-medium underline underline-offset-2 text-primary hover:opacity-70 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
+                      data-testid="button-mobile-change-delivery"
+                      aria-label={t("delivery.row.change")}
+                    >
+                      {t("delivery.row.change")}
+                    </button>
+                  </div>
+                </div>
+
                 {/* Sender Details */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.senderDetails")}</p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-4">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4 lg:mb-5">{t("checkout.section.senderDetails")}</p>
 
                   {isSignedIn ? (
                     <>
-                      {/* Mobile: original sender summary (unchanged — Task #3613 covers mobile) */}
-                      <div className="mb-4 rounded-xl border bg-secondary/40 p-4 lg:hidden" data-testid="sender-summary">
-                        <p className="text-sm">
-                          {t("checkout.sendingAs", {
-                            summary: [
-                              `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
-                              user?.email ?? "",
-                              profilePhone,
-                            ].filter((s) => s && s.trim()).join(" · "),
-                          })}
-                        </p>
-                        <Link href="/account/personal-information" className="mt-1 inline-block text-xs underline" data-testid="link-edit-account">
-                          {t("checkout.editInAccount")}
+                      {/* Mobile: compact identity row */}
+                      <div
+                        className="lg:hidden mb-4 rounded-xl px-3.5 py-3 flex items-center gap-3"
+                        style={{ backgroundColor: "hsl(210 33% 96%)" }}
+                        data-testid="sender-summary-mobile"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {t("checkout.sendingAs", {
+                              summary: `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || (user?.email ?? ""),
+                            })}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            {[user?.email ?? "", profilePhone].filter((s) => s && s.trim()).join(" · ")}
+                          </p>
+                        </div>
+                        <Link
+                          href="/account/personal-information"
+                          onClick={() => trackWebEvent({ type: "mobile_checkout_sender_edit_clicked" })}
+                          className="shrink-0 min-h-11 px-2 flex items-center text-sm font-medium underline underline-offset-2 text-primary hover:opacity-70 transition-opacity rounded-lg"
+                          data-testid="link-edit-account-mobile"
+                        >
+                          {t("checkout.recap.edit")}
                         </Link>
                       </div>
                       {/* Desktop: compact identity row — "Sending as [name] / email · phone / Edit" */}
@@ -3569,15 +3745,30 @@ function CheckoutForm() {
                     </div>
                   )}
 
-                  {/* Mobile: original identity-secret checkbox (unchanged) */}
+                  {/* Mobile: "Send this gift anonymously" checkbox with always-visible supporting line */}
                   <div className="lg:hidden">
-                    <label className="flex items-start gap-3 cursor-pointer select-none" data-testid="check-identity-secret-label">
-                      <input type="checkbox" checked={identitySecret} onChange={(e) => setIdentitySecret(e.target.checked)} className="mt-1 h-4 w-4 accent-primary cursor-pointer" data-testid="check-identity-secret" />
-                      <span className="text-sm">{t("checkout.keepIdentitySecret")}</span>
+                    <label className="flex items-center gap-3 cursor-pointer select-none min-h-11" data-testid="check-identity-secret-label">
+                      <input
+                        type="checkbox"
+                        checked={identitySecret}
+                        onChange={(e) => {
+                          setIdentitySecret(e.target.checked);
+                          if (isMobile) {
+                            trackWebEvent({
+                              type: "mobile_checkout_anonymous_toggled",
+                              properties: { enabled: e.target.checked },
+                            });
+                          }
+                        }}
+                        className="h-4 w-4 accent-primary cursor-pointer shrink-0"
+                        aria-describedby="identity-secret-hint"
+                        data-testid="check-identity-secret"
+                      />
+                      <span className="text-sm">{t("checkout.anonymousGift")}</span>
                     </label>
-                    {identitySecret && (
-                      <p className="text-xs text-gray-500 mt-1 ml-7" data-testid="identity-secret-hint">{t("checkout.keepIdentitySecretHint")}</p>
-                    )}
+                    <p id="identity-secret-hint" className="text-xs text-gray-500 mt-1 ms-7" data-testid="identity-secret-hint">
+                      {t("checkout.anonymousGiftHint")}
+                    </p>
                   </div>
                   {/* Desktop: "Send this gift anonymously" with always-visible explanation */}
                   <div className="hidden lg:block">
@@ -3600,67 +3791,51 @@ function CheckoutForm() {
                   </div>
                 </div>
 
-                {/* Delivery Time — mobile only. On desktop the delivery choice
-                    carries in from the cart (shared delivery-selection state) and
-                    is changed via the sidebar DELIVERY panel's "Change" action. */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6 lg:hidden">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.deliveryTime")}</p>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <button
-                      type="button"
-                      onClick={() => expressAvailable && setDeliveryMode("express")}
-                      disabled={!expressAvailable}
-                      data-testid="delivery-mode-express"
-                      className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
-                        deliveryMode === "express" ? "text-white" : "border-border bg-card text-foreground hover:border-primary/30"
-                      } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
-                      style={deliveryMode === "express" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary))" } : {}}
-                    >
-                      <div className="font-semibold">{t("checkout.expressDelivery")}</div>
-                      <div className="text-xs opacity-80 mt-1">{expressAvailable ? <><span>+</span><FormattedPrice usdValue={expressSurcharge} /></> : t("checkout.expressUnavailable")}</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryMode("schedule")}
-                      data-testid="delivery-mode-schedule"
-                      className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
-                        deliveryMode === "schedule" ? "text-white" : "border-border bg-card text-foreground hover:border-primary/30"
-                      }`}
-                      style={deliveryMode === "schedule" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary))" } : {}}
-                    >
-                      <div className="font-semibold">{t("checkout.scheduleDelivery")}</div>
-                      <div className="text-xs opacity-80 mt-1">{t("checkout.scheduleDeliveryDesc")}</div>
-                    </button>
-                  </div>
-                  {deliveryMode === "schedule" && (
-                    <ScheduleInlinePanel
-                      countryCode={countryCode}
-                      initialDate={recipient.deliveryDate || undefined}
-                      initialSlotLabel={deliverySlot || undefined}
-                      timeSlots={timeSlots}
-                      onChange={({ date, slotLabel, slotId }) => {
-                        setRecipient((r) => ({ ...r, deliveryDate: date }));
-                        setDeliverySlot(slotLabel);
-                        setDeliverySlotId(slotId);
-                      }}
-                    />
-                  )}
-                </div>
+                {/* The Delivery Time selector card is gone from both breakpoints:
+                    desktop changes delivery via the sidebar DELIVERY panel, mobile
+                    via the compact delivery confirmation card's Change action. */}
 
-                {/* Mobile fixed-bottom CTA — hidden on desktop (sidebar CTA takes over) */}
-                <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:hidden">
-                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setLocation("/cart")} data-testid="button-back-to-cart-from-delivery">{t("checkout.back")}</Button>
-                  <Button
-                    ref={continueToPaymentRef}
-                    size="lg"
-                    className="flex-1 h-14 rounded-xl text-white font-semibold"
-                    style={{ backgroundColor: "hsl(var(--primary))" }}
-                    onClick={handleValidateAndAdvance}
-                    disabled={step1CtaDisabled}
-                    data-testid="button-continue-to-payment"
+                {/* Mobile sticky footer — hidden on desktop (sidebar CTA takes over).
+                    Always tappable: invalid submits scroll/focus the first invalid field. */}
+                <div
+                  className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 pt-3 border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] lg:hidden"
+                  style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
+                >
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="h-14 rounded-xl basis-1/4 min-w-[76px] px-2"
+                      onClick={() => setLocation("/cart")}
+                      data-testid="button-back-to-cart-from-delivery"
+                    >
+                      {t("checkout.back")}
+                    </Button>
+                    <Button
+                      ref={continueToPaymentRef}
+                      size="lg"
+                      className="flex-1 h-14 rounded-xl text-white font-semibold flex items-center justify-between px-4"
+                      style={{ backgroundColor: "hsl(var(--primary))" }}
+                      onClick={handleMobileContinue}
+                      aria-describedby="mobile-cta-secure"
+                      data-testid="button-continue-to-payment"
+                    >
+                      <span className="flex flex-col items-start leading-tight min-w-0">
+                        <span className="text-sm font-semibold">{t("checkout.continuePayment")}</span>
+                        <span className="text-xs font-normal opacity-90" data-testid="text-footer-total" role="status" aria-live="polite">
+                          {buildFeeNode(t("checkout.cta.orderTotalLine"), { total: mobileGrandTotal })}
+                        </span>
+                      </span>
+                      <ArrowRight className={`w-5 h-5 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} aria-hidden />
+                    </Button>
+                  </div>
+                  <div
+                    id="mobile-cta-secure"
+                    className="flex items-center justify-center gap-1.5 mt-2 text-xs text-muted-foreground"
                   >
-                    {t("checkout.continuePayment")}
-                  </Button>
+                    <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                    <span>{t("checkout.cta.secureCheckout")}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -3888,6 +4063,7 @@ function CheckoutForm() {
           {/* ── Order Summary Sidebar ── */}
           <OrderSummaryPanel
             items={items}
+            onSummaryOpenChange={handleSummaryOpenChange}
             subtotal={displaySubtotal}
             districtFee={displayDistrictFee}
             expressFee={displayExpressFee}

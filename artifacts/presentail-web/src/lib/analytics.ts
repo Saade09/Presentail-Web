@@ -17,7 +17,6 @@ type WebEventType =
   | "promo_code_expanded"
   | "promo_code_submitted"
   | "promo_code_removed"
-  | "checkout_clicked"
   | "search"
   | "search_no_result"
   | "free_delivery_prompt_viewed"
@@ -35,7 +34,15 @@ type WebEventType =
   | "checkout_promo_expanded"
   | "checkout_promo_applied"
   | "checkout_anonymous_gift_toggled"
-  | "continue_to_payment_clicked";
+  | "continue_to_payment_clicked"
+  // Mobile checkout redesign events
+  | "mobile_checkout_summary_toggled"
+  | "mobile_checkout_delivery_confirmation_viewed"
+  | "mobile_checkout_delivery_change_clicked"
+  | "mobile_checkout_sender_edit_clicked"
+  | "mobile_checkout_anonymous_toggled"
+  | "mobile_checkout_continue_payment_clicked"
+  | "mobile_checkout_validation_failed";
 
 export type WebEventItem = {
   productId: string;
