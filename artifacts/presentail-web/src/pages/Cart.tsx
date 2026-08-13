@@ -20,7 +20,9 @@ import { buildFeeNode } from "@/lib/feeNode";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { expressSurchargeForCountry, freeDeliveryThresholdUsd, getLocalIso, timeSlotsForCountry } from "@workspace/delivery";
+import { expressSurchargeForCountry, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, timeSlotsForCountry } from "@workspace/delivery";
+import { useDeliveryPromise } from "@/components/delivery/deliveryPromise";
+import { useNow } from "@/lib/useNow";
 import { computeCartTotal } from "@workspace/display-currency";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
@@ -114,6 +116,14 @@ export default function Cart() {
   const expressSurcharge = expressSurchargeForCountry(countryCode);
   const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate } = useDeliverySelection();
   const { formatPrice } = useDisplayCurrency();
+  const deliveryPromise = useDeliveryPromise();
+  const now = useNow();
+  // Express upsell visibility: city allows express AND we're inside the
+  // express operating window in the recipient market's timezone.
+  const expressAvailableNow =
+    locationCity?.expressAvailable !== false && isExpressDeliveryAvailable(countryCode, now);
+  // Express upsell → open the delivery picker with express preselected.
+  const [upsellExpressOpen, setUpsellExpressOpen] = useState(false);
   // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
   //   1. OS per-city value (most specific)
   //   2. OS per-country value
@@ -481,6 +491,18 @@ export default function Cart() {
     setLoginOpen(true);
   };
   const goToCheckout = () => setLocation("/checkout?guest=1");
+
+  // Fired on every checkout CTA click (desktop sidebar + mobile sticky bar),
+  // before auth gating, with the selected delivery type and promise metadata.
+  const trackCheckoutClicked = () => {
+    trackEvent({
+      name: "checkout_clicked",
+      surface: "cart",
+      ...(deliveryPromise
+        ? { deliveryMethod: deliveryPromise.type, deliveryPromise: deliveryPromise.summary }
+        : {}),
+    });
+  };
 
   // Emit one cart_viewed event when the standalone cart page mounts.
   // This is the entry point of the purchase funnel evaluated by the
@@ -886,10 +908,13 @@ export default function Cart() {
                 )}
               </div>
 
-              <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm mb-4">
-                <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
+              <div className="bg-white rounded-2xl p-6 pb-5 border border-primary/10 shadow-sm mb-4">
+                <h2 className="text-2xl font-serif mb-3">{t("cart.deliverySummary")}</h2>
                 <div className="text-sm">
-                  <DeliveryDateRow />
+                  <DeliveryDateRow
+                    openWithExpress={upsellExpressOpen}
+                    onExpressPreselectConsumed={() => setUpsellExpressOpen(false)}
+                  />
                 </div>
               </div>
 
@@ -902,7 +927,9 @@ export default function Cart() {
                     <span className="font-medium"><FormattedPrice usdValue={subtotal} /></span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("cart.deliveryCharges")}</span>
+                    <span className="text-muted-foreground min-w-0 pe-3" data-testid="text-summary-delivery-label">
+                      {deliveryPromise ? deliveryPromise.summary : t("cart.deliveryCharges")}
+                    </span>
                     <span className="font-medium">
                       {deliveryFeeUsd === null
                         ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
@@ -920,17 +947,24 @@ export default function Cart() {
                     </div>
                   )}
 
-                  {expressSurcharge > 0 && locationCity?.expressAvailable !== false && (
-                    deliveryMode === "express" ? (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{t("cart.expressLabel")}</span>
-                        <span className="font-medium"><FormattedPrice usdValue={expressSurcharge} /></span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        {buildFeeNode(t("cart.expressNote"), { amount: expressSurcharge })}
-                      </p>
-                    )
+                  {expressSurcharge > 0 && locationCity?.expressAvailable !== false && deliveryMode === "express" && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t("cart.expressLabel")}</span>
+                      <span className="font-medium"><FormattedPrice usdValue={expressSurcharge} /></span>
+                    </div>
+                  )}
+                  {expressSurcharge > 0 && expressAvailableNow && deliveryMode !== "express" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        trackEvent({ name: "express_upgrade_selected", surface: "cart", deliveryMethod: "express" });
+                        setUpsellExpressOpen(true);
+                      }}
+                      className="block w-full text-start text-xs text-primary underline underline-offset-2 hover:opacity-80 transition-opacity"
+                      data-testid="button-express-upsell"
+                    >
+                      {buildFeeNode(t("cart.expressUpsell"), { amount: expressSurcharge })}
+                    </button>
                   )}
                   {couponApplied && couponDiscountUsd > 0 && (
                     <div className="flex justify-between text-emerald-600" data-testid="row-cart-coupon-discount">
@@ -948,7 +982,7 @@ export default function Cart() {
                 <Button asChild size="lg" className="hidden lg:flex w-full h-14 text-base rounded-xl px-5">
                   <Link
                     href="/checkout"
-                    onClick={handleProceed}
+                    onClick={(e) => { trackCheckoutClicked(); handleProceed(e); }}
                     data-testid="link-proceed-to-checkout"
                     className="flex items-center gap-2"
                   >
@@ -1111,7 +1145,7 @@ export default function Cart() {
         <Button asChild size="lg" className="w-full h-[52px] text-sm rounded-2xl px-5">
           <Link
             href="/checkout"
-            onClick={handleProceed}
+            onClick={(e) => { trackCheckoutClicked(); handleProceed(e); }}
             data-testid="link-proceed-to-checkout-sticky"
             className="flex items-center gap-2"
           >

@@ -13,6 +13,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { ReactNode } from "react";
 import { useNow } from "@/lib/useNow";
+import { trackEvent } from "@/lib/analytics";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import {
   dayLabels,
@@ -70,6 +71,12 @@ interface Props {
    * the hardcoded `expressSurchargeForCountry` fallback shown in the modal.
    */
   expressSurchargeUsd?: number;
+  /**
+   * When set, the modal opens with this mode preselected instead of the
+   * persisted selection (e.g. the cart's express upsell opens with express
+   * highlighted). Still subject to express availability.
+   */
+  initialModeOverride?: "express" | "schedule";
 }
 
 function dayMonthShort(iso: string): string {
@@ -272,7 +279,7 @@ function InlineCalendar({ selectedIso, todayIso, todaySelectable, onSelect, prev
 // Main modal
 // ---------------------------------------------------------------------------
 
-export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd }: Props) {
+export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd, initialModeOverride }: Props) {
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
   const now = useNow();
@@ -334,7 +341,13 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   );
 
   const initialMode: "express" | "schedule" =
-    deliverySelection.mode === "express" && expressAvailable ? "express" : "schedule";
+    initialModeOverride === "express" && expressAvailable
+      ? "express"
+      : initialModeOverride === "schedule"
+        ? "schedule"
+        : deliverySelection.mode === "express" && expressAvailable
+          ? "express"
+          : "schedule";
   const initialDate =
     deliverySelection.mode !== "express" && deliverySelection.date
       ? deliverySelection.date
@@ -350,7 +363,15 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   useEffect(() => {
     if (!open) return;
     setCalendarOpen(false);
-    setMode(deliverySelection.mode === "express" && expressAvailable ? "express" : "schedule");
+    setMode(
+      initialModeOverride === "express" && expressAvailable
+        ? "express"
+        : initialModeOverride === "schedule"
+          ? "schedule"
+          : deliverySelection.mode === "express" && expressAvailable
+            ? "express"
+            : "schedule",
+    );
     let newDate =
       deliverySelection.mode !== "express" && deliverySelection.date
         ? deliverySelection.date
@@ -427,6 +448,17 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
         // lookups downstream never resolve the wrong duplicate.
         slotId: selectedSlotState?.slot.slotId ?? null,
       };
+    }
+    // Track delivery type changes (standard ↔ express) once per confirm.
+    const prevType = deliverySelection.mode === "express" ? "express" : deliverySelection.mode ? "standard" : null;
+    const nextType = selection.mode === "express" ? "express" : "standard";
+    if (prevType !== nextType) {
+      trackEvent({
+        name: "delivery_method_selected",
+        surface: "cart",
+        deliveryMethod: nextType,
+        deliverySource: "user",
+      });
     }
     deliverySelection.setSelection(selection);
     onConfirm?.(selection);

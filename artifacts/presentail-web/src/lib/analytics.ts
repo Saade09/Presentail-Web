@@ -190,7 +190,11 @@ type AnalyticsEventName =
   | "delivery_scheduler_opened"
   | "delivery_window_selected"
   | "delivery_change_opened"
-  | "express_upgrade_selected";
+  | "express_upgrade_selected"
+  /** Cart Delivery Summary card rendered with a concrete promise (standard/express). */
+  | "delivery_summary_viewed"
+  /** Checkout CTA clicked on the cart page (fires before auth gating). */
+  | "checkout_clicked";
 
 type AnalyticsSurface =
   | "cart"
@@ -257,6 +261,11 @@ export type AnalyticsEvent = {
   deliverySource?: "auto" | "user";
   /** Express surcharge in USD at the time of the event, for add_to_cart enrichment. */
   deliveryFeeUsd?: number;
+  /**
+   * Human-readable delivery promise shown at the time of the event, e.g.
+   * "Standard delivery · Today, 2–5 PM". Never contains recipient PII.
+   */
+  deliveryPromise?: string;
   /** banner_clicked fields */
   bannerId?: string;
   linkKind?: string;

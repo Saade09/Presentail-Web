@@ -544,3 +544,80 @@ export function isExpressDeliveryAvailable(
   const h = getCountryHour(countryCode, at);
   return h >= EXPRESS_OPEN_HOUR && h < EXPRESS_CLOSE_HOUR;
 }
+
+// ---------------------------------------------------------------------------
+// Delivery promise (cart Delivery Summary)
+// ---------------------------------------------------------------------------
+
+/** Express SLA in minutes — orders arrive within this window of the quote time. */
+export const EXPRESS_SLA_MINUTES = 90;
+
+/** Timezone identifier for a country code. LB/CY → Beirut, AE → Dubai. */
+export function countryTimeZone(countryCode?: string | null): string {
+  return countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
+}
+
+/** Deadline instant for an express order quoted at `quotedAt` (quote + 90 min). */
+export function expressDeadlineFrom(quotedAt: Date): Date {
+  return new Date(quotedAt.getTime() + EXPRESS_SLA_MINUTES * 60_000);
+}
+
+/**
+ * Format an instant as a locale-aware wall-clock time in the recipient
+ * country's timezone (e.g. "11:07 AM" / "١١:٠٧ ص" / "11:07"). Falls back to a
+ * manual UTC-offset 12-hour rendering when `Intl` is unavailable.
+ */
+export function formatCountryTime(
+  at: Date,
+  countryCode?: string | null,
+  locale?: string,
+): string {
+  try {
+    return new Intl.DateTimeFormat(locale ?? undefined, {
+      timeZone: countryTimeZone(countryCode),
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(at);
+  } catch {
+    // Manual fallback: shift by the country's fixed offset, format as 12h.
+    const offset = countryCode === "AE" ? 4 : getBeirutOffsetHours(at);
+    const shifted = new Date(at.getTime() + offset * 3_600_000);
+    let h = shifted.getUTCHours();
+    const m = String(shifted.getUTCMinutes()).padStart(2, "0");
+    const period = h >= 12 ? "PM" : "AM";
+    h = h % 12 === 0 ? 12 : h % 12;
+    return `${h}:${m} ${period}`;
+  }
+}
+
+/**
+ * Locale-aware date label for the standard-delivery promise:
+ * today → `todayLabel`, tomorrow → `tomorrowLabel`, otherwise a short
+ * localized "Sat, 15 Aug"-style label. `todayIso` must be the recipient
+ * country's local date (from `getLocalIso`).
+ */
+export function formatPromiseDateLabel(
+  dateIso: string,
+  todayIso: string,
+  todayLabel: string,
+  tomorrowLabel: string,
+  locale?: string,
+): string {
+  if (dateIso === todayIso) return todayLabel;
+  // Compute tomorrow from local parts (never UTC-shifted).
+  const [ty, tm, td] = todayIso.split("-").map(Number) as [number, number, number];
+  const tom = new Date(ty, tm - 1, td + 1, 12, 0, 0);
+  const tomorrowIso = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, "0")}-${String(tom.getDate()).padStart(2, "0")}`;
+  if (dateIso === tomorrowIso) return tomorrowLabel;
+  const [y, m, d] = dateIso.split("-").map(Number) as [number, number, number];
+  const date = new Date(y, m - 1, d, 12, 0, 0);
+  try {
+    return new Intl.DateTimeFormat(locale ?? undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }).format(date);
+  } catch {
+    return dateIso;
+  }
+}

@@ -59,7 +59,7 @@ export const cartStrings: Dict = {
   "cart.deliveryCharges": { en: "Delivery charges", ar: "رسوم التوصيل" },
   "cart.deliveryFree": { en: "Free", ar: "مجاني" },
   "cart.deliveryTbd": { en: "Calculated at checkout", ar: "يُحسب عند الدفع" },
-  "cart.expressNote": { en: "Express delivery may incur an additional fee of {amount}", ar: "قد تستلزم التوصيل السريع رسوماً إضافية بقيمة {amount}" },
+  "cart.expressUpsell": { en: "Need it sooner? Express delivery within 90 min for {amount}", ar: "تحتاجها أسرع؟ توصيل سريع خلال ٩٠ دقيقة مقابل {amount}" },
   "cart.expressLabel": { en: "Express fee", ar: "رسوم التوصيل السريع" },
   "cart.lateNightFee": { en: "Late night fee", ar: "رسوم التوصيل الليلي المتأخر" },
   // Contextual three-state free-delivery card (cart page)
@@ -169,7 +169,7 @@ export const cartStringsFr: Record<string, string> = {
   "cart.deliveryCharges": "Frais de livraison",
   "cart.deliveryFree": "Gratuit",
   "cart.deliveryTbd": "Calculé à la caisse",
-  "cart.expressNote": "La livraison express peut entraîner des frais supplémentaires de {amount}",
+  "cart.expressUpsell": "Besoin plus vite ? Livraison express en 90 min pour {amount}",
   "cart.expressLabel": "Frais express",
   "cart.lateNightFee": "Frais de livraison tardive",
   // Contextual three-state free-delivery card (cart page)

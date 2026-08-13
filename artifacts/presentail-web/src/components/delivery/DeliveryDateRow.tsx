@@ -1,95 +1,96 @@
-import { useMemo, useState } from "react";
-import { CalendarDays, ChevronRight } from "lucide-react";
-import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useLocale } from "@/contexts/LocaleContext";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, ChevronRight, Zap } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { dayLabels, formatDeliveryRow, slotTimeRangeForLabel, timeSlotsForCountry } from "@workspace/delivery";
+import { useLocale } from "@/contexts/LocaleContext";
+import { trackEvent } from "@/lib/analytics";
 import { DeliveryPickerModal } from "./DeliveryPickerModal";
+import { useCityTimeSlots, useDeliveryPromise } from "./deliveryPromise";
 
 interface Props {
   className?: string;
-  /** Override the displayed text (e.g. from local checkout state). When omitted, reads from DeliverySelectionContext. */
-  rowText?: string | null;
   /** Override the click behaviour. When omitted, opens DeliveryPickerModal. */
   onChangeClick?: () => void;
+  /**
+   * When true, the internally-managed picker opens with express preselected
+   * (used by the Order Summary express upsell). Reset via onExpressPreselectConsumed.
+   */
+  openWithExpress?: boolean;
+  onExpressPreselectConsumed?: () => void;
 }
 
-export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChangeClick }: Props) {
+export function DeliveryDateRow({ className = "", onChangeClick, openWithExpress = false, onExpressPreselectConsumed }: Props) {
   const { t } = useLocale();
-  const { mode, date, slotLabel } = useDeliverySelection();
   const { city } = useLocationSelection();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [preselectExpress, setPreselectExpress] = useState(false);
 
-  const summaryDays = useMemo(
-    () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
-    [t],
-  );
+  const cityTimeSlots = useCityTimeSlots();
+  const promise = useDeliveryPromise();
 
-  const cityTimeSlots = useMemo(() => {
-    let raw: ReturnType<typeof timeSlotsForCountry> = [];
-    if (city?.timeSlots?.length) {
-      raw = city.timeSlots;
-    } else if (city?.slotsByDay) {
-      raw = Object.values(city.slotsByDay)
-        .flat()
-        .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i);
+  // Emit one delivery_summary_viewed per promise type shown (standard/express),
+  // not on every re-render.
+  const lastTrackedType = useRef<string | null>(null);
+  useEffect(() => {
+    const type = promise?.type ?? null;
+    if (type && type !== lastTrackedType.current) {
+      lastTrackedType.current = type;
+      trackEvent({ name: "delivery_summary_viewed", surface: "cart", deliveryMethod: type });
     }
-    if (!raw.length) return timeSlotsForCountry(null);
-    // Deduplicate by label — the OS may return two Night slots (same-day / next-day
-    // configs) with identical labels; keep the first occurrence of each label.
-    const seen = new Set<string>();
-    return raw.filter((s) => {
-      if (seen.has(s.label)) return false;
-      seen.add(s.label);
-      return true;
-    });
-  }, [city]);
+  }, [promise?.type]);
 
-  const contextRowText =
-    mode != null
-      ? formatDeliveryRow({
-          mode,
-          date,
-          slotLabel,
-          slotTimeRange: slotTimeRangeForLabel(slotLabel, cityTimeSlots),
-          days: summaryDays,
-          expressLabel: t("checkout.expressDeliveryLabel"),
-        })
-      : null;
-
-  const displayText = rowTextProp !== undefined ? rowTextProp : contextRowText;
+  // External request (express upsell) to open the picker with express preselected.
+  useEffect(() => {
+    if (openWithExpress && !onChangeClick) {
+      setPreselectExpress(true);
+      setPickerOpen(true);
+      onExpressPreselectConsumed?.();
+    }
+  }, [openWithExpress, onChangeClick, onExpressPreselectConsumed]);
 
   const handleClick = () => {
+    trackEvent({
+      name: "delivery_change_opened",
+      surface: "cart",
+      ...(promise ? { deliveryMethod: promise.type } : {}),
+    });
     if (onChangeClick) {
       onChangeClick();
     } else {
+      setPreselectExpress(false);
       setPickerOpen(true);
     }
   };
-
-  const cityName = city?.name ?? null;
 
   return (
     <>
       <button
         type="button"
         onClick={handleClick}
-        aria-label={displayText ? `${displayText} — ${t("delivery.row.change")}` : t("delivery.row.selectDate")}
-        className={`w-full flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 ${className}`}
+        aria-label={
+          promise
+            ? `${promise.title} — ${promise.arrival} — ${t("delivery.row.change")}`
+            : t("delivery.row.selectDate")
+        }
+        className={`w-full flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-left transition-colors hover:bg-primary/10 ${className}`}
         data-testid="delivery-date-row"
       >
-        <CalendarDays className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        {promise?.type === "express" ? (
+          <Zap className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        ) : (
+          <CalendarDays className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        )}
         <span className="flex-1 min-w-0">
-          {displayText ? (
+          {promise ? (
             <>
-              <span className="block text-sm font-medium text-foreground truncate">
-                {t("delivery.row.label")}: {displayText}
+              <span className="block text-xs font-medium text-muted-foreground" data-testid="text-delivery-service">
+                {promise.title}
               </span>
-              {cityName && (
-                <span className="block text-xs text-muted-foreground mt-0.5">
-                  {cityName}
-                </span>
-              )}
+              <span className="block text-sm font-semibold text-foreground whitespace-normal break-words" data-testid="text-delivery-arrival">
+                {promise.arrival}
+              </span>
+              <span className="block text-[11px] text-muted-foreground" data-testid="text-delivery-caption">
+                {promise.caption}
+              </span>
             </>
           ) : (
             <span className="text-sm text-muted-foreground">
@@ -97,21 +98,25 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
             </span>
           )}
         </span>
-        {displayText ? (
-          <span className="text-xs font-medium text-primary shrink-0">
+        {promise ? (
+          <span className="shrink-0 self-stretch flex items-center min-h-11 -my-2.5 -me-4 ps-2 pe-4 text-xs font-medium text-primary">
             {t("delivery.row.change")}
           </span>
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-primary rtl:rotate-180" aria-hidden="true" />
         )}
       </button>
 
       {!onChangeClick && (
         <DeliveryPickerModal
           open={pickerOpen}
-          onOpenChange={setPickerOpen}
+          onOpenChange={(o) => {
+            setPickerOpen(o);
+            if (!o) setPreselectExpress(false);
+          }}
           timeSlots={cityTimeSlots}
           cityExpressAvailable={city?.expressAvailable === true}
+          initialModeOverride={preselectExpress ? "express" : undefined}
         />
       )}
     </>
