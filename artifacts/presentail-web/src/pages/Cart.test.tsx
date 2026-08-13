@@ -342,7 +342,7 @@ describe("Cart — delivery fee display states", () => {
 
     expect(screen.getByText("$10")).toBeTruthy();
     expect(screen.queryByText("cart.deliveryFree")).toBeNull();
-    expect(screen.queryByText("cart.expressLabel")).toBeNull();
+    expect(screen.queryByText("cart.expressUpgrade")).toBeNull();
   });
 
   it("standard + above threshold → shows 'Free', no express row", () => {
@@ -367,7 +367,7 @@ describe("Cart — delivery fee display states", () => {
     const banner = screen.getByTestId("free-delivery-banner");
     expect(banner.getAttribute("data-state")).toBe("unlocked");
     expect(screen.getAllByText("$10").every((el) => banner.contains(el))).toBe(true);
-    expect(screen.queryByText("cart.expressLabel")).toBeNull();
+    expect(screen.queryByText("cart.expressUpgrade")).toBeNull();
   });
 
   it("express + below threshold → shows city fee amount and express surcharge row", () => {
@@ -387,7 +387,7 @@ describe("Cart — delivery fee display states", () => {
 
     expect(screen.getByText("$10")).toBeTruthy();
     expect(screen.queryByText("cart.deliveryFree")).toBeNull();
-    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.expressUpgrade")).toBeTruthy();
     expect(screen.getByText("$15")).toBeTruthy();
   });
 
@@ -408,7 +408,7 @@ describe("Cart — delivery fee display states", () => {
 
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
     expect(screen.queryByText("$10")).toBeNull();
-    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.expressUpgrade")).toBeTruthy();
     expect(screen.getByText("$15")).toBeTruthy();
     const totals = screen.getAllByText("$110");
     expect(totals.length).toBeGreaterThan(0);
@@ -514,7 +514,7 @@ describe("Cart — coupon discount display and total calculation", () => {
 
     expect(screen.getByTestId("row-cart-coupon-discount")).toBeTruthy();
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
-    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.expressUpgrade")).toBeTruthy();
     const totals = screen.getAllByText("$100");
     expect(totals.length).toBeGreaterThan(0);
   });
@@ -609,7 +609,7 @@ describe("Cart — UAE express surcharge ($4.90)", () => {
       currency: CURRENCY_FIXTURE,
     });
 
-    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.expressUpgrade")).toBeTruthy();
     expect(screen.getByText("$4.9")).toBeTruthy();
     expect(screen.getByText("$10")).toBeTruthy();
     expect(screen.queryByText("$15")).toBeNull();
@@ -622,7 +622,7 @@ describe("Cart — UAE express surcharge ($4.90)", () => {
       currency: CURRENCY_FIXTURE,
     });
 
-    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.expressUpgrade")).toBeTruthy();
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
     expect(screen.getByText("$4.9")).toBeTruthy();
     expect(screen.queryByText("$15")).toBeNull();
@@ -705,7 +705,7 @@ describe("Cart — Cyprus express surcharge ($15, same as LB fallback)", () => {
       currency: CURRENCY_FIXTURE,
     });
 
-    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.expressUpgrade")).toBeTruthy();
     expect(screen.getByText("$15")).toBeTruthy();
     expect(screen.getByText("$10")).toBeTruthy();
     // AE-specific surcharge must not appear
@@ -719,7 +719,7 @@ describe("Cart — Cyprus express surcharge ($15, same as LB fallback)", () => {
       currency: CURRENCY_FIXTURE,
     });
 
-    expect(screen.getByText("cart.expressLabel")).toBeTruthy();
+    expect(screen.getByText("cart.expressUpgrade")).toBeTruthy();
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
     expect(screen.getByText("$15")).toBeTruthy();
     expect(screen.queryByText("$4.9")).toBeNull();

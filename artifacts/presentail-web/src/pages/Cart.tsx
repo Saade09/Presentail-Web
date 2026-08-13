@@ -7,11 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check, Trash2, Lock } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check, Trash2, Lock } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  FreeDeliveryStatusCard,
+  resolveFreeDeliveryState,
+  type FreeDeliveryState,
+} from "@/components/cart/FreeDeliveryStatusCard";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
@@ -28,16 +33,10 @@ import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useHeadingFont } from "@/hooks/useHeadingFont";
+import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
 import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
 import cardLogoEn from "@assets/Presentail_PNG-01_white.png";
 import cardLogoAr from "@assets/Presentail-Arabic-Logo-white.png";
-import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
-import {
-  FreeDeliveryStatusCard,
-  resolveFreeDeliveryState,
-  type FreeDeliveryState,
-} from "@/components/cart/FreeDeliveryStatusCard";
 
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
@@ -109,13 +108,13 @@ export default function Cart() {
   const {
     freeDeliveryEnabled,
     cityFeeUsd,
-    freeDeliveryThresholdUsd: configThresholdUsd,
     isLoaded: deliveryConfigLoaded,
+    freeDeliveryThresholdUsd: configThresholdUsd,
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
   const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate } = useDeliverySelection();
-  const { formatPrice } = useDisplayCurrency();
+  const { currencyCode } = useDisplayCurrency();
   const deliveryPromise = useDeliveryPromise();
   const now = useNow();
   // Express upsell visibility: city allows express AND we're inside the
@@ -213,6 +212,12 @@ export default function Cart() {
   });
 
   const cartTotal = computeCartTotal(subtotal, (effectiveDeliveryFeeUsd ?? 0) + slotFeeUsd, couponDiscountUsd);
+
+  // Row-visibility flags shared by the summary, CTA, and analytics so every
+  // consumer reads the same derived pricing state (atomic updates).
+  const standardDeliveryFree = deliveryFeeUsd === 0;
+  const expressRowVisible =
+    deliveryMode === "express" && expressSurcharge > 0 && locationCity?.expressAvailable !== false;
 
   // ── Contextual three-state free-delivery banner ──────────────────────────
   // hidden / close / unlocked — driven by the server threshold + enabled flag,
@@ -330,6 +335,7 @@ export default function Cart() {
     setCouponOpen(next);
     if (next && !couponApplied) {
       trackWebEvent({ type: "promo_opened" });
+      trackWebEvent({ type: "promo_code_expanded" });
     }
   };
 
@@ -365,12 +371,14 @@ export default function Cart() {
         setCouponApplied(true);
         setCouponDiscountUsd(discount);
         trackWebEvent({ type: "promo_applied", value: discount, currency: "USD", properties: { code } });
+        trackWebEvent({ type: "promo_code_submitted", properties: { outcome: "success" } });
       } else {
         setCouponError(res.message ?? t("cart.promoCodeInvalid"));
         setCouponApplied(false);
         setCouponDiscountUsd(0);
         try { localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
         trackWebEvent({ type: "promo_failed" });
+        trackWebEvent({ type: "promo_code_submitted", properties: { outcome: "invalid" } });
       }
     } catch (err) {
       const msg = err instanceof Error && err.message && !err.message.startsWith("API error ")
@@ -378,6 +386,7 @@ export default function Cart() {
         : t("cart.promoCodeError");
       setCouponError(msg);
       trackWebEvent({ type: "promo_failed" });
+      trackWebEvent({ type: "promo_code_submitted", properties: { outcome: "error" } });
     } finally {
       setCouponValidating(false);
     }
@@ -394,6 +403,7 @@ export default function Cart() {
     setCouponError(null);
     setCouponDiscountUsd(0);
     trackWebEvent({ type: "promo_removed" });
+    trackWebEvent({ type: "promo_code_removed" });
   };
 
   // Card message — persisted to localStorage so it pre-populates checkout.
@@ -473,14 +483,26 @@ export default function Cart() {
   // shoppers (and the brief auth-loading window) bypass the prompt entirely.
   const [loginOpen, setLoginOpen] = useState(false);
   const handleProceed = (e: React.MouseEvent) => {
-    // Enrich the checkout click with free-delivery eligibility + delivery type
-    // (no PII) so the funnel can segment by promotion state.
     trackWebEvent({
       type: "checkout_clicked",
+      value: Math.max(0, cartTotal),
+      currency: currencyCode,
       properties: {
-        free_standard_delivery_eligible: freeDeliveryUnlocked,
+        selectedDeliveryType,
         selected_delivery_type: selectedDeliveryType,
+        standardDeliveryFree,
+        expressUpgradePresent: expressRowVisible,
+        promoApplied: couponApplied,
+        free_standard_delivery_eligible: freeDeliveryUnlocked,
       },
+    });
+    // Internal cart-funnel event with the delivery-promise metadata (no PII).
+    trackEvent({
+      name: "checkout_clicked",
+      surface: "cart",
+      ...(deliveryPromise
+        ? { deliveryMethod: deliveryPromise.type, deliveryPromise: deliveryPromise.summary }
+        : {}),
     });
     if (user) return;
     e.preventDefault();
@@ -492,24 +514,31 @@ export default function Cart() {
   };
   const goToCheckout = () => setLocation("/checkout?guest=1");
 
-  // Fired on every checkout CTA click (desktop sidebar + mobile sticky bar),
-  // before auth gating, with the selected delivery type and promise metadata.
-  const trackCheckoutClicked = () => {
-    trackEvent({
-      name: "checkout_clicked",
-      surface: "cart",
-      ...(deliveryPromise
-        ? { deliveryMethod: deliveryPromise.type, deliveryPromise: deliveryPromise.summary }
-        : {}),
-    });
-  };
-
   // Emit one cart_viewed event when the standalone cart page mounts.
   // This is the entry point of the purchase funnel evaluated by the
   // server-side checkoutPurchaseFunnelMonitor.
   useEffect(() => {
     trackEvent({ name: "cart_viewed", surface: "cart-screen" });
   }, []);
+
+  // Emit order_summary_viewed once per cart visit, after the cart hydrates
+  // with items (not on every pricing rerender).
+  const summaryViewedRef = useRef(false);
+  useEffect(() => {
+    if (summaryViewedRef.current || !isHydrated || itemCount === 0) return;
+    summaryViewedRef.current = true;
+    trackWebEvent({
+      type: "order_summary_viewed",
+      currency: currencyCode,
+      properties: {
+        selectedDeliveryType: deliveryMode === "express" ? "express" : "standard",
+        standardDeliveryFree,
+        expressUpgradePresent: expressRowVisible,
+        promoApplied: couponApplied,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, itemCount]);
 
   const previewCardFrom = cardFrom;
 
@@ -539,65 +568,6 @@ export default function Cart() {
       <div className="container mx-auto px-page max-w-content">
         <div className="flex items-center justify-between mb-4 gap-4">
           <h1 className="text-3xl font-serif">{t("cart.title")} ({itemCount})</h1>
-
-          {/* Mobile-only promo toggle — on the right of the heading row */}
-          <div className="lg:hidden shrink-0 relative">
-            <button
-              type="button"
-              onClick={handleCouponToggle}
-              className="flex items-center gap-1.5 rounded-lg border border-primary/15 bg-white px-3 py-1.5 text-xs transition-colors hover:bg-secondary/40 shadow-sm"
-              data-testid="button-promo-toggle-mobile"
-            >
-              <Tag className="w-3 h-3 text-primary/60 shrink-0" />
-              {couponApplied ? (
-                <span className="font-medium text-primary flex items-center gap-1">
-                  {couponInput}
-                  <Check className="w-3 h-3 text-emerald-600" />
-                </span>
-              ) : (
-                <span className="text-muted-foreground">{t("cart.promoCode")}</span>
-              )}
-              {couponOpen ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
-            </button>
-            {couponOpen && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center"
-                onClick={handleCouponToggle}
-              >
-                <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
-                <div
-                  className="relative mx-4 w-full max-w-sm bg-white border border-primary/15 rounded-xl shadow-lg p-4"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex gap-2">
-                    <Input
-                      value={couponInput}
-                      onChange={(e) => {
-                        setCouponInput(e.target.value);
-                        if (couponError) setCouponError(null);
-                        if (couponApplied) { setCouponApplied(false); setCouponDiscountUsd(0); }
-                      }}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
-                      placeholder={t("cart.promoCodePlaceholder")}
-                      className={`h-8 text-xs rounded-lg${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
-                      data-testid="input-promo-code-mobile"
-                      autoFocus
-                    />
-                    {couponApplied ? (
-                      <Button type="button" variant="outline" size="sm" onClick={handleCouponRemove} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-remove-mobile">
-                        {t("cart.promoCodeRemove")}
-                      </Button>
-                    ) : (
-                      <Button type="button" size="sm" onClick={handleCouponApply} disabled={!couponInput.trim() || couponValidating} className="shrink-0 rounded-lg h-8 text-xs px-2" data-testid="button-promo-apply-mobile">
-                        {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
-                      </Button>
-                    )}
-                  </div>
-                  {couponError && <p className="mt-1.5 text-xs text-destructive">{couponError}</p>}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_26.4rem] gap-x-12 gap-y-6">
@@ -808,10 +778,9 @@ export default function Cart() {
 
           </div>
 
-          {/* Order Summary */}
-          <div className="hidden lg:block lg:col-start-2 lg:row-start-1 lg:row-span-2">
-            <div className="bg-secondary/30 rounded-3xl px-8 pb-8 sticky top-32">
-              {/* Promo Code — three exclusive states: Applied | Expanded | Default */}
+          {/* Delivery Summary + Order Summary sidebar (stacks below items on mobile) */}
+          <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2">
+            <div className="bg-secondary/30 rounded-3xl p-6 lg:p-8 lg:sticky lg:top-32">
               {/* aria-live region: announces applied/error to assistive technology */}
               <div aria-live="polite" aria-atomic="true" className="sr-only">
                 {couponApplied
@@ -819,97 +788,9 @@ export default function Cart() {
                   : couponError ?? ""}
               </div>
 
-              <div className="mb-6">
-                {couponApplied ? (
-                  /* ── Applied state ── */
-                  <div className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Tag className="w-4 h-4 text-primary/60 shrink-0" />
-                      <span className="font-medium text-primary truncate">{couponInput}</span>
-                      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 shrink-0">
-                        <Check className="w-3 h-3" />
-                        {t("cart.promoCodeApplied")}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCouponRemove}
-                      className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                      data-testid="button-promo-remove"
-                    >
-                      {t("cart.promoCodeRemove")}
-                    </button>
-                  </div>
-                ) : couponOpen ? (
-                  /* ── Expanded state ── */
-                  <div className="rounded-xl border border-primary/15 bg-white overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={handleCouponToggle}
-                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-secondary/40"
-                      data-testid="button-promo-toggle"
-                      aria-expanded="true"
-                      aria-controls="promo-panel"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Tag className="w-4 h-4 text-primary/60 shrink-0" />
-                        <span className="text-muted-foreground">{t("cart.promoCodeHeader")}</span>
-                      </div>
-                      <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                    </button>
-                    <div id="promo-panel" className="px-3 pb-3">
-                      <div className="flex gap-2">
-                        <Input
-                          value={couponInput}
-                          onChange={(e) => {
-                            setCouponInput(e.target.value);
-                            if (couponError) setCouponError(null);
-                          }}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
-                          placeholder={t("cart.promoCodePlaceholder")}
-                          className={`rounded-xl text-sm${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
-                          data-testid="input-promo-code"
-                          aria-label={t("cart.promoCodeInputLabel")}
-                          aria-describedby={couponError ? "promo-error" : undefined}
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleCouponApply}
-                          disabled={!couponInput.trim() || couponValidating}
-                          className="shrink-0 rounded-xl px-5"
-                          data-testid="button-promo-apply"
-                        >
-                          {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
-                        </Button>
-                      </div>
-                      {couponError && (
-                        <p id="promo-error" className="mt-1.5 text-xs text-destructive" data-testid="text-promo-error">
-                          {couponError}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  /* ── Default state ── */
-                  <button
-                    type="button"
-                    onClick={handleCouponToggle}
-                    className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm transition-colors hover:bg-secondary/40"
-                    data-testid="button-promo-toggle"
-                    aria-expanded="false"
-                    aria-controls="promo-panel"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Tag className="w-4 h-4 text-primary/60 shrink-0" />
-                      <span className="text-muted-foreground">{t("cart.promoCode")}</span>
-                    </div>
-                    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </button>
-                )}
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 pb-5 border border-primary/10 shadow-sm mb-4">
-                <h2 className="text-2xl font-serif mb-3">{t("cart.deliverySummary")}</h2>
+              {/* Delivery Summary — moved up into the space the promo pill occupied */}
+              <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm mb-4">
+                <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
                 <div className="text-sm">
                   <DeliveryDateRow
                     openWithExpress={upsellExpressOpen}
@@ -921,38 +802,54 @@ export default function Cart() {
               <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm">
                 <h2 className="text-2xl font-serif mb-4">{t("cart.orderSummary")}</h2>
 
-                <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("cart.subtotal")}</span>
-                    <span className="font-medium"><FormattedPrice usdValue={subtotal} /></span>
+                {/* Financial rows — label (+ optional supporting copy) left, amount right */}
+                <dl className="space-y-4 text-sm mb-4">
+                  {/* Items */}
+                  <div className="flex justify-between gap-3">
+                    <dt className="font-medium">
+                      {itemCount === 1 ? t("cart.items_one") : t("cart.items_other", { n: itemCount })}
+                    </dt>
+                    <dd className="font-medium text-end shrink-0" data-testid="text-items-amount">
+                      <FormattedPrice usdValue={subtotal} />
+                    </dd>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground min-w-0 pe-3" data-testid="text-summary-delivery-label">
-                      {deliveryPromise ? deliveryPromise.summary : t("cart.deliveryCharges")}
-                    </span>
-                    <span className="font-medium">
+
+                  {/* Standard delivery */}
+                  <div className="flex justify-between gap-3" data-testid="row-standard-delivery">
+                    <dt className="min-w-0">
+                      <span className="block font-medium">{t("cart.standardDelivery")}</span>
+                      {deliveryFeeUsd === null ? null : standardDeliveryFree ? (
+                        <span className="block text-xs text-muted-foreground mt-0.5" data-testid="text-free-delivery-saved">
+                          {cityFeeUsd != null && cityFeeUsd > 0
+                            ? buildFeeNode(t("cart.freeDeliveryUnlockedSaved"), { amount: cityFeeUsd })
+                            : t("cart.freeDeliveryUnlockedShort")}
+                        </span>
+                      ) : (
+                        <span className="block text-xs text-muted-foreground mt-0.5">{t("cart.baseDeliveryCharge")}</span>
+                      )}
+                    </dt>
+                    <dd className="font-medium text-end shrink-0">
                       {deliveryFeeUsd === null
-                        ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
-                        : deliveryFeeUsd === 0
-                          ? <span className="text-primary font-semibold">{t("cart.deliveryFree")}</span>
+                        ? <span className="text-muted-foreground text-xs font-normal">{t("cart.deliveryTbd")}</span>
+                        : standardDeliveryFree
+                          ? <span className="font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("cart.deliveryFree")}</span>
                           : <FormattedPrice usdValue={deliveryFeeUsd} />
                       }
-                    </span>
+                    </dd>
                   </div>
 
-                  {slotFeeUsd > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t("cart.lateNightFee")}</span>
-                      <span className="font-medium"><FormattedPrice usdValue={slotFeeUsd} /></span>
+                  {/* Express upgrade — only when express is selected */}
+                  {expressRowVisible && (
+                    <div className="flex justify-between gap-3" data-testid="row-express-upgrade">
+                      <dt className="min-w-0">
+                        <span className="block font-medium">{t("cart.expressUpgrade")}</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">{t("cart.expressWithin90")}</span>
+                      </dt>
+                      <dd className="font-medium text-end shrink-0"><FormattedPrice usdValue={expressSurcharge} /></dd>
                     </div>
                   )}
 
-                  {expressSurcharge > 0 && locationCity?.expressAvailable !== false && deliveryMode === "express" && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{t("cart.expressLabel")}</span>
-                      <span className="font-medium"><FormattedPrice usdValue={expressSurcharge} /></span>
-                    </div>
-                  )}
+                  {/* Express upsell — clickable, opens the picker with express preselected */}
                   {expressSurcharge > 0 && expressAvailableNow && deliveryMode !== "express" && (
                     <button
                       type="button"
@@ -966,29 +863,134 @@ export default function Cart() {
                       {buildFeeNode(t("cart.expressUpsell"), { amount: expressSurcharge })}
                     </button>
                   )}
-                  {couponApplied && couponDiscountUsd > 0 && (
-                    <div className="flex justify-between text-emerald-600" data-testid="row-cart-coupon-discount">
-                      <span className="flex items-center gap-1"><Tag className="w-3.5 h-3.5" />{couponInput}</span>
-                      <span className="font-medium">−<FormattedPrice usdValue={couponDiscountUsd} /></span>
+
+                  {/* Late-night slot fee */}
+                  {slotFeeUsd > 0 && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="font-medium">{t("cart.lateNightFee")}</dt>
+                      <dd className="font-medium text-end shrink-0"><FormattedPrice usdValue={slotFeeUsd} /></dd>
                     </div>
+                  )}
+
+                  {/* Promo discount */}
+                  {couponApplied && couponDiscountUsd > 0 && (
+                    <div className="flex justify-between gap-3" style={{ color: "hsl(var(--primary))" }} data-testid="row-cart-coupon-discount">
+                      <dt className="flex items-center gap-1.5 font-medium min-w-0">
+                        <Tag className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                        <span className="truncate">{t("cart.promoLabel")} · {couponInput}</span>
+                      </dt>
+                      <dd className="font-medium text-end shrink-0">−<FormattedPrice usdValue={couponDiscountUsd} /></dd>
+                    </div>
+                  )}
+                </dl>
+
+                {/* Promo code — collapsible row above the total divider */}
+                <div className="mb-4 pb-4 border-b border-primary/10">
+                  {couponApplied ? (
+                    /* ── Applied state ── */
+                    <div className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Tag className="w-4 h-4 text-primary/60 shrink-0" />
+                        <span className="font-medium text-primary truncate">{couponInput}</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 shrink-0">
+                          <Check className="w-3 h-3" />
+                          {t("cart.promoCodeApplied")}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCouponRemove}
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 min-h-[44px]"
+                        data-testid="button-promo-remove"
+                      >
+                        {t("cart.promoCodeRemove")}
+                      </button>
+                    </div>
+                  ) : couponOpen ? (
+                    /* ── Expanded state ── */
+                    <div className="rounded-xl border border-primary/15 bg-white overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={handleCouponToggle}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 min-h-[44px] text-sm transition-colors hover:bg-secondary/40"
+                        data-testid="button-promo-toggle"
+                        aria-expanded="true"
+                        aria-controls="promo-panel"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Tag className="w-4 h-4 text-primary/60 shrink-0" />
+                          <span className="text-muted-foreground">{t("cart.promoCodeHeader")}</span>
+                        </div>
+                        <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+                      </button>
+                      <div id="promo-panel" className="px-3 pb-3">
+                        <div className="flex gap-2">
+                          <Input
+                            value={couponInput}
+                            onChange={(e) => {
+                              setCouponInput(e.target.value);
+                              if (couponError) setCouponError(null);
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
+                            placeholder={t("cart.promoCodePlaceholder")}
+                            className={`rounded-xl text-sm${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                            data-testid="input-promo-code"
+                            aria-label={t("cart.promoCodeInputLabel")}
+                            aria-describedby={couponError ? "promo-error" : undefined}
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleCouponApply}
+                            disabled={!couponInput.trim() || couponValidating}
+                            className="shrink-0 rounded-xl px-5"
+                            data-testid="button-promo-apply"
+                          >
+                            {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
+                          </Button>
+                        </div>
+                        {couponError && (
+                          <p id="promo-error" className="mt-1.5 text-xs text-destructive" data-testid="text-promo-error">
+                            {couponError}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── Default (collapsed) state ── */
+                    <button
+                      type="button"
+                      onClick={handleCouponToggle}
+                      className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 min-h-[44px] text-sm transition-colors hover:bg-secondary/40"
+                      data-testid="button-promo-toggle"
+                      aria-expanded="false"
+                      aria-controls="promo-panel"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Tag className="w-4 h-4 text-primary/60 shrink-0" />
+                        <span className="text-muted-foreground">{t("cart.promoCode")}</span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
                   )}
                 </div>
 
-                <div className="flex justify-between items-center mb-8">
+                {/* Total */}
+                <div className="flex justify-between items-center mb-6">
                   <span className="font-medium">{t("cart.total")}</span>
-                  <span className="text-2xl font-serif"><FormattedPrice usdValue={Math.max(0, cartTotal)} /></span>
+                  <span className="text-2xl font-serif" data-testid="text-cart-total"><FormattedPrice usdValue={Math.max(0, cartTotal)} /></span>
                 </div>
 
                 <Button asChild size="lg" className="hidden lg:flex w-full h-14 text-base rounded-xl px-5">
                   <Link
                     href="/checkout"
-                    onClick={(e) => { trackCheckoutClicked(); handleProceed(e); }}
+                    onClick={handleProceed}
                     data-testid="link-proceed-to-checkout"
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-center gap-2"
                   >
-                    <span className="flex-1 text-start">{t("cart.proceed")}</span>
-                    <FormattedPrice usdValue={cartTotal} className="font-semibold shrink-0 text-white" />
-                    <ArrowRight className={`w-4 h-4 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
+                    <Lock className="w-4 h-4 shrink-0" aria-hidden />
+                    <span>{t("cart.checkoutSecurely")}</span>
+                    <span aria-hidden>·</span>
+                    <FormattedPrice usdValue={Math.max(0, cartTotal)} className="font-semibold shrink-0 text-white" />
                   </Link>
                 </Button>
               </div>
@@ -1100,14 +1102,6 @@ export default function Cart() {
                 </button>
               </div>
 
-              {/* Delivery Date */}
-              <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
-                  {t("cart.deliverySummary")}
-                </p>
-                <DeliveryDateRow />
-              </div>
-
               <CartUpsells onAvailabilityChange={setAddonsAvailable} />
             </div>
           </div>
@@ -1145,13 +1139,14 @@ export default function Cart() {
         <Button asChild size="lg" className="w-full h-[52px] text-sm rounded-2xl px-5">
           <Link
             href="/checkout"
-            onClick={(e) => { trackCheckoutClicked(); handleProceed(e); }}
+            onClick={handleProceed}
             data-testid="link-proceed-to-checkout-sticky"
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-2"
           >
-            <Lock className="w-3.5 h-3.5 shrink-0" />
-            <span className="flex-1 text-start">{t("cart.proceed")}</span>
-            <ArrowRight className={`w-4.5 h-4.5 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
+            <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <span>{t("cart.checkoutSecurely")}</span>
+            <span aria-hidden>·</span>
+            <FormattedPrice usdValue={Math.max(0, cartTotal)} className="font-semibold shrink-0 text-white" />
           </Link>
         </Button>
       </div>
@@ -1214,7 +1209,6 @@ function CardPreviewDialog({
   const exportRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
-  const headingFont = useHeadingFont();
   const canSave = trimmed.length > 0;
 
   const handleSave = async () => {
