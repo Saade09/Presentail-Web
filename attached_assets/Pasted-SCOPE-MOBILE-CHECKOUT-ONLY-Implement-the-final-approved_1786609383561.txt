@@ -1,0 +1,562 @@
+SCOPE: MOBILE CHECKOUT ONLY
+
+Implement the final approved mobile checkout redesign shown in the generated mockup.
+
+This task is explicitly limited to mobile checkout. Do not change the desktop checkout experience as part of this task. Desktop has a separate implementation task.
+
+OBJECTIVE
+
+Shorten the mobile Delivery Details step, keep the selected arrival promise visible even when Order Summary is collapsed, reduce form friction, and strengthen the payment handoff.
+
+Implement exactly these approved improvements:
+
+1. Improve the collapsed Order Summary.
+2. Replace the large Delivery Time section with a compact delivery confirmation.
+3. Compress Sender Details.
+4. Reduce Recipient Details height.
+5. Stack First Name and Last Name as separate full-width rows.
+6. Strengthen the sticky footer.
+
+APPROVED MOBILE PAGE ORDER
+
+1. Checkout header and two-step progress.
+2. Collapsed Order Summary.
+3. Delivery Details heading/subheading.
+4. Compact Recipient Details card.
+5. Compact standalone Delivery confirmation.
+6. Compact Sender Details card.
+7. Sticky footer with Back and Continue to payment.
+
+Do not change this order.
+
+1. MOBILE BREAKPOINT / SCOPE
+
+• Apply this layout only at the existing mobile checkout breakpoint.
+• Use the project’s established responsive breakpoint unless Product/Design specifies otherwise.
+• Do not alter desktop column layout, desktop sidebar, or desktop sticky behavior.
+• Tablet behavior should follow the existing responsive strategy; confirm the intended breakpoint during implementation.
+• Avoid separate duplicated business logic for mobile and desktop. Share data/state; only presentation should differ where possible.
+
+2. COLLAPSED ORDER SUMMARY
+
+Replace the current collapsed mobile header with:
+
+Order summary · 1 item                 $72    [down chevron]
+
+Requirements:
+
+• Keep collapsed by default on the Delivery Details step.
+• “Order summary” uses the strongest text weight.
+• “· 1 item” is smaller or muted.
+• Total is bold and right-aligned.
+• Chevron clearly indicates expansion.
+• Entire row is tappable.
+• Minimum row height: 52–56 px.
+• Minimum interactive target: 44 × 44 px.
+• Use the actual localized item count and total.
+• Do not hard-code “1 item” or “$72.”
+• Use the shared currency formatter.
+• Preserve the customer’s scroll/form state when expanding or collapsing.
+
+Expanded state must use the approved pricing hierarchy:
+
+• Items ([count])
+• Standard delivery
+• Express upgrade, only when selected/applicable
+• Promo or gift card
+• Discounts/credits, when applicable
+• Total
+
+Requirements:
+
+• All values must match the authoritative checkout quote.
+• Right-align amounts.
+• Show supporting delivery explanations beneath labels where space allows.
+• Promo/gift-card interaction remains usable on mobile.
+• Accordion content expands in place without navigating away or resetting fields.
+• Chevron changes direction and exposes the correct expanded/collapsed accessibility state.
+• If the total changes while collapsed, update it immediately.
+• Avoid unexpected large layout jumps; preserve a clear way to collapse.
+
+3. DELIVERY DETAILS PAGE HEADING
+
+Keep:
+
+Delivery Details
+Enter the recipient's details for delivery.
+
+Preserve current header, Presentail logo, Delivery Details active step, and Payment second step.
+
+4. RECIPIENT DETAILS — COMPACT MOBILE LAYOUT
+
+Keep the white card and section label:
+
+RECIPIENT DETAILS
+
+Reduce unnecessary padding and vertical gaps while retaining comfortable touch targets.
+
+4A. ASK RECIPIENT ROW
+
+Replace the current large panel with a compact row:
+
+[Location icon]
+Ask recipient for address
+We’ll collect it by text
+[Toggle]
+
+Requirements:
+
+• Keep the current underlying behavior.
+• Use a compact single-row/two-line presentation.
+• Entire control should remain clear and accessible.
+• Toggle target minimum 44 × 44 px.
+• Do not implement a new address-request flow in this task.
+• Preserve existing consequences/validation when enabled.
+• Use localized copy.
+
+4B. STACK NAME FIELDS
+
+On mobile, do not place First Name and Last Name side by side.
+
+Approved structure:
+
+First Name *
+[First Name]
+
+Last Name *
+[Last Name]
+
+Requirements:
+
+• Each input is full width.
+• Input height approximately 48–52 px.
+• Preserve required validation and autofill/autocomplete attributes.
+• Support long names.
+• Show inline errors beneath the relevant field without overlapping other content.
+• Keep desktop name fields unchanged.
+• Verify Arabic/RTL labels and inputs.
+• Correct keyboard Next behavior: First Name → Last Name → Phone Number.
+
+4C. OTHER RECIPIENT FIELDS
+
+Keep full-width:
+
+Phone Number *
+[Country selector] [+961 / phone input]
+
+Delivery District *
+[Beirut / district selector]
+
+Rename:
+
+Delivery Details * → Delivery address *
+
+Approved placeholder:
+
+Street, building, floor, apartment
+
+Requirements:
+
+• Phone and district retain existing behavior.
+• Delivery address textarea height approximately 72–80 px.
+• Use compact 44–52 px control heights for single-line fields.
+• Do not remove required fields.
+• Do not redesign address validation or district detection in this task.
+• Preserve form data during delivery changes, summary expansion, sender edits, errors, and navigation back from Payment.
+
+5. REPLACE LARGE DELIVERY TIME SECTION
+
+Delete the entire large mobile Delivery Time selector from the default checkout flow, including:
+
+• Express Delivery option card.
+• Schedule option card.
+• Delivery date chips.
+• Delivery time chips.
+• Other date control.
+• Selected-time footer inside that section.
+
+Do not reserve its previous vertical space.
+
+Replace it with a compact standalone white card immediately after Recipient Details and before Sender Details.
+
+5A. STANDARD DELIVERY CONFIRMATION
+
+Exact approved hierarchy:
+
+DELIVERY
+
+[Calendar icon]
+
+Standard delivery
+Arrives today, 2–6 PM
+Scheduled delivery window
+
+Change
+
+Requirements:
+
+• Use the actual selected date/window; 2–6 PM is an example.
+• “Arrives [date/time]” is the strongest delivery line.
+• Supporting line is smaller/muted.
+• No city/location line.
+• “Change” is right-aligned and has a minimum 44 × 44 px target.
+• Card total height approximately 125–145 px, allowing for localization.
+• Use a pale gray-blue confirmation panel inside the white card.
+• The panel is a confirmation, not another visible selection control.
+
+5B. EXPRESS DELIVERY CONFIRMATION
+
+Exact hierarchy:
+
+DELIVERY
+
+[Calendar/clock icon]
+
+Express delivery
+Arrives by 12:21 PM
+Within 90 minutes
+
+Change
+
+Requirements:
+
+• Use the actual valid quote deadline.
+• Correct market timezone.
+• Deadline remains anchored to the quote and does not continuously drift forward.
+• Revalidate on quote expiration and update pricing/promise atomically.
+• No city/location line.
+
+5C. CHANGE BEHAVIOR
+
+When Change is tapped:
+
+• Open the existing delivery-selection flow as an inline expansion, bottom sheet, or established mobile pattern.
+• Preserve all Recipient and Sender data.
+• Allow standard/express/date/time selection as supported today.
+• On selection, return to the compact confirmation state.
+• Update delivery promise, Order Summary total, collapsed summary total, and sticky CTA total together.
+• If dismissed, preserve the existing valid selection.
+• Do not leave the large selector permanently expanded in the default page state.
+
+6. COMPRESS SENDER DETAILS
+
+For a signed-in customer with complete sender information, replace the full mobile sender form with:
+
+SENDER DETAILS
+
+[Compact identity row]
+
+Sending as Adnan Ammache
+adnan@presentail.com · +961 3 257 553
+Edit
+
+[Unchecked checkbox]
+
+Send this gift anonymously
+Your name won’t appear on the gift card or recipient notifications.
+
+Requirements:
+
+• Populate actual sender data dynamically.
+• Compact identity row with pale gray-blue treatment.
+• “Edit” right-aligned, minimum 44 × 44 px target.
+• Editing uses the current sender/account editing flow.
+• Preserve recipient fields, delivery choice, pricing, and scroll position when editing or returning.
+• Remove default separate First Name, Last Name, Email, and Phone inputs when complete signed-in sender data exists.
+• Replace “Keep my identity secret” with “Send this gift anonymously.”
+• Use the approved supporting explanation.
+• Compact card target height approximately 145–165 px, allowing for wrapped text.
+
+GUEST / INCOMPLETE SENDER FALLBACK
+
+• If no signed-in sender profile exists or required information is incomplete, show the existing required sender inputs.
+• Do not block completion by hiding fields that are still required.
+• Once valid sender information is available, collapse to the compact identity state if technically appropriate.
+• Do not alter backend sender requirements in this task.
+
+ANONYMOUS GIFT BEHAVIOR
+
+• Preserve current anonymity behavior.
+• Ensure the label and supporting text accurately reflect recipient-facing behavior.
+• Checkbox must be keyboard/screen-reader accessible.
+• Supporting explanation must be programmatically associated.
+• State must survive validation errors and navigation back from Payment.
+
+7. STRENGTHEN THE STICKY FOOTER
+
+Create a fixed/sticky mobile footer with a subtle top border and shadow.
+
+Approved structure:
+
+[Back button] [Primary payment button]
+
+Primary button has two-line content:
+
+Continue to payment
+Order total · $72
+
+Right-arrow icon at far right.
+
+Below/within the footer:
+
+[Lock icon] Secure checkout
+
+Requirements:
+
+• Footer height approximately 96–112 px including device safe-area padding.
+• Respect env(safe-area-inset-bottom) on iOS.
+• Primary button occupies approximately 68–72% of available width.
+• Back button occupies approximately 24–28%.
+• Minimum button height: 56 px.
+• Primary button uses Presentail dark teal and white text.
+• Back uses secondary outlined styling.
+• Keep total visible without expanding Order Summary.
+• Use actual authoritative localized total.
+• Primary CTA and collapsed Order Summary totals always match.
+• Add sufficient content bottom padding equal to or greater than footer height plus safe area.
+• Footer must never cover Sender Details, anonymous-gift supporting copy, field errors, expanded summary, keyboard content, or validation messages.
+• While the virtual keyboard is open, use existing mobile behavior that avoids obstructing active fields; do not create a double-sticky/overlapping footer.
+• CTA remains active when appropriate and follows existing validity/submission rules.
+• Never show an unexplained disabled gray CTA.
+• If disabled is required, show a clear reason or validation behavior according to the existing checkout system.
+• On submit with invalid fields, focus/scroll to the first invalid field while preserving values.
+• Preserve loading and duplicate-submit protection.
+• “Secure checkout” must remain readable and not be clipped by the safe area.
+
+8. PRICING AND STATE CONSISTENCY
+
+Use the same server-authoritative checkout quote for:
+
+• Collapsed Order Summary total.
+• Expanded Order Summary rows.
+• Standard delivery price/free status.
+• Express upgrade presence/amount.
+• Promo/gift-card effects.
+• Delivery promise/window metadata.
+• Sticky footer total.
+• Payment step total.
+
+Update atomically after:
+
+• Delivery change.
+• Promo/gift card apply/remove.
+• Cart edit/restore.
+• Address or district change that affects availability.
+• Quote expiration/revalidation.
+• Return from Payment.
+• Free-delivery qualification change.
+
+Never show:
+
+• Collapsed summary total different from footer.
+• Old delivery promise with new fee.
+• Standard promise with Express upgrade left behind.
+• Express promise without the required upgrade fee.
+• “Free” delivery while total still includes the charge.
+• Stale $72 after any pricing change.
+
+During recalculation:
+
+• Preserve stable values or use restrained loading feedback.
+• Do not flash zero.
+• Do not clear any form fields.
+• Prevent stale checkout submission where backend validation requires it.
+
+9. RESPONSIVE / DEVICE QA
+
+Verify on actual or emulated:
+
+• iPhone SE / narrow width.
+• Standard iPhone widths.
+• Large iPhone / Dynamic Island safe area.
+• Common Android widths.
+• Android browser bottom controls.
+• Portrait orientation.
+• Landscape where supported.
+• iOS Safari.
+• Android Chrome.
+• Mobile web in-app browsers if material to traffic.
+• Keyboard open for every input.
+• Browser text zoom / accessibility font sizing.
+
+Requirements:
+
+• No horizontal scrolling.
+• No clipped labels, amounts, or delivery promises.
+• Name fields remain full width.
+• Amounts and chevrons remain tappable.
+• Sticky footer respects safe areas.
+• Footer does not cover content.
+• Change/Edit/toggle/checkbox remain accessible.
+• Long localized content wraps without breaking layout.
+• Page is materially shorter than the current production mobile page.
+
+10. LOCALIZATION AND RTL
+
+• Add/update translation keys; no hard-coded English.
+• Verify English and Arabic/RTL.
+• Use locale-aware item-count pluralization.
+• Use locale-aware currency, date, and time formatting.
+• Do not concatenate translatable fragments.
+• Verify RTL layout for:
+  - checkout stepper
+  - collapsed summary
+  - recipient fields
+  - phone prefix
+  - delivery confirmation
+  - Change
+  - Sender Details and Edit
+  - anonymous checkbox
+  - sticky footer buttons, arrow, lock, and total
+• Delivery promise must not truncate.
+• Financial total must remain legible with RTL currencies.
+
+11. ACCESSIBILITY
+
+• Collapsed Order Summary exposes expanded/collapsed state and accessible label including item count and total.
+• All form labels are programmatically linked.
+• Required/error states are announced correctly.
+• Name input autocomplete attributes are correct.
+• Toggle, Change, Edit, checkbox, Back, and Continue buttons have clear accessible names.
+• Minimum 44 × 44 px targets.
+• Visible keyboard focus.
+• Text/background contrast meets WCAG.
+• Do not rely on color alone for state.
+• Price and delivery updates use polite live-region announcements without repeated noise.
+• Reading order matches visual order.
+• Arrow and decorative icons are hidden from screen readers where appropriate.
+• Respect reduced-motion preferences; no new motion is required.
+
+12. PERFORMANCE
+
+• Reuse existing checkout/cart state and quote.
+• Avoid separate redundant pricing requests for collapsed summary and footer.
+• Avoid layout shifts after initial render.
+• Delivery changes should update visible totals/promise quickly after backend validation.
+• Order Summary accordion must not remount/reset the form.
+• Keep mobile checkout interactions responsive on mid-range devices.
+
+13. ANALYTICS
+
+Preserve existing checkout analytics and add/verify:
+
+mobile_checkout_summary_toggled
+• expanded boolean
+• delivery_type
+• currency
+• no PII
+
+mobile_checkout_delivery_confirmation_viewed
+• delivery_type
+• promise_type: deadline | scheduled_window
+• market/currency
+• no address/recipient PII
+
+mobile_checkout_delivery_change_clicked
+• current_delivery_type
+
+mobile_checkout_sender_edit_clicked
+
+mobile_checkout_anonymous_toggled
+• enabled boolean
+
+mobile_checkout_continue_payment_clicked
+• delivery_type
+• standard_delivery_free boolean
+• express_upgrade_present boolean
+• promo_or_gift_card_applied boolean
+• currency
+• authoritative total
+
+mobile_checkout_validation_failed
+• first_invalid_field category only
+• do not send entered values
+
+Requirements:
+
+• Fire once per meaningful action/state transition.
+• Do not fire repeatedly on rerenders.
+• Never send names, phone numbers, email, addresses, gift messages, or raw promo codes.
+
+14. QA SCENARIOS
+
+1. Signed-in user with complete sender details.
+2. Guest user requiring full sender fields.
+3. Signed-in user with incomplete sender details.
+4. Standard delivery selected.
+5. Express delivery selected.
+6. Change standard → express.
+7. Change express → standard.
+8. Change scheduled date/time.
+9. Dismiss Change flow without saving.
+10. Paid standard delivery.
+11. Paid express delivery.
+12. Free standard, standard selected.
+13. Free standard, express selected.
+14. Valid promo/gift card.
+15. Invalid/expired promo/gift card.
+16. Remove promo/gift card.
+17. Collapsed summary updates while closed.
+18. Expanded summary reflects same total.
+19. Address/district change affects delivery.
+20. Quote expiration/revalidation.
+21. Slow/failing quote request.
+22. Invalid First Name.
+23. Invalid Last Name.
+24. Invalid phone.
+25. Missing district.
+26. Missing delivery address.
+27. Anonymous gift checked/unchecked.
+28. Edit sender and return.
+29. Navigate Back and return.
+30. Continue to Payment and navigate back.
+31. Virtual keyboard on each field.
+32. Narrow iPhone.
+33. Large iPhone safe area.
+34. Android Chrome.
+35. English.
+36. Arabic/RTL.
+37. Large accessibility text.
+38. Keyboard-only/switch-control smoke test.
+39. Screen-reader smoke test.
+40. Footer total, summary total, and Payment total match.
+
+15. ACCEPTANCE CRITERIA
+
+• Mobile collapsed summary reads “Order summary · [count]” plus current total.
+• Summary remains collapsed by default and expands accessibly.
+• Recipient card is materially shorter than production.
+• Ask-recipient option uses the compact approved row.
+• First Name and Last Name are separate full-width mobile rows.
+• Phone, district, and delivery address remain full width.
+• “Delivery Details” field label becomes “Delivery address.”
+• Large Delivery Time section is absent from default mobile checkout.
+• A compact standalone delivery confirmation appears after Recipient Details.
+• Standard and express promises render correctly with Change.
+• Sender Details collapses to the approved identity row for complete signed-in users.
+• Anonymous gift copy matches the approved wording.
+• Sticky footer has Back, two-line Continue CTA, total, arrow, and Secure checkout.
+• Sticky footer respects safe-area insets and never covers content/errors.
+• Summary total, footer total, and Payment total always match.
+• Form data survives every change/error/navigation path.
+• English and Arabic/RTL are approved.
+• Accessibility requirements pass.
+• Mobile-only scope is respected.
+• No desktop checkout UI is changed.
+• Product/Design QA confirms the final implementation matches the approved generated mobile mockup.
+• Attach screenshots for standard and express states on iPhone and Android before completion.
+• Attach an expanded Order Summary screenshot and keyboard-open screenshot.
+• Attach English and Arabic/RTL screenshots.
+
+OUT OF SCOPE
+
+• Desktop checkout changes.
+• Redesigning the desktop Order Summary or sender card.
+• Changing address/business validation logic.
+• Replacing Ask recipient with a new conceptual flow.
+• Map-pin/address search.
+• Payment-page redesign.
+• Checkout-header/stepper redesign.
+• Changing delivery fees, express SLA, free-delivery threshold, or promotion rules.
+• Cart-page changes.
+• Any UI not included in the final approved mobile mockup.
