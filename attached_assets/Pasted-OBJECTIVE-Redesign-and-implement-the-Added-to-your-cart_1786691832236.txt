@@ -1,0 +1,218 @@
+OBJECTIVE
+
+Redesign and implement the “Added to your cart” popup so it confirms the added product, supports browsing and adding upsells, clearly represents carts that may already contain other items, and moves the customer to the cart page to add card messages before checkout.
+
+The popup must be conversion-focused without implying that the customer can proceed directly to checkout.
+
+FINAL INFORMATION HIERARCHY
+
+1. Added-product confirmation
+2. Free-delivery status
+3. Upsell category navigation
+4. Three actionable upsell cards
+5. Delivery window
+6. Full-cart summary
+7. Continue shopping / Continue to cart actions
+
+FUNCTIONAL REQUIREMENTS
+
+1) Added-product confirmation
+
+- Show the newly added product thumbnail.
+- Show a success/check icon and heading: “Added to your cart”.
+- Show the newly added product name and quantity, for example: “Crimson Rose Vase · Qty 1”.
+- Show the price of the newly added line item.
+- This price is the newly added item’s price, not the entire cart total.
+- Use the site’s existing localized money formatter and currency glyph. Never hard-code the amount or currency symbol.
+- Include an accessible close button in the top-right.
+
+2) Free standard delivery state
+
+When free standard delivery has been unlocked:
+- Show a compact success banner.
+- Primary copy: “Free standard delivery unlocked”.
+- Secondary copy: “Express delivery is also available”.
+- Do not show a completed progress bar or “Goal reached” state.
+
+When the customer has not yet unlocked free delivery:
+- Preserve the existing threshold/progress behavior.
+- The remaining amount must use the active market’s currency and update when an upsell is added.
+
+3) Upsell section
+
+- Heading: “Make their gift extra special”.
+- Keep category navigation because the catalog contains many add-on options.
+- Default selected category: “Recommended”.
+- Initial visible categories:
+  - Recommended
+  - Balloons
+  - Chocolate
+  - Plants
+  - Teddy Bears
+- All category labels must be fully visible. Never ship a partially clipped label such as “Teddy B…”.
+- If additional categories exist, expose them with an obvious horizontal-scroll/arrow treatment.
+- On mobile, use horizontal scrolling with a clear overflow cue.
+- Selecting a category must refresh the displayed products without closing the popup.
+- Recommended products should use the current recommendation logic where available; otherwise use the existing fallback ordering.
+
+4) Upsell product cards
+
+Display three products at a time. Each card must contain:
+- Product image
+- Product name
+- Localized price including the currency glyph
+- A visible “+ Add” button
+
+Add interaction:
+- Disable the button and show a loading state while the request is running.
+- On success, change the state to “✓ Added”.
+- Update the full cart item count and cart total immediately.
+- Update the free-delivery state or remaining threshold immediately.
+- Prevent duplicate submissions from repeated clicks.
+- If the request fails, restore “+ Add” and show a short recoverable error without closing the popup.
+- Exclude unavailable/out-of-stock products or show an appropriate unavailable state.
+
+5) Delivery window
+
+- Show one compact row with a calendar icon.
+- Example copy: “Arrives today, 2–6 PM”.
+- Show “Change” on the right.
+- Use the customer’s actual selected delivery date/window.
+- “Change” must open the existing date/time selection flow and return the customer to the popup with the updated window.
+
+6) Full-cart summary
+
+The cart may already contain products before this popup opens.
+
+- Show a separate summary row near the bottom:
+  - Left: “Cart total · {item_count} item/items”
+  - Right: localized full cart total
+- The amount must represent the entire cart, including existing products, the newly added product, and any upsells added in the popup.
+- Do not place the cart total inside the primary CTA.
+- Use correct singular/plural grammar for “item” and “items”.
+- Use the existing localized price formatter everywhere. The currency symbol must never silently disappear.
+
+7) Footer actions
+
+Secondary action:
+- Label: “Continue shopping”
+- Closes the popup and leaves the customer on the current product page.
+
+Primary action:
+- Label: “Continue to cart”
+- Navigates to the cart page.
+- Do not label this action “Checkout”; customers must visit the cart first to add their card message.
+
+Helper copy beneath the primary action:
+- One gift/message: “Next: add your card message”
+- Multiple applicable gifts/messages: “Next: add your card messages”
+- Base singular/plural behavior on the cart’s actual gift/message requirements, not only raw line-item count.
+
+8) Close behavior and accessibility
+
+- Escape key closes the modal.
+- Clicking the overlay may close it only if this matches the current site convention.
+- Trap keyboard focus inside the modal while open.
+- Return focus to the triggering Add to Cart button after close.
+- Buttons and category controls must be keyboard accessible.
+- Provide useful accessible names for the close button, category controls, product images, delivery change action, and upsell Add buttons.
+- Maintain WCAG-compliant contrast and visible focus states.
+- Prevent the underlying page from scrolling while the modal is open.
+
+RESPONSIVE REQUIREMENTS
+
+Desktop:
+- Center the modal.
+- Keep it compact enough to fit within the viewport without clipping the footer.
+- Show three equal-width upsell cards.
+- Keep all five initial category chips fully visible where space allows.
+
+Mobile:
+- Use an appropriately sized bottom sheet or near-full-width modal.
+- Keep the cart summary and actions accessible without covering product content.
+- Allow category chips and/or cards to scroll horizontally with an obvious continuation cue.
+- Respect device safe areas.
+- Avoid nested vertical scroll regions where possible.
+
+LOCALIZATION AND CURRENCY
+
+- All amounts must use the application’s existing locale-aware money formatter.
+- Apply the formatter to:
+  - Newly added item price
+  - Free-delivery threshold/remaining amount
+  - Every upsell price
+  - Full cart total
+- Do not type the currency symbol into the component.
+- Verify RTL compatibility and long translated strings.
+- No text, currency symbol, category label, or button label may be clipped.
+
+ANALYTICS
+
+Track at minimum:
+- add_to_cart_popup_viewed
+- add_to_cart_popup_closed
+- upsell_category_selected
+- upsell_add_clicked
+- upsell_add_succeeded
+- upsell_add_failed
+- popup_delivery_change_clicked
+- popup_continue_shopping_clicked
+- popup_continue_to_cart_clicked
+
+Include relevant properties where available:
+- market / locale
+- currency
+- main product ID
+- upsell product ID
+- selected category
+- cart item count
+- cart total before and after upsell
+- free-delivery status
+- delivery window
+- recommendation source
+
+ACCEPTANCE CRITERIA
+
+- The correct newly added product, quantity, and localized price appear in the header.
+- A completed free-delivery state uses the compact success banner and no completed progress bar.
+- The five initial categories are present and fully readable.
+- Recommended is selected by default.
+- Selecting a category updates the product cards.
+- Each upsell shows image, name, localized price, and “+ Add”.
+- Adding an upsell updates its state, the full cart count, full cart total, and delivery-threshold state without a page reload.
+- A cart containing pre-existing items shows the correct combined item count and total.
+- Every monetary amount includes the correct locale-formatted currency.
+- The cart total is not shown inside the CTA.
+- The primary CTA says “Continue to cart”, never “Checkout”.
+- Clicking “Continue to cart” opens the cart page where card messages can be entered.
+- Helper copy correctly uses singular or plural.
+- Continue shopping and close controls behave correctly.
+- Desktop and mobile layouts contain no clipped content.
+- Keyboard navigation, focus trapping, focus return, labels, and visible focus states pass accessibility QA.
+- Analytics fire once per intended interaction with the correct properties.
+
+QA SCENARIOS
+
+1. Empty cart, add first product.
+2. Cart already contains one unrelated item, then add another product.
+3. Cart already contains multiple gifts requiring separate card messages.
+4. Add one upsell successfully.
+5. Add several upsells in succession.
+6. Upsell API returns an error.
+7. Upsell becomes unavailable.
+8. Free delivery is below threshold before adding an upsell and becomes unlocked afterward.
+9. Free delivery is already unlocked when the popup opens.
+10. Change delivery window from inside the popup.
+11. Test at least one market with a non-dollar currency glyph.
+12. Test long translated labels and RTL layout.
+13. Test keyboard-only navigation and screen-reader labels.
+14. Test narrow mobile viewport and desktop viewport.
+15. Verify analytics payloads and prevent duplicate events.
+
+DEFINITION OF DONE
+
+- Implementation is merged and deployed to the agreed test environment.
+- Product/design review confirms hierarchy, copy, spacing, and responsive behavior.
+- QA covers all scenarios above.
+- Analytics are verified in the event debugger.
+- No regression to the existing add-to-cart, cart, delivery selection, or card-message flows.
