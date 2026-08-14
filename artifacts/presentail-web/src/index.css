@@ -173,11 +173,21 @@
 :root {
   --content-max-width: 1200px;
   --page-gutter-x: 1rem; /* 16 px — px-4 */
+  /* Sticky site header height (MainNavbar). Keep in px so JS can parse it
+     (parseFloat) for sticky-fit checks. Single source of truth — the navbar
+     and any sticky offsets derive from this. */
+  --header-h: 90px;
 }
 
 @media (min-width: 640px) {
   :root {
     --page-gutter-x: 1.5rem; /* 24 px — px-6 */
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --header-h: 112px; /* md:h-28 */
   }
 }
 

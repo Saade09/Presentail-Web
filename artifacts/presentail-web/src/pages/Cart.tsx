@@ -660,6 +660,36 @@ export default function Cart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHydrated, itemCount]);
 
+  // ── Sticky sidebar short-viewport fallback ────────────────────────────
+  // The Delivery + Order Summary unit is sticky only when it fully fits
+  // below the sticky header (--header-h + 24px gap) with safe bottom
+  // spacing. Otherwise stickiness is disabled and the sidebar scrolls in
+  // normal flow so the checkout CTA stays reachable.
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
+  const [sidebarFits, setSidebarFits] = useState(true);
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el || typeof window === "undefined") return;
+    const check = () => {
+      const headerH =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue("--header-h"),
+        ) || 112;
+      // header + 24px gap above, 24px safe spacing below
+      const fits = el.offsetHeight + headerH + 24 + 24 <= window.innerHeight;
+      setSidebarFits(fits);
+    };
+    check();
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", check);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", check);
+    };
+  }, [isHydrated, itemCount]);
+
   const previewCardFrom = cardFrom;
 
   if (!isHydrated) {
@@ -686,13 +716,14 @@ export default function Cart() {
   return (
     <div className="min-h-screen bg-gray-100 pt-6 pb-32 lg:pb-24">
       <div className="container mx-auto px-page max-w-content">
-        <div className="flex items-center justify-between mb-4 gap-4">
-          <h1 className="text-3xl font-serif">{t("cart.title")} ({itemCount})</h1>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_26.4rem] gap-x-12 gap-y-6">
-          {/* Cart Items – banner + items */}
+          {/* Cart Items – heading + banner + items. The heading lives inside
+              the grid's first row so the sidebar (col 2, row 1) top-aligns
+              with it on desktop — no blank block above Delivery Summary. */}
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+            <div className="flex items-center justify-between mb-4 gap-4">
+              <h1 className="text-3xl font-serif">{t("cart.title")} ({itemCount})</h1>
+            </div>
             {/* Polite live region — announces the unlocked state change once. */}
             <div aria-live="polite" aria-atomic="true" className="sr-only">
               {unlockAnnouncement}
@@ -898,9 +929,20 @@ export default function Cart() {
 
           </div>
 
-          {/* Delivery Summary + Order Summary sidebar (stacks below items on mobile) */}
+          {/* Delivery Summary + Order Summary sidebar (stacks below items on mobile).
+              Desktop: one sticky unit pinned 24px below the sticky site header
+              (var(--header-h), shared with MainNavbar). The tinted wrapper is
+              dropped on lg so the first card top-aligns with the "Cart (n)"
+              heading. Stickiness is disabled when the unit doesn't fit in the
+              viewport (short-viewport fallback) so everything stays reachable
+              by normal page scrolling. */}
           <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2">
-            <div className="bg-secondary/30 rounded-3xl p-6 lg:p-8 lg:sticky lg:top-32">
+            <div
+              ref={sidebarRef}
+              className={`bg-secondary/30 rounded-3xl p-6 lg:bg-transparent lg:rounded-none lg:p-0${
+                sidebarFits ? " lg:sticky lg:top-[calc(var(--header-h)+1.5rem)]" : ""
+              }`}
+            >
               {/* aria-live region: announces applied/error to assistive technology */}
               <div aria-live="polite" aria-atomic="true" className="sr-only">
                 {couponApplied
