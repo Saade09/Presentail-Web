@@ -879,7 +879,13 @@ export default function ProductDetail() {
         />
       </div>
 
-      {slug && product && <CompleteYourGift slug={slug} anchor={product} />}
+      {slug && product && (
+        <CompleteYourGift
+          slug={slug}
+          anchor={product}
+          onBundleAdded={() => setUpsellOpen(true)}
+        />
+      )}
 
       <AddToCartUpsellModal
         open={upsellOpen}
