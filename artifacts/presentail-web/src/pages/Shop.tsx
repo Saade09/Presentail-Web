@@ -922,7 +922,7 @@ export default function Shop() {
               </div>
             )}
             {isLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-7 md:gap-y-10">
                 {Array(6).fill(0).map((_, i) => (
                   <div key={i} className="space-y-3">
                     <Skeleton className="aspect-[4/5] rounded-2xl" />
@@ -955,7 +955,7 @@ export default function Shop() {
                       <p className="text-xs tracking-[0.25em] uppercase text-primary text-center mb-6">
                         {t("shop.popularPicks")}
                       </p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-7 md:gap-y-10">
                         {popularPicks.map((product, i) => (
                           <ProductCard key={product.id} product={product} index={i} />
                         ))}
@@ -1015,7 +1015,7 @@ export default function Shop() {
                   {indoorProducts.length > 0 && (
                     <section>
                       <h2 className="font-serif text-2xl mb-6">{t("shop.plants.indoorSection")}</h2>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-7 md:gap-y-10">
                         {indoorProducts.map((product, i) => (
                           <ProductCard key={product.id} product={product} index={i} />
                         ))}
@@ -1025,7 +1025,7 @@ export default function Shop() {
                   {outdoorProducts.length > 0 && (
                     <section>
                       <h2 className="font-serif text-2xl mb-6">{t("shop.plants.outdoorSection")}</h2>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-7 md:gap-y-10">
                         {outdoorProducts.map((product, i) => (
                           <ProductCard key={product.id} product={product} index={i} />
                         ))}
@@ -1035,7 +1035,7 @@ export default function Shop() {
                 </div>
               );
             })() : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-7 md:gap-y-10">
                 {products.map((product, i) => (
                   <ProductCard key={product.id} product={product} index={i} />
                 ))}

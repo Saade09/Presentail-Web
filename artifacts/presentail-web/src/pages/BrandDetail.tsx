@@ -245,7 +245,7 @@ export default function BrandDetail() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-7 md:gap-y-10">
             {data?.products.map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}
