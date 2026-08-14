@@ -51,6 +51,14 @@ export const productStrings: Dict = {
   "product.fbt.addSelected": { en: "Add Selected to Cart", ar: "أضف المحدد إلى السلة" },
   "product.fbt.total": { en: "Total", ar: "المجموع" },
   "product.fbt.items": { en: "items", ar: "عناصر" },
+  "product.cyg.title": { en: "Complete your gift", ar: "أكمل هديتك" },
+  "product.cyg.subtitle": { en: "Add a thoughtful extra to your gift.", ar: "أضف لمسة إضافية مميزة إلى هديتك." },
+  "product.cyg.yourGift": { en: "Your gift", ar: "هديتك" },
+  "product.cyg.add": { en: "+ Add", ar: "+ أضف" },
+  "product.cyg.added": { en: "Added", ar: "تمت الإضافة" },
+  "product.cyg.item": { en: "{count} item", ar: "{count} عنصر" },
+  "product.cyg.items": { en: "{count} items", ar: "{count} عناصر" },
+  "product.cyg.addToCart": { en: "Add gift to cart", ar: "أضف الهدية إلى السلة" },
   "product.badge.bestSeller": { en: "Best Seller", ar: "الأكثر مبيعاً" },
 
   // ── Inherited delivery summary (cart-reuse States 2 & 3) ──
@@ -206,6 +214,14 @@ export const productStringsFr: Record<string, string> = {
   "product.fbt.addSelected": "Ajouter la sélection au panier",
   "product.fbt.total": "Total",
   "product.fbt.items": "articles",
+  "product.cyg.title": "Complétez votre cadeau",
+  "product.cyg.subtitle": "Ajoutez une attention supplémentaire à votre cadeau.",
+  "product.cyg.yourGift": "Votre cadeau",
+  "product.cyg.add": "+ Ajouter",
+  "product.cyg.added": "Ajouté",
+  "product.cyg.item": "{count} article",
+  "product.cyg.items": "{count} articles",
+  "product.cyg.addToCart": "Ajouter le cadeau au panier",
   "product.badge.bestSeller": "Meilleures ventes",
 
   // ── Inherited delivery summary (cart-reuse States 2 & 3) ──

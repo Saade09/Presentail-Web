@@ -155,6 +155,9 @@ KLARNA_ROLLOUT = "on"
 [userenv.production]
 INTERNAL_API_BASE_URL = "https://presentail.com"
 
+[userenv.development]
+CYG_ROLLOUT = "on"
+
 [nix]
 channel = "stable-25_05"
 

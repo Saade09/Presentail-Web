@@ -55,7 +55,18 @@ type WebEventType =
   | "blog_toc_click"
   | "blog_recommendation_impression"
   | "blog_recommendation_click"
-  | "blog_related_click";
+  | "blog_related_click"
+  // Complete Your Gift PDP upsell funnel events
+  | "upsell_module_view"
+  | "upsell_item_impression"
+  | "upsell_add_click"
+  | "upsell_option_open"
+  | "upsell_option_selected"
+  | "upsell_remove_click"
+  | "upsell_quantity_change"
+  | "upsell_bundle_add_attempt"
+  | "upsell_bundle_add_success"
+  | "upsell_bundle_add_failure";
 
 export type WebEventItem = {
   productId: string;
@@ -344,7 +355,7 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 
 let inMemoryFallbackId: string | null = null;
 
-function getOrCreateSessionId(): string {
+export function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
   try {
     const existing = localStorage.getItem(SESSION_ID_KEY);

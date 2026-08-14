@@ -52,7 +52,7 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { trackWebEvent, trackEvent } from "@/lib/analytics";
 import { buildProductSeo } from "@/lib/seo";
-import { FrequentlyBoughtTogether } from "@/components/product/FrequentlyBoughtTogether";
+import { CompleteYourGift } from "@/components/product/CompleteYourGift";
 import { calcCheckoutFees } from "@/pages/checkoutFees";
 
 const SEO_ATTR = "data-seo-managed";
@@ -879,7 +879,7 @@ export default function ProductDetail() {
         />
       </div>
 
-      {slug && product && <FrequentlyBoughtTogether slug={slug} anchor={product} />}
+      {slug && product && <CompleteYourGift slug={slug} anchor={product} />}
 
       <AddToCartUpsellModal
         open={upsellOpen}

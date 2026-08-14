@@ -1,3 +1,4 @@
+// hint: Logic changed on both sides. Requires understanding intent of each change.
 - [iOS product share](share-product-ios.md) — title param invisible in iOS 16+ share sheet; use message format; share/SEO base domain is presentail.com (old new. subdomain retired)
 - [react-test-renderer + vitest (RN)](rtr-vitest-compat.md) — RNTL breaks in vitest; use react-test-renderer + act() + toJSON() traversal instead
 - [Web native auth](web-native-auth.md) — Clerk replaced by localStorage JWT auth on web; key design decisions documented
@@ -55,3 +56,4 @@
 - [Express upgrade delta](express-upgrade-delta.md) — cart upgrade delta = surcharge − slotFee from cartTotal's own terms; web-event types must be added in both client union and server enum
 - [Slot fee invariant](slot-fee-single-source.md) — displayed slot fee must equal charged fee; resolve date-aware by slotId, never raw extraFee reads
 - [Blog locale + editorial template](blog-locale-and-template.md) — bare /{lang}/blog URLs need explicit lang derivation in LocaleContext; article template is optional-field schema-driven with market hrefs via HUB_CITY
+- [Store-currency API responses](store-currency-api-responses.md) — product-surfacing endpoints must return store display-currency prices (AED/EUR), never USD-only; delivery params must actually gate results

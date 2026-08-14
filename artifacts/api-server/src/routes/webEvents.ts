@@ -50,6 +50,21 @@ const WEB_EVENT_TYPES = [
   "blog_recommendation_impression",
   "blog_recommendation_click",
   "blog_related_click",
+  // Complete Your Gift PDP upsell funnel
+  "upsell_module_view",
+  "upsell_item_impression",
+  "upsell_add_click",
+  "upsell_option_open",
+  "upsell_option_selected",
+  "upsell_remove_click",
+  "upsell_quantity_change",
+  "upsell_bundle_add_attempt",
+  "upsell_bundle_add_success",
+  "upsell_bundle_add_failure",
+  "upsell_item_purchased",
+  "upsell_item_cancelled",
+  "upsell_item_refunded",
+  "upsell_item_substituted",
 ] as const;
 
 const webEventItemSchema = z.object({
