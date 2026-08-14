@@ -508,6 +508,14 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       "Browse Presentail's complete catalogue for Batroun — every bouquet, rose arrangement, cake, chocolate box, plant and gift set available to order in one place."; // i18n-ignore
   }
 
+  // Beirut paid-search campaign page (EN): the hydrated hero was rebuilt for
+  // paid traffic (see CampaignHeroBeirut.tsx), so the crawler-facing body
+  // fragment's H1 + intro must mirror the new visible copy (parity — no
+  // cloaking). Title, description, canonical and hreflang are intentionally
+  // left untouched: the page has organic rankings.
+  const isBeirutCampaignLanding =
+    routeKey === "flower-delivery" && cityKey === "lb-beirut" && lang === "en";
+
   // For product / category / occasion routes, extract the URL slug and derive
   // entity-specific title/description from it using the same builders that the
   // live entity branches use.  This replaces the completely generic
@@ -1085,7 +1093,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     });
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang, cityKey, h1Override: cityHomeOverride?.h1 ?? (isTripoliShop ? "Shop All Flowers & Gifts in Tripoli" : undefined), introOverride: cityHomeOverride?.intro, whyPoints: cityHomeOverride?.whyPoints });
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang, cityKey, h1Override: cityHomeOverride?.h1 ?? (isTripoliShop ? "Shop All Flowers & Gifts in Tripoli" : isBeirutCampaignLanding ? "Flowers delivered in Beirut today" : undefined), introOverride: cityHomeOverride?.intro ?? (isBeirutCampaignLanding ? "Hand-arranged this morning by our Achrafieh florists. Don't have their address? Order anyway — we'll collect it from the recipient for you." : undefined), whyPoints: cityHomeOverride?.whyPoints });
 
   return {
     lang,

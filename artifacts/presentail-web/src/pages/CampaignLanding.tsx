@@ -23,6 +23,11 @@ import {
   markFirstOrderPromoShown,
 } from "@/lib/campaign";
 import type { Product } from "@/lib/queries";
+import {
+  CampaignHeroBeirut,
+  CampaignTrustBarBeirut,
+  CampaignStickyBarBeirut,
+} from "@/pages/CampaignHeroBeirut";
 
 const HERO_IMAGE_URL =
   "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=1200&q=80&auto=format&fit=crop";
@@ -53,6 +58,13 @@ export default function CampaignLanding() {
   const { user } = useAuth();
 
   const cityLabel = city ? cityName(city.id, city.name) : "";
+
+  // Paid-search hero variant — gated to the English Beirut campaign page ONLY
+  // (https://presentail.com/en-lb/beirut/flower-delivery). Every other
+  // locale/city/campaign keeps the original layout below, so no other page
+  // changes appearance; flipping this flag off restores the old hero.
+  const isBeirutPaidVariant =
+    language === "en" && countryCode === "LB" && cityId === "lb-beirut";
   const thresholdUsd = getCampaignThresholdUsd(countryCode);
   const underAmount = formatPrice(thresholdUsd);
 
@@ -179,12 +191,29 @@ export default function CampaignLanding() {
   ];
 
   return (
-    <div dir={dir} className="min-h-screen bg-white pb-24 md:pb-0">
-      <div className="container mx-auto max-w-content px-page pt-2 md:pt-4">
-        <PageBreadcrumb crumbs={crumbs} />
-      </div>
+    <div dir={dir} className="min-h-screen bg-white pb-28 md:pb-0">
+      {/* Breadcrumb removed on the Beirut paid variant only — it wastes the
+          most valuable above-the-fold space on mobile for paid traffic. */}
+      {!isBeirutPaidVariant && (
+        <div className="container mx-auto max-w-content px-page pt-2 md:pt-4">
+          <PageBreadcrumb crumbs={crumbs} />
+        </div>
+      )}
 
-      {/* ── Hero ── */}
+      {/* ── Hero (Beirut paid-search variant) ── */}
+      {isBeirutPaidVariant && (
+        <>
+          <CampaignHeroBeirut
+            cityLabel={cityLabel}
+            onCtaClick={() => fireCampaignEvent("campaign_hero_cta_click", "shop-best-sellers")}
+            onWhatsAppClick={() => fireCampaignEvent("campaign_hero_cta_click", "whatsapp")}
+          />
+          <CampaignTrustBarBeirut />
+        </>
+      )}
+
+      {/* ── Hero (original — all other locales/cities) ── */}
+      {!isBeirutPaidVariant && (
       <div className="container mx-auto max-w-content px-page pt-2">
         <section className="rounded-3xl bg-[#FAF6EF] overflow-hidden md:grid md:grid-cols-2 md:items-stretch">
           <div className="p-6 md:p-10 flex flex-col justify-center gap-4">
@@ -246,8 +275,11 @@ export default function CampaignLanding() {
           </div>
         </section>
       </div>
+      )}
 
-      {/* ── Trust row ── */}
+      {/* ── Trust row (original — hidden on the Beirut paid variant, which has
+             its own 4-cell trust bar under the hero) ── */}
+      {!isBeirutPaidVariant && (
       <div className="container mx-auto max-w-content px-page">
         <div className="flex items-center justify-center gap-6 md:gap-12 py-5 md:py-7 text-sm text-neutral-700">
           <span className="inline-flex items-center gap-2" data-testid="text-trust-rating">
@@ -264,6 +296,7 @@ export default function CampaignLanding() {
           </span>
         </div>
       </div>
+      )}
 
       {/* ── Best sellers ── */}
       <div ref={bestSellersRef} id="campaign-best-sellers" className="container mx-auto max-w-content px-page pt-2 scroll-mt-24">
@@ -334,6 +367,12 @@ export default function CampaignLanding() {
       </div>
 
       {/* ── Mobile sticky CTA ── */}
+      {isBeirutPaidVariant ? (
+        <CampaignStickyBarBeirut
+          onCtaClick={() => fireCampaignEvent("campaign_sticky_cta_click")}
+          onWhatsAppClick={() => fireCampaignEvent("campaign_sticky_cta_click", "whatsapp")}
+        />
+      ) : (
       <div
         className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white/95 backdrop-blur border-t border-neutral-200 px-4 pt-3"
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
@@ -349,6 +388,7 @@ export default function CampaignLanding() {
           {t("campaign.stickyCta")}
         </Button>
       </div>
+      )}
     </div>
   );
 }
