@@ -23,6 +23,12 @@ type WebEventType =
   | "free_delivery_addons_clicked"
   | "free_delivery_unlocked"
   | "free_delivery_lost"
+  // Cart Delivery Summary express upgrade card events
+  | "express_upgrade_impression"
+  | "express_upgrade_clicked"
+  | "express_upgrade_success"
+  | "express_upgrade_failed"
+  | "delivery_method_changed"
   | "checkout_clicked"
   | "klarna_selected"
   | "klarna_redirect_started"

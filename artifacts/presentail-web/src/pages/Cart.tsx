@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useCart, effectivePrice } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
@@ -21,12 +21,12 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import { SalePrice } from "@/components/SalePrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
-import { buildFeeNode } from "@/lib/feeNode";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { expressSurchargeForCountry, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, timeSlotsForCountry } from "@workspace/delivery";
-import { useDeliveryPromise } from "@/components/delivery/deliveryPromise";
+import { buildExpressPromise, useDeliveryPromise, useExpressQuoteAnchor } from "@/components/delivery/deliveryPromise";
+import { ExpressUpgradeCard } from "@/components/delivery/ExpressUpgradeCard";
 import { useNow } from "@/lib/useNow";
 import { computeCartTotal } from "@workspace/display-currency";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
@@ -102,7 +102,7 @@ function CartSkeleton() {
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, updateCustomNote, subtotal, itemCount, isHydrated } = useCart();
-  const { t, dir } = useLocale();
+  const { t, dir, language } = useLocale();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const {
@@ -113,7 +113,7 @@ export default function Cart() {
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
-  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate } = useDeliverySelection();
+  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate, setSelection } = useDeliverySelection();
   const { currencyCode } = useDisplayCurrency();
   const deliveryPromise = useDeliveryPromise();
   const now = useNow();
@@ -121,8 +121,6 @@ export default function Cart() {
   // express operating window in the recipient market's timezone.
   const expressAvailableNow =
     locationCity?.expressAvailable !== false && isExpressDeliveryAvailable(countryCode, now);
-  // Express upsell → open the delivery picker with express preselected.
-  const [upsellExpressOpen, setUpsellExpressOpen] = useState(false);
   // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
   //   1. OS per-city value (most specific)
   //   2. OS per-country value
@@ -218,6 +216,128 @@ export default function Cart() {
   const standardDeliveryFree = deliveryFeeUsd === 0;
   const expressRowVisible =
     deliveryMode === "express" && expressSurcharge > 0 && locationCity?.expressAvailable !== false;
+
+  // ── Express upgrade card (Delivery Summary) ──────────────────────────────
+  // Shown only while a standard selection exists and express is available now.
+  const expressUpgradeVisible =
+    deliveryMode !== null &&
+    deliveryMode !== "express" &&
+    expressSurcharge > 0 &&
+    expressAvailableNow;
+
+  // Delta pricing — same source of truth as cartTotal (effectiveDeliveryFeeUsd
+  // + slotFeeUsd), so the displayed delta always equals the change in Total:
+  //   express total fee  = (base fee after free-delivery/credits) + surcharge
+  //   currently applied  = (base fee after free-delivery/credits) + slot fee
+  const expressTotalFeeUsd: number = (deliveryFeeUsd ?? 0) + expressSurcharge;
+  const appliedStandardFeeUsd: number = (deliveryFeeUsd ?? 0) + slotFeeUsd;
+  const expressDeltaUsd: number = expressTotalFeeUsd - appliedStandardFeeUsd;
+
+  // Express "Arrives by [time]" preview — anchored to a quote timestamp that
+  // refreshes on the standard TTL cadence (never creeping per-render). Falls
+  // back to null (→ "Within 90 minutes") when the ETA can't be computed.
+  const upgradeQuoteAnchor = useExpressQuoteAnchor(expressUpgradeVisible || deliveryMode === "express");
+  const expressArrivalPreview: string | null = useMemo(() => {
+    try {
+      return buildExpressPromise({
+        quotedAt: upgradeQuoteAnchor ?? now,
+        countryCode: countryCode ?? null,
+        locale: language,
+        t,
+      }).arrival;
+    } catch {
+      return null;
+    }
+  }, [upgradeQuoteAnchor, now, countryCode, language, t]);
+
+  // Shared analytics payload for the express upgrade events.
+  const expressUpgradeAnalyticsProps = {
+    cart_value_usd: subtotal,
+    effective_standard_fee_usd: appliedStandardFeeUsd,
+    express_fee_usd: expressTotalFeeUsd,
+    displayed_delta_usd: expressDeltaUsd,
+    free_delivery_eligible:
+      freeDeliveryEnabled !== false && typeof thresholdUsd === "number" && subtotal >= thresholdUsd,
+    eta: expressArrivalPreview ?? "within_90_minutes",
+    selected_delivery_type: deliveryMode === "express" ? "express" : "standard",
+  };
+  const expressUpgradeAnalyticsPropsRef = useRef(expressUpgradeAnalyticsProps);
+  expressUpgradeAnalyticsPropsRef.current = expressUpgradeAnalyticsProps;
+
+  // Impression — once per cart visit while the card is visible.
+  const upgradeImpressionRef = useRef(false);
+  useEffect(() => {
+    if (!expressUpgradeVisible || upgradeImpressionRef.current || !isHydrated || itemCount === 0) return;
+    upgradeImpressionRef.current = true;
+    trackWebEvent({
+      type: "express_upgrade_impression",
+      currency: "USD",
+      properties: expressUpgradeAnalyticsPropsRef.current,
+    });
+  }, [expressUpgradeVisible, isHydrated, itemCount]);
+
+  // Upgrade action — selects express via the shared delivery-selection state.
+  // upgradePendingRef guards double-clicks/races while the switch commits.
+  const upgradePendingRef = useRef(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const handleExpressUpgrade = () => {
+    if (upgradePendingRef.current) return;
+    const props = expressUpgradeAnalyticsPropsRef.current;
+    trackWebEvent({ type: "express_upgrade_clicked", currency: "USD", properties: props });
+    if (!expressAvailableNow) {
+      trackWebEvent({
+        type: "express_upgrade_failed",
+        currency: "USD",
+        properties: { ...props, reason: "express_unavailable" },
+      });
+      return;
+    }
+    upgradePendingRef.current = true;
+    setUpgrading(true);
+    try {
+      setSelection({ mode: "express", date: getLocalIso(countryCode), slotLabel: null, slotId: null });
+    } catch {
+      upgradePendingRef.current = false;
+      setUpgrading(false);
+      trackWebEvent({
+        type: "express_upgrade_failed",
+        currency: "USD",
+        properties: { ...props, reason: "selection_error" },
+      });
+    }
+  };
+
+  // Method-change observer: emits delivery_method_changed on every switch and
+  // express_upgrade_success when the switch was initiated by the Upgrade CTA.
+  const prevDeliveryModeRef = useRef<typeof deliveryMode | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevDeliveryModeRef.current;
+    prevDeliveryModeRef.current = deliveryMode;
+    if (prev === undefined || prev === deliveryMode) return;
+    const props = expressUpgradeAnalyticsPropsRef.current;
+    trackWebEvent({
+      type: "delivery_method_changed",
+      currency: "USD",
+      properties: {
+        ...props,
+        from_method: prev === "express" ? "express" : prev === null ? "none" : "standard",
+        to_method: deliveryMode === "express" ? "express" : "standard",
+      },
+    });
+    if (upgradePendingRef.current) {
+      upgradePendingRef.current = false;
+      setUpgrading(false);
+      if (deliveryMode === "express") {
+        trackWebEvent({ type: "express_upgrade_success", currency: "USD", properties: props });
+      } else {
+        trackWebEvent({
+          type: "express_upgrade_failed",
+          currency: "USD",
+          properties: { ...props, reason: "selection_not_applied" },
+        });
+      }
+    }
+  }, [deliveryMode]);
 
   // ── Contextual three-state free-delivery banner ──────────────────────────
   // hidden / close / unlocked — driven by the server threshold + enabled flag,
@@ -792,10 +912,15 @@ export default function Cart() {
               <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm mb-4">
                 <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
                 <div className="text-sm">
-                  <DeliveryDateRow
-                    openWithExpress={upsellExpressOpen}
-                    onExpressPreselectConsumed={() => setUpsellExpressOpen(false)}
-                  />
+                  <DeliveryDateRow />
+                  {expressUpgradeVisible && (
+                    <ExpressUpgradeCard
+                      arrival={expressArrivalPreview}
+                      deltaUsd={expressDeltaUsd}
+                      onUpgrade={handleExpressUpgrade}
+                      upgrading={upgrading}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -814,54 +939,42 @@ export default function Cart() {
                     </dd>
                   </div>
 
-                  {/* Standard delivery */}
-                  <div className="flex justify-between gap-3" data-testid="row-standard-delivery">
-                    <dt className="min-w-0">
-                      <span className="block font-medium">{t("cart.standardDelivery")}</span>
-                      {deliveryFeeUsd === null ? null : standardDeliveryFree ? (
-                        <span className="block text-xs text-muted-foreground mt-0.5" data-testid="text-free-delivery-saved">
-                          {cityFeeUsd != null && cityFeeUsd > 0
-                            ? buildFeeNode(t("cart.freeDeliveryUnlockedSaved"), { amount: cityFeeUsd })
-                            : t("cart.freeDeliveryUnlockedShort")}
-                        </span>
-                      ) : (
-                        <span className="block text-xs text-muted-foreground mt-0.5">{t("cart.baseDeliveryCharge")}</span>
-                      )}
-                    </dt>
-                    <dd className="font-medium text-end shrink-0">
-                      {deliveryFeeUsd === null
-                        ? <span className="text-muted-foreground text-xs font-normal">{t("cart.deliveryTbd")}</span>
-                        : standardDeliveryFree
-                          ? <span className="font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("cart.deliveryFree")}</span>
-                          : <FormattedPrice usdValue={deliveryFeeUsd} />
-                      }
-                    </dd>
-                  </div>
-
-                  {/* Express upgrade — only when express is selected */}
-                  {expressRowVisible && (
-                    <div className="flex justify-between gap-3" data-testid="row-express-upgrade">
+                  {/* Delivery — exactly one row for the currently selected method */}
+                  {deliveryMode === "express" ? (
+                    <div className="flex justify-between gap-3" data-testid="row-express-delivery">
                       <dt className="min-w-0">
-                        <span className="block font-medium">{t("cart.expressUpgrade")}</span>
-                        <span className="block text-xs text-muted-foreground mt-0.5">{t("cart.expressWithin90")}</span>
+                        <span className="block font-medium">{t("delivery.promise.expressTitle")}</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5" data-testid="text-express-delivery-eta">
+                          {expressArrivalPreview ?? t("delivery.promise.within90")}
+                        </span>
                       </dt>
-                      <dd className="font-medium text-end shrink-0"><FormattedPrice usdValue={expressSurcharge} /></dd>
+                      <dd className="font-medium text-end shrink-0">
+                        {effectiveDeliveryFeeUsd === null
+                          ? <span className="text-muted-foreground text-xs font-normal">{t("cart.deliveryTbd")}</span>
+                          : <FormattedPrice usdValue={effectiveDeliveryFeeUsd} />}
+                      </dd>
                     </div>
-                  )}
-
-                  {/* Express upsell — clickable, opens the picker with express preselected */}
-                  {expressSurcharge > 0 && expressAvailableNow && deliveryMode !== "express" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        trackEvent({ name: "express_upgrade_selected", surface: "cart", deliveryMethod: "express" });
-                        setUpsellExpressOpen(true);
-                      }}
-                      className="block w-full text-start text-xs text-primary underline underline-offset-2 hover:opacity-80 transition-opacity"
-                      data-testid="button-express-upsell"
-                    >
-                      {buildFeeNode(t("cart.expressUpsell"), { amount: expressSurcharge })}
-                    </button>
+                  ) : (
+                    <div className="flex justify-between gap-3" data-testid="row-standard-delivery">
+                      <dt className="min-w-0">
+                        <span className="block font-medium">{t("cart.standardDelivery")}</span>
+                        {deliveryFeeUsd === null ? null : standardDeliveryFree ? (
+                          <span className="block text-xs text-muted-foreground mt-0.5" data-testid="text-free-delivery-saved">
+                            {t("cart.freeDeliveryApplied")}
+                          </span>
+                        ) : (
+                          <span className="block text-xs text-muted-foreground mt-0.5">{t("cart.baseDeliveryCharge")}</span>
+                        )}
+                      </dt>
+                      <dd className="font-medium text-end shrink-0">
+                        {deliveryFeeUsd === null
+                          ? <span className="text-muted-foreground text-xs font-normal">{t("cart.deliveryTbd")}</span>
+                          : standardDeliveryFree
+                            ? <span className="font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("cart.deliveryFree")}</span>
+                            : <FormattedPrice usdValue={deliveryFeeUsd} />
+                        }
+                      </dd>
+                    </div>
                   )}
 
                   {/* Late-night slot fee */}

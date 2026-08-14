@@ -192,22 +192,21 @@ describe("Cart summary — items row pluralization", () => {
 });
 
 describe("Cart summary — free delivery presentation", () => {
-  it("above threshold → 'Free' label with saved-amount supporting copy (cityFeeUsd known)", () => {
+  it("above threshold → 'Free' label with 'Free delivery applied' supporting copy", () => {
     renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ABOVE, currency: CURRENCY_FIXTURE });
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
     const saved = screen.getByTestId("text-free-delivery-saved");
-    // buildFeeNode renders the raw key (mock t) — the point is the saved variant is chosen
-    expect(saved.textContent).toContain("cart.freeDeliveryUnlockedSaved");
+    expect(saved.textContent).toContain("cart.freeDeliveryApplied");
     // No $0 delivery amount anywhere
     expect(screen.queryByText("$0")).toBeNull();
   });
 
-  it("above threshold with unknown city fee → fallback 'Free delivery unlocked' copy", () => {
+  it("above threshold with unknown city fee → same 'Free delivery applied' copy", () => {
     vi.mocked(useDeliveryConfig).mockReturnValue({ ...BASE_CONFIG, cityFeeUsd: 0 });
     renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ABOVE, currency: CURRENCY_FIXTURE });
     expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
     expect(screen.getByTestId("text-free-delivery-saved").textContent).toContain(
-      "cart.freeDeliveryUnlockedShort",
+      "cart.freeDeliveryApplied",
     );
   });
 
@@ -217,12 +216,14 @@ describe("Cart summary — free delivery presentation", () => {
     expect(screen.queryByTestId("text-free-delivery-saved")).toBeNull();
   });
 
-  it("free standard + express → free-delivery banner is suppressed, express row still charged", () => {
+  it("free standard + express → free-delivery banner is suppressed, single express row still charged", () => {
     mockUseDeliverySelection.mockReturnValue(standardSelection("express"));
     renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ABOVE, currency: CURRENCY_FIXTURE });
     expect(screen.queryByTestId("free-delivery-banner")).toBeNull();
-    expect(screen.getByTestId("row-express-upgrade").textContent).toContain("$15");
-    expect(screen.getByText("cart.expressWithin90")).toBeTruthy();
+    const row = screen.getByTestId("row-express-delivery");
+    expect(row.textContent).toContain("$15");
+    expect(row.textContent).toContain("delivery.promise.expressTitle");
+    expect(screen.queryByTestId("row-standard-delivery")).toBeNull();
   });
 });
 
