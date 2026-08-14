@@ -49,6 +49,16 @@ type WebEventType =
   | "mobile_checkout_anonymous_toggled"
   | "mobile_checkout_continue_payment_clicked"
   | "mobile_checkout_validation_failed"
+  // Added-to-cart popup (upsell modal) redesign events
+  | "add_to_cart_popup_viewed"
+  | "add_to_cart_popup_closed"
+  | "upsell_category_selected"
+  | "upsell_add_clicked"
+  | "upsell_add_succeeded"
+  | "upsell_add_failed"
+  | "popup_delivery_change_clicked"
+  | "popup_continue_shopping_clicked"
+  | "popup_continue_to_cart_clicked"
   // Blog article template events
   | "blog_cta_click"
   | "blog_share"

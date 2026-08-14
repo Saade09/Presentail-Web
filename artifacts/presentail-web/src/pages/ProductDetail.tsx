@@ -884,6 +884,8 @@ export default function ProductDetail() {
       <AddToCartUpsellModal
         open={upsellOpen}
         onClose={() => setUpsellOpen(false)}
+        addedProduct={product}
+        addedQuantity={1}
       />
 
       {/* Always-visible sticky Add to Cart bar on mobile */}

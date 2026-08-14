@@ -18,6 +18,13 @@ type Props = {
    * visitor's selected display currency via formatPrice.
    */
   overrideThresholdUsd?: number;
+  /**
+   * When true and the threshold is met, renders a compact success banner
+   * ("Free standard delivery unlocked" / "Express delivery is also
+   * available") with no completed progress bar or goal labels. Below the
+   * threshold, the normal progress behavior is preserved.
+   */
+  compactUnlocked?: boolean;
 };
 
 function parseThresholdAmount(label: string): number {
@@ -43,7 +50,7 @@ function RemainingText({ template, usdValue }: { template: string; usdValue: num
   );
 }
 
-export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }: Props) {
+export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd, compactUnlocked = false }: Props) {
   const { t } = useLocale();
   const { freeDeliveryThreshold, freeDeliveryThresholdUsd, expressDeliveryTimeLabel } =
     useDeliveryConfig();
@@ -95,7 +102,16 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
       </span>
 
       <div className="min-w-0 text-xs flex-1">
-        {showProgress && hasThreshold ? (
+        {showProgress && hasThreshold && unlocked && compactUnlocked ? (
+          <div data-testid="free-delivery-banner-compact-unlocked">
+            <p className="font-semibold text-foreground leading-snug">
+              {t("cart.banner.unlocked")}
+            </p>
+            <p className="text-muted-foreground mt-0.5 leading-snug">
+              {t("cart.banner.expressAlsoAvailable")}
+            </p>
+          </div>
+        ) : showProgress && hasThreshold ? (
           <>
             {/* Headline */}
             <p className="font-semibold text-foreground leading-snug">

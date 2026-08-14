@@ -108,6 +108,21 @@ export const UPSELL_TABS: UpsellTabDef[] = [
   },
 ];
 
+/**
+ * Chip order for the Added-to-cart popup: the five spec-mandated initial
+ * categories (Recommended, Balloons, Chocolate, Plants, Teddy Bears) come
+ * first so they are the ones visible before any horizontal scrolling.
+ */
+export const MODAL_TAB_ORDER: UpsellTabId[] = [
+  "recommended",
+  "single_balloons",
+  "chocolate",
+  "plants",
+  "bears",
+  "balloon_bundles",
+  "candles",
+];
+
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
