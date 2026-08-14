@@ -412,6 +412,23 @@ export default function ProductDetail() {
       : t("product.delivery.estimatedBy").replace("{time}", timeStr);
   }, [now, expressAvailable, countryCode, t]);
 
+  // "Arrives by {time} Lebanon/UAE time" — compact inherited-card variant.
+  // Unlike expressEtaLabel this doesn't require expressAvailable: the card
+  // reflects an already-committed cart selection.
+  const expressArrivesLine = useMemo(() => {
+    const etaDate = new Date(now.getTime() + 90 * 60 * 1000);
+    const tz = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
+    const timeStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(etaDate);
+    return countryCode === "AE"
+      ? t("product.delivery.arrivesByUae").replace("{time}", timeStr)
+      : t("product.delivery.arrivesBy").replace("{time}", timeStr);
+  }, [now, countryCode, t]);
+
   // Labels for the inherited scheduled summary card.
   const scheduledDateLabel = useMemo(() => {
     if (!deliverySelection.date) return undefined;
@@ -434,6 +451,25 @@ export default function ProductDetail() {
       ? t("product.delivery.scheduledTimeUae").replace("{time}", timeRange)
       : t("product.delivery.scheduledTime").replace("{time}", timeRange);
   }, [deliverySelection.slotLabel, cityTimeSlots, countryCode, t]);
+
+  // Fee line for the compact inherited-delivery card. Reflects the order-level
+  // fee already applied to the cart — never implies an additional charge.
+  const inheritedFeeLine = useMemo((): React.ReactNode => {
+    if (deliverySelection.mode === "express") {
+      return buildFeeNode(t("product.delivery.expressUpgradeIncluded"), {
+        fee: deliveryCardLabels.expressSurchargeUsd,
+      });
+    }
+    if (deliveryCardLabels.scheduledIsFree) {
+      return t("product.delivery.deliveryFreeIncluded");
+    }
+    if (delivery.cityFeeUsd !== null) {
+      return buildFeeNode(t("product.delivery.deliveryFeeIncluded"), {
+        fee: delivery.cityFeeUsd,
+      });
+    }
+    return null;
+  }, [deliverySelection.mode, deliveryCardLabels, delivery.cityFeeUsd, t]);
 
   // All-in price shown in the sticky CTA: product price + district fee + express/slot surcharge.
   // Returns null when the city fee is unknown (no location selected) — falls back to product price only.
@@ -646,7 +682,7 @@ export default function ProductDetail() {
               taxLabel="TAX Inclusive"
               rewardPoints={vm.rewardPoints}
               freeDeliveryBadge={
-                delivery.isLoaded && freeDeliveryMet
+                delivery.isLoaded && freeDeliveryMet && !isInherited
                   ? deliveryChoice === "express"
                     ? buildFeeNode(t("product.delivery.qualifiedHelperExpress"), { amount: deliveryCardLabels.expressSurchargeUsd })
                     : t("product.delivery.qualifiedHelperStandard")
@@ -714,15 +750,12 @@ export default function ProductDetail() {
             {isInherited ? (
               <InheritedDeliverySummary
                 mode={deliverySelection.mode === "express" ? "express" : "scheduled"}
-                expressLabel={delivery.expressDeliveryTimeLabel}
-                expressEtaLine={expressEtaLabel}
-                expressFeeLabel={deliveryCardLabels.expressFeeLabel}
-                expressFeeSubLabel={deliveryCardLabels.expressFeeSubLabel}
-                dateLabel={scheduledDateLabel}
-                slotWithTimezone={scheduledSlotWithTz}
-                scheduledFeeLabel={deliveryCardLabels.scheduledFeeLabel}
-                scheduledIsFree={deliveryCardLabels.scheduledIsFree}
-                cartItemCount={itemCount}
+                detailLine={
+                  deliverySelection.mode === "express"
+                    ? expressArrivesLine
+                    : [scheduledDateLabel, scheduledSlotWithTz].filter(Boolean).join(" · ") || null
+                }
+                feeLine={inheritedFeeLine}
                 onChangeDelivery={() => {
                   setIsEditingDelivery(true);
                   trackEvent({ name: "delivery_change_opened", deliveryMethod: deliverySelection.mode === "express" ? "express" : "standard", deliverySource: "user" });
@@ -774,7 +807,7 @@ export default function ProductDetail() {
               </>
             )}
 
-            {!expressAvailable && !deliveryCardLabels.helperIsQualified && (
+            {!isInherited && !expressAvailable && !deliveryCardLabels.helperIsQualified && (
               <div className="flex items-center gap-1.5 px-0.5">
                 <Info className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
                 {delivery.cityFeeUsd !== null ? (
