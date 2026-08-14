@@ -483,8 +483,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto p-0">
-        <div className="p-6 pb-0">
+      <DialogContent className="max-w-lg sm:max-w-xl max-h-[90dvh] overflow-y-auto p-0">
+        <div className="p-6 pb-0 sm:px-8 sm:pt-7">
           <DialogTitle className="text-2xl font-serif">
             {t("delivery.picker.title")}
           </DialogTitle>
@@ -493,7 +493,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
           </DialogDescription>
         </div>
 
-        <div className="space-y-6 p-6 pt-4">
+        <div className="space-y-6 p-6 pt-4 sm:space-y-8 sm:px-8 sm:pb-8 sm:pt-5">
           {/* ── 1. Delivery option ─────────────────────────────── */}
           <div className="space-y-3">
             <SectionHeading>1. {t("delivery.picker.step1")}</SectionHeading>
@@ -509,9 +509,9 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                     role="radio"
                     aria-checked={mode === "express"}
                     onClick={() => setMode("express")}
-                    className={`flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`flex h-full w-full items-start gap-3 rounded-xl border-2 px-4 py-4 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       mode === "express"
-                        ? "border-primary border-2 bg-primary/5"
+                        ? "border-primary bg-primary/5"
                         : "border-border bg-card hover:border-foreground/20"
                     }`}
                     data-testid="option-express"
@@ -521,8 +521,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                     </span>
                     <span className="flex-1 min-w-0">
                       <span className="block font-semibold text-foreground">{t("checkout.expressDelivery")}</span>
-                      <span className="block text-xs text-muted-foreground mt-0.5">{t("checkout.expressDelivery.subtitle")}</span>
-                      <span className="block text-xs text-muted-foreground mt-0.5">+<FormattedPrice usdValue={expressSurcharge} /></span>
+                      <span className="block text-xs text-muted-foreground mt-1">{t("checkout.expressDelivery.subtitle")}</span>
+                      <span className="block text-xs font-semibold text-primary mt-1">+<FormattedPrice usdValue={expressSurcharge} /></span>
                     </span>
                     <RadioDot selected={mode === "express"} />
                   </button>
@@ -533,9 +533,9 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                 role="radio"
                 aria-checked={mode === "schedule"}
                 onClick={() => setMode("schedule")}
-                className={`flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`flex h-full w-full items-start gap-3 rounded-xl border-2 px-4 py-4 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   mode === "schedule"
-                    ? "border-primary border-2 bg-primary/5"
+                    ? "border-primary bg-primary/5"
                     : "border-border bg-card hover:border-foreground/20"
                 }`}
                 data-testid="option-schedule"
@@ -545,7 +545,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block font-semibold text-foreground">{t("checkout.scheduleDelivery")}</span>
-                  <span className="block text-xs text-muted-foreground mt-0.5">{t("checkout.scheduleDeliveryDesc")}</span>
+                  <span className="block text-xs text-muted-foreground mt-1">{t("checkout.scheduleDeliveryDesc")}</span>
                 </span>
                 <RadioDot selected={mode === "schedule"} />
               </button>
@@ -574,7 +574,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                           setCalendarOpen(false);
                           handleDateChange(d.iso);
                         }}
-                        className={`rounded-xl border px-2 py-2.5 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        className={`rounded-xl border-2 px-2.5 py-3 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           isSelected
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-border bg-card text-foreground hover:border-foreground/20"
@@ -591,7 +591,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                     aria-pressed={isCustomDate}
                     aria-expanded={calendarOpen}
                     onClick={() => setCalendarOpen((prev) => !prev)}
-                    className={`rounded-xl border px-2 py-2.5 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`rounded-xl border-2 px-2.5 py-3 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       isCustomDate
                         ? "border-primary bg-primary text-primary-foreground"
                         : calendarOpen
@@ -600,7 +600,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                     }`}
                     data-testid="quick-date-other"
                   >
-                    <span className="flex items-center justify-center gap-1 font-semibold">
+                    <span className="flex items-center justify-center gap-1 font-semibold leading-tight">
                       <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                       {t("delivery.picker.chooseAnotherDate")}
                     </span>
@@ -652,9 +652,9 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                           disabled={unavailable}
                           aria-disabled={unavailable}
                           onClick={() => !unavailable && setSlot(s.label)}
-                          className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                             isSelected
-                              ? "border-primary border-2 bg-primary/5"
+                              ? "border-primary bg-primary/5"
                               : unavailable
                                 ? "border-border bg-muted/40 cursor-not-allowed"
                                 : "border-border bg-card hover:border-foreground/20"
@@ -662,21 +662,22 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                           data-testid={`slot-${s.label}`}
                         >
                           <span className="flex-1 min-w-0">
-                            <span className={`block ${unavailable ? "text-muted-foreground" : "text-foreground"}`}>
+                            <span className={`block font-semibold sm:whitespace-nowrap ${unavailable ? "text-muted-foreground" : "text-foreground"}`}>
                               {slotTimeText(s)}
                             </span>
-                            <span className="block text-xs text-muted-foreground mt-0.5">
+                            <span className="block text-xs font-normal text-muted-foreground mt-1">
                               {t(periodKeyForStartHour(startH))}
                             </span>
+                            {unavailable && (
+                              <span className="block text-xs font-medium text-muted-foreground/80 mt-1">
+                                {t("delivery.picker.unavailableToday")}
+                              </span>
+                            )}
                           </span>
-                          {unavailable ? (
-                            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                              {t("delivery.picker.unavailableToday")}
-                            </span>
-                          ) : (
+                          {!unavailable && (
                             <>
                               {displayFee ? (
-                                <span className="shrink-0 text-xs font-semibold text-primary">+<FormattedPrice usdValue={displayFee} /></span>
+                                <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">+<FormattedPrice usdValue={displayFee} /></span>
                               ) : null}
                               <RadioDot selected={isSelected} />
                             </>
@@ -699,26 +700,26 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
           )}
 
           {/* ── Footer ─────────────────────────────────────────── */}
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
-              className="h-12 shrink-0 rounded-full px-6"
+              className="h-14 shrink-0 rounded-full px-6"
               onClick={() => onOpenChange(false)}
               data-testid="button-picker-cancel"
             >
               {t("delivery.picker.cancel")}
             </Button>
             <Button
-              className="h-12 flex-1 rounded-full"
+              className="h-14 flex-1 rounded-full px-6"
               onClick={handleConfirm}
               disabled={confirmDisabled}
               data-testid="button-picker-confirm"
             >
-              <span className="flex items-center gap-2">
-                <span className="text-left leading-tight">
+              <span className="flex w-full items-center justify-between gap-3">
+                <span className="min-w-0 text-left leading-snug">
                   <span className="block text-sm font-semibold">{t("delivery.picker.confirm")}</span>
                   {ctaDetail && (
-                    <span className="block text-[11px] font-normal opacity-85">{ctaDetail}</span>
+                    <span className="block truncate text-xs font-normal opacity-85 mt-0.5">{ctaDetail}</span>
                   )}
                 </span>
                 <ArrowRight className="h-4 w-4 shrink-0 rtl:rotate-180" aria-hidden="true" />

@@ -50,7 +50,7 @@ export const checkoutStrings: Dict = {
   "delivery.picker.step2": { en: "Choose date", ar: "اختر التاريخ" },
   "delivery.picker.step3": { en: "Choose time", ar: "اختر الوقت" },
   "delivery.picker.step3For": { en: "Choose time for", ar: "اختر الوقت ليوم" },
-  "delivery.picker.chooseAnotherDate": { en: "Choose another date", ar: "اختر تاريخاً آخر" },
+  "delivery.picker.chooseAnotherDate": { en: "Another date", ar: "تاريخ آخر" },
   "delivery.picker.unavailableToday": { en: "Unavailable today", ar: "غير متاح اليوم" },
   "delivery.picker.noSlots": {
     en: "No delivery times are available for this date. Please choose another date.",
@@ -325,7 +325,7 @@ export const checkoutStringsFr: Record<string, string> = {
   "delivery.picker.step2": "Choisir la date",
   "delivery.picker.step3": "Choisir l'heure",
   "delivery.picker.step3For": "Choisir l'heure pour",
-  "delivery.picker.chooseAnotherDate": "Choisir une autre date",
+  "delivery.picker.chooseAnotherDate": "Autre date",
   "delivery.picker.unavailableToday": "Indisponible aujourd'hui",
   "delivery.picker.noSlots": "Aucun créneau de livraison n'est disponible pour cette date. Veuillez choisir une autre date.",
   "delivery.picker.prevMonth": "Mois précédent",
