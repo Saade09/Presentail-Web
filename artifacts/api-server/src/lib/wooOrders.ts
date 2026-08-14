@@ -118,6 +118,56 @@ export function toTitleCase(s: string): string {
     .join(" ");
 }
 
+/**
+ * Human-visible placeholder written into the OS delivery address fields when
+ * the customer enabled "Ask the recipient for the address" at checkout.
+ */
+export const ASK_RECIPIENT_ADDRESS_PLACEHOLDER =
+  "To be confirmed — ask recipient for address"; // i18n-ignore
+
+/**
+ * Explicit line appended to the OS order notes / delivery instructions when
+ * the ask-recipient toggle is on, so OS operators cannot miss that they must
+ * collect the delivery address from the recipient.
+ */
+export const ASK_RECIPIENT_NOTE =
+  "Customer requested we collect the delivery address from the recipient."; // i18n-ignore
+
+/**
+ * Derives the OS-facing address + notes strings for an order, enriching them
+ * with an unmistakable ask-recipient signal when `noAddress` is set.
+ *
+ * - Toggle off: returns the inputs unchanged.
+ * - Toggle on: the address becomes the placeholder text (any customer-typed
+ *   address detail is preserved after it), and the ask-recipient line is
+ *   appended to the notes without clobbering customer-written notes.
+ * - Idempotent: re-applying to already-enriched values (e.g. on order-creation
+ *   retries or payload rebuilds) never duplicates the placeholder or note.
+ */
+export function applyAskRecipientSignals(input: {
+  noAddress: boolean;
+  address: string;
+  notes: string;
+}): { address: string; notes: string } {
+  if (!input.noAddress) return { address: input.address, notes: input.notes };
+
+  const trimmedAddress = input.address.trim();
+  const address = trimmedAddress.includes(ASK_RECIPIENT_ADDRESS_PLACEHOLDER)
+    ? trimmedAddress
+    : trimmedAddress
+      ? `${ASK_RECIPIENT_ADDRESS_PLACEHOLDER} — ${trimmedAddress}`
+      : ASK_RECIPIENT_ADDRESS_PLACEHOLDER;
+
+  const trimmedNotes = input.notes.trim();
+  const notes = trimmedNotes.includes(ASK_RECIPIENT_NOTE)
+    ? trimmedNotes
+    : trimmedNotes
+      ? `${trimmedNotes}\n${ASK_RECIPIENT_NOTE}`
+      : ASK_RECIPIENT_NOTE;
+
+  return { address, notes };
+}
+
 export const WooOrderSchema = z.object({
   orderId: z.string().min(1),
   items: z
@@ -1161,6 +1211,15 @@ export async function attemptCreateOsOrder(
   const totalInPaymentCurrency = roundForCurrency(totalUsd, presentedCurrency);
   const totalPaymentCents = toStripeMinorUnits(totalInPaymentCurrency, presentedCurrency);
 
+  // When the customer asked us to collect the address from the recipient,
+  // surface an unmistakable signal in the human-visible address/notes fields
+  // (the delivery.noAddress boolean is still sent unchanged below).
+  const askRecipient = applyAskRecipientSignals({
+    noAddress: isNoAddress,
+    address: body.deliveryDetails,
+    notes: body.orderNotes ?? "",
+  });
+
   const osPayload = {
     workspace: osConfig.workspace ?? "presentail",
     appOrderId: body.orderId,
@@ -1197,7 +1256,7 @@ export async function attemptCreateOsOrder(
       district: body.district,
       cityId: body.cityId ?? undefined,
       countryCode: body.shippingCountry ?? undefined,
-      address: body.deliveryDetails,
+      address: askRecipient.address,
       date: body.deliveryDate || undefined,
       slot: (() => {
         if (bookedSlot?.startHour != null && bookedSlot?.endHour != null) {
@@ -1225,10 +1284,10 @@ export async function attemptCreateOsOrder(
     cardTo: cardToValue || undefined,
     qrLink: body.qrLink || undefined,
     qrLabel: body.qrLabel || undefined,
-    orderNotes: body.orderNotes || undefined,
+    orderNotes: askRecipient.notes || undefined,
     identitySecret: body.identitySecret,
     delivery_address: {
-      address_1: body.deliveryDetails || undefined,
+      address_1: askRecipient.address || undefined,
       city: body.district || undefined,
       country: body.shippingCountry ?? undefined,
       phone: body.recipient.phone || undefined,
@@ -1259,7 +1318,7 @@ export async function attemptCreateOsOrder(
       return {};
     })(),
     delivery_type: clientSignalledExpress ? "express" : "standard",
-    delivery_instructions: body.orderNotes || undefined,
+    delivery_instructions: askRecipient.notes || undefined,
     payment: {
       method:
         body.paymentMethod === "card" || body.paymentMethod === "wallet"
