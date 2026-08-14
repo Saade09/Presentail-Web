@@ -4,9 +4,16 @@
 
 export type BlogLang = "en" | "ar" | "fr";
 
+export interface BlogFaqItem {
+  q: string;
+  a: string;
+}
+
 export interface BlogSection {
   heading?: string;
-  body: string;
+  body?: string;
+  items?: string[];
+  faqItems?: BlogFaqItem[];
 }
 
 /** Hero / Open Graph image for an article. Dimensions match the source file. */
@@ -42,3 +49,33 @@ export interface BlogPostContent {
 export type BlogPostsBySlug = Record<string, Record<BlogLang, BlogPostContent>>;
 
 export const BLOG_POSTS: BlogPostsBySlug;
+
+/** Stable editorial category slugs used by the blog landing page. */
+export type BlogCategory =
+  | "flowers"
+  | "gifting-guides"
+  | "behind-the-scenes"
+  | "makers";
+
+export const BLOG_CATEGORIES: readonly BlogCategory[];
+
+/** Locale-independent per-post landing-page metadata. */
+export interface BlogPostMeta {
+  category: BlogCategory;
+  /** Editors flag the featured landing-page story here. */
+  featured?: boolean;
+  /** Explicit reading time (minutes); computed from sections when absent. */
+  readingTime?: number;
+}
+
+export const BLOG_POST_META: Record<string, BlogPostMeta>;
+
+export function getBlogPostMeta(slug: string): BlogPostMeta;
+export function computeReadingTimeMinutes(
+  sections: BlogSection[] | undefined,
+): number;
+export function getBlogPostReadingTime(slug: string, lang?: BlogLang): number;
+export function getBlogPostExcerpt(
+  article: BlogPostContent | undefined,
+): string;
+export function getFeaturedBlogSlug(): string;

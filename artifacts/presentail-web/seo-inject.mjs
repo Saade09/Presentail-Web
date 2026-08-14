@@ -6,7 +6,12 @@
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 import { FAQ_COPY } from "./src/data/faqsCopy.js";
 import { LOCATION_DATA } from "./src/lib/locationData.mjs";
-import { BLOG_POSTS } from "@workspace/blog-content";
+import {
+  BLOG_POSTS,
+  getBlogPostMeta,
+  getBlogPostReadingTime,
+  getFeaturedBlogSlug,
+} from "@workspace/blog-content";
 import {
   buildBlogArticleJsonLd,
   BLOG_OG_FALLBACK_IMAGE_PATH,
@@ -1398,17 +1403,41 @@ function buildNavLinks(localeBase) {
  */
 export function buildBlogIndexBodyHtml(lang, { localeBase }) {
   if (!localeBase) return "";
-  const items = Object.entries(BLOG_POSTS ?? {})
-    .map(([slug, byLang]) => {
-      const article = byLang?.[lang] ?? byLang?.en;
-      const title = article?.title;
-      if (!slug || !title) return "";
-      return `<li><a href="${localeBase}/blog/${escapeAttr(encodeURIComponent(slug))}">${escapeHtml(title)}</a></li>`;
-    })
+  // Crawler-facing category labels (static EN — this fragment is not rendered
+  // in the client UI). Mirrors the Blog.tsx pill taxonomy.
+  const CATEGORY_LABELS = { // i18n-ignore
+    flowers: "Flowers", // i18n-ignore
+    "gifting-guides": "Gifting Guides", // i18n-ignore
+    "behind-the-scenes": "Behind the Scenes", // i18n-ignore
+    makers: "Makers", // i18n-ignore
+  };
+  const entryHtml = ([slug, byLang]) => {
+    const article = byLang?.[lang] ?? byLang?.en;
+    const title = article?.title;
+    if (!slug || !title) return "";
+    const category =
+      CATEGORY_LABELS[getBlogPostMeta(slug).category] ?? "";
+    const minutes = getBlogPostReadingTime(slug, lang);
+    return (
+      `<li><a href="${localeBase}/blog/${escapeAttr(encodeURIComponent(slug))}">${escapeHtml(title)}</a>` +
+      (category ? ` — ${escapeHtml(category)}` : "") +
+      ` · ${minutes} min read</li>` // i18n-ignore — crawler-facing metadata
+    );
+  };
+  const entries = Object.entries(BLOG_POSTS ?? {});
+  const featuredSlug = getFeaturedBlogSlug();
+  const featuredEntry = entries.find(([slug]) => slug === featuredSlug);
+  const featuredItem = featuredEntry ? entryHtml(featuredEntry) : "";
+  const items = entries
+    .filter(([slug]) => slug !== featuredSlug || !featuredItem)
+    .map(entryHtml)
     .filter(Boolean);
-  if (items.length === 0) return "";
-  // i18n-ignore — static EN heading in crawlers-only body fragment
-  return `<h2>Latest Articles</h2><ul>${items.join("")}</ul>`; // i18n-ignore
+  if (items.length === 0 && !featuredItem) return "";
+  // i18n-ignore — static EN headings in crawlers-only body fragment
+  const featuredHtml = featuredItem
+    ? `<h2>Featured story</h2><ul>${featuredItem}</ul>` // i18n-ignore
+    : "";
+  return `${featuredHtml}<h2>Recent stories</h2><ul>${items.join("")}</ul>`; // i18n-ignore
 }
 
 function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined }) {
