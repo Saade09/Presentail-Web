@@ -709,21 +709,21 @@ export default function Shop() {
   useLcpImagePreload(products[0]?.image?.uri ?? null);
 
   return (
-    <div className="min-h-screen pt-2 md:pt-6 bg-white">
+    <div className="min-h-screen pt-1 md:pt-6 bg-white">
       {/* Breadcrumb row — always renders on occasion/category routes to reserve vertical space */}
       {(isOccasionRoute || isCategoryRoute) ? (
-        <div className="container mx-auto max-w-content px-page pt-2 md:pt-4 min-h-[1.5rem]">
+        <div className="container mx-auto max-w-content px-page pt-1 md:pt-4 min-h-[1.5rem]">
           <PageBreadcrumb crumbs={breadcrumbCrumbs} />
         </div>
       ) : breadcrumbCrumbs.length > 0 ? (
-        <div className="container mx-auto max-w-content px-page pt-2 md:pt-4">
+        <div className="container mx-auto max-w-content px-page pt-1 md:pt-4">
           <PageBreadcrumb crumbs={breadcrumbCrumbs} />
         </div>
       ) : null}
 
 
-      <div className={`container mx-auto max-w-content px-page${(breadcrumbCrumbs.length > 0 || isOccasionRoute || isCategoryRoute) ? " pt-4" : ""}`}>
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
+      <div className={`container mx-auto max-w-content px-page${(breadcrumbCrumbs.length > 0 || isOccasionRoute || isCategoryRoute) ? " pt-1.5 md:pt-4" : ""}`}>
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-3 md:gap-6 mb-2 pb-0 md:mb-4 md:pb-2">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
               {birthdayContextTitle ?? curatedSeo?.h1 ?? curatedCategorySeo?.h1 ?? pageTitle}
@@ -742,7 +742,7 @@ export default function Shop() {
                 <Skeleton className="h-3.5 w-20 rounded" />
               </p>
             ) : (
-              <p className="md:hidden text-sm text-muted-foreground font-normal mt-1 whitespace-nowrap">
+              <p className="md:hidden text-sm text-muted-foreground font-normal mt-0.5 whitespace-nowrap">
                 {t("shop.productCount", { count: String(products.length) })}
               </p>
             )}
@@ -768,11 +768,11 @@ export default function Shop() {
             deterministic fallback. Show nothing while loading; on error
             build a rich client-side description from the loaded products. */}
         {(curatedSeo ?? curatedCategorySeo) ? (
-          <p className="text-sm font-medium text-muted-foreground max-w-[600px] mb-4 -mt-1"> {/* i18n-ignore — curated EN-only SEO copy */}
+          <p className="text-[13px] leading-snug md:text-sm md:leading-normal font-medium text-muted-foreground max-w-[600px] mb-3 md:mb-4 -mt-1"> {/* i18n-ignore — curated EN-only SEO copy */}
             {(curatedSeo ?? curatedCategorySeo)!.intro}
           </p>
         ) : (pageDescriptionData?.description || pageDescriptionError) && pageDescriptionType && pageDescriptionSlug && (
-          <p className="text-sm font-medium text-muted-foreground max-w-[600px] mb-4 -mt-1"> {/* i18n-ignore */}
+          <p className="text-[13px] leading-snug md:text-sm md:leading-normal font-medium text-muted-foreground max-w-[600px] mb-3 md:mb-4 -mt-1"> {/* i18n-ignore */}
             {pageDescriptionData?.description
               ?? buildRichClientDescription(
                   pageDescriptionType,
@@ -812,10 +812,10 @@ export default function Shop() {
           />
         )}
 
-        <div className="block md:hidden w-full mb-6">
+        <div className="block md:hidden w-full mb-4">
           <Button
             variant="outline"
-            className="relative w-full h-12 border-primary text-primary hover:text-primary hover:bg-primary/5"
+            className="relative w-full h-11 border-primary text-primary hover:text-primary hover:bg-primary/5"
             onClick={() => setMobileFiltersOpen(true)}
             data-testid="button-mobile-filters"
           >
