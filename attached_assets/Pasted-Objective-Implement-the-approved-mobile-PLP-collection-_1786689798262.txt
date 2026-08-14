@@ -1,0 +1,40 @@
+Objective:
+Implement the approved mobile PLP/collection-page header optimization so shoppers reach the product grid materially faster without losing the premium Presentail look.
+
+Scope:
+1) Reduce the height above the product grid. Compress the content area between the main navigation and the first product row so substantially more of the first row is visible in the initial mobile viewport.
+2) Tighten H1 and product-count spacing. Reduce vertical whitespace around the collection title and the product count while preserving the existing typography hierarchy and premium serif H1.
+3) Make the intro description smaller and more compact. Keep the SEO/context copy, but reduce its visual dominance using a smaller mobile text size, tighter line-height, and tighter spacing.
+4) Reduce the Filter & Sort button height. Preserve the full-width outlined treatment, icon, and comfortable tap target, but make the control noticeably more compact vertically.
+
+Design direction:
+Follow the approved 'After' concept from the UX mockup discussed with the team: same Presentail visual language, but denser and more commerce-focused. Do not redesign product cards, navigation, colors, typography system, or the overall PLP structure as part of this task.
+
+Responsive requirements:
+- Prioritize common mobile widths, especially approximately 375-430px.
+- Verify long collection titles do not collide with the product count or description.
+- Ensure Filter & Sort remains comfortably tappable.
+- Desktop/tablet should not regress; scope mobile-specific CSS where appropriate.
+- Avoid layout shift while the page loads.
+
+Acceptance criteria:
+- First product row appears meaningfully higher on mobile than production today.
+- Breadcrumb remains readable but visually secondary.
+- H1 remains the strongest content element.
+- Product count sits closely beneath the H1 with consistent spacing.
+- Description remains readable and retains the same meaning/content unless a tiny copy adjustment is needed for wrapping.
+- Filter & Sort is visibly shorter than the current version while retaining a safe mobile tap target.
+- Product card grid itself is unchanged.
+- No horizontal overflow, clipping, overlapping, or unexpected wrapping at common mobile breakpoints.
+- Header/navigation functionality is unaffected.
+- Filter & Sort functionality is unaffected.
+
+QA:
+- Test an iPhone-sized Safari viewport and an Android/Chrome-sized viewport.
+- Test at least one collection with a longer H1 and one with a short H1.
+- Test logged-in/logged-out states if the header differs.
+- Confirm localization does not obviously break the layout, especially EN/AR if applicable.
+- Compare before/after screenshots at identical viewport dimensions.
+
+Deliverable:
+Push the implementation to staging and attach before/after mobile screenshots to this task for review before production deployment.

@@ -1,0 +1,85 @@
+
+Objective
+Implement the approved compact delivery summary on the product detail page so customers can immediately understand the delivery method, arrival time/window, and whether the delivery fee is already included.
+
+Design direction
+Use one reusable compact delivery card for both Express and Scheduled delivery states.
+Replace “DELIVERY FOR THIS ORDER” with the small uppercase label “DELIVERY”.
+Use an extremely subtle warm-grey card background (approximately #F7F7F5), a thin pale-teal border, and the existing rounded-corner system.
+Keep the card compact and position the existing Add to Cart button directly beneath it.
+Preserve the rest of the PDP: title, price, rewards, CTA styling, reassurance tiles, payment methods, Trustpilot, and product imagery.
+
+
+Remove from the current component
+The “Selected in cart” badge.
+The standalone “You qualify for free standard delivery” message above the card when an order-level delivery method is already selected.
+Duplicate arrival-time, fee, and “already applied” explanations.
+The internal divider and the long footer sentence.
+“Change date or time”; use the shorter, consistent action label “Change”.
+
+
+Express delivery state
+Leading icon: teal circular lightning icon.
+Title: Express delivery.
+Right-aligned action: Change.
+Primary detail: Arrives by {time} Lebanon time.
+Secondary context: “This item will join your cart’s delivery.”
+Fee line: “Express upgrade: {fee} · already included”.
+
+
+Scheduled delivery state
+Leading icon: teal circular calendar icon.
+Title: Scheduled delivery.
+Right-aligned action: Change.
+Primary detail: {date} · {delivery window} Lebanon time. Example: “Today, Aug 13 · 9–11 PM Lebanon time”.
+Secondary context: “This item will join your cart’s delivery.”
+Fee line when free: “Delivery: Free · already included”.
+If scheduled delivery is paid, replace “Free” with the actual order-level fee; never imply that the customer will be charged twice.
+
+
+Content and data rules
+All date, time, fee, and method values must come from the active cart/order-level delivery selection.
+Always show “Lebanon time” for Lebanon delivery estimates and scheduled windows.
+Use one arrival representation only: exact arrival time for Express; date plus window for Scheduled.
+“Already included” means the fee is already present at order level and must not be added again when this product is added.
+If the cart delivery selection changes, refresh the PDP card immediately.
+
+
+Interaction
+Selecting “Change” opens the existing delivery-method/date-time selection flow.
+After a new method or window is confirmed, close the selector and update the compact card.
+Adding the product preserves the active cart delivery selection.
+
+
+Responsive and accessibility requirements
+Keep the title and Change action on the first row at desktop and mobile widths.
+Allow the date/window line to wrap cleanly on narrow screens without overlapping Change.
+Maintain WCAG AA contrast for all text, link, border, and icon colors against #F7F7F5.
+The full Change control must be keyboard accessible and have a descriptive accessible label.
+Do not rely on the lightning/calendar icon alone to communicate the state.
+
+
+Acceptance criteria
+An Express cart displays the compact Express state with a dynamic arrival time and explicit “Lebanon time”.
+A Scheduled cart displays the compact Scheduled state with the selected date and delivery window.
+No “Selected in cart” badge, duplicate delivery promise, duplicate fee message, divider, or long footer remains.
+The delivery card uses the approved warm-grey surface and remains visually subordinate to the Add to Cart CTA.
+The delivery fee is displayed accurately and is not charged again when the item is added.
+Change successfully updates the order-level selection and the PDP reflects the result without stale content.
+The existing content outside the delivery module remains unchanged.
+Desktop and mobile layouts pass visual QA for both delivery states.
+
+
+QA scenarios
+Express delivery with a paid upgrade already selected.
+Scheduled delivery with a free delivery window already selected.
+Scheduled delivery with a paid delivery window.
+Change from Express to Scheduled and back.
+Change the scheduled date/window and verify the PDP updates.
+Add the product after each state and verify no duplicate delivery fee.
+Verify time-zone wording and date formatting around midnight/day changes.
+Verify long localized values wrap safely on mobile.
+
+
+Out of scope
+Redesigning the Add to Cart button, reassurance tiles, payment methods, Trustpilot block, rewards placement, or other PDP content.

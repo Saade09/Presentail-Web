@@ -1,0 +1,130 @@
+OBJECTIVE
+
+Redesign and implement the Presentail blog landing page so it feels like a premium editorial extension of the storefront: warmer, more visual, easier to browse, and better connected to Presentail’s ecommerce design system.
+
+REFERENCE DIRECTION
+
+Use the approved blog redesign mockup from the August 13 design review as the visual direction. The mockup is a design reference, not an image to embed. Match the hierarchy, spacing, palette, typography, and editorial card treatment using production components and CMS content.
+
+PAGE
+
+Current page: https://presentail.com/en/blog
+
+CORE DESIGN REQUIREMENTS
+
+1. Header and brand consistency
+- Retain the existing Presentail utility bar and primary navigation behavior.
+- Keep the Presentail wordmark centered on desktop.
+- Use the same search, account, cart, location, and language patterns as the storefront.
+- Match the storefront container width, divider style, icon sizing, and interaction states.
+
+2. Color and typography
+- Replace the stark white page feeling with a warm ivory/off-white background.
+- Use deep petrol teal for interactive accents, active filters, arrows, and selected states.
+- Keep charcoal for primary copy; use muted gray only for metadata.
+- Use the existing editorial serif for headlines and the existing sans serif for navigation, labels, metadata, and body copy.
+- Ensure body and metadata contrast meets WCAG AA.
+
+3. Compact editorial hero
+- Reduce the current oversized empty vertical space by approximately 35–40%.
+- Keep a small breadcrumb: “Home › The Atelier Journal”.
+- Keep the eyebrow: “THE ATELIER JOURNAL”.
+- Headline: “Stories from the studio.”
+- Intro: “Notes on craft, seasonal blooms, and thoughtful gifting.”
+- The featured story must be visible above the fold on a standard 1440 × 900 desktop viewport.
+
+4. Category navigation
+- Add category controls below the intro:
+  - All
+  - Flowers
+  - Gifting Guides
+  - Behind the Scenes
+  - Makers
+- Active category uses a filled dark-teal pill with white text.
+- Inactive categories use an ivory/white background, subtle border, and dark text.
+- On mobile, keep the row horizontally scrollable without wrapping into an overly tall block.
+- Connect categories to the existing CMS taxonomy. If client-side filtering is not supported, use category archive links.
+
+5. Featured story module
+- Add one CMS-driven featured article directly below the category controls.
+- Desktop layout: approximately 60% image / 40% editorial copy.
+- Use one large, high-quality editorial image with consistent cropping.
+- Show category, headline, short excerpt, reading time, and “Read the story →”.
+- Entire module should be clickable while retaining an obvious, accessible text link.
+- Avoid heavy shadows; use a subtle border, small-radius corners, and clean hover treatment.
+- Editors must be able to select or flag the featured article in the CMS. Provide a sensible fallback to the latest article if none is selected.
+
+6. Recent stories
+- Add “Recent stories” immediately after the featured module.
+- Display three cards per row on desktop, two on tablet, and one on mobile.
+- Use a consistent 4:3 image ratio and aligned card heights.
+- Each card includes:
+  - Category label
+  - Serif headline
+  - Reading time
+  - Subtle directional arrow
+- Use a restrained image zoom and arrow movement on hover.
+- Do not use large drop shadows or generic ecommerce product-card styling.
+
+7. Editorial rhythm below the first row
+- Preserve access to the full article archive.
+- Use intentional spacing between sections; avoid long areas of empty white space.
+- Where supported by existing content, allow a wider seasonal feature or alternating two-column story treatment to prevent a repetitive grid.
+- Keep commercial modules visually secondary to editorial content.
+
+8. Commerce connection
+- Prepare a reusable optional module for articles or the landing page:
+  - “Shop the occasion” or “Flowers featured in this story”
+  - Maximum 3–4 products
+  - Visually quieter than standard storefront carousels
+- Do not block the initial blog redesign release if product-to-article relationships require separate CMS work; document the dependency.
+
+RESPONSIVE BEHAVIOR
+
+- Validate at approximately 1440 px, 1024 px, 768 px, and 375 px widths.
+- Hero copy, categories, and featured article must remain easy to scan.
+- Stack the featured image above its copy on mobile.
+- Preserve comfortable tap targets of at least 44 × 44 px.
+- Prevent clipped headings, horizontal page overflow, and layout shift from late-loading images.
+
+CONTENT AND CMS
+
+- Reuse real Presentail article imagery and existing editorial content; do not ship AI-generated mockup imagery as production content.
+- Featured-story selection, category, excerpt, image, publication date, and reading time should be CMS-driven.
+- Add fallbacks for missing excerpt, reading time, or image.
+- Preserve existing article URLs and SEO value.
+- Confirm category URLs, canonical tags, breadcrumbs, and structured data remain valid.
+
+ACCESSIBILITY AND PERFORMANCE
+
+- Use semantic heading order with one H1.
+- Add descriptive image alt text from CMS fields.
+- Ensure keyboard access and visible focus states for filters, cards, and links.
+- Respect prefers-reduced-motion for image zoom and arrow animation.
+- Use responsive images, explicit image dimensions/aspect ratios, lazy loading below the fold, and appropriate modern formats.
+- Avoid adding a large new JavaScript dependency for this page.
+- Target no visible layout shift and no material regression to current Core Web Vitals.
+
+ACCEPTANCE CRITERIA
+
+- The page clearly matches the approved editorial direction and remains recognizably Presentail.
+- Featured content is visible above the fold at 1440 × 900.
+- Excess hero whitespace is materially reduced.
+- Header and navigation remain functional and visually consistent with the storefront.
+- Category navigation works with the CMS taxonomy.
+- Featured story is CMS-controlled and has a latest-story fallback.
+- Story cards have consistent imagery, hierarchy, metadata, and hover/focus states.
+- Layout is fully usable at desktop, tablet, and mobile widths.
+- Existing blog URLs, localization, tracking, and SEO behavior are not broken.
+- Accessibility checks show no new critical issues.
+- Performance testing shows no material regression.
+- Final implementation has been reviewed on staging before production release.
+
+DELIVERABLES
+
+- Production-ready implementation in the existing codebase.
+- Any required CMS/model or configuration changes.
+- Staging URL for review.
+- Desktop and mobile before/after screenshots.
+- Short QA note covering responsive states, browsers checked, accessibility, analytics, SEO, and performance.
+- List of any follow-up items intentionally deferred, especially the optional commerce module.
