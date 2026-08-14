@@ -103,20 +103,26 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     return { countryNames: cN, cityNames: cyN };
   }, [deliveryLocations]);
 
-  const language: Language = parsed.lang ?? stored;
+  // Blog routes live under a bare /{lang}/blog prefix (no country segment), so
+  // parseLocalePath can't see their language — derive it from the path directly.
+  const blogLangMatch = path.match(/^\/(en|ar|fr)\/blog(?:\/|$)/);
+  const blogLang = blogLangMatch ? (blogLangMatch[1] as Language) : null;
+
+  const language: Language = parsed.lang ?? blogLang ?? stored;
   const dir: "ltr" | "rtl" = language === "ar" ? "rtl" : "ltr";
 
   // Persist URL-derived language to localStorage so reloads from `/` keep it.
+  const urlLang = parsed.lang ?? blogLang;
   useEffect(() => {
-    if (parsed.lang && parsed.lang !== stored) {
-      startTransition(() => setStored(parsed.lang!));
+    if (urlLang && urlLang !== stored) {
+      startTransition(() => setStored(urlLang));
       try {
-        window.localStorage.setItem(STORAGE_KEY, parsed.lang);
+        window.localStorage.setItem(STORAGE_KEY, urlLang);
       } catch {
         // ignore
       }
     }
-  }, [parsed.lang, stored]);
+  }, [urlLang, stored]);
 
   useEffect(() => {
     document.documentElement.lang = language;

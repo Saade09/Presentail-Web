@@ -48,7 +48,14 @@ type WebEventType =
   | "mobile_checkout_sender_edit_clicked"
   | "mobile_checkout_anonymous_toggled"
   | "mobile_checkout_continue_payment_clicked"
-  | "mobile_checkout_validation_failed";
+  | "mobile_checkout_validation_failed"
+  // Blog article template events
+  | "blog_cta_click"
+  | "blog_share"
+  | "blog_toc_click"
+  | "blog_recommendation_impression"
+  | "blog_recommendation_click"
+  | "blog_related_click";
 
 export type WebEventItem = {
   productId: string;

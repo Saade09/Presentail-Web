@@ -57,6 +57,88 @@ describe("BlogPost — hero image", () => {
   });
 });
 
+describe("BlogPost — editorial template (send-roses-to-lebanon)", () => {
+  beforeEach(() => {
+    mockSlug = "send-roses-to-lebanon";
+  });
+
+  it("renders taxonomy label, H1, dek and meta row above the hero", () => {
+    renderWithProviders(<BlogPost />);
+    const article = BLOG_POSTS["send-roses-to-lebanon"].en;
+
+    const taxonomy = screen.getByTestId("blog-post-taxonomy");
+    expect(taxonomy.textContent).toBe("Lebanon · Gifting Guide");
+
+    const h1 = screen.getByTestId("blog-post-title");
+    expect(h1.tagName).toBe("H1");
+    expect(h1.textContent).toBe(article.h1);
+
+    expect(screen.getByTestId("blog-post-dek").textContent).toBe(article.dek);
+
+    // Intro order: the H1 must precede the hero image in the DOM.
+    const hero = screen.getByTestId("blog-post-hero-image");
+    expect(h1.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("renders the TOC from H2 sections (sidebar + mobile disclosure)", () => {
+    renderWithProviders(<BlogPost />);
+    expect(screen.getByTestId("blog-toc-sidebar")).toBeTruthy();
+    const toggle = screen.getByTestId("blog-toc-toggle");
+    expect(toggle.tagName).toBe("BUTTON");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("renders pull quote, service callout, FAQ accordion buttons and recommendation cards", () => {
+    renderWithProviders(<BlogPost />);
+    expect(screen.getByTestId("blog-pull-quote")).toBeTruthy();
+    expect(screen.getByTestId("blog-callout-service")).toBeTruthy();
+    const accordion = screen.getByTestId("blog-faq-accordion");
+    expect(accordion.querySelectorAll("button").length).toBeGreaterThan(0);
+    // Recommendation renders in both sidebar (desktop) and inline (mobile) slots.
+    expect(screen.getByTestId("blog-recommendation-sidebar")).toBeTruthy();
+    expect(screen.getByTestId("blog-recommendation-inline")).toBeTruthy();
+  });
+
+  it("builds a locale-aware CTA href from the cta config and shows the share button", () => {
+    renderWithProviders(<BlogPost />);
+    const cta = screen.getByTestId("blog-post-cta-intro");
+    expect(cta.textContent).toBe("Shop roses in Lebanon");
+    expect(cta.closest("a")?.getAttribute("href")).toBe("/en-lb/beirut/category/flowers");
+    expect(screen.getByTestId("blog-post-share")).toBeTruthy();
+  });
+
+  it("moves Back to the Journal to the bottom and emits dateModified in JSON-LD", () => {
+    renderWithProviders(<BlogPost />);
+    expect(screen.getByTestId("blog-post-back-to-journal")).toBeTruthy();
+    const json = JSON.parse(document.getElementById("blog-post-schema")!.textContent ?? "{}");
+    expect(json.dateModified).toBe(BLOG_POSTS["send-roses-to-lebanon"].en.lastUpdated);
+  });
+});
+
+describe("BlogPost — legacy article fallbacks (no new fields)", () => {
+  // Any article without the new optional fields must still render.
+  const LEGACY_SLUG = Object.keys(BLOG_POSTS).find(
+    (slug) => !BLOG_POSTS[slug].en?.dek && !BLOG_POSTS[slug].en?.cta,
+  );
+
+  it("renders with description as dek and legacy/shop CTA fallback", () => {
+    expect(LEGACY_SLUG).toBeTruthy();
+    mockSlug = LEGACY_SLUG!;
+    const article = BLOG_POSTS[LEGACY_SLUG!].en;
+    renderWithProviders(<BlogPost />);
+
+    expect(screen.getByTestId("blog-post-title").textContent).toBe(
+      article.h1 ?? article.title,
+    );
+    expect(screen.getByTestId("blog-post-dek").textContent).toBe(article.description);
+    // No recommendation configured → no recommendation cards at all.
+    expect(screen.queryByTestId("blog-recommendation-sidebar")).toBeNull();
+    expect(screen.queryByTestId("blog-recommendation-inline")).toBeNull();
+    // Legacy fallback still shows a working intro CTA.
+    expect(screen.getByTestId("blog-post-cta-intro")).toBeTruthy();
+  });
+});
+
 describe("BlogPost — shared-link preview metadata", () => {
   it("emits og:image / og:image:width / og:image:height meta tags", () => {
     renderWithProviders(<BlogPost />);

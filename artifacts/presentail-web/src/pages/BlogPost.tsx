@@ -1,10 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { Link, useParams, Redirect } from "wouter";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { BLOG_POSTS } from "@workspace/blog-content";
+import { ArrowLeft, ArrowRight, Clock, Info, Truck } from "lucide-react";
+import {
+  BLOG_POSTS,
+  getBlogPostMeta,
+  getBlogPostReadingTime,
+  type BlogPostContent,
+  type BlogSection,
+  type BlogCategory,
+} from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -12,52 +19,85 @@ import {
   buildBlogArticleJsonLd,
   BLOG_OG_FALLBACK_IMAGE_PATH,
 } from "../../blog-article-schema.mjs";
+import { trackWebEvent } from "@/lib/analytics";
+import { BlogShareButton } from "@/components/blog/BlogShareButton";
+import { BlogToc, type TocEntry } from "@/components/blog/BlogToc";
+import { BlogFaqAccordion } from "@/components/blog/BlogFaqAccordion";
+import { BlogRecommendationCard } from "@/components/blog/BlogRecommendationCard";
+import { buildMarketHref, sectionAnchorId } from "@/components/blog/blogShared";
 
-type FaqItem = { q: string; a: string };
-
-type Section = {
-  heading?: string;
-  body?: string;
-  items?: string[];
-  faqItems?: FaqItem[];
-};
-
-type OgImage = {
-  url: string;
-  width: number;
-  height: number;
-};
-
-type Article = {
-  slug: string;
-  eyebrow: string;
-  title: string;
-  /** Visible H1. Falls back to `title` when absent. */
-  h1?: string;
-  description: string;
-  datePublished: string;
-  ogImage?: OgImage;
-  /** Alt text for the hero image. Falls back to `title` when absent. */
-  ogImageAlt?: string;
-  sections: Section[];
-  ctaHref?: string;
-  ctaLabel?: string;
-  extraJsonLd?: object[];
-};
+type Article = BlogPostContent;
 
 const ARTICLES = BLOG_POSTS as Record<string, Record<Language, Article>>;
+
+/** Show the TOC automatically once an article has this many H2 sections. */
+const TOC_MIN_SECTIONS = 3;
 
 type UiCopy = {
   backToJournal: string;
   shopCta: string;
   blogNav: string;
   relatedArticles: string;
+  inThisGuide: string;
+  share: string;
+  linkCopied: string;
+  updated: string;
+  minRead: string; // template with {min}
+  categories: Record<BlogCategory, string>;
 };
 
 const UI_COPY: Record<Language, UiCopy> = {
-  en: { backToJournal: "Back to the Journal", shopCta: "Shop the collection", blogNav: "Blog", relatedArticles: "Related Articles" },
-  ar: { backToJournal: "العودة إلى اليوميّات", shopCta: "تسوّق المجموعة", blogNav: "المدوّنة", relatedArticles: "مقالات ذات صلة" },
-  fr: { backToJournal: "Retour au Journal", shopCta: "Voir la collection", blogNav: "Blog", relatedArticles: "Articles similaires" },
+  en: {
+    backToJournal: "Back to the Journal",
+    shopCta: "Shop the collection",
+    blogNav: "Journal",
+    relatedArticles: "Related Articles",
+    inThisGuide: "In this guide",
+    share: "Share",
+    linkCopied: "Link copied",
+    updated: "Updated",
+    minRead: "{min} min read",
+    categories: {
+      flowers: "Flowers",
+      "gifting-guides": "Gifting Guides",
+      "behind-the-scenes": "Behind the Scenes",
+      makers: "Makers",
+    },
+  },
+  ar: {
+    backToJournal: "العودة إلى اليوميّات",
+    shopCta: "تسوّق المجموعة",
+    blogNav: "المدوّنة",
+    relatedArticles: "مقالات ذات صلة",
+    inThisGuide: "في هذا الدليل",
+    share: "مشاركة",
+    linkCopied: "تم نسخ الرابط",
+    updated: "آخر تحديث",
+    minRead: "{min} دقائق قراءة",
+    categories: {
+      flowers: "الأزهار",
+      "gifting-guides": "أدلّة الإهداء",
+      "behind-the-scenes": "خلف الكواليس",
+      makers: "الصنّاع",
+    },
+  },
+  fr: {
+    backToJournal: "Retour au Journal",
+    shopCta: "Voir la collection",
+    blogNav: "Journal",
+    relatedArticles: "Articles similaires",
+    inThisGuide: "Dans ce guide",
+    share: "Partager",
+    linkCopied: "Lien copié",
+    updated: "Mis à jour",
+    minRead: "{min} min de lecture",
+    categories: {
+      flowers: "Fleurs",
+      "gifting-guides": "Guides cadeaux",
+      "behind-the-scenes": "Coulisses",
+      makers: "Artisans",
+    },
+  },
 };
 
 /**
@@ -107,10 +147,104 @@ function formatDate(iso: string, language: Language): string {
   }
 }
 
+/** Body paragraph / list typography — 18px, 1.7 line height, charcoal. */
+const PROSE_TEXT = "text-[17px] md:text-lg leading-[1.7] text-foreground/90";
+
+function SectionBlocks({
+  section,
+  index,
+  isRtl,
+}: {
+  section: BlogSection;
+  index: number;
+  isRtl: boolean;
+}) {
+  const HeadingTag = section.subheading ? "h3" : "h2";
+  const id = section.heading && !section.subheading
+    ? sectionAnchorId(section.heading, section.id, index)
+    : undefined;
+  const ListTag = section.ordered ? "ol" : "ul";
+  return (
+    <section className="mb-10">
+      {section.heading && (
+        <HeadingTag
+          id={id}
+          className={`font-serif scroll-mt-28 ${section.subheading ? "text-xl md:text-2xl mb-3" : "text-2xl md:text-[1.75rem] mb-4"}`}
+        >
+          {section.heading}
+        </HeadingTag>
+      )}
+      {section.body && <p className={`${PROSE_TEXT} mb-4 last:mb-0`}>{renderBody(section.body)}</p>}
+      {section.items && section.items.length > 0 && (
+        <ListTag
+          className={`${section.ordered ? "list-decimal" : "list-disc"} space-y-2 ${PROSE_TEXT} ${isRtl ? "list-inside text-right" : "ps-5"}`}
+        >
+          {section.items.map((item, j) => (
+            <li key={j}>{item}</li>
+          ))}
+        </ListTag>
+      )}
+      {section.pullQuote && (
+        <blockquote
+          className="my-8 border-s-2 border-primary/50 ps-5 font-serif text-xl md:text-2xl leading-relaxed text-foreground/90"
+          data-testid="blog-pull-quote"
+        >
+          {section.pullQuote}
+        </blockquote>
+      )}
+      {section.callout && (
+        <div
+          className={`mt-6 flex items-start gap-3 rounded-lg border p-4 md:p-5 ${
+            section.callout.variant === "service"
+              ? "border-[#D8E0D4] bg-[#EEF2EA]"
+              : "border-border bg-card"
+          }`}
+          data-testid={`blog-callout-${section.callout.variant ?? "info"}`}
+        >
+          {section.callout.variant === "service" ? (
+            <Truck className="mt-0.5 w-5 h-5 shrink-0 text-primary" aria-hidden="true" />
+          ) : (
+            <Info className="mt-0.5 w-5 h-5 shrink-0 text-primary" aria-hidden="true" />
+          )}
+          <div>
+            {section.callout.title && (
+              <p className="font-semibold text-foreground mb-0.5">{section.callout.title}</p>
+            )}
+            <p className="text-sm md:text-base leading-relaxed text-foreground/80">
+              {section.callout.body}
+            </p>
+          </div>
+        </div>
+      )}
+      {section.image && (
+        <figure className="my-8">
+          <img
+            src={section.image.url}
+            width={section.image.width}
+            height={section.image.height}
+            alt={section.image.alt ?? ""}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-auto rounded-lg object-cover"
+          />
+          {section.image.caption && (
+            <figcaption className="mt-2 text-sm text-muted-foreground">
+              {section.image.caption}
+            </figcaption>
+          )}
+        </figure>
+      )}
+      {section.faqItems && section.faqItems.length > 0 && (
+        <BlogFaqAccordion items={section.faqItems} />
+      )}
+    </section>
+  );
+}
+
 export default function BlogPost() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug ?? "";
-  const { language, t } = useLocale();
+  const { language } = useLocale();
 
   const articlesByLang = ARTICLES[slug];
   const article = articlesByLang?.[language] ?? articlesByLang?.["en"];
@@ -171,6 +305,7 @@ export default function BlogPost() {
         headline: article.title.trim(),
         description: article.description,
         datePublished: article.datePublished,
+        dateModified: article.lastUpdated,
         image: imageUrl,
         publisherUrl: window.location.origin,
         url: window.location.href,
@@ -199,152 +334,312 @@ export default function BlogPost() {
     };
   }, [article]);
 
+  // Related articles — explicit overrides first, else up to 3 other posts in
+  // the same language (falling back to English), sorted newest-first.
+  const relatedPosts = useMemo(() => {
+    if (!articlesByLang) return [];
+    const resolve = (s: string) => {
+      const byLang = ARTICLES[s];
+      const post = byLang?.[language] ?? byLang?.["en"];
+      return post ? { slug: s, post } : null;
+    };
+    const explicit = (article?.relatedSlugs ?? [])
+      .filter((s) => s !== slug)
+      .map(resolve)
+      .filter((item): item is { slug: string; post: Article } => item !== null);
+    if (explicit.length > 0) return explicit.slice(0, 3);
+    return Object.keys(ARTICLES)
+      .filter((s) => s !== slug)
+      .map(resolve)
+      .filter((item): item is { slug: string; post: Article } => item !== null)
+      .sort((a, b) =>
+        (b.post.datePublished ?? "") > (a.post.datePublished ?? "") ? 1 : -1,
+      )
+      .slice(0, 3);
+  }, [articlesByLang, article, language, slug]);
+
   if (!articlesByLang) {
     return <Redirect to="/blog" replace />;
   }
 
   if (!article) return null;
 
-  // Related articles — up to 3 other posts in the same language (falling back
-  // to English when no translation exists), sorted newest-first.
-  const relatedPosts = Object.entries(ARTICLES)
-    .filter(([s]) => s !== slug)
-    .map(([s, byLang]) => {
-      const post = byLang?.[language] ?? byLang?.["en"];
-      return post ? { slug: s, post } : null;
-    })
-    .filter((item): item is { slug: string; post: Article } => item !== null)
-    .sort((a, b) =>
-      (b.post.datePublished ?? "") > (a.post.datePublished ?? "") ? 1 : -1,
-    )
-    .slice(0, 3);
-
   const isRtl = language === "ar";
   const BackArrow = isRtl ? ArrowRight : ArrowLeft;
 
+  const meta = getBlogPostMeta(slug);
+  const readingTime = getBlogPostReadingTime(slug, language);
+  const categoryLabel = article.categoryLabel ?? ui.categories[meta.category];
+  const geographyLabel = article.geographyLabel ?? article.eyebrow;
+  const taxonomyLabel =
+    geographyLabel && geographyLabel !== categoryLabel
+      ? `${geographyLabel} · ${categoryLabel}`
+      : categoryLabel;
+  const displayDate = article.lastUpdated ?? article.datePublished;
+  const dek = article.dek ?? article.description;
+
+  // Primary CTA: locale-aware `cta` config first, legacy ctaHref/ctaLabel next,
+  // shop fallback last. Native <a> for market-prefixed URLs (outside the blog
+  // router base); wouter Link for router-relative legacy paths.
+  const ctaLabel = article.cta?.label ?? article.ctaLabel ?? ui.shopCta;
+  const ctaHref = article.cta
+    ? buildMarketHref(language, article.cta.path, article.cta.country)
+    : article.ctaHref ?? "/shop";
+  const ctaIsExternalPath = Boolean(article.cta) || /^https?:\/\//.test(ctaHref);
+
+  const trackCta = (placement: string) =>
+    trackWebEvent({
+      type: "blog_cta_click",
+      properties: { article_slug: slug, locale: language, placement },
+    });
+
+  const ctaButton = (placement: string, variant: "default" | "secondary" = "default") => {
+    const button = (
+      <Button variant={variant} onClick={() => trackCta(placement)} data-testid={`blog-post-cta-${placement}`}>
+        {ctaLabel}
+      </Button>
+    );
+    return ctaIsExternalPath ? (
+      <a href={ctaHref}>{button}</a>
+    ) : (
+      <Link href={ctaHref}>{button}</Link>
+    );
+  };
+
+  // Table of contents — H2 sections only; shown for long articles (or when the
+  // article opts in/out explicitly via `toc`).
+  const tocEntries: TocEntry[] = article.sections
+    .map((s, i) =>
+      s.heading && !s.subheading
+        ? { id: sectionAnchorId(s.heading, s.id, i), label: s.heading }
+        : null,
+    )
+    .filter((e): e is TocEntry => e !== null);
+  const showToc = article.toc ?? tocEntries.length >= TOC_MIN_SECTIONS;
+
+  const trackRelated = (relSlug: string) =>
+    trackWebEvent({
+      type: "blog_related_click",
+      properties: { article_slug: slug, locale: language, related_slug: relSlug, placement: "related" },
+    });
+
   return (
     <div
-      className="bg-background"
+      className="bg-[#FAF7F1]"
       data-testid="blog-post-page"
       lang={language}
       dir={isRtl ? "rtl" : "ltr"}
     >
-      <div className="container mx-auto px-4 pt-10 pb-4 max-w-3xl">
-        <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "~/" }, { label: ui.blogNav, href: "/blog" }, { label: article.title }]} />
-        <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mt-2">
-          <BackArrow className="w-3.5 h-3.5" />
-          {ui.backToJournal}
-        </Link>
-      </div>
-
-      <article className="container mx-auto px-4 pb-16 max-w-3xl" itemScope itemType="https://schema.org/Article">
-        {article.ogImage && (
-          <div className="mb-10 overflow-hidden rounded-lg">
-            <img
-              src={article.ogImage.url}
-              srcSet={buildSrcSet(
-                article.ogImage.url,
-                [Math.max(...BLOG_HERO_VARIANT_WIDTHS)],
-                article.ogImage.width,
-              )}
-              sizes="(min-width: 768px) 768px, 100vw"
-              width={article.ogImage.width}
-              height={article.ogImage.height}
-              alt={article.ogImageAlt ?? article.title}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="w-full h-auto object-cover"
-              itemProp="image"
-              data-testid="blog-post-hero-image"
+      <article itemScope itemType="https://schema.org/Article">
+        {/* ---- Intro: breadcrumb → taxonomy → H1 → dek → meta → CTA + share ---- */}
+        <header className="container mx-auto px-4 pt-8 md:pt-10 max-w-6xl">
+          <div className="max-w-3xl">
+            <PageBreadcrumb
+              crumbs={[
+                { label: ui.blogNav, href: "/blog" },
+                { label: categoryLabel, href: "/blog" },
+                { label: geographyLabel },
+              ]}
             />
+            <p
+              className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary mt-5 mb-3"
+              data-testid="blog-post-taxonomy"
+            >
+              {taxonomyLabel}
+            </p>
+            <h1
+              className="font-serif text-4xl md:text-5xl leading-[1.12] tracking-tight mb-4 max-w-[20ch]"
+              data-testid="blog-post-title"
+              itemProp="headline"
+            >
+              {article.h1 ?? article.title}
+            </h1>
+            <p className="text-lg md:text-xl leading-relaxed text-muted-foreground mb-4 max-w-[52ch]" data-testid="blog-post-dek">
+              {dek}
+            </p>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground mb-6">
+              <span itemProp="datePublished" content={article.datePublished}>
+                {ui.updated} {formatDate(displayDate, language)}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                {ui.minRead.replace("{min}", String(readingTime))}
+              </span>
+            </p>
+            <div className="flex flex-wrap items-center gap-3 pb-8">
+              {ctaButton("intro")}
+              <BlogShareButton
+                articleSlug={slug}
+                locale={language}
+                title={article.h1 ?? article.title}
+                label={ui.share}
+                copiedLabel={ui.linkCopied}
+              />
+            </div>
           </div>
-        )}
-        <header className="mb-10">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
-            {article.eyebrow}
-          </p>
-          <h1
-            className="text-4xl md:text-5xl font-serif leading-tight mb-6"
-            data-testid="blog-post-title"
-            itemProp="headline"
-          >
-            {article.h1 ?? article.title}
-          </h1>
-          <p className="text-sm text-muted-foreground" itemProp="datePublished" content={article.datePublished}>
-            {formatDate(article.datePublished, language)}
-          </p>
         </header>
 
-        <div className="prose prose-neutral max-w-none" itemProp="articleBody">
-          {article.sections.map((section, i) => (
-            <div key={i} className="mb-8">
-              {section.heading && (
-                <h2 className="font-serif text-2xl mb-3">{section.heading}</h2>
-              )}
-              {section.body && (
-                <p className="text-base text-foreground leading-relaxed">{renderBody(section.body)}</p>
-              )}
-              {section.items && section.items.length > 0 && (
-                <ul className={`list-disc space-y-1 text-base text-foreground leading-relaxed ${isRtl ? "list-inside text-right" : "list-inside"}`}>
-                  {section.items.map((item, j) => (
-                    <li key={j}>{item}</li>
-                  ))}
-                </ul>
-              )}
-              {section.faqItems && section.faqItems.length > 0 && (
-                <dl className="space-y-4">
-                  {section.faqItems.map((faq, j) => (
-                    <div key={j}>
-                      <dt className="font-semibold text-foreground">{faq.q}</dt>
-                      <dd className="text-base text-muted-foreground leading-relaxed mt-1">{faq.a}</dd>
-                    </div>
-                  ))}
-                </dl>
+        {/* ---- Restrained editorial hero ---- */}
+        {article.ogImage && (
+          <div className="container mx-auto px-4 max-w-6xl">
+            <div className="overflow-hidden rounded-lg aspect-[16/9] max-h-[520px] w-full">
+              <img
+                src={article.ogImage.url}
+                srcSet={buildSrcSet(
+                  article.ogImage.url,
+                  BLOG_HERO_VARIANT_WIDTHS,
+                  article.ogImage.width,
+                )}
+                sizes="(min-width: 1152px) 1120px, 100vw"
+                width={article.ogImage.width}
+                height={article.ogImage.height}
+                alt={article.ogImageAlt ?? article.title}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="w-full h-full object-cover"
+                style={article.heroFocal ? { objectPosition: article.heroFocal } : undefined}
+                itemProp="image"
+                data-testid="blog-post-hero-image"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ---- Body grid: TOC rail · prose column · recommendation rail ---- */}
+        <div className="container mx-auto px-4 pt-10 md:pt-12 pb-8 max-w-6xl">
+          <div className="lg:grid lg:grid-cols-[11rem_minmax(0,46rem)_1fr] lg:gap-10 xl:gap-14">
+            {/* TOC — sticky sidebar on desktop */}
+            <div className="hidden lg:block">
+              {showToc && (
+                <div className="sticky top-28">
+                  <BlogToc
+                    entries={tocEntries}
+                    heading={ui.inThisGuide}
+                    articleSlug={slug}
+                    locale={language}
+                    variant="sidebar"
+                  />
+                </div>
               )}
             </div>
-          ))}
+
+            {/* Prose column */}
+            <div>
+              {/* TOC — compact disclosure near the top on mobile/tablet */}
+              {showToc && (
+                <div className="lg:hidden mb-8">
+                  <BlogToc
+                    entries={tocEntries}
+                    heading={ui.inThisGuide}
+                    articleSlug={slug}
+                    locale={language}
+                    variant="disclosure"
+                  />
+                </div>
+              )}
+              {/* Inline recommendation on narrow viewports (sidebar hidden) */}
+              {article.recommendation && (
+                <div className="lg:hidden mb-8">
+                  <BlogRecommendationCard
+                    recommendation={article.recommendation}
+                    language={language}
+                    articleSlug={slug}
+                    placement="inline"
+                  />
+                </div>
+              )}
+              <div itemProp="articleBody">
+                {article.sections.map((section, i) => (
+                  <SectionBlocks key={i} section={section} index={i} isRtl={isRtl} />
+                ))}
+              </div>
+
+              {/* ---- Ending: final CTA + back to the Journal ---- */}
+              <div className="mt-12 rounded-lg bg-primary text-primary-foreground p-8 text-center">
+                {ctaButton("end", "secondary")}
+              </div>
+              <p className="mt-6">
+                <Link
+                  href="/blog"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  data-testid="blog-post-back-to-journal"
+                >
+                  <BackArrow className="w-3.5 h-3.5" aria-hidden="true" />
+                  {ui.backToJournal}
+                </Link>
+              </p>
+            </div>
+
+            {/* Optional commerce rail — desktop only */}
+            <div className="hidden lg:block">
+              {article.recommendation && (
+                <aside className="sticky top-28 max-w-[17rem]">
+                  <BlogRecommendationCard
+                    recommendation={article.recommendation}
+                    language={language}
+                    articleSlug={slug}
+                    placement="sidebar"
+                  />
+                </aside>
+              )}
+            </div>
+          </div>
         </div>
       </article>
 
+      {/* ---- Related stories ---- */}
       {relatedPosts.length > 0 && (
         <section
-          className="container mx-auto px-4 pb-12 max-w-3xl"
+          className="container mx-auto px-4 pb-16 md:pb-20 max-w-6xl"
           data-testid="blog-post-related-articles"
         >
-          <h2 className="font-serif text-2xl mb-6">{ui.relatedArticles}</h2>
-          <ul className="divide-y divide-border" role="list">
+          <h2 className="font-serif text-2xl md:text-3xl mb-6">{ui.relatedArticles}</h2>
+          <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" role="list">
             {relatedPosts.map(({ slug: relSlug, post: relPost }) => (
-              <li key={relSlug} className="py-4 first:pt-0">
-                {/* Use a native <a> so the canonical /{lang}/blog/:slug href is
-                    used exactly as-is, bypassing any city-scoped router base. */}
+              <li key={relSlug}>
+                {/* Native <a> so the canonical /{lang}/blog/:slug href is used
+                    exactly as-is, bypassing any city-scoped router base. */}
                 <a
                   href={`/${language}/blog/${relSlug}`}
-                  className="group block"
+                  onClick={() => trackRelated(relSlug)}
+                  className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card"
                   data-testid={`related-article-${relSlug}`}
                 >
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
-                    {relPost.eyebrow}
-                  </p>
-                  <p className="font-serif text-lg group-hover:text-primary transition-colors leading-snug">
-                    {relPost.h1 ?? relPost.title}
-                  </p>
+                  {relPost.ogImage && (
+                    <div className="overflow-hidden aspect-[16/9]">
+                      <img
+                        src={relPost.ogImage.url}
+                        srcSet={buildSrcSet(
+                          relPost.ogImage.url,
+                          BLOG_HERO_VARIANT_WIDTHS,
+                          relPost.ogImage.width,
+                        )}
+                        sizes="(min-width: 1024px) 384px, (min-width: 768px) 50vw, 100vw"
+                        width={relPost.ogImage.width}
+                        height={relPost.ogImage.height}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover motion-safe:transition-transform motion-safe:duration-500 motion-safe:group-hover:scale-[1.03]"
+                      />
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
+                      {relPost.eyebrow}
+                    </p>
+                    <p className="font-serif text-lg group-hover:text-primary transition-colors leading-snug">
+                      {relPost.h1 ?? relPost.title}
+                    </p>
+                  </div>
                 </a>
               </li>
             ))}
           </ul>
         </section>
       )}
-
-      <section className="container mx-auto px-4 pb-20 md:pb-24 max-w-3xl">
-        <div className="rounded-lg bg-primary text-primary-foreground p-8 text-center">
-          <Link href={article.ctaHref ?? "/shop"}>
-            <Button variant="secondary" data-testid="blog-post-cta-shop">
-              {article.ctaLabel ?? ui.shopCta}
-            </Button>
-          </Link>
-        </div>
-      </section>
     </div>
   );
 }

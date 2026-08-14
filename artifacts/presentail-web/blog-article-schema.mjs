@@ -33,6 +33,7 @@ export const BLOG_OG_FALLBACK_IMAGE_PATH = "/opengraph.jpg?v=2";
  *   headline:     string,
  *   description:  string,
  *   datePublished: string,
+ *   dateModified?: string,
  *   image:        string,
  *   publisherUrl: string,
  *   url:          string,
@@ -43,6 +44,7 @@ export function buildBlogArticleJsonLd({
   headline,
   description,
   datePublished,
+  dateModified,
   image,
   publisherUrl,
   url,
@@ -53,6 +55,7 @@ export function buildBlogArticleJsonLd({
     headline,
     description,
     datePublished,
+    ...(dateModified ? { dateModified } : {}),
     image,
     publisher: {
       "@type": "Organization",

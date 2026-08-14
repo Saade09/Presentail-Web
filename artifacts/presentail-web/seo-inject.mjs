@@ -1795,17 +1795,28 @@ function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
   const safeTitle = escapeHtml(article.h1 ?? article.title ?? "");
   const sections = Array.isArray(article.sections) ? article.sections : [];
   let inner = "";
+  if (article.dek) {
+    inner += `<p>${escapeHtml(article.dek)}</p>`;
+  }
   if (article.datePublished) {
     inner += `<time datetime="${escapeAttr(article.datePublished)}">${escapeHtml(article.datePublished)}</time>`;
   }
   for (const sec of sections) {
-    if (sec.heading) inner += `<h2>${escapeHtml(sec.heading)}</h2>`;
+    if (sec.heading) {
+      const tag = sec.subheading ? "h3" : "h2";
+      inner += `<${tag}>${escapeHtml(sec.heading)}</${tag}>`;
+    }
+    if (sec.body) inner += `<p>${safeBodyHtml(sec.body)}</p>`;
     if (Array.isArray(sec.items) && sec.items.length > 0) {
-      inner += `<ul>${sec.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
-    } else if (Array.isArray(sec.faqItems) && sec.faqItems.length > 0) {
+      const listTag = sec.ordered ? "ol" : "ul";
+      inner += `<${listTag}>${sec.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</${listTag}>`;
+    }
+    if (sec.pullQuote) inner += `<blockquote>${escapeHtml(sec.pullQuote)}</blockquote>`;
+    if (sec.callout?.body) {
+      inner += `<p>${sec.callout.title ? `<strong>${escapeHtml(sec.callout.title)}</strong> ` : ""}${escapeHtml(sec.callout.body)}</p>`;
+    }
+    if (Array.isArray(sec.faqItems) && sec.faqItems.length > 0) {
       inner += `<dl>${sec.faqItems.map((faq) => `<dt>${escapeHtml(faq.q)}</dt><dd>${escapeHtml(faq.a)}</dd>`).join("")}</dl>`;
-    } else if (sec.body) {
-      inner += `<p>${safeBodyHtml(sec.body)}</p>`;
     }
   }
 
@@ -3888,6 +3899,7 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
         headline: rawTitle,
         description: article.description,
         datePublished: article.datePublished,
+        dateModified: article.lastUpdated,
         image: imageUrl,
         publisherUrl: `${origin}${cleanBase}`,
         url: canonicalHref,

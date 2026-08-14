@@ -44,6 +44,12 @@ const WEB_EVENT_TYPES = [
   "mobile_checkout_anonymous_toggled",
   "mobile_checkout_continue_payment_clicked",
   "mobile_checkout_validation_failed",
+  "blog_cta_click",
+  "blog_share",
+  "blog_toc_click",
+  "blog_recommendation_impression",
+  "blog_recommendation_click",
+  "blog_related_click",
 ] as const;
 
 const webEventItemSchema = z.object({

@@ -54,3 +54,4 @@
 - [Stale lib/db dist declarations](db-dist-declarations.md) — phantom "column missing" tsc errors when lib/db/dist .d.ts is stale; run `npx tsc -b lib/db/tsconfig.json` to regenerate
 - [Express upgrade delta](express-upgrade-delta.md) — cart upgrade delta = surcharge − slotFee from cartTotal's own terms; web-event types must be added in both client union and server enum
 - [Slot fee invariant](slot-fee-single-source.md) — displayed slot fee must equal charged fee; resolve date-aware by slotId, never raw extraFee reads
+- [Blog locale + editorial template](blog-locale-and-template.md) — bare /{lang}/blog URLs need explicit lang derivation in LocaleContext; article template is optional-field schema-driven with market hrefs via HUB_CITY
