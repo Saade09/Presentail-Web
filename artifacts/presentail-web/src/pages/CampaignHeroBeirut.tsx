@@ -42,12 +42,12 @@ const HERO_IMAGE_URL =
 
 /**
  * When more than this many seconds remain before the cutoff the countdown
- * shows a calm static message ("Order by 10:00 PM / for delivery today")
- * instead of a ticking number — ticking numbers with 12h+ remaining
- * signal there is no urgency and invite the visitor to come back later.
- * Below this threshold the live counter kicks in.
+ * shows a calm static message ("Order by 10 PM for delivery today") instead
+ * of a ticking number. A 4+ hour countdown communicates the opposite of
+ * urgency. The live counter only fires in the final 2 hours, where the
+ * remaining time is short enough to feel genuine.
  */
-const URGENCY_THRESHOLD_SECONDS = 4 * 3600; // 4 hours
+const URGENCY_THRESHOLD_SECONDS = 2 * 3600; // 2 hours
 
 // ── Beirut-clock countdown ───────────────────────────────────────────────────
 // All times are computed from Asia/Beirut wall-clock time via Intl, never the
@@ -232,53 +232,42 @@ export function CampaignHeroBeirut({
             {t("campaign.v2.hero.sub2")}
           </p>
 
-          {/* 4 — countdown / urgency block on its OWN row.
-              Three states:
-              • Calm  (>4 h remain): static "Order by 10:00 PM / for delivery today"
-              • Urgent (≤4 h remain): live ticking counter
-              • Closed (past cutoff): "Today's orders are closed / Tomorrow 9 AM"
+          {/* 4 — delivery timing pill.
+              Three states (all evaluated against Asia/Beirut clock):
+              • Calm  (>2 h remain): plain "Order by 10 PM for delivery today"
+              • Urgent (≤2 h remain): live ticking "Only 1h 24m 30s left for delivery today"
+              • Closed (past 10 PM): "Order now · delivery tomorrow"
               role="timer" only when actually ticking; aria-live off to avoid
               announcing every second to screen readers. */}
           <div
-            className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-6 rounded-xl bg-[#8C1D2F] px-4 py-3"
+            className="w-full sm:w-auto inline-flex items-center rounded-xl bg-[#8C1D2F] px-4 py-3"
             data-testid="block-campaign-countdown"
             role={isUrgent ? "timer" : undefined}
             aria-live="off"
           >
-            <div className="text-xs leading-snug text-white/90">
+            <p className="text-sm font-semibold text-white leading-snug">
               {cutoffPassed ? (
-                <>
-                  <div>{t("campaign.v2.countdown.closedLine1")}</div>
-                  <div>{t("campaign.v2.countdown.closedLine2")}</div>
-                </>
+                // Past cutoff — must not promise same-day delivery
+                t("campaign.v2.countdown.closedMessage")
               ) : isCalm ? (
-                <div>{t("campaign.v2.countdown.staticLine1")}</div>
+                // >2 h remaining — plain statement, no ticking
+                t("campaign.v2.countdown.staticLine1")
               ) : (
+                // ≤2 h remaining — live ticking countdown inline
                 <>
-                  <div>{t("campaign.v2.countdown.line1")}</div>
-                  <div>
-                    {t("campaign.v2.countdown.line2Prefix")}
-                    <strong className="font-bold text-white">
-                      {t("campaign.v2.countdown.line2Bold")}
-                    </strong>
-                  </div>
+                  {t("campaign.v2.countdown.urgentPrefix")}
+                  {" "}
+                  <strong
+                    className="font-bold tabular-nums"
+                    data-testid="text-campaign-countdown-value"
+                  >
+                    {formatCountdown(secondsToCutoff)}
+                  </strong>
+                  {" "}
+                  {t("campaign.v2.countdown.urgentSuffix")}
                 </>
               )}
-            </div>
-            <div
-              className={
-                isCalm
-                  ? "text-base font-semibold whitespace-nowrap"
-                  : "text-xl md:text-2xl font-semibold tabular-nums whitespace-nowrap"
-              }
-              data-testid="text-campaign-countdown-value"
-            >
-              {cutoffPassed
-                ? t("campaign.v2.countdown.closedValue")
-                : isCalm
-                  ? t("campaign.v2.countdown.staticValue")
-                  : formatCountdown(secondsToCutoff)}
-            </div>
+            </p>
           </div>
 
           {/* 5 — primary CTA */}

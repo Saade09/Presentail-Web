@@ -66,6 +66,26 @@ export const campaignStrings: Dict = {
     en: " Order anyway — we'll collect it from the recipient for you.",
     ar: " اطلب على أي حال — سنحصل عليه من المستلم بدلاً منك.",
   },
+  // Calm state (>2 h to cutoff): plain one-line statement — no ticking number.
+  // A ten-hour countdown signals there is no urgency; a plain statement does not.
+  "campaign.v2.countdown.staticLine1": {
+    en: "Order by 10 PM for delivery today",
+    ar: "اطلب قبل 10 مساءً للتوصيل اليوم",
+  },
+  // Urgent state (≤2 h to cutoff): live ticking counter with prefix + suffix.
+  // Rendered inline: "{prefix} [1h 24m 30s] {suffix}"
+  "campaign.v2.countdown.urgentPrefix": { en: "Only", ar: "فقط" },
+  "campaign.v2.countdown.urgentSuffix": {
+    en: "left for delivery today",
+    ar: "متبقية للتوصيل اليوم",
+  },
+  // Closed state (past 10 PM Beirut): page must not promise same-day delivery.
+  "campaign.v2.countdown.closedMessage": {
+    en: "Order now · delivery tomorrow",
+    ar: "اطلب الآن · التوصيل غداً",
+  },
+  // Legacy keys — no longer referenced in JSX but kept so old bundles do not
+  // throw a missing-key warning during a rolling deploy.
   "campaign.v2.countdown.line1": { en: "Order within", ar: "اطلب خلال" },
   "campaign.v2.countdown.line2Prefix": { en: "for delivery ", ar: "ليصل الطلب " },
   "campaign.v2.countdown.line2Bold": { en: "today", ar: "اليوم" },
@@ -75,12 +95,6 @@ export const campaignStrings: Dict = {
   },
   "campaign.v2.countdown.closedLine2": { en: "Next delivery slot", ar: "موعد التوصيل التالي" },
   "campaign.v2.countdown.closedValue": { en: "Tomorrow, 9 AM", ar: "غداً، 9 صباحاً" },
-  // Static state shown when more than 4 hours remain — avoids showing a
-  // non-urgent ticking number that tells visitors to come back later.
-  "campaign.v2.countdown.staticLine1": {
-    en: "Order by 10:00 PM",
-    ar: "اطلب قبل 10:00 مساءً",
-  },
   "campaign.v2.countdown.staticValue": {
     en: "for delivery today",
     ar: "للتوصيل اليوم",
@@ -107,10 +121,10 @@ export const campaignStrings: Dict = {
     en: "Real-time updates until it lands",
     ar: "تحديثات لحظية حتى وصول الطلب",
   },
-  "campaign.v2.trust.delivery.title": { en: "Free delivery over $90", ar: "توصيل مجاني فوق $90" },
+  "campaign.v2.trust.delivery.title": { en: "Express Delivery", ar: "توصيل سريع" },
   "campaign.v2.trust.delivery.sub": {
-    en: "Flat rate below · all Lebanon",
-    ar: "رسوم ثابتة لما دون ذلك · كل لبنان",
+    en: "90 minute delivery available on all products",
+    ar: "توصيل خلال 90 دقيقة متاح لجميع المنتجات",
   },
   "campaign.v2.trust.rating.title": { en: "4.8 out of 5", ar: "4.8 من 5" },
   "campaign.v2.trust.rating.sub": {

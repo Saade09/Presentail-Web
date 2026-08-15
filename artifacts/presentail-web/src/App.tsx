@@ -263,8 +263,21 @@ function ScrollToTop() {
     history.scrollRestoration = "manual";
 
     const onScroll = () => {
-      const state = history.state ?? {};
-      history.replaceState({ ...state, __scrollY: window.scrollY }, "");
+      // Store scroll position in sessionStorage rather than via
+      // history.replaceState(). replaceState() is intercepted by both
+      // wouter and gtag, each of which calls it again — multiplying the
+      // call count by 3+ per scroll event and trivially hitting the
+      // browser's hard cap of 100 replaceState calls per 10 seconds,
+      // which crashes the page with an unhandled error. sessionStorage
+      // writes have no listeners and break the feedback loop entirely.
+      try {
+        sessionStorage.setItem(
+          "__scrollY_" + window.location.pathname,
+          String(window.scrollY),
+        );
+      } catch (_) {
+        // sessionStorage unavailable (e.g. private mode with storage blocked)
+      }
     };
 
     const onPopState = () => {
@@ -283,7 +296,15 @@ function ScrollToTop() {
   useEffect(() => {
     if (isPop.current) {
       isPop.current = false;
-      const saved = (history.state?.__scrollY as number | undefined) ?? 0;
+      let saved = 0;
+      try {
+        saved =
+          parseFloat(
+            sessionStorage.getItem("__scrollY_" + pathname) ?? "0",
+          ) || 0;
+      } catch (_) {
+        // sessionStorage unavailable
+      }
       requestAnimationFrame(() => {
         window.scrollTo({ top: saved, behavior: "instant" });
       });
