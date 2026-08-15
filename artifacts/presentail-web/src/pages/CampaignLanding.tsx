@@ -327,6 +327,8 @@ export default function CampaignLanding() {
   }, []);
 
   const bestSellersRef = useRef<HTMLDivElement>(null);
+  // Observed by CampaignStickyBarBeirut: bar slides in once the hero leaves view.
+  const beirutHeroRef = useRef<HTMLElement>(null);
   const scrollToBestSellers = () => {
     bestSellersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -367,6 +369,7 @@ export default function CampaignLanding() {
             cityLabel={cityLabel}
             onCtaClick={() => fireCampaignEvent("campaign_hero_cta_click", "shop-best-sellers")}
             onWhatsAppClick={() => fireCampaignEvent("campaign_hero_cta_click", "whatsapp")}
+            sectionRef={beirutHeroRef}
           />
           <CampaignTrustBarBeirut />
         </>
@@ -595,6 +598,7 @@ export default function CampaignLanding() {
         <CampaignStickyBarBeirut
           onCtaClick={() => fireCampaignEvent("campaign_sticky_cta_click")}
           onWhatsAppClick={() => fireCampaignEvent("campaign_sticky_cta_click", "whatsapp")}
+          heroRef={beirutHeroRef}
         />
       ) : (
       <div

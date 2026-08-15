@@ -132,8 +132,8 @@ export const campaignStrings: Dict = {
     ar: "1,240 تقييماً موثّقاً على Trustpilot",
   },
   "campaign.v2.sticky.sub": {
-    en: "No address needed · order by 10:00 PM",
-    ar: "لا حاجة للعنوان · اطلب قبل 10:00 مساءً",
+    en: "No address needed · order by 10 PM",
+    ar: "لا حاجة للعنوان · اطلب قبل 10 مساءً",
   },
   "campaign.v2.hero.imageAlt": {
     en: "Fresh hand-arranged bouquet from our Beirut florists",

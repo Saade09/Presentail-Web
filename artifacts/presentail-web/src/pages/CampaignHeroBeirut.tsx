@@ -40,6 +40,15 @@ function buildWhatsAppOrderUrl(message: string): string {
 const HERO_IMAGE_URL =
   "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=1200&q=80&auto=format&fit=crop";
 
+// Mobile-specific portrait crop of the same photo.
+// fp-y=0.65 shifts the Unsplash crop window downward so the flower subject
+// (centred ~50% in the original) appears in the upper ~35% of the portrait
+// frame, leaving the lower portion for the gradient + text layer.
+// Result: flowers clearly visible at the top of the mobile hero; the dark
+// gradient covers the neutral/stem area directly behind the headline.
+const HERO_IMAGE_URL_MOBILE =
+  "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=750&h=1200&fit=crop&crop=focalpoint&fp-x=0.5&fp-y=0.65&q=80&auto=format";
+
 /**
  * When more than this many seconds remain before the cutoff the countdown
  * shows a calm static message ("Order by 10 PM for delivery today") instead
@@ -126,10 +135,14 @@ export function CampaignHeroBeirut({
   cityLabel,
   onCtaClick,
   onWhatsAppClick,
+  sectionRef,
 }: {
   cityLabel: string;
   onCtaClick: () => void;
   onWhatsAppClick: () => void;
+  /** Forwarded to the <section> element so a parent can observe when the hero
+   *  scrolls out of view (e.g. to reveal a sticky CTA bar). */
+  sectionRef?: React.RefObject<HTMLElement | null>;
 }) {
   const { t } = useLocale();
   const { secondsToCutoff, branchesOpen } = useBeirutCutoff();
@@ -144,53 +157,78 @@ export function CampaignHeroBeirut({
   const heroSrcset = buildUnsplashSrcset(HERO_IMAGE_URL);
 
   // Preload the LCP hero image. useLcpImagePreload is a no-op for non-OS
-  // URLs, so inject the <link rel="preload"> for this Unsplash photo directly,
-  // mirroring the responsive candidates the <img> below renders.
+  // URLs, so inject the <link rel="preload"> for this Unsplash photo directly.
+  // Mobile and desktop get different source images (see <picture> below), so
+  // the preload is scoped with a media query to avoid fetching the wrong image.
   useEffect(() => {
     if (typeof document === "undefined") return;
+    const isMobile = window.innerWidth < 768;
     const link = document.createElement("link");
     link.rel = "preload";
     link.as = "image";
     link.setAttribute("fetchpriority", "high");
-    if (heroSrcset) {
-      link.setAttribute("imagesrcset", heroSrcset.srcset);
-      link.setAttribute("imagesizes", "100vw");
+    if (isMobile) {
+      link.href = HERO_IMAGE_URL_MOBILE;
+      link.media = "(max-width: 767px)";
+    } else {
+      if (heroSrcset) {
+        link.setAttribute("imagesrcset", heroSrcset.srcset);
+        link.setAttribute("imagesizes", "100vw");
+      }
+      link.href = HERO_IMAGE_URL;
+      link.media = "(min-width: 768px)";
     }
-    link.href = HERO_IMAGE_URL;
     document.head.appendChild(link);
     return () => link.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    // Mobile: fixed 80svh so the trust bar is just visible above the fold.
+    // Mobile: 70svh so roughly one row of product cards peeks above the fold
+    // — immediately signals to ad visitors that this is a real shop.
     // Warm stone background shows through while the photo loads — never a
     // black slab. Desktop: content-centered, min 600 px tall.
-    <section className="relative h-[80svh] md:h-auto md:min-h-[600px] flex items-end md:items-center overflow-hidden bg-stone-200">
+    <section ref={sectionRef} className="relative h-[70svh] md:h-auto md:min-h-[600px] flex items-end md:items-center overflow-hidden bg-stone-200">
       {/* Hero photograph — the LCP element: preloaded (effect above), eager,
-          high fetch priority, responsive srcset, explicit dimensions.
-          object-top on mobile positions the bouquet subject at the upper
-          portion of the frame so flowers are visible above the copy block. */}
-      <img
-        src={HERO_IMAGE_URL}
-        {...(heroSrcset
-          ? { srcSet: heroSrcset.srcset, sizes: "100vw" }
-          : {})}
-        alt={t("campaign.v2.hero.imageAlt")}
-        width={1200}
-        height={900}
-        className="absolute inset-0 h-full w-full object-cover object-top md:object-center"
-        fetchPriority="high"
-        loading="eager"
-        decoding="async"
-      />
-      {/* Gradient: mobile — vertical, only darkens the lower ~50% of the
-          frame so the bouquet subject in the upper half stays unobscured;
-          desktop — horizontal, dark on the copy side, clear on the photo side.
-          Both keep white text ≥ 4.5:1 (black/85 terminal stop under the copy). */}
+          high fetch priority.
+          Mobile uses a separate portrait-cropped Unsplash delivery (see
+          HERO_IMAGE_URL_MOBILE) via <source media>, so flowers sit in the
+          upper portion of the frame with clear gradient coverage below.
+          Desktop keeps the landscape image centred as before. */}
+      <picture>
+        {/* Portrait crop for phones: fp-y=0.65 places flowers in the upper
+            ~35% of the frame so headline + buttons at the bottom have the
+            full gradient behind them. */}
+        <source
+          media="(max-width: 767px)"
+          srcSet={`${HERO_IMAGE_URL_MOBILE} 750w`}
+          sizes="100vw"
+        />
+        <img
+          src={HERO_IMAGE_URL}
+          {...(heroSrcset
+            ? { srcSet: heroSrcset.srcset, sizes: "100vw" }
+            : {})}
+          alt={t("campaign.v2.hero.imageAlt")}
+          width={1200}
+          height={900}
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
+        />
+      </picture>
+
+      {/* Gradient overlay:
+          Mobile — vertical scrim running most of the frame height. The text
+          block (headline + sub + badge + buttons) occupies roughly the bottom
+          65–70% of the 80svh hero. The gradient is intentionally dark from
+          bottom through that entire zone, fading to only a slight tint at the
+          very top so flowers at the top of the portrait crop remain visible.
+          Desktop — horizontal, dark only on the copy side. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 via-[25%] to-transparent to-[50%] md:bg-gradient-to-r md:from-black/85 md:via-black/60 md:via-45% md:to-transparent md:to-75%"
+        className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/75 via-[40%] to-black/25 to-[80%] md:bg-gradient-to-r md:from-black/85 md:via-black/60 md:via-45% md:to-transparent md:to-75%"
       />
 
       <div className="relative w-full container mx-auto max-w-content px-page pb-8 pt-6 md:py-16">
@@ -225,11 +263,17 @@ export function CampaignHeroBeirut({
             {t("campaign.v2.hero.title", { city: cityLabel })}
           </h1>
 
-          {/* 3 — subheading with the key phrase bolded */}
+          {/* 3 — subheading with the key phrase bolded.
+              Mobile: two visual lines so the address USP ("Don't have their
+              address?") stands on its own and is readable at a glance rather
+              than buried mid-paragraph. Desktop: both spans are inline and
+              read as a single flowing sentence. */}
           <p className="text-sm md:text-base text-white/90 max-w-md">
-            {t("campaign.v2.hero.sub1")}
-            <strong className="font-bold text-white">{t("campaign.v2.hero.subQ")}</strong>
-            {t("campaign.v2.hero.sub2")}
+            <span className="block md:inline">{t("campaign.v2.hero.sub1")}</span>
+            <span className="block md:inline">
+              <strong className="font-bold text-white">{t("campaign.v2.hero.subQ")}</strong>
+              {t("campaign.v2.hero.sub2")}
+            </span>
           </p>
 
           {/* 4 — delivery timing badge (informational, not interactive).
@@ -444,31 +488,62 @@ export function CampaignTrustBarBeirut() {
 }
 
 // ── Mobile sticky action bar ─────────────────────────────────────────────────
+// Hidden while the hero's own CTA buttons are still on screen; slides in once
+// the visitor has scrolled past them. This prevents the duplicate-button
+// problem where "Shop best sellers" appeared twice simultaneously.
 export function CampaignStickyBarBeirut({
   onCtaClick,
   onWhatsAppClick,
+  heroRef,
 }: {
   onCtaClick: () => void;
   onWhatsAppClick: () => void;
+  /** Ref to the hero <section>. The bar appears only after the hero has
+   *  scrolled out of the viewport (IntersectionObserver threshold: 0). */
+  heroRef?: React.RefObject<HTMLElement | null>;
 }) {
   const { t } = useLocale();
   const whatsAppUrl = buildWhatsAppOrderUrl(t("campaign.v2.whatsappPrefill"));
+
+  // Track whether the hero is still intersecting the viewport. Start hidden
+  // (heroVisible=true) so the bar is off-screen on first paint — no flash.
+  const [heroVisible, setHeroVisible] = useState(true);
+  useEffect(() => {
+    const el = heroRef?.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setHeroVisible(entry.isIntersecting),
+      // threshold:0 fires as soon as a single pixel of the hero leaves view.
+      { threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [heroRef]);
+
+  const shown = !heroVisible;
+
   return (
     <div
-      className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white/90 backdrop-blur border-t border-neutral-200 px-4 pt-3"
-      style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-[#00414e] border-t border-white/10 px-4 pt-3 transition-transform duration-300 ease-out"
+      style={{
+        paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))",
+        // Slide up from below rather than snapping into place. translateY(110%)
+        // guarantees the bar is completely off-screen (accounts for safe-area).
+        transform: shown ? "translateY(0)" : "translateY(110%)",
+      }}
       data-testid="bar-campaign-sticky"
+      aria-hidden={!shown}
     >
       <div className="flex items-stretch gap-3">
         <Link
           href="/best-sellers"
           onClick={onCtaClick}
-          className="flex-1 min-w-0 rounded-md bg-[#14532D] text-white flex flex-col items-center justify-center px-4 py-2 hover:bg-[#0F3F22] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14532D]"
+          className="flex-1 min-w-0 rounded-md bg-white/15 text-white flex flex-col items-center justify-center px-4 py-2 hover:bg-white/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           data-testid="button-campaign-sticky-cta"
         >
           <span className="text-sm font-semibold leading-tight">{t("campaign.v2.cta.shop")}</span>
           <span className="text-[11px] font-normal leading-tight text-white/80">
-            {/* TODO(UNVERIFIED): 10:00 PM cutoff (string campaign.v2.sticky.sub) */}
+            {/* TODO(UNVERIFIED): 10 PM cutoff (string campaign.v2.sticky.sub) */}
             {t("campaign.v2.sticky.sub")}
           </span>
         </Link>
