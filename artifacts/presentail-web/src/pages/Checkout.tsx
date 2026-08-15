@@ -1004,6 +1004,17 @@ function CheckoutForm() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, step]);
 
+  // ── Fees ref (TDZ-safe access for effects) ────────────────────────────────
+  // calcCheckoutFees is declared late in this component (after several useMemo
+  // calls it depends on). Effects that fire early (checkout_step, auto-promo)
+  // close over districtFee/expressFee/slotFee from that later declaration and
+  // can hit a Temporal Dead Zone when React's reconnectPassiveEffects (Suspense
+  // un-hide / Strict Mode remount) re-invokes the effect callback before the
+  // render that owns the outer const has run. Storing the fees in a ref updated
+  // synchronously during each render is the safe alternative: refs are never in
+  // TDZ and the update happens before any effects execute.
+  const checkoutFeesRef = useRef({ districtFee: 0, expressFee: 0, slotFee: 0 });
+
   // ── Campaign first-order auto-discount ────────────────────────────────────
   // When the campaign landing page showed the "10% off your first order"
   // promo (localStorage flag), silently auto-apply the virtual FIRST10 coupon
@@ -1025,7 +1036,7 @@ function CheckoutForm() {
         code: FIRST_ORDER_COUPON_CODE,
         customerEmail: autoPromoEmail,
         cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
-        cartTotalUsd: subtotal + districtFee + expressFee + slotFee,
+        cartTotalUsd: subtotal + checkoutFeesRef.current.districtFee + checkoutFeesRef.current.expressFee + checkoutFeesRef.current.slotFee,
       }),
     })
       .then((res) => {
@@ -1327,7 +1338,7 @@ function CheckoutForm() {
       properties: {
         city: locationCity?.name ?? locationCity?.id ?? undefined,
         deliverySlot: deliverySlot || undefined,
-        deliveryFee: districtFee + expressFee + slotFee,
+        deliveryFee: checkoutFeesRef.current.districtFee + checkoutFeesRef.current.expressFee + checkoutFeesRef.current.slotFee,
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1984,6 +1995,9 @@ function CheckoutForm() {
     freeDeliveryThresholdUsd: effectiveFreeDeliveryThresholdUsd,
     freeDeliveryEnabled: effectiveFreeDeliveryEnabled,
   });
+  // Keep feesRef in sync so early-firing effects (checkout_step, auto-promo)
+  // can read current fees without hitting a TDZ on the const declarations above.
+  checkoutFeesRef.current = { districtFee, expressFee, slotFee };
 
   // Clear the server fee override whenever any fee-affecting input changes so a
   // stale override never persists after the shopper modifies delivery settings.
