@@ -75,6 +75,16 @@ export const campaignStrings: Dict = {
   },
   "campaign.v2.countdown.closedLine2": { en: "Next delivery slot", ar: "موعد التوصيل التالي" },
   "campaign.v2.countdown.closedValue": { en: "Tomorrow, 9 AM", ar: "غداً، 9 صباحاً" },
+  // Static state shown when more than 4 hours remain — avoids showing a
+  // non-urgent ticking number that tells visitors to come back later.
+  "campaign.v2.countdown.staticLine1": {
+    en: "Order by 10:00 PM",
+    ar: "اطلب قبل 10:00 مساءً",
+  },
+  "campaign.v2.countdown.staticValue": {
+    en: "for delivery today",
+    ar: "للتوصيل اليوم",
+  },
   "campaign.v2.cta.shop": { en: "Shop best sellers", ar: "تسوّق الأكثر مبيعاً" },
   "campaign.v2.cta.whatsapp": { en: "Order on WhatsApp", ar: "اطلب عبر واتساب" },
   "campaign.v2.cta.hint": {
@@ -148,6 +158,8 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.countdown.closedLine1": "Les commandes du jour sont clôturées",
   "campaign.v2.countdown.closedLine2": "Prochain créneau de livraison",
   "campaign.v2.countdown.closedValue": "Demain, 9 h",
+  "campaign.v2.countdown.staticLine1": "Commandez avant 22 h",
+  "campaign.v2.countdown.staticValue": "pour la livraison aujourd'hui",
   "campaign.v2.cta.shop": "Voir les meilleures ventes",
   "campaign.v2.cta.whatsapp": "Commander sur WhatsApp",
   "campaign.v2.cta.hint": "Vous hésitez ? Dites-nous l'occasion et le budget.",

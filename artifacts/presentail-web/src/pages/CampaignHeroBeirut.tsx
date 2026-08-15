@@ -39,6 +39,15 @@ function buildWhatsAppOrderUrl(message: string): string {
 const HERO_IMAGE_URL =
   "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=1200&q=80&auto=format&fit=crop";
 
+/**
+ * When more than this many seconds remain before the cutoff the countdown
+ * shows a calm static message ("Order by 10:00 PM / for delivery today")
+ * instead of a ticking number — ticking numbers with 12h+ remaining
+ * signal there is no urgency and invite the visitor to come back later.
+ * Below this threshold the live counter kicks in.
+ */
+const URGENCY_THRESHOLD_SECONDS = 4 * 3600; // 4 hours
+
 // ── Beirut-clock countdown ───────────────────────────────────────────────────
 // All times are computed from Asia/Beirut wall-clock time via Intl, never the
 // visitor's local clock — a shopper in London or Dubai must see Beirut status.
@@ -124,6 +133,11 @@ export function CampaignHeroBeirut({
   const { t } = useLocale();
   const { secondsToCutoff, branchesOpen } = useBeirutCutoff();
   const cutoffPassed = secondsToCutoff === 0;
+  // "Calm" = open but >4 h to cutoff → show a static message, not a ticking
+  // number that signals the visitor can come back later.
+  // "Urgent" = open and ≤4 h remain → live ticking counter.
+  const isCalm = !cutoffPassed && secondsToCutoff > URGENCY_THRESHOLD_SECONDS;
+  const isUrgent = !cutoffPassed && !isCalm;
   const whatsAppUrl = buildWhatsAppOrderUrl(t("campaign.v2.whatsappPrefill"));
 
   const heroSrcset = buildUnsplashSrcset(HERO_IMAGE_URL);
@@ -148,9 +162,14 @@ export function CampaignHeroBeirut({
   }, []);
 
   return (
-    <section className="relative min-h-[430px] md:min-h-[600px] flex items-end md:items-center overflow-hidden">
+    // Mobile: fixed 80svh so the trust bar is just visible above the fold.
+    // Warm stone background shows through while the photo loads — never a
+    // black slab. Desktop: content-centered, min 600 px tall.
+    <section className="relative h-[80svh] md:h-auto md:min-h-[600px] flex items-end md:items-center overflow-hidden bg-stone-200">
       {/* Hero photograph — the LCP element: preloaded (effect above), eager,
-          high fetch priority, responsive srcset, explicit dimensions. */}
+          high fetch priority, responsive srcset, explicit dimensions.
+          object-top on mobile positions the bouquet subject at the upper
+          portion of the frame so flowers are visible above the copy block. */}
       <img
         src={HERO_IMAGE_URL}
         {...(heroSrcset
@@ -159,21 +178,22 @@ export function CampaignHeroBeirut({
         alt={t("campaign.v2.hero.imageAlt")}
         width={1200}
         height={900}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover object-top md:object-center"
         fetchPriority="high"
         loading="eager"
         decoding="async"
       />
-      {/* Gradient: mobile — vertical, dark from ~1/3 down to the bottom;
+      {/* Gradient: mobile — vertical, only darkens the lower ~50% of the
+          frame so the bouquet subject in the upper half stays unobscured;
           desktop — horizontal, dark on the copy side, clear on the photo side.
-          Both keep white text ≥ 4.5:1 (black/80 terminal stop under the copy). */}
+          Both keep white text ≥ 4.5:1 (black/85 terminal stop under the copy). */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 via-40% to-transparent to-70% md:bg-gradient-to-r md:from-black/85 md:via-black/60 md:via-45% md:to-transparent md:to-75%"
+        className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 via-[25%] to-transparent to-[50%] md:bg-gradient-to-r md:from-black/85 md:via-black/60 md:via-45% md:to-transparent md:to-75%"
       />
 
-      <div className="relative w-full container mx-auto max-w-content px-page pb-8 pt-40 md:py-16">
-        <div className="max-w-[560px] flex flex-col items-start gap-4 text-white">
+      <div className="relative w-full container mx-auto max-w-content px-page pb-8 pt-6 md:py-16">
+        <div className="max-w-[560px] flex flex-col items-start gap-3 md:gap-4 text-white">
           {/* 1 — status badge */}
           <span
             className="inline-flex items-center gap-2 rounded-full bg-black/45 backdrop-blur-sm border border-white/25 px-3.5 py-1.5 text-xs font-medium"
@@ -211,11 +231,17 @@ export function CampaignHeroBeirut({
             {t("campaign.v2.hero.sub2")}
           </p>
 
-          {/* 4 — countdown on its OWN row (never inline with the CTAs) */}
+          {/* 4 — countdown / urgency block on its OWN row.
+              Three states:
+              • Calm  (>4 h remain): static "Order by 10:00 PM / for delivery today"
+              • Urgent (≤4 h remain): live ticking counter
+              • Closed (past cutoff): "Today's orders are closed / Tomorrow 9 AM"
+              role="timer" only when actually ticking; aria-live off to avoid
+              announcing every second to screen readers. */}
           <div
             className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-6 rounded-xl bg-[#8C1D2F] px-4 py-3"
             data-testid="block-campaign-countdown"
-            role="timer"
+            role={isUrgent ? "timer" : undefined}
             aria-live="off"
           >
             <div className="text-xs leading-snug text-white/90">
@@ -224,6 +250,8 @@ export function CampaignHeroBeirut({
                   <div>{t("campaign.v2.countdown.closedLine1")}</div>
                   <div>{t("campaign.v2.countdown.closedLine2")}</div>
                 </>
+              ) : isCalm ? (
+                <div>{t("campaign.v2.countdown.staticLine1")}</div>
               ) : (
                 <>
                   <div>{t("campaign.v2.countdown.line1")}</div>
@@ -237,12 +265,18 @@ export function CampaignHeroBeirut({
               )}
             </div>
             <div
-              className="text-xl md:text-2xl font-semibold tabular-nums whitespace-nowrap"
+              className={
+                isCalm
+                  ? "text-base font-semibold whitespace-nowrap"
+                  : "text-xl md:text-2xl font-semibold tabular-nums whitespace-nowrap"
+              }
               data-testid="text-campaign-countdown-value"
             >
               {cutoffPassed
                 ? t("campaign.v2.countdown.closedValue")
-                : formatCountdown(secondsToCutoff)}
+                : isCalm
+                  ? t("campaign.v2.countdown.staticValue")
+                  : formatCountdown(secondsToCutoff)}
             </div>
           </div>
 
@@ -319,7 +353,7 @@ export function CampaignTrustBarBeirut() {
           {cells.map((c) => (
             <div
               key={c.key}
-              className="flex items-start gap-3 px-4 py-4 md:py-5"
+              className="flex items-start gap-3 px-4 py-4 md:py-5 min-h-[84px] md:min-h-0"
               data-testid={`trust-cell-${c.key}`}
             >
               <span className="mt-0.5 shrink-0">{c.icon}</span>
