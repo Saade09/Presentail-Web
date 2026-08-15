@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "wouter";
-import { MapPin, Send, Truck, Star } from "lucide-react";
+import { MapPin, Send, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { buildUnsplashSrcset } from "@/lib/imageUtils";
+import { injectTrustpilotScript } from "@/lib/trustpilot";
 
 /**
  * CampaignHeroBeirut — paid-search hero variant for the Beirut flower-delivery
@@ -315,9 +316,40 @@ export function CampaignHeroBeirut({
 
 // ── Trust bar ────────────────────────────────────────────────────────────────
 // Order is deliberate: the no-address point leads (differentiator that
-// unblocks an abandoning buyer), then tracking, delivery pricing, rating.
+// unblocks an abandoning buyer), then tracking, delivery pricing, then the
+// live Trustpilot Mini widget (real TrustScore, never a stale hardcoded number).
 export function CampaignTrustBarBeirut() {
   const { t } = useLocale();
+  const tpRef = useRef<HTMLDivElement>(null);
+
+  // Initialize the Trustpilot Mini widget after mount. Follows the same
+  // injectTrustpilotScript + loadFromElement pattern used by TrustpilotCarousel
+  // — safe to call concurrently since injectTrustpilotScript deduplicates the
+  // <script> tag and piggy-backs on the existing load event if already loading.
+  useEffect(() => {
+    const el = tpRef.current;
+    if (!el) return;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollAttempts = 0;
+    const MAX_POLL_ATTEMPTS = 20;
+    const POLL_INTERVAL_MS = 250;
+    const tryLoad = () => {
+      if (!window.Trustpilot) {
+        if (pollAttempts < MAX_POLL_ATTEMPTS) {
+          pollAttempts++;
+          pollTimer = setTimeout(tryLoad, POLL_INTERVAL_MS);
+        }
+        return;
+      }
+      window.Trustpilot.loadFromElement(el, true);
+    };
+    // Trust bar is above the fold — load immediately, no IntersectionObserver.
+    injectTrustpilotScript(tryLoad);
+    return () => {
+      if (pollTimer !== null) clearTimeout(pollTimer);
+    };
+  }, []);
+
   const cells: { icon: ReactNode; title: string; sub: string; key: string }[] = [
     {
       key: "address",
@@ -333,23 +365,18 @@ export function CampaignTrustBarBeirut() {
     },
     {
       key: "delivery",
-      // TODO(UNVERIFIED): $90 threshold + all-Lebanon scope (strings in campaign.ts)
       icon: <Truck className="h-5 w-5 text-primary" aria-hidden="true" />,
       title: t("campaign.v2.trust.delivery.title"),
       sub: t("campaign.v2.trust.delivery.sub"),
     },
-    {
-      key: "rating",
-      // TODO(UNVERIFIED): 4.8 rating / 1,240 review count (strings in campaign.ts)
-      icon: <Star className="h-5 w-5 fill-amber-400 text-amber-400" aria-hidden="true" />,
-      title: t("campaign.v2.trust.rating.title"),
-      sub: t("campaign.v2.trust.rating.sub"),
-    },
   ];
+
   return (
     <div className="bg-white border-b border-neutral-200">
       <div className="container mx-auto max-w-content px-page">
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-neutral-200 [&>*:nth-child(3)]:border-l-0 md:[&>*:nth-child(3)]:border-l [&>*:nth-child(n+3)]:border-t md:[&>*:nth-child(n+3)]:border-t-0 border-neutral-200">
+        {/* items-center vertically aligns the shorter text cells against the
+            taller Trustpilot widget in the fourth column. */}
+        <div className="grid grid-cols-2 md:grid-cols-4 items-center divide-x divide-neutral-200 [&>*:nth-child(3)]:border-l-0 md:[&>*:nth-child(3)]:border-l [&>*:nth-child(n+3)]:border-t md:[&>*:nth-child(n+3)]:border-t-0 border-neutral-200">
           {cells.map((c) => (
             <div
               key={c.key}
@@ -363,6 +390,37 @@ export function CampaignTrustBarBeirut() {
               </span>
             </div>
           ))}
+
+          {/* Trustpilot Mini widget — live TrustScore, never a hardcoded number.
+              Max rendered width from Trustpilot is 240 px regardless of style-width,
+              so we constrain the container to match and center it in the cell.
+              Explicit height prevents iframe collapse inside a flex/grid parent. */}
+          <div
+            className="flex items-center justify-center px-4 py-3"
+            data-testid="trust-cell-rating"
+          >
+            <div style={{ width: "100%", maxWidth: 240 }}>
+              <div
+                ref={tpRef}
+                className="trustpilot-widget"
+                data-locale="en-US"
+                data-template-id="53aa8807dec7e10d38f59f32"
+                data-businessunit-id="5d1782b3588afe00012431d9"
+                data-style-height="90"
+                data-style-width="100%"
+                data-token="c3c9abbc-8bdc-41bb-9779-402f9a758680"
+                style={{ height: 90, minHeight: 90 }}
+              >
+                <a
+                  href="https://www.trustpilot.com/review/presentail.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Trustpilot
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
