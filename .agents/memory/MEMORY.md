@@ -46,6 +46,7 @@
 - [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice
 - [AR/FR product translation layer](product-translation.md) — OpenAI w/ retries+semaphore, Postgres L2 cache, warm job; contentLang flag suppresses hreflang on English fallback; city-root links must be slashless
 - [CyberSource capture-context schema](cybersource-capture-context-schema.md) — required fields, valid enums (PANENTRY not CARD), locale underscore format, forbidden fields, JWT clientLibrary = UC SDK URL
+- [Cyprus non-hub city category SEO](cy-category-seo.md) — curated CATEGORY_SEO_CONTENT entry unlocks index + self-canonical for Larnaca/Limassol/Paphos; og:locale for cy is now en_CY
 - [Task-agent splice corruption](task-agent-splice-corruption.md) — esbuild doesn't type-check; run tsc --noEmit after merges to catch undefined-identifier splices; main Stripe account is Cyprus, accepts all currencies (AED→Gulf)
 - [Category nav inventory rule](category-nav-inventory.md) — never hardcode /category links; filter every nav surface by per-country catalog metadata counts; `~/` escapes lang-based router bases
 - [Charged-but-lost order net](charged-but-lost-orders.md) — card flows must persist order payload server-side before confirm; webhook+sweeper+advisory-lock idempotency rescue paid orders; "stripe" not in WooOrderSchema enum

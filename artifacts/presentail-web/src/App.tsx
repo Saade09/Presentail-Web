@@ -84,6 +84,14 @@ const HomepageHeader = lazy(() =>
 const Footer = lazy(() =>
   loadFooter().then((m) => ({ default: m.Footer })),
 );
+// Landing-page-specific stripped header/footer — only mounted on paid-search
+// landing routes (currently /flower-delivery). Global components are untouched.
+const LandingPageHeader = lazy(() =>
+  import("@/components/landing/LandingPageHeader").then((m) => ({ default: m.LandingPageHeader })),
+);
+const LandingPageFooter = lazy(() =>
+  import("@/components/landing/LandingPageFooter").then((m) => ({ default: m.LandingPageFooter })),
+);
 const Toaster = lazy(() =>
   import("@/components/ui/toaster").then((m) => ({ default: m.Toaster })),
 );
@@ -296,13 +304,17 @@ function ShopShell() {
     path.endsWith("/order-confirmed") ||
     path.endsWith("/checkout/payment-resume") ||
     path.includes("/checkout/payment-resume?");
+  // Paid-search landing pages get a stripped header+footer (no nav menus,
+  // minimal footer). Every other page keeps the full global components.
+  // Extend this set if more paid-search landing routes are added later.
+  const isLandingPage = path.endsWith("/flower-delivery");
   return (
     <LocationPickerGate>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col">
         {!isCheckoutPage && (
           <Suspense fallback={<HeaderSkeleton />}>
-            <HomepageHeader />
+            {isLandingPage ? <LandingPageHeader /> : <HomepageHeader />}
           </Suspense>
         )}
         <main className="flex-1">
@@ -370,7 +382,7 @@ function ShopShell() {
         </main>
         {!isCheckoutPage && (
           <Suspense fallback={null}>
-            <Footer />
+            {isLandingPage ? <LandingPageFooter /> : <Footer />}
           </Suspense>
         )}
       </div>

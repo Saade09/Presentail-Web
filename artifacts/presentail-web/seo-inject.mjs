@@ -4400,6 +4400,37 @@ function buildShopEntityHead({
   if (Array.isArray(items) && items.length > 0) {
     graphNodes.push(buildItemListSchema(items, rawName || altText, locBase));
   }
+  // CollectionPage + Service nodes for curated city-category pages.
+  // These carry hand-written unique content so they deserve richer structured
+  // data — a CollectionPage node explicitly describes the listing, and a
+  // Service node signals the areaServed geography to local-search systems.
+  // Both are scoped to curated pages only; template pages already get
+  // BreadcrumbList + ItemList which is sufficient for non-curated listings.
+  if (curated && entityKind === "category" && locBase) {
+    const selfHref = `${origin}${cleanBase}${pathname.replace(/\/$/, "")}`;
+    graphNodes.push({
+      "@type": "CollectionPage",
+      name: curated.title,
+      description: curated.metaDescription,
+      url: selfHref,
+    });
+    if (cityLabel) {
+      graphNodes.push({
+        "@type": "Service",
+        name: `${rawName || "Gift"} Delivery in ${cityLabel}`,
+        serviceType: "Gift Delivery",
+        areaServed: [
+          { "@type": "City", name: cityLabel },
+          ...(countryLabel ? [{ "@type": "Country", name: countryLabel }] : []),
+        ],
+        provider: {
+          "@type": "Organization",
+          name: "Presentail",
+          url: `${origin}${cleanBase}`,
+        },
+      });
+    }
+  }
   const extraLines = [jsonLdGraphTag(graphNodes)];
   // FAQPage JSON-LD — emit structured Q&A markup so search engines can show
   // expandable FAQ rich results for category and occasion listing pages.
@@ -4624,7 +4655,12 @@ function buildShopEntityHead({
       country,
       robots,
       extraLines,
-      remapCityToHub: true,
+      // Curated pages carry genuinely unique city-specific content
+      // (hand-written H1, intro, sections, FAQs) so their canonical should
+      // point at themselves, not at the hub city. Non-curated category pages
+      // at non-hub cities keep remapCityToHub:true so ranking signals
+      // consolidate on the hub-city canonical as before.
+      remapCityToHub: !curated,
     }),
     bodyHtml,
   };

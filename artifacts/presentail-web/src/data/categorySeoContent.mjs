@@ -405,6 +405,216 @@ export const CATEGORY_SEO_CONTENT = {
         ],
       },
     },
+
+    // -----------------------------------------------------------------------
+    // Cyprus — non-hub city balloon pages
+    // Each entry carries unique city-specific copy so it earns its own
+    // indexable URL rather than consolidating under the Nicosia hub canonical.
+    // -----------------------------------------------------------------------
+
+    "cy/larnaca": {
+      balloons: {
+        title: "Balloon Delivery Larnaca | Same-Day Balloons | Presentail",
+        metaDescription:
+          "Send balloons in Larnaca with same-day delivery. Helium, foil and number balloon bouquets for birthdays, graduations and new arrivals. Order by midday.",
+        h1: "Balloon Delivery in Larnaca, Cyprus",
+        intro:
+          "Order same-day balloon delivery in Larnaca — or send balloons anywhere else in Cyprus, whether you're placing an order from abroad or from another city on the island. We deliver helium, foil and number balloons to homes, hotels, offices and event venues across Larnaca.",
+        sections: [
+          {
+            heading: "Shop Balloons by Type",
+            body: "Presentail carries helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone occasions. Every type is available for same-day delivery across Larnaca.",
+            links: [
+              { label: "Helium balloons", href: "/category/balloons" },
+              { label: "Foil & mylar balloons", href: "/category/balloons" },
+              { label: "Balloon bouquets", href: "/category/balloons" },
+              { label: "Number & letter balloons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Shop Balloons by Occasion",
+            body: "Balloons suit almost every celebration — from birthdays and graduations to a new baby's arrival or a Valentine's Day surprise. Pair balloons with flowers, chocolates or a cake for a complete Larnaca gift delivery.",
+            links: [
+              { label: "Birthday balloons", href: "/occasion/birthday" },
+              { label: "Graduation balloons", href: "/occasion/graduation" },
+              { label: "New baby balloons", href: "/occasion/new-baby" },
+              { label: "Anniversary balloons", href: "/occasion/anniversary" },
+            ],
+          },
+          {
+            // UNVERIFIED: neighbourhood names below sourced from public mapping
+            // data; confirm delivery coverage with the ops team before running
+            // paid search targeting these specific areas.
+            heading: "Balloon Delivery Across Larnaca",
+            body: "We deliver balloons across all parts of Larnaca, including the seafront at Finikoudes, Mackenzie Beach, Aradippou, Livadia, Oroklini and the areas around Larnaca airport. If you're sending to a hotel, villa or office, just enter the full address at checkout.",
+            links: [],
+          },
+          {
+            heading: "Delivering Balloons Across Cyprus",
+            body: "Presentail delivers balloons to every city in Cyprus. Order from Larnaca, or send balloons to friends and family anywhere else on the island.",
+            links: [
+              { label: "Balloon delivery in Nicosia", href: "/en-cy/nicosia/category/balloons", absolute: true },
+              { label: "Balloon delivery in Limassol", href: "/en-cy/limassol/category/balloons", absolute: true },
+              { label: "Balloon delivery in Paphos", href: "/en-cy/paphos/category/balloons", absolute: true },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "Can I get same-day balloon delivery in Larnaca?",
+            a: "Yes — order before midday for same-day balloon delivery in Larnaca. Orders placed after midday are scheduled for the next available delivery window.",
+          },
+          {
+            q: "Do you deliver balloons to hotels and resorts in Larnaca?",
+            a: "Yes — we deliver balloons to hotels, resorts, villas, offices and homes anywhere in Larnaca. Enter the full address at checkout and we'll take care of the rest.",
+          },
+          {
+            q: "Do you deliver to the Finikoudes area and Mackenzie Beach?",
+            a: "Yes — we deliver balloons across all Larnaca neighbourhoods including Finikoudes, Mackenzie Beach, Aradippou and areas near the airport.",
+          },
+          {
+            q: "Do you deliver balloons outside Larnaca, anywhere in Cyprus?",
+            a: "Yes — we deliver balloons everywhere in Cyprus. Select your delivery city at checkout to confirm availability and timing.",
+          },
+          {
+            q: "Can I order balloons from abroad for delivery in Larnaca?",
+            a: "Yes — you can order from anywhere in the world and we'll deliver to the recipient in Larnaca. Presentail accepts international credit and debit cards at checkout.",
+          },
+          {
+            q: "What types of balloons do you offer in Larnaca?",
+            a: "Presentail offers helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone celebrations. Browse this page for the current Larnaca range.",
+          },
+        ],
+      },
+    },
+
+    "cy/limassol": {
+      balloons: {
+        title: "Balloon Delivery Limassol | Same-Day Balloons | Presentail",
+        metaDescription:
+          "Send balloons in Limassol with same-day delivery. Helium, foil and number balloon bouquets for birthdays, graduations and new arrivals. Order by midday.",
+        h1: "Balloon Delivery in Limassol, Cyprus",
+        intro:
+          "Order same-day balloon delivery in Limassol — or send balloons anywhere else in Cyprus, whether you're placing an order from abroad or from another city on the island. We deliver helium, foil and number balloons to homes, hotels, offices and event venues across Limassol.",
+        sections: [
+          {
+            heading: "Shop Balloons by Type",
+            body: "Presentail carries helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone occasions. Every type is available for same-day delivery across Limassol.",
+            links: [
+              { label: "Helium balloons", href: "/category/balloons" },
+              { label: "Foil & mylar balloons", href: "/category/balloons" },
+              { label: "Balloon bouquets", href: "/category/balloons" },
+              { label: "Number & letter balloons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Shop Balloons by Occasion",
+            body: "Balloons suit almost every celebration — from birthdays and graduations to a new baby's arrival or an anniversary surprise. Pair balloons with flowers, chocolates or a cake for a complete Limassol gift delivery.",
+            links: [
+              { label: "Birthday balloons", href: "/occasion/birthday" },
+              { label: "Graduation balloons", href: "/occasion/graduation" },
+              { label: "New baby balloons", href: "/occasion/new-baby" },
+              { label: "Anniversary balloons", href: "/occasion/anniversary" },
+            ],
+          },
+          {
+            heading: "Delivering Balloons Across Cyprus",
+            body: "Presentail delivers balloons to every city in Cyprus. Order from Limassol, or send balloons to friends and family anywhere else on the island.",
+            links: [
+              { label: "Balloon delivery in Nicosia", href: "/en-cy/nicosia/category/balloons", absolute: true },
+              { label: "Balloon delivery in Larnaca", href: "/en-cy/larnaca/category/balloons", absolute: true },
+              { label: "Balloon delivery in Paphos", href: "/en-cy/paphos/category/balloons", absolute: true },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "Can I get same-day balloon delivery in Limassol?",
+            a: "Yes — order before midday for same-day balloon delivery in Limassol. Orders placed after midday are scheduled for the next available delivery window.",
+          },
+          {
+            q: "Do you deliver balloons to hotels and offices in Limassol?",
+            a: "Yes — we deliver balloons to hotels, offices, homes and event venues anywhere in Limassol. Enter the full address at checkout.",
+          },
+          {
+            q: "Do you deliver balloons outside Limassol, anywhere in Cyprus?",
+            a: "Yes — we deliver balloons everywhere in Cyprus, including Nicosia, Larnaca and Paphos. Select your delivery city at checkout.",
+          },
+          {
+            q: "Can I order balloons from abroad for delivery in Limassol?",
+            a: "Yes — you can order from anywhere in the world and we'll deliver to the recipient in Limassol. Presentail accepts international credit and debit cards at checkout.",
+          },
+          {
+            q: "What types of balloons do you offer in Limassol?",
+            a: "Presentail offers helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone celebrations. Browse this page for the current Limassol range.",
+          },
+        ],
+      },
+    },
+
+    "cy/paphos": {
+      balloons: {
+        title: "Balloon Delivery Paphos | Same-Day Balloons | Presentail",
+        metaDescription:
+          "Send balloons in Paphos with same-day delivery. Helium, foil and number balloon bouquets for birthdays, graduations and new arrivals. Order by midday.",
+        h1: "Balloon Delivery in Paphos, Cyprus",
+        intro:
+          "Order same-day balloon delivery in Paphos — or send balloons anywhere else in Cyprus, whether you're placing an order from abroad or from another city on the island. We deliver helium, foil and number balloons to homes, hotels, offices and event venues across Paphos.",
+        sections: [
+          {
+            heading: "Shop Balloons by Type",
+            body: "Presentail carries helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone occasions. Every type is available for same-day delivery across Paphos.",
+            links: [
+              { label: "Helium balloons", href: "/category/balloons" },
+              { label: "Foil & mylar balloons", href: "/category/balloons" },
+              { label: "Balloon bouquets", href: "/category/balloons" },
+              { label: "Number & letter balloons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Shop Balloons by Occasion",
+            body: "Balloons suit almost every celebration — from birthdays and graduations to a new baby's arrival or an anniversary surprise. Pair balloons with flowers, chocolates or a cake for a complete Paphos gift delivery.",
+            links: [
+              { label: "Birthday balloons", href: "/occasion/birthday" },
+              { label: "Graduation balloons", href: "/occasion/graduation" },
+              { label: "New baby balloons", href: "/occasion/new-baby" },
+              { label: "Anniversary balloons", href: "/occasion/anniversary" },
+            ],
+          },
+          {
+            heading: "Delivering Balloons Across Cyprus",
+            body: "Presentail delivers balloons to every city in Cyprus. Order from Paphos, or send balloons to friends and family anywhere else on the island.",
+            links: [
+              { label: "Balloon delivery in Nicosia", href: "/en-cy/nicosia/category/balloons", absolute: true },
+              { label: "Balloon delivery in Larnaca", href: "/en-cy/larnaca/category/balloons", absolute: true },
+              { label: "Balloon delivery in Limassol", href: "/en-cy/limassol/category/balloons", absolute: true },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "Can I get same-day balloon delivery in Paphos?",
+            a: "Yes — order before midday for same-day balloon delivery in Paphos. Orders placed after midday are scheduled for the next available delivery window.",
+          },
+          {
+            q: "Do you deliver balloons to hotels and offices in Paphos?",
+            a: "Yes — we deliver balloons to hotels, offices, homes and event venues anywhere in Paphos. Enter the full address at checkout.",
+          },
+          {
+            q: "Do you deliver balloons outside Paphos, anywhere in Cyprus?",
+            a: "Yes — we deliver balloons everywhere in Cyprus, including Nicosia, Limassol and Larnaca. Select your delivery city at checkout.",
+          },
+          {
+            q: "Can I order balloons from abroad for delivery in Paphos?",
+            a: "Yes — you can order from anywhere in the world and we'll deliver to the recipient in Paphos. Presentail accepts international credit and debit cards at checkout.",
+          },
+          {
+            q: "What types of balloons do you offer in Paphos?",
+            a: "Presentail offers helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone celebrations. Browse this page for the current Paphos range.",
+          },
+        ],
+      },
+    },
   },
 
   ar: {

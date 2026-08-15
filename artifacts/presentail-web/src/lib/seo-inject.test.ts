@@ -943,6 +943,76 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
       expect(faq.mainEntity[i].acceptedAnswer?.text).toBe(a);
     }
   });
+
+  it("renders the visible curated body + matching FAQPage JSON-LD for /en-cy/larnaca/category/balloons (anti-cloaking parity)", async () => {
+    const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+    const { getCategorySeoContent } = await import("../../src/data/categorySeoContent.mjs");
+    const curated = getCategorySeoContent({ country: "cy", city: "larnaca", slug: "balloons", lang: "en" });
+    expect(curated).toBeTruthy();
+    if (!curated) throw new Error('Missing curated balloons entry in CATEGORY_SEO_CONTENT["cy/larnaca"]');
+    expect(curated.faqs.length).toBeGreaterThanOrEqual(1);
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, count: 10, products: [{ name: "Sample Balloon", id: "sample-balloon" }] }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, category: { name: "Balloons", description: "", image: null } }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(ROOT_HTML, "/en-cy/larnaca/category/balloons", CLEAN_PATH_OPTS);
+
+    // Head: curated title must be present.
+    expect(out).toContain("<title>Balloon Delivery Larnaca | Same-Day Balloons | Presentail</title>");
+
+    // Canonical must be self-referential (Larnaca URL, NOT remapped to Nicosia hub).
+    // Test origin is presentail.test (from OPTS.origin).
+    expect(out).toContain('rel="canonical" href="https://presentail.test/en-cy/larnaca/category/balloons"');
+
+    // og:locale must be en_CY for Cyprus pages.
+    expect(out).toContain('og:locale" content="en_CY"');
+
+    // Must NOT be noindexed — curated content bypasses the eligibility gate.
+    expect(out).not.toContain("noindex");
+
+    // Visible body: each curated FAQ question as <h3> and answer as visible text.
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    for (const { q, a } of curated.faqs) {
+      expect(out).toContain(`<h3>${esc(q)}</h3>`);
+      expect(out).toContain(esc(a));
+    }
+
+    // FAQPage JSON-LD must match the curated faqs 1:1 (anti-cloaking parity).
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(curated.faqs.length);
+    for (let i = 0; i < curated.faqs.length; i++) {
+      const { q, a } = curated.faqs[i] as { q: string; a: string };
+      expect(faq.mainEntity[i].name).toBe(q);
+      expect(faq.mainEntity[i].acceptedAnswer?.text).toBe(a);
+    }
+
+    // CollectionPage and Service JSON-LD must be emitted for curated pages.
+    // extractJsonLd flattens all @graph blocks into a flat node array.
+    const allNodes = extractJsonLd(out);
+    const collectionPage = byType(allNodes, "CollectionPage");
+    expect(collectionPage).toBeTruthy();
+    expect(collectionPage?.name).toBe(curated.title);
+    const service = byType(allNodes, "Service");
+    expect(service).toBeTruthy();
+    expect(Array.isArray(service?.areaServed) && service.areaServed.some((a: any) => a["@type"] === "City")).toBe(true);
+  });
 });
 
 describe("injectSeoTagsAsync — /brands?category=<slug>", () => {

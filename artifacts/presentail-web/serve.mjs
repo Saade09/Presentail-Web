@@ -1544,6 +1544,14 @@ const server = http.createServer(async (req, res) => {
       // canonical URL so link equity is preserved and the informational
       // content-type signal is maintained (Aug 2026).
       "/lebanon/balloons-delivered-near-you-reliable-same-day-balloon-delivery-in-lebanon": `${BASE_PATH}/en-lb/beirut/blog/balloon-delivery-beirut-lebanon`,
+      // Legacy WordPress city-page paths that the generic /cyprus/* handler
+      // would incorrectly redirect to Nicosia (the country hub). Add explicit
+      // entries here so each path lands on the correct city home instead.
+      // Audit note (Aug 2026): only /flower-shops-in-larnaca confirmed wrong;
+      // add similar entries for other cities if further bad redirects surface.
+      "/cyprus/flower-shops-in-larnaca": `${BASE_PATH}/en-cy/larnaca`,
+      "/cyprus/flower-shops-in-limassol": `${BASE_PATH}/en-cy/limassol`,
+      "/cyprus/flower-shops-in-paphos":   `${BASE_PATH}/en-cy/paphos`,
     };
 
     const vanityKey =

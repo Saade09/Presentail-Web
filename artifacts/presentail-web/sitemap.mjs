@@ -9,7 +9,7 @@
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 import { getOccasionSeoContent } from "./src/data/occasionSeoContent.mjs";
-import { getCategorySeoContent } from "./src/data/categorySeoContent.mjs";
+import { getCategorySeoContent, CATEGORY_SEO_CONTENT } from "./src/data/categorySeoContent.mjs";
 import { buildProductImageAlt } from "./imageAlt.mjs";
 import {
   getProductAvailabilityState,
@@ -404,6 +404,42 @@ export function buildSitemapXml({
       );
       for (let pageNum = 2; pageNum <= categoryPageCount; pageNum++) {
         urls.push(urlEntryWithAlternates("0.4", "weekly", country, city, `/category/${encoded}/page/${pageNum}`));
+      }
+    }
+  }
+
+  // 5b. Curated category pages at non-hub cities (e.g. Larnaca/Limassol/
+  // Paphos balloons). These pages carry hand-written unique content that
+  // earns them their own indexable URL rather than consolidating under the
+  // hub-city canonical.
+  //
+  // Guard: only emit when the catalog is available (categories non-empty).
+  // When the API is down and we're building the static cold-cache fallback
+  // sitemap, categories is [] and this block is skipped — same behaviour as
+  // the hub-city category loop above (section 5) which also produces nothing
+  // without catalog data.
+  //
+  // Locale: emitted for all three locales (en/ar/fr). AR/FR pages render
+  // with EN fallback copy, but they ARE accessible and should be crawlable.
+  // This keeps en/ar/fr sitemap URL counts in sync (the existing test
+  // invariant: EN has exactly one extra entry for the un-prefixed root "/").
+  //
+  // The hub-city loop (section 5) already covers hub-city curated pages, so
+  // we skip hub cities here to avoid duplicates.
+  const hasCatalogData = categories.length > 0 || categoriesByCountry != null;
+  if (hasCatalogData) {
+    for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
+      const hubCity = HUB_CITY[country];
+      for (const city of cities) {
+        if (city === hubCity) continue; // already emitted above
+        const cityKey = `${country}/${city}`;
+        const curatedSlugMap = CATEGORY_SEO_CONTENT.en?.[cityKey] ?? {};
+        for (const categorySlug of Object.keys(curatedSlugMap)) {
+          const encoded = encodeURIComponent(categorySlug);
+          // Priority 0.7 matches hub-city curated category pages.
+          // No pagination — curated pages are single-page listings.
+          urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
+        }
       }
     }
   }
