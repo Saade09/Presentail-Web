@@ -157,18 +157,8 @@ export const campaignStrings: Dict = {
     en: "Everything below is in stock at our Achrafieh shop right now. Order before 10 PM and it goes out today.",
     ar: "كل ما يلي متوفر في متجرنا في الأشرفية الآن. اطلب قبل الساعة 10 مساءً ويخرج طلبك اليوم.",
   },
-  "campaign.v2.grid.pillsLabel": {
-    en: "Shop by occasion",
-    ar: "تسوّق حسب المناسبة",
-  },
-  // Occasion pill labels — "Best sellers" active pill is Beirut-campaign-specific.
-  // Other occasion names reuse existing shop.occ.* keys.
-  "campaign.v2.pill.bestSellers": { en: "Best sellers", ar: "الأكثر مبيعاً" },
-  "campaign.v2.pill.romance":     { en: "Romance",      ar: "رومانسي" },
-  "campaign.v2.pill.congratulations": { en: "Congratulations", ar: "تهانٍ" },
-  "campaign.v2.pill.getWell":    { en: "Get well",      ar: "الشفاء العاجل" },
-  "campaign.v2.pill.sympathy":   { en: "Sympathy",      ar: "تعازي" },
-  "campaign.v2.pill.newBaby":    { en: "New baby",      ar: "مولود جديد" },
+  // ── Pass 2B: "Shop by Occasion" section heading ────────────────────────────
+  "campaign.v2.occasions.title": { en: "Shop by Occasion", ar: "تسوّق حسب المناسبة" },
 
   // ── Pass 2A: address explainer ────────────────────────────────────────────
   "campaign.v2.address.heading": {
@@ -274,13 +264,7 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.grid.viewAll": "Tous les arrangements",
   "campaign.v2.grid.sub":
     "Tout ce qui suit est en stock dans notre boutique d'Achrafieh en ce moment. Commandez avant 22 h et votre commande part aujourd'hui.",
-  "campaign.v2.grid.pillsLabel": "Acheter par occasion",
-  "campaign.v2.pill.bestSellers": "Meilleures ventes",
-  "campaign.v2.pill.romance": "Romance",
-  "campaign.v2.pill.congratulations": "Félicitations",
-  "campaign.v2.pill.getWell": "Bon rétablissement",
-  "campaign.v2.pill.sympathy": "Condoléances",
-  "campaign.v2.pill.newBaby": "Nouveau bébé",
+  "campaign.v2.occasions.title": "Choisir par occasion",
 
   // ── Pass 2A: address explainer ────────────────────────────────────────────
   "campaign.v2.address.heading": "Vous n'avez pas besoin de leur adresse",

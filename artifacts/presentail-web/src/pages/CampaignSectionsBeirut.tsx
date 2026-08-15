@@ -16,10 +16,12 @@
  *   6. Handwritten card at checkout (step 1 of address explainer)
  */
 
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { apiFetch } from "@/lib/api";
 import { ProductImage } from "@/components/ProductImage";
 import { SalePrice } from "@/components/SalePrice";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +29,11 @@ import { trackEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { CAMPAIGN_SECTION_KEY } from "@/lib/campaign";
 import { type Product } from "@/lib/queries";
+import {
+  CircularCollectionCarousel,
+  type CircularCarouselItem,
+} from "@/components/homepage/CircularCollectionCarousel";
+import { OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static overlay data — descriptors and corner tags
@@ -179,20 +186,6 @@ function CampaignProductCard({
 // parent (CampaignLanding) — no new network requests.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const OCCASION_PILLS = [
-  // "Best sellers" is the active/selected state — links to the full shop.
-  { key: "best-sellers",     labelKey: "campaign.v2.pill.bestSellers",     href: "/best-sellers",          active: true },
-  { key: "birthday",         labelKey: "shop.occ.birthday",                href: "/occasion/birthday" },
-  { key: "anniversary",      labelKey: "shop.occ.anniversary",             href: "/occasion/anniversary" },
-  { key: "romance",          labelKey: "campaign.v2.pill.romance",         href: "/occasion/love-romance" },
-  { key: "congratulations",  labelKey: "campaign.v2.pill.congratulations", href: "/occasion/congratulations" },
-  // TODO(UNVERIFIED): confirm "get-well-soon" slug is the correct route for the Get Well occasion page.
-  { key: "get-well",         labelKey: "campaign.v2.pill.getWell",         href: "/occasion/get-well-soon" },
-  // Sympathy uses the canonical "condolences" occasion slug (verified in ShopByOccasion.tsx).
-  { key: "sympathy",         labelKey: "campaign.v2.pill.sympathy",        href: "/occasion/condolences" },
-  { key: "new-baby",         labelKey: "campaign.v2.pill.newBaby",         href: "/occasion/new-born" },
-] as const;
-
 const GRID_SIZE = 8;
 
 export function CampaignGridBeirut({
@@ -237,35 +230,6 @@ export function CampaignGridBeirut({
         {t("campaign.v2.grid.sub")}
       </p>
 
-      {/* Occasion pills — flex-wrap so they flow to a second line on mobile.
-          The current page clips pills mid-word using overflow-x-auto;
-          this fixes that by allowing multi-line wrapping. */}
-      <div
-        className="flex flex-wrap gap-2 mb-6"
-        role="list"
-        aria-label={t("campaign.v2.grid.pillsLabel")}
-      >
-        {OCCASION_PILLS.map((pill) => (
-          <Link
-            key={pill.key}
-            href={pill.href}
-            role="listitem"
-            onClick={() => {
-              trackEvent({ name: "campaign_pill_click", sectionKey: CAMPAIGN_SECTION_KEY, linkSlug: pill.key });
-              fireGtagEvent("campaign_pill_click", { section: CAMPAIGN_SECTION_KEY, detail: pill.key });
-            }}
-            className={
-              "active" in pill && pill.active
-                ? "rounded-full px-4 py-1.5 text-sm font-medium bg-[#00414e] text-white focus-visible:outline-2 focus-visible:outline-primary"
-                : "rounded-full border border-neutral-300 px-4 py-1.5 text-sm text-neutral-700 hover:border-primary hover:text-primary transition-colors focus-visible:outline-2 focus-visible:outline-primary"
-            }
-            data-testid={`pill-campaign-${pill.key}`}
-          >
-            {t(pill.labelKey)}
-          </Link>
-        ))}
-      </div>
-
       {/* Product grid:
           2 columns on mobile,
           3 from 760 px (most tablets in portrait),
@@ -301,6 +265,96 @@ export function CampaignGridBeirut({
         </div>
       )}
     </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CampaignOccasionsBeirut
+//
+// "Shop by Occasion" section — replaces the old inline pill chips that were
+// embedded inside CampaignGridBeirut.  Uses the same CircularCollectionCarousel
+// component as the Beirut city home (/en-lb/beirut → HomepageCollections →
+// OccasionsRow), so visitors see a consistent visual treatment.
+//
+// Occasions included, in this order, per product brief:
+//   Birthday · Anniversary · Get Well Soon · Congratulations · New Baby · I'm Sorry
+//
+// Deliberate exclusions (do NOT add without a dedicated landing page):
+//   Funeral — jarring alongside pink tulips / birthday bundles / balloon upsells.
+//   Wedding — long consideration purchase; needs an enquiry flow, not add-to-cart.
+//
+// Links use root-relative /occasion/<slug>.  Wouter resolves these against the
+// current locale base (/en-lb/beirut/), so the Beirut city and same-day
+// delivery context carries through to each occasion page automatically.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type OccasionApiItem = {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string;
+  isActive: boolean;
+};
+
+// Ordered exactly as specified.  Funeral and Wedding intentionally absent.
+const BEIRUT_OCCASION_SLUGS = [
+  "birthday",
+  "anniversary",
+  "get-well-soon",
+  "congratulations",
+  "new-born",
+  "im-sorry",
+] as const;
+
+export function CampaignOccasionsBeirut() {
+  const { t, language } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
+
+  const { data, isLoading } = useQuery({
+    // Reuse the same query key shape as HomepageCollections → OccasionsRow so
+    // React Query dedups the request if HomepageCollections is also mounted.
+    queryKey: ["homepage", "occasions", countryCode, cityId, language],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (countryCode) params.set("countryCode", countryCode);
+      if (cityId) params.set("cityId", cityId);
+      if (language && language !== "en") params.set("lang", language);
+      const qs = params.toString();
+      return apiFetch<{ items: OccasionApiItem[] }>(
+        `/homepage/occasions${qs ? `?${qs}` : ""}`,
+      );
+    },
+  });
+
+  // Build items in the specified order.  Skip any occasion the API does not
+  // return or marks inactive — graceful degradation, no hard failure.
+  const apiBySlug = new Map((data?.items ?? []).map((i) => [i.slug, i]));
+  const items: CircularCarouselItem[] = BEIRUT_OCCASION_SLUGS.flatMap((slug) => {
+    const api = apiBySlug.get(slug);
+    if (!api?.isActive) return [];
+    return [
+      {
+        id: api.id,
+        label: api.name,
+        slug: api.slug,
+        imageUrl: api.imageUrl || OCCASION_STATIC_IMAGES[slug] || "",
+        href: `/occasion/${encodeURIComponent(slug)}`,
+      } satisfies CircularCarouselItem,
+    ];
+  });
+
+  // Don't flash a heading-with-no-circles after a failed API call.
+  if (!isLoading && items.length === 0) return null;
+
+  return (
+    <div className="container mx-auto max-w-content px-page">
+      <CircularCollectionCarousel
+        title={t("campaign.v2.occasions.title")}
+        items={items}
+        isLoading={isLoading}
+        testId="section-campaign-beirut-occasions"
+      />
+    </div>
   );
 }
 

@@ -30,6 +30,7 @@ import {
 } from "@/pages/CampaignHeroBeirut";
 import {
   CampaignGridBeirut,
+  CampaignOccasionsBeirut,
   CampaignAddressExplainerBeirut,
   CampaignReviewsBeirut,
 } from "@/pages/CampaignSectionsBeirut";
@@ -314,6 +315,13 @@ export default function CampaignLanding() {
       {isBeirutPaidVariant && (
         <CampaignGridBeirut products={products} isLoading={isLoading} />
       )}
+
+      {/* ── Beirut variant: Pass 2B "Shop by Occasion" ───────────────────────
+           Circular-image carousel, same visual treatment as the Beirut city
+           home.  Six occasions in brief-approved order; Funeral and Wedding
+           deliberately excluded.  Pill chips that were inside CampaignGridBeirut
+           are removed — this section is the single occasion nav on the page. */}
+      {isBeirutPaidVariant && <CampaignOccasionsBeirut />}
 
       {/* ── Beirut variant: Pass 2A address explainer ────────────────────────
            New section on contrasting warm-cream background. Addresses the
