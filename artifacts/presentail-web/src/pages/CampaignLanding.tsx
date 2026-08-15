@@ -1,13 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Star, ShieldCheck, BellRing } from "lucide-react";
-import {
-  useGetHomepageBestSellers,
-  useGetHomepageCollectionBestSellers,
-  getGetHomepageCollectionBestSellersQueryKey,
-  type GetHomepageCollectionBestSellersParams,
-  type HomepageBestSellersResponse,
-} from "@workspace/api-client-react";
+import { useGetHomepageBestSellers } from "@workspace/api-client-react";
 import { ProductCard } from "@/components/ProductCard";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,171 +22,22 @@ import {
   hasOrderedLocally,
   markFirstOrderPromoShown,
 } from "@/lib/campaign";
-import { useCategoryProducts, type Product } from "@/lib/queries";
+import { type Product } from "@/lib/queries";
 import {
   CampaignHeroBeirut,
   CampaignTrustBarBeirut,
   CampaignStickyBarBeirut,
 } from "@/pages/CampaignHeroBeirut";
+import {
+  CampaignGridBeirut,
+  CampaignAddressExplainerBeirut,
+  CampaignReviewsBeirut,
+} from "@/pages/CampaignSectionsBeirut";
 
 const HERO_IMAGE_URL =
   "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=1200&q=80&auto=format&fit=crop";
 
 const GRID_SIZE = 8;
-
-// ── Campaign product grid (Beirut variant only) ───────────────────────────────
-// A static 2×4 grid that draws from the same ranked-collection endpoint used
-// by BestSellersPreview on the homepage, with the same OS fallback. Rendered
-// as a grid instead of a carousel so mobile visitors see all products at once
-// without needing to swipe. This component is never rendered on the homepage
-// or city page — it lives entirely within CampaignLanding.
-
-function toBestSellerProduct(p: {
-  id: string;
-  name: string;
-  price: string;
-  priceValue: number;
-  discountPriceValue?: number | null;
-  discountPriceAed?: number | null;
-  image?: { uri: string } | null;
-  images: { uri: string }[];
-  inStock: boolean;
-  popularity: number;
-  isBestSeller?: boolean;
-}): Product {
-  return {
-    id: p.id,
-    name: p.name,
-    price: p.price,
-    priceValue: p.priceValue,
-    discountPriceValue: p.discountPriceValue ?? null,
-    discountPriceAed: p.discountPriceAed ?? null,
-    image: p.image ? { uri: p.image.uri } : null,
-    images: p.images.map((img) => ({ uri: img.uri })),
-    inStock: p.inStock,
-    popularity: p.popularity,
-    isBestSeller: p.isBestSeller ?? false,
-    wcId: 0,
-    category: "",
-    categories: [],
-    occasions: [],
-  };
-}
-
-function CampaignProductGrid({
-  categorySlug,
-  titleKey,
-  viewAllLabelKey,
-  viewAllHref,
-  sortBy = "popularity",
-}: {
-  categorySlug: string;
-  titleKey: string;
-  viewAllLabelKey: string;
-  viewAllHref: string;
-  sortBy?: "popularity" | "price-asc";
-}) {
-  const { t, language } = useLocale();
-  const { countryCode, cityId } = useLocationSelection();
-
-  // GetHomepageCollectionBestSellersParams only has categorySlug, countryCode,
-  // cityId — no lang. Using Record<string, string> matches BestSellersPreview's
-  // pattern and avoids excess-property / queryKey tuple drift that makes TData
-  // collapse to never.
-  const collectionParams = useMemo(() => {
-    const p: Record<string, string> = { categorySlug };
-    if (countryCode) p.countryCode = countryCode;
-    if (cityId) p.cityId = cityId;
-    return p;
-  }, [categorySlug, countryCode, cityId]);
-
-  // Cast to the generated param type so TypeScript can find the correct overload.
-  const typedParams = collectionParams as GetHomepageCollectionBestSellersParams;
-  const rankedQueryKey = getGetHomepageCollectionBestSellersQueryKey(typedParams);
-  // useGetHomepageCollectionBestSellers returns HomepageBestSellersResponse at
-  // runtime (confirmed by the original error message). TypeScript collapses
-  // TData to never when the queryKey tuple type can't be fully inferred; cast
-  // the raw result to the known runtime type to restore correct downstream types.
-  const { data: _rankedRaw, isLoading: isRankedLoading } =
-    useGetHomepageCollectionBestSellers(typedParams, {
-      query: { queryKey: rankedQueryKey, enabled: true, staleTime: 5 * 60 * 1000 },
-    });
-  const rankedData = _rankedRaw as HomepageBestSellersResponse | undefined;
-
-  const locParams = useMemo(() => {
-    const p: { lang?: string; countryCode?: string; cityId?: string } = { lang: language };
-    if (countryCode) p.countryCode = countryCode;
-    if (cityId) p.cityId = cityId;
-    return p;
-  }, [language, countryCode, cityId]);
-
-  // OS flat list fallback — only enabled when ranked endpoint returns nothing.
-  const catQuery = useCategoryProducts(
-    (rankedData?.products.length ?? 0) === 0 && !isRankedLoading ? categorySlug : "",
-    locParams,
-  );
-
-  const products = useMemo(() => {
-    const ranked = rankedData?.products ?? [];
-    // catQuery.data spreads a react-query result so TypeScript struggles to
-    // infer the final shape; the assertion restores the known type.
-    const catProducts: Product[] =
-      (catQuery.data as { products?: Product[] } | undefined)?.products ?? [];
-    const raw: Product[] = ranked.length
-      ? ranked.map(toBestSellerProduct).filter((p) => p.inStock && !!p.image)
-      : catProducts.filter((p) => p.inStock && !!p.image).slice(0, GRID_SIZE);
-    const sorted =
-      sortBy === "price-asc" ? [...raw].sort((a, b) => a.priceValue - b.priceValue) : raw;
-    return sorted.slice(0, GRID_SIZE);
-  }, [rankedData, catQuery.data, sortBy]);
-
-  const isLoading = isRankedLoading && (rankedData?.products.length ?? 0) === 0;
-
-  if (!isLoading && products.length === 0) return null;
-
-  return (
-    <div className="container mx-auto max-w-content px-page pt-8">
-      <div className="flex items-end justify-between mb-4">
-        <h2 className="font-serif text-2xl md:text-3xl">{t(titleKey)}</h2>
-        <Link
-          href={viewAllHref}
-          className="text-sm text-primary hover:underline whitespace-nowrap py-2"
-        >
-          {t(viewAllLabelKey)}
-        </Link>
-      </div>
-      {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {Array.from({ length: GRID_SIZE }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="aspect-square w-full rounded-xl" />
-              <Skeleton className="h-4 w-3/4 rounded" />
-              <Skeleton className="h-4 w-1/3 rounded" />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {products.map((product, i) => (
-            <div
-              key={product.id}
-              onClickCapture={() =>
-                trackEvent({
-                  name: "product_card_click",
-                  productId: product.id,
-                  sectionKey: CAMPAIGN_SECTION_KEY,
-                  displayedPosition: i + 1,
-                })
-              }
-            >
-              <ProductCard product={product} index={i} />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /** Fire an internal analytics event and its GA4/Ads mirror in one call. */
 function fireCampaignEvent(
@@ -461,29 +306,19 @@ export default function CampaignLanding() {
       </div>
       )}
 
-      {/* ── Beirut variant: Flower Boxes (primary, shown first) ──────────────
-           These products match what ad visitors have in mind — mid-range flower
-           boxes. Rendered as a static grid so all products are immediately
-           visible on mobile without any carousel swiping. */}
+      {/* ── Beirut variant: Pass 2A product grid ─────────────────────────────
+           Single consolidated grid with "Ready to deliver today" heading,
+           wrapping occasion pills, 2/3/4-col layout, per-card descriptors,
+           and a warm neutral fallback tile on every card (no blank boxes).
+           Data source: useGetHomepageBestSellers (already fetched above). */}
       {isBeirutPaidVariant && (
-        <CampaignProductGrid
-          categorySlug="flower-boxes"
-          titleKey="collections.boxes.title"
-          viewAllLabelKey="collections.boxes.viewAll"
-          viewAllHref="/category/flower-boxes"
-          sortBy="price-asc"
-        />
+        <CampaignGridBeirut products={products} isLoading={isLoading} />
       )}
 
-      {/* ── Beirut variant: Lux Arrangements (premium upgrade, shown second) ── */}
-      {isBeirutPaidVariant && (
-        <CampaignProductGrid
-          categorySlug="lux-arrangements"
-          titleKey="collections.luxArrangements.title"
-          viewAllLabelKey="collections.luxArrangements.viewAll"
-          viewAllHref="/category/lux-arrangements"
-        />
-      )}
+      {/* ── Beirut variant: Pass 2A address explainer ────────────────────────
+           New section on contrasting warm-cream background. Addresses the
+           #1 blocker for gift senders: "I don't have their address." */}
+      {isBeirutPaidVariant && <CampaignAddressExplainerBeirut />}
 
       {/* ── Original variant: Best sellers (primary position, unchanged) ── */}
       {!isBeirutPaidVariant && (
@@ -551,45 +386,19 @@ export default function CampaignLanding() {
         </div>
       )}
 
-      {/* ── Verified reviews (both variants) ── */}
-      <div className="container mx-auto max-w-content px-page pt-8 pb-6">
-        <h2 className="font-serif text-2xl md:text-3xl mb-4">{t("campaign.reviews.title")}</h2>
-        <TrustpilotCarousel />
-      </div>
-
-      {/* ── Beirut variant: Add-ons (chocolates, cakes, balloons — below reviews
-           so flower shoppers see flowers first, but add-ons are still discoverable
-           for order-value uplift). Uses the same best-sellers data already fetched. ── */}
-      {isBeirutPaidVariant && !isLoading && products.length > 0 && (
-        <div className="container mx-auto max-w-content px-page pt-2 pb-4">
-          <div className="flex items-end justify-between mb-4">
-            <h2 className="font-serif text-2xl md:text-3xl">{t("campaign.v2.addons.title")}</h2>
-            <Link
-              href="/best-sellers"
-              onClick={() => fireCampaignEvent("campaign_view_all_click")}
-              className="text-sm text-primary hover:underline whitespace-nowrap py-2"
-              data-testid="link-campaign-view-all"
-            >
-              {t("campaign.bestSellers.viewAll")}
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {products.map((product, i) => (
-              <div
-                key={product.id}
-                onClickCapture={() =>
-                  trackEvent({
-                    name: "product_card_click",
-                    productId: product.id,
-                    sectionKey: CAMPAIGN_SECTION_KEY,
-                    displayedPosition: i + 1,
-                  })
-                }
-              >
-                <ProductCard product={product} index={i} />
-              </div>
-            ))}
-          </div>
+      {/* ── Reviews ──────────────────────────────────────────────────────────
+           Beirut variant: three static review cards (CampaignReviewsBeirut),
+           each addressing a different shopper worry.  The shared Trustpilot
+           carousel widget was rendering as a large blank gap on this variant
+           (the carousel template fails to mount in this context); a blank
+           section on a paid-traffic landing page is worse than no section.
+           Original variant: keeps the shared TrustpilotCarousel unchanged. */}
+      {isBeirutPaidVariant ? (
+        <CampaignReviewsBeirut />
+      ) : (
+        <div className="container mx-auto max-w-content px-page pt-8 pb-6">
+          <h2 className="font-serif text-2xl md:text-3xl mb-4">{t("campaign.reviews.title")}</h2>
+          <TrustpilotCarousel />
         </div>
       )}
 

@@ -143,6 +143,78 @@ export const campaignStrings: Dict = {
     en: "Hi! I'd like to order flowers for delivery in Beirut today. Can you help me choose?",
     ar: "مرحباً! أودّ طلب زهور لتوصيلها في بيروت اليوم. هل يمكنكم مساعدتي في الاختيار؟",
   },
+
+  // ── Pass 2A: product grid ─────────────────────────────────────────────────
+  "campaign.v2.grid.title": {
+    en: "Ready to deliver today",
+    ar: "جاهز للتوصيل اليوم",
+  },
+  "campaign.v2.grid.viewAll": {
+    en: "All arrangements",
+    ar: "جميع الترتيبات",
+  },
+  "campaign.v2.grid.sub": {
+    en: "Everything below is in stock at our Achrafieh shop right now. Order before 10 PM and it goes out today.",
+    ar: "كل ما يلي متوفر في متجرنا في الأشرفية الآن. اطلب قبل الساعة 10 مساءً ويخرج طلبك اليوم.",
+  },
+  "campaign.v2.grid.pillsLabel": {
+    en: "Shop by occasion",
+    ar: "تسوّق حسب المناسبة",
+  },
+  // Occasion pill labels — "Best sellers" active pill is Beirut-campaign-specific.
+  // Other occasion names reuse existing shop.occ.* keys.
+  "campaign.v2.pill.bestSellers": { en: "Best sellers", ar: "الأكثر مبيعاً" },
+  "campaign.v2.pill.romance":     { en: "Romance",      ar: "رومانسي" },
+  "campaign.v2.pill.congratulations": { en: "Congratulations", ar: "تهانٍ" },
+  "campaign.v2.pill.getWell":    { en: "Get well",      ar: "الشفاء العاجل" },
+  "campaign.v2.pill.sympathy":   { en: "Sympathy",      ar: "تعازي" },
+  "campaign.v2.pill.newBaby":    { en: "New baby",      ar: "مولود جديد" },
+
+  // ── Pass 2A: address explainer ────────────────────────────────────────────
+  "campaign.v2.address.heading": {
+    en: "You don't need their address",
+    ar: "لا تحتاج إلى عنوانهم",
+  },
+  "campaign.v2.address.sub": {
+    en: "The part that stops most gift orders doesn't stop ours. Tell us who it's for and we take it from there.",
+    ar: "العائق الذي يوقف معظم طلبات الهدايا لا يوقفنا. أخبرنا لمن الهدية وسنتولى الأمر.",
+  },
+  "campaign.v2.address.step1.title": { en: "Choose the gift", ar: "اختر الهدية" },
+  // TODO(UNVERIFIED): "handwritten card at checkout — we write it by hand at the shop"
+  // must be confirmed with Achrafieh operations before launch.
+  "campaign.v2.address.step1.body": {
+    en: "Pick anything in stock today. Add a handwritten card at checkout — we write it by hand at the shop.",
+    ar: "اختر أي منتج متوفر اليوم. أضف بطاقة مكتوبة بخط اليد عند الدفع — نكتبها بأنفسنا في المتجر.",
+  },
+  "campaign.v2.address.step2.title": {
+    en: "Give us their name and number",
+    ar: "أعطنا اسمهم ورقمهم",
+  },
+  // "That's all we need" is rendered bold/emphasised in JSX; kept as a
+  // separate key so translators can adjust word order without breaking markup.
+  "campaign.v2.address.step2.emphasis": { en: "That's all we need.", ar: "هذا كل ما نحتاجه." },
+  "campaign.v2.address.step2.body2": {
+    en: " Our team contacts the recipient directly to arrange the address and a time that works for them.",
+    ar: " يتواصل فريقنا مع المستلم مباشرةً لترتيب العنوان والوقت المناسب لهم.",
+  },
+  "campaign.v2.address.step3.title": {
+    en: "Follow it to the door",
+    ar: "تابعه حتى الباب",
+  },
+  "campaign.v2.address.step3.body": {
+    en: "You get live tracking and a message the moment it's handed over — even if you're ordering from abroad.",
+    ar: "ستحصل على تتبّع مباشر ورسالة فور تسليم الطلب — حتى لو كنت تطلب من الخارج.",
+  },
+
+  // ── Pass 2A: reviews section ──────────────────────────────────────────────
+  "campaign.v2.reviews.heading": { en: "What people say", ar: "ماذا يقول الناس" },
+  "campaign.v2.reviews.readAll": { en: "Read all reviews", ar: "اقرأ جميع التقييمات" },
+  // TODO(UNVERIFIED): verify "4.8 out of 5" and "1,240 verified reviews"
+  // against the live Trustpilot business dashboard before launch.
+  "campaign.v2.reviews.aggregate": {
+    en: "4.8 out of 5 from 1,240 verified reviews on Trustpilot",
+    ar: "4.8 من 5 من 1,240 تقييماً موثّقاً على Trustpilot",
+  },
 };
 
 export const campaignStringsFr: Record<string, string> = {
@@ -196,4 +268,38 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.hero.imageAlt": "Bouquet frais arrangé à la main par nos fleuristes de Beyrouth",
   "campaign.v2.whatsappPrefill":
     "Bonjour ! Je souhaite commander des fleurs à livrer à Beyrouth aujourd'hui. Pouvez-vous m'aider à choisir ?",
+
+  // ── Pass 2A: product grid ─────────────────────────────────────────────────
+  "campaign.v2.grid.title": "Prêt à livrer aujourd'hui",
+  "campaign.v2.grid.viewAll": "Tous les arrangements",
+  "campaign.v2.grid.sub":
+    "Tout ce qui suit est en stock dans notre boutique d'Achrafieh en ce moment. Commandez avant 22 h et votre commande part aujourd'hui.",
+  "campaign.v2.grid.pillsLabel": "Acheter par occasion",
+  "campaign.v2.pill.bestSellers": "Meilleures ventes",
+  "campaign.v2.pill.romance": "Romance",
+  "campaign.v2.pill.congratulations": "Félicitations",
+  "campaign.v2.pill.getWell": "Bon rétablissement",
+  "campaign.v2.pill.sympathy": "Condoléances",
+  "campaign.v2.pill.newBaby": "Nouveau bébé",
+
+  // ── Pass 2A: address explainer ────────────────────────────────────────────
+  "campaign.v2.address.heading": "Vous n'avez pas besoin de leur adresse",
+  "campaign.v2.address.sub":
+    "Ce qui bloque la plupart des commandes de cadeaux ne nous bloque pas. Dites-nous à qui c'est destiné et nous nous occupons du reste.",
+  "campaign.v2.address.step1.title": "Choisissez le cadeau",
+  "campaign.v2.address.step1.body":
+    "Choisissez n'importe quel article en stock aujourd'hui. Ajoutez une carte manuscrite au moment du paiement — nous l'écrivons à la main en boutique.",
+  "campaign.v2.address.step2.title": "Donnez-nous leur nom et numéro",
+  "campaign.v2.address.step2.emphasis": "C'est tout ce qu'il nous faut.",
+  "campaign.v2.address.step2.body2":
+    " Notre équipe contacte directement le destinataire pour convenir de l'adresse et d'un horaire qui lui convient.",
+  "campaign.v2.address.step3.title": "Suivez-le jusqu'à la porte",
+  "campaign.v2.address.step3.body":
+    "Vous recevez un suivi en direct et un message dès que la livraison est remise — même si vous commandez depuis l'étranger.",
+
+  // ── Pass 2A: reviews section ──────────────────────────────────────────────
+  "campaign.v2.reviews.heading": "Ce que disent les gens",
+  "campaign.v2.reviews.readAll": "Lire tous les avis",
+  "campaign.v2.reviews.aggregate":
+    "4,8 sur 5 d'après 1 240 avis vérifiés sur Trustpilot",
 };
