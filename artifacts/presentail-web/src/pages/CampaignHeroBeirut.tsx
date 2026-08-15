@@ -232,28 +232,40 @@ export function CampaignHeroBeirut({
             {t("campaign.v2.hero.sub2")}
           </p>
 
-          {/* 4 — delivery timing pill.
+          {/* 4 — delivery timing badge (informational, not interactive).
+              Styled to match the "All Lebanon branches open now" status badge
+              above the headline — same translucent pill, same text size, same
+              border — so it reads as supporting information rather than as a
+              tappable button. A red dot replaces the green status dot; it
+              pulses during the live countdown to mirror urgency without making
+              the element look clickable.
               Three states (all evaluated against Asia/Beirut clock):
-              • Calm  (>2 h remain): plain "Order by 10 PM for delivery today"
-              • Urgent (≤2 h remain): live ticking "Only 1h 24m 30s left for delivery today"
-              • Closed (past 10 PM): "Order now · delivery tomorrow"
-              role="timer" only when actually ticking; aria-live off to avoid
-              announcing every second to screen readers. */}
+              • Calm  (>2 h remain): static dot + "Order by 10 PM for delivery today"
+              • Urgent (≤2 h remain): pulsing dot + live "Only 1h 24m 30s left…"
+              • Closed (past 10 PM): static dot + "Order now · delivery tomorrow"
+              role="timer" only when ticking; aria-live off to avoid reading
+              every tick to screen-reader users. */}
           <div
-            className="w-full sm:w-auto inline-flex items-center rounded-xl bg-[#8C1D2F] px-4 py-3"
+            className="inline-flex items-center gap-2 rounded-full bg-black/45 backdrop-blur-sm border border-white/25 px-3.5 py-1.5"
             data-testid="block-campaign-countdown"
             role={isUrgent ? "timer" : undefined}
             aria-live="off"
           >
-            <p className="text-sm font-semibold text-white leading-snug">
+            {/* Red dot — pulsing only during the live ticking countdown */}
+            {isUrgent ? (
+              <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+                <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-400" />
+              </span>
+            ) : (
+              <span className="inline-flex h-2 w-2 rounded-full bg-red-400 shrink-0" aria-hidden="true" />
+            )}
+            <span className="text-xs font-medium text-white leading-snug">
               {cutoffPassed ? (
-                // Past cutoff — must not promise same-day delivery
                 t("campaign.v2.countdown.closedMessage")
               ) : isCalm ? (
-                // >2 h remaining — plain statement, no ticking
                 t("campaign.v2.countdown.staticLine1")
               ) : (
-                // ≤2 h remaining — live ticking countdown inline
                 <>
                   {t("campaign.v2.countdown.urgentPrefix")}
                   {" "}
@@ -267,7 +279,7 @@ export function CampaignHeroBeirut({
                   {t("campaign.v2.countdown.urgentSuffix")}
                 </>
               )}
-            </p>
+            </span>
           </div>
 
           {/* 5 — primary CTA */}
