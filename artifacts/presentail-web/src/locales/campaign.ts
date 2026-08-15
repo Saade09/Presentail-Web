@@ -85,6 +85,12 @@ export const campaignStrings: Dict = {
     en: "for delivery today",
     ar: "للتوصيل اليوم",
   },
+  // Heading for the secondary add-on section (chocolates, cakes, balloons)
+  // shown below the reviews on the Beirut paid-search variant.
+  "campaign.v2.addons.title": {
+    en: "Add Something Special",
+    ar: "أضف شيئاً مميزاً",
+  },
   "campaign.v2.cta.shop": { en: "Shop best sellers", ar: "تسوّق الأكثر مبيعاً" },
   "campaign.v2.cta.whatsapp": { en: "Order on WhatsApp", ar: "اطلب عبر واتساب" },
   "campaign.v2.cta.hint": {
@@ -160,6 +166,7 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.countdown.closedValue": "Demain, 9 h",
   "campaign.v2.countdown.staticLine1": "Commandez avant 22 h",
   "campaign.v2.countdown.staticValue": "pour la livraison aujourd'hui",
+  "campaign.v2.addons.title": "Ajoutez quelque chose de spécial",
   "campaign.v2.cta.shop": "Voir les meilleures ventes",
   "campaign.v2.cta.whatsapp": "Commander sur WhatsApp",
   "campaign.v2.cta.hint": "Vous hésitez ? Dites-nous l'occasion et le budget.",
