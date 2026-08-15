@@ -381,9 +381,24 @@ export function CampaignTrustBarBeirut() {
           ))}
 
           {/* Trustpilot Mini widget — live TrustScore, never a hardcoded number.
-              Max rendered width from Trustpilot is 240 px regardless of style-width,
-              so we constrain the container to match and center it in the cell.
-              Explicit height prevents iframe collapse inside a flex/grid parent. */}
+              Width notes:
+              - The cell can be much wider than 240 px on desktop; we cap the
+                container at 240 px (Trustpilot's supported max for Mini) and
+                center it with flexbox on the cell.
+              - data-style-width="100%" tells the Trustpilot bootstrap to fill
+                its containing element. The containing element MUST also carry
+                an explicit inline width so the script reads the correct value
+                when it calls getBoundingClientRect() — without it the script
+                can read the full cell width and over-scale the iframe.
+              Height notes:
+              - The Mini widget renders three lines: logo, stars, TrustScore
+                text. At 240 px wide those three lines need ≥ 120 px; 130 px
+                gives a small but comfortable buffer. Trustpilot supports Mini
+                heights from 90–160 px. Setting both data-style-height and the
+                inline height together prevents the iframe from collapsing
+                inside the flex/grid parent while the script loads.
+              No overflow:hidden is applied anywhere in this subtree — the
+              iframe must be free to display its full content. */}
           <div
             className="flex items-center justify-center px-4 py-3"
             data-testid="trust-cell-rating"
@@ -395,10 +410,10 @@ export function CampaignTrustBarBeirut() {
                 data-locale="en-US"
                 data-template-id="53aa8807dec7e10d38f59f32"
                 data-businessunit-id="5d1782b3588afe00012431d9"
-                data-style-height="90"
+                data-style-height="130"
                 data-style-width="100%"
                 data-token="c3c9abbc-8bdc-41bb-9779-402f9a758680"
-                style={{ height: 90, minHeight: 90 }}
+                style={{ width: "100%", height: 130, minHeight: 130 }}
               >
                 <a
                   href="https://www.trustpilot.com/review/presentail.com"
