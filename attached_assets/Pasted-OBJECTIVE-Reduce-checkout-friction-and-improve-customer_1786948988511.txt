@@ -1,0 +1,131 @@
+OBJECTIVE
+
+Reduce checkout friction and improve customer trust in the Delivery Details step by:
+1. Replacing the separate recipient first-name and last-name fields with one flexible recipient-name field.
+2. Explaining why the recipient’s phone number is needed through a compact information tooltip.
+
+BACKGROUND
+
+Gift senders do not always know the recipient’s surname. Requiring a last name creates unnecessary friction and may cause customers to enter fabricated data or abandon checkout.
+
+The phone-number explanation is important, but permanently displaying it beneath the field duplicates the “Ask the recipient for the address” panel and adds visual clutter. Use a tappable/clickable information tooltip instead.
+
+SCOPE
+
+1. RECIPIENT NAME FIELD
+
+- Remove the separate “First Name” and “Last Name” inputs.
+- Replace them with one full-width input.
+- Label: “Recipient name”
+- Keep the field required.
+- The input must accept a first name, nickname, or full name.
+- Do not require a surname or validate for multiple words.
+- Suggested empty-state placeholder: “First name or full name”
+- Preserve leading, internal, hyphenated, accented, Arabic, and other Unicode characters.
+- Trim accidental leading/trailing whitespace before submission.
+- Do not silently split the value into first-name and last-name components.
+- Update the checkout payload and order-management display so the entered value is treated as the recipient’s display name.
+- If a downstream integration currently requires first_name/last_name, handle compatibility without requiring the customer to provide a surname.
+- Existing saved recipients must continue to populate the field correctly.
+- Editing and resubmitting an existing order must not lose or duplicate any portion of the recipient name.
+
+2. PHONE-NUMBER INFORMATION TOOLTIP
+
+- Add a small circular information icon immediately after the required marker in the “Phone Number *” label.
+- Do not show permanent helper text beneath the input.
+- Default state: tooltip closed.
+- Desktop: open on click and keyboard focus. Hover support may be included, but must not be the only interaction.
+- Mobile: open on tap.
+- Close when the icon is activated again, the user taps/clicks outside, presses Escape, or moves focus away.
+- The tooltip must not shift the form layout when opened.
+- Use Presentail’s dark teal background, white text, rounded corners, and subtle shadow.
+- Keep the tooltip compact and position it so it does not obscure essential content or extend beyond the viewport.
+- Do not mention price.
+
+Tooltip copy when “Ask the recipient for the address” is ON:
+“We’ll only use this number to collect the recipient’s address and coordinate delivery.”
+
+Tooltip copy when “Ask the recipient for the address” is OFF:
+“We’ll only use this number for delivery coordination.”
+
+3. ACCESSIBILITY
+
+- Information icon must be a real button with an accessible label such as “Why we need the recipient’s phone number.”
+- Associate the tooltip with the button using the appropriate ARIA relationship.
+- Support keyboard activation with Enter and Space.
+- Support Escape to dismiss.
+- Provide a visible focus state.
+- Ensure the tooltip text and icon meet WCAG AA contrast requirements.
+- Maintain a minimum 44 × 44 px touch target on mobile without visually enlarging the icon excessively.
+- Screen readers must announce the tooltip content when it opens.
+- Required-field state and validation errors must remain programmatically associated with the relevant inputs.
+
+4. VALIDATION AND ERROR HANDLING
+
+- Recipient name: required, but one word is valid.
+- Do not show errors merely because a surname is absent.
+- Preserve customer input after failed validation or navigation back from Payment.
+- Phone validation must continue to respect the selected country code.
+- Tooltip must not cover an inline validation error.
+- Clicking “Continue to Payment” with invalid fields should focus the first invalid field.
+
+5. RESPONSIVE BEHAVIOR
+
+- Recipient name input spans the full form width on desktop and mobile.
+- Tooltip must remain within the viewport at all supported breakpoints.
+- On narrow screens, allow the tooltip to use nearly the form width with safe horizontal margins.
+- Confirm the open tooltip does not overlap the sticky checkout CTA or prevent scrolling.
+- Test both left-to-right and right-to-left locales.
+
+6. ANALYTICS
+
+Add or confirm tracking for:
+- Recipient-name validation error.
+- Phone tooltip opened.
+- Phone tooltip opened while “Ask recipient for address” is ON/OFF.
+- Checkout continued successfully after tooltip interaction.
+
+Use existing checkout analytics naming conventions and avoid duplicate events.
+
+ACCEPTANCE CRITERIA
+
+- Only one full-width “Recipient name” field appears in Recipient Details.
+- A first name or nickname alone passes validation.
+- No last-name field or surname requirement remains in the UI or submission flow.
+- Saved recipients and existing checkout data populate correctly.
+- The phone information icon appears beside “Phone Number *”.
+- Tooltip is closed by default and opens via mouse, keyboard, and touch.
+- Tooltip copy changes correctly with the address-collection toggle.
+- The tooltip never mentions price.
+- Opening the tooltip does not move the surrounding layout.
+- Tooltip can be dismissed via icon, outside click/tap, focus change, and Escape.
+- Mobile and desktop layouts remain visually aligned with the current Presentail checkout design.
+- English and Arabic/RTL versions render correctly.
+- Checkout submission, payment continuation, order creation, recipient communications, and delivery operations work without regression.
+- QA verifies current Chrome, Safari, and mobile Safari/Chrome.
+
+QA TEST CASES
+
+- Submit with a one-word Latin name.
+- Submit with a multi-word name.
+- Submit with Arabic text.
+- Submit with accents, apostrophes, and hyphens.
+- Submit with leading/trailing spaces.
+- Load a saved recipient with a full name.
+- Load a saved recipient with only one known name.
+- Toggle address collection ON and OFF while the tooltip is open; verify the copy updates correctly.
+- Open and close the tooltip using mouse, keyboard, and touch.
+- Trigger a phone validation error while the tooltip is open.
+- Navigate to Payment and back; verify all values persist.
+- Complete an end-to-end order and verify the recipient name in admin/operations views and recipient communications.
+
+OUT OF SCOPE
+
+- Redesigning the full checkout page.
+- Changing sender-name fields.
+- Changing recipient messaging beyond the approved tooltip copy.
+- Modifying delivery pricing or coupon behavior.
+
+DEFINITION OF DONE
+
+Implementation is merged, responsive and accessibility QA passes, analytics are verified, and an end-to-end test order confirms the recipient name and phone flow work across checkout, payment, order creation, and operations.

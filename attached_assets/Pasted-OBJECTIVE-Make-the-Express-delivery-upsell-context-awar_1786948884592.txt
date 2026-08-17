@@ -1,0 +1,236 @@
+OBJECTIVE
+
+Make the Express-delivery upsell context-aware so Presentail increases same-day conversion without accidentally encouraging gifts to arrive before the customer’s intended occasion date.
+
+CORE PRODUCT PRINCIPLE
+
+The gating decision must be based on the source of the selected delivery date—not simply whether the selected date is tomorrow or several days away.
+
+If the customer explicitly chose a future date/time, treat that as deliberate gifting intent and do not proactively upsell delivery today.
+
+If the system automatically assigned a future Standard slot because it was the earliest/default option, an earlier Express option may be useful, but it must be presented as a date change rather than an ordinary speed upgrade.
+
+DEFINITIONS / STATE TO TRACK
+
+Persist the source of the active delivery selection in cart/checkout state:
+
+- system_default: automatically selected by Presentail
+- user_selected: customer explicitly chose or confirmed the date/window
+- restored_user_selection: a previously explicit choice restored from session/cart
+- system_reselected: system changed the slot because the prior slot became unavailable
+
+Do not infer intent solely from the selected date. The source should survive refresh, navigation, login, and cart restoration where possible.
+
+DECISION LOGIC
+
+1. STANDARD DELIVERY SELECTED FOR TODAY
+
+When all cart items and the destination are Express-eligible:
+- Show the full Express upgrade card directly under selected Standard delivery.
+- Make the entire card clickable as one accessible control.
+- Do not implement a clickable card containing a nested button; use a single button/radio-style control with one focus target.
+- Show:
+  - “Express delivery”
+  - “Arrives by [exact local time]”
+  - “Within 90 minutes”
+  - The exact incremental price, e.g. “+ $10”
+  - A visible “Upgrade” action
+- Clicking it may apply Express directly because the calendar date is not changing.
+- Update Delivery Summary, Order Summary, Total, and checkout CTA atomically.
+
+2. FUTURE DELIVERY EXPLICITLY CHOSEN BY THE CUSTOMER
+
+This applies equally to tomorrow, two days away, or any later date.
+
+Examples:
+- Customer manually selects tomorrow, 9 AM–2 PM.
+- Customer selects a birthday date two weeks away.
+- A restored cart contains a previously confirmed future delivery selection.
+
+Behavior:
+- Do not show the Express upsell card.
+- Do not show “Need it sooner?” promotional copy.
+- Show only the selected scheduled-delivery card and “Change”.
+- Keep Express available inside the delivery selector opened by “Change”, if operationally eligible.
+- Never auto-switch or one-click-switch the order to an earlier calendar date.
+
+Reason:
+For gifting, earlier delivery is not always better. Delivering before a birthday, anniversary, or event can be a fulfillment failure even when technically faster.
+
+3. FUTURE DELIVERY AUTOMATICALLY ASSIGNED BY THE SYSTEM
+
+Example:
+Presentail automatically selects tomorrow morning because no Standard slot is available today and the customer has not manually confirmed a date.
+
+When same-day Express is available:
+- Do not use the normal “Upgrade” treatment.
+- Show a quieter secondary prompt:
+  - “Need it today?”
+  - “Express arrives by [exact local time]”
+  - Exact incremental price, e.g. “+ $15”
+  - CTA: “See option”
+- The entire prompt may be clickable using one accessible control.
+- Clicking must open a review/confirmation step; it must not immediately change the delivery date.
+
+If the customer dismisses the prompt or subsequently confirms the future slot, mark the choice as user-selected and suppress the proactive prompt for the remainder of that cart state unless delivery availability materially changes.
+
+4. DELIVERY SELECTOR OPENED THROUGH “CHANGE”
+
+List eligible delivery options with the selected option clearly marked.
+
+Example:
+- Today by 7:41 PM — +$15
+- Tomorrow, 9 AM–2 PM — FREE · Selected
+
+Express can appear here even when the proactive upsell is suppressed.
+
+If the new option changes the delivery calendar date, require explicit confirmation before applying it.
+
+DATE-CHANGE CONFIRMATION
+
+Suggested copy:
+
+Title:
+“Deliver earlier?”
+
+Body:
+“Your delivery will change from tomorrow, 9 AM–2 PM to today by 7:41 PM for +$15.”
+
+Actions:
+- Primary: “Deliver earlier”
+- Secondary: “Keep scheduled delivery”
+
+Requirements:
+- Include the complete original date/window.
+- Include the complete new date/ETA.
+- Show the exact change in total.
+- Do not apply the new method until the primary action is confirmed.
+- Cancel/close must preserve the original selection and total.
+- Use destination timezone and locale-aware date/time formatting.
+
+PRICING LOGIC
+
+The amount presented beside Express must exactly equal the change that will appear in Total.
+
+Calculate dynamically from:
+- Current effective delivery charge
+- Free-delivery benefits or delivery credits
+- Express delivery fee
+- Late-night, remote-area, holiday, or other delivery surcharges
+- Any promotion whose eligibility changes with the delivery method
+
+Do not hardcode the delta.
+
+Examples:
+- Current Standard $7, Express total $17: show +$10.
+- Standard specifically waived and Express total $15: show +$15.
+- Customer has a transferable $7 delivery credit and Express total $15: show +$8.
+
+If the fee cannot be finalized before selection, show a review flow instead of an inaccurate delta.
+
+ETA / DATE RULES
+
+- “Arrives by [time]” must come from the live fulfillment promise, never a hardcoded client calculation.
+- Compare actual destination-local calendar dates, not only elapsed hours.
+- Recalculate after changes to address, market, products, quantity, inventory, promotions, fulfillment availability, or current time.
+- If exact ETA becomes unavailable, remove the proactive prompt or fall back to a non-stale eligible option inside “Change”.
+- A 90-minute ETA crossing midnight counts as a calendar-date change and requires confirmation.
+- If the scheduled window is today and Express is also today, use the standard full upgrade card.
+- If any item in the cart is not Express-eligible, suppress the cart-level upsell unless split fulfillment is explicitly supported.
+
+UI / ACCESSIBILITY
+
+- The complete Express card or prompt should be clickable, with one semantic interactive element.
+- Provide visible hover, focus, pressed, loading, selected, disabled, and error states.
+- Keyboard activation must work with Enter and Space.
+- Screen-reader label must include method, arrival promise, and incremental price.
+- Prevent duplicate requests from rapid clicks.
+- During selection, retain layout and show a localized loading state.
+- Do not let price, ETA, or CTA wrap awkwardly at supported mobile widths.
+- After Express is selected, collapse to the compact selected-Express card with exact ETA and “Change”.
+
+ORDER SUMMARY BEHAVIOR
+
+- Show confirmed charges only.
+- Before selection, do not add Express to Order Summary.
+- After selection, show one delivery method row unless separate surcharges are genuinely additive and clearly labeled.
+- Update Total and checkout CTA in the same committed state.
+- Roll back all displayed values if the selection request fails.
+- Never show Standard and Express as duplicate base-delivery charges.
+
+ANALYTICS
+
+Track at minimum:
+
+- express_offer_eligible
+- express_offer_impression
+- express_offer_suppressed
+- express_offer_clicked
+- delivery_change_opened
+- earlier_delivery_confirmation_shown
+- earlier_delivery_confirmed
+- earlier_delivery_canceled
+- delivery_method_change_success
+- delivery_method_change_failed
+
+Include where permitted:
+- delivery_selection_source
+- selected_delivery_date
+- express_delivery_date
+- days_between_selected_and_express
+- same_calendar_date boolean
+- suppression_reason
+- current effective delivery fee
+- Express fee
+- displayed delta
+- free-delivery/credit state
+- cart value
+- market and destination timezone
+
+Suggested suppression reasons:
+- explicit_future_date
+- restored_future_selection
+- express_ineligible
+- ETA_unavailable
+- price_unavailable
+- customer_dismissed
+- mixed_cart_ineligible
+
+ACCEPTANCE CRITERIA
+
+- Full Express upgrade card appears when Standard and Express are both scheduled for today.
+- Full Express upgrade card is entirely clickable through one accessible control.
+- Explicitly selecting tomorrow suppresses the proactive Express upsell.
+- Explicitly selecting any later future date also suppresses the proactive Express upsell.
+- A future date automatically assigned by the system may show the quieter “Need it today?” prompt.
+- The automatic-future prompt opens confirmation instead of immediately changing the delivery date.
+- “Change” always exposes all eligible delivery options, even when the proactive upsell is hidden.
+- Any calendar-date change requires confirmation with old date, new date, and exact total difference.
+- Canceling confirmation leaves selection and pricing unchanged.
+- The displayed delta always matches the resulting Total change.
+- Destination timezone and locale formatting are correct.
+- Selection intent survives refresh/cart restoration.
+- Customer dismissal is respected and does not repeatedly reappear.
+- Ineligible or mixed carts do not display an unusable offer.
+- Order Summary contains only confirmed delivery charges.
+- Mobile, keyboard, screen-reader, loading, error, and rapid-click behaviors pass QA.
+
+REQUIRED TEST MATRIX
+
+Cover at minimum:
+- Today Standard → today Express
+- Tomorrow explicitly selected → today Express available
+- Tomorrow system-assigned → today Express available
+- Two-plus-days explicitly selected
+- Restored future user selection
+- Express ETA crossing midnight
+- Free Standard that does not transfer to Express
+- Transferable delivery credit
+- Late-night/remote-area surcharge
+- Address/market change
+- Item or quantity change causing Express ineligibility
+- Exact ETA becoming unavailable
+- Price request failure
+- Confirmation cancel and confirm
+- Refresh/back-navigation persistence
+- Desktop and mobile responsive layouts
