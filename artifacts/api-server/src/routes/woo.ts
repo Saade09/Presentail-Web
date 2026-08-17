@@ -754,15 +754,17 @@ router.get("/woo/occasion-products", async (req, res) => {
   if (!slug) {
     return res.json({ ok: true, groups: [] });
   }
-  // Validate against live OS occasions (warm cache). Also accept slugs that
-  // appear on products even when no formal occasion catalog entry exists
-  // (e.g. products tagged "ramadan" before the OS admin creates the occasion).
-  // Fall back to the static OCCASION_SLUGS list on cold start.
+  // Validate against live OS occasions (warm cache). The OS API omits
+  // INACTIVE occasions entirely (no endpoint returns them — verified Aug
+  // 2026), so when the cache is warm and non-empty it is the authoritative
+  // allowlist: product-tag or static slugs absent from it are inactive in OS
+  // and must not resolve (e.g. children/colleague/friend). Fall back to
+  // product-tag slugs + the static OCCASION_SLUGS list only on cold start.
   const liveOccasions = getOsOccasions();
   const productOccasions = getOsProductOccasions();
-  const validSlug = liveOccasions
-    ? liveOccasions.some((o) => o.slug === slug) || productOccasions.has(slug)
-    : OCCASION_SLUGS.includes(slug);
+  const validSlug = liveOccasions && liveOccasions.length > 0
+    ? liveOccasions.some((o) => o.slug === slug)
+    : productOccasions.has(slug) || OCCASION_SLUGS.includes(slug);
   if (!validSlug) {
     return res.json({ ok: true, groups: [] });
   }
@@ -1128,14 +1130,14 @@ router.get("/woo/occasion", (req, res) => {
   }
 
   const osOccasions = getOsOccasions();
-  // Accept if present in live OS occasions OR in the static OCCASION_SLUGS
-  // allowlist. The allowlist covers hardcoded occasions (colleague, friend,
-  // children, etc.) that are defined in catalog-data and shown on the
-  // shop/occasions pages but may not yet have a formal OS occasion catalog
-  // entry. Accepting both prevents those pages from returning 404 when the
-  // OS cache is warm but doesn't include them.
-  const isValid = osOccasions
-    ? osOccasions.some((o) => o.slug === slug) || OCCASION_SLUGS.includes(slug)
+  // When the OS occasions cache is warm and non-empty it is the authoritative
+  // allowlist: the OS API omits inactive occasions entirely (verified Aug
+  // 2026), so a slug absent from the live list is inactive in OS (e.g.
+  // children/colleague/friend) and must 404 rather than render an occasion
+  // detail page. The static OCCASION_SLUGS fallback applies only on cold
+  // start, before the OS cache is populated.
+  const isValid = osOccasions && osOccasions.length > 0
+    ? osOccasions.some((o) => o.slug === slug)
     : OCCASION_SLUGS.includes(slug);
   if (!isValid) {
     return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore

@@ -75,6 +75,9 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsProductEmbeddedCategories: vi.fn().mockReturnValue(new Map()),
   getOsProductPricingMap: vi.fn().mockReturnValue(new Map()),
   getCachedBestSellerIds: vi.fn().mockReturnValue(new Set()),
+  getOsProducts: vi.fn().mockReturnValue([]),
+  registerOsProductsRefreshListener: vi.fn(),
+  registerPricingEnrichmentListener: vi.fn(),
 }));
 
 vi.mock("pino-http", () => ({
@@ -239,22 +242,52 @@ describe("hardcoded occasions", () => {
     expect(ids).not.toContain("birthday");
   });
 
-  it("8. always includes a hardcoded occasion that has no OS counterpart", async () => {
-    getOsOccasionsMock.mockReturnValue([]); // "anniversary" has no OS entry
+  it("8. includes a hardcoded occasion with no OS counterpart when the OS list is empty (fail-open)", async () => {
+    getOsOccasionsMock.mockReturnValue([]); // OS fetch failed / empty → fail open
     const app = await buildApp();
     const ids = (await getOccasions(app)).map((o) => o.id);
     expect(ids).toContain("anniversary");
   });
 
-  it("9. removes only the inactive hardcoded occasion, keeps unmatched ones", async () => {
+  it("9. excludes a hardcoded occasion absent from a non-empty OS catalog list (allowlist)", async () => {
+    // The OS API omits inactive occasions entirely, so absence from a
+    // non-empty catalog list means "inactive", not "unknown". This is the
+    // children/colleague/friend regression: inactive in OS, hardcoded in the
+    // app, previously leaked because no OS counterpart was visible.
     getOsOccasionsMock.mockReturnValue([
       { id: "1", slug: "birthday", name: "Birthday", status: "inactive" },
-      // "anniversary" has no OS counterpart → stays visible
+      // "anniversary" is NOT in the OS list → treated as inactive
     ]);
     const app = await buildApp();
     const ids = (await getOccasions(app)).map((o) => o.id);
     expect(ids).not.toContain("birthday");
-    expect(ids).toContain("anniversary");
+    expect(ids).not.toContain("anniversary");
+  });
+
+  it("9b. keeps a hardcoded occasion present and active in the OS catalog list", async () => {
+    getOsOccasionsMock.mockReturnValue([
+      { id: "1", slug: "birthday", name: "Birthday", status: "active" },
+    ]);
+    const app = await buildApp();
+    const ids = (await getOccasions(app)).map((o) => o.id);
+    expect(ids).toContain("birthday");
+    expect(ids).not.toContain("anniversary");
+  });
+
+  it("9c. excludes a product-tag-only occasion absent from a non-empty OS catalog list", async () => {
+    // "friend" exists only as a product tag (products are tagged with it) but
+    // the occasion is inactive in OS → absent from the OS catalog list → must
+    // not surface even though it has products.
+    getOsOccasionsMock.mockReturnValue([
+      { id: "1", slug: "birthday", name: "Birthday", status: "active" },
+    ]);
+    getOsProductOccasionsMock.mockReturnValue(
+      new Map([["friend", { id: "30", slug: "friend", name: "Friend" }]]),
+    );
+    const app = await buildApp();
+    const ids = (await getOccasions(app)).map((o) => o.id);
+    expect(ids).not.toContain("friend");
+    expect(ids).toContain("birthday");
   });
 });
 

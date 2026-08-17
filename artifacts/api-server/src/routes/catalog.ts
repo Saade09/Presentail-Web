@@ -302,7 +302,19 @@ router.get("/catalog/occasions", async (req, res) => {
   for (const osOcc of osOccasions ?? []) {
     allOsOccasionsMap.set(osOcc.slug, osOcc);
   }
-  const activeOs = Array.from(allOsOccasionsMap.values()).filter((o) => isOccasionActive(o));
+  // The OS API omits INACTIVE occasions entirely (verified Aug 2026: no
+  // endpoint or query param returns them, and returned rows carry no
+  // is_active field). Presence in the OS occasions catalog is therefore the
+  // only reliable "active" signal. Treat the global catalog list as an
+  // allowlist so occasions deactivated in OS (e.g. children/colleague/friend)
+  // can't leak back in via product tags. Fail open when the list is empty
+  // (OS fetch failed) to avoid blanking the occasions page.
+  const activeSlugAllowlist = new Set((getOsOccasions() ?? []).map((o) => o.slug));
+  const activeOs = Array.from(allOsOccasionsMap.values()).filter(
+    (o) =>
+      isOccasionActive(o) &&
+      (activeSlugAllowlist.size === 0 || activeSlugAllowlist.has(o.slug)),
+  );
   if (activeOs.length === 0) {
     res.json({ occasions: [] });
     return;
@@ -410,11 +422,19 @@ router.get("/catalog/metadata", async (req, res) => {
   // never needs to supply the API key. `count` is the number of in-stock products
   // tagged with this occasion across all stores — consumers (e.g. the sitemap)
   // use it to skip empty pages.
+  // The OS API omits INACTIVE occasions entirely (no endpoint/param returns
+  // them; rows carry no is_active field — verified Aug 2026). So "no OS
+  // counterpart" cannot be treated as active: the occasion may exist in OS as
+  // an inactive row we simply never see. When the OS catalog list is
+  // non-empty, treat it as an allowlist; fail open when empty (fetch failed).
+  const metadataAllowlist = new Set((osOccasions ?? []).map((o) => o.slug));
   let mergedOccasions = occasions
     .filter((occ) => {
-      // Skip hardcoded occasions whose OS counterpart is marked inactive.
+      // Skip hardcoded occasions whose OS counterpart is marked inactive or
+      // absent from the OS catalog allowlist.
       const osOccAll = osOccasionBySlugAll.get(occ.id);
-      return osOccAll === undefined || isOccasionActive(osOccAll);
+      if (osOccAll !== undefined && !isOccasionActive(osOccAll)) return false;
+      return metadataAllowlist.size === 0 || metadataAllowlist.has(occ.id);
     })
     .map((occ) => {
       const osOcc = osOccasionBySlug.get(occ.id); // hardcoded id === slug
@@ -459,7 +479,11 @@ router.get("/catalog/metadata", async (req, res) => {
     allOsOccasions.set(osOcc.slug, osOcc);
   }
   for (const osOcc of allOsOccasions.values()) {
-    if (!hardcodedSlugs.has(osOcc.slug) && isOccasionActive(osOcc)) {
+    if (
+      !hardcodedSlugs.has(osOcc.slug) &&
+      isOccasionActive(osOcc) &&
+      (metadataAllowlist.size === 0 || metadataAllowlist.has(osOcc.slug))
+    ) {
       mergedOccasions.push({
         id: osOcc.slug,
         name: osOcc.name,

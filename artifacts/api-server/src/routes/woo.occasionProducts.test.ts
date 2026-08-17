@@ -169,16 +169,18 @@ describe("GET /woo/occasion-products — product-embedded occasion fallback", ()
     vi.resetModules();
   });
 
-  it("returns products when slug exists only in product-embedded occasions (not in OS catalog)", async () => {
-    // Formal OS catalog has NO "ramadan" entry — cache is warm but catalog is out of sync.
+  it("rejects a slug that exists only in product-embedded occasions when the OS catalog is warm (inactive-occasion guard)", async () => {
+    // The OS API omits INACTIVE occasions entirely, so a warm non-empty
+    // catalog is the authoritative allowlist. A slug present only on product
+    // tags (e.g. children/colleague/friend — deactivated in OS but still
+    // tagged on products) must NOT resolve.
     getOsOccasionsMock.mockReturnValue([
       { id: "occ-birthday", slug: "birthday", name: "Birthday" },
     ]);
-    // Product tags DO include "ramadan".
+    // Product tags DO include "ramadan" — but the warm catalog doesn't.
     getOsProductOccasionsMock.mockReturnValue(
       new Map([["ramadan", RAMADAN_OCCASION]])
     );
-    // The store cache has one product tagged with "ramadan".
     getOsProductsMock.mockReturnValue([makeRamadanProduct()]);
 
     const app = await buildApp();
@@ -186,9 +188,22 @@ describe("GET /woo/occasion-products — product-embedded occasion fallback", ()
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
-    // At least one group with at least one product must be returned.
-    expect(res.body.groups).toBeInstanceOf(Array);
-    expect(res.body.groups.length).toBeGreaterThan(0);
+    expect(res.body.groups).toEqual([]);
+  });
+
+  it("accepts a product-tag slug on cold start (OS occasions cache null)", async () => {
+    // Cold start: no catalog yet — product-tag slugs remain a valid fallback.
+    getOsOccasionsMock.mockReturnValue(null);
+    getOsProductOccasionsMock.mockReturnValue(
+      new Map([["ramadan", RAMADAN_OCCASION]])
+    );
+    getOsProductsMock.mockReturnValue([makeRamadanProduct()]);
+
+    const app = await buildApp();
+    const res = await request(app).get("/woo/occasion-products?slug=ramadan");
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
     const allProducts = res.body.groups.flatMap((g: { products: unknown[] }) => g.products);
     expect(allProducts.length).toBeGreaterThan(0);
   });
