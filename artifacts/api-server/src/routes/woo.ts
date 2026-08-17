@@ -1509,7 +1509,6 @@ router.post("/woo/order", async (req, res) => {
             const isExpressRecovery = (body.expressFee ?? 0) > 0;
             const recoveredDistrict = body.district ?? "Beirut";
             const recoveredCountry = countryForDistrict(recoveredDistrict);
-            const recoveredIsNoAddr = body.noAddress === true;
             // Bugs A+B: use resolveOsDeliveryConfig (city-ID lookup) when cityId
             // is present — matching the fee model used at PI creation time.
             // Fall back to legacy city-name helpers when cityId is absent.
@@ -1517,14 +1516,14 @@ router.post("/woo/order", async (req, res) => {
               ? resolveOsDeliveryConfig(recoveredCountry, body.cityId)
               : null;
             const recoveredDistrictFeeUsd = (() => {
-              if (!recoveredIsNoAddr && recoveredOsConfig && typeof recoveredOsConfig.cityFeeUsd === "number") {
+              if (recoveredOsConfig && typeof recoveredOsConfig.cityFeeUsd === "number") {
                 const isFreeByOs =
                   recoveredOsConfig.freeDeliveryEnabled === true &&
                   typeof recoveredOsConfig.freeDeliveryThresholdUsd === "number" &&
                   cartResolution.subtotalUsd >= recoveredOsConfig.freeDeliveryThresholdUsd;
                 return isFreeByOs ? 0 : recoveredOsConfig.cityFeeUsd;
               }
-              return computeDistrictFeeUsd(recoveredDistrict, cartResolution.subtotalUsd, recoveredIsNoAddr);
+              return computeDistrictFeeUsd(recoveredDistrict, cartResolution.subtotalUsd);
             })();
             const recoveredExpressFeeUsd = isExpressRecovery
               ? (recoveredOsConfig && recoveredOsConfig.expressSurchargeUsd > 0

@@ -87,20 +87,14 @@ export function baseDistrictFeeUsd(district: string): number {
   return DISTRICT_FEES[district] ?? 39;
 }
 
-// Flat "contact the recipient" delivery fee (USD) used when the customer
-// ticks the "I don't know the address" checkbox at checkout. The free-delivery
-// threshold still applies — same behaviour as a regular district fee.
-export const NO_ADDRESS_DELIVERY_FEE_USD = 35;
-
 // Returns the effective district fee after applying the free-delivery threshold.
-// When `noAddress` is true, the flat NO_ADDRESS_DELIVERY_FEE_USD is used instead
-// of the per-district fee (still subject to the free-delivery threshold).
+// The "Ask the recipient for the address" toggle does NOT change this fee —
+// no-address orders pay exactly the same district/city fee as regular orders.
 // City-level OS settings take precedence over country-level; both fall back to
 // the hardcoded per-country defaults when the OS cache is empty.
 export function computeDistrictFeeUsd(
   district: string,
   subtotalUsd: number,
-  noAddress = false,
 ): number {
   const country = countryForDistrict(district);
   // City-level wins over country-level, country-level wins over hardcoded.
@@ -114,8 +108,7 @@ export function computeDistrictFeeUsd(
     true;
   if (freeDeliveryEnabled && subtotalUsd >= threshold) return 0;
   // OS city fee wins over hardcoded table; hardcoded table is the cold-start fallback.
-  const districtFee = getOsCityDeliveryFeeUsd(country, district) ?? baseDistrictFeeUsd(district);
-  return noAddress ? NO_ADDRESS_DELIVERY_FEE_USD : districtFee;
+  return getOsCityDeliveryFeeUsd(country, district) ?? baseDistrictFeeUsd(district);
 }
 
 /** $5 same-day night surcharge applied when the OS sends no explicit fee override. */

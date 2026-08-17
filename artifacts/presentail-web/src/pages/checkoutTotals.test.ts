@@ -153,6 +153,29 @@ describe("calcCheckoutFees: districtFee — waived when subtotal meets the free-
     expect(districtFee).toBe(5);
   });
 
+  it("CY: no-address toggle charges the same city fee as an addressed order", () => {
+    const withAddress = calcCheckoutFees({
+      subtotal: 70,
+      countryCode: "CY",
+      noAddress: false,
+      cityFee: 10,
+      deliveryMode: "schedule",
+      timeSlots: [],
+      deliverySlot: "",
+    });
+    const withoutAddress = calcCheckoutFees({
+      subtotal: 70,
+      countryCode: "CY",
+      noAddress: true,
+      cityFee: 10,
+      deliveryMode: "schedule",
+      timeSlots: [],
+      deliverySlot: "",
+    });
+    expect(withoutAddress.districtFee).toBe(withAddress.districtFee);
+    expect(withoutAddress.total).toBe(withAddress.total);
+  });
+
   it("no-address fee is waived when subtotal meets the threshold (same as addressed orders)", () => {
     const { districtFee } = calcCheckoutFees({
       subtotal: 90,

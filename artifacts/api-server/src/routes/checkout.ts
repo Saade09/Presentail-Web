@@ -213,14 +213,14 @@ router.post("/checkout/session", async (req, res) => {
   const sessionOsConfig = rawCityId ? resolveOsDeliveryConfig(sessionCountry, rawCityId) : null;
   const sessionDistrictFeeUsd = (() => {
     if (!sessionDistrict) return 0;
-    if (!sessionNoAddress && sessionOsConfig && typeof sessionOsConfig.cityFeeUsd === "number") {
+    if (sessionOsConfig && typeof sessionOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         sessionOsConfig.freeDeliveryEnabled === true &&
         typeof sessionOsConfig.freeDeliveryThresholdUsd === "number" &&
         sessionSubtotalUsd >= sessionOsConfig.freeDeliveryThresholdUsd;
       return isFreeByOs ? 0 : sessionOsConfig.cityFeeUsd;
     }
-    return computeDistrictFeeUsd(sessionDistrict, sessionSubtotalUsd, sessionNoAddress);
+    return computeDistrictFeeUsd(sessionDistrict, sessionSubtotalUsd);
   })();
   const sessionExpressFeeUsd =
     sessionDistrict && sessionExpressDelivery
@@ -652,15 +652,14 @@ router.post("/checkout/payment-intent", async (req, res) => {
   const piCountry = countryForDistrict(district ?? "Beirut");
   const piOsConfig = cityId ? resolveOsDeliveryConfig(piCountry, cityId) : null;
   const serverDistrictFeeUsd = (() => {
-    const isNoAddr = noAddress === true;
-    if (!isNoAddr && piOsConfig && typeof piOsConfig.cityFeeUsd === "number") {
+    if (piOsConfig && typeof piOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         piOsConfig.freeDeliveryEnabled === true &&
         typeof piOsConfig.freeDeliveryThresholdUsd === "number" &&
         subtotalUsd >= piOsConfig.freeDeliveryThresholdUsd;
       return isFreeByOs ? 0 : piOsConfig.cityFeeUsd;
     }
-    return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd, isNoAddr);
+    return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd);
   })();
   const serverExpressFeeUsd =
     expressDelivery === true
@@ -1243,8 +1242,7 @@ router.post("/checkout/fees", async (req, res) => {
   const feesCountry = countryForDistrict(district ?? "Beirut");
   const feesOsConfig = cityId ? resolveOsDeliveryConfig(feesCountry, cityId) : null;
   const districtFeeUsd = (() => {
-    const isNoAddr = noAddress === true;
-    if (!isNoAddr && feesOsConfig && typeof feesOsConfig.cityFeeUsd === "number") {
+    if (feesOsConfig && typeof feesOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         feesOsConfig.freeDeliveryEnabled === true &&
         typeof feesOsConfig.freeDeliveryThresholdUsd === "number" &&
@@ -1253,7 +1251,7 @@ router.post("/checkout/fees", async (req, res) => {
     }
     // Default district to "Beirut" — same behaviour as /checkout/payment-intent
     // and all charge routes, so the quoted fee always matches the charged fee.
-    return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd, isNoAddr);
+    return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd);
   })();
   const expressFeeUsd =
     expressDelivery === true

@@ -209,8 +209,9 @@ export const WooOrderSchema = z.object({
   expressFee: z.number().nonnegative(),
   slotFee: z.number().nonnegative().optional(),
   // True when the customer ticked "I don't know the address" at checkout.
-  // Causes the server to use the flat NO_ADDRESS_DELIVERY_FEE_USD instead of
-  // the per-district fee (still subject to the free-delivery threshold).
+  // Does not change the delivery fee — no-address orders pay the normal
+  // district/city fee. It only affects address placeholders/notes and waives
+  // the express surcharge.
   noAddress: z.boolean().optional(),
   billingCountry: Iso2.optional(),
   shippingCountry: Iso2.optional(),
@@ -483,7 +484,7 @@ export async function attemptCreateWcOrder(
   // Prefer OS city-level delivery fee; fall back to hardcoded district table
   // when OS hasn't sent city data yet (e.g. during initial startup window).
   let serverDistrictFeeUsd: number;
-  if (!isNoAddress && typeof osDeliveryConfig.cityFeeUsd === "number") {
+  if (typeof osDeliveryConfig.cityFeeUsd === "number") {
     const isFreeByOs =
       osDeliveryConfig.freeDeliveryEnabled === true &&
       typeof osDeliveryConfig.freeDeliveryThresholdUsd === "number" &&
@@ -493,7 +494,6 @@ export async function attemptCreateWcOrder(
     serverDistrictFeeUsd = computeDistrictFeeUsd(
       body.district,
       catalogSubtotalUsd,
-      isNoAddress,
     );
   }
   const convertedDistrictFee = await conv(serverDistrictFeeUsd);
@@ -1145,7 +1145,7 @@ export async function attemptCreateOsOrder(
   let serverDistrictFeeUsd: number;
   if (opts.preVerifiedFees?.districtFeeUsd !== undefined) {
     serverDistrictFeeUsd = opts.preVerifiedFees.districtFeeUsd;
-  } else if (!isNoAddress && typeof osDeliveryConfig.cityFeeUsd === "number") {
+  } else if (typeof osDeliveryConfig.cityFeeUsd === "number") {
     const isFreeByOs =
       osDeliveryConfig.freeDeliveryEnabled === true &&
       typeof osDeliveryConfig.freeDeliveryThresholdUsd === "number" &&
@@ -1155,7 +1155,6 @@ export async function attemptCreateOsOrder(
     serverDistrictFeeUsd = computeDistrictFeeUsd(
       body.district,
       catalogSubtotalUsd,
-      isNoAddress,
     );
   }
 

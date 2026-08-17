@@ -31,9 +31,9 @@ export type CartSnapshot = {
   district: string;
   expressDelivery: boolean;
   // True when the customer ticked the "I don't know the address" checkbox at
-  // checkout. The charged delivery fee is the flat NO_ADDRESS_DELIVERY_FEE_USD
-  // instead of the per-district fee. Stored so the WC order route can verify
-  // the submitted order doesn't switch this flag after paying.
+  // checkout. The delivery fee is the same as a regular order; the flag is
+  // stored so the WC order route can verify the submitted order doesn't
+  // switch it after paying.
   noAddress?: boolean;
   // The delivery slot label selected at checkout (e.g. "Morning 9am-1pm").
   // Non-empty only when the shopper picked a premium slot that has an extraFee.

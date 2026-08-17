@@ -495,14 +495,14 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       : null;
 
     districtFeeUsd = (() => {
-      if (!isNoAddress && osConfig && typeof osConfig.cityFeeUsd === "number") {
+      if (osConfig && typeof osConfig.cityFeeUsd === "number") {
         const isFreeByOs =
           osConfig.freeDeliveryEnabled === true &&
           typeof osConfig.freeDeliveryThresholdUsd === "number" &&
           subtotalUsd >= osConfig.freeDeliveryThresholdUsd;
         return isFreeByOs ? 0 : osConfig.cityFeeUsd;
       }
-      return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+      return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
     })();
 
     expressFeeUsd = isExpress

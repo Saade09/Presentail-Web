@@ -182,14 +182,14 @@ router.post("/payment/mamo", async (req, res) => {
   // Mamo charge matches the fee wooOrders.ts will record at order creation.
   const mamoOsConfig = rawCityId ? resolveOsDeliveryConfig(districtCountry, rawCityId) : null;
   const districtFeeUsd = (() => {
-    if (!isNoAddress && mamoOsConfig && typeof mamoOsConfig.cityFeeUsd === "number") {
+    if (mamoOsConfig && typeof mamoOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         mamoOsConfig.freeDeliveryEnabled === true &&
         typeof mamoOsConfig.freeDeliveryThresholdUsd === "number" &&
         subtotalUsd >= mamoOsConfig.freeDeliveryThresholdUsd;
       return isFreeByOs ? 0 : mamoOsConfig.cityFeeUsd;
     }
-    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
   })();
   const expressFeeUsd = isExpress
     ? (mamoOsConfig && mamoOsConfig.expressSurchargeUsd > 0
@@ -469,14 +469,14 @@ router.post("/payment/paypal", async (req, res) => {
   // PayPal charge matches the fee wooOrders.ts will record at order creation.
   const ppOsConfig = ppRawCityId ? resolveOsDeliveryConfig(districtCountryPP, ppRawCityId) : null;
   const districtFeeUsd = (() => {
-    if (!isNoAddress && ppOsConfig && typeof ppOsConfig.cityFeeUsd === "number") {
+    if (ppOsConfig && typeof ppOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         ppOsConfig.freeDeliveryEnabled === true &&
         typeof ppOsConfig.freeDeliveryThresholdUsd === "number" &&
         subtotalUsd >= ppOsConfig.freeDeliveryThresholdUsd;
       return isFreeByOs ? 0 : ppOsConfig.cityFeeUsd;
     }
-    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
   })();
   const expressFeeUsd = isExpress
     ? (ppOsConfig && ppOsConfig.expressSurchargeUsd > 0
@@ -677,14 +677,14 @@ router.post("/payment/tabby", async (req, res) => {
   // Tabby charge matches the fee wooOrders.ts will record at order creation.
   const tabbyOsConfig = tabbyRawCityId ? resolveOsDeliveryConfig(districtCountry, tabbyRawCityId) : null;
   const districtFeeUsd = (() => {
-    if (!isNoAddress && tabbyOsConfig && typeof tabbyOsConfig.cityFeeUsd === "number") {
+    if (tabbyOsConfig && typeof tabbyOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         tabbyOsConfig.freeDeliveryEnabled === true &&
         typeof tabbyOsConfig.freeDeliveryThresholdUsd === "number" &&
         subtotalUsd >= tabbyOsConfig.freeDeliveryThresholdUsd;
       return isFreeByOs ? 0 : tabbyOsConfig.cityFeeUsd;
     }
-    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+    return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
   })();
   const expressFeeUsd = isExpress
     ? (tabbyOsConfig && tabbyOsConfig.expressSurchargeUsd > 0

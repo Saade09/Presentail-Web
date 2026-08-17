@@ -218,8 +218,8 @@ describe("POST /checkout/fees", () => {
     expect(res.body.totalUsd).toBe(100);
   });
 
-  it("(e) no-address flat fee — flat fee applied", async () => {
-    computeDistrictFeeUsdMock.mockReturnValue(35);
+  it("(e) no-address toggle — normal district fee charged, no flat-fee substitution", async () => {
+    computeDistrictFeeUsdMock.mockReturnValue(8);
 
     const app = await buildApp();
     const res = await request(app)
@@ -227,9 +227,10 @@ describe("POST /checkout/fees", () => {
       .send({ items: BASE_ITEMS, currency: "USD", noAddress: true });
 
     expect(res.status).toBe(200);
-    expect(res.body.districtFeeUsd).toBe(35);
-    expect(res.body.totalUsd).toBe(135);
-    expect(computeDistrictFeeUsdMock).toHaveBeenCalledWith("Beirut", 100, true);
+    // Same fee as a regular addressed order — the toggle adds $0.
+    expect(res.body.districtFeeUsd).toBe(8);
+    expect(res.body.totalUsd).toBe(108);
+    expect(computeDistrictFeeUsdMock).toHaveBeenCalledWith("Beirut", 100);
   });
 
   it("(f) express delivery — express surcharge included, slot fee excluded", async () => {

@@ -834,7 +834,9 @@ function CheckoutScreen() {
 
   const fees = useMemo(() => {
     const subtotal = total;
-    const baseDeliveryFee = noAddress ? 35 : (district?.fee ?? 0);
+    // "Ask the recipient for the address" adds no extra fee — the normal
+    // district/city fee applies (matching the server's fee computation).
+    const baseDeliveryFee = district?.fee ?? 0;
     const districtFee = (isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryFee;
     // Express surcharge is waived when noAddress is on — no confirmed address
     // means we cannot guarantee an express window, so the fee is removed.
