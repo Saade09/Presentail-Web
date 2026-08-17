@@ -678,12 +678,23 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
 
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
-  lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
+  // Satellite-city best-sellers: apply the same noindex,follow policy as
+  // satellite-city occasion/category pages.  Hub-city best-sellers
+  // (/en-lb/beirut/best-sellers, /en-ae/dubai/best-sellers, etc.) remain
+  // fully indexed.  Canonical is intentionally omitted on satellite pages,
+  // matching the behaviour of applyEligibilityNoindex on entity pages.
+  const _isSatelliteBestSellers =
+    routeKey === "bestSellers" &&
+    Boolean(parsed.city) && Boolean(parsed.country) &&
+    parsed.city !== HUB_CITY[parsed.country];
+  if (!_isSatelliteBestSellers) {
+    lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
+  }
   // Non-public routes (cart, checkout, account, auth, favorites, order
   // confirmation) must not be indexed, but their links may still be followed.
   // Filter-parameterised non-curated URLs also get noindex so Googlebot does
   // not spend crawl budget on duplicate pages like /shop?sort=price-asc.
-  if (NONINDEX_ROUTE_KEYS.has(routeKey) || (hasFilterParamsInSearch && !isCuratedFilterPage)) {
+  if (NONINDEX_ROUTE_KEYS.has(routeKey) || (hasFilterParamsInSearch && !isCuratedFilterPage) || _isSatelliteBestSellers) {
     lines.push(`<meta name="robots" content="noindex, follow" />`);
   }
   lines.push(`<meta property="og:title" content="${escapeAttr(ogTitle)}" />`);
@@ -5334,6 +5345,15 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             .join("\n    ");
           result = { ...result, headSnippet: result.headSnippet + "\n    " + _prodHreflangLines };
         }
+      }
+
+      // Satellite-city product pages: noindex,follow.  Canonical already points
+      // at the hub city via remapCityToHub; explicit noindex makes the policy
+      // consistent with satellite occasion/category pages and eliminates Semrush
+      // "only one internal link" flags for products reachable only through a
+      // satellite-city best-sellers page.  Hub-city product pages are unaffected.
+      if (parsed.city && parsed.country && parsed.city !== HUB_CITY[parsed.country]) {
+        result = applyEligibilityNoindex(result);
       }
 
       // Inject a <link rel="preload" as="image" fetchpriority="high"> for the
