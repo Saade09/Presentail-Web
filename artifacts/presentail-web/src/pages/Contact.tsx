@@ -122,6 +122,33 @@ const COPY: Record<Language, Copy> = {
     ctaBody: "Notre équipe répond généralement en quelques minutes sur WhatsApp.",
     ctaButton: "Discuter sur WhatsApp",
   },
+  el: {
+    eyebrow: "Επικοινωνία",
+    title: "Μιλήστε με έναν πραγματικό άνθρωπο, γρήγορα.",
+    intro:
+      "Η ομάδα concierge μας είναι εδώ για παραγγελίες, παραδόσεις, εξατομικευμένα αιτήματα και ό,τι υπάρχει ενδιάμεσα — κάθε μέρα της εβδομάδας.",
+    channelsHeading: "Πώς να μας βρείτε",
+    whatsapp: "WhatsApp",
+    whatsappDesc: "Ο πιο γρήγορος τρόπος να μας βρείτε. Πατήστε για να ξεκινήσετε συνομιλία.",
+    whatsappResponse: "Συνήθως μέσα σε λίγα λεπτά",
+    whatsappBadge: "Ταχύτερη απόκριση",
+    phone: "Τηλέφωνο",
+    phoneDesc: "Καλέστε μας απευθείας κατά τις ώρες λειτουργίας.",
+    email: "Email",
+    emailDesc: "Ιδανικό για αναλυτικά αιτήματα ή συνημμένα.",
+    emailResponse: "Εντός 24 ωρών",
+    hoursHeading: "Ώρες λειτουργίας",
+    hoursBody:
+      "Δευτέρα – Κυριακή, 8:00 π.μ. – 12:00 π.μ. (μεσάνυχτα, ώρα Βηρυτού). Απαντάμε στα μηνύματα εκτός ωραρίου το πρωί της επόμενης ημέρας.",
+    openNow: "Ανοιχτά τώρα",
+    closedNow: "Κλειστά",
+    addressHeading: "Το γραφείο μας",
+    addressBody: "Abdel Wahab El Inglizi St, Achrafieh, Βηρυτός, Λίβανος",
+    viewOnMaps: "Προβολή στους Χάρτες",
+    ctaHeading: "Έχετε ακόμη κάποια ερώτηση;",
+    ctaBody: "Η ομάδα μας απαντά συνήθως μέσα σε λίγα λεπτά στο WhatsApp.",
+    ctaButton: "Συνομιλία στο WhatsApp",
+  },
 };
 
 function useBeirutOpen() {

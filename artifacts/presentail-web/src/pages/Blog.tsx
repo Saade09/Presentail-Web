@@ -118,21 +118,43 @@ const COPY: Record<Language, Copy> = {
     },
     noStories: "Pas encore d'histoires dans cette catégorie.",
   },
+  el: {
+    eyebrow: "Το Ημερολόγιο του Ατελιέ",
+    title: "Ιστορίες από το στούντιο.",
+    intro: "Σημειώσεις για την τέχνη, τα εποχιακά άνθη και το προσεγμένο δώρο.",
+    storiesHeading: "Πρόσφατες ιστορίες",
+    ctaHeading: "Στείλτε κάτι όμορφο",
+    ctaBody: "Περιηγηθείτε στη συλλογή της εποχής ή επιλέξτε από τα best seller μας.",
+    ctaShop: "Δείτε τη συλλογή",
+    readStory: "Διαβάστε την ιστορία",
+    allStories: "Όλα",
+    minRead: "{min} λεπτά ανάγνωσης",
+    categories: {
+      flowers: "Άνθη",
+      "gifting-guides": "Οδηγοί δώρων",
+      "behind-the-scenes": "Παρασκήνια",
+      makers: "Δημιουργοί",
+    },
+    noStories: "Δεν υπάρχουν ακόμη ιστορίες σε αυτήν την κατηγορία.",
+  },
 };
 
 // Stories derive from the shared blog source of truth so the index can never
 // drift from the article pages or the server-side crawlable index.
 function getStories(language: Language): Story[] {
+  // Blog article content exists only in EN/AR/FR; Greek visitors fall back to
+  // English article content (intended). The page UI copy is still localised.
+  const blogLang = language === "el" ? "en" : language;
   return Object.keys(ARTICLES)
     .map((slug) => {
-      const a = ARTICLES[slug][language] ?? ARTICLES[slug].en;
+      const a = ARTICLES[slug][blogLang] ?? ARTICLES[slug].en;
       const meta = getBlogPostMeta(slug);
       return {
         slug,
         title: a.title,
         excerpt: getBlogPostExcerpt(a),
         category: meta.category,
-        readingTime: getBlogPostReadingTime(slug, language),
+        readingTime: getBlogPostReadingTime(slug, blogLang),
         datePublished: a.datePublished,
         ogImage: a.ogImage,
       };

@@ -117,8 +117,8 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
 
     const [submittedUrls] = submitIndexNowUrlsMock.mock.calls[0] as [string[]];
 
-    // 1 new product slug × 3 langs × 3 countries = 9 URLs
-    expect(submittedUrls).toHaveLength(9);
+    // 1 new product slug × (3 langs × 3 countries + el for cy only) = 10 URLs
+    expect(submittedUrls).toHaveLength(10);
 
     const langs = ["en", "ar", "fr"];
     const countryCity = [
@@ -155,8 +155,8 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
 
     const [submittedUrls] = submitIndexNowUrlsMock.mock.calls[0] as [string[]];
 
-    // 1 new category + 1 new occasion × 3 langs × 3 countries = 18 URLs
-    expect(submittedUrls).toHaveLength(18);
+    // (1 new category + 1 new occasion) × (3 langs × 3 countries + el for cy only) = 20 URLs
+    expect(submittedUrls).toHaveLength(20);
     expect(submittedUrls).toContain(
       "https://presentail.com/en-lb/beirut/category/plants",
     );
@@ -184,8 +184,8 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
 
     const [submittedUrls] = submitIndexNowUrlsMock.mock.calls[0] as [string[]];
 
-    // 1 new brand slug × 3 langs × 3 countries = 9 URLs
-    expect(submittedUrls).toHaveLength(9);
+    // 1 new brand slug × (3 langs × 3 countries + el for cy only) = 10 URLs
+    expect(submittedUrls).toHaveLength(10);
 
     const langs = ["en", "ar", "fr"];
     const countryCity = [
@@ -326,8 +326,8 @@ describe("detectAndSubmitNewTaxonomySlugs — brands", () => {
 
     const [submittedUrls] = submitIndexNowUrlsMock.mock.calls[0] as [string[]];
 
-    // 1 new brand slug × 3 langs × 3 countries = 9 URLs
-    expect(submittedUrls).toHaveLength(9);
+    // 1 new brand slug × (3 langs × 3 countries + el for cy only) = 10 URLs
+    expect(submittedUrls).toHaveLength(10);
 
     const langs = ["en", "ar", "fr"];
     const countryCity = [

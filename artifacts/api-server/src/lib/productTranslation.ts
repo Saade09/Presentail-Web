@@ -21,7 +21,7 @@ import { db } from "@workspace/db";
 import { productTranslationCacheTable } from "@workspace/db/schema";
 import { logger } from "./logger";
 
-export type TranslationLang = "ar" | "fr";
+export type TranslationLang = "ar" | "fr" | "el";
 
 export interface ProductTranslation {
   name: string;
@@ -47,6 +47,7 @@ const inFlight = new Map<string, Promise<ProductTranslation>>();
 const LANG_NAMES: Record<TranslationLang, string> = {
   ar: "Modern Standard Arabic",
   fr: "French",
+  el: "Modern Greek",
 };
 
 // ── Retry + concurrency control ───────────────────────────────────────────

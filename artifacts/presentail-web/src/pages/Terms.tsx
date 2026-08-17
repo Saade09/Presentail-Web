@@ -6,16 +6,19 @@ const EYEBROW: Record<Language, string> = {
   en: "Legal",
   ar: "قانوني",
   fr: "Mentions légales",
+  el: "Νομικά",
 };
 const TITLE: Record<Language, string> = {
   en: "Terms of Use",
   ar: "شروط الاستخدام",
   fr: "Conditions d'utilisation",
+  el: "Όροι Χρήσης",
 };
 const INTRO_NOTE: Record<Language, string> = {
   en: "These Terms apply when you use the Presentail website, our mobile applications, and orders placed through our social channels. The legally binding text below is provided in English.",
   ar: "تنطبق هذه الشروط عند استخدامك لموقع بريزانتيل وتطبيقاتنا للهواتف وعند الطلبات عبر قنواتنا الاجتماعية. النص القانوني الملزم أدناه متوفّر باللغة الإنكليزية.",
   fr: "Ces Conditions s'appliquent à votre utilisation du site Presentail, de nos applications mobiles et aux commandes passées via nos canaux sociaux. Le texte juridiquement contraignant ci-dessous est fourni en anglais.",
+  el: "Οι παρόντες Όροι ισχύουν όταν χρησιμοποιείτε τον ιστότοπο Presentail, τις εφαρμογές μας για κινητά και τις παραγγελίες που γίνονται μέσω των κοινωνικών μας καναλιών. Το νομικά δεσμευτικό κείμενο που ακολουθεί παρέχεται στα αγγλικά.",
 };
 
 const SECTIONS: LegalSection[] = [

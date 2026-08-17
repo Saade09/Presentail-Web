@@ -86,25 +86,8 @@ export const campaignStrings: Dict = {
   },
   // Legacy keys — no longer referenced in JSX but kept so old bundles do not
   // throw a missing-key warning during a rolling deploy.
-  "campaign.v2.countdown.line1": { en: "Order within", ar: "اطلب خلال" },
-  "campaign.v2.countdown.line2Prefix": { en: "for delivery ", ar: "ليصل الطلب " },
-  "campaign.v2.countdown.line2Bold": { en: "today", ar: "اليوم" },
-  "campaign.v2.countdown.closedLine1": {
-    en: "Today's orders are closed",
-    ar: "أُغلقت طلبات اليوم",
-  },
-  "campaign.v2.countdown.closedLine2": { en: "Next delivery slot", ar: "موعد التوصيل التالي" },
-  "campaign.v2.countdown.closedValue": { en: "Tomorrow, 9 AM", ar: "غداً، 9 صباحاً" },
-  "campaign.v2.countdown.staticValue": {
-    en: "for delivery today",
-    ar: "للتوصيل اليوم",
-  },
   // Heading for the secondary add-on section (chocolates, cakes, balloons)
   // shown below the reviews on the Beirut paid-search variant.
-  "campaign.v2.addons.title": {
-    en: "Add Something Special",
-    ar: "أضف شيئاً مميزاً",
-  },
   "campaign.v2.cta.shop": { en: "Shop best sellers", ar: "تسوّق الأكثر مبيعاً" },
   "campaign.v2.cta.whatsapp": { en: "Order on WhatsApp", ar: "اطلب عبر واتساب" },
   "campaign.v2.cta.hint": {
@@ -125,11 +108,6 @@ export const campaignStrings: Dict = {
   "campaign.v2.trust.delivery.sub": {
     en: "90 minute delivery available on all products",
     ar: "توصيل خلال 90 دقيقة متاح لجميع المنتجات",
-  },
-  "campaign.v2.trust.rating.title": { en: "4.8 out of 5", ar: "4.8 من 5" },
-  "campaign.v2.trust.rating.sub": {
-    en: "1,240 verified Trustpilot reviews",
-    ar: "1,240 تقييماً موثّقاً على Trustpilot",
   },
   "campaign.v2.sticky.sub": {
     en: "No address needed · order by 10 PM",
@@ -214,8 +192,7 @@ export const campaignStrings: Dict = {
 export const campaignStringsFr: Record<string, string> = {
   "campaign.breadcrumb": "Livraison de fleurs",
   "campaign.hero.title": "De belles fleurs livrées à {city} aujourd'hui",
-  "campaign.hero.subtitle":
-    "Des bouquets frais, arrangés à la main par des fleuristes locaux de confiance — livraison le jour même, joliment présentés.",
+  "campaign.hero.subtitle": "Des bouquets frais, arrangés à la main par des fleuristes locaux de confiance — livraison le jour même, joliment présentés.",
   "campaign.hero.promoTitle": "10% DE RÉDUCTION SUR VOTRE PREMIÈRE COMMANDE",
   "campaign.hero.promoSubtitle": "Appliquée automatiquement au paiement — sans code",
   "campaign.hero.cta": "Voir les meilleures ventes",
@@ -238,15 +215,10 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.hero.sub1": "Arrangées ce matin par nos fleuristes d'Achrafieh. ",
   "campaign.v2.hero.subQ": "Vous n'avez pas leur adresse ?",
   "campaign.v2.hero.sub2": " Commandez quand même — nous la demanderons au destinataire pour vous.",
-  "campaign.v2.countdown.line1": "Commandez dans les",
-  "campaign.v2.countdown.line2Prefix": "pour une livraison ",
-  "campaign.v2.countdown.line2Bold": "aujourd'hui",
-  "campaign.v2.countdown.closedLine1": "Les commandes du jour sont clôturées",
-  "campaign.v2.countdown.closedLine2": "Prochain créneau de livraison",
-  "campaign.v2.countdown.closedValue": "Demain, 9 h",
   "campaign.v2.countdown.staticLine1": "Commandez avant 22 h",
-  "campaign.v2.countdown.staticValue": "pour la livraison aujourd'hui",
-  "campaign.v2.addons.title": "Ajoutez quelque chose de spécial",
+  "campaign.v2.countdown.urgentPrefix": "Plus que",
+  "campaign.v2.countdown.urgentSuffix": "pour la livraison aujourd'hui",
+  "campaign.v2.countdown.closedMessage": "Commandez maintenant · livraison demain",
   "campaign.v2.cta.shop": "Voir les meilleures ventes",
   "campaign.v2.cta.whatsapp": "Commander sur WhatsApp",
   "campaign.v2.cta.hint": "Vous hésitez ? Dites-nous l'occasion et le budget.",
@@ -256,39 +228,97 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.trust.tracking.sub": "Mises à jour en temps réel jusqu'à la livraison",
   "campaign.v2.trust.delivery.title": "Livraison gratuite dès $90",
   "campaign.v2.trust.delivery.sub": "Tarif fixe en dessous · tout le Liban",
-  "campaign.v2.trust.rating.title": "4.8 sur 5",
-  "campaign.v2.trust.rating.sub": "1 240 avis vérifiés sur Trustpilot",
   "campaign.v2.sticky.sub": "Aucune adresse requise · commandez avant 22 h",
   "campaign.v2.hero.imageAlt": "Bouquet frais arrangé à la main par nos fleuristes de Beyrouth",
-  "campaign.v2.whatsappPrefill":
-    "Bonjour ! Je souhaite commander des fleurs à livrer à Beyrouth aujourd'hui. Pouvez-vous m'aider à choisir ?",
+  "campaign.v2.whatsappPrefill": "Bonjour ! Je souhaite commander des fleurs à livrer à Beyrouth aujourd'hui. Pouvez-vous m'aider à choisir ?",
 
   // ── Pass 2A: product grid ─────────────────────────────────────────────────
   "campaign.v2.grid.title": "Prêt à livrer aujourd'hui",
   "campaign.v2.grid.viewAll": "Tous les arrangements",
-  "campaign.v2.grid.sub":
-    "Tout ce qui suit est en stock dans notre boutique d'Achrafieh en ce moment. Commandez avant 22 h et votre commande part aujourd'hui.",
+  "campaign.v2.grid.sub": "Tout ce qui suit est en stock dans notre boutique d'Achrafieh en ce moment. Commandez avant 22 h et votre commande part aujourd'hui.",
   "campaign.v2.occasions.title": "Choisir par occasion",
 
   // ── Pass 2A: address explainer ────────────────────────────────────────────
   "campaign.v2.address.heading": "Vous n'avez pas besoin de leur adresse",
-  "campaign.v2.address.sub":
-    "Ce qui bloque la plupart des commandes de cadeaux ne nous bloque pas. Dites-nous à qui c'est destiné et nous nous occupons du reste.",
+  "campaign.v2.address.sub": "Ce qui bloque la plupart des commandes de cadeaux ne nous bloque pas. Dites-nous à qui c'est destiné et nous nous occupons du reste.",
   "campaign.v2.address.step1.title": "Choisissez le cadeau",
-  "campaign.v2.address.step1.body":
-    "Choisissez n'importe quel article en stock aujourd'hui. Ajoutez une carte manuscrite au moment du paiement — nous l'écrivons à la main en boutique.",
+  "campaign.v2.address.step1.body": "Choisissez n'importe quel article en stock aujourd'hui. Ajoutez une carte manuscrite au moment du paiement — nous l'écrivons à la main en boutique.",
   "campaign.v2.address.step2.title": "Donnez-nous leur nom et numéro",
   "campaign.v2.address.step2.emphasis": "C'est tout ce qu'il nous faut.",
-  "campaign.v2.address.step2.body2":
-    " Notre équipe contacte directement le destinataire pour convenir de l'adresse et d'un horaire qui lui convient.",
+  "campaign.v2.address.step2.body2": " Notre équipe contacte directement le destinataire pour convenir de l'adresse et d'un horaire qui lui convient.",
   "campaign.v2.address.step3.title": "Suivez-le jusqu'à la porte",
-  "campaign.v2.address.step3.body":
-    "Vous recevez un suivi en direct et un message dès que la livraison est remise — même si vous commandez depuis l'étranger.",
+  "campaign.v2.address.step3.body": "Vous recevez un suivi en direct et un message dès que la livraison est remise — même si vous commandez depuis l'étranger.",
 
   // ── Pass 2A: reviews section ──────────────────────────────────────────────
   "campaign.v2.reviews.heading": "Ce que disent les gens",
   "campaign.v2.reviews.readAll": "Lire tous les avis",
-  "campaign.v2.reviews.aggregate":
-    "4,8 sur 5 d'après 1 240 avis vérifiés sur Trustpilot",
+  "campaign.v2.reviews.aggregate": "4,8 sur 5 d'après 1 240 avis vérifiés sur Trustpilot",
   "campaign.v2.reviews.fiveStars": "5 étoiles sur 5",
+};
+
+export const campaignStringsEl: Record<string, string> = {
+  "campaign.breadcrumb": "Παράδοση λουλουδιών",
+  "campaign.hero.title": "Όμορφα λουλούδια με παράδοση στη {city} σήμερα",
+  "campaign.hero.subtitle": "Φρέσκα μπουκέτα, φτιαγμένα στο χέρι από έμπιστους τοπικούς ανθοπώλες — αυθημερόν παράδοση, όμορφα παρουσιασμένα.",
+  "campaign.hero.promoTitle": "10% ΕΚΠΤΩΣΗ ΣΤΗΝ ΠΡΩΤΗ ΣΑΣ ΠΑΡΑΓΓΕΛΙΑ",
+  "campaign.hero.promoSubtitle": "Εφαρμόζεται αυτόματα στην ολοκλήρωση αγοράς — χωρίς κωδικό",
+  "campaign.hero.cta": "Δείτε τα δημοφιλέστερα",
+  "campaign.hero.ctaUnder": "Αγοράστε κάτω από {amount}",
+  "campaign.hero.imageAlt": "Μπουκέτο φρέσκων λουλουδιών φτιαγμένο από τοπικό ανθοπώλη",
+  "campaign.trust.rating": "Βαθμολογία 4.8★",
+  "campaign.trust.securePayment": "Ασφαλής πληρωμή",
+  "campaign.trust.deliveryUpdates": "Ενημερώσεις παράδοσης",
+  "campaign.bestSellers.title": "Δημοφιλέστερα διαθέσιμα σήμερα",
+  "campaign.bestSellers.viewAll": "Δείτε όλα →",
+  "campaign.pill.romantic": "Ρομαντικό",
+  "campaign.pill.under": "Κάτω από {amount}",
+  "campaign.reviews.title": "Επαληθευμένες κριτικές πελατών",
+  "campaign.stickyCta": "Δείτε τα λουλούδια που είναι διαθέσιμα σήμερα",
+
+  // ── Beirut paid-search hero variant (v2) ──
+  "campaign.v2.badge.open": "Όλα τα καταστήματά μας στον Λίβανο είναι ανοιχτά τώρα",
+  "campaign.v2.badge.closed": "Τα καταστήματα ανοίγουν στις 9 π.μ. · παραγγείλετε online τώρα",
+  "campaign.v2.hero.title": "Λουλούδια με παράδοση στη {city} σήμερα",
+  "campaign.v2.hero.sub1": "Φτιαγμένα σήμερα το πρωί από τους ανθοπώλες μας στο Achrafieh. ",
+  "campaign.v2.hero.subQ": "Δεν έχετε τη διεύθυνσή τους;",
+  "campaign.v2.hero.sub2": " Παραγγείλετε ούτως ή άλλως — θα τη ζητήσουμε εμείς από τον παραλήπτη για εσάς.",
+  "campaign.v2.countdown.staticLine1": "Παραγγείλετε πριν τις 10 μ.μ.",
+  "campaign.v2.countdown.urgentPrefix": "Μόνο",
+  "campaign.v2.countdown.urgentSuffix": "για παράδοση σήμερα",
+  "campaign.v2.countdown.closedMessage": "Παραγγείλετε τώρα · παράδοση αύριο",
+  "campaign.v2.cta.shop": "Δείτε τα δημοφιλέστερα",
+  "campaign.v2.cta.whatsapp": "Παραγγείλετε στο WhatsApp",
+  "campaign.v2.cta.hint": "Δεν είστε σίγουροι τι να στείλετε; Πείτε μας την περίσταση και τον προϋπολογισμό.",
+  "campaign.v2.trust.address.title": "Δεν χρειάζεται διεύθυνση",
+  "campaign.v2.trust.address.sub": "Τη ζητάμε εμείς από τον παραλήπτη",
+  "campaign.v2.trust.tracking.title": "Ζωντανή παρακολούθηση παραγγελίας",
+  "campaign.v2.trust.tracking.sub": "Ενημερώσεις σε πραγματικό χρόνο μέχρι την παράδοση",
+  "campaign.v2.trust.delivery.title": "Express παράδοση",
+  "campaign.v2.trust.delivery.sub": "Παράδοση σε 90 λεπτά διαθέσιμη για όλα τα προϊόντα",
+  "campaign.v2.sticky.sub": "Δεν χρειάζεται διεύθυνση · παραγγείλετε πριν τις 10 μ.μ.",
+  "campaign.v2.hero.imageAlt": "Φρέσκο μπουκέτο φτιαγμένο στο χέρι από τους ανθοπώλες μας στη Βηρυτό",
+  "campaign.v2.whatsappPrefill": "Γεια σας! Θα ήθελα να παραγγείλω λουλούδια για παράδοση στη Βηρυτό σήμερα. Μπορείτε να με βοηθήσετε να διαλέξω;",
+
+  // ── Pass 2A: product grid ─────────────────────────────────────────────────
+  "campaign.v2.grid.title": "Έτοιμα για παράδοση σήμερα",
+  "campaign.v2.grid.viewAll": "Όλες οι συνθέσεις",
+  "campaign.v2.grid.sub": "Όλα τα παρακάτω είναι διαθέσιμα στο κατάστημά μας στο Achrafieh αυτή τη στιγμή. Παραγγείλετε πριν τις 10 μ.μ. και θα σταλεί σήμερα.",
+  "campaign.v2.occasions.title": "Αγοράστε ανά περίσταση",
+
+  // ── Pass 2A: address explainer ────────────────────────────────────────────
+  "campaign.v2.address.heading": "Δεν χρειάζεστε τη διεύθυνσή τους",
+  "campaign.v2.address.sub": "Αυτό που σταματάει τις περισσότερες παραγγελίες δώρων δεν σταματάει τις δικές μας. Πείτε μας για ποιον είναι και εμείς αναλαμβάνουμε τα υπόλοιπα.",
+  "campaign.v2.address.step1.title": "Επιλέξτε το δώρο",
+  "campaign.v2.address.step1.body": "Διαλέξτε οτιδήποτε είναι διαθέσιμο σήμερα. Προσθέστε μια χειρόγραφη κάρτα στην ολοκλήρωση αγοράς — τη γράφουμε στο χέρι στο κατάστημα.",
+  "campaign.v2.address.step2.title": "Δώστε μας το όνομα και τον αριθμό τους",
+  "campaign.v2.address.step2.emphasis": "Αυτό είναι το μόνο που χρειαζόμαστε.",
+  "campaign.v2.address.step2.body2": " Η ομάδα μας επικοινωνεί απευθείας με τον παραλήπτη για να κανονίσει τη διεύθυνση και μια ώρα που τον βολεύει.",
+  "campaign.v2.address.step3.title": "Ακολουθήστε το μέχρι την πόρτα",
+  "campaign.v2.address.step3.body": "Λαμβάνετε ζωντανή παρακολούθηση και ένα μήνυμα τη στιγμή που παραδίδεται — ακόμα κι αν παραγγέλνετε από το εξωτερικό.",
+
+  // ── Pass 2A: reviews section ──────────────────────────────────────────────
+  "campaign.v2.reviews.heading": "Τι λέει ο κόσμος",
+  "campaign.v2.reviews.readAll": "Διαβάστε όλες τις κριτικές",
+  "campaign.v2.reviews.aggregate": "4,8 στα 5 από 1.240 επαληθευμένες κριτικές στο Trustpilot",
+  "campaign.v2.reviews.fiveStars": "5 στα 5 αστέρια",
 };

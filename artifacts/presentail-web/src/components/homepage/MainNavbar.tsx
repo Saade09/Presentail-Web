@@ -254,7 +254,7 @@ export function MainNavbar() {
     ? brandsData?.brands.find((b) => b.slug === activeBrandSlug)
     : null;
 
-  const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode, cityId);
+  const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode, cityId, language);
   const osOccasions = occasionsData?.occasions ?? [];
   // Hide occasions with no in-stock products so shoppers never land on an empty page.
   // Only fall back to the static OCCASION_OPTIONS list when the API has not returned
@@ -287,7 +287,7 @@ export function MainNavbar() {
     key: "occasions",
     labelKey: "nav.occasions",
     items: occasionItems,
-    footer: { label: "View All Occasions", labelKey: "nav.viewAllOccasions", href: "/occasions" },
+    footer: { label: t("nav.viewAllOccasions"), labelKey: "nav.viewAllOccasions", href: "/occasions" },
     loading: occasionsLoading,
   };
   // Filter mega-menu category items to only those present in the OS categories
@@ -298,7 +298,7 @@ export function MainNavbar() {
   // to the appropriate group ("flowers" | "gifts") via CATEGORY_GROUPS.
   // Categories with zero in-stock products are excluded so shoppers never
   // land on an empty page.
-  const { data: catalogMetadata } = useCatalogMetadata(countryCode);
+  const { data: catalogMetadata } = useCatalogMetadata(countryCode, language);
   const osCategorySlugs = catalogMetadata
     ? new Set(catalogMetadata.categories.filter((c) => c.count > 0).map((c) => c.id))
     : null;
@@ -316,6 +316,22 @@ export function MainNavbar() {
   const remapTargetToSource = Object.fromEntries(
     Object.entries(CATEGORY_SLUG_REMAP).map(([src, tgt]) => [tgt, src]),
   );
+
+  // Localized category names from /catalog/metadata (server-side AI translation
+  // for ar/fr/el), keyed by catalog slug. Static menu items carry hardcoded
+  // English labels; for non-English languages, swap in the translated OS name.
+  const categoryNameBySlug = new Map<string, string>(
+    (catalogMetadata?.categories ?? []).map((c) => [c.id, c.name]),
+  );
+  const localizedStaticLabel = (item: MegaItem): MegaItem => {
+    if (language === "en" || item.labelKey) return item;
+    const slug = item.href.split("/category/")[1] ?? "";
+    if (!slug) return item;
+    const name =
+      categoryNameBySlug.get(slug) ??
+      (remapTargetToSource[slug] ? categoryNameBySlug.get(remapTargetToSource[slug]!) : undefined);
+    return name ? { ...item, label: name } : item;
+  };
 
   const filteredStaticMenus: MegaMenuDef[] = STATIC_MENUS.map((menu) => {
     const filteredItems = osCategorySlugs
@@ -362,7 +378,7 @@ export function MainNavbar() {
         }
       : undefined;
 
-    const resolvedItems = [...filteredItems, ...newItems].map((item) =>
+    const resolvedItems = [...filteredItems.map(localizedStaticLabel), ...newItems].map((item) =>
       item.labelKey ? { ...item, label: t(item.labelKey) } : item,
     );
     return { ...menu, items: resolvedItems, footer: resolvedFooter };

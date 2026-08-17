@@ -199,7 +199,7 @@ router.get("/homepage/banners", async (req, res) => {
   const now = Date.now();
   if (cached && now - cached.fetchedAt < BANNER_CACHE_TTL_MS) {
     let banners = normaliseBanners(cached.banners);
-    if (resolvedLang === "ar" || resolvedLang === "fr") {
+    if (resolvedLang === "ar" || resolvedLang === "fr" || resolvedLang === "el") {
       const textFields = banners.map((b) => ({
         title: b.title,
         headline: b.headline,
@@ -259,7 +259,7 @@ router.get("/homepage/banners", async (req, res) => {
     // For ar/fr: translate the English text we got from OS using our own LLM.
     // We always fetch English from OS and translate ourselves rather than relying
     // on OS-native localised fields (which the OS may not support yet).
-    if (resolvedLang === "ar" || resolvedLang === "fr") {
+    if (resolvedLang === "ar" || resolvedLang === "fr" || resolvedLang === "el") {
       const textFields = banners.map((b) => ({
         title: b.title,
         headline: b.headline,
@@ -502,7 +502,7 @@ router.get("/homepage/categories", async (req, res) => {
   const { items: scored, debugMap } = await buildOsCategories(countryCode, cityId);
   let items = scored ?? [];
 
-  if (lang === "ar" || lang === "fr") {
+  if (lang === "ar" || lang === "fr" || lang === "el") {
     const englishNames = items.map((item) => item.name);
     const translatedNames = await translateCategoryOccasionNames(englishNames, lang as CategoryOccasionLang);
     items = items.map((item, i) => ({ ...item, name: translatedNames[i] ?? item.name }));
@@ -530,7 +530,7 @@ router.get("/homepage/occasions", async (req, res) => {
   const { items: scored, debugMap } = await buildOsOccasions(countryCode, cityId);
   let items = scored ?? [];
 
-  if (lang === "ar" || lang === "fr") {
+  if (lang === "ar" || lang === "fr" || lang === "el") {
     const englishNames = items.map((item) => item.name);
     const translatedNames = await translateCategoryOccasionNames(englishNames, lang as CategoryOccasionLang);
     items = items.map((item, i) => ({ ...item, name: translatedNames[i] ?? item.name }));
@@ -727,10 +727,10 @@ router.get("/homepage/best-sellers", async (req, res) => {
   const now = Date.now();
   const cached = bestSellersCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
-    // Apply name translation when lang=ar|fr — the cache stores English names
+    // Apply name translation when lang=ar|fr|el — the cache stores English names
     // so a lang-neutral cache entry can be reused across locales.
     const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
-    if ((lang === "ar" || lang === "fr") && Array.isArray((cached.body as { products?: unknown[] }).products)) {
+    if ((lang === "ar" || lang === "fr" || lang === "el") && Array.isArray((cached.body as { products?: unknown[] }).products)) {
       const cachedProducts = (cached.body as { products: Array<{ name: string; osNumericId?: number | string }> }).products;
       const items = cachedProducts
         .filter((p) => p.osNumericId != null)
@@ -887,10 +887,10 @@ router.get("/homepage/best-sellers", async (req, res) => {
     bestSellersCache.set(cacheKey, { fetchedAt: now, body });
   }
 
-  // Translate product names when lang=ar|fr (uses its own 7-day cache so the
+  // Translate product names when lang=ar|fr|el (uses its own 7-day cache so the
   // OpenAI call is only made once per product per language).
   const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
-  if (lang === "ar" || lang === "fr") {
+  if (lang === "ar" || lang === "fr" || lang === "el") {
     const items = products
       .filter((p) => (p as { osNumericId?: number | string }).osNumericId != null)
       .map((p) => ({
@@ -953,8 +953,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   const now = Date.now();
   const cached = collectionBestSellersCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
-    // Apply name translation when lang=ar|fr — cache always stores English names.
-    if ((collLang === "ar" || collLang === "fr") && Array.isArray((cached.body as { products?: unknown[] }).products)) {
+    // Apply name translation when lang=ar|fr|el — cache always stores English names.
+    if ((collLang === "ar" || collLang === "fr" || collLang === "el") && Array.isArray((cached.body as { products?: unknown[] }).products)) {
       const cachedProducts = (cached.body as { products: Array<{ name: string; osNumericId?: number | string }> }).products;
       const items = cachedProducts
         .filter((p) => p.osNumericId != null)
@@ -1131,8 +1131,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     collectionBestSellersCache.set(cacheKey, { fetchedAt: now, body });
   }
 
-  // Translate product names when lang=ar|fr — cache always stores English names.
-  if (collLang === "ar" || collLang === "fr") {
+  // Translate product names when lang=ar|fr|el — cache always stores English names.
+  if (collLang === "ar" || collLang === "fr" || collLang === "el") {
     const items = products
       .filter((p) => (p as { osNumericId?: number | string }).osNumericId != null)
       .map((p) => ({

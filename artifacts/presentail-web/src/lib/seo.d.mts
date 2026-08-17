@@ -1,7 +1,7 @@
 // Type declarations for the plain-ESM single-source SEO module (`seo.mjs`).
 // Imported through the typed facade `seo.ts`.
 
-export type Lang = "en" | "ar" | "fr";
+export type Lang = "en" | "ar" | "fr" | "el";
 
 export type RobotsDirective = "index, follow" | "noindex, follow";
 

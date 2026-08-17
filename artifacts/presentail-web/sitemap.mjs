@@ -15,7 +15,7 @@ import {
   getProductAvailabilityState,
   PRODUCT_AVAILABILITY_STATE,
 } from "./seo-inject.mjs";
-import { HUB_CITY } from "./src/lib/hreflang.mjs";
+import { HUB_CITY, hreflangLangsForCountry } from "./src/lib/hreflang.mjs";
 
 const PAGINATION_PAGE_SIZE = 24;
 const PAGINATION_SITEMAP_MAX_PAGES = 10;
@@ -31,7 +31,10 @@ export const SITEMAP_CITIES = {
   ae: ["abu-dhabi", "ajman", "dubai", "fujairah", "ras-al-khaimah", "sharjah", "umm-al-quwain"],
   cy: ["larnaca", "limassol", "nicosia", "paphos"],
 };
-export const SITEMAP_LANGS = ["en", "ar", "fr"];
+export const SITEMAP_LANGS = ["en", "ar", "fr", "el"];
+// Blog content exists in EN/AR/FR only — the Greek child sitemap carries no
+// blog URLs and blog hreflang clusters never reference /el/blog.
+export const SITEMAP_BLOG_LANGS = ["en", "ar", "fr"];
 // Hub city per country for product / brand canonical URLs. Re-exported from
 // the shared hreflang module so entity-page canonicals (seo-inject.mjs) and
 // sitemap URLs can never disagree about which city is the hub.
@@ -147,6 +150,11 @@ export function buildSitemapXml({
   const cleanBase = (basePath ?? "/").replace(/\/$/, "");
   const lang = SITEMAP_LANGS.includes(locale) ? locale : "en";
 
+  // Greek ("el") is Cyprus-only: the Greek child sitemap must not emit URLs
+  // for Lebanon or UAE, and non-Cyprus clusters must not list el alternates.
+  const skipCountryForLang = (country) =>
+    !hreflangLangsForCountry(country).includes(lang);
+
   // Accumulate eligibility counts into reportRef when provided.
   const recordEligibility = (pageType, eligible) => {
     if (!reportRef) return;
@@ -174,7 +182,7 @@ export function buildSitemapXml({
   // this date". Blog posts pass their real datePublished and override it.
   const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "", lastmod = generatedAt) => {
     const loc = origin + cleanBase + `/${lang}-${country}/${city}${rest}`;
-    const alternates = SITEMAP_LANGS.map((altLang) => {
+    const alternates = hreflangLangsForCountry(country).map((altLang) => {
       const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
       const code = `${altLang}-${country.toUpperCase()}`;
       return `    <xhtml:link rel="alternate" hreflang="${escXml(code)}" href="${escXml(href)}"/>`;
@@ -218,6 +226,7 @@ export function buildSitemapXml({
   // language alternates (so the three languages collapse into a single block
   // instead of three separate <url> entries).
   for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
+    if (skipCountryForLang(country)) continue;
     for (const city of cities) {
       for (const subpath of SITEMAP_STATIC_PATHS) {
         const rest = subpath === "/" ? "" : subpath;
@@ -246,6 +255,7 @@ export function buildSitemapXml({
   // directly; when `productsByCountry` is absent the single `products` list
   // is used for every city (backward-compat for unit tests).
   for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    if (skipCountryForLang(country)) continue;
     const cityProducts = productsByCountry?.[country] ?? products;
     for (const product of cityProducts) {
       if (!product?.slug) continue;
@@ -274,6 +284,7 @@ export function buildSitemapXml({
     if (!brand?.slug) continue;
     const encoded = encodeURIComponent(brand.slug);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      if (skipCountryForLang(country)) continue;
       // At sitemap build time per-city product counts are unavailable without
       // O(brands×cities) extra API calls. We use brand.count (global brand total)
       // as productCount and totalProductCount (full catalog size) as the parent
@@ -310,6 +321,7 @@ export function buildSitemapXml({
   // so we never emit a URL for an occasion with 0 products in that city.
   // Pagination page count is also per-city so pages without content are omitted.
   for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    if (skipCountryForLang(country)) continue;
     const cityOccasions = occasionsByCountry?.[country] ?? occasions;
     for (const occasion of cityOccasions) {
       if (!occasion?.id) continue;
@@ -360,6 +372,7 @@ export function buildSitemapXml({
   // Per-city filtering: same pattern as occasions above — `categoriesByCountry`
   // provides per-country counts so empty city/category combinations are omitted.
   for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    if (skipCountryForLang(country)) continue;
     const cityCategories = categoriesByCountry?.[country] ?? categories;
     for (const category of cityCategories) {
       if (!category?.id) continue;
@@ -429,6 +442,7 @@ export function buildSitemapXml({
   const hasCatalogData = categories.length > 0 || categoriesByCountry != null;
   if (hasCatalogData) {
     for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
+      if (skipCountryForLang(country)) continue;
       const hubCity = HUB_CITY[country];
       for (const city of cities) {
         if (city === hubCity) continue; // already emitted above
@@ -461,7 +475,7 @@ export function buildSitemapXml({
   const urlEntryBlog = (rest, lastmod = generatedAt) => {
     // `rest` is either "" (blog index) or "/:slug" (article).
     const loc = `${origin}${cleanBase}/${lang}/blog${rest}`;
-    const alternates = SITEMAP_LANGS.map((altLang) => {
+    const alternates = SITEMAP_BLOG_LANGS.map((altLang) => {
       const href = `${origin}${cleanBase}/${altLang}/blog${rest}`;
       return `    <xhtml:link rel="alternate" hreflang="${escXml(altLang)}" href="${escXml(href)}"/>`;
     });
@@ -472,19 +486,22 @@ export function buildSitemapXml({
     return `  <url>\n    <loc>${escXml(loc)}</loc>${lastmodLine}\n    <changefreq>${rest ? "monthly" : "weekly"}</changefreq>\n    <priority>0.6</priority>\n${alternates.join("\n")}\n  </url>`;
   };
 
-  // Blog index: /{lang}/blog
-  urls.push(urlEntryBlog(""));
+  // Blog URLs exist in EN/AR/FR only — skip the section for the Greek child.
+  if (SITEMAP_BLOG_LANGS.includes(lang)) {
+    // Blog index: /{lang}/blog
+    urls.push(urlEntryBlog(""));
 
-  // Blog articles: /{lang}/blog/:slug
-  for (const [slug, langs] of Object.entries(blogPostsSource)) {
-    if (!slug) continue;
-    const encoded = encodeURIComponent(slug);
-    // Use the real publish date as lastmod when available; fall back to the
-    // sitemap generation date. Never omit lastmod on articles — crawlers use
-    // it to prioritise recrawling recently updated content.
-    const datePublished =
-      langs?.en?.datePublished ?? Object.values(langs ?? {})[0]?.datePublished ?? null;
-    urls.push(urlEntryBlog(`/${encoded}`, datePublished ?? generatedAt));
+    // Blog articles: /{lang}/blog/:slug
+    for (const [slug, langs] of Object.entries(blogPostsSource)) {
+      if (!slug) continue;
+      const encoded = encodeURIComponent(slug);
+      // Use the real publish date as lastmod when available; fall back to the
+      // sitemap generation date. Never omit lastmod on articles — crawlers use
+      // it to prioritise recrawling recently updated content.
+      const datePublished =
+        langs?.en?.datePublished ?? Object.values(langs ?? {})[0]?.datePublished ?? null;
+      urls.push(urlEntryBlog(`/${encoded}`, datePublished ?? generatedAt));
+    }
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>

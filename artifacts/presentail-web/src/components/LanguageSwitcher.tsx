@@ -1,5 +1,6 @@
 import { useLocale } from "@/contexts/LocaleContext";
-import { SUPPORTED_LANGS, type Lang } from "@/lib/locale-route";
+import { langsForCountry, parseLocalePath, type Lang } from "@/lib/locale-route";
+import { useLocation } from "wouter";
 import { Check, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ const LABELS: Record<Lang, string> = {
   en: "EN",
   ar: "ع",
   fr: "FR",
+  el: "ΕΛ",
 };
 
 type Props = {
@@ -21,6 +23,16 @@ type Props = {
 
 export function LanguageSwitcher({ className = "", variant = "default" }: Props) {
   const { language, setLanguage, t, dir } = useLocale();
+  const [path] = useLocation();
+  // Greek is offered only on the landing page (no country context) and for
+  // Cyprus — the switcher derives the country from the current URL prefix.
+  // Inside city storefronts the app router runs under a `/{lang}-{country}`
+  // base, so wouter's path has the locale prefix stripped; read the full
+  // browser pathname instead (`path` still subscribes us to navigation).
+  const fullPath =
+    typeof window !== "undefined" ? window.location.pathname : path;
+  const { country } = parseLocalePath(fullPath);
+  const availableLangs = langsForCountry(country);
   const align = dir === "rtl" ? "start" : "end";
   const isPill = variant === "pill";
   const triggerClass = isPill
@@ -38,7 +50,7 @@ export function LanguageSwitcher({ className = "", variant = "default" }: Props)
         <ChevronDown className="w-3 h-3 opacity-70" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-[8rem] z-[80] max-h-60">
-        {SUPPORTED_LANGS.map((lang) => {
+        {availableLangs.map((lang) => {
           const active = language === lang;
           return (
             <DropdownMenuItem

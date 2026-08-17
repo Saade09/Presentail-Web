@@ -140,6 +140,12 @@ export async function pingIndexNowForDiscontinuedProduct(
         `https://${INDEXNOW_HOST}/${lang}-${country}/${city}/product/${encoded}`,
       );
     }
+    // Greek is Cyprus-only on the storefront.
+    if (country === "cy") {
+      urlList.push(
+        `https://${INDEXNOW_HOST}/el-${country}/${city}/product/${encoded}`,
+      );
+    }
   }
 
   const body = JSON.stringify({

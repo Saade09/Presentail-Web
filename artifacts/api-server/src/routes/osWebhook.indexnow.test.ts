@@ -58,8 +58,11 @@ describe("pingIndexNowForDiscontinuedProduct", () => {
     );
     const urlList: string[] = body.urlList;
 
-    const expectedCount = EXPECTED_COUNTRIES.length * EXPECTED_LANGS.length;
+    // Greek (el) is Cyprus-only, adding one extra URL on top of langs × countries.
+    const expectedCount = EXPECTED_COUNTRIES.length * EXPECTED_LANGS.length + 1;
     expect(urlList).toHaveLength(expectedCount);
+    expect(urlList.some((u) => u.includes("/el-cy/"))).toBe(true);
+    expect(urlList.some((u) => u.includes("/el-lb/") || u.includes("/el-ae/"))).toBe(false);
 
     for (const country of EXPECTED_COUNTRIES) {
       const city = EXPECTED_CANONICAL_CITIES[country];

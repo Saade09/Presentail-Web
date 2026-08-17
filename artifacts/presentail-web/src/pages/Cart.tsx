@@ -1355,7 +1355,7 @@ export default function Cart() {
                   <Input
                     value={cardTo}
                     onChange={(e) => handleCardToChange(e.target.value)}
-                    placeholder={t("checkout.firstNamePh")}
+                    placeholder={t("checkout.recipientNamePh")}
                     data-testid="input-cart-card-to"
                   />
                 </div>

@@ -48,7 +48,7 @@ export const footerStrings: Dict = {
   "footer.addressUrl": {
     en: "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
     ar: "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
-  },
+  }, // no-translate — Google Maps URL, identical across all locales
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.addressDubai": {
     en: "Shop 41, Al Barsha 1, Al Attar Business Center, Dubai, UAE",
@@ -75,7 +75,6 @@ export const footerStrings: Dict = {
   },
   "footer.terms": { en: "Terms of Use", ar: "شروط الاستخدام" },
   "footer.privacy": { en: "Privacy Policy", ar: "سياسة الخصوصية" },
-  "footer.accountDeletion": { en: "Account Deletion", ar: "حذف الحساب" },
 };
 
 export const footerStringsFr: Record<string, string> = {
@@ -114,5 +113,42 @@ export const footerStringsFr: Record<string, string> = {
   "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ème étage, Bureau 403-405 1076, Nicosie, Chypre",
   "footer.terms": "Conditions d'utilisation",
   "footer.privacy": "Politique de confidentialité",
-  "footer.accountDeletion": "Suppression de compte",
+};
+
+export const footerStringsEl: Record<string, string> = {
+  "footer.socialMedia": "Μέσα κοινωνικής δικτύωσης",
+  "footer.getInTouch": "Επικοινωνήστε",
+  "footer.contactUs": "Επικοινωνήστε μαζί μας",
+  "footer.faqs": "Συχνές ερωτήσεις",
+  "footer.popularCategories": "Δημοφιλείς κατηγορίες",
+  "footer.popular.flowers": "Λουλούδια",
+  "footer.popular.plants": "Φυτά",
+  "footer.popular.giftBundles": "Πακέτα δώρων",
+  "footer.popular.cakesSweets": "Τούρτες & γλυκά",
+  "footer.popular.baskets": "Καλάθια",
+  "footer.popular.brands": "Μάρκες",
+  "footer.popular.occasions": "Περιστάσεις",
+  "footer.getToKnowUs": "Γνωρίστε μας",
+  "footer.know.partner": "Συνεργαστείτε μαζί μας",
+  "footer.know.weddings": "Γάμοι & εκδηλώσεις",
+  "footer.know.corporate": "Εταιρικά δώρα",
+  "footer.know.careers": "Καριέρα",
+  "footer.know.blogs": "Ιστολόγιο",
+  "footer.currencySwitcher": "Επιλογέας νομίσματος",
+  "footer.language": "Γλώσσα",
+  "footer.city": "Περιοχή παράδοσης",
+  "footer.openCity": "Αλλαγή περιοχής παράδοσης",
+  "footer.selectCity": "Επιλέξτε περιοχή παράδοσης",
+  "footer.allRightsReserved": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail SAL",
+  "footer.allRightsReservedDubai": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail Flowers Trading L.L.C",
+  "footer.allRightsReservedAbuDhabi": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail Flowers Trading L.L.C - Υποκατάστημα Άμπου Ντάμπι",
+  "footer.address": "Abdel Wahab El Inglizi St, Achrafieh, Βηρυτός, Λίβανος",
+  "footer.addressUrl": "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
+  "footer.addressDubai": "Κατάστημα 41, Al Barsha 1, Al Attar Business Center, Ντουμπάι, ΗΑΕ",
+  "footer.addressAbuDhabi": "Al Nahyan, East 19, κτίριο Mina Ahmed Mohammed Khalifa, Άμπου Ντάμπι, ΗΑΕ",
+  "footer.allRightsReservedCyprus": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail LTD",
+  "footer.ownedOperatedCyprus": "Αυτός ο ιστότοπος ανήκει και λειτουργεί από την Presentail LTD",
+  "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ος όροφος, Γραφείο 403-405 1076, Λευκωσία, Κύπρος",
+  "footer.terms": "Όροι χρήσης",
+  "footer.privacy": "Πολιτική απορρήτου",
 };

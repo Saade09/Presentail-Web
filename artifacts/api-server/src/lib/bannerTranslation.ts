@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import OpenAI from "openai";
 import { logger } from "./logger";
 
-export type BannerLang = "ar" | "fr";
+export type BannerLang = "ar" | "fr" | "el";
 
 export type BannerTextFields = {
   title?: string;
@@ -14,6 +14,7 @@ export type BannerTextFields = {
 const LANG_NAMES: Record<BannerLang, string> = {
   ar: "Modern Standard Arabic",
   fr: "French",
+  el: "Modern Greek",
 };
 
 // In-process translation cache — keyed by sha256(lang + sorted-field-values).

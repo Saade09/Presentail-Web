@@ -6,16 +6,19 @@ const EYEBROW: Record<Language, string> = {
   en: "Legal",
   ar: "قانوني",
   fr: "Mentions légales",
+  el: "Νομικά",
 };
 const TITLE: Record<Language, string> = {
   en: "Privacy Policy",
   ar: "سياسة الخصوصية",
   fr: "Politique de confidentialité",
+  el: "Πολιτική Απορρήτου",
 };
 const INTRO_NOTE: Record<Language, string> = {
   en: "This Privacy Policy explains how Presentail collects, uses and protects your personal information across our website, mobile applications and social channels. The legally binding text below is provided in English.",
   ar: "تشرح سياسة الخصوصية هذه كيف تجمع بريزانتيل معلوماتك الشخصية وتستخدمها وتحميها عبر موقعنا وتطبيقاتنا للهواتف وقنواتنا الاجتماعية. النص القانوني الملزم أدناه متوفّر باللغة الإنكليزية.",
   fr: "Cette Politique de confidentialité explique comment Presentail collecte, utilise et protège vos informations personnelles sur notre site, nos applications mobiles et nos canaux sociaux. Le texte juridiquement contraignant ci-dessous est fourni en anglais.",
+  el: "Αυτή η Πολιτική Απορρήτου εξηγεί πώς η Presentail συλλέγει, χρησιμοποιεί και προστατεύει τα προσωπικά σας δεδομένα στον ιστότοπο, τις εφαρμογές για κινητά και τα κοινωνικά μας κανάλια. Το νομικά δεσμευτικό κείμενο που ακολουθεί παρέχεται στα αγγλικά.",
 };
 const META: Record<Language, { label: string; value: string }[]> = {
   en: [
@@ -29,6 +32,10 @@ const META: Record<Language, { label: string; value: string }[]> = {
   fr: [
     { label: "Dernière modification", value: "December 17, 2025" },
     { label: "Date d'entrée en vigueur", value: "August 30, 2019" },
+  ],
+  el: [
+    { label: "Τελευταία τροποποίηση", value: "December 17, 2025" },
+    { label: "Ημερομηνία έναρξης ισχύος", value: "August 30, 2019" },
   ],
 };
 

@@ -126,6 +126,10 @@ export function buildCanonicalUrls(
       for (const lang of LANGS) {
         urls.push(`${BASE}/${lang}-${country}/${city}/${kind}/${encoded}`);
       }
+      // Greek is Cyprus-only on the storefront.
+      if (country === "cy") {
+        urls.push(`${BASE}/el-${country}/${city}/${kind}/${encoded}`);
+      }
     }
   }
   return urls;

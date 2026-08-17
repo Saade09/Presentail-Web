@@ -13,4 +13,5 @@ export const GetHomepageBannersLang = {
   en: "en",
   ar: "ar",
   fr: "fr",
+  el: "el",
 } as const;

@@ -1246,12 +1246,11 @@ export const GetHomepageBannersQueryParams = zod.object({
     ),
   device: zod
     .enum(["desktop", "mobile"])
-    .default("desktop")
     .describe(
       "The requesting device type. OS uses this to return the correct\nmedia asset dimensions and crop for the viewport.\n",
     ),
   lang: zod
-    .enum(["en", "ar", "fr"])
+    .enum(["en", "ar", "fr", "el"])
     .default(getHomepageBannersQueryLangDefault)
     .describe(
       'Language for banner text fields (title, headline, subtitle,\nctaText). When the OS response contains a localised variant\n(flat fields such as title_ar \/ title_fr, or a nested\ntranslations.{lang}.\* shape) that value is returned instead\nof the English original. Falls back to English when the\nlocalised field is absent or empty. Defaults to \"en\" when\nomitted.\n',
@@ -2313,10 +2312,11 @@ export const GetDeliveryLocationsResponse = zod.object({
             .object({
               ar: zod.string().optional(),
               fr: zod.string().optional(),
+              el: zod.string().optional(),
             })
             .optional()
             .describe(
-              'Optional translations of a display name. Keys are lowercase\nISO 639-1 language codes (\"ar\", \"fr\"). English is implicit in\nthe parent\'s `name` field. Missing translations should fall\nback to `name`.\n',
+              'Optional translations of a display name. Keys are lowercase\nISO 639-1 language codes (\"ar\", \"fr\", \"el\"). English is implicit in\nthe parent\'s `name` field. Missing translations should fall\nback to `name`.\n',
             ),
           freeDeliveryThresholdUsd: zod
             .number()
@@ -2340,10 +2340,11 @@ export const GetDeliveryLocationsResponse = zod.object({
         .object({
           ar: zod.string().optional(),
           fr: zod.string().optional(),
+          el: zod.string().optional(),
         })
         .optional()
         .describe(
-          'Optional translations of a display name. Keys are lowercase\nISO 639-1 language codes (\"ar\", \"fr\"). English is implicit in\nthe parent\'s `name` field. Missing translations should fall\nback to `name`.\n',
+          'Optional translations of a display name. Keys are lowercase\nISO 639-1 language codes (\"ar\", \"fr\", \"el\"). English is implicit in\nthe parent\'s `name` field. Missing translations should fall\nback to `name`.\n',
         ),
       freeDeliveryThresholdUsd: zod
         .number()
@@ -2820,12 +2821,16 @@ export const WooSearchResponse = zod.object({
 });
 
 /**
- * Accepts an email address and returns whether a matching account
-exists. Used by the web sign-in flow to decide whether to show
-sign-in options or redirect to sign-up. When `exists` is `true`
-and `passwordLoginAvailable` is `false` (the default production
-state when `WC_AUTH_ENABLED` is unset), the client should skip
-the password field and show social sign-in alternatives instead.
+ * Accepts an email address and returns whether a matching local account
+exists. Used by the web sign-in flow to decide whether to show the
+password step or redirect to sign-up.
+
+**Enumeration trade-off:** this endpoint returns `userExists: true/false`,
+making it an email oracle. The mitigation is a dedicated per-IP rate
+limiter (10 requests / 15 min) that is stricter than the shared
+`/auth/exists` limiter. Distributed attacks rotating many IPs are not
+fully preventable by per-IP rate limiting alone — this is a deliberate
+product trade-off for UX routing purposes.
 
  * @summary Check whether a returning shopper has an account
  */
@@ -2836,36 +2841,17 @@ export const CheckAuthWebBridgeBody = zod.object({
 export const CheckAuthWebBridgeResponse = zod
   .object({
     ok: zod.boolean(),
-    exists: zod
+    userExists: zod
       .boolean()
-      .describe(
-        "True when a matching account was found for the supplied email.",
-      ),
-    clerkReady: zod
-      .boolean()
-      .optional()
-      .describe(
-        "True when the Clerk user record has been provisioned and the\nemail-code sign-in step can proceed. Only present when `exists`\nis `true`.\n",
-      ),
+      .describe("True when a matching local account was found for the email."),
     passwordLoginAvailable: zod
       .boolean()
-      .optional()
       .describe(
-        "Whether legacy password login is available for this account.\nFalse (the default) when `WC_AUTH_ENABLED` is unset or false —\nclients should skip the password field and show social sign-in\nalternatives instead.\n",
+        "True when the account uses a local scrypt password hash and the\npassword step should be shown.\n",
       ),
-    socialProvider: zod
-      .enum(["google", "apple"])
-      .nullish()
-      .describe(
-        'The social identity provider the account was originally created\nwith. Only present when `exists` is `true` and the customer row\nhas `authProvider` set to `\"google\"` or `\"apple\"`. Null when the\naccount was created with a password, via WooCommerce, or when no\nlocal row exists yet. Clients should use this to name the exact\nprovider in the sign-in prompt rather than showing a generic\n\"please use one of the options below\" message.\n',
-      ),
-    code: zod
-      .enum(["lookup_failed", "lookup_unavailable"])
-      .optional()
-      .describe("Error code explaining a failed or degraded lookup."),
   })
   .describe(
-    "Result of the \/auth\/web-bridge email lookup. When `exists` is `true`\nand `passwordLoginAvailable` is `false`, the web client should skip\nthe password field and present social sign-in alternatives.\n",
+    "Result of the \/auth\/web-bridge email lookup. When `userExists` is\n`true` and `passwordLoginAvailable` is `true`, show the password step.\nWhen `userExists` is `false`, redirect to sign-up.\n",
   );
 
 /**

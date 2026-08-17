@@ -13,14 +13,15 @@
 
 import { LOCATION_DATA } from "./locationData.mjs";
 
-export const SUPPORTED_LANGS = ["en", "ar", "fr"];
+export const SUPPORTED_LANGS = ["en", "ar", "fr", "el"];
 
-export const OG_LOCALE = { en: "en_US", ar: "ar_AE", fr: "fr_FR" };
+export const OG_LOCALE = { en: "en_US", ar: "ar_AE", fr: "fr_FR", el: "el_GR" };
 
 export const OG_LOCALE_COUNTRY = {
   en: { ae: "en_US", lb: "en_US", cy: "en_CY" },
   ar: { ae: "ar_AE", lb: "ar_LB", cy: "ar_CY" },
   fr: { ae: "fr_FR", lb: "fr_FR", cy: "fr_FR" },
+  el: { ae: "el_GR", lb: "el_GR", cy: "el_CY" },
 };
 
 // Public social profiles, surfaced as Organization `sameAs` links in JSON-LD.
@@ -38,6 +39,7 @@ export const COUNTRY_NAMES = {
     cy: "قبرص",
   },
   fr: { ae: "Émirats arabes unis", lb: "Liban", cy: "Chypre" },
+  el: { ae: "τα Ηνωμένα Αραβικά Εμιράτα", lb: "τον Λίβανο", cy: "την Κύπρο" },
 };
 
 // Plain English-style country names (no leading article) for use inside
@@ -50,6 +52,7 @@ export const COUNTRY_PLAIN_NAMES = {
     cy: "قبرص",
   },
   fr: { ae: "Émirats arabes unis", lb: "Liban", cy: "Chypre" },
+  el: { ae: "Ηνωμένα Αραβικά Εμιράτα", lb: "Λίβανος", cy: "Κύπρος" },
 };
 
 export const CITY_NAMES = {
@@ -170,6 +173,45 @@ export const CITY_NAMES = {
     "cy-larnaca": "Larnaca",
     "cy-paphos": "Paphos",
   },
+  el: {
+    "ae-dubai": "Ντουμπάι",
+    "ae-abu-dhabi": "Άμπου Ντάμπι",
+    "ae-sharjah": "Σάρτζα",
+    "ae-ajman": "Ατζμάν",
+    "ae-ras-al-khaimah": "Ρας Αλ Χάιμα",
+    "ae-fujairah": "Φουτζάιρα",
+    "ae-umm-al-quwain": "Ουμ Αλ Κουέιν",
+    "lb-akkar": "Άκαρ",
+    "lb-aley": "Άλεϊ",
+    "lb-baabda": "Μπάαμπντα",
+    "lb-baalbeck": "Μπάαλμπεκ",
+    "lb-batroun": "Μπατρούν",
+    "lb-bcharee": "Μπσαρέ",
+    "lb-beirut": "Βηρυτός",
+    "lb-bent-jbeil": "Μπιντ Τζμπέιλ",
+    "lb-chouf": "Σουφ",
+    "lb-hasbaya": "Χασμπάγια",
+    "lb-hermel": "Ερμέλ",
+    "lb-jbeil": "Τζμπέιλ",
+    "lb-jezzine": "Τζεζίν",
+    "lb-kesserwan": "Κεσερουάν",
+    "lb-koura": "Κούρα",
+    "lb-marjayoun": "Μαρτζαγιούν",
+    "lb-metn": "Μετν",
+    "lb-minnieh-dennaya": "Μινιέ-Ντενιγιέ",
+    "lb-nabatieh": "Ναμπατιγιέ",
+    "lb-rechaya": "Ρασάγια",
+    "lb-saida": "Σαϊντά",
+    "lb-tripoli": "Τρίπολη",
+    "lb-tyre": "Τύρος",
+    "lb-west-bekaa": "Δυτική Μπεκάα",
+    "lb-zahle": "Ζαχλέ",
+    "lb-zghorta": "Ζγκόρτα",
+    "cy-nicosia": "Λευκωσία",
+    "cy-limassol": "Λεμεσός",
+    "cy-larnaca": "Λάρνακα",
+    "cy-paphos": "Πάφος",
+  },
 };
 
 export const TITLES = {
@@ -271,6 +313,39 @@ export const TITLES = {
     "shipping-policy": "Politique de livraison | Presentail",
     "account-deletion": "Politique de suppression de compte | Presentail",
   },
+  el: {
+    landing: "Αποστολή λουλουδιών & δώρων online | Presentail",
+    home: "Λουλούδια & δώρα στην πόλη {city} | Presentail",
+    shop: "Λουλούδια & δώρα στην πόλη {city} | Presentail",
+    bestSellers: "Δημοφιλέστερα στην πόλη {city} | Presentail",
+    product: "Αποστολή δώρων στην πόλη {city} | Presentail",
+    allOccasions: "Δώρα ανά περίσταση στην {city} | Presentail",
+    brands: "Συνεργαζόμενες μάρκες στην {city} | Presentail",
+    brand: "Συλλογή μάρκας στην πόλη {city} | Presentail",
+    occasions: "Δώρα ανά περίσταση στην {city} | Presentail",
+    occasion: "Αποστολή δώρων στην πόλη {city} | Presentail",
+    category: "Αποστολή δώρων στην πόλη {city} | Presentail",
+    blogPost: "Το Ημερολόγιο του Ατελιέ | Presentail",
+    cart: "Η τσάντα σας | Presentail",
+    checkout: "Ολοκλήρωση αγοράς | Presentail",
+    orderConfirmed: "Η παραγγελία επιβεβαιώθηκε | Presentail",
+    auth: "Σύνδεση | Presentail",
+    account: "Ο λογαριασμός μου | Presentail",
+    favorites: "Τα αγαπημένα μου | Presentail",
+    about: "Σχετικά με την Presentail | Πολυτελή λουλούδια & δώρα",
+    careers: "Καριέρα στην Presentail | Θέσεις εργασίας",
+    blog: "Το Ημερολόγιο του Ατελιέ | Presentail",
+    partner: "Γίνετε συνεργάτης της Presentail | Συνεργασίες μαρκών",
+    weddings: "Λουλούδια γάμου στην πόλη {city} | Presentail",
+    corporate: "Εταιρικά δώρα στην πόλη {city} | Presentail",
+    contact: "Επικοινωνία Presentail στην {city} | Υποστήριξη",
+    faqs: "Συχνές ερωτήσεις αποστολής στην {city} | Presentail",
+    terms: "Όροι χρήσης | Presentail",
+    privacy: "Πολιτική απορρήτου | Presentail",
+    "return-policy": "Πολιτική επιστροφών | Presentail",
+    "shipping-policy": "Πολιτική αποστολής & παράδοσης | Presentail",
+    "account-deletion": "Πολιτική διαγραφής λογαριασμού | Presentail",
+  },
 };
 
 // Separate OG and Twitter copy for the landing page only.
@@ -288,6 +363,10 @@ export const LANDING_OG = {
     title: "Livraison de fleurs et cadeaux en ligne | Presentail",
     description: "Commandez fleurs, gâteaux, ballons et cadeaux en ligne avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
   },
+  el: {
+    title: "Αποστολή λουλουδιών & δώρων online | Presentail",
+    description: "Παραγγείλετε λουλούδια, τούρτες, μπαλόνια και δώρα online με την Presentail. Ταχεία αυθημερόν παράδοση διαθέσιμη σε Λίβανο, ΗΑΕ και Κύπρο.",
+  },
 };
 
 export const LANDING_TWITTER = {
@@ -302,6 +381,10 @@ export const LANDING_TWITTER = {
   fr: {
     title: "Livraison de fleurs et cadeaux en ligne | Presentail",
     description: "Envoyez fleurs et cadeaux en ligne avec Presentail. Livraison express le jour même au Liban, aux Émirats et à Chypre.",
+  },
+  el: {
+    title: "Αποστολή λουλουδιών & δώρων online | Presentail",
+    description: "Στείλτε λουλούδια και δώρα online με την Presentail. Ταχεία αυθημερόν παράδοση σε Λίβανο, ΗΑΕ και Κύπρο.",
   },
 };
 
@@ -321,6 +404,10 @@ export const HOME_OG = {
     title: "Fleurs et cadeaux à {city} | Presentail",
     description: "Envoyez fleurs, gâteaux et cadeaux à {city} avec la livraison le jour même par Presentail.",
   },
+  el: {
+    title: "Λουλούδια & δώρα στην πόλη {city} | Presentail",
+    description: "Στείλτε λουλούδια, τούρτες και δώρα στην πόλη {city} με αυθημερόν παράδοση από την Presentail.",
+  },
 };
 
 export const HOME_TWITTER = {
@@ -335,6 +422,10 @@ export const HOME_TWITTER = {
   fr: {
     title: "Fleurs et cadeaux à {city} | Presentail",
     description: "Envoyez fleurs et cadeaux à {city} — livraison le jour même par Presentail.",
+  },
+  el: {
+    title: "Λουλούδια & δώρα στην πόλη {city} | Presentail",
+    description: "Στείλτε λουλούδια και δώρα στην πόλη {city} — αυθημερόν παράδοση από την Presentail.",
   },
 };
 
@@ -360,6 +451,10 @@ export const GENERIC_OG = {
       title: "Boutique fleurs et cadeaux à {city} | Presentail",
       description: "Parcourez bouquets, gâteaux et cadeaux de luxe à {city} avec la livraison le jour même par Presentail.",
     },
+    el: {
+      title: "Λουλούδια & δώρα στην πόλη {city} | Presentail",
+      description: "Δείτε επιλεγμένα μπουκέτα, τούρτες και πολυτελή δώρα στην πόλη {city} με αυθημερόν παράδοση από την Presentail.",
+    },
   },
   brands: {
     en: {
@@ -373,6 +468,10 @@ export const GENERIC_OG = {
     fr: {
       title: "Marques partenaires à {city} | Presentail",
       description: "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à {city}.",
+    },
+    el: {
+      title: "Συνεργαζόμενες μάρκες στην {city} | Presentail",
+      description: "Ανακαλύψτε τις επιλεγμένες συνεργαζόμενες μάρκες της Presentail με παράδοση στην πόλη {city}.",
     },
   },
   occasions: {
@@ -388,6 +487,10 @@ export const GENERIC_OG = {
       title: "Acheter par occasion à {city} | Presentail",
       description: "Trouvez le cadeau idéal pour chaque occasion à {city} avec la livraison le jour même par Presentail.",
     },
+    el: {
+      title: "Δώρα ανά περίσταση στην {city} | Presentail",
+      description: "Βρείτε το ιδανικό δώρο για κάθε περίσταση στην πόλη {city} με αυθημερόν παράδοση από την Presentail.",
+    },
   },
   category: {
     en: {
@@ -401,6 +504,10 @@ export const GENERIC_OG = {
     fr: {
       title: "Acheter des cadeaux par catégorie à {city} | Presentail",
       description: "Parcourez les catégories de cadeaux Presentail à {city} avec la livraison le jour même.",
+    },
+    el: {
+      title: "Δώρα ανά κατηγορία στην πόλη {city} | Presentail",
+      description: "Δείτε τις κατηγορίες δώρων της Presentail στην πόλη {city} με αυθημερόν παράδοση.",
     },
   },
 };
@@ -419,6 +526,10 @@ export const GENERIC_TWITTER = {
       title: "Boutique fleurs et cadeaux à {city} | Presentail",
       description: "Fleurs, gâteaux et cadeaux à {city} — livraison le jour même par Presentail.",
     },
+    el: {
+      title: "Λουλούδια & δώρα στην πόλη {city} | Presentail",
+      description: "Λουλούδια, τούρτες και δώρα στην πόλη {city} — αυθημερόν παράδοση από την Presentail.",
+    },
   },
   brands: {
     en: {
@@ -432,6 +543,10 @@ export const GENERIC_TWITTER = {
     fr: {
       title: "Marques partenaires à {city} | Presentail",
       description: "Explorez nos marques partenaires à {city} — livrées par Presentail.",
+    },
+    el: {
+      title: "Συνεργαζόμενες μάρκες στην {city} | Presentail",
+      description: "Εξερευνήστε τις επιλεγμένες συνεργαζόμενες μάρκες μας στην πόλη {city} — παράδοση από την Presentail.",
     },
   },
   occasions: {
@@ -447,6 +562,10 @@ export const GENERIC_TWITTER = {
       title: "Acheter par occasion à {city} | Presentail",
       description: "Des cadeaux pour chaque occasion à {city} — livraison le jour même par Presentail.",
     },
+    el: {
+      title: "Δώρα ανά περίσταση στην {city} | Presentail",
+      description: "Δώρα για κάθε περίσταση στην πόλη {city} — αυθημερόν παράδοση από την Presentail.",
+    },
   },
   category: {
     en: {
@@ -460,6 +579,10 @@ export const GENERIC_TWITTER = {
     fr: {
       title: "Acheter des cadeaux par catégorie à {city} | Presentail",
       description: "Parcourez les cadeaux par catégorie à {city} — livraison le jour même par Presentail.",
+    },
+    el: {
+      title: "Δώρα ανά κατηγορία στην πόλη {city} | Presentail",
+      description: "Δώρα ανά κατηγορία στην πόλη {city} — αυθημερόν παράδοση από την Presentail.",
     },
   },
 };
@@ -575,6 +698,43 @@ export const DESCRIPTIONS = {
     "shipping-policy": "Comment Presentail livre fleurs et cadeaux au Liban, aux Émirats et à Chypre — délais de livraison, options le jour même et heures limites.",
     "account-deletion": "Comment supprimer votre compte Presentail depuis l'application ou par e-mail, les données effacées et le délai de traitement de 15 jours.",
   },
+  el: {
+    landing:
+      "Στείλτε λουλούδια, τούρτες, μπαλόνια, φυτά, σοκολάτες και άλλα δώρα online με την Presentail. Ταχεία αυθημερόν παράδοση διαθέσιμη σε Λίβανο, ΗΑΕ και Κύπρο.",
+    home: "Στείλτε λουλούδια, τούρτες, μπαλόνια, φυτά, σοκολάτες και δώρα online στην πόλη {city}. Ταχεία αυθημερόν παράδοση διαθέσιμη με την Presentail.",
+    shop: "Δείτε τα επιλεγμένα μπουκέτα, τούρτες και πολυτελή δώρα της Presentail για παράδοση στην πόλη {city}, {country}.",
+    bestSellers: "Ανακαλύψτε τα δημοφιλέστερα μπουκέτα, τούρτες και πολυτελή δώρα της Presentail για παράδοση στην πόλη {city}, {country}.",
+    product: "Παραγγείλετε αυτό το δώρο για παράδοση στην πόλη {city}, {country} με την Presentail.",
+    allOccasions:
+      "Δείτε όλες τις περιστάσεις — γενέθλια, επετείους, γάμους και άλλα — και βρείτε το ιδανικό δώρο για παράδοση στην πόλη {city}, {country}.",
+    brands:
+      "Ανακαλύψτε τις επιλεγμένες συνεργαζόμενες μάρκες της Presentail που είναι διαθέσιμες για παράδοση στην πόλη {city}, {country}.",
+    brand: "Αγοράστε ολόκληρη τη συλλογή αυτής της μάρκας για παράδοση στην πόλη {city}, {country} με την Presentail.",
+    occasions: "Δείτε δώρα ανά περίσταση στην πόλη {city}, {country} — γενέθλια, επετείους, γάμους, συλλυπητήρια και άλλα με την Presentail.",
+    occasion: "Βρείτε το ιδανικό δώρο για αυτή την περίσταση στην πόλη {city}, {country} με αυθημερόν παράδοση από την Presentail.",
+    category: "Παραγγείλετε από αυτή την κατηγορία δώρων για παράδοση στην πόλη {city}, {country} με την Presentail.",
+    blogPost: "Διαβάστε τις τελευταίες ιστορίες, εποχικούς οδηγούς και εμπνεύσεις για δώρα από τη συντακτική ομάδα της Presentail.",
+    cart: "Ελέγξτε την τσάντα σας στην Presentail και προχωρήστε σε ασφαλή ολοκλήρωση αγοράς.",
+    checkout:
+      "Ολοκληρώστε την παραγγελία σας στην Presentail με ασφαλή πληρωμή μέσω κάρτας, PayPal ή Mamo.",
+    orderConfirmed: "Σας ευχαριστούμε — η παραγγελία σας στην Presentail επιβεβαιώθηκε.",
+    auth: "Συνδεθείτε ή δημιουργήστε λογαριασμό Presentail για να διαχειρίζεστε παραγγελίες και διευθύνσεις.",
+    account: "Διαχειριστείτε το προφίλ, τις παραγγελίες και τις αποθηκευμένες διευθύνσεις σας στην Presentail.",
+    favorites: "Δείτε και διαχειριστείτε τα αποθηκευμένα δώρα και αγαπημένα σας στην Presentail.",
+    about: "Η Presentail είναι ένα πολυτελές ατελιέ λουλουδιών και δώρων με παράδοση σε Λίβανο, ΗΑΕ και Κύπρο. Γνωρίστε την ομάδα και την τέχνη πίσω από κάθε αποστολή.",
+    careers: "Ελάτε στην ομάδα της Presentail — προσλαμβάνουμε ανθοπώλες, σχεδιαστές και μηχανικούς για να χτίσουμε την πιο προσεγμένη εμπειρία δώρων σε Λίβανο, ΗΑΕ και Κύπρο.",
+    blog: "Σημειώσεις από το studio της Presentail: εποχική προμήθεια, συνεργαζόμενοι δημιουργοί και οδηγοί δώρων για τις πιο σημαντικές στιγμές της ζωής.",
+    partner: "Γίνετε συνεργάτης της Presentail για να φέρετε τη μάρκα σας σε πελάτες πολυτελών δώρων σε Λίβανο, ΗΑΕ και Κύπρο — ανθοπώλες, σοκολατοποιοί και ατελιέ lifestyle ευπρόσδεκτοι.",
+    weddings: "Εξατομικευμένος ανθικός σχεδιασμός και styling για γάμους και ιδιωτικές εκδηλώσεις στην πόλη {city} από το ατελιέ της Presentail, με αυθημερόν παράδοση δώρων στους καλεσμένους.",
+    corporate: "Προγράμματα εταιρικών δώρων από την Presentail στην πόλη {city} — επιλεγμένα δώρα για πελάτες και ομάδες σε μεγάλη κλίμακα, με επώνυμη συσκευασία και ενοποιημένη τιμολόγηση.",
+    contact: "Επικοινωνήστε με το concierge της Presentail στην πόλη {city} για υποστήριξη παραγγελιών, παρακολούθηση παράδοσης, ειδικά αιτήματα και συνεργασίες.",
+    faqs: "Απαντήσεις σε συχνές ερωτήσεις για την αποστολή λουλουδιών και δώρων της Presentail στην πόλη {city}, όπως χρόνοι παράδοσης, τρόποι πληρωμής, ακυρώσεις και επιστροφές.",
+    terms: "Οι Όροι Χρήσης που διέπουν την αγορά και τη χρήση του ιστότοπου, των εφαρμογών και των υπηρεσιών της Presentail.",
+    privacy: "Πώς η Presentail συλλέγει, χρησιμοποιεί και προστατεύει τα προσωπικά σας δεδομένα στον ιστότοπο, τις εφαρμογές και τα κοινωνικά κανάλια.",
+    "return-policy": "Η πολιτική επιστροφών και εγγύησης ικανοποίησης της Presentail — πώς να ζητήσετε επιστροφή, το παράθυρο φωτογραφίας 7 ημερών και τι καλύπτεται.",
+    "shipping-policy": "Πώς η Presentail παραδίδει λουλούδια και δώρα σε Λίβανο, ΗΑΕ και Κύπρο — χρόνοι παράδοσης, επιλογές αυθημερόν και ώρες λήξης παραγγελιών.",
+    "account-deletion": "Πώς να διαγράψετε τον λογαριασμό σας στην Presentail εντός της εφαρμογής ή μέσω email, ποια δεδομένα διαγράφονται και το διάστημα επεξεργασίας 15 ημερών.",
+  },
 };
 
 // Entity-specific templates (filled with the live entity `{name}` + `{city}`).
@@ -585,24 +745,27 @@ export const ENTITY_TITLES = {
     en: "{name} — {city} | Presentail",
     ar: "{name} — {city} | Presentail",
     fr: "{name} — {city} | Presentail",
+    el: "{name} — {city} | Presentail",
   },
   category: {
     en: "{name} Delivery in {city} | Presentail",
     ar: "توصيل {name} في {city} | Presentail",
     fr: "Livraison de {name} à {city} | Presentail",
+    el: "Αποστολή {name} στην πόλη {city} | Presentail",
   },
   occasion: {
     en: "{name} Flowers & Gifts in {city} | Presentail",
     ar: "زهور وهدايا {name} في {city} | Presentail",
     fr: "Fleurs et cadeaux {name} à {city} | Presentail",
+    el: "Λουλούδια & δώρα {name} στην {city} | Presentail",
   },
 };
 
 // No-city fallback titles (bare/legacy paths without a locale-prefixed city).
 export const ENTITY_TITLES_NO_CITY = {
-  product: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail" },
-  category: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail" },
-  occasion: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail" },
+  product: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail", el: "{name} | Presentail" },
+  category: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail", el: "{name} | Presentail" },
+  occasion: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail", el: "{name} | Presentail" },
 };
 
 export const ENTITY_DESCRIPTIONS = {
@@ -610,21 +773,25 @@ export const ENTITY_DESCRIPTIONS = {
     en: "Order {name} online in {city}. Send it with Presentail for fast, reliable gift delivery.",
     ar: "اطلب {name} أونلاين في {city}. أرسلها مع Presentail لتوصيل هدايا سريع وموثوق.",
     fr: "Commandez {name} en ligne à {city}. Envoyez-le avec Presentail pour une livraison de cadeaux rapide et fiable.",
+    el: "Παραγγείλετε {name} online στην πόλη {city}. Στείλτε το με την Presentail για γρήγορη και αξιόπιστη παράδοση δώρων.",
   },
   category: {
     en: "Shop {name} online in {city}. Send beautiful {name} with Presentail and enjoy express same-day delivery.",
     ar: "تسوّق {name} أونلاين في {city}. أرسل {name} الجميلة مع Presentail واستمتع بتوصيل سريع في نفس اليوم.",
     fr: "Achetez {name} en ligne à {city}. Envoyez de magnifiques {name} avec Presentail et profitez d'une livraison express le jour même.",
+    el: "Αγοράστε {name} online στην πόλη {city}. Στείλτε υπέροχα {name} με την Presentail και απολαύστε ταχεία αυθημερόν παράδοση.",
   },
   occasion: {
     en: "Send {name} flowers, cakes, balloons and gifts in {city}. Order online with Presentail for express same-day delivery.",
     ar: "أرسل زهور وكعك وبالونات وهدايا {name} في {city}. اطلب أونلاين مع Presentail لتوصيل سريع في نفس اليوم.",
     fr: "Envoyez fleurs, gâteaux, ballons et cadeaux {name} à {city}. Commandez en ligne avec Presentail pour une livraison express le jour même.",
+    el: "Στείλτε λουλούδια, τούρτες, μπαλόνια και δώρα {name} στην πόλη {city}. Παραγγείλετε online με την Presentail για ταχεία αυθημερόν παράδοση.",
   },
   brand: {
     en: "Shop {name} gifts online in {city}. Send curated {name} products with reliable delivery from Presentail.",
     ar: "تسوّق هدايا {name} أونلاين في {city}. أرسل منتجات {name} المنتقاة مع توصيل موثوق من Presentail.",
     fr: "Achetez les cadeaux {name} en ligne à {city}. Envoyez des produits {name} sélectionnés avec une livraison fiable de Presentail.",
+    el: "Αγοράστε δώρα {name} online στην πόλη {city}. Στείλτε επιλεγμένα προϊόντα {name} με αξιόπιστη παράδοση από την Presentail.",
   },
 };
 
@@ -634,21 +801,25 @@ export const ENTITY_DESCRIPTIONS_NO_CITY = {
     en: "Order {name} online. Send it with Presentail for fast, reliable gift delivery.",
     ar: "اطلب {name} أونلاين. أرسلها مع Presentail لتوصيل هدايا سريع وموثوق.",
     fr: "Commandez {name} en ligne. Envoyez-le avec Presentail pour une livraison de cadeaux rapide et fiable.",
+    el: "Παραγγείλετε {name} online. Στείλτε το με την Presentail για γρήγορη και αξιόπιστη παράδοση δώρων.",
   },
   category: {
     en: "Shop {name} online. Send beautiful {name} with Presentail and enjoy express same-day delivery.",
     ar: "تسوّق {name} أونلاين. أرسل {name} الجميلة مع Presentail واستمتع بتوصيل سريع في نفس اليوم.",
     fr: "Achetez {name} en ligne. Envoyez de magnifiques {name} avec Presentail et profitez d'une livraison express le jour même.",
+    el: "Αγοράστε {name} online. Στείλτε υπέροχα {name} με την Presentail και απολαύστε ταχεία αυθημερόν παράδοση.",
   },
   occasion: {
     en: "Send {name} flowers, cakes, balloons and gifts. Order online with Presentail for express same-day delivery.",
     ar: "أرسل زهور وكعك وبالونات وهدايا {name}. اطلب أونلاين مع Presentail لتوصيل سريع في نفس اليوم.",
     fr: "Envoyez fleurs, gâteaux, ballons et cadeaux {name}. Commandez en ligne avec Presentail pour une livraison express le jour même.",
+    el: "Στείλτε λουλούδια, τούρτες, μπαλόνια και δώρα {name}. Παραγγείλετε online με την Presentail για ταχεία αυθημερόν παράδοση.",
   },
   brand: {
     en: "Shop {name} gifts online. Send curated {name} products with reliable delivery from Presentail.",
     ar: "تسوّق هدايا {name} أونلاين. أرسل منتجات {name} المنتقاة مع توصيل موثوق من Presentail.",
     fr: "Achetez les cadeaux {name} en ligne. Envoyez des produits {name} sélectionnés avec une livraison fiable de Presentail.",
+    el: "Αγοράστε δώρα {name} online. Στείλτε επιλεγμένα προϊόντα {name} με αξιόπιστη παράδοση από την Presentail.",
   },
 };
 
@@ -817,7 +988,7 @@ export function buildBrandSeo({ lang, brandName, city, country } = {}) {
   const name = brandName ?? "";
   const params = { name, city: city ?? "", country: country ?? "" };
   const titleTpl = city
-    ? { en: "{name} Delivery in {city} | Presentail", ar: "توصيل {name} في {city} | Presentail", fr: "Livraison {name} à {city} | Presentail" }[l]
+    ? { en: "{name} Delivery in {city} | Presentail", ar: "توصيل {name} في {city} | Presentail", fr: "Livraison {name} à {city} | Presentail", el: "Αποστολή {name} στην πόλη {city} | Presentail" }[l]
     : `${name} | Presentail`;
   const descTpl = city ? ENTITY_DESCRIPTIONS.brand[l] : ENTITY_DESCRIPTIONS_NO_CITY.brand[l];
   return meta({
@@ -835,18 +1006,21 @@ const FAQS_TITLE_PREFERRED = {
   en: "Flower Delivery FAQs in {city} | Presentail",
   ar: "أسئلة توصيل الزهور في {city} | Presentail",
   fr: "FAQ livraison de fleurs à {city} | Presentail",
+  el: "Συχνές ερωτήσεις αποστολής λουλουδιών στην {city} | Presentail",
 };
 
 const FAQS_TITLE_FALLBACK = {
   en: "Flower Delivery FAQs in {city}",
   ar: "أسئلة توصيل الزهور في {city}",
   fr: "FAQ livraison de fleurs à {city}",
+  el: "Συχνές ερωτήσεις αποστολής λουλουδιών στην {city}",
 };
 
 const FAQS_TITLE_MEDIUM = {
   en: "Presentail FAQs in {city} | Gift Delivery Help",
   ar: "Presentail في {city} | أسئلة التوصيل الشائعة",
   fr: "Presentail FAQ livraison à {city} | Aide cadeaux",
+  el: "Presentail στην {city} | Βοήθεια αποστολής δώρων",
 };
 
 /**
@@ -892,18 +1066,21 @@ const CONTACT_TITLE_PREFERRED = {
   en: "Contact Presentail in {city} | Gift Delivery Help",
   ar: "تواصل مع Presentail في {city} | دعم التوصيل",
   fr: "Contacter Presentail à {city} | Aide livraison",
+  el: "Επικοινωνία Presentail στην {city} | Υποστήριξη αποστολής",
 };
 
 const CONTACT_TITLE_FALLBACK = {
   en: "Contact Presentail in {city}",
   ar: "تواصل مع Presentail في {city}",
   fr: "Contacter Presentail à {city}",
+  el: "Επικοινωνία Presentail στην {city}",
 };
 
 const CONTACT_TITLE_MEDIUM = {
   en: "Presentail Contact in {city} | Delivery Help",
   ar: "تواصل مع Presentail {city} | دعم التوصيل",
   fr: "Contact Presentail {city} | Aide livraison",
+  el: "Presentail στην {city} | Βοήθεια αποστολής",
 };
 
 // Used when no city is selected — avoids a dangling preposition ("in", "في", "à").
@@ -911,6 +1088,7 @@ const CONTACT_TITLE_NO_CITY = {
   en: "Contact Presentail | Gift Delivery Help",
   ar: "تواصل مع Presentail | دعم التوصيل",
   fr: "Contacter Presentail | Aide livraison",
+  el: "Επικοινωνία Presentail | Υποστήριξη αποστολής δώρων",
 };
 
 /**
@@ -993,7 +1171,7 @@ export function isNonIndexableRouteKey(routeKey) {
 // page title/description) and the server-injected visible H1 + hero intro.
 // ---------------------------------------------------------------------------
 /**
- * @type {Record<string, Partial<Record<"en" | "ar" | "fr", {
+ * @type {Record<string, Partial<Record<"en" | "ar" | "fr" | "el", {
  *   title: string;
  *   description: string;
  *   h1: string;

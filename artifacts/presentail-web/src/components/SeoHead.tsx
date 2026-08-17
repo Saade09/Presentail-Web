@@ -49,6 +49,7 @@ const OG_LOCALE: Record<Lang, string> = {
   en: "en_US",
   ar: "ar_AE",
   fr: "fr_FR",
+  el: "el_GR",
 };
 
 const SEO_ATTR = "data-seo-managed";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { STRINGS, STRINGS_FR } from "./LocaleContext";
+import { STRINGS, STRINGS_FR, STRINGS_EL } from "./LocaleContext";
 
 describe("LocaleContext string dictionaries", () => {
   const keys = Object.keys(STRINGS);
@@ -48,6 +48,33 @@ describe("LocaleContext string dictionaries", () => {
     expect(
       orphans,
       `Keys in STRINGS_FR not present in STRINGS (stale translations): ${orphans.join(", ")}`,
+    ).toHaveLength(0);
+  });
+
+  it("every key in STRINGS has a corresponding entry in STRINGS_EL", () => {
+    const missing = keys.filter((key) => !(key in STRINGS_EL));
+    expect(
+      missing,
+      `Keys missing from STRINGS_EL (add Greek translations for): ${missing.join(", ")}`,
+    ).toHaveLength(0);
+  });
+
+  it("every key in STRINGS_EL has a non-empty Greek value", () => {
+    const empty: string[] = [];
+    for (const key of Object.keys(STRINGS_EL)) {
+      if (!STRINGS_EL[key] || STRINGS_EL[key].trim() === "") {
+        empty.push(key);
+      }
+    }
+    expect(empty, `Keys with empty Greek value: ${empty.join(", ")}`).toHaveLength(0);
+  });
+
+  it("STRINGS_EL contains no keys that are absent from STRINGS (no orphans)", () => {
+    const stringsKeySet = new Set(keys);
+    const orphans = Object.keys(STRINGS_EL).filter((key) => !stringsKeySet.has(key));
+    expect(
+      orphans,
+      `Keys in STRINGS_EL not present in STRINGS (stale translations): ${orphans.join(", ")}`,
     ).toHaveLength(0);
   });
 });

@@ -877,7 +877,7 @@ paths:
             omitted.
           schema:
             type: string
-            enum: [en, ar, fr]
+            enum: [en, ar, fr, el]
             default: en
       responses:
         "200":
@@ -3194,13 +3194,15 @@ components:
       type: object
       description: |
         Optional translations of a display name. Keys are lowercase
-        ISO 639-1 language codes ("ar", "fr"). English is implicit in
+        ISO 639-1 language codes ("ar", "fr", "el"). English is implicit in
         the parent's `name` field. Missing translations should fall
         back to `name`.
       properties:
         ar:
           type: string
         fr:
+          type: string
+        el:
           type: string
     DeliveryTimeSlot:
       type: object

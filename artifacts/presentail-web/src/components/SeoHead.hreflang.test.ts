@@ -133,13 +133,13 @@ describe("SeoHead — hreflang no-duplicate (claim-before-append)", () => {
   });
 });
 
-describe("SeoHead — full 10-entry hreflang set (server inject + client claim)", () => {
+describe("SeoHead — full 11-entry hreflang set (server inject + client claim)", () => {
   let head: HTMLElement;
 
   const ALL_HREFLANG_CODES = [
     "en-LB", "ar-LB", "fr-LB",
     "en-AE", "ar-AE", "fr-AE",
-    "en-CY", "ar-CY", "fr-CY",
+    "en-CY", "ar-CY", "fr-CY", "el-CY",
     "x-default",
   ] as const;
 
@@ -148,9 +148,10 @@ describe("SeoHead — full 10-entry hreflang set (server inject + client claim)"
 
   function buildEntries(entityPath: string) {
     const countries = ["lb", "ae", "cy"] as const;
-    const langs = ["en", "ar", "fr"] as const;
     const result: Array<{ hreflang: string; href: string }> = [];
     for (const c of countries) {
+      // Greek is Cyprus-only, so cy clusters carry an extra el alternate.
+      const langs = c === "cy" ? (["en", "ar", "fr", "el"] as const) : (["en", "ar", "fr"] as const);
       for (const l of langs) {
         const href = entityPath
           ? `${BASE}/${l}-${c}/${CITY[c]}/${entityPath}`
@@ -170,7 +171,7 @@ describe("SeoHead — full 10-entry hreflang set (server inject + client claim)"
     head = document.head;
   });
 
-  it("server-injected 10-entry set is claimed (no duplicates after client hydration)", () => {
+  it("server-injected 11-entry set is claimed (no duplicates after client hydration)", () => {
     const entries = buildEntries("shop");
 
     for (const { hreflang, href } of entries) {
@@ -182,10 +183,10 @@ describe("SeoHead — full 10-entry hreflang set (server inject + client claim)"
     }
 
     const allAlternates = head.querySelectorAll('link[rel="alternate"]');
-    expect(allAlternates).toHaveLength(10);
+    expect(allAlternates).toHaveLength(11);
   });
 
-  it("all 10 entries carry data-seo-managed after client claim", () => {
+  it("all 11 entries carry data-seo-managed after client claim", () => {
     const entries = buildEntries("shop");
 
     for (const { hreflang, href } of entries) {
@@ -202,7 +203,7 @@ describe("SeoHead — full 10-entry hreflang set (server inject + client claim)"
     }
   });
 
-  it("after SPA navigation: old 10 entries removed, new 10 entries written with updated entity path", () => {
+  it("after SPA navigation: old 11 entries removed, new 11 entries written with updated entity path", () => {
     const shopEntries = buildEntries("shop");
 
     for (const { hreflang, href } of shopEntries) {
@@ -222,7 +223,7 @@ describe("SeoHead — full 10-entry hreflang set (server inject + client claim)"
     }
 
     const allAlternates = head.querySelectorAll('link[rel="alternate"]');
-    expect(allAlternates).toHaveLength(10);
+    expect(allAlternates).toHaveLength(11);
 
     const enAE = head.querySelector('link[rel="alternate"][hreflang="en-AE"]');
     expect(enAE?.getAttribute("href")).toBe(`${BASE}/en-ae/dubai/product/roses`);
@@ -241,14 +242,14 @@ describe("SeoHead — full 10-entry hreflang set (server inject + client claim)"
     expect(xDefault?.getAttribute("href")).toBe(`${BASE}/en-lb/beirut/brands`);
   });
 
-  it("creates all 10 entries from scratch when no server injection occurred", () => {
+  it("creates all 11 entries from scratch when no server injection occurred", () => {
     const entries = buildEntries("occasions");
     for (const { hreflang, href } of entries) {
       claimOrCreateAlternate(hreflang, href, head);
     }
 
     const allAlternates = head.querySelectorAll('link[rel="alternate"]');
-    expect(allAlternates).toHaveLength(10);
+    expect(allAlternates).toHaveLength(11);
   });
 });
 

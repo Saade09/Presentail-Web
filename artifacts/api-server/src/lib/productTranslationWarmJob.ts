@@ -33,6 +33,10 @@ const INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const STARTUP_DELAY_MS = 90 * 1000; // let the OS product cache populate first
 const STORE_KEYS = ["lebanon", "dubai", "abudhabi", "cyprus"];
 const LANGS: TranslationLang[] = ["fr", "ar"];
+// Greek is Cyprus-only on the storefront — warm el translations only for the
+// Cyprus store to avoid paying OpenAI for translations no shopper can see.
+const langsForStore = (storeKey: string): TranslationLang[] =>
+  storeKey === "cyprus" ? [...LANGS, "el"] : LANGS;
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let running = false;
@@ -78,7 +82,7 @@ async function runWarmCycle(): Promise<void> {
       for (const p of products) {
         const id = p.osNumericId ?? p.id;
         if (id === undefined || id === null) continue;
-        for (const lang of LANGS) {
+        for (const lang of langsForStore(storeKey)) {
           const key = `${id}:${lang}`;
           if (seen.has(key)) continue;
           seen.add(key);

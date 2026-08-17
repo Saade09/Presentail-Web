@@ -261,6 +261,17 @@ router.get("/currencies", (_req, res) => {
 router.get("/catalog/occasions", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
   const citySlug = typeof req.query.city === "string" ? req.query.city : null;
+  const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
+  // Translate occasion names server-side for ar/fr/el (same cache-backed layer
+  // as /catalog/metadata) so the mega menu renders localized tiles.
+  async function localizeNames<T extends { name: string }>(items: T[]): Promise<T[]> {
+    if (lang !== "ar" && lang !== "fr" && lang !== "el") return items;
+    const translated = await translateCategoryOccasionNames(
+      items.map((i) => i.name),
+      lang as CategoryOccasionLang,
+    );
+    return items.map((item, i) => ({ ...item, name: translated[i] ?? item.name }));
+  }
   // When a city slug is present, use city-specific occasions so the best-selling
   // sort reflects that city's own sales signal. When only a countryCode is known,
   // use the primary city for that country (e.g. ae-dubai for AE) — for
@@ -326,13 +337,13 @@ router.get("/catalog/occasions", async (req, res) => {
       availabilityFloor: 3,
       osPositions,
     });
-    const occasions = rankedItems.map((item) => ({
+    const occasions = await localizeNames(rankedItems.map((item) => ({
       slug: item.slug,
       name: item.name,
       image: item.osImage ? `/api/catalog/occasion-image/${item.id}` : null,
       count: occasionCountMap.get(item.slug) ?? 0,
       featured: item.featured,
-    }));
+    })));
     res.json({ occasions });
   } catch {
     // Fallback: use OS best-selling order (osPosition) when available,
@@ -342,13 +353,13 @@ router.get("/catalog/occasions", async (req, res) => {
       const bp = typeof b.osPosition === "number" ? b.osPosition : Infinity;
       return ap - bp;
     });
-    const occasions = fallbackSorted.map((o) => ({
+    const occasions = await localizeNames(fallbackSorted.map((o) => ({
       slug: o.slug,
       name: o.name,
       image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,
       count: occasionCountMap.get(o.slug) ?? 0,
       featured: o.featured ?? false,
-    }));
+    })));
     res.json({ occasions });
   }
 });
@@ -605,7 +616,7 @@ router.get("/catalog/metadata", async (req, res) => {
   // Translate category and occasion names when the shopper is in AR or FR.
   // We always fetch English names from OS and translate server-side so the
   // client never needs to know about the translation layer.
-  if (lang === "ar" || lang === "fr") {
+  if (lang === "ar" || lang === "fr" || lang === "el") {
     const catLang = lang as CategoryOccasionLang;
     const [translatedCatNames, translatedOccNames] = await Promise.all([
       translateCategoryOccasionNames(mergedCategories.map((c) => c.name), catLang),

@@ -7,18 +7,21 @@ const EYEBROW: Record<Language, string> = {
   en: "Legal",
   ar: "قانوني",
   fr: "Mentions légales",
+  el: "Νομικά",
 };
 
 const TITLE: Record<Language, string> = {
   en: "Return & Refund Policy",
   ar: "سياسة الإرجاع والاسترداد",
   fr: "Politique de retour et de remboursement",
+  el: "Πολιτική Επιστροφών & Αποζημιώσεων",
 };
 
 const INTRO_NOTE: Record<Language, string> = {
   en: "Customer satisfaction is our top priority. Please review our return and refund policy before placing your order.",
   ar: "رضا العملاء هو أولويتنا القصوى. يرجى مراجعة سياسة الإرجاع والاسترداد قبل تقديم طلبك.",
   fr: "La satisfaction de nos clients est notre priorité absolue. Veuillez consulter notre politique de retour et de remboursement avant de passer votre commande.",
+  el: "Η ικανοποίηση των πελατών μας είναι η ύψιστη προτεραιότητά μας. Παρακαλούμε ελέγξτε την πολιτική επιστροφών και αποζημιώσεων πριν υποβάλετε την παραγγελία σας.",
 };
 
 const SECTIONS: LegalSection[] = [

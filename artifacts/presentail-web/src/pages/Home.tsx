@@ -21,8 +21,6 @@ import {
 } from "@workspace/api-client-react";
 import { useProducts, type Product } from "@/lib/queries";
 
-const LABEL_FLOWER_COLLECTION = "Flower Collection"; // i18n-ignore
-
 /**
  * Read the server-rendered product block (SSR-enabled city homes, e.g.
  * /en-lb/tripoli) from the initial document. seo-inject.mjs embeds the
@@ -210,7 +208,7 @@ export default function Home() {
         <section className="py-6 md:py-10 px-4 md:px-0" data-testid="section-flower-collection">
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <h2 className="font-serif text-2xl md:text-4xl text-primary">
-              {LABEL_FLOWER_COLLECTION}
+              {t("home.flowerCollection")}
             </h2>
             <Link
               href="/shop"

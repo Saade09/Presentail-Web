@@ -140,22 +140,39 @@ function extractKeysFromSection(src: string): Set<string> {
 function extractKeysWithType(src: string): {
   dictKeys: Set<string>;
   frKeys: Set<string>;
+  elKeys: Set<string>;
 } {
   const dictKeys = new Set<string>();
   const frKeys = new Set<string>();
-  // Match: "key.name": { (dict) or "key.name": " (fr string on same line)
-  const keyRe = /^\s+"([^"]+)":\s*(\{|")/gm;
-  let m: RegExpExecArray | null;
-  while ((m = keyRe.exec(src)) !== null) {
+  const elKeys = new Set<string>();
+  // Flat string entries are ambiguous between the French (`*StringsFr`) and
+  // Greek (`*StringsEl`) companion exports, so track which export section the
+  // scanner is currently inside. Dict entries (value starts with `{`) always
+  // belong to the base `*Strings` export regardless of section.
+  let section: "fr" | "el" | null = null;
+  const lines = src.split("\n");
+  const entryRe = /^\s+"([^"]+)":\s*(\{|")/;
+  for (const line of lines) {
+    const exportMatch = line.match(/export const \w+?(StringsFr|StringsEl)?\s*[:=]/);
+    if (exportMatch) {
+      section =
+        exportMatch[1] === "StringsEl" ? "el" :
+        exportMatch[1] === "StringsFr" ? "fr" : null;
+      continue;
+    }
+    const m = line.match(entryRe);
+    if (!m) continue;
     const key = m[1];
     if (!key.includes(".")) continue;
     if (m[2] === "{") {
       dictKeys.add(key);
+    } else if (section === "el") {
+      elKeys.add(key);
     } else {
       frKeys.add(key);
     }
   }
-  return { dictKeys, frKeys };
+  return { dictKeys, frKeys, elKeys };
 }
 
 /**
@@ -544,6 +561,8 @@ function extractWebKeys(localeContextSrc: string): {
   stringsFrKeys: Set<string>;
   stringsKeyToFile: Map<string, string>;
   frKeyToFile: Map<string, string>;
+  stringsElKeys: Set<string>;
+  elKeyToFile: Map<string, string>;
   missingArByFile: Map<string, string[]>;
   emptyValuesByFile: Map<string, { key: string; fields: string[] }[]>;
   copypasteByFile: Map<string, CopypasteHit[]>;
@@ -568,13 +587,15 @@ function extractWebKeys(localeContextSrc: string): {
     const stringsFrKeys = new Set<string>();
     const stringsKeyToFile = new Map<string, string>();
     const frKeyToFile = new Map<string, string>();
+    const stringsElKeys = new Set<string>();
+    const elKeyToFile = new Map<string, string>();
     const missingArByFile = new Map<string, string[]>();
     const emptyValuesByFile = new Map<string, { key: string; fields: string[] }[]>();
     const copypasteByFile = new Map<string, CopypasteHit[]>();
 
     for (const file of localeFiles) {
       const content = fs.readFileSync(file, "utf8");
-      const { dictKeys, frKeys } = extractKeysWithType(content);
+      const { dictKeys, frKeys, elKeys } = extractKeysWithType(content);
       const rel = path.relative(REPO_ROOT, file);
       for (const k of dictKeys) {
         stringsKeys.add(k);
@@ -583,6 +604,10 @@ function extractWebKeys(localeContextSrc: string): {
       for (const k of frKeys) {
         stringsFrKeys.add(k);
         frKeyToFile.set(k, rel);
+      }
+      for (const k of elKeys) {
+        stringsElKeys.add(k);
+        elKeyToFile.set(k, rel);
       }
 
       // Arabic coverage: find dict entries missing the `ar` field.
@@ -618,6 +643,8 @@ function extractWebKeys(localeContextSrc: string): {
       stringsFrKeys,
       stringsKeyToFile,
       frKeyToFile,
+      stringsElKeys,
+      elKeyToFile,
       missingArByFile,
       emptyValuesByFile,
       copypasteByFile,
@@ -679,6 +706,8 @@ function extractWebKeys(localeContextSrc: string): {
     stringsFrKeys,
     stringsKeyToFile: new Map(),
     frKeyToFile: new Map(),
+    stringsElKeys: new Set<string>(),
+    elKeyToFile: new Map(),
     missingArByFile,
     emptyValuesByFile,
     copypasteByFile,
@@ -828,7 +857,7 @@ function appendSummary(line: string): void {
 if (!process.env.VITEST) {
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
-const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, frKeyToFile, missingArByFile, emptyValuesByFile, copypasteByFile } = extractWebKeys(localeContextSrc);
+const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, frKeyToFile, stringsElKeys, elKeyToFile, missingArByFile, emptyValuesByFile, copypasteByFile } = extractWebKeys(localeContextSrc);
 
 if (allKeys.length === 0) {
   console.error(
@@ -864,6 +893,13 @@ const unusedKeys = allKeys.filter(
 
 const missingFr = Array.from(stringsKeys).filter((k) => !stringsFrKeys.has(k));
 const orphanedFr = Array.from(stringsFrKeys).filter((k) => !stringsKeys.has(k));
+
+// ── 2b. EL coverage check ────────────────────────────────────────────────────
+// Greek follows the same companion-export pattern as French: every key in the
+// base STRINGS dict must have a Greek translation in STRINGS_EL, and no
+// orphaned EL-only keys may exist.
+const missingEl = Array.from(stringsKeys).filter((k) => !stringsElKeys.has(k));
+const orphanedEl = Array.from(stringsElKeys).filter((k) => !stringsKeys.has(k));
 
 // ── 3. Missing-key check (call sites referencing undefined keys) ──────────────
 // Scan every static t("key") / t('key') call site in the source corpus and
@@ -1014,6 +1050,44 @@ if (orphanedFr.length > 0) {
   }
   console.error(
     "\nRemove these orphaned keys from the appropriate *StringsFr export or add matching entries to the base *Strings export in artifacts/presentail-web/src/locales/.\n",
+  );
+}
+
+if (missingEl.length > 0) {
+  failed = true;
+  console.error(
+    `\n\u2717 Found ${missingEl.length} key${missingEl.length === 1 ? "" : "s"} in STRINGS with no Greek translation in STRINGS_EL:\n`,
+  );
+  for (const key of missingEl.sort()) {
+    const file = stringsKeyToFile.get(key) ?? "artifacts/presentail-web/src/locales";
+    console.error(`  - ${key}  (${file})`);
+    annotateError(
+      file,
+      "Missing Greek translation",
+      `Key "${key}" has no Greek translation in STRINGS_EL — add it to the corresponding *StringsEl export.`,
+    );
+  }
+  console.error(
+    "\nFor each file above, add the missing keys to the corresponding *StringsEl export.\n",
+  );
+}
+
+if (orphanedEl.length > 0) {
+  failed = true;
+  console.error(
+    `\n\u2717 Found ${orphanedEl.length} key${orphanedEl.length === 1 ? "" : "s"} in STRINGS_EL that do not exist in STRINGS:\n`,
+  );
+  for (const key of orphanedEl.sort()) {
+    const file = elKeyToFile.get(key) ?? "artifacts/presentail-web/src/locales";
+    console.error(`  - ${key}  (${file})`);
+    annotateError(
+      file,
+      "Orphaned Greek translation key",
+      `Key "${key}" exists in STRINGS_EL but has no matching entry in STRINGS — remove it or add a base entry.`,
+    );
+  }
+  console.error(
+    "\nRemove these orphaned keys from the appropriate *StringsEl export or add matching entries to the base *Strings export in artifacts/presentail-web/src/locales/.\n",
   );
 }
 

@@ -700,7 +700,7 @@ export interface PushOrderEventResponse {
 
 /**
  * Optional translations of a display name. Keys are lowercase
-ISO 639-1 language codes ("ar", "fr"). English is implicit in
+ISO 639-1 language codes ("ar", "fr", "el"). English is implicit in
 the parent's `name` field. Missing translations should fall
 back to `name`.
 
@@ -708,6 +708,7 @@ back to `name`.
 export interface LocalizedNames {
   ar?: string;
   fr?: string;
+  el?: string;
 }
 
 export interface DeliveryTimeSlot {
@@ -1576,67 +1577,19 @@ export interface AuthWebBridgeRequest {
 }
 
 /**
- * The social identity provider the account was originally created
-with. Only present when `exists` is `true` and the customer row
-has `authProvider` set to `"google"` or `"apple"`. Null when the
-account was created with a password, via WooCommerce, or when no
-local row exists yet. Clients should use this to name the exact
-provider in the sign-in prompt rather than showing a generic
-"please use one of the options below" message.
-
- */
-export type AuthWebBridgeResponseSocialProvider =
-  | (typeof AuthWebBridgeResponseSocialProvider)[keyof typeof AuthWebBridgeResponseSocialProvider]
-  | null;
-
-export const AuthWebBridgeResponseSocialProvider = {
-  google: "google",
-  apple: "apple",
-} as const;
-
-/**
- * Error code explaining a failed or degraded lookup.
- */
-export type AuthWebBridgeResponseCode =
-  (typeof AuthWebBridgeResponseCode)[keyof typeof AuthWebBridgeResponseCode];
-
-export const AuthWebBridgeResponseCode = {
-  lookup_failed: "lookup_failed",
-  lookup_unavailable: "lookup_unavailable",
-} as const;
-
-/**
- * Result of the /auth/web-bridge email lookup. When `exists` is `true`
-and `passwordLoginAvailable` is `false`, the web client should skip
-the password field and present social sign-in alternatives.
+ * Result of the /auth/web-bridge email lookup. When `userExists` is
+`true` and `passwordLoginAvailable` is `true`, show the password step.
+When `userExists` is `false`, redirect to sign-up.
 
  */
 export interface AuthWebBridgeResponse {
   ok: boolean;
-  /** True when a matching account was found for the supplied email. */
-  exists: boolean;
-  /** True when the Clerk user record has been provisioned and the
-email-code sign-in step can proceed. Only present when `exists`
-is `true`.
+  /** True when a matching local account was found for the email. */
+  userExists: boolean;
+  /** True when the account uses a local scrypt password hash and the
+password step should be shown.
  */
-  clerkReady?: boolean;
-  /** Whether legacy password login is available for this account.
-False (the default) when `WC_AUTH_ENABLED` is unset or false —
-clients should skip the password field and show social sign-in
-alternatives instead.
- */
-  passwordLoginAvailable?: boolean;
-  /** The social identity provider the account was originally created
-with. Only present when `exists` is `true` and the customer row
-has `authProvider` set to `"google"` or `"apple"`. Null when the
-account was created with a password, via WooCommerce, or when no
-local row exists yet. Clients should use this to name the exact
-provider in the sign-in prompt rather than showing a generic
-"please use one of the options below" message.
- */
-  socialProvider?: AuthWebBridgeResponseSocialProvider;
-  /** Error code explaining a failed or degraded lookup. */
-  code?: AuthWebBridgeResponseCode;
+  passwordLoginAvailable: boolean;
 }
 
 /**
@@ -2207,6 +2160,7 @@ export const GetHomepageBannersLang = {
   en: "en",
   ar: "ar",
   fr: "fr",
+  el: "el",
 } as const;
 
 export type GetHomepageCategoriesParams = {

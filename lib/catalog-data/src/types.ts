@@ -117,4 +117,4 @@ export type DeliveryCountryData = {
 };
 
 /** Lower-case BCP-47-ish language tag. We currently translate `ar` and `fr`. */
-export type LocalizableLang = "en" | "ar" | "fr";
+export type LocalizableLang = "en" | "ar" | "fr" | "el";

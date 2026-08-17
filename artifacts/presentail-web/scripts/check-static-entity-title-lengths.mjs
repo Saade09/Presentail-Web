@@ -57,7 +57,7 @@ const OPTS = { origin: ORIGIN, basePath: BASE_PATH };
 const TITLE_MIN = 30;
 const TITLE_MAX = 65;
 
-const LANGS = ["en", "ar", "fr"];
+const LANGS = ["en", "ar", "fr", "el"];
 
 // Supported country slugs — used to look up country names for city contexts.
 const COUNTRY_SLUGS = ["lb", "ae", "cy"];

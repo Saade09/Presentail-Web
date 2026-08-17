@@ -8,7 +8,7 @@
 
 /**
  * Optional translations of a display name. Keys are lowercase
-ISO 639-1 language codes ("ar", "fr"). English is implicit in
+ISO 639-1 language codes ("ar", "fr", "el"). English is implicit in
 the parent's `name` field. Missing translations should fall
 back to `name`.
 
@@ -16,4 +16,5 @@ back to `name`.
 export interface LocalizedNames {
   ar?: string;
   fr?: string;
+  el?: string;
 }

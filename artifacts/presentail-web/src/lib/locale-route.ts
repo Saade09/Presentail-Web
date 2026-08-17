@@ -1,10 +1,30 @@
 import _citySlugsJson from "./city-slugs.json";
 
-export const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
+export const SUPPORTED_LANGS = ["en", "ar", "fr", "el"] as const;
 export type Lang = (typeof SUPPORTED_LANGS)[number];
 
 export const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"] as const;
 export type CountrySlug = (typeof SUPPORTED_COUNTRY_SLUGS)[number];
+
+/**
+ * Context-aware language availability. Greek ("el") is offered only on the
+ * root landing page (no country context) and for Cyprus — shoppers browsing
+ * UAE or Lebanon cities keep seeing EN/AR/FR only.
+ *
+ * Pass `null` for the landing page / no-country contexts.
+ */
+export function langsForCountry(country: CountrySlug | null): readonly Lang[] {
+  if (country === null || country === "cy") return SUPPORTED_LANGS;
+  return ["en", "ar", "fr"] as const;
+}
+
+/** True when `lang` may be used with `country` (Greek is Cyprus-only). */
+export function isLangAllowedForCountry(
+  lang: Lang,
+  country: CountrySlug | null,
+): boolean {
+  return (langsForCountry(country) as readonly string[]).includes(lang);
+}
 
 /**
  * Single source of truth for city slugs, shared with

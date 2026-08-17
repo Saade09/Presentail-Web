@@ -7,7 +7,7 @@ import type { HomepageBanner } from "@workspace/api-client-react";
 export type { HomepageBanner };
 
 export type BannerDevice = "desktop" | "mobile";
-export type BannerLang = "en" | "ar" | "fr";
+export type BannerLang = "en" | "ar" | "fr" | "el";
 
 // Hook backed by the live Presentail OS feed via `/api/homepage/banners`.
 // OS handles all filtering (active status, schedule window, country/city

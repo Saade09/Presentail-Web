@@ -184,7 +184,7 @@ type WcProduct = {
   isBestSeller?: boolean;
 };
 
-const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
+const SUPPORTED_LANGS = ["en", "ar", "fr", "el"] as const;
 type Lang = (typeof SUPPORTED_LANGS)[number];
 
 // Products that support a single-letter personalisation input.
@@ -313,24 +313,24 @@ function readLang(req: { query: any }): Lang {
 // translated upstream by the multilingual plugin via the `lang` query param;
 // when a translation is missing, we fall back to the English string.
 const OCCASION_GROUP_LABELS: Record<string, Record<Lang, string>> = {
-  flowers: { en: "Flowers & Bouquets", ar: "الأزهار والباقات", fr: "Fleurs et bouquets" },
-  "hand-bouquets": { en: "Hand Bouquets", ar: "الباقات اليدوية", fr: "Bouquets à la main" },
-  "flower-boxes": { en: "Flower Boxes", ar: "صناديق الأزهار", fr: "Boîtes de fleurs" },
-  "flower-vases": { en: "Flower Vases", ar: "مزهريات الأزهار", fr: "Vases à fleurs" },
-  "lux-arrangements": { en: "Lux Arrangements", ar: "تنسيقات فاخرة", fr: "Compositions de luxe" },
-  "dried-flowers": { en: "Dried Flowers", ar: "أزهار مجففة", fr: "Fleurs séchées" },
-  "preserved-flowers": { en: "Preserved Flowers", ar: "أزهار محفوظة", fr: "Fleurs préservées" },
-  chocolate: { en: "Chocolates", ar: "الشوكولاتة", fr: "Chocolats" },
-  cakes: { en: "Cakes & Sweets", ar: "الكعك والحلويات", fr: "Gâteaux et douceurs" },
-  "arabic-sweets": { en: "Arabic Sweets", ar: "حلويات عربية", fr: "Pâtisseries orientales" },
-  balloons: { en: "Balloons", ar: "البالونات", fr: "Ballons" },
-  "stuffed-animals": { en: "Stuffed Animals", ar: "الدمى المحشوة", fr: "Peluches" },
-  "board-games": { en: "Board Games", ar: "ألعاب الطاولة", fr: "Jeux de société" },
-  plants: { en: "Plants", ar: "النباتات", fr: "Plantes" },
-  baskets: { en: "Baskets", ar: "السلال", fr: "Paniers" },
-  beauty: { en: "Beauty", ar: "الجمال", fr: "Beauté" },
-  bundles: { en: "Gift Bundles", ar: "حزم الهدايا", fr: "Coffrets cadeaux" },
-  "other-gifts": { en: "Other Gifts", ar: "هدايا أخرى", fr: "Autres cadeaux" },
+  flowers: { en: "Flowers & Bouquets", ar: "الأزهار والباقات", fr: "Fleurs et bouquets" , el: "Λουλούδια & Μπουκέτα" },
+  "hand-bouquets": { en: "Hand Bouquets", ar: "الباقات اليدوية", fr: "Bouquets à la main" , el: "Χειροποίητα Μπουκέτα" },
+  "flower-boxes": { en: "Flower Boxes", ar: "صناديق الأزهار", fr: "Boîtes de fleurs" , el: "Κουτιά με Λουλούδια" },
+  "flower-vases": { en: "Flower Vases", ar: "مزهريات الأزهار", fr: "Vases à fleurs" , el: "Βάζα με Λουλούδια" },
+  "lux-arrangements": { en: "Lux Arrangements", ar: "تنسيقات فاخرة", fr: "Compositions de luxe" , el: "Πολυτελείς Συνθέσεις" },
+  "dried-flowers": { en: "Dried Flowers", ar: "أزهار مجففة", fr: "Fleurs séchées" , el: "Αποξηραμένα Λουλούδια" },
+  "preserved-flowers": { en: "Preserved Flowers", ar: "أزهار محفوظة", fr: "Fleurs préservées" , el: "Διατηρημένα Λουλούδια" },
+  chocolate: { en: "Chocolates", ar: "الشوكولاتة", fr: "Chocolats" , el: "Σοκολάτες" },
+  cakes: { en: "Cakes & Sweets", ar: "الكعك والحلويات", fr: "Gâteaux et douceurs" , el: "Τούρτες & Γλυκά" },
+  "arabic-sweets": { en: "Arabic Sweets", ar: "حلويات عربية", fr: "Pâtisseries orientales" , el: "Αραβικά Γλυκά" },
+  balloons: { en: "Balloons", ar: "البالونات", fr: "Ballons" , el: "Μπαλόνια" },
+  "stuffed-animals": { en: "Stuffed Animals", ar: "الدمى المحشوة", fr: "Peluches" , el: "Λούτρινα Ζωάκια" },
+  "board-games": { en: "Board Games", ar: "ألعاب الطاولة", fr: "Jeux de société" , el: "Επιτραπέζια Παιχνίδια" },
+  plants: { en: "Plants", ar: "النباتات", fr: "Plantes" , el: "Φυτά" },
+  baskets: { en: "Baskets", ar: "السلال", fr: "Paniers" , el: "Καλάθια" },
+  beauty: { en: "Beauty", ar: "الجمال", fr: "Beauté" , el: "Ομορφιά" },
+  bundles: { en: "Gift Bundles", ar: "حزم الهدايا", fr: "Coffrets cadeaux" , el: "Σετ Δώρων" },
+  "other-gifts": { en: "Other Gifts", ar: "هدايا أخرى", fr: "Autres cadeaux" , el: "Άλλα Δώρα" },
 };
 
 function translateOccasionLabel(slug: string, fallback: string, lang: Lang): string {
@@ -494,7 +494,7 @@ function sortOsShapedProducts(products: WcProduct[], mode: ProductSortMode): WcP
  */
 async function applyProductNameTranslations<
   T extends { name: string; osNumericId?: number | string },
->(products: T[], lang: "ar" | "fr"): Promise<T[]> {
+>(products: T[], lang: "ar" | "fr" | "el"): Promise<T[]> {
   const items = products
     .filter((p) => p.osNumericId != null)
     .map((p) => ({
@@ -635,7 +635,7 @@ router.get("/woo/brand-products", async (req, res) => {
     // in-place p.isBestSeller annotation can be stale/undefined while a
     // cache refresh is in-flight, so the Set is authoritative here.
     .map((p) => ({ ...p, isBestSeller: bestSellerIds.has(String(p.id)) }));
-  if (lang === "ar" || lang === "fr") {
+  if (lang !== "en") {
     products = await applyProductNameTranslations(products, lang);
   }
   return res.json({ ok: true, products, count: products.length, brandName, brandImage, brandDescription, brandCoverImage });
@@ -728,7 +728,7 @@ router.get("/woo/category-products", async (req, res) => {
     .filter((p) => (p.categories ?? []).some((c) => c.slug === slug));
   let allProducts = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
-  if (lang === "ar" || lang === "fr") {
+  if (lang !== "en") {
     allProducts = await applyProductNameTranslations(allProducts, lang);
   }
   const count = allProducts.length;
@@ -795,7 +795,7 @@ router.get("/woo/occasion-products", async (req, res) => {
 
   // Translate product names when lang=ar|fr — one batch covers both the
   // grouped response and the pageItems SEO slice.
-  if (lang === "ar" || lang === "fr") {
+  if (lang !== "en") {
     const itemsToTranslate = allTransformedProducts
       .filter((p) => p.osNumericId != null)
       .map((p) => ({ osNumericId: p.osNumericId as number | string, name: p.name }));
@@ -888,7 +888,7 @@ router.get("/woo/products", async (req, res) => {
     .filter((p) => isDeliverable(p, browseFilter));
   let products = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
-  if (lang === "ar" || lang === "fr") {
+  if (lang !== "en") {
     products = await applyProductNameTranslations(products, lang);
   }
   return res.json({ ok: true, products, count: products.length });
@@ -925,7 +925,7 @@ router.get("/woo/product", async (req, res) => {
   const product = transformProduct(wcProduct, store.currencySymbol);
   const lang = readLang(req);
 
-  if (lang === "ar" || lang === "fr") {
+  if (lang !== "en") {
     // Translate name + description in one cached API call.
     // translateProductContent never throws — returns English on any failure.
     const translated = await translateProductContent(
@@ -2340,7 +2340,7 @@ router.get("/woo/search", async (req, res) => {
 
   // Translate product names when lang=ar|fr; strip osNumericId from response.
   let matchingProducts: Array<Omit<(typeof matchingProductsRaw)[number], "osNumericId">>;
-  if ((lang === "ar" || lang === "fr") && matchingProductsRaw.length > 0) {
+  if ((lang !== "en") && matchingProductsRaw.length > 0) {
     const items = matchingProductsRaw
       .filter((p) => p.osNumericId != null)
       .map((p) => ({ osNumericId: p.osNumericId as number | string, name: p.name }));

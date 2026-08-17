@@ -84,9 +84,10 @@ const COMING_SOON_SUFFIX = { // i18n-ignore — locale-keyed "coming soon" suffi
   en: " \u2013 Coming Soon",
   ar: " \u2013 \u0642\u0631\u064a\u0628\u0627\u064b",
   fr: " \u2013 Bient\u00f4t disponible",
+  el: " \u2013 \u0388\u03c1\u03c7\u03b5\u03c4\u03b1\u03b9 \u03c3\u03cd\u03bd\u03c4\u03bf\u03bc\u03b1",
 };
 
-const SUPPORTED_LANGS = ["en", "ar", "fr"];
+const SUPPORTED_LANGS = ["en", "ar", "fr", "el"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
 
 /**
@@ -275,6 +276,18 @@ function parseLocalePath(pathname) {
     !SUPPORTED_LANGS.includes(m[1]) ||
     !SUPPORTED_COUNTRY_SLUGS.includes(m[2])
   ) {
+    return {
+      hasLocalePrefix: false,
+      lang: null,
+      country: null,
+      city: null,
+      rest: pathname || "/",
+    };
+  }
+  // Greek is Cyprus-only: /el-ae/... and /el-lb/... are not valid locale
+  // prefixes (serve.mjs 301s them to English) — treat as non-locale so we
+  // never emit el canonicals/hreflang for non-Cyprus countries.
+  if (m[1] === "el" && m[2] !== "cy") {
     return {
       hasLocalePrefix: false,
       lang: null,

@@ -118,21 +118,21 @@
 
 import type { Dict } from "./types";
 
-import { navStrings, navStringsFr } from "./nav";
-import { homeStrings, homeStringsFr } from "./home";
-import { shopStrings, shopStringsFr } from "./shop";
-import { productStrings, productStringsFr } from "./product";
-import { cartStrings, cartStringsFr } from "./cart";
-import { checkoutStrings, checkoutStringsFr } from "./checkout";
-import { accountStrings, accountStringsFr } from "./account";
-import { authStrings, authStringsFr } from "./auth";
-import { brandsStrings, brandsStringsFr } from "./brands";
-import { orderStrings, orderStringsFr } from "./order";
-import { seoStrings, seoStringsFr } from "./seo";
-import { footerStrings, footerStringsFr } from "./footer";
-import { commonStrings, commonStringsFr } from "./common";
-import { partnerStrings, partnerStringsFr } from "./partner";
-import { campaignStrings, campaignStringsFr } from "./campaign";
+import { navStrings, navStringsFr, navStringsEl } from "./nav";
+import { homeStrings, homeStringsFr, homeStringsEl } from "./home";
+import { shopStrings, shopStringsFr, shopStringsEl } from "./shop";
+import { productStrings, productStringsFr, productStringsEl } from "./product";
+import { cartStrings, cartStringsFr, cartStringsEl } from "./cart";
+import { checkoutStrings, checkoutStringsFr, checkoutStringsEl } from "./checkout";
+import { accountStrings, accountStringsFr, accountStringsEl } from "./account";
+import { authStrings, authStringsFr, authStringsEl } from "./auth";
+import { brandsStrings, brandsStringsFr, brandsStringsEl } from "./brands";
+import { orderStrings, orderStringsFr, orderStringsEl } from "./order";
+import { seoStrings, seoStringsFr, seoStringsEl } from "./seo";
+import { footerStrings, footerStringsFr, footerStringsEl } from "./footer";
+import { commonStrings, commonStringsFr, commonStringsEl } from "./common";
+import { partnerStrings, partnerStringsFr, partnerStringsEl } from "./partner";
+import { campaignStrings, campaignStringsFr, campaignStringsEl } from "./campaign";
 
 export type { Dict };
 
@@ -170,4 +170,22 @@ export const STRINGS_FR: Record<string, string> = {
   ...commonStringsFr,
   ...partnerStringsFr,
   ...campaignStringsFr,
+};
+
+export const STRINGS_EL: Record<string, string> = {
+  ...navStringsEl,
+  ...homeStringsEl,
+  ...shopStringsEl,
+  ...productStringsEl,
+  ...cartStringsEl,
+  ...checkoutStringsEl,
+  ...accountStringsEl,
+  ...authStringsEl,
+  ...brandsStringsEl,
+  ...orderStringsEl,
+  ...seoStringsEl,
+  ...footerStringsEl,
+  ...commonStringsEl,
+  ...partnerStringsEl,
+  ...campaignStringsEl,
 };

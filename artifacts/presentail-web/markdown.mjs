@@ -134,6 +134,8 @@ export function isMirroredPath(pathname) {
   const city = m[3];
 
   if (!SITEMAP_LANGS.includes(lang)) return false;
+  // Greek is Cyprus-only — no markdown mirrors for /el-ae or /el-lb paths.
+  if (lang === "el" && country !== "cy") return false;
   if (!SITEMAP_CITIES[country]) return false;
   if (!SITEMAP_CITIES[country].includes(city)) return false;
 
@@ -863,13 +865,14 @@ export function buildSitemapMd({
   const markdownUrl = `${origin}${cleanBase}/sitemap.md`;
 
   const COUNTRY_LABELS = { lb: "Lebanon", ae: "UAE", cy: "Cyprus" };
-  const LANG_LABELS = { en: "English", ar: "Arabic", fr: "French" };
+  const LANG_LABELS = { en: "English", ar: "Arabic", fr: "French", el: "Greek" };
 
   // Enumerate ALL locale+city combinations (every public indexable city page).
   // Uses SITEMAP_CITIES (the full set) × SITEMAP_LANGS.
   const homepageLines = [];
   for (const lang of SITEMAP_LANGS) {
     for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
+      if (lang === "el" && country !== "cy") continue; // Greek is Cyprus-only
       for (const city of cities) {
         const cityLbl = getCityLabel(lang, country, city);
         homepageLines.push(

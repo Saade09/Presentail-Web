@@ -23,3 +23,15 @@ export const brandsStringsFr: Record<string, string> = {
   "brand.empty.titleNoCountry": "Aucun produit disponible",
   "brand.empty.descNoCountry": "Cette marque n'a actuellement aucun produit disponible à la livraison.",
 };
+
+export const brandsStringsEl: Record<string, string> = {
+  "brandsPage.title": "Οι συνεργαζόμενες μάρκες μας",
+  "brands.desc": "Ανακαλύψτε την επιμελημένη επιλογή μας από πολυτελείς μάρκες δώρων, από τεχνίτες σοκολατοποιούς έως premium ανθοπωλεία.",
+  "brand.backToBrands": "Επιστροφή στις μάρκες",
+  "brand.descPrefix": "Εξερευνήστε την πλήρη συλλογή από {name}.",
+  "brand.empty.titleCountry": "Δεν υπάρχουν διαθέσιμα προϊόντα στην περιοχή {country}",
+  "brand.empty.descCountry": "Η {name} δεν παραδίδει προς το παρόν προϊόντα στην περιοχή {country}. Δοκιμάστε να αλλάξετε τη χώρα παράδοσης για να δείτε περισσότερες επιλογές.",
+  "brand.empty.changeCountry": "Αλλαγή χώρας παράδοσης",
+  "brand.empty.titleNoCountry": "Δεν υπάρχουν διαθέσιμα προϊόντα",
+  "brand.empty.descNoCountry": "Αυτή η μάρκα δεν έχει προς το παρόν διαθέσιμα προϊόντα για παράδοση.",
+};

@@ -98,6 +98,23 @@ const UI_COPY: Record<Language, UiCopy> = {
       makers: "Artisans",
     },
   },
+  el: {
+    backToJournal: "Επιστροφή στο Ημερολόγιο",
+    shopCta: "Δείτε τη συλλογή",
+    blogNav: "Ημερολόγιο",
+    relatedArticles: "Σχετικά άρθρα",
+    inThisGuide: "Σε αυτόν τον οδηγό",
+    share: "Κοινοποίηση",
+    linkCopied: "Ο σύνδεσμος αντιγράφηκε",
+    updated: "Ενημερώθηκε",
+    minRead: "{min} λεπτά ανάγνωσης",
+    categories: {
+      flowers: "Άνθη",
+      "gifting-guides": "Οδηγοί δώρων",
+      "behind-the-scenes": "Παρασκήνια",
+      makers: "Δημιουργοί",
+    },
+  },
 };
 
 /**
@@ -368,7 +385,9 @@ export default function BlogPost() {
   const BackArrow = isRtl ? ArrowRight : ArrowLeft;
 
   const meta = getBlogPostMeta(slug);
-  const readingTime = getBlogPostReadingTime(slug, language);
+  // Blog article content exists only in EN/AR/FR; Greek falls back to English.
+  const blogLang = language === "el" ? "en" : language;
+  const readingTime = getBlogPostReadingTime(slug, blogLang);
   const categoryLabel = article.categoryLabel ?? ui.categories[meta.category];
   const geographyLabel = article.geographyLabel ?? article.eyebrow;
   const taxonomyLabel =

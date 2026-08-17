@@ -771,7 +771,7 @@ function resolveRouteKeyForPreload(pathname) {
   const p = String(pathname);
   if (p === "/" || p === "") return "landing";
   // Locale-prefixed paths: /en-lb/beirut/... /ar-ae/dubai/... /fr-cy/nicosia/...
-  const m = p.match(/^\/(?:en|ar|fr)-[a-z]{2}\/[^/]+(?:\/(.*))?$/);
+  const m = p.match(/^\/(?:en|ar|fr|el)-[a-z]{2}\/[^/]+(?:\/(.*))?$/);
   if (!m) return "landing"; // non-locale, non-root — treat as landing
   const rest = (m[1] ?? "").replace(/\/$/, "");
   if (!rest) return "home";
@@ -1684,13 +1684,28 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Greek is Cyprus-only: /el-ae/... and /el-lb/... are never valid URLs.
+    // 301 them to the English variant so a Greek-selecting shopper who lands
+    // on a non-Cyprus city gracefully falls back to English (no broken URLs).
+    const elCountryMatch = pathname.match(/^\/el-(ae|lb)(\/.*)?$/);
+    if (elCountryMatch) {
+      res.writeHead(301, {
+        location:
+          BASE_PATH + `/en-${elCountryMatch[1]}${elCountryMatch[2] ?? ""}` +
+          stripTrackingParams(url.search),
+        "cache-control": "public, max-age=3600",
+      });
+      res.end();
+      return;
+    }
+
     // Bare language roots (/en, /ar, /fr, with or without trailing slash) are
     // not app routes: the SPA only mounts lang-only shells under /{lang}/blog.
     // Old deployed HTML and external links may still point at them, so 301
     // straight to the root landing page (which runs geo/lang detection) in a
     // single hop — placed BEFORE the trailing-slash handler so /fr/ doesn't
     // chain through /fr first.
-    if (pathname.match(/^\/(?:en|ar|fr)\/?$/)) {
+    if (pathname.match(/^\/(?:en|ar|fr|el)\/?$/)) {
       res.writeHead(301, {
         location: BASE_PATH + "/" || "/",
         "cache-control": "public, max-age=3600",
@@ -2387,7 +2402,7 @@ const server = http.createServer(async (req, res) => {
       // valid SPA entry points — they render Blog/BlogPost in BlogShell without
       // a city/country prefix. Without this exception they 404 because they
       // don't match the /en-lb/... locale pattern checked above.
-      !pathname.match(/^\/(?:en|ar|fr)\/blog(?:\/[^/?#]*)?$/) &&
+      !pathname.match(/^\/(?:en|ar|fr|el)\/blog(?:\/[^/?#]*)?$/) &&
       // Bare /product or /product/ (no slug) passes through to the SPA shell so
       // the client can render a 404 page; the product redirect above only fires
       // when a slug is present.

@@ -4458,12 +4458,16 @@ export function useWooSearch<
 }
 
 /**
- * Accepts an email address and returns whether a matching account
-exists. Used by the web sign-in flow to decide whether to show
-sign-in options or redirect to sign-up. When `exists` is `true`
-and `passwordLoginAvailable` is `false` (the default production
-state when `WC_AUTH_ENABLED` is unset), the client should skip
-the password field and show social sign-in alternatives instead.
+ * Accepts an email address and returns whether a matching local account
+exists. Used by the web sign-in flow to decide whether to show the
+password step or redirect to sign-up.
+
+**Enumeration trade-off:** this endpoint returns `userExists: true/false`,
+making it an email oracle. The mitigation is a dedicated per-IP rate
+limiter (10 requests / 15 min) that is stricter than the shared
+`/auth/exists` limiter. Distributed attacks rotating many IPs are not
+fully preventable by per-IP rate limiting alone — this is a deliberate
+product trade-off for UX routing purposes.
 
  * @summary Check whether a returning shopper has an account
  */
@@ -4484,7 +4488,7 @@ export const checkAuthWebBridge = async (
 };
 
 export const getCheckAuthWebBridgeMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4525,13 +4529,13 @@ export type CheckAuthWebBridgeMutationResult = NonNullable<
   Awaited<ReturnType<typeof checkAuthWebBridge>>
 >;
 export type CheckAuthWebBridgeMutationBody = BodyType<AuthWebBridgeRequest>;
-export type CheckAuthWebBridgeMutationError = ErrorType<unknown>;
+export type CheckAuthWebBridgeMutationError = ErrorType<ErrorResponse>;
 
 /**
  * @summary Check whether a returning shopper has an account
  */
 export const useCheckAuthWebBridge = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

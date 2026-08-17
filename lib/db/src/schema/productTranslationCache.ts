@@ -11,7 +11,7 @@ export const productTranslationCacheTable = pgTable(
   "product_translation_cache",
   {
     osProductId: text("os_product_id").notNull(),
-    lang: text("lang").notNull().$type<"ar" | "fr">(),
+    lang: text("lang").notNull().$type<"ar" | "fr" | "el">(),
     name: text("name").notNull(),
     description: text("description").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

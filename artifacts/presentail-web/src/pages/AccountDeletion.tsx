@@ -7,30 +7,35 @@ const EYEBROW: Record<Language, string> = {
   en: "Legal",
   ar: "قانوني",
   fr: "Mentions légales",
+  el: "Νομικά",
 };
 
 const TITLE: Record<Language, string> = {
   en: "Account Deletion Policy",
   ar: "سياسة حذف الحساب",
   fr: "Politique de suppression de compte",
+  el: "Πολιτική Διαγραφής Λογαριασμού",
 };
 
 const INTRO: Record<Language, string> = {
   en: "This page explains how to request the deletion of your Presentail account and what happens to your data. The in-app flow is available to all registered users.",
   ar: "توضّح هذه الصفحة كيفية طلب حذف حسابك في Presentail وما يحدث لبياناتك. تتوفر خاصية الحذف داخل التطبيق لجميع المستخدمين المسجّلين.",
   fr: "Cette page explique comment demander la suppression de votre compte Presentail et ce qui arrive à vos données. Le parcours de suppression est disponible dans l'application pour tous les utilisateurs inscrits.",
+  el: "Αυτή η σελίδα εξηγεί πώς να ζητήσετε τη διαγραφή του λογαριασμού σας στο Presentail και τι συμβαίνει με τα δεδομένα σας. Η διαδικασία εντός της εφαρμογής είναι διαθέσιμη σε όλους τους εγγεγραμμένους χρήστες.",
 };
 
 const META: Record<Language, { label: string; value: string }[]> = {
   en: [{ label: "Last Modified", value: "August 6, 2026" }],
   ar: [{ label: "آخر تعديل", value: "August 6, 2026" }],
   fr: [{ label: "Dernière modification", value: "6 août 2026" }],
+  el: [{ label: "Τελευταία τροποποίηση", value: "6 Αυγούστου 2026" }],
 };
 
 const HOME_LABEL: Record<Language, string> = {
   en: "Home",
   ar: "الرئيسية",
   fr: "Accueil",
+  el: "Αρχική",
 };
 
 const SECTIONS: LegalSection[] = [

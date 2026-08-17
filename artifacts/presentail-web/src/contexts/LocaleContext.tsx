@@ -14,13 +14,14 @@ import {
   parseLocalePath,
   switchLanguage,
   isSupportedLang,
+  isLangAllowedForCountry,
   type Lang,
 } from "@/lib/locale-route";
-import { STRINGS, STRINGS_FR } from "@/locales/index";
+import { STRINGS, STRINGS_FR, STRINGS_EL } from "@/locales/index";
 
 export type Language = Lang;
 
-export { STRINGS, STRINGS_FR };
+export { STRINGS, STRINGS_FR, STRINGS_EL };
 
 type LocaleContextType = {
   language: Language;
@@ -40,7 +41,7 @@ const LEGACY_STORAGE_KEY = "presentail_language_v1";
 // `/delivery-locations` payload (`localizedNames` on each country / city).
 import { useDeliveryLocations } from "@/lib/queries";
 
-type LocalizedNames = { en?: string; ar?: string; fr?: string };
+type LocalizedNames = { en?: string; ar?: string; fr?: string; el?: string };
 
 function pickLocalized(
   names: LocalizedNames | undefined,
@@ -105,11 +106,24 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   // Blog routes live under a bare /{lang}/blog prefix (no country segment), so
   // parseLocalePath can't see their language — derive it from the path directly.
-  const blogLangMatch = path.match(/^\/(en|ar|fr)\/blog(?:\/|$)/);
+  const blogLangMatch = path.match(/^\/(en|ar|fr|el)\/blog(?:\/|$)/);
   const blogLang = blogLangMatch ? (blogLangMatch[1] as Language) : null;
 
   const language: Language = parsed.lang ?? blogLang ?? stored;
   const dir: "ltr" | "rtl" = language === "ar" ? "rtl" : "ltr";
+
+  // Greek is Cyprus-only: a /el-ae/... or /el-lb/... URL (e.g. a Greek-selecting
+  // shopper switching to a non-Cyprus city) gracefully falls back to English.
+  useEffect(() => {
+    if (
+      parsed.hasLocalePrefix &&
+      parsed.lang &&
+      parsed.country &&
+      !isLangAllowedForCountry(parsed.lang, parsed.country)
+    ) {
+      navigate(switchLanguage(currentRelativeUrl(path), "en"), { replace: true });
+    }
+  }, [parsed.hasLocalePrefix, parsed.lang, parsed.country, path, navigate]);
 
   // Persist URL-derived language to localStorage so reloads from `/` keep it.
   const urlLang = parsed.lang ?? blogLang;
@@ -171,9 +185,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       dir,
       t: (key, params) => {
         const k = key as string;
-        if (language === "fr") {
-          const fr = STRINGS_FR[k];
-          if (fr) return format(fr, params);
+        if (language === "fr" || language === "el") {
+          const companion = language === "fr" ? STRINGS_FR[k] : STRINGS_EL[k];
+          if (companion) return format(companion, params);
           const en = STRINGS[k]?.en;
           return format(en ?? k, params);
         }

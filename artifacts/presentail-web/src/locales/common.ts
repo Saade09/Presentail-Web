@@ -23,3 +23,15 @@ export const commonStringsFr: Record<string, string> = {
   "currency.rememberChoice": "Mémoriser mon choix",
   "location.cityUnavailable": "Pas disponible pour le moment",
 };
+
+export const commonStringsEl: Record<string, string> = {
+  "notFound.title": "Δεν βρήκαμε αυτή τη σελίδα",
+  "notFound.desc": "Ίσως έχει μετακινηθεί ή ο σύνδεσμος να είναι παρωχημένος.",
+  "notFound.cta": "Επιστροφή στο κατάστημα",
+  "notFound.browse": "Περιηγηθείτε στη συλλογή μας",
+  "common.scrollLeft": "Κύλιση αριστερά",
+  "common.scrollRight": "Κύλιση δεξιά",
+  "currency.useAutomatic": "Χρήση αυτόματου (εντοπίστηκε)",
+  "currency.rememberChoice": "Να θυμάσαι την επιλογή μου",
+  "location.cityUnavailable": "Μη διαθέσιμο αυτή τη στιγμή",
+};

@@ -35,6 +35,18 @@ export const ALL_COUNTRIES = ["lb", "ae", "cy"];
 const SUPPORTED_LANGS_ORDERED = ["en", "ar", "fr"];
 
 /**
+ * Languages available per country. Greek ("el") is Cyprus-only — it must
+ * never appear in hreflang clusters for Lebanon or UAE pages.
+ * @param {string} country
+ * @returns {Array<"en" | "ar" | "fr" | "el">}
+ */
+export function hreflangLangsForCountry(country) {
+  return country === "cy"
+    ? [...SUPPORTED_LANGS_ORDERED, "el"]
+    : SUPPORTED_LANGS_ORDERED;
+}
+
+/**
  * Replace the city segment of a locale-prefixed pathname with the hub city
  * for its country. Non-locale paths, unknown countries, and paths already at
  * the hub city are returned unchanged.
@@ -112,7 +124,7 @@ export function buildHreflangSet(entityPath, locale, origin) {
       : `${canonicalOrigin}/${lang}-${country}/${city}`;
 
   /** @type {Array<{ hreflang: string; href: string }>} */
-  const output = SUPPORTED_LANGS_ORDERED.map((lang) => ({
+  const output = hreflangLangsForCountry(country).map((lang) => ({
     hreflang: `${lang}-${country.toUpperCase()}`,
     href: hrefFor(lang),
   }));

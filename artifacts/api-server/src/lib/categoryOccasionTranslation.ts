@@ -22,13 +22,14 @@ import crypto from "node:crypto";
 import OpenAI from "openai";
 import { logger } from "./logger";
 
-export type CategoryOccasionLang = "ar" | "fr";
+export type CategoryOccasionLang = "ar" | "fr" | "el";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const LANG_NAMES: Record<CategoryOccasionLang, string> = {
   ar: "Modern Standard Arabic",
   fr: "French",
+  el: "Modern Greek",
 };
 
 // Per-name cache: key = `${lang}:${name}` → translated name + expiry.

@@ -10,6 +10,8 @@ import {
   isSupportedLang,
   isSupportedCountrySlug,
   isSupportedCity,
+  langsForCountry,
+  isLangAllowedForCountry,
 } from "./locale-route";
 
 describe("isSupportedLang", () => {
@@ -290,5 +292,49 @@ describe("country code helpers", () => {
   it("countryCodeToSlug lower-cases", () => {
     expect(countryCodeToSlug("AE")).toBe("ae");
     expect(countryCodeToSlug("Lb")).toBe("lb");
+  });
+});
+
+describe("Greek (el) — Cyprus-only visibility", () => {
+  it("el is a supported lang", () => {
+    expect(isSupportedLang("el")).toBe(true);
+  });
+
+  it("parseLocalePath handles /el-cy paths", () => {
+    const p = parseLocalePath("/el-cy/nicosia/shop");
+    expect(p.lang).toBe("el");
+    expect(p.country).toBe("cy");
+    expect(p.city).toBe("nicosia");
+    expect(p.rest).toBe("/shop");
+    expect(p.hasLocalePrefix).toBe(true);
+  });
+
+  it("buildLocalePath builds /el-cy URLs", () => {
+    expect(
+      buildLocalePath({ lang: "el", country: "cy", city: "larnaca" }),
+    ).toBe("/el-cy/larnaca");
+  });
+
+  it("switchLanguage to el on a Cyprus page", () => {
+    expect(switchLanguage("/en-cy/nicosia/shop", "el")).toBe("/el-cy/nicosia/shop");
+  });
+
+  it("langsForCountry: el only for landing (null) and cy", () => {
+    expect(langsForCountry(null)).toEqual(["en", "ar", "fr", "el"]);
+    expect(langsForCountry("cy")).toEqual(["en", "ar", "fr", "el"]);
+    expect(langsForCountry("ae")).toEqual(["en", "ar", "fr"]);
+    expect(langsForCountry("lb")).toEqual(["en", "ar", "fr"]);
+  });
+
+  it("isLangAllowedForCountry gates el to cy/landing only", () => {
+    expect(isLangAllowedForCountry("el", null)).toBe(true);
+    expect(isLangAllowedForCountry("el", "cy")).toBe(true);
+    expect(isLangAllowedForCountry("el", "ae")).toBe(false);
+    expect(isLangAllowedForCountry("el", "lb")).toBe(false);
+    for (const lang of ["en", "ar", "fr"] as const) {
+      for (const c of [null, "lb", "ae", "cy"] as const) {
+        expect(isLangAllowedForCountry(lang, c)).toBe(true);
+      }
+    }
   });
 });

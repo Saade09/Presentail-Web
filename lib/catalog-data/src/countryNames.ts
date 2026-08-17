@@ -132,10 +132,76 @@ export const CITY_NAMES_FR: Record<string, string> = {
   "cy-paphos": "Paphos",
 };
 
+export const COUNTRY_NAMES_EL: Record<string, string> = {
+  LB: "Λίβανος",
+  AE: "Ηνωμένα Αραβικά Εμιράτα",
+  CY: "Κύπρος",
+  SA: "Σαουδική Αραβία",
+  KW: "Κουβέιτ",
+  QA: "Κατάρ",
+  BH: "Μπαχρέιν",
+  OM: "Ομάν",
+  JO: "Ιορδανία",
+  EG: "Αίγυπτος",
+  SY: "Συρία",
+  IQ: "Ιράκ",
+  TR: "Τουρκία",
+  US: "Ηνωμένες Πολιτείες",
+  CA: "Καναδάς",
+  GB: "Ηνωμένο Βασίλειο",
+  FR: "Γαλλία",
+  DE: "Γερμανία",
+  AU: "Αυστραλία",
+};
+
+export const CITY_NAMES_EL: Record<string, string> = {
+  "lb-akkar": "Ακάρ",
+  "lb-aley": "Αλέι",
+  "lb-baabda": "Μπάαμπντα",
+  "lb-baalbeck": "Μπάαλμπεκ",
+  "lb-batroun": "Μπατρούν",
+  "lb-bcharee": "Μπσαρέ",
+  "lb-beirut": "Βηρυτός",
+  "lb-bent-jbeil": "Μπεντ Τζμπέιλ",
+  "lb-chouf": "Σουφ",
+  "lb-hasbaya": "Χάσμπαγια",
+  "lb-hermel": "Χερμέλ",
+  "lb-jbeil": "Βύβλος",
+  "lb-jezzine": "Τζεζίν",
+  "lb-jounieh": "Τζουνιέ",
+  "lb-kesserwan": "Κεσερουάν",
+  "lb-koura": "Κούρα",
+  "lb-marjayoun": "Μαρτζαγιούν",
+  "lb-metn": "Μετν",
+  "lb-minnieh-dennaya": "Μινιέ-Ντενιέ",
+  "lb-nabatieh": "Ναμπατίγιε",
+  "lb-rechaya": "Ρασάγια",
+  "lb-saida": "Σιδώνα",
+  "lb-tripoli": "Τρίπολη",
+  "lb-tyre": "Τύρος",
+  "lb-west-bekaa": "Δυτική Μπεκάα",
+  "lb-zahle": "Ζάχλε",
+  "lb-zghorta": "Ζγκόρτα",
+  "lb-byblos": "Βύβλος",
+  "ae-dubai": "Ντουμπάι",
+  "ae-abu-dhabi": "Άμπου Ντάμπι",
+  "ae-sharjah": "Σάρτζα",
+  "ae-ajman": "Ατζμάν",
+  "ae-ras-al-khaimah": "Ρας αλ Χάιμα",
+  "ae-fujairah": "Φουτζέιρα",
+  "ae-umm-al-quwain": "Ουμ αλ Κουέιν",
+  "ae-al-ain": "Αλ Άιν",
+  "cy-nicosia": "Λευκωσία",
+  "cy-limassol": "Λεμεσός",
+  "cy-larnaca": "Λάρνακα",
+  "cy-paphos": "Πάφος",
+};
+
 function normalizeLang(lang: string | null | undefined): LocalizableLang {
   const lower = (lang ?? "").toLowerCase();
   if (lower === "ar") return "ar";
   if (lower === "fr") return "fr";
+  if (lower === "el") return "el";
   return "en";
 }
 
@@ -149,6 +215,7 @@ export function localizedCountryName(
   const l = normalizeLang(lang);
   if (l === "ar") return COUNTRY_NAMES_AR[upper] ?? fallback;
   if (l === "fr") return COUNTRY_NAMES_FR[upper] ?? fallback;
+  if (l === "el") return COUNTRY_NAMES_EL[upper] ?? fallback;
   return fallback;
 }
 
@@ -161,6 +228,7 @@ export function localizedCityName(
   const l = normalizeLang(lang);
   if (l === "ar") return CITY_NAMES_AR[id] ?? fallback;
   if (l === "fr") return CITY_NAMES_FR[id] ?? fallback;
+  if (l === "el") return CITY_NAMES_EL[id] ?? fallback;
   return fallback;
 }
 
@@ -171,25 +239,29 @@ export function localizedCityName(
  */
 export function localizedNamesForCountry(
   code: string,
-): { ar?: string; fr?: string } | undefined {
+): { ar?: string; fr?: string; el?: string } | undefined {
   const upper = code.trim().toUpperCase();
   const ar = COUNTRY_NAMES_AR[upper];
   const fr = COUNTRY_NAMES_FR[upper];
-  if (!ar && !fr) return undefined;
-  const out: { ar?: string; fr?: string } = {};
+  const el = COUNTRY_NAMES_EL[upper];
+  if (!ar && !fr && !el) return undefined;
+  const out: { ar?: string; fr?: string; el?: string } = {};
   if (ar) out.ar = ar;
   if (fr) out.fr = fr;
+  if (el) out.el = el;
   return out;
 }
 
 export function localizedNamesForCity(
   id: string,
-): { ar?: string; fr?: string } | undefined {
+): { ar?: string; fr?: string; el?: string } | undefined {
   const ar = CITY_NAMES_AR[id];
   const fr = CITY_NAMES_FR[id];
-  if (!ar && !fr) return undefined;
-  const out: { ar?: string; fr?: string } = {};
+  const el = CITY_NAMES_EL[id];
+  if (!ar && !fr && !el) return undefined;
+  const out: { ar?: string; fr?: string; el?: string } = {};
   if (ar) out.ar = ar;
   if (fr) out.fr = fr;
+  if (el) out.el = el;
   return out;
 }

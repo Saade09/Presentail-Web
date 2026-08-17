@@ -71,12 +71,21 @@ describe("buildSitemapXml — per-locale generation", () => {
 
   it("each locale's <loc> entries use that locale's language prefix", () => {
     for (const lang of SITEMAP_LANGS) {
+      // Greek ("el") is Cyprus-only: it never emits lb/ae URLs. Every locale's
+      // prefix is asserted against a country that carries that language —
+      // beirut (lb) for en/ar/fr, nicosia (cy) for el.
+      const city = lang === "el" ? "cy/nicosia" : "lb/beirut";
       expect(xmlByLocale[lang]).toContain(
-        `<loc>${ORIGIN}/${lang}-lb/beirut</loc>`,
+        `<loc>${ORIGIN}/${lang}-${city}</loc>`,
       );
-      // No <loc> in another language prefix (alternates are fine).
+      // No <loc> in another language prefix for the SAME city/country (the
+      // alternates listing other languages are fine). Only compare locales
+      // that actually emit that country's URLs.
       for (const other of SITEMAP_LANGS) {
         if (other === lang) continue;
+        // el does not emit lb/beirut, so an en/ar/fr sitemap legitimately has
+        // no /el-lb/beirut <loc>; skip cross-locale checks against el on lb.
+        if (other === "el") continue;
         expect(xmlByLocale[lang]).not.toContain(
           `<loc>${ORIGIN}/${other}-lb/beirut</loc>`,
         );
@@ -84,7 +93,15 @@ describe("buildSitemapXml — per-locale generation", () => {
     }
   });
 
-  it("every locale's entries carry reciprocal alternates for all three languages plus x-default", () => {
+  it("el (Greek) is Cyprus-only: its sitemap has no lb/ae URLs and no blog URLs", () => {
+    const xmlEl = xmlByLocale.el;
+    expect(xmlEl).toContain(`<loc>${ORIGIN}/el-cy/nicosia</loc>`);
+    expect(xmlEl).not.toContain("/el-lb/");
+    expect(xmlEl).not.toContain("/el-ae/");
+    expect(xmlEl).not.toContain("/el/blog");
+  });
+
+  it("every locale's entries carry reciprocal alternates plus x-default", () => {
     for (const lang of SITEMAP_LANGS) {
       const doc = parse(xmlByLocale[lang]);
       const firstUrl = Array.from(doc.getElementsByTagName("url")).find(
@@ -92,12 +109,18 @@ describe("buildSitemapXml — per-locale generation", () => {
       )!;
       const links = Array.from(firstUrl.getElementsByTagName("xhtml:link"));
       const hreflangs = links.map((l) => l.getAttribute("hreflang"));
-      expect(hreflangs).toEqual(
-        expect.arrayContaining(["en-LB", "ar-LB", "fr-LB", "x-default"]),
-      );
-      // x-default always points at the English variant.
+      const loc = firstUrl.getElementsByTagName("loc")[0]?.textContent ?? "";
+      const country = (loc.match(/\/(?:en|ar|fr|el)-(lb|ae|cy)\//)?.[1] ?? "").toUpperCase();
+      // Cyprus clusters carry en/ar/fr/el; lb/ae clusters carry en/ar/fr only.
+      // x-default is always present and points at the English variant.
+      const expected =
+        country === "CY"
+          ? [`en-${country}`, `ar-${country}`, `fr-${country}`, `el-${country}`, "x-default"]
+          : [`en-${country}`, `ar-${country}`, `fr-${country}`, "x-default"];
+      expect(hreflangs).toEqual(expect.arrayContaining(expected));
+      // x-default always points at the English variant of the same country.
       const xDefault = links.find((l) => l.getAttribute("hreflang") === "x-default")!;
-      expect(xDefault.getAttribute("href")).toContain("/en-lb/");
+      expect(xDefault.getAttribute("href")).toContain(`/en-${country.toLowerCase()}/`);
     }
   });
 
@@ -118,24 +141,32 @@ describe("buildSitemapXml — per-locale generation", () => {
 
   it("products appear at hub-city canonical URLs only, per locale", () => {
     for (const lang of SITEMAP_LANGS) {
+      // el is Cyprus-only, so its product canonical is the cy hub (nicosia);
+      // en/ar/fr use the lb hub (beirut).
+      const [hubCity, nonHubCity] =
+        lang === "el" ? ["cy/nicosia", "cy/larnaca"] : ["lb/beirut", "lb/tripoli"];
       expect(xmlByLocale[lang]).toContain(
-        `<loc>${ORIGIN}/${lang}-lb/beirut/product/red-roses</loc>`,
+        `<loc>${ORIGIN}/${lang}-${hubCity}/product/red-roses</loc>`,
       );
       // Not per-city: no product entry for a non-hub city.
       expect(xmlByLocale[lang]).not.toContain(
-        `<loc>${ORIGIN}/${lang}-lb/tripoli/product/red-roses</loc>`,
+        `<loc>${ORIGIN}/${lang}-${nonHubCity}/product/red-roses</loc>`,
       );
     }
   });
 
-  it("the blog index appears in all three locale sitemaps as a lang-only canonical URL", () => {
-    for (const lang of SITEMAP_LANGS) {
+  it("the blog index appears in the en/ar/fr locale sitemaps as a lang-only canonical URL", () => {
+    // Blog content exists in EN/AR/FR only — the Greek child sitemap carries
+    // no blog URLs (SITEMAP_BLOG_LANGS excludes "el").
+    for (const lang of ["en", "ar", "fr"]) {
       // Blog content is city-independent; each locale sitemap emits the
       // lang-only canonical (/{lang}/blog) instead of a city-prefixed variant.
       expect(xmlByLocale[lang]).toContain(
         `<loc>${ORIGIN}/${lang}/blog</loc>`,
       );
     }
+    // el emits no blog index.
+    expect(xmlByLocale.el).not.toContain(`<loc>${ORIGIN}/el/blog</loc>`);
   });
 
   it("product <image:image> blocks carry over into non-English locale sitemaps", () => {
@@ -299,19 +330,25 @@ describe("buildSitemapXml", () => {
     expect(xmlEn).toContain("/category/balloons");
   });
 
-  it("excludes a curated category with count 0 from AR and FR sitemaps (curated content is EN-only)", () => {
-    // The curated bypass is scoped to the locale that actually has hand-written
-    // copy. For AR and FR, no curated balloons copy exists, so the normal
-    // eligibility gate applies — a zero-count category must be omitted.
-    for (const locale of ["ar", "fr"]) {
+  it("excludes a curated category with count 0 from AR, FR and EL sitemaps (curated bypass is EN-only)", () => {
+    // The hub-city curated bypass (section 5) is scoped to the locale that
+    // actually has hand-written copy — English only (lang === "en"). For AR,
+    // FR and EL no curated hub-city copy is honoured, so the normal
+    // eligibility gate applies and a zero-count category must be omitted.
+    //
+    // "chocolate" is curated only at the lb/beirut hub (no non-hub curated
+    // cities), so it exercises the section-5 bypass in isolation without the
+    // section-5b non-hub curated emission that "balloons" would trigger.
+    // For el (Cyprus-only) lb is skipped entirely, so it is absent as well.
+    for (const locale of ["ar", "fr", "el"]) {
       const xmlNonEn = buildSitemapXml({
         origin: ORIGIN,
         basePath: "/",
         locale,
-        categories: [{ id: "balloons", count: 0 }],
+        categories: [{ id: "chocolate", count: 0 }],
       });
       expect(xmlNonEn, `locale ${locale}: zero-count curated category must be absent`).not.toContain(
-        "/category/balloons",
+        "/category/chocolate",
       );
     }
   });
@@ -357,7 +394,7 @@ describe("buildSitemapXml", () => {
     }
   });
 
-  it("emits hreflang alternates for en/ar/fr + x-default on every <url> with a prefix", () => {
+  it("emits reciprocal hreflang alternates + x-default on every <url> with a prefix (cy adds el)", () => {
     const doc = parse(xml);
     const urlNodes = Array.from(doc.getElementsByTagName("url"));
 
@@ -365,7 +402,7 @@ describe("buildSitemapXml", () => {
     // one: root "/") must carry alternates.
     const prefixed = urlNodes.filter((u) => {
       const loc = u.getElementsByTagName("loc")[0]?.textContent ?? "";
-      return /\/(en|ar|fr)-(lb|ae|cy)\//.test(loc);
+      return /\/(en|ar|fr|el)-(lb|ae|cy)\//.test(loc);
     });
     expect(prefixed.length).toBeGreaterThan(0);
 
@@ -375,12 +412,15 @@ describe("buildSitemapXml", () => {
         .map((l) => l.getAttribute("hreflang"))
         .filter(Boolean)
         .sort();
-      // Country is derived from the loc; assert all four codes are present.
+      // Country is derived from the loc. Cyprus clusters carry en/ar/fr/el;
+      // lb/ae clusters carry en/ar/fr only. All carry x-default.
       const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
-      const country = (loc.match(/\/(?:en|ar|fr)-(lb|ae|cy)\//)?.[1] ?? "").toUpperCase();
-      expect(hreflangs).toEqual(
-        [`en-${country}`, `ar-${country}`, `fr-${country}`, "x-default"].sort(),
-      );
+      const country = (loc.match(/\/(?:en|ar|fr|el)-(lb|ae|cy)\//)?.[1] ?? "").toUpperCase();
+      const expected =
+        country === "CY"
+          ? [`en-${country}`, `ar-${country}`, `fr-${country}`, `el-${country}`, "x-default"]
+          : [`en-${country}`, `ar-${country}`, `fr-${country}`, "x-default"];
+      expect(hreflangs).toEqual(expected.sort());
     }
   });
 
@@ -706,8 +746,8 @@ describe("SITEMAP_CITIES — expected structure", () => {
     expect((SITEMAP_CANONICAL_CITIES as Record<string, string>).cy).toBe("nicosia");
   });
 
-  it("SITEMAP_LANGS contains en, ar, and fr", () => {
-    expect((SITEMAP_LANGS as string[]).sort()).toEqual(["ar", "en", "fr"]);
+  it("SITEMAP_LANGS contains en, ar, fr, and el", () => {
+    expect((SITEMAP_LANGS as string[]).slice().sort()).toEqual(["ar", "el", "en", "fr"]);
   });
 });
 
@@ -827,10 +867,16 @@ describe("buildSitemapXml — per-country city coverage", () => {
     }
   });
 
-  it("emits all three language variants for each city (en, ar, fr)", () => {
+  it("emits language variants for each city per country (el is Cyprus-only)", () => {
     for (const lang of SITEMAP_LANGS as string[]) {
-      expect(xmlStatic).toContain(`/${lang}-lb/beirut`);
-      expect(xmlStatic).toContain(`/${lang}-ae/dubai`);
+      // el (Greek) is Cyprus-only: it never emits lb/ae URLs, only cy.
+      if (lang !== "el") {
+        expect(xmlStatic).toContain(`/${lang}-lb/beirut`);
+        expect(xmlStatic).toContain(`/${lang}-ae/dubai`);
+      } else {
+        expect(xmlStatic).not.toContain(`/${lang}-lb/`);
+        expect(xmlStatic).not.toContain(`/${lang}-ae/`);
+      }
       expect(xmlStatic).toContain(`/${lang}-cy/nicosia`);
     }
   });

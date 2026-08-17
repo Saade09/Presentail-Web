@@ -497,13 +497,14 @@ export type CatalogOccasionsResponse = {
   occasions: { slug: string; name: string; image: string | null; count: number; featured?: boolean }[];
 };
 
-export const useCatalogOccasions = (countryCode?: string | null, citySlug?: string | null) => {
+export const useCatalogOccasions = (countryCode?: string | null, citySlug?: string | null, lang?: string | null) => {
   return useQuery({
-    queryKey: ["catalog-occasions", countryCode ?? null, citySlug ?? null],
+    queryKey: ["catalog-occasions", countryCode ?? null, citySlug ?? null, lang ?? null],
     queryFn: () => {
       const params = new URLSearchParams();
       if (countryCode) params.set("countryCode", countryCode);
       if (citySlug) params.set("city", citySlug);
+      if (lang && lang !== "en") params.set("lang", lang);
       const qs = params.toString();
       return apiFetch<CatalogOccasionsResponse>(`/catalog/occasions${qs ? `?${qs}` : ""}`);
     },
@@ -534,11 +535,15 @@ export const usePageDescription = (
   deliveryAreaId: string | null,
   language: string,
 ) => {
+  // The page-description pipeline generates EN/AR/FR copy only; Greek pages
+  // fall back to the English description (same graceful-fallback rule used
+  // across content translation while Greek coverage warms).
+  const effectiveLanguage = ["en", "ar", "fr"].includes(language) ? language : "en";
   return useQuery<PageDescriptionResponse>({
-    queryKey: ["page-description", pageType, slug, deliveryAreaId, language],
+    queryKey: ["page-description", pageType, slug, deliveryAreaId, effectiveLanguage],
     queryFn: () => {
       return apiFetch<PageDescriptionResponse>(
-        `/page-descriptions?page_type=${encodeURIComponent(pageType!)}&slug=${encodeURIComponent(slug!)}&delivery_area_id=${encodeURIComponent(deliveryAreaId!)}&language=${encodeURIComponent(language)}`,
+        `/page-descriptions?page_type=${encodeURIComponent(pageType!)}&slug=${encodeURIComponent(slug!)}&delivery_area_id=${encodeURIComponent(deliveryAreaId!)}&language=${encodeURIComponent(effectiveLanguage)}`,
       );
     },
     enabled: !!pageType && !!slug && !!deliveryAreaId,

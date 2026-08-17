@@ -7,18 +7,21 @@ const EYEBROW: Record<Language, string> = {
   en: "Legal",
   ar: "قانوني",
   fr: "Mentions légales",
+  el: "Νομικά",
 };
 
 const TITLE: Record<Language, string> = {
   en: "Shipping & Delivery Policy",
   ar: "سياسة الشحن والتوصيل",
   fr: "Politique d'expédition et de livraison",
+  el: "Πολιτική Αποστολής & Παράδοσης",
 };
 
 const INTRO_NOTE: Record<Language, string> = {
   en: "We strive to deliver your gifts on time and in perfect condition. Please read our delivery policy carefully before placing your order.",
   ar: "نسعى جاهدين لتوصيل هداياك في الوقت المحدد وبحالة ممتازة. يرجى قراءة سياسة التوصيل بعناية قبل تقديم طلبك.",
   fr: "Nous nous efforçons de livrer vos cadeaux à temps et en parfait état. Veuillez lire attentivement notre politique de livraison avant de passer votre commande.",
+  el: "Καταβάλλουμε κάθε προσπάθεια να παραδίδουμε τα δώρα σας εγκαίρως και σε άριστη κατάσταση. Παρακαλούμε διαβάστε προσεκτικά την πολιτική παράδοσής μας πριν υποβάλετε την παραγγελία σας.",
 };
 
 const SECTIONS: LegalSection[] = [

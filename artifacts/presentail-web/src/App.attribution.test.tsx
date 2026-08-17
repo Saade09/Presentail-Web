@@ -105,7 +105,15 @@ vi.mock("@/lib/locale-route", () => ({
   countryCodeToSlug: vi.fn((code: string) => code.toLowerCase()),
   isSupportedCity: vi.fn(() => true),
   isSupportedCountrySlug: vi.fn(() => true),
-  SUPPORTED_LANGS: ["en", "ar", "fr"],
+  SUPPORTED_LANGS: ["en", "ar", "fr", "el"],
+  langsForCountry: vi.fn((country: string | null) =>
+    country === null || country === "cy"
+      ? ["en", "ar", "fr", "el"]
+      : ["en", "ar", "fr"],
+  ),
+  isLangAllowedForCountry: vi.fn((lang: string, country: string | null) =>
+    lang === "el" ? country === null || country === "cy" : true,
+  ),
   SUPPORTED_COUNTRY_SLUGS: ["lb", "ae", "cy"],
   CITY_SLUGS_BY_COUNTRY: { lb: ["beirut"], ae: ["dubai"], cy: ["nicosia"] },
 }));
