@@ -173,6 +173,26 @@ export default function ProductDetail() {
     !!deliverySelection.slotLabel,
   );
 
+  // Whether the delivery-selection context currently holds a complete, valid
+  // selection Add to Cart can trust without any panel interaction — e.g. one
+  // inherited from the cart's existing items. Express only needs a mode+date;
+  // scheduled modes also need a slot label.
+  const hasValidContextSelection =
+    deliverySelection.mode === "express"
+      ? !!deliverySelection.date
+      : deliverySelection.mode !== null &&
+        !!deliverySelection.date &&
+        !!deliverySelection.slotLabel;
+
+  // Keep the committed ref in sync with the context selection. When the PDP
+  // renders the inherited-delivery summary (schedule panel not mounted) the
+  // panel never emits, so without this the ref could stay false and Add to
+  // Cart would silently no-op until the shopper changed the date. Re-runs on
+  // slug navigation so moving between PDPs re-seeds it.
+  useEffect(() => {
+    if (hasValidContextSelection) windowCommittedRef.current = true;
+  }, [slug, hasValidContextSelection]);
+
   // When the cart already has items with a committed delivery, the PDP shows a
   // compact inherited-delivery summary instead of the full selector. The shopper
   // can click "Change delivery" / "Change date or time" to expand the selector.
@@ -543,10 +563,12 @@ export default function ProductDetail() {
     if (!product) return;
 
     // Guard: if scheduled is selected but no delivery window has been
-    // explicitly committed by the user this session, scroll to the inline
-    // scheduler and abort the add. windowCommittedRef starts true only for
-    // returning users who already have a stored scheduled selection.
-    if (deliveryChoice === "scheduled" && !windowCommittedRef.current) {
+    // committed — neither by an explicit panel interaction/emission this
+    // session (windowCommittedRef) nor via a complete selection already in
+    // context (e.g. inherited from the cart's existing items) — scroll to
+    // the inline scheduler and abort the add. Only genuinely selection-less
+    // first visits hit this path.
+    if (deliveryChoice === "scheduled" && !windowCommittedRef.current && !hasValidContextSelection) {
       schedulePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       trackEvent({ name: "delivery_scheduler_opened", deliveryMethod: "standard", deliverySource: "auto" });
       return;
@@ -570,7 +592,12 @@ export default function ProductDetail() {
         });
       }
     }
-    const isExpressChoice = deliveryChoice === "express";
+    // When the item joins the cart's inherited delivery, the local radio state
+    // (which defaults to "scheduled") is not shown — the inherited selection's
+    // mode is what actually applies to this item.
+    const isExpressChoice = isInherited
+      ? deliverySelection.mode === "express"
+      : deliveryChoice === "express";
     addItem(product, 1, customNote || undefined, {
       deliveryMethod: isExpressChoice ? "express" : "standard",
       // expressSurchargeForCountry is already imported and used in deliveryCardLabels;
