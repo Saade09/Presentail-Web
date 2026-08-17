@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Info } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverArrow,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
@@ -52,16 +57,21 @@ export function PhoneInfoTooltip({ askRecipientForAddress, onOpen }: Props) {
       </PopoverTrigger>
       <PopoverContent
         role="status"
-        side="top"
+        side="right"
         align="start"
+        sideOffset={10}
         collisionPadding={16}
         onOpenAutoFocus={(e) => e.preventDefault()}
         data-testid="tooltip-phone-info"
-        className="w-auto max-w-[min(280px,calc(100vw-2rem))] rounded-xl border-0 bg-primary px-3.5 py-2.5 text-xs leading-relaxed text-primary-foreground shadow-lg"
+        className="w-auto max-w-[min(360px,calc(100vw-2rem))] rounded-xl border-0 bg-primary px-3.5 py-2.5 text-xs leading-relaxed text-primary-foreground shadow-lg"
       >
         {askRecipientForAddress
           ? t("checkout.phoneInfoAskOn")
           : t("checkout.phoneInfoAskOff")}
+        <PopoverArrow
+          data-testid="tooltip-phone-info-arrow"
+          className="fill-primary"
+        />
       </PopoverContent>
     </Popover>
   );

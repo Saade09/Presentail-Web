@@ -79,6 +79,25 @@ describe("PhoneInfoTooltip", () => {
     expect(screen.queryByTestId("tooltip-phone-info")).toBeNull();
   });
 
+  it("anchors to the right of the icon with an offset and renders the caret arrow", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PhoneInfoTooltip askRecipientForAddress={false} />,
+      { locale },
+    );
+    await user.click(screen.getByTestId("button-phone-info"));
+
+    const content = screen.getByTestId("tooltip-phone-info");
+    // Radix reflects the resolved placement on the content element.
+    expect(content.getAttribute("data-side")).toBe("right");
+    expect(content.getAttribute("data-align")).toBe("start");
+
+    // Caret arrow is rendered inside the popover, in the bubble's background color.
+    const arrow = content.querySelector('[data-testid="tooltip-phone-info-arrow"]');
+    expect(arrow).toBeTruthy();
+    expect(arrow?.getAttribute("class") ?? "").toContain("fill-primary");
+  });
+
   it("toggles open with the keyboard (Enter) and keeps focus on the trigger", async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
