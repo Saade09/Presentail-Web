@@ -565,11 +565,31 @@ export default function ProductDetail() {
     // Guard: if scheduled is selected but no delivery window has been
     // committed — neither by an explicit panel interaction/emission this
     // session (windowCommittedRef) nor via a complete selection already in
-    // context (e.g. inherited from the cart's existing items) — scroll to
-    // the inline scheduler and abort the add. Only genuinely selection-less
-    // first visits hit this path.
-    if (deliveryChoice === "scheduled" && !windowCommittedRef.current && !hasValidContextSelection) {
-      schedulePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // context (e.g. inherited from the cart's existing items) — abort the
+    // add and surface the scheduler. Only genuinely selection-less first
+    // visits hit this path.
+    //
+    // Inherited-with-date is exempt: the PDP is showing "this item will join
+    // your cart's delivery", so the item rides the cart's committed selection
+    // even when the slot label is missing in this tab (the express→scheduled
+    // system fallback writes mode+date with slotLabel null). Checkout's slot
+    // initializer resolves a null slot to the first available window for the
+    // date. A selection with no date at all is NOT exempt — that state is
+    // genuinely unusable and must go through the scheduler.
+    const inheritedRideAlong = isInherited && !!deliverySelection.date;
+    if (
+      deliveryChoice === "scheduled" &&
+      !windowCommittedRef.current &&
+      !hasValidContextSelection &&
+      !inheritedRideAlong
+    ) {
+      if (schedulePanelRef.current) {
+        schedulePanelRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        // Panel not mounted (compact summary shown) — expand the editor so
+        // the shopper actually sees what needs picking instead of a no-op.
+        setIsEditingDelivery(true);
+      }
       trackEvent({ name: "delivery_scheduler_opened", deliveryMethod: "standard", deliverySource: "auto" });
       return;
     }

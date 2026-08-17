@@ -360,4 +360,30 @@ describe("ProductDetail — Add to Cart guard with inherited delivery", () => {
     clickAdd();
     expect(addItem).toHaveBeenCalledTimes(1);
   });
+
+  it("add works with an inherited scheduled selection that has NO slot label (express→scheduled fallback shape)", async () => {
+    // Regression: cart's inherited selection can be a scheduled mode with
+    // slotLabel null (e.g. after the express→scheduled system fallback).
+    // hasValidContextSelection is false in that state, but the item still
+    // joins the cart's delivery — the guard must not silently block the add.
+    mockUseDeliverySelection.mockReturnValue(
+      makeSelection({
+        mode: "today_slot",
+        date: "2026-06-28",
+        slotLabel: null,
+        slotId: null,
+        source: "system_reselected",
+        hasSelection: true,
+      }),
+    );
+    const addItem = vi.fn();
+    await act(async () => {
+      renderWithProviders(<ProductDetail />, {
+        cart: { addItem, items: [CART_ITEM], itemCount: 1, subtotal: 50 },
+      });
+    });
+
+    clickAdd();
+    expect(addItem).toHaveBeenCalledTimes(1);
+  });
 });
