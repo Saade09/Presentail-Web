@@ -139,6 +139,12 @@ export function Footer() {
 
   // Build city-scoped base so footer links work from non-city shells (e.g. /en/blog).
   // Wouter's "~" prefix makes a Link href absolute, bypassing the nested router base.
+  //
+  // When visited from a lang-only shell (e.g. /en/blog/*) the user may not yet have
+  // a city selected, so _cityBase is null.  In that case fall back to the hub city
+  // for the known country (Beirut/Dubai/Nicosia), which always has valid routes for
+  // every utility page.  Without this fallback the bare href="/terms" would be
+  // resolved by wouter relative to the shell base → /en/terms → 404.
   const _countrySlug = countryCode ? countryCodeToSlug(countryCode) : null;
   const _cityBase =
     _countrySlug && isSupportedCountrySlug(_countrySlug) && cityId
@@ -148,10 +154,25 @@ export function Footer() {
           city: cityIdToSlug(cityId),
         })
       : null;
+  // Hub-city fallback — used when a city is not yet selected (e.g. blog shell).
+  const _HUB_CITY: Partial<Record<string, string>> = { lb: "beirut", ae: "dubai", cy: "nicosia" };
+  const _hubBase =
+    !_cityBase && _countrySlug && isSupportedCountrySlug(_countrySlug) && _HUB_CITY[_countrySlug]
+      ? buildLocalePath({
+          lang: language as Lang,
+          country: _countrySlug,
+          city: _HUB_CITY[_countrySlug]!,
+        })
+      : null;
+  const _effectiveBase = _cityBase ?? _hubBase;
   const toCityHref = (path: string): string =>
     // City root ("/") must be slashless (`/fr-lb/beirut`) — the server 301s
     // the trailing-slash variant, so a slash-terminated href wastes a redirect.
-    _cityBase ? (path === "/" ? `~${_cityBase}` : `~${_cityBase}${path}`) : path;
+    // Always use the "~" prefix so the resulting path is router-root-absolute
+    // regardless of which nested shell the footer is rendered in.
+    _effectiveBase
+      ? path === "/" ? `~${_effectiveBase}` : `~${_effectiveBase}${path}`
+      : `~${path}`;
   const year = new Date().getFullYear();
   const cityLabel = city ? cityName(city.id, city.name) : t("footer.selectCity");
 

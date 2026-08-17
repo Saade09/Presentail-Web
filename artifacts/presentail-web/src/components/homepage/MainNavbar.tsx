@@ -389,6 +389,11 @@ export function MainNavbar() {
     key: "brands",
     labelKey: "nav.brands",
     items: [...(catalogMetadata?.brands ?? [])]
+      // Only surface brands that actually have products in the current country.
+      // Brands with count=0 (e.g. rifai, samsung, superheated-neurons) exist in
+      // the OS catalog but have no associated products; linking to /brand/<slug>
+      // for those returns 404, which Semrush correctly flags.
+      .filter((b) => b.count > 0)
       .sort((a, b) => {
         const aOrder = (a.sort_order ?? null) !== null ? a.sort_order! : Infinity;
         const bOrder = (b.sort_order ?? null) !== null ? b.sort_order! : Infinity;

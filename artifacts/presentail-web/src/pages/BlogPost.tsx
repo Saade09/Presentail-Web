@@ -404,7 +404,17 @@ export default function BlogPost() {
   const ctaHref = article.cta
     ? buildMarketHref(language, article.cta.path, article.cta.country)
     : article.ctaHref ?? "/shop";
-  const ctaIsExternalPath = Boolean(article.cta) || /^https?:\/\//.test(ctaHref);
+  // Treat as "external" (use native <a>, not wouter Link) when the href is:
+  //   • built by buildMarketHref (article.cta present)
+  //   • an absolute https:// URL
+  //   • a full locale path starting with /{lang}-{country}/ (e.g. /en-lb/beirut/…)
+  //     — legacy ctaHref values in this format are root-absolute and must bypass
+  //     the blog shell's /{lang} router base, otherwise wouter prepends it and
+  //     produces double-prefixed 404s like /en/en-lb/beirut/product/…
+  const ctaIsExternalPath =
+    Boolean(article.cta) ||
+    /^https?:\/\//.test(ctaHref) ||
+    /^\/[a-z]{2}-[a-z]{2}\//.test(ctaHref);
 
   const trackCta = (placement: string) =>
     trackWebEvent({
