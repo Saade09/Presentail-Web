@@ -1,0 +1,238 @@
+OBJECTIVE
+
+Fix the Recipient Phone Number information tooltip so its visual position clearly communicates that it belongs to the phone field and never obscures the unrelated Recipient name field.
+
+CURRENT PROBLEM
+
+In the current implementation, opening the tooltip places the dark-teal bubble over the “Recipient name” label/input area even though the trigger icon is beside “Phone Number *”.
+
+This causes three usability problems:
+- The tooltip appears associated with Recipient name instead of Phone Number.
+- It obscures an unrelated field.
+- There is no clear caret/arrow connecting the tooltip to the information icon.
+
+The tooltip styling and copy are acceptable; the anchoring and collision behavior need correction.
+
+RELATED TASKS
+
+Recipient name and tooltip requirements:
+✓ Checkout: merge recipient name fields and add phone-number info tooltip
+
+Approved checkout visual polish:
+✓ Checkout Delivery Details: implement approved visual hierarchy, layout and typography polish
+
+APPROVED DESKTOP PLACEMENT
+
+- Keep the information icon immediately beside the “Phone Number *” label.
+- Position the open tooltip immediately to the RIGHT of the information icon.
+- Vertically center the tooltip around the icon or use a right-start alignment that keeps the bubble’s top edge below the Recipient name input.
+- Maintain an 8–12 px gap between the icon and tooltip.
+- Add a small left-facing caret/arrow on the tooltip edge.
+- The caret must point directly to the information icon.
+- The tooltip must not cover:
+  - Recipient name label
+  - Recipient name input
+  - Required markers for unrelated fields
+- If unavoidable at a constrained width, the tooltip may temporarily overlap a small portion of the related Phone Number input while open.
+- Opening the tooltip must not move, resize, or reflow the form.
+- Keep the tooltip inside the Recipient Details card when sufficient space exists.
+
+APPROVED COPY
+
+When “Ask the recipient for the address” is ON:
+
+“We’ll only use this number to collect the recipient’s address and coordinate delivery.”
+
+When “Ask the recipient for the address” is OFF:
+
+“We’ll only use this number for delivery coordination.”
+
+Requirements:
+- Do not mention price.
+- Use the correct curly apostrophe where supported.
+- Update the displayed copy immediately if the address-collection toggle changes while the tooltip is open.
+- Keep the message short and non-interactive.
+
+VISUAL SPECIFICATION
+
+Use existing Presentail design tokens where available:
+
+- Background: dark Presentail teal
+- Text: white
+- Font: existing checkout sans-serif
+- Text size: approximately 13–14 px
+- Line height: approximately 18–20 px
+- Maximum desktop width: approximately 340–380 px
+- Padding: approximately 12 px vertical and 16 px horizontal
+- Border radius: approximately 10–12 px
+- Shadow: subtle elevated overlay shadow
+- Caret: same dark teal as tooltip background
+- No unnecessary border
+- No price-related wording
+- No decorative icon inside the tooltip
+- Tooltip should remain visually compact, normally two lines at standard desktop width
+
+Do not add a close button unless the established component pattern requires one. If a close button is used, it must be keyboard accessible and have an accessible label.
+
+DEFAULT AND INTERACTION BEHAVIOR
+
+- Tooltip is closed by default.
+- Desktop:
+  - Open on information-icon click.
+  - Support keyboard focus/activation.
+  - Hover may be supported as an enhancement, but must not be the only trigger.
+- Mobile:
+  - Open on tap.
+- Close when:
+  - The information icon is activated again.
+  - User clicks/taps outside.
+  - User presses Escape.
+  - Focus leaves the trigger/tooltip relationship, where appropriate.
+- Do not open automatically on page load.
+- Do not trap keyboard focus.
+- Do not prevent the customer from entering a phone number after dismissal.
+- Preserve the user’s form values when opening or closing the tooltip.
+
+COLLISION AND RESPONSIVE POSITIONING
+
+Use collision-aware placement rather than hard-coded absolute page coordinates.
+
+Preferred desktop placement order:
+1. Right of the icon, vertically centered/right-start.
+2. Left of the icon if the right side would overflow.
+3. Below the phone label/field if neither horizontal placement fits.
+
+Placement logic must:
+- Respect the card and viewport boundaries.
+- Flip or shift before clipping.
+- Preserve the caret’s alignment with the trigger after shifting.
+- Use a sufficiently high z-index to appear over form controls and card content.
+- Avoid being clipped by a parent with overflow hidden.
+- Use a portal/floating-layer approach if required by the existing component system.
+- Recalculate on viewport resize, zoom, scroll, and responsive breakpoint changes.
+
+MOBILE / NARROW VIEWPORTS
+
+- Do not force the desktop right-side position on narrow screens.
+- Place the tooltip below the Phone Number label or phone input.
+- Use nearly the available card width with safe 16 px horizontal margins.
+- Maximum width should not exceed the viewport minus safe margins.
+- Keep the tooltip entirely on-screen.
+- Do not cover the Recipient name field.
+- Do not cover a sticky checkout CTA.
+- Ensure the user can scroll normally while the tooltip is open.
+- Validate portrait and landscape orientations.
+
+RTL / ARABIC
+
+- Mirror the preferred horizontal placement appropriately.
+- The caret must continue pointing to the information icon.
+- Tooltip text alignment must follow locale direction.
+- Prevent clipping against the left viewport/card boundary in RTL.
+- Confirm the English apostrophe/copy is replaced by localized content when Arabic localization is available.
+
+ACCESSIBILITY
+
+- The information icon must be a real button, not a decorative span.
+- Accessible name: “Why we need the recipient’s phone number”
+- Minimum touch target: 44 × 44 px, even if the visible icon is smaller.
+- Support Enter and Space activation.
+- Support Escape dismissal.
+- Provide a visible focus state.
+- Associate the tooltip content with the trigger using the appropriate ARIA relationship.
+- Use role="tooltip" for non-interactive explanatory content.
+- Screen readers must announce the tooltip when it opens.
+- Do not rely on hover.
+- Meet WCAG AA contrast.
+- Verify at 200% zoom.
+- Tooltip must not obscure the focused trigger.
+
+IMPLEMENTATION NOTES
+
+- Prefer the project’s existing tooltip/popover or floating-position component.
+- If using a positioning library, configure offset, flip, shift, arrow/caret, and boundary detection.
+- Avoid custom viewport-coordinate calculations unless no shared primitive exists.
+- Keep placement logic isolated from checkout business logic.
+- Do not change form validation, submission, phone formatting, address-toggle behavior, or checkout payloads.
+- Do not change the width or position of Recipient name or Phone Number fields as part of this bug fix.
+- Preserve the approved separate Recipient Details and Sender Details cards.
+
+ACCEPTANCE CRITERIA
+
+- Tooltip remains closed on initial page load.
+- Clicking/tapping the Phone Number information icon opens the tooltip.
+- Tooltip is visibly anchored to that icon with a caret.
+- On standard desktop width, the tooltip appears immediately to the right of the icon.
+- The tooltip never overlaps the Recipient name label or Recipient name input.
+- The tooltip does not cause any layout shift.
+- Approved ON/OFF copy displays correctly.
+- No tooltip copy mentions price.
+- Tooltip stays within the viewport/card or flips/shifts correctly.
+- Tooltip is usable on touch, mouse, and keyboard.
+- Escape and outside click/tap dismiss it.
+- Mobile placement stays on-screen and clear of Recipient name.
+- RTL placement and text direction work correctly.
+- Opening/closing the tooltip does not alter any entered form values.
+- Checkout continues to Payment without regression.
+
+QA MATRIX
+
+Desktop browsers:
+- Chrome
+- Safari
+- Firefox if supported
+- Edge if supported
+
+Responsive:
+- Standard laptop width
+- Wide desktop
+- Tablet portrait and landscape
+- iPhone Safari
+- Android Chrome
+- Short viewport height
+
+Interaction:
+- Mouse click
+- Touch tap
+- Keyboard Enter
+- Keyboard Space
+- Escape dismissal
+- Outside click/tap
+- Repeated open/close
+- Toggle address collection while tooltip is open
+
+Layout:
+- 100%, 125%, 150%, and 200% zoom
+- LTR English
+- RTL Arabic
+- Long localized tooltip copy
+- Validation error visible beneath Phone Number
+- Browser resize while tooltip is open
+- Page scroll while tooltip is open
+
+REGRESSION CHECKS
+
+- Recipient name remains one field and keeps its approved capped width.
+- Phone country selector and number input remain usable.
+- Address-collection toggle still works.
+- Recipient and Sender cards remain separate.
+- Order Summary and checkout CTA remain unchanged.
+- Existing checkout analytics are not duplicated or interrupted.
+
+OUT OF SCOPE
+
+- Rewriting the approved tooltip copy.
+- Changing recipient-name validation.
+- Changing phone-number validation or formatting.
+- Redesigning the address-collection card.
+- Changing order-summary behavior.
+- General checkout layout changes unrelated to tooltip anchoring.
+
+DEFINITION OF DONE
+
+- Tooltip matches the approved corrected placement.
+- Caret visibly connects the tooltip to the Phone Number information icon.
+- Recipient name is never obscured.
+- Responsive, RTL, accessibility, and collision tests pass.
+- No checkout regression is introduced.
+- Product/design verifies the open and closed states on desktop and mobile.
