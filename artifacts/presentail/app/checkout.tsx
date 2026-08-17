@@ -74,7 +74,7 @@ import { Price } from "@/components/Price";
 import { toStripeMinorUnits, roundToNearestFive } from "@workspace/display-currency";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
-import { feeForDistrict, type District } from "@/data/districts";
+import { feeForDistrict, sortAECities, type District } from "@/data/districts";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -358,12 +358,16 @@ function CheckoutScreen() {
   // picker instead of falling back to a hardcoded governorate list.
   type CheckoutDistrict = District & { isActive?: boolean };
   const districts = useMemo<CheckoutDistrict[]>(() => {
-    return (selectedCountry?.cities ?? []).map((c) => ({
+    const raw = (selectedCountry?.cities ?? []).map((c) => ({
       name: c.name,
       // OS fee takes priority; fall back to the hardcoded lookup table.
       fee: c.fee ?? feeForDistrict(effectiveCountry, c.name),
       isActive: c.isActive,
     }));
+    // For UAE, order by delivery volume (Dubai first) and push inactive
+    // (unserved) emirates to the bottom so the picker is clean.
+    if (effectiveCountry === "AE") return sortAECities(raw);
+    return raw;
   }, [selectedCountry, effectiveCountry]);
   const cityDistrictMatch = selectedCity
     ? districts.find((d) => d.name === selectedCity.name && d.isActive !== false)
@@ -904,7 +908,7 @@ function CheckoutScreen() {
     if (!recipientLast.trim()) missing.push(t.checkoutMfRecipientLast);
     if (!recipientPhone.trim()) missing.push(t.checkoutMfRecipientPhone);
     else if (!isRecipientPhoneValid()) missing.push(t.phoneInvalidNumber);
-    if (!noAddress && (!district || district.isActive === false)) missing.push(t.districtLabel);
+    if (!noAddress && (!district || district.isActive === false)) missing.push(effectiveCountry === "AE" ? t.emirateLabel : t.districtLabel);
     if (!noAddress && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
     if (senderNameRequired && !senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
     if (senderNameRequired && !senderLast.trim()) missing.push(t.checkoutMfSenderLast);
@@ -2039,6 +2043,7 @@ function CheckoutScreen() {
               applySavedAddress={applySavedAddress}
               saveAddress={saveAddress}
               setSaveAddress={setSaveAddress}
+              effectiveCountry={effectiveCountry}
             />
             <DeliveryTimeCard
               colors={colors}
@@ -2792,6 +2797,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
     senderCountry, setSenderCountry,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     hideSenderName, hideSenderEmail, hideSenderPhone, senderSummary, onEditAccount,
+    effectiveCountry,
   } = props;
 
   const recipientNamesRef = useRef<View>(null);
@@ -3053,7 +3059,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
 
         {!noAddress ? (
         <View>
-          <Label colors={colors} required>{t.districtLabel}</Label>
+          <Label colors={colors} required>{effectiveCountry === "AE" ? t.emirateLabel : t.districtLabel}</Label>
           {locationsLoading && districts.length === 0 ? (
             <View
               style={{
@@ -3146,7 +3152,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-                <AppText style={{ fontFamily: headingFontBold, fontSize: 17, color: colors.primary }}>{t.selectDistrictTitle}</AppText>
+                <AppText style={{ fontFamily: headingFontBold, fontSize: 17, color: colors.primary }}>{effectiveCountry === "AE" ? t.selectEmirateTitle : t.selectDistrictTitle}</AppText>
                 <Pressable onPress={() => setDistrictOpen(false)}>
                   <Feather name="x" size={20} color={colors.primary} />
                 </Pressable>

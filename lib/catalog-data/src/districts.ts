@@ -67,3 +67,38 @@ export function feeForDistrict(
   );
   return match?.fee ?? 0;
 }
+
+/**
+ * UAE emirate display order (by delivery volume, most-served first).
+ * The four unserved emirates (Ajman, Fujairah, Ras Al Khaimah, Umm Al Quwain)
+ * are not listed here — they are driven by the OS active/inactive flag and
+ * always appear at the bottom of any sorted list.
+ */
+export const AE_EMIRATE_ORDER = [
+  "Dubai",
+  "Abu Dhabi",
+  "Sharjah",
+  "Al Ain",
+] as const;
+
+/**
+ * Sort a UAE city list so served emirates appear in delivery-volume order
+ * (Dubai → Abu Dhabi → Sharjah → Al Ain) and inactive/unserved ones are
+ * grouped at the bottom.
+ *
+ * Generic over T so it works with any city/district shape that has
+ * `name: string` and optional `isActive?: boolean`.
+ */
+export function sortAECities<T extends { name: string; isActive?: boolean }>(
+  cities: T[],
+): T[] {
+  const active = cities.filter((c) => c.isActive !== false);
+  const inactive = cities.filter((c) => c.isActive === false);
+  const preferred: T[] = (AE_EMIRATE_ORDER as readonly string[])
+    .map((n) => active.find((c) => c.name === n))
+    .filter((c): c is T => c != null);
+  const rest = active.filter(
+    (c) => !(AE_EMIRATE_ORDER as readonly string[]).includes(c.name),
+  );
+  return [...preferred, ...rest, ...inactive];
+}

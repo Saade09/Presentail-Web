@@ -84,6 +84,7 @@ import {
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
 import { withTimeout, withTimeoutAsNull } from "@/lib/withTimeout";
+import { sortAECities } from "@/lib/aeDistricts";
 import { computeCartTotal, toStripeMinorUnits, roundToNearestFive } from "@workspace/display-currency";
 import {
   AlertDialog,
@@ -1202,11 +1203,14 @@ function CheckoutForm() {
   // from the OS cache so toggling a city in Presentail OS propagates within
   // the polling interval. Inactive cities are shown greyed-out and unclickable;
   // only active cities (isActive !== false) can be selected.
-  const activeCities = useMemo(
-    () =>
-      locations?.countries.find((c) => c.code === countryCode)?.cities ?? [],
-    [locations, countryCode],
-  );
+  const activeCities = useMemo(() => {
+    const cities =
+      locations?.countries.find((c) => c.code === countryCode)?.cities ?? [];
+    if (countryCode !== "AE") return cities;
+    // For UAE, sort by delivery volume so Dubai appears first, and push any
+    // inactive (unserved) emirates to the bottom.
+    return sortAECities(cities);
+  }, [locations, countryCode]);
 
   // Pre-compute the selected city so we can read its OS express flag below.
   // Only active cities are eligible for selection, so we restrict the lookup.
@@ -3574,7 +3578,7 @@ function CheckoutForm() {
                   {!noAddress && (
                     <>
                       <div className="space-y-2 mb-3.5 lg:max-w-[480px]">
-                        <label className="text-sm font-medium">{t("checkout.district")}<span className="text-destructive ms-0.5">*</span></label>
+                        <label className="text-sm font-medium">{countryCode === "AE" ? t("checkout.emirate") : t("checkout.district")}<span className="text-destructive ms-0.5">*</span></label>
                         <Select
                           value={recipient.district}
                           onValueChange={(v) => setRecipient({ ...recipient, district: v })}
@@ -3589,7 +3593,7 @@ function CheckoutForm() {
                                   ? t("checkout.districtLoading")
                                   : !hasActiveCities
                                   ? t("checkout.districtUnavailable")
-                                  : t("checkout.selectDistrict")
+                                  : countryCode === "AE" ? t("checkout.selectEmirate") : t("checkout.selectDistrict")
                               }
                             />
                           </SelectTrigger>
