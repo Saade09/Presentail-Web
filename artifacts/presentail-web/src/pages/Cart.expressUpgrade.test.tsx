@@ -135,7 +135,7 @@ const CURRENCY_FIXTURE = { formatPrice: (v: number) => `$${v}` };
 // Raw-key t, except the delta template resolves to its real "+ {amount}" shape
 // so buildFeeNode substitutes a FormattedPrice for the amount.
 const LOCALE_WITH_DELTA = {
-  t: (key: string) => (key === "cart.expressDelta" ? "+ {amount}" : key),
+  t: (key: string) => (key === "cart.expressDelta" ? "+\u00A0{amount}" : key),
 };
 
 const standardSelection = (setSelection = vi.fn()) => ({
@@ -203,7 +203,12 @@ describe("Express upgrade card — delta pricing", () => {
     mockUseDeliverySelection.mockReturnValue(standardSelection());
     renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_BELOW, currency: CURRENCY_FIXTURE, locale: LOCALE_WITH_DELTA });
     // (10 + 15) − (10 + 0) = 15
-    expect(screen.getByTestId("text-express-upgrade-delta").textContent).toContain("$15");
+    const delta = screen.getByTestId("text-express-upgrade-delta");
+    expect(delta.textContent).toContain("$15");
+    // "+" must stay glued to the amount: non-breaking space join + nowrap span
+    expect(delta.textContent).toContain("+\u00A0");
+    expect(delta.textContent).not.toContain("+ ");
+    expect(delta.className).toContain("whitespace-nowrap");
     const impression = webEventsOf("express_upgrade_impression")[0];
     expect(impression.properties).toMatchObject({
       effective_standard_fee_usd: 10,

@@ -45,7 +45,7 @@ export function ExpressUpgradeCard({ arrival, deltaUsd, onUpgrade, upgrading = f
         </span>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className="text-sm font-semibold text-primary tabular-nums" data-testid="text-express-upgrade-delta">
+        <span className="whitespace-nowrap text-sm font-semibold text-primary tabular-nums" data-testid="text-express-upgrade-delta">
           {buildFeeNode(t("cart.expressDelta"), { amount: deltaUsd })}
         </span>
         <button

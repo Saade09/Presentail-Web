@@ -205,6 +205,10 @@ export const campaignStrings: Dict = {
     en: "4.8 out of 5 from 1,240 verified reviews on Trustpilot",
     ar: "4.8 من 5 من 1,240 تقييماً موثّقاً على Trustpilot",
   },
+  "campaign.v2.reviews.fiveStars": {
+    en: "5 out of 5 stars",
+    ar: "5 من 5 نجوم",
+  },
 };
 
 export const campaignStringsFr: Record<string, string> = {
@@ -286,4 +290,5 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.reviews.readAll": "Lire tous les avis",
   "campaign.v2.reviews.aggregate":
     "4,8 sur 5 d'après 1 240 avis vérifiés sur Trustpilot",
+  "campaign.v2.reviews.fiveStars": "5 étoiles sur 5",
 };

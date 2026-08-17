@@ -485,8 +485,9 @@ export function CampaignAddressExplainerBeirut() {
 // Five filled gold stars — rendered as an SVG row rather than emoji so colour
 // is consistent across platforms and font stacks.
 function FiveStars() {
+  const { t } = useLocale();
   return (
-    <div className="flex gap-0.5" aria-label="5 out of 5 stars" role="img"> {/* // i18n-ignore */}
+    <div className="flex gap-0.5" aria-label={t("campaign.v2.reviews.fiveStars")} role="img">
       {Array.from({ length: 5 }).map((_, i) => (
         <svg
           key={i}

@@ -1,5 +1,6 @@
 import type { Dict } from "./types";
 
+// hint: Logic changed on both sides. Requires understanding intent of each change.
 export const cartStrings: Dict = {
   "cart.empty.title": { en: "Your cart is empty", ar: "سلتك فارغة" },
   "cart.empty.desc": { en: "Find the perfect floral arrangement or luxury gift for your next special occasion.", ar: "اعثر على باقة الزهور أو الهدية الفاخرة المثالية لمناسبتك القادمة." },
@@ -14,7 +15,7 @@ export const cartStrings: Dict = {
   "cart.standardDelivery": { en: "Standard delivery", ar: "التوصيل العادي" },
   "cart.baseDeliveryCharge": { en: "Base delivery charge", ar: "رسوم التوصيل الأساسية" },
   "cart.expressUpgradeCta": { en: "Upgrade", ar: "ترقية" },
-  "cart.expressDelta": { en: "+ {amount}", ar: "+ {amount}" }, // no-translate — numeric delta template
+  "cart.expressDelta": { en: "+\u00A0{amount}", ar: "+\u00A0{amount}" }, // no-translate — numeric delta template (NBSP keeps "+" glued to the amount)
   // Quiet "Need it today?" prompt (system-assigned future dates only)
   "cart.expressPrompt.title": { en: "Need it today?", ar: "تحتاجها اليوم؟" },
   "cart.expressPrompt.arrivesBy": { en: "Express — {arrival}", ar: "التوصيل السريع — {arrival}" },
@@ -152,6 +153,7 @@ export const cartStrings: Dict = {
   "cart.fdc.closeAria": { en: "Close free delivery notice", ar: "إغلاق إشعار التوصيل المجاني" },
 };
 
+// hint: Logic changed on both sides. Requires understanding intent of each change.
 export const cartStringsFr: Record<string, string> = {
   "cart.empty.title": "Votre panier est vide",
   "cart.empty.desc": "Trouvez la composition florale ou le cadeau de luxe parfait pour votre prochaine occasion.",
@@ -166,7 +168,7 @@ export const cartStringsFr: Record<string, string> = {
   "cart.standardDelivery": "Livraison standard",
   "cart.baseDeliveryCharge": "Frais de livraison de base",
   "cart.expressUpgradeCta": "Surclasser",
-  "cart.expressDelta": "+ {amount}",
+  "cart.expressDelta": "+\u00A0{amount}",
   "cart.expressPrompt.title": "Besoin aujourd'hui ?",
   "cart.expressPrompt.arrivesBy": "Express — {arrival}",
   "cart.expressPrompt.cta": "Voir l'option",
