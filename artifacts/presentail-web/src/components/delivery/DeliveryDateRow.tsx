@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronRight, Zap } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { DeliveryPickerModal } from "./DeliveryPickerModal";
 import { useCityTimeSlots, useDeliveryPromise } from "./deliveryPromise";
 
@@ -52,6 +52,10 @@ export function DeliveryDateRow({ className = "", onChangeClick, openWithExpress
       name: "delivery_change_opened",
       surface: "cart",
       ...(promise ? { deliveryMethod: promise.type } : {}),
+    });
+    trackWebEvent({
+      type: "delivery_change_opened",
+      properties: { surface: "cart", ...(promise ? { delivery_method: promise.type } : {}) },
     });
     if (onChangeClick) {
       onChangeClick();

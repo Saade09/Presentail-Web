@@ -31,6 +31,8 @@ import { useNow } from "@/lib/useNow";
 import { computeCartTotal } from "@workspace/display-currency";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
+import { ExpressQuietPrompt } from "@/components/delivery/ExpressQuietPrompt";
+import { DeliverEarlierDialog } from "@/components/delivery/DeliverEarlierDialog";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
 import { useToast } from "@/hooks/use-toast";
 import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
@@ -43,6 +45,8 @@ export const CARD_TO_KEY = "presentail_card_to_v1";
 export const CARD_FROM_KEY = "presentail_card_from_v1";
 export const CARD_QR_LINK_KEY = "presentail_card_qr_link_v1";
 export const COUPON_STORAGE_KEY = "presentail_coupon_v1";
+/** Per-cart-state dismissal of the quiet "Need it today?" express prompt. */
+export const EXPRESS_PROMPT_DISMISSED_KEY = "presentail_express_prompt_dismissed_v1";
 export const COUPON_DISCOUNT_KEY = "presentail_coupon_discount_v1";
 export const ORDER_NOTE_KEY = "presentail_order_note_v1";
 
@@ -113,7 +117,7 @@ export default function Cart() {
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
-  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate, setSelection } = useDeliverySelection();
+  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate, source: deliverySource, setSelection } = useDeliverySelection();
   const { currencyCode } = useDisplayCurrency();
   const deliveryPromise = useDeliveryPromise();
   const now = useNow();
@@ -217,13 +221,44 @@ export default function Cart() {
   const expressRowVisible =
     deliveryMode === "express" && expressSurcharge > 0 && locationCity?.expressAvailable !== false;
 
-  // ── Express upgrade card (Delivery Summary) ──────────────────────────────
-  // Shown only while a standard selection exists and express is available now.
-  const expressUpgradeVisible =
+  // ── Express upsell gating (Delivery Summary) ─────────────────────────────
+  // Gating is driven by the *source* of the delivery selection, never the
+  // date alone: a user-chosen future date must never be upsold away, while a
+  // system-assigned one may show the quiet "Need it today?" prompt.
+  const todayIsoLocal = getLocalIso(countryCode, now);
+  const selectionIsFutureDate =
+    deliveryMode !== null &&
+    deliveryMode !== "express" &&
+    !!deliveryDate &&
+    deliveryDate > todayIsoLocal;
+  const userChoseSelection =
+    deliverySource === "user_selected" || deliverySource === "restored_user_selection";
+  // Mixed carts with Express-ineligible items suppress the cart-level upsell.
+  // No item flag exists for most catalogs today (all express-eligible), but any
+  // item explicitly marked ineligible turns the whole cart-level offer off.
+  const mixedCartExpressIneligible = items.some(
+    (i) => (i.product as { expressEligible?: boolean }).expressEligible === false,
+  );
+
+  // Persisted per-cart-state dismissal of the quiet prompt. The signature
+  // captures the delivery selection the prompt was dismissed for; a material
+  // change (different date/slot) re-enables the prompt.
+  const promptStateSignature = `${deliveryDate ?? ""}|${slotId ?? slotLabel ?? ""}`;
+  const [promptDismissedFor, setPromptDismissedFor] = useState<string | null>(() => {
+    try { return localStorage.getItem(EXPRESS_PROMPT_DISMISSED_KEY); } catch { return null; }
+  });
+  const promptDismissed = promptDismissedFor === promptStateSignature;
+
+  // Base eligibility for any cart-level express offer (card or quiet prompt).
+  const expressOfferBaseEligible =
     deliveryMode !== null &&
     deliveryMode !== "express" &&
     expressSurcharge > 0 &&
-    expressAvailableNow;
+    expressAvailableNow &&
+    !mixedCartExpressIneligible;
+
+  // Same-day standard selection → the existing full upgrade card, unchanged.
+  const expressUpgradeVisible = expressOfferBaseEligible && !selectionIsFutureDate;
 
   // Delta pricing — same source of truth as cartTotal (effectiveDeliveryFeeUsd
   // + slotFeeUsd), so the displayed delta always equals the change in Total:
@@ -250,9 +285,37 @@ export default function Cart() {
     }
   }, [upgradeQuoteAnchor, now, countryCode, language, t]);
 
+  // ── Quiet "Need it today?" prompt (system-assigned future dates only) ────
+  // Suppression reason (analytics) for a would-be offer on a future-dated
+  // selection; null when the quiet prompt should show.
+  const expressOfferSuppressionReason: string | null = (() => {
+    if (deliveryMode === null || deliveryMode === "express") return null;
+    if (expressSurcharge <= 0 || !expressAvailableNow) return null;
+    if (mixedCartExpressIneligible) return "mixed_cart_ineligible";
+    if (!selectionIsFutureDate) return null;
+    if (deliverySource === "user_selected") return "explicit_future_date";
+    if (deliverySource === "restored_user_selection") return "restored_future_selection";
+    if (promptDismissed) return "customer_dismissed";
+    if (!expressArrivalPreview) return "ETA_unavailable";
+    if (deliveryFeeUsd === null) return "price_unavailable";
+    return null;
+  })();
+  const quietPromptVisible =
+    expressOfferBaseEligible &&
+    selectionIsFutureDate &&
+    !userChoseSelection &&
+    !promptDismissed &&
+    !!expressArrivalPreview &&
+    deliveryFeeUsd !== null;
+
   // Shared analytics payload for the express upgrade events.
   const expressUpgradeAnalyticsProps = {
     cart_value_usd: subtotal,
+    delivery_selection_source: deliverySource,
+    selected_date: deliveryDate,
+    express_date: todayIsoLocal,
+    same_calendar_date: !selectionIsFutureDate,
+    market: countryCode ?? null,
     effective_standard_fee_usd: appliedStandardFeeUsd,
     express_fee_usd: expressTotalFeeUsd,
     displayed_delta_usd: expressDeltaUsd,
@@ -276,6 +339,101 @@ export default function Cart() {
     });
   }, [expressUpgradeVisible, isHydrated, itemCount]);
 
+  // ── Express offer analytics (eligible / impression / suppressed) ─────────
+  const offerEligibleRef = useRef(false);
+  useEffect(() => {
+    if (!isHydrated || itemCount === 0 || offerEligibleRef.current) return;
+    if (deliveryMode === null || deliveryMode === "express") return;
+    if (expressSurcharge <= 0 || !expressAvailableNow) return;
+    offerEligibleRef.current = true;
+    trackWebEvent({
+      type: "express_offer_eligible",
+      currency: "USD",
+      properties: expressUpgradeAnalyticsPropsRef.current,
+    });
+  }, [isHydrated, itemCount, deliveryMode, expressSurcharge, expressAvailableNow]);
+
+  const offerImpressionRef = useRef(false);
+  useEffect(() => {
+    if (!isHydrated || itemCount === 0 || offerImpressionRef.current) return;
+    if (!expressUpgradeVisible && !quietPromptVisible) return;
+    offerImpressionRef.current = true;
+    trackWebEvent({
+      type: "express_offer_impression",
+      currency: "USD",
+      properties: {
+        ...expressUpgradeAnalyticsPropsRef.current,
+        variant: quietPromptVisible ? "quiet_prompt" : "upgrade_card",
+      },
+    });
+  }, [isHydrated, itemCount, expressUpgradeVisible, quietPromptVisible]);
+
+  // Suppression — once per distinct reason per cart visit.
+  const lastSuppressionReasonRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isHydrated || itemCount === 0 || !expressOfferSuppressionReason) return;
+    if (lastSuppressionReasonRef.current === expressOfferSuppressionReason) return;
+    lastSuppressionReasonRef.current = expressOfferSuppressionReason;
+    trackWebEvent({
+      type: "express_offer_suppressed",
+      currency: "USD",
+      properties: {
+        ...expressUpgradeAnalyticsPropsRef.current,
+        suppression_reason: expressOfferSuppressionReason,
+      },
+    });
+  }, [isHydrated, itemCount, expressOfferSuppressionReason]);
+
+  // ── Quiet prompt actions ──────────────────────────────────────────────────
+  const [earlierDialogOpen, setEarlierDialogOpen] = useState(false);
+  const persistPromptDismissal = () => {
+    setPromptDismissedFor(promptStateSignature);
+    try { localStorage.setItem(EXPRESS_PROMPT_DISMISSED_KEY, promptStateSignature); } catch { /* ignore */ }
+  };
+  const markSelectionUserConfirmed = () => {
+    // Dismissing the prompt / keeping the scheduled slot is an explicit choice:
+    // the selection stops being "system-assigned" from here on (persisted).
+    setSelection({ source: "user_selected" });
+  };
+  const handlePromptDismiss = () => {
+    persistPromptDismissal();
+    markSelectionUserConfirmed();
+  };
+  const handlePromptSeeOption = () => {
+    trackWebEvent({
+      type: "express_offer_clicked",
+      currency: "USD",
+      properties: expressUpgradeAnalyticsPropsRef.current,
+    });
+    setEarlierDialogOpen(true);
+    trackWebEvent({
+      type: "earlier_delivery_confirmation_shown",
+      currency: "USD",
+      properties: expressUpgradeAnalyticsPropsRef.current,
+    });
+  };
+  const handleEarlierConfirm = () => {
+    setEarlierDialogOpen(false);
+    trackWebEvent({
+      type: "earlier_delivery_confirmed",
+      currency: "USD",
+      properties: expressUpgradeAnalyticsPropsRef.current,
+    });
+    handleExpressUpgrade();
+  };
+  const handleEarlierCancel = () => {
+    setEarlierDialogOpen(false);
+    trackWebEvent({
+      type: "earlier_delivery_canceled",
+      currency: "USD",
+      properties: expressUpgradeAnalyticsPropsRef.current,
+    });
+    // Keeping the scheduled slot confirms it — suppress the prompt for this
+    // cart state and mark the selection user-confirmed.
+    persistPromptDismissal();
+    markSelectionUserConfirmed();
+  };
+
   // Upgrade action — selects express via the shared delivery-selection state.
   // upgradePendingRef guards double-clicks/races while the switch commits.
   const upgradePendingRef = useRef(false);
@@ -295,7 +453,7 @@ export default function Cart() {
     upgradePendingRef.current = true;
     setUpgrading(true);
     try {
-      setSelection({ mode: "express", date: getLocalIso(countryCode), slotLabel: null, slotId: null });
+      setSelection({ mode: "express", date: getLocalIso(countryCode), slotLabel: null, slotId: null, source: "user_selected" });
     } catch {
       upgradePendingRef.current = false;
       setUpgrading(false);
@@ -329,9 +487,15 @@ export default function Cart() {
       setUpgrading(false);
       if (deliveryMode === "express") {
         trackWebEvent({ type: "express_upgrade_success", currency: "USD", properties: props });
+        trackWebEvent({ type: "delivery_method_change_success", currency: "USD", properties: props });
       } else {
         trackWebEvent({
           type: "express_upgrade_failed",
+          currency: "USD",
+          properties: { ...props, reason: "selection_not_applied" },
+        });
+        trackWebEvent({
+          type: "delivery_method_change_failed",
           currency: "USD",
           properties: { ...props, reason: "selection_not_applied" },
         });
@@ -963,6 +1127,28 @@ export default function Cart() {
                       upgrading={upgrading}
                     />
                   )}
+                  {quietPromptVisible && expressArrivalPreview && (
+                    <ExpressQuietPrompt
+                      arrivesByLine={t("cart.expressPrompt.arrivesBy").replace(
+                        "{arrival}",
+                        expressArrivalPreview,
+                      )}
+                      deltaUsd={expressDeltaUsd}
+                      onSeeOption={handlePromptSeeOption}
+                      onDismiss={handlePromptDismiss}
+                    />
+                  )}
+                  <DeliverEarlierDialog
+                    open={earlierDialogOpen}
+                    onOpenChange={(o) => { if (!o) setEarlierDialogOpen(false); }}
+                    originalLine={deliveryPromise?.arrival ?? ""}
+                    newLine={expressArrivalPreview ?? ""}
+                    totalChangeUsd={expressDeltaUsd}
+                    onConfirm={handleEarlierConfirm}
+                    onCancel={handleEarlierCancel}
+                    confirming={upgrading}
+                  />
+                
                 </div>
               </div>
 

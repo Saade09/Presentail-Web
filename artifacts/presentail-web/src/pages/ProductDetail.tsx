@@ -153,6 +153,7 @@ export default function ProductDetail() {
         date: new Date().toISOString().slice(0, 10),
         slotLabel: null,
         slotId: null,
+        source: "system_reselected",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,6 +164,9 @@ export default function ProductDetail() {
   // scheduled selection (mode is already set in the context from readInitial).
   // First-time visitors have mode===null so the ref starts false — they must
   // pick a window before Add to Cart proceeds.
+  // Whether the shopper explicitly interacted with the inline scheduler this
+  // session (vs. its automatic initial pick on mount) — drives selection source.
+  const scheduleUserInteractedRef = useRef(false);
   const windowCommittedRef = useRef(
     deliverySelection.mode !== null &&
     deliverySelection.mode !== "express" &&
@@ -196,6 +200,7 @@ export default function ProductDetail() {
         mode: "today_slot",
         date: new Date().toISOString().slice(0, 10),
         slotLabel: deliverySelection.slotLabel ?? null,
+        source: "system_reselected",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -504,6 +509,7 @@ export default function ProductDetail() {
       date: new Date().toISOString().slice(0, 10),
       slotLabel: null,
       slotId: null,
+      source: "user_selected",
     });
     trackEvent({ name: "express_upgrade_selected", deliveryMethod: "express", deliverySource: "user" });
     trackEvent({ name: "delivery_method_selected", deliveryMethod: "express", deliverySource: "user" });
@@ -527,6 +533,7 @@ export default function ProductDetail() {
         mode: "today_slot",
         date: new Date().toISOString().slice(0, 10),
         slotLabel: deliverySelection.slotLabel ?? null,
+        source: "system_default",
       });
     }
     trackEvent({ name: "delivery_method_selected", deliveryMethod: "standard", deliverySource: "user" });
@@ -551,6 +558,7 @@ export default function ProductDetail() {
           mode: "express",
           date: new Date().toISOString().slice(0, 10),
           slotLabel: null,
+          source: "system_default",
         });
       } else {
         deliverySelection.setSelection({
@@ -558,6 +566,7 @@ export default function ProductDetail() {
           date: new Date().toISOString().slice(0, 10),
           slotLabel: null,
           slotId: null,
+          source: "system_default",
         });
       }
     }
@@ -790,7 +799,16 @@ export default function ProductDetail() {
                       initialSlotLabel={deliverySelection.slotLabel}
                       freeDeliveryMet={freeDeliveryMet}
                       onChange={({ mode, date, slotLabel, slotId }) => {
-                        deliverySelection.setSelection({ mode, date, slotLabel, slotId: slotId ?? null });
+                        deliverySelection.setSelection({
+                          mode,
+                          date,
+                          slotLabel,
+                          slotId: slotId ?? null,
+                          // The panel auto-picks an initial slot on mount; only
+                          // selections after an explicit interaction count as
+                          // the shopper's own choice.
+                          source: scheduleUserInteractedRef.current ? "user_selected" : "system_default",
+                        });
                         // Commit the ref whenever the panel reports a valid selection,
                         // including its automatic initial selection on mount. This lets
                         // first-time visitors click Add to Cart with the default slot
@@ -798,6 +816,7 @@ export default function ProductDetail() {
                         windowCommittedRef.current = true;
                       }}
                       onUserInteracted={() => {
+                        scheduleUserInteractedRef.current = true;
                         windowCommittedRef.current = true;
                         trackEvent({ name: "delivery_window_selected", deliveryMethod: "standard", deliverySource: "user" });
                       }}

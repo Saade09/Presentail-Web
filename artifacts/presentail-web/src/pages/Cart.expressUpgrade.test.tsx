@@ -95,6 +95,7 @@ const { mockUseDeliverySelection } = vi.hoisted(() => ({
     date: null as string | null,
     slotLabel: null as string | null,
     slotId: null as string | null,
+    source: null as string | null,
     hasSelection: false,
     setSelection: vi.fn(),
     clear: vi.fn(),
@@ -138,8 +139,9 @@ const LOCALE_WITH_DELTA = {
 };
 
 const standardSelection = (setSelection = vi.fn()) => ({
-  mode: "schedule" as const,
-  date: "2026-08-15",
+  mode: "today_slot" as const,
+  date: "2026-08-14",
+  source: "user_selected" as const,
   slotLabel: null,
   slotId: null,
   hasSelection: true,
@@ -157,6 +159,7 @@ beforeEach(() => {
     date: null,
     slotLabel: null,
     slotId: null,
+    source: null,
     hasSelection: false,
     setSelection: vi.fn(),
     clear: vi.fn(),

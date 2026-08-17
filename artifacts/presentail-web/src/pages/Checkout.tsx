@@ -1383,7 +1383,11 @@ function CheckoutForm() {
           : recipient.deliveryDate || null,
       slotLabel: deliveryMode === "express" ? null : deliverySlot || null,
       slotId: deliveryMode === "express" ? null : deliverySlotId ?? null,
+      // A change caused by the sold-out correction effect below is a system
+      // re-pick; anything else here reflects an explicit checkout interaction.
+      source: systemCorrectionRef.current ? "system_reselected" : "user_selected",
     });
+    systemCorrectionRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryMode, deliverySlot, deliverySlotId, recipient.deliveryDate]);
 
@@ -1420,6 +1424,9 @@ function CheckoutForm() {
   // arrives after the initial render), but only corrects toward a later date —
   // it never moves a future date backward.
   const deliveryDayInitRef = useRef(false);
+  // Set just before the correction effect rewrites the delivery date so the
+  // sync effect above attributes the change to the system, not the shopper.
+  const systemCorrectionRef = useRef(false);
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
     const currentDate = recipient.deliveryDate;
@@ -1442,6 +1449,7 @@ function CheckoutForm() {
     // Today is fully sold out — advance to the first available future day.
     const result = firstAvailableDay(today, timeSlots, h, today);
     if (result) {
+      systemCorrectionRef.current = true;
       setRecipient((r) => ({ ...r, deliveryDate: result.iso }));
       setDeliverySlot(result.slot.label);
       if (result.iso !== today) setDeliveryMode("schedule");
@@ -1451,6 +1459,7 @@ function CheckoutForm() {
         date: result.iso,
         slotLabel: result.slot.label,
         slotId: result.slot.slotId ?? null,
+        source: "system_reselected",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

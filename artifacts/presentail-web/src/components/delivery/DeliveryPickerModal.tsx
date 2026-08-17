@@ -17,6 +17,7 @@ import { trackEvent } from "@/lib/analytics";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import {
   dayLabels,
+  expressDeadlineFrom,
   expressSurchargeForCountry,
   firstAvailableSlot,
   fmt12h,
@@ -28,6 +29,9 @@ import {
   type TimeSlot,
 } from "@workspace/delivery";
 import { displayedSlotsForDate } from "./displayedSlots";
+import { trackWebEvent } from "@/lib/analytics";
+import { buildExpressPromise, buildStandardPromise } from "./deliveryPromise";
+import { DeliverEarlierDialog } from "./DeliverEarlierDialog";
 
 /** Sort slots chronologically by delivery-window start (falling back to cutoff). */
 function sortSlots(slots: TimeSlot[]): TimeSlot[] {
@@ -280,7 +284,7 @@ function InlineCalendar({ selectedIso, todayIso, todaySelectable, onSelect, prev
 // ---------------------------------------------------------------------------
 
 export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd, initialModeOverride }: Props) {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const { countryCode } = useLocationSelection();
   const now = useNow();
   const deliverySelection = useDeliverySelection();
@@ -430,6 +434,48 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const hasAnyAvailableSlot = slotStates.some((s) => !s.unavailable);
   const selectedSlotState = slotStates.find((s) => s.slot.label === slot && !s.unavailable) ?? null;
 
+  // Pending selection awaiting the "Deliver earlier?" confirmation. Set when a
+  // newly picked option would move delivery to an *earlier* calendar date than
+  // the committed selection; nothing is committed until the shopper confirms.
+  const [pendingEarlier, setPendingEarlier] = useState<{
+    selection: DeliveryPickerSelection;
+    originalLine: string;
+    newLine: string;
+    totalChangeUsd: number;
+  } | null>(null);
+
+  /** Extra (above base district fee) charged for a committed/candidate selection. */
+  const extraFeeFor = useCallback(
+    (sel: { mode: string | null; date: string | null; slotLabel: string | null; slotId: string | null }): number => {
+      if (sel.mode === "express") return expressSurcharge;
+      if (!sel.date) return 0;
+      const daySlots = slotsForDate(sel.date);
+      const match =
+        (sel.slotId ? daySlots.find((s) => s.slotId === sel.slotId) : undefined) ??
+        (sel.slotLabel ? daySlots.find((s) => s.label === sel.slotLabel) : undefined);
+      return match?.extraFee && match.extraFee > 0 ? match.extraFee : 0;
+    },
+    [expressSurcharge, slotsForDate],
+  );
+
+  const commitSelection = (selection: DeliveryPickerSelection) => {
+    // Track delivery type changes (standard ↔ express) once per confirm.
+    const prevType = deliverySelection.mode === "express" ? "express" : deliverySelection.mode ? "standard" : null;
+    const nextType = selection.mode === "express" ? "express" : "standard";
+    if (prevType !== nextType) {
+      trackEvent({
+        name: "delivery_method_selected",
+        surface: "cart",
+        deliveryMethod: nextType,
+        deliverySource: "user",
+      });
+    }
+    // Confirming in the picker is always an explicit shopper choice.
+    deliverySelection.setSelection({ ...selection, source: "user_selected" });
+    onConfirm?.(selection);
+    onOpenChange(false);
+  };
+
   const handleConfirm = () => {
     // Use the already-memoized local-timezone today (getLocalIso(countryCode, now))
     // so that "today" comparisons and the express date payload are correct even
@@ -449,20 +495,63 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
         slotId: selectedSlotState?.slot.slotId ?? null,
       };
     }
-    // Track delivery type changes (standard ↔ express) once per confirm.
-    const prevType = deliverySelection.mode === "express" ? "express" : deliverySelection.mode ? "standard" : null;
-    const nextType = selection.mode === "express" ? "express" : "standard";
-    if (prevType !== nextType) {
-      trackEvent({
-        name: "delivery_method_selected",
-        surface: "cart",
-        deliveryMethod: nextType,
-        deliverySource: "user",
+    // "Deliver earlier?" gate: when a committed selection exists and the newly
+    // picked option lands on an *earlier* calendar date (destination-local; an
+    // Express ETA crossing midnight counts as tomorrow, not today), detour
+    // through a confirmation instead of committing directly.
+    const committedDate =
+      deliverySelection.mode && deliverySelection.mode !== "express"
+        ? deliverySelection.date
+        : deliverySelection.mode === "express"
+          ? todayIso
+          : null;
+    const newEffectiveDate =
+      selection.mode === "express"
+        ? getLocalIso(countryCode, expressDeadlineFrom(now))
+        : selection.date;
+    if (committedDate && newEffectiveDate < committedDate) {
+      const originalLine =
+        deliverySelection.mode === "express"
+          ? buildExpressPromise({ quotedAt: now, countryCode: countryCode ?? null, locale: language, t }).arrival
+          : buildStandardPromise({
+              dateIso: deliverySelection.date ?? todayIso,
+              slotLabel: deliverySelection.slotLabel ?? null,
+              slots: slotsForDate(deliverySelection.date ?? todayIso),
+              todayIso,
+              locale: language,
+              t,
+            }).arrival;
+      const newLine =
+        selection.mode === "express"
+          ? buildExpressPromise({ quotedAt: now, countryCode: countryCode ?? null, locale: language, t }).arrival
+          : buildStandardPromise({
+              dateIso: selection.date,
+              slotLabel: selection.slotLabel,
+              slots: slotsForDate(selection.date),
+              todayIso,
+              locale: language,
+              t,
+            }).arrival;
+      // Base district fee is identical across options, so the exact Total
+      // change is the difference of the extras (surcharge / slot fee) — the
+      // same terms cartTotal itself is built from.
+      const totalChangeUsd = extraFeeFor(selection) - extraFeeFor(deliverySelection);
+      setPendingEarlier({ selection, originalLine, newLine, totalChangeUsd });
+      trackWebEvent({
+        type: "earlier_delivery_confirmation_shown",
+        properties: {
+          surface: "delivery_picker",
+          delivery_selection_source: deliverySelection.source ?? null,
+          original_date: committedDate,
+          new_date: newEffectiveDate,
+          same_calendar_date: false,
+          total_change_usd: totalChangeUsd,
+          market: countryCode ?? null,
+        },
       });
+      return;
     }
-    deliverySelection.setSelection(selection);
-    onConfirm?.(selection);
-    onOpenChange(false);
+    commitSelection(selection);
   };
 
   const confirmDisabled = mode === "schedule" && (!hasAnyAvailableSlot || !selectedSlotState);
@@ -728,6 +817,44 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
           </div>
         </div>
       </DialogContent>
+
+      <DeliverEarlierDialog
+        open={!!pendingEarlier}
+        onOpenChange={(o) => {
+          if (!o) setPendingEarlier(null);
+        }}
+        originalLine={pendingEarlier?.originalLine ?? ""}
+        newLine={pendingEarlier?.newLine ?? ""}
+        totalChangeUsd={pendingEarlier?.totalChangeUsd ?? 0}
+        onConfirm={() => {
+          if (!pendingEarlier) return;
+          trackWebEvent({
+            type: "earlier_delivery_confirmed",
+            properties: {
+              surface: "delivery_picker",
+              new_date: pendingEarlier.selection.date,
+              total_change_usd: pendingEarlier.totalChangeUsd,
+              market: countryCode ?? null,
+            },
+          });
+          const sel = pendingEarlier.selection;
+          setPendingEarlier(null);
+          commitSelection(sel);
+        }}
+        onCancel={() => {
+          if (pendingEarlier) {
+            trackWebEvent({
+              type: "earlier_delivery_canceled",
+              properties: {
+                surface: "delivery_picker",
+                market: countryCode ?? null,
+              },
+            });
+          }
+          // Keep scheduled delivery: original selection and totals untouched.
+          setPendingEarlier(null);
+        }}
+      />
     </Dialog>
   );
 }
