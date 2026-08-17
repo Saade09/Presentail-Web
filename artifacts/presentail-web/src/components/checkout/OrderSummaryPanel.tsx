@@ -142,7 +142,7 @@ export function OrderSummaryPanel({
   }, [deliveryPromise]);
 
   return (
-    <div className="w-full lg:w-96 xl:w-[420px] shrink-0 order-first lg:order-last self-stretch">
+    <div className="w-full lg:w-[42%] xl:w-[44%] lg:max-w-[500px] shrink-0 order-first lg:order-last self-stretch">
       <div className="sticky top-24">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
 

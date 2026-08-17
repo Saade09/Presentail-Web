@@ -3353,9 +3353,9 @@ function CheckoutForm() {
     <div className="min-h-screen" style={{ backgroundColor: "#f4f4f5" }}>
       {/* ── Checkout header ── */}
       <header className="z-40" style={{ backgroundColor: "hsl(var(--primary))" }}>
-        <div className="max-w-content mx-auto px-page py-3 flex items-center text-primary-foreground">
-          <Link href="/" aria-label={t("nav.logoAria")}>
-            <Logo height={56} inverse={true} />
+        <div className="max-w-content mx-auto px-page py-2 flex items-center text-primary-foreground">
+          <Link href="/" aria-label={t("nav.logoAria")} className="flex items-center min-h-11">
+            <Logo height={44} inverse={true} />
           </Link>
           <div className="flex-1 flex items-center justify-end sm:justify-center">
             {stepLabels.map((label, i) => {
@@ -3367,23 +3367,24 @@ function CheckoutForm() {
                   <button
                     type="button"
                     onClick={() => { if (done) setStep(n); }}
-                    className="flex flex-col items-center gap-1.5"
+                    className="flex flex-col items-center gap-1.5 min-h-11 justify-center"
                     aria-label={label}
+                    aria-current={active ? "step" : undefined}
                   >
                     <div
-                      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${
+                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[13px] font-bold transition-all ${
                         done
                           ? "border-white bg-white text-primary"
                           : active
                           ? "border-white bg-white text-primary"
-                          : "border-white/25 bg-transparent text-white/30"
+                          : "border-white/60 bg-transparent text-white/80"
                       }`}
                     >
-                      {done ? <Check className="w-3.5 h-3.5" /> : n}
+                      {done ? <Check className="w-4 h-4" /> : n}
                     </div>
                     <span
                       className={`text-[11px] font-medium leading-none tracking-wide ${
-                        active ? "text-white" : done ? "text-white/65" : "text-white/30"
+                        active ? "text-white" : done ? "text-white/80" : "text-white/70"
                       }`}
                     >
                       {label}
@@ -3391,8 +3392,8 @@ function CheckoutForm() {
                   </button>
                   {i < 1 && (
                     <div
-                      className={`w-10 sm:w-20 h-px mx-3 mb-5 transition-colors ${
-                        done ? "bg-white/50" : "bg-white/15"
+                      className={`w-10 sm:w-20 h-0.5 rounded-full mx-3 mb-5 transition-colors ${
+                        done ? "bg-white/70" : "bg-white/35"
                       }`}
                     />
                   )}
@@ -3427,8 +3428,8 @@ function CheckoutForm() {
                 </div>
 
                 {/* Recipient Details */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4 lg:mb-5">{t("checkout.section.recipientDetails")}</p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-5">
+                  <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-4 lg:mb-5">{t("checkout.section.recipientDetails")}</h3>
 
                   {savedAddresses.length > 0 && (
                     <div className="mb-5">
@@ -3482,9 +3483,10 @@ function CheckoutForm() {
                   )}
 
                   <div
-                    className={`flex items-center gap-3 mb-4 rounded-xl border px-3.5 py-3 bg-card transition-colors ${
-                      noAddress ? "border-primary" : "border-border"
+                    className={`flex items-center gap-3 mb-6 lg:mb-7 rounded-xl border px-3.5 py-3 transition-colors ${
+                      noAddress ? "border-primary" : "border-primary/30"
                     }`}
+                    style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
                     data-testid="check-no-address-label"
                   >
                     <button
@@ -3494,7 +3496,7 @@ function CheckoutForm() {
                     >
                       <div
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
-                          noAddress ? "bg-primary text-primary-foreground" : "bg-muted text-primary"
+                          noAddress ? "bg-primary text-primary-foreground" : "bg-white text-primary"
                         }`}
                       >
                         <MapPin className="h-[18px] w-[18px]" />
@@ -3517,7 +3519,7 @@ function CheckoutForm() {
                     />
                   </div>
 
-                  <div className="space-y-2 mb-4">
+                  <div className="space-y-2 mb-3.5 lg:max-w-[480px]">
                     {/* Single recipient-name field — a first name, nickname, or full
                         name is all valid. Input is preserved verbatim (no title-casing,
                         no first/last splitting); whitespace is trimmed at submit time. */}
@@ -3535,7 +3537,7 @@ function CheckoutForm() {
                     }} placeholder={t("checkout.recipientNamePh")} data-testid="input-recipient-name" autoCapitalize="words" enterKeyHint="next" />
                   </div>
 
-                  <div className="mb-4">
+                  <div className="mb-6 lg:mb-7 lg:max-w-[480px]">
                     {/* Custom label row: "Phone Number *" plus the info tooltip button.
                         The tooltip explains why we need the number; its copy switches
                         with the ask-recipient-for-address toggle. Label is rendered
@@ -3571,7 +3573,7 @@ function CheckoutForm() {
 
                   {!noAddress && (
                     <>
-                      <div className="space-y-2 mb-4">
+                      <div className="space-y-2 mb-3.5 lg:max-w-[480px]">
                         <label className="text-sm font-medium">{t("checkout.district")}<span className="text-destructive ms-0.5">*</span></label>
                         <Select
                           value={recipient.district}
@@ -3696,7 +3698,7 @@ function CheckoutForm() {
 
                 {/* Sender Details */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4 lg:mb-5">{t("checkout.section.senderDetails")}</p>
+                  <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-4 lg:mb-5">{t("checkout.section.senderDetails")}</h3>
 
                   {isSignedIn ? (
                     <>
@@ -3758,7 +3760,7 @@ function CheckoutForm() {
                           <Input ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" autoCapitalize="words" />
                         </div>
                       </div>
-                      <div className="space-y-2 mb-4">
+                      <div className="space-y-2 mb-4 lg:max-w-[480px]">
                         <label className="text-sm font-medium">{t("checkout.emailAddress")}<span className="text-destructive ms-0.5">*</span></label>
                         <Input ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
                           if (e.key === "Enter") {
@@ -3775,7 +3777,7 @@ function CheckoutForm() {
                   )}
 
                   {!hasProfilePhone && (
-                    <div className="mb-4">
+                    <div className="mb-4 lg:max-w-[480px]">
                       {ipCountrySettled ? (
                         <LazyWebPhoneField
                           label={t("checkout.phoneNumber")}
