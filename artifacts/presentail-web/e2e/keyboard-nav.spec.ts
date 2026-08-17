@@ -149,7 +149,7 @@ async function installStubs(page: Page): Promise<void> {
  */
 async function fillStep1Required(page: Page): Promise<void> {
   // Recipient first name (required).
-  await page.getByTestId("input-recipient-first-name").fill("Jane");
+  await page.getByTestId("input-recipient-name").fill("Jane");
 
   // Recipient phone — react-phone-number-input forwards the data-testid prop
   // straight onto its inner <input type="tel">, so the testid IS the tel input
@@ -245,7 +245,7 @@ test.describe("Keyboard navigation — checkout flow", () => {
 
     // Wait for the step-1 form to be present before starting Tab navigation.
     await expect(
-      page.getByTestId("input-recipient-first-name"),
+      page.getByTestId("input-recipient-name"),
     ).toBeVisible({ timeout: 10_000 });
 
     // Seed focus into the page by clicking the first heading so that Tab
@@ -257,33 +257,16 @@ test.describe("Keyboard navigation — checkout flow", () => {
     // -----------------------------------------------------------------------
     const reachedFirstName = await tabUntilFocused(
       page,
-      "input-recipient-first-name",
+      "input-recipient-name",
     );
     expect(
       reachedFirstName,
-      "Recipient first-name field must be reachable by Tab",
+      "Recipient name field must be reachable by Tab",
     ).toBe(true);
 
-    await page.keyboard.type("Jane");
-    await expect(page.getByTestId("input-recipient-first-name")).toHaveValue(
-      "Jane",
-    );
-
-    // -----------------------------------------------------------------------
-    // Recipient last name
-    // -----------------------------------------------------------------------
-    const reachedLastName = await tabUntilFocused(
-      page,
-      "input-recipient-last-name",
-    );
-    expect(
-      reachedLastName,
-      "Recipient last-name field must be reachable by Tab from first-name",
-    ).toBe(true);
-
-    await page.keyboard.type("Doe");
-    await expect(page.getByTestId("input-recipient-last-name")).toHaveValue(
-      "Doe",
+    await page.keyboard.type("Jane Doe");
+    await expect(page.getByTestId("input-recipient-name")).toHaveValue(
+      "Jane Doe",
     );
 
     // -----------------------------------------------------------------------
@@ -380,7 +363,7 @@ test.describe("Keyboard navigation — checkout flow", () => {
     await page.goto("/checkout?guest=1");
 
     await expect(
-      page.getByTestId("input-recipient-first-name"),
+      page.getByTestId("input-recipient-name"),
     ).toBeVisible({ timeout: 10_000 });
 
     // Fill all required step-1 fields so the button is enabled.
@@ -420,7 +403,7 @@ test.describe("Keyboard navigation — checkout flow", () => {
     await page.goto("/checkout?guest=1");
 
     await expect(
-      page.getByTestId("input-recipient-first-name"),
+      page.getByTestId("input-recipient-name"),
     ).toBeVisible({ timeout: 10_000 });
 
     // Fill required fields and advance to step 2 by pointer (not keyboard) so

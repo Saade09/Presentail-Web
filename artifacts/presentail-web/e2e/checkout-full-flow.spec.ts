@@ -420,7 +420,7 @@ test.describe("GA4 e-commerce events — dataLayer regression", () => {
 
     // Wait for step-1 to be visible — confirms the login gate is bypassed and
     // the checkout useEffect has had a chance to run.
-    await expect(page.getByTestId("input-recipient-first-name")).toBeVisible({
+    await expect(page.getByTestId("input-recipient-name")).toBeVisible({
       timeout: 15_000,
     });
 
@@ -459,7 +459,7 @@ test.describe("GA4 e-commerce events — dataLayer regression", () => {
       await guestBtn.click();
     }
 
-    const recipientFirstName = page.getByTestId("input-recipient-first-name");
+    const recipientFirstName = page.getByTestId("input-recipient-name");
     await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
     await page.getByTestId("check-no-address").click();
     await recipientFirstName.fill("Ahmad");
@@ -593,7 +593,7 @@ test.describe("Checkout — full guest card-payment flow (idempotency smoke test
 
     // ── Step 1 · Recipient + sender details ──────────────────────────────────
 
-    const recipientFirstName = page.getByTestId("input-recipient-first-name");
+    const recipientFirstName = page.getByTestId("input-recipient-name");
     await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
     // Tick "No address needed" so we skip the district/address fields and the
@@ -707,7 +707,7 @@ test.describe("Checkout — full guest card-payment flow (idempotency smoke test
       await guestBtn.click();
     }
 
-    const recipientFirstName = page.getByTestId("input-recipient-first-name");
+    const recipientFirstName = page.getByTestId("input-recipient-name");
     await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
     await page.getByTestId("check-no-address").click();

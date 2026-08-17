@@ -455,7 +455,7 @@ async function navigateToStep2(user: ReturnType<typeof userEvent.setup>) {
   await user.click(noAddressSwitch);
 
   // Recipient first name (required).
-  const firstNameInput = screen.getByTestId("input-recipient-first-name");
+  const firstNameInput = screen.getByTestId("input-recipient-name");
   await user.type(firstNameInput, "John");
 
   // Recipient phone (required, validated via mocked isValidPhoneNumber → always true).
@@ -817,7 +817,7 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
   async function gotoWalletStep2() {
     const noAddressSwitch = await screen.findByTestId("check-no-address");
     await user.click(noAddressSwitch);
-    await user.type(screen.getByTestId("input-recipient-first-name"), "John");
+    await user.type(screen.getByTestId("input-recipient-name"), "John");
     await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
     await user.click(screen.getByTestId("button-continue-to-payment"));
     expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();

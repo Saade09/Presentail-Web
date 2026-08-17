@@ -281,7 +281,7 @@ async function advanceToPaymentStep(page: Page): Promise<void> {
     await guestBtn.click();
   }
 
-  const recipientFirstName = page.getByTestId("input-recipient-first-name");
+  const recipientFirstName = page.getByTestId("input-recipient-name");
   await expect(recipientFirstName).toBeVisible({ timeout: 20_000 });
 
   // "No address needed" skips district fields so the Continue button enables immediately.

@@ -225,7 +225,7 @@ async function advanceToPaymentStep(page: Page): Promise<void> {
     await guestBtn.click();
   }
 
-  const recipientFirstName = page.getByTestId("input-recipient-first-name");
+  const recipientFirstName = page.getByTestId("input-recipient-name");
   await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
   await page.getByTestId("check-no-address").click();

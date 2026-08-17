@@ -56,6 +56,8 @@ import klarnaLogo from "@/assets/payment-logos/klarna.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
+import { PhoneInfoTooltip } from "@/components/checkout/PhoneInfoTooltip";
+import { joinRecipientName } from "@/lib/recipientName";
 import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
@@ -418,7 +420,7 @@ function addressDisplayLabel(a: SavedAddress): string {
   return parts.join(" · ");
 }
 
-function applyAddressToRecipient(
+export function applyAddressToRecipient(
   a: SavedAddress,
   setRecipient: React.Dispatch<React.SetStateAction<{ firstName: string; lastName: string; phone: string; district: string; address: string; deliveryDate: string; cardMessage: string; cardTo: string }>>,
   opts: { onlyEmpty?: boolean } = {},
@@ -433,10 +435,14 @@ function applyAddressToRecipient(
     // manually (picker click), we always apply the full address.
     const fill = (existing: string, fromAddress: string) =>
       opts.onlyEmpty ? existing || fromAddress : fromAddress || existing;
+    // Saved addresses may still carry split first/last names (legacy rows).
+    // The checkout now uses a single recipient-name field, so join them into
+    // one display name — never populate the (retired) lastName slot.
+    const savedFullName = joinRecipientName(a.recipientFirstName, a.recipientLastName);
     return {
       ...prev,
-      firstName: fill(prev.firstName, a.recipientFirstName ?? ""),
-      lastName: fill(prev.lastName, a.recipientLastName ?? ""),
+      firstName: fill(prev.firstName, savedFullName),
+      lastName: "",
       phone: fill(prev.phone, phone),
       district: fill(prev.district, a.district ?? ""),
       address: fill(prev.address, addressLine),
@@ -780,8 +786,10 @@ function CheckoutForm() {
           apartment: null,
           directions: null,
           nickname: null,
+          // The single recipient-name value is stored whole in the firstName
+          // column; lastName is retired for new saves (legacy rows still join).
           recipientFirstName: recipient.firstName.trim() || null,
-          recipientLastName: recipient.lastName.trim() || null,
+          recipientLastName: null,
           recipientPhone: recipient.phone.trim() || null,
           recipientPhoneCountryCode: null,
           isDefault: false,
@@ -945,7 +953,10 @@ function CheckoutForm() {
 
   // Refs for Return-key focus chaining between checkout text fields.
   const recipientFirstNameRef = useRef<HTMLInputElement>(null);
-  const recipientLastNameRef = useRef<HTMLInputElement>(null);
+  // True once the shopper has opened the phone info tooltip during this
+  // checkout session — used to fire the continue-after-tooltip analytics
+  // event exactly once when they successfully advance to Payment.
+  const phoneTooltipInteractedRef = useRef(false);
   const senderFirstNameRef = useRef<HTMLInputElement>(null);
   const senderLastNameRef = useRef<HTMLInputElement>(null);
   const senderEmailRef = useRef<HTMLInputElement>(null);
@@ -2214,8 +2225,11 @@ function CheckoutForm() {
       phone: sender.phone,
     },
     recipient: {
-      firstName: recipient.firstName,
-      lastName: recipient.lastName,
+      // Single recipient-name field: the whole entered value (trimmed) travels
+      // as firstName; lastName stays empty for downstream first/last-shaped
+      // consumers (WooCommerce, OS) — never split the name.
+      firstName: recipient.firstName.trim(),
+      lastName: "",
       phone: recipient.phone,
     },
     district: _selectedDistrict,
@@ -3273,9 +3287,10 @@ function CheckoutForm() {
     };
 
     // Walk required fields in top-to-bottom form order and bail on the first gap.
-    if (!recipient.firstName) {
+    if (!recipient.firstName.trim()) {
+      trackWebEvent({ type: "checkout_recipient_name_error" });
       focusInvalid(recipientFirstNameRef.current);
-      return "recipient_first_name";
+      return "recipient_name";
     }
     if (!recipientPhoneValid) {
       // PhoneInput renders the <input> with the data-testid directly on it;
@@ -3312,6 +3327,10 @@ function CheckoutForm() {
       return "sender_phone";
     }
 
+    if (phoneTooltipInteractedRef.current) {
+      phoneTooltipInteractedRef.current = false;
+      trackWebEvent({ type: "checkout_continued_after_phone_tooltip" });
+    }
     setStep(2);
     return null;
   };
@@ -3489,30 +3508,47 @@ function CheckoutForm() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
-                      <Input ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(recipientLastNameRef)} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" autoCapitalize="words" enterKeyHint="next" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
-                      <Input ref={recipientLastNameRef} value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: toTitleCase(e.target.value) })} autoCapitalize="words" onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          // PhoneInput renders the <input> with data-testid directly on it.
-                          // Fall back to querying the first input inside the wrapper if needed.
-                          const phoneInput =
-                            document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"]') ??
-                            document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input');
-                          phoneInput?.focus();
-                        }
-                      }} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" enterKeyHint="next" />
-                    </div>
+                  <div className="space-y-2 mb-4">
+                    {/* Single recipient-name field — a first name, nickname, or full
+                        name is all valid. Input is preserved verbatim (no title-casing,
+                        no first/last splitting); whitespace is trimmed at submit time. */}
+                    <label className="text-sm font-medium" htmlFor="recipient-name-input">{t("checkout.recipientName")}<span className="text-destructive ms-0.5">*</span></label>
+                    <Input id="recipient-name-input" ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        // PhoneInput renders the <input> with data-testid directly on it.
+                        // Fall back to querying the first input inside the wrapper if needed.
+                        const phoneInput =
+                          document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"]') ??
+                          document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input');
+                        phoneInput?.focus();
+                      }
+                    }} placeholder={t("checkout.recipientNamePh")} data-testid="input-recipient-name" autoCapitalize="words" enterKeyHint="next" />
                   </div>
 
                   <div className="mb-4">
+                    {/* Custom label row: "Phone Number *" plus the info tooltip button.
+                        The tooltip explains why we need the number; its copy switches
+                        with the ask-recipient-for-address toggle. Label is rendered
+                        here (not via the field's `label` prop) so the button can sit
+                        right after the required marker without layout shift. */}
+                    <div className="flex items-center mb-2">
+                      <label className="text-sm font-medium">
+                        {t("checkout.phoneNumber")}
+                        <span className="text-destructive ms-0.5">*</span>
+                      </label>
+                      <PhoneInfoTooltip
+                        askRecipientForAddress={noAddress}
+                        onOpen={() => {
+                          phoneTooltipInteractedRef.current = true;
+                          trackWebEvent({
+                            type: "phone_tooltip_opened",
+                            properties: { ask_recipient_for_address: noAddress },
+                          });
+                        }}
+                      />
+                    </div>
                     <LazyWebPhoneField
-                      label={t("checkout.phoneNumber")}
                       value={recipient.phone}
                       onChange={(v) => setRecipient({ ...recipient, phone: v })}
                       defaultCountry={(countryCode ?? "LB").toUpperCase()}
@@ -4061,8 +4097,8 @@ function CheckoutForm() {
                     !noAddress &&
                     !!recipient.firstName.trim() &&
                     !!sender.firstName.trim() &&
-                    recipient.firstName.trim().toLowerCase() === sender.firstName.trim().toLowerCase() &&
-                    recipient.lastName.trim().toLowerCase() === sender.lastName.trim().toLowerCase() &&
+                    recipient.firstName.trim().toLowerCase() ===
+                      `${sender.firstName} ${sender.lastName}`.trim().replace(/\s+/g, " ").toLowerCase() &&
                     !!recipient.phone.trim() &&
                     recipient.phone.trim() === sender.phone.trim()
                   }

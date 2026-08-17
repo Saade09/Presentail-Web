@@ -76,7 +76,11 @@ type WebEventType =
   | "upsell_quantity_change"
   | "upsell_bundle_add_attempt"
   | "upsell_bundle_add_success"
-  | "upsell_bundle_add_failure";
+  | "upsell_bundle_add_failure"
+  // Single recipient-name field + phone info tooltip (Delivery Details step)
+  | "checkout_recipient_name_error"
+  | "phone_tooltip_opened"
+  | "checkout_continued_after_phone_tooltip";
 
 export type WebEventItem = {
   productId: string;

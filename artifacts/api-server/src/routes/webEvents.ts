@@ -74,6 +74,10 @@ const WEB_EVENT_TYPES = [
   "upsell_item_cancelled",
   "upsell_item_refunded",
   "upsell_item_substituted",
+  // Single recipient-name field + phone info tooltip (Delivery Details step)
+  "checkout_recipient_name_error",
+  "phone_tooltip_opened",
+  "checkout_continued_after_phone_tooltip",
 ] as const;
 
 const webEventItemSchema = z.object({

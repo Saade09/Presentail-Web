@@ -71,7 +71,7 @@ test.describe("Checkout — phone validation", () => {
       }
 
       // Wait for the recipient first-name field — confirms step 1 is rendered.
-      const recipientFirstName = page.getByTestId("input-recipient-first-name");
+      const recipientFirstName = page.getByTestId("input-recipient-name");
       await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
       // ── Fill every required field except the recipient phone ──────────────

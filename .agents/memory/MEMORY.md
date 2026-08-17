@@ -59,3 +59,4 @@
 - [Blog locale + editorial template](blog-locale-and-template.md) — bare /{lang}/blog URLs need explicit lang derivation in LocaleContext; article template is optional-field schema-driven with market hrefs via HUB_CITY
 - [Store-currency API responses](store-currency-api-responses.md) — product-surfacing endpoints must return store display-currency prices (AED/EUR), never USD-only; delivery params must actually gate results
 - [CYG upsell module](cyg-upsell-module.md) — web PDP "Complete your gift": flag-off/error/empty all fall back to FBT; revalidate via refetch before cart mutation; known-flaky baseline suites listed
+- [Checkout recipient name single field](checkout-recipient-name.md) — full name lives in firstName, lastName always empty; join legacy splits via joinRecipientName(); phone info tooltip analytics events

@@ -151,7 +151,7 @@ for (const currency of CURRENCIES) {
     }
 
     // ── Step 1 · fill recipient + sender details ──────────────────────────
-    const recipientFirstName = page.getByTestId("input-recipient-first-name");
+    const recipientFirstName = page.getByTestId("input-recipient-name");
     await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
     await page.getByTestId("check-no-address").click();

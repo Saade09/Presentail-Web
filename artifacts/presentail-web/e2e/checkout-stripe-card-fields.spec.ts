@@ -129,7 +129,7 @@ test.describe("Checkout — Stripe card fields render after bundle split", () =>
     }
 
     // ── Step 1 · recipient + sender details ──────────────────────────────────
-    const recipientFirstName = page.getByTestId("input-recipient-first-name");
+    const recipientFirstName = page.getByTestId("input-recipient-name");
     await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
     // Skip the address so we don't need to pick a district.

@@ -174,7 +174,7 @@ test.describe("Checkout step transition — Continue to Payment must not crash",
     }
 
     // Wait for step 1 to render.
-    const recipientFirstName = page.getByTestId("input-recipient-first-name");
+    const recipientFirstName = page.getByTestId("input-recipient-name");
     await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
     // Skip address so the district field doesn't block the submit button.
@@ -240,7 +240,7 @@ test.describe("Checkout step transition — Continue to Payment must not crash",
     }
 
     // The page should still render step 1 normally.
-    await expect(page.getByTestId("input-recipient-first-name")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("input-recipient-name")).toBeVisible({ timeout: 15_000 });
 
     // The error boundary must NOT be showing (no hook error occurred).
     await expect(page.getByTestId("checkout-error-boundary")).toHaveCount(0);

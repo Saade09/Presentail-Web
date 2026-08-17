@@ -434,7 +434,7 @@ async function driveWalletSuccess(user: ReturnType<typeof userEvent.setup>) {
 
   const noAddressSwitch = await screen.findByTestId("check-no-address");
   await user.click(noAddressSwitch);
-  await user.type(screen.getByTestId("input-recipient-first-name"), "John");
+  await user.type(screen.getByTestId("input-recipient-name"), "John");
   await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
   await user.click(screen.getByTestId("button-continue-to-payment"));
   expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
