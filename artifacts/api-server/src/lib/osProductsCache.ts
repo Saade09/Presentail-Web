@@ -1394,7 +1394,7 @@ async function fetchAndStore(): Promise<void> {
     //
     // Run after every successful fetch so the flag stays in sync with the cache.
     {
-      const BEST_SELLER_COUNT = 20;
+      const BEST_SELLER_COUNT = 30;
       // Collect unique products across all stores.
       const seen = new Set<string>();
       const uniqueProducts: OSProduct[] = [];
@@ -1447,7 +1447,7 @@ async function fetchAndStore(): Promise<void> {
       // one product has actual sales data (blendedScore > 0) — this avoids
       // flagging arbitrary products in a completely cold environment where all
       // scores are 0. When at least one score is > 0, lower-ranked products
-      // (score 0) may be included to pad to 20, matching homepage rail behaviour.
+      // (score 0) may be included to pad to 30, matching homepage rail behaviour.
       const blendedScore = (p: OSProduct): number =>
         (p.totalSales ?? 0) + (localSalesById.get(p.id) ?? 0);
       const hasAnySales = uniqueProducts.some((p) => blendedScore(p) > 0);

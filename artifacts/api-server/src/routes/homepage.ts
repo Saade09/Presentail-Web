@@ -549,7 +549,7 @@ router.get("/homepage/occasions", async (req, res) => {
   return res.json(data);
 });
 
-const BEST_SELLERS_LIMIT = 20;
+const BEST_SELLERS_LIMIT = 30;
 
 // ── Best-sellers cache ────────────────────────────────────────────────────
 //

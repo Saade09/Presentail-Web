@@ -486,7 +486,7 @@ export function CampaignAddressExplainerBeirut() {
 // is consistent across platforms and font stacks.
 function FiveStars() {
   return (
-    <div className="flex gap-0.5" aria-label="5 out of 5 stars" role="img">
+    <div className="flex gap-0.5" aria-label="5 out of 5 stars" role="img"> {/* // i18n-ignore */}
       {Array.from({ length: 5 }).map((_, i) => (
         <svg
           key={i}
