@@ -1000,7 +1000,15 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     lines.push(jsonLdGraphTag(jsonLdNodes));
   }
 
-  if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey)) {
+  // Satellite best-sellers pages (_isSatelliteBestSellers) are excluded from
+  // the hreflang block entirely: they carry noindex,follow + no canonical, so
+  // emitting hreflang would create a cluster with no matching self-referencing
+  // canonical — exactly the "conflicting hreflang / canonical" Semrush flag.
+  // Google ignores noindexed pages in hreflang clusters anyway, so suppressing
+  // hreflang here is both correct and prevents the cross-page conflict that
+  // would otherwise appear on every other city's best-sellers page that
+  // references this satellite URL as one of its alternates.
+  if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey) && !_isSatelliteBestSellers) {
     // Build the intra-city hreflang cluster: en/ar/fr variants of the SAME
     // city plus x-default pointing at the en variant of that city. No
     // cross-country links — each city's cluster stays self-contained so
