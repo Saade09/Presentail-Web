@@ -3835,7 +3835,7 @@ function CheckoutForm() {
                     <div className="mb-4 lg:max-w-[480px]">
                       {ipCountrySettled ? (
                         <LazyWebPhoneField
-                          label={t("checkout.phoneNumber")}
+                          label={t("checkout.whatsappNumber")}
                           value={sender.phone}
                           onChange={(v) => setSender({ ...sender, phone: v })}
                           defaultCountry={ipCountry ?? "LB"}
@@ -3852,7 +3852,7 @@ function CheckoutForm() {
                       ) : (
                         <div aria-hidden>
                           <div className="text-sm font-medium block mb-2">
-                            {t("checkout.phoneNumber")}
+                            {t("checkout.whatsappNumber")}
                             <span className="text-destructive ms-0.5"> *</span>
                           </div>
                           <div className="h-12 rounded-sm bg-muted/60 animate-pulse" />
