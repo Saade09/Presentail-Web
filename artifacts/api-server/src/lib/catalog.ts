@@ -10,8 +10,9 @@ import {
   getOsCityFreeDeliveryEnabled,
   getOsCityDeliveryFeeUsd,
   getDeliverySlots,
+  getExpressConfig,
 } from "./osLocationsCache";
-import { getLocalIso } from "@workspace/delivery";
+import { getLocalIso, isSlotStillBookable, type SlotBookability } from "@workspace/delivery";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
 // server-side so the client cannot manipulate the delivery fee.
@@ -240,6 +241,69 @@ export function computeSlotFeeUsd({
   const isToday = !deliveryDate || deliveryDate === todayIso;
   if (isNightSlot && isToday) return NIGHT_SLOT_SURCHARGE_USD;
   return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Submission-time slot re-validation (stale same-day slot guard)
+// ---------------------------------------------------------------------------
+
+export type SubmittedSlotInput = {
+  expressDelivery?: boolean;
+  deliverySlot?: string;
+  deliverySlotId?: string;
+  deliveryDate?: string;
+  cityId?: string;
+  district?: string;
+  /** Injected clock for tests. */
+  now?: Date;
+};
+
+/**
+ * Server-authoritative re-check that a submitted delivery date + slot is
+ * still bookable "now" in the store's local timezone. Express orders and
+ * payloads without a slot label are always allowed (express has its own
+ * availability gate). The slot is resolved from the OS city config
+ * (slotId-first, date-aware) so we honour the real window end hour; when the
+ * city config is unavailable we fall back to parsing the label itself.
+ */
+export function checkSubmittedSlotBookable(opts: SubmittedSlotInput): SlotBookability {
+  if (opts.expressDelivery || !opts.deliverySlot) return { bookable: true };
+  const country = countryForDistrict(opts.district ?? "Beirut");
+  const todayIso = getLocalIso(country, opts.now);
+  const citySlots = opts.cityId ? getDeliverySlots(opts.cityId) : [];
+  const bookedSlot =
+    resolveSlotForDate(citySlots, {
+      deliverySlot: opts.deliverySlot,
+      deliverySlotId: opts.deliverySlotId,
+      dateIso: opts.deliveryDate || todayIso,
+      todayIso,
+    }) ?? { label: opts.deliverySlot };
+  const { sameDayCutoffHour } = getExpressConfig(opts.cityId);
+  return isSlotStillBookable({
+    deliveryDate: opts.deliveryDate,
+    slot: bookedSlot,
+    countryCode: country,
+    sameDayCutoffHour,
+    now: opts.now,
+  });
+}
+
+export type OrderSlotGuardResult =
+  | { action: "allow" }
+  /** Stale slot but the order is already paid (paymentRef present) — a paid
+   *  rescue (webhook / sweeper / recovery replay) must never be blocked; the
+   *  caller logs/flags instead of rejecting. */
+  | { action: "allow_paid"; reason: string }
+  | { action: "reject"; reason: string };
+
+/** Order-creation policy on top of checkSubmittedSlotBookable. */
+export function evaluateOrderSlotGuard(
+  opts: SubmittedSlotInput & { paymentRef?: string },
+): OrderSlotGuardResult {
+  const check = checkSubmittedSlotBookable(opts);
+  if (check.bookable) return { action: "allow" };
+  if (opts.paymentRef) return { action: "allow_paid", reason: check.reason };
+  return { action: "reject", reason: check.reason };
 }
 
 type CatalogProduct = { price: number; name: string };

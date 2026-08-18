@@ -62,6 +62,8 @@ vi.mock("stripe", () => {
 // ---------------------------------------------------------------------------
 
 vi.mock("../lib/catalog", () => ({
+  checkSubmittedSlotBookable: vi.fn().mockReturnValue({ bookable: true }),
+  evaluateOrderSlotGuard: vi.fn().mockReturnValue({ action: "allow" }),
   resolveCartItems: vi.fn().mockResolvedValue({
     ok: true,
     subtotalUsd: 10,

@@ -34,6 +34,8 @@ const {
 }));
 
 vi.mock("../lib/catalog", () => ({
+  checkSubmittedSlotBookable: vi.fn().mockReturnValue({ bookable: true }),
+  evaluateOrderSlotGuard: vi.fn().mockReturnValue({ action: "allow" }),
   resolveCartItems: resolveCartItemsMock,
   computeDistrictFeeUsd: computeDistrictFeeUsdMock,
   computeSlotFeeUsd: computeSlotFeeUsdMock,

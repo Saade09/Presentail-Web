@@ -89,6 +89,7 @@ import {
   firstAvailableDay,
   getCountryHour,
   isExpressDeliveryAvailable,
+  isSlotStillBookable,
   resolveSlotLabel,
   timeSlotsForCountry,
   type TimeSlot,
@@ -1136,6 +1137,30 @@ function CheckoutScreen() {
     return result.ok;
   };
 
+  // The selected same-day slot went stale (window ended / city cutoff passed)
+  // — either caught by the local pre-check or rejected by the server with
+  // code "expired_delivery_slot". Snap the selection to the next available
+  // date/slot and prompt the shopper to review it. Cart and all other
+  // checkout data are preserved; no payment has been initiated.
+  const promptStaleSlotRepick = () => {
+    const h = getCountryHour(effectiveCountry);
+    const next = firstAvailableDay(todayIso, timeSlots, h, todayIso);
+    deliverySelection.setSelection({
+      mode: next && next.iso !== todayIso ? "schedule" : "today_slot",
+      date: next?.iso ?? todayIso,
+      slotLabel: next?.slot.label ?? null,
+    });
+    Alert.alert(t.checkoutSlotExpiredTitle, t.checkoutSlotExpiredMsg);
+    setPaying(false);
+  };
+  // True when a payment-initiation response carries the server's stale-slot
+  // rejection; the caller must return immediately after this handles it.
+  const handledStaleSlotCode = (code: string | undefined): boolean => {
+    if (code !== "expired_delivery_slot" && code !== "past_delivery_date") return false;
+    promptStaleSlotRepick();
+    return true;
+  };
+
   const placeOrder = async () => {
     if (paying) return;
     setCardError(null);
@@ -1144,6 +1169,27 @@ function CheckoutScreen() {
     const orderId = await ensureOrderId();
 
     const slotLabel = slot?.label ?? "";
+
+    // Stale-slot re-check — an app session left in the background can still
+    // hold a same-day slot whose window has ended (order LB-2152 class of
+    // bug). Re-validate BEFORE any payment is initiated; if stale, snap the
+    // selection to the next available date/slot and prompt the shopper to
+    // review it. Cart and all other checkout data are preserved.
+    if (deliveryMode !== "express") {
+      const staleCheck = isSlotStillBookable({
+        deliveryDate: date,
+        slot,
+        countryCode: effectiveCountry,
+        sameDayCutoffHour:
+          typeof selectedCity?.sameDayCutoffHour === "number"
+            ? selectedCity.sameDayCutoffHour
+            : undefined,
+      });
+      if (!staleCheck.bookable) {
+        promptStaleSlotRepick();
+        return;
+      }
+    }
 
     // Pre-payment server total verification — detect any fee mismatch (FX tick,
     // newly-activated slot surcharge, cache refresh) before the payment sheet
@@ -1433,6 +1479,7 @@ function CheckoutScreen() {
           setPaying(false);
           return;
         }
+        if (handledStaleSlotCode(intentResult.code)) return;
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
         Alert.alert(
           t.checkoutPaymentErrorTitle,
@@ -1525,6 +1572,7 @@ function CheckoutScreen() {
         noAddress,
       });
       if (!intentResult.ok) {
+        if (handledStaleSlotCode(intentResult.code)) return;
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
         Alert.alert(
           t.checkoutPaymentErrorTitle,
@@ -1598,6 +1646,7 @@ function CheckoutScreen() {
           setPaying(false);
           return;
         }
+        if (handledStaleSlotCode(session.code)) return;
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
         Alert.alert(
           t.checkoutPaymentErrorTitle,
@@ -1694,6 +1743,7 @@ function CheckoutScreen() {
         setPaying(false);
         return;
       }
+      if (handledStaleSlotCode(session.code)) return;
       trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       Alert.alert(t.checkoutMamoErrorTitle, session.code === "mamo_not_configured"
         ? t.checkoutMamoNotConfigured
@@ -1734,6 +1784,7 @@ function CheckoutScreen() {
         setPaying(false);
         return;
       }
+      if (handledStaleSlotCode(session.code)) return;
       trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       Alert.alert(t.checkoutTabbyErrorTitle, session.code === "tabby_not_configured"
         ? t.checkoutTabbyNotConfigured
@@ -1771,6 +1822,7 @@ function CheckoutScreen() {
         setPaying(false);
         return;
       }
+      if (handledStaleSlotCode(session.code)) return;
       trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       Alert.alert(t.checkoutPaypalErrorTitle, session.code === "paypal_not_configured"
         ? t.checkoutPaypalNotConfigured

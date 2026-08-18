@@ -39,6 +39,7 @@ const DUP_SLOTS = [
 
 vi.mock("./osLocationsCache", () => ({
   getDeliverySlots: vi.fn().mockReturnValue([]),
+  getExpressConfig: vi.fn().mockReturnValue({}),
   getOsCountryFreeDeliveryThresholdUsd: vi.fn().mockReturnValue(null),
   getOsCountryFreeDeliveryEnabled: vi.fn().mockReturnValue(null),
   getOsCityFreeDeliveryThresholdUsd: vi.fn().mockReturnValue(null),
@@ -46,9 +47,13 @@ vi.mock("./osLocationsCache", () => ({
   getOsCityDeliveryFeeUsd: vi.fn().mockReturnValue(null),
 }));
 
-vi.mock("@workspace/delivery", () => ({
-  getLocalIso: vi.fn().mockReturnValue("2026-08-13"),
-}));
+vi.mock("@workspace/delivery", async (importActual) => {
+  const actual = await importActual<typeof import("@workspace/delivery")>();
+  return {
+    ...actual,
+    getLocalIso: vi.fn().mockReturnValue("2026-08-13"),
+  };
+});
 
 import { computeSlotFeeUsd, resolveSlotForDate } from "./catalog";
 import { getDeliverySlots } from "./osLocationsCache";

@@ -75,6 +75,8 @@ export type DeliveryCity = {
   fee?: number;
   /** Whether express delivery is available for this city (from Presentail OS). */
   expressAvailable?: boolean;
+  /** Same-day booking cutoff hour (0–23) from Presentail OS (`express_delivery_cutoff_time`). */
+  sameDayCutoffHour?: number;
   /** Per-city delivery time slots from Presentail OS. Empty means use hardcoded defaults. */
   timeSlots?: Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>;
   /**

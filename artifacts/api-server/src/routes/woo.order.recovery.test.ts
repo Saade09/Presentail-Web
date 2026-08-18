@@ -67,6 +67,8 @@ vi.mock("../lib/wooOrders", () => ({
 }));
 
 vi.mock("../lib/catalog", () => ({
+  checkSubmittedSlotBookable: vi.fn().mockReturnValue({ bookable: true }),
+  evaluateOrderSlotGuard: vi.fn().mockReturnValue({ action: "allow" }),
   verifyStripePayment: vi.fn().mockResolvedValue(false),
   verifyStripePaymentIntentPaid: verifyStripePaymentIntentPaidMock,
   verifyMamoPayment: vi.fn().mockResolvedValue(false),

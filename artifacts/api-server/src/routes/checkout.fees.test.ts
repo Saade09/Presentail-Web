@@ -36,9 +36,13 @@ const {
   return { computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, getDeliverySlotsMock, getLocalIsoMock };
 });
 
-vi.mock("@workspace/delivery", () => ({
-  getLocalIso: getLocalIsoMock,
-}));
+vi.mock("@workspace/delivery", async (importActual) => {
+  const actual = await importActual<typeof import("@workspace/delivery")>();
+  return {
+    ...actual,
+    getLocalIso: getLocalIsoMock,
+  };
+});
 
 vi.mock("../lib/catalog", async (importActual) => {
   const actual = await importActual<typeof import("../lib/catalog")>();
@@ -57,6 +61,7 @@ vi.mock("../lib/catalog", async (importActual) => {
 
 vi.mock("../lib/osLocationsCache", () => ({
   getDeliverySlots: getDeliverySlotsMock,
+  getExpressConfig: vi.fn().mockReturnValue({}),
   resolveOsDeliveryConfig: vi.fn().mockReturnValue(null),
 }));
 

@@ -13,6 +13,7 @@ import {
   computeSlotFeeUsd,
   countryForDistrict,
   expressSurchargeUsd,
+  checkSubmittedSlotBookable,
 } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
@@ -164,6 +165,31 @@ router.post("/payment/mamo", async (req, res) => {
   }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  // Stale-slot guard — reject BEFORE the hosted payment link is created so a
+  // stale session can never pay for a same-day slot whose window has ended.
+  {
+    const slotCheck = checkSubmittedSlotBookable({
+      expressDelivery: expressDelivery === true,
+      deliverySlot: rawDeliverySlot,
+      deliverySlotId: rawDeliverySlotId,
+      deliveryDate: rawDeliveryDate,
+      cityId: rawCityId,
+      district,
+    });
+    if (!slotCheck.bookable) {
+      req.log?.warn?.(
+        { orderId, deliverySlot: rawDeliverySlot, deliveryDate: rawDeliveryDate, reason: slotCheck.reason },
+        "payment.mamo: expired delivery slot — rejecting before charge",
+      );
+      return res.status(422).json({
+        ok: false,
+        code: "expired_delivery_slot",
+        reason: slotCheck.reason,
+        message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
+      });
+    }
   }
 
   // Resolve catalog prices server-side.
@@ -453,6 +479,31 @@ router.post("/payment/paypal", async (req, res) => {
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
   }
 
+  // Stale-slot guard — reject BEFORE the PayPal order is created so a stale
+  // session can never pay for a same-day slot whose window has ended.
+  {
+    const slotCheck = checkSubmittedSlotBookable({
+      expressDelivery: expressDelivery === true,
+      deliverySlot: ppRawDeliverySlot,
+      deliverySlotId: ppRawDeliverySlotId,
+      deliveryDate: ppRawDeliveryDate,
+      cityId: ppRawCityId,
+      district,
+    });
+    if (!slotCheck.bookable) {
+      req.log?.warn?.(
+        { orderId, deliverySlot: ppRawDeliverySlot, deliveryDate: ppRawDeliveryDate, reason: slotCheck.reason },
+        "payment.paypal: expired delivery slot — rejecting before charge",
+      );
+      return res.status(422).json({
+        ok: false,
+        code: "expired_delivery_slot",
+        reason: slotCheck.reason,
+        message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
+      });
+    }
+  }
+
   // Resolve catalog prices server-side.
   const ppStore = resolveStoreFromRequest(req);
   const catalogResult = await resolveCartItems(items, ppStore);
@@ -659,6 +710,31 @@ router.post("/payment/tabby", async (req, res) => {
   }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
+  }
+
+  // Stale-slot guard — reject BEFORE the Tabby session is created so a stale
+  // session can never pay for a same-day slot whose window has ended.
+  {
+    const slotCheck = checkSubmittedSlotBookable({
+      expressDelivery: expressDelivery === true,
+      deliverySlot: tabbyRawDeliverySlot,
+      deliverySlotId: tabbyRawDeliverySlotId,
+      deliveryDate: tabbyRawDeliveryDate,
+      cityId: tabbyRawCityId,
+      district,
+    });
+    if (!slotCheck.bookable) {
+      req.log?.warn?.(
+        { orderId, deliverySlot: tabbyRawDeliverySlot, deliveryDate: tabbyRawDeliveryDate, reason: slotCheck.reason },
+        "payment.tabby: expired delivery slot — rejecting before charge",
+      );
+      return res.status(422).json({
+        ok: false,
+        code: "expired_delivery_slot",
+        reason: slotCheck.reason,
+        message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
+      });
+    }
   }
 
   // Resolve catalog prices server-side.

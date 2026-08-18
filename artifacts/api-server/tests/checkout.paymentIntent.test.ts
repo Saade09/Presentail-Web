@@ -21,6 +21,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // resolution step; we supply controlled outputs so price-security assertions
 // are exact and hermetic.
 vi.mock("../src/lib/catalog", () => ({
+  checkSubmittedSlotBookable: vi.fn().mockReturnValue({ bookable: true }),
+  evaluateOrderSlotGuard: vi.fn().mockReturnValue({ action: "allow" }),
   resolveCartItems: vi.fn(),
   verifyStripePayment: vi.fn().mockResolvedValue(false),
   verifyStripePaymentIntentPaid: vi.fn().mockResolvedValue(false),

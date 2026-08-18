@@ -77,6 +77,7 @@ import {
   slotTimeRangeForLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
+import { checkStaleSlotSelection } from "@/components/delivery/staleSlotCheck";
 import {
   isApplePayBrowser,
   webNextPaymentMethod,
@@ -2209,6 +2210,18 @@ function CheckoutForm() {
       });
     }
   };
+  // The selected delivery date/slot went stale (same-day window ended or the
+  // city cutoff passed) — surface a friendly prompt and open the delivery
+  // picker so the shopper re-picks. Cart and all other checkout state are
+  // preserved; payment is simply not initiated.
+  const promptStaleSlotRepick = () => {
+    toast({
+      title: t("checkout.toast.staleSlotTitle"),
+      description: t("checkout.toast.staleSlotDesc"),
+      variant: "destructive",
+    });
+    setDeliveryPickerOpen(true);
+  };
   const handleMobileDeliveryChange = () => {
     trackWebEvent({
       type: "mobile_checkout_delivery_change_clicked",
@@ -2378,6 +2391,10 @@ function CheckoutForm() {
         );
       } catch { /* best-effort */ }
       setLocation(`/order-confirmed?status=success&ref=${payload.orderId}`);
+    } else if (res.code === "expired_delivery_slot" || res.code === "past_delivery_date") {
+      // The selected date/slot went stale between the client pre-check and the
+      // server's authoritative validation — prompt a re-pick (cart preserved).
+      promptStaleSlotRepick();
     } else if (res.code === "coupon_invalid") {
       // Coupon-specific error: surface inline below the coupon field (using
       // WC's specific message when available) so the shopper can correct the
@@ -2454,6 +2471,29 @@ function CheckoutForm() {
             title: t("checkout.toast.stripeInitTitle"),
             description: t("checkout.toast.stripeInitDesc"),
           });
+          return;
+        }
+      }
+
+      // Stale-slot re-check — a tab left open can still hold a same-day slot
+      // whose window has ended. Re-validate BEFORE initiating any payment and
+      // prompt a re-pick instead of letting the server hard-reject later.
+      {
+        const staleCheck = checkStaleSlotSelection({
+          deliveryMode,
+          deliverySlot,
+          deliverySlotId,
+          deliveryDate: recipient.deliveryDate,
+          timeSlots,
+          countryCode,
+          sameDayCutoffHour:
+            typeof selectedCityData?.sameDayCutoffHour === "number"
+              ? selectedCityData.sameDayCutoffHour
+              : undefined,
+          now,
+        });
+        if (!staleCheck.bookable) {
+          promptStaleSlotRepick();
           return;
         }
       }
@@ -3274,7 +3314,14 @@ function CheckoutForm() {
       await finalizeOrderNow();
     } catch (err) {
       const isNetworkFailure = err instanceof TypeError;
-      const apiErr = err as { status?: number; message?: string } | null;
+      const apiErr = err as { status?: number; message?: string; data?: unknown } | null;
+      // Server-authoritative stale-slot rejection (payment-intent / hosted
+      // session / order creation). Prompt a re-pick instead of a raw failure.
+      const apiErrCode = (apiErr?.data as { code?: string } | null)?.code;
+      if (apiErrCode === "expired_delivery_slot" || apiErrCode === "past_delivery_date") {
+        promptStaleSlotRepick();
+        return;
+      }
       const isColdCache = apiErr?.status === 503;
       const hasSpecificMessage =
         !isNetworkFailure &&

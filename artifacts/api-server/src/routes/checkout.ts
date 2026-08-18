@@ -22,6 +22,7 @@ import {
   computeSlotFeeUsd,
   expressSurchargeUsd,
   countryForDistrict,
+  checkSubmittedSlotBookable,
 } from "../lib/catalog";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
 import { storePaymentIntent, getPaymentIntentForOrder } from "../lib/checkoutIntents";
@@ -184,6 +185,31 @@ router.post("/checkout/session", async (req, res) => {
   }
 
   const stripeCurrency = currency.toLowerCase();
+
+  // Stale-slot guard — reject BEFORE any charge is initiated so a stale tab
+  // can never pay for a same-day slot whose window has already ended.
+  {
+    const slotCheck = checkSubmittedSlotBookable({
+      expressDelivery: rawExpressDelivery === true,
+      deliverySlot: rawDeliverySlot,
+      deliverySlotId: rawDeliverySlotId,
+      deliveryDate: rawDeliveryDate,
+      cityId: rawCityId,
+      district: rawDistrict,
+    });
+    if (!slotCheck.bookable) {
+      req.log.warn(
+        { orderId, deliverySlot: rawDeliverySlot, deliveryDate: rawDeliveryDate, reason: slotCheck.reason },
+        "checkout.session: expired delivery slot — rejecting before charge",
+      );
+      return res.status(422).json({
+        ok: false,
+        code: "expired_delivery_slot",
+        reason: slotCheck.reason,
+        message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
+      });
+    }
+  }
 
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
@@ -634,6 +660,32 @@ router.post("/checkout/payment-intent", async (req, res) => {
   // account (e.g. CAD/AUD/CHF on the LB main account).
   const chargeCurrency = resolveStripeChargeCurrency(currency, isGulf);
   const stripeCurrency = chargeCurrency.toLowerCase();
+
+  // Stale-slot guard — reject BEFORE the PaymentIntent is created so a stale
+  // tab or app session can never charge for a same-day slot whose window has
+  // already ended (order LB-2152 class of bug).
+  {
+    const slotCheck = checkSubmittedSlotBookable({
+      expressDelivery: expressDelivery === true,
+      deliverySlot,
+      deliverySlotId,
+      deliveryDate,
+      cityId,
+      district,
+    });
+    if (!slotCheck.bookable) {
+      req.log.warn(
+        { orderId, deliverySlot, deliveryDate, reason: slotCheck.reason },
+        "checkout.payment-intent: expired delivery slot — rejecting before charge",
+      );
+      return res.status(422).json({
+        ok: false,
+        code: "expired_delivery_slot",
+        reason: slotCheck.reason,
+        message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
+      });
+    }
+  }
 
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {

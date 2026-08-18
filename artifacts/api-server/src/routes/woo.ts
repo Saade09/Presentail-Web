@@ -21,6 +21,7 @@ import {
   expressSurchargeUsd,
   countryForDistrict,
   computeSlotFeeUsd,
+  evaluateOrderSlotGuard,
   verifyMamoPayment,
   captureAndVerifyPayPalOrder,
 } from "../lib/catalog";
@@ -1313,6 +1314,41 @@ router.post("/woo/order", async (req, res) => {
         code: "past_delivery_date",
         message: "The selected delivery date has already passed. Please select a date from today onwards.", // i18n-ignore
       });
+    }
+  }
+
+  // Stale same-day slot guard — reject an order whose selected same-day slot
+  // window has already ended (or whose city same-day cutoff has passed) in the
+  // store's local timezone. CRITICAL: orders carrying a paymentRef are already
+  // paid (card/wallet finalization, redirect returns, webhook/sweeper recovery
+  // replays) — those must NEVER be blocked or the charge becomes a
+  // charged-but-lost order; we log/flag instead and let operations reschedule.
+  {
+    const slotGuard = evaluateOrderSlotGuard({
+      deliverySlot: body.deliverySlot,
+      deliverySlotId: body.deliverySlotId,
+      deliveryDate: body.deliveryDate,
+      cityId: body.cityId,
+      district: body.district,
+      paymentRef: body.paymentRef,
+    });
+    if (slotGuard.action === "reject") {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, deliverySlot: body.deliverySlot, deliveryDate: body.deliveryDate, reason: slotGuard.reason },
+        "woo.order: expired delivery slot — rejecting",
+      );
+      return res.status(422).json({
+        ok: false,
+        code: "expired_delivery_slot",
+        reason: slotGuard.reason,
+        message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
+      });
+    }
+    if (slotGuard.action === "allow_paid") {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, deliverySlot: body.deliverySlot, deliveryDate: body.deliveryDate, reason: slotGuard.reason },
+        "woo.order: expired delivery slot on a PAID order — allowing (rescue path); needs manual rescheduling",
+      );
     }
   }
 

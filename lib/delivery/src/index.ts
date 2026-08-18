@@ -621,3 +621,101 @@ export function formatPromiseDateLabel(
     return dateIso;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Slot bookability at submission time (stale-selection guard)
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal slot shape needed for the bookability check. Compatible with both
+ * the shared `TimeSlot` and the API server's OS slot shape.
+ */
+export type BookableSlotLike = {
+  label?: string;
+  /** Hour of day (0–23) the delivery window closes. */
+  endHour?: number;
+  cutoffHour?: number;
+};
+
+export type SlotBookability =
+  | { bookable: true }
+  | {
+      bookable: false;
+      reason: "past_date" | "same_day_cutoff_passed" | "slot_window_ended";
+    };
+
+/** Parse the end hour out of a "9:00 AM – 2:00 PM" style label. Null on failure. */
+export function parseSlotLabelEndHour(label: string | undefined): number | null {
+  if (!label) return null;
+  // Accept both en-dash and hyphen separators.
+  const parts = label.split(/[–-]/);
+  if (parts.length < 2) return null;
+  const m = /^(\d+)(?::\d+)?\s*(AM|PM)$/i.exec(parts[parts.length - 1]!.trim());
+  if (!m) return null;
+  let h = parseInt(m[1]!, 10);
+  const period = m[2]!.toUpperCase();
+  if (period === "AM") {
+    if (h === 12) h = 0;
+  } else if (h !== 12) {
+    h += 12;
+  }
+  return h;
+}
+
+/** Best-effort delivery-window end hour for a slot: explicit endHour, else parsed from the label. */
+export function slotEndHour(slot: BookableSlotLike | null | undefined): number | null {
+  if (!slot) return null;
+  if (typeof slot.endHour === "number") return slot.endHour;
+  return parseSlotLabelEndHour(slot.label);
+}
+
+/**
+ * Whether a previously selected delivery date + slot is still bookable at
+ * `now`, in the store country's local timezone (Asia/Beirut for LB/CY,
+ * Asia/Dubai for AE).
+ *
+ * Used as the submission-time re-validation shared by the API server (order
+ * creation / payment-intent creation) and both clients (pre-submit re-check),
+ * so a stale tab or app session can never place an order for a same-day slot
+ * whose window has already ended (e.g. order LB-2152: 9AM–2PM slot submitted
+ * at 4PM Beirut time).
+ *
+ * Rules:
+ *  - `deliveryDate` before today (local)      → not bookable ("past_date")
+ *  - future dates                             → always bookable
+ *  - today, local hour ≥ `sameDayCutoffHour`  → not bookable ("same_day_cutoff_passed")
+ *  - today, local hour ≥ slot window end      → not bookable ("slot_window_ended")
+ *
+ * Deliberately NOT enforced here: the slot's booking `cutoffHour`. A shopper
+ * who picked a slot minutes before its booking cutoff may legitimately finish
+ * payment a few minutes after it — rejecting at the window END instead keeps
+ * the guard about genuinely impossible deliveries, never borderline ones.
+ */
+export function isSlotStillBookable(opts: {
+  /** Selected delivery date (YYYY-MM-DD). Empty/undefined counts as today. */
+  deliveryDate: string | null | undefined;
+  slot?: BookableSlotLike | null;
+  countryCode?: string | null;
+  /** City same-day booking cutoff (0–23). Defaults to EXPRESS_CLOSE_HOUR (22). */
+  sameDayCutoffHour?: number;
+  now?: Date;
+}): SlotBookability {
+  const now = opts.now ?? new Date();
+  const todayIso = getLocalIso(opts.countryCode, now);
+  const dateIso = opts.deliveryDate || todayIso;
+  if (dateIso < todayIso) return { bookable: false, reason: "past_date" };
+  if (dateIso > todayIso) return { bookable: true };
+
+  const hour = getCountryHour(opts.countryCode, now);
+  const cutoff =
+    typeof opts.sameDayCutoffHour === "number"
+      ? opts.sameDayCutoffHour
+      : EXPRESS_CLOSE_HOUR;
+  if (hour >= cutoff) return { bookable: false, reason: "same_day_cutoff_passed" };
+
+  const endHour = slotEndHour(opts.slot);
+  if (endHour !== null && hour >= endHour) {
+    return { bookable: false, reason: "slot_window_ended" };
+  }
+  return { bookable: true };
+}
