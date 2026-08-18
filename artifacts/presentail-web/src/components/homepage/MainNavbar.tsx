@@ -68,12 +68,12 @@ function MobileSubPanelTile({ img, emoji }: { img?: string; emoji?: string }) {
   const [failed, setFailed] = useState(false);
   if (img && !failed) {
     return (
-      // Warm light-gray card with the product image centered at ~70% of the tile.
-      <div className="w-full h-full flex items-center justify-center bg-[#f7f5f2]">
+      // Image fills the card edge-to-edge; light-gray backdrop only shows while loading.
+      <div className="w-full h-full bg-[#f7f5f2]">
         <img
           src={img}
           alt="" // image-alt-ok: decorative emoji/icon fallback image, meaning conveyed by emoji sibling
-          className="w-[70%] h-[70%] object-contain"
+          className="w-full h-full object-cover"
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}
@@ -585,22 +585,22 @@ export function MainNavbar() {
                       </div>
 
                       {/* Sub-panel grid */}
-                      <div className="flex-1 overflow-y-auto px-4 py-5">
+                      <div className="flex-1 overflow-y-auto px-3 py-3">
                         {subDef?.loading ? (
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-3 gap-x-2 gap-y-2.5">
                             {Array.from({ length: 12 }).map((_, i) => (
-                              <div key={i} className="flex flex-col items-center gap-2">
-                                <div className="w-full aspect-square rounded-2xl bg-gray-100 animate-pulse" />
+                              <div key={i} className="flex flex-col items-center gap-1">
+                                <div className="w-full aspect-[5/4] rounded-xl bg-gray-100 animate-pulse" />
                                 <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-3 gap-x-2 gap-y-2.5">
                             {(subDef?.items ?? []).map((item) => (
                               <SheetClose asChild key={item.label + item.href}>
-                                <Link href={toCityHref(item.href)} className="flex flex-col items-center gap-1.5 group min-h-[44px]">
-                                  <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
+                                <Link href={toCityHref(item.href)} className="flex flex-col items-center gap-1 group min-h-[44px]">
+                                  <div className="w-full aspect-[5/4] rounded-xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
                                     <MobileSubPanelTile img={item.img} emoji={item.emoji} />
                                   </div>
                                   {/* Fixed 2-line label box keeps every row's tiles aligned; wraps up to 2 lines, no ellipsis. */}
