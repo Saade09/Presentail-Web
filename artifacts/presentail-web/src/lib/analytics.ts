@@ -91,7 +91,15 @@ type WebEventType =
   // Single recipient-name field + phone info tooltip (Delivery Details step)
   | "checkout_recipient_name_error"
   | "phone_tooltip_opened"
-  | "checkout_continued_after_phone_tooltip";
+  | "checkout_continued_after_phone_tooltip"
+  // Frictionless guest checkout — optional sign-in card auth funnel
+  | "checkout_viewed"
+  | "checkout_sign_in_method_selected"
+  | "checkout_auth_started"
+  | "checkout_auth_completed"
+  | "checkout_auth_cancelled"
+  | "checkout_auth_failed"
+  | "checkout_continue_as_guest";
 
 export type WebEventItem = {
   productId: string;

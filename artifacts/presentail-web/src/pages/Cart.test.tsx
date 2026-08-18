@@ -39,6 +39,14 @@ vi.mock("@/lib/analytics", () => ({
 
 // Capture the mock setter so tests can assert it was called.
 const mockSetLocation = vi.fn();
+const mockFrictionlessEnabled = vi.fn(() => false);
+vi.mock("@/lib/frictionlessCheckout", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/frictionlessCheckout")>();
+  return {
+    ...actual,
+    isFrictionlessCheckoutEnabled: () => mockFrictionlessEnabled(),
+  };
+});
 
 vi.mock("wouter", () => ({
   useLocation: vi.fn(() => ["/cart", mockSetLocation]),
@@ -180,6 +188,26 @@ describe("Cart — Proceed to Checkout button", () => {
   beforeEach(() => {
     mockDialogProps.open = false;
     mockSetLocation.mockClear();
+    // Legacy popup flow — frictionless checkout flag OFF for these tests.
+    mockFrictionlessEnabled.mockReturnValue(false);
+  });
+
+  it("flag ON: signed-out shopper goes straight to /checkout — no popup, no ?guest=1", async () => {
+    mockFrictionlessEnabled.mockReturnValue(true);
+    const user = userEvent.setup();
+    const { rerender } = renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    await user.click(screen.getByTestId("link-proceed-to-checkout"));
+
+    // The Link's default navigation handles it: no dialog, no setLocation
+    // to ?guest=1, and preventDefault is never called.
+    rerender(<Cart />);
+    expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
+    expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout?guest=1");
   });
 
   it("navigates directly to /checkout when auth is still loading (authLoading=true)", async () => {
@@ -192,9 +220,11 @@ describe("Cart — Proceed to Checkout button", () => {
 
     await user.click(screen.getByTestId("link-proceed-to-checkout"));
 
-    // Should navigate without opening the login dialog.
-    expect(mockSetLocation).toHaveBeenCalledWith("/checkout");
+    // Should navigate (via the Link's default navigation — handleProceed
+    // returns without preventDefault) and never open the login dialog.
+    expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout?guest=1");
     expect(mockDialogProps.open).toBe(false);
+    expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
   });
 
   it("opens the login dialog when auth is loaded and shopper is signed out", async () => {

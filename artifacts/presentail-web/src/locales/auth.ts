@@ -33,6 +33,18 @@ export const authStrings: Dict = {
     ar: "كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى أو إعادة تعيين كلمة المرور.",
   },
 
+  "checkoutSignIn.subtitle": { en: "Use saved addresses and track your orders.", ar: "استخدم العناوين المحفوظة وتتبّع طلباتك." },
+  "checkoutSignIn.email": { en: "Sign in with email", ar: "تسجيل الدخول بالبريد الإلكتروني" },
+  "checkoutSignIn.guestHint": { en: "Or continue as guest below ↓", ar: "أو تابع كضيف أدناه ↓" },
+  "checkoutSignIn.error": { en: "Sign-in didn't complete. You can try again or continue as guest below.", ar: "لم يكتمل تسجيل الدخول. يمكنك المحاولة مرة أخرى أو المتابعة كضيف أدناه." },
+  "checkoutSignIn.modal.helper": { en: "We'll sign you in or help you create an account.", ar: "سنقوم بتسجيل دخولك أو مساعدتك في إنشاء حساب." },
+  "checkoutSignIn.modal.guest": { en: "Continue as Guest", ar: "المتابعة كضيف" },
+  "checkoutSignIn.modal.back": { en: "← Back to other sign-in options", ar: "← العودة إلى خيارات تسجيل الدخول الأخرى" },
+  "checkoutSignIn.modal.passwordTitle": { en: "Welcome back", ar: "مرحباً بعودتك" },
+  "checkoutSignIn.modal.newTitle": { en: "You're new here", ar: "أنت جديد هنا" },
+  "checkoutSignIn.modal.newDesc": { en: "No account found for this email. Create an account, or continue as guest — no account needed.", ar: "لم يتم العثور على حساب لهذا البريد الإلكتروني. أنشئ حساباً أو تابع كضيف — لا حاجة لحساب." },
+  "checkoutSignIn.modal.createAccount": { en: "Create an account", ar: "إنشاء حساب" },
+
   "checkoutLogin.title": { en: "Sign in for a faster checkout", ar: "سجّل الدخول لإتمام الدفع بسرعة" },
   "checkoutLogin.desc": { en: "Save your details for next time, or continue as a guest.", ar: "احفظ بياناتك للمرة القادمة، أو تابع كضيف." },
   "checkoutLogin.guest": { en: "Checkout as Guest", ar: "إتمام الدفع كضيف" },
@@ -99,6 +111,17 @@ export const authStrings: Dict = {
 };
 
 export const authStringsFr: Record<string, string> = {
+  "checkoutSignIn.subtitle": "Utilisez vos adresses enregistrées et suivez vos commandes.",
+  "checkoutSignIn.email": "Se connecter par email",
+  "checkoutSignIn.guestHint": "Ou continuez en tant qu'invité ci-dessous ↓",
+  "checkoutSignIn.error": "La connexion n'a pas abouti. Vous pouvez réessayer ou continuer en tant qu'invité ci-dessous.",
+  "checkoutSignIn.modal.helper": "Nous vous connecterons ou vous aiderons à créer un compte.",
+  "checkoutSignIn.modal.guest": "Continuer en tant qu'invité",
+  "checkoutSignIn.modal.back": "← Retour aux autres options de connexion",
+  "checkoutSignIn.modal.passwordTitle": "Bon retour",
+  "checkoutSignIn.modal.newTitle": "Vous êtes nouveau ici",
+  "checkoutSignIn.modal.newDesc": "Aucun compte trouvé pour cet email. Créez un compte ou continuez en tant qu'invité — aucun compte requis.",
+  "checkoutSignIn.modal.createAccount": "Créer un compte",
   "auth.signupDesc": "Rejoignez Presentail pour un paiement plus rapide.",
   "auth.signup": "S'inscrire",
   "auth.toast.error": "Erreur",
@@ -180,6 +203,17 @@ export const authStringsFr: Record<string, string> = {
 };
 
 export const authStringsEl: Record<string, string> = {
+  "checkoutSignIn.subtitle": "Χρησιμοποιήστε αποθηκευμένες διευθύνσεις και παρακολουθήστε τις παραγγελίες σας.",
+  "checkoutSignIn.email": "Σύνδεση με email",
+  "checkoutSignIn.guestHint": "Ή συνεχίστε ως επισκέπτης παρακάτω ↓",
+  "checkoutSignIn.error": "Η σύνδεση δεν ολοκληρώθηκε. Μπορείτε να δοκιμάσετε ξανά ή να συνεχίσετε ως επισκέπτης παρακάτω.",
+  "checkoutSignIn.modal.helper": "Θα σας συνδέσουμε ή θα σας βοηθήσουμε να δημιουργήσετε λογαριασμό.",
+  "checkoutSignIn.modal.guest": "Συνέχεια ως επισκέπτης",
+  "checkoutSignIn.modal.back": "← Πίσω στις άλλες επιλογές σύνδεσης",
+  "checkoutSignIn.modal.passwordTitle": "Καλώς ήρθατε ξανά",
+  "checkoutSignIn.modal.newTitle": "Είστε νέος εδώ",
+  "checkoutSignIn.modal.newDesc": "Δεν βρέθηκε λογαριασμός για αυτό το email. Δημιουργήστε λογαριασμό ή συνεχίστε ως επισκέπτης — δεν απαιτείται λογαριασμός.",
+  "checkoutSignIn.modal.createAccount": "Δημιουργία λογαριασμού",
   "auth.signupDesc": "Εγγραφείτε στο Presentail για μια πιο γρήγορη εμπειρία ολοκλήρωσης αγοράς.",
   "auth.signup": "Εγγραφή",
   "auth.toast.error": "Σφάλμα",

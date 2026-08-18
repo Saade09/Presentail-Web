@@ -54,6 +54,8 @@ import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 import klarnaLogo from "@/assets/payment-logos/klarna.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
+import { CheckoutSignInCard } from "@/components/checkout/CheckoutSignInCard";
+import { isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
 import { PhoneInfoTooltip } from "@/components/checkout/PhoneInfoTooltip";
@@ -512,7 +514,11 @@ function CheckoutForm() {
   // onOpenChange(false) — which fires as a cleanup side-effect when the dialog
   // unmounts after setGuestAcked(true) re-renders — doesn't redirect to /cart.
   const guestContinuing = useRef(false);
-  const showLoginGate = !authLoading && !user && !guestAcked;
+  // Frictionless checkout flag: when on, guests land on checkout directly —
+  // no login gate — and see the optional sign-in card instead.
+  const frictionlessCheckout = isFrictionlessCheckoutEnabled();
+  const showLoginGate =
+    !frictionlessCheckout && !authLoading && !user && !guestAcked;
   const { toast } = useToast();
   const { t, dir, cityName, language } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
@@ -1311,6 +1317,25 @@ function CheckoutForm() {
   // off the prompt, corrupting the cart→checkout ratio. The ref makes
   // the emission idempotent across the auth-loading → resolved
   // transition.
+  // Emit checkout_viewed exactly once, after auth resolves, carrying the
+  // shopper's auth/guest state for the optional sign-in funnel analysis.
+  const checkoutViewedRef = useRef(false);
+  useEffect(() => {
+    if (authLoading) return;
+    if (showLoginGate) return;
+    if (checkoutViewedRef.current) return;
+    checkoutViewedRef.current = true;
+    trackWebEvent({
+      type: "checkout_viewed",
+      currency: checkoutCurrency,
+      properties: {
+        auth_state: user ? "authenticated" : "guest",
+        frictionless_checkout: frictionlessCheckout,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, showLoginGate]);
+
   const checkoutStartedRef = useRef(false);
   useEffect(() => {
     if (authLoading) return;
@@ -3430,6 +3455,32 @@ function CheckoutForm() {
                   <h2 className="text-2xl font-serif text-primary mb-1">{t("checkout.step.deliveryDetails")}</h2>
                   <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
                 </div>
+
+                {/* Optional sign-in card — signed-out shoppers only, never
+                    blocks the guest form below. */}
+                {frictionlessCheckout && !authLoading && !user && (
+                  <CheckoutSignInCard
+                    onContinueAsGuest={() => {
+                      // Focus the first incomplete field of the delivery form.
+                      const candidates: (HTMLElement | null)[] = [
+                        !recipient.firstName.trim()
+                          ? document.querySelector<HTMLElement>("#recipient-name-input")
+                          : null,
+                        !recipient.phone.trim()
+                          ? (document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input') ??
+                              document.querySelector<HTMLElement>('input[data-testid="input-recipient-phone"]'))
+                          : null,
+                        !recipient.address.trim()
+                          ? document.querySelector<HTMLElement>('[data-testid="input-recipient-address"]')
+                          : null,
+                      ];
+                      const target =
+                        candidates.find((el) => el !== null) ??
+                        document.querySelector<HTMLElement>("#recipient-name-input");
+                      requestAnimationFrame(() => target?.focus());
+                    }}
+                  />
+                )}
 
                 {/* Recipient Details */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-5">

@@ -30,6 +30,7 @@ import { ExpressUpgradeCard } from "@/components/delivery/ExpressUpgradeCard";
 import { useNow } from "@/lib/useNow";
 import { computeCartTotal } from "@workspace/display-currency";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
+import { cartCheckoutCtaDecision, isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { ExpressQuietPrompt } from "@/components/delivery/ExpressQuietPrompt";
 import { DeliverEarlierDialog } from "@/components/delivery/DeliverEarlierDialog";
@@ -788,12 +789,15 @@ export default function Cart() {
         ? { deliveryMethod: deliveryPromise.type, deliveryPromise: deliveryPromise.summary }
         : {}),
     });
-    if (user) return;
+    // Frictionless checkout flag: everyone goes straight to /checkout — no
+    // popup interception, no ?guest=1 (the checkout page no longer gates).
+    const decision = cartCheckoutCtaDecision({
+      frictionlessEnabled: isFrictionlessCheckoutEnabled(),
+      isSignedIn: !!user,
+      authLoading,
+    });
+    if (decision === "navigate") return;
     e.preventDefault();
-    if (authLoading) {
-      setLocation("/checkout");
-      return;
-    }
     setLoginOpen(true);
   };
   const goToCheckout = () => setLocation("/checkout?guest=1");
