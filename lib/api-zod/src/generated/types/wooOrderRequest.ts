@@ -20,4 +20,9 @@ export interface WooOrderRequest {
   couponCode?: string;
   currencyCode?: string;
   marketing_attribution?: MarketingAttribution;
+  /** True when the sender left "Get order updates on WhatsApp" checked at
+checkout. Absent/false means no WhatsApp transactional updates for
+this order. The target number is the sender's billing phone.
+ */
+  whatsappOptIn?: boolean;
 }

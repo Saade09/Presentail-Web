@@ -61,4 +61,5 @@
 - [Checkout recipient name single field](checkout-recipient-name.md) — full name lives in firstName, lastName always empty; join legacy splits via joinRecipientName(); phone info tooltip analytics events
 - [OS API omits inactive occasions](os-inactive-occasions.md) — no endpoint/field exposes inactive rows; warm non-empty OS occasions list is the authoritative allowlist, fail open only on cold cache
 - [Frictionless checkout flag](frictionless-checkout-flag.md) — VITE_FRICTIONLESS_CHECKOUT: on in dev, OFF in prod unless set; legacy popup path must stay intact for rollback
+- [WhatsApp opt-in flag](whatsapp-opt-in.md) — whatsappOptIn body/DB, whatsapp_opt_in on OS wire, always explicit; card-flow jsdom tests need a global fetch stub to reach createOrder
 - [Greek Cyprus-only locale](greek-cyprus-locale.md) — el gated by langsForCountry(); all lang-enumerating surfaces must use country-aware helpers; checker needs single-line "key": "value" entries

@@ -415,6 +415,14 @@ export type OSCreateOrderPayload = {
   delivery_instructions?: string;
   /** Normalised platform string: "ios" | "android" | "web" | null. */
   platform?: string | null;
+  /**
+   * True when the sender opted in to transactional WhatsApp order/delivery
+   * updates (confirmed, dispatched, delivered, delay) at checkout. Sent
+   * snake_case on the wire, consistent with other OS fields. OS must treat
+   * an absent field as false (no opt-in). The target number is the sender's
+   * billing phone (E.164) already present in `billing.phone`.
+   */
+  whatsapp_opt_in?: boolean;
   couponCode?: string;
   /** OS-assigned coupon ID returned by the coupon validate endpoint. */
   couponId?: string | number;

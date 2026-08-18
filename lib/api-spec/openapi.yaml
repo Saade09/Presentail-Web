@@ -4470,6 +4470,12 @@ components:
           type: string
         marketing_attribution:
           $ref: "#/components/schemas/MarketingAttribution"
+        whatsappOptIn:
+          type: boolean
+          description: |
+            True when the sender left "Get order updates on WhatsApp" checked at
+            checkout. Absent/false means no WhatsApp transactional updates for
+            this order. The target number is the sender's billing phone.
       required:
         - orderId
         - paymentMethod

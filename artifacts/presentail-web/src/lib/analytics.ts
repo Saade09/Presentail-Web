@@ -58,6 +58,9 @@ type WebEventType =
   | "mobile_checkout_delivery_change_clicked"
   | "mobile_checkout_sender_edit_clicked"
   | "mobile_checkout_anonymous_toggled"
+  | "whatsapp_updates_default_shown"
+  | "whatsapp_updates_disabled"
+  | "checkout_completed_with_whatsapp_updates"
   | "mobile_checkout_continue_payment_clicked"
   | "mobile_checkout_validation_failed"
   // Added-to-cart popup (upsell modal) redesign events

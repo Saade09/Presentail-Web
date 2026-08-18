@@ -2741,6 +2741,12 @@ export const CreateWooOrderBody = zod
       .describe(
         "First-touch \/ last-touch marketing attribution captured from UTM parameters\nand Google Ads click IDs (gclid, gbraid, wbraid). Attached to orders so\nad spend can be correlated with purchases. All fields are optional strings\nso partial or missing attribution data never fails validation.\n",
       ),
+    whatsappOptIn: zod
+      .boolean()
+      .optional()
+      .describe(
+        'True when the sender left \"Get order updates on WhatsApp\" checked at\ncheckout. Absent\/false means no WhatsApp transactional updates for\nthis order. The target number is the sender\'s billing phone.\n',
+      ),
   })
   .describe(
     "Request body for placing an order via the WooCommerce\/OS backend.",

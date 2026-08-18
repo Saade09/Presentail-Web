@@ -228,6 +228,10 @@ export const WooOrderSchema = z.object({
   orderNotes: z.string().optional(),
   paymentMethod: z.enum(["card", "wallet", "apple_pay", "google_pay", "whish", "western", "mamo", "paypal", "klarna", "cybersource"]),
   identitySecret: z.boolean().optional(),
+  // True when the sender left "Get order updates on WhatsApp" checked at
+  // checkout. Optional so legacy payloads (mobile app, queued reconciliation
+  // rows) still validate; absent is treated as false (no opt-in) downstream.
+  whatsappOptIn: z.boolean().optional(),
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
   couponCode: z.string().trim().optional(),
@@ -788,6 +792,7 @@ export async function recordSuccessfulWcOrder(input: {
         cardMessage,
         occasionRef,
         marketingAttributionJson,
+        whatsappOptIn: body.whatsappOptIn ?? null,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -822,6 +827,7 @@ export async function recordSuccessfulWcOrder(input: {
           cardMessage,
           occasionRef,
           marketingAttributionJson,
+          whatsappOptIn: body.whatsappOptIn ?? null,
           updatedAt: new Date(),
         },
       });
@@ -1332,6 +1338,10 @@ export async function attemptCreateOsOrder(
       totalUsd: Math.round(totalUsd * 100) / 100,
     },
     platform: opts.platform ?? undefined,
+    // WhatsApp transactional-updates opt-in. Always sent explicitly (true or
+    // false) so OS can gate its WhatsApp notifications without guessing;
+    // absent/undefined client values collapse to false (no opt-in).
+    whatsapp_opt_in: body.whatsappOptIn === true,
     couponCode: body.couponCode || undefined,
     ...(opts.couponValidated
       ? {

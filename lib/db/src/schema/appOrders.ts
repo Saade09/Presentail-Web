@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgTable,
@@ -78,6 +79,11 @@ export const appOrdersTable = pgTable(
     // the store default so mixed-currency orders (a LB shopper paying in SAR
     // via Apple Pay) are recorded correctly. Nullable for legacy rows.
     currencyCode: text("currency_code"),
+    // Whether the sender opted in to transactional WhatsApp order/delivery
+    // updates at checkout ("Get order updates on WhatsApp"). The target number
+    // is sender_phone. Null for legacy rows / clients that never sent the flag
+    // (mobile app); false when the shopper explicitly unchecked the box.
+    whatsappOptIn: boolean("whatsapp_opt_in"),
     // Coupon code applied at checkout (trimmed, uppercase). Null when no coupon
     // was applied.
     couponCode: text("coupon_code"),

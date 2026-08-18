@@ -886,6 +886,11 @@ function CheckoutForm() {
   const [noAddress, setNoAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
+  // "Get order updates on WhatsApp" — checked by default. Plain component
+  // state (like identitySecret) so the choice persists across Delivery
+  // Details ↔ Payment navigation and validation errors within a checkout.
+  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+  const whatsappDefaultShownRef = useRef(false);
   const [phoneSubmitAttempted, setPhoneSubmitAttempted] = useState(false);
   const [recipientPhoneValid, setRecipientPhoneValid] = useState(false);
   const [senderPhoneValid, setSenderPhoneValid] = useState(false);
@@ -1164,6 +1169,26 @@ function CheckoutForm() {
       setTimeout(() => couponInputRef.current?.focus(), 80);
     }
   };
+
+  // WhatsApp order-updates checkbox (default checked). Fires the analytics
+  // events from the spec — never includes the raw phone number.
+  const handleWhatsappOptInToggle = (checked: boolean) => {
+    setWhatsappOptIn(checked);
+    if (!checked) {
+      trackWebEvent({ type: "whatsapp_updates_disabled", properties: { step } });
+    }
+  };
+  // Fire whatsapp_updates_default_shown once per checkout view, when the
+  // Sender Details card (step 1) first renders with the default-checked box.
+  useEffect(() => {
+    if (whatsappDefaultShownRef.current) return;
+    whatsappDefaultShownRef.current = true;
+    trackWebEvent({
+      type: "whatsapp_updates_default_shown",
+      properties: { defaultChecked: true },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Desktop anonymous-gift checkbox — same underlying identitySecret flag as
   // the mobile "Keep my identity secret" checkbox, plus an analytics event.
@@ -2287,6 +2312,7 @@ function CheckoutForm() {
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
     paymentMethod: overrides.paymentMethod ?? paymentMethod,
     identitySecret,
+    whatsappOptIn,
     currencyCode: "USD",
     couponDiscount: confirmedCouponDiscount > 0 ? confirmedCouponDiscount : undefined,
     totalUsd: computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount),
@@ -2330,6 +2356,10 @@ function CheckoutForm() {
         value: total,
         currency: checkoutCurrency,
         city: locationCity?.name ?? locationCity?.id ?? undefined,
+      });
+      trackWebEvent({
+        type: "checkout_completed_with_whatsapp_updates",
+        properties: { optedIn: payload.whatsappOptIn === true },
       });
       try {
         // Bug D fix: prefer server-returned fee breakdown over client-estimated
@@ -3860,6 +3890,38 @@ function CheckoutForm() {
                       )}
                     </div>
                   )}
+
+                  {/* "Get order updates on WhatsApp" — both breakpoints, default
+                      checked. Sits directly below the sender phone field and above
+                      the anonymous-gift control, per the checkout mockups. */}
+                  <div className="mb-4 lg:max-w-[480px]">
+                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11" data-testid="check-whatsapp-updates-label">
+                      <input
+                        type="checkbox"
+                        checked={whatsappOptIn}
+                        onChange={(e) => handleWhatsappOptInToggle(e.target.checked)}
+                        className="mt-1 h-4 w-4 accent-primary cursor-pointer shrink-0"
+                        aria-describedby="whatsapp-updates-hint"
+                        data-testid="check-whatsapp-updates"
+                      />
+                      <span>
+                        <span className="flex items-center gap-1.5 text-sm">
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4 shrink-0 fill-[#25D366]"
+                            aria-hidden="true"
+                            focusable="false"
+                          >
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.019-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413" />
+                          </svg>
+                          {t("checkout.whatsappUpdates")}
+                        </span>
+                        <span id="whatsapp-updates-hint" className="block text-xs text-muted-foreground mt-0.5" data-testid="whatsapp-updates-hint">
+                          {t("checkout.whatsappUpdatesHint")}
+                        </span>
+                      </span>
+                    </label>
+                  </div>
 
                   {/* Mobile: "Send this gift anonymously" checkbox with always-visible supporting line */}
                   <div className="lg:hidden">
