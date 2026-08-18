@@ -1244,7 +1244,15 @@ router.post("/woo/order", async (req, res) => {
         .finally(() => lockClient.release());
     };
     try {
+      // Cap the blocking wait so a hung previous request doesn't freeze the
+      // retry: if the lock can't be acquired within 10 s, Postgres throws
+      // 55P03 (lock_not_available) and we fall through to the idempotency
+      // check below — the non-fatal outer catch already handles this path.
+      // Reset to 0 (no timeout) immediately after acquiring so the setting
+      // doesn't bleed into unrelated queries on this pooled connection.
+      await lockClient.query("SET lock_timeout = '10000'");
       await lockClient.query("SELECT pg_advisory_lock(hashtext($1))", [body.orderId]);
+      await lockClient.query("SET lock_timeout = '0'");
       res.once("close", releaseOrderLock);
     } catch (lockErr) {
       releaseOrderLock();
