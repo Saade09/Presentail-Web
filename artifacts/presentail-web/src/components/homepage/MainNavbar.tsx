@@ -68,14 +68,17 @@ function MobileSubPanelTile({ img, emoji }: { img?: string; emoji?: string }) {
   const [failed, setFailed] = useState(false);
   if (img && !failed) {
     return (
-      <img
-        src={img}
-        alt="" // image-alt-ok: decorative emoji/icon fallback image, meaning conveyed by emoji sibling
-        className="w-full h-full object-cover"
-        loading="lazy"
-        decoding="async"
-        onError={() => setFailed(true)}
-      />
+      // Warm light-gray card with the product image centered at ~70% of the tile.
+      <div className="w-full h-full flex items-center justify-center bg-[#f7f5f2]">
+        <img
+          src={img}
+          alt="" // image-alt-ok: decorative emoji/icon fallback image, meaning conveyed by emoji sibling
+          className="w-[70%] h-[70%] object-contain"
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      </div>
     );
   }
   const gradient = EMOJI_GRADIENTS[emoji ?? "🎉"] ?? "from-gray-50 to-gray-100";
@@ -119,7 +122,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Balloon Deco",    href: "/category/balloon-deco",    img: "/catalog/categories/balloons.webp" },
       { label: "Electronics",     labelKey: "nav.electronics", href: "/category/electronics",     img: "/catalog/categories/electronics.webp" },
     ],
-    footer: { label: "View all Gifts", labelKey: "nav.viewAllGifts", href: "/shop" },
+    footer: { label: "Shop all Gifts", labelKey: "nav.viewAllGifts", href: "/shop" },
   },
   {
     key: "flowers",
@@ -131,11 +134,11 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Flower Vases",       href: "/category/flower-vases",        img: "/catalog/categories/flower-vases.avif" },
       { label: "Dried Flowers",      href: "/category/dried-flowers",       emoji: "🌾" },
       { label: "Plants",             href: "/category/plants",              img: "/catalog/categories/plants.webp" },
-      { label: "Hand Bouquets",      href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
-      { label: "Lux Arrangements",   href: "/category/lux-arrangements",    img: "/catalog/categories/lux-arrangements.avif" },
+      { label: "Hand-Tied Bouquets", href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
+      { label: "Luxury Arrangements", href: "/category/lux-arrangements",   img: "/catalog/categories/lux-arrangements.avif" },
       { label: "Artificial Flowers", href: "/category/artificial-flowers",  emoji: "🌺" },
     ],
-    footer: { label: "All Flowers & Plants", labelKey: "nav.viewAllFlowers", href: "/category/flowers" },
+    footer: { label: "Shop all Flowers & Plants", labelKey: "nav.viewAllFlowers", href: "/category/flowers" },
   },
 ];
 
@@ -584,23 +587,24 @@ export function MainNavbar() {
                       {/* Sub-panel grid */}
                       <div className="flex-1 overflow-y-auto px-4 py-5">
                         {subDef?.loading ? (
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-3 gap-3">
                             {Array.from({ length: 12 }).map((_, i) => (
                               <div key={i} className="flex flex-col items-center gap-2">
                                 <div className="w-full aspect-square rounded-2xl bg-gray-100 animate-pulse" />
-                                <div className="h-3 w-14 rounded bg-gray-100 animate-pulse" />
+                                <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-3 gap-3">
                             {(subDef?.items ?? []).map((item) => (
                               <SheetClose asChild key={item.label + item.href}>
-                                <Link href={toCityHref(item.href)} className="flex flex-col items-center gap-1.5 group">
+                                <Link href={toCityHref(item.href)} className="flex flex-col items-center gap-1.5 group min-h-[44px]">
                                   <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
                                     <MobileSubPanelTile img={item.img} emoji={item.emoji} />
                                   </div>
-                                  <span className="text-[10px] font-medium text-center text-gray-700 leading-tight px-0.5">
+                                  {/* Fixed 2-line label box keeps every row's tiles aligned; wraps up to 2 lines, no ellipsis. */}
+                                  <span className="text-[12px] font-medium text-center text-gray-700 leading-4 h-8 px-0.5 break-words">
                                     {item.label}
                                   </span>
                                 </Link>
@@ -612,7 +616,7 @@ export function MainNavbar() {
                           <SheetClose asChild>
                             <Link
                               href={toCityHref(subDef.footer.href)}
-                              className="flex items-center justify-center gap-2 mt-5 w-full py-3.5 rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors"
+                              className="flex items-center justify-center gap-2 mt-6 w-full py-3.5 rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors"
                             >
                               {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label}
                               <span aria-hidden>→</span>
