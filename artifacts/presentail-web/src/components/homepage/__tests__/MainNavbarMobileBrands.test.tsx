@@ -135,6 +135,7 @@ type MockBrand = {
   name: string;
   image: string | null;
   sort_order: number;
+  count: number;
 };
 
 function makeCatalogBrands(count: number): MockBrand[] {
@@ -144,6 +145,7 @@ function makeCatalogBrands(count: number): MockBrand[] {
     name: `Brand ${i + 1}`,
     image: null,
     sort_order: i + 1,
+    count: 1,
   }));
 }
 

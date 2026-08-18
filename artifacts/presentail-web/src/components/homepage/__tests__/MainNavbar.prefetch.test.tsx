@@ -205,7 +205,9 @@ describe("MainNavbar — nav links use city-scoped wouter-absolute hrefs (blog-s
   it("logo link uses city-absolute href so it works from non-city-scoped shells", () => {
     renderWithProviders(<MainNavbar />);
     // Logo should navigate to the city home page, not just "/".
-    const logo = document.querySelector(`a[href="~${CITY_BASE}/"]`);
+    // The component emits the slashless canonical form (~${cityBase}, no trailing slash)
+    // to avoid a server 301 redirect on every navigation.
+    const logo = document.querySelector(`a[href="~${CITY_BASE}"]`);
     expect(logo).not.toBeNull();
   });
 
