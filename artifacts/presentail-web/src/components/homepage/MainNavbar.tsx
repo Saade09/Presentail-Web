@@ -585,22 +585,47 @@ export function MainNavbar() {
                       </div>
 
                       {/* Sub-panel grid */}
-                      <div className="flex-1 overflow-y-auto px-3 py-3">
+                      {(() => {
+                        const isCompactOccasions = subDef?.key === "occasions";
+                        const gridClassName = `grid grid-cols-3 gap-x-2 ${
+                          isCompactOccasions ? "gap-y-1.5" : "gap-y-2.5"
+                        }`;
+
+                        return (
+                          <div
+                            data-testid={`mobile-sub-panel-${subDef?.key ?? "unknown"}`}
+                            className={`flex-1 overflow-y-auto px-3 ${
+                              isCompactOccasions ? "py-2" : "py-3"
+                            }`}
+                          >
                         {subDef?.loading ? (
-                          <div className="grid grid-cols-3 gap-x-2 gap-y-2.5">
+                          <div data-testid="mobile-sub-panel-grid" className={gridClassName}>
                             {Array.from({ length: 12 }).map((_, i) => (
                               <div key={i} className="flex flex-col items-center gap-1">
-                                <div className="w-full aspect-[5/4] rounded-xl bg-gray-100 animate-pulse" />
+                                <div
+                                  className={`w-full ${
+                                    isCompactOccasions ? "aspect-[4/3]" : "aspect-[5/4]"
+                                  } rounded-xl bg-gray-100 animate-pulse`}
+                                />
                                 <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-3 gap-x-2 gap-y-2.5">
+                          <div data-testid="mobile-sub-panel-grid" className={gridClassName}>
                             {(subDef?.items ?? []).map((item) => (
                               <SheetClose asChild key={item.label + item.href}>
-                                <Link href={toCityHref(item.href)} className="flex flex-col items-center gap-1 group min-h-[44px]">
-                                  <div className="w-full aspect-[5/4] rounded-xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
+                                <Link
+                                  href={toCityHref(item.href)}
+                                  className={`flex flex-col items-center ${
+                                    isCompactOccasions ? "gap-0.5" : "gap-1"
+                                  } group min-h-[44px]`}
+                                >
+                                  <div
+                                    className={`w-full ${
+                                      isCompactOccasions ? "aspect-[4/3]" : "aspect-[5/4]"
+                                    } rounded-xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow`}
+                                  >
                                     <MobileSubPanelTile img={item.img} emoji={item.emoji} />
                                   </div>
                                   {/* Fixed 2-line label box keeps every row's tiles aligned; wraps up to 2 lines, no ellipsis. */}
@@ -616,14 +641,18 @@ export function MainNavbar() {
                           <SheetClose asChild>
                             <Link
                               href={toCityHref(subDef.footer.href)}
-                              className="flex items-center justify-center gap-2 mt-6 w-full py-3.5 rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors"
+                              className={`flex items-center justify-center gap-2 ${
+                                isCompactOccasions ? "mt-3 py-3" : "mt-6 py-3.5"
+                              } w-full rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors`}
                             >
                               {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label}
                               <span aria-hidden>→</span>
                             </Link>
                           </SheetClose>
                         )}
-                      </div>
+                          </div>
+                        );
+                      })()}
                     </>
                   );
                 })()}

@@ -5,9 +5,10 @@
 // (separate from the desktop `megaMenus`).
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
+import { OCCASION_OPTIONS } from "@/data/occasions";
 
 // ---------------------------------------------------------------------------
 // Hoisted mock factories — declared before any import of the mocked modules
@@ -259,5 +260,68 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     // The brands tile is still rendered; its image falls back to undefined (emoji)
     const brandsTile = screen.getByRole("button", { name: /nav\.brands/i });
     expect(brandsTile).toBeDefined();
+  });
+
+  it("renders every occasion and the footer CTA with the compact occasions treatment", async () => {
+    const user = userEvent.setup();
+    // An unresolved occasions response uses the current static occasion list,
+    // which makes this regression test independent of catalog inventory.
+    mockUseCatalogOccasions.mockReturnValue({ data: undefined, isPending: false });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+    await user.click(
+      within(screen.getByTestId("sheet-content")).getByRole("button", {
+        name: /nav\.occasions/i,
+      }),
+    );
+
+    const panel = screen.getByTestId("mobile-sub-panel-occasions");
+    const grid = screen.getByTestId("mobile-sub-panel-grid");
+    expect(panel.className).toContain("py-2");
+    expect(grid.className).toContain("gap-y-1.5");
+
+    for (const occasion of OCCASION_OPTIONS) {
+      const link = screen.getByRole("link", { name: new RegExp(occasion.label) });
+      expect(link).toBeDefined();
+      expect((link as HTMLAnchorElement).href).toContain(`/occasion/${occasion.value}`);
+      expect(link.querySelector("div")?.className).toContain("aspect-[4/3]");
+    }
+
+    const footerLink = screen.getByRole("link", { name: /nav\.viewAllOccasions/i });
+    expect(footerLink).toBeDefined();
+    expect((footerLink as HTMLAnchorElement).href).toContain("/occasions");
+  });
+
+  it.each(["flowers", "gifts", "brands"] as const)(
+    "keeps the larger tile treatment for the %s sub-panel",
+    async (panelKey) => {
+    const user = userEvent.setup();
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+      await user.click(
+        within(screen.getByTestId("sheet-content")).getByRole("button", {
+          name: new RegExp(`nav\\.${panelKey === "flowers" ? "flowersPlants" : panelKey}`, "i"),
+        }),
+      );
+
+      const panel = screen.getByTestId(`mobile-sub-panel-${panelKey}`);
+    const grid = screen.getByTestId("mobile-sub-panel-grid");
+    expect(panel.className).toContain("py-3");
+    expect(grid.className).toContain("gap-y-2.5");
+    },
+  );
+
+  it("keeps the larger image ratio for brand tiles", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+    await user.click(screen.getByRole("button", { name: /nav\.brands/i }));
+
+    expect(screen.getByRole("link", { name: /Brand 1/ }).querySelector("div")?.className).toContain(
+      "aspect-[5/4]",
+    );
   });
 });
