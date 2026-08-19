@@ -30,8 +30,6 @@ import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlot
 import { ExpressUpgradeCard } from "@/components/delivery/ExpressUpgradeCard";
 import { useNow } from "@/lib/useNow";
 import { computeCartTotal } from "@workspace/display-currency";
-import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
-import { cartCheckoutCtaDecision, isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { ExpressQuietPrompt } from "@/components/delivery/ExpressQuietPrompt";
 import { DeliverEarlierDialog } from "@/components/delivery/DeliverEarlierDialog";
@@ -110,7 +108,6 @@ export default function Cart() {
   const { items, updateQuantity, removeItem, updateCustomNote, subtotal, itemCount, isHydrated } = useCart();
   const { t, dir, language } = useLocale();
   const { user, isLoading: authLoading } = useAuth();
-  const [, setLocation] = useLocation();
   const {
     freeDeliveryEnabled,
     cityFeeUsd,
@@ -774,12 +771,7 @@ export default function Cart() {
     }
   };
 
-  // Mirror the mobile checkout login sheet: when a logged-out shopper taps
-  // Proceed to Checkout we open a dismissible prompt that offers email +
-  // social sign-in or a clearly visible "Checkout as Guest" button. Signed-in
-  // shoppers (and the brief auth-loading window) bypass the prompt entirely.
-  const [loginOpen, setLoginOpen] = useState(false);
-  const handleProceed = (e: React.MouseEvent) => {
+  const handleProceed = () => {
     trackWebEvent({
       type: "checkout_clicked",
       value: Math.max(0, cartTotal),
@@ -801,18 +793,9 @@ export default function Cart() {
         ? { deliveryMethod: deliveryPromise.type, deliveryPromise: deliveryPromise.summary }
         : {}),
     });
-    // Frictionless checkout flag: everyone goes straight to /checkout — no
-    // popup interception, no ?guest=1 (the checkout page no longer gates).
-    const decision = cartCheckoutCtaDecision({
-      frictionlessEnabled: isFrictionlessCheckoutEnabled(),
-      isSignedIn: !!user,
-      authLoading,
-    });
-    if (decision === "navigate") return;
-    e.preventDefault();
-    setLoginOpen(true);
+    // Signed-out shoppers go straight to /checkout — no popup interception.
+    // The checkout page shows an optional sign-in card for guests.
   };
-  const goToCheckout = () => setLocation("/checkout?guest=1");
 
   // Emit one cart_viewed event when the standalone cart page mounts.
   // This is the entry point of the purchase funnel evaluated by the
@@ -1529,12 +1512,6 @@ export default function Cart() {
         t={t}
       />
 
-      <CheckoutLoginDialog
-        open={loginOpen}
-        onOpenChange={setLoginOpen}
-        onContinueAsGuest={goToCheckout}
-        surface="cart"
-      />
     </div>
   );
 }

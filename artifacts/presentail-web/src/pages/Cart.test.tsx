@@ -39,14 +39,6 @@ vi.mock("@/lib/analytics", () => ({
 
 // Capture the mock setter so tests can assert it was called.
 const mockSetLocation = vi.fn();
-const mockFrictionlessEnabled = vi.fn(() => false);
-vi.mock("@/lib/frictionlessCheckout", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/frictionlessCheckout")>();
-  return {
-    ...actual,
-    isFrictionlessCheckoutEnabled: () => mockFrictionlessEnabled(),
-  };
-});
 
 vi.mock("wouter", () => ({
   useLocation: vi.fn(() => ["/cart", mockSetLocation]),
@@ -188,12 +180,9 @@ describe("Cart — Proceed to Checkout button", () => {
   beforeEach(() => {
     mockDialogProps.open = false;
     mockSetLocation.mockClear();
-    // Legacy popup flow — frictionless checkout flag OFF for these tests.
-    mockFrictionlessEnabled.mockReturnValue(false);
   });
 
-  it("flag ON: signed-out shopper goes straight to /checkout — no popup, no ?guest=1", async () => {
-    mockFrictionlessEnabled.mockReturnValue(true);
+  it("signed-out shopper goes straight to /checkout — no popup, no ?guest=1", async () => {
     const user = userEvent.setup();
     const { rerender } = renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
@@ -210,7 +199,7 @@ describe("Cart — Proceed to Checkout button", () => {
     expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout?guest=1");
   });
 
-  it("navigates directly to /checkout when auth is still loading (authLoading=true)", async () => {
+  it("signed-out shopper goes directly to /checkout even when auth is still loading", async () => {
     const user = userEvent.setup();
     renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: true, token: null },
@@ -227,8 +216,9 @@ describe("Cart — Proceed to Checkout button", () => {
     expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
   });
 
-  it("opens the login dialog when auth is loaded and shopper is signed out", async () => {
+  it("never mounts the legacy login dialog regardless of auth state", async () => {
     const user = userEvent.setup();
+    // Signed-out shopper
     const { rerender } = renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
       cart: CART_WITH_ITEM,
@@ -236,28 +226,24 @@ describe("Cart — Proceed to Checkout button", () => {
     });
 
     await user.click(screen.getByTestId("link-proceed-to-checkout"));
-
-    // setLocation must NOT be called — the dialog should open instead.
-    expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout");
-
-    // Rerender to pick up the updated loginOpen state reflected in the mock.
     rerender(<Cart />);
-    expect(screen.getByTestId("mock-login-dialog")).toBeTruthy();
+
+    // The legacy CheckoutLoginDialog must never mount.
+    expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
+    expect(mockDialogProps.open).toBe(false);
   });
 
-  it("does NOT open the login dialog and does NOT call setLocation when shopper is signed in", async () => {
+  it("signed-in shopper navigates directly without dialog", async () => {
     const signedInUser = { id: "u1", email: "a@b.com", firstName: "Ada", lastName: "B" };
     const user = userEvent.setup();
     renderWithProviders(<Cart />, {
-      auth: { user: signedInUser, isLoading: false, token: "clerk" },
+      auth: { user: signedInUser, isLoading: false, token: "tok" },
       cart: CART_WITH_ITEM,
       currency: CURRENCY_FIXTURE,
     });
 
     await user.click(screen.getByTestId("link-proceed-to-checkout"));
 
-    // handleProceed returns early for signed-in users — neither branch fires.
-    expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout");
     expect(mockDialogProps.open).toBe(false);
     expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
   });
