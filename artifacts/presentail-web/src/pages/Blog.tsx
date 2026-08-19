@@ -146,7 +146,7 @@ function getStories(language: Language): Story[] {
   // English article content (intended). The page UI copy is still localised.
   const blogLang = language === "el" ? "en" : language;
   return Object.keys(ARTICLES)
-    .map((slug) => {
+    .map<Story | null>((slug) => {
       const a = ARTICLES[slug][blogLang] ?? ARTICLES[slug].en;
       // Some editorial posts are intentionally published in one language
       // first. Keep them out of other locale listings until a translation

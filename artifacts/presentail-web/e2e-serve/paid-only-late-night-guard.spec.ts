@@ -20,11 +20,122 @@
 import { test, expect } from "@playwright/test";
 
 const PAID_PATH = "/en-lb/beirut/late-night-flower-delivery";
+const CAMPAIGN_RESPONSE = {
+  campaignKey: "campaign-beirut-late-night",
+  status: "tonight",
+  reason: "eligible",
+  timeZone: "Asia/Beirut",
+  evaluatedAt: "2026-08-19T20:00:00.000Z",
+  quoteExpiresAt: "2099-08-19T20:30:00.000Z",
+  nominalCutoffAt: "2026-08-19T20:30:00.000Z",
+  effectiveCutoffAt: "2026-08-19T20:30:00.000Z",
+  cutoffLabel: "11:30 PM",
+  deliveryWindow: {
+    date: "2026-08-19",
+    label: "11:00 PM – 1:00 AM",
+    slotId: "beirut-late",
+  },
+  sourceFreshness: {
+    locationsStatus: "live",
+    productRefreshedAt: "2026-08-19T19:59:00.000Z",
+    operationsConfigVerified: true,
+  },
+  availableTonight: {
+    title: "Available Tonight",
+    subtitle: "Fresh flowers ready for late-night delivery in Beirut",
+    viewAllHref: "/category/flowers",
+    products: [],
+  },
+  luxury: {
+    title: "Late-Night Luxury Arrangements",
+    subtitle: "Statement flowers for unforgettable last-minute moments",
+    viewAllHref: "/category/lux-arrangements",
+    products: [],
+  },
+};
+
+const UNAVAILABLE_CAMPAIGN_RESPONSE = {
+  ...CAMPAIGN_RESPONSE,
+  status: "unavailable",
+  reason: "slot-unavailable",
+  deliveryWindow: null,
+  nextAvailableWindow: null,
+  cutoffLabel: null,
+};
 
 test.describe("paid-only late-night landing — recognised for /en-lb/beirut", () => {
   test("returns 200 (recognised SPA sub-route)", async ({ request }) => {
     const response = await request.get(PAID_PATH);
     expect(response.status(), "paid-only sub-route must be served as SPA shell").toBe(200);
+  });
+
+  test("normalizes a trailing slash to the canonical paid route", async ({ request }) => {
+    const trailingSlashResponse = await request.get(`${PAID_PATH}/`, {
+      maxRedirects: 0,
+    });
+    expect(trailingSlashResponse.status()).toBe(301);
+    expect(trailingSlashResponse.headers().location).toBe(PAID_PATH);
+
+    const canonicalResponse = await request.get(PAID_PATH);
+    expect(canonicalResponse.status()).toBe(200);
+  });
+
+  test("boots the Beirut late-night React landing page", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "presentail_delivery_location_v1",
+        JSON.stringify({ countryCode: "LB", cityId: "lb-beirut" }),
+      );
+    });
+    await page.route("**/api/campaign/beirut-late-night", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(CAMPAIGN_RESPONSE),
+      }),
+    );
+    await page.route("**/api/web-events", (route) =>
+      route.fulfill({ contentType: "application/json", body: '{"ok":true}' }),
+    );
+
+    await page.goto(PAID_PATH);
+    await expect(page.getByTestId("late-night-page")).toBeVisible();
+    await expect(page.getByTestId("late-night-headline")).toHaveText(
+      "Late-night flower delivery in Beirut",
+    );
+  });
+
+  test("keeps the dedicated landing page truthful when the slot is unavailable", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "presentail_delivery_location_v1",
+        JSON.stringify({ countryCode: "LB", cityId: "lb-beirut" }),
+      );
+    });
+    await page.route("**/api/campaign/beirut-late-night", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(UNAVAILABLE_CAMPAIGN_RESPONSE),
+      }),
+    );
+    await page.route("**/api/web-events", (route) =>
+      route.fulfill({ contentType: "application/json", body: '{"ok":true}' }),
+    );
+
+    await page.goto(PAID_PATH);
+
+    await expect(page.getByTestId("late-night-page")).toBeVisible();
+    await expect(page.getByTestId("late-night-headline")).toContainText(
+      "Late-night flower delivery in Beirut",
+    );
+    await expect(page.getByTestId("late-night-status-pill")).toContainText(
+      "Late-night delivery is unavailable right now",
+    );
+    await expect(page.getByTestId("late-night-empty-state")).toBeVisible();
+    await expect(page.getByTestId("late-night-section-flowers")).toHaveCount(0);
+    await expect(page.getByTestId("late-night-hero-cta")).toHaveCount(0);
+    await expect(page.getByTestId("late-night-sticky-cta")).toHaveCount(0);
   });
 
   test("carries a noindex X-Robots-Tag header", async ({ request }) => {

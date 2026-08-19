@@ -269,7 +269,10 @@ function formatHourMinuteLabel(hour: number, minute = 0): string {
  * Select the effective late-night slot for a given day.
  * Prefers slotsByDay[weekday] over flat timeSlots.
  * Returns the slot with the highest endHour >= LATE_SLOT_END_HOUR_MIN that
- * has enabled === true, sameDayEnabled === true, and explicit slotId.
+ * is not explicitly disabled, is usable for same-day delivery, and has an
+ * explicit slotId. Presentail OS omits enabled/sameDayEnabled for normal
+ * enabled slots, so absent flags must retain their shared backwards-compatible
+ * meaning of true.
  * Returns null when no such slot exists.
  */
 export function selectLateSlot(
@@ -284,13 +287,15 @@ export function selectLateSlot(
     ? (slotsByDay[weekdayLong] ?? [])
     : timeSlots;
 
-  // Filter to OS-backed late slots: explicit slotId, enabled, sameDayEnabled, endHour >= 21
+  // Filter to OS-backed late slots: explicit slotId, not explicitly disabled,
+  // same-day eligible (or the OS's backwards-compatible omitted flag), and
+  // endHour >= 21.
   const lateSlots = candidates.filter(
     (s): boolean =>
       typeof s.slotId === "string" &&
       s.slotId.length > 0 &&
-      s.enabled === true &&
-      s.sameDayEnabled === true &&
+      s.enabled !== false &&
+      s.sameDayEnabled !== false &&
       typeof s.startHour === "number" &&
       typeof s.endHour === "number" &&
       typeof s.cutoffHour === "number" &&
@@ -384,6 +389,13 @@ function isFloralProduct(product: OSProduct): boolean {
 function hasNonFlowerGiftCategory(product: OSProduct): boolean {
   const slugs = getCategorySlugs(product);
   return slugs.some((s) => NON_FLOWER_GIFT_CATEGORY_SLUGS.has(s));
+}
+
+function isBeirutDeliveryCity(city: string): boolean {
+  const normalised = city.trim().toLowerCase();
+  // The Lebanon-wide OS catalog retains bare OS city slugs, while app routes
+  // use country-prefixed IDs. Both identify the same Beirut delivery area.
+  return normalised === "beirut" || normalised === "lb-beirut";
 }
 
 /**
@@ -500,13 +512,12 @@ export function filterAndSplitProducts(
     ) {
       continue;
     }
-    // City-level: must include lb-beirut when restrictions exist
+    // City-level: must include Beirut when restrictions exist. The Lebanon
+    // store cache carries bare OS slugs (beirut); app routes use lb-beirut.
     if (
       p.deliverableCities &&
       p.deliverableCities.length > 0 &&
-      !p.deliverableCities.some(
-        (c) => c.toLowerCase() === "lb-beirut",
-      )
+      !p.deliverableCities.some(isBeirutDeliveryCity)
     ) {
       continue;
     }

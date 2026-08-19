@@ -53,7 +53,9 @@ import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import tabbyLogo from "@/assets/payment-logos/tabby.svg";
 import klarnaLogo from "@/assets/payment-logos/klarna.svg";
+import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSignInCard } from "@/components/checkout/CheckoutSignInCard";
+import { isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
 import { PhoneInfoTooltip } from "@/components/checkout/PhoneInfoTooltip";
@@ -521,6 +523,25 @@ function CheckoutForm() {
   const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  // Mirror the cart-button gate for direct visits to /checkout: signed-out
+  // shoppers see the same dismissible login prompt; dismissing returns them
+  // to the cart with no state lost. Suppressed once they've explicitly
+  // chosen "Checkout as Guest" so they're not re-prompted on every render.
+  // The cart's guest button forwards `?guest=1` so we don't double-prompt
+  // when transitioning from the cart-side dialog to /checkout.
+  const [guestAcked, setGuestAcked] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("guest") === "1";
+  });
+  // Tracks when the shopper clicked "Checkout as Guest" so that the dialog's
+  // onOpenChange(false) — which fires as a cleanup side-effect when the dialog
+  // unmounts after setGuestAcked(true) re-renders — doesn't redirect to /cart.
+  const guestContinuing = useRef(false);
+  // Frictionless checkout flag: when on, guests land on checkout directly —
+  // no login gate — and see the optional sign-in card instead.
+  const frictionlessCheckout = isFrictionlessCheckoutEnabled();
+  const showLoginGate =
+    !frictionlessCheckout && !authLoading && !user && !guestAcked;
   const { toast } = useToast();
   const { t, dir, cityName, language } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
@@ -1343,15 +1364,20 @@ function CheckoutForm() {
   }, [deliveryMode, expressAvailable, locationsLoading]);
 
   // Emit exactly one checkout_started event per checkout mount, but only
-  // after auth has resolved. Without the `authLoading` guard the effect
-  // would fire during the brief loading window and double-count shoppers,
-  // corrupting the cart→checkout ratio. The ref makes the emission
-  // idempotent across the auth-loading → resolved transition.
+  // after auth has resolved AND the shopper is allowed past the login
+  // gate (signed in or explicitly continuing as guest). Without the
+  // `authLoading` guard the effect would fire during the brief loading
+  // window — when `showLoginGate` is still false because `user` hasn't
+  // hydrated yet — and double-count signed-out shoppers who then bounce
+  // off the prompt, corrupting the cart→checkout ratio. The ref makes
+  // the emission idempotent across the auth-loading → resolved
+  // transition.
   // Emit checkout_viewed exactly once, after auth resolves, carrying the
   // shopper's auth/guest state for the optional sign-in funnel analysis.
   const checkoutViewedRef = useRef(false);
   useEffect(() => {
     if (authLoading) return;
+    if (showLoginGate) return;
     if (checkoutViewedRef.current) return;
     checkoutViewedRef.current = true;
     trackWebEvent({
@@ -1359,14 +1385,16 @@ function CheckoutForm() {
       currency: checkoutCurrency,
       properties: {
         auth_state: user ? "authenticated" : "guest",
+        frictionless_checkout: frictionlessCheckout,
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading]);
+  }, [authLoading, showLoginGate]);
 
   const checkoutStartedRef = useRef(false);
   useEffect(() => {
     if (authLoading) return;
+    if (showLoginGate) return;
     if (checkoutStartedRef.current) return;
     checkoutStartedRef.current = true;
     trackEvent({ name: "checkout_started", surface: "checkout" });
@@ -1409,7 +1437,7 @@ function CheckoutForm() {
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading]);
+  }, [authLoading, showLoginGate]);
 
   // Reflect any in-checkout edits to the delivery mode / date / slot back
   // into the shared delivery-selection store so the next surface (cart,
@@ -1541,7 +1569,7 @@ function CheckoutForm() {
 
   // These hooks must be called unconditionally — before any early return — to
   // comply with React's Rules of Hooks. Moving them here prevents a hooks-count
-  // mismatch when the cart hydrates from localStorage.
+  // mismatch when showLoginGate flips or the cart hydrates from localStorage.
   const summaryDays = useMemo(
     () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
     [t],
@@ -2041,6 +2069,25 @@ function CheckoutForm() {
     items,
     walletRetryNonce,
   ]);
+
+  if (showLoginGate) {
+    return (
+      <>
+        <CheckoutSkeleton />
+        <CheckoutLoginDialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !guestContinuing.current) setLocation("/cart");
+          }}
+          onContinueAsGuest={() => {
+            guestContinuing.current = true;
+            setGuestAcked(true);
+          }}
+          surface="checkout-direct"
+        />
+      </>
+    );
+  }
 
   if (isHydrated && itemCount === 0) {
     return (
@@ -3574,7 +3621,7 @@ function CheckoutForm() {
 
                 {/* Optional sign-in card — signed-out shoppers only, never
                     blocks the guest form below. */}
-                {!authLoading && !user && (
+                {frictionlessCheckout && !authLoading && !user && (
                   <CheckoutSignInCard
                     onContinueAsGuest={() => {
                       // Focus the first incomplete field of the delivery form.

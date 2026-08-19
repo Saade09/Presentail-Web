@@ -178,16 +178,16 @@ describe("selectLateSlot", () => {
     expect(slot).toBeNull();
   });
 
-  it("fails closed when the enabled flag is missing", () => {
+  it("accepts OS-listed slots when enabled flags are omitted", () => {
     const slot = selectLateSlot(
-      [{ ...NIGHT_SLOT, enabled: undefined }],
+      [{ ...NIGHT_SLOT, enabled: undefined, sameDayEnabled: undefined }],
       undefined,
       "monday",
     );
-    expect(slot).toBeNull();
+    expect(slot?.slotId).toBe("night-same-day");
   });
 
-  it("ignores slots without sameDayEnabled", () => {
+  it("ignores slots explicitly disabled for same-day delivery", () => {
     const noSameDay = { ...NIGHT_SLOT, sameDayEnabled: false };
     const slot = selectLateSlot([noSameDay], undefined, "monday");
     expect(slot).toBeNull();
@@ -301,6 +301,14 @@ describe("filterAndSplitProducts", () => {
   it("includes products with lb-beirut in deliverableCities", () => {
     const p = makeProduct("beirut-ok", {
       deliverableCities: ["lb-beirut", "lb-tripoli"],
+    });
+    const { regular } = filterAndSplitProducts([p]);
+    expect(regular).toHaveLength(1);
+  });
+
+  it("includes products with the OS bare Beirut city slug", () => {
+    const p = makeProduct("beirut-os-slug", {
+      deliverableCities: ["beirut", "tripoli"],
     });
     const { regular } = filterAndSplitProducts([p]);
     expect(regular).toHaveLength(1);

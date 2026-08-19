@@ -1,0 +1,178 @@
+OBJECTIVE
+
+Build a dedicated Beirut CPC landing page for high-intent searches around late-night and last-minute flower delivery. The page must make the 11:30 PM Beirut-time cutoff unmistakable, show only inventory that can genuinely be delivered late tonight, and preserve Presentail’s premium brand experience.
+
+TARGET MARKET
+
+Beirut, Lebanon only.
+
+SUGGESTED URL
+
+/en-lb/beirut/late-night-flower-delivery
+
+Confirm the final slug and indexing/canonical strategy before launch so this page does not unintentionally compete with the main Beirut flower-delivery page.
+
+APPROVED VISUAL DIRECTION
+
+Use the final CEO-approved dark late-night mockup as the reference:
+- Compact white Presentail header
+- Midnight teal/charcoal hero
+- Deep pink, burgundy, and plum floral photography
+- Subtle warm Beirut-at-night ambience
+- White/ivory merchandising area
+- Existing Presentail serif headings, sans-serif UI copy, deep teal accents, pale product-card backgrounds, and premium product photography
+
+HEADER AND HERO
+
+- Desktop header height: approximately 68–72 px
+- Create an appropriately compact mobile header
+- Hero height: approximately 320–350 px on desktop
+- Keep Presentail wordmark centered, with search/account/cart controls at right
+- Preserve strong text contrast and responsive image behavior
+
+Exact hero copy:
+
+Status pill:
+“Delivering late tonight · Order by 11:30 PM Beirut time”
+
+Headline:
+“Late-night flower delivery in Beirut”
+
+Supporting copy:
+“Last-minute doesn’t have to feel last-minute. Choose from fresh arrangements available now for delivery tonight in Beirut.”
+
+Primary CTA:
+“Shop flowers available tonight”
+
+Secondary text link:
+“Need help choosing? Chat with a support agent”
+
+CTA requirements:
+- Only one hero button
+- Primary CTA should scroll or navigate directly to eligible late-night inventory
+- Support text link should open the existing Beirut support-agent flow
+- Do not add a competing WhatsApp button
+- Do not show a 90-minute claim or other unverified delivery-speed promise
+
+TRUST STRIP
+
+Use a compact strip directly below the hero:
+
+- “Order by 11:30 PM Beirut time”
+- “No address needed”
+- “Live order tracking”
+- Current verified Trustpilot proof
+
+Do not hardcode conflicting Trustpilot ratings or review counts.
+
+MERCHANDISING SECTION 1
+
+Title:
+“Available Tonight”
+
+Subtitle:
+“Fresh flowers ready for late-night delivery in Beirut”
+
+Link:
+“View all flowers”
+
+Requirements:
+- Show only bouquets and floral arrangements
+- Include 4 products on desktop, responsive carousel/grid on smaller screens
+- Eligible products must be in stock and operationally deliverable late tonight
+- Exclude cakes, chocolates, balloons, standalone gift boxes, and other non-flower products
+- Use badges such as “Available tonight”, “Best seller”, or “Late-night pick”
+- Display the correct currency, price, availability, and product URL from live data
+
+MERCHANDISING SECTION 2
+
+Title:
+“Late-Night Luxury Arrangements”
+
+Subtitle:
+“Statement flowers for unforgettable last-minute moments”
+
+Link:
+“View all arrangements”
+
+Requirements:
+- Show premium, high-value floral arrangements only
+- Use the same live late-night eligibility rules as the first section
+- Exclude standalone non-flower gifts
+- Keep the styling consistent with the approved premium mockup
+
+CUTOFF AND TIMEZONE LOGIC
+
+- Use the IANA timezone “Asia/Beirut”; do not use a fixed UTC offset
+- Respect Beirut daylight-saving changes automatically
+- Before 11:30 PM Beirut time: show the late-night promise and eligible inventory
+- At and after 11:30 PM Beirut time: immediately stop promising delivery tonight
+- After cutoff, replace the status/CTA with truthful next-available-delivery messaging and remove or relabel late-night eligibility
+- Define the exact fallback CTA and next-available date from the existing delivery-slot system
+- Ensure cached pages/CDN behavior cannot leave the pre-cutoff promise visible after 11:30 PM
+- If operations closes late-night delivery early, inventory and messaging must update without a code release
+
+INVENTORY RULES
+
+- Source products from real Beirut inventory
+- Filter for in-stock and late-night eligible products only
+- Products that sell out must disappear or show an accurate unavailable state
+- Never show a late-night badge based only on static merchandising
+- Empty-state behavior must be designed: if no products remain, direct users to the next available delivery window or support agent
+
+PAID-SEARCH AND ANALYTICS
+
+- Preserve GCLID, UTM parameters, and attribution throughout the shopping journey
+- Confirm events for:
+  - primary CTA click
+  - support-agent click
+  - product click
+  - add to cart
+  - checkout start
+  - purchase
+- Make the page distinguishable in analytics from the main Beirut flower-delivery landing page
+- Verify Google Ads conversion attribution after deployment
+
+RESPONSIVE / PERFORMANCE / ACCESSIBILITY
+
+- QA common desktop and mobile breakpoints
+- Ensure the status pill and “11:30 PM Beirut time” remain readable without clipping
+- Add a sticky mobile CTA if consistent with the current ecommerce framework
+- Use responsive image sizes and modern formats
+- Avoid a material Core Web Vitals regression
+- Maintain accessible color contrast, keyboard focus states, semantic heading order, and touch-friendly targets
+
+QA SCENARIOS
+
+Test at minimum:
+
+- 11:29 PM Beirut time
+- Exactly 11:30 PM Beirut time
+- 11:31 PM Beirut time
+- Beirut daylight-saving transitions
+- Eligible products available
+- Eligible products sold out
+- Operations disables late-night delivery early
+- Guest and returning customer
+- Desktop and mobile
+- Support-agent routing
+- UTM/GCLID preservation
+- Add-to-cart through purchase tracking
+- Correct currency, price, availability, and delivery promise
+
+ACCEPTANCE CRITERIA
+
+- Dedicated Beirut late-night CPC page is live
+- 11:30 PM Beirut time is prominent in the hero and trust strip
+- Only genuinely late-night-eligible flowers appear in both primary sections
+- Exactly one hero button is present
+- Support-agent option is a secondary text link
+- No 90-minute or unsupported speed claim appears
+- After-cutoff behavior is truthful and automatically timezone-aware
+- Tracking and paid-search attribution are verified
+- Responsive, accessibility, inventory, cutoff, and checkout QA pass
+- Staging link and concise QA summary are added to this task before production release
+
+DELIVERABLE
+
+Production-ready Beirut late-night flower-delivery landing page, deployed after staging approval, with screenshots and QA notes covering both before-cutoff and after-cutoff states.

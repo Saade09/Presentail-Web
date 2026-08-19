@@ -44,7 +44,7 @@ function BeirutLateNightHero({
   pillText: string;
   headline: string;
   subtitle: string;
-  ctaText: string;
+  ctaText?: string;
   onCtaClick: () => void;
   supportUrl: string;
   onSupportClick: () => void;
@@ -99,15 +99,17 @@ function BeirutLateNightHero({
           </p>
 
           <div className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
-            <Button
-              type="button"
-              size="lg"
-              className="h-12 bg-[#fff8e9] px-8 font-semibold text-[#0c0f12] hover:bg-white shadow-[0_0_20px_rgba(244,217,170,0.15)]"
-              onClick={onCtaClick}
-              data-testid="late-night-hero-cta"
-            >
-              {ctaText}
-            </Button>
+            {ctaText && (
+              <Button
+                type="button"
+                size="lg"
+                className="h-12 bg-[#fff8e9] px-8 font-semibold text-[#0c0f12] hover:bg-white shadow-[0_0_20px_rgba(244,217,170,0.15)]"
+                onClick={onCtaClick}
+                data-testid="late-night-hero-cta"
+              >
+                {ctaText}
+              </Button>
+            )}
             <a
               href={supportUrl}
               target="_blank"
@@ -165,26 +167,26 @@ function LateNightEmptyState({
   onSupportClick: () => void;
 }) {
   return (
-    <div className="container mx-auto max-w-content px-page pt-12 pb-24" data-testid="late-night-empty-state">
-      <div className="mx-auto max-w-xl text-center">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
-          <Clock3 className="h-8 w-8 text-neutral-400" />
+    <div className="container mx-auto max-w-content px-page pt-10 pb-24" data-testid="late-night-empty-state">
+      <div className="mx-auto max-w-xl rounded-2xl border border-neutral-200 bg-white px-6 py-10 text-center shadow-sm md:px-10">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#f5f1e9]">
+          <Clock3 className="h-7 w-7 text-[#0c0f12]" />
         </div>
         <h2 className="font-serif text-2xl md:text-3xl text-neutral-900 mb-3" data-testid="late-night-empty-headline">
           Late-night delivery is unavailable right now
         </h2>
-        <p className="text-neutral-500 mb-8" data-testid="late-night-empty-support">
-          Live delivery availability or eligible flower inventory could not be confirmed. Chat with our support team to find the next available option.
+        <p className="text-neutral-500 mb-7">
+          Tonight&apos;s late-night delivery window could not be confirmed. Chat with our support team to find the next available option.
         </p>
         <Button asChild size="lg" className="bg-[#0c0f12] text-white hover:bg-neutral-800">
-           <a
-             href={supportUrl}
-             target="_blank"
-             rel="noopener noreferrer"
-             onClick={onSupportClick}
-           >
+          <a
+            href={supportUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onSupportClick}
+          >
             <MessageCircle className="mr-2 h-5 w-5" />
-             {SUPPORT_AGENT_LABEL}
+            {SUPPORT_AGENT_LABEL}
           </a>
         </Button>
       </div>
@@ -616,6 +618,10 @@ export default function BeirutLateNightLanding() {
     headline = "Flower delivery in Beirut";
     subtitle = `Browse fresh arrangements for the next available Beirut delivery window: ${nextDate}, ${data.nextAvailableWindow.label}.`;
     ctaText = "Shop flowers for the next window";
+  } else {
+    pillText = "Late-night delivery is unavailable right now";
+    headline = "Late-night flower delivery in Beirut";
+    subtitle = "Tonight’s late-night delivery window could not be confirmed. Chat with our support team to find the next available option."; // i18n-ignore — paid-only English route
   }
 
   const showEmptyState = isUnavailable;
@@ -623,31 +629,25 @@ export default function BeirutLateNightLanding() {
   return (
     <div className="flex flex-col min-h-[100dvh] bg-neutral-50 pb-20" data-testid="late-night-page">
       
-      {!showEmptyState ? (
-        <div ref={heroRef}>
-          <BeirutLateNightHero
-            pillText={pillText}
-            headline={headline}
-            subtitle={subtitle}
-            ctaText={ctaText}
-            onCtaClick={handleCtaClick}
-            supportUrl={supportUrl}
-            onSupportClick={handleSupportClick}
-          />
-        </div>
-      ) : (
-        <div ref={heroRef} className="pt-8" />
-      )}
-
-      {!showEmptyState && (
-        <LateNightTrustBar
-          availabilityText={
-            isTonight && data?.cutoffLabel
-              ? `Order by ${data.cutoffLabel} Beirut time`
-              : pillText
-          }
+      <div ref={heroRef}>
+        <BeirutLateNightHero
+          pillText={pillText}
+          headline={headline}
+          subtitle={subtitle}
+          ctaText={ctaText}
+          onCtaClick={handleCtaClick}
+          supportUrl={supportUrl}
+          onSupportClick={handleSupportClick}
         />
-      )}
+      </div>
+
+      <LateNightTrustBar
+        availabilityText={
+          isTonight && data?.cutoffLabel
+            ? `Order by ${data.cutoffLabel} Beirut time`
+            : pillText
+        }
+      />
 
       {showEmptyState ? (
         <LateNightEmptyState
@@ -656,44 +656,44 @@ export default function BeirutLateNightLanding() {
         />
       ) : (
         <>
-          {data?.availableTonight && data.availableTonight.products.length > 0 && (
-            <div data-testid="late-night-section-flowers">
-              <LateNightCampaignGrid
-                id="late-night-flowers"
-                section="flowers"
-                title={isTonight ? "Available Tonight" : "Available for the Next Window"}
-                sub={isTonight ? "Fresh flowers ready for late-night delivery in Beirut" : "Fresh flowers for the next available Beirut delivery window"}
-                viewAllLink={data.availableTonight.viewAllHref}
-                viewAllText="View all flowers"
-                products={data.availableTonight.products}
-                isTonight={isTonight}
-                onSelectDeliveryWindow={selectCampaignWindow}
-              />
-            </div>
-          )}
-          
-          {data?.luxury && data.luxury.products.length > 0 && (
-            <div data-testid="late-night-section-luxury">
-              <LateNightCampaignGrid
-                id="late-night-luxury"
-                section="luxury"
-                title={isTonight ? "Late-Night Luxury Arrangements" : "Luxury Arrangements"}
-                sub={isTonight ? "Statement flowers for unforgettable last-minute moments" : data.luxury.subtitle}
-                viewAllLink={data.luxury.viewAllHref}
-                viewAllText="View all arrangements"
-                products={data.luxury.products}
-                isTonight={isTonight}
-                onSelectDeliveryWindow={selectCampaignWindow}
-              />
-            </div>
-          )}
+        {data?.availableTonight && data.availableTonight.products.length > 0 && (
+          <div data-testid="late-night-section-flowers">
+            <LateNightCampaignGrid
+              id="late-night-flowers"
+              section="flowers"
+              title={isTonight ? "Available Tonight" : "Available for the Next Window"}
+              sub={isTonight ? "Fresh flowers ready for late-night delivery in Beirut" : "Fresh flowers for the next available Beirut delivery window"}
+              viewAllLink={data.availableTonight.viewAllHref}
+              viewAllText="View all flowers"
+              products={data.availableTonight.products}
+              isTonight={isTonight}
+              onSelectDeliveryWindow={selectCampaignWindow}
+            />
+          </div>
+        )}
+        
+        {data?.luxury && data.luxury.products.length > 0 && (
+          <div data-testid="late-night-section-luxury">
+            <LateNightCampaignGrid
+              id="late-night-luxury"
+              section="luxury"
+              title={isTonight ? "Late-Night Luxury Arrangements" : "Luxury Arrangements"}
+              sub={isTonight ? "Statement flowers for unforgettable last-minute moments" : data.luxury.subtitle}
+              viewAllLink={data.luxury.viewAllHref}
+              viewAllText="View all arrangements"
+              products={data.luxury.products}
+              isTonight={isTonight}
+              onSelectDeliveryWindow={selectCampaignWindow}
+            />
+          </div>
+        )}
         </>
       )}
 
       {!showEmptyState && (
-        <LateNightStickyBar 
-          heroRef={heroRef} 
-          onCtaClick={handleCtaClick} 
+        <LateNightStickyBar
+          heroRef={heroRef}
+          onCtaClick={handleCtaClick}
           ctaText={ctaText}
         />
       )}

@@ -170,7 +170,7 @@ describe("BeirutLateNightLanding", () => {
     expect(screen.getByTestId("late-night-hero-cta").textContent).toContain("Shop flowers for the next window");
   });
 
-  it("renders empty state when unavailable", () => {
+  it("keeps the dedicated landing page truthful when late-night delivery is unavailable", () => {
     vi.mocked(apiClient.useGetBeirutLateNightCampaign).mockReturnValue({
       data: {
         campaignKey: "campaign-beirut-late-night",
@@ -186,9 +186,12 @@ describe("BeirutLateNightLanding", () => {
 
     renderWithProviders(<BeirutLateNightLanding />);
 
+    expect(screen.getByTestId("late-night-headline").textContent).toContain("Late-night flower delivery in Beirut");
+    expect(screen.getByTestId("late-night-status-pill").textContent).toContain("Late-night delivery is unavailable right now");
     expect(screen.getByTestId("late-night-empty-state")).toBeDefined();
     expect(screen.getByTestId("late-night-empty-headline").textContent).toContain("Late-night delivery is unavailable right now");
     expect(screen.queryByTestId("late-night-hero-cta")).toBeNull();
+    expect(screen.queryByTestId("late-night-sticky-cta")).toBeNull();
   });
 
   it("triggers refetch on visibility change", () => {
