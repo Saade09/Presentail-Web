@@ -12,8 +12,10 @@ covers the parts that can only be confirmed inside GA4 / Google Ads / Clarity.
   navigation through the funnel.
 - gtag mirrors fire into `dataLayer` for:
   - `campaign_page_view`, `campaign_promo_*`, `campaign_hero_cta_click`,
-    `campaign_pill_click`, `campaign_sticky_cta_*`, `campaign_view_all_click`
-    (CampaignLanding)
+    `campaign_support_click`, `campaign_pill_click`, `campaign_sticky_cta_*`,
+    `campaign_view_all_click` (CampaignLanding)
+  - `view_item_list` for the separate Flowers and Luxury Arrangements rails,
+    and `select_item` for product clicks, with distinct campaign section ids
   - `add_to_cart` (CartContext, GA4 e-commerce shape with `items`)
   - `begin_checkout` (Checkout, fired once per checkout mount)
   - `purchase` (OrderConfirmed, deduped per order ref, both inline-success and
@@ -52,13 +54,14 @@ landing URL.
    [GA Debugger extension] enabled (or append `&debug_mode=true` handling via
    GTM), visit:
 
-   `https://presentail.com/flower-delivery?gclid=TEST_GCLID_<date>&utm_source=google&utm_medium=cpc&utm_campaign=flower-delivery-launch`
+   `https://presentail.com/en-lb/beirut/flower-delivery?gclid=TEST_GCLID_<date>&utm_source=google&utm_medium=cpc&utm_campaign=flower-delivery-launch`
 
 2. **GA4 DebugView** (Admin → DebugView, property with the
    `VITE_GTAG_GA4_ID` measurement id): confirm the device stream shows
    `page_view` (with `gclid` in the page location), `campaign_page_view`,
-   then interact with a promo/pill/CTA and confirm the matching
-   `campaign_*` events appear with `section: campaign-flower-delivery`.
+   then interact with the hero CTA, support link, both view-all links, and a
+   product in each rail. Confirm the matching `campaign_*`, `view_item_list`,
+   and `select_item` events appear with the Flowers/Luxury section identity.
 
 3. **Funnel events.** Add a product to the cart, proceed to checkout, and
    complete a low-value test purchase (or a Stripe test-mode purchase if

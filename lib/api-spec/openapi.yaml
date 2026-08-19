@@ -1126,6 +1126,12 @@ paths:
           description: City identifier (e.g. "ae-dubai") used to resolve the correct store.
           schema:
             type: string
+        - name: lang
+          in: query
+          required: false
+          description: Language code ("en", "ar", or "fr") used to translate product names.
+          schema:
+            type: string
       responses:
         "200":
           description: Ranked products for the collection
@@ -2762,6 +2768,7 @@ components:
         - campaign_promo_impression
         - campaign_promo_click
         - campaign_view_all_click
+        - campaign_support_click
         - campaign_pill_click
         - campaign_sticky_cta_impression
         - campaign_sticky_cta_click
@@ -3255,6 +3262,9 @@ components:
         sameDayCutoffHour:
           type: number
           description: Hour of day (0–23, local time) after which same-day delivery cannot be booked.
+        operationsConfigVerified:
+          type: boolean
+          description: True only when the current Presentail OS payload explicitly supplied the city operations fields used for campaign availability promises. False for hardcoded or prior-cache fallback values.
         timeSlots:
           type: array
           description: Available delivery time slots for this city. Empty array means slots are not yet configured.
@@ -3283,6 +3293,7 @@ components:
         - expressAvailable
         - sameDayCutoffHour
         - expressDeliveryLabel
+        - operationsConfigVerified
     DeliveryCountry:
       type: object
       properties:
@@ -3491,6 +3502,11 @@ components:
                 type: string
             required:
               - uri
+        categories:
+          type: array
+          description: Category slugs attached to the product, used by collection surfaces to prevent unrelated gifts from leaking into floral rails.
+          items:
+            type: string
         inStock:
           type: boolean
           description: Whether the product is currently in stock.
@@ -3514,6 +3530,7 @@ components:
         - price
         - priceValue
         - images
+        - categories
         - inStock
         - popularity
     HomepageBestSellersResponse:
@@ -3747,8 +3764,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DeliveryCountry"
+        dataStatus:
+          type: string
+          enum: [live, stale, fallback]
+          description: Provenance of the response. Paid campaign promises must use neutral copy unless this is live.
       required:
         - countries
+        - dataStatus
     CurrencyInfo:
       type: object
       properties:

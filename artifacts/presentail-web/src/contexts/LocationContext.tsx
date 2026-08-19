@@ -52,6 +52,7 @@ type LocationContextType = {
   country: DeliveryCountry | null;
   city: DeliveryCity | null;
   countries: DeliveryCountry[];
+  deliveryDataStatus?: DeliveryLocationsResponse["dataStatus"];
   isLoadingCountries: boolean;
   setLocation: (countryCode: string, cityId: string) => void;
   clearLocation: () => void;
@@ -220,6 +221,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     country,
     city,
     countries,
+    deliveryDataStatus: data?.dataStatus ?? "fallback",
     isLoadingCountries: isLoading,
     setLocation,
     clearLocation,

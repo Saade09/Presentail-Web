@@ -74,6 +74,7 @@ export * from "./deliveryCitySlotsByDay";
 export * from "./deliveryConfigResponse";
 export * from "./deliveryCountry";
 export * from "./deliveryLocationsResponse";
+export * from "./deliveryLocationsResponseDataStatus";
 export * from "./deliveryTimeSlot";
 export * from "./errorResponse";
 export * from "./favoriteItem";

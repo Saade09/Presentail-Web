@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DeliveryCountry } from "./deliveryCountry";
+import type { DeliveryLocationsResponseDataStatus } from "./deliveryLocationsResponseDataStatus";
 
 export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
+  /** Provenance of the response. Paid campaign promises must use neutral copy unless this is live. */
+  dataStatus: DeliveryLocationsResponseDataStatus;
 }

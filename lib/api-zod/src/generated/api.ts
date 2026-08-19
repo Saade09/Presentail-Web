@@ -836,6 +836,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "campaign_promo_impression",
       "campaign_promo_click",
       "campaign_view_all_click",
+      "campaign_support_click",
       "campaign_pill_click",
       "campaign_sticky_cta_impression",
       "campaign_sticky_cta_click",
@@ -1722,6 +1723,11 @@ export const GetHomepageBestSellersResponse = zod.object({
             }),
           )
           .describe("All product images in display order."),
+        categories: zod
+          .array(zod.string())
+          .describe(
+            "Category slugs attached to the product, used by collection surfaces to prevent unrelated gifts from leaking into floral rails.",
+          ),
         inStock: zod
           .boolean()
           .describe("Whether the product is currently in stock."),
@@ -1787,6 +1793,12 @@ export const GetHomepageCollectionBestSellersQueryParams = zod.object({
     .describe(
       'City identifier (e.g. \"ae-dubai\") used to resolve the correct store.',
     ),
+  lang: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'Language code (\"en\", \"ar\", or \"fr\") used to translate product names.',
+    ),
 });
 
 export const GetHomepageCollectionBestSellersResponse = zod.object({
@@ -1821,6 +1833,11 @@ export const GetHomepageCollectionBestSellersResponse = zod.object({
             }),
           )
           .describe("All product images in display order."),
+        categories: zod
+          .array(zod.string())
+          .describe(
+            "Category slugs attached to the product, used by collection surfaces to prevent unrelated gifts from leaking into floral rails.",
+          ),
         inStock: zod
           .boolean()
           .describe("Whether the product is currently in stock."),
@@ -2194,6 +2211,11 @@ export const GetDeliveryLocationsResponse = zod.object({
             .describe(
               "Hour of day (0–23, local time) after which same-day delivery cannot be booked.",
             ),
+          operationsConfigVerified: zod
+            .boolean()
+            .describe(
+              "True only when the current Presentail OS payload explicitly supplied the city operations fields used for campaign availability promises. False for hardcoded or prior-cache fallback values.",
+            ),
           timeSlots: zod
             .array(
               zod.object({
@@ -2360,6 +2382,11 @@ export const GetDeliveryLocationsResponse = zod.object({
         ),
     }),
   ),
+  dataStatus: zod
+    .enum(["live", "stale", "fallback"])
+    .describe(
+      "Provenance of the response. Paid campaign promises must use neutral copy unless this is live.",
+    ),
 });
 
 /**

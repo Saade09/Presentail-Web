@@ -58,6 +58,12 @@ type CachedCity = {
   expressDeliveryLabel: string;
   /** Hour of day (0–23) after which same-day booking is disabled. Defaults to EXPRESS_CLOSE_HOUR. */
   sameDayCutoffHour: number;
+  /**
+   * True only when the current OS payload explicitly supplied the fields used
+   * for campaign availability promises. Hardcoded/prior-cache defaults are
+   * deliberately unverified so paid pages can fall back to neutral copy.
+   */
+  operationsConfigVerified: boolean;
   timeSlots: OSTimeSlot[];
   /**
    * Per-day-of-week slots from OS. Keys are lowercase English weekday names
@@ -123,6 +129,7 @@ let cachedCountries: CachedCountry[] | null = null;
 let cityIndex = new Map<string, CachedCity>();
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
+let locationsDataStatus: "live" | "stale" | "fallback" = "fallback";
 
 /** Change-detection: tracks key delivery fields across OS polls. */
 let lastLocationsSignature: string | null = null;
@@ -350,7 +357,10 @@ function transformOsResponse(
             { countryCode: code, source: "prior_cache" },
             "osLocationsCache: OS returned 0 cities for country — retaining prior cached city states until OS data recovers",
           );
-          return priorCountry.cities;
+          return priorCountry.cities.map((city) => ({
+            ...city,
+            operationsConfigVerified: false,
+          }));
         }
 
         // No prior cache: fall back to hardcoded cities so shoppers still
@@ -378,6 +388,7 @@ function transformOsResponse(
               expressAvailable: priorCity?.expressAvailable ?? true,
               expressDeliveryLabel: "",
               sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+              operationsConfigVerified: false,
               timeSlots: [] as OSTimeSlot[],
               localizedNames: localizedNamesForCity(city.id),
               freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
@@ -533,6 +544,9 @@ function transformOsResponse(
             false,
           expressDeliveryLabel: c.expressDeliveryLabel ?? "",
           sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
+          operationsConfigVerified:
+            c.expressAvailable !== undefined &&
+            c.sameDayCutoffHour !== undefined,
           // Effective flat slot list: if OS only configured slotsByDay (e.g.
           // Akkar), effectiveTimeSlots is the deduplicated per-day union so
           // todayHasSlots, firstAvailableDay, and label-matching all use the
@@ -584,6 +598,7 @@ function transformOsResponse(
             expressAvailable: true,
             expressDeliveryLabel: "",
             sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+            operationsConfigVerified: false,
             timeSlots: [] as OSTimeSlot[],
             localizedNames: localizedNamesForCity(hc.id),
             freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
@@ -650,6 +665,7 @@ function transformOsResponse(
       expressAvailable: true,
       expressDeliveryLabel: "",
       sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+      operationsConfigVerified: false,
       timeSlots: [] as OSTimeSlot[],
       localizedNames: localizedNamesForCity(city.id),
     })),
@@ -741,6 +757,7 @@ function hardcodedFallback(): CachedCountry[] {
         expressAvailable: true,
         expressDeliveryLabel: "",
         sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+        operationsConfigVerified: false,
         timeSlots: [] as OSTimeSlot[],
         localizedNames: localizedNamesForCity(city.id),
         freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
@@ -761,6 +778,7 @@ async function fetchAndStore(): Promise<void> {
     const countries = transformOsResponse(resp, cachedCountries);
     cachedCountries = countries;
     cityIndex = buildCityIndex(countries);
+    locationsDataStatus = "live";
     const sig = locationsSignature(countries);
     if (lastLocationsSignature !== null && lastLocationsSignature !== sig) {
       locationsChangedFlag = true;
@@ -773,6 +791,7 @@ async function fetchAndStore(): Promise<void> {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (cachedCountries !== null) {
+      if (locationsDataStatus === "live") locationsDataStatus = "stale";
       // Retain the last good cache; do not fall back to hardcoded data.
       logger.warn(
         { err: msg },
@@ -786,6 +805,7 @@ async function fetchAndStore(): Promise<void> {
       );
       cachedCountries = hardcodedFallback();
       cityIndex = buildCityIndex(cachedCountries);
+      locationsDataStatus = "fallback";
     }
   }
 }
@@ -808,6 +828,10 @@ function sortCountries(countries: CachedCountry[]): CachedCountry[] {
 
 export function getLocations(): CachedCountry[] {
   return sortCountries(cachedCountries ?? hardcodedFallback());
+}
+
+export function getLocationsDataStatus(): "live" | "stale" | "fallback" {
+  return locationsDataStatus;
 }
 
 /**
@@ -917,6 +941,7 @@ export function storeLocationsFromWebhook(payload: OSLocationsResponse): void {
   const countries = transformOsResponse(payload, cachedCountries);
   cachedCountries = countries;
   cityIndex = buildCityIndex(countries);
+  locationsDataStatus = "live";
 
   const totalCities = countries.reduce((n, c) => n + c.cities.length, 0);
   logger.info(
@@ -1015,6 +1040,7 @@ export function stopOsLocationSync(): void {
 export function resetCacheForTesting(): void {
   cachedCountries = null;
   cityIndex = new Map();
+  locationsDataStatus = "fallback";
   lastLocationsSignature = null;
   locationsChangedFlag = false;
   expressOmissionDay = null;

@@ -41,6 +41,83 @@ export const campaignStrings: Dict = {
     ar: "تسوّق الزهور المتوفرة اليوم",
   },
 
+  // Shared conversion landing for Beirut, Dubai, and Abu Dhabi.
+  "campaign.redesign.hero.titleSameDay": {
+    en: "Same-day flower delivery in {city}",
+    ar: "توصيل الزهور في اليوم نفسه في {city}",
+  },
+  "campaign.redesign.hero.titleNeutral": {
+    en: "Flower delivery in {city}",
+    ar: "توصيل الزهور في {city}",
+  },
+  "campaign.redesign.hero.subtitle": {
+    en: "Browse fresh arrangements available for {city}. Delivery dates and times are confirmed at checkout.",
+    ar: "تصفّح تنسيقات الزهور الطازجة المتوفرة في {city}. يتم تأكيد تاريخ ووقت التوصيل عند الدفع.",
+  },
+  "campaign.redesign.hero.imageAlt": {
+    en: "Premium fresh flower arrangement ready for delivery",
+    ar: "تنسيق زهور طازجة فاخر جاهز للتوصيل",
+  },
+  "campaign.redesign.hero.cta": {
+    en: "Shop flowers available today",
+    ar: "تسوّق الزهور المتوفرة اليوم",
+  },
+  "campaign.redesign.hero.support": {
+    en: "Need help choosing? Chat with a support agent",
+    ar: "تحتاج مساعدة في الاختيار؟ تحدّث مع أحد موظفي الدعم",
+  },
+  "campaign.redesign.hero.supportPrefill": {
+    en: "Hi! I need help choosing flowers for delivery in {city}.",
+    ar: "مرحباً! أحتاج إلى مساعدة في اختيار زهور لتوصيلها في {city}.",
+  },
+  "campaign.redesign.status.sameDay": {
+    en: "Order by {cutoff} for delivery today",
+    ar: "اطلب قبل {cutoff} للتوصيل اليوم",
+  },
+  "campaign.redesign.status.nextAvailable": {
+    en: "Choose the next available delivery time at checkout",
+    ar: "اختر أقرب وقت توصيل متاح عند الدفع",
+  },
+  "campaign.redesign.status.neutral": {
+    en: "Delivery availability confirmed at checkout",
+    ar: "يتم تأكيد توفر التوصيل عند الدفع",
+  },
+  "campaign.redesign.status.speed": {
+    en: "{speed}",
+    ar: "{speed}",
+  },
+  "campaign.redesign.status.speedNeutral": {
+    en: "Delivery timing confirmed at checkout",
+    ar: "يتم تأكيد مدة التوصيل عند الدفع",
+  },
+  "campaign.redesign.status.currency": {
+    en: "Prices shown in {currency}",
+    ar: "الأسعار معروضة بعملة {currency}",
+  },
+  "campaign.redesign.flowers.title": { en: "Flowers", ar: "الزهور" },
+  "campaign.redesign.flowers.subtitle": {
+    en: "Fresh arrangements ready to deliver today",
+    ar: "تنسيقات زهور طازجة جاهزة للتوصيل اليوم",
+  },
+  "campaign.redesign.luxury.title": {
+    en: "Luxury Arrangements",
+    ar: "تنسيقات فاخرة",
+  },
+  "campaign.redesign.luxury.subtitle": {
+    en: "Statement designs for unforgettable moments",
+    ar: "تصاميم لافتة للحظات لا تُنسى",
+  },
+  "campaign.redesign.viewAll": { en: "View all", ar: "عرض الكل" },
+  "campaign.redesign.bestSeller": { en: "Best seller", ar: "الأكثر مبيعاً" },
+  "campaign.redesign.availableToday": {
+    en: "In stock",
+    ar: "متوفر",
+  },
+  "campaign.redesign.empty": {
+    en: "No arrangements are available for this city right now. Please check again soon.",
+    ar: "لا تتوفر تنسيقات في هذه المدينة حالياً. يُرجى المحاولة مجدداً قريباً.",
+  },
+
   // ── Beirut paid-search hero variant (v2) — used only on en-lb/beirut ──
   "campaign.v2.badge.open": {
     en: "All Lebanon branches open now",
@@ -207,6 +284,27 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.pill.under": "Moins de {amount}",
   "campaign.reviews.title": "Avis clients vérifiés",
   "campaign.stickyCta": "Voir les fleurs disponibles aujourd'hui",
+  "campaign.redesign.hero.titleSameDay": "Livraison de fleurs le jour même à {city}",
+  "campaign.redesign.hero.titleNeutral": "Livraison de fleurs à {city}",
+  "campaign.redesign.hero.subtitle": "Découvrez les compositions fraîches disponibles à {city}. La date et l'heure de livraison sont confirmées au paiement.",
+  "campaign.redesign.hero.imageAlt": "Composition florale fraîche et haut de gamme prête à être livrée",
+  "campaign.redesign.hero.cta": "Voir les fleurs disponibles aujourd'hui",
+  "campaign.redesign.hero.support": "Besoin d'aide ? Discutez avec un conseiller",
+  "campaign.redesign.hero.supportPrefill": "Bonjour ! J'ai besoin d'aide pour choisir des fleurs à livrer à {city}.",
+  "campaign.redesign.status.sameDay": "Commandez avant {cutoff} pour une livraison aujourd'hui",
+  "campaign.redesign.status.nextAvailable": "Choisissez le prochain créneau disponible au paiement",
+  "campaign.redesign.status.neutral": "Disponibilité de livraison confirmée au paiement",
+  "campaign.redesign.status.speed": "{speed}",
+  "campaign.redesign.status.speedNeutral": "Délai de livraison confirmé au paiement",
+  "campaign.redesign.status.currency": "Prix affichés en {currency}",
+  "campaign.redesign.flowers.title": "Fleurs",
+  "campaign.redesign.flowers.subtitle": "Compositions fraîches prêtes à être livrées aujourd'hui",
+  "campaign.redesign.luxury.title": "Compositions de luxe",
+  "campaign.redesign.luxury.subtitle": "Des créations remarquables pour des moments inoubliables",
+  "campaign.redesign.viewAll": "Voir tout",
+  "campaign.redesign.bestSeller": "Meilleure vente",
+  "campaign.redesign.availableToday": "En stock",
+  "campaign.redesign.empty": "Aucune composition n'est disponible dans cette ville pour le moment. Revenez bientôt.",
 
   // ── Beirut paid-search hero variant (v2) ──
   "campaign.v2.badge.open": "Toutes nos boutiques au Liban sont ouvertes",

@@ -17,6 +17,7 @@ import {
   isSupportedCountrySlug,
   type Lang,
 } from "@/lib/locale-route";
+import { isTargetCampaignCity } from "@/lib/campaignLanding";
 import { prefetchProps } from "@/lib/prefetch";
 import {
   loadCart,
@@ -41,6 +42,7 @@ import {
 export function LandingPageHeader() {
   const { t, language } = useLocale();
   const { cityId, countryCode } = useLocationSelection();
+  const isCompactCampaignHeader = isTargetCampaignCity(cityId);
   const { user } = useAuth();
   const { itemCount } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -70,7 +72,11 @@ export function LandingPageHeader() {
 
   return (
     <div className="bg-white sticky top-0 z-[60] border-b border-gray-200">
-      <div className="container mx-auto max-w-content px-page h-[var(--header-h)] grid grid-cols-3 items-center gap-4">
+      <div
+        className={`container mx-auto grid max-w-content grid-cols-3 items-center gap-4 px-page ${
+          isCompactCampaignHeader ? "h-[62px] md:h-[70px]" : "h-[var(--header-h)]"
+        }`}
+      >
 
         {/* ── Left: search button on mobile (replaces hamburger slot) ── */}
         <div className="flex items-center gap-2">
@@ -94,7 +100,7 @@ export function LandingPageHeader() {
             aria-label={t("nav.logoAria")}
             data-testid="link-logo"
           >
-            <Logo height={88} />
+            <Logo height={isCompactCampaignHeader ? 64 : 88} />
           </Link>
         </div>
 

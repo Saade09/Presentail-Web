@@ -24,6 +24,8 @@ export interface HomepageBestSellerProduct {
   image?: HomepageBestSellerProductImage;
   /** All product images in display order. */
   images: HomepageBestSellerProductImagesItem[];
+  /** Category slugs attached to the product, used by collection surfaces to prevent unrelated gifts from leaking into floral rails. */
+  categories: string[];
   /** Whether the product is currently in stock. */
   inStock: boolean;
   /** Total sales count used for ranking. Zero when not available. */

@@ -11,7 +11,14 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { storeLocationsFromWebhook, getLocations, resetCacheForTesting, fetchAndStoreForTesting, getOsCityDeliveryFeeUsd } from "./osLocationsCache";
+import {
+  storeLocationsFromWebhook,
+  getLocations,
+  getLocationsDataStatus,
+  resetCacheForTesting,
+  fetchAndStoreForTesting,
+  getOsCityDeliveryFeeUsd,
+} from "./osLocationsCache";
 import type { OSLocationsResponse, OSCountry, OSCity } from "@workspace/presentail-os";
 
 // Mock the alerts module so Slack sends are captured without real HTTP.
@@ -842,6 +849,10 @@ describe("osLocationsCache — fetch failure paths", () => {
     const lb = locations.find((c) => c.code === "LB");
     expect(lb).toBeTruthy();
     expect(lb!.cities.some((c) => c.id === "lb-beirut")).toBe(true);
+    expect(getLocationsDataStatus()).toBe("fallback");
+    expect(
+      lb!.cities.find((c) => c.id === "lb-beirut")!.operationsConfigVerified,
+    ).toBe(false);
   });
 
   it("(d) retains prior cache when a subsequent OS fetch fails", async () => {
@@ -855,6 +866,13 @@ describe("osLocationsCache — fetch failure paths", () => {
       ],
     };
     storeLocationsFromWebhook(goodPayload);
+    expect(getLocationsDataStatus()).toBe("live");
+    expect(
+      getLocations()
+        .find((c) => c.code === "LB")!
+        .cities.find((c) => c.id === "lb-beirut")!
+        .operationsConfigVerified,
+    ).toBe(true);
 
     const lbAfterGood = getLocations().find((c) => c.code === "LB");
     const hasbayaAfterGood = lbAfterGood!.cities.find((c) => c.id === "lb-hasbaya");
@@ -863,6 +881,7 @@ describe("osLocationsCache — fetch failure paths", () => {
     // Step 2: next scheduled fetch fails.
     vi.mocked(fetchOsLocations).mockRejectedValueOnce(new Error("timeout"));
     await fetchAndStoreForTesting();
+    expect(getLocationsDataStatus()).toBe("stale");
 
     // Prior cache must be retained — not replaced by hardcoded all-true data.
     const lbAfterFail = getLocations().find((c) => c.code === "LB");

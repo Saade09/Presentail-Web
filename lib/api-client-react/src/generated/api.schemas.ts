@@ -323,6 +323,7 @@ export const AnalyticsEventName = {
   campaign_promo_impression: "campaign_promo_impression",
   campaign_promo_click: "campaign_promo_click",
   campaign_view_all_click: "campaign_view_all_click",
+  campaign_support_click: "campaign_support_click",
   campaign_pill_click: "campaign_pill_click",
   campaign_sticky_cta_impression: "campaign_sticky_cta_impression",
   campaign_sticky_cta_click: "campaign_sticky_cta_click",
@@ -747,6 +748,8 @@ export interface DeliveryCity {
   expressDeliveryLabel: string;
   /** Hour of day (0–23, local time) after which same-day delivery cannot be booked. */
   sameDayCutoffHour: number;
+  /** True only when the current Presentail OS payload explicitly supplied the city operations fields used for campaign availability promises. False for hardcoded or prior-cache fallback values. */
+  operationsConfigVerified: boolean;
   /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
   timeSlots: DeliveryTimeSlot[];
   /** Per-day-of-week time slots keyed by lowercase English weekday name (e.g. "monday"). When present, use slotsByDay[dayOfWeek] for the selected delivery date instead of the flat timeSlots array, falling back to timeSlots when the day key is absent. */
@@ -897,6 +900,8 @@ export interface HomepageBestSellerProduct {
   image?: HomepageBestSellerProductImage;
   /** All product images in display order. */
   images: HomepageBestSellerProductImagesItem[];
+  /** Category slugs attached to the product, used by collection surfaces to prevent unrelated gifts from leaking into floral rails. */
+  categories: string[];
   /** Whether the product is currently in stock. */
   inStock: boolean;
   /** Total sales count used for ranking. Zero when not available. */
@@ -1018,8 +1023,22 @@ export interface CustomerAddressDeleteResponse {
   ok: boolean;
 }
 
+/**
+ * Provenance of the response. Paid campaign promises must use neutral copy unless this is live.
+ */
+export type DeliveryLocationsResponseDataStatus =
+  (typeof DeliveryLocationsResponseDataStatus)[keyof typeof DeliveryLocationsResponseDataStatus];
+
+export const DeliveryLocationsResponseDataStatus = {
+  live: "live",
+  stale: "stale",
+  fallback: "fallback",
+} as const;
+
 export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
+  /** Provenance of the response. Paid campaign promises must use neutral copy unless this is live. */
+  dataStatus: DeliveryLocationsResponseDataStatus;
 }
 
 export type CurrencyInfoSymbolPosition =
@@ -2233,6 +2252,10 @@ export type GetHomepageCollectionBestSellersParams = {
    * City identifier (e.g. "ae-dubai") used to resolve the correct store.
    */
   cityId?: string;
+  /**
+   * Language code ("en", "ar", or "fr") used to translate product names.
+   */
+  lang?: string;
 };
 
 export type GetDeliveryConfigParams = {

@@ -785,6 +785,7 @@ router.get("/homepage/best-sellers", async (req, res) => {
     discountPriceAed: number | null;
     image: { uri: string } | null;
     images: { uri: string }[];
+    categories: string[];
     inStock: boolean;
     popularity: number;
     blendedScore: number;
@@ -825,6 +826,13 @@ router.get("/homepage/best-sellers", async (req, res) => {
       discountPriceAed: pricing ? pricing.discountPriceAed : null,
       image: imageList[0] ?? null,
       images: imageList,
+      categories: (osP?.categories ?? [])
+        .map((category) =>
+          typeof category === "string"
+            ? category
+            : (category as { slug?: string }).slug ?? "",
+        )
+        .filter(Boolean),
       inStock: osP ? osP.inStock : true,
       popularity: (osP?.totalSales ?? 0) + sale.count,
       blendedScore: (osP?.totalSales ?? 0) + sale.count,
@@ -854,6 +862,13 @@ router.get("/homepage/best-sellers", async (req, res) => {
         discountPriceAed,
         image: imageList[0] ?? null,
         images: imageList,
+        categories: (osP.categories ?? [])
+          .map((category) =>
+            typeof category === "string"
+              ? category
+              : (category as { slug?: string }).slug ?? "",
+          )
+          .filter(Boolean),
         inStock: true,
         popularity: osP.totalSales ?? 0,
         blendedScore: osP.totalSales ?? 0,
@@ -1019,6 +1034,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     discountPriceAed: number | null;
     image: { uri: string } | null;
     images: { uri: string }[];
+    categories: string[];
     inStock: boolean;
     popularity: number;
     blendedScore: number;
@@ -1051,6 +1067,13 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       discountPriceAed,
       image: imageList[0] ?? null,
       images: imageList,
+      categories: (osP.categories ?? [])
+        .map((category) =>
+          typeof category === "string"
+            ? category
+            : (category as { slug?: string }).slug ?? "",
+        )
+        .filter(Boolean),
       inStock: osP.inStock,
       popularity: (osP.totalSales ?? 0) + sale.count,
       blendedScore: (osP.totalSales ?? 0) + sale.count,
@@ -1078,6 +1101,13 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       discountPriceAed,
       image: imageList[0] ?? null,
       images: imageList,
+      categories: (osP.categories ?? [])
+        .map((category) =>
+          typeof category === "string"
+            ? category
+            : (category as { slug?: string }).slug ?? "",
+        )
+        .filter(Boolean),
       inStock: true,
       popularity: osP.totalSales ?? 0,
       blendedScore: osP.totalSales ?? 0,
@@ -1103,6 +1133,13 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       discountPriceAed,
       image: imageList[0] ?? null,
       images: imageList,
+      categories: (osP.categories ?? [])
+        .map((category) =>
+          typeof category === "string"
+            ? category
+            : (category as { slug?: string }).slug ?? "",
+        )
+        .filter(Boolean),
       inStock: false,
       popularity: osP.totalSales ?? 0,
       blendedScore: -1, // always sorted below in-stock

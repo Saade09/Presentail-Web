@@ -75,8 +75,12 @@ export type DeliveryCity = {
   fee?: number;
   /** Whether express delivery is available for this city (from Presentail OS). */
   expressAvailable?: boolean;
+  /** Explicit city delivery-speed label from Presentail OS. */
+  expressDeliveryLabel?: string;
   /** Same-day booking cutoff hour (0–23) from Presentail OS (`express_delivery_cutoff_time`). */
   sameDayCutoffHour?: number;
+  /** True only when current OS data explicitly supplied campaign operations fields. */
+  operationsConfigVerified?: boolean;
   /** Per-city delivery time slots from Presentail OS. Empty means use hardcoded defaults. */
   timeSlots?: Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>;
   /**
@@ -105,7 +109,10 @@ export type DeliveryCountry = {
   /** Whether free delivery is enabled for this country. */
   freeDeliveryEnabled?: boolean;
 };
-export type DeliveryLocationsResponse = { countries: DeliveryCountry[] };
+export type DeliveryLocationsResponse = {
+  countries: DeliveryCountry[];
+  dataStatus: "live" | "stale" | "fallback";
+};
 
 type LocalizedParams = { countryCode?: string; cityId?: string; lang?: string };
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { GetDeliveryLocationsResponse } from "@workspace/api-zod";
-import { getLocations } from "../lib/osLocationsCache";
+import { getLocations, getLocationsDataStatus } from "../lib/osLocationsCache";
 import { resolveDeliveryConfig } from "../data/deliveryConfig";
 
 const router: IRouter = Router();
@@ -25,7 +25,10 @@ router.get("/delivery-locations", (_req, res) => {
       };
     }),
   }));
-  const data = GetDeliveryLocationsResponse.parse({ countries: enriched });
+  const data = GetDeliveryLocationsResponse.parse({
+    countries: enriched,
+    dataStatus: getLocationsDataStatus(),
+  });
   res.json(data);
 });
 

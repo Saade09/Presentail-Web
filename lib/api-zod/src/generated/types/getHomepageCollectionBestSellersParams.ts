@@ -23,4 +23,8 @@ export type GetHomepageCollectionBestSellersParams = {
    * City identifier (e.g. "ae-dubai") used to resolve the correct store.
    */
   cityId?: string;
+  /**
+   * Language code ("en", "ar", or "fr") used to translate product names.
+   */
+  lang?: string;
 };

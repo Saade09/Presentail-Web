@@ -36,6 +36,7 @@ export const DELIVERY_COUNTRIES: DeliveryCountry[] = LIB_DELIVERY_COUNTRIES.map(
       expressAvailable: true,
       sameDayCutoffHour: 22,
       expressDeliveryLabel: "",
+      operationsConfigVerified: false,
       localizedNames: localizedNamesForCity(city.id),
     })),
   }),

@@ -260,6 +260,7 @@ type AnalyticsEventName =
   | "campaign_promo_impression"
   | "campaign_promo_click"
   | "campaign_view_all_click"
+  | "campaign_support_click"
   | "campaign_pill_click"
   | "campaign_sticky_cta_impression"
   | "campaign_sticky_cta_click"
