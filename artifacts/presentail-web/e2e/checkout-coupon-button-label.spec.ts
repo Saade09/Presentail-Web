@@ -236,9 +236,66 @@ async function advanceToPaymentStep(page: Page): Promise<void> {
   await page.getByTestId("input-sender-email").fill("test@example.com");
   await page.getByTestId("input-sender-phone").fill(VALID_LB_PHONE);
 
-  const continueBtn = page.getByTestId("button-continue-to-payment");
+  const sidebarContinueBtn = page.getByTestId(
+    "button-continue-to-payment-sidebar",
+  );
+  const continueBtn = await sidebarContinueBtn.isVisible()
+    ? sidebarContinueBtn
+    : page.getByTestId("button-continue-to-payment");
   await expect(continueBtn).toBeEnabled({ timeout: 5_000 });
   await continueBtn.click();
+}
+
+type LogoGeometry = {
+  width: number;
+  height: number;
+  ratio: number;
+  objectFit: string;
+  containedByParent: boolean;
+  naturalRatio: number;
+};
+
+/**
+ * Checkout tiles reserve a consistently sized artwork area, but logo SVGs are
+ * not all the same shape. The image must retain its intrinsic ratio inside
+ * that area rather than being stretched to the tile's dimensions.
+ */
+async function paymentLogoGeometry(
+  page: Page,
+  testId: string,
+): Promise<LogoGeometry> {
+  return page.getByTestId(testId).evaluate((image) => {
+    const rect = image.getBoundingClientRect();
+    const parentRect = image.parentElement!.getBoundingClientRect();
+    const tolerance = 0.5;
+
+    return {
+      width: rect.width,
+      height: rect.height,
+      ratio: rect.width / rect.height,
+      objectFit: getComputedStyle(image).objectFit,
+      containedByParent:
+        rect.left >= parentRect.left - tolerance &&
+        rect.right <= parentRect.right + tolerance &&
+        rect.top >= parentRect.top - tolerance &&
+        rect.bottom <= parentRect.bottom + tolerance,
+      naturalRatio: image.naturalWidth / image.naturalHeight,
+    };
+  });
+}
+
+async function expectProportionalPaymentLogo(
+  page: Page,
+  testId: string,
+  expectedRatio: number,
+): Promise<void> {
+  const geometry = await paymentLogoGeometry(page, testId);
+  expect(geometry.width, `${testId} should have visible width`).toBeGreaterThan(0);
+  expect(geometry.height, `${testId} should have visible height`).toBeGreaterThan(0);
+  expect(geometry.objectFit, `${testId} should use containment, never object-fill`).toBe("contain");
+  expect(geometry.containedByParent, `${testId} should remain inside its logo area`).toBe(true);
+  expect(geometry.naturalRatio, `${testId} should retain its SVG viewBox ratio`).toBeCloseTo(expectedRatio, 2);
+  expect(geometry.ratio, `${testId} should render at its intrinsic ratio`).toBeCloseTo(expectedRatio, 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -414,5 +471,45 @@ test.describe("PaymentSubmitButton — coupon discount reflected in button label
       sidebarText,
       "Sidebar total must NOT show the pre-discount price when a coupon is applied",
     ).not.toMatch(/\$65\b/);
+  });
+
+  test("PayPal and Whish logos stay proportional in option tiles and submit buttons", async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      ({ cart, location }) => {
+        window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
+        window.localStorage.setItem("presentail_delivery_location_v1", JSON.stringify(location));
+      },
+      { cart: [CART_ITEM], location: LOCATION },
+    );
+
+    await page.goto("/en-lb/beirut/checkout?guest=1");
+    await advanceToPaymentStep(page);
+
+    const paypalOption = page.getByTestId("option-payment-paypal");
+    const whishOption = page.getByTestId("option-payment-whish");
+    await expect(paypalOption).toBeVisible({ timeout: 10_000 });
+    await expect(whishOption).toBeVisible({ timeout: 10_000 });
+
+    // Both unselected cards must use containment. This spec runs in the
+    // Chromium (1280 px) and Mobile Chrome (390 px) projects.
+    await expectProportionalPaymentLogo(page, "payment-option-logo-paypal", 24 / 16);
+    await expectProportionalPaymentLogo(page, "payment-option-logo-whish", 70 / 48);
+
+    await paypalOption.click();
+    await expect(page.getByTestId("payment-submit-logo-paypal")).toBeVisible();
+    await expectProportionalPaymentLogo(page, "payment-option-logo-paypal", 24 / 16);
+    await expectProportionalPaymentLogo(page, "payment-submit-logo-paypal", 24 / 16);
+
+    await whishOption.click();
+    await expect(page.getByTestId("payment-submit-logo-whish")).toBeVisible();
+    await expectProportionalPaymentLogo(page, "payment-option-logo-whish", 70 / 48);
+    await expectProportionalPaymentLogo(page, "payment-submit-logo-whish", 70 / 48);
+
+    const pageOverflows = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(pageOverflows, "checkout must not gain horizontal overflow at either viewport").toBe(false);
   });
 });

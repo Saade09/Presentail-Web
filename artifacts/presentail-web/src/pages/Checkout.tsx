@@ -322,7 +322,14 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
         {isProcessing
           ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
           : <>
-              <img src={paypalLogo} alt={ALT_PAYPAL} style={{ height: 20, width: "auto" }} draggable={false} />
+              <img
+                src={paypalLogo}
+                alt={ALT_PAYPAL}
+                data-testid="payment-submit-logo-paypal"
+                className="block max-w-full object-contain"
+                style={{ height: 20, width: "auto" }}
+                draggable={false}
+              />
               <span className="text-white text-sm font-semibold">{LABEL_PAY_PAYPAL}</span>
             </>}
       </button>
@@ -342,7 +349,14 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
         {isProcessing
           ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
           : <>
-              <img src={whishLogo} alt={ALT_WHISH} style={{ height: 16, width: "auto" }} draggable={false} />
+              <img
+                src={whishLogo}
+                alt={ALT_WHISH}
+                data-testid="payment-submit-logo-whish"
+                className="block max-w-full object-contain"
+                style={{ height: 16, width: "auto" }}
+                draggable={false}
+              />
               <span className="text-white text-sm font-semibold">{LABEL_PAY_WHISH}</span>
             </>}
       </button>
@@ -4151,7 +4165,7 @@ function CheckoutForm() {
                   <div className="space-y-2 mb-5">
                     {(paymentOptions ?? []).map((m) => {
                       const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
-                      type LogoSpec = { name: string; src: string; fill?: boolean; contain?: boolean; containerWidth?: number; maxH?: string };
+                      type LogoSpec = { name: string; src: string; fill?: boolean; containerWidth?: number; maxH?: string };
                       const cardLogos: LogoSpec[] = [
                         { name: "Mastercard", src: mastercardLogo, fill: true },
                         { name: "Visa", src: visaLogo, fill: true },
@@ -4169,8 +4183,8 @@ function CheckoutForm() {
                         ],
                         whish: [{ name: "Whish Money", src: whishLogo, fill: true }],
                         western: [{ name: "Western Union", src: westernUnionLogo, fill: true }],
-                        tabby: [{ name: "Tabby", src: tabbyLogo, fill: true, contain: true, containerWidth: 72 }],
-                        klarna: [{ name: "Klarna", src: klarnaLogo, fill: true, contain: true, containerWidth: 72 }],
+                        tabby: [{ name: "Tabby", src: tabbyLogo, fill: true, containerWidth: 72 }],
+                        klarna: [{ name: "Klarna", src: klarnaLogo, fill: true, containerWidth: 72 }],
                       };
                       const logos = methodLogos[m.id] ?? [];
                       return (
@@ -4201,13 +4215,14 @@ function CheckoutForm() {
                                   <span
                                     key={logo.name}
                                     title={logo.name}
-                                    className={logo.fill ? "inline-flex overflow-hidden rounded-[4px]" : "inline-flex items-center justify-center bg-white rounded-[4px] overflow-hidden p-[4px]"}
+                                    className={logo.fill ? "inline-flex items-center justify-center overflow-hidden rounded-[4px]" : "inline-flex items-center justify-center bg-white rounded-[4px] overflow-hidden p-[4px]"}
                                     style={{ width: logo.containerWidth ?? 48, height: 34 }}
                                   >
                                     <img
                                       src={logo.src}
                                       alt={logo.name}
-                                      className={logo.fill ? `block w-full h-full ${logo.contain ? "object-contain" : "object-fill"}` : `block max-w-[30px] object-contain ${logo.maxH ?? ""}`}
+                                      data-testid={`payment-option-logo-${m.id}`}
+                                      className={logo.fill ? "block w-auto h-auto max-w-full max-h-full object-contain" : `block max-w-[30px] object-contain ${logo.maxH ?? ""}`}
                                       loading="lazy"
                                       decoding="async"
                                       draggable={false}
