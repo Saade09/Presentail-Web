@@ -1,0 +1,60 @@
+Objective
+Add a premium Midnight Delivery option to the Presentail product-page delivery selector, following the approved mockup/design direction.
+
+Customer-facing design
+• Add a fifth delivery-time pill labeled “11 PM–1 AM”.
+• Include a crescent-moon icon in the pill.
+• Selected state: Presentail deep teal background with white icon/text.
+• Unselected state: white background, light-gray border, dark text, consistent with existing time pills.
+• When selected, show a pale champagne/cream premium panel beneath the time options:
+  – “Midnight Delivery”
+  – “+$20”
+  – “Arrives as [selected date] begins”
+• Update the delivery summary to show the selected occasion date and “11 PM–1 AM”.
+• Preserve the existing Presentail typography, spacing, card styling and responsive mobile behavior.
+
+Date behavior — critical
+The customer selects the occasion date, meaning the calendar date that begins at midnight.
+Example: Selecting Thu, 20 Aug means the operational delivery window is Wed, 19 Aug at 11:00 PM through Thu, 20 Aug at 1:00 AM.
+The explanatory copy must read: “Arrives as Thu, 20 Aug begins.”
+Ensure backend order timestamps, operations views and customer confirmations all use the correct cross-date window.
+
+Pricing
+• Midnight Delivery surcharge: $20.
+• Show the surcharge beside the selected option and as a separate delivery line item in cart/checkout/order details.
+• The existing free standard-delivery qualification must not remove or discount this surcharge.
+
+Geographic availability
+• Available ONLY for delivery addresses within Beirut and Metn.
+• Use the existing canonical delivery-zone IDs/geofencing—not free-text city matching.
+• Hide the midnight option when the known destination is outside Beirut or Metn.
+• If the destination is not known yet, the option may be shown with eligibility checked when the address is selected.
+• If a customer selects Midnight Delivery and subsequently changes the destination to an ineligible area, clear the slot, remove the $20 surcharge and require the customer to choose another delivery time.
+• Server-side validation must prevent checkout with this slot outside Beirut and Metn, even if the client is bypassed.
+
+Availability and operations
+• Midnight slot must respect existing capacity, blackout dates, product availability and order cutoffs.
+• Store the service as a distinct delivery method/slot so operations and reporting can identify it.
+• Customer confirmation, internal order view and courier instructions must display the full cross-date delivery window clearly.
+
+Analytics
+Track at minimum:
+• midnight_option_viewed
+• midnight_option_selected
+• midnight_option_ineligible
+• midnight_selection_removed_after_address_change
+• midnight_order_completed
+Include area/zone, occasion date, product value and surcharge where appropriate.
+
+Acceptance criteria
+1. Eligible Beirut and Metn customers can select “11 PM–1 AM” and see the premium panel and +$20 surcharge.
+2. Customers outside Beirut and Metn cannot complete checkout with Midnight Delivery.
+3. Selecting an occasion date maps to the correct previous-day 11 PM through selected-day 1 AM operational window.
+4. The $20 fee persists correctly through cart, checkout, payment, confirmation and internal order records.
+5. Changing to an ineligible address removes the slot and surcharge without leaving stale order data.
+6. The UI matches the approved mockup on common mobile widths and does not break the existing delivery selector.
+7. Existing delivery methods, free-standard-delivery logic and totals continue to work unchanged.
+8. QA covers Beirut, Metn, at least one ineligible area, address changes, month/year boundaries, sold-out capacity and timezone behavior.
+
+
+Note that a "midnight" slot is already added on os for Beirut and Metn cities
