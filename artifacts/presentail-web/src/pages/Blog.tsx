@@ -148,6 +148,10 @@ function getStories(language: Language): Story[] {
   return Object.keys(ARTICLES)
     .map((slug) => {
       const a = ARTICLES[slug][blogLang] ?? ARTICLES[slug].en;
+      // Some editorial posts are intentionally published in one language
+      // first. Keep them out of other locale listings until a translation
+      // exists rather than rendering an undefined article card.
+      if (!a) return null;
       const meta = getBlogPostMeta(slug);
       return {
         slug,
@@ -159,6 +163,7 @@ function getStories(language: Language): Story[] {
         ogImage: a.ogImage,
       };
     })
+    .filter((story): story is Story => story !== null)
     .sort((a, b) =>
       a.datePublished < b.datePublished ? 1 : a.datePublished > b.datePublished ? -1 : 0,
     );
