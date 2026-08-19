@@ -766,6 +766,8 @@ export const recordAnalyticsEventBodyProductIdMax = 64;
 
 export const recordAnalyticsEventBodySessionIdMax = 36;
 
+export const recordAnalyticsEventBodyCampaignIdentityMax = 64;
+
 export const recordAnalyticsEventBodyStateMax = 64;
 
 export const recordAnalyticsEventBodyAppOrderIdMax = 64;
@@ -936,6 +938,13 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "Client-generated session identifier (UUID v4). Created once\nper app launch \/ page load and attached to every event so\nupsell-add → order_placed attribution can be computed at the\nsession level rather than the coarser (platform, day)\nco-occurrence level. Nullable — events from older clients\nthat predate this field will have no session_id.\n",
+    ),
+  campaignIdentity: zod
+    .string()
+    .max(recordAnalyticsEventBodyCampaignIdentityMax)
+    .optional()
+    .describe(
+      "Persisted paid-landing identity attached to the existing funnel\nevent. This enriches the normal event rather than emitting a\nduplicate campaign-specific funnel event.\n",
     ),
   state: zod
     .string()
@@ -1870,6 +1879,293 @@ export const GetHomepageCollectionBestSellersResponse = zod.object({
       ),
   ),
 });
+
+/**
+ * Server-evaluates the current Beirut late-night campaign availability in
+the Asia/Beirut timezone. Returns whether tonight's late-night slot is
+bookable, the effective cutoff time, floral product sections, and a
+next-available window when tonight is closed.
+
+Always returns Cache-Control: private, no-store, max-age=0 and
+Pragma: no-cache. Fail-closed: any missing, stale, or contradictory
+data returns status other than tonight.
+
+ * @summary Beirut late-night delivery campaign status
+ */
+export const GetBeirutLateNightCampaignResponse = zod
+  .object({
+    campaignKey: zod
+      .string()
+      .describe(
+        'Stable identifier for this campaign. Always \"campaign-beirut-late-night\".',
+      ),
+    status: zod
+      .enum(["tonight", "next-available", "unavailable"])
+      .describe("Campaign availability status evaluated server-side."),
+    reason: zod
+      .enum([
+        "eligible",
+        "after-cutoff",
+        "early-closure",
+        "slot-unavailable",
+        "inventory-unavailable",
+        "source-stale",
+        "operations-unverified",
+      ])
+      .describe("Machine-readable reason for the current status."),
+    timeZone: zod
+      .string()
+      .describe('IANA timezone used for evaluation. Always \"Asia\/Beirut\".'),
+    evaluatedAt: zod
+      .string()
+      .describe(
+        "ISO 8601 timestamp of when the response was evaluated (server UTC now).",
+      ),
+    quoteExpiresAt: zod
+      .string()
+      .describe(
+        "ISO 8601 timestamp after which this response must be discarded. No later than now+60s or the effective cutoff, whichever comes first.",
+      ),
+    nominalCutoffAt: zod
+      .string()
+      .describe(
+        "ISO 8601 timestamp of the nominal cutoff (23:30 local today) in UTC.",
+      ),
+    effectiveCutoffAt: zod
+      .string()
+      .nullable()
+      .describe(
+        "ISO 8601 timestamp of the effective cutoff (earliest of nominal, city sameDayCutoffHour, slot cutoffHour). Null when no live slot is found.",
+      ),
+    cutoffLabel: zod
+      .string()
+      .nullable()
+      .describe(
+        'Human-readable cutoff label (e.g. \"11:30 PM\"). Null when no slot is found.',
+      ),
+    sourceFreshness: zod
+      .object({
+        locationsStatus: zod
+          .enum(["live", "stale", "fallback"])
+          .describe("Status of the OS locations cache at evaluation time."),
+        productRefreshedAt: zod
+          .string()
+          .nullable()
+          .describe(
+            "ISO 8601 timestamp of the last successful OS products refresh, or null.",
+          ),
+      })
+      .describe("Data freshness metadata for the campaign response."),
+    deliveryWindow: zod
+      .union([
+        zod
+          .object({
+            date: zod
+              .string()
+              .describe(
+                "ISO 8601 date string (YYYY-MM-DD) of the delivery date in Asia\/Beirut.",
+              ),
+            label: zod
+              .string()
+              .describe(
+                'Human-readable slot label (e.g. \"Tonight 11 PM – 1 AM\").',
+              ),
+            slotId: zod.string().describe("Stable OS slot identifier."),
+            startHour: zod
+              .number()
+              .describe("Slot start hour in local time (0–23)."),
+            endHour: zod
+              .number()
+              .describe("Slot end hour in local time (0–23)."),
+          })
+          .describe("A concrete delivery slot window for the campaign."),
+        zod.null(),
+      ])
+      .describe(
+        "The tonight delivery window when status is tonight. Null otherwise.",
+      ),
+    nextAvailableWindow: zod
+      .union([
+        zod
+          .object({
+            date: zod
+              .string()
+              .describe(
+                "ISO 8601 date string (YYYY-MM-DD) of the delivery date in Asia\/Beirut.",
+              ),
+            label: zod
+              .string()
+              .describe(
+                'Human-readable slot label (e.g. \"Tonight 11 PM – 1 AM\").',
+              ),
+            slotId: zod.string().describe("Stable OS slot identifier."),
+            startHour: zod
+              .number()
+              .describe("Slot start hour in local time (0–23)."),
+            endHour: zod
+              .number()
+              .describe("Slot end hour in local time (0–23)."),
+          })
+          .describe("A concrete delivery slot window for the campaign."),
+        zod.null(),
+      ])
+      .describe(
+        "The next available delivery window when status is next-available. Null otherwise.",
+      ),
+    availableTonight: zod
+      .object({
+        title: zod.string(),
+        subtitle: zod.string(),
+        viewAllHref: zod.string(),
+        products: zod.array(
+          zod
+            .object({
+              id: zod
+                .string()
+                .describe(
+                  "Product slug used as the stable identifier and URL segment.",
+                ),
+              name: zod.string().describe("Display name of the product."),
+              price: zod
+                .string()
+                .describe(
+                  'Formatted price string, e.g. \"$45\" or \"100 LBP\".',
+                ),
+              priceValue: zod
+                .number()
+                .describe("Numeric price in the store's base currency (USD)."),
+              image: zod
+                .object({
+                  uri: zod.string(),
+                })
+                .nullish()
+                .describe(
+                  "Primary product image URI, or null when no image is available.",
+                ),
+              images: zod
+                .array(
+                  zod.object({
+                    uri: zod.string(),
+                  }),
+                )
+                .describe("All product images in display order."),
+              categories: zod
+                .array(zod.string())
+                .describe(
+                  "Category slugs attached to the product, used by collection surfaces to prevent unrelated gifts from leaking into floral rails.",
+                ),
+              inStock: zod
+                .boolean()
+                .describe("Whether the product is currently in stock."),
+              popularity: zod
+                .number()
+                .describe(
+                  "Total sales count used for ranking. Zero when not available.",
+                ),
+              isBestSeller: zod
+                .boolean()
+                .optional()
+                .describe(
+                  "Whether this product is in the top 20 by total sales across all stores.",
+                ),
+              discountPriceValue: zod
+                .number()
+                .nullish()
+                .describe(
+                  "Active sale price in USD. Null when no discount is active.",
+                ),
+              discountPriceAed: zod
+                .number()
+                .nullish()
+                .describe(
+                  "Active sale price in AED. Null when no AED discount is set.",
+                ),
+            })
+            .describe(
+              "A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).",
+            ),
+        ),
+      })
+      .describe("A product section within the campaign response."),
+    luxury: zod
+      .object({
+        title: zod.string(),
+        subtitle: zod.string(),
+        viewAllHref: zod.string(),
+        products: zod.array(
+          zod
+            .object({
+              id: zod
+                .string()
+                .describe(
+                  "Product slug used as the stable identifier and URL segment.",
+                ),
+              name: zod.string().describe("Display name of the product."),
+              price: zod
+                .string()
+                .describe(
+                  'Formatted price string, e.g. \"$45\" or \"100 LBP\".',
+                ),
+              priceValue: zod
+                .number()
+                .describe("Numeric price in the store's base currency (USD)."),
+              image: zod
+                .object({
+                  uri: zod.string(),
+                })
+                .nullish()
+                .describe(
+                  "Primary product image URI, or null when no image is available.",
+                ),
+              images: zod
+                .array(
+                  zod.object({
+                    uri: zod.string(),
+                  }),
+                )
+                .describe("All product images in display order."),
+              categories: zod
+                .array(zod.string())
+                .describe(
+                  "Category slugs attached to the product, used by collection surfaces to prevent unrelated gifts from leaking into floral rails.",
+                ),
+              inStock: zod
+                .boolean()
+                .describe("Whether the product is currently in stock."),
+              popularity: zod
+                .number()
+                .describe(
+                  "Total sales count used for ranking. Zero when not available.",
+                ),
+              isBestSeller: zod
+                .boolean()
+                .optional()
+                .describe(
+                  "Whether this product is in the top 20 by total sales across all stores.",
+                ),
+              discountPriceValue: zod
+                .number()
+                .nullish()
+                .describe(
+                  "Active sale price in USD. Null when no discount is active.",
+                ),
+              discountPriceAed: zod
+                .number()
+                .nullish()
+                .describe(
+                  "Active sale price in AED. Null when no AED discount is set.",
+                ),
+            })
+            .describe(
+              "A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).",
+            ),
+        ),
+      })
+      .describe("A product section within the campaign response."),
+  })
+  .describe(
+    "Server-side evaluation result for the Beirut late-night delivery campaign.\nstatus tonight means the campaign is live and bookable right now.\nstatus next-available means the campaign is not bookable tonight but a\nfuture window was found. status unavailable means no window is available.\n",
+  );
 
 /**
  * Returns the express-delivery time label, the free-delivery threshold

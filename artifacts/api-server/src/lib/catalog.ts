@@ -271,19 +271,33 @@ export function checkSubmittedSlotBookable(opts: SubmittedSlotInput): SlotBookab
   const country = countryForDistrict(opts.district ?? "Beirut");
   const todayIso = getLocalIso(country, opts.now);
   const citySlots = opts.cityId ? getDeliverySlots(opts.cityId) : [];
-  const bookedSlot =
-    resolveSlotForDate(citySlots, {
+  const resolvedBookedSlot = resolveSlotForDate(citySlots, {
       deliverySlot: opts.deliverySlot,
       deliverySlotId: opts.deliverySlotId,
       dateIso: opts.deliveryDate || todayIso,
       todayIso,
-    }) ?? { label: opts.deliverySlot };
-  const { sameDayCutoffHour } = getExpressConfig(opts.cityId);
+    });
+  const bookedSlot = resolvedBookedSlot ?? { label: opts.deliverySlot };
+  const { sameDayCutoffHour, sameDayCutoffMinute } = getExpressConfig(opts.cityId);
+  const isBeirutLateSlot =
+    country === "LB" &&
+    /(?:^|-)beirut$/i.test(opts.cityId ?? "") &&
+    Boolean(opts.deliverySlotId) &&
+    resolvedBookedSlot?.enabled === true &&
+    resolvedBookedSlot.sameDayEnabled === true &&
+    typeof resolvedBookedSlot.startHour === "number" &&
+    resolvedBookedSlot.startHour >= 18 &&
+    typeof resolvedBookedSlot.endHour === "number" &&
+    (resolvedBookedSlot.endHour >= 21 ||
+      resolvedBookedSlot.endHour < resolvedBookedSlot.startHour);
   return isSlotStillBookable({
     deliveryDate: opts.deliveryDate,
     slot: bookedSlot,
     countryCode: country,
     sameDayCutoffHour,
+    sameDayCutoffMinute,
+    enforceSlotCutoff: isBeirutLateSlot,
+    hardCutoffMinutes: isBeirutLateSlot ? 23 * 60 + 30 : undefined,
     now: opts.now,
   });
 }

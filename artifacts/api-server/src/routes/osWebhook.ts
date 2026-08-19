@@ -243,11 +243,16 @@ export function verifyHmacSignature(
 // ---------------------------------------------------------------------------
 
 type WebhookTimeSlotRaw = {
+  id?: string | number;
   label?: string;
   start_time?: string;
   end_time?: string;
   cutoff_hour?: number;
+  cutoff_time?: string;
   extra_fee?: number;
+  same_day?: boolean;
+  next_day?: boolean;
+  enabled?: boolean;
 };
 
 type WebhookCityRaw = {
@@ -285,6 +290,14 @@ function parseHour(timeStr?: string): number | undefined {
   return Number.isFinite(h) && h >= 0 && h <= 23 ? h : undefined;
 }
 
+function parseMinute(timeStr?: string): number | undefined {
+  if (!timeStr) return undefined;
+  const minute = parseInt(timeStr.split(":")[1] ?? "", 10);
+  return Number.isFinite(minute) && minute >= 0 && minute <= 59
+    ? minute
+    : undefined;
+}
+
 function mapWebhookSlots(raw: WebhookTimeSlotRaw[] | undefined): OSTimeSlot[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
@@ -295,10 +308,22 @@ function mapWebhookSlots(raw: WebhookTimeSlotRaw[] | undefined): OSTimeSlot[] {
     seen.add(label);
     slots.push({
       label,
+      slotId: s.id != null ? String(s.id) : undefined,
       startHour: parseHour(s.start_time),
       endHour: parseHour(s.end_time),
-      cutoffHour: s.cutoff_hour ?? parseHour(s.start_time) ?? 0,
+      cutoffHour:
+        s.cutoff_hour ??
+        parseHour(s.cutoff_time) ??
+        parseHour(s.start_time) ??
+        0,
+      cutoffMinute:
+        parseMinute(s.cutoff_time) ??
+        parseMinute(s.start_time) ??
+        0,
       extraFee: s.extra_fee,
+      sameDayEnabled: s.same_day,
+      nextDayEnabled: s.next_day,
+      enabled: s.enabled,
     });
   }
   return slots;
@@ -343,6 +368,7 @@ export function parseDeliveryConfigPayload(data: {
               : undefined,
         expressDeliveryLabel: city.express_delivery_label ?? "",
         sameDayCutoffHour: parseHour(city.express_delivery_cutoff_time),
+        sameDayCutoffMinute: parseMinute(city.express_delivery_cutoff_time),
         timeSlots: mapWebhookSlots(city.delivery_slots),
         expressFeeTotal,
         expressSurcharge,

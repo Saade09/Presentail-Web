@@ -1,3 +1,5 @@
+import { readCampaignIdentity } from "@/lib/campaign";
+
 const ADS_ID = (import.meta.env.VITE_GTAG_ADS_ID as string | undefined) ?? "AW-18281774261";
 const ADS_CONVERSION_LABEL = "XYi_CNabpMccELX5to1E";
 
@@ -37,7 +39,11 @@ export type GA4PurchaseEventParams = {
  */
 export function fireGtagEvent(name: string, params?: Record<string, unknown>): void {
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
-  window.gtag("event", name, params ?? {});
+  const campaignKey = readCampaignIdentity();
+  window.gtag("event", name, {
+    ...(params ?? {}),
+    ...(campaignKey ? { campaign_key: campaignKey } : {}),
+  });
 }
 
 /**
@@ -52,11 +58,13 @@ export function fireGA4PurchaseEvent({
   items,
 }: GA4PurchaseEventParams): void {
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  const campaignKey = readCampaignIdentity();
   window.gtag("event", "purchase", {
     transaction_id: transactionId,
     value,
     currency,
     items,
+    ...(campaignKey ? { campaign_key: campaignKey } : {}),
   });
 }
 
@@ -66,10 +74,12 @@ export function fireAdsPurchaseConversion({
   currency,
 }: AdsPurchaseConversionParams): void {
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  const campaignKey = readCampaignIdentity();
   window.gtag("event", "conversion", {
     send_to: `${ADS_ID}/${ADS_CONVERSION_LABEL}`,
     transaction_id: transactionId,
     value,
     currency,
+    ...(campaignKey ? { campaign_key: campaignKey } : {}),
   });
 }

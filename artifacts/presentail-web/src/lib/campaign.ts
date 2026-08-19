@@ -13,13 +13,53 @@
  */
 
 export const CAMPAIGN_SECTION_KEY = "campaign-flower-delivery";
+export const LATE_NIGHT_CAMPAIGN_SECTION_KEY = "campaign-beirut-late-night";
 
 /** Reserved code for the campaign first-order promotion (see api-server couponValidation). */
 export const FIRST_ORDER_COUPON_CODE = "FIRST10";
 
 const PROMO_FLAG_KEY = "@presentail/campaign_first10_v1";
 const HAS_ORDERED_KEY = "@presentail/has_ordered_v1";
+const CAMPAIGN_IDENTITY_KEY = "@presentail/campaign_identity_v1";
 const PROMO_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const CAMPAIGN_IDENTITY_TTL_MS = 90 * 24 * 60 * 60 * 1000; // Match attribution TTL.
+
+type StoredCampaignIdentity = {
+  key: string;
+  touchedAt: number;
+};
+
+/**
+ * Persist the paid landing identity so the existing add-to-cart, checkout and
+ * purchase events can be attributed without emitting a second funnel event.
+ */
+export function markCampaignIdentity(key: string): void {
+  try {
+    const value: StoredCampaignIdentity = { key, touchedAt: Date.now() };
+    localStorage.setItem(CAMPAIGN_IDENTITY_KEY, JSON.stringify(value));
+  } catch {
+    /* best-effort */
+  }
+}
+
+export function readCampaignIdentity(): string | null {
+  try {
+    const raw = localStorage.getItem(CAMPAIGN_IDENTITY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredCampaignIdentity>;
+    if (
+      typeof parsed.key !== "string" ||
+      typeof parsed.touchedAt !== "number" ||
+      Date.now() - parsed.touchedAt > CAMPAIGN_IDENTITY_TTL_MS
+    ) {
+      localStorage.removeItem(CAMPAIGN_IDENTITY_KEY);
+      return null;
+    }
+    return parsed.key;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Per-market "Shop Under …" price-pill threshold, in USD.

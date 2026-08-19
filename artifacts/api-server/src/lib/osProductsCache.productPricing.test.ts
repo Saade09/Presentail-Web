@@ -32,6 +32,9 @@ import {
   fetchAndStoreForTesting,
   __enrichProductPricingForTest,
   __resetBrandFilterStateForTest,
+  getLastRefreshedAt,
+  getStoreLastRefreshedAt,
+  getOsProducts,
 } from "./osProductsCache";
 
 // ── Module-level mocks ──────────────────────────────────────────────────────
@@ -156,6 +159,33 @@ afterAll(() => {
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────
+
+describe("per-store catalog freshness", () => {
+  it("fails Lebanon freshness closed when another store refresh succeeds", async () => {
+    let refreshCycle = 1;
+    vi.mocked(fetchOsProducts).mockImplementation(async (_config, options) => {
+      if (refreshCycle === 2 && options?.countryCode === "LB") {
+        throw new Error("Lebanon catalog unavailable");
+      }
+      const id = `${options?.countryCode ?? "all"}-${options?.cityId ?? "country"}`;
+      return { products: [makeProduct(id, 900 + id.length)] };
+    });
+
+    await fetchAndStoreForTesting();
+    expect(getStoreLastRefreshedAt("lebanon")).toBeInstanceOf(Date);
+    expect(getOsProducts("lebanon")).toHaveLength(1);
+
+    refreshCycle = 2;
+    await fetchAndStoreForTesting();
+
+    // The last-good products remain available to ordinary catalog routes, but
+    // truth-sensitive campaigns must see the failed latest attempt immediately.
+    expect(getOsProducts("lebanon")).toHaveLength(1);
+    expect(getStoreLastRefreshedAt("lebanon")).toBeNull();
+    expect(getStoreLastRefreshedAt("dubai")).toBeInstanceOf(Date);
+    expect(getLastRefreshedAt()).toBeInstanceOf(Date);
+  });
+});
 
 describe("enrichProductPricingFromOs — modern regular_price / sale_price scheme", () => {
   it("stores regularPriceUsd and discountPriceUsd when sale_price < regular_price", async () => {

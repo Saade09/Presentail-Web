@@ -1,7 +1,8 @@
 # Campaign → GA4 end-to-end verification runbook
 
-Before turning on real ad spend for the `/flower-delivery` campaign, run this
-checklist against the **deployed** site (presentail.com). The client-side half
+Before turning on real ad spend for `/flower-delivery` or the paid-only
+`/en-lb/beirut/late-night-flower-delivery` campaign, run this checklist against
+the **deployed** site (presentail.com). The client-side half
 is already regression-tested in `e2e/campaign-ga4-funnel.spec.ts`; this runbook
 covers the parts that can only be confirmed inside GA4 / Google Ads / Clarity.
 
@@ -20,6 +21,13 @@ covers the parts that can only be confirmed inside GA4 / Google Ads / Clarity.
   - `begin_checkout` (Checkout, fired once per checkout mount)
   - `purchase` (OrderConfirmed, deduped per order ref, both inline-success and
     redirect-return paths) — fired alongside the Google Ads `conversion` ping.
+- The late-night route persists `campaign-beirut-late-night`. Existing
+  `add_to_cart`, `checkout_started`/`checkout_step`, `begin_checkout`,
+  `payment_completed`, `purchase`, and Ads conversion events are enriched with
+  that identity; no duplicate funnel event is emitted.
+- The late-night campaign response is `private, no-store`, expires no later
+  than its server quote/cutoff, and carries the exact OS delivery date/slot into
+  the existing PDP/cart/checkout selection store.
 - Clarity is injected in production builds only (`clarityInjectPlugin.ts`,
   project `mik1damp04`).
 
@@ -56,6 +64,10 @@ landing URL.
 
    `https://presentail.com/en-lb/beirut/flower-delivery?gclid=TEST_GCLID_<date>&utm_source=google&utm_medium=cpc&utm_campaign=flower-delivery-launch`
 
+   For Beirut late-night verification, use:
+
+   `https://presentail.com/en-lb/beirut/late-night-flower-delivery?gclid=TEST_GCLID_<date>&utm_source=google&utm_medium=cpc&utm_campaign=beirut-late-night`
+
 2. **GA4 DebugView** (Admin → DebugView, property with the
    `VITE_GTAG_GA4_ID` measurement id): confirm the device stream shows
    `page_view` (with `gclid` in the page location), `campaign_page_view`,
@@ -66,6 +78,9 @@ landing URL.
 3. **Funnel events.** Add a product to the cart, proceed to checkout, and
    complete a low-value test purchase (or a Stripe test-mode purchase if
    available). Confirm `add_to_cart`, `begin_checkout` and `purchase`
+   each carry `campaign_key = campaign-beirut-late-night` in GA4 for the
+   late-night journey. Confirm the internal web-event properties and
+   `checkout_started` payload carry `campaignIdentity` with the same value.
    (with `transaction_id`, `value`, `currency`) appear in DebugView in order.
 
 4. **Attribution check (next day — GA4 side).** In GA4 → Advertising →
@@ -139,5 +154,10 @@ landing URL.
   it no gclid reaches the landing page and no Ads-side attribution occurs.
 - The conversion window for this action defaults to 30 days (clicks); a
   purchase must happen within that window of the click to be attributed.
+- Do not activate the late-night ads until Beirut operations explicitly
+  confirms the 11:30 PM policy and a real pre-cutoff checkout accepts the exact
+  date/slot returned by `/api/campaign/beirut-late-night`. If the endpoint is
+  unavailable or not `tonight`, that is a valid fail-closed result—not a reason
+  to bypass the guard.
 
 [GA Debugger extension]: https://chromewebstore.google.com/detail/google-analytics-debugger/jnkmfdileelhofjcijamephohjechhna

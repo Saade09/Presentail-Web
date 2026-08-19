@@ -203,6 +203,13 @@ let fetching = false;
 
 /** Timestamp of the most recent successful `fetchAndStore()` completion. */
 let lastRefreshedAt: Date | null = null;
+type StoreRefreshState = {
+  lastAttemptAt: Date;
+  lastSuccessfulAt: Date | null;
+  lastAttemptSucceeded: boolean;
+};
+/** Per-store freshness prevents another market masking a failed store refresh. */
+const storeRefreshState = new Map<StoreKey, StoreRefreshState>();
 
 // ── IndexNow slug-change detection ─────────────────────────────────────────
 
@@ -448,6 +455,8 @@ export function __resetFirstPopulatedForTest(): void {
  */
 export function __resetBrandFilterStateForTest(): void {
   storeCache.clear();
+  storeRefreshState.clear();
+  lastRefreshedAt = null;
   cachedBrands = null;
   cachedRawCatalogBrands = null;
   cachedBrandProductCounts = new Map();
@@ -1094,6 +1103,12 @@ async function fetchAndStore(): Promise<void> {
       }
       const { spec, products, err } = result.value;
       if (products === null) {
+        const previous = storeRefreshState.get(spec.storeKey);
+        storeRefreshState.set(spec.storeKey, {
+          lastAttemptAt: new Date(),
+          lastSuccessfulAt: previous?.lastSuccessfulAt ?? null,
+          lastAttemptSucceeded: false,
+        });
         if (!storeCache.has(spec.storeKey)) {
           logger.warn(
             { storeKey: spec.storeKey, err },
@@ -1109,9 +1124,15 @@ async function fetchAndStore(): Promise<void> {
       }
       const filtered = applyBrandAllowlist(filterByAvailability(products, spec));
       if (filtered.length > 0) {
+        const refreshedAt = new Date();
         maybeRecordStartupSnapshot(filtered, spec.storeKey);
         detectAndAlertPriceChanges(filtered);
         storeCache.set(spec.storeKey, buildStoreCache(filtered));
+        storeRefreshState.set(spec.storeKey, {
+          lastAttemptAt: refreshedAt,
+          lastSuccessfulAt: refreshedAt,
+          lastAttemptSucceeded: true,
+        });
         logger.info(
           {
             storeKey: spec.storeKey,
@@ -1123,11 +1144,24 @@ async function fetchAndStore(): Promise<void> {
         for (const p of products) {
           if (p.id) freshProductSlugSet.add(p.id);
         }
-      } else if (!storeCache.has(spec.storeKey)) {
-        logger.warn(
-          { storeKey: spec.storeKey },
-          "osProductsCache: OS returned 0 products — WooCommerce will serve listings until OS has data",
-        );
+      } else {
+        const previous = storeRefreshState.get(spec.storeKey);
+        storeRefreshState.set(spec.storeKey, {
+          lastAttemptAt: new Date(),
+          lastSuccessfulAt: previous?.lastSuccessfulAt ?? null,
+          lastAttemptSucceeded: false,
+        });
+        if (!storeCache.has(spec.storeKey)) {
+          logger.warn(
+            { storeKey: spec.storeKey },
+            "osProductsCache: OS returned 0 products — WooCommerce will serve listings until OS has data",
+          );
+        } else {
+          logger.warn(
+            { storeKey: spec.storeKey },
+            "osProductsCache: OS returned no eligible products — retaining last-good cache as stale",
+          );
+        }
       }
     }
 
@@ -1918,6 +1952,16 @@ export function getOsBrandNameToCanonicalSlug(): ReadonlyMap<string, string> {
  */
 export function getLastRefreshedAt(): Date | null {
   return lastRefreshedAt;
+}
+
+/**
+ * Returns a store's last successful refresh only when its latest attempt also
+ * succeeded. A failed latest attempt returns null immediately, even while the
+ * last-good product cache remains available to ordinary catalog routes.
+ */
+export function getStoreLastRefreshedAt(storeKey: StoreKey): Date | null {
+  const state = storeRefreshState.get(storeKey);
+  return state?.lastAttemptSucceeded ? state.lastSuccessfulAt : null;
 }
 
 /**

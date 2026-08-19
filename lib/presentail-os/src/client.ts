@@ -96,6 +96,15 @@ function parseLegacyHour(timeStr?: string | null): number | undefined {
   return Number.isFinite(h) && h >= 0 && h <= 23 ? h : undefined;
 }
 
+/** Parse "HH:MM" or "HH:MM:SS" → minute integer (0–59). */
+function parseLegacyMinute(timeStr?: string | null): number | undefined {
+  if (!timeStr) return undefined;
+  const minute = parseInt(timeStr.split(":")[1] ?? "", 10);
+  return Number.isFinite(minute) && minute >= 0 && minute <= 59
+    ? minute
+    : undefined;
+}
+
 function mapLegacySlots(raw: RawLegacyTimeSlot[] | undefined): {
   timeSlots: OSTimeSlot[];
   slotsByDay?: Record<string, OSTimeSlot[]>;
@@ -113,6 +122,10 @@ function mapLegacySlots(raw: RawLegacyTimeSlot[] | undefined): {
       startHour: parseLegacyHour(s.start_time),
       endHour: parseLegacyHour(s.end_time),
       cutoffHour: parseLegacyHour(s.cutoff_time) ?? parseLegacyHour(s.start_time) ?? 0,
+      cutoffMinute:
+        parseLegacyMinute(s.cutoff_time) ??
+        parseLegacyMinute(s.start_time) ??
+        0,
       // Normalise fee_override: treat null as "no override" (undefined) and coerce strings to number.
       extraFee: s.fee_override != null ? Number(s.fee_override) : undefined,
       sameDayEnabled: s.same_day ?? undefined,
@@ -160,6 +173,7 @@ function normaliseLegacyCity(raw: RawLegacyCity): OSCity {
     deliveryFee: raw.delivery_fee,
     expressAvailable: raw.express_delivery_enabled,
     sameDayCutoffHour: parseLegacyHour(raw.express_delivery_cutoff_time),
+    sameDayCutoffMinute: parseLegacyMinute(raw.express_delivery_cutoff_time),
     timeSlots,
     slotsByDay,
     freeDeliveryThreshold: raw.free_delivery_threshold,
@@ -176,6 +190,120 @@ function normaliseLegacyCountry(raw: RawLegacyCountry): OSCountry {
     currency: raw.currency,
     isActive: raw.isActive ?? raw.is_active ?? true,
     cities: (raw.cities ?? []).map(normaliseLegacyCity),
+  };
+}
+
+function slotsMatch(a: OSTimeSlot, b: OSTimeSlot): boolean {
+  if (a.slotId && b.slotId) return a.slotId === b.slotId;
+  return a.label === b.label;
+}
+
+function enrichSlot(primary: OSTimeSlot, legacySlots: OSTimeSlot[]): OSTimeSlot {
+  const legacy = legacySlots.find((slot) => slotsMatch(primary, slot));
+  return legacy ? { ...legacy, ...primary } : primary;
+}
+
+function slotFeedsConflict(primary: OSTimeSlot, legacy: OSTimeSlot): boolean {
+  const fields: Array<keyof OSTimeSlot> = [
+    "cutoffHour",
+    "cutoffMinute",
+    "sameDayEnabled",
+    "nextDayEnabled",
+    "enabled",
+  ];
+  return fields.some(
+    (field) =>
+      primary[field] !== undefined &&
+      legacy[field] !== undefined &&
+      primary[field] !== legacy[field],
+  );
+}
+
+/**
+ * The ext endpoint owns which countries/cities/slots currently exist, while
+ * the legacy endpoint still carries minute precision and per-day flags that
+ * some ext deployments omit. Enrich only matching ext entities; never revive
+ * a city or slot that the primary feed removed.
+ */
+function enrichPrimaryCountry(
+  primary: OSCountry,
+  legacy: OSCountry | undefined,
+): OSCountry {
+  if (!legacy) return primary;
+  return {
+    ...primary,
+    cities: (primary.cities ?? []).map((city) => {
+      const primarySlug = String(city.slug ?? "").toLowerCase();
+      const primaryName = String(city.name ?? "").toLowerCase();
+      const legacyCity = (legacy.cities ?? []).find(
+        (candidate) =>
+          (primarySlug.length > 0 &&
+            String(candidate.slug ?? "").toLowerCase() === primarySlug) ||
+          (primaryName.length > 0 &&
+            String(candidate.name ?? "").toLowerCase() === primaryName),
+      );
+      if (!legacyCity) return city;
+
+      const primarySlots = city.timeSlots ?? [];
+      const legacySlots = legacyCity.timeSlots ?? [];
+      const timeSlots = primarySlots.map((slot) =>
+        enrichSlot(slot, legacySlots),
+      );
+      const slotsByDay = city.slotsByDay
+        ? Object.fromEntries(
+            Object.entries(city.slotsByDay).map(([day, slots]) => [
+              day,
+              slots.map((slot) =>
+                enrichSlot(slot, legacyCity.slotsByDay?.[day] ?? legacySlots),
+              ),
+            ]),
+          )
+        : primarySlots.length > 0 && legacyCity.slotsByDay
+          ? Object.fromEntries(
+              Object.entries(legacyCity.slotsByDay)
+                .map(([day, slots]) => [
+                  day,
+                  slots
+                    .filter((legacySlot) =>
+                      primarySlots.some((slot) =>
+                        slotsMatch(slot, legacySlot),
+                      ),
+                    )
+                    .map((slot) => enrichSlot(slot, primarySlots)),
+                ])
+                .filter(([, slots]) => (slots as OSTimeSlot[]).length > 0),
+            )
+          : undefined;
+
+      const cityCutoffConflict =
+        city.sameDayCutoffHour !== undefined &&
+        legacyCity.sameDayCutoffHour !== undefined &&
+        (city.sameDayCutoffHour !== legacyCity.sameDayCutoffHour ||
+          (city.sameDayCutoffMinute !== undefined &&
+            legacyCity.sameDayCutoffMinute !== undefined &&
+            city.sameDayCutoffMinute !== legacyCity.sameDayCutoffMinute));
+      const expressConflict =
+        city.expressAvailable !== undefined &&
+        legacyCity.expressAvailable !== undefined &&
+        city.expressAvailable !== legacyCity.expressAvailable;
+      const slotConflict = primarySlots.some((slot) => {
+        const legacySlot = legacySlots.find((candidate) =>
+          slotsMatch(slot, candidate),
+        );
+        return legacySlot ? slotFeedsConflict(slot, legacySlot) : false;
+      });
+
+      return {
+        ...legacyCity,
+        ...city,
+        sameDayCutoffMinute:
+          city.sameDayCutoffMinute ?? legacyCity.sameDayCutoffMinute,
+        timeSlots,
+        ...(slotsByDay ? { slotsByDay } : {}),
+        operationsConfigConsistent:
+          !cityCutoffConflict && !expressConflict && !slotConflict,
+      };
+    }),
   };
 }
 
@@ -247,15 +375,25 @@ export async function fetchOsLocations(
   const primaryRes = await tryFetch("/api/delivery-locations-ext");
   if (primaryRes.ok) {
     const primaryBody = (await primaryRes.json()) as OSLocationsResponse;
-    const primaryCodes = new Set(
-      (primaryBody.countries ?? []).map((c) => c.code.toLowerCase()),
-    );
     const legacyCountries = await fetchLegacyCountries();
+    const primaryCountries = (primaryBody.countries ?? []).map((country) =>
+      enrichPrimaryCountry(
+        country,
+        legacyCountries.find(
+          (candidate) =>
+            String(candidate.code ?? "").toLowerCase() ===
+            String(country.code ?? "").toLowerCase(),
+        ),
+      ),
+    );
+    const primaryCodes = new Set(
+      primaryCountries.map((c) => String(c.code ?? "").toLowerCase()),
+    );
     const supplemental = legacyCountries.filter(
-      (c) => !primaryCodes.has(c.code.toLowerCase()),
+      (c) => !primaryCodes.has(String(c.code ?? "").toLowerCase()),
     );
     return {
-      countries: [...(primaryBody.countries ?? []), ...supplemental],
+      countries: [...primaryCountries, ...supplemental],
     };
   }
 

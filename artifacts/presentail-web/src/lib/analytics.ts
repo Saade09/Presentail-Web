@@ -1,4 +1,5 @@
 import { readAttribution } from "@/lib/attribution";
+import { readCampaignIdentity } from "@/lib/campaign";
 
 type WebEventType =
   | "page_view"
@@ -185,10 +186,15 @@ export function trackWebEvent(event: WebEvent): void {
   const utmTerm = lastTouch?.utm_term;
   const utmContent = lastTouch?.utm_content;
   const trafficSource = deriveTrafficSource(utmSource, referrer);
+  const campaignIdentity = readCampaignIdentity();
   const deviceType = detectWebPlatform();
   const lang = (typeof navigator !== "undefined" ? navigator.language : undefined) ?? undefined;
   const enriched: WebEvent = {
     ...event,
+    properties: {
+      ...(event.properties ?? {}),
+      ...(campaignIdentity ? { campaignIdentity } : {}),
+    },
     sessionId: SESSION_ID,
     visitorId,
     occurredAt: new Date().toISOString(),
@@ -425,8 +431,14 @@ let SESSION_ID: string = getOrCreateSessionId();
 export function trackEvent(event: AnalyticsEvent): void {
   if (typeof window === "undefined") return;
   SESSION_ID = getOrCreateSessionId();
+  const campaignIdentity = readCampaignIdentity();
   // platform: "web" is the default; event.platform overrides it when explicitly set.
-  const payload = JSON.stringify({ platform: "web", ...event, sessionId: SESSION_ID });
+  const payload = JSON.stringify({
+    platform: "web",
+    ...event,
+    sessionId: SESSION_ID,
+    ...(campaignIdentity ? { campaignIdentity } : {}),
+  });
   try {
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([payload], { type: "application/json" });

@@ -106,6 +106,123 @@ describe("fetchOsLocations — Cyprus/legacy merge", () => {
     expect(cyCountries[0]!.cities[0]!.isActive).toBe(true);
   });
 
+  it("enriches a matching ext city with minute-accurate per-day slot data", async () => {
+    const extBody = {
+      countries: [{
+        code: "LB",
+        name: "Lebanon",
+        cities: [{
+          id: 1,
+          slug: "beirut",
+          name: "Beirut",
+          expressAvailable: true,
+          sameDayCutoffHour: 23,
+          timeSlots: [{
+            label: "Night",
+            slotId: "night",
+            startHour: 23,
+            endHour: 25,
+            cutoffHour: 23,
+          }],
+        }],
+      }],
+    };
+    const legacyBody = {
+      countries: [{
+        code: "LB",
+        name: "Lebanon",
+        cities: [{
+          id: "beirut",
+          slug: "beirut",
+          name: "Beirut",
+          express_delivery_enabled: true,
+          express_delivery_cutoff_time: "23:30:00",
+          delivery_slots: [{
+            id: "night",
+            day_of_week: 3,
+            label: "Night",
+            start_time: "23:00:00",
+            end_time: "01:00:00",
+            cutoff_time: "23:30:00",
+            same_day: true,
+            next_day: false,
+            enabled: true,
+          }],
+        }],
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn((url: string) =>
+      Promise.resolve(jsonResponse(
+        url.includes("-ext") ? extBody : legacyBody,
+      )),
+    ));
+
+    const result = await fetchOsLocations(config);
+    const beirut = result.countries[0]!.cities[0]!;
+    expect(beirut.sameDayCutoffMinute).toBe(30);
+    expect(beirut.timeSlots?.[0]).toEqual(
+      expect.objectContaining({
+        cutoffMinute: 30,
+        sameDayEnabled: true,
+        enabled: true,
+      }),
+    );
+    expect(beirut.slotsByDay?.wednesday?.[0]?.slotId).toBe("night");
+    expect(beirut.operationsConfigConsistent).toBe(true);
+  });
+
+  it("marks contradictory matching operational feeds as inconsistent", async () => {
+    const extBody = {
+      countries: [{
+        code: "LB",
+        name: "Lebanon",
+        cities: [{
+          id: 1,
+          slug: "beirut",
+          name: "Beirut",
+          expressAvailable: true,
+          sameDayCutoffHour: 23,
+          timeSlots: [{
+            label: "Night",
+            slotId: "night",
+            cutoffHour: 23,
+            enabled: true,
+          }],
+        }],
+      }],
+    };
+    const legacyBody = {
+      countries: [{
+        code: "LB",
+        name: "Lebanon",
+        cities: [{
+          id: "beirut",
+          slug: "beirut",
+          name: "Beirut",
+          express_delivery_enabled: false,
+          express_delivery_cutoff_time: "22:00:00",
+          delivery_slots: [{
+            id: "night",
+            day_of_week: 3,
+            label: "Night",
+            cutoff_time: "22:00:00",
+            enabled: false,
+          }],
+        }],
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn((url: string) =>
+      Promise.resolve(jsonResponse(
+        url.includes("-ext") ? extBody : legacyBody,
+      )),
+    ));
+
+    const result = await fetchOsLocations(config);
+    expect(
+      result.countries[0]!.cities[0]!.operationsConfigConsistent,
+    ).toBe(false);
+  });
+
   it("falls back to the legacy endpoint when the ext endpoint fails", async () => {
     const legacyBody = {
       countries: [

@@ -4,6 +4,20 @@ import { eq } from "drizzle-orm";
 import { db, customersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { isFirstOrderEligible } from "../lib/couponValidation";
+import { GetBeirutLateNightCampaignResponse } from "@workspace/api-zod";
+import {
+  getLocations,
+  getLocationsDataStatus,
+} from "../lib/osLocationsCache";
+import {
+  getOsProducts,
+  getOsProductPricingMap,
+  getStoreLastRefreshedAt,
+} from "../lib/osProductsCache";
+import {
+  buildBeirutLateNightCampaign,
+  type BeirutLocationContext,
+} from "../lib/beirutLateNightCampaign";
 
 const router = Router();
 
@@ -48,6 +62,95 @@ router.get("/campaign/first-order-eligibility", eligibilityLimiter, async (req, 
     return res.json({ ok: true, eligible, known: true });
   } catch {
     return res.json({ ok: true, eligible: true, known: false });
+  }
+});
+
+// ── GET /campaign/beirut-late-night ──────────────────────────────────────────
+//
+// Public, fail-closed endpoint. Evaluates the Beirut late-night campaign
+// server-side in Asia/Beirut. Always returns cache-busting headers.
+
+router.get("/campaign/beirut-late-night", async (req, res): Promise<void> => {
+  // Always prevent caching — campaign status must be fresh
+  res.set({
+    "Cache-Control": "private, no-store, max-age=0",
+    Pragma: "no-cache",
+  });
+
+  try {
+    // Resolve Beirut city from OS cache
+    const locationsStatus = getLocationsDataStatus();
+    const countries = getLocations();
+    const lb = countries.find((c) => c.code === "LB");
+    const beirutCity = lb?.cities.find(
+      (c) =>
+        c.id === "lb-beirut" ||
+        c.name.toLowerCase() === "beirut",
+    );
+
+    const location: BeirutLocationContext = beirutCity
+      ? {
+          locationsStatus,
+          operationsConfigVerified: beirutCity.operationsConfigVerified,
+          expressAvailable: beirutCity.expressAvailable,
+          sameDayCutoffHour: beirutCity.sameDayCutoffHour,
+          sameDayCutoffMinute: beirutCity.sameDayCutoffMinute,
+          timeSlots: beirutCity.timeSlots,
+          slotsByDay: beirutCity.slotsByDay,
+          countryActive: lb?.isActive ?? false,
+          cityActive: beirutCity.isActive ?? false,
+        }
+      : {
+          locationsStatus,
+          operationsConfigVerified: false,
+          expressAvailable: false,
+          sameDayCutoffHour: 22,
+          sameDayCutoffMinute: 0,
+          timeSlots: [],
+          slotsByDay: undefined,
+          countryActive: false,
+          cityActive: false,
+        };
+
+    const products = getOsProducts("lebanon");
+    const pricingMap = getOsProductPricingMap();
+    const productRefreshedAt = getStoreLastRefreshedAt("lebanon");
+
+    const result = buildBeirutLateNightCampaign({
+      nowMs: Date.now(),
+      location,
+      products,
+      pricingMap,
+      productRefreshedAt,
+    });
+
+    res.json(GetBeirutLateNightCampaignResponse.parse(result));
+  } catch (err: unknown) {
+    req.log.error(
+      { err: err instanceof Error ? err.message : String(err) },
+      "campaign/beirut-late-night: unexpected error",
+    );
+    // Fail closed — return unavailable rather than 500
+    const fallback = GetBeirutLateNightCampaignResponse.parse({
+      campaignKey: "campaign-beirut-late-night",
+      status: "unavailable",
+      reason: "source-stale",
+      timeZone: "Asia/Beirut",
+      evaluatedAt: new Date().toISOString(),
+      quoteExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      nominalCutoffAt: new Date().toISOString(),
+      effectiveCutoffAt: null,
+      cutoffLabel: null,
+      sourceFreshness: {
+        locationsStatus: "fallback",
+        productRefreshedAt: null,
+      },
+      deliveryWindow: null,
+      nextAvailableWindow: null,
+      availableTonight: { title: "Available Tonight", subtitle: "", viewAllHref: "/category/flowers", products: [] },
+      luxury: { title: "Late-Night Luxury Arrangements", subtitle: "", viewAllHref: "/category/lux-arrangements", products: [] },
+    });
+    res.json(fallback);
   }
 });
 

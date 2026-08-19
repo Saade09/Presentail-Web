@@ -185,7 +185,7 @@ router.post(
       });
       return;
     }
-    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, state, appOrderId, wcOrderId, metricValue, bannerId, linkKind, linkSlug, linkUrl } = parsed.data;
+    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, campaignIdentity, state, appOrderId, wcOrderId, metricValue, bannerId, linkKind, linkSlug, linkUrl } = parsed.data;
 
     let userId: string | undefined;
     try {
@@ -199,6 +199,7 @@ router.post(
     const clippedErrorCode = clip(errorCode, 64);
     const clippedProductId = clip(productId, 64);
     const clippedSessionId = clip(sessionId, 36);
+    const clippedCampaignIdentity = clip(campaignIdentity, 64);
     const clippedState = clip(state, 64);
     const clippedAppOrderId = clip(appOrderId, 64);
     const clippedWcOrderId = clip(wcOrderId, 64);
@@ -225,6 +226,7 @@ router.post(
         errorCode: clippedErrorCode,
         productId: clippedProductId,
         sessionId: clippedSessionId,
+        campaignIdentity: clippedCampaignIdentity,
         state: clippedState,
         appOrderId: clippedAppOrderId,
         wcOrderId: clippedWcOrderId,
@@ -253,6 +255,9 @@ router.post(
         errorCode: clippedErrorCode ?? null,
         productId: clippedProductId ?? null,
         sessionId: clippedSessionId ?? null,
+        propertiesJson: clippedCampaignIdentity
+          ? JSON.stringify({ campaignIdentity: clippedCampaignIdentity })
+          : null,
         state: clippedState ?? null,
         appOrderId: clippedAppOrderId ?? null,
         wcOrderId: clippedWcOrderId ?? null,

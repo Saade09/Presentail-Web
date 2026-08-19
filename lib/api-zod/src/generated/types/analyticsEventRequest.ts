@@ -74,6 +74,14 @@ that predate this field will have no session_id.
    */
   sessionId?: string;
   /**
+   * Persisted paid-landing identity attached to the existing funnel
+event. This enriches the normal event rather than emitting a
+duplicate campaign-specific funnel event.
+
+   * @maxLength 64
+   */
+  campaignIdentity?: string;
+  /**
    * For `order_push_tapped` events: the order state string from
 the push notification payload (e.g. `out_for_delivery`,
 `delivered`). Sourced from the server-controlled push payload,

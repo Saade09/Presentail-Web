@@ -8,6 +8,10 @@ import {
 import { lazy, Suspense, useEffect, useRef, startTransition } from "react";
 import { captureAttribution } from "@/lib/attribution";
 import { trackWebEvent } from "@/lib/analytics";
+import {
+  LATE_NIGHT_CAMPAIGN_SECTION_KEY,
+  markCampaignIdentity,
+} from "@/lib/campaign";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { prefetchOnIdle } from "@/lib/prefetch";
 import { initPixel, trackFbPageView } from "@/lib/fbPixel";
@@ -127,6 +131,7 @@ const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
 const BestSellers = lazy(() => import("@/pages/BestSellers"));
 const CampaignLanding = lazy(() => import("@/pages/CampaignLanding"));
+const BeirutLateNightLanding = lazy(() => import("@/pages/BeirutLateNightLanding"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const CheckoutPaymentResume = lazy(() => import("@/pages/CheckoutPaymentResume"));
@@ -161,6 +166,7 @@ const ShippingPolicyRoute = withSuspense(ShippingPolicy, PageLoader);
 const ReturnPolicyRoute = withSuspense(ReturnPolicy, PageLoader);
 const BestSellersRoute = withSuspense(BestSellers, ShopPageSkeleton);
 const CampaignLandingRoute = withSuspense(CampaignLanding, ShopPageSkeleton);
+const BeirutLateNightLandingRoute = withSuspense(BeirutLateNightLanding, ShopPageSkeleton);
 const NotFoundRoute = withSuspense(NotFound, PageLoader);
 
 const OS_PRODUCTS_CACHE_KEY = "presentail-os-products-cache-v1";
@@ -328,7 +334,9 @@ function ShopShell() {
   // Paid-search landing pages get a stripped header+footer (no nav menus,
   // minimal footer). Every other page keeps the full global components.
   // Extend this set if more paid-search landing routes are added later.
-  const isLandingPage = path.endsWith("/flower-delivery");
+  const isLandingPage =
+    path.endsWith("/flower-delivery") ||
+    path.endsWith("/late-night-flower-delivery");
   return (
     <LocationPickerGate>
       <ScrollToTop />
@@ -345,6 +353,10 @@ function ShopShell() {
             <Route path="/shop" component={ShopRoute} />
             <Route path="/best-sellers" component={BestSellersRoute} />
             <Route path="/flower-delivery" component={CampaignLandingRoute} />
+            <Route
+              path="/late-night-flower-delivery"
+              component={BeirutLateNightLandingRoute}
+            />
             <Route path="/occasion/:slug" component={ShopRoute} />
             <Route path="/category/:slug" component={ShopRoute} />
             <Route path="/product/:slug" component={ProductDetailRoute} />
@@ -640,6 +652,9 @@ function AttributionTracker() {
 function PageViewTracker() {
   const [path] = useLocation();
   useEffect(() => {
+    if (path === "/late-night-flower-delivery") {
+      markCampaignIdentity(LATE_NIGHT_CAMPAIGN_SECTION_KEY);
+    }
     trackWebEvent({ type: "page_view" });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);

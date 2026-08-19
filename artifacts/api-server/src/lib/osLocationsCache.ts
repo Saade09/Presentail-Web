@@ -58,6 +58,8 @@ type CachedCity = {
   expressDeliveryLabel: string;
   /** Hour of day (0–23) after which same-day booking is disabled. Defaults to EXPRESS_CLOSE_HOUR. */
   sameDayCutoffHour: number;
+  /** Minute component of the same-day booking cutoff. Defaults to :00. */
+  sameDayCutoffMinute?: number;
   /**
    * True only when the current OS payload explicitly supplied the fields used
    * for campaign availability promises. Hardcoded/prior-cache defaults are
@@ -544,9 +546,11 @@ function transformOsResponse(
             false,
           expressDeliveryLabel: c.expressDeliveryLabel ?? "",
           sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
+          sameDayCutoffMinute: c.sameDayCutoffMinute ?? 0,
           operationsConfigVerified:
             c.expressAvailable !== undefined &&
-            c.sameDayCutoffHour !== undefined,
+            c.sameDayCutoffHour !== undefined &&
+            c.operationsConfigConsistent !== false,
           // Effective flat slot list: if OS only configured slotsByDay (e.g.
           // Akkar), effectiveTimeSlots is the deduplicated per-day union so
           // todayHasSlots, firstAvailableDay, and label-matching all use the
@@ -598,6 +602,7 @@ function transformOsResponse(
             expressAvailable: true,
             expressDeliveryLabel: "",
             sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+            sameDayCutoffMinute: 0,
             operationsConfigVerified: false,
             timeSlots: [] as OSTimeSlot[],
             localizedNames: localizedNamesForCity(hc.id),
@@ -856,6 +861,7 @@ export function getExpressConfig(cityId: string | null | undefined): OSExpressCo
     expressAvailable: city.expressAvailable,
     expressDeliveryLabel: city.expressDeliveryLabel,
     sameDayCutoffHour: city.sameDayCutoffHour,
+    sameDayCutoffMinute: city.sameDayCutoffMinute,
   };
 }
 

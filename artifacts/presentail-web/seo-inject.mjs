@@ -258,6 +258,13 @@ const ROUTE_KEYS = [
   // back to "home", which would set isUnknownSubRoute = true and suppress
   // the page's canonical / JSON-LD.
   { test: (r) => r === "/flower-delivery", key: "flower-delivery" },
+  // Paid-only late-night campaign landing. Distinct key so detectRouteKey does
+  // not fall back to "home" (which would set isUnknownSubRoute = true and
+  // canonicalize to the city home). The route key is in NONINDEX_ROUTE_KEYS, so
+  // it gets noindex,follow with a self-referencing canonical, no hreflang and no
+  // JSON-LD. serve.mjs only serves this sub-route for /en-lb/beirut; every other
+  // locale/city stays a 404 via the exact route guard.
+  { test: (r) => r === "/late-night-flower-delivery", key: "late-night-flower-delivery" },
 ];
 
 function detectRouteKey(rest) {

@@ -15,6 +15,8 @@ export type OSTimeSlot = {
   /** Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). */
   endHour?: number;
   cutoffHour: number;
+  /** Minute component of the booking cutoff. Absent means :00. */
+  cutoffMinute?: number;
   /** Additional surcharge for booking this slot (USD). e.g. night-slot fee.
    * A value of exactly 0 means the slot is explicitly free (override) — distinct from undefined (no override). */
   extraFee?: number;
@@ -37,6 +39,10 @@ export type OSCity = {
   expressAvailable?: boolean;
   expressDeliveryLabel?: string;
   sameDayCutoffHour?: number;
+  /** Minute component of the same-day cutoff. Absent means :00. */
+  sameDayCutoffMinute?: number;
+  /** False when the live ext and legacy operational feeds contradict. */
+  operationsConfigConsistent?: boolean;
   timeSlots?: OSTimeSlot[];
   /**
    * Per-day-of-week time slot configuration. Keys are lowercase English weekday
@@ -105,6 +111,7 @@ export type OSExpressConfig = {
   expressDeliveryLabel?: string;
   expressAvailable?: boolean;
   sameDayCutoffHour?: number;
+  sameDayCutoffMinute?: number;
 };
 
 // ── Product catalog types ──────────────────────────────────────────────────

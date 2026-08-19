@@ -1425,6 +1425,50 @@ describe("buildSeoHead — hreflang alternates (intra-city cluster)", () => {
   });
 });
 
+describe("buildSeoHead — paid-only late-night campaign (/en-lb/beirut/late-night-flower-delivery)", () => {
+  const ORIGIN = "https://presentail.com";
+  const OPTS_FULL = { origin: ORIGIN, basePath: "" };
+  const PATH = "/en-lb/beirut/late-night-flower-delivery";
+
+  function getAlternates(headSnippet: string) {
+    const re = /<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g;
+    const out: Array<{ hreflang: string; href: string }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(headSnippet)) !== null) out.push({ hreflang: m[1], href: m[2] });
+    return out;
+  }
+
+  beforeEach(() => {
+    genericSeoCache.clear();
+  });
+
+  it("is noindex,follow", () => {
+    const { headSnippet } = buildSeoHead(PATH, OPTS_FULL);
+    expect(headSnippet).toContain('<meta name="robots" content="noindex, follow" />');
+  });
+
+  it("emits a self-referencing canonical (not canonical removal, not the city home)", () => {
+    const { headSnippet } = buildSeoHead(PATH, OPTS_FULL);
+    expect(headSnippet).toContain(`<link rel="canonical" href="${ORIGIN}${PATH}" />`);
+    expect(headSnippet).not.toContain(`<link rel="canonical" href="${ORIGIN}/en-lb/beirut" />`);
+  });
+
+  it("emits no hreflang alternates", () => {
+    const { headSnippet } = buildSeoHead(PATH, OPTS_FULL);
+    expect(getAlternates(headSnippet)).toHaveLength(0);
+  });
+
+  it("emits no JSON-LD structured data", () => {
+    const { headSnippet } = buildSeoHead(PATH, OPTS_FULL);
+    expect(headSnippet).not.toContain('application/ld+json');
+  });
+
+  it("emits no markdown alternate link", () => {
+    const { headSnippet } = buildSeoHead(PATH, OPTS_FULL);
+    expect(headSnippet).not.toContain('type="text/markdown"');
+  });
+});
+
 describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
   const ORIGIN_OPTS = { origin: "https://presentail.test", basePath: "" };
 

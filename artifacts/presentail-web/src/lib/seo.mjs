@@ -241,6 +241,7 @@ export const TITLES = {
     corporate: "Corporate Gifting in {city} | Presentail",
     contact: "Contact Presentail in {city} | Gift Delivery Help",
     faqs: "Flower Delivery FAQs in {city} | Presentail",
+    "late-night-flower-delivery": "Late-Night Flower Delivery in {city} | Presentail",
     terms: "Terms of Use | Presentail",
     privacy: "Privacy Policy | Presentail",
     "return-policy": "Return Policy | Presentail",
@@ -619,6 +620,7 @@ export const DESCRIPTIONS = {
     corporate: "Corporate gifting programmes from Presentail in {city} — curated client and team gifts at scale, with branded packaging and consolidated invoicing.",
     contact: "Contact the Presentail concierge in {city} for order support, delivery tracking, custom requests, and partnership enquiries.",
     faqs: "Answers to common questions about Presentail flower and gift delivery in {city}, including delivery windows, payment options, cancellations and returns.",
+    "late-night-flower-delivery": "Shop fresh flower arrangements available for verified late-night delivery windows in {city}, with live availability confirmed by Presentail.",
     terms: "The Terms of Use that govern your purchase and use of the Presentail website, mobile apps and services.",
     privacy: "How Presentail collects, uses and protects your personal information across our website, mobile apps and social channels.",
     "return-policy": "Presentail's return and satisfaction-guarantee policy — how to request a return, our 7-day photo window, and what's covered.",
@@ -855,6 +857,10 @@ export const NONINDEX_ROUTE_KEYS = new Set([
   "terms",
   "careers",
   "partner",
+  // Paid-only campaign landing (single locale/city — /en-lb/beirut/
+  // late-night-flower-delivery). noindex,follow with a self-referencing
+  // canonical; not part of any hreflang/JSON-LD/markdown cluster.
+  "late-night-flower-delivery",
 ]);
 
 const ROBOTS_INDEX = "index, follow";

@@ -51,6 +51,17 @@ const CITY_SLOTS = [
   },
 ];
 
+const LATE_SLOT = {
+  label: "11:00 PM – 1:00 AM",
+  slotId: "beirut-late",
+  cutoffHour: 23,
+  cutoffMinute: 30,
+  startHour: 23,
+  endHour: 25,
+  enabled: true,
+  sameDayEnabled: true,
+};
+
 beforeEach(() => {
   getDeliverySlotsMock.mockReturnValue(CITY_SLOTS);
   getExpressConfigMock.mockReturnValue({ sameDayCutoffHour: 22 });
@@ -92,6 +103,52 @@ describe("checkSubmittedSlotBookable", () => {
       now: beirut(19),
     });
     expect(r).toEqual({ bookable: false, reason: "same_day_cutoff_passed" });
+  });
+
+  it("enforces the exact Beirut late-slot cutoff before payment", () => {
+    getDeliverySlotsMock.mockReturnValue([LATE_SLOT]);
+    getExpressConfigMock.mockReturnValue({
+      sameDayCutoffHour: 23,
+      sameDayCutoffMinute: 30,
+    });
+    const base = {
+      deliverySlot: LATE_SLOT.label,
+      deliverySlotId: LATE_SLOT.slotId,
+      deliveryDate: TODAY,
+      cityId: "lb-beirut",
+      district: "Beirut",
+    };
+    expect(checkSubmittedSlotBookable({ ...base, now: beirut(23, 29) })).toEqual({
+      bookable: true,
+    });
+    expect(checkSubmittedSlotBookable({ ...base, now: beirut(23, 30) })).toEqual({
+      bookable: false,
+      reason: "same_day_cutoff_passed",
+    });
+    expect(checkSubmittedSlotBookable({ ...base, now: beirut(23, 31) })).toEqual({
+      bookable: false,
+      reason: "same_day_cutoff_passed",
+    });
+  });
+
+  it("uses an earlier verified slot cutoff for the Beirut late slot", () => {
+    getDeliverySlotsMock.mockReturnValue([
+      { ...LATE_SLOT, cutoffHour: 22, cutoffMinute: 15 },
+    ]);
+    getExpressConfigMock.mockReturnValue({
+      sameDayCutoffHour: 23,
+      sameDayCutoffMinute: 30,
+    });
+    expect(
+      checkSubmittedSlotBookable({
+        deliverySlot: LATE_SLOT.label,
+        deliverySlotId: LATE_SLOT.slotId,
+        deliveryDate: TODAY,
+        cityId: "lb-beirut",
+        district: "Beirut",
+        now: beirut(22, 15),
+      }),
+    ).toEqual({ bookable: false, reason: "same_day_cutoff_passed" });
   });
 
   it("allows future-date orders regardless of the hour", () => {

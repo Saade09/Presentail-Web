@@ -188,4 +188,24 @@ describe("captureAttribution — attribution is synchronous and immediately read
       "/en-lb/beirut/checkout?gclid=locale123",
     );
   });
+
+  it("captures gclid and UTMs from the Beirut late-night paid landing", () => {
+    captureAttribution(
+      "https://presentail.com/en-lb/beirut/late-night-flower-delivery?gclid=late123&utm_source=google&utm_medium=cpc&utm_campaign=beirut-late-night",
+      "",
+    );
+
+    const attr = readAttribution();
+    expect(attr?.first_touch).toEqual(
+      expect.objectContaining({
+        gclid: "late123",
+        utm_source: "google",
+        utm_medium: "cpc",
+        utm_campaign: "beirut-late-night",
+      }),
+    );
+    expect(attr?.first_touch.landing_page_path).toContain(
+      "/en-lb/beirut/late-night-flower-delivery",
+    );
+  });
 });

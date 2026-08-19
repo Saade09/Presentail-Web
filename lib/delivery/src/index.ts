@@ -482,6 +482,37 @@ export function getCountryHour(
   return getBeirutHour(at);
 }
 
+/** Returns local minutes since midnight for the given store country. */
+export function getCountryMinutes(
+  countryCode?: string | null,
+  at: Date = new Date(),
+): number {
+  const tz = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(at);
+    const hour = Number(parts.find((part) => part.type === "hour")?.value);
+    const minute = Number(parts.find((part) => part.type === "minute")?.value);
+    if (
+      Number.isInteger(hour) &&
+      hour >= 0 &&
+      hour <= 23 &&
+      Number.isInteger(minute) &&
+      minute >= 0 &&
+      minute <= 59
+    ) {
+      return hour * 60 + minute;
+    }
+  } catch {
+    // Fall through to the existing DST-aware hour helper and UTC minutes.
+  }
+  return getCountryHour(countryCode, at) * 60 + at.getUTCMinutes();
+}
+
 // ---------------------------------------------------------------------------
 // First available day
 // ---------------------------------------------------------------------------
@@ -635,6 +666,7 @@ export type BookableSlotLike = {
   /** Hour of day (0–23) the delivery window closes. */
   endHour?: number;
   cutoffHour?: number;
+  cutoffMinute?: number;
 };
 
 export type SlotBookability =
@@ -698,6 +730,15 @@ export function isSlotStillBookable(opts: {
   countryCode?: string | null;
   /** City same-day booking cutoff (0–23). Defaults to EXPRESS_CLOSE_HOUR (22). */
   sameDayCutoffHour?: number;
+  /** Minute component of the city cutoff. Defaults to :00. */
+  sameDayCutoffMinute?: number;
+  /**
+   * Enforce the selected slot's own booking cutoff. Reserved for promises
+   * whose exact OS slot is carried through the funnel (such as late-night).
+   */
+  enforceSlotCutoff?: boolean;
+  /** Optional additional absolute local-time cutoff, in minutes since midnight. */
+  hardCutoffMinutes?: number;
   now?: Date;
 }): SlotBookability {
   const now = opts.now ?? new Date();
@@ -706,15 +747,37 @@ export function isSlotStillBookable(opts: {
   if (dateIso < todayIso) return { bookable: false, reason: "past_date" };
   if (dateIso > todayIso) return { bookable: true };
 
-  const hour = getCountryHour(opts.countryCode, now);
-  const cutoff =
+  const localMinutes = getCountryMinutes(opts.countryCode, now);
+  const cutoffHour =
     typeof opts.sameDayCutoffHour === "number"
       ? opts.sameDayCutoffHour
       : EXPRESS_CLOSE_HOUR;
-  if (hour >= cutoff) return { bookable: false, reason: "same_day_cutoff_passed" };
+  const cutoffMinute =
+    typeof opts.sameDayCutoffMinute === "number"
+      ? opts.sameDayCutoffMinute
+      : 0;
+  let effectiveCutoffMinutes = cutoffHour * 60 + cutoffMinute;
+  if (
+    typeof opts.hardCutoffMinutes === "number" &&
+    Number.isFinite(opts.hardCutoffMinutes)
+  ) {
+    effectiveCutoffMinutes = Math.min(
+      effectiveCutoffMinutes,
+      opts.hardCutoffMinutes,
+    );
+  }
+  if (opts.enforceSlotCutoff && typeof opts.slot?.cutoffHour === "number") {
+    effectiveCutoffMinutes = Math.min(
+      effectiveCutoffMinutes,
+      opts.slot.cutoffHour * 60 + (opts.slot.cutoffMinute ?? 0),
+    );
+  }
+  if (localMinutes >= effectiveCutoffMinutes) {
+    return { bookable: false, reason: "same_day_cutoff_passed" };
+  }
 
   const endHour = slotEndHour(opts.slot);
-  if (endHour !== null && hour >= endHour) {
+  if (endHour !== null && localMinutes >= endHour * 60) {
     return { bookable: false, reason: "slot_window_ended" };
   }
   return { bookable: true };

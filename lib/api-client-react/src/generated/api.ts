@@ -32,6 +32,7 @@ import type {
   AuthMeUpdateRequest,
   AuthWebBridgeRequest,
   AuthWebBridgeResponse,
+  BeirutLateNightCampaignResponse,
   BulkReclassifyPlantsParams,
   CatalogMetadataResponse,
   CatalogOccasionsResponse,
@@ -2965,6 +2966,94 @@ export function useGetHomepageCollectionBestSellers<
     params,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Server-evaluates the current Beirut late-night campaign availability in
+the Asia/Beirut timezone. Returns whether tonight's late-night slot is
+bookable, the effective cutoff time, floral product sections, and a
+next-available window when tonight is closed.
+
+Always returns Cache-Control: private, no-store, max-age=0 and
+Pragma: no-cache. Fail-closed: any missing, stale, or contradictory
+data returns status other than tonight.
+
+ * @summary Beirut late-night delivery campaign status
+ */
+export const getGetBeirutLateNightCampaignUrl = () => {
+  return `/api/campaign/beirut-late-night`;
+};
+
+export const getBeirutLateNightCampaign = async (
+  options?: RequestInit,
+): Promise<BeirutLateNightCampaignResponse> => {
+  return customFetch<BeirutLateNightCampaignResponse>(
+    getGetBeirutLateNightCampaignUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetBeirutLateNightCampaignQueryKey = () => {
+  return [`/api/campaign/beirut-late-night`] as const;
+};
+
+export const getGetBeirutLateNightCampaignQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBeirutLateNightCampaign>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBeirutLateNightCampaign>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetBeirutLateNightCampaignQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBeirutLateNightCampaign>>
+  > = ({ signal }) => getBeirutLateNightCampaign({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBeirutLateNightCampaign>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBeirutLateNightCampaignQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBeirutLateNightCampaign>>
+>;
+export type GetBeirutLateNightCampaignQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Beirut late-night delivery campaign status
+ */
+
+export function useGetBeirutLateNightCampaign<
+  TData = Awaited<ReturnType<typeof getBeirutLateNightCampaign>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBeirutLateNightCampaign>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBeirutLateNightCampaignQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -559,6 +559,18 @@ function alertCountrySubdomainBypass(subdomain, path) {
  * @returns {string|null}    Header value, or null to omit the header.
  */
 function resolveXRobotsTag(host, pathname, search) {
+  // Paid-only campaign sub-routes are noindex,follow with a self-referencing
+  // canonical (see PAID_ONLY_LOCALE_SUBROUTES). The header must agree with the
+  // in-HTML robots meta so the canonical production host does not emit a
+  // conflicting "index, follow" X-Robots-Tag. Match the paid-only sub-route by
+  // its locale/city tuple; every other locale/city 404s before reaching here.
+  const localeMatch = pathname.match(LOCALE_PATH_RE);
+  if (localeMatch) {
+    const [, lang, country, city, rest = ""] = localeMatch;
+    if (isPaidOnlyLocaleSubRoute(rest, lang, country, city)) {
+      return "noindex, follow";
+    }
+  }
   return resolveXRobotsTagPure(host, pathname, search, CURATED_FILTER_PAGES);
 }
 
@@ -1023,9 +1035,26 @@ const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
   // /flower-delivery can render inside the locale-prefixed context.
   "/flower-delivery",
 ]);
-function isKnownLocaleSubRoute(rest) {
+
+// Paid-only, single-locale campaign sub-routes. Each entry is recognised (i.e.
+// served as the SPA shell rather than 404'd) ONLY for the exact
+// lang-country/city tuple listed. Every other locale/city keeps returning 404
+// via the existing exact route guard. Keep in sync with the matching
+// PAID_ONLY_LOCALE_SUBROUTES map in seo-inject.mjs.
+const PAID_ONLY_LOCALE_SUBROUTES = {
+  "/late-night-flower-delivery": { lang: "en", country: "lb", city: "beirut" },
+};
+function isPaidOnlyLocaleSubRoute(rest, lang, country, city) {
+  const entry = PAID_ONLY_LOCALE_SUBROUTES[rest];
+  return Boolean(
+    entry && entry.lang === lang && entry.country === country && entry.city === city,
+  );
+}
+
+function isKnownLocaleSubRoute(rest, lang, country, city) {
   if (!rest || rest === "/" || rest === "") return true;
   if (KNOWN_LOCALE_SUBROUTES_EXACT.has(rest)) return true;
+  if (isPaidOnlyLocaleSubRoute(rest, lang, country, city)) return true;
   if (
     rest.startsWith("/product/") ||
     rest.startsWith("/brand/") ||
@@ -2357,7 +2386,7 @@ const server = http.createServer(async (req, res) => {
         SITEMAP_LANGS.includes(lang) &&
         supportedCountries.includes(country) &&
         SITEMAP_CITIES[country]?.includes(city) &&
-        !isKnownLocaleSubRoute(rest)
+        !isKnownLocaleSubRoute(rest, lang, country, city)
       ) {
         res.writeHead(404, {
           "content-type": "text/html; charset=utf-8",

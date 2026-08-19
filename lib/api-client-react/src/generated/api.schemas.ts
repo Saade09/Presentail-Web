@@ -494,6 +494,14 @@ that predate this field will have no session_id.
    */
   sessionId?: string;
   /**
+   * Persisted paid-landing identity attached to the existing funnel
+event. This enriches the normal event rather than emitting a
+duplicate campaign-specific funnel event.
+
+   * @maxLength 64
+   */
+  campaignIdentity?: string;
+  /**
    * For `order_push_tapped` events: the order state string from
 the push notification payload (e.g. `out_for_delivery`,
 `delivered`). Sourced from the server-controlled push payload,
@@ -2079,6 +2087,126 @@ export interface SeoAuditRunByIdResponse {
 export interface SeoAuditHistoryResponse {
   ok: boolean;
   rows: SeoAuditRunSummary[];
+}
+
+/**
+ * A concrete delivery slot window for the campaign.
+ */
+export interface BeirutLateNightDeliveryWindow {
+  /** ISO 8601 date string (YYYY-MM-DD) of the delivery date in Asia/Beirut. */
+  date: string;
+  /** Human-readable slot label (e.g. "Tonight 11 PM – 1 AM"). */
+  label: string;
+  /** Stable OS slot identifier. */
+  slotId: string;
+  /** Slot start hour in local time (0–23). */
+  startHour: number;
+  /** Slot end hour in local time (0–23). */
+  endHour: number;
+}
+
+/**
+ * A product section within the campaign response.
+ */
+export interface BeirutLateNightSection {
+  title: string;
+  subtitle: string;
+  viewAllHref: string;
+  products: HomepageBestSellerProduct[];
+}
+
+/**
+ * Status of the OS locations cache at evaluation time.
+ */
+export type BeirutLateNightSourceFreshnessLocationsStatus =
+  (typeof BeirutLateNightSourceFreshnessLocationsStatus)[keyof typeof BeirutLateNightSourceFreshnessLocationsStatus];
+
+export const BeirutLateNightSourceFreshnessLocationsStatus = {
+  live: "live",
+  stale: "stale",
+  fallback: "fallback",
+} as const;
+
+/**
+ * Data freshness metadata for the campaign response.
+ */
+export interface BeirutLateNightSourceFreshness {
+  /** Status of the OS locations cache at evaluation time. */
+  locationsStatus: BeirutLateNightSourceFreshnessLocationsStatus;
+  /**
+   * ISO 8601 timestamp of the last successful OS products refresh, or null.
+   * @nullable
+   */
+  productRefreshedAt: string | null;
+}
+
+/**
+ * Campaign availability status evaluated server-side.
+ */
+export type BeirutLateNightCampaignResponseStatus =
+  (typeof BeirutLateNightCampaignResponseStatus)[keyof typeof BeirutLateNightCampaignResponseStatus];
+
+export const BeirutLateNightCampaignResponseStatus = {
+  tonight: "tonight",
+  "next-available": "next-available",
+  unavailable: "unavailable",
+} as const;
+
+/**
+ * Machine-readable reason for the current status.
+ */
+export type BeirutLateNightCampaignResponseReason =
+  (typeof BeirutLateNightCampaignResponseReason)[keyof typeof BeirutLateNightCampaignResponseReason];
+
+export const BeirutLateNightCampaignResponseReason = {
+  eligible: "eligible",
+  "after-cutoff": "after-cutoff",
+  "early-closure": "early-closure",
+  "slot-unavailable": "slot-unavailable",
+  "inventory-unavailable": "inventory-unavailable",
+  "source-stale": "source-stale",
+  "operations-unverified": "operations-unverified",
+} as const;
+
+/**
+ * Server-side evaluation result for the Beirut late-night delivery campaign.
+status tonight means the campaign is live and bookable right now.
+status next-available means the campaign is not bookable tonight but a
+future window was found. status unavailable means no window is available.
+
+ */
+export interface BeirutLateNightCampaignResponse {
+  /** Stable identifier for this campaign. Always "campaign-beirut-late-night". */
+  campaignKey: string;
+  /** Campaign availability status evaluated server-side. */
+  status: BeirutLateNightCampaignResponseStatus;
+  /** Machine-readable reason for the current status. */
+  reason: BeirutLateNightCampaignResponseReason;
+  /** IANA timezone used for evaluation. Always "Asia/Beirut". */
+  timeZone: string;
+  /** ISO 8601 timestamp of when the response was evaluated (server UTC now). */
+  evaluatedAt: string;
+  /** ISO 8601 timestamp after which this response must be discarded. No later than now+60s or the effective cutoff, whichever comes first. */
+  quoteExpiresAt: string;
+  /** ISO 8601 timestamp of the nominal cutoff (23:30 local today) in UTC. */
+  nominalCutoffAt: string;
+  /**
+   * ISO 8601 timestamp of the effective cutoff (earliest of nominal, city sameDayCutoffHour, slot cutoffHour). Null when no live slot is found.
+   * @nullable
+   */
+  effectiveCutoffAt: string | null;
+  /**
+   * Human-readable cutoff label (e.g. "11:30 PM"). Null when no slot is found.
+   * @nullable
+   */
+  cutoffLabel: string | null;
+  sourceFreshness: BeirutLateNightSourceFreshness;
+  /** The tonight delivery window when status is tonight. Null otherwise. */
+  deliveryWindow: BeirutLateNightDeliveryWindow | null;
+  /** The next available delivery window when status is next-available. Null otherwise. */
+  nextAvailableWindow: BeirutLateNightDeliveryWindow | null;
+  availableTonight: BeirutLateNightSection;
+  luxury: BeirutLateNightSection;
 }
 
 export type ProxyOsImageParams = {

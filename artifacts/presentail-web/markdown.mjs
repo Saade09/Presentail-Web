@@ -116,6 +116,10 @@ const NON_MIRROR_SUBROUTES = new Set([
   "/privacy",
   "/shipping-policy",
   "/return-policy",
+  // Paid-only campaign landing (/en-lb/beirut/late-night-flower-delivery):
+  // noindex,follow with no markdown mirror. Explicitly excluded so it never
+  // gains a Markdown twin even if it is later added to the allow-list above.
+  "/late-night-flower-delivery",
 ]);
 
 /**
