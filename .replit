@@ -154,6 +154,7 @@ KLARNA_ROLLOUT = "on"
 
 [userenv.production]
 INTERNAL_API_BASE_URL = "https://presentail.com"
+VITE_FRICTIONLESS_CHECKOUT = "true"
 
 [userenv.development]
 CYG_ROLLOUT = "on"
