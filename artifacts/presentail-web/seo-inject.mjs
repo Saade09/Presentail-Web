@@ -528,13 +528,46 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       "Browse Presentail's complete catalogue for Batroun — every bouquet, rose arrangement, cake, chocolate box, plant and gift set available to order in one place."; // i18n-ignore
   }
 
-  // Beirut paid-search campaign page (EN): the hydrated hero was rebuilt for
-  // paid traffic (see CampaignHeroBeirut.tsx), so the crawler-facing body
-  // fragment's H1 + intro must mirror the new visible copy (parity — no
-  // cloaking). Title, description, canonical and hreflang are intentionally
-  // left untouched: the page has organic rankings.
-  const isBeirutCampaignLanding =
-    routeKey === "flower-delivery" && cityKey === "lb-beirut" && lang === "en";
+  // Shared paid-search flower landing (EN): the hydrated campaign is available
+  // in Beirut, Dubai, and Abu Dhabi. Keep the server-rendered H1, intro, and
+  // discoverability links aligned with that city-aware experience so direct
+  // requests never fall back to the generic global storefront shell.
+  //
+  // Beirut's title/description stay untouched because that page already has
+  // organic rankings. The two UAE routes need explicit metadata because the
+  // generic route dictionaries do not define "flower-delivery" and otherwise
+  // fall back to the global "Online Flower & Gift Delivery" metadata.
+  const CAMPAIGN_LANDING_COPY = {
+    "lb-beirut": {
+      h1: "Flowers delivered in Beirut today",
+      intro:
+        "Hand-arranged this morning by our Achrafieh florists. Don't have their address? Order anyway — we'll collect it from the recipient for you.",
+    },
+    "ae-dubai": {
+      title: "Flower Delivery in Dubai | Presentail",
+      description:
+        "Shop fresh flower arrangements available for delivery in Dubai. Choose a delivery date and time at checkout, with prices shown in AED.",
+      h1: "Flower delivery in Dubai",
+      intro:
+        "Browse fresh arrangements available for Dubai. Delivery dates and times are confirmed at checkout.",
+    },
+    "ae-abu-dhabi": {
+      title: "Flower Delivery in Abu Dhabi | Presentail",
+      description:
+        "Shop fresh flower arrangements available for delivery in Abu Dhabi. Choose a delivery date and time at checkout, with prices shown in AED.",
+      h1: "Flower delivery in Abu Dhabi",
+      intro:
+        "Browse fresh arrangements available for Abu Dhabi. Delivery dates and times are confirmed at checkout.",
+    },
+  };
+  const campaignLandingCopy =
+    routeKey === "flower-delivery" && lang === "en" && cityKey
+      ? CAMPAIGN_LANDING_COPY[cityKey] ?? null
+      : null;
+  if (campaignLandingCopy?.title) title = campaignLandingCopy.title;
+  if (campaignLandingCopy?.description) {
+    description = campaignLandingCopy.description;
+  }
 
   // For product / category / occasion routes, extract the URL slug and derive
   // entity-specific title/description from it using the same builders that the
@@ -1132,7 +1165,26 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     });
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems: bodyFaqItems, cityContent: citySpecificContent, nearbyCityHtml, cityLabel, countryLabel, lang, cityKey, h1Override: cityHomeOverride?.h1 ?? (isTripoliShop ? "Shop All Flowers & Gifts in Tripoli" : isBeirutCampaignLanding ? "Flowers delivered in Beirut today" : undefined), introOverride: cityHomeOverride?.intro ?? (isBeirutCampaignLanding ? "Hand-arranged this morning by our Achrafieh florists. Don't have their address? Order anyway — we'll collect it from the recipient for you." : undefined), whyPoints: cityHomeOverride?.whyPoints });
+  const bodyHtml = buildGenericBodyHtml(routeKey, {
+    title,
+    description,
+    localeBase,
+    faqItems: bodyFaqItems,
+    cityContent: citySpecificContent,
+    nearbyCityHtml,
+    cityLabel,
+    countryLabel,
+    lang,
+    cityKey,
+    h1Override:
+      cityHomeOverride?.h1 ??
+      (isTripoliShop
+        ? "Shop All Flowers & Gifts in Tripoli"
+        : campaignLandingCopy?.h1),
+    introOverride: cityHomeOverride?.intro ?? campaignLandingCopy?.intro,
+    whyPoints: cityHomeOverride?.whyPoints,
+    campaignLanding: campaignLandingCopy,
+  });
 
   return {
     lang,
@@ -1487,7 +1539,7 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
   return `${featuredHtml}<h2>Recent stories</h2><ul>${items.join("")}</ul>`; // i18n-ignore
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined }) {
+function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined, campaignLanding = null }) {
   const intro = introOverride ?? ROUTE_BODY_INTRO[routeKey] ?? "";
   const safeTitle = escapeHtml(title);
   // Compute a distinct H1 from ROUTE_H1 — same topic as <title> but
@@ -1536,6 +1588,29 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
   const whyHtml = Array.isArray(whyPoints) && whyPoints.length > 0
     ? `<h2>Why Presentail</h2><ul>${whyPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>` // i18n-ignore — crawler-facing static heading
     : "";
+
+  // The React campaign renders one primary flowers CTA, a support link, then
+  // Flowers and Luxury Arrangements in that order. Mirror that information
+  // architecture in the initial HTML for crawlers and no-JS/direct requests.
+  // React replaces #root on hydration, so shoppers never see duplicate CTAs.
+  let campaignExtras = "";
+  if (campaignLanding && localeBase && cityLabel) {
+    const supportMessage =
+      `Hi! I need help choosing flowers for delivery in ${cityLabel}.`;
+    const supportUrl =
+      `https://wa.me/9613136532?text=${encodeURIComponent(supportMessage)}`;
+    campaignExtras =
+      `<section data-server-campaign-landing="${escapeAttr(cityKey ?? "")}">` +
+      `<a data-server-campaign-cta href="${localeBase}/category/flowers">Shop flowers</a>` + // i18n-ignore — English-only crawler fallback
+      `<a data-server-campaign-support href="${escapeAttr(supportUrl)}">Need help choosing? Chat with a support agent</a>` + // i18n-ignore — English-only crawler fallback
+      `<h2>Flowers</h2>` + // i18n-ignore — English-only crawler fallback
+      `<p>Explore fresh arrangements and confirm delivery dates and times at checkout.</p>` + // i18n-ignore — English-only crawler fallback
+      `<a href="${localeBase}/category/flowers">View all flowers</a>` + // i18n-ignore — English-only crawler fallback
+      `<h2>Luxury Arrangements</h2>` + // i18n-ignore — English-only crawler fallback
+      `<p>Statement designs for unforgettable moments</p>` + // i18n-ignore — English-only crawler fallback
+      `<a href="${localeBase}/category/lux-arrangements">View all luxury arrangements</a>` + // i18n-ignore — English-only crawler fallback
+      `</section>`;
+  }
 
   // Home route: add a city intro paragraph and featured occasion links so
   // AI crawlers see the city-specific delivery context and key landing targets.
@@ -1668,6 +1743,7 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqIte
     SSR_PRODUCTS_SLOT +
     (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
     whyHtml +
+    campaignExtras +
     homeExtras +
     shopExtras +
     blogExtras +
