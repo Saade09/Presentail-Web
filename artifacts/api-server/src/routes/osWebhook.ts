@@ -250,6 +250,7 @@ type WebhookTimeSlotRaw = {
   cutoff_hour?: number;
   cutoff_time?: string;
   extra_fee?: number;
+  service_type?: string;
   same_day?: boolean;
   next_day?: boolean;
   enabled?: boolean;
@@ -300,13 +301,14 @@ function parseMinute(timeStr?: string): number | undefined {
 
 function mapWebhookSlots(raw: WebhookTimeSlotRaw[] | undefined): OSTimeSlot[] {
   if (!Array.isArray(raw)) return [];
-  const seen = new Set<string>();
+  // Do NOT deduplicate by label here — Midnight cities (Beirut/Metn) may have
+  // two slots sharing a label (same-day and next-day variants). Deduplication
+  // by label happens inside resolveSlotForDate using the date-aware logic.
   const slots: OSTimeSlot[] = [];
   for (const s of raw) {
     const label = s.label ?? "";
-    if (!label || seen.has(label)) continue;
-    seen.add(label);
-    slots.push({
+    if (!label) continue;
+    const slot: OSTimeSlot = {
       label,
       slotId: s.id != null ? String(s.id) : undefined,
       startHour: parseHour(s.start_time),
@@ -321,10 +323,14 @@ function mapWebhookSlots(raw: WebhookTimeSlotRaw[] | undefined): OSTimeSlot[] {
         parseMinute(s.start_time) ??
         0,
       extraFee: s.extra_fee,
-      sameDayEnabled: s.same_day,
-      nextDayEnabled: s.next_day,
-      enabled: s.enabled,
-    });
+    };
+    // Preserve Midnight-specific fields so isMidnightSlot() and the slot
+    // guard work correctly without relying on label heuristics.
+    if (s.service_type) slot.serviceType = s.service_type;
+    if (s.enabled !== undefined) slot.enabled = s.enabled;
+    if (s.same_day !== undefined) slot.sameDayEnabled = s.same_day;
+    if (s.next_day !== undefined) slot.nextDayEnabled = s.next_day;
+    slots.push(slot);
   }
   return slots;
 }

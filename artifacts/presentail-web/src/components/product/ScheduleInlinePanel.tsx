@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
@@ -10,16 +10,27 @@ import {
   formatSlotTimeRangeShort,
   getCountryHour,
   getLocalIso,
+  isMidnightSlot,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 import { CalendarPopover } from "./CalendarPopover";
 import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
 
+import { trackWebEventOnce } from "@/lib/analytics";
+
+function addIsoDays(iso: string, days: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days, 12));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
 type Props = {
   countryCode?: string | null;
+  cityId?: string | null;
   initialDate?: string | null;
   initialSlotLabel?: string | null;
+  initialSlotId?: string | null;
   /** OS-sourced slots for the selected city (flat fallback). When provided, overrides the hardcoded per-country defaults. */
   timeSlots?: TimeSlot[];
   /**
@@ -41,6 +52,8 @@ type Props = {
     slotLabel: string;
     /** OS-assigned stable slot ID, when available. */
     slotId?: string;
+    serviceType?: "midnight";
+    cityId?: string;
   }) => void;
   /**
    * Fired when the user explicitly clicks a date chip or time-slot chip.
@@ -57,8 +70,10 @@ type Props = {
 // opens a full month-view popover so shoppers can pick any future date.
 export function ScheduleInlinePanel({
   countryCode,
+  cityId,
   initialDate,
   initialSlotLabel,
+  initialSlotId,
   timeSlots: propTimeSlots,
   slotsByDay: propSlotsByDay,
   freeDeliveryMet = false,
@@ -147,8 +162,9 @@ export function ScheduleInlinePanel({
       );
     if (propSlotsByDay) {
       const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
-      const daySlots = propSlotsByDay[weekday];
-      if (daySlots && daySlots.length > 0) return byStart(daySlots as TimeSlot[]);
+      if (Object.prototype.hasOwnProperty.call(propSlotsByDay, weekday)) {
+        return byStart(propSlotsByDay[weekday] ?? []);
+      }
     }
     return byStart(flatTimeSlots);
   }, [propSlotsByDay, date, flatTimeSlots]);
@@ -156,10 +172,12 @@ export function ScheduleInlinePanel({
   const [slotLabel, setSlotLabel] = useState<string | null>(() => {
     // Use flatTimeSlots for seed-time lookup since `date` may not be set yet.
     if (initialSlotLabel && initialDate && initialDate >= todayIso) {
-      const known = flatTimeSlots.find((s) => s.label === initialSlotLabel);
+      const known =
+        (initialSlotId ? flatTimeSlots.find((s) => s.slotId === initialSlotId) : undefined) ??
+        flatTimeSlots.find((s) => s.label === initialSlotLabel);
       const isToday = seedDate === todayIso;
       if (known && (!isToday || localHour < known.cutoffHour))
-        return initialSlotLabel;
+        return known.label;
     }
     const isToday = seedDate === todayIso;
     return firstAvailableSlot(flatTimeSlots, isToday, localHour)?.label ?? null;
@@ -222,9 +240,37 @@ export function ScheduleInlinePanel({
    *   - Other dates:  prefer nextDayEnabled=true, then lower/absent extraFee
    */
   const displayedSlots = useMemo<TimeSlot[]>(
-    () => displayedSlotsForDate(timeSlots, date, todayIso, tomorrowIso),
-    [timeSlots, date, todayIso, tomorrowIso],
+    () => displayedSlotsForDate(timeSlots, date, todayIso, tomorrowIso, cityId),
+    [timeSlots, date, todayIso, tomorrowIso, cityId],
   );
+
+  // Track midnight option viewed (once per session/render combination).
+  const midnightViewedRef = useRef(false);
+  const midnightIneligibleRef = useRef<string | null>(null);
+  useEffect(() => {
+    const midnightSlot = displayedSlots.find(s => isMidnightSlot(s, cityId));
+    if (midnightSlot && !midnightViewedRef.current) {
+      midnightViewedRef.current = true;
+      trackWebEventOnce({
+        type: "midnight_option_viewed",
+        properties: {
+          city_id: cityId ?? "unknown",
+          date,
+          slot_id: midnightSlot.slotId ?? undefined
+        }
+      }, `${cityId ?? "unknown"}|${date}|${midnightSlot.slotId ?? ""}`);
+    } else if (!midnightSlot) {
+      midnightViewedRef.current = false;
+      const key = cityId ? `${cityId}|${date}` : null;
+      if (key && midnightIneligibleRef.current !== key) {
+        midnightIneligibleRef.current = key;
+        trackWebEventOnce({
+          type: "midnight_option_ineligible",
+          properties: { city_id: cityId, occasion_date: date },
+        }, key);
+      }
+    }
+  }, [displayedSlots, cityId, date]);
 
   // Push the parent every time the local selection changes — there's no
   // confirm button here, the inline picker is "live". The selected slot is
@@ -241,7 +287,14 @@ export function ScheduleInlinePanel({
     const key = `${mode}|${date}|${slotLabel}|${slotId ?? ""}`;
     if (key === lastEmittedRef.current) return;
     lastEmittedRef.current = key;
-    onChange({ mode, date, slotLabel, slotId });
+    onChange({
+      mode,
+      date,
+      slotLabel,
+      slotId,
+      serviceType: selectedSlot && isMidnightSlot(selectedSlot, cityId) ? "midnight" : undefined,
+      cityId: cityId ?? undefined,
+    });
   }, [date, slotLabel, todayIso, onChange, displayedSlots]);
 
   // Keep the slot valid when the date or available slot list changes (e.g.
@@ -303,6 +356,13 @@ export function ScheduleInlinePanel({
       .replace("{date}", `${dayLabel}, ${dateStr}`)
       .replace("{slot}", slotRange);
   }, [slotLabel, date, days, timeSlots, t]);
+
+  const selectedMidnightSlot = useMemo(() => {
+    if (!slotLabel) return null;
+    const selected = displayedSlots.find((s) => s.label === slotLabel);
+    if (!selected) return null;
+    return isMidnightSlot(selected, cityId) ? selected : null;
+  }, [displayedSlots, slotLabel, cityId]);
 
   return (
     <div
@@ -422,12 +482,16 @@ export function ScheduleInlinePanel({
             const isToday = date === todayIso;
             const past = isToday && localHour >= s.cutoffHour;
             const active = slotLabel === s.label;
+            const isMidnight = isMidnightSlot(s, cityId);
             const rangeLabel = formatSlotTimeRangeShort(s);
             // Only show a fee label when there is a real surcharge (extraFee > 0).
             // "Free" is intentionally suppressed — it clutters the slot chips and is
             // already implicit when no fee amount is shown.
+            // Hide the fee label inside the pill if it's the active Midnight slot,
+            // since the fee is shown in the banner below instead.
+            const showPillFee = !(isMidnight && active);
             const feeLabel =
-              s.extraFee !== undefined && s.extraFee !== null && s.extraFee > 0
+              showPillFee && s.extraFee !== undefined && s.extraFee !== null && s.extraFee > 0
                 ? buildFeeNode(t("product.deliveryExtraFee"), { fee: s.extraFee })
                 : null;
             return (
@@ -436,7 +500,20 @@ export function ScheduleInlinePanel({
                 type="button"
                 disabled={past}
                 aria-pressed={active}
-                onClick={() => { setSlotLabel(s.label); onUserInteracted?.(); }}
+                onClick={() => {
+                  setSlotLabel(s.label);
+                  onUserInteracted?.();
+                  if (isMidnight) {
+                    trackWebEventOnce({
+                      type: "midnight_option_selected",
+                      properties: {
+                        city_id: cityId ?? "unknown",
+                        date,
+                        slot_id: s.slotId ?? undefined
+                      }
+                    }, `${cityId ?? "unknown"}|${date}|${s.slotId ?? ""}`);
+                  }
+                }}
                 className={cn(
                   "rounded-xl border px-3 py-2 text-center transition-colors min-w-[88px] relative",
                   active
@@ -445,9 +522,16 @@ export function ScheduleInlinePanel({
                       ? "bg-secondary text-muted-foreground border-border line-through opacity-60 cursor-not-allowed"
                       : "bg-background text-foreground border-border hover:border-foreground/30",
                 )}
-                data-testid={`schedule-slot-${s.cutoffHour}`}
+                data-testid={
+                  s.slotId
+                    ? `schedule-slot-${s.slotId}`
+                    : `schedule-slot-${s.cutoffHour}`
+                }
               >
-                <span className="block text-xs font-medium leading-tight">{rangeLabel}</span>
+                <span className="flex items-center justify-center gap-1.5 text-xs font-medium leading-tight">
+                  {isMidnight && <Moon className="w-3.5 h-3.5" />}
+                  {rangeLabel}
+                </span>
                 {feeLabel && (
                   <span className={cn(
                     "block text-[10px] leading-tight mt-0.5",
@@ -461,6 +545,34 @@ export function ScheduleInlinePanel({
           })}
         </div>
       </div>
+
+      {selectedMidnightSlot && (() => {
+        const promiseDate = addIsoDays(date, 1);
+        const promiseDateStr = (() => {
+          const dayEntry = days.find((d) => d.iso === promiseDate);
+          if (dayEntry) {
+            return `${dayEntry.day}, ${dayEntry.date} ${monthShort(promiseDate)}`;
+          }
+          return `${weekdayShort(promiseDate)}, ${dayOfMonth(promiseDate)} ${monthShort(promiseDate)}`;
+        })();
+
+        return (
+          <div className="rounded-xl bg-[#FFF8EE] text-[#1A1A1A] p-3 flex items-center justify-between mt-2" data-testid="midnight-delivery-banner">
+            <div className="flex gap-2.5 items-start">
+              <Moon className="w-4 h-4 mt-0.5 opacity-80" />
+              <div>
+                <p className="text-sm font-semibold leading-tight">{t("product.midnightDelivery")}</p>
+                <p className="text-xs opacity-70 mt-0.5 leading-tight">
+                  {t("product.midnightArrivesAs").replace("{date}", promiseDateStr)}
+                </p>
+              </div>
+            </div>
+            <div className="text-sm font-semibold whitespace-nowrap pl-3">
+              +{formatPrice(selectedMidnightSlot.extraFee ?? 20)}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Confirmation line — shown once both a date and a time slot are selected */}
       {confirmationLine && (

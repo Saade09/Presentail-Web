@@ -30,6 +30,7 @@ import {
   type OSExpressConfig,
   type OSTimeSlot,
 } from "@workspace/presentail-os";
+import { isMidnightSlot, MIDNIGHT_FEE_USD } from "@workspace/delivery";
 import { getUsdAmount } from "./fxRateCache";
 import {
   DELIVERY_COUNTRIES as HARDCODED_COUNTRIES,
@@ -305,9 +306,27 @@ function resolveOsCityId(
  * visible via the public API but should never reach shoppers — they lack
  * the cutoff needed for the availability check and inflate the displayed
  * slot list.
+ *
+ * Also normalises Midnight slot fees: the canonical Midnight surcharge is
+ * always exactly MIDNIGHT_FEE_USD ($20). Some cities (Beirut/Metn) may have
+ * the slot configured with extraFee: 23 (LBP-era value) or another non-$20
+ * amount in OS. We overwrite it here so computeSlotFeeUsd never needs to
+ * re-derive the fee from OS data — the check uses isMidnightSlot() which
+ * detects via serviceType, never via label or fee heuristics.
  */
-function filterValidOsSlots(slots: OSTimeSlot[]): OSTimeSlot[] {
-  return slots.filter((s) => s.cutoffHour != null);
+function filterValidOsSlots(slots: OSTimeSlot[], cityId?: string): OSTimeSlot[] {
+  return slots
+    .filter((s) => s.cutoffHour != null)
+    .map((s) => {
+      // Normalise Midnight slot fees: always exactly MIDNIGHT_FEE_USD ($20).
+      // Pass cityId so isMidnightEligibleCity() gates the normalisation to
+      // Beirut/Metn only — avoids false-positive matches on non-midnight cities
+      // that happen to have 23:00-01:00 start/end hours.
+      if (isMidnightSlot(s, cityId) && s.extraFee !== MIDNIGHT_FEE_USD) {
+        return { ...s, extraFee: MIDNIGHT_FEE_USD };
+      }
+      return s;
+    });
 }
 
 function transformOsResponse(
@@ -468,12 +487,12 @@ function transformOsResponse(
         // fallback and show the wrong (larger) slot set. When the flat list is
         // empty but slotsByDay entries exist, build the effective flat list as
         // the deduplicated union of all per-day arrays (keyed by cutoffHour).
-        const filteredTimeSlots = filterValidOsSlots(c.timeSlots ?? []);
+        const filteredTimeSlots = filterValidOsSlots(c.timeSlots ?? [], canonicalId);
         const filteredSlotsByDay = c.slotsByDay
           ? Object.fromEntries(
               Object.entries(c.slotsByDay).map(([day, slots]) => [
                 day,
-                filterValidOsSlots(slots),
+                filterValidOsSlots(slots, canonicalId),
               ]),
             )
           : undefined;
@@ -844,10 +863,29 @@ export function getLocationsDataStatus(): "live" | "stale" | "fallback" {
  * Returns an empty array when the city is not in OS or has no slots configured
  * (callers should fall back to lib/delivery defaults).
  */
-export function getDeliverySlots(cityId: string): OsDeliverySlot[] {
+export function getDeliverySlots(cityId: string, dateIso?: string): OsDeliverySlot[] {
+  if (dateIso) return getDeliverySlotsForDate(cityId, dateIso);
   return cityIndex.get(cityId)?.timeSlots ?? [];
 }
 
+/**
+ * Returns the authoritative slots for an occasion date. An explicitly
+ * configured empty weekday is authoritative and must not fall back to the
+ * city's flat list.
+ */
+export function getDeliverySlotsForDate(cityId: string, dateIso: string): OsDeliverySlot[] {
+  const city = cityIndex.get(cityId);
+  if (!city) return [];
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateIso);
+  if (!match) return city.timeSlots;
+  const weekday = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][
+    new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)).getUTCDay()
+  ]!;
+  if (city.slotsByDay && Object.prototype.hasOwnProperty.call(city.slotsByDay, weekday)) {
+    return city.slotsByDay[weekday] ?? [];
+  }
+  return city.timeSlots;
+}
 /**
  * Returns the express/same-day delivery config for a city from the OS cache.
  * Returns undefined fields when the city is not yet in OS — callers fall back

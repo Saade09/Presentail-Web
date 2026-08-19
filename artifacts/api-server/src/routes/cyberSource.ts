@@ -33,6 +33,7 @@ import {
   computeSlotFeeUsd,
   countryForDistrict,
   expressSurchargeUsd,
+  checkSubmittedSlotBookable,
 } from "../lib/catalog";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
 import { resolveStoreFromRequest } from "../lib/wooStore";
@@ -307,6 +308,10 @@ type EnrollmentSnapshot = {
   isExpress: boolean;
   isNoAddress: boolean;
   rawDeliverySlot?: string;
+  rawDeliverySlotId?: string;
+  rawCityId?: string;
+  rawDeliveryDate?: string;
+  deliveryServiceType?: "midnight";
   currencyStr: string;
   storedAt: number;
 };
@@ -450,6 +455,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
   let resolvedDistrict: string;
   let isExpress: boolean;
   let isNoAddress: boolean;
+  let deliveryServiceType: "midnight" | undefined;
   // Resolved items: used when storing the checkout intent on authorization success.
   let resolvedItems: { wcId: number; osSlug?: string; quantity: number; priceUsd: number }[];
 
@@ -459,12 +465,27 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
   const storedSnap = isValidationCall ? enrollmentSnapshots.get(orderId) : undefined;
 
   if (storedSnap) {
+    if (
+      (rawDeliverySlot ?? "") !== (storedSnap.rawDeliverySlot ?? "") ||
+      (rawDeliverySlotId ?? "") !== (storedSnap.rawDeliverySlotId ?? "") ||
+      (rawCityId ?? "") !== (storedSnap.rawCityId ?? "") ||
+      (rawDeliveryDate ?? "") !== (storedSnap.rawDeliveryDate ?? "")
+    ) {
+      enrollmentSnapshots.delete(orderId);
+      return res.status(409).json({
+        ok: false,
+        code: "delivery_context_changed",
+        message:
+          "The delivery details changed during payment. Please choose the delivery time again.", // i18n-ignore
+      });
+    }
     // Validation call: reuse the enrollment snapshot — same amounts, same items.
     enrollmentSnapshots.delete(orderId); // consume; do not reuse
     req.log.info({ orderId }, "cybersource: validation call — reusing enrollment snapshot");
     ({ subtotalUsd, districtFeeUsd, expressFeeUsd, slotFeeUsd,
        couponDiscountUsd, validatedCouponCode, totalUsd, totalFormatted,
-       resolvedItems, resolvedDistrict, isExpress, isNoAddress } = storedSnap);
+       resolvedItems, resolvedDistrict, isExpress, isNoAddress,
+       deliveryServiceType } = storedSnap);
   } else {
     // Enrollment call (or validation without snapshot — snapshot may have expired).
     // Resolve catalog prices, fees, and coupon from authoritative server sources.
@@ -488,6 +509,24 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
     resolvedDistrict = rawDistrict ?? "Beirut";
     isExpress = rawExpressDelivery === true;
     isNoAddress = rawNoAddress === true;
+    const slotCheck = checkSubmittedSlotBookable({
+      expressDelivery: isExpress,
+      deliverySlot: rawDeliverySlot,
+      deliverySlotId: rawDeliverySlotId,
+      deliveryDate: rawDeliveryDate,
+      cityId: rawCityId,
+      district: resolvedDistrict,
+    });
+    if (!slotCheck.bookable) {
+      return res.status(422).json({
+        ok: false,
+        code: "expired_delivery_slot",
+        reason: slotCheck.reason,
+        message:
+          "The selected delivery time is no longer available. Please choose another time.", // i18n-ignore
+      });
+    }
+    deliveryServiceType = slotCheck.serviceType;
     subtotalUsd = catalogResult.subtotalUsd;
     const districtCountry = countryForDistrict(resolvedDistrict);
     const osConfig = rawCityId
@@ -714,6 +753,10 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       isExpress,
       isNoAddress,
       rawDeliverySlot,
+      rawDeliverySlotId,
+      rawCityId,
+      rawDeliveryDate,
+      deliveryServiceType,
       currencyStr,
       storedAt: Date.now(),
     });
@@ -769,6 +812,10 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       expressDelivery: isExpress,
       noAddress: isNoAddress,
       deliverySlot: rawDeliverySlot ?? "",
+      deliveryCityId: rawCityId,
+      deliveryDate: rawDeliveryDate,
+      deliverySlotId: rawDeliverySlotId,
+      deliveryServiceType,
       districtFeeUsd,
       expressFeeUsd,
       slotFeeUsd,

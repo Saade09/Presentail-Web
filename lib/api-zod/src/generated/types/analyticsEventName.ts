@@ -122,4 +122,10 @@ export const AnalyticsEventName = {
   campaign_pill_click: "campaign_pill_click",
   campaign_sticky_cta_impression: "campaign_sticky_cta_impression",
   campaign_sticky_cta_click: "campaign_sticky_cta_click",
+  midnight_option_viewed: "midnight_option_viewed",
+  midnight_option_selected: "midnight_option_selected",
+  midnight_option_ineligible: "midnight_option_ineligible",
+  midnight_selection_removed_after_address_change:
+    "midnight_selection_removed_after_address_change",
+  midnight_order_completed: "midnight_order_completed",
 } as const;

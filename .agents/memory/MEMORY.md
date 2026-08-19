@@ -42,7 +42,7 @@
 - [GA4 campaign funnel mirrors](ga4-funnel-mirrors.md) — add_to_cart/begin_checkout/purchase gtag mirrors exist alongside internal web-events; e2e asserts via inline dataLayer shim; e2e pages need delivery_location seeded
 - [City home SEO overrides](city-home-seo-overrides.md) — per-city hand-written title/H1/FAQ/CollectionPage pattern (Tripoli); city-home body copy is now visible HTML; all .md mirrors noindex,follow
 - [SSR city product grid](ssr-city-product-grid.md) — city-home SSR product cards: add city key to SSR_PRODUCT_CITY_KEYS; payload must carry discount fields or sale prices vanish after hydration
-- [CyberSource removal](cybersource-removed.md) — CS fully removed Aug 2026; cs_payment_attempts table kept read-only (migration 0018); LB+USD shows "temporarily unavailable" notice
+- [CyberSource storefront removal](cybersource-removed.md) — UI checkout was removed, but legacy backend routes remain mounted; preserve historical data and keep shared payment guards aligned
 - [AR/FR product translation layer](product-translation.md) — OpenAI w/ retries+semaphore, Postgres L2 cache, warm job; contentLang flag suppresses hreflang on English fallback; city-root links must be slashless
 - [CyberSource capture-context schema](cybersource-capture-context-schema.md) — required fields, valid enums (PANENTRY not CARD), locale underscore format, forbidden fields, JWT clientLibrary = UC SDK URL
 - [Cyprus non-hub city category SEO](cy-category-seo.md) — curated CATEGORY_SEO_CONTENT entry unlocks index + self-canonical for Larnaca/Limassol/Paphos; og:locale for cy is now en_CY

@@ -131,6 +131,8 @@ async function buildApp() {
 const BASE_ITEMS = [{ wcId: 42, quantity: 1 }];
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-07-20T04:00:00.000Z"));
   process.env.STRIPE_SECRET_KEY = "sk_test_fake";
   computeDistrictFeeUsdMock.mockReturnValue(8);
   expressSurchargeUsdMock.mockReturnValue(5);
@@ -146,6 +148,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   delete process.env.STRIPE_SECRET_KEY;
 });
 

@@ -45,6 +45,7 @@ vi.mock("../src/lib/checkoutIntents", () => ({
 // Catalog mock — resolveCartItems returns a controlled subtotal.
 vi.mock("../src/lib/catalog", () => ({
   resolveCartItems: vi.fn(),
+  checkSubmittedSlotBookable: vi.fn(() => ({ bookable: true })),
   computeDistrictFeeUsd: vi.fn(() => 5),
   computeSlotFeeUsd: vi.fn(() => 0),
   countryForDistrict: vi.fn(() => "LB"),
@@ -76,7 +77,10 @@ import {
   resolveGeoCurrency,
 } from "../src/lib/geoCurrency";
 import { storePaymentIntent } from "../src/lib/checkoutIntents";
-import { resolveCartItems } from "../src/lib/catalog";
+import {
+  checkSubmittedSlotBookable,
+  resolveCartItems,
+} from "../src/lib/catalog";
 import { validateCoupon } from "../src/lib/couponValidation";
 import {
   signCyberSourceRequest,
@@ -87,6 +91,8 @@ import {
 const mockResolveGeoCurrency = resolveGeoCurrency as ReturnType<typeof vi.fn>;
 const mockPickClientIp = pickClientIp as ReturnType<typeof vi.fn>;
 const mockResolveCartItems = resolveCartItems as ReturnType<typeof vi.fn>;
+const mockCheckSubmittedSlotBookable =
+  checkSubmittedSlotBookable as ReturnType<typeof vi.fn>;
 const mockValidateCoupon = validateCoupon as ReturnType<typeof vi.fn>;
 
 // ---------------------------------------------------------------------------
@@ -389,6 +395,7 @@ describe("POST /payment/cybersource/authorize", () => {
     setCsEnv();
     mockPickClientIp.mockReturnValue("1.2.3.4");
     mockCatalogOk();
+    mockCheckSubmittedSlotBookable.mockReturnValue({ bookable: true });
     app = await buildApp();
   });
 
@@ -428,6 +435,33 @@ describe("POST /payment/cybersource/authorize", () => {
       .post("/payment/cybersource/authorize")
       .send({ transientToken: "tok_test", orderId: "order-123", currency: "USD" });
     expect(res.status).toBe(400);
+  });
+
+  it("rejects an unavailable exact slot before contacting CyberSource", async () => {
+    mockLebanonGeo();
+    mockCheckSubmittedSlotBookable.mockReturnValue({
+      bookable: false,
+      reason: "slot_unavailable",
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const res = await request(app)
+      .post("/payment/cybersource/authorize")
+      .send({
+        transientToken: "tok_test",
+        orderId: "order-midnight-stale",
+        currency: "USD",
+        items: SAMPLE_ITEMS,
+        district: "Beirut",
+        cityId: "lb-beirut",
+        deliveryDate: "2026-08-20",
+        deliverySlot: "11 PM – 1 AM",
+        deliverySlotId: "missing-midnight-slot",
+      });
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("expired_delivery_slot");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("resolves the amount server-side and forwards it to CyberSource (not client-supplied)", async () => {

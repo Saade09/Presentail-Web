@@ -7,6 +7,9 @@
 import { describe, it, expect } from "vitest";
 import {
   isSlotStillBookable,
+  isMidnightEligibleCity,
+  isMidnightSlot,
+  midnightWindowForOccasionDate,
   parseSlotLabelEndHour,
   slotEndHour,
 } from "../src/index";
@@ -218,5 +221,85 @@ describe("isSlotStillBookable — dates and timezones", () => {
         now: new Date(Date.UTC(2026, 7, 18, 21, 30)), // 00:30 Aug 19 Beirut
       }),
     ).toEqual({ bookable: false, reason: "past_date" });
+  });
+});
+
+describe("Premium Midnight occasion-date semantics", () => {
+  const MIDNIGHT = {
+    label: "11 PM–1 AM",
+    serviceType: "midnight",
+    startHour: 23,
+    endHour: 1,
+    cutoffHour: 22,
+  };
+
+  it("is restricted to canonical Beirut and Metn without label matching", () => {
+    expect(isMidnightEligibleCity("lb-beirut")).toBe(true);
+    expect(isMidnightEligibleCity("lb-metn")).toBe(true);
+    expect(isMidnightEligibleCity("lb-baabda")).toBe(false);
+    expect(isMidnightSlot(MIDNIGHT, "lb-beirut")).toBe(true);
+    expect(isMidnightSlot({ ...MIDNIGHT, label: "Livraison de minuit" }, "lb-metn")).toBe(true);
+    expect(isMidnightSlot(MIDNIGHT, "lb-baabda")).toBe(false);
+  });
+
+  it("maps the occasion date to previous-day 23:00 through selected-day 01:00 Beirut time", () => {
+    expect(midnightWindowForOccasionDate("2026-08-20")).toEqual({
+      occasionDate: "2026-08-20",
+      timeZone: "Asia/Beirut",
+      start: "2026-08-19T20:00:00.000Z",
+      end: "2026-08-19T22:00:00.000Z",
+    });
+  });
+
+  it("handles month/year boundaries and Beirut winter offset", () => {
+    expect(midnightWindowForOccasionDate("2027-01-01")).toEqual({
+      occasionDate: "2027-01-01",
+      timeZone: "Asia/Beirut",
+      start: "2026-12-31T21:00:00.000Z",
+      end: "2026-12-31T23:00:00.000Z",
+    });
+  });
+
+  it("rejects after the booking cutoff on the preceding date", () => {
+    expect(
+      isSlotStillBookable({
+        deliveryDate: "2026-08-20",
+        slot: MIDNIGHT,
+        cityId: "lb-beirut",
+        countryCode: "LB",
+        now: new Date("2026-08-19T19:00:00.000Z"), // 22:00 Beirut
+      }),
+    ).toEqual({ bookable: false, reason: "same_day_cutoff_passed" });
+  });
+
+  it("remains a valid in-flight selection across 23:00 and midnight, then ends at 01:00", () => {
+    const slotWithoutCutoff = { ...MIDNIGHT, cutoffHour: undefined };
+    expect(
+      isSlotStillBookable({
+        deliveryDate: "2026-08-20",
+        slot: slotWithoutCutoff,
+        cityId: "lb-beirut",
+        countryCode: "LB",
+        now: new Date("2026-08-19T20:00:00.000Z"), // 23:00 Beirut
+      }),
+    ).toEqual({ bookable: true });
+    expect(
+      isSlotStillBookable({
+        deliveryDate: "2026-08-20",
+        slot: slotWithoutCutoff,
+        cityId: "lb-beirut",
+        countryCode: "LB",
+        now: new Date("2026-08-19T21:00:00.000Z"), // 00:00 Beirut, Aug 20
+      }),
+    ).toEqual({ bookable: true });
+    expect(
+      isSlotStillBookable({
+        deliveryDate: "2026-08-20",
+        slot: slotWithoutCutoff,
+        cityId: "lb-beirut",
+        countryCode: "LB",
+        now: new Date("2026-08-19T22:00:00.000Z"), // 01:00 Beirut
+      }),
+    ).toEqual({ bookable: false, reason: "slot_window_ended" });
   });
 });

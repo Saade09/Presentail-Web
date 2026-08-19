@@ -124,6 +124,40 @@ export const appOrdersTable = pgTable(
     capiPurchaseSentAt: timestamp("capi_purchase_sent_at", {
       withTimezone: true,
     }),
+    // ── Premium Midnight Delivery fields (task 3943) ─────────────────────────
+    // Canonical city identifier for the delivery (e.g. "lb-beirut", "lb-metn").
+    // Stored separately from deliveryDistrict (district name) so midnight
+    // eligibility and per-city fee rules can be enforced without string parsing.
+    // Null for legacy rows and orders where cityId was not captured.
+    deliveryCityId: text("delivery_city_id"),
+    // ISO 3166-1 alpha-2 uppercase country code (e.g. "LB", "AE").
+    // Normalised from shippingCountry at order creation. Null for legacy rows.
+    deliveryCountryCode: text("delivery_country_code"),
+    // Stable OS-assigned slot identifier (e.g. "midnight-2300-0100").
+    // Required for Midnight premium service; used for audit and billing checks.
+    // Null for standard slots, express delivery, and legacy rows.
+    deliverySlotId: text("delivery_slot_id"),
+    // Fulfillment service marker: "midnight" or null for standard/express.
+    // Never inferred from label — set only when serviceType="midnight" from OS.
+    deliveryServiceType: text("delivery_service_type"),
+    // Midnight slot surcharge in USD cents. Exactly 2000 ($20.00) for every
+    // Midnight order; 0 or null for standard slots (slotFee waived by free
+    // delivery never removes this when the OS slot has an explicit extraFee).
+    // Null for legacy rows created before this column existed.
+    deliverySlotFeeCents: integer("delivery_slot_fee_cents"),
+    // UTC ISO timestamp for the start of the delivery window
+    // (e.g. "2026-06-18T21:00:00.000Z" for a 23:00 Beirut Midnight window).
+    // For Midnight: 23:00 the night before occasionDate in Asia/Beirut.
+    // Null for express orders, standard slots without hours, and legacy rows.
+    deliveryWindowStart: timestamp("delivery_window_start", {
+      withTimezone: true,
+    }),
+    // UTC ISO timestamp for the end of the delivery window
+    // (e.g. "2026-06-18T22:00:00.000Z" for a Midnight 01:00 Beirut window).
+    // Null for express orders and legacy rows.
+    deliveryWindowEnd: timestamp("delivery_window_end", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

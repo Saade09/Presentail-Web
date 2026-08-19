@@ -30,6 +30,7 @@ export type OrderSummaryPanelProps = {
   districtFee: number;
   expressFee: number;
   slotFee: number;
+  isMidnightSlotActive?: boolean;
   confirmedCouponDiscount: number;
   isFreeDeliveryUnlocked: boolean;
   originalCityFee: number;
@@ -76,6 +77,7 @@ export function OrderSummaryPanel({
   districtFee,
   expressFee,
   slotFee,
+  isMidnightSlotActive,
   confirmedCouponDiscount,
   isFreeDeliveryUnlocked,
   originalCityFee,
@@ -393,7 +395,7 @@ export function OrderSummaryPanel({
                 )}
                 {slotFee > 0 && (
                   <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-slot-fee">
-                    <span>{t("checkout.nightDeliverySurcharge")}</span>
+                    <span>{isMidnightSlotActive ? t("product.midnightDelivery") : t("checkout.nightDeliverySurcharge")}</span>
                     <span><FormattedPrice usdValue={slotFee} /></span>
                   </div>
                 )}
@@ -609,7 +611,7 @@ export function OrderSummaryPanel({
                 {/* Slot fee */}
                 {slotFee > 0 && (
                   <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-slot-fee">
-                    <span>{t("checkout.nightDeliverySurcharge")}</span>
+                    <span>{isMidnightSlotActive ? t("product.midnightDelivery") : t("checkout.nightDeliverySurcharge")}</span>
                     <span><FormattedPrice usdValue={slotFee} /></span>
                   </div>
                 )}

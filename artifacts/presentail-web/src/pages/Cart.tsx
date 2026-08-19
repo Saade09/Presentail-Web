@@ -24,8 +24,9 @@ import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { expressSurchargeForCountry, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, timeSlotsForCountry } from "@workspace/delivery";
+import { expressSurchargeForCountry, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, isMidnightSlot, timeSlotsForCountry } from "@workspace/delivery";
 import { buildExpressPromise, useDeliveryPromise, useExpressQuoteAnchor } from "@/components/delivery/deliveryPromise";
+import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlotValidation";
 import { ExpressUpgradeCard } from "@/components/delivery/ExpressUpgradeCard";
 import { useNow } from "@/lib/useNow";
 import { computeCartTotal } from "@workspace/display-currency";
@@ -140,19 +141,21 @@ export default function Cart() {
     configThresholdUsd ??
     (freeDeliveryThresholdUsd(countryCode) || undefined);
 
+  const rawTimeSlots = locationCity?.timeSlots?.length
+    ? locationCity.timeSlots
+    : locationCity?.slotsByDay
+      ? Object.values(locationCity.slotsByDay).flat()
+      : timeSlotsForCountry(countryCode);
+
+  useMidnightSlotValidation(rawTimeSlots, locationCity?.id, countryCode, locationCity?.slotsByDay);
+
   // Slot surcharge for the booked delivery window. Uses the same date-aware
   // slot resolution as the picker modal (displayedSlotsForDate) so the fee
   // shown here always matches the variant the shopper confirmed — including
   // duplicate-label OS configs (same-day paid vs next-day free) and the $5
   // same-day night fallback.
-  const slotFeeUsd: number = (() => {
-    if (deliveryMode === "express" || !slotLabel) return 0;
-    // Raw (unfiltered) flat slot list from city data — date-aware dedup below.
-    const raw = locationCity?.timeSlots?.length
-      ? locationCity.timeSlots
-      : locationCity?.slotsByDay
-        ? Object.values(locationCity.slotsByDay).flat()
-        : timeSlotsForCountry(countryCode);
+  const { slotFeeUsd, isMidnightSlotActive } = (() => {
+    if (deliveryMode === "express" || !slotLabel) return { slotFeeUsd: 0, isMidnightSlotActive: false };
     const todayIso = getLocalIso(countryCode);
     const dateIso = deliveryDate || todayIso;
     const dayIso = (n: number) => {
@@ -160,15 +163,16 @@ export default function Cart() {
       const dt = new Date(y, m - 1, d + n, 12, 0, 0);
       return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
     };
-    const displayed = displayedSlotsForDate(raw, dateIso, todayIso, dayIso(1));
-    // slotId (from the picker) is authoritative; fall back to label lookup.
+    const displayed = displayedSlotsForDate(rawTimeSlots, dateIso, todayIso, dayIso(1), locationCity?.id);
     const bookedSlot =
       (slotId ? displayed.find((s) => s.slotId === slotId) : undefined) ??
       displayed.find((s) => s.label === slotLabel);
-    if (!bookedSlot) return 0;
-    // displayedSlotsForDate already folds the $5 same-day night fallback into
-    // extraFee, so the resolved slot's fee is final.
-    return bookedSlot.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0;
+    if (!bookedSlot) return { slotFeeUsd: 0, isMidnightSlotActive: false };
+
+    return {
+      slotFeeUsd: bookedSlot.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0,
+      isMidnightSlotActive: isMidnightSlot(bookedSlot, locationCity?.id)
+    };
   })();
 
   // Delivery fee for the Order Summary sidebar (district fee only — slot fee shown separately).
@@ -454,7 +458,15 @@ export default function Cart() {
     upgradePendingRef.current = true;
     setUpgrading(true);
     try {
-      setSelection({ mode: "express", date: getLocalIso(countryCode), slotLabel: null, slotId: null, source: "user_selected" });
+      setSelection({
+        mode: "express",
+        date: getLocalIso(countryCode),
+        slotLabel: null,
+        slotId: null,
+        serviceType: null,
+        cityId: null,
+        source: "user_selected",
+      });
     } catch {
       upgradePendingRef.current = false;
       setUpgrading(false);
@@ -1209,10 +1221,10 @@ export default function Cart() {
                     </div>
                   )}
 
-                  {/* Late-night slot fee */}
+                  {/* Late-night slot fee / Midnight delivery */}
                   {slotFeeUsd > 0 && (
                     <div className="flex justify-between gap-3">
-                      <dt className="font-medium">{t("cart.lateNightFee")}</dt>
+                      <dt className="font-medium">{isMidnightSlotActive ? t("product.midnightDelivery") : t("cart.lateNightFee")}</dt>
                       <dd className="font-medium text-end shrink-0"><FormattedPrice usdValue={slotFeeUsd} /></dd>
                     </div>
                   )}

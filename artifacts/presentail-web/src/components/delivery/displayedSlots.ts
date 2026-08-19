@@ -1,4 +1,10 @@
-import type { TimeSlot } from "@workspace/delivery";
+import {
+  isMidnightEligibleCity,
+  isMidnightServiceSlot,
+  isMidnightSlot,
+  MIDNIGHT_FEE_USD,
+  type TimeSlot,
+} from "@workspace/delivery";
 
 /**
  * Date-filtered, deduplicated view of an OS/city slot list — the single
@@ -21,17 +27,19 @@ import type { TimeSlot } from "@workspace/delivery";
  *   - Today:        prefer sameDayEnabled=true, then higher extraFee
  *   - Other dates:  prefer nextDayEnabled=true, then lower/absent extraFee
  *
- * Step 3 — same-day night surcharge (today only):
+ * Step 3 — same-day night surcharge (today only) and Midnight override:
  *   When the OS hasn't configured a fee for a late slot (delivery window
  *   starting at 21:00 or later), apply the hardcoded $5 same-day night rate.
  *   The delivery start hour is resolved from slot.startHour, then a label
  *   parse ("9:00 PM – …"), then cutoffHour.
+ *   If the slot is identified as Midnight Delivery, forces the fee to $20 USD.
  */
 export function displayedSlotsForDate(
   timeSlots: TimeSlot[],
   date: string,
   todayIso: string,
   tomorrowIso: string,
+  cityId?: string | null,
 ): TimeSlot[] {
   const isToday = date === todayIso;
   void tomorrowIso; // tomorrow and later share the next-day rule
@@ -74,9 +82,21 @@ export function displayedSlotsForDate(
 
   const deduped = Array.from(seen.values());
 
-  // Step 3: same-day night surcharge fallback ($5, today only).
-  if (isToday) {
-    return deduped.map((slot) => {
+  // Step 3: same-day night surcharge fallback ($5, today only) and Midnight override.
+  return deduped.map((slot) => {
+    // Filter out explicitly disabled slots
+    if (slot.enabled === false) return null;
+    // Never expose a configured Midnight service outside its two canonical
+    // eligible cities, even if it leaks into a country/fallback slot list.
+    if (isMidnightServiceSlot(slot) && !isMidnightEligibleCity(cityId)) {
+      return null;
+    }
+
+    if (isMidnightSlot(slot, cityId)) {
+      return { ...slot, extraFee: MIDNIGHT_FEE_USD };
+    }
+
+    if (isToday) {
       // Parse "9:00 PM – ..." or "21:00 – ..." style label → delivery start hour
       const parsedLabelHour = (() => {
         const m = slot.label.match(/^(\d+)(?::\d+)?\s*(AM|PM)?/i);
@@ -96,9 +116,7 @@ export function displayedSlotsForDate(
       if (isNightSlot && !slot.extraFee) {
         return { ...slot, extraFee: 5 };
       }
-      return slot;
-    });
-  }
-
-  return deduped;
+    }
+    return slot;
+  }).filter((s): s is TimeSlot => s !== null);
 }

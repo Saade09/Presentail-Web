@@ -169,6 +169,7 @@ router.post("/payment/mamo", async (req, res) => {
 
   // Stale-slot guard — reject BEFORE the hosted payment link is created so a
   // stale session can never pay for a same-day slot whose window has ended.
+  let mamoDeliveryServiceType: "midnight" | undefined;
   {
     const slotCheck = checkSubmittedSlotBookable({
       expressDelivery: expressDelivery === true,
@@ -178,6 +179,7 @@ router.post("/payment/mamo", async (req, res) => {
       cityId: rawCityId,
       district,
     });
+    mamoDeliveryServiceType = slotCheck.serviceType;
     if (!slotCheck.bookable) {
       req.log?.warn?.(
         { orderId, deliverySlot: rawDeliverySlot, deliveryDate: rawDeliveryDate, reason: slotCheck.reason },
@@ -370,6 +372,10 @@ router.post("/payment/mamo", async (req, res) => {
         expressDelivery: isExpress,
         noAddress: isNoAddress,
         deliverySlot: rawDeliverySlot ?? "",
+        deliveryCityId: rawCityId,
+        deliveryDate: rawDeliveryDate,
+        deliverySlotId: rawDeliverySlotId,
+        deliveryServiceType: mamoDeliveryServiceType,
         districtFeeUsd,
         expressFeeUsd,
         slotFeeUsd: mamoSlotFeeUsd,
@@ -481,6 +487,7 @@ router.post("/payment/paypal", async (req, res) => {
 
   // Stale-slot guard — reject BEFORE the PayPal order is created so a stale
   // session can never pay for a same-day slot whose window has ended.
+  let ppDeliveryServiceType: "midnight" | undefined;
   {
     const slotCheck = checkSubmittedSlotBookable({
       expressDelivery: expressDelivery === true,
@@ -490,6 +497,7 @@ router.post("/payment/paypal", async (req, res) => {
       cityId: ppRawCityId,
       district,
     });
+    ppDeliveryServiceType = slotCheck.serviceType;
     if (!slotCheck.bookable) {
       req.log?.warn?.(
         { orderId, deliverySlot: ppRawDeliverySlot, deliveryDate: ppRawDeliveryDate, reason: slotCheck.reason },
@@ -617,6 +625,10 @@ router.post("/payment/paypal", async (req, res) => {
         expressDelivery: isExpress,
         noAddress: isNoAddress,
         deliverySlot: ppRawDeliverySlot ?? "",
+        deliveryCityId: ppRawCityId,
+        deliveryDate: ppRawDeliveryDate,
+        deliverySlotId: ppRawDeliverySlotId,
+        deliveryServiceType: ppDeliveryServiceType,
         districtFeeUsd,
         expressFeeUsd,
         slotFeeUsd: ppSlotFeeUsd,
@@ -714,6 +726,7 @@ router.post("/payment/tabby", async (req, res) => {
 
   // Stale-slot guard — reject BEFORE the Tabby session is created so a stale
   // session can never pay for a same-day slot whose window has ended.
+  let tabbyDeliveryServiceType: "midnight" | undefined;
   {
     const slotCheck = checkSubmittedSlotBookable({
       expressDelivery: expressDelivery === true,
@@ -723,6 +736,7 @@ router.post("/payment/tabby", async (req, res) => {
       cityId: tabbyRawCityId,
       district,
     });
+    tabbyDeliveryServiceType = slotCheck.serviceType;
     if (!slotCheck.bookable) {
       req.log?.warn?.(
         { orderId, deliverySlot: tabbyRawDeliverySlot, deliveryDate: tabbyRawDeliveryDate, reason: slotCheck.reason },
@@ -916,6 +930,10 @@ router.post("/payment/tabby", async (req, res) => {
         expressDelivery: isExpress,
         noAddress: isNoAddress,
         deliverySlot: tabbyRawDeliverySlot ?? "",
+        deliveryCityId: tabbyRawCityId,
+        deliveryDate: tabbyRawDeliveryDate,
+        deliverySlotId: tabbyRawDeliverySlotId,
+        deliveryServiceType: tabbyDeliveryServiceType,
         districtFeeUsd,
         expressFeeUsd,
         slotFeeUsd: tabbySlotFeeUsd,

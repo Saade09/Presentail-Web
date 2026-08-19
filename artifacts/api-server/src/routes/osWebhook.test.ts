@@ -243,7 +243,11 @@ describe("parseDeliveryConfigPayload", () => {
     expect(slots[1]?.endHour).toBe(20);
   });
 
-  it("deduplicates slots with the same label", () => {
+  it("preserves duplicate-label slots (date-aware deduplication is deferred to resolveSlotForDate)", () => {
+    // mapWebhookSlots no longer deduplicates by label so Midnight cities
+    // (Beirut/Metn) can have two slots sharing a label but with different
+    // same_day/next_day flags. Date-aware deduplication happens later in
+    // resolveSlotForDate, not at parse time.
     const result = parseDeliveryConfigPayload({
       countries: [
         {
@@ -265,7 +269,8 @@ describe("parseDeliveryConfigPayload", () => {
       ],
     });
     const slots = result.countries[0]?.cities[0]?.timeSlots ?? [];
-    expect(slots).toHaveLength(1);
+    // Both entries preserved — downstream resolveSlotForDate handles deduplication.
+    expect(slots).toHaveLength(2);
   });
 
   it("handles an empty countries array", () => {

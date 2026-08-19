@@ -79,8 +79,14 @@ export type TimeSlot = {
   sameDayEnabled?: boolean;
   /** When true, this slot is available for next-day orders. Absent means no same-day/next-day restriction. */
   nextDayEnabled?: boolean;
+  /** Whether this OS slot is enabled. Absent is treated as enabled for backwards compatibility. */
+  enabled?: boolean;
+  /** Explicit OS service marker. Midnight is never inferred from customer-facing copy. */
+  serviceType?: "midnight" | string;
 };
 
+/** Premium Midnight delivery is deliberately restricted to these canonical zones. */
+export const MIDNIGHT_ELIGIBLE_CITY_IDS = ["lb-beirut", "lb-metn"] as const;
 const LB_TIME_SLOTS: TimeSlot[] = [
   { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
   { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
@@ -667,13 +673,19 @@ export type BookableSlotLike = {
   endHour?: number;
   cutoffHour?: number;
   cutoffMinute?: number;
+  startHour?: number;
+  serviceType?: string;
 };
 
 export type SlotBookability =
   | { bookable: true }
   | {
       bookable: false;
-      reason: "past_date" | "same_day_cutoff_passed" | "slot_window_ended";
+      reason:
+        | "past_date"
+        | "same_day_cutoff_passed"
+        | "slot_window_ended"
+        | "slot_unavailable";
     };
 
 /** Parse the end hour out of a "9:00 AM – 2:00 PM" style label. Null on failure. */
@@ -740,10 +752,28 @@ export function isSlotStillBookable(opts: {
   /** Optional additional absolute local-time cutoff, in minutes since midnight. */
   hardCutoffMinutes?: number;
   now?: Date;
+  cityId?: string | null;
 }): SlotBookability {
   const now = opts.now ?? new Date();
   const todayIso = getLocalIso(opts.countryCode, now);
   const dateIso = opts.deliveryDate || todayIso;
+
+  if (isMidnightSlot(opts.slot, opts.cityId)) {
+    const window = midnightWindowForOccasionDate(dateIso);
+    if (now.getTime() >= new Date(window.end).getTime()) {
+      return { bookable: false, reason: "slot_window_ended" };
+    }
+    const previousIso = addIsoDays(dateIso, -1);
+    if (todayIso > dateIso) return { bookable: false, reason: "past_date" };
+    if (todayIso === previousIso && typeof opts.slot?.cutoffHour === "number") {
+      const hour = getCountryHour(opts.countryCode, now);
+      if (hour >= opts.slot.cutoffHour) {
+        return { bookable: false, reason: "same_day_cutoff_passed" };
+      }
+    }
+    return { bookable: true };
+  }
+
   if (dateIso < todayIso) return { bookable: false, reason: "past_date" };
   if (dateIso > todayIso) return { bookable: true };
 
@@ -781,4 +811,111 @@ export function isSlotStillBookable(opts: {
     return { bookable: false, reason: "slot_window_ended" };
   }
   return { bookable: true };
+}
+
+export type MidnightWindow = {
+  occasionDate: string;
+  timeZone: "Asia/Beirut";
+  /** UTC ISO instant for 23:00 on the calendar day before occasionDate. */
+  start: string;
+  /** UTC ISO instant for 01:00 on occasionDate. */
+  end: string;
+};
+
+/** Detect the configured OS service independently of geographic eligibility. */
+export function isMidnightServiceSlot(
+  slot: Pick<TimeSlot, "serviceType" | "startHour" | "endHour"> | null | undefined,
+): boolean {
+  if (!slot) return false;
+  return (
+    slot.serviceType === "midnight" ||
+    (slot.startHour === MIDNIGHT_START_HOUR && slot.endHour === MIDNIGHT_END_HOUR)
+  );
+}
+
+export const MIDNIGHT_END_HOUR = 1;
+
+export function isMidnightEligibleCity(cityId?: string | null): boolean {
+  return MIDNIGHT_ELIGIBLE_CITY_IDS.includes(
+    cityId as (typeof MIDNIGHT_ELIGIBLE_CITY_IDS)[number],
+  );
+}
+
+function addIsoDays(iso: string, days: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) throw new Error("Invalid ISO date");
+  const d = new Date(Date.UTC(year, month - 1, day + days, 12));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Convert a local wall-clock time in an IANA timezone to a UTC instant.
+ * The two-pass correction is DST-safe for the non-ambiguous 01:00/23:00 times
+ * used by the Midnight service.
+ */
+function localWallClockToUtc(
+  dateIso: string,
+  hour: number,
+  timeZone: string,
+): Date {
+  const [year, month, day] = dateIso.split("-").map(Number);
+  if (!year || !month || !day) throw new Error("Invalid ISO date");
+  const targetAsUtc = Date.UTC(year, month - 1, day, hour, 0, 0);
+  let guess = targetAsUtc;
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  for (let pass = 0; pass < 2; pass += 1) {
+    const parts = formatter.formatToParts(new Date(guess));
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((part) => part.type === type)?.value ?? 0);
+    const representedAsUtc = Date.UTC(
+      value("year"),
+      value("month") - 1,
+      value("day"),
+      value("hour"),
+      value("minute"),
+      value("second"),
+    );
+    guess += targetAsUtc - representedAsUtc;
+  }
+  return new Date(guess);
+}
+
+/**
+ * The selected date is the occasion date that begins during the service:
+ * selecting Thursday means Wednesday 23:00 through Thursday 01:00 Beirut time.
+ */
+export function midnightWindowForOccasionDate(occasionDate: string): MidnightWindow {
+  const timeZone = "Asia/Beirut" as const;
+  const previousDate = addIsoDays(occasionDate, -1);
+  return {
+    occasionDate,
+    timeZone,
+    start: localWallClockToUtc(previousDate, MIDNIGHT_START_HOUR, timeZone).toISOString(),
+    end: localWallClockToUtc(occasionDate, MIDNIGHT_END_HOUR, timeZone).toISOString(),
+  };
+}
+
+export const MIDNIGHT_FEE_USD = 20;
+
+export const MIDNIGHT_START_HOUR = 23;
+
+/**
+ * Identify the configured OS Midnight service without relying on its translated
+ * display label. The explicit service marker is preferred; the 23:00→01:00
+ * window is retained as a compatibility signature for the existing OS rows.
+ */
+export function isMidnightSlot(
+  slot: Pick<TimeSlot, "serviceType" | "startHour" | "endHour"> | null | undefined,
+  cityId?: string | null,
+): boolean {
+  return isMidnightEligibleCity(cityId) && isMidnightServiceSlot(slot);
 }

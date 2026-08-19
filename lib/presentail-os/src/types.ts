@@ -26,6 +26,8 @@ export type OSTimeSlot = {
   nextDayEnabled?: boolean;
   /** Whether this slot is enabled at all. Absent is treated as true (backwards compat). */
   enabled?: boolean;
+  /** Explicit service identity supplied by OS. Used for premium fulfillment services. */
+  serviceType?: "midnight" | string;
 };
 
 export type OSCity = {
@@ -363,6 +365,14 @@ export type OSCreateOrderPayload = {
     address: string;
     date?: string;
     slot?: string;
+    /** Stable OS slot identifier; required for premium services. */
+    slotId?: string;
+    /** Distinct fulfillment service marker. */
+    serviceType?: "midnight" | string;
+    /** Recipient-zone delivery-window start/end instants. */
+    windowStart?: string;
+    windowEnd?: string;
+    timeZone?: string;
     isExpress: boolean;
     noAddress: boolean;
     /** Recipient phone number for this delivery (E.164 format when available). */
@@ -416,7 +426,7 @@ export type OSCreateOrderPayload = {
    * (e.g. "2026-06-18T13:00:00"). Omitted for express orders.
    */
   window_end?: string;
-  /** Delivery type: "standard" or "express". */
+  /** Delivery type: "standard", "express", or "midnight". */
   delivery_type?: string;
   /** Special instructions for the delivery (from order notes). */
   delivery_instructions?: string;

@@ -70,6 +70,7 @@ vi.mock("../lib/catalog", () => ({
     items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 10, name: "Rose", description: "", image: "" }],
   }),
   computeDistrictFeeUsd: computeDistrictFeeUsdMock,
+  computeSlotFeeUsd: vi.fn().mockReturnValue(0),
   expressSurchargeUsd: expressSurchargeUsdMock,
   countryForDistrict: countryForDistrictMock,
 }));
@@ -506,6 +507,50 @@ describe("verifyCartMatchesSnapshot — delivery slot", () => {
   });
 });
 
+describe("verifyCartMatchesSnapshot — exact Midnight delivery identity", () => {
+  const submittedItems = [{ wcId: 42, quantity: 1 }];
+  const snapshot: CartSnapshot = {
+    items: [{ wcId: 42, quantity: 1, priceUsd: 10 }],
+    district: "Beirut",
+    expressDelivery: false,
+    deliverySlot: "11 PM – 1 AM",
+    deliveryCityId: "lb-beirut",
+    deliveryDate: "2026-08-20",
+    deliverySlotId: "os-midnight-beirut",
+    deliveryServiceType: "midnight",
+  };
+  const matching = {
+    checkDelivery: true,
+    submittedDistrict: "Beirut",
+    submittedExpressDelivery: false,
+    submittedDeliverySlot: "11 PM – 1 AM",
+    submittedDeliveryCityId: "lb-beirut",
+    submittedDeliveryDate: "2026-08-20",
+    submittedDeliverySlotId: "os-midnight-beirut",
+    submittedDeliveryServiceType: "midnight" as const,
+  };
+
+  it("accepts the exact paid city/date/slot/service tuple", () => {
+    expect(
+      verifyCartMatchesSnapshot(submittedItems, snapshot, matching),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["city", { submittedDeliveryCityId: "lb-metn" }],
+    ["date", { submittedDeliveryDate: "2026-08-21" }],
+    ["slot ID", { submittedDeliverySlotId: "os-midnight-other" }],
+    ["service", { submittedDeliveryServiceType: undefined }],
+  ])("rejects a changed %s during paid recovery", (_field, override) => {
+    expect(
+      verifyCartMatchesSnapshot(submittedItems, snapshot, {
+        ...matching,
+        ...override,
+      }),
+    ).not.toBeNull();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // district-change scenario — verifyCartMatchesSnapshot district-mismatch
 // ---------------------------------------------------------------------------
@@ -602,17 +647,22 @@ describe("POST /checkout/payment-intent — Gulf store (UAE)", () => {
     delete process.env.STRIPE_SECRET_KEY_GULF;
   });
 
-  it("(g) Gulf store with USD → 422 currency_mismatch (no Stripe call)", async () => {
+  it("(g) Gulf store accepts USD on its multi-currency Stripe account", async () => {
+    createMock.mockResolvedValueOnce({
+      id: "pi_gulf_usd",
+      client_secret: "pi_gulf_usd_secret",
+      status: "requires_payment_method",
+      amount: 1000,
+      currency: "usd",
+    });
     const app = await buildApp();
     const res = await request(app)
       .post("/checkout/payment-intent")
       .send({ orderId: "AE-CURRENCY-MISMATCH", items: [{ wcId: 42, quantity: 1 }], currency: "USD" });
 
-    expect(res.status).toBe(422);
-    expect(res.body.ok).toBe(false);
-    expect(res.body.code).toBe("currency_mismatch");
-    expect(createMock).not.toHaveBeenCalled();
-    expect(searchMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(createMock).toHaveBeenCalledOnce();
   });
 
   it("(h) Gulf store with AED + failing Stripe create → 500, error logged, Slack alert fired", async () => {

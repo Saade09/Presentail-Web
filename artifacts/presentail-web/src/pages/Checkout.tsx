@@ -59,6 +59,7 @@ import { isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
 import { PhoneInfoTooltip } from "@/components/checkout/PhoneInfoTooltip";
+import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlotValidation";
 import { joinRecipientName } from "@/lib/recipientName";
 import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
@@ -74,6 +75,7 @@ import {
   freeDeliveryThresholdUsd,
   getCountryHour,
   isExpressDeliveryAvailable,
+  isMidnightSlot,
   slotTimeRangeForLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
@@ -481,6 +483,9 @@ type WalletPiSignatureInput = {
   noAddress: boolean;
   couponCode?: string;
   deliverySlot?: string;
+  deliverySlotId?: string;
+  deliveryCityId?: string;
+  deliveryDate?: string;
   district?: string;
 };
 function walletPiSignature(input: WalletPiSignatureInput): string {
@@ -493,6 +498,9 @@ function walletPiSignature(input: WalletPiSignatureInput): string {
     noAddress: input.noAddress,
     couponCode: input.couponCode ?? "",
     deliverySlot: input.deliverySlot ?? "",
+    deliverySlotId: input.deliverySlotId ?? "",
+    deliveryCityId: input.deliveryCityId ?? "",
+    deliveryDate: input.deliveryDate ?? "",
     district: input.district ?? "",
   });
 }
@@ -1324,6 +1332,13 @@ function CheckoutForm() {
     return timeSlotsForCountry(countryCode);
   }, [selectedCityData, countryCode]);
 
+  useMidnightSlotValidation(
+    timeSlots,
+    selectedCityData?.id ? String(selectedCityData.id) : null,
+    countryCode,
+    selectedCityData?.slotsByDay,
+  );
+
   useEffect(() => {
     // Only fall back once city data has loaded; firing before that would
     // reset a seeded "express" selection while expressAvailable is still
@@ -1438,6 +1453,20 @@ function CheckoutForm() {
           : recipient.deliveryDate || null,
       slotLabel: deliveryMode === "express" ? null : deliverySlot || null,
       slotId: deliveryMode === "express" ? null : deliverySlotId ?? null,
+      serviceType:
+        deliveryMode !== "express" &&
+        isMidnightSlot(
+          (deliverySlotId
+            ? timeSlots.find(
+                (slot) =>
+                  (slot as typeof slot & { slotId?: string }).slotId === deliverySlotId,
+              )
+            : undefined) ?? timeSlots.find((slot) => slot.label === deliverySlot),
+          selectedCityData?.id,
+        )
+          ? "midnight"
+          : null,
+      cityId: deliveryMode === "express" ? null : selectedCityData?.id ?? null,
       // A change caused by the sold-out correction effect below is a system
       // re-pick; anything else here reflects an explicit checkout interaction.
       source: systemCorrectionRef.current ? "system_reselected" : "user_selected",
@@ -1514,6 +1543,10 @@ function CheckoutForm() {
         date: result.iso,
         slotLabel: result.slot.label,
         slotId: result.slot.slotId ?? null,
+        serviceType: isMidnightSlot(result.slot, selectedCityData?.id)
+          ? "midnight"
+          : null,
+        cityId: selectedCityData?.id ?? null,
         source: "system_reselected",
       });
     }
@@ -1743,6 +1776,7 @@ function CheckoutForm() {
     const fees = calcCheckoutFees({
       subtotal,
       countryCode: countryCode ?? "LB",
+      cityId: selectedCityData?.id ? String(selectedCityData.id) : null,
       noAddress,
       cityFee: sCity?.fee ?? 0,
       deliveryMode,
@@ -1789,9 +1823,12 @@ function CheckoutForm() {
       noAddress,
       couponCode,
       deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+      deliverySlotId: deliveryMode === "express" ? undefined : deliverySlotId,
+      deliveryCityId: deliveryMode === "express" ? undefined : selectedCityData?.id,
+      deliveryDate:
+        deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
       district: effectDistrict || undefined,
     });
-
     // A fresh PaymentIntent for these exact inputs already exists — make sure
     // the button reflects readiness and stop.
     if (walletIntentRef.current?.signature === sig) {
@@ -1833,6 +1870,8 @@ function CheckoutForm() {
             deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
             ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
             ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+            deliveryDate:
+              deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
           } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
         }), 15000);
         if (cancelled) return;
@@ -1863,6 +1902,8 @@ function CheckoutForm() {
                 deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
                 ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
                 ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+                deliveryDate:
+                  deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
                 ...(couponCode ? { couponCode } : {}),
               }),
             })
@@ -1960,8 +2001,11 @@ function CheckoutForm() {
             setWalletReadySig(sig);
           }
         }
-      } catch {
+      } catch (error) {
         if (cancelled) return;
+        if (import.meta.env.DEV) {
+          console.warn("Wallet payment preparation failed", error);
+        }
         // Mark the failure so the spinner stops and the shopper can see an
         // error rather than a button disabled with no explanation. A later
         // input change (email, slot, coupon, etc.) clears this flag and
@@ -2001,6 +2045,8 @@ function CheckoutForm() {
     deliveryMode,
     timeSlots,
     deliverySlot,
+    deliverySlotId,
+    recipient.deliveryDate,
     couponApplied,
     couponInput,
     sender.email,
@@ -2057,9 +2103,10 @@ function CheckoutForm() {
     selectedCity?.freeDeliveryThresholdUsd ?? osCountryData?.freeDeliveryThresholdUsd;
   const effectiveFreeDeliveryEnabled =
     selectedCity?.freeDeliveryEnabled ?? osCountryData?.freeDeliveryEnabled;
-  const { districtFee, expressFee, slotFee, total } = calcCheckoutFees({
+  const { districtFee, expressFee, slotFee, isMidnightSlotActive, total } = calcCheckoutFees({
     subtotal,
     countryCode: countryCode ?? "LB",
+    cityId: selectedCity?.id ? String(selectedCity.id) : null,
     noAddress,
     cityFee: selectedCity?.fee ?? 0,
     deliveryMode,
@@ -2116,6 +2163,10 @@ function CheckoutForm() {
     noAddress,
     couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
     deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+    deliverySlotId: deliveryMode === "express" ? undefined : deliverySlotId,
+    deliveryCityId: deliveryMode === "express" ? undefined : selectedCityData?.id,
+    deliveryDate:
+      deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
     district: _selectedDistrict || undefined,
   });
   const isWalletMethodSelected =
@@ -2318,6 +2369,7 @@ function CheckoutForm() {
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
     deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
     ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+    deliveryServiceType: isMidnightSlotActive ? "midnight" : undefined,
     deliverySlotTime: deliveryMode === "express" ? undefined : slotTimeRangeForLabel(deliverySlot, timeSlots),
     cardMessage: recipient.cardMessage,
     cardTo: recipient.cardTo.trim() || undefined,
@@ -2545,6 +2597,10 @@ function CheckoutForm() {
         noAddress,
         couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
         deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
+        deliverySlotId: deliveryMode === "express" ? undefined : deliverySlotId,
+        deliveryCityId: deliveryMode === "express" ? undefined : selectedCityData?.id,
+        deliveryDate:
+          deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
         district: _selectedDistrict || undefined,
       });
       const prefetchedIntent =
@@ -2818,6 +2874,8 @@ function CheckoutForm() {
               deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
               ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
               ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+              deliveryDate:
+                deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
               ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
             }),
           });
@@ -2917,6 +2975,8 @@ function CheckoutForm() {
               deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
               ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
               ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+              deliveryDate:
+                deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
             } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
           });
         } catch (err: unknown) {
@@ -3127,6 +3187,11 @@ function CheckoutForm() {
           lastName: sender.lastName,
           returnUrl,
           failureReturnUrl: failureUrl,
+          deliverySlot: deliveryMode === "express" ? undefined : deliverySlot || undefined,
+          ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+          ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+          deliveryDate:
+            deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
         });
         if (!res.ok || !res.url) {
           toast({
@@ -3155,6 +3220,11 @@ function CheckoutForm() {
             lastName: sender.lastName,
             returnUrl,
             failureReturnUrl: failureUrl,
+            deliverySlot: deliveryMode === "express" ? undefined : deliverySlot || undefined,
+            ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
+            ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+            deliveryDate:
+              deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
           });
         } catch (tabbyErr: any) {
           // apiFetch throws on non-2xx — surface a useful message instead of
@@ -3205,6 +3275,8 @@ function CheckoutForm() {
               deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
               ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
               ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
+              deliveryDate:
+                deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
               billingCountry: klarnaBillingCountry,
             } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
           });
@@ -4293,6 +4365,7 @@ function CheckoutForm() {
             districtFee={displayDistrictFee}
             expressFee={displayExpressFee}
             slotFee={displaySlotFee}
+            isMidnightSlotActive={isMidnightSlotActive}
             confirmedCouponDiscount={displayCouponDiscount}
             isFreeDeliveryUnlocked={isFreeDeliveryUnlocked}
             originalCityFee={originalCityFee}
@@ -4366,7 +4439,7 @@ function CheckoutForm() {
             )}
             {pricesConfirmState.slotFee > 0 && (
               <div className="flex justify-between">
-                <span>{t("checkout.toast.pricesUpdatedSlot")}</span>
+                <span>{isMidnightSlotActive ? t("product.midnightDelivery") : t("checkout.toast.pricesUpdatedSlot")}</span>
                 <span>+ {pricesConfirmState.currency} {pricesConfirmState.slotFee.toLocaleString()}</span>
               </div>
             )}

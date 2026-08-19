@@ -49,6 +49,7 @@ type RawLegacyTimeSlot = {
   same_day?: boolean | null;
   next_day?: boolean | null;
   enabled?: boolean | null;
+  service_type?: string | null;
 };
 
 type RawLegacyCity = {
@@ -131,6 +132,7 @@ function mapLegacySlots(raw: RawLegacyTimeSlot[] | undefined): {
       sameDayEnabled: s.same_day ?? undefined,
       nextDayEnabled: s.next_day ?? undefined,
       enabled: s.enabled ?? undefined,
+      serviceType: s.service_type ?? undefined,
     };
     (slotsByDay[dayName] ??= []).push(slot);
   }

@@ -12,7 +12,16 @@ import {
   getDeliverySlots,
   getExpressConfig,
 } from "./osLocationsCache";
-import { getLocalIso, isSlotStillBookable, type SlotBookability } from "@workspace/delivery";
+import {
+  getLocalIso,
+  isSlotStillBookable,
+  isMidnightSlot,
+  isMidnightServiceSlot,
+  isMidnightEligibleCity,
+  MIDNIGHT_FEE_USD,
+  midnightWindowForOccasionDate,
+  type SlotBookability,
+} from "@workspace/delivery";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
 // server-side so the client cannot manipulate the delivery fee.
@@ -137,6 +146,9 @@ type SlotLike = {
   cutoffHour?: number;
   sameDayEnabled?: boolean;
   nextDayEnabled?: boolean;
+  endHour?: number;
+  enabled?: boolean;
+  serviceType?: string;
 };
 
 /**
@@ -157,12 +169,46 @@ type SlotLike = {
  */
 export function resolveSlotForDate<T extends SlotLike>(
   citySlots: T[],
-  opts: { deliverySlot: string; deliverySlotId?: string; dateIso: string; todayIso: string },
+  opts: {
+    deliverySlot: string;
+    deliverySlotId?: string;
+    dateIso: string;
+    todayIso: string;
+    cityId?: string;
+  },
 ): T | undefined {
   const { deliverySlot, deliverySlotId, dateIso, todayIso } = opts;
   const isToday = dateIso === todayIso;
 
-  let eligible = citySlots;
+  // An OS slot ID is the authoritative identity. When one is submitted, never
+  // substitute another same-label variant: identity, label, enabled state, and
+  // date eligibility must all describe the same configured row. Midnight is
+  // the sole date-flag exception because the occasion date anchors the 01:00
+  // end of its previous-day 23:00 → occasion-day 01:00 window.
+  if (deliverySlotId) {
+    const exact = citySlots.find(
+      (slot) => slot.slotId === deliverySlotId && slot.enabled !== false,
+    );
+    if (!exact || exact.label !== deliverySlot) return undefined;
+    if (isMidnightSlot(exact, opts.cityId)) return exact;
+    if (
+      isToday &&
+      citySlots.some((s) => s.sameDayEnabled !== undefined) &&
+      exact.sameDayEnabled === false
+    ) {
+      return undefined;
+    }
+    if (
+      !isToday &&
+      citySlots.some((s) => s.nextDayEnabled !== undefined) &&
+      exact.nextDayEnabled === false
+    ) {
+      return undefined;
+    }
+    return exact;
+  }
+
+  let eligible = citySlots.filter((slot) => slot.enabled !== false);
   if (isToday && citySlots.some((s) => s.sameDayEnabled !== undefined)) {
     eligible = citySlots.filter((s) => s.sameDayEnabled !== false);
   } else if (!isToday && citySlots.some((s) => s.nextDayEnabled !== undefined)) {
@@ -194,10 +240,6 @@ export function resolveSlotForDate<T extends SlotLike>(
   }
   const deduped = [...byLabel.values()];
 
-  if (deliverySlotId) {
-    const byId = deduped.find((s) => s.slotId === deliverySlotId);
-    if (byId) return byId;
-  }
   return deduped.find((s) => s.label === deliverySlot);
 }
 
@@ -217,16 +259,20 @@ export function computeSlotFeeUsd({
   district?: string;
 }): number {
   if (expressDelivery || !deliverySlot || !cityId) return 0;
-  const citySlots = getDeliverySlots(cityId);
   const bookedCountry = countryForDistrict(district ?? "Beirut");
   const todayIso = getLocalIso(bookedCountry);
+  const citySlots = getDeliverySlots(cityId, deliveryDate || todayIso);
   const bookedSlot = resolveSlotForDate(citySlots, {
     deliverySlot,
     deliverySlotId,
     dateIso: deliveryDate || todayIso,
     todayIso,
+    cityId,
   });
   if (!bookedSlot) return 0;
+  // MIDNIGHT: always charge exactly MIDNIGHT_FEE_USD ($20) — never use label
+  // heuristic, never waive via free-delivery, never defer to extraFee.
+  if (isMidnightSlot(bookedSlot, cityId)) return MIDNIGHT_FEE_USD;
   // extraFee: N > 0 → OS provides the exact fee; use it directly.
   // extraFee: 0/undefined/null → no real OS override; fall through to the
   // night-slot heuristic. This matches the client-side display logic
@@ -253,6 +299,7 @@ export type SubmittedSlotInput = {
   deliverySlotId?: string;
   deliveryDate?: string;
   cityId?: string;
+  deliveryServiceType?: "midnight";
   district?: string;
   /** Injected clock for tests. */
   now?: Date;
@@ -266,40 +313,94 @@ export type SubmittedSlotInput = {
  * (slotId-first, date-aware) so we honour the real window end hour; when the
  * city config is unavailable we fall back to parsing the label itself.
  */
-export function checkSubmittedSlotBookable(opts: SubmittedSlotInput): SlotBookability {
+export function checkSubmittedSlotBookable(
+  opts: SubmittedSlotInput,
+): SlotBookability & { serviceType?: "midnight" } {
   if (opts.expressDelivery || !opts.deliverySlot) return { bookable: true };
   const country = countryForDistrict(opts.district ?? "Beirut");
   const todayIso = getLocalIso(country, opts.now);
-  const citySlots = opts.cityId ? getDeliverySlots(opts.cityId) : [];
-  const resolvedBookedSlot = resolveSlotForDate(citySlots, {
-      deliverySlot: opts.deliverySlot,
-      deliverySlotId: opts.deliverySlotId,
-      dateIso: opts.deliveryDate || todayIso,
-      todayIso,
-    });
-  const bookedSlot = resolvedBookedSlot ?? { label: opts.deliverySlot };
-  const { sameDayCutoffHour, sameDayCutoffMinute } = getExpressConfig(opts.cityId);
+  const citySlots = opts.cityId
+    ? getDeliverySlots(opts.cityId, opts.deliveryDate || todayIso)
+    : [];
+  let exactSubmittedSlot: (typeof citySlots)[number] | undefined;
+  if (opts.deliverySlotId) {
+    exactSubmittedSlot = citySlots.find(
+      (slot) => slot.slotId === opts.deliverySlotId,
+    );
+    if (!exactSubmittedSlot || exactSubmittedSlot.enabled === false) {
+      return {
+        bookable: false,
+        reason: "slot_unavailable",
+      };
+    }
+  }
+  const resolvedSlot = resolveSlotForDate(citySlots, {
+    deliverySlot: opts.deliverySlot,
+    deliverySlotId: opts.deliverySlotId,
+    dateIso: opts.deliveryDate || todayIso,
+    todayIso,
+    cityId: opts.cityId,
+  });
+  if (opts.deliverySlotId && !resolvedSlot) {
+    return { bookable: false, reason: "slot_unavailable" };
+  }
+  const bookedSlot = resolvedSlot ?? { label: opts.deliverySlot };
+  const bookedIsMidnight = isMidnightSlot(
+    bookedSlot as { serviceType?: string; startHour?: number; endHour?: number },
+    opts.cityId,
+  );
+  if (
+    isMidnightServiceSlot(
+      bookedSlot as { serviceType?: string; startHour?: number; endHour?: number },
+    ) &&
+    !isMidnightEligibleCity(opts.cityId)
+  ) {
+    return { bookable: false, reason: "slot_unavailable" };
+  }
+  if (bookedIsMidnight && !opts.deliverySlotId) {
+    return { bookable: false, reason: "slot_unavailable" };
+  }
+  if (
+    bookedIsMidnight &&
+    exactSubmittedSlot?.slotId !==
+      (bookedSlot as { slotId?: string }).slotId
+  ) {
+    return { bookable: false, reason: "slot_unavailable" };
+  }
+  if (
+    opts.deliveryServiceType === "midnight" &&
+    (!opts.deliverySlotId || !bookedIsMidnight)
+  ) {
+    return { bookable: false, reason: "slot_unavailable" };
+  }
+  const { sameDayCutoffHour, sameDayCutoffMinute } = getExpressConfig(
+    opts.cityId,
+  );
   const isBeirutLateSlot =
     country === "LB" &&
     /(?:^|-)beirut$/i.test(opts.cityId ?? "") &&
     Boolean(opts.deliverySlotId) &&
-    resolvedBookedSlot?.enabled === true &&
-    resolvedBookedSlot.sameDayEnabled === true &&
-    typeof resolvedBookedSlot.startHour === "number" &&
-    resolvedBookedSlot.startHour >= 18 &&
-    typeof resolvedBookedSlot.endHour === "number" &&
-    (resolvedBookedSlot.endHour >= 21 ||
-      resolvedBookedSlot.endHour < resolvedBookedSlot.startHour);
-  return isSlotStillBookable({
+    exactSubmittedSlot?.enabled === true &&
+    exactSubmittedSlot.sameDayEnabled === true &&
+    typeof exactSubmittedSlot.startHour === "number" &&
+    exactSubmittedSlot.startHour >= 18 &&
+    typeof exactSubmittedSlot.endHour === "number" &&
+    (exactSubmittedSlot.endHour >= 21 ||
+      exactSubmittedSlot.endHour < exactSubmittedSlot.startHour);
+  const bookability = isSlotStillBookable({
     deliveryDate: opts.deliveryDate,
     slot: bookedSlot,
     countryCode: country,
+    cityId: opts.cityId,
     sameDayCutoffHour,
     sameDayCutoffMinute,
     enforceSlotCutoff: isBeirutLateSlot,
     hardCutoffMinutes: isBeirutLateSlot ? 23 * 60 + 30 : undefined,
     now: opts.now,
   });
+  return bookability.bookable && bookedIsMidnight
+    ? { ...bookability, serviceType: "midnight" }
+    : bookability;
 }
 
 export type OrderSlotGuardResult =
@@ -320,6 +421,81 @@ export function evaluateOrderSlotGuard(
   return { action: "reject", reason: check.reason };
 }
 
+/**
+ * Midnight-specific pre-payment guard (409 before charge creation).
+ *
+ * When the submitted delivery slot resolves to a Midnight slot for the given
+ * cityId + occasionDate, this verifier checks that the exact slotId still
+ * exists and is enabled in the OS city config for that day. Returns a 409
+ * error if the slot is missing or disabled so the client can show an
+ * actionable error before any money moves.
+ *
+ * IMPORTANT: paid recovery replays (paymentRef present) always pass — a
+ * charge has already been captured and must never be left orphaned.
+ *
+ * Returns `{ ok: true }` for all non-Midnight or express orders so callers
+ * can use this unconditionally.
+ */
+export function checkMidnightSlotAvailable(opts: {
+  expressDelivery?: boolean;
+  deliverySlotId?: string;
+  deliverySlot?: string;
+  deliveryDate?: string;
+  cityId?: string;
+  district?: string;
+  /** Paid recovery path — always allow. */
+  paymentRef?: string;
+}): { ok: true } | { ok: false; code: string; message: string } {
+  if (opts.expressDelivery || !opts.cityId || !opts.deliverySlot) return { ok: true };
+  // Paid recovery: charge is already captured — never block.
+  if (opts.paymentRef) return { ok: true };
+
+  const country = countryForDistrict(opts.district ?? "Beirut");
+  const todayIso = getLocalIso(country);
+  const citySlots = getDeliverySlots(opts.cityId, opts.deliveryDate || todayIso);
+
+  // Any submitted OS slot identity must still exist for the selected date.
+  // Never silently substitute a same-label slot when an exact ID was supplied.
+  const exactSlot = opts.deliverySlotId
+    ? citySlots.find((slot) => slot.slotId === opts.deliverySlotId)
+    : undefined;
+  if (opts.deliverySlotId && (!exactSlot || exactSlot.enabled === false)) {
+    return {
+      ok: false,
+      code: "delivery_slot_unavailable",
+      message:
+        "The selected delivery slot is no longer available for this date. Please choose another time.", // i18n-ignore
+    };
+  }
+  const resolvedSlot =
+    exactSlot ??
+    resolveSlotForDate(citySlots, {
+      deliverySlot: opts.deliverySlot,
+      deliverySlotId: opts.deliverySlotId,
+      dateIso: opts.deliveryDate || todayIso,
+      todayIso,
+      cityId: opts.cityId,
+    });
+
+  // Only enforce the remaining gate for Midnight slots.
+  if (!resolvedSlot || !isMidnightSlot(resolvedSlot, opts.cityId)) return { ok: true };
+
+  // The slot resolved correctly — it exists and is eligible for the date.
+  // (resolveSlotForDate already filters by sameDayEnabled / nextDayEnabled.)
+  // Re-verify that the exact submitted slotId matches (tamper protection):
+  // a client that forges a Midnight slotId against a standard slot must be
+  // caught before the order is submitted to OS.
+  if (!opts.deliverySlotId || resolvedSlot.slotId !== opts.deliverySlotId) {
+    return {
+      ok: false,
+      code: "midnight_slot_unavailable",
+      message:
+        "The Midnight delivery slot is no longer available for the selected date. Please choose a different slot.", // i18n-ignore
+    };
+  }
+
+  return { ok: true };
+}
 type CatalogProduct = { price: number; name: string };
 
 // Fetch the authoritative catalog price (USD) for a single product by WC ID.
@@ -650,4 +826,45 @@ export async function captureAndVerifyPayPalOrder(orderId: string): Promise<bool
   } catch {
     return false;
   }
+}
+
+/** Authoritative service marker for a submitted exact OS slot identity. */
+export function resolveDeliveryServiceType(opts: {
+  expressDelivery?: boolean;
+  deliverySlotId?: string;
+  deliverySlot?: string;
+  deliveryDate?: string;
+  cityId?: string;
+  district?: string;
+}): "midnight" | undefined {
+  return resolveMidnightWindow(opts) ? "midnight" : undefined;
+}
+
+/**
+ * Extract window timestamps for a Midnight booking so they can be stored in
+ * app_orders.deliveryWindowStart / deliveryWindowEnd and sent to OS.
+ *
+ * Returns undefined for non-Midnight or express orders.
+ */
+export function resolveMidnightWindow(opts: {
+  expressDelivery?: boolean;
+  deliverySlotId?: string;
+  deliverySlot?: string;
+  deliveryDate?: string;
+  cityId?: string;
+  district?: string;
+}): ReturnType<typeof midnightWindowForOccasionDate> | undefined {
+  if (opts.expressDelivery || !opts.cityId || !opts.deliveryDate || !opts.deliverySlot) return undefined;
+  const country = countryForDistrict(opts.district ?? "Beirut");
+  const todayIso = getLocalIso(country);
+  const citySlots = getDeliverySlots(opts.cityId, opts.deliveryDate);
+  const resolvedSlot = resolveSlotForDate(citySlots, {
+    deliverySlot: opts.deliverySlot,
+    deliverySlotId: opts.deliverySlotId,
+    dateIso: opts.deliveryDate,
+    todayIso,
+    cityId: opts.cityId,
+  });
+  if (!resolvedSlot || !isMidnightSlot(resolvedSlot, opts.cityId)) return undefined;
+  return midnightWindowForOccasionDate(opts.deliveryDate);
 }

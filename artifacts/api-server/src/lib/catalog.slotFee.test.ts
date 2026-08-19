@@ -61,24 +61,24 @@ import { getDeliverySlots } from "./osLocationsCache";
 const getDeliverySlotsMock = vi.mocked(getDeliverySlots);
 
 describe("resolveSlotForDate — date-aware duplicate-label resolution", () => {
-  it("today: an ineligible next-day slotId is normalized to the same-day paid variant", () => {
+  it("today: rejects an exact next-day-only slotId instead of substituting a same-label variant", () => {
     const slot = resolveSlotForDate(DUP_SLOTS, {
       deliverySlot: "9:00 PM – 11:00 PM",
       deliverySlotId: "night-next-day", // not eligible today
       dateIso: TODAY,
       todayIso: TODAY,
     });
-    expect(slot?.slotId).toBe("night-same-day");
+    expect(slot).toBeUndefined();
   });
 
-  it("tomorrow: an ineligible same-day slotId is normalized to the next-day free variant", () => {
+  it("tomorrow: rejects an exact same-day-only slotId instead of substituting a same-label variant", () => {
     const slot = resolveSlotForDate(DUP_SLOTS, {
       deliverySlot: "9:00 PM – 11:00 PM",
       deliverySlotId: "night-same-day", // not eligible tomorrow
       dateIso: TOMORROW,
       todayIso: TODAY,
     });
-    expect(slot?.slotId).toBe("night-next-day");
+    expect(slot).toBeUndefined();
   });
 
   it("matching eligible slotId is used directly", () => {
@@ -131,7 +131,7 @@ describe("computeSlotFeeUsd — payment-recovery fee integrity", () => {
     expect(fee).toBe(0);
   });
 
-  it("conflicting duplicate-label slotId submitted for today charges the same-day paid fee", () => {
+  it("conflicting duplicate-label slotId submitted for today cannot be priced by substitution", () => {
     getDeliverySlotsMock.mockReturnValue(DUP_SLOTS);
     const fee = computeSlotFeeUsd({
       deliverySlot: "9:00 PM – 11:00 PM",
@@ -140,7 +140,7 @@ describe("computeSlotFeeUsd — payment-recovery fee integrity", () => {
       deliveryDate: TODAY,
       district: "Beirut",
     });
-    expect(fee).toBe(7);
+    expect(fee).toBe(0);
   });
 
   it("conflicting duplicate-label slotId submitted for tomorrow charges the free next-day fee", () => {

@@ -1,6 +1,6 @@
 ---
-name: CyberSource integration removed
-description: CyberSource payment integration was completely removed in August 2026; historical data preserved read-only.
+name: CyberSource storefront removal
+description: CyberSource checkout UI was removed in August 2026; historical data and mounted legacy backend compatibility paths remain.
 ---
 
 # CyberSource Integration Removed
@@ -8,7 +8,7 @@ description: CyberSource payment integration was completely removed in August 20
 **Date removed:** August 2026
 
 ## Status
-CyberSource (Microform, Unified Checkout, Payer Auth 3DS) was fully removed from the Presentail codebase. A future implementation can start from a clean slate.
+CyberSource (Microform, Unified Checkout, Payer Auth 3DS) was removed from the customer-facing web and mobile checkout. The API still mounts legacy CyberSource authorization and finalization paths for compatibility, so shared payment-integrity changes must include them even though shoppers cannot select CyberSource in the current UI.
 
 ## Historical data preserved
 - `lib/db/migrations/0016_cs_payment_attempts.sql` — do NOT drop (production data)
@@ -26,3 +26,5 @@ CyberSource (Microform, Unified Checkout, Payer Auth 3DS) was fully removed from
 CYBERSOURCE_MERCHANT_ID, CYBERSOURCE_API_KEY_ID, CYBERSOURCE_SHARED_SECRET_KEY, CYBERSOURCE_ENVIRONMENT, CYBERSOURCE_GOOGLE_PAY_MERCHANT_ID, CYBERSOURCE_CHECKOUT_ENABLED, CYBERSOURCE_UNIFIED_CHECKOUT_ENABLED, CYBERSOURCE_PAYER_AUTH_ENABLED, CYBERSOURCE_PA_API_IDENTIFIER, CYBERSOURCE_PA_API_KEY, CYBERSOURCE_PA_ORG_UNIT_ID
 
 **Why:** CS integration removed to rebuild from scratch; historical order records must remain readable.
+
+**How to apply:** do not restore CyberSource UI without explicit product approval. Keep historical records readable, and when shared cart snapshots, delivery guards, or finalization invariants change, keep the mounted legacy API path fail-closed and covered by tests.

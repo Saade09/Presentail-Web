@@ -768,6 +768,10 @@ export const useStripeCheckoutSession = () => {
       district?: string;
       expressDelivery?: boolean;
       noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
     }) => apiFetch<{ ok: boolean; id?: string; url?: string; message?: string; code?: string }>("/checkout/session", {
       method: "POST",
       body: JSON.stringify(data),
@@ -784,6 +788,10 @@ export const useMamoPayment = () => {
       district?: string;
       expressDelivery?: boolean;
       noAddress?: boolean;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
       currency?: string;
       title?: string;
       description?: string;
@@ -839,6 +847,10 @@ export const useTabbyPayment = () => {
       lastName?: string;
       returnUrl: string;
       failureReturnUrl: string;
+      deliverySlot?: string;
+      deliverySlotId?: string;
+      cityId?: string;
+      deliveryDate?: string;
     }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/tabby", {
       method: "POST",
       body: JSON.stringify(data),

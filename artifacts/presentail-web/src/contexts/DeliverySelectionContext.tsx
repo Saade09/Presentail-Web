@@ -44,6 +44,10 @@ export type DeliverySelection = {
    * a next-day free one) so fee lookups charge the variant the shopper saw.
    */
   slotId: string | null;
+  /** Authoritative premium service marker captured from the selected OS slot. */
+  serviceType: "midnight" | null;
+  /** Canonical city where the exact OS slot was selected. */
+  cityId: string | null;
   /** Who produced this selection. `null` only when no selection exists. */
   source: DeliverySelectionSource | null;
 };
@@ -94,7 +98,15 @@ function readStoredCountryCode(): string | null {
   }
 }
 
-const EMPTY: DeliverySelection = { mode: null, date: null, slotLabel: null, slotId: null, source: null };
+const EMPTY: DeliverySelection = {
+  mode: null,
+  date: null,
+  slotLabel: null,
+  slotId: null,
+  serviceType: null,
+  cityId: null,
+  source: null,
+};
 
 /**
  * Map a stored source to the source of the *restored* selection:
@@ -126,22 +138,32 @@ export function sanitize(raw: unknown, countryCode?: string | null): DeliverySel
     typeof obj.slotLabel === "string" && obj.slotLabel.length > 0
       ? obj.slotLabel
       : null;
-  if (slotLabel) {
-    const known = new Set(
-      [...timeSlotsForCountry("LB"), ...timeSlotsForCountry("AE")].map(
-        (s) => s.label,
-      ),
-    );
-    if (!known.has(slotLabel)) slotLabel = null;
-  }
+  // Previously we filtered slotLabel against a hardcoded list of LB/AE slots.
+  // We no longer do this here because OS city data provides dynamic slots
+  // (like Midnight Delivery) that aren't in the flat fallback list. Validation
+  // against the real OS slots happens in ProductDetail/Cart when data loads.
   const slotId =
     slotLabel && typeof obj.slotId === "string" && obj.slotId.length > 0
       ? obj.slotId
       : null;
+  const serviceType =
+    slotId && obj.serviceType === "midnight" ? "midnight" as const : null;
+  const cityId =
+    slotId && typeof obj.cityId === "string" && obj.cityId.length > 0
+      ? obj.cityId
+      : null;
   if (!mode) return EMPTY;
   const source = restoredSource(obj.source);
   if (mode === "express") {
-    return { mode, date: todayIso(), slotLabel: null, slotId: null, source };
+    return {
+      mode,
+      date: todayIso(),
+      slotLabel: null,
+      slotId: null,
+      serviceType: null,
+      cityId: null,
+      source,
+    };
   }
   const today = todayIso();
   if (!date || date === today) {
@@ -155,6 +177,8 @@ export function sanitize(raw: unknown, countryCode?: string | null): DeliverySel
         date: resolved.date,
         slotLabel: resolved.slotLabel,
         slotId: null,
+        serviceType: null,
+        cityId: null,
         // The stored choice is no longer available — the system re-picked.
         source: "system_reselected",
       };
@@ -163,10 +187,20 @@ export function sanitize(raw: unknown, countryCode?: string | null): DeliverySel
       date = today;
       // The stored date passed (or was missing): what we return is not the
       // shopper's original explicit pick anymore.
-      if (datePassed) return { mode, date, slotLabel, slotId, source: "system_reselected" };
+      if (datePassed) {
+        return {
+          mode,
+          date,
+          slotLabel,
+          slotId,
+          serviceType,
+          cityId,
+          source: "system_reselected",
+        };
+      }
     }
   }
-  return { mode, date, slotLabel, slotId, source };
+  return { mode, date, slotLabel, slotId, serviceType, cityId, source };
 }
 
 function readInitial(): DeliverySelection {

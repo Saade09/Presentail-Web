@@ -40,6 +40,11 @@ export type CartSnapshot = {
   // Verified at finalization so a free-slot payment cannot be upgraded to a
   // fee-slot on the order submission.
   deliverySlot?: string;
+  /** Canonical OS delivery identity bound to the paid amount. */
+  deliveryCityId?: string;
+  deliveryDate?: string;
+  deliverySlotId?: string;
+  deliveryServiceType?: "midnight";
   // Server-computed fee breakdown (USD) at payment-session creation time.
   // Stored so wooOrders.ts can use the exact same fees rather than re-computing
   // from the OS cache (which may have changed since the session was created).
@@ -187,6 +192,10 @@ export type SnapshotVerifyOptions = {
   submittedNoAddress?: boolean;
   // The delivery slot label from the /woo/order body (body.deliverySlot).
   submittedDeliverySlot?: string;
+  submittedDeliveryCityId?: string;
+  submittedDeliveryDate?: string;
+  submittedDeliverySlotId?: string;
+  submittedDeliveryServiceType?: "midnight";
 };
 
 // Verify that a submitted cart (from the /woo/order body) matches the cart
@@ -263,6 +272,30 @@ export function verifyCartMatchesSnapshot(
     const submittedSlot = opts.submittedDeliverySlot ?? "";
     if (snapshotSlot !== submittedSlot) {
       return `Delivery slot mismatch: submitted "${submittedSlot}", paid for "${snapshotSlot}"`; // i18n-ignore
+    }
+    if (
+      snapshot.deliveryCityId !== undefined &&
+      (opts.submittedDeliveryCityId ?? "") !== snapshot.deliveryCityId
+    ) {
+      return `Delivery city mismatch: submitted "${opts.submittedDeliveryCityId ?? ""}", paid for "${snapshot.deliveryCityId}"`; // i18n-ignore
+    }
+    if (
+      snapshot.deliveryDate !== undefined &&
+      (opts.submittedDeliveryDate ?? "") !== snapshot.deliveryDate
+    ) {
+      return `Delivery date mismatch: submitted "${opts.submittedDeliveryDate ?? ""}", paid for "${snapshot.deliveryDate}"`; // i18n-ignore
+    }
+    if (
+      snapshot.deliverySlotId !== undefined &&
+      (opts.submittedDeliverySlotId ?? "") !== snapshot.deliverySlotId
+    ) {
+      return `Delivery slot ID mismatch: submitted "${opts.submittedDeliverySlotId ?? ""}", paid for "${snapshot.deliverySlotId}"`; // i18n-ignore
+    }
+    if (
+      snapshot.deliveryServiceType !== undefined &&
+      opts.submittedDeliveryServiceType !== snapshot.deliveryServiceType
+    ) {
+      return `Delivery service mismatch: submitted "${opts.submittedDeliveryServiceType ?? ""}", paid for "${snapshot.deliveryServiceType}"`; // i18n-ignore
     }
   }
 

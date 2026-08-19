@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Zap, CalendarDays, Check, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { Zap, CalendarDays, Check, ChevronLeft, ChevronRight, ArrowRight, Moon } from "lucide-react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -24,12 +24,13 @@ import {
   getCountryHour,
   getLocalIso,
   isExpressDeliveryAvailable,
+  isMidnightSlot,
   nearestSlotForHour,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 import { displayedSlotsForDate } from "./displayedSlots";
-import { trackWebEvent } from "@/lib/analytics";
+import { trackWebEvent, trackWebEventOnce } from "@/lib/analytics";
 import { buildExpressPromise, buildStandardPromise } from "./deliveryPromise";
 import { DeliverEarlierDialog } from "./DeliverEarlierDialog";
 
@@ -53,6 +54,8 @@ export type DeliveryPickerSelection = {
   slotLabel: string | null;
   /** OS-assigned stable ID of the selected slot configuration (disambiguates duplicate labels). */
   slotId: string | null;
+  serviceType: "midnight" | null;
+  cityId: string | null;
 };
 
 interface Props {
@@ -285,7 +288,7 @@ function InlineCalendar({ selectedIso, todayIso, todaySelectable, onSelect, prev
 
 export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd, initialModeOverride }: Props) {
   const { t, language } = useLocale();
-  const { countryCode } = useLocationSelection();
+  const { countryCode, city } = useLocationSelection();
   const now = useNow();
   const deliverySelection = useDeliverySelection();
 
@@ -319,8 +322,17 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   // as the product page's ScheduleInlinePanel (sameDayEnabled/nextDayEnabled
   // flags, duplicate-label preference, $5 same-day night fallback).
   const slotsForDate = useCallback(
-    (dateIso: string) => sortSlots(displayedSlotsForDate(rawTimeSlots, dateIso, todayIso, tomorrowIso)),
-    [rawTimeSlots, todayIso, tomorrowIso],
+    (dateIso: string) => {
+      const weekday = new Date(`${dateIso}T12:00:00`).toLocaleDateString("en-US", {
+        weekday: "long",
+      }).toLowerCase();
+      const source =
+        city?.slotsByDay && Object.prototype.hasOwnProperty.call(city.slotsByDay, weekday)
+          ? city.slotsByDay[weekday] ?? []
+          : rawTimeSlots;
+      return sortSlots(displayedSlotsForDate(source, dateIso, todayIso, tomorrowIso, city?.id));
+    },
+    [rawTimeSlots, todayIso, tomorrowIso, city?.id, city?.slotsByDay],
   );
 
   const todaySlots = useMemo(() => slotsForDate(todayIso), [slotsForDate, todayIso]);
@@ -364,6 +376,27 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const [slot, setSlot] = useState(initialSlot);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  const midnightViewedRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      midnightViewedRef.current = false;
+      return;
+    }
+    const activeIso = date || todayIso;
+    const midnightSlot = slotsForDate(activeIso).find((s) => isMidnightSlot(s, city?.id));
+    if (midnightSlot && !midnightViewedRef.current) {
+      midnightViewedRef.current = true;
+      trackWebEventOnce({
+        type: "midnight_option_viewed",
+        properties: {
+          city_id: city?.id ?? "unknown",
+          date: activeIso,
+          slot_id: midnightSlot.slotId ?? undefined,
+        },
+      }, `${city?.id ?? "unknown"}|${activeIso}|${midnightSlot.slotId ?? ""}`);
+    }
+  }, [open, date, todayIso, slotsForDate, city?.id]);
+
   useEffect(() => {
     if (!open) return;
     setCalendarOpen(false);
@@ -401,10 +434,14 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     const daySlots = slotsForDate(dateIso);
     // Keep the persisted slot only when it's valid for this date's slot list.
     const persisted = deliverySelection.slotLabel;
+    const persistedById = deliverySelection.slotId
+      ? daySlots.find((s) => s.slotId === deliverySelection.slotId)
+      : undefined;
     setSlot(
-      persisted && daySlots.some((s) => s.label === persisted)
+      persistedById?.label ??
+      (persisted && daySlots.some((s) => s.label === persisted)
         ? persisted
-        : defaultSlotForDate(dateIso),
+        : defaultSlotForDate(dateIso))
     );
   }, [open]);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -482,7 +519,14 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     // between midnight UTC and ~3 AM Beirut time.
     let selection: DeliveryPickerSelection;
     if (mode === "express") {
-      selection = { mode: "express", date: todayIso, slotLabel: null, slotId: null };
+      selection = {
+        mode: "express",
+        date: todayIso,
+        slotLabel: null,
+        slotId: null,
+        serviceType: null,
+        cityId: null,
+      };
     } else {
       const resolvedMode = date && date === todayIso ? "today_slot" : "schedule";
       selection = {
@@ -493,6 +537,11 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
         // dedup can pick different same-label variants per date) so fee
         // lookups downstream never resolve the wrong duplicate.
         slotId: selectedSlotState?.slot.slotId ?? null,
+        serviceType:
+          selectedSlotState && isMidnightSlot(selectedSlotState.slot, city?.id)
+            ? "midnight"
+            : null,
+        cityId: city?.id ?? null,
       };
     }
     // "Deliver earlier?" gate: when a committed selection exists and the newly
@@ -725,22 +774,44 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                     : t("delivery.picker.step3")}
                 </SectionHeading>
                 {hasAnyAvailableSlot ? (
-                  <div
-                    role="radiogroup"
-                    aria-label={t("delivery.picker.step3")}
-                    className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2"
-                  >
+                  <>
+                    <div
+                      role="radiogroup"
+                      aria-label={t("delivery.picker.step3")}
+                      className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2"
+                    >
                     {slotStates.map(({ slot: s, unavailable, startH, displayFee }) => {
                       const isSelected = slot === s.label && !unavailable;
+                      const isMidnight = isMidnightSlot(s, city?.id);
+                      // Don't show the +$20 fee badge inside the pill if it is selected,
+                      // because the large banner will show it.
+                      const showBadge = displayFee && !(isMidnight && isSelected);
                       return (
                         <button
-                          key={s.label}
+                          key={
+                            s.slotId ??
+                            `${s.label}-${s.startHour ?? "na"}-${s.endHour ?? "na"}-${s.cutoffHour}`
+                          }
                           type="button"
                           role="radio"
                           aria-checked={isSelected}
                           disabled={unavailable}
                           aria-disabled={unavailable}
-                          onClick={() => !unavailable && setSlot(s.label)}
+                          onClick={() => {
+                            if (!unavailable) {
+                              setSlot(s.label);
+                              if (isMidnight) {
+                                trackWebEventOnce({
+                                  type: "midnight_option_selected",
+                                  properties: {
+                                    city_id: city?.id ?? "unknown",
+                                    date: selectedIso,
+                                    slot_id: s.slotId ?? undefined
+                                  }
+                                }, `${city?.id ?? "unknown"}|${selectedIso}|${s.slotId ?? ""}`);
+                              }
+                            }
+                          }}
                           className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                             isSelected
                               ? "border-primary bg-primary/5"
@@ -751,7 +822,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                           data-testid={`slot-${s.label}`}
                         >
                           <span className="flex-1 min-w-0">
-                            <span className={`block font-semibold sm:whitespace-nowrap ${unavailable ? "text-muted-foreground" : "text-foreground"}`}>
+                            <span className={`flex items-center gap-1.5 font-semibold sm:whitespace-nowrap ${unavailable ? "text-muted-foreground" : "text-foreground"}`}>
+                              {isMidnight && <Moon className="w-4 h-4 opacity-80" />}
                               {slotTimeText(s)}
                             </span>
                             <span className="block text-xs font-normal text-muted-foreground mt-1">
@@ -765,7 +837,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                           </span>
                           {!unavailable && (
                             <>
-                              {displayFee ? (
+                              {showBadge ? (
                                 <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">+<FormattedPrice usdValue={displayFee} /></span>
                               ) : null}
                               <RadioDot selected={isSelected} />
@@ -775,8 +847,40 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                       );
                     })}
                   </div>
-                ) : (
-                  <div
+
+                  {(() => {
+                    const activeSlotState = slotStates.find(s => s.slot.label === slot && !s.unavailable);
+                    if (activeSlotState && isMidnightSlot(activeSlotState.slot, city?.id)) {
+                      const promiseDate = addDaysIso(selectedIso, 1);
+                      const promiseDateStr = (() => {
+                        const dayEntry = quickDays.find((d) => d.iso === promiseDate);
+                        if (dayEntry) {
+                          return `${dayEntry.day}, ${dayEntry.date} ${dayMonthShort(promiseDate)}`;
+                        }
+                        return `${weekdayDayMonth(promiseDate)}`;
+                      })();
+                      return (
+                        <div className="rounded-xl bg-[#FFF8EE] text-[#1A1A1A] p-4 flex items-center justify-between mt-3" data-testid="midnight-delivery-banner">
+                          <div className="flex gap-3 items-start">
+                            <Moon className="w-5 h-5 mt-0.5 opacity-80" />
+                            <div>
+                              <p className="text-sm font-semibold leading-tight">{t("product.midnightDelivery")}</p>
+                              <p className="text-xs opacity-70 mt-1 leading-tight">
+                                {t("product.midnightArrivesAs").replace("{date}", promiseDateStr)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-base font-semibold whitespace-nowrap pl-4">
+                            +<FormattedPrice usdValue={activeSlotState.displayFee ?? 20} />
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </>
+              ) : (
+                <div
                     className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground"
                     role="status"
                     data-testid="slots-empty-state"

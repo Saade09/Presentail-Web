@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TimeSlot } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "./ScheduleInlinePanel";
@@ -51,6 +51,9 @@ const LOCALE_T: Record<string, string> = {
   "product.calendarAria": "Open calendar",
   "checkout.deliveryDate": "Delivery date",
   "checkout.deliveryTime": "Delivery time",
+  "product.midnightDelivery": "Midnight Delivery",
+  "product.midnightArrivesAs": "Starts between 11 PM the day before and 1 AM on {date}",
+  "product.deliveryExtraFee": "+{fee}",
 };
 
 const locale = {
@@ -128,6 +131,86 @@ describe("ScheduleInlinePanel — synthetic chip for out-of-strip dates", () => 
     );
     const chips = screen.getAllByTestId(`schedule-day-${DAY3_ISO}`);
     expect(chips).toHaveLength(1);
+  });
+});
+
+describe("ScheduleInlinePanel — Premium Midnight Delivery", () => {
+  const standardSlot: TimeSlot = {
+    label: "2 PM – 6 PM",
+    slotId: "os-standard",
+    startHour: 14,
+    endHour: 18,
+    cutoffHour: 12,
+    nextDayEnabled: true,
+  };
+  const midnightSlot: TimeSlot = {
+    label: "11 PM – 1 AM",
+    slotId: "os-midnight-beirut",
+    serviceType: "midnight",
+    startHour: 23,
+    endHour: 1,
+    cutoffHour: 20,
+    nextDayEnabled: true,
+    extraFee: 13,
+  };
+
+  it("shows the exact OS slot with a $20 fee and reveals the accessible banner", async () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        cityId="lb-beirut"
+        initialDate={TOMORROW_ISO}
+        initialSlotLabel={standardSlot.label}
+        initialSlotId={standardSlot.slotId}
+        timeSlots={[standardSlot, midnightSlot]}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+
+    const midnightButton = screen.getByTestId(
+      "schedule-slot-os-midnight-beirut",
+    );
+    expect(midnightButton.getAttribute("aria-pressed")).toBe("false");
+    expect(midnightButton.textContent).toContain("20");
+    expect(midnightButton.textContent).not.toContain("13");
+
+    fireEvent.click(midnightButton);
+    expect(midnightButton.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("midnight-delivery-banner")).toBeTruthy();
+    expect(screen.getByText("Midnight Delivery")).toBeTruthy();
+    const promiseDate = new Date(`${DAY3_ISO}T12:00:00`);
+    const expectedPromiseDate = `${promiseDate.toLocaleDateString("en-US", { weekday: "short" })}, ${promiseDate.getDate()} ${promiseDate.toLocaleDateString("en-US", { month: "short" })}`;
+    expect(screen.getByTestId("midnight-delivery-banner").textContent).toContain(
+      `1 AM on ${expectedPromiseDate}`,
+    );
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          slotId: "os-midnight-beirut",
+          serviceType: "midnight",
+          cityId: "lb-beirut",
+        }),
+      ),
+    );
+  });
+
+  it("never exposes a configured Midnight slot outside Beirut or Metn", () => {
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        cityId="lb-tripoli"
+        initialDate={TOMORROW_ISO}
+        initialSlotLabel={standardSlot.label}
+        timeSlots={[standardSlot, midnightSlot]}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    expect(
+      screen.queryByTestId("schedule-slot-os-midnight-beirut"),
+    ).toBeNull();
   });
 });
 

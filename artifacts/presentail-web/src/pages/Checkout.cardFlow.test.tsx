@@ -104,25 +104,28 @@ vi.mock("@workspace/api-client-react", () => ({
   }),
 }));
 
-vi.mock("@/lib/queries", () => ({
-  useCreateOrder: () => ({
-    mutateAsync: mockCreateOrderMutate,
-    isPending: false,
-  }),
-  useStripeCheckoutSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useMamoPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  usePaypalPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeliveryLocations: () => ({
-    data: { countries: [], cities: [] },
-    isLoading: false,
-  }),
-  // useDisplayCurrency calls useCurrenciesData() for a background refetch
-  // and useFxRates() for live FX conversion — both are side-effect-only hooks
-  // that are safe to stub as no-ops in tests.
-  useCurrenciesData: () => ({ data: undefined, isLoading: false }),
-  useFxRates: () => ({ data: undefined, isLoading: false }),
-}));
+vi.mock("@/lib/queries", () => {
+  const deliveryLocations = { countries: [], cities: [] };
+  return {
+    useCreateOrder: () => ({
+      mutateAsync: mockCreateOrderMutate,
+      isPending: false,
+    }),
+    useStripeCheckoutSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useMamoPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    usePaypalPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useTabbyPayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useDeliveryLocations: () => ({
+      data: deliveryLocations,
+      isLoading: false,
+    }),
+    // useDisplayCurrency calls useCurrenciesData() for a background refetch
+    // and useFxRates() for live FX conversion — both are side-effect-only hooks
+    // that are safe to stub as no-ops in tests.
+    useCurrenciesData: () => ({ data: undefined, isLoading: false }),
+    useFxRates: () => ({ data: undefined, isLoading: false }),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Context / hook mocks
@@ -130,15 +133,23 @@ vi.mock("@/lib/queries", () => ({
 
 vi.mock("@/contexts/LocationContext", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/contexts/LocationContext")>();
+  const country = { name: "Lebanon", code: "LB", flag: "🇱🇧" };
+  const city = { name: "Beirut", id: "beirut", fee: 8 };
+  const activeCities = [city];
+  const selectedCityData = {
+    ...city,
+    freeDeliveryEnabled: false,
+  };
+  const selection = {
+    countryCode: "LB",
+    country,
+    city,
+    activeCities,
+    selectedCityData,
+  };
   return {
     ...actual,
-    useLocationSelection: () => ({
-      countryCode: "LB",
-      country: { name: "Lebanon", code: "LB", flag: "🇱🇧" },
-      city: { name: "Beirut", id: "beirut", fee: 8 },
-      activeCities: [{ name: "Beirut", id: "beirut", fee: 8 }],
-      selectedCityData: { name: "Beirut", id: "beirut", fee: 8, freeDeliveryEnabled: false },
-    }),
+    useLocationSelection: () => selection,
     LocationProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
   };
 });
@@ -484,6 +495,33 @@ async function navigateToStep2(user: ReturnType<typeof userEvent.setup>) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const body = url.includes("/api/checkout/fees")
+        ? {
+            ok: true,
+            subtotalUsd: 50,
+            districtFeeUsd: 0,
+            expressFeeUsd: 0,
+            slotFeeUsd: 0,
+            couponDiscountUsd: 0,
+          }
+        : { ok: true };
+      return {
+        ok: true,
+        json: vi.fn().mockResolvedValue(body),
+      };
+    }),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("Checkout — card payment flow (handleSubmit)", () => {
   let user: ReturnType<typeof userEvent.setup>;

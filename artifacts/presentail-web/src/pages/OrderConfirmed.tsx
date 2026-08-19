@@ -13,6 +13,7 @@ import { fireAdsPurchaseConversion, fireGtagEvent, fireGA4PurchaseEvent } from "
 import { FormattedPrice } from "@/components/FormattedPrice";
 import { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 import { markHasOrdered, clearFirstOrderPromo } from "@/lib/campaign";
+import { midnightWindowForOccasionDate } from "@workspace/delivery";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 const ADS_CONVERSION_KEY_PREFIX = "presentail_ads_conversion_fired_";
@@ -58,6 +59,8 @@ type ConfirmedOrder = {
   deliveryDate?: string;
   deliverySlot?: string;
   deliverySlotTime?: string;
+  deliverySlotId?: string;
+  deliveryServiceType?: "midnight";
   districtFee?: number;
   expressFee?: number;
   slotFee?: number;
@@ -77,6 +80,7 @@ type ConfirmedOrder = {
   street?: string;
   deliveryCity?: string;
   deliveryCountry?: string;
+  cityId?: string;
 };
 
 type StashedEntry = { payload: ConfirmedOrder; createdAt: number };
@@ -498,6 +502,29 @@ export default function OrderConfirmed() {
       });
   }, [state.kind, klarnaRedirectStatus, klarnaPaymentIntentId, klarnaClientSecret]);
 
+  const midnightCompletedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (state.kind !== "success" || confirmedOrder?.deliveryServiceType !== "midnight") return;
+    const key = `presentail_midnight_completed_${state.ref}`;
+    if (midnightCompletedRef.current === key || sessionStorage.getItem(key) === "1") return;
+    midnightCompletedRef.current = key;
+    sessionStorage.setItem(key, "1");
+    trackWebEvent({
+      type: "midnight_order_completed",
+      value: confirmedOrder.totalUsd,
+      currency: confirmedOrder.currencyCode ?? "USD",
+      city: confirmedOrder.cityId ?? confirmedOrder.district,
+      properties: {
+        city_id: confirmedOrder.cityId,
+        area: confirmedOrder.district,
+        occasion_date: confirmedOrder.deliveryDate,
+        slot_id: confirmedOrder.deliverySlotId,
+        surcharge_usd: confirmedOrder.slotFee ?? 20,
+        order_ref: state.ref,
+      },
+    });
+  }, [state, confirmedOrder]);
+
   if (state.kind === "finalizing") {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
@@ -540,10 +567,10 @@ export default function OrderConfirmed() {
   // ─── Financial summary (used in the success state) ───────────────────────
   const items = confirmedOrder?.items ?? [];
   const subtotal = items.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0);
-  const deliveryFee =
-    (Number(confirmedOrder?.expressFee) || 0) +
-    (Number(confirmedOrder?.slotFee) || 0) +
-    (Number(confirmedOrder?.districtFee) || 0);
+  const districtFee = Number(confirmedOrder?.districtFee) || 0;
+  const expressFee = Number(confirmedOrder?.expressFee) || 0;
+  const slotFee = Number(confirmedOrder?.slotFee) || 0;
+  const deliveryFee = districtFee + expressFee + slotFee;
   const couponDiscount = Number(confirmedOrder?.couponDiscount) || 0;
   const rawTotal = Number(confirmedOrder?.totalUsd);
   const total = Number.isFinite(rawTotal) ? rawTotal : subtotal + deliveryFee - couponDiscount;
@@ -551,6 +578,25 @@ export default function OrderConfirmed() {
     ? (PAYMENT_METHOD_KEYS[confirmedOrder.paymentMethod] ?? null)
     : null;
   const payLabel = payKey ? t(payKey) : (confirmedOrder?.paymentMethod ?? "");
+  const midnightWindowLabel = (() => {
+    if (
+      confirmedOrder?.deliveryServiceType !== "midnight" ||
+      !confirmedOrder.deliveryDate
+    ) {
+      return null;
+    }
+    const window = midnightWindowForOccasionDate(confirmedOrder.deliveryDate);
+    const formatEndpoint = (iso: string) =>
+      new Date(iso).toLocaleString(language, {
+        timeZone: window.timeZone,
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    return `${formatEndpoint(window.start)} – ${formatEndpoint(window.end)}`;
+  })();
 
   // ─── Klarna processing state ──────────────────────────────────────────────
   // Klarna approved the application asynchronously — poll /api/stripe/payment-status
@@ -741,14 +787,18 @@ export default function OrderConfirmed() {
             <div className="flex items-center gap-2.5 text-sm">
               <CalendarDays className="w-4 h-4 shrink-0 text-primary" />
               <span>
-                {confirmedOrder?.deliveryDate
-                  ? formatDeliveryDate(confirmedOrder.deliveryDate, language)
-                  : ""}
-                {(confirmedOrder?.deliverySlotTime ?? confirmedOrder?.deliverySlot) &&
-                  confirmedOrder?.deliveryDate
-                  ? " · "
-                  : ""}
-                {confirmedOrder?.deliverySlotTime ?? confirmedOrder?.deliverySlot ?? ""}
+                {midnightWindowLabel
+                  ? `${t("product.midnightDelivery")} · ${midnightWindowLabel}`
+                  : <>
+                      {confirmedOrder?.deliveryDate
+                        ? formatDeliveryDate(confirmedOrder.deliveryDate, language)
+                        : ""}
+                      {(confirmedOrder?.deliverySlotTime ?? confirmedOrder?.deliverySlot) &&
+                        confirmedOrder?.deliveryDate
+                        ? " · "
+                        : ""}
+                      {confirmedOrder?.deliverySlotTime ?? confirmedOrder?.deliverySlot ?? ""}
+                    </>}
               </span>
             </div>
           </section>
@@ -838,12 +888,30 @@ export default function OrderConfirmed() {
                 <FormattedPrice usdValue={subtotal} />
               </div>
             )}
-            {deliveryFee > 0 && (
+
+            <div className="flex justify-between text-muted-foreground">
+              <span>{t("order.summary.deliveryFee")}</span>
+              <span>{districtFee > 0 ? <FormattedPrice usdValue={districtFee} /> : t("checkout.deliveryFree")}</span>
+            </div>
+
+            {expressFee > 0 && (
               <div className="flex justify-between text-muted-foreground">
-                <span>{t("order.summary.deliveryFee")}</span>
-                <FormattedPrice usdValue={deliveryFee} />
+                <span>{t("checkout.expressUpgradeLabel")}</span>
+                <FormattedPrice usdValue={expressFee} />
               </div>
             )}
+
+            {slotFee > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>{
+                  confirmedOrder?.deliveryServiceType === "midnight"
+                    ? t("product.midnightDelivery")
+                    : t("checkout.nightDeliverySurcharge")
+                }</span>
+                <FormattedPrice usdValue={slotFee} />
+              </div>
+            )}
+
             {couponDiscount > 0 && (
               <div className="flex justify-between text-emerald-600">
                 <span>{t("order.summary.discount")}</span>

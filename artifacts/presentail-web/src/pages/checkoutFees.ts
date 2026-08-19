@@ -66,6 +66,8 @@ export interface CheckoutFeeInput {
    * label-based matching so legacy code without IDs continues to work.
    */
   deliverySlotId?: string;
+  /** The currently selected city ID. Needed to validate Midnight Delivery eligibility. */
+  cityId?: string | null;
   /**
    * The selected delivery date as an ISO-8601 date string (YYYY-MM-DD).
    * Used to determine whether the night-slot same-day surcharge applies.
@@ -81,6 +83,8 @@ export interface CheckoutFeeOutput {
   expressFee: number;
   /** Optional extra fee for premium time slots, $0 for standard slots or in express mode. */
   slotFee: number;
+  /** Whether the selected slot is identified as Midnight Delivery. */
+  isMidnightSlotActive: boolean;
   /** subtotal + districtFee + expressFee + slotFee */
   total: number;
 }
@@ -109,6 +113,7 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
     timeSlots,
     deliverySlot,
     deliverySlotId,
+    cityId,
     deliveryDate,
     freeDeliveryThresholdUsd: thresholdOverride,
     freeDeliveryEnabled = true,
@@ -126,8 +131,8 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   // address later — we cannot commit to an express window without a confirmed
   // address, so no surcharge is charged. Standard district fee is unaffected.
   const expressFee = (deliveryMode === "express" && !input.noAddress) ? surcharge : 0;
-  const slotFee = (() => {
-    if (deliveryMode === "express") return 0;
+  const { slotFee, isMidnightSlotActive } = (() => {
+    if (deliveryMode === "express") return { slotFee: 0, isMidnightSlotActive: false };
     // Resolve the slot against the same date-filtered/deduplicated view the UI
     // displays (displayedSlotsForDate), slotId-first. A stale/date-ineligible
     // slotId (e.g. a next-day free duplicate persisted overnight into "today")
@@ -140,19 +145,23 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
       dateForFee,
       todayForFee,
       addDaysIso(todayForFee, 1),
+      cityId
     );
     const bookedSlotById = deliverySlotId
       ? (displayed.find((s) => s.slotId === deliverySlotId) ?? null)
       : null;
     const bookedSlot = bookedSlotById ?? displayed.find((s) => s.label === deliverySlot);
-    if (!bookedSlot) return 0;
+    if (!bookedSlot) return { slotFee: 0, isMidnightSlotActive: false };
+
+    const isMidnight = !!cityId && (bookedSlot.serviceType === "midnight" || (bookedSlot.startHour === 23 && bookedSlot.endHour === 1));
+
     // Explicit non-zero surcharges are authoritative regardless of how the
     // slot was found. `extraFee: 0` (or undefined) falls through to the
     // same-day night fallback below — mirroring displayedSlotsForDate, which
     // is what the picker modal / cart display, so the amount shown before
     // confirmation always matches the amount charged.
     if (bookedSlot.extraFee !== undefined && bookedSlot.extraFee !== null && bookedSlot.extraFee > 0) {
-      return bookedSlot.extraFee;
+      return { slotFee: bookedSlot.extraFee, isMidnightSlotActive: isMidnight };
     }
     // Hardcoded same-day night surcharge: when the OS sends no fee override (undefined or 0),
     // a $5 fee applies for night slots (startHour ≥ 21) selected for today.
@@ -160,12 +169,12 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
     const isNightSlot = slotStartHour >= 21;
     const todayForCountry = getLocalIso(countryCode);
     const isToday = !deliveryDate || deliveryDate === todayForCountry;
-    if (isNightSlot && isToday) return NIGHT_SLOT_SURCHARGE_USD;
-    return 0;
+    if (isNightSlot && isToday) return { slotFee: NIGHT_SLOT_SURCHARGE_USD, isMidnightSlotActive: isMidnight };
+    return { slotFee: 0, isMidnightSlotActive: isMidnight };
   })();
   const total = subtotal + districtFee + expressFee + slotFee;
 
-  return { districtFee, expressFee, slotFee, total };
+  return { districtFee, expressFee, slotFee, isMidnightSlotActive, total };
 }
 
 /**

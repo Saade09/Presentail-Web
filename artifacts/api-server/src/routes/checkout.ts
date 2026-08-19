@@ -188,6 +188,7 @@ router.post("/checkout/session", async (req, res) => {
 
   // Stale-slot guard — reject BEFORE any charge is initiated so a stale tab
   // can never pay for a same-day slot whose window has already ended.
+  let sessionDeliveryServiceType: "midnight" | undefined;
   {
     const slotCheck = checkSubmittedSlotBookable({
       expressDelivery: rawExpressDelivery === true,
@@ -197,6 +198,7 @@ router.post("/checkout/session", async (req, res) => {
       cityId: rawCityId,
       district: rawDistrict,
     });
+    sessionDeliveryServiceType = slotCheck.serviceType;
     if (!slotCheck.bookable) {
       req.log.warn(
         { orderId, deliverySlot: rawDeliverySlot, deliveryDate: rawDeliveryDate, reason: slotCheck.reason },
@@ -437,6 +439,10 @@ router.post("/checkout/session", async (req, res) => {
         expressDelivery: sessionExpressDelivery,
         noAddress: sessionNoAddress,
         deliverySlot: sessionDeliverySlot,
+        deliveryCityId: rawCityId,
+        deliveryDate: rawDeliveryDate,
+        deliverySlotId: rawDeliverySlotId,
+        deliveryServiceType: sessionDeliveryServiceType,
         // Fee snapshot (Step 3): store the server-computed fees so wooOrders.ts
         // can use them directly at order creation, guaranteeing the order record
         // uses the exact same fees as the Stripe charge.
@@ -664,6 +670,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
   // Stale-slot guard — reject BEFORE the PaymentIntent is created so a stale
   // tab or app session can never charge for a same-day slot whose window has
   // already ended (order LB-2152 class of bug).
+  let paymentDeliveryServiceType: "midnight" | undefined;
   {
     const slotCheck = checkSubmittedSlotBookable({
       expressDelivery: expressDelivery === true,
@@ -673,6 +680,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       cityId,
       district,
     });
+    paymentDeliveryServiceType = slotCheck.serviceType;
     if (!slotCheck.bookable) {
       req.log.warn(
         { orderId, deliverySlot, deliveryDate, reason: slotCheck.reason },
@@ -858,6 +866,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
                 expressDelivery: expressDelivery === true,
                 noAddress: noAddress === true,
                 deliverySlot: deliverySlot ?? "",
+                deliveryCityId: cityId,
+                deliveryDate,
+                deliverySlotId,
+                deliveryServiceType: paymentDeliveryServiceType,
                 districtFeeUsd: serverDistrictFeeUsd,
                 expressFeeUsd: serverExpressFeeUsd,
                 slotFeeUsd: serverSlotFeeUsd,
@@ -895,6 +907,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
               expressDelivery: expressDelivery === true,
               noAddress: noAddress === true,
               deliverySlot: deliverySlot ?? "",
+              deliveryCityId: cityId,
+              deliveryDate,
+              deliverySlotId,
+              deliveryServiceType: paymentDeliveryServiceType,
               districtFeeUsd: serverDistrictFeeUsd,
               expressFeeUsd: serverExpressFeeUsd,
               slotFeeUsd: serverSlotFeeUsd,
@@ -966,6 +982,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
               expressDelivery: expressDelivery === true,
               noAddress: noAddress === true,
               deliverySlot: deliverySlot ?? "",
+              deliveryCityId: cityId,
+              deliveryDate,
+              deliverySlotId,
+              deliveryServiceType: paymentDeliveryServiceType,
               districtFeeUsd: serverDistrictFeeUsd,
               expressFeeUsd: serverExpressFeeUsd,
               slotFeeUsd: serverSlotFeeUsd,
@@ -1083,6 +1103,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
         expressDelivery: expressDelivery === true,
         noAddress: noAddress === true,
         deliverySlot: deliverySlot ?? "",
+        deliveryCityId: cityId,
+        deliveryDate,
+        deliverySlotId,
+        deliveryServiceType: paymentDeliveryServiceType,
         districtFeeUsd: serverDistrictFeeUsd,
         expressFeeUsd: serverExpressFeeUsd,
         slotFeeUsd: serverSlotFeeUsd,
@@ -1288,6 +1312,23 @@ router.post("/checkout/fees", async (req, res) => {
   }
 
   const subtotalUsd = catalogResult.subtotalUsd;
+  const slotCheck = checkSubmittedSlotBookable({
+    expressDelivery: expressDelivery === true,
+    deliverySlot,
+    deliverySlotId,
+    deliveryDate,
+    cityId,
+    district,
+  });
+  if (!slotCheck.bookable) {
+    return res.status(422).json({
+      ok: false,
+      code: "expired_delivery_slot",
+      reason: slotCheck.reason,
+      message:
+        "The selected delivery time is no longer available. Please choose another time.", // i18n-ignore
+    });
+  }
   // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
   // quoted fees match what wooOrders.ts will compute at order creation.
   // When cityId is absent, fall back to the city-name lookup for backwards compat.

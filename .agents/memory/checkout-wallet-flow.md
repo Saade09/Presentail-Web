@@ -23,6 +23,14 @@ The parity check in `handleSubmit` (before `pr.show()`) compares `walletIntentRe
 
 **Why:** server ignores client `deliveryFeeUsd` as a security measure (anti-tamper); parity check must use server-authoritative amounts to avoid false positives.
 
+## Prepared-intent signatures must stay in lockstep
+
+The wallet pre-creation effect, render-time readiness check, and submit-time lookup must build the exact same signature, and the effect dependency list must include every signature input.
+
+**Why:** adding delivery identity to only the prepared signature caused every native-wallet tap to reject its own valid prefetched intent; omitting the new fields from effect dependencies also risks reusing a stale paid delivery context.
+
+**How to apply:** whenever cart, currency, coupon, or delivery identity changes, update all three signature builders together and add the field to the preparation effect dependencies. Tests must cover native-sheet opening and intent reuse.
+
 ## Testing the wallet branch
 
 - It only runs on mobile viewports — mock `useIsMobile` true and have the canMakePayment probe resolve null, then capture the `pr.on("paymentmethod"|"cancel", ...)` handlers and invoke them directly.

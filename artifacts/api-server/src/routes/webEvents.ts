@@ -98,6 +98,12 @@ const WEB_EVENT_TYPES = [
   "checkout_auth_failed",
   "checkout_continue_as_guest",
   "checkout_continued_after_phone_tooltip",
+  // Premium Midnight Delivery (task 3943)
+  "midnight_option_viewed",
+  "midnight_option_selected",
+  "midnight_option_ineligible",
+  "midnight_selection_removed_after_address_change",
+  "midnight_order_completed",
 ] as const;
 
 const webEventItemSchema = z.object({

@@ -153,6 +153,8 @@ export default function ProductDetail() {
         date: new Date().toISOString().slice(0, 10),
         slotLabel: null,
         slotId: null,
+        serviceType: null,
+        cityId: null,
         source: "system_reselected",
       });
     }
@@ -504,6 +506,7 @@ export default function ProductDetail() {
     const fees = calcCheckoutFees({
       subtotal: cartSubtotal + productUsdForPricing,
       countryCode,
+      cityId,
       noAddress: false,
       cityFee: delivery.cityFeeUsd,
       freeDeliveryThresholdUsd: delivery.freeDeliveryThresholdUsd ?? undefined,
@@ -529,6 +532,8 @@ export default function ProductDetail() {
       date: new Date().toISOString().slice(0, 10),
       slotLabel: null,
       slotId: null,
+      serviceType: null,
+      cityId: null,
       source: "user_selected",
     });
     trackEvent({ name: "express_upgrade_selected", deliveryMethod: "express", deliverySource: "user" });
@@ -553,6 +558,9 @@ export default function ProductDetail() {
         mode: "today_slot",
         date: new Date().toISOString().slice(0, 10),
         slotLabel: deliverySelection.slotLabel ?? null,
+        slotId: null,
+        serviceType: null,
+        cityId: null,
         source: "system_default",
       });
     }
@@ -600,6 +608,9 @@ export default function ProductDetail() {
           mode: "express",
           date: new Date().toISOString().slice(0, 10),
           slotLabel: null,
+          slotId: null,
+          serviceType: null,
+          cityId: null,
           source: "system_default",
         });
       } else {
@@ -608,6 +619,8 @@ export default function ProductDetail() {
           date: new Date().toISOString().slice(0, 10),
           slotLabel: null,
           slotId: null,
+          serviceType: null,
+          cityId: null,
           source: "system_default",
         });
       }
@@ -840,17 +853,21 @@ export default function ProductDetail() {
                   <div ref={schedulePanelRef}>
                     <ScheduleInlinePanel
                       countryCode={countryCode}
+                      cityId={cityId}
                       timeSlots={city?.timeSlots}
                       slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
                       initialDate={deliverySelection.date}
                       initialSlotLabel={deliverySelection.slotLabel}
+                      initialSlotId={deliverySelection.slotId}
                       freeDeliveryMet={freeDeliveryMet}
-                      onChange={({ mode, date, slotLabel, slotId }) => {
+                       onChange={({ mode, date, slotLabel, slotId, serviceType, cityId: selectedCityId }) => {
                         deliverySelection.setSelection({
                           mode,
                           date,
                           slotLabel,
                           slotId: slotId ?? null,
+                           serviceType: serviceType ?? null,
+                           cityId: selectedCityId ?? null,
                           // The panel auto-picks an initial slot on mount; only
                           // selections after an explicit interaction count as
                           // the shopper's own choice.

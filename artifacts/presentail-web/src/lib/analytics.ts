@@ -103,7 +103,12 @@ type WebEventType =
   | "checkout_auth_completed"
   | "checkout_auth_cancelled"
   | "checkout_auth_failed"
-  | "checkout_continue_as_guest";
+  | "checkout_continue_as_guest"
+  | "midnight_option_viewed"
+  | "midnight_option_selected"
+  | "midnight_option_ineligible"
+  | "midnight_selection_removed_after_address_change"
+  | "midnight_order_completed";
 
 export type WebEventItem = {
   productId: string;
@@ -136,6 +141,17 @@ export type WebEvent = {
   path?: string;
 };
 
+/** Record a funnel event at most once per browser session and semantic key. */
+export function trackWebEventOnce(event: WebEvent, dedupeKey: string): void {
+  const storageKey = `presentail_web_event_once:${event.type}:${dedupeKey}`;
+  try {
+    if (sessionStorage.getItem(storageKey) === "1") return;
+    sessionStorage.setItem(storageKey, "1");
+  } catch {
+    // Storage may be unavailable; analytics must never block the shopper.
+  }
+  trackWebEvent(event);
+}
 const VISITOR_ID_KEY = "@presentail/analytics-visitor-id";
 
 function getOrCreateVisitorId(): string {

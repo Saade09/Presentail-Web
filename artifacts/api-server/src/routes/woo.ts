@@ -1329,6 +1329,7 @@ router.post("/woo/order", async (req, res) => {
       deliverySlotId: body.deliverySlotId,
       deliveryDate: body.deliveryDate,
       cityId: body.cityId,
+      deliveryServiceType: body.deliveryServiceType,
       district: body.district,
       paymentRef: body.paymentRef,
     });
@@ -1685,6 +1686,10 @@ router.post("/woo/order", async (req, res) => {
       submittedExpressDelivery: body.expressFee > 0,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
+      submittedDeliveryCityId: body.cityId,
+      submittedDeliveryDate: body.deliveryDate,
+      submittedDeliverySlotId: body.deliverySlotId,
+      submittedDeliveryServiceType: body.deliveryServiceType,
     });
       if (cartMismatch) {
         req.log?.warn?.(
@@ -1700,6 +1705,7 @@ router.post("/woo/order", async (req, res) => {
 
       // Hoist the verified prices so attemptCreateOsOrder can use them directly.
       snapshotItems = intent.snapshot.items;
+      body.deliveryServiceType = intent.snapshot.deliveryServiceType;
       // Hoist snapshot fees so attemptCreateOsOrder uses the same fees that
       // were charged via Stripe, eliminating PI/order divergence (Bug A+B+Step3).
       snapshotFees = {
@@ -1785,6 +1791,10 @@ router.post("/woo/order", async (req, res) => {
       submittedExpressDelivery: body.expressFee > 0,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
+      submittedDeliveryCityId: body.cityId,
+      submittedDeliveryDate: body.deliveryDate,
+      submittedDeliverySlotId: body.deliverySlotId,
+      submittedDeliveryServiceType: body.deliveryServiceType,
     });
     if (cartMismatch) {
       req.log?.warn?.(
@@ -1797,6 +1807,7 @@ router.post("/woo/order", async (req, res) => {
         message: "The submitted order does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
       });
     }
+    body.deliveryServiceType = intent.snapshot.deliveryServiceType;
 
     snapshotItems = intent.snapshot.items;
     snapshotFees = {
@@ -1869,6 +1880,10 @@ router.post("/woo/order", async (req, res) => {
       submittedExpressDelivery: body.expressFee > 0,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
+      submittedDeliveryCityId: body.cityId,
+      submittedDeliveryDate: body.deliveryDate,
+      submittedDeliverySlotId: body.deliverySlotId,
+      submittedDeliveryServiceType: body.deliveryServiceType,
     });
     if (cartMismatch) {
       req.log?.warn?.(
@@ -1881,6 +1896,7 @@ router.post("/woo/order", async (req, res) => {
         message: "The submitted order does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
       });
     }
+    body.deliveryServiceType = intent.snapshot.deliveryServiceType;
 
     snapshotItems = intent.snapshot.items;
     snapshotFees = {
@@ -1962,6 +1978,10 @@ router.post("/woo/order", async (req, res) => {
       submittedExpressDelivery: body.expressFee > 0,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
+      submittedDeliveryCityId: body.cityId,
+      submittedDeliveryDate: body.deliveryDate,
+      submittedDeliverySlotId: body.deliverySlotId,
+      submittedDeliveryServiceType: body.deliveryServiceType,
     });
     if (cartMismatch) {
       req.log?.warn?.(
@@ -1974,6 +1994,7 @@ router.post("/woo/order", async (req, res) => {
         message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
       });
     }
+    body.deliveryServiceType = intent.snapshot.deliveryServiceType;
     snapshotItems = intent?.snapshot?.items;
     snapshotFees = {
       districtFeeUsd: intent?.snapshot?.districtFeeUsd,

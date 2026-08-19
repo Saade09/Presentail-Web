@@ -22,7 +22,15 @@ import {
   countryForDistrict,
   expressSurchargeUsd,
   resolveOsEffectivePrice,
+  resolveSlotForDate,
+  resolveMidnightWindow,
 } from "./catalog";
+import {
+  isMidnightSlot,
+  getLocalIso,
+  MIDNIGHT_FEE_USD,
+  midnightWindowForOccasionDate,
+} from "@workspace/delivery";
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 
@@ -220,6 +228,7 @@ export const WooOrderSchema = z.object({
   deliveryDate: z.string().default(""),
   deliverySlot: z.string().default(""),
   deliverySlotId: z.string().optional(),
+  deliveryServiceType: z.enum(["midnight"]).optional(),
   cardMessage: z.string().optional(),
   cardFrom: z.string().optional(),
   cardTo: z.string().optional(),
@@ -762,6 +771,40 @@ export async function recordSuccessfulWcOrder(input: {
     const normalizedSenderPhone =
       rawPhone && /^\+[1-9]\d{1,14}$/.test(rawPhone) ? rawPhone : (senderPhone ?? null);
 
+    // Resolve Midnight-specific delivery fields for persistence.
+    // isMidnightSlot() is the canonical detector — never use label heuristics.
+    const midnightWin = resolveMidnightWindow({
+      deliverySlot: body.deliverySlot,
+      deliverySlotId: body.deliverySlotId,
+      deliveryDate: body.deliveryDate ?? undefined,
+      cityId: body.cityId ?? undefined,
+      district: body.district,
+    });
+    const isMidnight = (() => {
+      if (body.deliveryServiceType === "midnight") return true;
+      if (midnightWin) return true;
+      if (body.cityId && body.deliverySlot) {
+        const slots = getDeliverySlots(body.cityId, body.deliveryDate || undefined);
+        const country = countryForDistrict(body.district ?? "Beirut");
+        const todayIso = getLocalIso(country);
+        const resolved = resolveSlotForDate(slots, {
+          deliverySlot: body.deliverySlot,
+          deliverySlotId: body.deliverySlotId,
+          dateIso: body.deliveryDate || todayIso,
+          todayIso,
+          cityId: body.cityId,
+        });
+        return resolved ? isMidnightSlot(resolved, body.cityId) : false;
+      }
+      return false;
+    })();
+    const authoritativeMidnightWin =
+      isMidnight && body.deliveryDate
+        ? midnightWin ?? midnightWindowForOccasionDate(body.deliveryDate)
+        : undefined;
+    // Slot fee in cents for persistence (0 for non-midnight, 2000 for midnight).
+    const slotFeeCentsForDb = isMidnight ? MIDNIGHT_FEE_USD * 100 : null;
+
     await db
       .insert(appOrdersTable)
       .values({
@@ -793,6 +836,18 @@ export async function recordSuccessfulWcOrder(input: {
         occasionRef,
         marketingAttributionJson,
         whatsappOptIn: body.whatsappOptIn ?? null,
+        // Midnight delivery columns
+        deliveryCityId: body.cityId ?? null,
+        deliveryCountryCode: body.shippingCountry ?? null,
+        deliverySlotId: body.deliverySlotId ?? null,
+        deliveryServiceType: isMidnight ? "midnight" : null,
+        deliverySlotFeeCents: slotFeeCentsForDb,
+        deliveryWindowStart: authoritativeMidnightWin
+          ? new Date(authoritativeMidnightWin.start)
+          : null,
+        deliveryWindowEnd: authoritativeMidnightWin
+          ? new Date(authoritativeMidnightWin.end)
+          : null,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -828,6 +883,18 @@ export async function recordSuccessfulWcOrder(input: {
           occasionRef,
           marketingAttributionJson,
           whatsappOptIn: body.whatsappOptIn ?? null,
+          // Midnight delivery columns
+          deliveryCityId: body.cityId ?? null,
+          deliveryCountryCode: body.shippingCountry ?? null,
+          deliverySlotId: body.deliverySlotId ?? null,
+          deliveryServiceType: isMidnight ? "midnight" : null,
+          deliverySlotFeeCents: slotFeeCentsForDb,
+          deliveryWindowStart: authoritativeMidnightWin
+            ? new Date(authoritativeMidnightWin.start)
+            : null,
+          deliveryWindowEnd: authoritativeMidnightWin
+            ? new Date(authoritativeMidnightWin.end)
+            : null,
           updatedAt: new Date(),
         },
       });
@@ -1183,13 +1250,38 @@ export async function attemptCreateOsOrder(
   // Slot surcharge: use computeSlotFeeUsd() so the $5 same-day night fallback
   // fires even when the OS slot has no explicit extraFee value. bookedSlot is
   // kept separately for the slot time string formatting below.
+  // Use date-aware resolveSlotForDate so duplicate-label slots (same-day vs
+  // next-day) resolve to the correct variant for the submitted date.
   let bookedSlot: OsDeliverySlot | undefined;
   if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
-    const citySlots = getDeliverySlots(body.cityId);
-    bookedSlot = body.deliverySlotId
-      ? (citySlots.find((s) => s.slotId === body.deliverySlotId) ?? citySlots.find((s) => s.label === body.deliverySlot))
-      : citySlots.find((s) => s.label === body.deliverySlot);
+    const citySlots = getDeliverySlots(body.cityId, body.deliveryDate || undefined);
+    const bookedCountry = countryForDistrict(body.district ?? "Beirut");
+    const todayIso = getLocalIso(bookedCountry);
+    bookedSlot = resolveSlotForDate(citySlots, {
+      deliverySlot: body.deliverySlot,
+      deliverySlotId: body.deliverySlotId,
+      dateIso: body.deliveryDate || todayIso,
+      todayIso,
+      cityId: body.cityId,
+    });
   }
+  // Compute the Midnight delivery window (if this is a Midnight booking).
+  const resolvedMidnightWindow = resolveMidnightWindow({
+    expressDelivery: clientSignalledExpress,
+    deliverySlot: body.deliverySlot,
+    deliverySlotId: body.deliverySlotId,
+    deliveryDate: body.deliveryDate ?? undefined,
+    cityId: body.cityId ?? undefined,
+    district: body.district,
+  });
+  const isMidnightOrder =
+    body.deliveryServiceType === "midnight" ||
+    resolvedMidnightWindow !== undefined ||
+    Boolean(bookedSlot && isMidnightSlot(bookedSlot, body.cityId ?? undefined));
+  const midnightWindow =
+    isMidnightOrder && body.deliveryDate
+      ? resolvedMidnightWindow ?? midnightWindowForOccasionDate(body.deliveryDate)
+      : undefined;
   // Use snapshot slot fee when available (prevents re-computation drift).
   const slotFeeAppliedUsd = opts.preVerifiedFees?.slotFeeUsd !== undefined
     ? opts.preVerifiedFees.slotFeeUsd
@@ -1280,6 +1372,16 @@ export async function attemptCreateOsOrder(
       feeUsd: serverDistrictFeeUsd,
       expressSurchargeUsd: expressSurchargeAppliedUsd,
       slotFeeUsd: slotFeeAppliedUsd,
+      // Midnight-specific fields — sent only for Midnight orders.
+      ...(isMidnightOrder
+        ? {
+            serviceType: "midnight" as const,
+            slotId: bookedSlot?.slotId ?? body.deliverySlotId ?? undefined,
+            timeZone: midnightWindow?.timeZone ?? "Asia/Beirut",
+            windowStart: midnightWindow?.start ?? undefined,
+            windowEnd: midnightWindow?.end ?? undefined,
+          }
+        : {}),
     },
     subtotalUsd: Math.round((catalogSubtotalUsd + nonCatalogFeesUsd) * 100) / 100,
     deliveryFeeUsd: Math.round((serverDistrictFeeUsd + expressSurchargeAppliedUsd + slotFeeAppliedUsd) * 100) / 100,
@@ -1305,6 +1407,13 @@ export async function attemptCreateOsOrder(
         // Express: window starts now; no end window.
         return { window_start: new Date().toISOString() };
       }
+      // Midnight: use the exact UTC window from midnightWindowForOccasionDate.
+      if (isMidnightOrder && midnightWindow) {
+        return {
+          window_start: midnightWindow.start,
+          window_end: midnightWindow.end,
+        };
+      }
       if (body.deliveryDate) {
         const pad = (h: number) => String(h).padStart(2, "0");
         const start =
@@ -1322,7 +1431,7 @@ export async function attemptCreateOsOrder(
       }
       return {};
     })(),
-    delivery_type: clientSignalledExpress ? "express" : "standard",
+    delivery_type: clientSignalledExpress ? "express" : isMidnightOrder ? "midnight" : "standard",
     delivery_instructions: askRecipient.notes || undefined,
     payment: {
       method:
