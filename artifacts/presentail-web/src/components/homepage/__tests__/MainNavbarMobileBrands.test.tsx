@@ -277,9 +277,14 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     );
 
     const panel = screen.getByTestId("mobile-sub-panel-occasions");
+    const scrollArea = screen.getByTestId("mobile-sub-panel-scroll");
     const grid = screen.getByTestId("mobile-sub-panel-grid");
-    expect(panel.className).toContain("py-2");
+    const footer = screen.getByTestId("mobile-sub-panel-footer");
+    expect(panel.className).toContain("flex-col");
+    expect(scrollArea.className).toContain("overflow-y-auto");
+    expect(scrollArea.className).toContain("py-2");
     expect(grid.className).toContain("gap-y-1.5");
+    expect(footer.closest('[data-testid="mobile-sub-panel-scroll"]')).toBeNull();
 
     for (const occasion of OCCASION_OPTIONS) {
       const link = screen.getByRole("link", { name: new RegExp(occasion.label) });
@@ -291,6 +296,26 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     const footerLink = screen.getByRole("link", { name: /nav\.viewAllOccasions/i });
     expect(footerLink).toBeDefined();
     expect((footerLink as HTMLAnchorElement).href).toContain("/occasions");
+  });
+
+  it("keeps the occasions CTA outside the scrolling skeleton while the catalog loads", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogOccasions.mockReturnValue({ data: undefined, isPending: true });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+    await user.click(
+      within(screen.getByTestId("sheet-content")).getByRole("button", {
+        name: /nav\.occasions/i,
+      }),
+    );
+
+    const scrollArea = screen.getByTestId("mobile-sub-panel-scroll");
+    const footer = screen.getByTestId("mobile-sub-panel-footer");
+    expect(screen.getByTestId("mobile-sub-panel-grid").querySelectorAll(".animate-pulse")).toHaveLength(24);
+    expect(screen.getByRole("link", { name: /nav\.viewAllOccasions/i })).toBeDefined();
+    expect(footer.closest('[data-testid="mobile-sub-panel-scroll"]')).toBeNull();
+    expect(scrollArea.contains(footer)).toBe(false);
   });
 
   it.each(["flowers", "gifts", "brands"] as const)(
@@ -307,8 +332,10 @@ describe("MainNavbar — mobile brands sub-panel", () => {
       );
 
       const panel = screen.getByTestId(`mobile-sub-panel-${panelKey}`);
+    const scrollArea = screen.getByTestId("mobile-sub-panel-scroll");
     const grid = screen.getByTestId("mobile-sub-panel-grid");
-    expect(panel.className).toContain("py-3");
+    expect(panel.className).toContain("overflow-y-auto");
+    expect(scrollArea.className).toContain("py-3");
     expect(grid.className).toContain("gap-y-2.5");
     },
   );

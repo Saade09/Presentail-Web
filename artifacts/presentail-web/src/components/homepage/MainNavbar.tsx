@@ -480,7 +480,7 @@ export function MainNavbar() {
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-full max-w-full sm:!max-w-full border-r-0 p-0 overflow-hidden [&>button:first-child]:hidden">
+            <SheetContent side="left" className="w-full max-w-full h-[100dvh] max-h-[100dvh] sm:!max-w-full border-r-0 p-0 overflow-hidden [&>button:first-child]:hidden">
 
               {/* ── Main menu view ───────────────────────────── */}
               <div
@@ -591,67 +591,92 @@ export function MainNavbar() {
                           isCompactOccasions ? "gap-y-1.5" : "gap-y-2.5"
                         }`;
 
-                        return (
-                          <div
-                            data-testid={`mobile-sub-panel-${subDef?.key ?? "unknown"}`}
-                            className={`flex-1 overflow-y-auto px-3 ${
-                              isCompactOccasions ? "py-2" : "py-3"
-                            }`}
-                          >
-                        {subDef?.loading ? (
-                          <div data-testid="mobile-sub-panel-grid" className={gridClassName}>
-                            {Array.from({ length: 12 }).map((_, i) => (
-                              <div key={i} className="flex flex-col items-center gap-1">
-                                <div
-                                  className={`w-full ${
-                                    isCompactOccasions ? "aspect-[4/3]" : "aspect-[5/4]"
-                                  } rounded-xl bg-gray-100 animate-pulse`}
-                                />
-                                <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div data-testid="mobile-sub-panel-grid" className={gridClassName}>
-                            {(subDef?.items ?? []).map((item) => (
-                              <SheetClose asChild key={item.label + item.href}>
-                                <Link
-                                  href={toCityHref(item.href)}
-                                  className={`flex flex-col items-center ${
-                                    isCompactOccasions ? "gap-0.5" : "gap-1"
-                                  } group min-h-[44px]`}
-                                >
-                                  <div
-                                    className={`w-full ${
-                                      isCompactOccasions ? "aspect-[4/3]" : "aspect-[5/4]"
-                                    } rounded-xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow`}
-                                  >
-                                    <MobileSubPanelTile img={item.img} emoji={item.emoji} />
-                                  </div>
-                                  {/* Fixed 2-line label box keeps every row's tiles aligned; wraps up to 2 lines, no ellipsis. */}
-                                  <span className="text-[12px] font-medium text-center text-gray-700 leading-4 h-8 px-0.5 break-words">
-                                    {item.label}
-                                  </span>
-                                </Link>
-                              </SheetClose>
-                            ))}
-                          </div>
-                        )}
-                        {subDef?.footer && (
-                          <SheetClose asChild>
-                            <Link
-                              href={toCityHref(subDef.footer.href)}
-                              className={`flex items-center justify-center gap-2 ${
-                                isCompactOccasions ? "mt-3 py-3" : "mt-6 py-3.5"
-                              } w-full rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors`}
-                            >
-                              {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label}
-                              <span aria-hidden>→</span>
-                            </Link>
-                          </SheetClose>
-                        )}
-                          </div>
-                        );
+                         const gridContent = subDef?.loading ? (
+                           <div data-testid="mobile-sub-panel-grid" className={gridClassName}>
+                             {Array.from({ length: 12 }).map((_, i) => (
+                               <div key={i} className="flex flex-col items-center gap-1">
+                                 <div
+                                   className={`w-full ${
+                                     isCompactOccasions ? "aspect-[4/3]" : "aspect-[5/4]"
+                                   } rounded-xl bg-gray-100 animate-pulse`}
+                                 />
+                                 <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
+                               </div>
+                             ))}
+                           </div>
+                         ) : (
+                           <div data-testid="mobile-sub-panel-grid" className={gridClassName}>
+                             {(subDef?.items ?? []).map((item) => (
+                               <SheetClose asChild key={item.label + item.href}>
+                                 <Link
+                                   href={toCityHref(item.href)}
+                                   className={`flex flex-col items-center ${
+                                     isCompactOccasions ? "gap-0.5" : "gap-1"
+                                   } group min-h-[44px]`}
+                                 >
+                                   <div
+                                     className={`w-full ${
+                                       isCompactOccasions ? "aspect-[4/3]" : "aspect-[5/4]"
+                                     } rounded-xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow`}
+                                   >
+                                     <MobileSubPanelTile img={item.img} emoji={item.emoji} />
+                                   </div>
+                                   {/* Fixed 2-line label box keeps every row's tiles aligned; wraps up to 2 lines, no ellipsis. */}
+                                   <span className="text-[12px] font-medium text-center text-gray-700 leading-4 h-8 px-0.5 break-words">
+                                     {item.label}
+                                   </span>
+                                 </Link>
+                               </SheetClose>
+                             ))}
+                           </div>
+                         );
+
+                         return (
+                           <div
+                             data-testid={`mobile-sub-panel-${subDef?.key ?? "unknown"}`}
+                             className={`flex-1 min-h-0 ${
+                               isCompactOccasions ? "flex flex-col" : "overflow-y-auto"
+                             }`}
+                           >
+                             <div
+                               data-testid="mobile-sub-panel-scroll"
+                               className={`${
+                                 isCompactOccasions
+                                   ? "flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2"
+                                   : "px-3 py-3"
+                               }`}
+                             >
+                               {gridContent}
+                             </div>
+                             {subDef?.footer && (
+                               <div
+                                 data-testid="mobile-sub-panel-footer"
+                                 className={isCompactOccasions ? "shrink-0 px-3 pt-2" : "px-3"}
+                                 style={
+                                   isCompactOccasions
+                                     ? { paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }
+                                     : undefined
+                                 }
+                               >
+                                 <SheetClose asChild>
+                                   <Link
+                                     href={toCityHref(subDef.footer.href)}
+                                     onClick={() => {
+                                       setMobileMenuOpen(false);
+                                       setMobileSubPanel(null);
+                                     }}
+                                     className={`flex items-center justify-center gap-2 ${
+                                       isCompactOccasions ? "py-3" : "mt-6 py-3.5"
+                                     } w-full rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors`}
+                                   >
+                                     {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label}
+                                     <span aria-hidden>→</span>
+                                   </Link>
+                                 </SheetClose>
+                               </div>
+                             )}
+                           </div>
+                         );
                       })()}
                     </>
                   );

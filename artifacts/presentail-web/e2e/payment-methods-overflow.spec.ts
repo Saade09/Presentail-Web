@@ -60,6 +60,22 @@ const STUB_PRODUCTS = {
   ],
 };
 
+const STUB_CATALOG_METADATA = {
+  categories: [],
+  occasions: [],
+  brands: [],
+};
+
+const STUB_OCCASIONS = {
+  occasions: Array.from({ length: 18 }, (_, index) => ({
+    slug: `occasion-${index + 1}`,
+    name: `Occasion ${index + 1}`,
+    image: null,
+    count: 1,
+    featured: true,
+  })),
+};
+
 const LOCATION = { countryCode: "LB", cityId: "lb-beirut" };
 
 async function installStubs(page: Page): Promise<void> {
@@ -82,6 +98,20 @@ async function installStubs(page: Page): Promise<void> {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(STUB_PRODUCTS),
+    }),
+  );
+  await page.route("**/api/catalog/metadata**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_CATALOG_METADATA),
+    }),
+  );
+  await page.route("**/api/catalog/occasions**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_OCCASIONS),
     }),
   );
   // Stub OS product endpoints too (direct browser fetches)
@@ -356,3 +386,90 @@ test.describe(
     });
   },
 );
+
+// ---------------------------------------------------------------------------
+// Mobile occasions panel — CTA remains pinned above the scrollable tile grid
+// ---------------------------------------------------------------------------
+
+for (const viewport of [NARROW, PHONE]) {
+  test.describe(
+    `Mobile occasions CTA remains visible at ${viewport.width}×${viewport.height}`,
+    () => {
+      test.use({ viewport });
+
+      test("is visible before scrolling and closes the menu after routing", async ({
+        page,
+      }) => {
+        // The shared Playwright projects supply their own device settings, so
+        // set the exact regression viewport on the page as well.
+        await page.setViewportSize(viewport);
+        await installStubs(page);
+        await page.addInitScript(
+          ({ location }) => {
+            window.localStorage.setItem(
+              "presentail_location_v1",
+              JSON.stringify(location),
+            );
+            window.localStorage.setItem(
+              "presentail_delivery_location_v1",
+              JSON.stringify(location),
+            );
+          },
+          { location: LOCATION },
+        );
+
+        await page.goto("/en-lb/beirut/");
+        await page.getByTestId("button-mobile-menu").click();
+
+        const sheet = page.getByRole("dialog");
+        await expect(sheet).toBeVisible();
+        await sheet.getByRole("button", { name: "Occasions" }).click();
+
+        const panel = page.getByTestId("mobile-sub-panel-occasions");
+        const scrollArea = page.getByTestId("mobile-sub-panel-scroll");
+        const cta = page.getByTestId("mobile-sub-panel-footer").getByRole("link", {
+          name: "View all Occasions",
+        });
+        await expect(panel).toBeVisible();
+        await expect(cta).toBeVisible();
+        await expect
+          .poll(async () => (await panel.boundingBox())?.x ?? Number.POSITIVE_INFINITY)
+          .toBeLessThanOrEqual(1);
+
+        const browserViewport = await page.evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }));
+        expect(browserViewport).toEqual(viewport);
+
+        const ctaBox = await cta.boundingBox();
+        expect(ctaBox, "occasions CTA should have visible bounds").not.toBeNull();
+        expect(ctaBox!.x).toBeGreaterThanOrEqual(0);
+        expect(ctaBox!.y).toBeGreaterThanOrEqual(0);
+        expect(ctaBox!.x + ctaBox!.width).toBeLessThanOrEqual(browserViewport.width);
+        expect(ctaBox!.y + ctaBox!.height).toBeLessThanOrEqual(browserViewport.height);
+
+        await expect
+          .poll(() =>
+            cta.evaluate(
+              (element) =>
+                !element.closest('[data-testid="mobile-sub-panel-scroll"]'),
+            ),
+          )
+          .toBe(true);
+
+        // Scrolling the grid must not move the CTA out of the viewport.
+        await scrollArea.evaluate((element) => {
+          element.scrollTop = element.scrollHeight;
+        });
+        await expect(cta).toBeVisible();
+        const pinnedCtaBox = await cta.boundingBox();
+        expect(pinnedCtaBox!.y + pinnedCtaBox!.height).toBeLessThanOrEqual(browserViewport.height);
+
+        await cta.click();
+        await expect(page).toHaveURL(/\/en-lb\/beirut\/occasions$/);
+        await expect(sheet).toBeHidden();
+      });
+    },
+  );
+}
