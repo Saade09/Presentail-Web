@@ -407,8 +407,36 @@ describe("ShopShell campaign chrome selection", () => {
     });
   });
 
-  it("keeps the stripped header and campaign footer on flower-delivery", () => {
+  it.each([
+    "/en-ae/dubai/flower-delivery",
+    "/en-ae/abu-dhabi/flower-delivery",
+    "/ar-ae/dubai/flower-delivery",
+  ])("uses the regular header and campaign footer on UAE flower-delivery: %s", (path) => {
+    expect(getShopShellChrome(path)).toEqual({
+      useLandingHeader: false,
+      useLandingFooter: true,
+    });
+  });
+
+  it.each(["ae-dubai", "ae-abu-dhabi"])(
+    "uses the regular header from the city-scoped router path for %s",
+    (cityId) => {
+      expect(getShopShellChrome("/flower-delivery", cityId)).toEqual({
+        useLandingHeader: false,
+        useLandingFooter: true,
+      });
+    },
+  );
+
+  it("keeps the stripped header and campaign footer on Beirut flower-delivery", () => {
     expect(getShopShellChrome("/en-lb/beirut/flower-delivery")).toEqual({
+      useLandingHeader: true,
+      useLandingFooter: true,
+    });
+  });
+
+  it("keeps the stripped header and campaign footer on the generic campaign route", () => {
+    expect(getShopShellChrome("/flower-delivery")).toEqual({
       useLandingHeader: true,
       useLandingFooter: true,
     });

@@ -88,8 +88,8 @@ const HomepageHeader = lazy(() =>
 const Footer = lazy(() =>
   loadFooter().then((m) => ({ default: m.Footer })),
 );
-// Landing-page-specific stripped header/footer. The stripped header is only
-// mounted on /flower-delivery; late-night keeps its campaign footer but uses
+// Landing-page-specific stripped header/footer. The stripped header remains on
+// the generic and Beirut flower-delivery campaigns; the UAE city campaigns use
 // the regular storefront header.
 const LandingPageHeader = lazy(() =>
   import("@/components/landing/LandingPageHeader").then((m) => ({ default: m.LandingPageHeader })),
@@ -325,26 +325,41 @@ function ScrollToTop() {
   return null;
 }
 
-export function getShopShellChrome(path: string) {
-  const isFlowerDeliveryCampaign = path.endsWith("/flower-delivery");
-  const isLateNightCampaign = path.endsWith("/late-night-flower-delivery");
+export function getShopShellChrome(
+  path: string,
+  cityId?: string | null,
+) {
+  const pathname = path.split(/[?#]/, 1)[0];
+  const isFlowerDeliveryCampaign = pathname.endsWith("/flower-delivery");
+  const isLateNightCampaign = pathname.endsWith("/late-night-flower-delivery");
+  // ShopShell runs in a city-scoped Wouter router, so its pathname is normally
+  // just "/flower-delivery". Keep the full-path case for direct callers and
+  // use the selected city for the in-shell case.
+  const isUaeFlowerDeliveryCampaign =
+    /^\/(?:en|ar|fr)-ae\/(?:dubai|abu-dhabi)\/flower-delivery\/?$/.test(
+      pathname,
+    ) ||
+    (pathname === "/flower-delivery" &&
+      (cityId === "ae-dubai" || cityId === "ae-abu-dhabi"));
 
   return {
-    // The late-night page keeps its dedicated content/footer, but uses the
-    // regular storefront header so shoppers can browse the catalog.
-    useLandingHeader: isFlowerDeliveryCampaign,
+    // Only the localized UAE city campaigns use the regular header. The
+    // generic and Beirut flower-delivery campaigns retain their stripped
+    // landing header; late-night already uses the regular header.
+    useLandingHeader: isFlowerDeliveryCampaign && !isUaeFlowerDeliveryCampaign,
     useLandingFooter: isFlowerDeliveryCampaign || isLateNightCampaign,
   };
 }
 
 function ShopShell() {
   const [path] = useLocation();
+  const { cityId } = useLocationSelection();
   const isCheckoutPage =
     path.endsWith("/checkout") ||
     path.endsWith("/order-confirmed") ||
     path.endsWith("/checkout/payment-resume") ||
     path.includes("/checkout/payment-resume?");
-  const { useLandingHeader, useLandingFooter } = getShopShellChrome(path);
+  const { useLandingHeader, useLandingFooter } = getShopShellChrome(path, cityId);
   return (
     <LocationPickerGate>
       <ScrollToTop />
