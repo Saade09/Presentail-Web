@@ -45,6 +45,26 @@ export function parseDescriptionParts(desc: string): {
   return { intro, items };
 }
 
+/**
+ * OS sometimes sends a label as the entire preamble before its bullet items.
+ * Keep authored prose intact, but let the styled includes section own this
+ * structural label when the items are rendered separately.
+ */
+export function isStructuralIncludesLabel(text: string): boolean {
+  const normalized = text
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.!?:;,]+$/g, "")
+    .toLocaleLowerCase();
+
+  return (
+    normalized === "includes" ||
+    /^(?:(?:the|this)\s+)?(?:bouquet|flower box|bundle|arrangement|gift set|box|set)\s+includes$/.test(
+      normalized,
+    )
+  );
+}
+
 export function buildProductViewModel(product: Product): ProductViewModel {
   const fromImages = (product.images ?? []).filter((i) => i?.uri);
   const galleryImages =
@@ -60,7 +80,7 @@ export function buildProductViewModel(product: Product): ProductViewModel {
   const { intro, items } = parseDescriptionParts(rawDescription);
 
   const description =
-    intro !== ""
+    intro !== "" && !(items.length > 0 && isStructuralIncludesLabel(intro))
       ? intro
       : items.length === 0
         ? rawDescription || fallbackDescription

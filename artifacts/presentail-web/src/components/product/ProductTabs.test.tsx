@@ -20,6 +20,7 @@ import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
 import { ProductTabs } from "./ProductTabs";
+import { buildProductViewModel } from "./productViewModel";
 
 const BASE = {
   description: "",
@@ -32,6 +33,55 @@ const BASE = {
 // Mode 2: plain intro paragraph + BOUQUET INCLUDES
 // ---------------------------------------------------------------------------
 describe("ProductTabs — plain intro + includes", () => {
+  it("omits a standalone OS includes label while keeping the styled section and every item", () => {
+    const vm = buildProductViewModel({
+      id: "seasonal-bouquet",
+      wcId: 1,
+      name: "Seasonal Bouquet",
+      price: "$50",
+      priceValue: 50,
+      image: null,
+      category: "flowers",
+      categories: [],
+      inStock: true,
+      occasions: [],
+      description: "  BOUQUET   INCLUDES!!! \n• 50 Red Roses • Signature wrapping",
+    });
+
+    renderWithProviders(<ProductTabs {...BASE} {...vm} />);
+
+    expect(document.querySelector("p.text-muted-foreground")).toBeNull();
+    expect(screen.getByText("product.bouquetIncludes")).toBeTruthy();
+    expect(screen.getByText("50 Red Roses")).toBeTruthy();
+    expect(screen.getByText("Signature wrapping")).toBeTruthy();
+  });
+
+  it("keeps meaningful introductory copy before an includes list", () => {
+    const vm = buildProductViewModel({
+      id: "romantic-bouquet",
+      wcId: 2,
+      name: "Romantic Bouquet",
+      price: "$60",
+      priceValue: 60,
+      image: null,
+      category: "flowers",
+      categories: [],
+      inStock: true,
+      occasions: [],
+      description:
+        "A classic romantic arrangement for a special moment.\nBouquet includes:\n• 50 Red Roses • 50 White Roses",
+    });
+
+    renderWithProviders(<ProductTabs {...BASE} {...vm} />);
+
+    const preamble = document.querySelector("p.text-muted-foreground");
+    expect(preamble?.textContent).toBe(
+      "A classic romantic arrangement for a special moment.\nBouquet includes:",
+    );
+    expect(screen.getByText("50 Red Roses")).toBeTruthy();
+    expect(screen.getByText("50 White Roses")).toBeTruthy();
+  });
+
   it("shows the intro paragraph when there are no includes", () => {
     renderWithProviders(
       <ProductTabs {...BASE} description="A lovely bouquet." />,
