@@ -118,7 +118,7 @@ describe("BlogPost — editorial template (send-roses-to-lebanon)", () => {
 describe("BlogPost — legacy article fallbacks (no new fields)", () => {
   // Any article without the new optional fields must still render.
   const LEGACY_SLUG = Object.keys(BLOG_POSTS).find(
-    (slug) => !BLOG_POSTS[slug].en?.dek && !BLOG_POSTS[slug].en?.cta,
+    (slug) => Boolean(BLOG_POSTS[slug].en) && !BLOG_POSTS[slug].en?.dek && !BLOG_POSTS[slug].en?.cta,
   );
 
   it("renders with description as dek and legacy/shop CTA fallback", () => {
@@ -136,6 +136,32 @@ describe("BlogPost — legacy article fallbacks (no new fields)", () => {
     expect(screen.queryByTestId("blog-recommendation-inline")).toBeNull();
     // Legacy fallback still shows a working intro CTA.
     expect(screen.getByTestId("blog-post-cta-intro")).toBeTruthy();
+  });
+});
+
+describe("BlogPost — corporate gifting in Lebanon", () => {
+  beforeEach(() => {
+    mockSlug = "corporate-gifting-lebanon";
+  });
+
+  it("renders the exact English title, corporate meta description, and canonical product link", () => {
+    renderWithProviders(<BlogPost />);
+
+    expect(screen.getByTestId("blog-post-title").textContent).toBe(
+      "Corporate Gifting in Lebanon: Ordering Online for Teams, Clients, and Colleagues",
+    );
+    expect(document.title).toBe(
+      "Corporate Gifting in Lebanon: Ordering Online for Teams, Clients & Colleagues",
+    );
+    expect(document.head.querySelector('meta[name="description"]')?.getAttribute("content")).toMatch(
+      /corporate and office gifts online in Lebanon/i,
+    );
+
+    const vrieseaLink = screen.getByText("Vriesea").closest("a");
+    expect(vrieseaLink?.getAttribute("href")).toBe(
+      "https://presentail.com/en-lb/beirut/product/vriesea",
+    );
+    expect(screen.getByText("Desk plants").tagName).toBe("STRONG");
   });
 });
 

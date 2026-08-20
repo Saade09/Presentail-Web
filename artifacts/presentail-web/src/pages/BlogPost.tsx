@@ -118,14 +118,14 @@ const UI_COPY: Record<Language, UiCopy> = {
 };
 
 /**
- * Render a section body string, converting simple `<a href="...">text</a>` anchors
- * into real clickable links. Only `<a>` tags with a href attribute are parsed —
- * no other HTML is supported — so there is no XSS risk from other markup.
+ * Render a section body string, converting simple anchors and strong tags into
+ * real elements. Only controlled Presentail URLs (or relative paths) are
+ * accepted, so editorial copy can retain canonical absolute URLs without
+ * opening an arbitrary-link injection path.
  * All content is author-controlled (lives in blogPostsCopy.js, not user input).
  */
 function renderBody(body: string): ReactNode {
-  // Split on <a href="...">...</a> patterns only.
-  const TOKEN_RE = /(<a\s+href="([^"]*)"[^>]*>(.*?)<\/a>)/g;
+  const TOKEN_RE = /(<a\s+href="([^"]*)"[^>]*>(.*?)<\/a>|<strong>(.*?)<\/strong>)/g;
   const parts: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -135,17 +135,33 @@ function renderBody(body: string): ReactNode {
     }
     const href = match[2];
     const text = match[3];
-    // Only accept strictly relative paths (single leading slash) — rejects
-    // javascript:, data:, and protocol-relative //host URLs.
-    if (!/^\/[^/]/.test(href)) {
+    const strongText = match[4];
+
+    if (strongText !== undefined) {
+      parts.push(<strong key={match.index}>{renderBody(strongText)}</strong>);
+      lastIndex = match.index + match[0].length;
+      continue;
+    }
+
+    // Only accept strictly relative paths or canonical Presentail URLs —
+    // rejects javascript:, data:, and protocol-relative //host URLs.
+    const isRelativePath = /^\/[^/]/.test(href);
+    const isCanonicalPresentailUrl = /^https:\/\/presentail\.com\/[^/]/.test(href);
+    if (!isRelativePath && !isCanonicalPresentailUrl) {
       parts.push(body.slice(match.index, match.index + match[0].length));
       lastIndex = match.index + match[0].length;
       continue;
     }
     parts.push(
-      <Link key={match.index} href={href} className="text-primary underline hover:no-underline">
-        {text}
-      </Link>,
+      isRelativePath ? (
+        <Link key={match.index} href={href} className="text-primary underline hover:no-underline">
+          {text}
+        </Link>
+      ) : (
+        <a key={match.index} href={href} className="text-primary underline hover:no-underline">
+          {text}
+        </a>
+      ),
     );
     lastIndex = match.index + match[0].length;
   }
