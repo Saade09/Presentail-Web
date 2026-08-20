@@ -43,6 +43,7 @@ import {
   getLocalIso,
   isExpressDeliveryAvailable,
   slotTimeRangeShortForLabel,
+  timeSlotsForCity,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -330,10 +331,19 @@ export default function ProductDetail() {
 
 
   const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
-  const cityTimeSlots = useMemo(
-    () => (city?.timeSlots?.length ? city.timeSlots : timeSlotsForCountry(countryCode)),
-    [city, countryCode],
+  const cityScheduleOverride = useMemo(
+    () => timeSlotsForCity(cityId, countryCode),
+    [cityId, countryCode],
   );
+  const cityTimeSlots = useMemo(
+    () =>
+      cityScheduleOverride ??
+      (city?.timeSlots?.length ? city.timeSlots : timeSlotsForCountry(countryCode)),
+    [city, cityScheduleOverride, countryCode],
+  );
+  const citySlotsByDay = cityScheduleOverride
+    ? undefined
+    : (city?.slotsByDay as Record<string, TimeSlot[]> | undefined);
   const scheduledRowSubtitle = useMemo(() => {
     const formatted =
       deliverySelection.mode && deliverySelection.mode !== "express"
@@ -878,7 +888,7 @@ export default function ProductDetail() {
                       countryCode={countryCode}
                       cityId={cityId}
                       timeSlots={city?.timeSlots}
-                      slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
+                      slotsByDay={citySlotsByDay}
                       initialDate={deliverySelection.date}
                       initialSlotLabel={deliverySelection.slotLabel}
                       initialSlotId={deliverySelection.slotId}

@@ -87,11 +87,30 @@ export type TimeSlot = {
 
 /** Premium Midnight delivery is deliberately restricted to these canonical zones. */
 export const MIDNIGHT_ELIGIBLE_CITY_IDS = ["lb-beirut", "lb-metn"] as const;
+export const MIDNIGHT_FEE_USD = 20;
+export const MIDNIGHT_START_HOUR = 23;
+export const MIDNIGHT_END_HOUR = 1;
+
 const LB_TIME_SLOTS: TimeSlot[] = [
   { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
   { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
-  { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
+  { label: "6:00 PM – 10:00 PM", cutoffHour: 18 },
   { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
+];
+const LB_BEIRUT_TIME_SLOTS: TimeSlot[] = [
+  { label: "9:00 AM – 2:00 PM", slotId: "lb-beirut-morning", startHour: 9, endHour: 14, cutoffHour: 9 },
+  { label: "2:00 PM – 6:00 PM", slotId: "lb-beirut-afternoon", startHour: 14, endHour: 18, cutoffHour: 14 },
+  { label: "6:00 PM – 10:00 PM", slotId: "lb-beirut-evening", startHour: 18, endHour: 22, cutoffHour: 18 },
+  { label: "9:00 PM – 11:00 PM", slotId: "lb-beirut-late-night", startHour: 21, endHour: 23, cutoffHour: 21 },
+  {
+    label: "11:00 PM – 1:00 AM",
+    slotId: "lb-beirut-midnight",
+    startHour: 23,
+    endHour: 1,
+    cutoffHour: 23,
+    extraFee: MIDNIGHT_FEE_USD,
+    serviceType: "midnight",
+  },
 ];
 const AE_TIME_SLOTS: TimeSlot[] = [
   { label: "7:00 AM – 1:00 PM", cutoffHour: 7 },
@@ -103,6 +122,22 @@ const AE_TIME_SLOTS: TimeSlot[] = [
 export function timeSlotsForCountry(code?: string | null): TimeSlot[] {
   if (code === "AE") return AE_TIME_SLOTS;
   return LB_TIME_SLOTS;
+}
+
+/**
+ * Returns a city-specific schedule when the storefront has an approved
+ * canonical schedule for that city. Beirut is intentionally kept independent
+ * of the OS slot rows because the current OS rows are operationally granular
+ * (10–12, 12–2, 2–4, 4–6) rather than the shopper-facing windows.
+ */
+export function timeSlotsForCity(
+  cityId?: string | null,
+  countryCode?: string | null,
+): TimeSlot[] | undefined {
+  if ((countryCode ?? "").toUpperCase() === "LB" && cityId === "lb-beirut") {
+    return LB_BEIRUT_TIME_SLOTS;
+  }
+  return undefined;
 }
 
 /**
@@ -833,8 +868,6 @@ export function isMidnightServiceSlot(
   );
 }
 
-export const MIDNIGHT_END_HOUR = 1;
-
 export function isMidnightEligibleCity(cityId?: string | null): boolean {
   return MIDNIGHT_ELIGIBLE_CITY_IDS.includes(
     cityId as (typeof MIDNIGHT_ELIGIBLE_CITY_IDS)[number],
@@ -903,10 +936,6 @@ export function midnightWindowForOccasionDate(occasionDate: string): MidnightWin
     end: localWallClockToUtc(occasionDate, MIDNIGHT_END_HOUR, timeZone).toISOString(),
   };
 }
-
-export const MIDNIGHT_FEE_USD = 20;
-
-export const MIDNIGHT_START_HOUR = 23;
 
 /**
  * Identify the configured OS Midnight service without relying on its translated

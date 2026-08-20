@@ -30,7 +30,7 @@ import {
   type OSExpressConfig,
   type OSTimeSlot,
 } from "@workspace/presentail-os";
-import { isMidnightSlot, MIDNIGHT_FEE_USD } from "@workspace/delivery";
+import { isMidnightSlot, MIDNIGHT_FEE_USD, timeSlotsForCity } from "@workspace/delivery";
 import { getUsdAmount } from "./fxRateCache";
 import {
   DELIVERY_COUNTRIES as HARDCODED_COUNTRIES,
@@ -487,8 +487,13 @@ function transformOsResponse(
         // fallback and show the wrong (larger) slot set. When the flat list is
         // empty but slotsByDay entries exist, build the effective flat list as
         // the deduplicated union of all per-day arrays (keyed by cutoffHour).
-        const filteredTimeSlots = filterValidOsSlots(c.timeSlots ?? [], canonicalId);
-        const filteredSlotsByDay = c.slotsByDay
+        const canonicalCitySlots = timeSlotsForCity(canonicalId, code);
+        const filteredTimeSlots = canonicalCitySlots
+          ? canonicalCitySlots
+          : filterValidOsSlots(c.timeSlots ?? [], canonicalId);
+        const filteredSlotsByDay = canonicalCitySlots
+          ? undefined
+          : c.slotsByDay
           ? Object.fromEntries(
               Object.entries(c.slotsByDay).map(([day, slots]) => [
                 day,
