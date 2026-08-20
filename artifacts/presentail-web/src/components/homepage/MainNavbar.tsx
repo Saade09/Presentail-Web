@@ -259,17 +259,17 @@ export function MainNavbar() {
 
   const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode, cityId, language);
   const osOccasions = occasionsData?.occasions ?? [];
-  // Hide occasions with no in-stock products so shoppers never land on an empty page.
-  // Only fall back to the static OCCASION_OPTIONS list when the API has not returned
-  // any data yet (cache cold / loading). Once the API resolves, render only the
-  // occasions with count > 0 — even if that list is empty — so stale or zero-product
-  // occasions are never shown.
-  // Use API resolution state (not array length) to decide whether to fall back.
-  // An empty resolved response ([]) should show nothing, not the static list.
+  // The OS catalog response is the active-occasion allowlist. Prefer occasions
+  // with a positive local inventory count, but do not turn a transiently cold
+  // product-count cache into an empty navigation menu. When every active OS
+  // occasion reports zero, retain the active list; that state means the count
+  // feed is unavailable just as often as it means every occasion is empty.
+  // An explicitly empty OS response remains empty so inactive occasions never
+  // leak back in from the static fallback.
   const hasOccasionApiData = occasionsData !== undefined;
-  // Mega menu shows only featured occasions with in-stock products.
-  // The All Occasions page shows all active occasions (featured or not).
-  const visibleOsOccasions = osOccasions.filter((o) => (o.count ?? 0) > 0 && o.featured === true);
+  const occasionsWithInventory = osOccasions.filter((o) => (o.count ?? 0) > 0);
+  const visibleOsOccasions =
+    occasionsWithInventory.length > 0 ? occasionsWithInventory : osOccasions;
   const occasionItems: MegaItem[] =
     hasOccasionApiData
       ? visibleOsOccasions.map((o) => {
@@ -422,21 +422,30 @@ export function MainNavbar() {
   const [mobileSubPanel, setMobileSubPanel] = useState<string | null>(null);
 
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [pinnedMenu, setPinnedMenu] = useState<string | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const openMenu = (key: string) => {
     clearTimeout(closeTimerRef.current);
+    // Re-entering a trigger with the pointer returns the menu to its normal
+    // hover behavior. A click below pins the panel open for keyboard/touchpad
+    // users until they explicitly dismiss it.
+    if (pinnedMenu !== key) setPinnedMenu(null);
     setActiveMenu(key);
   };
 
   const scheduleClose = () => {
+    if (pinnedMenu) return;
     clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => setActiveMenu(null), 180);
   };
 
   const cancelClose = () => clearTimeout(closeTimerRef.current);
-
-  const closeMenu = () => setActiveMenu(null);
+  const closeMenu = () => {
+    clearTimeout(closeTimerRef.current);
+    setActiveMenu(null);
+    setPinnedMenu(null);
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -454,7 +463,7 @@ export function MainNavbar() {
     if (!activeMenu) return;
     const handle = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setActiveMenu(null);
+        closeMenu();
       }
     };
     document.addEventListener("mousedown", handle);
@@ -706,7 +715,15 @@ export function MainNavbar() {
                 type="button"
                 onMouseEnter={() => { openMenu(menu.key); loadShop().catch(() => {}); }}
                 onMouseLeave={scheduleClose}
-                onClick={() => setActiveMenu(activeMenu === menu.key ? null : menu.key)}
+                onClick={() => {
+                  clearTimeout(closeTimerRef.current);
+                  if (activeMenu === menu.key && pinnedMenu === menu.key) {
+                    closeMenu();
+                    return;
+                  }
+                  setActiveMenu(menu.key);
+                  setPinnedMenu(menu.key);
+                }}
                 aria-haspopup="true"
                 aria-expanded={activeMenu === menu.key}
                 data-testid={`nav-trigger-${menu.key}`}

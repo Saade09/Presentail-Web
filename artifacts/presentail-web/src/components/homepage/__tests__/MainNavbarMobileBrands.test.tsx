@@ -114,7 +114,7 @@ vi.mock("@/lib/pageLoaders", () => ({
   loadFavorites: vi.fn(),
   loadBrands: vi.fn(),
   loadBrandDetail: vi.fn(),
-  loadShop: vi.fn(),
+  loadShop: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/prefetch", () => ({
@@ -296,6 +296,47 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     const footerLink = screen.getByRole("link", { name: /nav\.viewAllOccasions/i });
     expect(footerLink).toBeDefined();
     expect((footerLink as HTMLAnchorElement).href).toContain("/occasions");
+  });
+
+  it("keeps active occasion tiles visible when the inventory-count cache reports zero", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogOccasions.mockReturnValue({
+      data: {
+        occasions: [
+          { slug: "birthday", name: "Birthday", image: null, count: 0, featured: false },
+          { slug: "anniversary", name: "Anniversary", image: null, count: 0, featured: false },
+        ],
+      },
+      isPending: false,
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+    await user.click(
+      within(screen.getByTestId("sheet-content")).getByRole("button", {
+        name: /nav\.occasions/i,
+      }),
+    );
+
+    expect(screen.getByRole("link", { name: /Birthday/ })).toBeDefined();
+    expect(screen.getByRole("link", { name: /Anniversary/ })).toBeDefined();
+  });
+
+  it("opens the desktop Occasions menu when its trigger is clicked", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogOccasions.mockReturnValue({
+      data: {
+        occasions: [
+          { slug: "birthday", name: "Birthday", image: null, count: 0, featured: false },
+        ],
+      },
+      isPending: false,
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("nav-trigger-occasions"));
+
+    expect(screen.getByTestId("megamenu-item-birthday")).toBeDefined();
   });
 
   it("keeps the occasions CTA outside the scrolling skeleton while the catalog loads", async () => {
