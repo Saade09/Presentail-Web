@@ -296,7 +296,7 @@ vi.mock("@/pages/ResetPassword", () => ({ default: () => null }));
 // runs with its actual localStorage.setItem logic.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import App from "@/App";
+import App, { getShopShellChrome } from "@/App";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test helpers
@@ -394,5 +394,30 @@ describe("App — attribution captured when landing directly on /checkout via ad
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw!) as { first_touch: { gclid?: string } };
     expect(parsed.first_touch.gclid).toBe("test123");
+  });
+});
+
+describe("ShopShell campaign chrome selection", () => {
+  it("uses the regular header and campaign footer on the late-night route", () => {
+    expect(
+      getShopShellChrome("/en-lb/beirut/late-night-flower-delivery"),
+    ).toEqual({
+      useLandingHeader: false,
+      useLandingFooter: true,
+    });
+  });
+
+  it("keeps the stripped header and campaign footer on flower-delivery", () => {
+    expect(getShopShellChrome("/en-lb/beirut/flower-delivery")).toEqual({
+      useLandingHeader: true,
+      useLandingFooter: true,
+    });
+  });
+
+  it("keeps the regular header and footer on non-campaign routes", () => {
+    expect(getShopShellChrome("/en-lb/beirut/shop")).toEqual({
+      useLandingHeader: false,
+      useLandingFooter: false,
+    });
   });
 });

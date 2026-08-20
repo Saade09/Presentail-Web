@@ -40,7 +40,7 @@ function InLink({
  *
  * Same colours and typography as the global Footer (bg-primary, text-white).
  * The global Footer is untouched — this component is only mounted by
- * ShopShell when the current route is /flower-delivery.
+ * ShopShell on campaign landing routes that use the dedicated footer.
  */
 export function LandingPageFooter() {
   const { t, language } = useLocale();

@@ -88,8 +88,9 @@ const HomepageHeader = lazy(() =>
 const Footer = lazy(() =>
   loadFooter().then((m) => ({ default: m.Footer })),
 );
-// Landing-page-specific stripped header/footer — only mounted on paid-search
-// landing routes (currently /flower-delivery). Global components are untouched.
+// Landing-page-specific stripped header/footer. The stripped header is only
+// mounted on /flower-delivery; late-night keeps its campaign footer but uses
+// the regular storefront header.
 const LandingPageHeader = lazy(() =>
   import("@/components/landing/LandingPageHeader").then((m) => ({ default: m.LandingPageHeader })),
 );
@@ -324,6 +325,18 @@ function ScrollToTop() {
   return null;
 }
 
+export function getShopShellChrome(path: string) {
+  const isFlowerDeliveryCampaign = path.endsWith("/flower-delivery");
+  const isLateNightCampaign = path.endsWith("/late-night-flower-delivery");
+
+  return {
+    // The late-night page keeps its dedicated content/footer, but uses the
+    // regular storefront header so shoppers can browse the catalog.
+    useLandingHeader: isFlowerDeliveryCampaign,
+    useLandingFooter: isFlowerDeliveryCampaign || isLateNightCampaign,
+  };
+}
+
 function ShopShell() {
   const [path] = useLocation();
   const isCheckoutPage =
@@ -331,19 +344,14 @@ function ShopShell() {
     path.endsWith("/order-confirmed") ||
     path.endsWith("/checkout/payment-resume") ||
     path.includes("/checkout/payment-resume?");
-  // Paid-search landing pages get a stripped header+footer (no nav menus,
-  // minimal footer). Every other page keeps the full global components.
-  // Extend this set if more paid-search landing routes are added later.
-  const isLandingPage =
-    path.endsWith("/flower-delivery") ||
-    path.endsWith("/late-night-flower-delivery");
+  const { useLandingHeader, useLandingFooter } = getShopShellChrome(path);
   return (
     <LocationPickerGate>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col">
         {!isCheckoutPage && (
           <Suspense fallback={<HeaderSkeleton />}>
-            {isLandingPage ? <LandingPageHeader /> : <HomepageHeader />}
+            {useLandingHeader ? <LandingPageHeader /> : <HomepageHeader />}
           </Suspense>
         )}
         <main className="flex-1">
@@ -415,7 +423,7 @@ function ShopShell() {
         </main>
         {!isCheckoutPage && (
           <Suspense fallback={null}>
-            {isLandingPage ? <LandingPageFooter /> : <Footer />}
+            {useLandingFooter ? <LandingPageFooter /> : <Footer />}
           </Suspense>
         )}
       </div>

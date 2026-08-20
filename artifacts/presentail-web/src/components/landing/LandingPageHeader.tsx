@@ -36,8 +36,7 @@ import {
  *          mobile hamburger / slide-out sheet, TopUtilityBar.
  *
  * The global HomepageHeader is untouched — this component is only mounted
- * by ShopShell when the current route is /flower-delivery (or any future
- * route flagged as a paid-search landing page).
+ * by ShopShell on the /flower-delivery paid-search landing route.
  */
 export function LandingPageHeader() {
   const { t, language } = useLocale();
