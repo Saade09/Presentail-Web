@@ -65,8 +65,23 @@ import type { OrderState } from "../lib/orderEvents";
 import type { OSLocationsResponse, OSTimeSlot } from "@workspace/presentail-os";
 import { enqueueDescriptionGeneration, enqueueBulkSeed } from "../lib/pageDescriptionQueue";
 import { DELIVERY_COUNTRIES } from "@workspace/catalog-data";
+import {
+  invalidateAllProductSocialCardCache,
+  invalidateProductSocialCardCache,
+} from "./ogImage";
+import { upsertProductSocialShare } from "../lib/productSocialShareStore";
 
 const router: IRouter = Router();
+
+function socialCardSlugFromWebhookData(data: Record<string, unknown> | undefined): string | null {
+  const candidates = [
+    data?.slug,
+    data?.product_slug,
+    (data?.product as Record<string, unknown> | undefined)?.slug,
+  ];
+  const slug = candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  return slug?.trim() ?? null;
+}
 
 // ---------------------------------------------------------------------------
 // Webhook event ring buffer (for /api/admin/catalog-sync diagnostic)
@@ -566,6 +581,7 @@ router.post("/os/webhook", async (req, res) => {
     event === "product.occasion_unassigned"
   ) {
     invalidateOsProductsCache();
+    invalidateAllProductSocialCardCache();
     req.log.info({ event }, "osWebhook: products cache invalidated (catalog change)");
     return res.json({ ok: true });
   }
@@ -582,6 +598,18 @@ router.post("/os/webhook", async (req, res) => {
     event === "product.restocked"
   ) {
     invalidateOsProductsCache();
+    const socialCardSlug = socialCardSlugFromWebhookData(data);
+    if (socialCardSlug) {
+      invalidateProductSocialCardCache(socialCardSlug);
+      // An image can be replaced while retaining its URL. Bump the catalog
+      // source revision so SEO emits a new public card URL and CDN clients do
+      // not retain yesterday's bytes.
+      void upsertProductSocialShare(socialCardSlug, {}).catch((err) =>
+        req.log.warn({ err, slug: socialCardSlug }, "osWebhook: social card revision bump failed"),
+      );
+    } else {
+      invalidateAllProductSocialCardCache();
+    }
     req.log.info({ event }, "osWebhook: products cache invalidated");
 
     if (event === "product.updated" || event === "product.restocked") {
@@ -655,10 +683,16 @@ router.post("/os/webhook", async (req, res) => {
   // product.deleted — immediate per-id removal + full refetch ────────────
   if (event === "product.deleted") {
     const productId = (data as Record<string, unknown>)?.id;
+    const socialCardSlug = socialCardSlugFromWebhookData(data);
     if (productId != null) {
       removeOsProductById(productId as number | string);
     } else {
       invalidateOsProductsCache();
+    }
+    if (socialCardSlug) {
+      invalidateProductSocialCardCache(socialCardSlug);
+    } else {
+      invalidateAllProductSocialCardCache();
     }
     req.log.info(
       { event, productId },

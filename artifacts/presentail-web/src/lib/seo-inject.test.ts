@@ -68,9 +68,11 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       'content="A dozen long-stem velvet roses, hand-tied."',
     );
     expect(out).toContain(
-      '<meta property="og:image" content="https://presentail.test/api/og-image/product/velvet-rose-bouquet"',
+      '<meta property="og:image" content="https://presentail.test/api/og-image/product/velvet-rose-bouquet?v=ivory-v1&amp;store=dubai"',
     );
     expect(out).toContain('<meta property="og:type" content="product"');
+    expect(out).toContain('name="twitter:image" content="https://presentail.test/api/og-image/product/velvet-rose-bouquet?v=ivory-v1&amp;store=dubai"');
+    expect(out).toContain('property="og:image:alt" content="Presentail share image for Velvet Rose Bouquet"');
     // AE market: 89.5 × 3.6725 = 328.69 → roundToNearestFive → 330.00 AED
     expect(out).toContain(
       '<meta property="product:price:amount" content="330.00"',
@@ -151,7 +153,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
 
     // Branded URL must appear as og:image.
     expect(out).toContain(
-      '<meta property="og:image" content="https://presentail.test/api/og-image/product/rose-design-decision"',
+      '<meta property="og:image" content="https://presentail.test/api/og-image/product/rose-design-decision?v=ivory-v1&amp;store=lebanon"',
     );
 
     // Raw CDN URL must NOT appear as og:image — it belongs in JSON-LD only.

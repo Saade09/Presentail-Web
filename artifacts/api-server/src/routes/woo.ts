@@ -49,6 +49,8 @@ import { sendCapiPurchase } from "../lib/fbConversions";
 import { sendUaeOrderSlackNotification, type UaeOrderNotification } from "../lib/orderSlackNotify";
 import { getOsProductByWcId } from "../lib/osProductsCache";
 import { translateProductContent, translateProductNamesBatch, type TranslationLang } from "../lib/productTranslation";
+import { getProductSocialShare, rowToProductSocialOverrides } from "../lib/productSocialShareStore";
+import { buildProductSocialVersion, selectProductSocialImage } from "../lib/productSocialShare";
 import type { WooOrderPayload } from "../lib/wooOrders";
 import type { WooStoreConfig } from "../lib/wooStore";
 
@@ -926,6 +928,20 @@ router.get("/woo/product", async (req, res) => {
   }
 
   const product = transformProduct(wcProduct, store.currencySymbol);
+  // The SEO injector receives this field from the same product API response
+  // and adds it to the public OG URL. A DB failure is non-fatal: source-image
+  // changes still produce a deterministic version from the catalog photo.
+  const socialOverrides = rowToProductSocialOverrides(
+    await getProductSocialShare(slug).catch(() => null),
+  );
+  const socialSelection = selectProductSocialImage(
+    { images: product.images.map((image) => ({ url: image.uri })) },
+    socialOverrides,
+  );
+  const socialShareVersion = buildProductSocialVersion(
+    socialSelection?.url ?? null,
+    socialOverrides,
+  );
   const lang = readLang(req);
 
   if (lang !== "en") {
@@ -946,6 +962,7 @@ router.get("/woo/product", async (req, res) => {
       contentLang: translated.translated ? lang : "en",
       product: {
         ...product,
+        socialShareVersion,
         name: translated.name,
         // Only override description when we actually got a translated string
         // (translateProductContent returns "" when the English was also empty).
@@ -954,7 +971,7 @@ router.get("/woo/product", async (req, res) => {
     });
   }
 
-  return res.json({ ok: true, product });
+  return res.json({ ok: true, product: { ...product, socialShareVersion } });
 });
 
 // GET /api/woo/product-pricing/:osId

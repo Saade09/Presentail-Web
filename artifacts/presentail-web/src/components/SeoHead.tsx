@@ -96,7 +96,11 @@ export function SeoHead() {
     // Entity pages (product/:slug, brand/:slug, category/:slug, occasion/:slug) and
     // wishlist share pages receive entity-specific server-injected metadata. Skipping
     // here prevents the client from clobbering entity names/images with generic copy.
-    if (routeKey === "blogPost" || routeKey === "entityPage") return;
+    // Some legacy locale aliases can make detectRouteKey fall back to "home"
+    // during hydration even though this is visibly a product route. Match the
+    // concrete path as a final guard: ProductDetail owns its versioned OG card.
+    const isProductDetailPath = /\/product\/[^/?#]+\/?$/.test(path);
+    if (routeKey === "blogPost" || routeKey === "entityPage" || isProductDetailPath) return;
     if (path.startsWith("/favorites/share/")) return;
 
     const cityLabel = city

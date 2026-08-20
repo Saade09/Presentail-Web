@@ -3,18 +3,17 @@
  * GET /api/og-image/occasion/:slug
  *
  * On-demand 1200×630 JPEG generator for per-product and per-occasion Open
- * Graph share images. Each image composites the entity's primary photo with
- * the Presentail brand panel (dark green background, product name, PRESENTAIL
- * wordmark, gold accent strip).
+ * Graph share images. Product cards use an ivory Presentail template and
+ * unaltered catalog photography; brand and occasion cards retain their
+ * existing visual contract.
  *
  * Images are generated with `sharp` on the first request and cached
  * in-process for 1 hour. WhatsApp / iMessage / Slack crawlers retry
  * aggressively, so the in-memory cache prevents repeated upstream fetches
  * for the same product.
  *
- * When the OS product cache is cold (server just started) or the slug is
- * unknown, the route returns 404 so crawlers don't cache a broken image.
- * Any sharp / upstream error returns 500 (also not cached).
+ * Product cold-cache/unknown/image failures return a generic JPEG so crawlers
+ * never cache a broken image response.
  *
  * Output: image/jpeg, Cache-Control: public, max-age=3600.
  * Budget: target ≤ 300 kB (JPEG q=80 with mozjpeg; consistent with the
@@ -28,6 +27,17 @@ import {
   getOsOccasions,
   getOsBrands,
 } from "../lib/osProductsCache";
+import {
+  buildProductSocialVersion,
+  renderProductSocialCard,
+  selectProductSocialImage,
+} from "../lib/productSocialShare";
+import {
+  getProductSocialShare,
+  rowToProductSocialOverrides,
+  upsertProductSocialShare,
+} from "../lib/productSocialShareStore";
+import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
 
@@ -49,6 +59,20 @@ const OG_CACHE_TTL_MS = 60 * 60 * 1_000; // 1 h
 
 type CacheEntry = { buffer: Buffer; generatedAt: number };
 const ogCache = new Map<string, CacheEntry>();
+
+/** Clear every cached variation for a product after an OS webhook or admin edit. */
+export function invalidateProductSocialCardCache(slug: string): void {
+  for (const key of ogCache.keys()) {
+    if (key.startsWith(`product:${slug}:`)) ogCache.delete(key);
+  }
+}
+
+/** Catalog-wide changes may affect selected photos without a per-product id. */
+export function invalidateAllProductSocialCardCache(): void {
+  for (const key of ogCache.keys()) {
+    if (key.startsWith("product:")) ogCache.delete(key);
+  }
+}
 
 function getCached(key: string): Buffer | null {
   const entry = ogCache.get(key);
@@ -102,7 +126,10 @@ function isTrustedImageHost(url: string): boolean {
   }
 }
 
-async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+async function fetchImageBuffer(
+  url: string,
+  options: { includeTrustedApiKey?: boolean } = {},
+): Promise<Buffer | null> {
   if (!url) return null;
   const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
   // Only attach the API key for trusted Presentail-owned origins to prevent
@@ -110,7 +137,7 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   // an attacker-controlled image URL.
   const trusted = isTrustedImageHost(url);
   const headers: Record<string, string> =
-    apiKey && trusted ? { "x-api-key": apiKey } : {};
+    options.includeTrustedApiKey !== false && apiKey && trusted ? { "x-api-key": apiKey } : {};
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -127,6 +154,36 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchProductSocialSource(url: string): Promise<Buffer | null> {
+  if (url.startsWith("/objects/")) {
+    try {
+      const file = await new ObjectStorageService().getObjectEntityFile(url);
+      const [buffer] = await file.download();
+      return Buffer.from(buffer);
+    } catch {
+      return null;
+    }
+  }
+  // Social cards are server-rendered. Never accept an arbitrary non-HTTP
+  // scheme here; it would bypass the URL parser and SSRF protection above.
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+  } catch {
+    return null;
+  }
+  const parsed = new URL(url);
+  // Catalog photos served from OS public object storage are intentionally
+  // unauthenticated. Do not forward an API key to that asset host: it is both
+  // unnecessary and can cause a public object request to be rejected by the
+  // storage layer. Other trusted Presentail image endpoints retain the
+  // existing authenticated fetch behavior.
+  const isPublicCatalogObject =
+    parsed.hostname.toLowerCase() === "os.presentail.com" &&
+    parsed.pathname.startsWith("/api/storage/public-objects/");
+  return fetchImageBuffer(url, { includeTrustedApiKey: !isPublicCatalogObject });
 }
 
 // ── Text helpers ──────────────────────────────────────────────────────────
@@ -340,9 +397,9 @@ async function generateOgImage(
 const STORE_KEYS = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
 
 // ── Budget guard ──────────────────────────────────────────────────────────
-// Log a warning when the generated JPEG exceeds 300 kB so regressions are
-// caught in the server logs before they affect users.
-const JPEG_BUDGET_BYTES = 300 * 1024; // 300 kB
+// Product cards are recompressed by the reusable renderer at this target. The
+// guard remains for the legacy city/brand contracts handled in this router.
+const JPEG_BUDGET_BYTES = 1_000_000; // 1 MB
 
 function checkJpegBudget(
   req: Parameters<Parameters<typeof router.get>[1]>[0],
@@ -352,7 +409,7 @@ function checkJpegBudget(
   if (buffer.byteLength > JPEG_BUDGET_BYTES) {
     req.log.warn(
       { context, sizeKb: Math.round(buffer.byteLength / 1024) },
-      "og-image: generated JPEG exceeds 300 kB budget — consider reducing quality or resizing the source photo",
+      "og-image: generated JPEG exceeds 1 MB budget — consider reducing quality or resizing the source photo",
     );
   }
 }
@@ -381,7 +438,7 @@ function sendJpeg(
  * Fallback strategy — the og:image URL is embedded in HTML served to crawlers
  * before the image is generated; a broken URL would be permanently cached by
  * WhatsApp / iMessage. To guarantee this URL always resolves to a valid JPEG:
- *   - Found product  → branded card with product name + photo
+ *   - Found product  → branded ivory card with catalog photo
  *   - Cold cache / unknown slug → generic Presentail branded card (no name /
  *     photo) cached for only 5 minutes so the correct card is served once the
  *     cache warms up
@@ -390,35 +447,73 @@ router.get("/og-image/product/:slug", async (req, res) => {
   const slug = (req.params.slug ?? "").trim();
   if (!slug) return res.status(400).end();
 
-  const cacheKey = `product:${slug}`;
-  const cached = getCached(cacheKey);
-  if (cached) {
-    return sendJpeg(res, cached);
-  }
-
-  let name = "";
-  let imageUrl: string | null = null;
-  let found = false;
-
-  for (const storeKey of STORE_KEYS) {
+  const requestedStore = typeof req.query.store === "string" && STORE_KEYS.includes(req.query.store as typeof STORE_KEYS[number])
+    ? req.query.store as typeof STORE_KEYS[number]
+    : null;
+  const lookupStores = requestedStore ? [requestedStore] : STORE_KEYS;
+  let product: ReturnType<typeof getOsProductBySlug> = null;
+  for (const storeKey of lookupStores) {
     const p = getOsProductBySlug(slug, storeKey);
     if (p) {
-      name = p.name ?? "";
-      // images[0].url is the primary photo (the URL is already absolute).
-      imageUrl = p.images[0]?.url ?? null;
-      found = true;
+      product = p;
       break;
     }
   }
 
   try {
-    // When the entity is not found (cold cache or unknown slug) we still render
-    // a generic branded card so the og:image URL never returns a non-image
-    // response. The short max-age (5 min vs 1 h) means crawlers will re-fetch
-    // once the cache warms up and serve the entity-specific card going forward.
-    const buffer = await generateOgImage(name, imageUrl);
-    checkJpegBudget(req, buffer, `product:${slug}`);
-    const maxAge = found ? 3600 : 300;
+    // DB edits are optional at runtime: a temporary DB issue must still leave
+    // crawlers with a valid generic/product card rather than a broken image.
+    const overrideRow = await getProductSocialShare(slug).catch(() => null);
+    const overrides = rowToProductSocialOverrides(overrideRow);
+    const selection = selectProductSocialImage(product, overrides);
+    const selectionFlags: import("../lib/productSocialShare").ProductSocialQualityFlag[] = [];
+    if (!product?.images?.[0]?.url) selectionFlags.push("absent-primary");
+    if (!selection) selectionFlags.push("generic-fallback");
+    const version = buildProductSocialVersion(selection?.url ?? null, overrides);
+    const wantsThumbnail = req.query.thumbnail === "1";
+    const cacheKey = `product:${slug}:${version}:${wantsThumbnail ? "thumbnail" : "full"}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return sendJpeg(res, cached, product ? 86400 : 300);
+    }
+
+    const isEditorialUrl = selection?.source === "custom" || selection?.source === "preferred";
+    const source = selection && (!isEditorialUrl || selection.url.startsWith("/objects/") || isTrustedImageHost(selection.url))
+      ? await fetchProductSocialSource(selection.url)
+      : null;
+    if (!source && !selectionFlags.includes("generic-fallback")) selectionFlags.push("generic-fallback");
+    let rendered;
+    try {
+      rendered = await renderProductSocialCard({
+        imageBuffer: source,
+        layout: overrides.layout,
+        focalX: overrides.focalX,
+        focalY: overrides.focalY,
+        scale: overrides.scale,
+        positionX: overrides.positionX,
+        positionY: overrides.positionY,
+      });
+    } catch (renderError) {
+      // A bad editorial source/control must never turn a crawler request into
+      // a 500. The generic branded artwork is a valid social-card fallback.
+      req.log.warn({ err: renderError, slug }, "og-image product: renderer failed; using generic fallback");
+      rendered = await renderProductSocialCard();
+    }
+    // Persist diagnostics only when editorial settings already exist. Public
+    // crawler requests must not create a database row for every product.
+    if (overrideRow) {
+      void upsertProductSocialShare(
+        slug,
+        overrides,
+        [...new Set([...rendered.qualityFlags, ...selectionFlags])],
+        { bumpVersion: false },
+      ).catch(() => undefined);
+    }
+    const buffer = wantsThumbnail
+      ? await sharp(rendered.buffer).resize(600, 315, { fit: "cover" }).jpeg({ quality: 82, mozjpeg: true }).toBuffer()
+      : rendered.buffer;
+    checkJpegBudget(req, buffer, `product:${slug}:${selection?.source ?? "generic"}`);
+    const maxAge = product ? 86400 : 300;
     setCached(cacheKey, buffer);
     return sendJpeg(res, buffer, maxAge);
   } catch (err) {

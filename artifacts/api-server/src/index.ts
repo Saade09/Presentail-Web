@@ -32,6 +32,7 @@ import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
 import { registerOnFirstPopulatedCallback } from "./lib/osProductsCache";
 import { enqueueBulkSeed } from "./lib/pageDescriptionQueue";
 import { validateFbPixelEnv } from "./lib/fbConversions";
+import { warmActiveProductSocialCards } from "./lib/productSocialBackfillJob";
 // Prevent unhandled 'error' events on idle pg pool clients from crashing the
 // process. pg emits these when a connection is terminated unexpectedly (e.g. a
 // database restart or transient network drop). The pool will automatically
@@ -107,6 +108,12 @@ app.listen(port, (err) => {
   registerOnFirstPopulatedCallback(() => {
     void enqueueBulkSeed().catch((err: unknown) => {
       logger.warn({ err: (err as Error)?.message }, "startup: pageDescription bulk seed failed (non-fatal)");
+    });
+    // A deployment/catalog refresh should not depend on an operator remembering
+    // to run the backfill CLI. This bounded, idempotent warm starts once the
+    // catalog cache is ready and leaves the CLI available for explicit retries.
+    void warmActiveProductSocialCards().catch((err: unknown) => {
+      logger.warn({ err: (err as Error)?.message }, "startup: product social backfill failed (non-fatal)");
     });
   });
 });

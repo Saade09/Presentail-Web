@@ -275,6 +275,30 @@ export default function ProductDetail() {
     setMeta('meta[property="og:description"]', { property: "og:description", content: seo.ogDescription }, head);
     setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: seo.twitterTitle }, head);
     setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: seo.twitterDescription }, head);
+    // SeoHead intentionally provides a generic image for non-entity routes.
+    // Replace it for hydrated product pages too, so client navigation never
+    // overwrites the server-rendered versioned Presentail card with a CDN photo.
+    const productSocialVersion = (product as unknown as { socialShareVersion?: unknown }).socialShareVersion;
+    const socialVersion = typeof productSocialVersion === "string"
+      ? productSocialVersion
+      : "ivory-v1";
+    const socialStore = countryCode === "CY"
+      ? "cyprus"
+      : countryCode === "AE" && cityId === "abudhabi"
+        ? "abudhabi"
+        : countryCode === "AE"
+          ? "dubai"
+          : "lebanon";
+    const socialImage = `${window.location.origin}/api/og-image/product/${encodeURIComponent(product.id)}?v=${encodeURIComponent(socialVersion)}&store=${socialStore}`;
+    const socialAlt = `Presentail share image for ${product.name}`;
+    setMeta('meta[property="og:image"]', { property: "og:image", content: socialImage }, head);
+    setMeta('meta[property="og:image:secure_url"]', { property: "og:image:secure_url", content: socialImage }, head);
+    setMeta('meta[property="og:image:type"]', { property: "og:image:type", content: "image/jpeg" }, head);
+    setMeta('meta[property="og:image:width"]', { property: "og:image:width", content: "1200" }, head);
+    setMeta('meta[property="og:image:height"]', { property: "og:image:height", content: "630" }, head);
+    setMeta('meta[property="og:image:alt"]', { property: "og:image:alt", content: socialAlt }, head);
+    setMeta('meta[name="twitter:image"]', { name: "twitter:image", content: socialImage }, head);
+    setMeta('meta[name="twitter:image:alt"]', { name: "twitter:image:alt", content: socialAlt }, head);
     return () => {
       head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
     };

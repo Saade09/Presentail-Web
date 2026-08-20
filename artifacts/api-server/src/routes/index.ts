@@ -52,6 +52,7 @@ import seoAuditRouter from "./seoAuditRoutes";
 import adminSeoDashboardRouter from "./adminSeoDashboard";
 import stripeWebhookRouter from "./stripeWebhook";
 import cyberSourceRouter from "./cyberSource";
+import adminProductSocialShareRouter from "./adminProductSocialShare";
 
 const router: IRouter = Router();
 
@@ -102,6 +103,7 @@ router.use(adminCollectionRankingRouter);
 router.use(pageDescriptionsRouter);
 router.use(adminRankingMetricsRouter);
 router.use(adminPlantClassificationsRouter);
+router.use(adminProductSocialShareRouter);
 router.use(ogImageRouter);
 router.use(webEventsRouter);
 router.use(seoAuditRouter);

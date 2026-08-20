@@ -107,25 +107,29 @@ export class ObjectStorageService {
   }
 
   async getObjectEntityUploadURL(): Promise<string> {
+    return (await this.createObjectEntityUpload()).uploadUrl;
+  }
+
+  /**
+   * Create a private-object upload target with the durable object reference
+   * needed to attach it to an application record after the PUT completes.
+   */
+  async createObjectEntityUpload(prefix = "uploads"): Promise<{
+    objectPath: string;
+    uploadUrl: string;
+  }> {
     const privateObjectDir = this.getPrivateObjectDir();
-    if (!privateObjectDir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
-      );
-    }
-
     const objectId = randomUUID();
-    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-
+    const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, "") || "uploads";
+    const fullPath = `${privateObjectDir.replace(/\/$/, "")}/${normalizedPrefix}/${objectId}`;
     const { bucketName, objectName } = parseObjectPath(fullPath);
-
-    return signObjectURL({
+    const uploadUrl = await signObjectURL({
       bucketName,
       objectName,
       method: "PUT",
       ttlSec: 900,
     });
+    return { objectPath: `/objects/${normalizedPrefix}/${objectId}`, uploadUrl };
   }
 
   async getObjectEntityFile(objectPath: string): Promise<File> {

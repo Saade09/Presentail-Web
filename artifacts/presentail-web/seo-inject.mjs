@@ -3945,7 +3945,9 @@ export function buildProductHead({
       title,
       description,
       imageUrl,
-      imageAlt: rawName || "Presentail product", // i18n-ignore — brand+type label used as OG image alt fallback
+      imageAlt: rawName
+        ? `Presentail share image for ${rawName}`
+        : "Presentail product share image", // i18n-ignore — exact branded share-image alt fallback
       imageWidth: effectiveImageWidth,
       imageHeight: effectiveImageHeight,
       basePath,
@@ -5340,7 +5342,16 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   // contain an absolute URL accessible to crawlers (WhatsApp, iMessage, Slack,
   // etc.), so we use the request origin (e.g. https://presentail.com) plus the
   // /api/og-image/* path that the reverse proxy routes to the API server.
-  const publicOrigin = (rest.origin ?? "").replace(/\/$/, "");
+  // Vite development requests can enter this injector without an `origin`
+  // field. Prefer the configured HTTPS preview domain in that case so product
+  // crawlers still receive the branded absolute card URL rather than a raw OS
+  // source image. In production the request/deployment origin remains first.
+  const publicOrigin = (
+    rest.origin ||
+    (process.env.NODE_ENV === "development" && process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : "")
+  ).replace(/\/$/, "");
 
   let result = null;
   if (productSlug) {
@@ -5397,8 +5408,21 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       //
       // If publicOrigin is empty (e.g. in unit tests with no proxy), fall back
       // to probing the raw product image URL for dimensions.
+      const socialShareVersion =
+        typeof product.socialShareVersion === "string" &&
+        /^[a-f0-9]{8,64}$/i.test(product.socialShareVersion)
+          ? product.socialShareVersion
+          : "ivory-v1";
+      const socialStore =
+        parsed.country === "cy"
+          ? "cyprus"
+          : parsed.country === "ae" && parsed.city === "abudhabi"
+            ? "abudhabi"
+            : parsed.country === "ae"
+              ? "dubai"
+              : "lebanon";
       const productOgImageUrl = publicOrigin
-        ? `${publicOrigin}/api/og-image/product/${encodeURIComponent(productSlug)}`
+        ? `${publicOrigin}/api/og-image/product/${encodeURIComponent(productSlug)}?v=${encodeURIComponent(socialShareVersion)}&store=${socialStore}`
         : null;
       const productImageDims = productOgImageUrl
         ? null // dimensions are always 1200×630 — no probe needed
