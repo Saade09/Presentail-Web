@@ -533,6 +533,8 @@ const EN = {
   rescheduleCancel: "Cancel",
   rescheduleExpressTile: "Express Delivery · 1–3 hrs",
   rescheduleExpressUnavailable: "Not available right now",
+  noDeliverySlots: "No delivery time slots are available for this area.",
+  noDeliverySlotsShort: "No scheduled slots available",
   expressInfoPopupTitle: "Express Delivery",
   expressInfoPopupBody: "Express is premium delivery delivered within 90 minutes.",
 
@@ -1525,6 +1527,8 @@ const AR: typeof EN = {
   rescheduleCancel: "إلغاء",
   rescheduleExpressTile: "توصيل سريع · 1–3 ساعات",
   rescheduleExpressUnavailable: "غير متاح الآن",
+  noDeliverySlots: "لا توجد خانات زمنية للتوصيل متاحة لهذه المنطقة.",
+  noDeliverySlotsShort: "لا توجد خانات مجدولة متاحة",
   expressInfoPopupTitle: "التوصيل السريع",
   expressInfoPopupBody: "التوصيل السريع هو خدمة توصيل مميزة تصل خلال 90 دقيقة.",
 
@@ -2511,6 +2515,8 @@ const FR: typeof EN = {
   rescheduleCancel: "Annuler",
   rescheduleExpressTile: "Livraison express · 1–3 h",
   rescheduleExpressUnavailable: "Non disponible pour le moment",
+  noDeliverySlots: "Aucun créneau de livraison n'est disponible pour cette zone.",
+  noDeliverySlotsShort: "Aucun créneau planifié disponible",
   expressInfoPopupTitle: "Livraison express",
   expressInfoPopupBody: "La livraison express est une livraison premium effectuée en 90 minutes.",
 

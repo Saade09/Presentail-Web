@@ -26,7 +26,6 @@ import {
   isExpressDeliveryAvailable,
   isMidnightSlot,
   nearestSlotForHour,
-  timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 import { displayedSlotsForDate } from "./displayedSlots";
@@ -63,7 +62,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Called synchronously with the confirmed selection before the modal closes. */
   onConfirm?: (selection: DeliveryPickerSelection) => void;
-  /** OS-sourced slots for the selected city. When provided, overrides the hardcoded per-country defaults. */
+  /** OS-sourced slots for the selected city. An empty list means OS has no schedule to offer. */
   timeSlots?: TimeSlot[];
   /**
    * Whether the OS has enabled express delivery for this specific city.
@@ -96,6 +95,15 @@ function weekdayDayMonth(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
+/** Date format used by the midnight helper: "Fri, 21 Aug". */
+function midnightDeliveryDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const weekday = d.toLocaleDateString(undefined, { weekday: "short" });
+  const month = d.toLocaleDateString(undefined, { month: "short" });
+  return `${weekday}, ${d.getDate()} ${month}`;
 }
 
 /** Parse "9:00 AM" / "2 PM" style strings → hour (0–23). Null on failure. */
@@ -295,10 +303,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   // Raw (unfiltered) slot list — per-date filtering/dedup happens below via
   // displayedSlotsForDate so same-day/next-day OS flags and duplicate-label
   // configurations are honoured exactly like the product page's inline panel.
-  const rawTimeSlots = useMemo(
-    () => (propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(countryCode)),
-    [propTimeSlots, countryCode],
-  );
+  const rawTimeSlots = useMemo(() => propTimeSlots ?? [], [propTimeSlots]);
   const quickDays = useMemo(
     () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow"), now, countryCode).slice(0, 3),
     [t, now, countryCode],
@@ -852,13 +857,19 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                     const activeSlotState = slotStates.find(s => s.slot.label === slot && !s.unavailable);
                     if (activeSlotState && isMidnightSlot(activeSlotState.slot, city?.id)) {
                       const promiseDate = addDaysIso(selectedIso, 1);
-                      const promiseDateStr = (() => {
-                        const dayEntry = quickDays.find((d) => d.iso === promiseDate);
-                        if (dayEntry) {
-                          return `${dayEntry.day}, ${dayEntry.date} ${dayMonthShort(promiseDate)}`;
-                        }
-                        return `${weekdayDayMonth(promiseDate)}`;
-                      })();
+                      const formatDeliveryDate = midnightDeliveryDate;
+                      const promiseDateStr = formatDeliveryDate(promiseDate);
+                      const startPhrase =
+                        selectedIso === todayIso
+                          ? "tonight"
+                          : `on ${formatDeliveryDate(selectedIso)}`;
+                      const midnightMessage = t("product.midnightArrivesAs")
+                        .replace("{start}", startPhrase)
+                        .replace("{end}", promiseDateStr)
+                        // Existing non-English translations continue to use
+                        // {date}; leave them unchanged while English uses
+                        // precise start/end placeholders.
+                        .replace("{date}", promiseDateStr);
                       return (
                         <div className="rounded-xl bg-[#FFF8EE] text-[#1A1A1A] p-4 flex items-center justify-between mt-3" data-testid="midnight-delivery-banner">
                           <div className="flex gap-3 items-start">
@@ -866,7 +877,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                             <div>
                               <p className="text-sm font-semibold leading-tight">{t("product.midnightDelivery")}</p>
                               <p className="text-xs opacity-70 mt-1 leading-tight">
-                                {t("product.midnightArrivesAs").replace("{date}", promiseDateStr)}
+                                {midnightMessage}
                               </p>
                             </div>
                           </div>

@@ -51,7 +51,6 @@ import {
   firstAvailableDay,
   isExpressDeliveryAvailable,
   nearestSlotForHour,
-  timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
@@ -616,9 +615,10 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // tomorrow when today's slots are past), but computed explicitly so the
   // eligibility upgrade effect fires if OS cities/hours change.
   const standardEligible = useMemo(() => {
-    const slots = (selectedCity?.timeSlots?.length
-      ? selectedCity.timeSlots
-      : timeSlotsForCountry(cc)) as TimeSlot[];
+    // Use only OS-configured slots. When the city has no OS slots, standard
+    // delivery is not eligible so the delivery options UI is not shown.
+    const slots = (selectedCity?.timeSlots ?? []) as TimeSlot[];
+    if (slots.length === 0) return false;
     const h = getCountryHour(cc);
     const today = new Date().toISOString().slice(0, 10);
     return firstAvailableDay(today, slots, h, today) !== null;
@@ -991,9 +991,10 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // Seed defaults used when the shopper switches to scheduled delivery
   // without opening the reschedule sheet (e.g. the express-unavailable
   // auto-fallback). The sheet overwrites these on Confirm.
-  const PROD_SLOTS = (selectedCity?.timeSlots?.length
-    ? selectedCity.timeSlots
-    : timeSlotsForCountry(cc)) as TimeSlot[];
+  // Use only OS-configured slots for the selected city. When no OS schedule
+  // exists, PROD_SLOTS is empty and seededSelectionRef stays null — the
+  // add button guard will not auto-seed a scheduled window in that case.
+  const PROD_SLOTS = (selectedCity?.timeSlots ?? []) as TimeSlot[];
   const localH = getCountryHour(cc);
   const todaySlot = nearestSlotForHour(PROD_SLOTS, true, localH);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -1002,21 +1003,32 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
   })();
-  const _firstAvail = todaySlot
-    ? { iso: todayIso, slot: todaySlot }
-    : firstAvailableDay(todayIso, PROD_SLOTS, localH, todayIso);
+  // Only compute and expose a seeded selection when OS slots exist. When there
+  // are no OS slots, seededSelectionRef stays null so the add-button guard
+  // does not auto-seed a stale/static window.
+  const _firstAvail = PROD_SLOTS.length > 0
+    ? (todaySlot
+        ? { iso: todayIso, slot: todaySlot }
+        : firstAvailableDay(todayIso, PROD_SLOTS, localH, todayIso))
+    : null;
   const defaultDate = _firstAvail?.iso ?? tomorrowIso;
-  const defaultSlot = (
-    _firstAvail?.slot ??
-    nearestSlotForHour(PROD_SLOTS, false, localH) ??
-    PROD_SLOTS[0]
-  )!.label;
+  const defaultSlot = PROD_SLOTS.length > 0
+    ? (
+        _firstAvail?.slot ??
+        nearestSlotForHour(PROD_SLOTS, false, localH) ??
+        PROD_SLOTS[0]
+      )!.label
+    : null;
   // Expose the computed default window so the outer add-button handler can
   // auto-seed the delivery selection when express is unavailable (delivery
   // options UI hidden) and no window has been committed yet.
   if (seededSelectionRef) {
-    const seededMode = defaultDate === todayIso ? "today_slot" : "schedule";
-    seededSelectionRef.current = { mode: seededMode, date: defaultDate, slotLabel: defaultSlot };
+    if (PROD_SLOTS.length > 0 && defaultSlot) {
+      const seededMode = defaultDate === todayIso ? "today_slot" : "schedule";
+      seededSelectionRef.current = { mode: seededMode, date: defaultDate, slotLabel: defaultSlot };
+    } else {
+      seededSelectionRef.current = null;
+    }
   }
   const [rescheduleVisible, setRescheduleVisible] = useState(false);
   // Expose the sheet opener to the outer add-button handler so it can open

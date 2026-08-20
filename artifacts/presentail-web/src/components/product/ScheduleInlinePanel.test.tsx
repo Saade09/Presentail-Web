@@ -52,7 +52,7 @@ const LOCALE_T: Record<string, string> = {
   "checkout.deliveryDate": "Delivery date",
   "checkout.deliveryTime": "Delivery time",
   "product.midnightDelivery": "Midnight Delivery",
-  "product.midnightArrivesAs": "Starts between 11 PM the day before and 1 AM on {date}",
+  "product.midnightArrivesAs": "Arrives between 11 PM {start} and 1 AM on {end}",
   "product.deliveryExtraFee": "+{fee}",
 };
 
@@ -98,6 +98,7 @@ describe("ScheduleInlinePanel — synthetic chip for out-of-strip dates", () => 
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={() => {}}
       />,
       { locale },
@@ -185,6 +186,12 @@ describe("ScheduleInlinePanel — Premium Midnight Delivery", () => {
     expect(screen.getByTestId("midnight-delivery-banner").textContent).toContain(
       `1 AM on ${expectedPromiseDate}`,
     );
+    expect(screen.getByTestId("midnight-delivery-banner").textContent).not.toContain(
+      "tonight",
+    );
+    expect(screen.getByTestId("midnight-delivery-banner").textContent).toContain(
+      `11 PM on ${new Date(`${TOMORROW_ISO}T12:00:00`).toLocaleDateString("en-US", { weekday: "short" })}, ${new Date(`${TOMORROW_ISO}T12:00:00`).getDate()} ${new Date(`${TOMORROW_ISO}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}`,
+    );
     await waitFor(() =>
       expect(onChange).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -193,6 +200,32 @@ describe("ScheduleInlinePanel — Premium Midnight Delivery", () => {
           cityId: "lb-beirut",
         }),
       ),
+    );
+  });
+
+  it("uses tonight for a midnight slot selected for the storefront's current date", () => {
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        cityId="lb-beirut"
+        initialDate={TODAY_ISO}
+        initialSlotLabel={standardSlot.label}
+        initialSlotId={standardSlot.slotId}
+        timeSlots={[standardSlot, midnightSlot]}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+
+    fireEvent.click(screen.getByTestId("schedule-slot-os-midnight-beirut"));
+
+    const tomorrow = new Date(`${TOMORROW_ISO}T12:00:00`);
+    const tomorrowLabel = `${tomorrow.toLocaleDateString("en-US", { weekday: "short" })}, ${tomorrow.getDate()} ${tomorrow.toLocaleDateString("en-US", { month: "short" })}`;
+    expect(screen.getByTestId("midnight-delivery-banner").textContent).toContain(
+      `Arrives between 11 PM tonight and 1 AM on ${tomorrowLabel}`,
+    );
+    expect(screen.getByTestId("midnight-delivery-banner").textContent).not.toContain(
+      "the day before",
     );
   });
 
@@ -225,6 +258,7 @@ describe("ScheduleInlinePanel — onChange callback", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={onChange}
       />,
       { locale },
@@ -248,6 +282,7 @@ describe("ScheduleInlinePanel — onChange callback", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={FAR_DATE_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={onChange}
       />,
       { locale },
@@ -259,6 +294,22 @@ describe("ScheduleInlinePanel — onChange callback", () => {
     };
     expect(lastCall.mode).toBe("schedule");
     expect(lastCall.date).toBe(FAR_DATE_ISO);
+  });
+
+  it("does not select a static country slot when OS supplies no slots", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        timeSlots={[]}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByTestId(/^schedule-slot-/)).toBeNull();
   });
 });
 
@@ -376,6 +427,7 @@ describe("ScheduleInlinePanel — interactions", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={FAR_DATE_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={() => {}}
       />,
       { locale },
@@ -394,6 +446,7 @@ describe("ScheduleInlinePanel — interactions", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={onChange}
       />,
       { locale },
@@ -413,6 +466,7 @@ describe("ScheduleInlinePanel — interactions", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={() => {}}
       />,
       { locale },
@@ -516,6 +570,7 @@ describe("ScheduleInlinePanel — interactions", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={onChange}
       />,
       { locale },
@@ -568,6 +623,7 @@ describe("ScheduleInlinePanel — mobile modal (viewport < 640 px)", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={() => {}}
       />,
       { locale },
@@ -584,6 +640,7 @@ describe("ScheduleInlinePanel — mobile modal (viewport < 640 px)", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={() => {}}
       />,
       { locale },
@@ -602,6 +659,7 @@ describe("ScheduleInlinePanel — mobile modal (viewport < 640 px)", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={() => {}}
       />,
       { locale },
@@ -619,6 +677,7 @@ describe("ScheduleInlinePanel — mobile modal (viewport < 640 px)", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={() => {}}
       />,
       { locale },
@@ -636,6 +695,7 @@ describe("ScheduleInlinePanel — mobile modal (viewport < 640 px)", () => {
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
         onChange={onChange}
       />,
       { locale },

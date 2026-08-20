@@ -8,7 +8,6 @@ import {
   formatPromiseDateLabel,
   getLocalIso,
   slotTimeRangeShortForLabel,
-  timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 
@@ -42,13 +41,12 @@ function fill(template: string, vars: Record<string, string>): string {
 }
 
 /**
- * City-scoped slot list shared by the Delivery Summary row and the picker
- * modal. Falls back to the per-country hardcoded table when the city has no
- * OS slot data. Deduplicates by label (the OS may return two same-label
- * Night slots for same-day/next-day configs).
+ * City-scoped OS slot list shared by the Delivery Summary row and the picker
+ * modal. An empty list means OS has no schedule for this city; it must never
+ * be substituted with a country-wide schedule from another city.
  */
 export function useCityTimeSlots(): TimeSlot[] {
-  const { city, countryCode } = useLocationSelection();
+  const { city } = useLocationSelection();
   return useMemo(() => {
     let raw: TimeSlot[] = [];
     if (city?.timeSlots?.length) {
@@ -58,14 +56,13 @@ export function useCityTimeSlots(): TimeSlot[] {
         .flat()
         .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i);
     }
-    if (!raw.length) return timeSlotsForCountry(countryCode ?? null);
     const seen = new Set<string>();
     return raw.filter((s) => {
       if (seen.has(s.label)) return false;
       seen.add(s.label);
       return true;
     });
-  }, [city, countryCode]);
+  }, [city]);
 }
 
 /**

@@ -9,9 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  firstAvailableDay,
-  getCountryHour,
-  timeSlotsForCountry,
 } from "@workspace/delivery";
 
 export type DeliveryMode = "express" | "today_slot" | "schedule";
@@ -65,25 +62,6 @@ const DeliverySelectionContext =
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-/**
- * Resolve the first available delivery date starting from today.
- * Uses the supplied `countryCode` for country-aware slot table and local
- * hour (Asia/Dubai for AE, Asia/Beirut for LB & CY). Falls back to LB
- * when `countryCode` is omitted — the picker modal will re-check with
- * the actual country on open, and the web Checkout page has its own
- * correction effect that runs when city time-slot data arrives.
- */
-function resolveFirstAvailableDate(countryCode?: string | null): { date: string; slotLabel: string | null } {
-  const today = todayIso();
-  const slots = timeSlotsForCountry(countryCode);
-  const h = getCountryHour(countryCode);
-  const result = firstAvailableDay(today, slots, h, today);
-  return {
-    date: result?.iso ?? today,
-    slotLabel: result?.slot.label ?? null,
-  };
 }
 
 /** Read the stored country code from LocationContext's localStorage entry. */
@@ -165,41 +143,9 @@ export function sanitize(raw: unknown, countryCode?: string | null): DeliverySel
       source,
     };
   }
-  const today = todayIso();
-  if (!date || date === today) {
-    const slots = timeSlotsForCountry(countryCode);
-    const h = getCountryHour(countryCode);
-    const todayHasSlots = slots.some((s) => s.cutoffHour > h);
-    if (!todayHasSlots) {
-      const resolved = resolveFirstAvailableDate(countryCode);
-      return {
-        mode: resolved.date !== today ? "schedule" : mode,
-        date: resolved.date,
-        slotLabel: resolved.slotLabel,
-        slotId: null,
-        serviceType: null,
-        cityId: null,
-        // The stored choice is no longer available — the system re-picked.
-        source: "system_reselected",
-      };
-    }
-    if (!date) {
-      date = today;
-      // The stored date passed (or was missing): what we return is not the
-      // shopper's original explicit pick anymore.
-      if (datePassed) {
-        return {
-          mode,
-          date,
-          slotLabel,
-          slotId,
-          serviceType,
-          cityId,
-          source: "system_reselected",
-        };
-      }
-    }
-  }
+  // Do not invent a date or slot from a country-wide table while the selected
+  // city's OS schedule is still unavailable. City-aware consumers validate or
+  // clear this restored selection when live OS location data loads.
   return { mode, date, slotLabel, slotId, serviceType, cityId, source };
 }
 

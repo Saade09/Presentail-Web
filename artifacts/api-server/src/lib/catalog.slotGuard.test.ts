@@ -183,7 +183,7 @@ describe("checkSubmittedSlotBookable", () => {
     ).toEqual({ bookable: true });
   });
 
-  it("falls back to label parsing when the city config is unavailable", () => {
+  it("rejects a scheduled order when its city schedule is unavailable", () => {
     getDeliverySlotsMock.mockReturnValue([]);
     getExpressConfigMock.mockReturnValue({});
     const r = checkSubmittedSlotBookable({
@@ -192,7 +192,7 @@ describe("checkSubmittedSlotBookable", () => {
       district: "Beirut",
       now: beirut(15),
     });
-    expect(r).toEqual({ bookable: false, reason: "slot_window_ended" });
+    expect(r).toEqual({ bookable: false, reason: "slot_unavailable" });
   });
 
   it("uses Asia/Dubai for AE districts", () => {

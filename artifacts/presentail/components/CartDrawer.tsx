@@ -37,7 +37,6 @@ import {
   isExpressDeliveryAvailable,
   resolveSlotLabel,
   slotTimeRangeForLabel,
-  timeSlotsForCountry,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { trackEvent } from "@/lib/analytics";
@@ -109,14 +108,12 @@ export function CartDrawer() {
   // Resolve persisted slot against current country + country-local hour for
   // display; see FullCartView for the rationale (do not rewrite persisted
   // state here — checkout's mount effect repairs it).
-  // Use OS-configured slots for the selected city when available, falling back
-  // to the hardcoded per-country table so existing behaviour is preserved.
+  // Use only OS-configured slots for the selected city. An empty array means
+  // no schedule has been published for this area yet — callers treat it as
+  // "no scheduled slots available" and show an unavailable state.
   const cityTimeSlots = React.useMemo(
-    () =>
-      selectedCity?.timeSlots?.length
-        ? selectedCity.timeSlots
-        : timeSlotsForCountry(countryCode),
-    [selectedCity, countryCode],
+    () => selectedCity?.timeSlots ?? [],
+    [selectedCity],
   );
   // Express availability: honour the OS flag/cutoff when the city has OS config,
   // otherwise fall back to the hardcoded 8 AM–10 PM window.

@@ -41,7 +41,6 @@ import {
   isExpressDeliveryAvailable,
   resolveSlotLabel,
   slotTimeRangeForLabel,
-  timeSlotsForCountry,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { trackEvent } from "@/lib/analytics";
@@ -260,14 +259,12 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   // displays as the next available slot instead of one that can no longer
   // be booked. The persisted state itself is left untouched here — checkout's
   // mount effect repairs it when the user opens checkout.
-  // Use OS-configured slots for the selected city when available, falling back
-  // to the hardcoded per-country table so existing behaviour is preserved.
+  // Use only OS-configured slots for the selected city. An empty array means
+  // no schedule has been published for this area yet — callers treat it as
+  // "no scheduled slots available" and show an unavailable state.
   const cityTimeSlots = React.useMemo(
-    () =>
-      selectedCity?.timeSlots?.length
-        ? selectedCity.timeSlots
-        : timeSlotsForCountry(countryCode),
-    [selectedCity, countryCode],
+    () => selectedCity?.timeSlots ?? [],
+    [selectedCity],
   );
   // Express availability: honour the OS flag/cutoff when the city has OS config,
   // otherwise fall back to the hardcoded 8 AM–10 PM window.
@@ -307,6 +304,18 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
     if (deliverySelection.mode === "today_slot") return t.cartStickyStandardToday;
     return deliveryRowValue ?? null;
   }, [deliverySelection.mode, t.cartStickyExpressToday, t.cartStickyStandardToday, deliveryRowValue]);
+
+  // When the OS has no slots for this city and the shopper is not using express,
+  // clear any stale scheduled selection and block checkout continuation.
+  const hasOsSlots = cityTimeSlots.length > 0;
+  const scheduledDeliveryBlocked =
+    !hasOsSlots && deliverySelection.mode !== "express";
+  React.useEffect(() => {
+    if (scheduledDeliveryBlocked && deliverySelection.mode !== null && deliverySelection.mode !== "express") {
+      deliverySelection.setSelection({ mode: null, date: null, slotLabel: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduledDeliveryBlocked]);
 
   const goPickDeliveryTime = React.useCallback(() => {
     setRescheduleVisible(true);
@@ -741,9 +750,14 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             )}
 
             <Pressable
-              onPress={goPickDeliveryTime}
+              onPress={scheduledDeliveryBlocked ? undefined : goPickDeliveryTime}
+              disabled={scheduledDeliveryBlocked}
               accessibilityRole="button"
-              accessibilityLabel={deliveryRowValue ?? t.cartSelectDateTimePrompt}
+              accessibilityLabel={
+                scheduledDeliveryBlocked
+                  ? t.noDeliverySlotsShort
+                  : deliveryRowValue ?? t.cartSelectDateTimePrompt
+              }
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -752,6 +766,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 borderRadius: 14,
                 paddingVertical: 12,
                 paddingHorizontal: 14,
+                opacity: scheduledDeliveryBlocked ? 0.65 : 1,
               }}
             >
               <View
@@ -781,15 +796,19 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 <AppText
                   numberOfLines={1}
                   style={{
-                    fontFamily: deliveryRowValue ? "Inter_600SemiBold" : "Inter_400Regular",
+                    fontFamily: scheduledDeliveryBlocked || !deliveryRowValue ? "Inter_400Regular" : "Inter_600SemiBold",
                     fontSize: 13,
-                    color: deliveryRowValue ? colors.primary : colors.mutedForeground,
+                    color: scheduledDeliveryBlocked ? colors.mutedForeground : deliveryRowValue ? colors.primary : colors.mutedForeground,
                   }}
                 >
-                  {deliveryRowValue ?? t.cartSelectDateTimePrompt}
+                  {scheduledDeliveryBlocked
+                    ? t.noDeliverySlotsShort
+                    : deliveryRowValue ?? t.cartSelectDateTimePrompt}
                 </AppText>
               </View>
-              <Feather name={deliveryRowValue ? "edit-2" : "chevron-right"} size={14} color={colors.mutedForeground} />
+              {!scheduledDeliveryBlocked && (
+                <Feather name={deliveryRowValue ? "edit-2" : "chevron-right"} size={14} color={colors.mutedForeground} />
+              )}
             </Pressable>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
@@ -842,9 +861,10 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
           >
             <CartStickyBar
               itemCount={detailed.length}
-              deliveryContext={stickyDeliveryContext}
+              deliveryContext={scheduledDeliveryBlocked ? t.noDeliverySlotsShort : stickyDeliveryContext}
               grandTotalUsd={grandTotalUsd}
               onProceed={handleProceed}
+              isDisabled={scheduledDeliveryBlocked}
               bottomPadding={Math.max(overlay - insets.bottom, 12)}
             />
           </View>

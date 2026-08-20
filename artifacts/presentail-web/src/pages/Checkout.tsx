@@ -852,8 +852,8 @@ function CheckoutForm() {
   const deliverySelection = seededDeliverySelection;
   // Seed the in-checkout date/slot/mode from the shared delivery-selection
   // store so a window the shopper picked from the product page survives
-  // into the checkout summary. Falls back to "schedule" + the first slot
-  // when there's no persisted choice (legacy behaviour).
+  // into the checkout summary. With no persisted choice, wait for the selected
+  // city's OS schedule instead of preselecting a country-wide fallback slot.
   const persistedScheduleMode =
     deliverySelection.mode && deliverySelection.mode !== "express"
       ? "schedule"
@@ -861,7 +861,7 @@ function CheckoutForm() {
         ? "express"
         : "schedule";
   const [deliverySlot, setDeliverySlot] = useState<string>(
-    deliverySelection.slotLabel ?? timeSlotsForCountry(countryCode)[0]?.label ?? "",
+    deliverySelection.slotLabel ?? "",
   );
   const [deliverySlotId, setDeliverySlotId] = useState<string | undefined>(
     deliverySelection.slotId ?? undefined,
@@ -1330,11 +1330,9 @@ function CheckoutForm() {
     }
   }, [expressQuote, language, marketTimeZone]);
 
-  // Use OS city time slots when available; fall back to hardcoded per-country defaults.
-  // `selectedCityData?.timeSlots` is populated from /api/delivery-locations once loaded.
-  // Safety net: if the flat list is empty but slotsByDay is present (e.g. Akkar),
-  // derive the effective flat list as the deduplicated union of all per-day arrays
-  // before reaching the country-wide fallback.
+  // Use only the selected city's OS time slots. If OS has no schedule for the
+  // city, keep this empty rather than displaying a country-wide fallback.
+  // `selectedCityData?.timeSlots` is populated from /api/delivery-locations.
   const timeSlots = useMemo(() => {
     if (selectedCityData?.timeSlots?.length) return selectedCityData.timeSlots;
     if (selectedCityData?.slotsByDay) {
@@ -1343,8 +1341,8 @@ function CheckoutForm() {
         .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i);
       if (derived.length > 0) return derived;
     }
-    return timeSlotsForCountry(countryCode);
-  }, [selectedCityData, countryCode]);
+    return [];
+  }, [selectedCityData]);
 
   useMidnightSlotValidation(
     timeSlots,
@@ -1494,11 +1492,9 @@ function CheckoutForm() {
     if (countryCode !== prevCountryRef.current) {
       prevCountryRef.current = countryCode;
       setRecipient((r) => ({ ...r, district: "" }));
-      // Use city OS slots when already loaded, otherwise fall back to hardcoded.
-      const newSlots = selectedCityData?.timeSlots?.length
-        ? selectedCityData.timeSlots
-        : timeSlotsForCountry(countryCode);
-      setDeliverySlot(newSlots[0]?.label ?? "");
+      // Do not carry a window across countries; a fresh selection will be
+      // chosen only after the target city's OS schedule is available.
+      setDeliverySlot("");
     }
   }, [countryCode]);
 
@@ -1526,6 +1522,13 @@ function CheckoutForm() {
   // sync effect above attributes the change to the system, not the shopper.
   const systemCorrectionRef = useRef(false);
   useEffect(() => {
+    if (locationsLoading) {
+      return;
+    }
+    if (timeSlots.length === 0) {
+      setDeliverySlot("");
+      return;
+    }
     const today = new Date().toISOString().slice(0, 10);
     const currentDate = recipient.deliveryDate;
     // Only correct when the current date is today or not yet set.

@@ -310,13 +310,15 @@ export type SubmittedSlotInput = {
  * still bookable "now" in the store's local timezone. Express orders and
  * payloads without a slot label are always allowed (express has its own
  * availability gate). The slot is resolved from the OS city config
- * (slotId-first, date-aware) so we honour the real window end hour; when the
- * city config is unavailable we fall back to parsing the label itself.
+ * (slotId-first, date-aware) so we honour the real window end hour. A
+ * scheduled order is unavailable unless its exact slot is currently supplied
+ * by the selected city's OS schedule.
  */
 export function checkSubmittedSlotBookable(
   opts: SubmittedSlotInput,
 ): SlotBookability & { serviceType?: "midnight" } {
   if (opts.expressDelivery || !opts.deliverySlot) return { bookable: true };
+  if (!opts.cityId) return { bookable: false, reason: "slot_unavailable" };
   const country = countryForDistrict(opts.district ?? "Beirut");
   const todayIso = getLocalIso(country, opts.now);
   const citySlots = opts.cityId
@@ -341,10 +343,10 @@ export function checkSubmittedSlotBookable(
     todayIso,
     cityId: opts.cityId,
   });
-  if (opts.deliverySlotId && !resolvedSlot) {
+  if (!resolvedSlot) {
     return { bookable: false, reason: "slot_unavailable" };
   }
-  const bookedSlot = resolvedSlot ?? { label: opts.deliverySlot };
+  const bookedSlot = resolvedSlot;
   const bookedIsMidnight = isMidnightSlot(
     bookedSlot as { serviceType?: string; startHour?: number; endHour?: number },
     opts.cityId,

@@ -91,7 +91,6 @@ import {
   isExpressDeliveryAvailable,
   isSlotStillBookable,
   resolveSlotLabel,
-  timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
@@ -389,11 +388,9 @@ function CheckoutScreen() {
     }
     if (countryChanged) {
       const cc = resolveCountryCode(selectedCountry?.code, currencyCode);
-      // When the new city already has OS-configured slots, use those; otherwise
-      // fall back to the hardcoded per-country table so the picker is never empty.
-      const newSlots = (selectedCity?.timeSlots?.length
-        ? selectedCity.timeSlots
-        : timeSlotsForCountry(cc)) as TimeSlot[];
+      // Use only OS-configured slots for the selected city. When the city has
+      // no OS slots yet, reset the slot selection so nothing stale is carried.
+      const newSlots = (selectedCity?.timeSlots ?? []) as TimeSlot[];
       const h = getCountryHour(cc);
       setSlot(newSlots.find(s => s.cutoffHour > h) ?? newSlots[0] ?? null);
       const newDial = COUNTRY_DIAL_CODES.find((d) => d.code === (cc ?? "LB")) ?? COUNTRY_DIAL_CODES[0];
@@ -580,20 +577,18 @@ function CheckoutScreen() {
   }, [authUser, savedAddresses, districts]);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
   const now = useNow();
-  // Use OS-provided slots for the selected city when available; fall back to
-  // the hardcoded per-country slot table so existing behaviour is preserved
-  // when the city has no OS config yet.
-  // Safety net: if the flat list is empty but slotsByDay is present (e.g. Akkar
-  // configured per-day-only), derive the effective flat list as the deduplicated
-  // union of all per-day arrays before reaching the country-wide fallback.
-  // This guards against stale cached API responses that predate the API server fix.
+  // Use only OS-provided slots for the selected city. When the flat list is
+  // empty but slotsByDay is present (e.g. Akkar configured per-day-only),
+  // derive the effective flat list as the deduplicated union of all per-day
+  // arrays. When no OS schedule exists at all, timeSlots is empty and the
+  // checkout shows an explicit "no time slots available" unavailable state.
   const timeSlots = (selectedCity?.timeSlots?.length
     ? selectedCity.timeSlots
     : selectedCity?.slotsByDay && Object.keys(selectedCity.slotsByDay).length > 0
       ? Object.values(selectedCity.slotsByDay as Record<string, TimeSlot[]>)
           .flat()
           .filter((s, i, arr) => arr.findIndex((slot) => slot.cutoffHour === s.cutoffHour) === i)
-      : timeSlotsForCountry(effectiveCountry)) as TimeSlot[];
+      : []) as TimeSlot[];
   // Express availability: when OS explicitly configures the city, honour the
   // OS flag and cutoff hour. Otherwise fall back to the hardcoded 8 AM–10 PM
   // window so the feature keeps working for cities without OS config yet.
@@ -888,7 +883,12 @@ function CheckoutScreen() {
 
   const stepValid = (s: Step) => {
     if (s === 0) return true;
-    if (s === 1)
+    if (s === 1) {
+      // Block step 1 → step 2 when the delivery mode is scheduled but the
+      // selected city has no OS-published time slots. Express is unaffected.
+      const scheduledWithNoSlots =
+        deliveryMode !== "express" && timeSlots.length === 0;
+      if (scheduledWithNoSlots) return false;
       return (
         recipientFirst.trim() &&
         recipientLast.trim() &&
@@ -898,6 +898,7 @@ function CheckoutScreen() {
         (!senderPhoneRequired || senderWhatsapp.trim()) &&
         (!senderEmailRequired || senderEmail.trim())
       );
+    }
     if (s === 2) return !!payMethod;
     return false;
   };
@@ -3501,6 +3502,7 @@ function DeliveryTimeCard({
     }
     return byStart(timeSlots as TimeSlot[]);
   }, [slotsByDay, date, timeSlots]);
+  const hasOsSlots = (timeSlots as TimeSlot[]).length > 0;
   const todayHasSlots = (timeSlots as TimeSlot[]).some((s) => s.cutoffHour > localHour);
   const disabledDates = todayHasSlots ? undefined : new Set<string>(todayIso ? [todayIso] : []);
   return (
@@ -3529,9 +3531,9 @@ function DeliveryTimeCard({
           title={t.todayDelivery}
           subtitle={t.scheduledSlotLabel}
           active={deliveryMode === "today_slot"}
-          disabled={!todayHasSlots}
+          disabled={!hasOsSlots || !todayHasSlots}
           onPress={() => {
-            if (!todayHasSlots) return;
+            if (!hasOsSlots || !todayHasSlots) return;
             setDeliveryMode("today_slot");
             setDate(days[0].iso);
             const firstAvail = activeDaySlots.find((s: TimeSlot) => s.cutoffHour > localHour) ?? null;
@@ -3544,10 +3546,39 @@ function DeliveryTimeCard({
           title={t.chooseAnotherDateLabel}
           subtitle={t.andTimeSlotLabel}
           active={deliveryMode === "schedule"}
-          onPress={() => setDeliveryMode("schedule")}
+          disabled={!hasOsSlots}
+          onPress={() => {
+            if (!hasOsSlots) return;
+            setDeliveryMode("schedule");
+          }}
         />
       </View>
-      {(deliveryMode === "schedule" || deliveryMode === "today_slot") ? (
+      {!hasOsSlots && deliveryMode !== "express" ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: colors.background,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Feather name="clock" size={16} color={colors.mutedForeground} />
+          <AppText
+            style={{
+              flex: 1,
+              fontFamily: "Inter_400Regular",
+              fontSize: 12,
+              color: colors.mutedForeground,
+            }}
+          >
+            {t.noDeliverySlots}
+          </AppText>
+        </View>
+      ) : (deliveryMode === "schedule" || deliveryMode === "today_slot") ? (
         <View style={{ gap: 10 }}>
           {deliveryMode === "schedule" && (
             <DateStrip

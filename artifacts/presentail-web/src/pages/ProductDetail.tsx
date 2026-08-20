@@ -43,8 +43,6 @@ import {
   getLocalIso,
   isExpressDeliveryAvailable,
   slotTimeRangeShortForLabel,
-  timeSlotsForCity,
-  timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 import { useNow } from "@/lib/useNow";
@@ -124,17 +122,20 @@ export default function ProductDetail() {
     [city, countryCode, now],
   );
 
-  // Standard delivery is eligible when the scheduler can produce at least one
-  // future window for the shopper's country. In practice this is always true
-  // (firstAvailableDay falls back to tomorrow when today's slots are past), but
-  // the check is explicit so that the upgrade effect below fires correctly if the
-  // OS ever introduces cities/hours with no schedulable windows.
+  // Standard delivery is eligible only when this selected city's OS schedule
+  // can produce a window. A missing OS schedule remains unavailable; it must
+  // never inherit a country-wide or hardcoded city schedule.
+  const cityTimeSlots = useMemo(
+    () => city?.timeSlots ?? [],
+    [city?.timeSlots],
+  );
+  const citySlotsByDay = city?.slotsByDay as Record<string, TimeSlot[]> | undefined;
   const standardEligible = useMemo(() => {
-    const slots = timeSlotsForCountry(countryCode);
+    const slots = cityTimeSlots;
     const h = getCountryHour(countryCode);
     const today = new Date().toISOString().slice(0, 10);
     return firstAvailableDay(today, slots, h, today) !== null;
-  }, [countryCode]);
+  }, [cityTimeSlots, countryCode]);
 
   // Local UI choice for the radio.
   // Default to "scheduled" (free standard delivery) when it is eligible.
@@ -331,19 +332,6 @@ export default function ProductDetail() {
 
 
   const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
-  const cityScheduleOverride = useMemo(
-    () => timeSlotsForCity(cityId, countryCode),
-    [cityId, countryCode],
-  );
-  const cityTimeSlots = useMemo(
-    () =>
-      cityScheduleOverride ??
-      (city?.timeSlots?.length ? city.timeSlots : timeSlotsForCountry(countryCode)),
-    [city, cityScheduleOverride, countryCode],
-  );
-  const citySlotsByDay = cityScheduleOverride
-    ? undefined
-    : (city?.slotsByDay as Record<string, TimeSlot[]> | undefined);
   const scheduledRowSubtitle = useMemo(() => {
     const formatted =
       deliverySelection.mode && deliverySelection.mode !== "express"

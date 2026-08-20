@@ -64,3 +64,5 @@
 - [WhatsApp opt-in flag](whatsapp-opt-in.md) — whatsappOptIn body/DB, whatsapp_opt_in on OS wire, always explicit; card-flow jsdom tests need a global fetch stub to reach createOrder
 - [Same-day slot expiry guard](slot-expiry-guard.md) — slot re-validation pre-charge only; paid paymentRef submissions never rejected; Checkout.tsx time checks must use useNow()
 - [Greek Cyprus-only locale](greek-cyprus-locale.md) — el gated by langsForCountry(); all lang-enumerating surfaces must use country-aware helpers; checker needs single-line "key": "value" entries
+- [OS city delivery slots](os-city-delivery-slots.md) — every standard slot surface must use the selected city's live OS schedule; empty OS data stays unavailable, never country fallback
+- [Midnight delivery helper copy](midnight-delivery-helper-copy.md) — market-local today says “tonight”; future selections show explicit start and next-day end dates

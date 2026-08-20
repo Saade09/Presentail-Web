@@ -1,0 +1,56 @@
+OBJECTIVE
+Make the midnight-delivery message immediately understandable when a customer selects today's 11 PM–1 AM delivery window.
+
+LOCATION
+- Surface: Product detail page → delivery date/time selector
+- Example page: https://presentail.com/en-lb/beirut/product/plum-florals
+- Component: “Midnight Delivery” informational card shown beneath the 11 PM–1 AM time-slot option
+- Current example state: Today, Thu 20 Aug selected; 11 PM–1 AM selected; the window ends Fri, 21 Aug
+
+CURRENT COPY
+“Starts between 11 PM the day before and 1 AM on Fri, 21 Aug”
+
+REQUIRED COPY FOR TODAY
+“Arrives between 11 PM tonight and 1 AM on Fri, 21 Aug”
+
+IMPLEMENTATION REQUIREMENTS
+1. Replace “Starts” with “Arrives” because the displayed time is the customer’s delivery/arrival window.
+2. When the selected delivery date is the storefront’s current local date, display “tonight.”
+3. The date after 1 AM must be calculated dynamically as the calendar day after the selected delivery date.
+4. Do not hardcode “Fri, 21 Aug” or any weekday/date.
+5. Use the storefront/delivery market timezone for “today” and “tonight,” not the customer device timezone. For the Lebanon storefront, this should follow Lebanon local time.
+6. When the selected date is not today, do not use “tonight.” Use explicit start and end dates to avoid ambiguity:
+   “Arrives between 11 PM on [start weekday/date] and 1 AM on [end weekday/date]”
+7. Keep the displayed date format consistent with the rest of the delivery selector.
+8. Apply the wording consistently anywhere this midnight-window helper text is reused across web and app, if both surfaces share the same component or translation key.
+9. Update the English copy/translation key only; do not alter pricing, eligibility, slot availability, or delivery-fee logic.
+10. Ensure wrapping remains clean on supported desktop and mobile widths and does not collide with the “+AED 75” price.
+
+ACCEPTANCE CRITERIA
+- Given today is Thu, 20 Aug and the customer selects Today + 11 PM–1 AM, the card reads exactly:
+  “Arrives between 11 PM tonight and 1 AM on Fri, 21 Aug”
+- “the day before” no longer appears in the today-selected state.
+- Given the customer selects a future date, “tonight” is not shown; both the 11 PM start date and next-day 1 AM end date are explicit.
+- The end date advances correctly across:
+  - weekday changes
+  - month end (e.g. 31 Aug → 1 Sep)
+  - year end (e.g. 31 Dec → 1 Jan)
+  - leap day where applicable
+- Day name and date remain correct for the storefront timezone around midnight.
+- Existing behavior for other time slots is unchanged.
+- Midnight-delivery fee, availability rules, selection state, checkout summary, and add-to-cart behavior are unchanged.
+- Copy is readable and correctly wrapped on desktop and mobile.
+- No regression occurs on Lebanon or other markets offering the 11 PM–1 AM slot.
+
+QA CHECKLIST
+1. Verify on a product page with midnight delivery enabled.
+2. Select Today, then select 11 PM–1 AM.
+3. Confirm the exact today-state copy.
+4. Select Tomorrow and another future date; confirm explicit dates replace “tonight.”
+5. Test a month-end and year-end boundary using a controlled date/time or test environment.
+6. Test before and after local midnight in the storefront timezone.
+7. Verify responsive layout and the +AED 75 price alignment.
+8. Confirm all other delivery windows and fees behave exactly as before.
+
+REFERENCE
+Screenshot supplied by Adnan on 20 Aug 2026 shows the current helper text in the delivery selector.

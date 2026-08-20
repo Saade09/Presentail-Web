@@ -145,7 +145,7 @@ export default function Cart() {
     ? locationCity.timeSlots
     : locationCity?.slotsByDay
       ? Object.values(locationCity.slotsByDay).flat()
-      : timeSlotsForCountry(countryCode);
+      : [];
 
   useMidnightSlotValidation(rawTimeSlots, locationCity?.id, countryCode, locationCity?.slotsByDay);
 

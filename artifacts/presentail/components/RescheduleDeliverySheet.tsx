@@ -25,7 +25,6 @@ import {
   formatSlotTimeRange,
   getCountryHour,
   nearestSlotForHour,
-  timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 
@@ -79,16 +78,15 @@ export function RescheduleDeliverySheet({
     () => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow),
     [t.checkoutDayToday, t.checkoutDayTomorrow],
   );
-  // Use OS-configured slots for the selected city when available, falling back
-  // to the hardcoded per-country table so existing behaviour is preserved.
+  // Use only OS-configured slots for the selected city. When no OS schedule
+  // has been published for this area, `timeSlots` is empty and the sheet
+  // renders an explicit "no scheduled slots" unavailable state.
   const timeSlots = React.useMemo(() => {
-    const raw = selectedCity?.timeSlots?.length
-      ? selectedCity.timeSlots
-      : timeSlotsForCountry(countryCode);
+    const raw = selectedCity?.timeSlots ?? [];
     return [...raw].sort(
       (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
     );
-  }, [selectedCity, countryCode]);
+  }, [selectedCity]);
   const localHour = React.useMemo(
     () => getCountryHour(countryCode),
     [countryCode],
@@ -350,6 +348,31 @@ export function RescheduleDeliverySheet({
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+          {timeSlots.length === 0 ? (
+            <View
+              style={{
+                gap: 8,
+                padding: 16,
+                borderRadius: 14,
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.border,
+                alignItems: "center",
+              }}
+            >
+              <Feather name="clock" size={22} color={colors.mutedForeground} />
+              <AppText
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.mutedForeground,
+                  textAlign: "center",
+                }}
+              >
+                {t.noDeliverySlots}
+              </AppText>
+            </View>
+          ) : (
           <View
             style={{
               gap: 12,
@@ -420,6 +443,7 @@ export function RescheduleDeliverySheet({
               })}
             </View>
           </View>
+          )}
         </View>
 
         <View
@@ -431,13 +455,13 @@ export function RescheduleDeliverySheet({
         >
           <Pressable
             onPress={handleConfirm}
-            disabled={!slotLabel}
+            disabled={!slotLabel || timeSlots.length === 0}
             style={({ pressed }) => ({
               backgroundColor: colors.primary,
               borderRadius: 999,
               paddingVertical: 15,
               alignItems: "center",
-              opacity: !slotLabel ? 0.5 : pressed ? 0.88 : 1,
+              opacity: (!slotLabel || timeSlots.length === 0) ? 0.5 : pressed ? 0.88 : 1,
             })}
           >
             <AppText

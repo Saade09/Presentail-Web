@@ -41,7 +41,7 @@ export const productStrings: Dict = {
   "product.tabs.aria": { en: "Product information tabs", ar: "تبويبات معلومات المنتج" },
   "product.midnightDelivery": { en: "Midnight Delivery", ar: "توصيل منتصف الليل" },
   "product.midnightArrivesAs": {
-    en: "Starts between 11 PM the day before and 1 AM on {date}",
+    en: "Arrives between 11 PM {start} and 1 AM on {end}",
     ar: "يبدأ بين الساعة 11 مساءً في اليوم السابق والساعة 1 صباحًا في {date}",
   },
   "product.bouquetIncludes": { en: "Bouquet Includes:", ar: "محتويات الباقة:" },

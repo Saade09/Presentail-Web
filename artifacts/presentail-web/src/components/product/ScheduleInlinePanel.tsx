@@ -11,7 +11,6 @@ import {
   getCountryHour,
   getLocalIso,
   isMidnightSlot,
-  timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
 import { CalendarPopover } from "./CalendarPopover";
@@ -31,7 +30,7 @@ type Props = {
   initialDate?: string | null;
   initialSlotLabel?: string | null;
   initialSlotId?: string | null;
-  /** OS-sourced slots for the selected city (flat fallback). When provided, overrides the hardcoded per-country defaults. */
+  /** OS-sourced slots for the selected city. An empty list means no schedule is configured. */
   timeSlots?: TimeSlot[];
   /**
    * Per-day-of-week slots from OS. Keys are lowercase English weekday names (e.g. "monday").
@@ -86,13 +85,13 @@ export function ScheduleInlinePanel({
   // Pass the country code so dayLabels() uses the local timezone (not UTC)
   // when computing which calendar day is "today".
   const allDays = useMemo(() => dayLabels("Today", "Tomorrow", new Date(), code).slice(0, 3), [code]);
-  /** Flat fallback slot list (all days merged, or hardcoded per-country), sorted by window start. */
+  /** Flat OS slot list (all days merged), sorted by window start. */
   const flatTimeSlots = useMemo(() => {
-    const raw = propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(code);
+    const raw = propTimeSlots ?? [];
     return [...raw].sort(
       (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
     );
-  }, [propTimeSlots, code]);
+  }, [propTimeSlots]);
   const localHour = useMemo(() => getCountryHour(code), [code]);
   // allDays[0].iso is already the country-local date (dayLabels uses getLocalIso
   // internally); fall back to getLocalIso directly so the two are always in sync.
@@ -548,13 +547,15 @@ export function ScheduleInlinePanel({
 
       {selectedMidnightSlot && (() => {
         const promiseDate = addIsoDays(date, 1);
-        const promiseDateStr = (() => {
-          const dayEntry = days.find((d) => d.iso === promiseDate);
-          if (dayEntry) {
-            return `${dayEntry.day}, ${dayEntry.date} ${monthShort(promiseDate)}`;
-          }
-          return `${weekdayShort(promiseDate)}, ${dayOfMonth(promiseDate)} ${monthShort(promiseDate)}`;
-        })();
+        const startDateStr = formatDeliveryDate(date, days);
+        const promiseDateStr = formatDeliveryDate(promiseDate, days);
+        const startPhrase = date === todayIso ? "tonight" : `on ${startDateStr}`;
+        const midnightMessage = t("product.midnightArrivesAs")
+          .replace("{start}", startPhrase)
+          .replace("{end}", promiseDateStr)
+          // Keep existing non-English translations, which still use {date},
+          // intact while the English copy uses the more precise placeholders.
+          .replace("{date}", promiseDateStr);
 
         return (
           <div className="rounded-xl bg-[#FFF8EE] text-[#1A1A1A] p-3 flex items-center justify-between mt-2" data-testid="midnight-delivery-banner">
@@ -563,7 +564,7 @@ export function ScheduleInlinePanel({
               <div>
                 <p className="text-sm font-semibold leading-tight">{t("product.midnightDelivery")}</p>
                 <p className="text-xs opacity-70 mt-0.5 leading-tight">
-                  {t("product.midnightArrivesAs").replace("{date}", promiseDateStr)}
+                  {midnightMessage}
                 </p>
               </div>
             </div>
@@ -588,6 +589,14 @@ function monthShort(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, { month: "short" });
+}
+
+function formatDeliveryDate(iso: string, days: { iso: string; day: string; date: string }[]): string {
+  const dayEntry = days.find((d) => d.iso === iso);
+  if (dayEntry) {
+    return `${dayEntry.day}, ${dayEntry.date} ${monthShort(iso)}`;
+  }
+  return `${weekdayShort(iso)}, ${dayOfMonth(iso)} ${monthShort(iso)}`;
 }
 
 function weekdayShort(iso: string): string {

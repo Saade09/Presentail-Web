@@ -41,7 +41,7 @@ vi.mock("@/contexts/DeliverySelectionContext", () => ({
 }));
 
 vi.mock("@/contexts/LocationContext", () => ({
-  useLocationSelection: () => ({ countryCode: "LB" }),
+  useLocationSelection: () => ({ countryCode: "LB", city: { id: "lb-beirut" } }),
 }));
 
 beforeEach(() => {
@@ -68,6 +68,16 @@ const OS_SLOTS = [
 
 const TODAY_ISO = "2026-06-15";
 const TOMORROW_ISO = "2026-06-16";
+const midnightLocale = {
+  t: (key: string) =>
+    key === "product.midnightDelivery"
+      ? "Midnight Delivery"
+      : key === "product.midnightArrivesAs"
+        ? "Arrives between 11 PM {start} and 1 AM on {end}"
+        : key,
+  language: "en" as const,
+  dir: "ltr" as const,
+};
 
 // ---------------------------------------------------------------------------
 // Helper: find the Tomorrow quick-pick button.
@@ -142,6 +152,44 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
     // and should be auto-selected for today.
     const morningBtn = screen.getByTestId("slot-Morning") as HTMLButtonElement;
     expect(morningBtn.className).toContain("border-primary");
+  });
+});
+
+describe("DeliveryPickerModal — Midnight Delivery helper copy", () => {
+  const MIDNIGHT_SLOTS = [
+    { label: "Afternoon", cutoffHour: 20, startHour: 14, endHour: 18 },
+    {
+      label: "11 PM – 1 AM",
+      slotId: "os-midnight-beirut",
+      serviceType: "midnight" as const,
+      cutoffHour: 20,
+      startHour: 23,
+      endHour: 1,
+      extraFee: 20,
+    },
+  ];
+
+  it("uses tonight for the market-local current date and explicit dates thereafter", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DeliveryPickerModal
+        open={true}
+        onOpenChange={() => {}}
+        timeSlots={MIDNIGHT_SLOTS}
+      />,
+      { locale: midnightLocale },
+    );
+
+    await user.click(screen.getByTestId("slot-11 PM – 1 AM"));
+    expect(screen.getByTestId("midnight-delivery-banner").textContent).toContain(
+      "Arrives between 11 PM tonight and 1 AM on Tue, 16 Jun",
+    );
+
+    await user.click(getTomorrowButton());
+    await user.click(screen.getByTestId("slot-11 PM – 1 AM"));
+    expect(screen.getByTestId("midnight-delivery-banner").textContent).toContain(
+      "Arrives between 11 PM on Tue, 16 Jun and 1 AM on Wed, 17 Jun",
+    );
   });
 });
 

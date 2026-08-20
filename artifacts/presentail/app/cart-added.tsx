@@ -34,7 +34,6 @@ import {
   isExpressDeliveryAvailable,
   resolveSlotLabel,
   slotTimeRangeForLabel,
-  timeSlotsForCountry,
 } from "@workspace/delivery";
 
 function CartAddedScreen() {
@@ -67,12 +66,11 @@ function CartAddedScreen() {
     [t.checkoutDayToday, t.checkoutDayTomorrow],
   );
 
+  // Use only OS-configured slots for the selected city. An empty array means
+  // no schedule has been published for this area yet.
   const cityTimeSlots = React.useMemo(
-    () =>
-      selectedCity?.timeSlots?.length
-        ? selectedCity.timeSlots
-        : timeSlotsForCountry(countryCode),
-    [selectedCity, countryCode],
+    () => selectedCity?.timeSlots ?? [],
+    [selectedCity],
   );
 
   const expressAvailableForCity = React.useMemo(() => {
