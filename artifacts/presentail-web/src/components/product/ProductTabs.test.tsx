@@ -2,9 +2,10 @@
 //
 // Guards the ProductTabs description-tab rendering contract:
 //
-// Mode 1 — description has bullet characters (it IS the full item list):
-//   • DescriptionBlock renders all items as a bullet list (including content
-//     beyond the 8-item parse cap, e.g. long AirPods descriptions)
+// Mode 1 — description has authored bullet characters (it IS the full item list):
+//   • DescriptionBlock keeps pre-bullet context as prose, then renders all items
+//     as a bullet list (including content
+//     in long OS-authored lists, e.g. AirPods descriptions)
 //   • BOUQUET INCLUDES section is hidden to avoid duplication
 //
 // Mode 2 — description is plain text (a short intro paragraph):
@@ -94,9 +95,52 @@ describe("ProductTabs — empty description", () => {
 // Mode 1: description IS a bullet list — show it fully, hide BOUQUET INCLUDES
 // ---------------------------------------------------------------------------
 describe("ProductTabs — bulleted description (full list mode)", () => {
+  it("keeps an inline OS label out of the bullet list", () => {
+    const raw = "Bouquet includes: • 50 Red Roses • 50 White Roses";
+    renderWithProviders(
+      <ProductTabs
+        {...BASE}
+        description={raw}
+        bouquetIncludes={["50 Red Roses", "50 White Roses"]}
+      />,
+    );
+
+    expect(screen.getByText("Bouquet includes:").closest("p")).toBeTruthy();
+    expect(screen.getByText("50 Red Roses").closest("li")).toBeTruthy();
+    expect(screen.getByText("50 White Roses").closest("li")).toBeTruthy();
+    expect(screen.queryByText("product.bouquetIncludes")).toBeNull();
+  });
+
+  it("keeps multiline OS preamble text above its authored bullets", () => {
+    const raw =
+      "A classic romantic arrangement for a special moment.\nBouquet includes:\n• 50 Red Roses\n• 50 White Roses";
+    renderWithProviders(
+      <ProductTabs
+        {...BASE}
+        description={raw}
+        bouquetIncludes={["50 Red Roses", "50 White Roses"]}
+      />,
+    );
+
+    const preamble = document.querySelector("p.text-muted-foreground");
+    expect(preamble?.textContent).toBe(
+      "A classic romantic arrangement for a special moment.\nBouquet includes:",
+    );
+    expect(screen.getByText("50 Red Roses").closest("li")).toBeTruthy();
+    expect(screen.getByText("50 White Roses").closest("li")).toBeTruthy();
+  });
+
+  it("keeps a plain multiline description as prose", () => {
+    const description = "A thoughtful gift for any occasion.\nMade fresh to order.";
+    renderWithProviders(<ProductTabs {...BASE} description={description} />);
+
+    const paragraph = document.querySelector("p.text-muted-foreground");
+    expect(paragraph?.textContent).toBe(description);
+    expect(document.querySelectorAll("ul li")).toHaveLength(0);
+  });
+
   it("renders ALL bullet segments including content beyond the 8-item cap", () => {
-    // This simulates a product whose raw description has stems + AirPods details,
-    // where isBareLabel was true so rawDescription is passed as description.
+    // This covers long OS-authored lists with product details after the stems.
     const raw =
       "Bundle includes: • 5 Stems White Dahlia • 5 Stems White Eustoma" +
       " • 1 White Rose • 1 Stem Green Amaranthus • 1 Stem White Anthurium" +

@@ -19,11 +19,17 @@ const DEFAULT_INCLUDES = [
   "Curated by our Beirut atelier",
 ];
 
-function parseDescriptionParts(desc: string): {
+/**
+ * Separates OS-authored context from items that are explicitly marked as bullets.
+ *
+ * Newlines are meaningful formatting in plain descriptions, not list markers.
+ * Only the bullet character starts the authored item list.
+ */
+export function parseDescriptionParts(desc: string): {
   intro: string;
   items: string[];
 } {
-  const match = desc.match(/[•\u2022\n\r]/);
+  const match = desc.match(/[•\u2022]/);
 
   if (!match || match.index === undefined) {
     return { intro: desc.trim(), items: [] };
@@ -32,12 +38,11 @@ function parseDescriptionParts(desc: string): {
   const intro = desc.slice(0, match.index).trim();
   const rest = desc.slice(match.index);
   const items = rest
-    .split(/\n|•|\u2022|\r/)
+    .split(/[•\u2022]/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 2 && s.length < 140)
-    .slice(0, 8);
+    .filter(Boolean);
 
-  return { intro, items: items.length >= 2 ? items : [] };
+  return { intro, items };
 }
 
 export function buildProductViewModel(product: Product): ProductViewModel {
@@ -54,12 +59,12 @@ export function buildProductViewModel(product: Product): ProductViewModel {
 
   const { intro, items } = parseDescriptionParts(rawDescription);
 
-  // If the intro is just a bare label ("Bundle includes:", "Flower box includes:"),
-  // fall back to the full rawDescription so no content is lost — the BOUQUET INCLUDES
-  // section will be hidden automatically when description already contains bullet chars.
-  const isBareLabel = intro.endsWith(":") && intro.length <= 40;
-  const effectiveIntro = isBareLabel ? rawDescription : intro;
-  const description = effectiveIntro !== "" ? effectiveIntro : items.length === 0 ? (rawDescription || fallbackDescription) : "";
+  const description =
+    intro !== ""
+      ? intro
+      : items.length === 0
+        ? rawDescription || fallbackDescription
+        : "";
   const bouquetIncludes = items.length ? items : DEFAULT_INCLUDES;
 
   const rewardPoints = calcRewardPoints(product.priceValue);

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { Info, ShoppingCart } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -324,10 +323,10 @@ export default function ProductDetail() {
   }, [product, catalogMetadata, t]);
 
   const effectiveDescription = useMemo(() => {
-    const wooDesc = product?.description?.trim() ?? "";
-    if (wooDesc.length > 0) return wooDesc;
+    // The view model separates OS preamble copy from its explicitly marked
+    // bullet items, so the tab never has to infer list structure from raw text.
     return vm?.description ?? "";
-  }, [product, vm]);
+  }, [vm]);
 
 
   const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);

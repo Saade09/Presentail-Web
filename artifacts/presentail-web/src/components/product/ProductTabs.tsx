@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
+import { parseDescriptionParts } from "./productViewModel";
 
 type Props = {
   description: string;
@@ -36,29 +37,30 @@ const CARE_ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   devices: Cpu,
 };
 
-/** Renders a description string.
- *  If it contains inline bullet characters (raw fallback), each bullet segment
- *  is shown as its own readable line. Otherwise it renders as a plain paragraph.
- */
+/** Renders context as prose and explicitly marked OS items as a list. */
 function DescriptionBlock({ text }: { text: string }) {
-  const hasBullets = /[•\u2022]/.test(text);
-  if (hasBullets) {
-    const parts = text
-      .split(/[•\u2022]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+  const { intro, items } = parseDescriptionParts(text);
+
+  if (items.length > 0) {
     return (
-      <ul className="space-y-2">
-        {parts.map((part, i) => (
-          // eslint-disable-next-line react/no-array-index-key
-          <li key={i} className="flex gap-3 text-sm text-foreground">
-            <span className="text-gold leading-6 shrink-0">•</span>
-            <span className="flex-1 leading-6">{part}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="space-y-4">
+        {intro && (
+          <p className="text-sm md:text-base leading-relaxed text-muted-foreground">
+            {intro}
+          </p>
+        )}
+        <ul className="space-y-2">
+          {items.map((item, i) => (
+            <li key={i} className="flex gap-3 text-sm text-foreground">
+              <span className="text-gold leading-6 shrink-0">•</span>
+              <span className="flex-1 leading-6">{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     );
   }
+
   return (
     <p className="text-sm md:text-base leading-relaxed text-muted-foreground">
       {text}
@@ -70,7 +72,7 @@ function DescriptionBlock({ text }: { text: string }) {
  * Description tab content.
  *
  * Two modes:
- * 1. description has bullet chars → it IS the full item list (raw or fallback).
+ * 1. description has explicitly marked bullet items → it IS the full item list.
  *    Render it as DescriptionBlock only; hide the BOUQUET INCLUDES section to
  *    avoid showing the same items twice.
  * 2. description is plain text (or empty) → show it as an intro paragraph above
@@ -85,7 +87,7 @@ function DescriptionTab({
   bouquetIncludes: string[];
   includesLabel: string;
 }) {
-  const descHasBullets = !!description && /[•\u2022]/.test(description);
+  const descHasBullets = parseDescriptionParts(description).items.length > 0;
 
   return (
     <div className="space-y-6">
