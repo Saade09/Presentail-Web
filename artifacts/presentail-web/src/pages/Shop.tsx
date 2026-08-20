@@ -1,4 +1,4 @@
-import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useCatalogOccasions, useFxRates, usePageDescription, type Product } from "@/lib/queries";
+import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useCatalogOccasions, useFxRates, usePageDescription, productMatchesSearchQuery, type Product } from "@/lib/queries";
 import { setOccasionRef } from "@/lib/occasionAttribution";
 import { buildRichClientDescription } from "@/lib/pageDescriptionClient";
 import { applyRecipientFilter, BIRTHDAY_RECIPIENTS } from "@/lib/birthdayRecipients";
@@ -181,6 +181,9 @@ export default function Shop() {
   const categoryFromSearch = !isCategoryRoute && !isOccasionRoute ? (searchParams.get("category") || "") : "";
   const occasionFromSearch = !isCategoryRoute && !isOccasionRoute ? (searchParams.get("occasion") || "") : "";
   const brand = searchParams.get("brand") || "";
+  const searchQuery = !isCategoryRoute && !isOccasionRoute
+    ? (searchParams.get("q")?.trim() ?? "")
+    : "";
 
   // Redirect legacy query-param URLs to the new clean paths (client-side, replace history)
   useEffect(() => {
@@ -274,8 +277,11 @@ export default function Shop() {
       return flat;
     }
     if (brand) return visible(brandProducts.data?.products ?? []);
-    return visible(allProducts.data?.products ?? []);
-  }, [category, occasion, brand, categoryProducts.data, occasionProducts.data, allProducts.data, brandProducts.data]);
+    const products = visible(allProducts.data?.products ?? []);
+    return searchQuery.length >= 2
+      ? products.filter((p) => productMatchesSearchQuery(p, searchQuery))
+      : products;
+  }, [category, occasion, brand, searchQuery, categoryProducts.data, occasionProducts.data, allProducts.data, brandProducts.data]);
 
   const fallbackPool = useProducts(queryParams, true);
   const popularPicks: Product[] = useMemo(() => {

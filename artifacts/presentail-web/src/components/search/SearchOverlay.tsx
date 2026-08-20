@@ -29,6 +29,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
   const [, navigate] = useLocation();
   const { countryCode, city } = useLocationSelection();
   const [q, setQ] = useState("");
+  const [selectedValue, setSelectedValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data, isFetching } = useSearch(q, {
@@ -67,6 +68,19 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
   const hasOccasions = (data?.occasions?.length ?? 0) > 0;
   const hasBrands = (data?.brands?.length ?? 0) > 0;
   const showEmpty = q.length >= 2 && !isFetching && !hasProducts && !hasCategories && !hasOccasions && !hasBrands;
+  const handleViewAll = useCallback(() => {
+    const query = q.trim();
+    if (query.length < 2 || !hasProducts) return;
+    const params = new URLSearchParams({ q: query });
+    handleSelect(`/shop?${params.toString()}`);
+  }, [handleSelect, hasProducts, q]);
+
+  // cmdk selects the first item when its list changes unless selection is
+  // controlled. Keep the input state unselected until the shopper navigates
+  // with the keyboard or points at a specific result.
+  useEffect(() => {
+    setSelectedValue("");
+  }, [q, data]);
 
   useEffect(() => {
     if (isFetching || q.length < 2) return;
@@ -106,6 +120,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
 
           <Command
             shouldFilter={false}
+            value={selectedValue}
+            onValueChange={setSelectedValue}
             className="w-full max-w-[700px] overflow-hidden rounded-[20px] border border-[#e5e7eb]
                        bg-[#f5f5f5]
                        shadow-[0_16px_64px_rgba(0,0,0,0.13),0_2px_12px_rgba(0,0,0,0.07)]"
@@ -118,6 +134,12 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                 placeholder={t("search.placeholder")}
                 value={q}
                 onValueChange={setQ}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !selectedValue) {
+                    event.preventDefault();
+                    handleViewAll();
+                  }
+                }}
                 className="flex-1 bg-transparent text-[15px] font-medium text-primary
                            placeholder:text-primary/35 outline-none border-0 p-0
                            [&::-webkit-search-cancel-button]:hidden"
@@ -368,6 +390,24 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                     </Command.Item>
                   ))}
                 </Command.Group>
+              )}
+
+              {!isFetching && q.length >= 2 && hasProducts && (
+                <div className="px-2 pt-1">
+                  <Command.Item
+                    value="search-view-all"
+                    onSelect={handleViewAll}
+                    aria-label={t("search.viewAllProducts")}
+                    className="flex items-center justify-center gap-2 rounded-xl px-3 py-3
+                               text-sm font-semibold text-primary cursor-pointer select-none
+                               outline-none hover:bg-[#e5e7eb]
+                               data-[selected=true]:bg-[#e5e7eb]
+                               transition-colors"
+                  >
+                    {t("search.viewAllProducts")}
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Command.Item>
+                </div>
               )}
             </Command.List>
           </Command>

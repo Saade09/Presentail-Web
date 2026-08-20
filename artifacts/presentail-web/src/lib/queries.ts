@@ -892,6 +892,23 @@ export type SearchResponse = {
   brands: SearchBrand[];
 };
 
+/**
+ * Product matching used by both the search suggestions and the full shop
+ * results page. Every query word must match at least one searchable field.
+ * Unicode letters and numbers keep Arabic, French, and Greek searches intact.
+ */
+export function productMatchesSearchQuery(product: Product, query: string): boolean {
+  const words = query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const fields: string[] = [
+    product.name.toLowerCase(),
+    product.description?.toLowerCase() ?? "",
+    ...(product.brandNames ?? []).map((s) => s.toLowerCase()),
+    ...(product.occasionNames ?? []).map((s) => s.toLowerCase()),
+    ...(product.categoryNames ?? []).map((s) => s.toLowerCase()),
+  ];
+  return words.every((word) => fields.some((field) => field.includes(word)));
+}
+
 // ── Product availability (cross-city) ─────────────────────────────────────
 //
 // Used by ProductDetail to distinguish "product not available in this city"
@@ -972,25 +989,8 @@ export const useSearch = (q: string, params: LocalizedParams = {}) => {
     if (!allProducts.data) return undefined;
     const needle = debouncedQ.toLowerCase();
 
-    // Split query into Unicode-aware words (letters + digits only, handles Arabic,
-    // French accents, etc.). Every word must appear in at least one of the product's
-    // searchable fields (AND across words, OR across fields per word).
-    // Using \p{L}\p{N} instead of \w so non-ASCII letters are not stripped.
-    const words = needle.match(/[\p{L}\p{N}]+/gu) ?? [];
-
-    function productMatchesAllWords(p: Product): boolean {
-      const fields: string[] = [
-        p.name.toLowerCase(),
-        p.description ? p.description.toLowerCase() : "",
-        ...(p.brandNames ?? []).map((s: string) => s.toLowerCase()),
-        ...(p.occasionNames ?? []).map((s: string) => s.toLowerCase()),
-        ...(p.categoryNames ?? []).map((s: string) => s.toLowerCase()),
-      ];
-      return words.every((word) => fields.some((field) => field.includes(word)));
-    }
-
     const products: SearchProduct[] = allProducts.data
-      .filter(productMatchesAllWords)
+      .filter((p) => productMatchesSearchQuery(p, debouncedQ))
       .slice(0, 20)
       .map((p) => ({
         slug: p.id,
