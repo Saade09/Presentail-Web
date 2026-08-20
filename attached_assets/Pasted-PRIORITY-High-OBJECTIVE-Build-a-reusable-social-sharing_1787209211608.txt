@@ -1,0 +1,208 @@
+PRIORITY
+High
+
+OBJECTIVE
+Build a reusable social-sharing image system so every Presentail product page produces a consistent, premium Open Graph preview across WhatsApp, iMessage, Facebook, LinkedIn, X, and other platforms.
+
+BACKGROUND
+The existing product-link previews are inconsistent and often make the product too small or visually weak. The new direction uses a warm ivory setting, a prominent real product image, restrained Presentail branding, and the fixed tagline “Luxury gifting, delivered.”
+
+The solution must work across different product photography: bouquets, cakes, chocolate boxes, hampers, transparent cutouts, white-background photos, and lifestyle photography.
+
+CORE PRINCIPLE
+Keep the branded frame consistent while fitting each real product photograph intelligently. Do not generate or alter the product with AI. Customers must always see the actual catalog product.
+
+OUTPUT SPECIFICATION
+• 1200 × 630 px (1.91:1)
+• High-quality JPEG or PNG
+• Target file size: 1 MB or less
+• Minimum 60 px safe margin
+• Readable at approximately 350 px wide
+• No rounded corners baked into the image
+• No prices, delivery dates, discount badges, country lists, or time-sensitive copy
+
+STANDARD TEMPLATE
+Product area:
+• Left 58–62% of the canvas
+• Product is visually dominant and centered
+• Use contain behavior by default; never stretch
+• Target 70–80% of canvas height
+• Add a subtle, consistent shadow only when appropriate
+• Do not unintentionally crop flowers, wrapping, cakes, boxes, or gift accessories
+
+Brand area:
+• Right 38–42%
+• Presentail wordmark
+• Subtle champagne-gold divider
+• Exact tagline: “Luxury gifting, delivered.”
+• Fixed typography, colors, spacing, and alignment across all products
+• Do not repeat the product name inside the image; the link preview already displays it
+
+BRAND STYLING
+• Warm ivory/soft cream background
+• Deep Presentail green typography
+• Champagne-gold accents
+• Elegant serif headline styling
+• Premium editorial/e-commerce appearance
+• Soft, natural shadows
+• Avoid heavy dark panels, strong gradients over products, busy copy, and tiny text
+
+IMAGE HANDLING RULES
+1. Transparent or uniform-background images:
+   • Place directly on the ivory background
+   • Use contain
+   • Add a soft realistic shadow
+   • Scale to approximately 75% of canvas height
+
+2. Tall/portrait images, including bouquets:
+   • Use contain
+   • Allow up to approximately 82% of canvas height
+   • Preserve the full arrangement, wrapping, vase, and flowers
+
+3. Square images, including cakes, boxes, and hampers:
+   • Use contain
+   • Scale to approximately 68–75% of canvas height
+   • Center in the product area
+
+4. Wide/lifestyle photography:
+   • Use a dedicated “photo” layout
+   • Show the photograph across the left 60–65%
+   • Use a controlled crop with a configurable focal point
+   • Do not automatically remove the background
+   • Keep text away from visually busy areas
+
+5. Exceptional images:
+   Add manual controls for:
+   • Custom social-sharing image
+   • Layout selection: product, portrait, photo, or custom
+   • Horizontal and vertical focal point
+   • Product scale
+   • X/Y position
+   A manual social image must override automatic generation.
+
+IMAGE SELECTION PRIORITY
+1. Manually uploaded social-sharing image
+2. Product image explicitly marked as preferred for sharing
+3. Primary product image
+4. First available gallery image
+5. Generic Presentail fallback image
+
+Never return an empty or broken Open Graph image.
+
+RENDERER INPUTS
+• Product ID and slug
+• Primary image URL
+• Optional preferred sharing-image URL
+• Optional custom Open Graph image
+• Optional layout type
+• Optional focal point
+• Optional scale and position overrides
+• Product updated timestamp
+• Template version
+
+Suggested route:
+ /api/og/product/{product-slug}
+
+Prefer pre-generating and caching images when a product is created or updated rather than rendering on every crawler request.
+
+PRODUCT PAGE METADATA
+Add:
+• og:type = product
+• og:title = “[Product Name] | Presentail”
+• og:description = clean short description
+• og:image = absolute public HTTPS URL
+• og:image:width = 1200
+• og:image:height = 630
+• og:image:alt = “[Product Name] from Presentail”
+• twitter:card = summary_large_image
+• Matching Twitter title, description, and image tags
+
+TITLE AND DESCRIPTION RULES
+Title:
+[Product Name] | Presentail
+
+Description:
+• Approximately 150 characters maximum
+• One complete sentence
+• No HTML or bullet characters
+• No raw product item/specification lists
+• Do not repeat the title
+• Do not add a city unless the product is genuinely restricted to that city
+
+CACHING AND REGENERATION
+Cache generated images through the CDN.
+
+Regenerate when:
+• Primary/preferred product image changes
+• Custom social image changes
+• Layout, scale, position, or focal point changes
+• Template version changes
+
+Use a versioned image URL or query parameter so platforms fetch the updated asset, for example:
+ /api/og/product/classic-chocolate-box?v={productUpdatedAt}-{templateVersion}
+
+ADMIN PREVIEW
+Add a “Social sharing preview” section to the product admin showing:
+• Full generated image
+• Small thumbnail preview
+• Open Graph title and description
+• Selected layout type
+• Scale and focal-position controls
+• Custom-image upload
+• Regenerate/refresh action
+
+The preview should be available before publication.
+
+AUTOMATIC QUALITY FLAGS
+Flag when:
+• Source resolution is too low
+• Source image cannot load
+• Product occupies less than 40% of its area
+• Product touches safe margins
+• Important content appears cropped
+• Final file exceeds target size
+• No primary or fallback image exists
+
+ACCEPTANCE CRITERIA
+1. Every active product page returns a valid 1200 × 630 image.
+2. The real catalog product photo is used without AI modification.
+3. Bouquets, cakes, boxes, hampers, cutouts, and lifestyle images render correctly.
+4. Products are not stretched or unintentionally cropped.
+5. Presentail branding and layout are consistent.
+6. The tagline is exactly “Luxury gifting, delivered.”
+7. Product names are not repeated inside the image.
+8. Complete Open Graph and Twitter metadata is present.
+9. Image URLs are absolute, public, and HTTPS.
+10. Images are cached and correctly invalidated after changes.
+11. A generic fallback is always available.
+12. Manual overrides work for exceptional products.
+13. Existing active products are backfilled automatically.
+14. Previews are tested successfully on WhatsApp, Facebook, LinkedIn, X, and iMessage.
+
+QA TEST SET
+Test at least:
+• Tall bouquet
+• Wide bouquet
+• Square chocolate box
+• Round cake
+• Gift hamper
+• Transparent PNG
+• Product photographed on white
+• Lifestyle photo
+• Low-resolution photo
+• Missing image
+• Custom override
+• Unusually long product name
+
+For each case, verify full-size rendering, thumbnail legibility, cropping, branding, metadata, caching, and actual share previews.
+
+DELIVERABLES
+• Reusable Open Graph template
+• Product-image generation endpoint or generation job
+• Product-page metadata integration
+• CDN caching and invalidation
+• Admin preview and manual override controls
+• Generic Presentail fallback image
+• Backfilled images for all active products
+• QA report for the required product types
+• Short technical documentation for future template updates
