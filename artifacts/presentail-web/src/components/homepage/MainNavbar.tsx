@@ -259,17 +259,12 @@ export function MainNavbar() {
 
   const { data: occasionsData, isPending: occasionsLoading } = useCatalogOccasions(countryCode, cityId, language);
   const osOccasions = occasionsData?.occasions ?? [];
-  // The OS catalog response is the active-occasion allowlist. Prefer occasions
-  // with a positive local inventory count, but do not turn a transiently cold
-  // product-count cache into an empty navigation menu. When every active OS
-  // occasion reports zero, retain the active list; that state means the count
-  // feed is unavailable just as often as it means every occasion is empty.
-  // An explicitly empty OS response remains empty so inactive occasions never
-  // leak back in from the static fallback.
+  // The OS catalog response is the active-occasion allowlist. The mega menu
+  // intentionally shows only the subset OS marks as featured; inventory count
+  // is not used here because it can be temporarily unavailable while the
+  // active/featured flags remain authoritative.
   const hasOccasionApiData = occasionsData !== undefined;
-  const occasionsWithInventory = osOccasions.filter((o) => (o.count ?? 0) > 0);
-  const visibleOsOccasions =
-    occasionsWithInventory.length > 0 ? occasionsWithInventory : osOccasions;
+  const visibleOsOccasions = osOccasions.filter((o) => o.featured === true);
   const occasionItems: MegaItem[] =
     hasOccasionApiData
       ? visibleOsOccasions.map((o) => {

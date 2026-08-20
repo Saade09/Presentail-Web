@@ -298,12 +298,12 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect((footerLink as HTMLAnchorElement).href).toContain("/occasions");
   });
 
-  it("keeps active occasion tiles visible when the inventory-count cache reports zero", async () => {
+  it("shows only featured occasions from the active OS occasion list", async () => {
     const user = userEvent.setup();
     mockUseCatalogOccasions.mockReturnValue({
       data: {
         occasions: [
-          { slug: "birthday", name: "Birthday", image: null, count: 0, featured: false },
+          { slug: "birthday", name: "Birthday", image: null, count: 0, featured: true },
           { slug: "anniversary", name: "Anniversary", image: null, count: 0, featured: false },
         ],
       },
@@ -319,7 +319,7 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     );
 
     expect(screen.getByRole("link", { name: /Birthday/ })).toBeDefined();
-    expect(screen.getByRole("link", { name: /Anniversary/ })).toBeDefined();
+    expect(screen.queryByRole("link", { name: /Anniversary/ })).toBeNull();
   });
 
   it("opens the desktop Occasions menu when its trigger is clicked", async () => {
@@ -327,7 +327,7 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     mockUseCatalogOccasions.mockReturnValue({
       data: {
         occasions: [
-          { slug: "birthday", name: "Birthday", image: null, count: 0, featured: false },
+          { slug: "birthday", name: "Birthday", image: null, count: 0, featured: true },
         ],
       },
       isPending: false,
