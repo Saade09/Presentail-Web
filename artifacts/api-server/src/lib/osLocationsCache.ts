@@ -46,6 +46,48 @@ import { sendAlert } from "./alerts";
 // adding @workspace/delivery as a runtime dep of api-server.
 const EXPRESS_CLOSE_HOUR = 22;
 
+/**
+ * Representative delivery time slots used when the OS API is unreachable or
+ * returns no schedule for a city. These cover standard delivery windows so
+ * shoppers see a usable schedule rather than an empty section.
+ *
+ * Slots are intentionally broad (Morning / Afternoon / Evening) and stable
+ * (slotId prefixed with "fallback-") so they never collide with live OS IDs.
+ * When the real OS schedule is fetched, it replaces these entirely.
+ */
+const FALLBACK_TIME_SLOTS: OSTimeSlot[] = [
+  {
+    slotId: "fallback-morning",
+    label: "Morning",
+    startHour: 9,
+    endHour: 13,
+    cutoffHour: 10,
+    sameDayEnabled: true,
+    nextDayEnabled: true,
+    enabled: true,
+  },
+  {
+    slotId: "fallback-afternoon",
+    label: "Afternoon",
+    startHour: 13,
+    endHour: 18,
+    cutoffHour: 14,
+    sameDayEnabled: true,
+    nextDayEnabled: true,
+    enabled: true,
+  },
+  {
+    slotId: "fallback-evening",
+    label: "Evening",
+    startHour: 18,
+    endHour: 22,
+    cutoffHour: 18,
+    sameDayEnabled: true,
+    nextDayEnabled: true,
+    enabled: true,
+  },
+];
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type CachedCity = {
@@ -410,7 +452,7 @@ function transformOsResponse(
               expressDeliveryLabel: "",
               sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
               operationsConfigVerified: false,
-              timeSlots: [] as OSTimeSlot[],
+              timeSlots: FALLBACK_TIME_SLOTS,
               localizedNames: localizedNamesForCity(city.id),
               freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
               freeDeliveryEnabled: cfg.freeDeliveryEnabled,
@@ -687,7 +729,7 @@ function transformOsResponse(
       expressDeliveryLabel: "",
       sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
       operationsConfigVerified: false,
-      timeSlots: [] as OSTimeSlot[],
+      timeSlots: FALLBACK_TIME_SLOTS,
       localizedNames: localizedNamesForCity(city.id),
     })),
   }));
@@ -779,7 +821,7 @@ function hardcodedFallback(): CachedCountry[] {
         expressDeliveryLabel: "",
         sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
         operationsConfigVerified: false,
-        timeSlots: [] as OSTimeSlot[],
+        timeSlots: FALLBACK_TIME_SLOTS,
         localizedNames: localizedNamesForCity(city.id),
         freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
         freeDeliveryEnabled: cfg.freeDeliveryEnabled,
@@ -820,6 +862,12 @@ async function fetchAndStore(): Promise<void> {
       );
     } else {
       // First fetch failed: fall back to hardcoded data so the server stays up.
+      // console.error makes the failure immediately visible in the Replit
+      // console even when the structured logger output is piped elsewhere.
+      console.error( // i18n-ignore
+        "[osLocationsCache] Initial OS locations fetch failed — serving hardcoded fallback with representative time slots until next poll. Error:",
+        msg,
+      );
       logger.warn(
         { err: msg },
         "osLocationsCache: initial fetch failed — serving hardcoded fallback until next poll",
@@ -1016,10 +1064,13 @@ export function invalidateOsLocationsCache(): void {
  */
 export function validateOsEnv(): void {
   if (!process.env.PRESENTAIL_OS_API_KEY) {
-    logger.warn(
+    const msg =
       "PRESENTAIL_OS_API_KEY is not set — live city/delivery config from " +
-        "Presentail OS is disabled. Falling back to hardcoded data.",
-    );
+      "Presentail OS is disabled. Falling back to hardcoded data.";
+    // console.error ensures the gap is visible in the Replit console even
+    // when the structured logger output is filtered or piped elsewhere.
+    console.error("[osLocationsCache]", msg); // i18n-ignore
+    logger.warn(msg);
   }
   if (!process.env.PRESENTAIL_OS_WEBHOOK_SECRET) {
     logger.warn(
