@@ -1,0 +1,59 @@
+
+Objective
+Fix the information tooltip beside the Recipient Details “Phone Number *” label on mobile checkout so the complete message is readable without leaving the viewport or covering the phone input.
+
+Current issue
+On mobile, tapping the information icon opens a dark-teal tooltip that extends beyond the right edge of the screen.
+The copy is clipped, so the customer cannot read the full explanation.
+The overlay currently competes with the form and makes the checkout look broken.
+
+
+Required design and behavior
+Keep the existing information icon beside the “Phone Number *” label.
+On tap, show a compact dark-teal rounded popover fully contained inside the Recipient Details card and inside the mobile viewport.
+Use this exact copy: “We’ll only use this number for delivery coordination.”
+Position the popover directly below the Phone Number label row and above the phone-number input.
+Add a small upward pointer aligned toward the information icon.
+Allow the sentence to wrap naturally onto a maximum of two lines.
+Add sufficient vertical space while the popover is open so it does not overlap the label or input.
+Do not change the phone input, country selector, validation logic, or any other checkout component.
+Close the popover when the user taps the information icon again, taps outside the popover, presses Escape on a keyboard, or moves to another checkout step.
+Only one informational popover may be open at a time.
+
+
+Responsive requirements
+The popover must remain within the Recipient Details card at all supported mobile widths, including narrow devices.
+Use the available inner width of the card rather than a fixed width that can overflow.
+Respect the card’s left and right content gutters.
+On wider screens, keep the popover close to its trigger; do not stretch it unnecessarily across the entire form.
+Account for English, Arabic, and French. The Arabic version must support RTL alignment and pointer placement without overflow.
+
+
+Accessibility
+The information icon must remain keyboard focusable and have an accessible label such as “Why we need the recipient’s phone number.”
+Use an appropriate expanded state on the trigger.
+Ensure tooltip text meets WCAG contrast requirements against the dark-teal background.
+Do not rely solely on hover; it must work on tap, click, and keyboard activation.
+
+
+Acceptance criteria
+The full tooltip sentence is visible on mobile with no horizontal clipping or overflow.
+The tooltip remains inside both the viewport and Recipient Details card.
+The tooltip does not cover the Phone Number label or input.
+The copy appears exactly as specified.
+The tooltip opens and closes reliably through tap/click, outside tap, and keyboard interaction.
+Opening the tooltip does not cause unwanted horizontal scrolling or layout shifting elsewhere on the page.
+The behavior works in English, Arabic, and French.
+No regression occurs in recipient phone entry, country-code selection, validation, sticky checkout footer, or desktop checkout.
+
+
+QA devices/viewports
+iPhone SE / narrow mobile width
+Standard iPhone width
+Large iPhone width
+Android mobile width
+Tablet and desktop checkout
+
+
+Reference
+Use the approved mockup shared in the ChatGPT conversation: a contained dark-teal popover below the label, with the pointer aligned to the information icon and the phone input unobstructed.
