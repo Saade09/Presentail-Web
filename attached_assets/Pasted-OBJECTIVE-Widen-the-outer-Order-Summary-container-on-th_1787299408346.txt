@@ -1,0 +1,121 @@
+OBJECTIVE
+
+Widen the outer Order Summary container on the mobile Cart page so it uses the same approved 16 px left and right viewport gutters as the Delivery Summary container.
+
+This is a layout-only task. The goal is consistent horizontal alignment between the two summary sections.
+
+REQUIRED CHANGE
+
+On supported mobile breakpoints:
+
+- Set the outer white Order Summary container to 16 px from the left edge of the viewport and 16 px from the right edge.
+- Target width: calc(100% - 32px), or the equivalent implementation using the existing responsive container/gutter system.
+- Center the container horizontally.
+- Make the Order Summary’s left and right outer edges align exactly with the widened Delivery Summary container.
+- Preserve the current Order Summary internal padding.
+- Allow content rows to use the newly available inner width naturally.
+- Preserve the current border radius, background, shadow, and vertical spacing.
+
+VISUAL ALIGNMENT
+
+The mobile page should show:
+
+- Delivery Summary outer white card: 16 px left/right gutters.
+- Order Summary outer white card: 16 px left/right gutters.
+- Both cards aligned to the exact same vertical edge on the left and right.
+- The space between the two sections should remain unchanged.
+- The sticky checkout bar remains independent and unchanged.
+
+STRICTLY OUT OF SCOPE
+
+Do not change:
+
+- Any Order Summary wording.
+- Item labels or quantities.
+- Delivery labels.
+- “Base delivery charge” or any supporting text.
+- Prices, totals, currencies, taxes, fees, promo-code logic, or calculations.
+- Font family, size, weight, line height, or color.
+- Internal row spacing or divider styling.
+- Border radius, shadow, or background.
+- Delivery Summary.
+- Sticky checkout bar.
+- Product card.
+- Card-message section.
+- Other mobile containers.
+- Tablet or desktop layout except where necessary to avoid a CSS regression.
+- Any cart, checkout, delivery, or payment behavior.
+
+IMPLEMENTATION GUIDANCE
+
+- Reuse the same 16 px mobile gutter token/rule used for the approved Delivery Summary change.
+- Do not introduce a second spacing value or duplicate CSS if both containers can share the same responsive utility or component rule.
+- Remove or override only the mobile width, max-width, or horizontal-margin rule currently making Order Summary narrower.
+- Use border-box sizing so borders and padding do not create horizontal overflow.
+- Avoid hard-coded device widths or device-specific CSS.
+- Preserve existing desktop max-width behavior.
+- If Order Summary is rendered by a shared component used elsewhere, scope the change carefully to the mobile Cart context or verify every affected use before release.
+
+RESPONSIVE REQUIREMENTS
+
+Verify at minimum:
+
+- 320 px viewport.
+- 375 px viewport.
+- 390 px viewport.
+- 430 px viewport.
+- iOS Safari.
+- Android Chrome.
+- English.
+- French.
+- Arabic RTL.
+
+At each mobile width:
+
+- Exactly 16 px outer gutters on both sides.
+- No horizontal scroll or clipping.
+- All prices remain right-aligned in LTR.
+- Labels remain left-aligned in LTR.
+- Arabic RTL alignment remains correct.
+- Long translated labels do not collide with prices.
+- Sticky bar does not cover content differently because of the width change.
+- The complete Order Summary remains readable while scrolling.
+
+ACCEPTANCE CRITERIA
+
+- Order Summary is visibly wider than the current implementation on mobile.
+- Its outer edges align exactly with Delivery Summary.
+- Both sections use 16 px mobile viewport gutters.
+- Internal padding remains unchanged.
+- No text, pricing, total, currency, typography, styling, spacing, or logic has changed.
+- No horizontal overflow occurs at 320 px.
+- English, French, and Arabic RTL render without clipping.
+- Tablet and desktop layouts show no regression.
+- Other Cart page containers remain unchanged.
+- Existing promo-code, delivery-fee, surcharge, free-delivery, tax, and total calculations continue working exactly as before.
+
+QA SCENARIOS
+
+1. One-item cart.
+2. Multi-item cart.
+3. Standard delivery with fee.
+4. Free standard delivery.
+5. Express delivery.
+6. Late-night surcharge.
+7. Promo code applied.
+8. Long French labels.
+9. Arabic RTL.
+10. USD and AED totals.
+11. 320 px, 375 px, 390 px, and 430 px viewports.
+12. Desktop comparison to confirm no regression.
+
+DELIVERABLE
+
+Deploy the mobile layout adjustment to staging and attach before-and-after screenshots showing both Delivery Summary and Order Summary together at:
+
+1. 375 px English.
+2. 430 px English.
+3. 375 px Arabic RTL.
+4. One desktop viewport confirming no regression.
+
+The screenshots must clearly demonstrate that the two outer white cards share the same 16 px left and right gutters. Submit for review before production release.
