@@ -1,0 +1,91 @@
+OBJECTIVE
+
+Widen the Delivery Summary section on the mobile Cart page so the outer white container uses the same 16 px left and right page gutters as the rest of the mobile layout.
+
+This task is layout-only. Do not change any delivery copy, time formatting, component logic, typography, or behavior.
+
+REQUIRED CHANGE
+
+On supported mobile breakpoints:
+
+- Set the outer Delivery Summary container to occupy the available viewport width with 16 px space on the left and 16 px space on the right.
+- Target width: calc(100% - 32px), or the equivalent implementation through the existing page/container system.
+- Center the container horizontally.
+- Match the same mobile gutter alignment used by the main Cart content.
+- The left and right edges should align consistently with other full-width mobile sections that use the approved 16 px gutter.
+- The delivery-option card(s) inside the outer container should continue to use the available inner width. If an existing fixed width prevents the inner card from expanding with the parent, replace that fixed width with width: 100% while preserving the existing inner padding.
+- Preserve the current border radius, border, shadow, background, and vertical spacing unless a tiny mechanical adjustment is required solely to prevent clipping.
+
+STRICTLY OUT OF SCOPE
+
+Do not change:
+
+- “Delivery Summary” heading text.
+- Standard delivery or Express delivery wording.
+- “Arrives today,” “Arrives tomorrow,” or any time-range formatting.
+- The “Change” action.
+- The “Upgrade” button.
+- Delivery prices.
+- Delivery-selection logic.
+- Font family, font size, font weight, or line height.
+- Icon size or icon style.
+- Internal component hierarchy.
+- Sticky checkout bar.
+- Order Summary.
+- Desktop or tablet layout, unless required to prevent a regression from the mobile CSS.
+- Any other Cart page container widths.
+
+The purpose of this task is only to give Delivery Summary more horizontal room. Copy improvements will be handled separately.
+
+RESPONSIVE REQUIREMENTS
+
+Verify at minimum:
+
+- 320 px viewport width.
+- 375 px viewport width.
+- 390 px viewport width.
+- 430 px viewport width.
+- iOS Safari.
+- Android Chrome.
+
+At every mobile width:
+
+- The outer Delivery Summary container must have 16 px left and right gutters.
+- No horizontal scrolling or viewport overflow.
+- The container must not touch the screen edge.
+- The heading must remain fully visible.
+- Delivery option cards must remain fully contained.
+- “Change,” “Upgrade,” prices, icons, and text must not be clipped.
+- Existing text may continue to wrap exactly as it does today; do not force new copy or font changes as part of this task.
+- RTL Arabic must preserve the same 16 px physical page gutters and must not overflow.
+
+IMPLEMENTATION GUIDANCE
+
+- Prefer the existing responsive page-container/gutter token if one already represents 16 px. Do not introduce a duplicate spacing token unnecessarily.
+- Remove or override only the mobile max-width, width, or horizontal-margin rule currently making Delivery Summary narrower than the desired layout.
+- Keep existing desktop max-width behavior intact.
+- Avoid device-specific CSS.
+- Ensure padding and width calculations use border-box sizing so borders and internal padding do not create overflow.
+
+ACCEPTANCE CRITERIA
+
+- On mobile, Delivery Summary is visibly wider than the current implementation.
+- Its outer edges sit exactly 16 px from the viewport edges.
+- The section remains horizontally centered.
+- The inner delivery option uses the newly available width.
+- No copy, typography, delivery logic, pricing, actions, colors, shadows, border radius, or sticky-bar behavior has changed.
+- No horizontal overflow occurs at 320 px.
+- English, French, and Arabic RTL render without clipping.
+- Tablet and desktop layouts show no regression.
+- Other Cart page sections remain unchanged.
+
+QA / DELIVERABLE
+
+Deploy the layout adjustment to staging and attach before-and-after screenshots at:
+
+1. 375 px English.
+2. 430 px English.
+3. 375 px Arabic RTL.
+4. One desktop viewport confirming no regression.
+
+In the screenshots, include the full Delivery Summary section and enough surrounding page content to verify its alignment. Submit for review before production release.
