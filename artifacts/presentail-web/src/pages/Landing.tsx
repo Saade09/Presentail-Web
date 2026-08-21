@@ -15,6 +15,7 @@ import {
   countryCodeToSlug,
   type CountrySlug,
 } from "@/lib/locale-route";
+import { sortLbActiveCities } from "@/lib/lbCityOrder";
 
 const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = [
   { code: "LB", name: "Lebanon", flag: "🇱🇧" },
@@ -76,17 +77,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     setLocation(code, cityId);
   };
 
-  const PINNED_LB = [
-    "lb-beirut",
-    "lb-metn",
-    "lb-kesserwan",
-    "lb-baabda",
-    "lb-aley",
-    "lb-tripoli",
-    "lb-jbeil",
-    "lb-chouf",
-  ];
-
   const CityList = ({
     cities,
     countryCode,
@@ -96,19 +86,11 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   }) => {
     const countrySlug = countryCodeToSlug(countryCode) as CountrySlug;
 
-    const active = [...cities]
-      .filter((c) => c.isActive !== false)
-      .sort((a, b) => {
-        if (countryCode === "LB") {
-          const aPin = PINNED_LB.indexOf(a.id);
-          const bPin = PINNED_LB.indexOf(b.id);
-          if (aPin !== -1 && bPin !== -1) return aPin - bPin;
-          if (aPin !== -1) return -1;
-          if (bPin !== -1) return 1;
-          return cityName(a.id, a.name).localeCompare(cityName(b.id, b.name));
-        }
-        return 0;
-      });
+    const activeUnsorted = cities.filter((c) => c.isActive !== false);
+    const active =
+      countryCode === "LB"
+        ? sortLbActiveCities(activeUnsorted, cityName)
+        : activeUnsorted;
 
     const unavailable = cities.filter((c) => c.isActive === false);
     const hasBothGroups = active.length > 0 && unavailable.length > 0;

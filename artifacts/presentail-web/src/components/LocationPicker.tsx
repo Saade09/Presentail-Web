@@ -6,6 +6,7 @@ import {
 } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { CountryFlag } from "@/components/CountryFlag";
+import { sortLbActiveCities } from "@/lib/lbCityOrder";
 
 type Props = {
   onComplete?: (selection: { countryCode: string; cityId: string }) => void;
@@ -57,9 +58,15 @@ export function LocationPicker({
 
   const showCities = !!selectedCountry;
 
-  const availableCities = selectedCountry
+  const availableCitiesUnsorted = selectedCountry
     ? selectedCountry.cities.filter((c) => c.isActive !== false)
     : [];
+  // Lebanon uses the same curated order as the landing page (pinned popular
+  // cities first, then the rest alphabetically by localized name).
+  const availableCities =
+    selectedCountry?.code === "LB"
+      ? sortLbActiveCities(availableCitiesUnsorted, cityName)
+      : availableCitiesUnsorted;
   const unavailableCities = selectedCountry
     ? selectedCountry.cities.filter((c) => c.isActive === false)
     : [];
