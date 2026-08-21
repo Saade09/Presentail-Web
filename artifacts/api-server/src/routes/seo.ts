@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { checkAdminToken } from "../lib/admin-auth";
-import { imageSize } from "image-size";
+import { imageSize } from "image-size-next";
 import { logger } from "../lib/logger";
 import { runAuditNow, getLastAuditSummary } from "../lib/seoAuditMonitor";
 
