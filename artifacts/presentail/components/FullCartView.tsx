@@ -34,12 +34,11 @@ import { useT } from "@/hooks/useT";
 import {
   EXPRESS_CLOSE_HOUR,
   EXPRESS_OPEN_HOUR,
+  computeStickyDeliveryPromise,
   dayLabels,
   expressSurchargeForCountry,
   formatDeliveryRow,
-  formatPromiseDateLabel,
   getCountryHour,
-  getLocalIso,
   isExpressDeliveryAvailable,
   resolveSlotLabel,
   slotTimeRangeForLabel,
@@ -302,40 +301,18 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   });
 
   const stickyDeliveryContext = React.useMemo(() => {
-    if (deliverySelection.mode === "express") {
-      const timeRange = slotTimeRangeForLabel(deliverySelection.slotLabel, cityTimeSlots);
-      const endTime = timeRange?.split("–")[1]?.trim();
-      if (endTime) return t.cartStickyArrivesBy.replace("{time}", endTime);
-      // Express selected but no specific end time — fall through to tonight label
-      return t.cartStickyDeliveryTonight;
-    }
-    if (deliverySelection.mode === "today_slot") return t.cartStickyDeliveryTonight;
-    if (deliverySelection.mode === "schedule" && deliverySelection.date) {
-      if (deliverySelection.date === days[1]?.iso) return t.cartStickyDeliveryTomorrow;
-      const todayIso = days[0]?.iso ?? getLocalIso(countryCode);
-      const formattedDate = formatPromiseDateLabel(
-        deliverySelection.date,
-        todayIso,
-        t.checkoutDayToday,
-        t.checkoutDayTomorrow,
-      );
-      return t.cartStickyDeliveryDate.replace("{date}", formattedDate);
-    }
-    return null;
-  }, [
-    deliverySelection.mode,
-    deliverySelection.date,
-    deliverySelection.slotLabel,
-    cityTimeSlots,
-    days,
-    countryCode,
-    t.cartStickyArrivesBy,
-    t.cartStickyDeliveryTonight,
-    t.cartStickyDeliveryTomorrow,
-    t.cartStickyDeliveryDate,
-    t.checkoutDayToday,
-    t.checkoutDayTomorrow,
-  ]);
+    const selectedSlot = deliverySelection.slotLabel
+      ? cityTimeSlots.find((s) => s.label === deliverySelection.slotLabel) ?? null
+      : null;
+    return computeStickyDeliveryPromise({
+      mode: deliverySelection.mode,
+      date: deliverySelection.date,
+      slot: selectedSlot,
+      countryCode,
+      t,
+      now: new Date(),
+    });
+  }, [deliverySelection.mode, deliverySelection.date, deliverySelection.slotLabel, cityTimeSlots, countryCode, t]);
 
   // When the OS has no slots for this city and the shopper is not using express,
   // clear any stale scheduled selection and block checkout continuation.

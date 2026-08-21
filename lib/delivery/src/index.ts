@@ -948,3 +948,114 @@ export function isMidnightSlot(
 ): boolean {
   return isMidnightEligibleCity(cityId) && isMidnightServiceSlot(slot);
 }
+
+// ---------------------------------------------------------------------------
+// Cart sticky bar delivery promise
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal translation keys consumed by computeStickyDeliveryPromise.
+ * These are a subset of the full translations object and can be satisfied
+ * by any object that contains these keys (both the mobile app and tests).
+ */
+export type StickyDeliveryPromiseTranslations = {
+  /** "Select delivery time" */
+  cartStickySelectTime: string;
+  /** "Arrives by {time}" */
+  cartStickyArrivesBy: string;
+  /** "Delivery today" */
+  cartStickyDeliveryToday: string;
+  /** "Delivery tonight" */
+  cartStickyDeliveryTonight: string;
+  /** "Delivery tomorrow" */
+  cartStickyDeliveryTomorrow: string;
+  /** "Delivery {date}" */
+  cartStickyDeliveryDate: string;
+};
+
+/** Parse the start hour from a slot label like "9:00 AM – 2:00 PM". Returns null on failure. */
+function parseSlotStartHour(label: string): number | null {
+  const parts = label.split(/[–-]/);
+  if (parts.length < 1) return null;
+  const m = /^(\d+)(?::\d+)?\s*(AM|PM)$/i.exec(parts[0]!.trim());
+  if (!m) return null;
+  let h = parseInt(m[1]!, 10);
+  const period = m[2]!.toUpperCase();
+  if (period === "AM") {
+    if (h === 12) h = 0;
+  } else if (h !== 12) {
+    h += 12;
+  }
+  return h;
+}
+
+/**
+ * Returns a concise localised delivery promise string for the cart sticky bar.
+ *
+ * - No mode, or non-express with no date → `t.cartStickySelectTime`
+ * - Express → `t.cartStickyExpressArrivesBy` with estimated arrival (now + 90 min),
+ *   formatted in the recipient country's local timezone.
+ * - date = country-local today, slot starts at hour ≥ 18 → `t.cartStickyDeliveryTonight`
+ * - date = country-local today, other slot → `t.cartStickyDeliveryToday`
+ * - date = country-local tomorrow → `t.cartStickyDeliveryTomorrow`
+ * - later date → `t.cartStickyDeliveryDate` with short formatted date
+ *
+ * Timezone logic uses `getLocalIso` and `formatCountryTime` (both from this
+ * module) so the result is correct for LB/CY (Beirut) and AE (Dubai).
+ */
+export function computeStickyDeliveryPromise(opts: {
+  mode: "express" | "today_slot" | "schedule" | null | undefined;
+  date: string | null | undefined;
+  /** The resolved slot object for the current selection (used to determine tonight). */
+  slot?: { startHour?: number; label?: string } | null;
+  countryCode?: string | null;
+  t: StickyDeliveryPromiseTranslations;
+  /** Defaults to `new Date()`. Pass explicitly in tests. */
+  now?: Date;
+}): string {
+  const { mode, date, slot, countryCode, t } = opts;
+  const now = opts.now ?? new Date();
+
+  if (!mode || (mode !== "express" && !date)) return t.cartStickySelectTime;
+
+  if (mode === "express") {
+    const arrival = expressDeadlineFrom(now);
+    const timeStr = formatCountryTime(arrival, countryCode);
+    return t.cartStickyArrivesBy.replace("{time}", timeStr);
+  }
+
+  // Scheduled or today_slot — compare date against country-local today / tomorrow.
+  const todayIso = getLocalIso(countryCode, now);
+  const [ty, tm, td] = todayIso.split("-").map(Number) as [number, number, number];
+  const tomDate = new Date(ty, tm - 1, td + 1, 12, 0, 0);
+  const tomorrowIso = `${tomDate.getFullYear()}-${String(tomDate.getMonth() + 1).padStart(2, "0")}-${String(tomDate.getDate()).padStart(2, "0")}`;
+
+  if (date === todayIso) {
+    // "Tonight" when the slot's start hour is in the evening (≥ 18).
+    const startHour =
+      typeof slot?.startHour === "number"
+        ? slot.startHour
+        : slot?.label
+          ? parseSlotStartHour(slot.label)
+          : null;
+    if (startHour !== null && startHour >= 18) return t.cartStickyDeliveryTonight;
+    return t.cartStickyDeliveryToday;
+  }
+
+  if (date === tomorrowIso) return t.cartStickyDeliveryTomorrow;
+
+  // Future date: short localised label e.g. "Fri, 22 Aug".
+  const [y, m, d] = date!.split("-").map(Number) as [number, number, number];
+  const dateObj = new Date(y, m - 1, d, 12, 0, 0);
+  let shortDate: string;
+  try {
+    shortDate = new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }).format(dateObj);
+  } catch {
+    shortDate = date!;
+  }
+  return t.cartStickyDeliveryDate.replace("{date}", shortDate);
+}

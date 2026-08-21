@@ -501,6 +501,7 @@ const EN = {
   cartTotal: "Total", // no-translate — French loan word, identical in EN and FR
   cartStickyItemSingular: "item",
   cartStickyItemPlural: "items",
+  cartStickyDeliveryToday: "Delivery today",
   cartStickyDeliveryTonight: "Delivery tonight",
   cartStickyDeliveryTomorrow: "Delivery tomorrow",
   cartStickyDeliveryDate: "Delivery {date}",
@@ -1499,6 +1500,7 @@ const AR: typeof EN = {
   cartTotal: "الإجمالي",
   cartStickyItemSingular: "عنصر",
   cartStickyItemPlural: "عناصر",
+  cartStickyDeliveryToday: "توصيل اليوم",
   cartStickyDeliveryTonight: "توصيل الليلة",
   cartStickyDeliveryTomorrow: "توصيل غداً",
   cartStickyDeliveryDate: "توصيل {date}",
@@ -2491,6 +2493,7 @@ const FR: typeof EN = {
   cartTotal: "Total",
   cartStickyItemSingular: "article",
   cartStickyItemPlural: "articles",
+  cartStickyDeliveryToday: "Livraison aujourd'hui",
   cartStickyDeliveryTonight: "Livraison ce soir",
   cartStickyDeliveryTomorrow: "Livraison demain",
   cartStickyDeliveryDate: "Livraison {date}",
