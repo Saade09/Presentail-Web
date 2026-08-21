@@ -355,7 +355,7 @@ export async function attemptCreateWcOrder(
   opts: { paymentVerified?: boolean; wcCustomerId?: number | null; store?: WooStoreConfig } = {},
 ): Promise<WcOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
-  const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
+  const cardToValue = body.cardTo?.trim() ?? '';
 
   const deliveryDateFormatted = body.deliveryDate
     ? new Date(`${body.deliveryDate}T12:00:00`).toLocaleDateString("en-US", {
@@ -1041,7 +1041,7 @@ export async function attemptCreateOsOrder(
   } = {},
 ): Promise<OsOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
-  const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
+  const cardToValue = body.cardTo?.trim() ?? '';
 
   const osConfig = getOsConfig();
   if (!osConfig.apiKey) {

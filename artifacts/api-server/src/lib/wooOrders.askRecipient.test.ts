@@ -42,6 +42,7 @@ vi.mock("./catalog", () => ({
   countryForDistrict: vi.fn().mockReturnValue("LB"),
   expressSurchargeUsd: vi.fn().mockReturnValue(0),
   resolveOsEffectivePrice: vi.fn((p: { price: number }) => p.price),
+  resolveMidnightWindow: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("./wooStore", () => ({

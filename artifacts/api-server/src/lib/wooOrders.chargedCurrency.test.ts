@@ -54,6 +54,7 @@ vi.mock("./catalog", () => ({
   // resolveOsEffectivePrice is used in attemptCreateOsOrder for OS-native items.
   // Default: return the product's own price (no discount). Tests override per-case.
   resolveOsEffectivePrice: vi.fn((p: { price: number }) => p.price),
+  resolveMidnightWindow: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("./wooStore", () => ({
