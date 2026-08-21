@@ -90,6 +90,27 @@ describe("CheckoutSignInCard", () => {
     expect(screen.queryByTestId("text-checkout-signin-error")).toBeNull();
   });
 
+  it("Apple success: signs the shopper in without navigating away from checkout", async () => {
+    signInWithApplePopup.mockResolvedValue({
+      ok: true,
+      token: "apple-tok",
+      user: { id: "2", email: "apple@example.com", firstName: "Apple", lastName: "User" },
+      provider: "apple",
+    });
+    renderCard();
+
+    await userEvent.click(screen.getByTestId("button-checkout-signin-apple"));
+
+    await waitFor(() =>
+      expect(login).toHaveBeenCalledWith(
+        "apple-tok",
+        expect.objectContaining({ email: "apple@example.com" }),
+        "apple",
+      ),
+    );
+    expect(screen.queryByTestId("text-checkout-signin-error")).toBeNull();
+  });
+
   it("OAuth cancel: no inline error, fires checkout_auth_cancelled", async () => {
     signInWithApplePopup.mockResolvedValue({ ok: false, cancelled: true });
     renderCard();
@@ -100,6 +121,65 @@ describe("CheckoutSignInCard", () => {
     });
     expect(screen.queryByTestId("text-checkout-signin-error")).toBeNull();
     expect(login).not.toHaveBeenCalled();
+  });
+
+  it("restores every sign-in choice after Apple cancellation", async () => {
+    signInWithApplePopup.mockResolvedValue({ ok: false, cancelled: true });
+    renderCard();
+
+    await userEvent.click(screen.getByTestId("button-checkout-signin-apple"));
+    await waitFor(() =>
+      expect(
+        (screen.getByTestId("button-checkout-signin-apple") as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+
+    expect(
+      (screen.getByTestId("button-checkout-signin-google") as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByTestId("button-checkout-signin-email") as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(screen.getByTestId("button-checkout-signin-apple").textContent).toContain(
+      "auth.continueApple",
+    );
+    expect(screen.queryByTestId("text-checkout-signin-error")).toBeNull();
+    expect(
+      trackWebEvent.mock.calls.filter(
+        ([event]) => (event as { type: string }).type === "checkout_auth_cancelled",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("restores every sign-in choice after Google popup is abandoned without a callback", async () => {
+    // Simulate the GSI callback never firing (popup silently dismissed) — the
+    // bounded timeout in signInWithGooglePopup resolves as cancelled. The mock
+    // stands in for the whole function so we don't need fake timers here.
+    signInWithGooglePopup.mockResolvedValue({ ok: false, cancelled: true });
+    renderCard();
+
+    await userEvent.click(screen.getByTestId("button-checkout-signin-google"));
+    await waitFor(() =>
+      expect(
+        (screen.getByTestId("button-checkout-signin-google") as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+
+    expect(
+      (screen.getByTestId("button-checkout-signin-apple") as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByTestId("button-checkout-signin-email") as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(screen.getByTestId("button-checkout-signin-google").textContent).toContain(
+      "auth.continueGoogle",
+    );
+    expect(screen.queryByTestId("text-checkout-signin-error")).toBeNull();
+    expect(
+      trackWebEvent.mock.calls.filter(
+        ([event]) => (event as { type: string }).type === "checkout_auth_cancelled",
+      ),
+    ).toHaveLength(1);
   });
 
   it("OAuth failure: shows a non-blocking inline error and fires checkout_auth_failed with a safe category", async () => {

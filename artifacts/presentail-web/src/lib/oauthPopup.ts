@@ -1,5 +1,6 @@
 import { loadAuthScripts } from "@/lib/authScripts";
 import type { ShimUser } from "@/contexts/AuthContext";
+import { TimeoutError, withTimeout } from "@/lib/withTimeout";
 
 /**
  * Inline OAuth popup sign-in used by the checkout optional sign-in card.
@@ -16,6 +17,12 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as
 const APPLE_SERVICE_ID = import.meta.env.VITE_APPLE_SERVICE_ID as
   | string
   | undefined;
+
+// Google GSI and Apple can both leave their popup promise/callback pending after
+// the shopper closes the popup without authorizing. Keep the optional checkout
+// card from being stuck in its Processing state indefinitely.
+export const GOOGLE_POPUP_TIMEOUT_MS = 15_000;
+export const APPLE_POPUP_TIMEOUT_MS = 15_000;
 
 type ApiAuthResponse = {
   ok: boolean;
@@ -91,7 +98,10 @@ export async function signInWithGooglePopup(): Promise<OAuthSignInResult> {
   if (!window.google?.accounts?.oauth2) {
     return { ok: false, cancelled: false, errorCategory: "script_load_failed" };
   }
-  return new Promise<OAuthSignInResult>((resolve) => {
+  // Google's GSI callback can silently drop (never fire) when the shopper
+  // closes the popup without selecting an account or clicking Cancel. Wrap the
+  // callback promise in a deadline so the card never stays in Processing.
+  const callbackPromise = new Promise<OAuthSignInResult>((resolve) => {
     try {
       const client = window.google!.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID!,
@@ -123,6 +133,15 @@ export async function signInWithGooglePopup(): Promise<OAuthSignInResult> {
       resolve({ ok: false, cancelled: false, errorCategory: "popup_blocked" });
     }
   });
+
+  try {
+    return await withTimeout(callbackPromise, GOOGLE_POPUP_TIMEOUT_MS);
+  } catch (err) {
+    if (err instanceof TimeoutError) {
+      return { ok: false, cancelled: true };
+    }
+    throw err;
+  }
 }
 
 export async function signInWithApplePopup(): Promise<OAuthSignInResult> {
@@ -147,7 +166,10 @@ export async function signInWithApplePopup(): Promise<OAuthSignInResult> {
       redirectURI: `${window.location.origin}/sign-in`,
       usePopup: true,
     });
-    const appleRes = await window.AppleID.auth.signIn();
+    const appleRes = await withTimeout(
+      window.AppleID.auth.signIn(),
+      APPLE_POPUP_TIMEOUT_MS,
+    );
     const idToken = appleRes?.authorization?.id_token;
     if (!idToken) {
       return { ok: false, cancelled: false, errorCategory: "provider_error" };
@@ -168,6 +190,9 @@ export async function signInWithApplePopup(): Promise<OAuthSignInResult> {
       appleErrorCode === "popup_closed_by_user" ||
       appleErrorCode === "user_cancelled_authorize"
     ) {
+      return { ok: false, cancelled: true };
+    }
+    if (err instanceof TimeoutError) {
       return { ok: false, cancelled: true };
     }
     return {

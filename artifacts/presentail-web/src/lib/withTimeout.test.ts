@@ -8,7 +8,7 @@
 // of the configured deadline.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { withTimeout, withTimeoutAsNull } from "./withTimeout";
+import { TimeoutError, withTimeout, withTimeoutAsNull } from "./withTimeout";
 
 describe("withTimeout", () => {
   beforeEach(() => {
@@ -43,6 +43,7 @@ describe("withTimeout", () => {
 
     expect(settled).toBe(true);
     await expect(race).rejects.toThrow("timeout");
+    await expect(race).rejects.toBeInstanceOf(TimeoutError);
   });
 
   it("fires the timeout error at the configured deadline (not before)", async () => {
