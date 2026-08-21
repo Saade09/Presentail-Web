@@ -1,0 +1,152 @@
+OBJECTIVE
+
+Redesign the mobile Cart page’s sticky checkout bar so it gives the customer a clear, accurate delivery promise before checkout, while keeping the total and primary checkout action constantly visible.
+
+PROJECT SCOPE
+
+Mobile cart page only initially. The behavior must work across Lebanon and UAE storefronts, all supported currencies/languages, and every available delivery method. Do not hard-code “Delivery tonight.”
+
+DESIGN REQUIREMENTS
+
+Create a white sticky bottom panel fixed to the bottom of the mobile viewport.
+
+Top row:
+- Left: item count followed by the dynamically generated delivery promise.
+- Example: “1 item · Delivery tonight”
+- Right: small muted label “Total” with the current cart total directly beneath it in stronger dark text.
+- Use singular “1 item” and plural “2 items,” “3 items,” etc.
+
+Primary button:
+- One large, full-width dark teal button below the information row.
+- Include the existing white lock icon.
+- Button label: “Checkout securely · [cart total]”
+- Example: “Checkout securely · $82”
+- Minimum tap target height: 48 px.
+- Use the same border radius, typography, and teal color already used by Presentail’s primary CTAs.
+- Keep comfortable horizontal padding and mobile safe-area padding.
+- Add a subtle top border or soft shadow so the bar is visually separated from the scrolling page.
+- Do not allow the sticky bar to cover page content, add-on buttons, footer controls, or browser safe areas. Add bottom page padding equal to the rendered sticky bar height.
+
+DYNAMIC DELIVERY-PROMISE LOGIC
+
+The text beside the item count must always reflect the currently selected delivery method/window:
+
+1. Selected slot is tonight:
+   “Delivery tonight”
+
+2. Selected slot is tomorrow:
+   “Delivery tomorrow”
+
+3. Selected slot is a later calendar date:
+   “Delivery [EEE, D MMM]”
+   Example: “Delivery Fri, 22 Aug”
+
+4. Express delivery selected:
+   “Arrives by [time]”
+   Example: “Arrives by 9:30 AM”
+
+5. No delivery date/time has been selected:
+   “Select delivery time”
+
+6. If the selected delivery window crosses midnight, use the customer-facing promise defined by the selected slot. Do not incorrectly label a future next-day slot as “tonight.”
+
+7. Determine “tonight,” “tomorrow,” and calendar dates using the delivery location/store timezone—not the customer device timezone:
+   - Lebanon: Beirut time
+   - UAE: local UAE time
+
+8. Recalculate immediately whenever the customer:
+   - changes delivery date;
+   - changes delivery window;
+   - switches between Standard and Express;
+   - changes delivery city/country;
+   - returns to the cart with a saved selection;
+   - loses an invalid or expired delivery slot.
+
+TOTAL AND CART STATE
+
+- Both displayed totals—the top-right total and the button total—must use the same live cart total as Order Summary.
+- Update immediately after quantity changes, item removal, add-on addition/removal, promo-code changes, delivery-method changes, delivery-fee changes, late-night surcharge changes, free-delivery qualification, currency changes, or taxes/fees.
+- Preserve the correct currency symbol/code and existing localization rules.
+- Never show stale totals during asynchronous cart recalculation. Use the existing loading/disabled state until the authoritative total is returned.
+- Disable the checkout button while the cart is updating, empty, or otherwise not eligible for checkout.
+- Prevent duplicate checkout navigation from repeated taps.
+
+INTERACTION BEHAVIOR
+
+- The sticky bar remains visible while the customer scrolls through the Cart page.
+- Tapping “Checkout securely” follows the existing checkout flow and validations.
+- If delivery selection is required before checkout, preserve existing validation behavior and guide the customer to the delivery section rather than silently failing.
+- Keyboard opening for card-message fields must not permanently hide or distort the sticky bar. Follow the existing mobile keyboard behavior.
+- The component must work correctly after browser back navigation and cart-state restoration.
+
+RESPONSIVE / ACCESSIBILITY REQUIREMENTS
+
+- Mobile-first implementation for supported mobile breakpoints.
+- Respect iPhone bottom safe-area inset using env(safe-area-inset-bottom) or the project equivalent.
+- No horizontal overflow at 320 px width.
+- Long localized strings must wrap or truncate gracefully without covering the total.
+- Maintain accessible contrast.
+- Provide an accessible label for the lock icon; do not rely on the icon alone.
+- Screen readers should announce the item count, delivery promise, total, and checkout action meaningfully.
+- Maintain visible keyboard focus states where applicable.
+
+LOCALIZATION
+
+Add all new labels through the existing translation system. Do not hard-code English into the component.
+
+Required strings include:
+- item / items
+- Delivery tonight
+- Delivery tomorrow
+- Delivery [date]
+- Arrives by [time]
+- Select delivery time
+- Total
+- Checkout securely · [total]
+
+Confirm English, Arabic, and French layouts. Arabic must render correctly in RTL, including the item/promise row, total block, currency, icon placement, and button text.
+
+ANALYTICS
+
+Preserve the existing checkout-click event. If the sticky CTA currently has no distinct analytics context, add a source/property identifying it as the mobile cart sticky checkout CTA without duplicating the purchase or checkout event.
+
+ACCEPTANCE CRITERIA
+
+- Mobile Cart page displays the redesigned sticky bar matching the approved Presentail mockup.
+- “Delivery tonight” appears only when the selected slot is genuinely tonight in the delivery-location timezone.
+- Tomorrow, future-date, Express, and no-selection states display the correct copy.
+- Item count and totals update live and remain consistent with Order Summary.
+- Button remains fully clickable and never overlaps page content.
+- Safe-area spacing works on iPhones with and without a home indicator.
+- Singular/plural wording is correct.
+- English, Arabic RTL, and French versions are verified.
+- Existing checkout validation and navigation remain intact.
+- No regression on promo codes, free delivery, late-night fees, add-ons, quantity updates, saved carts, or Express upgrades.
+
+QA SCENARIOS
+
+Test at minimum:
+1. One item, tonight Standard delivery.
+2. Multiple items, tonight delivery.
+3. Tomorrow delivery.
+4. Scheduled delivery several days ahead.
+5. Express delivery with a live “Arrives by” time.
+6. No delivery slot selected.
+7. Delivery window crosses midnight.
+8. Customer device timezone differs from Beirut/UAE timezone.
+9. Quantity changed.
+10. Add-on added and removed.
+11. Promo code applied and removed.
+12. Free-standard-delivery threshold crossed in both directions.
+13. Late-night fee added and removed.
+14. Currency switched.
+15. Cart restored after refresh/back navigation.
+16. Empty cart.
+17. Slow API response during recalculation.
+18. English, French, and Arabic RTL at 320 px, 375 px, and 430 px widths.
+19. iOS Safari and Android Chrome.
+20. Confirm desktop/tablet cart behavior is unchanged unless the same component is intentionally reused.
+
+DELIVERABLE
+
+Deploy the updated sticky checkout bar to staging, attach screenshots/video covering tonight, tomorrow, future-date, Express, no-slot, and Arabic RTL states, then submit for review before production release.

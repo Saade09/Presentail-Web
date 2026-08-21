@@ -55,7 +55,7 @@ export function LandingPageFooter() {
   const _countrySlug = countryCode ? countryCodeToSlug(countryCode) : null;
   const toCityHref = (path: string): string => {
     if (!_countrySlug || !isSupportedCountrySlug(_countrySlug) || !cityId) {
-      return path;
+      return `~${path}`;
     }
     const base = buildLocalePath({
       lang: language as Lang,

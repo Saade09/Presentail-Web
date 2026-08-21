@@ -271,6 +271,14 @@ export const seoStrings: Dict = {
     en: "How Presentail collects, uses and protects your personal information across our website, mobile apps and social channels.",
     ar: "كيف تجمع بريزانتيل معلوماتك الشخصية وتستخدمها وتحميها عبر الموقع والتطبيقات والقنوات الاجتماعية.",
   },
+  "seo.bestSellers.title": {
+    en: "Best Sellers in {city} | Presentail",
+    ar: "الأكثر مبيعاً في {city} | Presentail",
+  },
+  "seo.bestSellers.description": {
+    en: "Discover Presentail's best-selling bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
+    ar: "اكتشف باقات Presentail وكعكها وهداياها الفاخرة الأكثر مبيعاً للتوصيل في {city}، {country}.",
+  },
 };
 
 export const seoStringsFr: Record<string, string> = {
@@ -341,6 +349,8 @@ export const seoStringsFr: Record<string, string> = {
   "seo.terms.description": "Les Conditions d'utilisation qui régissent vos achats et votre utilisation du site, des applications et des services Presentail.",
   "seo.privacy.title": "Politique de confidentialité | Presentail",
   "seo.privacy.description": "Comment Presentail collecte, utilise et protège vos informations personnelles sur le site, les applications et les canaux sociaux.",
+  "seo.bestSellers.title": "Meilleures ventes à {city} | Presentail",
+  "seo.bestSellers.description": "Découvrez les bouquets, gâteaux et cadeaux de luxe les plus vendus de Presentail pour livraison à {city}, {country}.",
 };
 
 export const seoStringsEl: Record<string, string> = {
@@ -411,4 +421,6 @@ export const seoStringsEl: Record<string, string> = {
   "seo.terms.description": "Οι Όροι Χρήσης που διέπουν την αγορά και τη χρήση του ιστότοπου, των εφαρμογών και των υπηρεσιών της Presentail.",
   "seo.privacy.title": "Πολιτική απορρήτου | Presentail",
   "seo.privacy.description": "Πώς η Presentail συλλέγει, χρησιμοποιεί και προστατεύει τα προσωπικά σας δεδομένα στον ιστότοπο, τις εφαρμογές και τα κοινωνικά μας κανάλια.",
+  "seo.bestSellers.title": "Δημοφιλέστερα στην πόλη {city} | Presentail",
+  "seo.bestSellers.description": "Ανακαλύψτε τα δημοφιλέστερα μπουκέτα, τούρτες και πολυτελή δώρα της Presentail για παράδοση στην πόλη {city}, {country}.",
 };
