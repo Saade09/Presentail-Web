@@ -758,7 +758,14 @@ router.get("/homepage/best-sellers", async (req, res) => {
   }
 
   // OS cache enrichment — available in production, may be cold in dev.
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  // When null the cache has not been populated yet (cold start). Return 503 so
+  // the client does NOT cache the empty result — TanStack Query will retry and
+  // pick up real products once the OS warm-up cycle completes (~30 s on cold boot).
+  const _rawOsProducts = getOsProducts(store.storeKey);
+  if (_rawOsProducts === null) {
+    return res.status(503).json({ ok: false, message: "catalog not ready" }); // i18n-ignore
+  }
+  const osProducts = _rawOsProducts;
 
   // Pricing enrichment map (keyed by osNumericId string).
   // The OS list endpoint omits sale_price / regular_price / discount_price_* —
@@ -994,7 +1001,13 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     localSales = new Map();
   }
 
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  // When null the OS catalog hasn't loaded yet. Return 503 so the client retries
+  // instead of caching an empty product list for the full staleTime window.
+  const _rawOsProductsColl = getOsProducts(store.storeKey);
+  if (_rawOsProductsColl === null) {
+    return res.status(503).json({ ok: false, message: "catalog not ready" }); // i18n-ignore
+  }
+  const osProducts = _rawOsProductsColl;
 
   // Pricing enrichment map — OS list endpoint omits sale/regular price fields.
   const pricingMap = getOsProductPricingMap();
