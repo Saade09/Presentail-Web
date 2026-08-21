@@ -776,6 +776,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 paddingVertical: 12,
                 paddingHorizontal: 14,
                 opacity: scheduledDeliveryBlocked ? 0.65 : 1,
+                marginHorizontal: -8,
               }}
             >
               <View
@@ -909,4 +910,3 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
     </>
   );
 }
-

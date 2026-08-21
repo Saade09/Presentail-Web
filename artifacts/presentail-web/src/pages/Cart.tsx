@@ -1119,9 +1119,7 @@ export default function Cart() {
           <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2">
             <div
               ref={sidebarRef}
-              className={`bg-secondary/30 rounded-3xl p-6 lg:bg-transparent lg:rounded-none lg:p-0${
-                sidebarFits ? " lg:sticky lg:top-[calc(var(--header-h)+1.5rem)]" : ""
-              }`}
+              className={sidebarFits ? "lg:sticky lg:top-[calc(var(--header-h)+1.5rem)]" : undefined}
             >
               {/* aria-live region: announces applied/error to assistive technology */}
               <div aria-live="polite" aria-atomic="true" className="sr-only">
