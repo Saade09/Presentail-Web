@@ -67,3 +67,4 @@
 - [OS city delivery slots](os-city-delivery-slots.md) — every standard slot surface must use the selected city's live OS schedule; empty OS data stays unavailable, never country fallback
 - [Midnight delivery helper copy](midnight-delivery-helper-copy.md) — market-local today says “tonight”; future selections show explicit start and next-day end dates
 - [Preview route normalization](preview-route-normalization.md) — Vite previews bypass serve.mjs redirects; URL normalizations need matching SPA handling.
+- [Phone tooltip overflow](phone-tooltip-overflow.md) — "mobile view" bug screenshots may be web-at-mobile-width, not native; Radix side=right can't shift horizontally — use side=bottom + narrow max-width

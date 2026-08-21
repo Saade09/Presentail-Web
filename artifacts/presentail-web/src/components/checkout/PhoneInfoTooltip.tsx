@@ -57,13 +57,13 @@ export function PhoneInfoTooltip({ askRecipientForAddress, onOpen }: Props) {
       </PopoverTrigger>
       <PopoverContent
         role="status"
-        side="right"
+        side="bottom"
         align="start"
-        sideOffset={10}
+        sideOffset={8}
         collisionPadding={16}
         onOpenAutoFocus={(e) => e.preventDefault()}
         data-testid="tooltip-phone-info"
-        className="w-auto max-w-[min(360px,calc(100vw-2rem))] rounded-xl border-0 bg-primary px-3.5 py-2.5 text-xs leading-relaxed text-primary-foreground shadow-lg"
+        className="w-auto max-w-[min(260px,calc(100vw-2rem))] rounded-xl border-0 bg-primary px-3.5 py-2.5 text-xs leading-relaxed text-primary-foreground shadow-lg"
       >
         {askRecipientForAddress
           ? t("checkout.phoneInfoAskOn")

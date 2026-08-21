@@ -42,7 +42,11 @@ type AnalyticsEventName =
   /** User confirmed a scheduled delivery window */
   | "delivery_window_selected"
   /** User switched from standard to express (explicit upgrade) */
-  | "express_upgrade_selected";
+  | "express_upgrade_selected"
+  /** Phone number info tooltip opened on checkout */
+  | "phone_tooltip_opened"
+  /** User continued the checkout step after having opened the phone tooltip */
+  | "checkout_continued_after_phone_tooltip";
 
 type AnalyticsSurface =
   | "cart"

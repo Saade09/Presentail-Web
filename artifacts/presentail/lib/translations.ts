@@ -542,6 +542,8 @@ const EN = {
   noDeliverySlotsShort: "No scheduled slots available",
   expressInfoPopupTitle: "Express Delivery",
   expressInfoPopupBody: "Express is premium delivery delivered within 90 minutes.",
+  phoneInfoTooltipBody: "We'll only use this number for delivery coordination.",
+  phoneInfoTooltipA11yLabel: "Why we need the recipient's phone number",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Order Summary",
@@ -1541,6 +1543,8 @@ const AR: typeof EN = {
   noDeliverySlotsShort: "لا توجد خانات مجدولة متاحة",
   expressInfoPopupTitle: "التوصيل السريع",
   expressInfoPopupBody: "التوصيل السريع هو خدمة توصيل مميزة تصل خلال 90 دقيقة.",
+  phoneInfoTooltipBody: "سنستخدم هذا الرقم فقط للتنسيق مع موصّل الطلب.",
+  phoneInfoTooltipA11yLabel: "لماذا نحتاج إلى رقم هاتف المستلم",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "ملخص الطلب",
@@ -2534,6 +2538,8 @@ const FR: typeof EN = {
   noDeliverySlotsShort: "Aucun créneau planifié disponible",
   expressInfoPopupTitle: "Livraison express",
   expressInfoPopupBody: "La livraison express est une livraison premium effectuée en 90 minutes.",
+  phoneInfoTooltipBody: "Nous n'utiliserons ce numéro que pour la coordination de la livraison.",
+  phoneInfoTooltipA11yLabel: "Pourquoi nous avons besoin du numéro de téléphone du destinataire",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Récapitulatif",

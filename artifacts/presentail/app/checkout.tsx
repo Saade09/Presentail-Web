@@ -749,6 +749,8 @@ function CheckoutScreen() {
   const [showFieldErrors, setShowFieldErrors] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const deliveryStepRef = useRef<{ scrollToFirstError: () => void } | null>(null);
+  const recipientPhoneTooltipOpenedRef = useRef(false);
+  const senderPhoneTooltipOpenedRef = useRef(false);
   const { confirmPayment, handleNextAction, isPlatformPaySupported, confirmPlatformPayPayment } = useStripe();
 
   // Probe wallet (Apple Pay / Google Pay) availability early — before the
@@ -1038,8 +1040,14 @@ function CheckoutScreen() {
       }
       return;
     }
-    if (step < 2) setStep(((step + 1) as Step));
-    else placeOrder();
+    if (step < 2) {
+      if (step === 1) {
+        if (recipientPhoneTooltipOpenedRef.current || senderPhoneTooltipOpenedRef.current) {
+          trackEvent({ name: "checkout_continued_after_phone_tooltip", surface: "checkout" });
+        }
+      }
+      setStep(((step + 1) as Step));
+    } else placeOrder();
   };
 
   const buildWooPayload = (orderId: string) => ({
@@ -2097,6 +2105,14 @@ function CheckoutScreen() {
               saveAddress={saveAddress}
               setSaveAddress={setSaveAddress}
               effectiveCountry={effectiveCountry}
+              onRecipientPhoneInfoOpen={() => {
+                recipientPhoneTooltipOpenedRef.current = true;
+                trackEvent({ name: "phone_tooltip_opened", surface: "checkout" });
+              }}
+              onSenderPhoneInfoOpen={() => {
+                senderPhoneTooltipOpenedRef.current = true;
+                trackEvent({ name: "phone_tooltip_opened", surface: "checkout" });
+              }}
             />
             <DeliveryTimeCard
               colors={colors}
@@ -2851,6 +2867,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     hideSenderName, hideSenderEmail, hideSenderPhone, senderSummary, onEditAccount,
     effectiveCountry,
+    onRecipientPhoneInfoOpen, onSenderPhoneInfoOpen,
   } = props;
 
   const recipientNamesRef = useRef<View>(null);
@@ -3037,6 +3054,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
             required
             showError={recipientPhoneShowError || (showFieldErrors && !recipientPhone.trim())}
             focusRef={recipientPhoneInputRef}
+            onInfoOpen={onRecipientPhoneInfoOpen}
           />
         </View>
         <View
@@ -3389,6 +3407,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
               focusRef={senderPhoneInputRef}
               returnKeyType={hideSenderEmail ? "done" : "next"}
               onSubmitEditing={hideSenderEmail ? undefined : () => focusAndScroll(senderEmailInputRef, senderEmailRef)}
+              onInfoOpen={onSenderPhoneInfoOpen}
             />
           </View>
         ) : null}

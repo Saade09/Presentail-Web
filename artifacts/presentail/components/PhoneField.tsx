@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, type TextInput, type TextInputProps } from "react-native";
 import PhoneInput from "react-native-phone-number-input";
 import { AppText } from "@/components/AppText";
+import { PhoneInfoTooltip } from "@/components/PhoneInfoTooltip";
 
 import { COUNTRY_DIAL_CODES, PHONE_COUNTRY_BLOCKLIST, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
@@ -47,6 +48,8 @@ type Props = {
   focusRef?: React.RefObject<TextInput | null>;
   returnKeyType?: TextInputProps["returnKeyType"];
   onSubmitEditing?: TextInputProps["onSubmitEditing"];
+  /** Called when the info tooltip is opened. */
+  onInfoOpen?: () => void;
 };
 
 export function PhoneField({
@@ -61,11 +64,15 @@ export function PhoneField({
   focusRef,
   returnKeyType,
   onSubmitEditing,
+  onInfoOpen,
 }: Props) {
   const colors = useColors();
   const t = useT();
   const [touched, setTouched] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
   const [remountKey, setRemountKey] = useState(0);
+  const containerRef = useRef<View>(null);
   const lastInternalValueRef = useRef(value);
   const prevCountryCodeRef = useRef(countryCode);
 
@@ -108,18 +115,36 @@ export function PhoneField({
   );
 
   return (
-    <View style={{ gap: 6 }}>
-      <AppText
-        style={{
-          fontFamily: "Inter_500Medium",
-          fontSize: 12,
-          color: colors.primary,
-          letterSpacing: 0.4,
-        }}
-      >
-        {label}
-        {required ? <AppText style={{ color: colors.gold }}> *</AppText> : null}
-      </AppText>
+    <View
+      ref={containerRef}
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      style={{ gap: 6 }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <AppText
+          style={{
+            fontFamily: "Inter_500Medium",
+            fontSize: 12,
+            color: colors.primary,
+            letterSpacing: 0.4,
+          }}
+        >
+          {label}
+          {required ? <AppText style={{ color: colors.gold }}> *</AppText> : null}
+        </AppText>
+        {onInfoOpen !== undefined ? (
+          <PhoneInfoTooltip
+            onOpen={onInfoOpen}
+            onOpenChange={setTooltipOpen}
+            containerRef={containerRef}
+            containerWidth={containerWidth}
+          />
+        ) : null}
+      </View>
+
+      {/* Spacer so the popover (rendered in a Modal above) doesn't visually overlap
+          the phone input. The height matches roughly the popover + pointer height. */}
+      {tooltipOpen ? <View style={{ height: 74 }} /> : null}
 
       <PhoneInput
         key={remountKey}

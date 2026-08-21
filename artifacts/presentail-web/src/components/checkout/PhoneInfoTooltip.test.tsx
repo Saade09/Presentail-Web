@@ -79,7 +79,7 @@ describe("PhoneInfoTooltip", () => {
     expect(screen.queryByTestId("tooltip-phone-info")).toBeNull();
   });
 
-  it("anchors to the right of the icon with an offset and renders the caret arrow", async () => {
+  it("anchors below the icon with an offset and renders the caret arrow", async () => {
     const user = userEvent.setup();
     renderWithProviders(
       <PhoneInfoTooltip askRecipientForAddress={false} />,
@@ -89,7 +89,7 @@ describe("PhoneInfoTooltip", () => {
 
     const content = screen.getByTestId("tooltip-phone-info");
     // Radix reflects the resolved placement on the content element.
-    expect(content.getAttribute("data-side")).toBe("right");
+    expect(content.getAttribute("data-side")).toBe("bottom");
     expect(content.getAttribute("data-align")).toBe("start");
 
     // Caret arrow is rendered inside the popover, in the bubble's background color.
