@@ -275,6 +275,10 @@ router.post("/checkout/session", async (req, res) => {
     // Never trust a client-supplied discount — the server re-validates via OS.
     let sessionCouponDiscountUsd = 0;
     let sessionCouponDiscountMinorUnits = 0;
+    // Authoritative coupon fields for the intent snapshot — set only when the
+    // discount is actually applied so the fallback in /woo/order has the real data.
+    let sessionAppliedCouponCode: string | undefined;
+    let sessionAppliedCouponId: string | number | undefined;
     if (sessionCouponCode && sessionCouponCode.trim()) {
       const trimmedSessionCouponCode = sessionCouponCode.trim();
     const cartItemsForCoupon = catalogResult.items.map((i) => ({
@@ -308,6 +312,10 @@ router.post("/checkout/session", async (req, res) => {
             roundToNearestFive(await convertFromUsd(sessionCouponDiscountUsd, currency), currency),
             currency,
           );
+          // Store the authoritative coupon identity so the /woo/order fallback
+          // can forward the OS-validated couponId when re-validation bails out.
+          sessionAppliedCouponCode = trimmedSessionCouponCode;
+          sessionAppliedCouponId = couponResult.couponId;
         }
       }
     }
@@ -449,6 +457,12 @@ router.post("/checkout/session", async (req, res) => {
         districtFeeUsd: sessionDistrictFeeUsd,
         expressFeeUsd: sessionExpressFeeUsd,
         slotFeeUsd: sessionSlotFeeUsd,
+        // Coupon identity snapshot: store the server-validated code + OS coupon ID
+        // so /woo/order can forward the authoritative couponId when re-validation
+        // bails out (cold cache / server restart). Absent when no coupon applied.
+        couponCode: sessionAppliedCouponCode,
+        couponId: sessionAppliedCouponId,
+        couponDiscountUsd: sessionCouponDiscountUsd > 0 ? sessionCouponDiscountUsd : undefined,
       },
     });
 
@@ -772,6 +786,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
   // Apply coupon discount if a code is provided.
   // The server re-validates the code (never trusts client-supplied discount amounts).
   // Resolved before computeStripeAmounts so the helper receives the final discount.
+  // Authoritative coupon identity for the intent snapshot — set only when the
+  // discount is actually applied, so /woo/order fallback has the real OS ID.
+  let appliedCouponCode: string | undefined;
+  let appliedCouponId: string | number | undefined;
   let couponDiscountUsd = 0;
   if (couponCode && couponCode.trim()) {
     const trimmedCouponCode = couponCode.trim();
@@ -811,6 +829,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
       }
       if (applyDiscount) {
         couponDiscountUsd = couponResult.discountAmountUsd;
+        // Store the authoritative coupon identity so the /woo/order fallback
+        // can forward the OS-validated couponId when re-validation bails out.
+        appliedCouponCode = trimmedCouponCode;
+        appliedCouponId = couponResult.couponId;
       }
     }
   }
@@ -873,6 +895,12 @@ router.post("/checkout/payment-intent", async (req, res) => {
                 districtFeeUsd: serverDistrictFeeUsd,
                 expressFeeUsd: serverExpressFeeUsd,
                 slotFeeUsd: serverSlotFeeUsd,
+                // Coupon identity snapshot: store the server-validated code + OS coupon ID
+                // so /woo/order can forward the authoritative couponId when re-validation
+                // bails out (cold cache / server restart). Absent when no coupon applied.
+                couponCode: appliedCouponCode,
+                couponId: appliedCouponId,
+                couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
               },
             });
             return res.json({
@@ -914,6 +942,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
               districtFeeUsd: serverDistrictFeeUsd,
               expressFeeUsd: serverExpressFeeUsd,
               slotFeeUsd: serverSlotFeeUsd,
+              couponCode: appliedCouponCode,
+              couponId: appliedCouponId,
+              couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
             },
           });
           return res.json({
@@ -989,6 +1020,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
               districtFeeUsd: serverDistrictFeeUsd,
               expressFeeUsd: serverExpressFeeUsd,
               slotFeeUsd: serverSlotFeeUsd,
+              couponCode: appliedCouponCode,
+              couponId: appliedCouponId,
+              couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
             },
           });
           return res.json({
@@ -1110,6 +1144,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
         districtFeeUsd: serverDistrictFeeUsd,
         expressFeeUsd: serverExpressFeeUsd,
         slotFeeUsd: serverSlotFeeUsd,
+        couponCode: appliedCouponCode,
+        couponId: appliedCouponId,
+        couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
       },
     });
 

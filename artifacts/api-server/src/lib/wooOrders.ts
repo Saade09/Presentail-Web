@@ -1456,7 +1456,10 @@ export async function attemptCreateOsOrder(
       ? {
           // The virtual first-order coupon has no OS coupon record — omit the
           // sentinel couponId so OS redemption tracking never sees an unknown id.
-          ...(opts.couponValidated.couponId !== "first-order-10"
+          // Guard both the sentinel ("first-order-10") and the raw "FIRST10" string
+          // as defense-in-depth in case the caller did not normalise the id first.
+          ...(opts.couponValidated.couponId !== "first-order-10" &&
+              String(opts.couponValidated.couponId).toUpperCase() !== "FIRST10"
             ? { couponId: opts.couponValidated.couponId }
             : {}),
           couponDiscountUsd: opts.couponValidated.couponDiscountUsd,

@@ -58,6 +58,8 @@ export type CartSnapshot = {
   // preventing over-charge on discounted orders (e.g. CyberSource).
   couponDiscountUsd?: number;
   couponCode?: string;
+  /** OS-validated coupon ID. Absent for referral codes (no OS record), FIRST10 uses sentinel "first-order-10", and regular coupons carry the OS numeric ID. Snapshots written before this field was introduced will have it absent. */
+  couponId?: string | number;
 };
 
 export type PaymentIntent = {

@@ -44,7 +44,7 @@ import {
   syncCustomerToWoo,
 } from "../lib/customers";
 import { creditReferralRedemption } from "../lib/loyalty";
-import { validateCoupon, acquireFirst10Lock, FIRST_ORDER_COUPON_CODE } from "../lib/couponValidation";
+import { validateCoupon, acquireFirst10Lock, FIRST_ORDER_COUPON_CODE, FIRST_ORDER_COUPON_ID } from "../lib/couponValidation";
 import { sendCapiPurchase } from "../lib/fbConversions";
 import { sendUaeOrderSlackNotification, type UaeOrderNotification } from "../lib/orderSlackNotify";
 import { getOsProductByWcId } from "../lib/osProductsCache";
@@ -1497,7 +1497,7 @@ router.post("/woo/order", async (req, res) => {
   let verifiedCurrency: string | undefined;
 
   let intentCouponSnapshot:
-    | { couponCode: string; couponDiscountUsd: number }
+    | { couponCode: string; couponDiscountUsd: number; couponId?: string | number }
     | undefined;
 
   if (body.paymentMethod === "card" || body.paymentMethod === "wallet" || body.paymentMethod === "apple_pay" || body.paymentMethod === "google_pay" || body.paymentMethod === "klarna") {
@@ -1734,6 +1734,15 @@ router.post("/woo/order", async (req, res) => {
       // not the client-supplied body.currencyCode (which can drift — e.g. a LB
       // order where the shopper's display currency is QAR).
       verifiedCurrency = intent.currency;
+      // Hoist the coupon snapshot so it can serve as a fallback when server-side
+      // re-validation bails out, and as the discount source for referral codes.
+      if (intent.snapshot.couponCode && intent.snapshot.couponDiscountUsd != null) {
+        intentCouponSnapshot = {
+          couponCode: intent.snapshot.couponCode,
+          couponDiscountUsd: intent.snapshot.couponDiscountUsd,
+          couponId: intent.snapshot.couponId,
+        };
+      }
 
       // Resolve the Stripe key based on which account processed this payment.
       const stripeKey =
@@ -1833,6 +1842,14 @@ router.post("/woo/order", async (req, res) => {
       slotFeeUsd: intent.snapshot.slotFeeUsd,
     };
     verifiedCurrency = intent.currency;
+    // Hoist the coupon snapshot for fallback use after re-validation.
+    if (intent.snapshot.couponCode && intent.snapshot.couponDiscountUsd != null) {
+      intentCouponSnapshot = {
+        couponCode: intent.snapshot.couponCode,
+        couponDiscountUsd: intent.snapshot.couponDiscountUsd,
+        couponId: intent.snapshot.couponId,
+      };
+    }
 
     if (!process.env.MAMO_SECRET_KEY) {
       req.log?.warn?.(
@@ -1922,6 +1939,14 @@ router.post("/woo/order", async (req, res) => {
       slotFeeUsd: intent.snapshot.slotFeeUsd,
     };
     verifiedCurrency = intent.currency;
+    // Hoist the coupon snapshot for fallback use after re-validation.
+    if (intent.snapshot.couponCode && intent.snapshot.couponDiscountUsd != null) {
+      intentCouponSnapshot = {
+        couponCode: intent.snapshot.couponCode,
+        couponDiscountUsd: intent.snapshot.couponDiscountUsd,
+        couponId: intent.snapshot.couponId,
+      };
+    }
 
     if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
       req.log?.warn?.(
@@ -2019,10 +2044,36 @@ router.post("/woo/order", async (req, res) => {
       slotFeeUsd: intent?.snapshot?.slotFeeUsd,
     };
     verifiedCurrency = intent?.currency;
+    // Hoist the coupon snapshot from the CS intent so the shortcut below can
+    // apply it directly (CS payment was already captured with this exact amount).
+    if (intent.snapshot.couponCode && intent.snapshot.couponDiscountUsd != null) {
+      intentCouponSnapshot = {
+        couponCode: intent.snapshot.couponCode,
+        couponDiscountUsd: intent.snapshot.couponDiscountUsd,
+        couponId: intent.snapshot.couponId,
+      };
+    }
     paymentVerified = true; // CS payment was already captured at /authorize
   }
   // whish / western / offline: paymentVerified stays false, order recorded pending.
 
+
+  // ── Snapshot override: establish authoritative coupon code BEFORE any
+  // re-validation or referral classification ─────────────────────────────────
+  // The intent snapshot is written by the server at PI-creation time and is
+  // immutable from the client's perspective.  Override body.couponCode NOW so
+  // that every subsequent code reference — isReferralCoupon, validateCoupon,
+  // the FIRST10 guard — operates on the snapshot code, never on a
+  // client-substituted value that arrived in the order body.
+  //
+  // Example attack this prevents:
+  //   Shopper pays with coupon A (snapshot code = A, PI charged at discount A).
+  //   Malicious body submits couponCode = B.
+  //   Without this guard, re-validation validates B and sets couponId/discount B,
+  //   then couponCode is overwritten to A — OS receives code A with discount B.
+  if (intentCouponSnapshot) {
+    body.couponCode = intentCouponSnapshot.couponCode || undefined;
+  }
 
   const REFERRAL_CODE_RE = /^PT[A-Z0-9]+$/;
   const isReferralCoupon =
@@ -2041,9 +2092,19 @@ router.post("/woo/order", async (req, res) => {
   // already server-validated against the full cart total (subtotal + fees) at
   // /authorize time and is stored in the intent. Use it directly so the OS order
   // records the same amount that CyberSource actually charged.
-  if (intentCouponSnapshot) {
+  // CyberSource shortcut: the payment was already captured at /authorize with
+  // the exact discount baked in; use the snapshot directly without re-validation.
+  // Prefer the OS-validated couponId stored in the snapshot when present; fall
+  // back to mapping the raw code to the FIRST10 sentinel or using the code itself.
+  if ((body.paymentMethod as string) === "cybersource" && intentCouponSnapshot) {
+    const csSnapshotCodeUpper = intentCouponSnapshot.couponCode.trim().toUpperCase();
+    const resolvedCouponId =
+      intentCouponSnapshot.couponId ??
+      (csSnapshotCodeUpper === FIRST_ORDER_COUPON_CODE
+        ? FIRST_ORDER_COUPON_ID
+        : intentCouponSnapshot.couponCode);
     couponValidated = {
-      couponId: intentCouponSnapshot.couponCode,
+      couponId: resolvedCouponId,
       couponDiscountUsd: intentCouponSnapshot.couponDiscountUsd,
     };
   } else if (body.couponCode && !isReferralCoupon) {
@@ -2118,6 +2179,44 @@ router.post("/woo/order", async (req, res) => {
           };
         }
       }
+    }
+  }
+
+  // ── Snapshot fallback + referral forwarding ──────────────────────────────
+  // The intent snapshot is the server-authoritative coupon record — written at
+  // PI-creation time and immutable from the client's perspective.  Use it
+  // whenever re-validation did not produce a couponValidated value:
+  //   • cart data was unavailable (cold cache / recovery path)
+  //   • the code is a referral (PT…) — no OS coupon record to re-validate
+  //   • body.couponCode was absent — the snapshot wins regardless
+  //
+  // Critically: derive the forwarded code AND the referral classification from
+  // the SNAPSHOT, never from body.couponCode.  A caller who pays with PTABC
+  // but submits PTXYZ must not redirect attribution to a different referrer.
+  if (!couponValidated && intentCouponSnapshot) {
+    const snapshotCode = intentCouponSnapshot.couponCode;
+    const snapshotCodeUpper = snapshotCode.trim().toUpperCase();
+    const snapshotIsReferral = REFERRAL_CODE_RE.test(snapshotCodeUpper);
+
+    if (snapshotIsReferral) {
+      // Referral codes have no OS coupon record; use the snapshot code as
+      // couponId so attribution cannot be redirected by body.couponCode.
+      couponValidated = {
+        couponId: snapshotCodeUpper,
+        couponDiscountUsd: intentCouponSnapshot.couponDiscountUsd,
+      };
+    } else {
+      // Regular coupon: prefer the OS-validated couponId stored in the snapshot;
+      // fall back to mapping the raw code so the FIRST10 omission guard fires.
+      const resolvedCouponId =
+        intentCouponSnapshot.couponId ??
+        (snapshotCodeUpper === FIRST_ORDER_COUPON_CODE
+          ? FIRST_ORDER_COUPON_ID
+          : snapshotCode);
+      couponValidated = {
+        couponId: resolvedCouponId,
+        couponDiscountUsd: intentCouponSnapshot.couponDiscountUsd,
+      };
     }
   }
 
@@ -2299,9 +2398,25 @@ router.post("/woo/order", async (req, res) => {
   // referrer's local customer ID from the code and credit them points.
   // REFERRAL_POINTS_AWARD controls the award (default 0 = inert until ops
   // sets it). Never blocks or fails the checkout response.
-  if (isReferralCoupon && body.couponCode) {
-    const refCode = body.couponCode.trim().toUpperCase();
-    const referrerId = parseInt(refCode.slice(2), 36);
+  //
+  // Use the snapshot referral code when one is available — it is server-recorded
+  // at PI-creation time and cannot be substituted by the client after payment.
+  // This prevents a caller from redirecting referral credit by submitting a
+  // different PT code than the one applied during checkout.
+  // Fall back to body.couponCode only on the legacy recovery path (no snapshot).
+  const effectiveReferralCode = (() => {
+    if (intentCouponSnapshot) {
+      const snapshotUpper = intentCouponSnapshot.couponCode.trim().toUpperCase();
+      return REFERRAL_CODE_RE.test(snapshotUpper) ? snapshotUpper : null;
+    }
+    if (isReferralCoupon && body.couponCode) {
+      return body.couponCode.trim().toUpperCase();
+    }
+    return null;
+  })();
+
+  if (effectiveReferralCode) {
+    const referrerId = parseInt(effectiveReferralCode.slice(2), 36);
     if (Number.isFinite(referrerId) && referrerId > 0) {
       const redeemerSource = result.osOrderId
         ? `os-order:${result.osOrderId}`
@@ -2313,7 +2428,7 @@ router.post("/woo/order", async (req, res) => {
         log: req.log,
       }).catch((err: unknown) => {
         req.log?.warn?.(
-          { err: (err as Error)?.message, referrerId, refCode },
+          { err: (err as Error)?.message, referrerId, refCode: effectiveReferralCode },
           "woo.order: creditReferralRedemption failed (non-fatal)",
         );
       });

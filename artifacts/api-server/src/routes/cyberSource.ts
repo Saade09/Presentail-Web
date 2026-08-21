@@ -301,6 +301,7 @@ type EnrollmentSnapshot = {
   slotFeeUsd: number;
   couponDiscountUsd: number;
   validatedCouponCode: string | null;
+  validatedCouponId: string | number | null;
   totalUsd: number;
   totalFormatted: string;
   resolvedItems: { wcId: number; osSlug?: string; quantity: number; priceUsd: number }[];
@@ -450,6 +451,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
   let slotFeeUsd: number;
   let couponDiscountUsd: number;
   let validatedCouponCode: string | null;
+  let validatedCouponId: string | number | null;
   let totalUsd: number;
   let totalFormatted: string;
   let resolvedDistrict: string;
@@ -483,7 +485,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
     enrollmentSnapshots.delete(orderId); // consume; do not reuse
     req.log.info({ orderId }, "cybersource: validation call — reusing enrollment snapshot");
     ({ subtotalUsd, districtFeeUsd, expressFeeUsd, slotFeeUsd,
-       couponDiscountUsd, validatedCouponCode, totalUsd, totalFormatted,
+       couponDiscountUsd, validatedCouponCode, validatedCouponId, totalUsd, totalFormatted,
        resolvedItems, resolvedDistrict, isExpress, isNoAddress,
        deliveryServiceType } = storedSnap);
   } else {
@@ -565,6 +567,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
     // ── Coupon validation (server-side, mirrors Stripe/Mamo) ─────────────────
     couponDiscountUsd = 0;
     validatedCouponCode = null;
+    validatedCouponId = null;
 
     const couponCodeTrimmed = rawCouponCode?.trim();
     if (couponCodeTrimmed) {
@@ -582,6 +585,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       if (couponResult.valid) {
         couponDiscountUsd = couponResult.discountAmountUsd;
         validatedCouponCode = couponCodeTrimmed;
+        validatedCouponId = couponResult.couponId ?? null;
         req.log.info(
           { couponCode: couponCodeTrimmed, couponDiscountUsd },
           "cybersource: coupon validated successfully",
@@ -746,6 +750,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       slotFeeUsd,
       couponDiscountUsd,
       validatedCouponCode,
+      validatedCouponId,
       totalUsd,
       totalFormatted,
       resolvedItems,
@@ -821,6 +826,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       slotFeeUsd,
       couponDiscountUsd,
       couponCode: validatedCouponCode ?? undefined,
+      couponId: validatedCouponId ?? undefined,
     },
     paymentMeta: {
       csStatus,
