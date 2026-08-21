@@ -155,7 +155,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems(current =>
       current.map(i =>
         i.product.id === productId
-          ? { ...i, customNote: note.trim() || undefined }
+          ? { ...i, customNote: note || undefined }
           : i,
       ),
     );

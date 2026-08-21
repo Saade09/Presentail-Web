@@ -80,7 +80,7 @@ function applyMutation(items: CartItem[], m: PendingMutation): CartItem[] {
   if (m.type === "setNote") {
     return items.map((i) =>
       i.productId === m.productId
-        ? { ...i, customNote: m.customNote.trim() || undefined }
+        ? { ...i, customNote: m.customNote || undefined }
         : i,
     );
   }
