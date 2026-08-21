@@ -112,6 +112,8 @@ export type AnalyticsEvent = {
   deliveryMethod?: "standard" | "express";
   /** Whether the method was chosen automatically ("auto") or by the user ("user"). */
   deliverySource?: "auto" | "user";
+  /** Which UI surface triggered the event (e.g. "cart_sticky_bar"). */
+  source?: string;
 };
 
 const SESSION_STORAGE_KEY = "@presentail/analytics_session";

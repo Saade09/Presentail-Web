@@ -37,7 +37,9 @@ import {
   dayLabels,
   expressSurchargeForCountry,
   formatDeliveryRow,
+  formatPromiseDateLabel,
   getCountryHour,
+  getLocalIso,
   isExpressDeliveryAvailable,
   resolveSlotLabel,
   slotTimeRangeForLabel,
@@ -196,7 +198,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   // fall back to the navigator context, otherwise the bare safe-area inset.
   const overlay = Math.max(bottomOffset ?? ctxTabBarHeight, insets.bottom);
   const [footerHeight, setFooterHeight] = React.useState(0);
-  const [stickyBarHeight, setStickyBarHeight] = React.useState(68);
+  const [stickyBarHeight, setStickyBarHeight] = React.useState(110);
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
 
@@ -300,10 +302,40 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   });
 
   const stickyDeliveryContext = React.useMemo(() => {
-    if (deliverySelection.mode === "express") return t.cartStickyExpressToday;
-    if (deliverySelection.mode === "today_slot") return t.cartStickyStandardToday;
-    return deliveryRowValue ?? null;
-  }, [deliverySelection.mode, t.cartStickyExpressToday, t.cartStickyStandardToday, deliveryRowValue]);
+    if (deliverySelection.mode === "express") {
+      const timeRange = slotTimeRangeForLabel(deliverySelection.slotLabel, cityTimeSlots);
+      const endTime = timeRange?.split("–")[1]?.trim();
+      if (endTime) return t.cartStickyArrivesBy.replace("{time}", endTime);
+      // Express selected but no specific end time — fall through to tonight label
+      return t.cartStickyDeliveryTonight;
+    }
+    if (deliverySelection.mode === "today_slot") return t.cartStickyDeliveryTonight;
+    if (deliverySelection.mode === "schedule" && deliverySelection.date) {
+      if (deliverySelection.date === days[1]?.iso) return t.cartStickyDeliveryTomorrow;
+      const todayIso = days[0]?.iso ?? getLocalIso(countryCode);
+      const formattedDate = formatPromiseDateLabel(
+        deliverySelection.date,
+        todayIso,
+        t.checkoutDayToday,
+        t.checkoutDayTomorrow,
+      );
+      return t.cartStickyDeliveryDate.replace("{date}", formattedDate);
+    }
+    return null;
+  }, [
+    deliverySelection.mode,
+    deliverySelection.date,
+    deliverySelection.slotLabel,
+    cityTimeSlots,
+    days,
+    countryCode,
+    t.cartStickyArrivesBy,
+    t.cartStickyDeliveryTonight,
+    t.cartStickyDeliveryTomorrow,
+    t.cartStickyDeliveryDate,
+    t.checkoutDayToday,
+    t.checkoutDayTomorrow,
+  ]);
 
   // When the OS has no slots for this city and the shopper is not using express,
   // clear any stale scheduled selection and block checkout continuation.
@@ -322,7 +354,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   }, []);
 
   const handleProceed = React.useCallback(() => {
-    trackEvent({ name: "upsell_checkout_proceeded", surface: "upsell_cart" });
+    trackEvent({ name: "upsell_checkout_proceeded", surface: "upsell_cart", source: "cart_sticky_bar" });
     if (!user) {
       setLoginSheetVisible(true);
       return;
@@ -861,7 +893,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
           >
             <CartStickyBar
               itemCount={detailed.length}
-              deliveryContext={scheduledDeliveryBlocked ? t.noDeliverySlotsShort : stickyDeliveryContext}
+              deliveryContext={scheduledDeliveryBlocked ? null : stickyDeliveryContext}
               grandTotalUsd={grandTotalUsd}
               onProceed={handleProceed}
               isDisabled={scheduledDeliveryBlocked}

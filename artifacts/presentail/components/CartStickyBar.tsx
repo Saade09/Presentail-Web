@@ -35,9 +35,22 @@ export function CartStickyBar({
   const colors = useColors();
   const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
+  const tappingRef = React.useRef(false);
 
   const itemLabel =
     itemCount === 1 ? t.cartStickyItemSingular : t.cartStickyItemPlural;
+
+  const handlePress = React.useCallback(() => {
+    if (tappingRef.current) return;
+    tappingRef.current = true;
+    try {
+      onProceed();
+    } finally {
+      setTimeout(() => {
+        tappingRef.current = false;
+      }, 800);
+    }
+  }, [onProceed]);
 
   return (
     <View
@@ -54,22 +67,20 @@ export function CartStickyBar({
       <View style={styles.summaryRow}>
         <AppText
           numberOfLines={1}
-          style={[styles.summaryText, { color: colors.primary }]}
+          style={[styles.summaryText, { flexShrink: 1 }]}
         >
-          <AppText style={{ fontFamily: "Inter_600SemiBold" }}>
+          <AppText style={{ fontFamily: "Inter_600SemiBold", color: colors.primary }}>
             {itemCount} {itemLabel}
           </AppText>
-          {deliveryContext ? (
-            <AppText
-              style={{
-                fontFamily: "Inter_400Regular",
-                color: colors.mutedForeground,
-              }}
-            >
-              {"  ·  "}
-              {deliveryContext}
-            </AppText>
-          ) : null}
+          <AppText
+            style={{
+              fontFamily: "Inter_400Regular",
+              color: colors.mutedForeground,
+            }}
+          >
+            {"  ·  "}
+            {deliveryContext !== null ? deliveryContext : t.cartStickySelectTime}
+          </AppText>
         </AppText>
 
         <View style={styles.totalBlock}>
@@ -95,15 +106,14 @@ export function CartStickyBar({
 
       {/* CTA button */}
       <Pressable
-        onPress={onProceed}
+        onPress={handlePress}
         disabled={isDisabled || isLoading}
         accessibilityRole="button"
-        accessibilityLabel={t.cartProceed}
+        accessibilityLabel={t.cartStickyLockIconLabel}
         style={({ pressed }) => [
           styles.button,
           {
             backgroundColor: colors.primary,
-            shadowColor: colors.primary,
             opacity: isDisabled ? 0.45 : pressed ? 0.88 : 1,
           },
         ]}
@@ -112,11 +122,21 @@ export function CartStickyBar({
           <ActivityIndicator color="#fff" size="small" />
         ) : (
           <>
-            <View style={styles.buttonLeft}>
-              <Feather name="lock" size={14} color="#fff" />
-              <AppText style={styles.buttonLabel}>{t.cartProceed}</AppText>
-            </View>
-            <Feather name="chevron-right" size={18} color="#fff" />
+            <Feather
+              name="lock"
+              size={14}
+              color="#fff"
+              accessibilityLabel={t.cartStickyLockIconLabel}
+              style={styles.lockIcon}
+            />
+            <AppText style={styles.buttonLabel}>
+              {t.cartStickyCheckoutSecure}
+              {" · "}
+            </AppText>
+            <Price
+              value={grandTotalUsd}
+              style={styles.buttonPrice}
+            />
           </>
         )}
       </Pressable>
@@ -129,8 +149,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     gap: 10,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
     shadowColor: "#000",
     shadowOpacity: 0.08,
@@ -155,25 +173,25 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: 14,
-    minHeight: 52,
+    minHeight: 48,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    justifyContent: "center",
+    gap: 0,
   },
-  buttonLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  lockIcon: {
+    marginEnd: 8,
   },
   buttonLabel: {
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
-    letterSpacing: 0.8,
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
+  buttonPrice: {
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
     fontSize: 14,
   },
 });
