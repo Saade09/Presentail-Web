@@ -25,7 +25,7 @@
  *
  * Required field sets validated here:
  *   Organization / WebSite / LocalBusiness / WebPage / ContactPage : name, url
- *   Article                                                   : headline, datePublished
+ *   Article                                                   : headline, datePublished, dateModified
  *   FAQPage          : mainEntity[].{name, acceptedAnswer.text}
  *   BreadcrumbList   : itemListElement[].{position, name}; item (URL) on every
  *                      crumb except the last; positions are 1..N in order
@@ -301,6 +301,9 @@ function validateArticle(node) {
   }
   if (!isNonEmptyString(node.datePublished)) {
     errors.push(`Article.datePublished must be a non-empty string (got ${JSON.stringify(node.datePublished)})`);
+  }
+  if (!isNonEmptyString(node.dateModified)) {
+    errors.push(`Article.dateModified must be a non-empty string (got ${JSON.stringify(node.dateModified)})`);
   }
   return errors;
 }

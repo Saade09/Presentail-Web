@@ -11,7 +11,7 @@ export declare function buildBlogArticleJsonLd(params: {
   headline: string;
   description: string;
   datePublished: string;
-  /** ISO date of the last substantive update; emitted as dateModified when set. */
+  /** ISO date of the last substantive update; falls back to datePublished when absent. */
   dateModified?: string;
   image: string;
   publisherUrl: string;
@@ -22,6 +22,7 @@ export declare function buildBlogArticleJsonLd(params: {
   headline: string;
   description: string;
   datePublished: string;
+  dateModified: string;
   image: string;
   publisher: {
     "@type": string;

@@ -339,7 +339,7 @@ export default function BlogPost() {
         headline: article.title.trim(),
         description: article.description,
         datePublished: article.datePublished,
-        dateModified: article.lastUpdated,
+        dateModified: article.dateModified,
         image: imageUrl,
         publisherUrl: window.location.origin,
         url: window.location.href,
@@ -412,7 +412,7 @@ export default function BlogPost() {
     geographyLabel && geographyLabel !== categoryLabel
       ? `${geographyLabel} · ${categoryLabel}`
       : categoryLabel;
-  const displayDate = article.lastUpdated ?? article.datePublished;
+  const displayDate = article.dateModified ?? article.datePublished;
   const dek = article.dek ?? article.description;
 
   // Primary CTA: locale-aware `cta` config first, legacy ctaHref/ctaLabel next,

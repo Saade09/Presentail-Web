@@ -4024,7 +4024,7 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
         headline: rawTitle,
         description: article.description,
         datePublished: article.datePublished,
-        dateModified: article.lastUpdated,
+        dateModified: article.dateModified,
         image: imageUrl,
         publisherUrl: `${origin}${cleanBase}`,
         url: canonicalHref,

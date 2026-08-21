@@ -94,7 +94,12 @@ export interface BlogPostContent {
   categoryLabel?: string;
   /** ISO date string, e.g. "2025-03-15". */
   datePublished: string;
-  /** ISO date of the last substantive update; shown instead of datePublished. */
+  /**
+   * ISO date of the last substantive update. Used for Article JSON-LD and
+   * shown instead of datePublished on the article page.
+   */
+  dateModified?: string;
+  /** @deprecated Use dateModified for editorial freshness metadata. */
   lastUpdated?: string;
   ogImage?: BlogOgImage;
   /** Alt text for the hero <img>. Falls back to `title` when absent. */

@@ -6286,6 +6286,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(article.headline).toBeTruthy();
     expect(article.image).toBeTruthy();
     expect(article.datePublished).toBeTruthy();
+    expect(article.dateModified).toBeTruthy();
     expect(article.url).toBeTruthy();
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });

@@ -55,7 +55,10 @@ export function buildBlogArticleJsonLd({
     headline,
     description,
     datePublished,
-    ...(dateModified ? { dateModified } : {}),
+    // Older posts may not have been substantively updated. In that case,
+    // datePublished accurately represents their last-modified date too, while
+    // keeping the recommended Article freshness field present for every post.
+    dateModified: dateModified ?? datePublished,
     image,
     publisher: {
       "@type": "Organization",

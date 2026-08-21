@@ -111,7 +111,7 @@ describe("BlogPost — editorial template (send-roses-to-lebanon)", () => {
     renderWithProviders(<BlogPost />);
     expect(screen.getByTestId("blog-post-back-to-journal")).toBeTruthy();
     const json = JSON.parse(document.getElementById("blog-post-schema")!.textContent ?? "{}");
-    expect(json.dateModified).toBe(BLOG_POSTS["send-roses-to-lebanon"].en.lastUpdated);
+    expect(json.dateModified).toBe(BLOG_POSTS["send-roses-to-lebanon"].en.dateModified);
   });
 });
 
@@ -195,5 +195,6 @@ describe("BlogPost — shared-link preview metadata", () => {
     expect(json["@type"]).toBe("Article");
     expect(typeof json.image).toBe("string");
     expect(json.image).toContain(ARTICLE.ogImage!.url);
+    expect(json.dateModified).toBe(ARTICLE.dateModified ?? ARTICLE.datePublished);
   });
 });
