@@ -87,6 +87,13 @@ declare global {
               error?: string;
               error_description?: string;
             }) => void;
+            // GSI reports popup-level failures (shopper closed the popup,
+            // popup blocked) here — NOT via `callback`, which simply never
+            // fires in those cases.
+            error_callback?: (error: {
+              type: "popup_failed_to_open" | "popup_closed" | "unknown" | string;
+              message?: string;
+            }) => void;
           }) => {
             requestAccessToken: () => void;
           };

@@ -18,10 +18,14 @@ const APPLE_SERVICE_ID = import.meta.env.VITE_APPLE_SERVICE_ID as
   | string
   | undefined;
 
-// Google GSI and Apple can both leave their popup promise/callback pending after
-// the shopper closes the popup without authorizing. Keep the optional checkout
-// card from being stuck in its Processing state indefinitely.
-export const GOOGLE_POPUP_TIMEOUT_MS = 15_000;
+// Google reports popup closure/blocking instantly via GSI's `error_callback`
+// (registered below), so no aggressive deadline is needed — and an aggressive
+// one is actively harmful: it would discard a slow-but-successful sign-in.
+// Keep only a long last-resort safety net for the pathological case where GSI
+// fires neither `callback` nor `error_callback`.
+export const GOOGLE_POPUP_SAFETY_TIMEOUT_MS = 300_000;
+// Apple's SDK rejects its signIn() promise on popup closure, but has been
+// observed leaving it pending in some dismissal paths — keep its deadline.
 export const APPLE_POPUP_TIMEOUT_MS = 15_000;
 
 type ApiAuthResponse = {
@@ -98,9 +102,9 @@ export async function signInWithGooglePopup(): Promise<OAuthSignInResult> {
   if (!window.google?.accounts?.oauth2) {
     return { ok: false, cancelled: false, errorCategory: "script_load_failed" };
   }
-  // Google's GSI callback can silently drop (never fire) when the shopper
-  // closes the popup without selecting an account or clicking Cancel. Wrap the
-  // callback promise in a deadline so the card never stays in Processing.
+  // GSI reports popup closure/blocking via `error_callback`, never via
+  // `callback` (which simply doesn't fire in those cases). Registering it lets
+  // us settle immediately on cancel instead of waiting on a deadline.
   const callbackPromise = new Promise<OAuthSignInResult>((resolve) => {
     try {
       const client = window.google!.accounts.oauth2.initTokenClient({
@@ -109,7 +113,7 @@ export async function signInWithGooglePopup(): Promise<OAuthSignInResult> {
         ux_mode: "popup",
         callback: (response) => {
           if (response.error || !response.access_token) {
-            if (response.error === "popup_closed_by_user" || response.error === "access_denied") {
+            if (response.error === "access_denied") {
               resolve({ ok: false, cancelled: true });
               return;
             }
@@ -127,6 +131,23 @@ export async function signInWithGooglePopup(): Promise<OAuthSignInResult> {
             "google",
           ).then(resolve);
         },
+        error_callback: (error) => {
+          if (error?.type === "popup_closed") {
+            // Shopper closed the popup without finishing — silent cancel.
+            resolve({ ok: false, cancelled: true });
+            return;
+          }
+          if (error?.type === "popup_failed_to_open") {
+            resolve({ ok: false, cancelled: false, errorCategory: "popup_blocked" });
+            return;
+          }
+          resolve({
+            ok: false,
+            cancelled: false,
+            errorCategory: "provider_error",
+            message: error?.message,
+          });
+        },
       });
       client.requestAccessToken();
     } catch {
@@ -135,7 +156,7 @@ export async function signInWithGooglePopup(): Promise<OAuthSignInResult> {
   });
 
   try {
-    return await withTimeout(callbackPromise, GOOGLE_POPUP_TIMEOUT_MS);
+    return await withTimeout(callbackPromise, GOOGLE_POPUP_SAFETY_TIMEOUT_MS);
   } catch (err) {
     if (err instanceof TimeoutError) {
       return { ok: false, cancelled: true };

@@ -234,6 +234,20 @@ export default function SignInPage() {
               reject(err);
             }
           },
+          // GSI reports popup closure/blocking here, never via `callback`
+          // (which simply doesn't fire in those cases).
+          error_callback: (error) => {
+            if (error?.type === "popup_closed") {
+              reject({ error: "popup_closed" });
+              return;
+            }
+            reject(
+              new Error(
+                error?.message ??
+                  t("auth.toast.oauthFailed", { provider: "Google" })
+              )
+            );
+          },
         });
         client.requestAccessToken();
       });
@@ -241,10 +255,9 @@ export default function SignInPage() {
       const googleErrorCode: string | undefined =
         err && typeof err === "object" && typeof err.error === "string"
           ? err.error
-          : err instanceof Error && err.message === "popup_closed_by_user"
-          ? "popup_closed_by_user"
           : undefined;
-      if (googleErrorCode === "popup_closed_by_user") {
+      if (googleErrorCode === "popup_closed") {
+        // Shopper closed the Google popup — silent cancel, no toast.
         return;
       }
       toast({
