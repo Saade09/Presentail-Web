@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/Logo";
 import { LazySearchOverlay } from "@/components/search/LazySearchOverlay";
 import { useBrands } from "@/lib/queries";
+import { cityHref } from "@/lib/cityHref";
 
 export function Navbar() {
   const { itemCount } = useCart();
@@ -57,6 +58,8 @@ export function Navbar() {
   const cityLabel = cityId
     ? cityName(cityId, city?.name ?? t("navbar.selectCity"))
     : (city?.name ?? t("navbar.selectCity"));
+  const toCityHref = (path: string) =>
+    cityHref(path, { language, countryCode, cityId });
 
   return (
     <header
@@ -74,8 +77,8 @@ export function Navbar() {
             </SheetTrigger>
             <SheetContent side="left" className="w-[300px] sm:w-[400px]">
               <nav className="flex flex-col gap-4 mt-8">
-                <Link href="/shop" className="text-lg font-serif">{t("nav.shop")}</Link>
-                <Link href="/occasion/birthday" className="text-lg font-serif">{t("nav.occasions")}</Link>
+                <Link href={toCityHref("/shop")} className="text-lg font-serif">{t("nav.shop")}</Link>
+                <Link href={toCityHref("/occasion/birthday")} className="text-lg font-serif">{t("nav.occasions")}</Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -90,14 +93,14 @@ export function Navbar() {
             <Search className="w-5 h-5" />
           </Button>
 
-          <Link href="/" className="flex items-center" aria-label={t("nav.logoAria")}>
+          <Link href={toCityHref("/")} className="flex items-center" aria-label={t("nav.logoAria")}>
             <Logo height={52} className="md:hidden" fetchpriority="high" />
             <Logo height={44} className="hidden md:block" fetchpriority="high" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/shop" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.shop")}</Link>
-            <Link href="/occasion/birthday" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.occasions")}</Link>
+            <Link href={toCityHref("/shop")} className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.shop")}</Link>
+            <Link href={toCityHref("/occasion/birthday")} className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.occasions")}</Link>
           </nav>
         </div>
 
@@ -130,13 +133,13 @@ export function Navbar() {
             />
           )}
 
-          <Link href={user ? "/account" : "/sign-in"}>
+          <Link href={toCityHref(user ? "/account" : "/sign-in")}>
             <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")}>
               <User className="w-5 h-5" />
             </Button>
           </Link>
 
-          <Link href="/cart">
+          <Link href={toCityHref("/cart")}>
             <Button variant="ghost" size="icon" className="relative" aria-label={t("nav.bagAria")}>
               <ShoppingCart className="w-5 h-5" />
               <AnimatePresence>

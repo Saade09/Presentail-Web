@@ -55,6 +55,18 @@ type RawOsProductsPage = {
   totalPages?: number;
 };
 
+/**
+ * The OS single-product endpoint accepts only the catalog's numeric primary
+ * key. Public product slugs are intentionally not accepted here: using one
+ * sends a request the API correctly rejects with HTTP 400.
+ */
+export function isValidOsNumericId(osId: unknown): osId is number | string {
+  return (
+    (typeof osId === "number" && Number.isSafeInteger(osId) && osId >= 0) ||
+    (typeof osId === "string" && /^\d+$/.test(osId))
+  );
+}
+
 function nameToSlug(name: string): string {
   return name
     .toLowerCase()
@@ -77,7 +89,7 @@ function normaliseProduct(raw: RawOsProduct): OSProduct {
     id,
     // Preserve the raw numeric DB PK so callers can fetch single-product
     // endpoints (which expose discount_price_usd / discount_price_aed).
-    osNumericId: raw.id,
+    osNumericId: isValidOsNumericId(raw.id) ? raw.id : undefined,
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
     hasLetterField: raw.has_letter_field ?? raw.hasLetterField ?? false,
   };
@@ -141,10 +153,15 @@ export async function fetchOsProductPricing(
   /** Non-null only when the modern regular_price/sale_price scheme is active. */
   regularPriceUsd: number | null;
 }> {
+  if (!isValidOsNumericId(osId)) {
+    throw new Error("OS product pricing requires a numeric OS ID");
+  }
+
+  const numericId = String(osId);
   // When there is no browser-side OS API key, call the API server proxy instead
   // of hitting OS directly (which would fail with 401).
   if (!OS_API_KEY) {
-    const res = await fetch(`/api/woo/product-pricing/${encodeURIComponent(String(osId))}`);
+    const res = await fetch(`/api/woo/product-pricing/${encodeURIComponent(numericId)}`);
     if (!res.ok) throw new Error(`product-pricing proxy returned HTTP ${res.status}`);
     const data = (await res.json()) as {
       ok: boolean;
@@ -159,7 +176,7 @@ export async function fetchOsProductPricing(
     };
   }
 
-  const res = await fetch(osUrl(`/api/products/${osId}`), { headers: osHeaders() });
+  const res = await fetch(osUrl(`/api/products/${numericId}`), { headers: osHeaders() });
   if (!res.ok) throw new Error(`OS product detail returned HTTP ${res.status}`);
   const body = (await res.json()) as OsProductDetail;
   const p = body.product ?? {};

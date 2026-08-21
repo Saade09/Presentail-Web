@@ -1201,6 +1201,39 @@ const server = http.createServer(async (req, res) => {
       pathname = pathname.slice(BASE_PATH.length) || "/";
     }
 
+    // A locale path can be accidentally passed to a nested Wouter router. That
+    // produced paths such as /en/en-lb/beirut/shop and /en-lb/en-lb/beirut/shop:
+    // the first segment is a duplicate router base, not part of the canonical
+    // storefront URL. Normalize it in one permanent hop before SEO injection so
+    // crawlers and browsers never receive a double-prefixed canonical.
+    const duplicateLocaleMatch = pathname.match(
+      /^\/([a-z]{2}(?:-[a-z]{2})?)\/([a-z]{2}-[a-z]{2})(\/.*)?$/,
+    );
+    if (duplicateLocaleMatch) {
+      const [, outerPrefix, localePrefix, rest = ""] = duplicateLocaleMatch;
+      const localeLanguage = localePrefix.slice(0, 2);
+      if (outerPrefix === localePrefix || outerPrefix === localeLanguage) {
+        res.writeHead(301, { location: `${BASE_PATH}/${localePrefix}${rest}${url.search}` });
+        res.end();
+        return;
+      }
+    }
+
+    // Bare language utility URLs are not routable city shells. Canonicalize
+    // them in one hop so /en and /fr never hydrate as relative city paths
+    // such as /en-lb/beirut/en. Greek is available only in Cyprus.
+    const bareLanguageMatch = pathname.match(/^\/(en|ar|fr|el)\/?$/);
+    if (bareLanguageMatch) {
+      const lang = bareLanguageMatch[1];
+      const country = lang === "el" ? "cy" : "lb";
+      const city = country === "cy" ? "nicosia" : "beirut";
+      res.writeHead(301, {
+        location: `${BASE_PATH}/${lang}-${country}/${city}${url.search}`,
+      });
+      res.end();
+      return;
+    }
+
     // Handle bare `/product/<slug>` (legacy WordPress URLs and mobile app
     // share links). All major social-preview crawlers (WhatsApp, iMessage,
     // Slack, Facebook) follow a single 301 hop, so the canonical locale-

@@ -5,6 +5,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { buildCollectionImageAlt } from "@/lib/imageAlt";
 import { apiFetch } from "@/lib/api";
 import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
+import { cityHref } from "@/lib/cityHref";
 import { ShimmerImage } from "@/components/ShimmerImage";
 import { buildCategoryHeroSrcset, CATEGORY_CARD_HERO_SIZES } from "@/lib/imageUtils";
 import bouquets from "@/assets/category-bouquets.png";
@@ -32,11 +33,16 @@ const STATIC_FALLBACK_IMAGES: Record<string, string> = {
 
 export function CategoriesGrid() {
   const { t, language } = useLocale();
-  const { city } = useLocationSelection();
+  const { city, countryCode, cityId } = useLocationSelection();
 
   const { data } = useQuery({
-    queryKey: ["homepage", "categories"],
-    queryFn: () => apiFetch<{ items: CollectionItem[] }>("/homepage/categories"),
+    queryKey: ["homepage", "categories", countryCode ?? null, cityId ?? null, language],
+    queryFn: () => {
+      const query = new URLSearchParams({ lang: language });
+      if (countryCode) query.set("countryCode", countryCode);
+      if (cityId) query.set("cityId", cityId);
+      return apiFetch<{ items: CollectionItem[] }>(`/homepage/categories?${query}`);
+    },
     staleTime: 5 * 60 * 1000,
   });
 
@@ -70,7 +76,10 @@ export function CategoriesGrid() {
                 style={{ "--enter-delay": `${i * 0.05}s` } as React.CSSProperties}
               >
                 <Link
-                  href={`/category/${encodeURIComponent(CATEGORY_SLUG_REMAP[item.slug] ?? item.slug)}`}
+                  href={cityHref(
+                    `/category/${encodeURIComponent(CATEGORY_SLUG_REMAP[item.slug] ?? item.slug)}`,
+                    { language, countryCode, cityId },
+                  )}
                   className="group relative block w-full h-full min-h-[200px] rounded-2xl md:rounded-3xl overflow-hidden bg-muted"
                   data-testid={`link-category-${item.slug}`}
                 >

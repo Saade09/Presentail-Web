@@ -3,9 +3,12 @@ import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import hero from "@/assets/hero.png";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { cityHref } from "@/lib/cityHref";
 
 export function EditorialSection() {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
 
   return (
     <section className="py-14 md:py-24" data-testid="section-editorial">
@@ -55,7 +58,7 @@ export function EditorialSection() {
               </div>
             </div>
 
-            <Link href="/shop">
+            <Link href={cityHref("/shop", { language, countryCode, cityId })}>
               <Button
                 size="lg"
                 className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-7"

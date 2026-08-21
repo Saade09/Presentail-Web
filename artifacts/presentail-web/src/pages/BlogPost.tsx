@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Clock, Info, Truck } from "lucide-react";
 import {
   BLOG_POSTS,
+  BLOG_RELATED_SLUGS,
   getBlogPostMeta,
   getBlogPostReadingTime,
   type BlogPostContent,
@@ -376,7 +377,8 @@ export default function BlogPost() {
       const post = byLang?.[language] ?? byLang?.["en"];
       return post ? { slug: s, post } : null;
     };
-    const explicit = (article?.relatedSlugs ?? [])
+    const curatedSlugs = BLOG_RELATED_SLUGS[slug] ?? article?.relatedSlugs ?? [];
+    const explicit = curatedSlugs
       .filter((s) => s !== slug)
       .map(resolve)
       .filter((item): item is { slug: string; post: Article } => item !== null);

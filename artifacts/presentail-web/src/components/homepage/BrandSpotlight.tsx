@@ -5,6 +5,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { ShimmerImage } from "@/components/ShimmerImage";
 import { buildCollectionImageAlt } from "@/lib/imageAlt";
+import { cityHref } from "@/lib/cityHref";
 
 interface SpotlightCardProps {
   brand: { id: number | string; slug: string; name: string; image?: string | null };
@@ -13,7 +14,7 @@ interface SpotlightCardProps {
 
 function SpotlightCard({ brand, index }: SpotlightCardProps) {
   const { language } = useLocale();
-  const { city } = useLocationSelection();
+  const { city, countryCode, cityId } = useLocationSelection();
   return (
     <div
       key={brand.id}
@@ -21,7 +22,7 @@ function SpotlightCard({ brand, index }: SpotlightCardProps) {
       style={{ "--enter-delay": `${index * 0.04}s` } as React.CSSProperties}
     >
       <Link
-        href={`/brand/${brand.slug}`}
+        href={cityHref(`/brand/${brand.slug}`, { language, countryCode, cityId })}
         className="group block aspect-square rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all p-4 flex items-center justify-center text-center relative overflow-hidden"
         data-testid={`link-brand-${brand.slug}`}
       >
@@ -56,6 +57,7 @@ export function BrandSpotlight() {
   if (cityId) brandParams.cityId = cityId;
   const { data, isLoading } = useBrands(brandParams);
   const brands = (data?.brands ?? []).slice(0, 6);
+  const toCityHref = (path: string) => cityHref(path, { language, countryCode, cityId });
 
   if (!isLoading && brands.length === 0) return null;
 
@@ -71,7 +73,7 @@ export function BrandSpotlight() {
             <p className="text-muted-foreground text-sm md:text-base">{t("brands.subtitle")}</p>
           </div>
           <Link
-            href="/brands"
+            href={toCityHref("/brands")}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-gold transition-colors self-start md:self-auto"
             data-testid="link-brands-view-all"
           >

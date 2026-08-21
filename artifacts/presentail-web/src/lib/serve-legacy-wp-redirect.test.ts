@@ -133,6 +133,32 @@ afterAll(() => {
   serverProc?.kill("SIGTERM");
 });
 
+describe("serve.mjs — duplicate locale prefix normalization", () => {
+  it.each([
+    ["/en/en-lb/beirut/shop", "/en-lb/beirut/shop"],
+    ["/fr/fr-ae/dubai/category/hand-bouquets", "/fr-ae/dubai/category/hand-bouquets"],
+    ["/en-lb/en-lb/beirut/cart", "/en-lb/beirut/cart"],
+  ])("redirects %s to one canonical locale path", async (source, expectedLocation) => {
+    const { status, location } = await get(serverPort, source);
+    expect(status).toBe(301);
+    expect(location).toBe(expectedLocation);
+    expect(location).not.toMatch(/\/(?:en|ar|fr|el)(?:-[a-z]{2})?\/(?:en|ar|fr|el)-/);
+  });
+});
+
+describe("serve.mjs — bare language utility routes", () => {
+  it.each([
+    ["/en", "/en-lb/beirut"],
+    ["/fr", "/fr-lb/beirut"],
+    ["/ar?source=footer", "/ar-lb/beirut?source=footer"],
+    ["/el", "/el-cy/nicosia"],
+  ])("redirects %s to a usable language hub", async (source, expectedLocation) => {
+    const { status, location } = await get(serverPort, source);
+    expect(status).toBe(301);
+    expect(location).toBe(expectedLocation);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Rows 21–24, 19–20: WP infrastructure paths → 410 Gone
 // ---------------------------------------------------------------------------

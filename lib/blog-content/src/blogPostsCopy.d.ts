@@ -140,6 +140,9 @@ export type BlogCategory =
 
 export const BLOG_CATEGORIES: readonly BlogCategory[];
 
+/** Curated related-article graph shared by all language variants. */
+export const BLOG_RELATED_SLUGS: Record<string, readonly string[]>;
+
 /** Locale-independent per-post landing-page metadata. */
 export interface BlogPostMeta {
   category: BlogCategory;

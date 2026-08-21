@@ -25,7 +25,7 @@ exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded br
     <a
       class="group flex-shrink-0 flex flex-col items-center gap-2"
       data-testid="trustpilot-brand-brand-1"
-      href="/brand/brand-1"
+      href="~/en-lb/beirut/brand/brand-1"
       title="Brand 1"
     >
       <div
@@ -46,7 +46,7 @@ exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded br
     <a
       class="group flex-shrink-0 flex flex-col items-center gap-2"
       data-testid="trustpilot-brand-brand-2"
-      href="/brand/brand-2"
+      href="~/en-lb/beirut/brand/brand-2"
       title="Brand 2"
     >
       <div
@@ -93,7 +93,7 @@ exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded br
     <a
       class="group flex-shrink-0 flex flex-col items-center gap-2"
       data-testid="trustpilot-brand-brand-1"
-      href="/brand/brand-1"
+      href="~/en-lb/beirut/brand/brand-1"
       title="Brand 1"
     >
       <div
@@ -112,7 +112,7 @@ exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded br
     <a
       class="group flex-shrink-0 flex flex-col items-center gap-2"
       data-testid="trustpilot-brand-brand-2"
-      href="/brand/brand-2"
+      href="~/en-lb/beirut/brand/brand-2"
       title="Brand 2"
     >
       <div
@@ -131,7 +131,7 @@ exports[`TrustpilotBrandsRow — snapshot (loaded state) > matches the loaded br
     <a
       class="group flex-shrink-0 flex flex-col items-center gap-2"
       data-testid="trustpilot-brand-brand-3"
-      href="/brand/brand-3"
+      href="~/en-lb/beirut/brand/brand-3"
       title="Brand 3"
     >
       <div

@@ -3,6 +3,7 @@ import { useBrands } from "@/lib/queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ShimmerImage } from "@/components/ShimmerImage";
+import { cityHref } from "@/lib/cityHref";
 
 const MAX_BRANDS = 8;
 
@@ -41,7 +42,7 @@ export function TrustpilotBrandsRow() {
           : brands.map((brand) => (
               <Link
                 key={brand.id}
-                href={`/brand/${brand.slug}`}
+                href={cityHref(`/brand/${brand.slug}`, { language, countryCode, cityId })}
                 className="group flex-shrink-0 flex flex-col items-center gap-2"
                 data-testid={`trustpilot-brand-${brand.slug}`}
                 title={brand.name}

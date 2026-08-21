@@ -9129,6 +9129,29 @@ describe("Batroun internal links & /shop canonicalization", () => {
   });
 });
 
+describe("best-sellers canonical and hreflang policy", () => {
+  it("keeps a self-canonical and one intra-city hreflang cluster on the hub page", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut/best-sellers", OPTS);
+
+    expect(headSnippet).toContain(
+      'rel="canonical" href="https://presentail.test/en-lb/beirut/best-sellers"',
+    );
+    expect(headSnippet.match(/rel="canonical"/g)).toHaveLength(1);
+    expect(headSnippet).toContain('hreflang="en-LB"');
+    expect(headSnippet).toContain('hreflang="fr-LB"');
+    expect(headSnippet).toContain('hreflang="x-default"');
+    expect(headSnippet).not.toContain('name="robots" content="noindex, follow"');
+  });
+
+  it("noindexes satellite pages without conflicting canonical or hreflang tags", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/tripoli/best-sellers", OPTS);
+
+    expect(headSnippet).toContain('name="robots" content="noindex, follow"');
+    expect(headSnippet).not.toContain('rel="canonical"');
+    expect(headSnippet).not.toContain("hreflang=");
+  });
+});
+
 describe("pre-hydration fallback critical CSS", () => {
   const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
 

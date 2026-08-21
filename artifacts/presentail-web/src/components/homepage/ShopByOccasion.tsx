@@ -8,6 +8,8 @@ import {
   getGetCatalogOccasionsQueryKey,
 } from "@workspace/api-client-react";
 import { buildCatalogImageSrcset } from "@/lib/imageUtils";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { cityHref } from "@/lib/cityHref";
 
 type OccasionItem = {
   key: string;
@@ -57,7 +59,9 @@ function OccasionIcon({
 }
 
 export function ShopByOccasion() {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
+  const toCityHref = (path: string) => cityHref(path, { language, countryCode, cityId });
 
   const { data: occasionsData, isPending } = useGetCatalogOccasions({
     query: {
@@ -113,7 +117,7 @@ export function ShopByOccasion() {
                 style={{ "--enter-delay": `${i * 0.04}s` } as React.CSSProperties}
               >
                 <Link
-                  href={`/occasion/${it.slug}`}
+                  href={toCityHref(`/occasion/${it.slug}`)}
                   className="group flex flex-col items-center justify-center text-center gap-3 py-7 md:py-9 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
                   data-testid={`link-occasion-${it.slug}`}
                 >
@@ -130,7 +134,7 @@ export function ShopByOccasion() {
 
         <div className="flex justify-center mt-8 md:mt-10">
           <Link
-            href="/occasions"
+            href={toCityHref("/occasions")}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-2"
             data-testid="link-view-all-occasions"
           >

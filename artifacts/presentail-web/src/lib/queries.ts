@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
-import { fetchOsProducts, fetchOsProductPricing } from "./osClient";
+import { fetchOsProducts, fetchOsProductPricing, isValidOsNumericId } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
 import { readAttribution } from "./attribution";
 import { readOccasionRef, clearOccasionRef } from "./occasionAttribution";
@@ -962,10 +962,14 @@ export const useProductAvailability = (
  * Pass `undefined` to skip the fetch (e.g. while the product is still loading).
  */
 export const useOsProductPricing = (osNumericId: number | string | undefined) => {
+  // Public product IDs are human-readable slugs. Pricing must only ever query
+  // the OS primary key; suppress malformed values rather than asking the proxy
+  // to reject them with a noisy 400.
+  const pricingId = isValidOsNumericId(osNumericId) ? osNumericId : undefined;
   return useQuery({
-    queryKey: ["os-product-pricing", osNumericId ?? ""],
-    queryFn: () => fetchOsProductPricing(osNumericId!),
-    enabled: osNumericId != null,
+    queryKey: ["os-product-pricing", pricingId ?? ""],
+    queryFn: () => fetchOsProductPricing(pricingId!),
+    enabled: pricingId !== undefined,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });

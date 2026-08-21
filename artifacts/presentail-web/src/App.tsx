@@ -53,6 +53,7 @@ import {
   countryCodeToSlug,
   isSupportedCity,
   isSupportedCountrySlug,
+  isSupportedLang,
   type CountrySlug,
   type Lang,
 } from "@/lib/locale-route";
@@ -551,6 +552,34 @@ function RootRouter() {
       <Suspense fallback={<PageLoader />}>
         <SharedFavorites token={token} />
       </Suspense>
+    );
+  }
+
+  // The production server normalizes accidental nested-router paths such as
+  // /en/en-lb/beirut/shop. Keep the SPA equivalent for Vite previews and
+  // client-side navigations, which do not pass through serve.mjs.
+  const duplicateLocaleMatch = path.match(
+    /^\/([a-z]{2}(?:-[a-z]{2})?)\/([a-z]{2}-[a-z]{2})(\/.*)?$/,
+  );
+  if (duplicateLocaleMatch) {
+    const [, outerPrefix, localePrefix, rest = ""] = duplicateLocaleMatch;
+    const localeLanguage = localePrefix.slice(0, 2);
+    if (outerPrefix === localePrefix || outerPrefix === localeLanguage) {
+      return <Redirect to={`/${localePrefix}${rest}`} replace />;
+    }
+  }
+
+  // Bare language URLs are used by utility links and old bookmarks. They are
+  // not city shells, so redirect them to a valid language/country hub instead
+  // of letting UnprefixedRedirect append "/en" or "/fr" below a city URL.
+  const bareLanguageMatch = path.match(/^\/([a-z]{2})\/?$/);
+  if (bareLanguageMatch && isSupportedLang(bareLanguageMatch[1])) {
+    const lang = bareLanguageMatch[1];
+    return (
+      <CityFallbackRedirect
+        lang={lang}
+        country={lang === "el" ? "cy" : "lb"}
+      />
     );
   }
 
