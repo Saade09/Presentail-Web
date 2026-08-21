@@ -32,6 +32,7 @@ import { displayedSlotsForDate } from "./displayedSlots";
 import { trackWebEvent, trackWebEventOnce } from "@/lib/analytics";
 import { buildExpressPromise, buildStandardPromise } from "./deliveryPromise";
 import { DeliverEarlierDialog } from "./DeliverEarlierDialog";
+import { buildMidnightDeliveryMessage } from "./midnightCopy";
 
 /** Sort slots chronologically by delivery-window start (falling back to cutoff). */
 function sortSlots(slots: TimeSlot[]): TimeSlot[] {
@@ -95,15 +96,6 @@ function weekdayDayMonth(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-}
-
-/** Date format used by the midnight helper: "Fri, 21 Aug". */
-function midnightDeliveryDate(iso: string): string {
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  const weekday = d.toLocaleDateString(undefined, { weekday: "short" });
-  const month = d.toLocaleDateString(undefined, { month: "short" });
-  return `${weekday}, ${d.getDate()} ${month}`;
 }
 
 /** Parse "9:00 AM" / "2 PM" style strings → hour (0–23). Null on failure. */
@@ -856,20 +848,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                   {(() => {
                     const activeSlotState = slotStates.find(s => s.slot.label === slot && !s.unavailable);
                     if (activeSlotState && isMidnightSlot(activeSlotState.slot, city?.id)) {
-                      const promiseDate = addDaysIso(selectedIso, 1);
-                      const formatDeliveryDate = midnightDeliveryDate;
-                      const promiseDateStr = formatDeliveryDate(promiseDate);
-                      const startPhrase =
-                        selectedIso === todayIso
-                          ? "tonight"
-                          : `on ${formatDeliveryDate(selectedIso)}`;
-                      const midnightMessage = t("product.midnightArrivesAs")
-                        .replace("{start}", startPhrase)
-                        .replace("{end}", promiseDateStr)
-                        // Existing non-English translations continue to use
-                        // {date}; leave them unchanged while English uses
-                        // precise start/end placeholders.
-                        .replace("{date}", promiseDateStr);
+                      const midnightMessage = buildMidnightDeliveryMessage(t, selectedIso, todayIso);
                       return (
                         <div className="rounded-xl bg-[#FFF8EE] text-[#1A1A1A] p-4 flex items-center justify-between mt-3" data-testid="midnight-delivery-banner">
                           <div className="flex gap-3 items-start">

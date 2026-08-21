@@ -73,7 +73,7 @@ const midnightLocale = {
     key === "product.midnightDelivery"
       ? "Midnight Delivery"
       : key === "product.midnightArrivesAs"
-        ? "Arrives between 11 PM {start} and 1 AM on {end}"
+         ? "Arrives between 11 PM {start} and 1 AM on {end}"
         : key,
   language: "en" as const,
   dir: "ltr" as const,

@@ -15,14 +15,9 @@ import {
 } from "@workspace/delivery";
 import { CalendarPopover } from "./CalendarPopover";
 import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
+import { buildMidnightDeliveryMessage } from "@/components/delivery/midnightCopy";
 
 import { trackWebEventOnce } from "@/lib/analytics";
-
-function addIsoDays(iso: string, days: number): string {
-  const [year, month, day] = iso.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day + days, 12));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
-}
 
 type Props = {
   countryCode?: string | null;
@@ -546,16 +541,7 @@ export function ScheduleInlinePanel({
       </div>
 
       {selectedMidnightSlot && (() => {
-        const promiseDate = addIsoDays(date, 1);
-        const startDateStr = formatDeliveryDate(date, days);
-        const promiseDateStr = formatDeliveryDate(promiseDate, days);
-        const startPhrase = date === todayIso ? "tonight" : `on ${startDateStr}`;
-        const midnightMessage = t("product.midnightArrivesAs")
-          .replace("{start}", startPhrase)
-          .replace("{end}", promiseDateStr)
-          // Keep existing non-English translations, which still use {date},
-          // intact while the English copy uses the more precise placeholders.
-          .replace("{date}", promiseDateStr);
+        const midnightMessage = buildMidnightDeliveryMessage(t, date, todayIso);
 
         return (
           <div className="rounded-xl bg-[#FFF8EE] text-[#1A1A1A] p-3 flex items-center justify-between mt-2" data-testid="midnight-delivery-banner">
@@ -589,14 +575,6 @@ function monthShort(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, { month: "short" });
-}
-
-function formatDeliveryDate(iso: string, days: { iso: string; day: string; date: string }[]): string {
-  const dayEntry = days.find((d) => d.iso === iso);
-  if (dayEntry) {
-    return `${dayEntry.day}, ${dayEntry.date} ${monthShort(iso)}`;
-  }
-  return `${weekdayShort(iso)}, ${dayOfMonth(iso)} ${monthShort(iso)}`;
 }
 
 function weekdayShort(iso: string): string {
