@@ -69,3 +69,4 @@
 - [Preview route normalization](preview-route-normalization.md) — Vite previews bypass serve.mjs redirects; URL normalizations need matching SPA handling.
 - [Phone tooltip overflow](phone-tooltip-overflow.md) — "mobile view" bug screenshots may be web-at-mobile-width, not native; Radix side=right can't shift horizontally — use side=bottom + narrow max-width
 - [pnpm security override verification](pnpm-security-override-verification.md) — major-level overrides can miss a transitive range; prove every CVE gone in the lockfile and audit, then scope overrides to the parent path.
+- [Semrush Aug 2026 audit fixes](semrush-aug26-audit-fixes.md) — blog double-prefix links, dead brand links, phantom occasion slugs, el/ar noindex

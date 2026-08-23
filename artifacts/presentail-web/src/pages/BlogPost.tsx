@@ -118,14 +118,26 @@ const UI_COPY: Record<Language, UiCopy> = {
   },
 };
 
+// Matches locale-prefixed relative paths such as /en-lb/beirut/product/X or
+// /fr-ae/dubai/occasion/Y.  renderBody rewrites these to the current page
+// locale so that the wouter router base cannot prepend a second /lang prefix
+// in SSR-rendered HTML, which would create double-prefix 404 links for
+// crawlers (e.g. /fr/en-lb/beirut/product/X).
+const LOCALE_HREF_RE = /^\/(en|ar|fr|el)(-[a-z]{2})(\/.*)/;
+
 /**
  * Render a section body string, converting simple anchors and strong tags into
  * real elements. Only controlled Presentail URLs (or relative paths) are
  * accepted, so editorial copy can retain canonical absolute URLs without
  * opening an arbitrary-link injection path.
  * All content is author-controlled (lives in blogPostsCopy.js, not user input).
+ *
+ * Pass `lang` (the current page language) so that locale-prefixed hrefs stored
+ * in the blog content (e.g. /en-lb/beirut/product/X in a French article) are
+ * rewritten to the matching locale (→ /fr-lb/beirut/product/X) before being
+ * emitted as native <a> tags.
  */
-function renderBody(body: string): ReactNode {
+function renderBody(body: string, lang?: string): ReactNode {
   const TOKEN_RE = /(<a\s+href="([^"]*)"[^>]*>(.*?)<\/a>|<strong>(.*?)<\/strong>)/g;
   const parts: ReactNode[] = [];
   let lastIndex = 0;
@@ -139,7 +151,8 @@ function renderBody(body: string): ReactNode {
     const strongText = match[4];
 
     if (strongText !== undefined) {
-      parts.push(<strong key={match.index}>{renderBody(strongText)}</strong>);
+      // Pass lang through so nested strong+link combinations are also rewritten.
+      parts.push(<strong key={match.index}>{renderBody(strongText, lang)}</strong>);
       lastIndex = match.index + match[0].length;
       continue;
     }
@@ -153,17 +166,35 @@ function renderBody(body: string): ReactNode {
       lastIndex = match.index + match[0].length;
       continue;
     }
-    parts.push(
-      isRelativePath ? (
-        <Link key={match.index} href={href} className="text-primary underline hover:no-underline">
+
+    // Locale-prefixed relative paths (e.g. /en-lb/beirut/product/X) must be
+    // rewritten to the current page locale and rendered as plain <a> tags.
+    // Using wouter <Link> for these would cause the router base to prepend
+    // another /lang segment in SSR output, producing broken double-prefix URLs.
+    const localeMatch = isRelativePath ? LOCALE_HREF_RE.exec(href) : null;
+    if (localeMatch) {
+      const rewritten =
+        lang && lang !== localeMatch[1]
+          ? `/${lang}${localeMatch[2]}${localeMatch[3]}`
+          : href;
+      parts.push(
+        <a key={match.index} href={rewritten} className="text-primary underline hover:no-underline">
           {text}
-        </Link>
-      ) : (
-        <a key={match.index} href={href} className="text-primary underline hover:no-underline">
-          {text}
-        </a>
-      ),
-    );
+        </a>,
+      );
+    } else {
+      parts.push(
+        isRelativePath ? (
+          <Link key={match.index} href={href} className="text-primary underline hover:no-underline">
+            {text}
+          </Link>
+        ) : (
+          <a key={match.index} href={href} className="text-primary underline hover:no-underline">
+            {text}
+          </a>
+        ),
+      );
+    }
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < body.length) {
@@ -193,6 +224,7 @@ function SectionBlocks({
   index: number;
   isRtl: boolean;
 }) {
+  const { language } = useLocale();
   const HeadingTag = section.subheading ? "h3" : "h2";
   const id = section.heading && !section.subheading
     ? sectionAnchorId(section.heading, section.id, index)
@@ -208,7 +240,7 @@ function SectionBlocks({
           {section.heading}
         </HeadingTag>
       )}
-      {section.body && <p className={`${PROSE_TEXT} mb-4 last:mb-0`}>{renderBody(section.body)}</p>}
+      {section.body && <p className={`${PROSE_TEXT} mb-4 last:mb-0`}>{renderBody(section.body, language)}</p>}
       {section.items && section.items.length > 0 && (
         <ListTag
           className={`${section.ordered ? "list-decimal" : "list-disc"} space-y-2 ${PROSE_TEXT} ${isRtl ? "list-inside text-right" : "ps-5"}`}
@@ -367,6 +399,34 @@ export default function BlogPost() {
       });
     };
   }, [article]);
+
+  // When this locale has no dedicated translation the article falls back to
+  // English content.  Emit noindex,follow so crawlers don't treat the duplicate
+  // as a competing page.  Uses reference equality to catch both the undefined
+  // fallback (?? en) and the getter-alias pattern (get ar() { return this.en }).
+  useEffect(() => {
+    const isFallback =
+      language !== "en" &&
+      (articlesByLang?.[language] === undefined ||
+        articlesByLang?.[language] === articlesByLang?.["en"]);
+    const existing = document.head.querySelector<HTMLMetaElement>(
+      'meta[name="robots"][data-seo-blog-noindex]',
+    );
+    if (isFallback) {
+      const el = existing ?? document.createElement("meta");
+      el.setAttribute("name", "robots");
+      el.setAttribute("content", "noindex,follow");
+      el.setAttribute("data-seo-blog-noindex", "true");
+      if (!existing) document.head.appendChild(el);
+    } else {
+      existing?.remove();
+    }
+    return () => {
+      document.head
+        .querySelector('meta[data-seo-blog-noindex]')
+        ?.remove();
+    };
+  }, [language, articlesByLang]);
 
   // Related articles — explicit overrides first, else up to 3 other posts in
   // the same language (falling back to English), sorted newest-first.

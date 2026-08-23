@@ -96,6 +96,9 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
+  // OS occasion slug is "funeral"; label kept as "Condolences" for UX appropriateness.
+  "shop.occ.funeral": { en: "Condolences", ar: "تعازي" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.colleague": { en: "Colleague", ar: "زميل" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.friend": { en: "Friend", ar: "صديق" },
@@ -594,6 +597,7 @@ export const shopStringsFr: Record<string, string> = {
   "shop.occ.thinkingOfYou": "Je pense à toi",
   "shop.occ.farewell": "Adieu",
   "shop.occ.condolences": "Condoléances",
+  "shop.occ.funeral": "Condoléances",
   "shop.occ.colleague": "Collègue",
   "shop.occ.friend": "Ami(e)",
   "shop.occ.imSorry": "Je suis désolé(e)",
@@ -887,6 +891,7 @@ export const shopStringsEl: Record<string, string> = {
   "shop.occ.thinkingOfYou": "Σε σκέφτομαι",
   "shop.occ.farewell": "Αποχαιρετισμός",
   "shop.occ.condolences": "Συλλυπητήρια",
+  "shop.occ.funeral": "Συλλυπητήρια",
   "shop.occ.colleague": "Συνάδελφος",
   "shop.occ.friend": "Φίλος",
   "shop.occ.imSorry": "Συγγνώμη",

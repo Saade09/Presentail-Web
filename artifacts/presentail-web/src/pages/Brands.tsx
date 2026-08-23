@@ -66,12 +66,19 @@ export default function Brands() {
   const { data: catalogMetadata, isLoading } = useCatalogMetadata();
   const { countryCode, cityId, city } = useLocationSelection();
 
-  const brands = [...(catalogMetadata?.brands ?? [])].sort((a, b) => {
-    const aOrder = (a.sort_order ?? null) !== null ? a.sort_order! : Infinity;
-    const bOrder = (b.sort_order ?? null) !== null ? b.sort_order! : Infinity;
-    if (aOrder !== bOrder) return aOrder - bOrder;
-    return a.name.localeCompare(b.name);
-  });
+  // Only show brands that actually have products in the current city/country
+  // context. Zero-count brands (e.g. retired or region-unavailable brands)
+  // generate dead /brand/<slug> links that 404, so they must be suppressed here
+  // just as they are in MainNavbar. `count` is undefined while metadata is still
+  // loading, so we never filter prematurely.
+  const brands = [...(catalogMetadata?.brands ?? [])]
+    .filter((b) => b.count === undefined || b.count > 0)
+    .sort((a, b) => {
+      const aOrder = (a.sort_order ?? null) !== null ? a.sort_order! : Infinity;
+      const bOrder = (b.sort_order ?? null) !== null ? b.sort_order! : Infinity;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.name.localeCompare(b.name);
+    });
 
   const breadcrumbCrumbs = [
     { label: t("nav.home"), href: "/" },
