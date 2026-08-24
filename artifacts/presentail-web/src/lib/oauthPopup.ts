@@ -24,9 +24,10 @@ const APPLE_SERVICE_ID = import.meta.env.VITE_APPLE_SERVICE_ID as
 // Keep only a long last-resort safety net for the pathological case where GSI
 // fires neither `callback` nor `error_callback`.
 export const GOOGLE_POPUP_SAFETY_TIMEOUT_MS = 300_000;
-// Apple's SDK rejects its signIn() promise on popup closure, but has been
-// observed leaving it pending in some dismissal paths — keep its deadline.
-export const APPLE_POPUP_TIMEOUT_MS = 15_000;
+// Apple's SDK rejects its signIn() promise on popup closure, so an aggressive
+// deadline would discard slow-but-successful sign-ins. Keep only a long
+// last-resort safety net for the pathological case where it stays pending.
+export const APPLE_POPUP_TIMEOUT_MS = 300_000;
 
 type ApiAuthResponse = {
   ok: boolean;

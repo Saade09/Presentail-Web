@@ -224,6 +224,60 @@ describe("signInWithApplePopup", () => {
     expect(signIn).toHaveBeenCalledOnce();
   });
 
+  it("still signs the shopper in when success arrives after the old 15s deadline", async () => {
+    vi.useFakeTimers();
+    let resolveSignIn: ((value: any) => void) | undefined;
+    const signIn = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSignIn = resolve;
+        }),
+    );
+    (window as any).AppleID = {
+      auth: { init: vi.fn(), signIn },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        token: "jwt-token",
+        user: { id: 8, email: "slow-apple@example.com", firstName: "Slow", lastName: "Apple" },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const { signInWithApplePopup } = await import("./oauthPopup");
+      const resultPromise = signInWithApplePopup();
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      resolveSignIn!({
+        authorization: { id_token: "apple-id-token" },
+        user: { name: { firstName: "Slow", lastName: "Apple" } },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      await expect(resultPromise).resolves.toEqual({
+        ok: true,
+        token: "jwt-token",
+        user: {
+          id: "8",
+          email: "slow-apple@example.com",
+          firstName: "Slow",
+          lastName: "Apple",
+          phone: undefined,
+        },
+        provider: "apple",
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/oauth/apple",
+        expect.objectContaining({ method: "POST" }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("keeps explicit Apple cancellation responses silent", async () => {
     (window as any).AppleID = {
       auth: {
