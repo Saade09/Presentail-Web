@@ -1,14 +1,16 @@
-// Unit tests for the Address Book places cache + search
+// Unit tests for the Address Book per-query search proxy
 // (artifacts/api-server/src/lib/osPlacesCache.ts)
 //
 // Coverage:
 //  - normalizeSearchText: case folding, accent stripping, punctuation,
 //    Arabic variant unification
-//  - buildPlaceIndex safety filter: unverified / unpublished /
-//    checkout-disabled places never enter the index
-//  - Ranking: exact alias > prefix > token/substring > fuzzy subsequence
-//  - Feature flag dark → always empty
-//  - Country scoping, result cap, district → canonical city resolution
+//  - Feature flag dark → always empty, zero OS calls
+//  - Query forwarding: shopper's text goes to OS as `q` with the country
+//  - Defensive eligibility filter: unverified / unpublished /
+//    checkout-disabled places never leave the server (fail closed)
+//  - Per-query caching: repeat queries within the TTL hit the cache
+//  - Failure backoff: an OS failure arms a global backoff (no hammering)
+//  - Result cap, district → canonical city resolution
 //  - Safe projection: only public checkout fields are returned
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -32,13 +34,17 @@ vi.mock("./osLocationsCache", () => ({
   ],
 }));
 
+const { searchOsMock } = vi.hoisted(() => ({ searchOsMock: vi.fn() }));
+vi.mock("@workspace/presentail-os", () => ({
+  searchOsAddressBookPlaces: searchOsMock,
+}));
+
 import type { OSAddressBookPlace } from "@workspace/presentail-os";
 import {
   normalizeSearchText,
-  buildPlaceIndex,
   searchAddressBookPlaces,
-  __setPlacesForTest,
   __resetPlacesCacheForTest,
+  __isBackoffArmedForTest,
 } from "./osPlacesCache";
 
 function makePlace(overrides: Partial<OSAddressBookPlace> = {}): OSAddressBookPlace {
@@ -66,6 +72,8 @@ function makePlace(overrides: Partial<OSAddressBookPlace> = {}): OSAddressBookPl
 beforeEach(() => {
   process.env.OS_ADDRESS_BOOK_ENABLED = "1";
   __resetPlacesCacheForTest();
+  searchOsMock.mockReset();
+  searchOsMock.mockResolvedValue({ places: [makePlace()] });
 });
 
 afterEach(() => {
@@ -91,103 +99,110 @@ describe("normalizeSearchText", () => {
   });
 });
 
-describe("buildPlaceIndex safety filter", () => {
-  it("keeps only verified + published + checkout-enabled places", () => {
-    const index = buildPlaceIndex([
-      makePlace({ id: "ok" }),
-      makePlace({ id: "unverified", verified: false }),
-      makePlace({ id: "unpublished", published: false }),
-      makePlace({ id: "no-checkout", checkoutEnabled: false }),
-    ]);
-    expect(index.map((e) => e.place.id)).toEqual(["ok"]);
-  });
-});
-
 describe("searchAddressBookPlaces", () => {
-  it("returns empty when the feature flag is dark", () => {
+  it("returns empty and never calls OS when the feature flag is dark", async () => {
     delete process.env.OS_ADDRESS_BOOK_ENABLED;
-    __setPlacesForTest([makePlace()]);
-    expect(searchAddressBookPlaces("aub", "LB")).toEqual([]);
+    expect(await searchAddressBookPlaces("aub", "LB")).toEqual([]);
+    expect(searchOsMock).not.toHaveBeenCalled();
   });
 
-  it("never returns unverified/unpublished/checkout-disabled places", () => {
-    __setPlacesForTest([
-      makePlace({ id: "bad1", name: "AUB Shadow", verified: false }),
-      makePlace({ id: "bad2", name: "AUB Draft", published: false }),
-      makePlace({ id: "bad3", name: "AUB Off", checkoutEnabled: false }),
-    ]);
-    expect(searchAddressBookPlaces("aub", "LB")).toEqual([]);
-  });
-
-  it("ranks exact alias above prefix above substring above fuzzy", () => {
-    __setPlacesForTest([
-      // substring/token match ("aub" inside a later token)
-      makePlace({ id: "substr", name: "Clinique du Levant AUB Annex", aliases: [] }),
-      // fuzzy subsequence match only (a-u-b-m-c ordered inside the name? no —
-      // use a name where "aubx" style subsequence applies). Use query-specific rows below.
-      // prefix match
-      makePlace({ id: "prefix", name: "AUB Business School", aliases: [] }),
-      // exact alias match
-      makePlace({ id: "exact", name: "AUBMC", aliases: ["AUB"] }),
-    ]);
-    const results = searchAddressBookPlaces("aub", "LB");
-    expect(results.map((r) => r.id)).toEqual(["exact", "prefix", "substr"]);
-  });
-
-  it("matches fuzzy in-order subsequences for queries of 4+ chars", () => {
-    __setPlacesForTest([makePlace({ id: "hd", name: "Hotel Dieu de France", aliases: [] })]);
-    // "htldieu" is an in-order subsequence of "hoteldieudefrance"
-    const results = searchAddressBookPlaces("htldieu", "LB");
-    expect(results.map((r) => r.id)).toEqual(["hd"]);
-  });
-
-  it("is accent/punctuation-insensitive on both sides", () => {
-    __setPlacesForTest([makePlace({ id: "hd", name: "Hôtel-Dieu", aliases: [] })]);
-    expect(searchAddressBookPlaces("hotel dieu", "LB").map((r) => r.id)).toEqual(["hd"]);
-    __setPlacesForTest([makePlace({ id: "aub", name: "AUBMC", aliases: ["A.U.B."] })]);
-    expect(searchAddressBookPlaces("aub", "LB").map((r) => r.id)).toEqual(["aub"]);
-  });
-
-  it("scopes results to the requested country but spans all its districts", () => {
-    __setPlacesForTest([
-      makePlace({ id: "lb-place", name: "AUBMC", countryCode: "LB", districtId: "tripoli", districtName: "Tripoli" }),
-      makePlace({ id: "ae-place", name: "AUB Dubai Clinic", countryCode: "AE", districtId: "dubai", districtName: "Dubai" }),
-    ]);
-    const results = searchAddressBookPlaces("aub", "LB");
-    expect(results.map((r) => r.id)).toEqual(["lb-place"]);
-    // District differs from any pre-selected one — still returned.
-    expect(results[0]!.districtCityId).toBe("lb-tripoli");
-  });
-
-  it("caps results at the requested limit", () => {
-    __setPlacesForTest(
-      Array.from({ length: 12 }, (_, i) =>
-        makePlace({ id: `p${i}`, name: `AUB Center ${i}`, aliases: [] }),
-      ),
+  it("forwards the shopper's text as q with the uppercased country", async () => {
+    await searchAddressBookPlaces(" AUB ", "lb");
+    expect(searchOsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: expect.any(String) }),
+      { q: "AUB", countryCode: "LB" },
     );
-    expect(searchAddressBookPlaces("aub", "LB", 6)).toHaveLength(6);
   });
 
-  it("requires at least 2 meaningful characters", () => {
-    __setPlacesForTest([makePlace()]);
-    expect(searchAddressBookPlaces("a", "LB")).toEqual([]);
-    expect(searchAddressBookPlaces(" . ", "LB")).toEqual([]);
+  it("requires at least 2 meaningful characters (no OS call)", async () => {
+    expect(await searchAddressBookPlaces("a", "LB")).toEqual([]);
+    expect(await searchAddressBookPlaces(" . ", "LB")).toEqual([]);
+    expect(searchOsMock).not.toHaveBeenCalled();
   });
 
-  it("resolves the OS district onto the canonical city id and name", () => {
-    __setPlacesForTest([makePlace({ id: "p1", districtId: "beirut", districtName: "Beirut" })]);
-    const [result] = searchAddressBookPlaces("aubmc", "LB");
-    expect(result!.districtCityId).toBe("lb-beirut");
-    expect(result!.districtCityName).toBe("Beirut");
+  it("never returns unverified/unpublished/checkout-disabled places", async () => {
+    searchOsMock.mockResolvedValue({
+      places: [
+        makePlace({ id: "bad1", name: "AUB Shadow", verified: false }),
+        makePlace({ id: "bad2", name: "AUB Draft", published: false }),
+        makePlace({ id: "bad3", name: "AUB Off", checkoutEnabled: false }),
+        makePlace({ id: "ok" }),
+      ],
+    });
+    const results = await searchAddressBookPlaces("aub", "LB");
+    expect(results.map((r) => r.id)).toEqual(["ok"]);
   });
 
-  it("returns only the public-safe projection", () => {
-    __setPlacesForTest([makePlace()]);
-    const [result] = searchAddressBookPlaces("aubmc", "LB");
+  it("preserves the OS relevance ordering (no local re-ranking)", async () => {
+    searchOsMock.mockResolvedValue({
+      places: [
+        makePlace({ id: "first", name: "Zed Hospital" }),
+        makePlace({ id: "second", name: "AUBMC" }),
+      ],
+    });
+    const results = await searchAddressBookPlaces("hospital", "LB");
+    expect(results.map((r) => r.id)).toEqual(["first", "second"]);
+  });
+
+  it("serves repeat queries from the per-query cache within the TTL", async () => {
+    await searchAddressBookPlaces("aub", "LB");
+    await searchAddressBookPlaces("aub", "LB");
+    // Same normalised query+country → one OS round-trip.
+    await searchAddressBookPlaces("A.U.B.", "LB");
+    expect(searchOsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats different countries as different cache entries", async () => {
+    await searchAddressBookPlaces("aub", "LB");
+    await searchAddressBookPlaces("aub", "AE");
+    expect(searchOsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("arms the failure backoff on OS errors and stops calling OS", async () => {
+    searchOsMock.mockRejectedValue(new Error("HTTP 403"));
+    expect(await searchAddressBookPlaces("aub", "LB")).toEqual([]);
+    expect(__isBackoffArmedForTest()).toBe(true);
+    // Next keystroke during the backoff window → no second OS call.
+    expect(await searchAddressBookPlaces("aubm", "LB")).toEqual([]);
+    expect(searchOsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters out places from other countries defensively", async () => {
+    searchOsMock.mockResolvedValue({
+      places: [
+        makePlace({ id: "lb-place", countryCode: "LB" }),
+        makePlace({ id: "ae-place", name: "AUB Dubai Clinic", countryCode: "AE" }),
+      ],
+    });
+    const results = await searchAddressBookPlaces("aub", "LB");
+    expect(results.map((r) => r.id)).toEqual(["lb-place"]);
+  });
+
+  it("caps results at the requested limit", async () => {
+    searchOsMock.mockResolvedValue({
+      places: Array.from({ length: 12 }, (_, i) =>
+        makePlace({ id: `p${i}`, name: `AUB Center ${i}` }),
+      ),
+    });
+    expect(await searchAddressBookPlaces("aub", "LB", 6)).toHaveLength(6);
+  });
+
+  it("resolves the OS district onto the canonical city id and name", async () => {
+    searchOsMock.mockResolvedValue({
+      places: [makePlace({ districtId: "tripoli", districtName: "Tripoli" })],
+    });
+    const [result] = await searchAddressBookPlaces("aubmc", "LB");
+    expect(result!.districtCityId).toBe("lb-tripoli");
+    expect(result!.districtCityName).toBe("Tripoli");
+  });
+
+  it("returns only the public-safe projection (with approved aliases)", async () => {
+    const [result] = await searchAddressBookPlaces("aubmc", "LB");
     expect(result).toEqual({
       id: "p1",
       name: "AUBMC",
       officialName: "American University of Beirut Medical Center",
+      aliases: ["AUB", "AUB Medical Center"],
       area: "Hamra",
       districtName: "Beirut",
       districtCityId: "lb-beirut",
@@ -200,8 +215,15 @@ describe("searchAddressBookPlaces", () => {
       followUpPlaceholder: "Building, department, floor, room number or entrance",
     });
     // No internal fields ever leak.
-    expect(Object.keys(result!)).not.toContain("aliases");
     expect(Object.keys(result!)).not.toContain("published");
     expect(Object.keys(result!)).not.toContain("checkoutEnabled");
+  });
+
+  it("drops an alias identical to the display name", async () => {
+    searchOsMock.mockResolvedValue({
+      places: [makePlace({ aliases: ["AUBMC", "AUB"] })],
+    });
+    const [result] = await searchAddressBookPlaces("aubmc", "LB");
+    expect(result!.aliases).toEqual(["AUB"]);
   });
 });

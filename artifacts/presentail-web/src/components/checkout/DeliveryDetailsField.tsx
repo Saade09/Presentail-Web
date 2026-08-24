@@ -38,6 +38,8 @@ export type CheckoutPlace = {
   id: string;
   name: string;
   officialName: string | null;
+  /** Approved public aliases (abbreviations, older names) — displayable. */
+  aliases?: string[];
   area: string | null;
   districtName: string | null;
   districtCityId: string | null;
@@ -102,6 +104,18 @@ export function flattenPlaceAddress(place: CheckoutPlace, internalDetail: string
 
 const SEARCH_DEBOUNCE_MS = 300;
 const MIN_QUERY_CHARS = 2;
+
+/**
+ * Secondary line under the place name: the official name when OS sends one,
+ * otherwise the approved aliases (the OS contract asks us to display both the
+ * displayName and the approved aliases so shoppers recognise "AUB" → AUBMC).
+ */
+function placeSecondaryLine(place: CheckoutPlace): string | null {
+  if (place.officialName) return place.officialName;
+  const aliases = (place.aliases ?? [])
+    .filter((a) => a.trim().length > 0 && a.trim().toLowerCase() !== place.name.trim().toLowerCase());
+  return aliases.length > 0 ? aliases.join(", ") : null;
+}
 
 /**
  * True once a search in this browser session returned results — gates
@@ -318,9 +332,9 @@ export default function DeliveryDetailsField({
                   {t("checkout.places.verified")}
                 </span>
               </div>
-              {selectedPlace.officialName && (
+              {placeSecondaryLine(selectedPlace) && (
                 <div className="mt-0.5 text-sm text-muted-foreground" data-testid="text-selected-place-official">
-                  {selectedPlace.officialName}
+                  {placeSecondaryLine(selectedPlace)}
                 </div>
               )}
               {locationLine && (
@@ -401,6 +415,7 @@ export default function DeliveryDetailsField({
           </div>
           <ul id={listboxId} role="listbox" aria-label={t("checkout.places.listLabel")} className="pb-1">
             {suggestions.map((place, idx) => {
+              const secondary = placeSecondaryLine(place);
               const line = [
                 place.area,
                 place.districtCityName ?? place.districtName,
@@ -425,8 +440,8 @@ export default function DeliveryDetailsField({
                 >
                   <div className="min-w-0">
                     <div className="truncate font-medium leading-5">{place.name}</div>
-                    {place.officialName && (
-                      <div className="truncate text-sm text-muted-foreground">{place.officialName}</div>
+                    {secondary && (
+                      <div className="truncate text-sm text-muted-foreground">{secondary}</div>
                     )}
                     {line && (
                       <div className="truncate text-sm text-muted-foreground">{line}</div>

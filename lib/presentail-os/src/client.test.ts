@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchOsLocations, fetchOsOccasions } from "./client";
+import {
+  fetchOsLocations,
+  fetchOsOccasions,
+  searchOsAddressBookPlaces,
+} from "./client";
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
@@ -348,5 +352,147 @@ describe("fetchOsOccasions — URL construction", () => {
 
     expect(result.occasions).toHaveLength(1);
     expect(result.occasions[0]!.slug).toBe("birthday");
+  });
+});
+
+describe("searchOsAddressBookPlaces — confirmed OS contract", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const contractPlace = {
+    id: "place-uuid",
+    displayName: "ABC Hotel",
+    approvedAliases: ["ABC Hotel Beirut"],
+    type: "hotel",
+    country: "LB",
+    deliveryDistrict: "Beirut",
+    area: "Hamra",
+    city: "Beirut",
+    latitude: 33.895,
+    longitude: 35.478,
+    verificationState: "delivery_verified",
+    followUpCopy: "Please add floor, apartment, and delivery instructions.",
+  };
+
+  it("calls the confirmed endpoint with workspace, q, and country", async () => {
+    const fetchMock = vi.fn((_url: string) =>
+      Promise.resolve(jsonResponse({ places: [contractPlace] })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchOsAddressBookPlaces(config, { q: "AUB", countryCode: "lb" });
+
+    const calledUrl = new URL(fetchMock.mock.calls[0]![0]);
+    expect(calledUrl.pathname).toBe("/api/public/address-book/places");
+    expect(calledUrl.searchParams.get("workspace")).toBe("presentail");
+    expect(calledUrl.searchParams.get("q")).toBe("AUB");
+    expect(calledUrl.searchParams.get("country")).toBe("LB");
+    expect(calledUrl.searchParams.get("city_slug")).toBeNull();
+  });
+
+  it("passes city_slug through when provided", async () => {
+    const fetchMock = vi.fn((_url: string) =>
+      Promise.resolve(jsonResponse({ places: [] })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchOsAddressBookPlaces(config, {
+      q: "abc",
+      countryCode: "LB",
+      citySlug: "beirut",
+    });
+    const calledUrl = new URL(fetchMock.mock.calls[0]![0]);
+    expect(calledUrl.searchParams.get("city_slug")).toBe("beirut");
+  });
+
+  it("normalises the contract payload into the internal place shape", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(jsonResponse({ places: [contractPlace] }))),
+    );
+
+    const { places } = await searchOsAddressBookPlaces(config, { q: "abc" });
+    expect(places).toHaveLength(1);
+    const place = places[0]!;
+    expect(place.id).toBe("place-uuid");
+    expect(place.name).toBe("ABC Hotel");
+    expect(place.aliases).toEqual(["ABC Hotel Beirut"]);
+    expect(place.type).toBe("hotel");
+    expect(place.countryCode).toBe("LB");
+    expect(place.districtName).toBe("Beirut");
+    expect(place.area).toBe("Hamra");
+    expect(place.lat).toBe(33.895);
+    expect(place.lng).toBe(35.478);
+    // verificationState "delivery_verified" satisfies all three eligibility flags.
+    expect(place.verified).toBe(true);
+    expect(place.published).toBe(true);
+    expect(place.checkoutEnabled).toBe(true);
+    expect(place.followUpQuestion).toBe(
+      "Please add floor, apartment, and delivery instructions.",
+    );
+  });
+
+  it("fails closed for any verificationState other than delivery_verified", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            places: [
+              { ...contractPlace, verificationState: "pending" },
+              { ...contractPlace, id: "p2", verificationState: null },
+            ],
+          }),
+        ),
+      ),
+    );
+    const { places } = await searchOsAddressBookPlaces(config, { q: "abc" });
+    expect(places.every((p) => !p.verified || !p.published || !p.checkoutEnabled)).toBe(
+      true,
+    );
+  });
+
+  it("also accepts snake_case field names", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            places: [
+              {
+                id: "p1",
+                display_name: "AUBMC",
+                approved_aliases: ["AUB"],
+                delivery_district: "Beirut",
+                verification_state: "delivery_verified",
+                follow_up_copy: "Which building?",
+                country: "LB",
+                latitude: "33.9",
+                longitude: "35.48",
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+    const { places } = await searchOsAddressBookPlaces(config, { q: "aub" });
+    const place = places[0]!;
+    expect(place.name).toBe("AUBMC");
+    expect(place.aliases).toEqual(["AUB"]);
+    expect(place.districtName).toBe("Beirut");
+    expect(place.verified).toBe(true);
+    expect(place.followUpQuestion).toBe("Which building?");
+    expect(place.lat).toBe(33.9);
+  });
+
+  it("throws on a non-OK response (caller handles graceful fallback)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(jsonResponse({ error: "no_access" }, false, 403))),
+    );
+    await expect(searchOsAddressBookPlaces(config, { q: "aub" })).rejects.toThrow(
+      /403/,
+    );
   });
 });

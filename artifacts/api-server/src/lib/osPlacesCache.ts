@@ -1,31 +1,33 @@
 /**
- * In-memory cache + search index for verified Address Book places from
- * Presentail OS.
+ * Per-query search proxy + short-lived cache for verified Address Book
+ * places from Presentail OS.
  *
  * The OS Address Book is the single source of truth for landmarks and
- * well-known places (hospitals, universities, hotels, malls...). This module
- * only consumes a public-safe projection of it: places must be verified AND
- * published AND checkout-enabled to ever be indexed. This repo never invents
- * places, districts, or coordinates.
+ * well-known places (hospitals, universities, hotels, malls...). Per the
+ * confirmed OS contract (Aug 2026) the SEARCH ITSELF happens OS-side:
+ * we forward the shopper's debounced text as `q` to
+ * GET /api/public/address-book/places and relay only checkout-safe records.
+ * This repo never invents places, districts, or coordinates, and never
+ * re-ranks the OS relevance ordering.
  *
  * Feature flag: OS_ADDRESS_BOOK_ENABLED
- *   As of Aug 2026 the storefront API key gets a generic 403 "no_access"
- *   from every candidate OS address-book endpoint (see ADDRESS_BOOK_PATHS in
- *   @workspace/presentail-os). Until the OS team grants access, this flag
- *   stays unset and the cache stays dark: searchAddressBookPlaces() returns
- *   an empty list, the public search route returns { places: [] }, and
- *   checkout behaves exactly as today (plain free-text address entry).
- *   Set OS_ADDRESS_BOOK_ENABLED=1 (and redeploy) to light it up.
+ *   While unset the module is fully dark: searchAddressBookPlaces() returns
+ *   an empty list with NO OS calls, the public search route returns
+ *   { places: [] }, and checkout behaves exactly as before (plain free-text
+ *   address entry). Set OS_ADDRESS_BOOK_ENABLED=1 (and redeploy) to light
+ *   it up.
  *
- * Fallback policy:
+ * Fallback policy (checkout free-text entry must never depend on this API):
  *   - Flag off → always empty, no OS calls at all.
- *   - Fetch failure with no prior data → empty (checkout degrades to free
- *     text; the field never errors because of this module).
- *   - Fetch failure after a successful load → last-good data is retained.
+ *   - OS failure (403 while access is pending, network, bad payload) →
+ *     empty list AND a global backoff so a shopper typing does not hammer
+ *     OS with one failing request per keystroke.
+ *   - Per-query results are cached briefly so repeated queries (backspacing,
+ *     retyping) are served without extra OS round-trips.
  */
 
 import {
-  fetchOsAddressBookPlaces,
+  searchOsAddressBookPlaces,
   type OSAddressBookPlace,
 } from "@workspace/presentail-os";
 import { getLocations } from "./osLocationsCache";
@@ -38,35 +40,13 @@ export function isAddressBookEnabled(): boolean {
   return v === "1" || v === "true" || v === "yes" || v === "on";
 }
 
-// ── Cache state ─────────────────────────────────────────────────────────────
-
-/** Refresh the place list at most this often (successful fetches). */
-const PLACES_TTL_MS = 5 * 60 * 1000;
-/** After a failed fetch, wait this long before retrying (avoids hammering OS). */
-const FAILURE_RETRY_MS = 60 * 1000;
-
-type IndexedPlace = {
-  place: OSAddressBookPlace;
-  /** Normalised display name. */
-  normName: string;
-  /** Normalised official name ("" when absent). */
-  normOfficial: string;
-  /** Normalised aliases. */
-  normAliases: string[];
-};
-
-let indexedPlaces: IndexedPlace[] = [];
-let lastSuccessAt = 0;
-let lastAttemptAt = 0;
-let refreshInFlight: Promise<void> | null = null;
-
 // ── Normalisation ───────────────────────────────────────────────────────────
 
 /**
- * Normalise text for matching: lowercase, strip diacritics/accents (NFKD),
- * unify common Arabic letter variants, replace punctuation with spaces, and
- * collapse whitespace. "A.U.B." → "a u b" → matches alias "aub" after token
- * join; "Hôtel-Dieu" → "hotel dieu".
+ * Normalise text for cache keys and the minimum-length guard: lowercase,
+ * strip diacritics/accents (NFKD), unify common Arabic letter variants,
+ * replace punctuation with spaces, and collapse whitespace.
+ * "A.U.B." → "a u b"; "Hôtel-Dieu" → "hotel dieu".
  */
 export function normalizeSearchText(input: string): string {
   return input
@@ -89,137 +69,54 @@ function compactForm(normalized: string): string {
   return normalized.replace(/ /g, "");
 }
 
-// ── Ranking ────────────────────────────────────────────────────────────────
+// ── Per-query cache + failure backoff ───────────────────────────────────────
 
+/** Serve a cached per-query result for this long before re-asking OS. */
+const QUERY_TTL_MS = 60 * 1000;
 /**
- * Match tiers, lower is better:
- *   0 — exact match on an alias, display name, or official name
- *   1 — prefix match
- *   2 — token-prefix or substring match
- *   3 — fuzzy (in-order subsequence, query ≥ 4 chars)
- * Returns null when the place does not match at all.
+ * After ANY OS failure, stop calling OS entirely for this long (globally).
+ * Prevents one failing request per keystroke while access is still pending
+ * (the current 403 state) or OS is down.
  */
-export function matchTier(normQuery: string, entry: IndexedPlace): number | null {
-  if (!normQuery) return null;
-  const compactQuery = compactForm(normQuery);
-  const keys = [entry.normName, entry.normOfficial, ...entry.normAliases].filter(
-    (k) => k.length > 0,
-  );
+const FAILURE_BACKOFF_MS = 60 * 1000;
+/** Cap the per-query cache; oldest entries are evicted first. */
+const MAX_CACHE_ENTRIES = 500;
 
-  let best: number | null = null;
-  const consider = (tier: number) => {
-    if (best === null || tier < best) best = tier;
-  };
+type CacheEntry = {
+  at: number;
+  places: OSAddressBookPlace[];
+};
 
-  for (const key of keys) {
-    const compactKey = compactForm(key);
-    // Tier 0: exact (spacing/punctuation-insensitive)
-    if (key === normQuery || compactKey === compactQuery) {
-      consider(0);
-      continue;
-    }
-    // Tier 1: prefix
-    if (key.startsWith(normQuery) || compactKey.startsWith(compactQuery)) {
-      consider(1);
-      continue;
-    }
-    // Tier 2: every query token is a prefix of some key token, or plain substring
-    const queryTokens = normQuery.split(" ");
-    const keyTokens = key.split(" ");
-    const allTokensMatch = queryTokens.every((qt) =>
-      keyTokens.some((kt) => kt.startsWith(qt)),
-    );
-    if (allTokensMatch || key.includes(normQuery)) {
-      consider(2);
-      continue;
-    }
-    // Tier 3: in-order subsequence (guarded to ≥4 chars to avoid noise)
-    if (compactQuery.length >= 4 && isSubsequence(compactQuery, compactKey)) {
-      consider(3);
-    }
-  }
-  return best;
+const queryCache = new Map<string, CacheEntry>();
+let backoffUntil = 0;
+const inFlight = new Map<string, Promise<OSAddressBookPlace[]>>();
+
+function cacheKey(normQuery: string, countryCode: string | null): string {
+  // Compact (space-free) form so "A.U.B." and "aub" share one entry.
+  return `${countryCode ?? "*"}|${compactForm(normQuery)}`;
 }
 
-function isSubsequence(needle: string, haystack: string): boolean {
-  let i = 0;
-  for (const ch of haystack) {
-    if (ch === needle[i]) i++;
-    if (i === needle.length) return true;
+function pruneCache(now: number): void {
+  if (queryCache.size <= MAX_CACHE_ENTRIES) return;
+  for (const [key, entry] of queryCache) {
+    if (queryCache.size <= MAX_CACHE_ENTRIES && now - entry.at < QUERY_TTL_MS) break;
+    queryCache.delete(key);
   }
-  return i === needle.length;
-}
-
-// ── Index building ─────────────────────────────────────────────────────────
-
-/**
- * Build the search index from raw OS places, keeping ONLY checkout-eligible
- * records: verified + published + checkout-enabled. This is the safety
- * filter the public search route relies on — unverified or inactive places
- * must never be suggested to shoppers.
- */
-export function buildPlaceIndex(places: OSAddressBookPlace[]): IndexedPlace[] {
-  const out: IndexedPlace[] = [];
-  for (const place of places) {
-    if (!place.verified || !place.published || !place.checkoutEnabled) continue;
-    out.push({
-      place,
-      normName: normalizeSearchText(place.name),
-      normOfficial: place.officialName ? normalizeSearchText(place.officialName) : "",
-      normAliases: place.aliases.map(normalizeSearchText).filter((a) => a.length > 0),
-    });
-  }
-  return out;
-}
-
-// ── Refresh ────────────────────────────────────────────────────────────────
-
-async function refreshPlaces(): Promise<void> {
-  lastAttemptAt = Date.now();
-  try {
-    const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
-    const { places } = await fetchOsAddressBookPlaces({
-      apiKey,
-      baseUrl: process.env.PRESENTAIL_OS_API_URL || undefined,
-    });
-    indexedPlaces = buildPlaceIndex(places);
-    lastSuccessAt = Date.now();
-    logger.info(
-      { total: places.length, eligible: indexedPlaces.length },
-      "[osPlacesCache] refreshed address-book places",
-    );
-  } catch (err) {
-    // Expected until the OS team grants the API key access — keep last-good
-    // data (possibly empty). Checkout degrades to free text, never errors.
-    logger.warn(
-      { err: err instanceof Error ? err.message : String(err) },
-      "[osPlacesCache] address-book fetch failed; retaining last-good data",
-    );
-  }
-}
-
-function ensureFresh(): void {
-  if (!isAddressBookEnabled()) return;
-  const now = Date.now();
-  const stale = now - lastSuccessAt >= PLACES_TTL_MS;
-  const canRetry = now - lastAttemptAt >= FAILURE_RETRY_MS;
-  if (!stale || !canRetry || refreshInFlight) return;
-  refreshInFlight = refreshPlaces().finally(() => {
-    refreshInFlight = null;
-  });
 }
 
 // ── Public search API ──────────────────────────────────────────────────────
 
 /**
  * Public-safe projection of a place returned to the storefront. Only fields
- * a shopper may see — never internal notes, contacts, or verification
- * history (those never even reach this process; see the OS client type).
+ * a shopper may see — never internal notes, contacts, delivery history, or
+ * audit data (those never even reach this process; see the OS client type).
  */
 export type SafeAddressBookPlace = {
   id: string;
   name: string;
   officialName: string | null;
+  /** Approved public aliases (abbreviations, older names) — displayable. */
+  aliases: string[];
   area: string | null;
   /** Verified OS district display name (e.g. "Beirut"). */
   districtName: string | null;
@@ -274,61 +171,114 @@ function resolveDistrict(place: OSAddressBookPlace): {
   return { districtCityId: null, districtCityName: null };
 }
 
+function toSafePlace(place: OSAddressBookPlace): SafeAddressBookPlace {
+  const district = resolveDistrict(place);
+  return {
+    id: place.id,
+    name: place.name,
+    officialName:
+      place.officialName && place.officialName !== place.name
+        ? place.officialName
+        : null,
+    aliases: place.aliases.filter(
+      (a) => a.trim().length > 0 && a.trim().toLowerCase() !== place.name.trim().toLowerCase(),
+    ),
+    area: place.area ?? null,
+    districtName: place.districtName ?? district.districtCityName,
+    districtCityId: district.districtCityId,
+    districtCityName: district.districtCityName,
+    countryCode: place.countryCode ?? null,
+    lat: place.lat ?? null,
+    lng: place.lng ?? null,
+    verified: true,
+    followUpQuestion: place.followUpQuestion ?? null,
+    followUpPlaceholder: place.followUpPlaceholder ?? null,
+  };
+}
+
 /**
- * Search checkout-eligible Address Book places.
+ * Fetch eligible places for a query from OS (or the per-query cache).
+ * Returns the ELIGIBLE OSAddressBookPlace list (before limiting/projection).
+ * Never throws; failures arm the global backoff and yield [].
+ */
+async function fetchEligiblePlaces(
+  rawQuery: string,
+  normQuery: string,
+  countryCode: string | null,
+): Promise<OSAddressBookPlace[]> {
+  const now = Date.now();
+  const key = cacheKey(normQuery, countryCode);
+
+  const cached = queryCache.get(key);
+  if (cached && now - cached.at < QUERY_TTL_MS) return cached.places;
+
+  // Failure backoff: never call OS during the window; serve last-good
+  // (possibly stale) data for this exact query if we have it.
+  if (now < backoffUntil) return cached?.places ?? [];
+
+  const existing = inFlight.get(key);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const { places } = await searchOsAddressBookPlaces(
+        {
+          apiKey: process.env.PRESENTAIL_OS_API_KEY ?? "",
+          baseUrl: process.env.PRESENTAIL_OS_API_URL || undefined,
+        },
+        { q: rawQuery, countryCode: countryCode ?? undefined },
+      );
+      // Defensive eligibility filter — the OS contract promises only
+      // checkout-safe records, but unverified places must never reach a
+      // shopper even if OS misbehaves (fail closed).
+      const eligible = places.filter(
+        (p) => p.verified && p.published && p.checkoutEnabled,
+      );
+      queryCache.set(key, { at: Date.now(), places: eligible });
+      pruneCache(Date.now());
+      return eligible;
+    } catch (err) {
+      // Expected while OS access is pending (403) — back off, keep last-good.
+      backoffUntil = Date.now() + FAILURE_BACKOFF_MS;
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "[osPlacesCache] address-book search failed; backing off",
+      );
+      return cached?.places ?? [];
+    } finally {
+      inFlight.delete(key);
+    }
+  })();
+  inFlight.set(key, promise);
+  return promise;
+}
+
+/**
+ * Search checkout-eligible Address Book places via the OS search endpoint.
  *
  * Spans ALL districts of the given country (not just the shopper's selected
  * one) — a landmark match is exactly how a shopper discovers the recipient
  * is in a different district. Never throws; any internal problem yields [].
  */
-export function searchAddressBookPlaces(
+export async function searchAddressBookPlaces(
   query: string,
   countryCode?: string,
   limit = 6,
-): SafeAddressBookPlace[] {
+): Promise<SafeAddressBookPlace[]> {
   try {
     if (!isAddressBookEnabled()) return [];
-    ensureFresh();
 
     const normQuery = normalizeSearchText(query);
     if (compactForm(normQuery).length < 2) return [];
 
     const cc = countryCode ? countryCode.trim().toUpperCase() : null;
-    const scored: Array<{ entry: IndexedPlace; tier: number }> = [];
-    for (const entry of indexedPlaces) {
-      if (cc && entry.place.countryCode && entry.place.countryCode !== cc) continue;
-      const tier = matchTier(normQuery, entry);
-      if (tier !== null) scored.push({ entry, tier });
-    }
-    scored.sort(
-      (a, b) =>
-        a.tier - b.tier ||
-        a.entry.normName.length - b.entry.normName.length ||
-        a.entry.normName.localeCompare(b.entry.normName),
-    );
+    const eligible = await fetchEligiblePlaces(query.trim(), normQuery, cc);
 
-    return scored.slice(0, Math.max(1, Math.min(limit, 10))).map(({ entry }) => {
-      const { place } = entry;
-      const district = resolveDistrict(place);
-      return {
-        id: place.id,
-        name: place.name,
-        officialName:
-          place.officialName && place.officialName !== place.name
-            ? place.officialName
-            : null,
-        area: place.area ?? null,
-        districtName: place.districtName ?? district.districtCityName,
-        districtCityId: district.districtCityId,
-        districtCityName: district.districtCityName,
-        countryCode: place.countryCode ?? null,
-        lat: place.lat ?? null,
-        lng: place.lng ?? null,
-        verified: true,
-        followUpQuestion: place.followUpQuestion ?? null,
-        followUpPlaceholder: place.followUpPlaceholder ?? null,
-      };
-    });
+    // Trust the OS relevance ordering; just scope, cap, and project.
+    return eligible
+      .filter((p) => !cc || !p.countryCode || p.countryCode === cc)
+      .slice(0, Math.max(1, Math.min(limit, 10)))
+      .map(toSafePlace);
   } catch (err) {
     logger.warn(
       { err: err instanceof Error ? err.message : String(err) },
@@ -340,17 +290,14 @@ export function searchAddressBookPlaces(
 
 // ── Test hooks ─────────────────────────────────────────────────────────────
 
-/** Test-only: replace the in-memory index and mark it fresh. */
-export function __setPlacesForTest(places: OSAddressBookPlace[]): void {
-  indexedPlaces = buildPlaceIndex(places);
-  lastSuccessAt = Date.now();
-  lastAttemptAt = Date.now();
+/** Test-only: clear all cache/backoff state. */
+export function __resetPlacesCacheForTest(): void {
+  queryCache.clear();
+  inFlight.clear();
+  backoffUntil = 0;
 }
 
-/** Test-only: clear all cache state. */
-export function __resetPlacesCacheForTest(): void {
-  indexedPlaces = [];
-  lastSuccessAt = 0;
-  lastAttemptAt = 0;
-  refreshInFlight = null;
+/** Test-only: report whether the failure backoff is currently armed. */
+export function __isBackoffArmedForTest(): boolean {
+  return Date.now() < backoffUntil;
 }

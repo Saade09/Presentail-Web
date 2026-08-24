@@ -1106,9 +1106,11 @@ export async function validateOsCoupon(
 // ── Address Book (verified landmarks / well-known places) ──────────────────
 
 /**
- * Raw wire shape of an OS Address Book place. OS endpoints may return either
- * snake_case or camelCase field names depending on deployment version, so
- * every field is read via the `raw.x_y ?? raw.xY` pattern.
+ * Raw wire shape of an OS Address Book place. The confirmed contract
+ * (OS team, Aug 2026) sends camelCase fields — displayName, approvedAliases,
+ * deliveryDistrict, verificationState, followUpCopy — but OS endpoints have
+ * historically flipped between snake_case and camelCase across deployments,
+ * so every field is read via the `raw.x_y ?? raw.xY` pattern.
  */
 type RawOSAddressBookPlace = {
   id?: string | number;
@@ -1119,6 +1121,8 @@ type RawOSAddressBookPlace = {
   official_name?: string | null;
   officialName?: string | null;
   aliases?: unknown;
+  approved_aliases?: unknown;
+  approvedAliases?: unknown;
   public_aliases?: unknown;
   publicAliases?: unknown;
   type?: string | null;
@@ -1134,6 +1138,8 @@ type RawOSAddressBookPlace = {
   district_name?: string | null;
   districtName?: string | null;
   district?: string | { id?: string | number; slug?: string; name?: string } | null;
+  delivery_district?: string | null;
+  deliveryDistrict?: string | null;
   area?: string | null;
   city?: string | null;
   neighbourhood?: string | null;
@@ -1148,6 +1154,8 @@ type RawOSAddressBookPlace = {
   isVerified?: boolean;
   verification_status?: string | null;
   verificationStatus?: string | null;
+  verification_state?: string | null;
+  verificationState?: string | null;
   published?: boolean;
   is_published?: boolean;
   isPublished?: boolean;
@@ -1158,6 +1166,8 @@ type RawOSAddressBookPlace = {
   checkout_active?: boolean;
   follow_up_question?: string | null;
   followUpQuestion?: string | null;
+  follow_up_copy?: string | null;
+  followUpCopy?: string | null;
   internal_location_question?: string | null;
   follow_up_placeholder?: string | null;
   followUpPlaceholder?: string | null;
@@ -1220,7 +1230,18 @@ export function normaliseOsAddressBookPlace(
   const districtObj =
     raw.district && typeof raw.district === "object" ? raw.district : null;
 
+  // Confirmed contract (Aug 2026): a single `verificationState` string where
+  // "delivery_verified" means the record is checkout-safe. That one state
+  // satisfies all three legacy eligibility booleans at once. Any other state
+  // (or absence) falls back to the legacy flags, which default to FALSE —
+  // fail closed, never open.
+  const verificationState = toStringOrNull(
+    raw.verification_state ?? raw.verificationState,
+  );
+  const deliveryVerified = verificationState === "delivery_verified";
+
   const verified =
+    (deliveryVerified ? true : undefined) ??
     raw.verified ??
     raw.is_verified ??
     raw.isVerified ??
@@ -1229,12 +1250,14 @@ export function normaliseOsAddressBookPlace(
       : undefined) ??
     false;
   const published =
+    (deliveryVerified ? true : undefined) ??
     raw.published ??
     raw.is_published ??
     raw.isPublished ??
     (raw.status === "published" ? true : undefined) ??
     false;
   const checkoutEnabled =
+    (deliveryVerified ? true : undefined) ??
     raw.checkout_enabled ??
     raw.checkoutEnabled ??
     raw.is_checkout_enabled ??
@@ -1245,7 +1268,13 @@ export function normaliseOsAddressBookPlace(
     id,
     name,
     officialName: toStringOrNull(raw.official_name ?? raw.officialName),
-    aliases: toAliasList(raw.aliases ?? raw.public_aliases ?? raw.publicAliases),
+    aliases: toAliasList(
+      raw.approved_aliases ??
+        raw.approvedAliases ??
+        raw.aliases ??
+        raw.public_aliases ??
+        raw.publicAliases,
+    ),
     type: toStringOrNull(raw.place_type ?? raw.placeType ?? raw.type),
     countryCode: (() => {
       const c = toStringOrNull(raw.country_code ?? raw.countryCode ?? raw.country);
@@ -1261,8 +1290,13 @@ export function normaliseOsAddressBookPlace(
           districtObj?.id,
       ) ?? (typeof raw.district === "string" ? toStringOrNull(raw.district) : null),
     districtName:
-      toStringOrNull(raw.district_name ?? raw.districtName ?? districtObj?.name) ??
-      (typeof raw.district === "string" ? toStringOrNull(raw.district) : null),
+      toStringOrNull(
+        raw.delivery_district ??
+          raw.deliveryDistrict ??
+          raw.district_name ??
+          raw.districtName ??
+          districtObj?.name,
+      ) ?? (typeof raw.district === "string" ? toStringOrNull(raw.district) : null),
     area: toStringOrNull(
       raw.area ?? raw.neighbourhood ?? raw.neighborhood ?? raw.city,
     ),
@@ -1274,6 +1308,8 @@ export function normaliseOsAddressBookPlace(
     followUpQuestion: toStringOrNull(
       raw.follow_up_question ??
         raw.followUpQuestion ??
+        raw.follow_up_copy ??
+        raw.followUpCopy ??
         raw.internal_location_question,
     ),
     followUpPlaceholder: toStringOrNull(
@@ -1285,83 +1321,86 @@ export function normaliseOsAddressBookPlace(
 }
 
 /**
- * Candidate OS Address Book endpoints, tried in order. As of Aug 2026 the
- * storefront API key receives a generic 403 {"error":"no_access"} on all of
- * them (verified against every auth pattern this client uses — x-api-key
- * header, apiKey query param, and both combined — while known-good endpoints
- * like /api/delivery-locations-ext return 200 with the same key). The paths
- * are kept in the expected priority order so the integration lights up
- * automatically once the OS team grants the key access.
+ * Confirmed OS Address Book search endpoint (contract from the OS team,
+ * Aug 2026):
+ *
+ *   GET /api/public/address-book/places
+ *     ?workspace=<workspace-slug>
+ *     &q=<customer-search-text>
+ *     &country=<ISO-country-code>
+ *     [&city_slug=<city-slug>]
+ *
+ * The search happens OS-side: we forward the shopper's (debounced) text as
+ * `q` and the OS returns only checkout-safe records. Note: as of Aug 24 2026
+ * the endpoint still answers 403 {"error":"no_access"} for the storefront
+ * key — the integration lights up automatically once the OS team grants
+ * access (all failures degrade to an empty suggestion list downstream).
  */
-const ADDRESS_BOOK_PATHS = [
-  "/api/public/address-book/places",
-  "/api/address-book/places",
-  "/api/places",
-] as const;
+const ADDRESS_BOOK_SEARCH_PATH = "/api/public/address-book/places";
 
 /**
- * Fetch the published Address Book places from Presentail OS.
+ * Search the OS Address Book for verified places matching the shopper's
+ * typed text.
  *
- * Throws when no endpoint is accessible (the current state — see
- * ADDRESS_BOOK_PATHS). The caller is responsible for graceful fallback:
- * checkout must degrade to plain free-text address entry, never error.
+ * Throws on any HTTP/network failure — the caller is responsible for
+ * graceful fallback: checkout must degrade to plain free-text address
+ * entry, never error.
  */
-export async function fetchOsAddressBookPlaces(
+export async function searchOsAddressBookPlaces(
   config: PresentailOsConfig,
-  opts: { countryCode?: string } = {},
+  opts: { q: string; countryCode?: string; citySlug?: string },
 ): Promise<OSAddressBookPlacesResponse> {
   const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
 
   if (!apiKey) {
     throw new Error(
-      "PRESENTAIL_OS_API_KEY is required for fetchOsAddressBookPlaces.",
+      "PRESENTAIL_OS_API_KEY is required for searchOsAddressBookPlaces.",
     );
   }
 
-  let lastStatus: number | null = null;
-  for (const path of ADDRESS_BOOK_PATHS) {
-    const url = new URL(`${baseUrl}${path}`);
-    url.searchParams.set("workspace", workspace);
-    url.searchParams.set("apiKey", apiKey);
-    if (opts.countryCode) {
-      url.searchParams.set("country_code", opts.countryCode.toUpperCase());
-    }
-    let res: Response;
-    try {
-      res = await fetch(url.toString(), {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "PresentailApp/1.0",
-          "x-api-key": apiKey,
-        },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
-    } catch {
-      // Network error / timeout on this path — try the next candidate.
-      continue;
-    }
-    if (!res.ok) {
-      lastStatus = res.status;
-      continue;
-    }
-    const body = (await res.json()) as unknown;
-    // Accept { places: [...] }, { items: [...] }, or a bare array.
-    const rawList: unknown = Array.isArray(body)
-      ? body
-      : body && typeof body === "object"
-        ? ((body as Record<string, unknown>)["places"] ??
-          (body as Record<string, unknown>)["items"] ??
-          (body as Record<string, unknown>)["data"])
-        : null;
-    if (!Array.isArray(rawList)) continue;
-    const places = rawList
-      .map((p) => normaliseOsAddressBookPlace(p as RawOSAddressBookPlace))
-      .filter((p): p is OSAddressBookPlace => p !== null);
-    return { places };
+  const url = new URL(`${baseUrl}${ADDRESS_BOOK_SEARCH_PATH}`);
+  url.searchParams.set("workspace", workspace);
+  url.searchParams.set("q", opts.q);
+  if (opts.countryCode) {
+    url.searchParams.set("country", opts.countryCode.toUpperCase());
+  }
+  if (opts.citySlug) {
+    url.searchParams.set("city_slug", opts.citySlug);
+  }
+  url.searchParams.set("apiKey", apiKey);
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      "x-api-key": apiKey,
+      Authorization: `Bearer ${apiKey}`,
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(
+      // Server-side diagnostic, never shown to shoppers.
+      `Presentail OS address-book search failed (HTTP ${res.status})`, // i18n-ignore
+    );
   }
 
-  throw new Error(
-    // Server-side diagnostic, never shown to shoppers.
-    `Presentail OS address-book API is not accessible (last HTTP status: ${lastStatus ?? "network error"})`, // i18n-ignore
-  );
+  const body = (await res.json().catch(() => null)) as unknown;
+  // Accept { places: [...] }, { items: [...] }, { data: [...] }, or a bare array.
+  const rawList: unknown = Array.isArray(body)
+    ? body
+    : body && typeof body === "object"
+      ? ((body as Record<string, unknown>)["places"] ??
+        (body as Record<string, unknown>)["items"] ??
+        (body as Record<string, unknown>)["data"])
+      : null;
+  if (!Array.isArray(rawList)) {
+    throw new Error(
+      "Presentail OS address-book search returned an unexpected payload shape", // i18n-ignore
+    );
+  }
+  const places = rawList
+    .map((p) => normaliseOsAddressBookPlace(p as RawOSAddressBookPlace))
+    .filter((p): p is OSAddressBookPlace => p !== null);
+  return { places };
 }

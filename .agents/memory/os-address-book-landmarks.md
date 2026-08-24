@@ -5,10 +5,11 @@ description: Checkout landmark suggestions ship dark behind OS_ADDRESS_BOOK_ENAB
 
 # OS Address Book landmark recognition (checkout Delivery Details)
 
-- The whole feature is dark by default behind the **server** env flag `OS_ADDRESS_BOOK_ENABLED` (api-server only; the web client has no flag). Flag off → places cache returns [] → search route returns `{ok:true, places:[]}` → no dropdown ever renders → checkout behaves exactly as before.
-- **Why:** every candidate OS address-book path (`/api/public/address-book/places*`, `/api/address-book/places`, `/api/places`, `/api/landmarks`) returns a generic `{"error":"no_access"}` 403 for `PRESENTAIL_OS_API_KEY` — identical to a bogus path — so the real endpoint/auth is unknown until the OS team grants access.
-- **How to apply:** to go live, set `OS_ADDRESS_BOOK_ENABLED=1` on the api-server deployment, confirm which path in `ADDRESS_BOOK_PATHS` (lib/presentail-os client) actually answers, and smoke-test `/api/address-book/places/search?q=...`. The search route must keep answering 200 with an empty list on any failure — free-text address entry must never depend on this API.
-- Eligibility booleans (verified/published/checkoutEnabled) normalize fail-closed (default false); the search index filters to all three true.
+- The feature is gated by the **server** env flag `OS_ADDRESS_BOOK_ENABLED` (api-server only; the web client has no flag). Flag off or OS failing → search returns [] → no dropdown → checkout behaves exactly as before.
+- **Confirmed contract (OS team, Aug 2026):** `GET /api/public/address-book/places?workspace=&q=&country=[&city_slug=]` — the SEARCH runs OS-side (we forward the shopper's debounced text as `q`); response places carry `displayName`, `approvedAliases`, `type`, `country`, `deliveryDistrict`, `area`, `city`, `latitude/longitude`, `verificationState` (`delivery_verified` = checkout-safe), `followUpCopy`. The storefront must display displayName + approved aliases, retain the id + typed text, send the place ID on the order, treat browser coordinates as non-authoritative, and always fall back to free text on error/no results.
+- Implementation is a per-query proxy (no bulk cache/index): short per-query TTL cache + a global 60s failure backoff so a typing shopper never hammers OS while access is down. OS relevance ordering is preserved — no local re-ranking.
+- **Status Aug 24, 2026:** contract wired, flag ON (shared env). The endpoint still answers `{"error":"no_access"}` 403 for our key; user says OS runs on Replit and access opens once the OS side is redeployed. Everything lights up automatically then — no storefront change needed. Our production deployment must also be redeployed to pick up the env flag + new client.
+- Eligibility fails closed: `verificationState === "delivery_verified"` (or all three legacy booleans true) is required or the place is dropped server-side.
 - Client analytics noise guard: `landmark_search_performed` / `landmark_search_no_results` fire only after the browser session has seen ≥1 suggestion, so the dark flag produces zero event noise.
 
 ## Arabic search normalization gotcha

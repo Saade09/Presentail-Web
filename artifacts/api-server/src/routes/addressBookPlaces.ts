@@ -48,7 +48,7 @@ const QuerySchema = z.object({
 
 const MAX_RESULTS = 6;
 
-router.get("/address-book/places/search", placesSearchLimiter, (req, res) => {
+router.get("/address-book/places/search", placesSearchLimiter, async (req, res) => {
   try {
     const parsed = QuerySchema.safeParse({
       q: typeof req.query.q === "string" ? req.query.q : "",
@@ -63,7 +63,7 @@ router.get("/address-book/places/search", placesSearchLimiter, (req, res) => {
       res.status(200).json({ ok: true, places: [] });
       return;
     }
-    const places = searchAddressBookPlaces(
+    const places = await searchAddressBookPlaces(
       parsed.data.q,
       parsed.data.country,
       MAX_RESULTS,
