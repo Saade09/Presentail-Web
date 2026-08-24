@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Zap, CalendarDays, Check, ChevronLeft, ChevronRight, ArrowRight, Moon } from "lucide-react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useLocationSelection } from "@/contexts/LocationContext";
+import { useLocationSelection, type DeliveryCity } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { ReactNode } from "react";
 import { useNow } from "@/lib/useNow";
@@ -84,6 +84,15 @@ interface Props {
    * highlighted). Still subject to express availability.
    */
   initialModeOverride?: "express" | "schedule";
+  /**
+   * The city whose schedule the modal should show. When provided (even as
+   * null), it takes precedence over the browsing city from LocationContext —
+   * the checkout MUST pass its selected delivery district's city here so the
+   * per-weekday schedule, midnight-slot detection, and the confirmed cityId
+   * all follow the district picked at checkout, not the storefront city.
+   * When omitted (e.g. product-page usage), the browsing city is used.
+   */
+  city?: DeliveryCity | null;
 }
 
 function dayMonthShort(iso: string): string {
@@ -286,9 +295,13 @@ function InlineCalendar({ selectedIso, todayIso, todaySelectable, onSelect, prev
 // Main modal
 // ---------------------------------------------------------------------------
 
-export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd, initialModeOverride }: Props) {
+export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd, initialModeOverride, city: cityProp }: Props) {
   const { t, language } = useLocale();
-  const { countryCode, city } = useLocationSelection();
+  const { countryCode, city: browsingCity } = useLocationSelection();
+  // Distinguish "prop omitted" (undefined → browsing city) from an explicit
+  // null (caller has no resolved city → flat timeSlots prop only, no
+  // per-weekday schedule and no midnight-slot city detection).
+  const city = cityProp !== undefined ? cityProp : browsingCity;
   const now = useNow();
   const deliverySelection = useDeliverySelection();
 

@@ -321,6 +321,24 @@ export const checkoutStrings: Dict = {
   "checkout.places.districtUpdated": { en: "Delivery district updated — {place} is in {district}. Delivery options and fee have been updated.", ar: "تم تحديث منطقة التوصيل — {place} يقع في {district}. تم تحديث خيارات التوصيل والرسوم." },
   "checkout.error.placeDetail": { en: "Add details so the courier can find the recipient inside this place.", ar: "أضف التفاصيل ليتمكن المندوب من إيجاد المستلم داخل هذا المكان." },
 
+  // District-change revalidation notice (inline, under the district dropdown)
+  "checkout.districtChange.updatedFor": { en: "Delivery options updated for {district}", ar: "تم تحديث خيارات التوصيل لـ {district}" },
+  "checkout.districtChange.expressUnavailableDistrict": { en: "Express delivery isn't available in this district. Please choose a new delivery time.", ar: "التوصيل السريع غير متوفر في هذه المنطقة. يرجى اختيار وقت توصيل جديد." },
+  "checkout.districtChange.expressUnavailableEmirate": { en: "Express delivery isn't available in this emirate. Please choose a new delivery time.", ar: "التوصيل السريع غير متوفر في هذه الإمارة. يرجى اختيار وقت توصيل جديد." },
+  "checkout.districtChange.expressUnavailableGovernorate": { en: "Express delivery isn't available in this governorate. Please choose a new delivery time.", ar: "التوصيل السريع غير متوفر في هذه المحافظة. يرجى اختيار وقت توصيل جديد." },
+  "checkout.districtChange.slotUnavailableDistrict": { en: "Your selected delivery time isn't available in this district. Please choose a new delivery time.", ar: "وقت التوصيل الذي اخترته غير متوفر في هذه المنطقة. يرجى اختيار وقت توصيل جديد." },
+  "checkout.districtChange.slotUnavailableEmirate": { en: "Your selected delivery time isn't available in this emirate. Please choose a new delivery time.", ar: "وقت التوصيل الذي اخترته غير متوفر في هذه الإمارة. يرجى اختيار وقت توصيل جديد." },
+  "checkout.districtChange.slotUnavailableGovernorate": { en: "Your selected delivery time isn't available in this governorate. Please choose a new delivery time.", ar: "وقت التوصيل الذي اخترته غير متوفر في هذه المحافظة. يرجى اختيار وقت توصيل جديد." },
+  "checkout.districtChange.feeUpdatedTitle": { en: "Delivery fee updated for {district}", ar: "تم تحديث رسوم التوصيل لـ {district}" },
+  "checkout.districtChange.feeUpdatedBody": { en: "The delivery fee changed from {oldFee} to {newFee}. Your delivery time is unchanged.", ar: "تغيّرت رسوم التوصيل من {oldFee} إلى {newFee}. وقت التوصيل الخاص بك لم يتغيّر." },
+  "checkout.districtChange.dismiss": { en: "Dismiss", ar: "إغلاق" },
+  "checkout.districtChange.checking": { en: "Updating delivery options for {district}…", ar: "جارٍ تحديث خيارات التوصيل لـ {district}…" },
+  "checkout.districtChange.loadFailed": { en: "We couldn't update delivery options for {district}.", ar: "تعذّر تحديث خيارات التوصيل لـ {district}." },
+  // Order Summary "Delivery selection required" card
+  "checkout.deliveryRequired.title": { en: "Delivery selection required", ar: "مطلوب اختيار موعد التوصيل" },
+  "checkout.deliveryRequired.body": { en: "Choose an available delivery time for {district}.", ar: "اختر وقت توصيل متاحًا لـ {district}." },
+  "checkout.deliveryRequired.cta": { en: "Choose delivery time", ar: "اختيار وقت التوصيل" },
+
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -603,6 +621,22 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.places.districtUpdated": "District de livraison mis à jour — {place} se trouve à {district}. Les options et frais de livraison ont été mis à jour.",
   "checkout.error.placeDetail": "Ajoutez des détails pour que le livreur puisse trouver le destinataire dans ce lieu.",
 
+  "checkout.districtChange.updatedFor": "Options de livraison mises à jour pour {district}",
+  "checkout.districtChange.expressUnavailableDistrict": "La livraison express n'est pas disponible dans ce district. Veuillez choisir un nouveau créneau de livraison.",
+  "checkout.districtChange.expressUnavailableEmirate": "La livraison express n'est pas disponible dans cet émirat. Veuillez choisir un nouveau créneau de livraison.",
+  "checkout.districtChange.expressUnavailableGovernorate": "La livraison express n'est pas disponible dans ce gouvernorat. Veuillez choisir un nouveau créneau de livraison.",
+  "checkout.districtChange.slotUnavailableDistrict": "Le créneau de livraison sélectionné n'est pas disponible dans ce district. Veuillez choisir un nouveau créneau de livraison.",
+  "checkout.districtChange.slotUnavailableEmirate": "Le créneau de livraison sélectionné n'est pas disponible dans cet émirat. Veuillez choisir un nouveau créneau de livraison.",
+  "checkout.districtChange.slotUnavailableGovernorate": "Le créneau de livraison sélectionné n'est pas disponible dans ce gouvernorat. Veuillez choisir un nouveau créneau de livraison.",
+  "checkout.districtChange.feeUpdatedTitle": "Frais de livraison mis à jour pour {district}",
+  "checkout.districtChange.feeUpdatedBody": "Les frais de livraison sont passés de {oldFee} à {newFee}. Votre créneau de livraison reste inchangé.",
+  "checkout.districtChange.dismiss": "Fermer",
+  "checkout.districtChange.checking": "Mise à jour des options de livraison pour {district}…",
+  "checkout.districtChange.loadFailed": "Impossible de mettre à jour les options de livraison pour {district}.",
+  "checkout.deliveryRequired.title": "Sélection de livraison requise",
+  "checkout.deliveryRequired.body": "Choisissez un créneau de livraison disponible pour {district}.",
+  "checkout.deliveryRequired.cta": "Choisir le créneau de livraison",
+
 };
 
 export const checkoutStringsEl: Record<string, string> = {
@@ -883,5 +917,21 @@ export const checkoutStringsEl: Record<string, string> = {
   "checkout.places.detailPh": "Κτίριο, τμήμα, όροφος, αριθμός δωματίου ή είσοδος",
   "checkout.places.districtUpdated": "Η περιοχή παράδοσης ενημερώθηκε — το {place} βρίσκεται σε {district}. Οι επιλογές και τα έξοδα παράδοσης ενημερώθηκαν.",
   "checkout.error.placeDetail": "Προσθέστε λεπτομέρειες ώστε ο διανομέας να βρει τον παραλήπτη μέσα σε αυτό το μέρος.",
+
+  "checkout.districtChange.updatedFor": "Οι επιλογές παράδοσης ενημερώθηκαν για {district}",
+  "checkout.districtChange.expressUnavailableDistrict": "Η ταχεία παράδοση δεν είναι διαθέσιμη σε αυτήν την περιοχή. Παρακαλώ επιλέξτε νέα ώρα παράδοσης.",
+  "checkout.districtChange.expressUnavailableEmirate": "Η ταχεία παράδοση δεν είναι διαθέσιμη σε αυτό το εμιράτο. Παρακαλώ επιλέξτε νέα ώρα παράδοσης.",
+  "checkout.districtChange.expressUnavailableGovernorate": "Η ταχεία παράδοση δεν είναι διαθέσιμη σε αυτόν τον νομό. Παρακαλώ επιλέξτε νέα ώρα παράδοσης.",
+  "checkout.districtChange.slotUnavailableDistrict": "Η επιλεγμένη ώρα παράδοσης δεν είναι διαθέσιμη σε αυτήν την περιοχή. Παρακαλώ επιλέξτε νέα ώρα παράδοσης.",
+  "checkout.districtChange.slotUnavailableEmirate": "Η επιλεγμένη ώρα παράδοσης δεν είναι διαθέσιμη σε αυτό το εμιράτο. Παρακαλώ επιλέξτε νέα ώρα παράδοσης.",
+  "checkout.districtChange.slotUnavailableGovernorate": "Η επιλεγμένη ώρα παράδοσης δεν είναι διαθέσιμη σε αυτόν τον νομό. Παρακαλώ επιλέξτε νέα ώρα παράδοσης.",
+  "checkout.districtChange.feeUpdatedTitle": "Τα έξοδα παράδοσης ενημερώθηκαν για {district}",
+  "checkout.districtChange.feeUpdatedBody": "Τα έξοδα παράδοσης άλλαξαν από {oldFee} σε {newFee}. Η ώρα παράδοσής σας δεν άλλαξε.",
+  "checkout.districtChange.dismiss": "Κλείσιμο",
+  "checkout.districtChange.checking": "Ενημέρωση επιλογών παράδοσης για {district}…",
+  "checkout.districtChange.loadFailed": "Δεν ήταν δυνατή η ενημέρωση των επιλογών παράδοσης για {district}.",
+  "checkout.deliveryRequired.title": "Απαιτείται επιλογή παράδοσης",
+  "checkout.deliveryRequired.body": "Επιλέξτε διαθέσιμη ώρα παράδοσης για {district}.",
+  "checkout.deliveryRequired.cta": "Επιλογή ώρας παράδοσης",
 
 };

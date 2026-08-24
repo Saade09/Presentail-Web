@@ -333,3 +333,66 @@ describe("DeliveryPickerModal — confirm carries the displayed variant's slotId
     expect(sel.slotId).toBe("night-nextday-free");
   });
 });
+
+// ---------------------------------------------------------------------------
+// The checkout passes its selected district's city via the `city` prop — the
+// modal must show THAT city's schedule and confirm with that cityId, never
+// the storefront browsing city's (a shopper browsing Beirut can deliver to
+// Akkar; the mocked browsing city above is lb-beirut).
+// ---------------------------------------------------------------------------
+
+describe("DeliveryPickerModal — city prop overrides the browsing city", () => {
+  // 2026-06-15 (mocked today) is a Monday.
+  const DISTRICT_CITY = {
+    id: "lb-akkar",
+    name: "Akkar",
+    slotsByDay: {
+      monday: [{ label: "Akkar Afternoon", cutoffHour: 20, startHour: 14, endHour: 18 }],
+      tuesday: [{ label: "Akkar Tomorrow", cutoffHour: 20, startHour: 9, endHour: 13 }],
+    },
+  };
+
+  it("shows the district city's per-weekday schedule, not the browsing-city slots", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DeliveryPickerModal
+        open={true}
+        onOpenChange={() => {}}
+        timeSlots={OS_SLOTS}
+        city={DISTRICT_CITY}
+      />,
+    );
+    expect(screen.getByTestId("slot-Akkar Afternoon")).toBeTruthy();
+    expect(screen.queryByTestId("slot-Morning")).toBeNull();
+    expect(screen.queryByTestId("slot-Evening")).toBeNull();
+
+    await user.click(getTomorrowButton());
+    expect(screen.getByTestId("slot-Akkar Tomorrow")).toBeTruthy();
+  });
+
+  it("confirming emits the district city's id, not the browsing city's", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    renderWithProviders(
+      <DeliveryPickerModal
+        open={true}
+        onOpenChange={() => {}}
+        timeSlots={OS_SLOTS}
+        city={DISTRICT_CITY}
+        onConfirm={onConfirm}
+      />,
+    );
+    await user.click(screen.getByTestId("slot-Akkar Afternoon"));
+    await user.click(screen.getByText("delivery.picker.confirm").closest("button") as HTMLButtonElement);
+    const sel = onConfirm.mock.calls[0][0] as { cityId: string | null };
+    expect(sel.cityId).toBe("lb-akkar");
+  });
+
+  it("an explicit null city uses only the flat timeSlots prop", () => {
+    renderWithProviders(
+      <DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={OS_SLOTS} city={null} />,
+    );
+    expect(screen.getByTestId("slot-Morning")).toBeTruthy();
+    expect(screen.getByTestId("slot-Evening")).toBeTruthy();
+  });
+});

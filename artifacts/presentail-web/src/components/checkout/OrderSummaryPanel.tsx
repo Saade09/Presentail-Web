@@ -12,6 +12,7 @@ import {
   Lock,
   X,
   Star,
+  AlertTriangle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,22 @@ export type OrderSummaryPanelProps = {
   /** Optional wrapper used by the mobile header toggle so the page can fire
       analytics alongside the state change. Falls back to setSummaryOpen. */
   onSummaryOpenChange?: (v: boolean) => void;
+  /** District-change revalidation: when set, the neutral DELIVERY panel is
+      replaced by the amber "Delivery selection required" card (or its
+      loading/error variants) until a valid selection exists again. */
+  deliveryRequired?: {
+    status: "invalid" | "pending" | "error";
+    /** Localized display name of the newly selected district. */
+    districtLabel: string;
+    /** Opens the delivery picker (filtered to the new district). */
+    onChoose: () => void;
+    /** Retries the delivery-locations fetch after a failure. */
+    onRetry: () => void;
+  } | null;
+  /** True while the delivery selection is invalid or revalidating: the CTA
+      stays clickable (click focuses the notice via onContinueToPayment) but
+      renders visually muted with aria-disabled. */
+  ctaBlocked?: boolean;
 };
 
 export function OrderSummaryPanel({
@@ -110,6 +127,8 @@ export function OrderSummaryPanel({
   summaryOpen,
   setSummaryOpen,
   onSummaryOpenChange,
+  deliveryRequired = null,
+  ctaBlocked = false,
 }: OrderSummaryPanelProps) {
   const { t, dir } = useLocale();
   useDisplayCurrency();
@@ -783,7 +802,67 @@ export function OrderSummaryPanel({
                 </div>
               </div>
 
-              {/* Delivery confirmation panel — compact, pale gray-blue */}
+              {/* Delivery panel: amber required-action card while the district
+                  change left the selection invalid / loading / errored,
+                  otherwise the neutral confirmation panel. */}
+              {deliveryRequired ? (
+              <div
+                className="mt-4 rounded-xl bg-amber-50 border border-amber-300 overflow-hidden"
+                data-testid="delivery-required-panel"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="px-4 pt-3 pb-3 flex items-start gap-2.5">
+                  {deliveryRequired.status === "pending" ? (
+                    <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 animate-spin" aria-hidden />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                      {t("checkout.delivery.sectionLabel")}
+                    </p>
+                    {deliveryRequired.status === "pending" ? (
+                      <p className="text-sm text-amber-900 mt-1" data-testid="text-delivery-required-body">
+                        {t("checkout.districtChange.checking", { district: deliveryRequired.districtLabel })}
+                      </p>
+                    ) : deliveryRequired.status === "error" ? (
+                      <>
+                        <p className="text-sm text-amber-900 mt-1" data-testid="text-delivery-required-body">
+                          {t("checkout.districtChange.loadFailed", { district: deliveryRequired.districtLabel })}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={deliveryRequired.onRetry}
+                          className="mt-1 text-sm font-medium text-amber-900 underline underline-offset-2 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-sm"
+                          data-testid="button-delivery-required-retry"
+                        >
+                          {t("checkout.retry")}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-amber-900 mt-1" data-testid="text-delivery-required-title">
+                          {t("checkout.deliveryRequired.title")}
+                        </p>
+                        <p className="text-xs text-amber-800 mt-0.5" data-testid="text-delivery-required-body">
+                          {t("checkout.deliveryRequired.body", { district: deliveryRequired.districtLabel })}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={deliveryRequired.onChoose}
+                          className="mt-2.5 h-9 bg-white border-amber-300 text-amber-900 hover:bg-amber-100 hover:text-amber-900"
+                          data-testid="button-choose-delivery-time"
+                        >
+                          {t("checkout.deliveryRequired.cta")}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              ) : (
               <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200/70 overflow-hidden" data-testid="delivery-confirmation-panel">
                 <div className="px-4 pt-3 pb-3 flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5 min-w-0">
@@ -837,6 +916,7 @@ export function OrderSummaryPanel({
                   </button>
                 </div>
               </div>
+              )}
 
             </div>{/* end pinned bottom */}
           </div>{/* end desktop body */}
@@ -851,7 +931,8 @@ export function OrderSummaryPanel({
                 onClick={onContinueToPayment}
                 data-testid="button-continue-to-payment-sidebar"
                 aria-describedby="sidebar-cta-secure"
-                className="w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary cursor-pointer hover:opacity-90"
+                aria-disabled={ctaBlocked || undefined}
+                className={`w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${ctaBlocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
                 style={{ backgroundColor: "hsl(var(--primary))" }}
               >
                 <span>

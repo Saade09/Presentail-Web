@@ -27,7 +27,7 @@ import {
   useFxRates,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, CalendarDays, ChevronDown, Loader2, Plus, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, CalendarDays, ChevronDown, Loader2, Plus, Zap } from "lucide-react";
 import { buildFeeNode } from "@/lib/feeNode";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
@@ -76,6 +76,7 @@ import {
   formatDeliveryRow,
   freeDeliveryThresholdUsd,
   getCountryHour,
+  getLocalIso,
   isExpressDeliveryAvailable,
   isMidnightSlot,
   slotTimeRangeForLabel,
@@ -90,6 +91,12 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
+import { classifyDistrictChange, feesDiffer } from "./checkoutDistrictChange";
+import {
+  DistrictChangeNotice,
+  isDeliveryGateBlocked,
+  type DistrictRevalState,
+} from "@/components/checkout/DistrictChangeNotice";
 import { withTimeout, withTimeoutAsNull } from "@/lib/withTimeout";
 import { sortAECities } from "@/lib/aeDistricts";
 import { computeCartTotal, toStripeMinorUnits, roundToNearestFive } from "@workspace/display-currency";
@@ -631,6 +638,7 @@ function CheckoutForm() {
     data: locations,
     isLoading: locationsLoading,
     isError: locationsError,
+    isFetching: locationsFetching,
     refetch: refetchLocations,
   } = useDeliveryLocations();
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
@@ -951,6 +959,22 @@ function CheckoutForm() {
   const [senderPhoneCountry, setSenderPhoneCountry] = useState<string | null>(null);
   const [senderPhoneDialCode, setSenderPhoneDialCode] = useState<string | null>(null);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
+
+  // ── District-change revalidation state ────────────────────────────────────
+  // Drives the inline amber notice under the district dropdown, the Order
+  // Summary "Delivery selection required" card, and the payment-CTA gate.
+  // See checkoutDistrictChange.ts for the pure classification rules.
+  const [districtReval, setDistrictReval] = useState<DistrictRevalState>({ status: "idle" });
+  // Render-synced mirror so effects and guards can read the latest state
+  // without adding it to their dependency arrays.
+  const districtRevalRef = useRef(districtReval);
+  districtRevalRef.current = districtReval;
+  // Monotonic token: each district change bumps it, and only the outcome
+  // carrying the latest token may write state — so rapid district switching
+  // never lets a stale availability result win.
+  const districtChangeEpochRef = useRef(0);
+  // Focus target for the inline notice (focused when a selection is cleared).
+  const districtNoticeRef = useRef<HTMLDivElement>(null);
 
   // Coupon / gift card — seeded from localStorage so a code entered on the
   // cart page survives the cart → checkout navigation without re-entry.
@@ -1276,6 +1300,13 @@ function CheckoutForm() {
       // different same-label slot configuration than the one just confirmed.
       setDeliverySlotId(sel.slotId ?? undefined);
     }
+    // The picker only offers options valid for the currently selected city,
+    // so a confirmed pick resolves the district-change notice. Pending/error
+    // states stay: availability data for the new district is still unknown.
+    const st = districtRevalRef.current.status;
+    if (st === "invalid" || st === "feeChanged") {
+      setDistrictReval({ status: "idle" });
+    }
   };
 
   // All cities for the selected country (both active and inactive) — sourced
@@ -1381,6 +1412,10 @@ function CheckoutForm() {
     // reset a seeded "express" selection while expressAvailable is still
     // false simply because selectedCityData hasn't arrived yet.
     if (locationsLoading) return;
+    // While a district change is being revalidated (or already cleared the
+    // selection), never silently convert express → schedule: the explicit
+    // district-change flow owns the transition and its messaging.
+    if (isDeliveryGateBlocked(districtRevalRef.current)) return;
     if (deliveryMode === "express" && !expressAvailable) {
       setDeliveryMode("schedule");
     }
@@ -1520,6 +1555,10 @@ function CheckoutForm() {
       // Do not carry a window across countries; a fresh selection will be
       // chosen only after the target city's OS schedule is available.
       setDeliverySlot("");
+      // A country switch is a fresh start — drop any district-change notice
+      // and invalidate in-flight revalidations for the old country.
+      districtChangeEpochRef.current++;
+      setDistrictReval({ status: "idle" });
     }
   }, [countryCode]);
 
@@ -1550,6 +1589,9 @@ function CheckoutForm() {
     if (locationsLoading) {
       return;
     }
+    // A district change cleared (or is revalidating) the selection: the
+    // shopper must explicitly re-pick — never auto-substitute a slot here.
+    if (isDeliveryGateBlocked(districtRevalRef.current)) return;
     if (timeSlots.length === 0) {
       setDeliverySlot("");
       return;
@@ -1594,6 +1636,243 @@ function CheckoutForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeSlots]);
+
+  // ── District-change revalidation ──────────────────────────────────────────
+  // On a district change, the current delivery selection is revalidated
+  // against the new city's live availability: preserved when still valid,
+  // preserved-with-notice when only the fee changed, cleared with a
+  // persistent amber notice (and payment blocked) when invalid. The shopper
+  // is never silently handed a substitute slot.
+
+  // Clear the current method/date/slot after a district change invalidated it.
+  const clearDeliverySelectionForDistrictChange = () => {
+    systemCorrectionRef.current = true;
+    setDeliveryMode("schedule");
+    setDeliverySlot("");
+    setDeliverySlotId(undefined);
+    setRecipient((r) => ({ ...r, deliveryDate: "" }));
+  };
+
+  // Classify the (pre-change) selection against `newCity` and apply the
+  // outcome. `oldFeeUsd` is the district+slot fee charged before the change,
+  // captured synchronously when the shopper picked the new district.
+  const applyDistrictChangeOutcome = (
+    districtName: string,
+    newCity: NonNullable<typeof selectedCityData>,
+    epoch: number,
+    oldFeeUsd: number,
+  ) => {
+    // Latest district wins — out-of-order results from rapid switching are dropped.
+    if (epoch !== districtChangeEpochRef.current) return;
+    const prevBlocked = isDeliveryGateBlocked(districtRevalRef.current);
+    const osCountry = locations?.countries.find((c) => c.code === countryCode);
+    const outcome = classifyDistrictChange({
+      mode: deliveryMode,
+      slotLabel: deliverySlot,
+      slotId: deliverySlotId ?? null,
+      dateIso: recipient.deliveryDate || null,
+      countryCode: countryCode ?? "LB",
+      subtotal,
+      noAddress,
+      city: newCity,
+      countryFreeDeliveryThresholdUsd: osCountry?.freeDeliveryThresholdUsd,
+      countryFreeDeliveryEnabled: osCountry?.freeDeliveryEnabled,
+    });
+    if (outcome.kind === "invalid") {
+      clearDeliverySelectionForDistrictChange();
+      setDistrictReval({
+        status: "invalid",
+        districtName,
+        cityId: newCity.id,
+        reason: outcome.reason,
+      });
+      return;
+    }
+    if (outcome.kind === "none") {
+      // Nothing was selected. If a previous district change already cleared
+      // the selection, stay in the required-action state (with the new
+      // district's name) — switching again, including back to the original
+      // district, must never resurrect the cleared slot or unblock payment.
+      setDistrictReval(
+        prevBlocked
+          ? { status: "invalid", districtName, cityId: newCity.id, reason: "slot" }
+          : { status: "idle" },
+      );
+      return;
+    }
+    // Selection kept. Re-point a same-label slot at the new city's slot id so
+    // fee lookups and the order payload use the new city's configuration.
+    if (deliveryMode !== "express") {
+      if ((outcome.slotId ?? undefined) !== deliverySlotId) {
+        setDeliverySlotId(outcome.slotId ?? undefined);
+        deliverySelection.setSelection({ slotId: outcome.slotId ?? null, cityId: newCity.id ?? null });
+      } else {
+        deliverySelection.setSelection({ cityId: newCity.id ?? null });
+      }
+    }
+    setDistrictReval(
+      feesDiffer(oldFeeUsd, outcome.newFeeUsd)
+        ? { status: "feeChanged", districtName, cityId: newCity.id, oldFeeUsd, newFeeUsd: outcome.newFeeUsd }
+        : { status: "idle" },
+    );
+  };
+
+  // Entry point for a district change (combobox pick or saved-address apply).
+  // Captures the pre-change fee synchronously, then classifies immediately
+  // when the new city's data is already in memory, or parks in pending until
+  // /api/delivery-locations resolves it (payment stays blocked meanwhile).
+  const beginDistrictRevalidation = (districtName: string) => {
+    const epoch = ++districtChangeEpochRef.current;
+    const oldFeeUsd =
+      checkoutFeesRef.current.districtFee + checkoutFeesRef.current.slotFee;
+    const newCity = activeCities.find(
+      (c) => c.isActive !== false && c.name === districtName,
+    );
+    if (!newCity) {
+      setDistrictReval({
+        status: locationsError && !locations ? "error" : "pending",
+        districtName,
+        epoch,
+        oldFeeUsd,
+      });
+      return;
+    }
+    applyDistrictChangeOutcome(districtName, newCity, epoch, oldFeeUsd);
+  };
+
+  const handleDistrictSelect = (districtName: string) => {
+    const prevEffective =
+      recipient.district ||
+      activeCities.find((c) => c.isActive !== false)?.name ||
+      "";
+    setRecipient((r) => ({ ...r, district: districtName }));
+    if (!districtName || districtName === prevEffective) return;
+    beginDistrictRevalidation(districtName);
+  };
+
+  // Retry after an availability-fetch failure: show the loading state again
+  // and refetch. The pending-resolution effect below applies the result.
+  const handleDistrictRevalRetry = () => {
+    const st = districtRevalRef.current;
+    if (st.status === "error") {
+      setDistrictReval({
+        status: "pending",
+        districtName: st.districtName,
+        cityId: st.cityId,
+        epoch: st.epoch,
+        oldFeeUsd: st.oldFeeUsd,
+      });
+    }
+    void refetchLocations();
+  };
+
+  // Resolve a pending/errored district change when delivery-locations data
+  // (re)arrives: classify against the now-known city, or surface the
+  // recoverable error state when the fetch failed.
+  useEffect(() => {
+    const st = districtRevalRef.current;
+    if (st.status !== "pending" && st.status !== "error") return;
+    const newCity = activeCities.find(
+      (c) => c.isActive !== false && c.name === st.districtName,
+    );
+    if (newCity) {
+      applyDistrictChangeOutcome(st.districtName, newCity, st.epoch, st.oldFeeUsd);
+      return;
+    }
+    if (locationsLoading || locationsFetching) return;
+    if (locations && !newCity) {
+      // Data arrived but the picked district is not an active city (e.g. it
+      // was deactivated mid-session) — clear and require an explicit re-pick.
+      if (st.status === "pending" && st.epoch === districtChangeEpochRef.current) {
+        clearDeliverySelectionForDistrictChange();
+        setDistrictReval({ status: "invalid", districtName: st.districtName, reason: "slot" });
+      }
+      return;
+    }
+    if (locationsError && st.status === "pending") {
+      setDistrictReval({
+        status: "error",
+        districtName: st.districtName,
+        cityId: st.cityId,
+        epoch: st.epoch,
+        oldFeeUsd: st.oldFeeUsd,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCities, locations, locationsLoading, locationsFetching, locationsError, districtReval]);
+
+  // The ask-recipient flow hides the district field entirely — any pending
+  // district-change notice is moot once no address is being collected now.
+  useEffect(() => {
+    if (noAddress && districtRevalRef.current.status !== "idle") {
+      setDistrictReval({ status: "idle" });
+    }
+  }, [noAddress]);
+
+  // Move focus to the inline notice when a district change clears the
+  // selection, so keyboard and screen-reader users land on the explanation.
+  // Slight delay lets the combobox popover's focus-restore finish first.
+  const prevRevalStatusRef = useRef<DistrictRevalState["status"]>("idle");
+  useEffect(() => {
+    const prev = prevRevalStatusRef.current;
+    prevRevalStatusRef.current = districtReval.status;
+    if (districtReval.status === "invalid" && prev !== "invalid") {
+      const id = window.setTimeout(() => {
+        districtNoticeRef.current?.focus();
+      }, 120);
+      return () => window.clearTimeout(id);
+    }
+    return undefined;
+  }, [districtReval.status]);
+
+  // Persisted-selection sanitization: a slot restored from the shared
+  // delivery-selection store (refresh / back-navigation) must exist in the
+  // CURRENT district's live schedule, otherwise it is dropped and the
+  // required-action state is shown — a stale promise is never silently kept.
+  // Runs once, as soon as the city's live schedule is known.
+  const persistedSanitizedRef = useRef(false);
+  useEffect(() => {
+    if (persistedSanitizedRef.current) return;
+    if (locationsLoading || !selectedCityData) return;
+    persistedSanitizedRef.current = true;
+    if (deliveryMode === "express" || !deliverySlot) return;
+    const today = getLocalIso(countryCode);
+    const dateIso = recipient.deliveryDate || today;
+    if (dateIso === today) {
+      // Today fully sold out is owned by the mount-time correction effect
+      // above (it advances to the first available day) — don't double-handle.
+      const h = getCountryHour(countryCode, new Date());
+      const todaySoldOut =
+        timeSlots.length > 0 && !timeSlots.some((s) => s.cutoffHour > h);
+      if (todaySoldOut) return;
+    }
+    const osCountry = locations?.countries.find((c) => c.code === countryCode);
+    const outcome = classifyDistrictChange({
+      mode: "schedule",
+      slotLabel: deliverySlot,
+      slotId: deliverySlotId ?? null,
+      dateIso: recipient.deliveryDate || null,
+      countryCode: countryCode ?? "LB",
+      subtotal,
+      noAddress,
+      city: selectedCityData,
+      countryFreeDeliveryThresholdUsd: osCountry?.freeDeliveryThresholdUsd,
+      countryFreeDeliveryEnabled: osCountry?.freeDeliveryEnabled,
+    });
+    if (outcome.kind === "invalid") {
+      clearDeliverySelectionForDistrictChange();
+      setDistrictReval({
+        status: "invalid",
+        districtName: selectedCityData.name,
+        cityId: selectedCityData.id,
+        reason: "slot",
+      });
+    } else if (outcome.kind === "kept" && (outcome.slotId ?? undefined) !== deliverySlotId) {
+      // Same label, different id in this city's catalogue — re-point silently.
+      setDeliverySlotId(outcome.slotId ?? undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationsLoading, selectedCityData]);
 
   // These hooks must be called unconditionally — before any early return — to
   // comply with React's Rules of Hooks. Moving them here prevents a hooks-count
@@ -2419,8 +2698,10 @@ function CheckoutForm() {
       // (serverFeesOverride is cleared on _selectedDistrict change), so
       // fees, free-delivery, dates, and the order summary update immediately.
       setRecipient((prev) => ({ ...prev, district: targetCity.name }));
-      // Clear a selected slot that doesn't exist in the new city's schedule —
-      // never carry an invalid slot across a district change.
+      // Computed for analytics only — the actual keep/clear decision runs
+      // through the district-change revalidation below, which also handles
+      // fee changes, blocks payment on an invalid selection, and guards the
+      // auto-pick effects so a cleared slot is never silently replaced.
       const newCitySlots = targetCity.timeSlots?.length
         ? targetCity.timeSlots
         : targetCity.slotsByDay
@@ -2435,10 +2716,8 @@ function CheckoutForm() {
           const sid = (s as { slotId?: string }).slotId;
           return deliverySlotId && sid ? sid === deliverySlotId : s.label === deliverySlot;
         });
-      if (!slotStillValid) {
-        setDeliverySlot("");
-        setDeliverySlotId(undefined);
-      }
+      // Never carry an invalid slot (or a stale fee) across a district change.
+      beginDistrictRevalidation(targetCity.name);
       setPlaceDistrictNotice({
         placeName: place.name,
         districtName: cityName(targetCity.id, targetCity.name),
@@ -3632,6 +3911,21 @@ function CheckoutForm() {
   // fixes that field. The emptiness rules mirror handleValidateAndAdvance
   // exactly; the phone fields keep their own showError pattern inside
   // WebPhoneField.
+  // District-change gate: while the delivery selection is invalid, or its
+  // availability data is loading/errored, payment cannot proceed. The CTAs
+  // stay clickable (aria-disabled + muted) — a click routes focus to the
+  // notice instead of navigating. Irrelevant in the ask-recipient flow.
+  const deliveryGateBlocked = !noAddress && isDeliveryGateBlocked(districtReval);
+  // Localized display name of the district the notice refers to.
+  const districtRevalDisplayName = (() => {
+    if (districtReval.status === "idle") return "";
+    if (districtReval.cityId) {
+      return cityName(districtReval.cityId, districtReval.districtName);
+    }
+    const c = activeCities.find((x) => x.name === districtReval.districtName);
+    return c ? cityName(c.id, c.name) : districtReval.districtName;
+  })();
+
   const recipientNameError = submitAttempted && !recipient.firstName.trim();
   const districtError = submitAttempted && !noAddress && !recipient.district;
   const addressError = submitAttempted && !noAddress && !recipient.address && !selectedPlace;
@@ -3702,6 +3996,14 @@ function CheckoutForm() {
       focusInvalid(document.querySelector<HTMLElement>('[data-testid="select-district"]'));
       return "district";
     }
+    // District change left the delivery selection invalid (or its availability
+    // data is still loading / failed): payment must not proceed. Focus the
+    // persistent notice — unlike the click-to-validate fields above, there is
+    // nothing to type here; the shopper must pick a valid delivery time.
+    if (deliveryGateBlocked) {
+      focusInvalid(districtNoticeRef.current);
+      return "delivery_selection";
+    }
     if (!noAddress && !recipient.address && !selectedPlace) {
       focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-recipient-address"]'));
       return "address";
@@ -3730,6 +4032,10 @@ function CheckoutForm() {
     if (phoneTooltipInteractedRef.current) {
       phoneTooltipInteractedRef.current = false;
       trackWebEvent({ type: "checkout_continued_after_phone_tooltip" });
+    }
+    // Advancing to payment acknowledges the informational fee-change notice.
+    if (districtReval.status === "feeChanged") {
+      setDistrictReval({ status: "idle" });
     }
     setStep(2);
     return null;
@@ -3878,6 +4184,12 @@ function CheckoutForm() {
                                   apartment: addr.apartment ?? undefined,
                                 };
                                 setAddressPickerOpen(false);
+                                // Applying a saved address can switch the district —
+                                // revalidate the delivery selection the same way an
+                                // explicit dropdown change would.
+                                if (addr.district && addr.district !== _selectedDistrict) {
+                                  beginDistrictRevalidation(addr.district);
+                                }
                               }}
                               className="w-full flex items-start gap-2.5 rounded-lg px-2 py-2.5 text-left text-sm hover:bg-secondary/60 transition-colors"
                               data-testid={`saved-address-option-${addr.id}`}
@@ -4033,7 +4345,10 @@ function CheckoutForm() {
                               }
                               setPlaceDistrictNotice(null);
                             }
-                            setRecipient({ ...recipient, district: v });
+                            // Sets recipient.district and revalidates the
+                            // current delivery selection against the new
+                            // district (clears + notice when invalid).
+                            handleDistrictSelect(v);
                           }}
                           disabled={locationsLoading || !hasActiveCities}
                           /* max-md:text-base — match the mobile text size of Input/Textarea/phone field */
@@ -4066,6 +4381,14 @@ function CheckoutForm() {
                             </button>
                           </div>
                         )}
+                        <DistrictChangeNotice
+                          state={districtReval}
+                          districtLabel={districtRevalDisplayName}
+                          countryCode={countryCode ?? null}
+                          onRetry={handleDistrictRevalRetry}
+                          onDismiss={() => setDistrictReval({ status: "idle" })}
+                          noticeRef={districtNoticeRef}
+                        />
                       </CheckoutField>
 
                       <CheckoutField
@@ -4120,6 +4443,61 @@ function CheckoutForm() {
                     Delivery Time selector below (which stays desktop-only). */}
                 <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-4 max-md:py-3 mb-4 max-md:mb-3" data-testid="card-delivery-confirmation">
                   <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 max-md:mb-2">{t("checkout.delivery.sectionLabel")}</p>
+                  {deliveryGateBlocked ? (
+                  <div
+                    className="rounded-xl px-3.5 py-3 bg-amber-50 border border-amber-300"
+                    data-testid="mobile-delivery-required"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      {districtReval.status === "pending" ? (
+                        <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 animate-spin" aria-hidden />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        {districtReval.status === "pending" ? (
+                          <p className="text-sm text-amber-900">
+                            {t("checkout.districtChange.checking", { district: districtRevalDisplayName })}
+                          </p>
+                        ) : districtReval.status === "error" ? (
+                          <>
+                            <p className="text-sm text-amber-900">
+                              {t("checkout.districtChange.loadFailed", { district: districtRevalDisplayName })}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleDistrictRevalRetry}
+                              className="mt-1 text-sm font-medium text-amber-900 underline underline-offset-2 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-sm"
+                              data-testid="button-mobile-delivery-retry"
+                            >
+                              {t("checkout.retry")}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-semibold text-amber-900" data-testid="text-mobile-delivery-required-title">
+                              {t("checkout.deliveryRequired.title")}
+                            </p>
+                            <p className="text-xs text-amber-800 mt-0.5">
+                              {t("checkout.deliveryRequired.body", { district: districtRevalDisplayName })}
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleMobileDeliveryChange}
+                              className="mt-2.5 h-9 bg-white border-amber-300 text-amber-900 hover:bg-amber-100 hover:text-amber-900"
+                              data-testid="button-mobile-choose-delivery-time"
+                            >
+                              {t("checkout.deliveryRequired.cta")}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  ) : (
                   <div
                     className="rounded-xl px-3.5 py-3 flex items-center gap-3"
                     style={{ backgroundColor: "hsl(210 33% 96%)" }}
@@ -4169,6 +4547,7 @@ function CheckoutForm() {
                       {t("delivery.row.change")}
                     </button>
                   </div>
+                  )}
                 </div>
 
                 {/* Sender Details */}
@@ -4463,10 +4842,11 @@ function CheckoutForm() {
                     <Button
                       ref={continueToPaymentRef}
                       size="lg"
-                      className="flex-1 h-14 rounded-xl text-white font-semibold flex items-center justify-between px-4"
+                      className={`flex-1 h-14 rounded-xl text-white font-semibold flex items-center justify-between px-4 ${deliveryGateBlocked ? "opacity-50 cursor-not-allowed hover:opacity-50" : ""}`}
                       style={{ backgroundColor: "hsl(var(--primary))" }}
                       onClick={handleMobileContinue}
                       aria-describedby="mobile-cta-secure"
+                      aria-disabled={deliveryGateBlocked || undefined}
                       data-testid="button-continue-to-payment"
                     >
                       <span className="flex flex-col items-start leading-tight min-w-0">
@@ -4752,6 +5132,17 @@ function CheckoutForm() {
             }}
             step={step}
             onContinueToPayment={handleDesktopContinue}
+            deliveryRequired={
+              deliveryGateBlocked
+                ? {
+                    status: districtReval.status as "invalid" | "pending" | "error",
+                    districtLabel: districtRevalDisplayName,
+                    onChoose: () => setDeliveryPickerOpen(true),
+                    onRetry: handleDistrictRevalRetry,
+                  }
+                : null
+            }
+            ctaBlocked={deliveryGateBlocked}
             summaryOpen={summaryOpen}
             setSummaryOpen={setSummaryOpen}
           />
@@ -4822,6 +5213,10 @@ function CheckoutForm() {
         onConfirm={handleDeliveryPickerConfirm}
         timeSlots={timeSlots}
         cityExpressAvailable={selectedCityData?.expressAvailable === true}
+        /* The picker must show the schedule of the district selected at
+           checkout — never the storefront browsing city (they can differ,
+           e.g. browsing Beirut but delivering to Akkar). */
+        city={selectedCityData ?? null}
       />
 
     </div>
