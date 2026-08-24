@@ -1,0 +1,93 @@
+OBJECTIVE
+
+Improve checkout behavior when a customer changes the delivery district after already selecting a delivery option or time slot. The customer must clearly understand when the original delivery selection is no longer valid, what changed, and what action is required before payment.
+
+CURRENT PROBLEM
+
+- A customer can select a delivery option for one district, such as Express delivery in Beirut.
+- During checkout, the customer can change Delivery District, for example from Beirut to Akkar.
+- The selected slot can become unavailable and the delivery fee and total can change.
+- The current checkout clears the delivery details but does not clearly explain why.
+- The payment CTA can still look active even though a new delivery selection is required.
+
+REQUIRED BEHAVIOR
+
+1. Whenever the customer changes the delivery district, immediately revalidate the currently selected delivery method, date, and time slot against the new district.
+2. Recalculate the delivery fee and order total using the new district before presenting the next state.
+3. Never silently replace the customer's selected delivery option with another option or time slot.
+4. If the existing delivery selection remains valid, preserve it. Do not force unnecessary reselection.
+5. If the selection remains valid but its delivery fee changes, preserve the selection, update the fee and total, and clearly notify the customer that the delivery price was updated.
+6. If the previous selection is not available in the new district, clear the invalid delivery method/date/time state and require the customer to choose again.
+7. Do not allow the customer to proceed to payment while delivery details are invalid or missing.
+
+APPROVED INVALID-SELECTION UI — LEFT COLUMN
+
+- Place a compact persistent inline notification directly below the Delivery District dropdown and above the Delivery Details address field.
+- Use a pale amber background, subtle amber border, rounded corners, a small warning/info icon, and readable dark text consistent with the existing Presentail checkout design system.
+- The notice must remain visible until a valid delivery option is selected. Do not use a temporary toast as the only notification.
+- Title: “Delivery options updated for {{District}}”
+- Body for the Beirut → Akkar example: “Express delivery isn’t available in this district. Please choose a new delivery time.”
+- Use the selected district dynamically; do not hard-code Akkar.
+- Shift the address field downward naturally without overlapping or breaking the Recipient Details card.
+
+APPROVED INVALID-SELECTION UI — ORDER SUMMARY
+
+- Replace the normal neutral Delivery summary card with a pale amber required-action state.
+- Keep the small uppercase DELIVERY label.
+- Heading: “Delivery selection required”
+- Supporting text: “Choose an available time for {{District}}.”
+- Provide a clear outlined action: “Choose delivery time”
+- Clicking the action must open the existing delivery date/time selector with only options valid for the newly selected district.
+- Keep the recalculated delivery fee and total visible above this card.
+- Disable and visually mute the “Continue to Payment” button until a valid delivery method/date/time is selected.
+- The disabled CTA must not navigate, submit, or briefly allow a request through while delivery options are loading.
+
+WHEN ONLY THE DELIVERY FEE CHANGES
+
+- Keep the existing valid delivery selection.
+- Update the delivery fee and total immediately.
+- Show a compact informational notice explaining that the delivery fee was updated for the new district, including the previous and new fee where available.
+- Do not disable payment if all required delivery details remain valid.
+
+LOADING AND ERROR HANDLING
+
+- While revalidating delivery availability, show a short loading state in the Delivery summary and temporarily disable the payment CTA to prevent submission with stale data.
+- If the availability request fails, keep payment disabled and show a recoverable inline error with a Retry action.
+- Do not display the old delivery promise, old arrival time, or old fee after the district has changed.
+- Protect against rapid district changes and out-of-order API responses; only the latest selected district may update checkout state.
+
+SCOPE
+
+- Implement on desktop and mobile checkout.
+- Apply consistently across all markets where changing delivery geography can affect availability, timing, or price.
+- Use the market’s existing terminology, such as Delivery District or Delivery Emirate, while keeping the underlying behavior shared.
+- Preserve the current checkout visual system and do not redesign unrelated Recipient Details or Order Summary elements.
+
+ACCESSIBILITY
+
+- Do not communicate the state using color alone; retain the icon, heading, and explanatory text.
+- Announce the delivery-selection change to screen readers using an appropriate live region.
+- Move focus to the persistent notification or required-action delivery card after an invalid selection is cleared, without trapping focus.
+- The disabled CTA and Choose delivery time action must have correct keyboard and focus behavior.
+
+ACCEPTANCE CRITERIA
+
+- Beirut Express → Akkar: Express is cleared, the new delivery fee and total appear, both persistent warning states appear, and payment remains disabled until the customer selects an Akkar-valid delivery time.
+- Changing to a district where the same slot is valid: the slot remains selected.
+- Changing to a district where the slot is valid but the fee differs: the slot remains selected, the fee and total update, and the customer is notified.
+- Selecting a new valid slot removes the warning state, updates the Delivery summary, and re-enables payment when all other required fields are valid.
+- Returning to the original district does not automatically restore an old invalidated slot; the customer must select a valid option again unless the current selection remained valid throughout.
+- Refreshing or navigating back must not restore a delivery selection that is invalid for the currently selected district.
+- No stale district, delivery promise, fee, or total is submitted to the order/payment API.
+- Verify desktop and mobile in English, Arabic, and French, including long district names and right-to-left layout.
+
+QA SCENARIOS
+
+- Beirut → Akkar with Express selected.
+- District A → District B with the same standard slot still available.
+- District change that only changes the delivery fee.
+- District change while the availability request is still loading.
+- Rapidly switching between three districts.
+- Availability API failure and successful retry.
+- Mobile sticky CTA and desktop Order Summary CTA.
+- Authenticated checkout and guest checkout.

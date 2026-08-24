@@ -471,16 +471,28 @@ export function buildSitemapXml({
   // (useful in unit tests with mock data).
   const blogPostsSource = blogPostsArg ?? BLOG_POSTS ?? {};
 
-  /** Build a /{lang}/blog or /{lang}/blog/:slug sitemap entry with hreflang. */
-  const urlEntryBlog = (rest, lastmod = generatedAt) => {
+  /**
+   * Build a /{lang}/blog or /{lang}/blog/:slug sitemap entry with hreflang.
+   * Article entries list only languages with dedicated editorial content; a
+   * missing translation renders as an English fallback with noindex and must
+   * never be advertised to crawlers in a sitemap.
+   */
+  const urlEntryBlog = (
+    rest,
+    lastmod = generatedAt,
+    alternateLangs = SITEMAP_BLOG_LANGS,
+  ) => {
     // `rest` is either "" (blog index) or "/:slug" (article).
     const loc = `${origin}${cleanBase}/${lang}/blog${rest}`;
-    const alternates = SITEMAP_BLOG_LANGS.map((altLang) => {
+    const alternates = alternateLangs.map((altLang) => {
       const href = `${origin}${cleanBase}/${altLang}/blog${rest}`;
       return `    <xhtml:link rel="alternate" hreflang="${escXml(altLang)}" href="${escXml(href)}"/>`;
     });
+    const defaultLang = alternateLangs.includes("en")
+      ? "en"
+      : alternateLangs[0];
     alternates.push(
-      `    <xhtml:link rel="alternate" hreflang="x-default" href="${escXml(`${origin}${cleanBase}/en/blog${rest}`)}"/>`,
+      `    <xhtml:link rel="alternate" hreflang="x-default" href="${escXml(`${origin}${cleanBase}/${defaultLang}/blog${rest}`)}"/>`,
     );
     const lastmodLine = lastmod ? `\n    <lastmod>${escXml(lastmod)}</lastmod>` : "";
     return `  <url>\n    <loc>${escXml(loc)}</loc>${lastmodLine}\n    <changefreq>${rest ? "monthly" : "weekly"}</changefreq>\n    <priority>0.6</priority>\n${alternates.join("\n")}\n  </url>`;
@@ -494,13 +506,31 @@ export function buildSitemapXml({
     // Blog articles: /{lang}/blog/:slug
     for (const [slug, langs] of Object.entries(blogPostsSource)) {
       if (!slug) continue;
+      const availableLangs = SITEMAP_BLOG_LANGS.filter((candidate) => {
+        const article = langs?.[candidate];
+        return Boolean(
+          article &&
+          typeof article.title === "string" &&
+          article.title.trim() &&
+          typeof article.description === "string" &&
+          article.description.trim(),
+        );
+      });
+      // Do not include a URL that serves a noindex fallback translation.
+      if (!availableLangs.includes(lang)) continue;
       const encoded = encodeURIComponent(slug);
       // Use the real publish date as lastmod when available; fall back to the
       // sitemap generation date. Never omit lastmod on articles — crawlers use
       // it to prioritise recrawling recently updated content.
       const datePublished =
         langs?.en?.datePublished ?? Object.values(langs ?? {})[0]?.datePublished ?? null;
-      urls.push(urlEntryBlog(`/${encoded}`, datePublished ?? generatedAt));
+      urls.push(
+        urlEntryBlog(
+          `/${encoded}`,
+          datePublished ?? generatedAt,
+          availableLangs,
+        ),
+      );
     }
   }
 

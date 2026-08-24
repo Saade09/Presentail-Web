@@ -6328,6 +6328,50 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 
+  it("renders Bouquet Delivery in Dubai with its canonical metadata and Article JSON-LD", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en/blog/bouquet-delivery-dubai",
+      OPTS,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain(
+      "<title>Bouquet Delivery in Dubai: Same-Day Guide | Presentail</title>",
+    );
+    expect(out).toContain(
+      'content="A practical guide to bouquet delivery in Dubai — same-day cutoffs, two-hour delivery windows, which bouquet suits which occasion, and how to get it to the door."',
+    );
+    expect(out).toContain(
+      '<link rel="canonical" href="https://presentail.test/en/blog/bouquet-delivery-dubai" />',
+    );
+    expect(out).toContain(
+      'content="https://presentail.test/catalog/products/pastel-bliss-bouquet.avif"',
+    );
+
+    const article = byType(extractJsonLd(out), "Article");
+    expect(article).toMatchObject({
+      headline: "Bouquet Delivery in Dubai: Same-Day Guide | Presentail",
+      datePublished: "2026-08-24",
+      dateModified: "2026-08-24",
+      image: "https://presentail.test/catalog/products/pastel-bliss-bouquet.avif",
+      url: "https://presentail.test/en/blog/bouquet-delivery-dubai",
+    });
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq.mainEntity).toHaveLength(7);
+    expect(faq.mainEntity[0]).toMatchObject({
+      "@type": "Question",
+      name: "Can I get same-day bouquet delivery in Dubai?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: expect.stringContaining("Orders placed before midday"),
+      },
+    });
+  });
+
   it.each([
     { route: "return-policy", label: "Return Policy" },
     { route: "shipping-policy", label: "Shipping Policy" },

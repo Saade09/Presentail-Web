@@ -124,12 +124,19 @@ describe("buildSitemapXml — per-locale generation", () => {
     }
   });
 
-  it("each locale sitemap has the same number of locale-prefixed entries (deterministic, no per-city inflation)", () => {
-    const counts = SITEMAP_LANGS.map(
-      (lang: string) => parse(xmlByLocale[lang]).getElementsByTagName("url").length,
+  it("EN, AR, and FR sitemaps have matching country/city URL counts (no per-city inflation)", () => {
+    const countryCityEntryCount = (xml: string) =>
+      Array.from(parse(xml).getElementsByTagName("url")).filter((url) => {
+        const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
+        return /\/(?:en|ar|fr)-(?:lb|ae|cy)(?:\/|$)/.test(loc);
+      }).length;
+
+    const counts = ["en", "ar", "fr"].map((lang) =>
+      countryCityEntryCount(xmlByLocale[lang]),
     );
-    // The en sitemap carries one extra entry: the un-prefixed root "/".
-    expect(counts[0]).toBe(counts[1] + 1);
+    // Blog article counts may intentionally differ by locale while a new post
+    // awaits translation. The country/city route set must remain identical.
+    expect(counts[0]).toBe(counts[1]);
     expect(counts[1]).toBe(counts[2]);
   });
 
@@ -443,7 +450,13 @@ describe("buildSitemapXml", () => {
       basePath: "/",
       products: [{ slug: "red-roses" }],
       blogPosts: {
-        "dated-post": { en: { datePublished: "2025-03-15" } },
+        "dated-post": {
+          en: {
+            title: "Dated post",
+            description: "A post with a known publication date.",
+            datePublished: "2025-03-15",
+          },
+        },
         "undated-post": {},
       },
     });
@@ -457,6 +470,29 @@ describe("buildSitemapXml", () => {
         expect(lastmod).toBeUndefined();
       }
     }
+  });
+
+  it("lists an English-only post only in the English sitemap without fallback hreflang links", () => {
+    const blogPosts = {
+      "english-only-post": {
+        en: {
+          title: "English-only post",
+          description: "This post has not been translated yet.",
+          datePublished: "2026-08-24",
+        },
+      },
+    };
+    const enXml = buildSitemapXml({ origin: ORIGIN, basePath: "/", locale: "en", blogPosts });
+    const arXml = buildSitemapXml({ origin: ORIGIN, basePath: "/", locale: "ar", blogPosts });
+    const frXml = buildSitemapXml({ origin: ORIGIN, basePath: "/", locale: "fr", blogPosts });
+
+    expect(enXml).toContain(`<loc>${ORIGIN}/en/blog/english-only-post</loc>`);
+    expect(enXml).toContain(`hreflang="en" href="${ORIGIN}/en/blog/english-only-post"`);
+    expect(enXml).toContain(`hreflang="x-default" href="${ORIGIN}/en/blog/english-only-post"`);
+    expect(enXml).not.toContain(`hreflang="ar" href="${ORIGIN}/ar/blog/english-only-post"`);
+    expect(enXml).not.toContain(`hreflang="fr" href="${ORIGIN}/fr/blog/english-only-post"`);
+    expect(arXml).not.toContain("/blog/english-only-post");
+    expect(frXml).not.toContain("/blog/english-only-post");
   });
 });
 
@@ -767,7 +803,13 @@ describe("buildSitemapXml — top-level route type coverage", () => {
     brands: [{ slug: "acme-flowers", count: 5 }],
     occasions: [{ id: "birthday", count: 5 }],
     categories: [{ id: "bouquets", count: 12 }],
-    blogPosts: { "top-10-flowers": {} },
+    blogPosts: {
+      "top-10-flowers": {
+        en: { title: "Top 10 flowers", description: "English description." },
+        ar: { title: "أفضل 10 زهور", description: "وصف عربي." },
+        fr: { title: "Top 10 des fleurs", description: "Description française." },
+      },
+    },
     // totalProductCount: 30 keeps every entity's ratio >= UNIQUENESS_RATIO_MIN (0.15):
     // brand 5/30 = 0.167, occasion 5/30 = 0.167, category 12/30 = 0.40
     totalProductCount: 30,
@@ -901,7 +943,13 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     brands: [{ slug: "acme-flowers", count: 5 }],
     occasions: [{ id: "birthday", count: 5 }],
     categories: [{ id: "bouquets", count: 12 }],
-    blogPosts: { "hello-world": {} },
+    blogPosts: {
+      "hello-world": {
+        en: { title: "Hello world", description: "English description." },
+        ar: { title: "مرحبا بالعالم", description: "وصف عربي." },
+        fr: { title: "Bonjour le monde", description: "Description française." },
+      },
+    },
     totalProductCount: 30,
   });
 
