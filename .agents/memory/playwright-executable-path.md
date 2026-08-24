@@ -32,3 +32,18 @@ Register the catch-all FIRST: Playwright matches routes newest-first, so specifi
 # Pre-existing 320px horizontal overflow on checkout step 1
 
 At a 320px viewport the checkout page has ~39px of horizontal overflow (document scrollWidth ≈ 359) caused by the sign-in card's `whitespace-nowrap` provider buttons in a 2-col grid — NOT by whatever you just changed. Viewport-fit assertions at 320px must compare against the element's own card content box, not the viewport width, or they fail for this unrelated pre-existing reason.
+
+# Hermetic card-payment checkout e2e — two more required stubs
+
+The card submit path has two server calls beyond payment-intent/woo-order that
+break hermetic runs when the API workflow is down:
+- `POST /api/checkout/klarna-pending` (pre-charge order-payload persistence) is
+  **fail-closed**: without a 2xx the card flow stops with "Card payments aren't
+  available right now." Stub it with `{ok:true}`.
+- `POST /api/checkout/fees` (pre-payment fee verification) is best-effort, but a
+  live server pricing a fake catalog item can pop the price-changed confirm
+  dialog mid-flow. Stub it as 404 so the client skips the comparison.
+
+Also: stubbed `timeSlots` need explicit daytime `startHour` values — the fee
+logic falls back to `cutoffHour` when `startHour` is missing, and a fallback
+≥ 21 adds the $5 same-day night surcharge, silently skewing total assertions.
