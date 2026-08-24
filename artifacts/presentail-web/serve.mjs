@@ -40,7 +40,7 @@ import {
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
 // than an unstructured module-load crash.
-let injectSeoTagsAsync, initImageDimsDb, collectSidecars, PRODUCT_AVAILABILITY_STATE;
+let injectSeoTagsAsync, initImageDimsDb, collectSidecars, PRODUCT_AVAILABILITY_STATE, isBlogFallbackPath;
 
 // Static redirect map for renamed / merged products (ops-editable).
 import { PRODUCT_REDIRECTS } from "./scripts/productRedirects.mjs";
@@ -298,7 +298,7 @@ async function warnStartupFile(filePath, label, fixHint) {
 // ---------------------------------------------------------------------------
 let CURATED_FILTER_PAGES = [];
 try {
-  ({ injectSeoTagsAsync, initImageDimsDb, CURATED_FILTER_PAGES, PRODUCT_AVAILABILITY_STATE } = await import("./seo-inject.mjs"));
+  ({ injectSeoTagsAsync, initImageDimsDb, CURATED_FILTER_PAGES, PRODUCT_AVAILABILITY_STATE, isBlogFallbackPath } = await import("./seo-inject.mjs"));
 } catch (err) {
   await fatalStartupError(
     ":rotating_light: *presentail-web: seo-inject.mjs failed to load at startup*\n" +
@@ -570,6 +570,14 @@ function resolveXRobotsTag(host, pathname, search) {
     if (isPaidOnlyLocaleSubRoute(rest, lang, country, city)) {
       return "noindex, follow";
     }
+  }
+  // Blog posts that have no dedicated translation for this locale fall back to
+  // the English article. They must emit noindex,follow at the HTTP-header level
+  // so crawlers that issue HEAD requests (e.g. Semrush) see the directive
+  // without needing to parse the HTML body. The matching meta tag injected by
+  // seo-inject.mjs acts as a belt-and-suspenders layer for JS-capable crawlers.
+  if (typeof isBlogFallbackPath === "function" && isBlogFallbackPath(pathname)) {
+    return "noindex, follow";
   }
   return resolveXRobotsTagPure(host, pathname, search, CURATED_FILTER_PAGES);
 }

@@ -1199,6 +1199,38 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
 }
 
 /**
+ * Returns true when the given pathname resolves to a non-English blog post that
+ * has no dedicated translation and therefore serves the English article as a
+ * fallback.  Used by serve.mjs to set `X-Robots-Tag: noindex, follow` at the
+ * HTTP-header level before the HTML body is generated — necessary because
+ * crawlers that issue HEAD requests (e.g. Semrush) never see meta tags inside
+ * the body.
+ *
+ * Matches two URL shapes:
+ *   /{lang}/blog/{slug}                  (canonical lang-only path)
+ *   /{lang}-{cc}/{city}/blog/{slug}      (city-prefixed legacy/redirect path)
+ *
+ * Only `ar`, `fr`, and `el` are checked; English is never a "fallback" to itself.
+ *
+ * @param {string} pathname
+ * @returns {boolean}
+ */
+export function isBlogFallbackPath(pathname) {
+  // Match the lang segment and slug from both path shapes.
+  const m = pathname.match(/^\/(ar|fr|el)(?:-[a-z]{2})?(?:\/[^/]+)?\/blog\/([^/?#]+)$/);
+  if (!m) return false;
+  const lang = m[1];
+  let slug;
+  try { slug = decodeURIComponent(m[2]); } catch { slug = m[2]; }
+  const articlesByLang = BLOG_POSTS[slug];
+  if (!articlesByLang) return false;
+  // Detect the "undefined key" pattern (language key simply absent) and the
+  // "get-accessor alias" pattern (get ar() { return this.en }) used in some
+  // blogPostsCopy.js entries.
+  return articlesByLang[lang] === undefined || articlesByLang[lang] === articlesByLang.en;
+}
+
+/**
  * Inject locale-aware tags into a raw index.html string. Replaces the existing
  * <title> and <html lang="..."> attributes, and inserts the head snippet
  * immediately before </head>.
