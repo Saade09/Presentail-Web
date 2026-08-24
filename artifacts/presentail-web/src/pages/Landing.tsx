@@ -187,7 +187,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
 
   return (
     <main
-      className="h-screen overflow-hidden flex flex-col"
+      className="h-dvh overflow-hidden flex flex-col"
       style={{ backgroundColor: BG }}
       data-testid="page-landing"
       dir={isRtl ? "rtl" : "ltr"}
@@ -205,7 +205,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
       </div>
 
       {/* Main content — single centered column. */}
-      <div className={`flex-1 flex justify-center px-6 pt-6 overflow-hidden ${selectedCountryCode ? "items-stretch" : "items-start"}`}>
+      <div className={`flex-1 min-h-0 flex justify-center px-6 pt-6 ${selectedCountryCode ? "items-stretch overflow-hidden" : "items-start overflow-y-auto pb-6"}`}>
         <div className={`w-full max-w-md flex flex-col gap-4 ${selectedCountryCode ? "flex-1 min-h-0" : ""}`}>
           {/* Headline — changes once a country is picked */}
           <div className="shrink-0">
