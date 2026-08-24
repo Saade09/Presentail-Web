@@ -53,6 +53,7 @@ import adminSeoDashboardRouter from "./adminSeoDashboard";
 import stripeWebhookRouter from "./stripeWebhook";
 import cyberSourceRouter from "./cyberSource";
 import adminProductSocialShareRouter from "./adminProductSocialShare";
+import addressBookPlacesRouter from "./addressBookPlaces";
 
 const router: IRouter = Router();
 
@@ -110,5 +111,6 @@ router.use(seoAuditRouter);
 router.use(adminSeoDashboardRouter);
 router.use(stripeWebhookRouter);
 router.use(cyberSourceRouter);
+router.use(addressBookPlacesRouter);
 
 export default router;

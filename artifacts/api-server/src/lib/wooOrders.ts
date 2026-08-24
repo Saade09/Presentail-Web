@@ -248,6 +248,29 @@ export const WooOrderSchema = z.object({
   // Read from client-side sessionStorage key ps_occasion_ref and cleared after use.
   // Stored on the app_orders row for occasion-level attribution reporting.
   occasion_ref: z.string().optional(),
+  // Verified Address Book place selected in the checkout Delivery Details
+  // field (landmark recognition). Optional — absent when the shopper typed a
+  // free-text address. When present, the flattened `deliveryDetails` string
+  // is still populated for full backward compatibility. All identifying
+  // fields come from the OS Address Book projection (never client-invented);
+  // internalDetail and typedQuery are the shopper's own text.
+  addressBookPlace: z
+    .object({
+      placeId: z.string().min(1).max(128),
+      name: z.string().min(1).max(256),
+      officialName: z.string().max(256).optional(),
+      districtName: z.string().max(128).optional(),
+      districtCityId: z.string().max(128).optional(),
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
+      /** Shopper's answer to the place follow-up ("Where inside AUBMC?"). */
+      internalDetail: z.string().max(600).optional(),
+      /** The original text the shopper typed before selecting. */
+      typedQuery: z.string().max(200).optional(),
+      /** How the place was chosen (e.g. "suggestion"). */
+      selectionSource: z.string().max(64).optional(),
+    })
+    .optional(),
   // Optional marketing attribution captured from UTM params / Google Ads click IDs.
   // Passed through to the OS order payload for ad-spend attribution reporting.
   // All sub-fields are optional strings so a partial payload never fails validation.
@@ -1465,8 +1488,34 @@ export async function attemptCreateOsOrder(
           couponDiscountUsd: opts.couponValidated.couponDiscountUsd,
         }
       : {}),
-    ...(body.marketing_attribution
-      ? { metadata: { marketing_attribution: body.marketing_attribution } }
+    ...(body.marketing_attribution || body.addressBookPlace
+      ? {
+          metadata: {
+            ...(body.marketing_attribution
+              ? { marketing_attribution: body.marketing_attribution }
+              : {}),
+            // Verified landmark selected in Delivery Details — lets OS link
+            // the order back to its Address Book record (id + verified
+            // name/coords/district) alongside the shopper's own internal-
+            // location detail and original typed query.
+            ...(body.addressBookPlace
+              ? {
+                  address_book_place: {
+                    place_id: body.addressBookPlace.placeId,
+                    name: body.addressBookPlace.name,
+                    official_name: body.addressBookPlace.officialName,
+                    district_name: body.addressBookPlace.districtName,
+                    district_city_id: body.addressBookPlace.districtCityId,
+                    lat: body.addressBookPlace.lat,
+                    lng: body.addressBookPlace.lng,
+                    internal_detail: body.addressBookPlace.internalDetail,
+                    typed_query: body.addressBookPlace.typedQuery,
+                    selection_source: body.addressBookPlace.selectionSource,
+                  },
+                }
+              : {}),
+          },
+        }
       : {}),
   };
 

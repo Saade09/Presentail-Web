@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
+import DeliveryDetailsField, { flattenPlaceAddress, type CheckoutPlace, type PlaceDistrictNotice } from "@/components/checkout/DeliveryDetailsField";
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 
 import { buildCardFrom } from "@/lib/cardFrom";
@@ -915,6 +916,17 @@ function CheckoutForm() {
   };
 
   const [noAddress, setNoAddress] = useState(false);
+  // ── Landmark recognition (verified OS Address Book places) ──────────────
+  // selectedPlace: verified place explicitly chosen from the Delivery Details
+  // suggestion dropdown (null = plain free-text address, today's behaviour).
+  // placeTypedQuery preserves what the shopper typed before selecting so the
+  // Change action restores it and the order records the original query.
+  // placeDistrictNotice drives the green "Delivery district updated" banner —
+  // set only when the selection actually moved the district (never silently).
+  const [selectedPlace, setSelectedPlace] = useState<CheckoutPlace | null>(null);
+  const [placeInternalDetail, setPlaceInternalDetail] = useState("");
+  const [placeTypedQuery, setPlaceTypedQuery] = useState("");
+  const [placeDistrictNotice, setPlaceDistrictNotice] = useState<PlaceDistrictNotice | null>(null);
   const [saveAddress, setSaveAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
   // "Get order updates on WhatsApp" — checked by default. Plain component
@@ -2373,6 +2385,107 @@ function CheckoutForm() {
   // orderId is generated once per checkout attempt and threaded through the
   // payment session creation AND the WC order payload so the server can bind
   // them together and reject any replay of a paid session for a different order.
+  // ── Landmark recognition handlers ─────────────────────────────────────────
+
+  // Resolve an Address Book place's verified district onto one of our active
+  // delivery cities (the district picker's option list). Returns undefined
+  // when the place's district isn't a selectable city for this country.
+  const resolvePlaceCity = useCallback(
+    (place: CheckoutPlace) => {
+      const active = activeCities.filter((c) => c.isActive !== false);
+      return active.find(
+        (c) =>
+          (place.districtCityId && String(c.id) === place.districtCityId) ||
+          (place.districtCityName &&
+            c.name.trim().toLowerCase() === place.districtCityName.trim().toLowerCase()) ||
+          (place.districtName &&
+            c.name.trim().toLowerCase() === place.districtName.trim().toLowerCase()),
+      );
+    },
+    [activeCities],
+  );
+
+  // Explicit selection of a verified place from the suggestion dropdown.
+  // recipient.address is intentionally left as the typed query so the Change
+  // action returns to free text with the query preserved.
+  const handleSelectPlace = (place: CheckoutPlace, typedQuery: string) => {
+    setSelectedPlace(place);
+    setPlaceTypedQuery(typedQuery);
+    setPlaceInternalDetail("");
+    const targetCity = resolvePlaceCity(place);
+    if (targetCity && targetCity.name !== recipient.district) {
+      // Different district: move the picker to the place's verified district.
+      // The existing recalculation reacts to the district change
+      // (serverFeesOverride is cleared on _selectedDistrict change), so
+      // fees, free-delivery, dates, and the order summary update immediately.
+      setRecipient((prev) => ({ ...prev, district: targetCity.name }));
+      // Clear a selected slot that doesn't exist in the new city's schedule —
+      // never carry an invalid slot across a district change.
+      const newCitySlots = targetCity.timeSlots?.length
+        ? targetCity.timeSlots
+        : targetCity.slotsByDay
+          ? Object.values(targetCity.slotsByDay).flat()
+          : [];
+      const slotStillValid =
+        !deliverySlot ||
+        newCitySlots.some((s) => {
+          // The web /delivery-locations city type doesn't declare slotId, but
+          // live OS-backed slots carry it — prefer the stable id when both
+          // sides have one, otherwise fall back to the label.
+          const sid = (s as { slotId?: string }).slotId;
+          return deliverySlotId && sid ? sid === deliverySlotId : s.label === deliverySlot;
+        });
+      if (!slotStillValid) {
+        setDeliverySlot("");
+        setDeliverySlotId(undefined);
+      }
+      setPlaceDistrictNotice({
+        placeName: place.name,
+        districtName: cityName(targetCity.id, targetCity.name),
+      });
+      trackWebEvent({
+        type: "landmark_district_auto_changed",
+        properties: {
+          placeId: place.id,
+          from: recipient.district || undefined,
+          to: targetCity.name,
+          slotCleared: !slotStillValid,
+        },
+      });
+    } else {
+      // Same district (or district not selectable) — leave it untouched, no banner.
+      setPlaceDistrictNotice(null);
+    }
+  };
+
+  // Change action on the verified-place card: back to the editable free-text
+  // field. recipient.address still holds the pre-selection query, and the
+  // district is deliberately NOT reverted (never change it silently).
+  const handleClearPlace = () => {
+    if (!selectedPlace) return;
+    trackWebEvent({
+      type: "landmark_selection_removed",
+      properties: { placeId: selectedPlace.id, reason: "change_clicked" },
+    });
+    setSelectedPlace(null);
+    setPlaceInternalDetail("");
+    setPlaceDistrictNotice(null);
+  };
+
+  // "Ask the recipient for the address" bypasses landmark recognition
+  // entirely — drop any selected place when it turns on.
+  useEffect(() => {
+    if (noAddress && selectedPlace) {
+      trackWebEvent({
+        type: "landmark_selection_removed",
+        properties: { placeId: selectedPlace.id, reason: "ask_recipient_enabled" },
+      });
+      setSelectedPlace(null);
+      setPlaceInternalDetail("");
+      setPlaceDistrictNotice(null);
+    }
+  }, [noAddress, selectedPlace]);
+
   const buildOrderPayload = (
     overrides: {
       paymentRef?: string;
@@ -2410,7 +2523,13 @@ function CheckoutForm() {
     slotFee,
     cityId: selectedCityData?.id != null ? String(selectedCityData.id) : undefined,
     noAddress,
-    deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
+    // Flattened address string stays populated for full backward
+    // compatibility even when a verified place is selected.
+    deliveryDetails: noAddress
+      ? "To be confirmed"
+      : selectedPlace
+        ? flattenPlaceAddress(selectedPlace, placeInternalDetail)
+        : recipient.address,
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
     deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
     ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
@@ -2429,7 +2548,34 @@ function CheckoutForm() {
     shippingCountry: (countryCode ?? "LB").toUpperCase().slice(0, 2),
     ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
-    ...(!noAddress && recipient.address ? { street: recipient.address } : {}),
+    ...(!noAddress && (selectedPlace || recipient.address)
+      ? {
+          street: selectedPlace
+            ? flattenPlaceAddress(selectedPlace, placeInternalDetail)
+            : recipient.address,
+        }
+      : {}),
+    // Structured verified-place record — OS links the order back to its
+    // Address Book entry (id + verified name/coords/district) alongside the
+    // shopper's internal-location detail and original typed query.
+    ...(!noAddress && selectedPlace
+      ? {
+          addressBookPlace: {
+            placeId: selectedPlace.id,
+            name: selectedPlace.name,
+            ...(selectedPlace.officialName ? { officialName: selectedPlace.officialName } : {}),
+            ...((selectedPlace.districtCityName ?? selectedPlace.districtName)
+              ? { districtName: (selectedPlace.districtCityName ?? selectedPlace.districtName)! }
+              : {}),
+            ...(selectedPlace.districtCityId ? { districtCityId: selectedPlace.districtCityId } : {}),
+            ...(typeof selectedPlace.lat === "number" ? { lat: selectedPlace.lat } : {}),
+            ...(typeof selectedPlace.lng === "number" ? { lng: selectedPlace.lng } : {}),
+            ...(placeInternalDetail.trim() ? { internalDetail: placeInternalDetail.trim() } : {}),
+            ...(placeTypedQuery ? { typedQuery: placeTypedQuery } : {}),
+            selectionSource: "suggestion",
+          },
+        }
+      : {}),
     ...(selectedCityData?.name ? { deliveryCity: selectedCityData.name } : {}),
     ...(countryCode ? { deliveryCountry: countryCode.toUpperCase().slice(0, 2) } : {}),
     ...(savedAddressSubFieldsRef.current?.building ? { building: savedAddressSubFieldsRef.current.building } : {}),
@@ -2471,6 +2617,15 @@ function CheckoutForm() {
         type: "checkout_completed_with_whatsapp_updates",
         properties: { optedIn: payload.whatsappOptIn === true },
       });
+      if (payload.addressBookPlace) {
+        trackWebEvent({
+          type: "landmark_order_completed",
+          properties: {
+            placeId: payload.addressBookPlace.placeId,
+            district: payload.addressBookPlace.districtName,
+          },
+        });
+      }
       try {
         // Bug D fix: prefer server-returned fee breakdown over client-estimated
         // values so the order confirmation screen shows the exact fees recorded
@@ -3479,7 +3634,10 @@ function CheckoutForm() {
   // WebPhoneField.
   const recipientNameError = submitAttempted && !recipient.firstName.trim();
   const districtError = submitAttempted && !noAddress && !recipient.district;
-  const addressError = submitAttempted && !noAddress && !recipient.address;
+  const addressError = submitAttempted && !noAddress && !recipient.address && !selectedPlace;
+  // With a verified place selected, the follow-up internal-location detail
+  // ("Where inside AUBMC?") becomes the required part of the address.
+  const placeDetailError = submitAttempted && !noAddress && !!selectedPlace && !placeInternalDetail.trim();
   const senderFirstNameError = submitAttempted && !isSignedIn && !sender.firstName;
   const senderEmailError = submitAttempted && !isSignedIn && !sender.email;
 
@@ -3544,9 +3702,13 @@ function CheckoutForm() {
       focusInvalid(document.querySelector<HTMLElement>('[data-testid="select-district"]'));
       return "district";
     }
-    if (!noAddress && !recipient.address) {
+    if (!noAddress && !recipient.address && !selectedPlace) {
       focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-recipient-address"]'));
       return "address";
+    }
+    if (!noAddress && selectedPlace && !placeInternalDetail.trim()) {
+      focusInvalid(document.querySelector<HTMLElement>('[data-testid="input-place-internal-detail"]'));
+      return "place_detail";
     }
     if (!isSignedIn && !sender.firstName) {
       focusInvalid(senderFirstNameRef.current);
@@ -3851,7 +4013,28 @@ function CheckoutForm() {
                           id="checkout-district"
                           value={recipient.district}
                           options={currentCountryCities}
-                          onSelect={(v) => setRecipient({ ...recipient, district: v })}
+                          onSelect={(v) => {
+                            // Manual district change while a verified place is
+                            // selected: if the new district conflicts with the
+                            // place's verified district, drop the place (back
+                            // to free text, query preserved) instead of keeping
+                            // a mismatched pair — the shopper's explicit
+                            // district choice wins and is never silently
+                            // reverted.
+                            if (selectedPlace) {
+                              const placeCity = resolvePlaceCity(selectedPlace);
+                              if (!placeCity || placeCity.name !== v) {
+                                trackWebEvent({
+                                  type: "landmark_selection_removed",
+                                  properties: { placeId: selectedPlace.id, reason: "district_changed" },
+                                });
+                                setSelectedPlace(null);
+                                setPlaceInternalDetail("");
+                              }
+                              setPlaceDistrictNotice(null);
+                            }
+                            setRecipient({ ...recipient, district: v });
+                          }}
                           disabled={locationsLoading || !hasActiveCities}
                           /* max-md:text-base — match the mobile text size of Input/Textarea/phone field */
                           triggerClassName={cn("max-md:text-base", districtError && invalidControlClass)}
@@ -3897,7 +4080,21 @@ function CheckoutForm() {
                         errorId="recipient-address-error"
                         errorTestId="error-recipient-address"
                       >
-                        <Textarea rows={isMobile ? 2 : 3} className={cn("min-h-[76px] max-md:min-h-[57px]", addressError && invalidControlClass)} aria-invalid={addressError || undefined} aria-describedby={addressError ? "recipient-address-error" : undefined} value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={isMobile ? t("checkout.addressPhShort") : t("checkout.addressPh")} data-testid="input-recipient-address" />
+                        <DeliveryDetailsField
+                          value={recipient.address}
+                          onChange={(v) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: v }); }}
+                          countryCode={(countryCode ?? "LB").toUpperCase().slice(0, 2)}
+                          selectedPlace={selectedPlace}
+                          internalDetail={placeInternalDetail}
+                          onInternalDetailChange={setPlaceInternalDetail}
+                          onSelectPlace={handleSelectPlace}
+                          onClearPlace={handleClearPlace}
+                          districtNotice={placeDistrictNotice}
+                          addressError={addressError}
+                          detailError={placeDetailError}
+                          invalidControlClass={invalidControlClass}
+                          isMobile={isMobile}
+                        />
                       </CheckoutField>
 
                       {isSignedIn && (

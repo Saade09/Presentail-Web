@@ -13,6 +13,8 @@ import type {
   OSOccasionStatsResponse,
   OSCreateOrderPayload,
   OSCreateOrderResponse,
+  OSAddressBookPlace,
+  OSAddressBookPlacesResponse,
 } from "./types";
 
 const DEFAULT_BASE_URL = "https://os.presentail.com";
@@ -1099,4 +1101,267 @@ export async function validateOsCoupon(
     discountAmountUsd: Number(data["discountAmountUsd"] ?? 0),
     finalTotalUsd: Number(data["finalTotalUsd"] ?? 0),
   };
+}
+
+// ── Address Book (verified landmarks / well-known places) ──────────────────
+
+/**
+ * Raw wire shape of an OS Address Book place. OS endpoints may return either
+ * snake_case or camelCase field names depending on deployment version, so
+ * every field is read via the `raw.x_y ?? raw.xY` pattern.
+ */
+type RawOSAddressBookPlace = {
+  id?: string | number;
+  place_id?: string | number;
+  name?: string;
+  display_name?: string;
+  displayName?: string;
+  official_name?: string | null;
+  officialName?: string | null;
+  aliases?: unknown;
+  public_aliases?: unknown;
+  publicAliases?: unknown;
+  type?: string | null;
+  place_type?: string | null;
+  placeType?: string | null;
+  country_code?: string | null;
+  countryCode?: string | null;
+  country?: string | null;
+  district_id?: string | number | null;
+  districtId?: string | number | null;
+  district_slug?: string | null;
+  districtSlug?: string | null;
+  district_name?: string | null;
+  districtName?: string | null;
+  district?: string | { id?: string | number; slug?: string; name?: string } | null;
+  area?: string | null;
+  city?: string | null;
+  neighbourhood?: string | null;
+  neighborhood?: string | null;
+  lat?: number | string | null;
+  latitude?: number | string | null;
+  lng?: number | string | null;
+  lon?: number | string | null;
+  longitude?: number | string | null;
+  verified?: boolean;
+  is_verified?: boolean;
+  isVerified?: boolean;
+  verification_status?: string | null;
+  verificationStatus?: string | null;
+  published?: boolean;
+  is_published?: boolean;
+  isPublished?: boolean;
+  status?: string | null;
+  checkout_enabled?: boolean;
+  checkoutEnabled?: boolean;
+  is_checkout_enabled?: boolean;
+  checkout_active?: boolean;
+  follow_up_question?: string | null;
+  followUpQuestion?: string | null;
+  internal_location_question?: string | null;
+  follow_up_placeholder?: string | null;
+  followUpPlaceholder?: string | null;
+  internal_location_placeholder?: string | null;
+};
+
+function toStringOrNull(v: unknown): string | null {
+  if (typeof v === "string") {
+    const trimmed = v.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return null;
+}
+
+function toNumberOrNull(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function toAliasList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const item of v) {
+    // OS may send aliases as strings or as objects with an alias/name field.
+    const s =
+      typeof item === "string"
+        ? item
+        : item && typeof item === "object"
+          ? toStringOrNull(
+              (item as Record<string, unknown>)["alias"] ??
+                (item as Record<string, unknown>)["name"] ??
+                (item as Record<string, unknown>)["value"],
+            )
+          : null;
+    if (s && s.trim().length > 0) out.push(s.trim());
+  }
+  return out;
+}
+
+/**
+ * Normalise a raw OS Address Book place into the internal shape.
+ * Returns null when the record has no usable id or name.
+ *
+ * Verification / publication / checkout-eligibility flags default to FALSE
+ * when absent — a place must be explicitly marked eligible by OS to ever be
+ * suggested at checkout (fail closed, never open).
+ */
+export function normaliseOsAddressBookPlace(
+  raw: RawOSAddressBookPlace,
+): OSAddressBookPlace | null {
+  const id = toStringOrNull(raw.id ?? raw.place_id);
+  const name = toStringOrNull(raw.display_name ?? raw.displayName ?? raw.name);
+  if (!id || !name) return null;
+
+  const districtObj =
+    raw.district && typeof raw.district === "object" ? raw.district : null;
+
+  const verified =
+    raw.verified ??
+    raw.is_verified ??
+    raw.isVerified ??
+    ((raw.verification_status ?? raw.verificationStatus) === "verified"
+      ? true
+      : undefined) ??
+    false;
+  const published =
+    raw.published ??
+    raw.is_published ??
+    raw.isPublished ??
+    (raw.status === "published" ? true : undefined) ??
+    false;
+  const checkoutEnabled =
+    raw.checkout_enabled ??
+    raw.checkoutEnabled ??
+    raw.is_checkout_enabled ??
+    raw.checkout_active ??
+    false;
+
+  return {
+    id,
+    name,
+    officialName: toStringOrNull(raw.official_name ?? raw.officialName),
+    aliases: toAliasList(raw.aliases ?? raw.public_aliases ?? raw.publicAliases),
+    type: toStringOrNull(raw.place_type ?? raw.placeType ?? raw.type),
+    countryCode: (() => {
+      const c = toStringOrNull(raw.country_code ?? raw.countryCode ?? raw.country);
+      return c ? c.toUpperCase().slice(0, 2) : null;
+    })(),
+    districtId:
+      toStringOrNull(
+        raw.district_slug ??
+          raw.districtSlug ??
+          raw.district_id ??
+          raw.districtId ??
+          districtObj?.slug ??
+          districtObj?.id,
+      ) ?? (typeof raw.district === "string" ? toStringOrNull(raw.district) : null),
+    districtName:
+      toStringOrNull(raw.district_name ?? raw.districtName ?? districtObj?.name) ??
+      (typeof raw.district === "string" ? toStringOrNull(raw.district) : null),
+    area: toStringOrNull(
+      raw.area ?? raw.neighbourhood ?? raw.neighborhood ?? raw.city,
+    ),
+    lat: toNumberOrNull(raw.lat ?? raw.latitude),
+    lng: toNumberOrNull(raw.lng ?? raw.lon ?? raw.longitude),
+    verified: verified === true,
+    published: published === true,
+    checkoutEnabled: checkoutEnabled === true,
+    followUpQuestion: toStringOrNull(
+      raw.follow_up_question ??
+        raw.followUpQuestion ??
+        raw.internal_location_question,
+    ),
+    followUpPlaceholder: toStringOrNull(
+      raw.follow_up_placeholder ??
+        raw.followUpPlaceholder ??
+        raw.internal_location_placeholder,
+    ),
+  };
+}
+
+/**
+ * Candidate OS Address Book endpoints, tried in order. As of Aug 2026 the
+ * storefront API key receives a generic 403 {"error":"no_access"} on all of
+ * them (verified against every auth pattern this client uses — x-api-key
+ * header, apiKey query param, and both combined — while known-good endpoints
+ * like /api/delivery-locations-ext return 200 with the same key). The paths
+ * are kept in the expected priority order so the integration lights up
+ * automatically once the OS team grants the key access.
+ */
+const ADDRESS_BOOK_PATHS = [
+  "/api/public/address-book/places",
+  "/api/address-book/places",
+  "/api/places",
+] as const;
+
+/**
+ * Fetch the published Address Book places from Presentail OS.
+ *
+ * Throws when no endpoint is accessible (the current state — see
+ * ADDRESS_BOOK_PATHS). The caller is responsible for graceful fallback:
+ * checkout must degrade to plain free-text address entry, never error.
+ */
+export async function fetchOsAddressBookPlaces(
+  config: PresentailOsConfig,
+  opts: { countryCode?: string } = {},
+): Promise<OSAddressBookPlacesResponse> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+
+  if (!apiKey) {
+    throw new Error(
+      "PRESENTAIL_OS_API_KEY is required for fetchOsAddressBookPlaces.",
+    );
+  }
+
+  let lastStatus: number | null = null;
+  for (const path of ADDRESS_BOOK_PATHS) {
+    const url = new URL(`${baseUrl}${path}`);
+    url.searchParams.set("workspace", workspace);
+    url.searchParams.set("apiKey", apiKey);
+    if (opts.countryCode) {
+      url.searchParams.set("country_code", opts.countryCode.toUpperCase());
+    }
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "PresentailApp/1.0",
+          "x-api-key": apiKey,
+        },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+    } catch {
+      // Network error / timeout on this path — try the next candidate.
+      continue;
+    }
+    if (!res.ok) {
+      lastStatus = res.status;
+      continue;
+    }
+    const body = (await res.json()) as unknown;
+    // Accept { places: [...] }, { items: [...] }, or a bare array.
+    const rawList: unknown = Array.isArray(body)
+      ? body
+      : body && typeof body === "object"
+        ? ((body as Record<string, unknown>)["places"] ??
+          (body as Record<string, unknown>)["items"] ??
+          (body as Record<string, unknown>)["data"])
+        : null;
+    if (!Array.isArray(rawList)) continue;
+    const places = rawList
+      .map((p) => normaliseOsAddressBookPlace(p as RawOSAddressBookPlace))
+      .filter((p): p is OSAddressBookPlace => p !== null);
+    return { places };
+  }
+
+  throw new Error(
+    // Server-side diagnostic, never shown to shoppers.
+    `Presentail OS address-book API is not accessible (last HTTP status: ${lastStatus ?? "network error"})`, // i18n-ignore
+  );
 }

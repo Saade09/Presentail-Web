@@ -305,6 +305,18 @@ export const checkoutStrings: Dict = {
   "checkout.loyalty.usePoints": { en: "Use {n} pts", ar: "استخدم {n} نقطة" },
   "checkout.loyalty.off": { en: "{n}% off", ar: "خصم {n}٪" },
 
+  // Landmark recognition — verified places from the OS Address Book
+  "checkout.places.suggested": { en: "Suggested places", ar: "أماكن مقترحة" },
+  "checkout.places.verified": { en: "Verified", ar: "موثّق" },
+  "checkout.places.continueAsTyped": { en: "Continue with \u201C{query}\u201D as typed", ar: "المتابعة بـ \u201C{query}\u201D كما كتبتها" },
+  "checkout.places.listLabel": { en: "Place suggestions", ar: "اقتراحات الأماكن" },
+  "checkout.places.change": { en: "Change", ar: "تغيير" },
+  "checkout.places.changeAria": { en: "Change selected place", ar: "تغيير المكان المحدد" },
+  "checkout.places.whereInside": { en: "Where inside {place}?", ar: "أين داخل {place}؟" },
+  "checkout.places.detailPh": { en: "Building, department, floor, room number or entrance", ar: "المبنى، القسم، الطابق، رقم الغرفة أو المدخل" },
+  "checkout.places.districtUpdated": { en: "Delivery district updated — {place} is in {district}. Delivery options and fee have been updated.", ar: "تم تحديث منطقة التوصيل — {place} يقع في {district}. تم تحديث خيارات التوصيل والرسوم." },
+  "checkout.error.placeDetail": { en: "Add details so the courier can find the recipient inside this place.", ar: "أضف التفاصيل ليتمكن المندوب من إيجاد المستلم داخل هذا المكان." },
+
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -572,6 +584,17 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.loyalty.usePoints": "Utiliser {n} pts",
   "checkout.loyalty.off": "{n}% de réduction",
 
+  "checkout.places.suggested": "Lieux suggérés",
+  "checkout.places.verified": "Vérifié",
+  "checkout.places.continueAsTyped": "Continuer avec \u00AB {query} \u00BB tel que saisi",
+  "checkout.places.listLabel": "Suggestions de lieux",
+  "checkout.places.change": "Modifier",
+  "checkout.places.changeAria": "Modifier le lieu sélectionné",
+  "checkout.places.whereInside": "Où à l'intérieur de {place} ?",
+  "checkout.places.detailPh": "Bâtiment, service, étage, numéro de chambre ou entrée",
+  "checkout.places.districtUpdated": "District de livraison mis à jour — {place} se trouve à {district}. Les options et frais de livraison ont été mis à jour.",
+  "checkout.error.placeDetail": "Ajoutez des détails pour que le livreur puisse trouver le destinataire dans ce lieu.",
+
 };
 
 export const checkoutStringsEl: Record<string, string> = {
@@ -837,5 +860,16 @@ export const checkoutStringsEl: Record<string, string> = {
 
   "checkout.loyalty.usePoints": "Χρήση {n} πόντων",
   "checkout.loyalty.off": "{n}% έκπτωση",
+
+  "checkout.places.suggested": "Προτεινόμενα μέρη",
+  "checkout.places.verified": "Επαληθευμένο",
+  "checkout.places.continueAsTyped": "Συνέχεια με \u201C{query}\u201D όπως πληκτρολογήθηκε",
+  "checkout.places.listLabel": "Προτάσεις τοποθεσιών",
+  "checkout.places.change": "Αλλαγή",
+  "checkout.places.changeAria": "Αλλαγή επιλεγμένου μέρους",
+  "checkout.places.whereInside": "Πού μέσα στο {place};",
+  "checkout.places.detailPh": "Κτίριο, τμήμα, όροφος, αριθμός δωματίου ή είσοδος",
+  "checkout.places.districtUpdated": "Η περιοχή παράδοσης ενημερώθηκε — το {place} βρίσκεται σε {district}. Οι επιλογές και τα έξοδα παράδοσης ενημερώθηκαν.",
+  "checkout.error.placeDetail": "Προσθέστε λεπτομέρειες ώστε ο διανομέας να βρει τον παραλήπτη μέσα σε αυτό το μέρος.",
 
 };

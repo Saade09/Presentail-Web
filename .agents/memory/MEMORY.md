@@ -75,3 +75,4 @@
 - [Checkout mobile compact spacing](checkout-mobile-compact-spacing.md) — max-md: compact scale for ≤767px checkout (tablet keeps base classes); mobile textarea line-height is 24px (text-base)
 - [Blog sitemap translation availability](blog-sitemap-translation-availability.md) — sitemap and hreflang entries must include only locales with dedicated article content, never noindex fallbacks.
 - [cmdk combobox gotchas](cmdk-combobox-patterns.md) — cmdk lowercases item values (use closures in onSelect); shouldFilter=false for localized names; stub scrollIntoView in jsdom tests
+- [OS Address Book landmarks](os-address-book-landmarks.md) — checkout landmark suggestions dark behind OS_ADDRESS_BOOK_ENABLED (OS 403s our key); Arabic NFKD hamza must be stripped to \u065F

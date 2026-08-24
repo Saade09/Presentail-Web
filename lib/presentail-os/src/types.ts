@@ -440,11 +440,61 @@ export type OSCreateOrderPayload = {
    * billing phone (E.164) already present in `billing.phone`.
    */
   whatsapp_opt_in?: boolean;
+  /**
+   * Free-form order metadata forwarded to OS (e.g. marketing_attribution,
+   * address_book_place). Keys use snake_case on the wire.
+   */
+  metadata?: Record<string, unknown>;
   couponCode?: string;
   /** OS-assigned coupon ID returned by the coupon validate endpoint. */
   couponId?: string | number;
   /** Discount amount in USD already applied to totalUsd. */
   couponDiscountUsd?: number;
+};
+
+// ── Address Book (verified landmarks / well-known places) ──────────────────
+
+/**
+ * A verified place from the Presentail OS Address Book, normalised into the
+ * internal camelCase shape. The OS Address Book is the single source of
+ * truth — this shape is a public-safe projection only (no internal notes,
+ * contacts, or verification history ever leave OS through this type).
+ */
+export type OSAddressBookPlace = {
+  /** OS Address Book place id (string; numeric ids are stringified). */
+  id: string;
+  /** Display name shown to shoppers (e.g. "AUBMC"). */
+  name: string;
+  /** Official name when different from the display name. */
+  officialName?: string | null;
+  /** Public aliases, abbreviations, and multilingual variants. */
+  aliases: string[];
+  /** Place type (hospital, university, hotel, mall, ...). */
+  type?: string | null;
+  /** ISO 3166-1 alpha-2 country code (uppercase). */
+  countryCode?: string | null;
+  /** OS district/city slug the place belongs to (e.g. "beirut"). */
+  districtId?: string | null;
+  /** OS district/city display name (e.g. "Beirut"). */
+  districtName?: string | null;
+  /** Area/neighbourhood within the district (e.g. "Hamra"). */
+  area?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  /** Location has been verified by the OS team. */
+  verified: boolean;
+  /** Place is published (visible outside OS admin). */
+  published: boolean;
+  /** Place may be offered during checkout. */
+  checkoutEnabled: boolean;
+  /** Place-specific follow-up question (e.g. "Where inside AUBMC?"). */
+  followUpQuestion?: string | null;
+  /** Placeholder for the follow-up field. */
+  followUpPlaceholder?: string | null;
+};
+
+export type OSAddressBookPlacesResponse = {
+  places: OSAddressBookPlace[];
 };
 
 export type OSCreateOrderResponse = {

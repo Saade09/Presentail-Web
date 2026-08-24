@@ -108,7 +108,16 @@ type WebEventType =
   | "midnight_option_selected"
   | "midnight_option_ineligible"
   | "midnight_selection_removed_after_address_change"
-  | "midnight_order_completed";
+  | "midnight_order_completed"
+  // Landmark recognition in checkout Delivery Details (verified OS Address Book places)
+  | "landmark_search_performed"
+  | "landmark_suggestions_shown"
+  | "landmark_search_no_results"
+  | "landmark_suggestion_selected"
+  | "landmark_continued_as_typed"
+  | "landmark_district_auto_changed"
+  | "landmark_selection_removed"
+  | "landmark_order_completed";
 
 export type WebEventItem = {
   productId: string;
