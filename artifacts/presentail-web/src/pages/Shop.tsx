@@ -724,7 +724,10 @@ export default function Shop() {
       ) : null}
 
 
-      <div className={`container mx-auto max-w-content px-page${(breadcrumbCrumbs.length > 0 || isOccasionRoute || isCategoryRoute) ? " pt-1.5 md:pt-4" : ""}`}>
+      {/* pb keeps the last product row clear of the footer whenever the trailing
+          SEO/curated section doesn't render; sections below compensate (flushTop /
+          no top padding) so the combined gap never doubles when they do render. */}
+      <div className={`container mx-auto max-w-content px-page pb-12 md:pb-16${(breadcrumbCrumbs.length > 0 || isOccasionRoute || isCategoryRoute) ? " pt-1.5 md:pt-4" : ""}`}>
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-3 md:gap-6 mb-2 pb-0 md:mb-4 md:pb-2">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
@@ -1058,7 +1061,7 @@ export default function Shop() {
           : null;
         if (activeCuratedContent) {
           return (
-            <section className="container mx-auto max-w-content px-page py-12 space-y-10">
+            <section className="container mx-auto max-w-content px-page pb-12 space-y-10">
               {activeCuratedContent.sections.map((s) => (
                 <div key={s.heading} className="max-w-[720px]">
                   <h2 className="text-2xl font-serif mb-3">{s.heading}</h2> {/* i18n-ignore — curated EN-only SEO copy */}
@@ -1106,6 +1109,7 @@ export default function Shop() {
               availableOccasionIds={availableOccasionIds}
               overrides={pageDescOverrides}
               suppressFaqJsonLd
+              flushTop
             />
           );
         }
@@ -1117,6 +1121,7 @@ export default function Shop() {
               lang={language}
               countryCode={countryCode ?? ""}
               suppressFaqJsonLd
+              flushTop
             />
           );
         }

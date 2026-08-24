@@ -137,6 +137,10 @@ interface SEOContentSectionProps {
   /** Render FAQ answers always visible (no accordion) so the hydrated DOM
       matches server-injected initial HTML for hand-written landing pages. */
   faqsAlwaysVisible?: boolean;
+  /** Drop the default top margin when the preceding layout already provides
+      the gap (e.g. the shop/category page's bottom padding), so the combined
+      spacing doesn't double. */
+  flushTop?: boolean;
 }
 
 function format(template: string, params?: Record<string, string>): string {
@@ -160,6 +164,7 @@ function SEOContentSectionInner({
   brandCategory = "general",
   suppressFaqJsonLd = false,
   faqsAlwaysVisible = false,
+  flushTop = false,
 }: SEOContentSectionProps) {
   const { t, language, dir } = useLocale();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -420,7 +425,7 @@ function SEOContentSectionInner({
   return (
     <section
       dir={dir}
-      className="w-full bg-gray-100 mt-12 md:mt-16 py-10 md:py-16"
+      className={`w-full bg-gray-100 ${flushTop ? "" : "mt-12 md:mt-16 "}py-10 md:py-16`}
       data-testid="seo-content-section"
     >
       <div className="max-w-content mx-auto px-4 sm:px-6 md:px-10">

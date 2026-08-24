@@ -16,3 +16,5 @@ Most presentail-web e2e specs stub `/api` via page.route. When the behaviour und
 # AuthContext restore race (fixed Aug 2026)
 
 The `/auth/me` token-restore effect must commit `setUser` and `setIsLoading(false)` in the SAME React update (both inside `startTransition`). Splitting them (user in a transition, isLoading in `finally`) let React commit `isLoading=false, user=null` first, so a signed-in user direct-loading `/account` was bounced to `/sign-in`.
+
+- City-prefixed URLs (e.g. /en-lb/beirut/category/flowers) auto-select the city and bypass the country-picker gate — no localStorage seeding needed for read-only page checks.
