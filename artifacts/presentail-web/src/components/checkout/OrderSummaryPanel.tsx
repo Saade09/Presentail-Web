@@ -145,7 +145,10 @@ export function OrderSummaryPanel({
 
   return (
     <div className="w-full lg:w-[42%] xl:w-[44%] lg:max-w-[500px] shrink-0 order-first lg:order-last self-stretch">
-      <div className="sticky top-24">
+      {/* Desktop (lg+) sticky offset is 24px (top-6) because the checkout
+          header scrolls away with the page. If that header ever becomes
+          sticky on desktop, this must become header height + 24px. */}
+      <div className="sticky top-24 lg:top-6">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
 
           {/* ══════════════════════════════════════════════════
