@@ -30,7 +30,6 @@ import { ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, CalendarDays, Che
 import { buildFeeNode } from "@/lib/feeNode";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Logo } from "@/components/Logo";
@@ -107,6 +106,7 @@ import {
 // Lazily loaded — @stripe/react-stripe-js (and therefore js.stripe.com) are
 // never bundled into the instant checkout chunk and are only fetched when the
 // user picks a Stripe-backed payment method (card / Apple Pay / Google Pay).
+import { LocationCombobox } from "@/components/checkout/LocationCombobox";
 const LazyStripeSection = lazy(() =>
   import("@/components/StripeCheckoutSection").then((m) => ({ default: m.StripeCheckoutSection })),
 );
@@ -626,7 +626,12 @@ function CheckoutForm() {
   const paypalPayment = usePaypalPayment();
   const tabbyPayment = useTabbyPayment();
   // Expiry field managed here so we can read it in the submit handler.
-  const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
+  const {
+    data: locations,
+    isLoading: locationsLoading,
+    isError: locationsError,
+    refetch: refetchLocations,
+  } = useDeliveryLocations();
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
   const [klarnaEnabled, setKlarnaEnabled] = useState(false);
@@ -3831,54 +3836,49 @@ function CheckoutForm() {
                   {!noAddress && (
                     <>
                       <CheckoutField
-                        label={countryCode === "AE" ? t("checkout.emirate") : t("checkout.district")}
+                        label={countryCode === "AE" ? t("checkout.emirate") : countryCode === "LB" ? t("checkout.governorate") : t("checkout.district")}
+                        htmlFor="checkout-district"
                         required
                         className="lg:max-w-[480px]"
                         error={districtError ? (countryCode === "AE" ? t("checkout.error.emirate") : t("checkout.error.district")) : null}
                         errorId="district-error"
                         errorTestId="error-district"
                       >
-                        <Select
+                        <LocationCombobox
+                          id="checkout-district"
                           value={recipient.district}
-                          onValueChange={(v) => setRecipient({ ...recipient, district: v })}
+                          options={currentCountryCities}
+                          onSelect={(v) => setRecipient({ ...recipient, district: v })}
                           disabled={locationsLoading || !hasActiveCities}
-                        >
-                          <SelectTrigger
-                            data-testid="select-district"
-                            className={districtError ? invalidControlClass : undefined}
-                            aria-invalid={districtError || undefined}
-                            aria-describedby={districtError ? "district-error" : undefined}
-                          >
-                            <SelectValue
-                              placeholder={
-                                selectedCityData
-                                  ? cityName(selectedCityData.id, selectedCityData.name)
-                                  : locationsLoading
-                                  ? t("checkout.districtLoading")
-                                  : !hasActiveCities
-                                  ? t("checkout.districtUnavailable")
-                                  : countryCode === "AE" ? t("checkout.selectEmirate") : t("checkout.selectDistrict")
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currentCountryCities.map((city) => {
-                              const inactive = city.isActive === false;
-                              const label = cityName(city.id, city.name);
-                              return (
-                                <SelectItem key={city.id} value={city.name} disabled={inactive}>
-                                  {label}
-                                  {inactive && (
-                                    // contrast-ok: inside disabled={inactive} SelectItem – WCAG 1.4.3 inactive UI exception
-                                    <span className="ml-1.5 text-xs text-muted-foreground/70">
-                                      {t("location.cityUnavailable")}
-                                    </span>
-                                  )}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
+                          triggerClassName={districtError ? invalidControlClass : undefined}
+                          aria-invalid={districtError || undefined}
+                          aria-describedby={districtError ? "district-error" : undefined}
+                          placeholder={
+                            selectedCityData
+                              ? cityName(selectedCityData.id, selectedCityData.name)
+                              : locationsLoading
+                              ? t("checkout.districtLoading")
+                              : !hasActiveCities
+                              ? t("checkout.districtUnavailable")
+                              : countryCode === "AE" ? t("checkout.selectEmirate") : countryCode === "LB" ? t("checkout.selectGovernorate") : t("checkout.selectDistrict")
+                          }
+                          searchPlaceholder={countryCode === "AE" ? t("checkout.searchEmirates") : countryCode === "LB" ? t("checkout.searchGovernorates") : t("checkout.searchDistricts")}
+                          emptyText={countryCode === "AE" ? t("checkout.noEmiratesFound") : countryCode === "LB" ? t("checkout.noGovernoratesFound") : t("checkout.noDistrictsFound")}
+                          unavailableLabel={t("checkout.currentlyUnavailable")}
+                        />
+                        {locationsError && !locations && (
+                          <div className="mt-2 flex items-center gap-2 text-sm" data-testid="text-district-load-error">
+                            <span className="text-destructive">{t("checkout.locationsLoadError")}</span>
+                            <button
+                              type="button"
+                              onClick={() => { void refetchLocations(); }}
+                              className="font-medium text-primary underline underline-offset-2"
+                              data-testid="button-district-retry"
+                            >
+                              {t("checkout.retry")}
+                            </button>
+                          </div>
+                        )}
                       </CheckoutField>
 
                       <CheckoutField
