@@ -3982,19 +3982,16 @@ function CheckoutForm() {
                     </>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
-                          <Input ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" autoCapitalize="words" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
-                          <Input ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" autoCapitalize="words" />
-                        </div>
+                      <div className="grid grid-cols-2 gap-x-3">
+                        <CheckoutField label={t("checkout.firstName")} htmlFor="sender-first-name-input" required>
+                          <Input id="sender-first-name-input" ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" autoCapitalize="words" />
+                        </CheckoutField>
+                        <CheckoutField label={t("checkout.lastName")} htmlFor="sender-last-name-input" required>
+                          <Input id="sender-last-name-input" ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" autoCapitalize="words" />
+                        </CheckoutField>
                       </div>
-                      <div className="space-y-2 mb-4 lg:max-w-[480px]">
-                        <label className="text-sm font-medium">{t("checkout.emailAddress")}<span className="text-destructive ms-0.5">*</span></label>
-                        <Input ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
+                      <CheckoutField label={t("checkout.emailAddress")} htmlFor="sender-email-input" required className="lg:max-w-[480px]">
+                        <Input id="sender-email-input" ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
                             // Run the full validation handler directly so Enter in the
@@ -4004,15 +4001,18 @@ function CheckoutForm() {
                             handleValidateAndAdvance();
                           }
                         }} data-testid="input-sender-email" />
-                      </div>
+                      </CheckoutField>
                     </>
                   )}
 
                   {!hasProfilePhone && (
-                    <div className="mb-4 lg:max-w-[480px]">
+                    <CheckoutField
+                      label={t("checkout.whatsappNumber")}
+                      required
+                      className="lg:max-w-[480px]"
+                    >
                       {ipCountrySettled ? (
                         <LazyWebPhoneField
-                          label={t("checkout.whatsappNumber")}
                           value={sender.phone}
                           onChange={(v) => setSender({ ...sender, phone: v })}
                           defaultCountry={ipCountry ?? "LB"}
@@ -4027,15 +4027,9 @@ function CheckoutForm() {
                           }}
                         />
                       ) : (
-                        <div aria-hidden>
-                          <div className="text-sm font-medium block mb-2">
-                            {t("checkout.whatsappNumber")}
-                            <span className="text-destructive ms-0.5"> *</span>
-                          </div>
-                          <div className="h-12 rounded-sm bg-muted/60 animate-pulse" />
-                        </div>
+                        <div aria-hidden className="h-12 rounded-sm bg-muted/60 animate-pulse" />
                       )}
-                    </div>
+                    </CheckoutField>
                   )}
 
                   {/* "Get order updates on WhatsApp" — both breakpoints, default
