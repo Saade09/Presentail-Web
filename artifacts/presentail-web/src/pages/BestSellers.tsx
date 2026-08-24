@@ -253,7 +253,7 @@ export default function BestSellers() {
         <PageBreadcrumb crumbs={CRUMBS} />
       </div>
 
-      <div className="container mx-auto max-w-content px-page pt-4">
+      <div className="container mx-auto max-w-content px-page pt-4 pb-12 md:pb-16">
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif">
