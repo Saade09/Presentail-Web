@@ -1,0 +1,66 @@
+OBJECTIVE
+
+Fix the excessive empty space above the Order Summary on the desktop checkout page after the customer scrolls. The sidebar should move upward and remain conveniently visible without changing the current checkout design.
+
+CURRENT PROBLEM
+
+• At the top of checkout, Order Summary is correctly aligned with the Delivery Details page heading.
+• After the checkout header scrolls out of view, Order Summary continues using a large top offset.
+• This leaves an awkward empty block of approximately 90–120px above the card and makes the two-column layout feel visually disconnected.
+
+REQUIRED BEHAVIOR
+
+• Keep Order Summary in its current natural position when the user is at the top of the page.
+• On desktop scroll, make the full Order Summary card sticky.
+• Once it reaches its sticky position, keep its top edge 24px below the webpage viewport.
+• The checkout header currently scrolls away. Do not reserve its height after it is no longer visible.
+• If the checkout header becomes sticky at any desktop breakpoint in the future, use an effective offset of header height plus 24px so the summary never overlaps it.
+• Keep the card sticky until it reaches the bottom boundary of its containing checkout section.
+
+IMPLEMENTATION GUIDANCE
+
+• Apply sticky behavior to the sidebar card or a dedicated sidebar wrapper, not to individual sections inside the card.
+• Expected CSS direction: position: sticky; top: 24px; align-self: flex-start.
+• Remove or override any desktop top offset that permanently reserves space for the checkout header after that header has scrolled away.
+• Check ancestor containers for overflow: hidden, overflow: auto, transforms, or height constraints that could prevent sticky positioning.
+• Do not hard-code an offset based on one screenshot or browser size. Use the 24px spacing token consistently.
+• Avoid scroll-event JavaScript unless CSS sticky cannot support the existing layout.
+
+DESIGN CONSTRAINTS
+
+• Do not redesign Order Summary.
+• Preserve the existing card width, border radius, shadow, colors, typography, spacing, content, delivery summary, promo/gift-card row, total, CTA, and secure-checkout text.
+• Do not change the left-side Recipient Details or Sender Details cards.
+• Do not horizontally shift or resize either checkout column.
+• Movement must feel natural, with no visible jump, flicker, or layout shift.
+
+RESPONSIVE BEHAVIOR
+
+• Apply this change only at the existing desktop two-column checkout breakpoint.
+• On mobile, keep Order Summary in normal document flow and preserve current mobile checkout behavior.
+• For intermediate/tablet widths, follow the existing one-column versus two-column breakpoint rather than adding a new arbitrary breakpoint.
+
+ACCEPTANCE CRITERIA
+
+1. At the top of desktop checkout, Order Summary remains aligned with the Delivery Details heading as it is today.
+2. After scrolling beyond the checkout header, the top of Order Summary sits 24px from the top of the visible webpage viewport.
+3. The large blank gap above Order Summary no longer appears.
+4. The full card remains visible and sticky while the customer completes Recipient Details and Sender Details.
+5. The card stops at the end of its parent container and never overlaps the footer or subsequent content.
+6. There is no overlap with the checkout header, clipping, horizontal movement, or content reflow.
+7. Expanding the promo/gift-card row or changing cart content does not break sticky behavior.
+8. Mobile checkout remains unchanged.
+
+QA CHECKLIST
+
+• Test at 1280px, 1440px, and 1920px desktop widths at 100% zoom.
+• Test Chrome and Safari.
+• Test initial page position, partial scroll, and deep scroll through Sender Details.
+• Test short and long order summaries, including multiple products.
+• Test with promo/gift-card content opened if the row expands.
+• Test at the desktop/tablet breakpoint boundary.
+• Confirm keyboard tab navigation and validation messages do not cause the sidebar to jump or overlap content.
+
+APPROVED VISUAL DIRECTION
+
+Use the latest approved mockup: in the scrolled desktop state, Order Summary is pulled upward to a clean 24px viewport offset, with every other page element unchanged.

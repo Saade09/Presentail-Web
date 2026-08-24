@@ -731,18 +731,15 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
 
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
-  // Satellite-city best-sellers: apply the same noindex,follow policy as
-  // satellite-city occasion/category pages.  Hub-city best-sellers
+  // Satellite-city best-sellers use noindex,follow while hub-city pages
   // (/en-lb/beirut/best-sellers, /en-ae/dubai/best-sellers, etc.) remain
-  // fully indexed.  Canonical is intentionally omitted on satellite pages,
-  // matching the behaviour of applyEligibilityNoindex on entity pages.
+  // fully indexed. Both retain an in-document canonical: noindex controls
+  // indexability, while canonical consolidates duplicate signals.
   const _isSatelliteBestSellers =
     routeKey === "bestSellers" &&
     Boolean(parsed.city) && Boolean(parsed.country) &&
     parsed.city !== HUB_CITY[parsed.country];
-  if (!_isSatelliteBestSellers) {
-    lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
-  }
+  lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
   // Non-public routes (cart, checkout, account, auth, favorites, order
   // confirmation) must not be indexed, but their links may still be followed.
   // Filter-parameterised non-curated URLs also get noindex so Googlebot does
@@ -4816,23 +4813,19 @@ function buildShopEntityHead({
 }
 
 /**
- * Mark a collection page as ineligible for indexing by:
- *  1. Removing the self-canonical <link rel="canonical"> tag so Google does
- *     not record a conflicting canonical on a noindexed page.
- *  2. Injecting (or replacing) the robots meta with "noindex, follow".
+ * Mark a collection page as ineligible for indexing by injecting (or replacing)
+ * its robots meta with "noindex, follow".
  *
- * The page still renders and is reachable by users — this is a soft noindex.
+ * The canonical must remain in the HTML. A noindex directive controls indexing;
+ * the canonical still tells crawlers which duplicate URL owns consolidation
+ * signals. It is also the in-document counterpart to serve.mjs's HTTP Link
+ * header, which is insufficient for crawlers that only inspect HTML.
  *
  * @param {{ headSnippet: string, [key: string]: any }} result
  * @returns {{ headSnippet: string, [key: string]: any }}
  */
 function applyEligibilityNoindex(result) {
   let snippet = result.headSnippet ?? "";
-  // Remove the self-canonical tag (any href value, single or double quotes).
-  snippet = snippet.replace(
-    /\s*<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/g,
-    "",
-  );
   // Replace existing robots meta if present, otherwise inject one.
   const robotsTag = `<meta name="robots" content="noindex, follow" />`;
   if (/<meta\s+name="robots"/.test(snippet)) {

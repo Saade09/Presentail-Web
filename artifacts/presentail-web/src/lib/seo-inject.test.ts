@@ -454,6 +454,43 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
     expect(out).not.toContain("Order before 11 PM for delivery today.");
   });
 
+  it("keeps an in-document canonical when an ineligible occasion is noindexed", async () => {
+    const slug = "canonical-on-noindex-occasion";
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        // Both the city and parent fetches deliberately report fewer than the
+        // eligibility threshold, reproducing Valentine's Day's noindex branch.
+        return {
+          ok: true,
+          json: async () => ({ ok: true, total: 1, groups: [{ count: 1, products: [] }] }),
+        };
+      }
+      if (u.includes("/api/woo/occasion")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            occasion: { name: "Valentine's Day", description: "", image: null },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      HTML,
+      `/en-lb/beirut/occasion/${slug}`,
+      OPTS,
+    );
+
+    expect(out).toContain('<meta name="robots" content="noindex, follow" />');
+    expect(out).toContain(
+      `<link rel="canonical" href="https://presentail.test/en-lb/beirut/occasion/${slug}" />`,
+    );
+  });
+
   it("falls back to the generic shop preview when the occasion 404s", async () => {
     mockFetchOnce({ ok: false }, false);
     const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
@@ -569,7 +606,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
     // Use a slug distinct from "birthday" to avoid entity-cache collision with the
     // earlier test that caches the birthday entity — a cache hit would skip the
     // entity fetch and make the listing call consume the mock, returning null
-    // productCount and triggering noindex which strips the canonical.
+    // productCount and triggering noindex.
     const occBody = {
       ok: true,
       occasion: {
@@ -9144,11 +9181,13 @@ describe("best-sellers canonical and hreflang policy", () => {
     expect(headSnippet).not.toContain('name="robots" content="noindex, follow"');
   });
 
-  it("noindexes satellite pages without conflicting canonical or hreflang tags", () => {
+  it("noindexes satellite pages while retaining a canonical and no hreflang tags", () => {
     const { headSnippet } = buildSeoHead("/en-lb/tripoli/best-sellers", OPTS);
 
     expect(headSnippet).toContain('name="robots" content="noindex, follow"');
-    expect(headSnippet).not.toContain('rel="canonical"');
+    expect(headSnippet).toContain(
+      'rel="canonical" href="https://presentail.test/en-lb/tripoli/best-sellers"',
+    );
     expect(headSnippet).not.toContain("hreflang=");
   });
 });
