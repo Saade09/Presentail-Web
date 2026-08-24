@@ -76,13 +76,13 @@ describe("Checkout district label gating", () => {
   it("AE uses emirate wording, other countries use district wording", () => {
     // Validates the gating logic pattern used in Checkout.tsx and checkout.tsx
     const labelForCountry = (cc: string) =>
-      cc === "AE" ? "Delivery Emirate" : "Delivery District";
+      cc === "AE" ? "Delivery emirate" : "Delivery district";
     const placeholderForCountry = (cc: string) =>
       cc === "AE" ? "Select an emirate" : "Select a district";
 
-    expect(labelForCountry("AE")).toBe("Delivery Emirate");
-    expect(labelForCountry("LB")).toBe("Delivery District");
-    expect(labelForCountry("CY")).toBe("Delivery District");
+    expect(labelForCountry("AE")).toBe("Delivery emirate");
+    expect(labelForCountry("LB")).toBe("Delivery district");
+    expect(labelForCountry("CY")).toBe("Delivery district");
 
     expect(placeholderForCountry("AE")).toBe("Select an emirate");
     expect(placeholderForCountry("LB")).toBe("Select a district");

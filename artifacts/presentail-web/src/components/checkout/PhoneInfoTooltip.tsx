@@ -50,7 +50,7 @@ export function PhoneInfoTooltip({ askRecipientForAddress, onOpen }: Props) {
           type="button"
           aria-label={t("checkout.phoneInfoButtonLabel")}
           data-testid="button-phone-info"
-          className="relative ms-1 inline-flex items-center justify-center rounded-full p-3 -m-3 text-primary hover:opacity-75 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="relative -my-3 -me-3 -ms-1 inline-flex items-center justify-center rounded-full p-3 text-primary hover:opacity-75 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           <Info className="h-4 w-4" aria-hidden="true" />
         </button>

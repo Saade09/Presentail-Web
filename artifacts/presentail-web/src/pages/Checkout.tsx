@@ -59,6 +59,7 @@ import { isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
 import { PhoneInfoTooltip } from "@/components/checkout/PhoneInfoTooltip";
+import { CheckoutField } from "@/components/checkout/CheckoutField";
 import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlotValidation";
 import { joinRecipientName } from "@/lib/recipientName";
 import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
@@ -3704,7 +3705,7 @@ function CheckoutForm() {
                   )}
 
                   <div
-                    className={`flex items-center gap-3 mb-6 lg:mb-7 rounded-xl border px-3.5 py-3 transition-colors ${
+                    className={`flex items-center gap-3 mb-6 rounded-xl border px-3.5 py-3 transition-colors ${
                       noAddress ? "border-primary" : "border-primary/30"
                     }`}
                     style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
@@ -3740,11 +3741,15 @@ function CheckoutForm() {
                     />
                   </div>
 
-                  <div className="space-y-2 mb-3.5 lg:max-w-[480px]">
-                    {/* Single recipient-name field — a first name, nickname, or full
-                        name is all valid. Input is preserved verbatim (no title-casing,
-                        no first/last splitting); whitespace is trimmed at submit time. */}
-                    <label className="text-sm font-medium" htmlFor="recipient-name-input">{t("checkout.recipientName")}<span className="text-destructive ms-0.5">*</span></label>
+                  {/* Single recipient-name field — a first name, nickname, or full
+                      name is all valid. Input is preserved verbatim (no title-casing,
+                      no first/last splitting); whitespace is trimmed at submit time. */}
+                  <CheckoutField
+                    label={t("checkout.recipientName")}
+                    htmlFor="recipient-name-input"
+                    required
+                    className="lg:max-w-[480px]"
+                  >
                     <Input id="recipient-name-input" ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -3756,19 +3761,18 @@ function CheckoutForm() {
                         phoneInput?.focus();
                       }
                     }} placeholder={t("checkout.recipientNamePh")} data-testid="input-recipient-name" autoCapitalize="words" enterKeyHint="next" />
-                  </div>
+                  </CheckoutField>
 
-                  <div className="mb-6 lg:mb-7 lg:max-w-[480px]">
-                    {/* Custom label row: "Phone Number *" plus the info tooltip button.
-                        The tooltip explains why we need the number; its copy switches
-                        with the ask-recipient-for-address toggle. Label is rendered
-                        here (not via the field's `label` prop) so the button can sit
-                        right after the required marker without layout shift. */}
-                    <div className="flex items-center mb-2">
-                      <label className="text-sm font-medium">
-                        {t("checkout.phoneNumber")}
-                        <span className="text-destructive ms-0.5">*</span>
-                      </label>
+                  {/* Label row: "Phone number *" plus the info tooltip button.
+                      The tooltip explains why we need the number; its copy switches
+                      with the ask-recipient-for-address toggle. The button renders
+                      via `labelTrailing` so it sits right after the required marker
+                      without layout shift. */}
+                  <CheckoutField
+                    label={t("checkout.phoneNumber")}
+                    required
+                    className="lg:max-w-[480px]"
+                    labelTrailing={
                       <PhoneInfoTooltip
                         askRecipientForAddress={noAddress}
                         onOpen={() => {
@@ -3779,7 +3783,8 @@ function CheckoutForm() {
                           });
                         }}
                       />
-                    </div>
+                    }
+                  >
                     <LazyWebPhoneField
                       value={recipient.phone}
                       onChange={(v) => setRecipient({ ...recipient, phone: v })}
@@ -3790,12 +3795,15 @@ function CheckoutForm() {
                       data-testid="input-recipient-phone"
                       onValidityChange={setRecipientPhoneValid}
                     />
-                  </div>
+                  </CheckoutField>
 
                   {!noAddress && (
                     <>
-                      <div className="space-y-2 mb-3.5 lg:max-w-[480px]">
-                        <label className="text-sm font-medium">{countryCode === "AE" ? t("checkout.emirate") : t("checkout.district")}<span className="text-destructive ms-0.5">*</span></label>
+                      <CheckoutField
+                        label={countryCode === "AE" ? t("checkout.emirate") : t("checkout.district")}
+                        required
+                        className="lg:max-w-[480px]"
+                      >
                         <Select
                           value={recipient.district}
                           onValueChange={(v) => setRecipient({ ...recipient, district: v })}
@@ -3832,16 +3840,19 @@ function CheckoutForm() {
                             })}
                           </SelectContent>
                         </Select>
-                      </div>
+                      </CheckoutField>
 
-                      <div className="space-y-2 mb-4">
-                        <label className="text-sm font-medium">
-                          <span className="lg:hidden">{t("checkout.addressLabelShort")}</span>
-                          <span className="hidden lg:inline">{t("checkout.address")}</span>
-                          <span className="text-destructive ms-0.5">*</span>
-                        </label>
+                      <CheckoutField
+                        label={
+                          <>
+                            <span className="lg:hidden">{t("checkout.addressLabelShort")}</span>
+                            <span className="hidden lg:inline">{t("checkout.address")}</span>
+                          </>
+                        }
+                        required
+                      >
                         <Textarea rows={3} className="min-h-[76px]" value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={isMobile ? t("checkout.addressPhShort") : t("checkout.addressPh")} data-testid="input-recipient-address" />
-                      </div>
+                      </CheckoutField>
 
                       {isSignedIn && (
                         <label className="flex items-center gap-3 cursor-pointer select-none mb-1" data-testid="check-save-address-label">
