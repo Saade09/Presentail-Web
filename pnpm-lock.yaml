@@ -195,6 +195,9 @@ overrides:
   ws@8: ^8.20.1
 
 patchedDependencies:
+  image-size-next@2.1.1:
+    hash: f9ed8342d095bb4e6086f5e2ef5cd88aa3e2bddf7eec65cb6f068aaf3ea616c3
+    path: patches/image-size-next@2.1.1.patch
   react-native-country-picker-modal@2.0.0:
     hash: 1c07de800004f572f69ae08b82fac74da4c58cbf0860a13b3ea2ebd8bb7b6b0b
     path: patches/react-native-country-picker-modal@2.0.0.patch
@@ -280,7 +283,7 @@ importers:
         version: 4.1.1
       image-size-next:
         specifier: ^2.1.1
-        version: 2.1.1
+        version: 2.1.1(patch_hash=f9ed8342d095bb4e6086f5e2ef5cd88aa3e2bddf7eec65cb6f068aaf3ea616c3)
       jose:
         specifier: ^6.2.3
         version: 6.2.3
@@ -2011,7 +2014,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {'0': node >=0.10.0}
+    engines: {node: '>=0.10.0'}
 
   '@expo/cli@54.0.23':
     resolution: {integrity: sha512-km0h72SFfQCmVycH/JtPFTVy69w6Lx1cHNDmfLfQqgKFYeeHTjx7LVDP4POHCtNxFP2UeRazrygJhlh4zz498g==}
@@ -5345,6 +5348,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -15782,7 +15786,7 @@ snapshots:
 
   ignore@7.0.5: {}
 
-  image-size-next@2.1.1: {}
+  image-size-next@2.1.1(patch_hash=f9ed8342d095bb4e6086f5e2ef5cd88aa3e2bddf7eec65cb6f068aaf3ea616c3): {}
 
   import-fresh@3.3.1:
     dependencies:
@@ -16674,7 +16678,7 @@ snapshots:
       flow-enums-runtime: 0.0.6
       graceful-fs: 4.2.11
       hermes-parser: 0.32.0
-      image-size: image-size-next@2.1.1
+      image-size: image-size-next@2.1.1(patch_hash=f9ed8342d095bb4e6086f5e2ef5cd88aa3e2bddf7eec65cb6f068aaf3ea616c3)
       invariant: 2.2.4
       jest-worker: 29.7.0
       jsc-safe-url: 0.2.4
@@ -16721,7 +16725,7 @@ snapshots:
       flow-enums-runtime: 0.0.6
       graceful-fs: 4.2.11
       hermes-parser: 0.35.0
-      image-size: image-size-next@2.1.1
+      image-size: image-size-next@2.1.1(patch_hash=f9ed8342d095bb4e6086f5e2ef5cd88aa3e2bddf7eec65cb6f068aaf3ea616c3)
       invariant: 2.2.4
       jest-worker: 29.7.0
       jsc-safe-url: 0.2.4

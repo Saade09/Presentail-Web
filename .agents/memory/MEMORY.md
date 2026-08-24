@@ -77,3 +77,4 @@
 - [cmdk combobox gotchas](cmdk-combobox-patterns.md) — cmdk lowercases item values (use closures in onSelect); shouldFilter=false for localized names; stub scrollIntoView in jsdom tests
 - [OS Address Book landmarks](os-address-book-landmarks.md) — checkout landmark suggestions dark behind OS_ADDRESS_BOOK_ENABLED (OS 403s our key); Arabic NFKD hamza must be stripped to \u065F
 - [Web test-utils locale stub](web-test-locale-stub.md) — default t() echoes raw keys; pass a real STRINGS-backed translator when asserting visible copy; klarna suite fails 4/4 at baseline
+- [Metro image-size path compatibility](metro-image-size-path-compat.md) — Metro passes asset paths, but image-size-next needs bytes; retain the pnpm patch while the security alias is active.
