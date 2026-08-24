@@ -33,6 +33,10 @@ export const authStrings: Dict = {
     ar: "كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى أو إعادة تعيين كلمة المرور.",
   },
 
+  "checkoutSignIn.titleMobile": { en: "Already have an account?", ar: "هل لديك حساب بالفعل؟" },
+  "checkoutSignIn.subtitleMobile": { en: "Sign in to use saved addresses and track orders.", ar: "سجّل الدخول لاستخدام العناوين المحفوظة وتتبّع الطلبات." },
+  "checkoutSignIn.appleShort": { en: "Apple", ar: "Apple" },
+  "checkoutSignIn.googleShort": { en: "Google", ar: "Google" },
   "checkoutSignIn.subtitle": { en: "Use saved addresses and track your orders.", ar: "استخدم العناوين المحفوظة وتتبّع طلباتك." },
   "checkoutSignIn.email": { en: "Sign in with email", ar: "تسجيل الدخول بالبريد الإلكتروني" },
   "checkoutSignIn.guestHint": { en: "Or continue as guest below ↓", ar: "أو تابع كضيف أدناه ↓" },
@@ -111,6 +115,10 @@ export const authStrings: Dict = {
 };
 
 export const authStringsFr: Record<string, string> = {
+  "checkoutSignIn.titleMobile": "Vous avez déjà un compte ?",
+  "checkoutSignIn.subtitleMobile": "Connectez-vous pour utiliser vos adresses enregistrées et suivre vos commandes.",
+  "checkoutSignIn.appleShort": "Apple",
+  "checkoutSignIn.googleShort": "Google",
   "checkoutSignIn.subtitle": "Utilisez vos adresses enregistrées et suivez vos commandes.",
   "checkoutSignIn.email": "Se connecter par email",
   "checkoutSignIn.guestHint": "Ou continuez en tant qu'invité ci-dessous ↓",
@@ -203,6 +211,10 @@ export const authStringsFr: Record<string, string> = {
 };
 
 export const authStringsEl: Record<string, string> = {
+  "checkoutSignIn.titleMobile": "Έχετε ήδη λογαριασμό;",
+  "checkoutSignIn.subtitleMobile": "Συνδεθείτε για να χρησιμοποιήσετε αποθηκευμένες διευθύνσεις και να παρακολουθείτε παραγγελίες.",
+  "checkoutSignIn.appleShort": "Apple",
+  "checkoutSignIn.googleShort": "Google",
   "checkoutSignIn.subtitle": "Χρησιμοποιήστε αποθηκευμένες διευθύνσεις και παρακολουθήστε τις παραγγελίες σας.",
   "checkoutSignIn.email": "Σύνδεση με email",
   "checkoutSignIn.guestHint": "Ή συνεχίστε ως επισκέπτης παρακάτω ↓",

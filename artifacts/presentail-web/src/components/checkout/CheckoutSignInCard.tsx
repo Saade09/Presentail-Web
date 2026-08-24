@@ -99,9 +99,14 @@ export function CheckoutSignInCard({
       data-testid="card-checkout-signin"
     >
       <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-1">
-        {t("checkoutLogin.title")}
+        {/* Compact mobile copy vs. original desktop copy — desktop unchanged. */}
+        <span className="md:hidden">{t("checkoutSignIn.titleMobile")}</span>
+        <span className="hidden md:inline">{t("checkoutLogin.title")}</span>
       </h3>
-      <p className="text-sm text-muted-foreground mb-4">{t("checkoutSignIn.subtitle")}</p>
+      <p className="text-sm max-md:text-xs text-muted-foreground mb-4 max-md:mb-3">
+        <span className="md:hidden">{t("checkoutSignIn.subtitleMobile")}</span>
+        <span className="hidden md:inline">{t("checkoutSignIn.subtitle")}</span>
+      </p>
 
       {inlineError ? (
         <div
@@ -113,7 +118,10 @@ export function CheckoutSignInCard({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      {/* Mobile (≤767px): two equal-width Apple/Google pills in one row with
+          short labels, email as a centered secondary text link spanning both
+          columns below. Desktop (≥768px): original three-button grid. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 max-md:gap-2">
         <Button
           type="button"
           variant="outline"
@@ -123,7 +131,14 @@ export function CheckoutSignInCard({
           data-testid="button-checkout-signin-apple"
         >
           <AppleLogo />
-          {oauthBusy === "apple" ? t("checkout.processing") : t("auth.continueApple")}
+          {oauthBusy === "apple" ? (
+            t("checkout.processing")
+          ) : (
+            <>
+              <span className="md:hidden">{t("checkoutSignIn.appleShort")}</span>
+              <span className="hidden md:inline">{t("auth.continueApple")}</span>
+            </>
+          )}
         </Button>
         <Button
           type="button"
@@ -134,12 +149,19 @@ export function CheckoutSignInCard({
           data-testid="button-checkout-signin-google"
         >
           <GoogleLogo />
-          {oauthBusy === "google" ? t("checkout.processing") : t("auth.continueGoogle")}
+          {oauthBusy === "google" ? (
+            t("checkout.processing")
+          ) : (
+            <>
+              <span className="md:hidden">{t("checkoutSignIn.googleShort")}</span>
+              <span className="hidden md:inline">{t("auth.continueGoogle")}</span>
+            </>
+          )}
         </Button>
         <Button
           type="button"
           variant="outline"
-          className={buttonClasses}
+          className={`${buttonClasses} max-md:col-span-2 max-md:border-0 max-md:bg-transparent max-md:shadow-none max-md:hover:bg-transparent max-md:hover:underline max-md:underline-offset-4`}
           ref={emailTriggerRef}
           onClick={() => {
             trackWebEvent({
@@ -156,7 +178,12 @@ export function CheckoutSignInCard({
         </Button>
       </div>
 
-      <p className="mt-3 text-sm text-muted-foreground" data-testid="text-checkout-signin-guest-hint">
+      {/* Guest hint removed at mobile widths — the Recipient Details form
+          below is the guest path. Desktop keeps its original hint. */}
+      <p
+        className="mt-3 text-sm text-muted-foreground max-md:hidden"
+        data-testid="text-checkout-signin-guest-hint"
+      >
         {t("checkoutSignIn.guestHint")}
       </p>
 

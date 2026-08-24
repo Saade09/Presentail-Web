@@ -69,6 +69,41 @@ describe("CheckoutSignInCard", () => {
     expect(screen.queryByTestId("text-checkout-signin-error")).toBeNull();
   });
 
+  it("renders the compact mobile copy alongside the desktop copy (responsive spans)", () => {
+    renderCard();
+    // Mobile-only (md:hidden) compact copy
+    expect(screen.getByText("checkoutSignIn.titleMobile").className).toContain("md:hidden");
+    expect(screen.getByText("checkoutSignIn.subtitleMobile").className).toContain("md:hidden");
+    expect(screen.getByText("checkoutSignIn.appleShort").className).toContain("md:hidden");
+    expect(screen.getByText("checkoutSignIn.googleShort").className).toContain("md:hidden");
+    // Desktop-only (hidden md:inline) original copy
+    expect(screen.getByText("checkoutLogin.title").className).toContain("hidden md:inline");
+    expect(screen.getByText("auth.continueApple").className).toContain("hidden md:inline");
+    expect(screen.getByText("auth.continueGoogle").className).toContain("hidden md:inline");
+  });
+
+  it("hides the guest hint at mobile widths and keeps it for desktop", () => {
+    renderCard();
+    const hint = screen.getByTestId("text-checkout-signin-guest-hint");
+    expect(hint.className).toContain("max-md:hidden");
+    expect(hint.textContent).toContain("checkoutSignIn.guestHint");
+  });
+
+  it("renders Apple/Google as a two-column pill row on mobile with email spanning below", () => {
+    renderCard();
+    const grid = screen.getByTestId("button-checkout-signin-apple").parentElement!;
+    // Two equal-width pills per row on mobile, three columns on desktop.
+    expect(grid.className).toContain("grid-cols-2");
+    expect(grid.className).toContain("md:grid-cols-3");
+    // Email trigger becomes a full-width centered text link on mobile.
+    const email = screen.getByTestId("button-checkout-signin-email");
+    expect(email.className).toContain("max-md:col-span-2");
+    expect(email.className).toContain("max-md:border-0");
+    // Pills keep the ≥44px height class.
+    expect(screen.getByTestId("button-checkout-signin-apple").className).toContain("h-11");
+    expect(screen.getByTestId("button-checkout-signin-google").className).toContain("h-11");
+  });
+
   it("Google success: signs the shopper in without navigation and fires funnel events", async () => {
     signInWithGooglePopup.mockResolvedValue({
       ok: true,
