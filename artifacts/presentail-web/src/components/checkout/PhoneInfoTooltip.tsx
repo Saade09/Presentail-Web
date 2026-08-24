@@ -29,8 +29,9 @@ type Props = {
  * - Focus stays on the button when opened (no focus trap / layout jump);
  *   the content carries role="status" so screen readers announce the copy
  *   when it appears.
- * - Visible focus ring; ≥44×44px touch target via padding + negative margin
- *   so the visual icon stays small and the layout never shifts.
+ * - Visible focus ring; ≥44×44px touch target via padding (16px icon +
+ *   2×14px padding = 44px) + negative margins so the visual icon stays
+ *   ~16px, vertically centered with the label, and the layout never shifts.
  */
 export function PhoneInfoTooltip({ askRecipientForAddress, onOpen }: Props) {
   const { t } = useLocale();
@@ -50,7 +51,7 @@ export function PhoneInfoTooltip({ askRecipientForAddress, onOpen }: Props) {
           type="button"
           aria-label={t("checkout.phoneInfoButtonLabel")}
           data-testid="button-phone-info"
-          className="relative -my-3 -me-3 -ms-1 inline-flex items-center justify-center rounded-full p-3 text-primary hover:opacity-75 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="relative -my-3.5 -me-3.5 -ms-1.5 inline-flex items-center justify-center rounded-full p-3.5 text-primary hover:opacity-75 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           <Info className="h-4 w-4" aria-hidden="true" />
         </button>

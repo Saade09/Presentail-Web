@@ -19,3 +19,12 @@ To reach checkout step 1 hermetically:
 - Append `?guest=1` to pre-acknowledge guest checkout so the sign-in dialog (`CheckoutLoginDialog`, guest button testid `button-checkout-as-guest`) never blocks the flow.
 
 **Note:** The older `e2e/checkout-phone-validation.spec.ts` uses the wrong location key (`presentail_location_v1`), a bare `/checkout` URL, and a 3s race on the guest dialog — so it would also fail when actually run against a real browser.
+
+# Hermetic API stubs that crash the checkout page
+
+When stubbing `**/api/**` with a `{ok:true}` catch-all (a11y-spec style), two endpoints need real shapes or checkout hits the error boundary ("Something went wrong") AFTER first paint — early selectors pass, later ones (e.g. the lazy phone field) never appear:
+- `/api/delivery-config` — an `{ok:true}` body makes `FreeDeliveryBanner.parseThresholdAmount` call `.match` on undefined. Fulfill it with **404** so `useDeliveryConfig` falls back to built-in defaults.
+- `/api/geo/currency` — must include `currencyCode` (e.g. `{ countryCode: "LB", currencyCode: "USD" }`) or the display-currency hook crashes in CartProvider.
+Register the catch-all FIRST: Playwright matches routes newest-first, so specific stubs must come after it.
+
+**Also:** the `playwright test` runner (bg or fg) repeatedly stalled/died without a summary in this container; a plain-node `chromium.launch()` script (sequential pages, same stubs) ran the identical captures reliably. And never `pkill -f "playwright test"` from ShellExec — the pattern matches your own shell's command line and kills it (use a `[p]` bracket pattern).

@@ -135,9 +135,10 @@ export function WebPhoneField({
   return (
     <div>
       {label ? (
-        <label className="text-sm font-medium block mb-2">
+        <label className="text-sm font-medium leading-5 block mb-2">
           {label}
-          {required ? <span className="text-destructive ms-0.5"> *</span> : null}
+          {/* Matches the shared CheckoutField asterisk: 4px after the label, baseline-aligned. */}
+          {required ? <span className="text-destructive ms-1">*</span> : null}
         </label>
       ) : null}
       {/* dir="ltr" keeps the picker LTR even inside RTL page layouts.

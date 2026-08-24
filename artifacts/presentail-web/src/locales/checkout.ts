@@ -10,7 +10,7 @@ export const checkoutStrings: Dict = {
   "checkout.step1.desc": { en: "Enter the recipient's details for delivery.", ar: "أدخل بيانات المستلم لتأكيد التوصيل." },
   "checkout.firstName": { en: "First name", ar: "الاسم الأول" },
   "checkout.lastName": { en: "Last name", ar: "اسم العائلة" },
-  "checkout.recipientName": { en: "Recipient name", ar: "اسم المستلم" },
+  "checkout.recipientName": { en: "Recipient's name", ar: "اسم المستلم" },
   "checkout.recipientNamePh": { en: "First name or full name", ar: "الاسم الأول أو الاسم الكامل" },
   "checkout.phoneInfoButtonLabel": { en: "Why we need the recipient's phone number", ar: "لماذا نحتاج رقم هاتف المستلم" },
   "checkout.phoneInfoAskOn": {

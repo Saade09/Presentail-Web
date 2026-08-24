@@ -413,6 +413,16 @@
   box-shadow: 0 0 0 1px hsl(var(--destructive));
 }
 
+/* ≤767px: match the shadcn Input's mobile text size (text-base) so phone
+   input text/placeholder reads identically to the other checkout fields
+   (Input/Textarea use text-base below md, text-sm from md up). */
+@media (max-width: 767px) {
+  .pi-phone-wrap .PhoneInputInput {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
 @layer utilities {
   .max-w-content {
     max-width: var(--content-max-width);

@@ -3739,7 +3739,10 @@ function CheckoutForm() {
 
                   <div
                     className={`flex items-center gap-3 mb-6 max-md:mb-4 rounded-xl border px-3.5 py-3 transition-colors ${
-                      noAddress ? "border-primary" : "border-primary/30"
+                      /* ≤767px unselected: standard secondary-control border (like the
+                         saved-address pill); selected keeps the primary border. Tablet/
+                         desktop unchanged. */
+                      noAddress ? "border-primary" : "border-primary/30 max-md:border-border"
                     }`}
                     style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
                     data-testid="check-no-address-label"
@@ -3850,7 +3853,8 @@ function CheckoutForm() {
                           options={currentCountryCities}
                           onSelect={(v) => setRecipient({ ...recipient, district: v })}
                           disabled={locationsLoading || !hasActiveCities}
-                          triggerClassName={districtError ? invalidControlClass : undefined}
+                          /* max-md:text-base — match the mobile text size of Input/Textarea/phone field */
+                          triggerClassName={cn("max-md:text-base", districtError && invalidControlClass)}
                           aria-invalid={districtError || undefined}
                           aria-describedby={districtError ? "district-error" : undefined}
                           placeholder={
@@ -4069,7 +4073,7 @@ function CheckoutForm() {
                           }}
                         />
                       ) : (
-                        <div aria-hidden className="h-12 rounded-sm bg-muted/60 animate-pulse" />
+                        <div aria-hidden className="h-9 rounded-sm bg-muted/60 animate-pulse" />
                       )}
                     </CheckoutField>
                   )}
@@ -4083,7 +4087,7 @@ function CheckoutForm() {
                         type="checkbox"
                         checked={whatsappOptIn}
                         onChange={(e) => handleWhatsappOptInToggle(e.target.checked)}
-                        className="mt-1 h-4 w-4 accent-primary cursor-pointer shrink-0"
+                        className="mt-1 max-md:mt-0.5 h-4 w-4 accent-primary cursor-pointer shrink-0"
                         aria-describedby="whatsapp-updates-hint"
                         data-testid="check-whatsapp-updates"
                       />
@@ -4099,7 +4103,7 @@ function CheckoutForm() {
                           </svg>
                           {t("checkout.whatsappUpdates")}
                         </span>
-                        <span id="whatsapp-updates-hint" className="block text-xs text-muted-foreground mt-0.5" data-testid="whatsapp-updates-hint">
+                        <span id="whatsapp-updates-hint" className="block text-xs text-muted-foreground max-md:leading-snug mt-0.5" data-testid="whatsapp-updates-hint">
                           {t("checkout.whatsappUpdatesHint")}
                         </span>
                       </span>
@@ -4127,7 +4131,7 @@ function CheckoutForm() {
                       />
                       <span className="text-sm">{t("checkout.anonymousGift")}</span>
                     </label>
-                    <p id="identity-secret-hint" className="text-xs text-gray-500 mt-1 ms-7" data-testid="identity-secret-hint">
+                    <p id="identity-secret-hint" className="text-xs text-gray-500 max-md:text-muted-foreground max-md:leading-snug mt-1 ms-7" data-testid="identity-secret-hint">
                       {t("checkout.anonymousGiftHint")}
                     </p>
                   </div>

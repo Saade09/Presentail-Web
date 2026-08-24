@@ -17,7 +17,7 @@ export const authStrings: Dict = {
   "auth.continueWithEmail": { en: "Continue with Email", ar: "متابعة بالبريد الإلكتروني" },
   "auth.helpLink": { en: "Having trouble signing in? Contact us", ar: "هل تواجه مشكلة في تسجيل الدخول؟ تواصل معنا" },
   "auth.privacyNote": { en: "We'll never share your email. We use it for your account and order updates.", ar: "لن نشارك بريدك الإلكتروني مطلقاً. نستخدمه لحسابك وتحديثات طلباتك." },
-  "auth.emailLabel": { en: "Email Address", ar: "البريد الإلكتروني" },
+  "auth.emailLabel": { en: "Email address", ar: "البريد الإلكتروني" },
   "auth.emailPlaceholder": { en: "Enter your email address", ar: "أدخل بريدك الإلكتروني" },
   "auth.or": { en: "Or", ar: "أو" },
   "auth.continueApple": { en: "Continue with Apple", ar: "المتابعة باستخدام Apple" },
@@ -52,11 +52,11 @@ export const authStrings: Dict = {
   "checkoutLogin.title": { en: "Sign in for a faster checkout", ar: "سجّل الدخول لإتمام الدفع بسرعة" },
   "checkoutLogin.desc": { en: "Save your details for next time, or continue as a guest.", ar: "احفظ بياناتك للمرة القادمة، أو تابع كضيف." },
   "checkoutLogin.guest": { en: "Checkout as Guest", ar: "إتمام الدفع كضيف" },
-  "auth.firstNameLabel": { en: "First Name", ar: "الاسم الأول" },
+  "auth.firstNameLabel": { en: "First name", ar: "الاسم الأول" },
   "auth.firstNamePlaceholder": { en: "First name", ar: "الاسم الأول" },
   "auth.firstNameRequired": { en: "First name is required.", ar: "الاسم الأول مطلوب." },
   "auth.lastNameRequired": { en: "Last name is required.", ar: "اسم العائلة مطلوب." },
-  "auth.lastNameLabel": { en: "Last Name", ar: "اسم العائلة" },
+  "auth.lastNameLabel": { en: "Last name", ar: "اسم العائلة" },
   "auth.lastNamePlaceholder": { en: "Last name", ar: "اسم العائلة" },
   "auth.unauthorized.title": { en: "You're signed in elsewhere", ar: "أنت مسجّل الدخول في مكان آخر" },
   "auth.unauthorized.desc": {
@@ -75,7 +75,7 @@ export const authStrings: Dict = {
 
   "auth.phoneStep.title": { en: "Almost there!", ar: "اقتربت من النهاية!" },
   "auth.phoneStep.desc": { en: "Your phone number is required to receive order updates.", ar: "رقم هاتفك مطلوب لتلقّي تحديثات طلبك." },
-  "auth.phoneLabel": { en: "Phone Number", ar: "رقم الهاتف" },
+  "auth.phoneLabel": { en: "Phone number", ar: "رقم الهاتف" },
   "auth.phoneRequired": { en: "Phone number is required.", ar: "رقم الهاتف مطلوب." },
   "auth.createAccount": { en: "Create Account", ar: "إنشاء الحساب" },
 
