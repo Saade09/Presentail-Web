@@ -28,3 +28,7 @@ When stubbing `**/api/**` with a `{ok:true}` catch-all (a11y-spec style), two en
 Register the catch-all FIRST: Playwright matches routes newest-first, so specific stubs must come after it.
 
 **Also:** the `playwright test` runner (bg or fg) repeatedly stalled/died without a summary in this container; a plain-node `chromium.launch()` script (sequential pages, same stubs) ran the identical captures reliably. And never `pkill -f "playwright test"` from ShellExec — the pattern matches your own shell's command line and kills it (use a `[p]` bracket pattern).
+
+# Pre-existing 320px horizontal overflow on checkout step 1
+
+At a 320px viewport the checkout page has ~39px of horizontal overflow (document scrollWidth ≈ 359) caused by the sign-in card's `whitespace-nowrap` provider buttons in a 2-col grid — NOT by whatever you just changed. Viewport-fit assertions at 320px must compare against the element's own card content box, not the viewport width, or they fail for this unrelated pre-existing reason.

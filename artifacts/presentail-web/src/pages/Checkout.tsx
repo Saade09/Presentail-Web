@@ -4080,19 +4080,27 @@ function CheckoutForm() {
 
                   {/* "Get order updates on WhatsApp" — both breakpoints, default
                       checked. Sits directly below the sender phone field and above
-                      the anonymous-gift control, per the checkout mockups. */}
-                  <div className="mb-4 max-md:mb-3 lg:max-w-[480px]">
-                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11" data-testid="check-whatsapp-updates-label">
+                      the anonymous-gift control, per the checkout mockups.
+                      ≤767px (max-md): compact full-row tappable layout — 24px teal
+                      checkbox, row-level pressed feedback and focus-visible ring
+                      (native label/input association only; no row onClick). */}
+                  <div className="mb-4 max-md:mb-0 lg:max-w-[480px]">
+                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11 max-md:py-2 max-md:rounded-lg max-md:transition-colors max-md:hover:bg-black/[0.02] max-md:active:bg-black/[0.04] max-md:has-[:focus-visible]:ring-2 max-md:has-[:focus-visible]:ring-primary max-md:has-[:focus-visible]:ring-offset-1" data-testid="check-whatsapp-updates-label">
                       <input
                         type="checkbox"
                         checked={whatsappOptIn}
                         onChange={(e) => handleWhatsappOptInToggle(e.target.checked)}
-                        className="mt-1 max-md:mt-0.5 h-4 w-4 accent-primary cursor-pointer shrink-0"
+                        className="mt-1 h-4 w-4 max-md:-mt-0.5 max-md:h-6 max-md:w-6 accent-primary cursor-pointer shrink-0 max-md:focus-visible:outline-none"
+                        aria-labelledby="whatsapp-updates-title"
                         aria-describedby="whatsapp-updates-hint"
                         data-testid="check-whatsapp-updates"
                       />
-                      <span>
-                        <span className="flex items-center gap-1.5 text-sm">
+                      <span className="min-w-0">
+                        {/* aria-labelledby points at the title so the accessible name is
+                            the title only — without it the wrapping label's subtree
+                            (title + hint) becomes the name AND the hint is repeated via
+                            aria-describedby (double announcement). */}
+                        <span id="whatsapp-updates-title" className="flex items-center gap-1.5 text-sm">
                           <svg
                             viewBox="0 0 24 24"
                             className="h-4 w-4 shrink-0 fill-[#25D366]"
@@ -4103,16 +4111,20 @@ function CheckoutForm() {
                           </svg>
                           {t("checkout.whatsappUpdates")}
                         </span>
-                        <span id="whatsapp-updates-hint" className="block text-xs text-muted-foreground max-md:leading-snug mt-0.5" data-testid="whatsapp-updates-hint">
+                        <span id="whatsapp-updates-hint" className="block text-xs text-muted-foreground max-md:leading-snug mt-0.5 max-md:mt-1 max-md:ms-[22px]" data-testid="whatsapp-updates-hint">
                           {t("checkout.whatsappUpdatesHint")}
                         </span>
                       </span>
                     </label>
                   </div>
 
-                  {/* Mobile: "Send this gift anonymously" checkbox with always-visible supporting line */}
-                  <div className="lg:hidden">
-                    <label className="flex items-center gap-3 cursor-pointer select-none min-h-11" data-testid="check-identity-secret-label">
+                  {/* Mobile/tablet: "Send this gift anonymously" checkbox. The helper
+                      lives inside the tappable label (aria-describedby preserved) so
+                      the full row — title, helper, whitespace — toggles the checkbox.
+                      ≤767px adds the compact layout: subtle divider above (content-edge
+                      to content-edge), 24px checkbox, row press/focus feedback. */}
+                  <div className="lg:hidden max-md:border-t max-md:border-gray-100">
+                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11 max-md:py-2 max-md:rounded-lg max-md:transition-colors max-md:hover:bg-black/[0.02] max-md:active:bg-black/[0.04] max-md:has-[:focus-visible]:ring-2 max-md:has-[:focus-visible]:ring-primary max-md:has-[:focus-visible]:ring-offset-1" data-testid="check-identity-secret-label">
                       <input
                         type="checkbox"
                         checked={identitySecret}
@@ -4125,15 +4137,19 @@ function CheckoutForm() {
                             });
                           }
                         }}
-                        className="h-4 w-4 accent-primary cursor-pointer shrink-0"
+                        className="mt-0.5 h-4 w-4 max-md:-mt-0.5 max-md:h-6 max-md:w-6 accent-primary cursor-pointer shrink-0 max-md:focus-visible:outline-none"
+                        aria-labelledby="identity-secret-title"
                         aria-describedby="identity-secret-hint"
                         data-testid="check-identity-secret"
                       />
-                      <span className="text-sm">{t("checkout.anonymousGift")}</span>
+                      <span className="min-w-0">
+                        {/* Name = title only; hint reaches AT once via aria-describedby. */}
+                        <span id="identity-secret-title" className="block text-sm">{t("checkout.anonymousGift")}</span>
+                        <span id="identity-secret-hint" className="block text-xs text-gray-500 max-md:text-muted-foreground max-md:leading-snug mt-1" data-testid="identity-secret-hint">
+                          {t("checkout.anonymousGiftHint")}
+                        </span>
+                      </span>
                     </label>
-                    <p id="identity-secret-hint" className="text-xs text-gray-500 max-md:text-muted-foreground max-md:leading-snug mt-1 ms-7" data-testid="identity-secret-hint">
-                      {t("checkout.anonymousGiftHint")}
-                    </p>
                   </div>
                   {/* Desktop: "Send this gift anonymously" with always-visible explanation */}
                   <div className="hidden lg:block">
