@@ -1,0 +1,90 @@
+Objective
+Redesign and compact the Sender Details section on the mobile checkout Delivery Details step so it is easier to complete, clearer to scan, and better suited to narrow screens.
+
+Scope
+Mobile checkout only. Update only the Sender Details card. Do not change the Delivery card above it, Order Summary, Recipient Details, authentication card, page navigation, or sticky Continue to Payment bar.
+
+Approved layout
+• Keep the “Sender Details” heading in the existing Presentail dark-teal serif style.
+• Stack all identity fields vertically in this order:
+  1. “First name *” — full-width input
+  2. “Last name *” — full-width input
+  3. “Email *” — full-width input
+  4. “WhatsApp number *” — full-width telephone input
+• Do not place First name and Last name side by side on mobile.
+• Preserve the country selector, Lebanon flag, dropdown chevron, and +961 prefix behavior in the WhatsApp field.
+• Keep required-field asterisks red and aligned consistently.
+
+Compact preference rows
+1. WhatsApp order updates
+   • Present as a compact, full-width setting row directly below the WhatsApp number.
+   • Show the WhatsApp icon on the left, label and helper text in the middle, and an accessible switch on the right.
+   • Label: “WhatsApp order updates”
+   • Helper: “Order and delivery updates to this number.”
+   • Default state: ON, matching the current approved checkout behavior.
+   • The entire row should be tappable.
+
+2. Send anonymously
+   • Present as a second compact, full-width setting row directly below WhatsApp updates.
+   • Show the label and helper text on the left and an accessible switch on the right.
+   • Label: “Send anonymously”
+   • Helper: “Hide your name from the gift card and recipient updates.”
+   • Default state: OFF.
+   • The entire row should be tappable.
+   • When enabled, continue collecting the sender’s legal/contact details internally; suppress the sender’s identity only from recipient-facing gift-card content and notifications.
+
+Visual requirements
+• Use approximately 16px internal card padding.
+• Use 12–16px vertical spacing between labels, inputs, and rows.
+• Input height should be approximately 48–52px, with a minimum 44px touch target.
+• Preference rows should be approximately 56–64px high.
+• Keep the existing Presentail colors, border radius, shadows, typography, page gutters, and form hierarchy.
+• Align helper text directly beneath its label without excessive indentation.
+• The completed card should remain compact despite stacking the name fields.
+• Do not introduce excessive whitespace or horizontal scrolling.
+
+Functional requirements
+• Preserve all current validation, submission, and error behavior.
+• Configure mobile autofill correctly:
+  – First name: autocomplete="given-name"
+  – Last name: autocomplete="family-name"
+  – Email: autocomplete="email" and appropriate email keyboard
+  – WhatsApp number: autocomplete="tel" and telephone keypad
+• Preserve the selected country code and entered values through validation errors, delivery-slot changes, authentication, and navigation back from Payment.
+• WhatsApp opt-in and anonymous-gift settings must remain independent.
+• Do not clear any Sender Details value when a toggle changes.
+• Continue submitting all fields through the existing checkout/order APIs without changing unrelated payload behavior.
+
+Accessibility
+• Use semantic labels associated with their corresponding inputs.
+• Use semantic switches with accessible names and programmatic ON/OFF states.
+• Preserve visible keyboard focus styles.
+• Ensure the entire setting row can be activated without creating duplicate interactive targets.
+• Maintain existing text and control contrast requirements.
+
+Responsive and localization QA
+• Test at 320px, 375px, 390px, and 430px widths.
+• Test current iOS Safari and Android Chrome.
+• Ensure labels, helper text, country selector, and switches never overlap or overflow.
+• Use the existing localization system for English, Arabic, and French; do not hard-code English copy.
+• Verify RTL layout in Arabic, including field alignment and switch placement.
+
+Analytics
+Preserve current checkout analytics for WhatsApp opt-in/out and anonymous-gift changes. Do not emit duplicate events when the component rerenders.
+
+Acceptance criteria
+1. The mobile Sender Details card matches the attached approved mockup.
+2. First name and Last name are separate, full-width rows.
+3. Email and WhatsApp number remain full-width required fields.
+4. WhatsApp updates is a compact ON switch row with the approved copy.
+5. Send anonymously is a compact OFF switch row with the approved copy.
+6. The whole setting row is tappable and accessible.
+7. Autofill and appropriate mobile keyboards work for every field.
+8. Values and toggle states persist through checkout navigation and validation.
+9. Anonymous mode hides the sender only from recipient-facing surfaces, not internal order records.
+10. The design works without overflow across the specified mobile widths and all supported languages.
+11. No other checkout sections are changed.
+12. Existing order submission and analytics continue working without regression.
+
+Reference
+Use the attached approved image as the visual source of truth.
