@@ -1,0 +1,262 @@
+OBJECTIVE
+
+Make the Delivery Details section on Presentail checkout recognize verified landmarks and well-known places from the existing Presentail OS Address Book, while improving the Address Book place page so the team can control checkout visibility, aliases, location verification, district mapping and contextual delivery instructions.
+
+IMPORTANT ARCHITECTURE DECISION
+
+- Do not create a separate Landmarks module or duplicate landmark database.
+- The existing Presentail OS Address Book place record must remain the single source of truth.
+- Checkout must query a public-safe backend endpoint that reads published, checkout-eligible Address Book places.
+- AI may interpret spelling variations, abbreviations and multilingual input, but must never invent the official location, district or coordinates. Verified Address Book data remains authoritative.
+
+PART 1 — DEFAULT CHECKOUT INPUT
+
+- Keep the existing Delivery Details field as a normal multiline input before a place is recognized.
+- Label: “Delivery Details*”
+- Placeholder: “Street, building, landmark or hospital…”
+- Helper text: “Start typing an address or well-known place.”
+- Preserve normal free-text address entry. Landmark selection must remain optional.
+- When “Ask the recipient for the address” is enabled, retain the existing alternative flow and do not run landmark recognition against a hidden/disabled address field.
+
+PART 2 — ADDRESS BOOK SEARCH AND SUGGESTIONS
+
+- Begin searching after approximately 2–3 meaningful characters.
+- Debounce requests and prevent stale results from replacing newer results.
+- Search the Address Book by:
+  - Display name
+  - Official name
+  - Separate aliases
+  - Common abbreviations
+  - Approved misspellings/transliterations
+  - English, Arabic and French variants when available
+- Do not restrict search to the currently selected district. The system must be able to identify that a recognized place belongs to another district.
+- Prioritize exact alias matches, then prefix matches, then fuzzy/AI-assisted interpretation.
+- Only show places that are verified, published and enabled for website checkout.
+- Each suggestion should display:
+  - Display name
+  - Official name when different
+  - Area and district
+  - Verified indicator
+- Always provide “Continue with ‘[typed text]’ as typed.”
+- Support mouse, touch and keyboard navigation.
+- Do not convert the field merely because the system has a high-confidence match.
+
+PART 3 — EXPLICIT SELECTION AND CONVERSION
+
+Convert the field only when the customer:
+- Clicks/taps a suggested place; or
+- Presses Enter while the suggestion is highlighted.
+
+After selection:
+- Replace the free-text field with a compact verified-place card.
+- Show the display name, official name, area/district, Verified status and a Change action.
+- Display the place-specific follow-up question and placeholder stored in Presentail OS.
+
+AUBMC example:
+- Question: “Where inside AUBMC?”
+- Placeholder: “Building, department, floor, room number or entrance”
+
+Las Salinas example:
+- Question: “Where inside Las Salinas Resort?”
+- Placeholder: “Chalet number, block, floor or nearest entrance”
+
+When Change is pressed:
+- Return to the editable free-text field.
+- Preserve the customer’s previous query where appropriate.
+- Do not silently revert the delivery district.
+
+PART 4 — DISTRICT, FEE AND DELIVERY SLOT BEHAVIOUR
+
+If the place belongs to the already-selected district:
+- Leave the district unchanged.
+- Do not show any district-update banner.
+- Show only the verified place card and follow-up field.
+
+If the place belongs to a different district:
+- Update Delivery District to the place’s verified district.
+- Recalculate delivery fees, free-delivery eligibility, available dates and delivery slots.
+- If the existing selected delivery slot is no longer valid, clear it and require reselection.
+- Update the Delivery Summary and total immediately.
+- Show a compact notification:
+  “Delivery district updated”
+  “[Place] is in [District]. Delivery options and fee have been updated.”
+- Never change the district silently.
+
+PART 5 — PRESENTAIL OS ADDRESS BOOK PLACE PAGE
+
+Enhance the existing Address Book place-detail page. Do not replace it with a new module.
+
+Header:
+- Separate “Location verification” from “Checkout status.”
+- Example statuses:
+  - Location verified / Location needs verification
+  - Checkout active / Checkout inactive
+- Make “Verify location” the primary action when verification is required.
+- Keep Edit place as the secondary action.
+
+Location-quality warning:
+- Detect obvious inconsistencies between country/area/city and coordinates.
+- Example: Las Salinas is marked Anfeh, Lebanon, while the saved coordinates 29.009971, -13.484277 appear outside Lebanon.
+- Show a prominent warning and prevent checkout activation until corrected.
+- Replace the vague “Re-assess with AI” action with clearer actions:
+  - Find correct location
+  - Verify location
+  - Edit map pin
+
+Checkout Recognition card:
+- Available in website checkout toggle
+- Checkout display name
+- Delivery district
+- Contextual follow-up question
+- Contextual placeholder
+- Checkout preview
+- The availability toggle must remain disabled until minimum verification requirements are satisfied.
+
+Aliases:
+- Store aliases as separate records/chips, not one comma-separated string.
+- Example:
+  - Las Salinas Resort
+  - Las Salinas
+  - Las 6
+- Do not store delivery-specific values such as “Chalet 111” as shared place aliases.
+- AI may suggest new aliases based on customer searches, but a team member must approve them before they become authoritative.
+
+Place details:
+- Type
+- Country
+- Delivery district
+- Area
+- City
+- Verified address
+- Coordinates
+- Coordinate source
+- Google Place ID or equivalent provider reference
+- Verification status
+- Last verified date
+- Checkout status
+
+Page hierarchy:
+- Prioritize Successful deliveries, Last used, Checkout status and Location verification.
+- De-emphasize alias count and linked-contact count.
+- Collapse empty sections rather than showing large empty cards.
+- Keep recent deliveries clickable and show the delivery outcome.
+- Collapse verification activity into “View verification history.”
+
+PART 6 — VERIFY LOCATION FLOW
+
+Clicking Verify location should open a comparison workflow showing:
+- Current saved location and source
+- Suggested verified match from Google Places
+- Whether country, area and city match
+- Any previous successful delivery coordinates available for review
+- Manual pin adjustment option
+- Actions:
+  - Cancel
+  - Keep current pin
+  - Use suggested location
+
+AI may recommend a match, but a human team member must approve the final location.
+
+PART 7 — DATA AND API REQUIREMENTS
+
+Provide a public-safe search endpoint similar to:
+GET /api/public/address-book/places/search?q=aub&country=LB
+
+Return only safe checkout fields:
+- place_id
+- display_name
+- official_name
+- public aliases if necessary
+- type
+- country
+- district_id and district name
+- area/city
+- verified coordinates
+- verification status
+- follow-up question
+- follow-up placeholder
+
+Do not return internal delivery notes, audit data, contact relationships or verification history publicly.
+
+On order creation, save:
+- Address Book place ID
+- Verified name
+- Verified coordinates
+- Verified district ID
+- Customer’s internal-location details
+- Original typed query where useful for improving aliases
+- Match/selection source
+
+PART 8 — SEARCH QUALITY AND SAFETY
+
+- Normalize case, punctuation, whitespace and accents.
+- Support approved transliteration variants.
+- Never use LLM-generated coordinates.
+- Never automatically publish an AI-created alias.
+- Handle no-results, loading, API-error and offline states gracefully.
+- If search fails, free-text address entry must continue to work.
+- Do not expose internal Address Book records that are unverified or checkout-inactive.
+
+PART 9 — ANALYTICS
+
+Track:
+- Landmark searches
+- Suggestions displayed
+- Suggestion selected
+- Continued as typed
+- No-result searches
+- District automatically changed after landmark selection
+- Selection changed/removed
+- Checkout completion after landmark selection
+
+PART 10 — RESPONSIVE AND LOCALIZED EXPERIENCE
+
+- Implement on desktop and mobile.
+- Preserve existing Presentail checkout styling.
+- Ensure dropdown positioning does not hide the active field or sticky checkout UI.
+- Provide keyboard focus states and screen-reader labels.
+- Add/localize customer-facing copy for English, Arabic and French routes.
+- Follow RTL behaviour on Arabic pages.
+
+ACCEPTANCE CRITERIA
+
+1. Typing “AUB” suggests the verified AUBMC record from Address Book.
+2. The field converts only after explicit selection.
+3. When Beirut is already selected, no district-change notification appears.
+4. When another district is selected, selecting AUBMC updates the district, fee, slot availability, summary and total with a clear notification.
+5. Customers can continue with their own free-text address.
+6. Unverified or checkout-inactive places never appear publicly.
+7. The OS detects coordinates inconsistent with the saved country/area and blocks checkout activation.
+8. Aliases are stored separately and delivery-specific data is not promoted to a shared alias.
+9. The Verify location flow supports provider comparison, previous-delivery review and manual pin editing.
+10. Orders store the selected Address Book place ID and verified coordinates plus the customer’s internal instructions.
+11. The full experience works on desktop/mobile and English/Arabic/French routes.
+12. No regression to Ask Recipient for Address, delivery-fee calculation, delivery-slot selection or order creation.
+
+QA SCENARIOS
+
+- Exact alias: AUBMC
+- Partial alias: AUB
+- Spelling variation: AUB Medical Center
+- Common place with correct district
+- Common place with incorrect district
+- Unverified place
+- Checkout-inactive place
+- Duplicate/similar place names
+- No result; continue as typed
+- API failure; continue as typed
+- Selecting a place invalidates the existing delivery slot
+- Change selected place
+- Mobile keyboard and dropdown behaviour
+- Arabic and French search variants
+- Location coordinates conflict with country/area
+
+DESIGN REFERENCES
+
+Six numbered mockups are attached to this task. Follow them in order:
+1. Default field before typing
+2. Live Address Book suggestion
+3. Verified place selected; district already correct
+4. Verified place selected; district corrected
+5. Improved Presentail OS place-detail page
+6. Verify location comparison modal

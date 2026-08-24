@@ -1961,7 +1961,7 @@ function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
     if (sec.body) inner += `<p>${safeBodyHtml(sec.body)}</p>`;
     if (Array.isArray(sec.items) && sec.items.length > 0) {
       const listTag = sec.ordered ? "ol" : "ul";
-      inner += `<${listTag}>${sec.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</${listTag}>`;
+      inner += `<${listTag}>${sec.items.map((item) => `<li>${safeBodyHtml(item)}</li>`).join("")}</${listTag}>`;
     }
     if (sec.pullQuote) inner += `<blockquote>${escapeHtml(sec.pullQuote)}</blockquote>`;
     if (sec.callout?.body) {

@@ -6372,6 +6372,46 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     });
   });
 
+  it("renders the expanded teddy bear guide with its updated metadata", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en/blog/teddy-bear-gifts-lebanon",
+      OPTS,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain(
+      "<title>Teddy Bear Gifts in Lebanon: Sizes, Prices &amp; Delivery | Presentail</title>",
+    );
+    expect(out).toContain(
+      'content="Choosing a teddy bear in Lebanon — which size suits which occasion, what they cost, how to pair one with flowers or balloons, and same-day delivery nationwide."',
+    );
+    expect(out).toContain(
+      '<link rel="canonical" href="https://presentail.test/en/blog/teddy-bear-gifts-lebanon" />',
+    );
+
+    const article = byType(extractJsonLd(out), "Article");
+    expect(article).toMatchObject({
+      headline: "Teddy Bear Gifts in Lebanon: Sizes, Prices & Delivery | Presentail",
+      datePublished: "2026-08-13",
+      dateModified: "2026-08-24",
+      url: "https://presentail.test/en/blog/teddy-bear-gifts-lebanon",
+    });
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq.mainEntity).toHaveLength(7);
+    expect(faq.mainEntity[0]).toMatchObject({
+      "@type": "Question",
+      name: "Can I get a teddy bear delivered in Lebanon the same day?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: expect.stringContaining("Order before midday"),
+      },
+    });
+  });
+
   it.each([
     { route: "return-policy", label: "Return Policy" },
     { route: "shipping-policy", label: "Shipping Policy" },

@@ -252,7 +252,7 @@ function SectionBlocks({
           className={`${section.ordered ? "list-decimal" : "list-disc"} space-y-2 ${PROSE_TEXT} ${isRtl ? "list-inside text-right" : "ps-5"}`}
         >
           {section.items.map((item, j) => (
-            <li key={j}>{item}</li>
+            <li key={j}>{renderBody(item, language)}</li>
           ))}
         </ListTag>
       )}

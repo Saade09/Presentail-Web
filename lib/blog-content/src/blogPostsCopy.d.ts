@@ -33,6 +33,7 @@ export interface BlogSection {
   /** Explicit anchor id; auto-derived from the heading when absent. */
   id?: string;
   body?: string;
+  /** List items may contain the same controlled internal `<a>` links as body. */
   items?: string[];
   /** Render `items` as an ordered <ol> list instead of a <ul>. */
   ordered?: boolean;
