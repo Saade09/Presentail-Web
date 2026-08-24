@@ -8,7 +8,7 @@ import {
   formatPromiseDateLabel,
   type TimeSlot,
 } from "@workspace/delivery";
-import { buildExpressPromise, buildStandardPromise } from "./deliveryPromise";
+import { buildExpressPromise, buildMidnightPromise, buildStandardPromise } from "./deliveryPromise";
 
 // Identity translator matching the keys used by the builders.
 const en: Record<string, string> = {
@@ -21,6 +21,9 @@ const en: Record<string, string> = {
   "delivery.promise.within90Short": "Within 90 min",
   "delivery.promise.today": "today",
   "delivery.promise.tomorrow": "tomorrow",
+  "delivery.promise.tonight": "tonight",
+  "delivery.promise.midnightTitle": "Midnight delivery",
+  "delivery.promise.midnightCaption": "Special midnight delivery window",
 };
 const t = (k: string) => en[k] ?? k;
 
@@ -137,6 +140,71 @@ describe("buildStandardPromise", () => {
       t,
     });
     expect(p.arrival).toBe("Arrives today");
+  });
+});
+
+describe("buildMidnightPromise", () => {
+  const MIDNIGHT_SLOTS: TimeSlot[] = [
+    ...SLOTS,
+    {
+      label: "11:00 PM – 1:00 AM",
+      cutoffHour: 21,
+      startHour: 23,
+      endHour: 1,
+      serviceType: "midnight",
+      slotId: "mid-1",
+      extraFee: 20,
+    } as TimeSlot,
+  ];
+
+  it("says 'tonight' when the selected date is the market-local today", () => {
+    const p = buildMidnightPromise({
+      dateIso: "2026-08-13",
+      slotLabel: "11:00 PM – 1:00 AM",
+      slots: MIDNIGHT_SLOTS,
+      todayIso: "2026-08-13",
+      locale: "en",
+      t,
+    });
+    expect(p.type).toBe("midnight");
+    expect(p.title).toBe("Midnight delivery");
+    expect(p.arrival).toBe("Arrives tonight, 11 PM–1 AM");
+    expect(p.caption).toBe("Special midnight delivery window");
+    expect(p.summary).toBe("Midnight delivery · tonight, 11 PM–1 AM");
+  });
+
+  it("uses tomorrow/explicit date labels for future selections (never 'tonight')", () => {
+    const tomorrow = buildMidnightPromise({
+      dateIso: "2026-08-14",
+      slotLabel: "11:00 PM – 1:00 AM",
+      slots: MIDNIGHT_SLOTS,
+      todayIso: "2026-08-13",
+      locale: "en",
+      t,
+    });
+    expect(tomorrow.arrival).toBe("Arrives tomorrow, 11 PM–1 AM");
+
+    const future = buildMidnightPromise({
+      dateIso: "2026-08-15",
+      slotLabel: "11:00 PM – 1:00 AM",
+      slots: MIDNIGHT_SLOTS,
+      todayIso: "2026-08-13",
+      locale: "en",
+      t,
+    });
+    expect(future.arrival).toMatch(/^Arrives Sat, (Aug 15|15 Aug), 11 PM–1 AM$/);
+  });
+
+  it("falls back to the raw slot label when the slot is unknown", () => {
+    const p = buildMidnightPromise({
+      dateIso: "2026-08-13",
+      slotLabel: "Midnight Window",
+      slots: SLOTS,
+      todayIso: "2026-08-13",
+      locale: "en",
+      t,
+    });
+    expect(p.arrival).toBe("Arrives tonight, Midnight Window");
   });
 });
 

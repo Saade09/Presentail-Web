@@ -24,7 +24,7 @@ import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { expressSurchargeForCountry, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, isMidnightSlot, timeSlotsForCountry } from "@workspace/delivery";
+import { expressSurchargeForCountry, formatPromiseDateLabel, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, isMidnightSlot, timeSlotsForCountry } from "@workspace/delivery";
 import { buildExpressPromise, useDeliveryPromise, useExpressQuoteAnchor } from "@/components/delivery/deliveryPromise";
 import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlotValidation";
 import { ExpressUpgradeCard } from "@/components/delivery/ExpressUpgradeCard";
@@ -119,7 +119,7 @@ export default function Cart() {
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
-  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate, source: deliverySource, setSelection } = useDeliverySelection();
+  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate, source: deliverySource, serviceType: deliveryServiceType, setSelection } = useDeliverySelection();
   const { currencyCode } = useDisplayCurrency();
   const deliveryPromise = useDeliveryPromise();
   const now = useNow();
@@ -156,6 +156,11 @@ export default function Cart() {
   // same-day night fallback.
   const { slotFeeUsd, isMidnightSlotActive } = (() => {
     if (deliveryMode === "express" || !slotLabel) return { slotFeeUsd: 0, isMidnightSlotActive: false };
+    // Authoritative premium-service marker captured when the shopper confirmed
+    // the slot. useMidnightSlotValidation clears it if the slot stops being a
+    // valid Midnight config, so it stays trustworthy even before city data
+    // finishes loading (when slot resolution below can't run yet).
+    const midnightByServiceType = deliveryServiceType === "midnight";
     const todayIso = getLocalIso(countryCode);
     const dateIso = deliveryDate || todayIso;
     const dayIso = (n: number) => {
@@ -167,11 +172,11 @@ export default function Cart() {
     const bookedSlot =
       (slotId ? displayed.find((s) => s.slotId === slotId) : undefined) ??
       displayed.find((s) => s.label === slotLabel);
-    if (!bookedSlot) return { slotFeeUsd: 0, isMidnightSlotActive: false };
+    if (!bookedSlot) return { slotFeeUsd: 0, isMidnightSlotActive: midnightByServiceType };
 
     return {
       slotFeeUsd: bookedSlot.extraFee && bookedSlot.extraFee > 0 ? bookedSlot.extraFee : 0,
-      isMidnightSlotActive: isMidnightSlot(bookedSlot, locationCity?.id)
+      isMidnightSlotActive: midnightByServiceType || isMidnightSlot(bookedSlot, locationCity?.id)
     };
   })();
 
@@ -263,7 +268,10 @@ export default function Cart() {
     !mixedCartExpressIneligible;
 
   // Same-day standard selection → the existing full upgrade card, unchanged.
-  const expressUpgradeVisible = expressOfferBaseEligible && !selectionIsFutureDate;
+  // A deliberately selected Midnight slot is a premium choice — never upsell
+  // Express against it (the picker itself still offers Express when eligible).
+  const expressUpgradeVisible =
+    expressOfferBaseEligible && !selectionIsFutureDate && !isMidnightSlotActive;
 
   // Delta pricing — same source of truth as cartTotal (effectiveDeliveryFeeUsd
   // + slotFeeUsd), so the displayed delta always equals the change in Total:
@@ -297,6 +305,7 @@ export default function Cart() {
     if (deliveryMode === null || deliveryMode === "express") return null;
     if (expressSurcharge <= 0 || !expressAvailableNow) return null;
     if (mixedCartExpressIneligible) return "mixed_cart_ineligible";
+    if (isMidnightSlotActive) return "midnight_selected";
     if (!selectionIsFutureDate) return null;
     if (deliverySource === "user_selected") return "explicit_future_date";
     if (deliverySource === "restored_user_selection") return "restored_future_selection";
@@ -307,6 +316,7 @@ export default function Cart() {
   })();
   const quietPromptVisible =
     expressOfferBaseEligible &&
+    !isMidnightSlotActive &&
     selectionIsFutureDate &&
     !userChoseSelection &&
     !promptDismissed &&
@@ -1132,7 +1142,7 @@ export default function Cart() {
               <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm mb-4">
                 <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
                 <div className="text-sm">
-                  <DeliveryDateRow />
+                  <DeliveryDateRow midnightFeeUsd={isMidnightSlotActive ? slotFeeUsd : null} />
                   {expressUpgradeVisible && (
                     <ExpressUpgradeCard
                       arrival={expressArrivalPreview}
@@ -1475,10 +1485,23 @@ export default function Cart() {
               {itemCount} {itemCount === 1 ? t("cart.sticky.itemSingular") : t("cart.sticky.itemPlural")}
             </span>
             {deliveryMode && (
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground" data-testid="text-sticky-delivery-label">
                 {"  ·  "}
                 {deliveryMode === "express"
                   ? t("cart.sticky.expressToday")
+                  : isMidnightSlotActive
+                  ? (deliveryDate ?? todayIsoLocal) === todayIsoLocal
+                    ? t("cart.sticky.midnightTonight")
+                    : t("cart.sticky.midnightOn").replace(
+                        "{date}",
+                        formatPromiseDateLabel(
+                          deliveryDate ?? todayIsoLocal,
+                          todayIsoLocal,
+                          t("delivery.promise.today"),
+                          t("delivery.promise.tomorrow"),
+                          language,
+                        ),
+                      )
                   : deliveryMode === "today_slot"
                   ? t("cart.sticky.standardToday")
                   : null}

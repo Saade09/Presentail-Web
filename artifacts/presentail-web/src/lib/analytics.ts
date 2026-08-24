@@ -357,8 +357,8 @@ export type AnalyticsEvent = {
   metricValue?: number;
   /** Optional platform override. When set, takes precedence over the default "web" value added by trackEvent. */
   platform?: string;
-  /** Delivery method associated with this event ("standard" | "express"). */
-  deliveryMethod?: "standard" | "express";
+  /** Delivery method associated with this event ("standard" | "express" | "midnight"). */
+  deliveryMethod?: "standard" | "express" | "midnight";
   /** Whether the delivery method was chosen automatically ("auto") or by the user ("user"). */
   deliverySource?: "auto" | "user";
   /** Express surcharge in USD at the time of the event, for add_to_cart enrichment. */

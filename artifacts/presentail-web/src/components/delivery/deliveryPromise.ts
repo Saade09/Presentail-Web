@@ -7,6 +7,7 @@ import {
   formatCountryTime,
   formatPromiseDateLabel,
   getLocalIso,
+  isMidnightSlot,
   slotTimeRangeShortForLabel,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -24,7 +25,7 @@ export const EXPRESS_QUOTE_TTL_MS = 5 * 60 * 1000;
  * `null` when no delivery selection has been made yet.
  */
 export type DeliveryPromise = {
-  type: "standard" | "express";
+  type: "standard" | "express" | "midnight";
   /** Service line, e.g. "Standard delivery". */
   title: string;
   /** Prominent promise line, e.g. "Arrives today, 2–5 PM" / "Arrives by 11:07 AM". */
@@ -113,6 +114,42 @@ export function buildStandardPromise(args: {
   };
 }
 
+/**
+ * Pure builder for the Midnight Delivery promise strings (unit-testable).
+ * The arrival line says "tonight" only when the selected date is the market's
+ * local today; otherwise the explicit date label is used (never device-local).
+ */
+export function buildMidnightPromise(args: {
+  dateIso: string;
+  slotLabel: string | null;
+  slots: TimeSlot[];
+  todayIso: string;
+  locale: string;
+  t: (key: string) => string;
+}): DeliveryPromise {
+  const { dateIso, slotLabel, slots, todayIso, locale, t } = args;
+  const dateLabel =
+    dateIso === todayIso
+      ? t("delivery.promise.tonight")
+      : formatPromiseDateLabel(
+          dateIso,
+          todayIso,
+          t("delivery.promise.today"),
+          t("delivery.promise.tomorrow"),
+          locale,
+        );
+  const window = slotTimeRangeShortForLabel(slotLabel, slots) ?? slotLabel ?? "";
+  const when = window ? `${dateLabel}, ${window}` : dateLabel;
+  const title = t("delivery.promise.midnightTitle");
+  return {
+    type: "midnight",
+    title,
+    arrival: fill(t("delivery.promise.arrives"), { when }),
+    caption: t("delivery.promise.midnightCaption"),
+    summary: `${title} · ${when}`,
+  };
+}
+
 /** Pure builder for the express-delivery promise strings (unit-testable). */
 export function buildExpressPromise(args: {
   quotedAt: Date;
@@ -139,8 +176,8 @@ export function buildExpressPromise(args: {
  */
 export function useDeliveryPromise(): DeliveryPromise | null {
   const { t, language } = useLocale();
-  const { mode, date, slotLabel } = useDeliverySelection();
-  const { countryCode } = useLocationSelection();
+  const { mode, date, slotLabel, slotId, serviceType } = useDeliverySelection();
+  const { countryCode, city } = useLocationSelection();
   const slots = useCityTimeSlots();
   const quoteAnchor = useExpressQuoteAnchor(mode === "express");
 
@@ -154,7 +191,15 @@ export function useDeliveryPromise(): DeliveryPromise | null {
       });
     }
     if (mode == null || !date) return null;
-    return buildStandardPromise({
+    // Midnight detection: the authoritative serviceType captured at selection
+    // time, with a slot-config fallback for selections that predate it.
+    const selectedSlot =
+      (slotId ? slots.find((s) => s.slotId === slotId) : undefined) ??
+      (slotLabel ? slots.find((s) => s.label === slotLabel) : undefined);
+    const midnight =
+      serviceType === "midnight" || isMidnightSlot(selectedSlot, city?.id);
+    const builder = midnight ? buildMidnightPromise : buildStandardPromise;
+    return builder({
       dateIso: date,
       slotLabel: slotLabel ?? null,
       slots,
@@ -162,5 +207,5 @@ export function useDeliveryPromise(): DeliveryPromise | null {
       locale: language,
       t,
     });
-  }, [mode, date, slotLabel, slots, countryCode, language, t, quoteAnchor]);
+  }, [mode, date, slotLabel, slotId, serviceType, slots, countryCode, city?.id, language, t, quoteAnchor]);
 }

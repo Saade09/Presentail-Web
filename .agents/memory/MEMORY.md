@@ -65,7 +65,7 @@
 - [Same-day slot expiry guard](slot-expiry-guard.md) — slot re-validation pre-charge only; paid paymentRef submissions never rejected; Checkout.tsx time checks must use useNow()
 - [Greek Cyprus-only locale](greek-cyprus-locale.md) — el gated by langsForCountry(); all lang-enumerating surfaces must use country-aware helpers; checker needs single-line "key": "value" entries
 - [OS city delivery slots](os-city-delivery-slots.md) — every standard slot surface must use the selected city's live OS schedule; empty OS data stays unavailable, never country fallback
-- [Midnight delivery helper copy](midnight-delivery-helper-copy.md) — market-local today says “tonight”; future selections show explicit start and next-day end dates
+- [Midnight delivery helper copy](midnight-delivery-helper-copy.md) — market-local “tonight” rules; midnight is a premium choice: suppress Express upsells, detect via serviceType not labels
 - [Preview route normalization](preview-route-normalization.md) — Vite previews bypass serve.mjs redirects; URL normalizations need matching SPA handling.
 - [Phone tooltip overflow](phone-tooltip-overflow.md) — "mobile view" bug screenshots may be web-at-mobile-width, not native; Radix side=right can't shift horizontally — use side=bottom + narrow max-width
 - [pnpm security override verification](pnpm-security-override-verification.md) — major-level overrides can miss a transitive range; prove every CVE gone in the lockfile and audit, then scope overrides to the parent path.
