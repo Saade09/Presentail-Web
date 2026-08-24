@@ -60,6 +60,7 @@ import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
 import { PhoneInfoTooltip } from "@/components/checkout/PhoneInfoTooltip";
 import { CheckoutField } from "@/components/checkout/CheckoutField";
+import { cn } from "@/lib/utils";
 import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlotValidation";
 import { joinRecipientName } from "@/lib/recipientName";
 import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
@@ -520,6 +521,7 @@ function walletPiSignature(input: WalletPiSignatureInput): string {
   });
 }
 
+// hint: Logic changed on both sides. Requires understanding intent of each change.
 function CheckoutForm() {
   const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
@@ -915,7 +917,12 @@ function CheckoutForm() {
   // Details ↔ Payment navigation and validation errors within a checkout.
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const whatsappDefaultShownRef = useRef(false);
-  const [phoneSubmitAttempted, setPhoneSubmitAttempted] = useState(false);
+  // Set on the first failed/attempted "Continue to Payment" click. Drives ALL
+  // Step-1 inline errors (recipient name, phone, district, address, guest
+  // sender name/email/phone): before the first attempt no errors show; after
+  // it, each currently-invalid required field shows its message and clears
+  // per-field as soon as it becomes valid.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [recipientPhoneValid, setRecipientPhoneValid] = useState(false);
   const [senderPhoneValid, setSenderPhoneValid] = useState(false);
   // The exact country the sender phone field's picker currently displays
@@ -2316,7 +2323,22 @@ function CheckoutForm() {
     if (invalidField) {
       trackWebEvent({
         type: "mobile_checkout_validation_failed",
-        properties: { first_invalid_field: invalidField },
+        properties: { first_invalid_field: invalidField, surface: "mobile_sticky" },
+      });
+    }
+  };
+
+  // Desktop sidebar "Continue to Payment" — always clickable (no disabled
+  // gate): an invalid form shows the guided inline errors and scrolls to the
+  // first invalid field via handleValidateAndAdvance, and fires the same
+  // validation-failed analytics as the mobile sticky CTA, tagged with the
+  // desktop surface.
+  const handleDesktopContinue = () => {
+    const invalidField = handleValidateAndAdvance();
+    if (invalidField) {
+      trackWebEvent({
+        type: "mobile_checkout_validation_failed",
+        properties: { first_invalid_field: invalidField, surface: "desktop_sidebar" },
       });
     }
   };
@@ -3444,16 +3466,21 @@ function CheckoutForm() {
   // NOTE: payCtxCountry, paymentOptions, and the payment-method fallback
   // useEffect are computed above (before early returns) to satisfy Rules of Hooks.
 
-  // Shared disabled condition for the Step 1 "Continue to Payment" CTA —
-  // used by both the mobile fixed-bottom button and the desktop sidebar button
-  // so they stay in sync without duplicating the expression.
-  const step1CtaDisabled =
-    !recipient.firstName ||
-    !recipientPhoneValid ||
-    (!noAddress && !recipient.district) ||
-    (!noAddress && !recipient.address) ||
-    (!isSignedIn && (!sender.firstName || !sender.email)) ||
-    (!hasProfilePhone && !sender.phone.trim());
+  // Per-field inline-error flags for the Step 1 required fields. Only true
+  // after a failed continue attempt (submitAttempted) AND while the field is
+  // still invalid — so each error clears on its own as soon as the shopper
+  // fixes that field. The emptiness rules mirror handleValidateAndAdvance
+  // exactly; the phone fields keep their own showError pattern inside
+  // WebPhoneField.
+  const recipientNameError = submitAttempted && !recipient.firstName.trim();
+  const districtError = submitAttempted && !noAddress && !recipient.district;
+  const addressError = submitAttempted && !noAddress && !recipient.address;
+  const senderFirstNameError = submitAttempted && !isSignedIn && !sender.firstName;
+  const senderEmailError = submitAttempted && !isSignedIn && !sender.email;
+
+  // Red-border + red focus ring treatment for an invalid control, applied
+  // alongside aria-invalid when the field's inline error is showing.
+  const invalidControlClass = "border-destructive focus-visible:ring-destructive";
 
   // Validate all required Step 1 fields, focus/scroll to the first invalid one,
   // and advance to Step 2 only when all fields are valid.
@@ -3481,8 +3508,9 @@ function CheckoutForm() {
         couponApplied,
       },
     });
-    // Trigger phone-error UI for both phone fields.
-    setPhoneSubmitAttempted(true);
+    // Trigger the inline-error UI for every Step-1 required field (text
+    // fields, district select, and both phone fields).
+    setSubmitAttempted(true);
 
     // Helper: scroll + focus the first invalid field so the user sees what's wrong.
     const focusInvalid = (el: HTMLElement | null) => {
@@ -3749,8 +3777,11 @@ function CheckoutForm() {
                     htmlFor="recipient-name-input"
                     required
                     className="lg:max-w-[480px]"
+                    error={recipientNameError ? t("checkout.error.recipientName") : null}
+                    errorId="recipient-name-error"
+                    errorTestId="error-recipient-name"
                   >
-                    <Input id="recipient-name-input" ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} onKeyDown={(e) => {
+                    <Input id="recipient-name-input" className={recipientNameError ? invalidControlClass : undefined} aria-invalid={recipientNameError || undefined} aria-describedby={recipientNameError ? "recipient-name-error" : undefined} ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
                         // PhoneInput renders the <input> with data-testid directly on it.
@@ -3790,7 +3821,7 @@ function CheckoutForm() {
                       onChange={(v) => setRecipient({ ...recipient, phone: v })}
                       defaultCountry={(countryCode ?? "LB").toUpperCase()}
                       required
-                      showError={phoneSubmitAttempted}
+                      showError={submitAttempted}
                       errorMessage={t("checkout.phoneInvalidNumber")}
                       data-testid="input-recipient-phone"
                       onValidityChange={setRecipientPhoneValid}
@@ -3803,13 +3834,21 @@ function CheckoutForm() {
                         label={countryCode === "AE" ? t("checkout.emirate") : t("checkout.district")}
                         required
                         className="lg:max-w-[480px]"
+                        error={districtError ? (countryCode === "AE" ? t("checkout.error.emirate") : t("checkout.error.district")) : null}
+                        errorId="district-error"
+                        errorTestId="error-district"
                       >
                         <Select
                           value={recipient.district}
                           onValueChange={(v) => setRecipient({ ...recipient, district: v })}
                           disabled={locationsLoading || !hasActiveCities}
                         >
-                          <SelectTrigger data-testid="select-district">
+                          <SelectTrigger
+                            data-testid="select-district"
+                            className={districtError ? invalidControlClass : undefined}
+                            aria-invalid={districtError || undefined}
+                            aria-describedby={districtError ? "district-error" : undefined}
+                          >
                             <SelectValue
                               placeholder={
                                 selectedCityData
@@ -3850,8 +3889,11 @@ function CheckoutForm() {
                           </>
                         }
                         required
+                        error={addressError ? t("checkout.error.address") : null}
+                        errorId="recipient-address-error"
+                        errorTestId="error-recipient-address"
                       >
-                        <Textarea rows={isMobile ? 2 : 3} className="min-h-[76px] max-md:min-h-[57px]" value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={isMobile ? t("checkout.addressPhShort") : t("checkout.addressPh")} data-testid="input-recipient-address" />
+                        <Textarea rows={isMobile ? 2 : 3} className={cn("min-h-[76px] max-md:min-h-[57px]", addressError && invalidControlClass)} aria-invalid={addressError || undefined} aria-describedby={addressError ? "recipient-address-error" : undefined} value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={isMobile ? t("checkout.addressPhShort") : t("checkout.addressPh")} data-testid="input-recipient-address" />
                       </CheckoutField>
 
                       {isSignedIn && (
@@ -3983,15 +4025,15 @@ function CheckoutForm() {
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-x-3">
-                        <CheckoutField label={t("checkout.firstName")} htmlFor="sender-first-name-input" required>
-                          <Input id="sender-first-name-input" ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" autoCapitalize="words" />
+                        <CheckoutField label={t("checkout.firstName")} htmlFor="sender-first-name-input" required error={senderFirstNameError ? t("checkout.error.senderFirstName") : null} errorId="sender-first-name-error" errorTestId="error-sender-first-name">
+                          <Input id="sender-first-name-input" className={senderFirstNameError ? invalidControlClass : undefined} aria-invalid={senderFirstNameError || undefined} aria-describedby={senderFirstNameError ? "sender-first-name-error" : undefined} ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" autoCapitalize="words" />
                         </CheckoutField>
                         <CheckoutField label={t("checkout.lastName")} htmlFor="sender-last-name-input" required>
                           <Input id="sender-last-name-input" ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" autoCapitalize="words" />
                         </CheckoutField>
                       </div>
-                      <CheckoutField label={t("checkout.emailAddress")} htmlFor="sender-email-input" required className="lg:max-w-[480px]">
-                        <Input id="sender-email-input" ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
+                      <CheckoutField label={t("checkout.emailAddress")} htmlFor="sender-email-input" required className="lg:max-w-[480px]" error={senderEmailError ? t("checkout.error.senderEmail") : null} errorId="sender-email-error" errorTestId="error-sender-email">
+                        <Input id="sender-email-input" className={senderEmailError ? invalidControlClass : undefined} aria-invalid={senderEmailError || undefined} aria-describedby={senderEmailError ? "sender-email-error" : undefined} ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
                             // Run the full validation handler directly so Enter in the
@@ -4017,7 +4059,7 @@ function CheckoutForm() {
                           onChange={(v) => setSender({ ...sender, phone: v })}
                           defaultCountry={ipCountry ?? "LB"}
                           required
-                          showError={phoneSubmitAttempted}
+                          showError={submitAttempted}
                           errorMessage={t("checkout.phoneInvalidNumber")}
                           data-testid="input-sender-phone"
                           onValidityChange={setSenderPhoneValid}
@@ -4421,8 +4463,7 @@ function CheckoutForm() {
               setDeliveryPickerOpen(true);
             }}
             step={step}
-            step1CtaDisabled={step1CtaDisabled}
-            handleValidateAndAdvance={handleValidateAndAdvance}
+            onContinueToPayment={handleDesktopContinue}
             summaryOpen={summaryOpen}
             setSummaryOpen={setSummaryOpen}
           />

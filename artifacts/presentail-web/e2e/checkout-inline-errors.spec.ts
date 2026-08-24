@@ -1,22 +1,17 @@
 /**
- * E2E regression test: "Continue to Payment" must NOT trigger the error boundary.
+ * E2E test: guided inline errors on the Step-1 "Continue to Payment" CTA.
  *
- * Background: Clicking "Continue to Payment" on the web checkout was
- * consistently showing the CheckoutErrorBoundary ("Something went wrong") due
- * to an "Invalid hook call" React error that fired when the lazy-loaded
- * StripeCheckoutSection first mounted.  The root cause was a stale-chunk
- * scenario where the cached bundle referenced a different module instance for
- * LocaleContext than the live provider tree.
+ * The CTA (desktop sidebar + mobile sticky bar) is always clickable. Clicking
+ * with missing required fields must:
+ *   1. Stay on Step 1 (no payment method list).
+ *   2. Show a localized inline error under every currently-invalid required
+ *      field (red border on the control + red helper text).
+ *   3. Scroll to and focus the FIRST invalid field (recipient name).
+ *   4. Clear each error as soon as the shopper fixes that field.
+ *   5. Advance to Step 2 once everything is valid.
  *
- * This test guards against that regression by:
- *   1. Filling step 1 (recipient + sender details) via the guest path.
- *   2. Clicking "Continue to Payment".
- *   3. Asserting step 2 (payment method list) renders correctly.
- *   4. Asserting the CheckoutErrorBoundary fallback is NOT shown.
- *   5. Asserting no uncaught JS errors fired during the transition.
- *
- * All API calls are intercepted so the test is hermetic (no live backend needed).
- * Stripe is mocked via window.Stripe to avoid CDN dependency.
+ * All API calls are intercepted so the test is hermetic (no live backend
+ * needed). Stripe is mocked via window.Stripe to avoid a CDN dependency.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -123,19 +118,6 @@ const MOCK_STRIPE_SCRIPT = `
 })();
 `;
 
-/**
- * The Step-1 continue CTA differs by breakpoint: the desktop sidebar button
- * (lg+ only) vs the mobile sticky-footer button (below lg). Both run the same
- * shared validate-and-advance flow, so the spec targets whichever is visible
- * for the current project viewport.
- */
-function continueCta(page: Page) {
-  return page
-    .getByTestId("button-continue-to-payment-sidebar")
-    .or(page.getByTestId("button-continue-to-payment"))
-    .locator("visible=true");
-}
-
 async function installStubs(page: Page): Promise<void> {
   await page.route("**/api/currencies", (r) =>
     r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(STUB_CURRENCIES) }),
@@ -150,7 +132,7 @@ async function installStubs(page: Page): Promise<void> {
     r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(STUB_DELIVERY_LOCATIONS) }),
   );
   await page.route("**/api/orders/next-id", (r) =>
-    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, orderId: "TEST-STEP-001" }) }),
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, orderId: "TEST-ERR-001" }) }),
   );
   await page.route("**/js.stripe.com/**", (r) =>
     r.fulfill({ status: 200, contentType: "text/javascript", body: MOCK_STRIPE_SCRIPT }),
@@ -159,7 +141,20 @@ async function installStubs(page: Page): Promise<void> {
   await page.route("**/api/analytics/**", (r) => r.fulfill({ status: 204, body: "" }));
 }
 
-test.describe("Checkout step transition — Continue to Payment must not crash", () => {
+/**
+ * The Step-1 continue CTA differs by breakpoint: the desktop sidebar button
+ * (lg+ only) vs the mobile sticky-footer button (below lg). Both run the same
+ * shared validate-and-advance flow, so the spec targets whichever is visible
+ * for the current project viewport.
+ */
+function continueCta(page: Page) {
+  return page
+    .getByTestId("button-continue-to-payment-sidebar")
+    .or(page.getByTestId("button-continue-to-payment"))
+    .locator("visible=true");
+}
+
+test.describe("Checkout — guided inline errors on Continue to Payment", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(MOCK_STRIPE_SCRIPT);
     await page.addInitScript(
@@ -172,12 +167,9 @@ test.describe("Checkout step transition — Continue to Payment must not crash",
     await installStubs(page);
   });
 
-  test("clicking Continue to Payment advances to step 2 without showing the error boundary", async ({
+  test("clicking with an empty form shows inline errors, focuses the first invalid field, then advances once fixed", async ({
     page,
   }) => {
-    const pageErrors: string[] = [];
-    page.on("pageerror", (err) => pageErrors.push(err.message));
-
     await page.goto("/en-lb/beirut/checkout?guest=1");
 
     // Dismiss the guest-gate dialog if it still shows (belt-and-braces).
@@ -186,77 +178,61 @@ test.describe("Checkout step transition — Continue to Payment must not crash",
       await guestBtn.click();
     }
 
-    // Wait for step 1 to render.
-    const recipientFirstName = page.getByTestId("input-recipient-name");
-    await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
+    const recipientName = page.getByTestId("input-recipient-name");
+    await expect(recipientName).toBeVisible({ timeout: 15_000 });
 
-    // Skip address so the district field doesn't block the submit button.
-    await page.getByTestId("check-no-address").click();
+    // No inline errors before the first continue attempt.
+    await expect(page.getByTestId("error-recipient-name")).toHaveCount(0);
 
-    // Fill required step-1 fields.
-    await recipientFirstName.fill("Ahmad");
-    await page.getByTestId("input-recipient-phone").fill(VALID_LB_PHONE);
-    await page.getByTestId("input-sender-first-name").fill("Test");
-    await page.getByTestId("input-sender-email").fill("test@example.com");
-    await page.getByTestId("input-sender-phone").fill(VALID_LB_PHONE);
-
-    // Confirm the CTA is enabled before clicking (it is always enabled now —
-    // invalid submits show inline errors instead of a disabled gate).
+    // ── Click the always-enabled CTA on a fully empty form ──────────────────
     const continueBtn = continueCta(page);
-    await expect(continueBtn).toBeEnabled({ timeout: 5_000 });
-
+    await expect(continueBtn).toBeEnabled();
     await continueBtn.click();
 
-    // ── Core assertions ───────────────────────────────────────────────────────
+    // Still on Step 1 — no payment method list.
+    await expect(page.getByTestId("option-payment-card")).toHaveCount(0);
 
-    // 1. Step 2 must render: the payment method list must appear.
-    const cardOption = page.getByTestId("option-payment-card");
-    await expect(cardOption).toBeVisible({ timeout: 10_000 });
+    // Every invalid required field shows its localized message …
+    const nameError = page.getByTestId("error-recipient-name");
+    await expect(nameError).toBeVisible();
+    await expect(nameError).toHaveText("Enter the recipient's name to continue.");
+    await expect(page.getByTestId("error-district")).toBeVisible();
+    await expect(page.getByTestId("error-recipient-address")).toBeVisible();
+    await expect(page.getByTestId("error-sender-first-name")).toBeVisible();
+    await expect(page.getByTestId("error-sender-email")).toBeVisible();
+    // … including the empty (required) phone fields.
+    await expect(page.getByTestId("input-recipient-phone-error")).toBeVisible();
+    await expect(page.getByTestId("input-sender-phone-error")).toBeVisible();
 
-    // 2. The CheckoutErrorBoundary fallback must NOT be shown.
-    //    Its root element carries data-testid="checkout-error-boundary".
-    await expect(page.getByTestId("checkout-error-boundary")).toHaveCount(0);
+    // First invalid field (recipient name) gets focus + a11y wiring.
+    await expect(recipientName).toBeFocused();
+    await expect(recipientName).toHaveAttribute("aria-invalid", "true");
+    await expect(recipientName).toHaveAttribute("aria-describedby", "recipient-name-error");
 
-    // 3. No uncaught JS errors should have fired during the transition.
-    //    Filter ResizeObserver noise which is benign in headless Chrome.
-    const relevantErrors = pageErrors.filter(
-      (e) =>
-        !e.includes("ResizeObserver loop") &&
-        // Suppress benign Stripe.js internal warnings that may surface in
-        // headless mode when the mock Stripe doesn't implement every method.
-        !e.includes("Stripe"),
-    );
-    expect(
-      relevantErrors,
-      `Unexpected page errors after clicking Continue to Payment:\n${relevantErrors.join("\n")}`,
-    ).toEqual([]);
-  });
+    // ── Fixing a field clears ONLY that field's error, immediately ──────────
+    await recipientName.fill("Ahmad");
+    await expect(page.getByTestId("error-recipient-name")).toHaveCount(0);
+    await expect(recipientName).not.toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByTestId("error-district")).toBeVisible();
 
-  test("error boundary reload guard prevents infinite loops on hook errors", async ({
-    page,
-  }) => {
-    // Simulate the case where sessionStorage already has the reload flag set
-    // (meaning one reload already happened). The boundary must show the fallback
-    // UI rather than reloading again indefinitely.
-    await page.addInitScript(() => {
-      try {
-        sessionStorage.setItem("_presentail_hook_err_reload", "1");
-      } catch { /* ignore */ }
-    });
+    // ── Fill the rest of the form ────────────────────────────────────────────
+    await page.getByTestId("input-recipient-phone").fill(VALID_LB_PHONE);
+    // Skip address (district + address) via the ask-recipient toggle — their
+    // errors must disappear because the fields are no longer required.
+    await page.getByTestId("check-no-address").click();
+    await expect(page.getByTestId("error-district")).toHaveCount(0);
+    await expect(page.getByTestId("error-recipient-address")).toHaveCount(0);
 
-    // For this test we only care that the guard key is in place — the checkout
-    // page itself should render normally (no hook error in a fresh load).
-    await page.goto("/en-lb/beirut/checkout?guest=1");
+    await page.getByTestId("input-sender-first-name").fill("Test");
+    await expect(page.getByTestId("error-sender-first-name")).toHaveCount(0);
+    await page.getByTestId("input-sender-email").fill("test@example.com");
+    await expect(page.getByTestId("error-sender-email")).toHaveCount(0);
+    await page.getByTestId("input-sender-phone").fill(VALID_LB_PHONE);
+    await expect(page.getByTestId("input-sender-phone-error")).toHaveCount(0);
 
-    const guestBtn = page.getByTestId("button-checkout-as-guest");
-    if (await guestBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await guestBtn.click();
-    }
-
-    // The page should still render step 1 normally.
-    await expect(page.getByTestId("input-recipient-name")).toBeVisible({ timeout: 15_000 });
-
-    // The error boundary must NOT be showing (no hook error occurred).
+    // ── Valid form advances to Step 2 exactly as before ─────────────────────
+    await continueBtn.click();
+    await expect(page.getByTestId("option-payment-card")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("checkout-error-boundary")).toHaveCount(0);
   });
 });

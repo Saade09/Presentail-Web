@@ -62,8 +62,10 @@ export type OrderSummaryPanelProps = {
   onLoyaltyToggle?: (active: boolean) => void;
   onChangeDelivery: () => void;
   step: number;
-  step1CtaDisabled: boolean;
-  handleValidateAndAdvance: () => void;
+  /** Step-1 "Continue to Payment" click handler. The CTA is ALWAYS clickable
+      (no disabled gate): the handler itself validates, renders the guided
+      inline errors, and scrolls/focuses the first invalid field on failure. */
+  onContinueToPayment: () => void;
   summaryOpen: boolean;
   setSummaryOpen: (v: boolean) => void;
   /** Optional wrapper used by the mobile header toggle so the page can fire
@@ -104,8 +106,7 @@ export function OrderSummaryPanel({
   onLoyaltyToggle,
   onChangeDelivery,
   step,
-  step1CtaDisabled,
-  handleValidateAndAdvance,
+  onContinueToPayment,
   summaryOpen,
   setSummaryOpen,
   onSummaryOpenChange,
@@ -847,11 +848,10 @@ export function OrderSummaryPanel({
             <div className="hidden lg:block shrink-0 border-t border-gray-100 px-6 py-5">
               <button
                 type="button"
-                onClick={handleValidateAndAdvance}
+                onClick={onContinueToPayment}
                 data-testid="button-continue-to-payment-sidebar"
                 aria-describedby="sidebar-cta-secure"
-                disabled={step1CtaDisabled}
-                className={`w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${step1CtaDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                className="w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary cursor-pointer hover:opacity-90"
                 style={{ backgroundColor: "hsl(var(--primary))" }}
               >
                 <span>

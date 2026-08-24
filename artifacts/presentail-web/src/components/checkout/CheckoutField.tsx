@@ -12,9 +12,50 @@ type Props = {
   labelTrailing?: ReactNode;
   /** Extra classes on the group wrapper (e.g. width constraints). Never spacing. */
   className?: string;
+  /**
+   * Localized inline error message shown under the control after a failed
+   * "Continue" attempt. Pass `null`/`undefined` when the field is valid —
+   * the row is not rendered at all, so the 24px field rhythm is unchanged.
+   */
+  error?: ReactNode;
+  /**
+   * DOM id for the error message element. Pass the same value to the
+   * control's `aria-describedby` (only when the error is showing) so screen
+   * readers announce the message. Required when `error` is provided.
+   */
+  errorId?: string;
+  /** Test id for the error message element (e.g. "error-recipient-name"). */
+  errorTestId?: string;
   children: ReactNode;
 };
 
+/**
+ * Inline validation error message for a checkout field.
+ *
+ * Visual style intentionally matches the phone field's existing inline error
+ * (text-sm text-destructive mt-1.5) so all Step-1 error messages look
+ * identical. Exported for the sender-details fields, which don't use the
+ * CheckoutField wrapper.
+ *
+ * Screen readers pick the message up via the control's `aria-describedby`
+ * pointing at `id` — do not add role="alert" here, or the message would be
+ * announced twice.
+ */
+export function CheckoutFieldError({
+  id,
+  testId,
+  children,
+}: {
+  id?: string;
+  testId?: string;
+  children: ReactNode;
+}) {
+  return (
+    <p id={id} className="text-sm text-destructive mt-1.5" data-testid={testId}>
+      {children}
+    </p>
+  );
+}
 /**
  * Shared field group for the checkout "Recipient Details" section.
  *
@@ -27,9 +68,10 @@ type Props = {
  * - required asterisk: 4px after the label (ms-1), baseline-aligned
  *
  * Validation/error messages rendered by the control (e.g. the phone field's
- * inline error) live inside the group, so the 24px gap to the next field is
- * never disturbed. The label row is a flex row with items-center so trailing
- * elements (info icon) stay vertically centered with the label.
+ * inline error) or via the `error` prop live inside the group, so the 24px
+ * gap to the next field is never disturbed. The label row is a flex row with
+ * items-center so trailing elements (info icon) stay vertically centered
+ * with the label.
  */
 export function CheckoutField({
   label,
@@ -37,6 +79,9 @@ export function CheckoutField({
   required,
   labelTrailing,
   className,
+  error,
+  errorId,
+  errorTestId,
   children,
 }: Props) {
   return (
@@ -49,6 +94,11 @@ export function CheckoutField({
         {labelTrailing}
       </div>
       {children}
+      {error ? (
+        <CheckoutFieldError id={errorId} testId={errorTestId}>
+          {error}
+        </CheckoutFieldError>
+      ) : null}
     </div>
   );
 }

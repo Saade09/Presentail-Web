@@ -401,6 +401,18 @@
   color: hsl(var(--muted-foreground));
 }
 
+/* Guided inline-error state — red border matching the shadcn controls'
+   border-destructive treatment, so the phone field highlights the same way
+   as the other checkout fields after a failed continue attempt. */
+.pi-phone-wrap.pi-phone-error .PhoneInput {
+  border-color: hsl(var(--destructive));
+}
+
+.pi-phone-wrap.pi-phone-error .PhoneInput:focus-within {
+  border-color: hsl(var(--destructive));
+  box-shadow: 0 0 0 1px hsl(var(--destructive));
+}
+
 @layer utilities {
   .max-w-content {
     max-width: var(--content-max-width);

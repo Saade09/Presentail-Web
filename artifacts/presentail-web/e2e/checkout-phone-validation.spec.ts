@@ -1,18 +1,21 @@
 /**
- * E2E test: checkout phone validation (post-lazy-load refactor)
+ * E2E test: checkout phone validation (guided inline errors model)
  *
- * The checkout page tracks phone validity via `onValidityChange` state instead
- * of calling `isValidPhoneNumber` directly in the parent.  This test confirms
- * that the `recipientPhoneValid` state correctly gates the "Continue to
- * payment" button after the LazyWebPhoneField / code-split change.
+ * The Step-1 "Continue to Payment" CTA is ALWAYS clickable on both surfaces
+ * (desktop sidebar + mobile sticky bar). Instead of a disabled gate, clicking
+ * with a missing/invalid recipient phone keeps the shopper on Step 1 and
+ * shows a localized inline error under the phone field (rendered by
+ * WebPhoneField with data-testid="input-recipient-phone-error").
  *
  * Verifies that:
- *   1. "Continue to payment" is disabled when the recipient phone field is empty.
- *   2. It stays disabled when an invalid / partial number is typed.
- *   3. It becomes enabled once a valid Lebanese number (+961 70 000 000) is entered.
+ *   1. The CTA is enabled even while the recipient phone field is empty.
+ *   2. Clicking it with an empty phone stays on Step 1, shows the phone
+ *      inline error, and moves focus to the phone input.
+ *   3. The error persists for an invalid / partial number.
+ *   4. Entering a valid Lebanese number (+961 70 000 000) clears the error.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 const CART_ITEM = {
   product: {
@@ -38,6 +41,19 @@ const VALID_LB_PHONE = "+96170000000";
  */
 const INVALID_PHONE_DIGITS = "123";
 
+/**
+ * The Step-1 continue CTA differs by breakpoint: the desktop sidebar button
+ * (lg+ only) vs the mobile sticky-footer button (below lg). Both run the same
+ * shared validate-and-advance flow, so the spec targets whichever is visible
+ * for the current project viewport.
+ */
+function continueCta(page: Page) {
+  return page
+    .getByTestId("button-continue-to-payment-sidebar")
+    .or(page.getByTestId("button-continue-to-payment"))
+    .locator("visible=true");
+}
+
 test.describe("Checkout — phone validation", () => {
   test.beforeEach(async ({ page }) => {
     // Seed cart + location into localStorage before any navigation.
@@ -57,7 +73,7 @@ test.describe("Checkout — phone validation", () => {
   });
 
   test(
-    "'Continue to payment' is disabled with no/invalid recipient phone and enabled with a valid one",
+    "clicking the always-enabled CTA with a missing/invalid recipient phone shows the inline error; a valid one clears it",
     async ({ page }) => {
       // `?guest=1` pre-acknowledges the guest path so the sign-in dialog never
       // mounts. Once a location is set the router mounts under a locale base, so
@@ -87,27 +103,39 @@ test.describe("Checkout — phone validation", () => {
       // Sender details (guest path — name, email, and phone are all required).
       await page.getByTestId("input-sender-first-name").fill("Test");
       await page.getByTestId("input-sender-email").fill("test@example.com");
+      await page.getByTestId("input-sender-phone").fill(VALID_LB_PHONE);
 
-      // Sender phone — the disabled guard uses a raw `.trim()` check, not
-      // the validity state, so we fill a full valid number to clear that gate.
-      const senderPhoneInput = page.getByTestId("input-sender-phone");
-      await expect(senderPhoneInput).toBeVisible();
-      await senderPhoneInput.fill(VALID_LB_PHONE);
-
-      // ── Assert 1: button is disabled with empty recipient phone ───────────
-      const continueBtn = page.getByTestId("button-continue-to-payment");
+      // ── Assert 1: the CTA is enabled even with an empty recipient phone ───
+      const continueBtn = continueCta(page);
       await expect(continueBtn).toBeVisible();
-      await expect(continueBtn).toBeDisabled();
-
-      // ── Assert 2: button stays disabled with an invalid partial number ────
-      const recipientPhoneInput = page.getByTestId("input-recipient-phone");
-      await expect(recipientPhoneInput).toBeVisible();
-      await recipientPhoneInput.fill(INVALID_PHONE_DIGITS);
-      await expect(continueBtn).toBeDisabled();
-
-      // ── Assert 3: button becomes enabled with a valid phone number ────────
-      await recipientPhoneInput.fill(VALID_LB_PHONE);
       await expect(continueBtn).toBeEnabled();
+
+      // ── Assert 2: clicking stays on Step 1 and shows the phone error ──────
+      await continueBtn.click();
+
+      const phoneError = page.getByTestId("input-recipient-phone-error");
+      await expect(phoneError).toBeVisible();
+      // Still on step 1 — the payment method list must NOT have rendered.
+      await expect(page.getByTestId("option-payment-card")).toHaveCount(0);
+
+      // Focus moved to the recipient phone input.
+      const recipientPhoneInput = page.getByTestId("input-recipient-phone");
+      await expect(recipientPhoneInput).toBeFocused();
+      // Screen-reader wiring: control marked invalid + linked to the message.
+      await expect(recipientPhoneInput).toHaveAttribute("aria-invalid", "true");
+      await expect(recipientPhoneInput).toHaveAttribute(
+        "aria-describedby",
+        "input-recipient-phone-error",
+      );
+
+      // ── Assert 3: error persists with an invalid partial number ───────────
+      await recipientPhoneInput.fill(INVALID_PHONE_DIGITS);
+      await expect(phoneError).toBeVisible();
+
+      // ── Assert 4: a valid phone number clears the error ───────────────────
+      await recipientPhoneInput.fill(VALID_LB_PHONE);
+      await expect(phoneError).toHaveCount(0);
+      await expect(recipientPhoneInput).not.toHaveAttribute("aria-invalid", "true");
     },
   );
 });

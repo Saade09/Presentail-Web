@@ -117,7 +117,14 @@ export function WebPhoneField({
   const [hasTyped, setHasTyped] = useState(false);
 
   const isInvalid = !!value && !isValidPhoneNumber(value);
-  const showInlineError = (showError || (touched && hasTyped)) && isInvalid && !!errorMessage;
+  // A required-but-empty value only surfaces after an explicit submit attempt
+  // (showError) — never from mere blur/typing — so the field stays quiet
+  // until the user actually tries to continue.
+  const isMissing = !!required && !value;
+  const showInlineError =
+    !!errorMessage &&
+    (((showError || (touched && hasTyped)) && isInvalid) || (showError && isMissing));
+  const errorElementId = testId ? `${testId}-error` : undefined;
 
   const isNonEmptyAndValid = !!value && isValidPhoneNumber(value);
   // Notify parent whenever validity changes. onValidityChange is treated like
@@ -147,7 +154,7 @@ export function WebPhoneField({
           than the pre-existing state of always showing the error on load. */}
       <div
         dir="ltr"
-        className="pi-phone-wrap"
+        className={showInlineError ? "pi-phone-wrap pi-phone-error" : "pi-phone-wrap"}
         onBlur={() => setTouched(true)}
         onInput={() => setHasTyped(true)}
       >
@@ -159,12 +166,17 @@ export function WebPhoneField({
           onCountryChange={(c) => setSelectedCountry(c ?? undefined)}
           countries={filteredCountries}
           data-testid={testId}
+          numberInputProps={{
+            "aria-invalid": showInlineError || undefined,
+            "aria-describedby": showInlineError ? errorElementId : undefined,
+          }}
         />
       </div>
       {showInlineError ? (
         <p
+          id={errorElementId}
           className="text-sm text-destructive mt-1.5"
-          data-testid={testId ? `${testId}-error` : undefined}
+          data-testid={errorElementId}
         >
           {errorMessage}
         </p>

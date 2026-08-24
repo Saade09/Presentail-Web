@@ -226,6 +226,15 @@ export const checkoutStrings: Dict = {
   "checkout.saveAddress": { en: "Save this address to my profile", ar: "حفظ هذا العنوان في ملفي" },
   "checkout.saveAddressHint": { en: "Prefilled automatically next time you shop", ar: "يُملأ تلقائياً في مرة القادمة" },
   "checkout.phoneInvalidNumber": { en: "Please enter a valid phone number for this country", ar: "يرجى إدخال رقم هاتف صحيح لهذا البلد" },
+
+  // Guided inline errors — shown under a required Step-1 field after a failed
+  // "Continue to Payment" attempt. Short, action-oriented, one line each.
+  "checkout.error.recipientName": { en: "Enter the recipient's name to continue.", ar: "أدخل اسم المستلم للمتابعة." },
+  "checkout.error.district": { en: "Select a delivery district to continue.", ar: "اختر منطقة التوصيل للمتابعة." },
+  "checkout.error.emirate": { en: "Select a delivery emirate to continue.", ar: "اختر إمارة التوصيل للمتابعة." },
+  "checkout.error.address": { en: "Enter the delivery address to continue.", ar: "أدخل عنوان التوصيل للمتابعة." },
+  "checkout.error.senderFirstName": { en: "Enter your first name to continue.", ar: "أدخل اسمك الأول للمتابعة." },
+  "checkout.error.senderEmail": { en: "Enter your email address to continue.", ar: "أدخل بريدك الإلكتروني للمتابعة." },
   "checkout.qrPrintedOnCard": { en: "This QR code will be printed on your gift card", ar: "سيُطبع رمز QR هذا على بطاقة الهدية" },
 
   "checkout.cta.continueToPayment": { en: "Continue to Payment", ar: "المتابعة إلى الدفع" },
@@ -476,6 +485,12 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.saveAddress": "Enregistrer cette adresse dans mon profil",
   "checkout.saveAddressHint": "Préremplie automatiquement lors de votre prochaine commande",
   "checkout.phoneInvalidNumber": "Veuillez entrer un numéro de téléphone valide pour ce pays",
+  "checkout.error.recipientName": "Saisissez le nom du destinataire pour continuer.",
+  "checkout.error.district": "Sélectionnez un district de livraison pour continuer.",
+  "checkout.error.emirate": "Sélectionnez un émirat de livraison pour continuer.",
+  "checkout.error.address": "Saisissez l'adresse de livraison pour continuer.",
+  "checkout.error.senderFirstName": "Saisissez votre prénom pour continuer.",
+  "checkout.error.senderEmail": "Saisissez votre adresse e-mail pour continuer.",
   "checkout.qrPrintedOnCard": "Ce QR code sera imprimé sur votre carte cadeau",
 
   "checkout.cta.continueToPayment": "Continuer vers le paiement",
@@ -722,6 +737,12 @@ export const checkoutStringsEl: Record<string, string> = {
   "checkout.saveAddress": "Αποθήκευση αυτής της διεύθυνσης στο προφίλ μου",
   "checkout.saveAddressHint": "Συμπληρώνεται αυτόματα την επόμενη φορά που θα ψωνίσετε",
   "checkout.phoneInvalidNumber": "Παρακαλώ εισαγάγετε έγκυρο αριθμό τηλεφώνου για αυτήν τη χώρα",
+  "checkout.error.recipientName": "Εισαγάγετε το όνομα του παραλήπτη για να συνεχίσετε.",
+  "checkout.error.district": "Επιλέξτε περιοχή παράδοσης για να συνεχίσετε.",
+  "checkout.error.emirate": "Επιλέξτε εμιράτο παράδοσης για να συνεχίσετε.",
+  "checkout.error.address": "Εισαγάγετε τη διεύθυνση παράδοσης για να συνεχίσετε.",
+  "checkout.error.senderFirstName": "Εισαγάγετε το όνομά σας για να συνεχίσετε.",
+  "checkout.error.senderEmail": "Εισαγάγετε τη διεύθυνση email σας για να συνεχίσετε.",
   "checkout.qrPrintedOnCard": "Αυτός ο κωδικός QR θα εκτυπωθεί στη δωροκάρτα σας",
 
   "checkout.cta.continueToPayment": "Συνέχεια στην πληρωμή",
