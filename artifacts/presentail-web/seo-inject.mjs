@@ -5088,6 +5088,15 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         const articlesByLang = BLOG_POSTS[slug];
         const article = articlesByLang?.[blogLang] ?? articlesByLang?.en;
         if (article) {
+          // When this locale has no dedicated translation the article falls back
+          // to English content.  Emit noindex,follow at the SSR level so crawlers
+          // (which may not execute JS) see the directive.  Detects both the
+          // undefined-key pattern and the get-accessor alias pattern
+          // (get ar() { return this.en }).
+          const isBlogFallback =
+            blogLang !== "en" &&
+            (articlesByLang?.[blogLang] === undefined ||
+              articlesByLang?.[blogLang] === articlesByLang?.en);
           const result = buildBlogPostHead({
             article,
             lang: blogLang,
@@ -5095,10 +5104,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             origin: rest.origin ?? "",
             pathname,
           });
+          const headSnippet = isBlogFallback
+            ? `<meta name="robots" content="noindex,follow" />\n    ${result.headSnippet}`
+            : result.headSnippet;
           return assembleHtml(html, {
             lang: blogLang,
             dir: blogLang === "ar" ? "rtl" : "ltr",
-            headSnippet: result.headSnippet,
+            headSnippet,
             titleTag: `<title>${escapeHtml(result.title)}</title>`,
             bodyHtml: result.bodyHtml ?? null,
           });
@@ -5164,6 +5176,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           "en";
         const article = articlesByLang[bareBlogLang] ?? articlesByLang.en;
         if (article) {
+          const isBlogFallback =
+            bareBlogLang !== "en" &&
+            (articlesByLang?.[bareBlogLang] === undefined ||
+              articlesByLang?.[bareBlogLang] === articlesByLang?.en);
           const result = buildBlogPostHead({
             article,
             lang: bareBlogLang,
@@ -5171,10 +5187,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             origin: rest.origin ?? "",
             pathname,
           });
+          const headSnippet = isBlogFallback
+            ? `<meta name="robots" content="noindex,follow" />\n    ${result.headSnippet}`
+            : result.headSnippet;
           return assembleHtml(html, {
             lang: bareBlogLang,
             dir: bareBlogLang === "ar" ? "rtl" : "ltr",
-            headSnippet: result.headSnippet,
+            headSnippet,
             titleTag: `<title>${escapeHtml(result.title)}</title>`,
             bodyHtml: result.bodyHtml ?? null,
           });
@@ -5233,6 +5252,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     const articlesByLang = BLOG_POSTS[blogPostSlug];
     const article = articlesByLang?.[generic.lang] ?? articlesByLang?.en;
     if (article) {
+      const isBlogFallback =
+        generic.lang !== "en" &&
+        (articlesByLang?.[generic.lang] === undefined ||
+          articlesByLang?.[generic.lang] === articlesByLang?.en);
       const result = buildBlogPostHead({
         article,
         lang: generic.lang,
@@ -5241,10 +5264,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         origin: rest.origin ?? "",
         pathname,
       });
+      const headSnippet = isBlogFallback
+        ? `<meta name="robots" content="noindex,follow" />\n    ${result.headSnippet}`
+        : result.headSnippet;
       return assembleHtml(html, {
         lang: generic.lang,
         dir: generic.dir,
-        headSnippet: result.headSnippet,
+        headSnippet,
         titleTag: `<title>${escapeHtml(result.title)}</title>`,
         bodyHtml: result.bodyHtml ?? null,
       });

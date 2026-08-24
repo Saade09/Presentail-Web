@@ -118,12 +118,14 @@ const UI_COPY: Record<Language, UiCopy> = {
   },
 };
 
-// Matches locale-prefixed relative paths such as /en-lb/beirut/product/X or
-// /fr-ae/dubai/occasion/Y.  renderBody rewrites these to the current page
-// locale so that the wouter router base cannot prepend a second /lang prefix
-// in SSR-rendered HTML, which would create double-prefix 404 links for
-// crawlers (e.g. /fr/en-lb/beirut/product/X).
-const LOCALE_HREF_RE = /^\/(en|ar|fr|el)(-[a-z]{2})(\/.*)/;
+// Matches locale-prefixed relative paths in two forms:
+//   /en-lb/beirut/product/X  (lang + country code + rest)
+//   /ar/blog/send-roses-to-lebanon  (bare lang prefix only, no country code)
+// renderBody rewrites these to the current page locale so that the wouter
+// router base cannot prepend a second /lang prefix in SSR-rendered HTML,
+// creating double-prefix 404 URLs for crawlers (e.g. /fr/en-lb/... or
+// /ar-lb/ar/blog/...).  Country code is optional (?).
+const LOCALE_HREF_RE = /^\/(en|ar|fr|el)(-[a-z]{2})?(\/.*)/;
 
 /**
  * Render a section body string, converting simple anchors and strong tags into
@@ -173,9 +175,13 @@ function renderBody(body: string, lang?: string): ReactNode {
     // another /lang segment in SSR output, producing broken double-prefix URLs.
     const localeMatch = isRelativePath ? LOCALE_HREF_RE.exec(href) : null;
     if (localeMatch) {
+      // localeMatch[2] is the country-code part ("-lb", "-ae", etc.) or
+      // undefined for bare lang-only paths (/ar/blog/...).  Preserve it.
+      const countryPart = localeMatch[2] ?? "";
+      const rest = localeMatch[3];
       const rewritten =
         lang && lang !== localeMatch[1]
-          ? `/${lang}${localeMatch[2]}${localeMatch[3]}`
+          ? `/${lang}${countryPart}${rest}`
           : href;
       parts.push(
         <a key={match.index} href={rewritten} className="text-primary underline hover:no-underline">
