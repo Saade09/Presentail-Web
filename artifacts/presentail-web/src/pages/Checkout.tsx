@@ -3617,8 +3617,8 @@ function CheckoutForm() {
 
             {/* ── STEP 1 · Delivery Details ── */}
             {step === 1 && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-40 lg:pb-0">
-                <div className="mb-6">
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-40 max-md:pb-24 lg:pb-0">
+                <div className="mb-6 max-md:mb-4">
                   <h2 className="text-2xl font-serif text-primary mb-1">{t("checkout.step.deliveryDetails")}</h2>
                   <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
                 </div>
@@ -3650,11 +3650,11 @@ function CheckoutForm() {
                 )}
 
                 {/* Recipient Details */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-5">
-                  <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-4 lg:mb-5">{t("checkout.section.recipientDetails")}</h3>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 max-md:py-3 lg:p-6 mb-5 max-md:mb-3">
+                  <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-4 max-md:mb-3 lg:mb-5">{t("checkout.section.recipientDetails")}</h3>
 
                   {savedAddresses.length > 0 && (
-                    <div className="mb-5">
+                    <div className="mb-5 max-md:mb-4">
                       <Popover open={addressPickerOpen} onOpenChange={setAddressPickerOpen}>
                         <PopoverTrigger asChild>
                           <button
@@ -3705,7 +3705,7 @@ function CheckoutForm() {
                   )}
 
                   <div
-                    className={`flex items-center gap-3 mb-6 rounded-xl border px-3.5 py-3 transition-colors ${
+                    className={`flex items-center gap-3 mb-6 max-md:mb-4 rounded-xl border px-3.5 py-3 transition-colors ${
                       noAddress ? "border-primary" : "border-primary/30"
                     }`}
                     style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
@@ -3851,7 +3851,7 @@ function CheckoutForm() {
                         }
                         required
                       >
-                        <Textarea rows={3} className="min-h-[76px]" value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={isMobile ? t("checkout.addressPhShort") : t("checkout.addressPh")} data-testid="input-recipient-address" />
+                        <Textarea rows={isMobile ? 2 : 3} className="min-h-[76px] max-md:min-h-[57px]" value={recipient.address} onChange={(e) => { savedAddressSubFieldsRef.current = null; setRecipient({ ...recipient, address: e.target.value }); }} placeholder={isMobile ? t("checkout.addressPhShort") : t("checkout.addressPh")} data-testid="input-recipient-address" />
                       </CheckoutField>
 
                       {isSignedIn && (
@@ -3875,8 +3875,8 @@ function CheckoutForm() {
 
                 {/* Delivery confirmation card — mobile only. Replaces the large
                     Delivery Time selector below (which stays desktop-only). */}
-                <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4" data-testid="card-delivery-confirmation">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-3">{t("checkout.delivery.sectionLabel")}</p>
+                <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-4 max-md:py-3 mb-4 max-md:mb-3" data-testid="card-delivery-confirmation">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 max-md:mb-2">{t("checkout.delivery.sectionLabel")}</p>
                   <div
                     className="rounded-xl px-3.5 py-3 flex items-center gap-3"
                     style={{ backgroundColor: "hsl(210 33% 96%)" }}
@@ -3929,14 +3929,14 @@ function CheckoutForm() {
                 </div>
 
                 {/* Sender Details */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-4">
-                  <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-4 lg:mb-5">{t("checkout.section.senderDetails")}</h3>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 max-md:py-3 lg:p-6 mb-4 max-md:mb-3">
+                  <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-4 max-md:mb-3 lg:mb-5">{t("checkout.section.senderDetails")}</h3>
 
                   {isSignedIn ? (
                     <>
                       {/* Mobile: compact identity row */}
                       <div
-                        className="lg:hidden mb-4 rounded-xl px-3.5 py-3 flex items-center gap-3"
+                        className="lg:hidden mb-4 max-md:mb-3 rounded-xl px-3.5 py-3 flex items-center gap-3"
                         style={{ backgroundColor: "hsl(210 33% 96%)" }}
                         data-testid="sender-summary-mobile"
                       >
@@ -4035,7 +4035,7 @@ function CheckoutForm() {
                   {/* "Get order updates on WhatsApp" — both breakpoints, default
                       checked. Sits directly below the sender phone field and above
                       the anonymous-gift control, per the checkout mockups. */}
-                  <div className="mb-4 lg:max-w-[480px]">
+                  <div className="mb-4 max-md:mb-3 lg:max-w-[480px]">
                     <label className="flex items-start gap-3 cursor-pointer select-none min-h-11" data-testid="check-whatsapp-updates-label">
                       <input
                         type="checkbox"

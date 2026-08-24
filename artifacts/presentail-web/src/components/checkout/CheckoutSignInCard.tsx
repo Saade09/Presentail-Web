@@ -95,7 +95,7 @@ export function CheckoutSignInCard({
   return (
     <section
       aria-label={t("checkoutLogin.title")}
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-5"
+      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 lg:p-6 mb-5 max-md:mb-3"
       data-testid="card-checkout-signin"
     >
       <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-1">

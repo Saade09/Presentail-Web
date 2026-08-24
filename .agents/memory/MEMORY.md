@@ -72,3 +72,4 @@
 - [Semrush Aug 2026 audit fixes](semrush-aug26-audit-fixes.md) — blog double-prefix links, dead brand links, phantom occasion slugs, el/ar noindex
 - [X-Robots-Tag vs meta robots](x-robots-tag-vs-meta.md) — HTTP header beats body meta tag; SSR noindex must go through serve.mjs resolveXRobotsTag, not just seo-inject headSnippet
 - [Canonicals on noindex entity pages](noindex-canonicals.md) — noindex does not replace the HTML canonical; retain both for entity-page consolidation
+- [Checkout mobile compact spacing](checkout-mobile-compact-spacing.md) — max-md: compact scale for ≤767px checkout (tablet keeps base classes); mobile textarea line-height is 24px (text-base)

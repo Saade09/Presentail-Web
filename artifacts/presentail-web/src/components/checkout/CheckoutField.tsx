@@ -19,8 +19,10 @@ type Props = {
  * Shared field group for the checkout "Recipient Details" section.
  *
  * Owns the vertical rhythm so every field is identical:
- * - label row → control: 8px (mb-2)
- * - control → next label row: 24px (mb-6 on the group), all viewport widths
+ * - label row → control: 8px (mb-2); 6px on phones (max-md:mb-1.5)
+ * - control → next label row: 24px (mb-6 on the group); 16px on phones
+ *   (max-md:mb-4) — part of the compact mobile checkout spacing (≤767px);
+ *   tablet (md–lg) keeps the desktop rhythm
  * - label: text-sm, font-medium, 20px line-height (leading-5)
  * - required asterisk: 4px after the label (ms-1), baseline-aligned
  *
@@ -38,8 +40,8 @@ export function CheckoutField({
   children,
 }: Props) {
   return (
-    <div className={cn("mb-6", className)}>
-      <div className="mb-2 flex items-center">
+    <div className={cn("mb-6 max-md:mb-4", className)}>
+      <div className="mb-2 max-md:mb-1.5 flex items-center">
         <label htmlFor={htmlFor} className="text-sm font-medium leading-5">
           {label}
           {required ? <span className="text-destructive ms-1">*</span> : null}
