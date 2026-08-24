@@ -258,6 +258,7 @@ describe("SignIn — onContinueEmail with new email preserves redirect_url", () 
 // ---------------------------------------------------------------------------
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 describe("SignIn — CompleteProfileDialog fires handleAuthSuccess exactly once", () => {
   let loginFn: ReturnType<typeof vi.fn>;
@@ -354,5 +355,88 @@ describe("SignIn — CompleteProfileDialog fires handleAuthSuccess exactly once"
     // which called login, doubling navigation.
     openChangeFn(false);
     expect(loginFn).toHaveBeenCalledTimes(prevLoginCount); // no new call from onOpenChange
+  });
+});
+
+describe("SignIn — Google popup errors", () => {
+  let errorCallback: ((error: { type: string }) => void) | undefined;
+  let toastFn: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockSetLocation.mockClear();
+    errorCallback = undefined;
+    toastFn = vi.fn();
+    vi.mocked(useToast).mockReturnValue({ toast: toastFn } as any);
+
+    Object.defineProperty(window, "location", {
+      value: { search: "", href: "" },
+      writable: true,
+    });
+
+    const initTokenClient = vi.fn().mockImplementation(
+      ({
+        error_callback,
+      }: {
+        error_callback?: (error: { type: string }) => void;
+      }) => {
+        errorCallback = error_callback;
+        return { requestAccessToken: vi.fn() };
+      },
+    );
+
+    (window as any).google = {
+      accounts: {
+        oauth2: {
+          initTokenClient,
+        },
+      },
+    };
+  });
+
+  afterEach(() => {
+    delete (window as any).google;
+  });
+
+  it("silently re-enables the Google button when the popup is closed", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SignInPage />);
+
+    const googleButton = screen.getByTestId("button-signin-google");
+    await user.click(googleButton);
+
+    await waitFor(() => {
+      expect(errorCallback).toBeDefined();
+    });
+    expect((googleButton as HTMLButtonElement).disabled).toBe(true);
+
+    errorCallback!({ type: "popup_closed" });
+
+    await waitFor(() => {
+      expect((googleButton as HTMLButtonElement).disabled).toBe(false);
+    });
+    expect(toastFn).not.toHaveBeenCalled();
+  });
+
+  it("shows the OAuth failure toast when the popup fails to open", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SignInPage />);
+
+    await user.click(screen.getByTestId("button-signin-google"));
+
+    await waitFor(() => {
+      expect(errorCallback).toBeDefined();
+    });
+
+    errorCallback!({ type: "popup_failed_to_open" });
+
+    await waitFor(() => {
+      expect(toastFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "auth.toast.oauthFailed",
+          variant: "destructive",
+        }),
+      );
+    });
   });
 });
