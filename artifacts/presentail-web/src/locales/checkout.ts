@@ -287,6 +287,10 @@ export const checkoutStrings: Dict = {
   "checkout.whatsappUpdatesHint": { en: "We'll send order and delivery updates to this number. Opt out anytime.", ar: "سنرسل تحديثات الطلب والتوصيل إلى هذا الرقم. يمكنك إلغاء الاشتراك في أي وقت." },
   "checkout.anonymousGift": { en: "Send this gift anonymously", ar: "أرسل هذه الهدية بدون الكشف عن هويتك" },
   "checkout.anonymousGiftHint": { en: "Your name won't appear on the gift card or recipient notifications.", ar: "لن يظهر اسمك على بطاقة الهدية أو في إشعارات المستلم." },
+  "checkout.whatsappUpdatesShort": { en: "WhatsApp order updates", ar: "تحديثات الطلب عبر واتساب" },
+  "checkout.whatsappUpdatesShortHint": { en: "Order and delivery updates to this number.", ar: "تحديثات الطلب والتوصيل إلى هذا الرقم." },
+  "checkout.anonymousShort": { en: "Send anonymously", ar: "إرسال بدون الكشف عن الهوية" },
+  "checkout.anonymousShortHint": { en: "Hide your name from the gift card and recipient updates.", ar: "إخفاء اسمك عن بطاقة الهدية وتحديثات المستلم." },
   "checkout.sender.sendingAsName": { en: "Sending as {name}", ar: "الإرسال باسم {name}" },
   "checkout.sender.edit": { en: "Edit", ar: "تعديل" },
 
@@ -566,6 +570,10 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.whatsappUpdatesHint": "Nous enverrons les mises à jour de commande et de livraison à ce numéro. Désinscription possible à tout moment.",
   "checkout.anonymousGift": "Envoyer ce cadeau anonymement",
   "checkout.anonymousGiftHint": "Votre nom n'apparaîtra pas sur la carte cadeau ni dans les notifications du destinataire.",
+  "checkout.whatsappUpdatesShort": "Mises à jour de commande sur WhatsApp",
+  "checkout.whatsappUpdatesShortHint": "Mises à jour de commande et de livraison à ce numéro.",
+  "checkout.anonymousShort": "Envoyer anonymement",
+  "checkout.anonymousShortHint": "Masquer votre nom sur la carte cadeau et les mises à jour au destinataire.",
   "checkout.sender.sendingAsName": "Envoi en tant que {name}",
   "checkout.sender.edit": "Modifier",
 
@@ -843,6 +851,10 @@ export const checkoutStringsEl: Record<string, string> = {
   "checkout.whatsappUpdatesHint": "Θα στέλνουμε ενημερώσεις παραγγελίας και παράδοσης σε αυτόν τον αριθμό. Απενεργοποίηση ανά πάσα στιγμή.",
   "checkout.anonymousGift": "Στείλτε αυτό το δώρο ανώνυμα",
   "checkout.anonymousGiftHint": "Το όνομά σας δεν θα εμφανιστεί στη δωροκάρτα ούτε στις ειδοποιήσεις του παραλήπτη.",
+  "checkout.whatsappUpdatesShort": "Ενημερώσεις παραγγελίας στο WhatsApp",
+  "checkout.whatsappUpdatesShortHint": "Ενημερώσεις παραγγελίας και παράδοσης σε αυτόν τον αριθμό.",
+  "checkout.anonymousShort": "Ανώνυμη αποστολή",
+  "checkout.anonymousShortHint": "Απόκρυψη του ονόματός σας από τη δωροκάρτα και τις ενημερώσεις του παραλήπτη.",
   "checkout.sender.sendingAsName": "Αποστολή ως {name}",
   "checkout.sender.edit": "Επεξεργασία",
 

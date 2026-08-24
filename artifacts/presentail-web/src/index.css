@@ -421,6 +421,13 @@
     font-size: 1rem;
     line-height: 1.5rem;
   }
+
+  /* Sender Details card only (compact mobile layout): 48px phone input to
+     match the stacked sender fields' max-md:h-12 height. Recipient phone
+     keeps the default 36px height. */
+  .sender-phone-compact .PhoneInput {
+    height: 3rem;
+  }
 }
 
 @layer utilities {

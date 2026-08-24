@@ -9,6 +9,9 @@
 //   4. The order payload carries whatsappOptIn true/false, and
 //      checkout_completed_with_whatsapp_updates fires with the final state.
 //   5. The anonymous-gift checkbox stays independent of the WhatsApp toggle.
+//   6. The mobile (≤767px) switch rows mirror the same whatsappOptIn /
+//      identitySecret state as the md+ checkboxes, expose switch semantics,
+//      and fire the same analytics exactly once.
 //
 // The mock harness is copied from Checkout.cardFlow.test.tsx (same rendering
 // and step-navigation requirements), with trackWebEvent captured.
@@ -612,5 +615,55 @@ describe("Checkout — WhatsApp order-updates opt-in", () => {
     await user.click(whatsapp);
     expect(whatsapp.checked).toBe(false);
     expect(anonymous.checked).toBe(true);
+  });
+
+  it("mobile switch rows expose switch semantics, mirror the checkbox state, and fire the same analytics once", async () => {
+    // isMobile gates the mobile_checkout_anonymous_toggled event.
+    mockUseIsMobile.mockReturnValue(true);
+    renderCheckout();
+
+    // WhatsApp switch: default ON, proper role/name/description wiring.
+    const waSwitch = await screen.findByTestId("switch-whatsapp-updates");
+    expect(waSwitch.getAttribute("role")).toBe("switch");
+    expect(waSwitch.getAttribute("aria-checked")).toBe("true");
+    expect(waSwitch.getAttribute("aria-labelledby")).toBe("whatsapp-updates-switch-title");
+    expect(waSwitch.getAttribute("aria-describedby")).toBe("whatsapp-updates-switch-hint");
+    // New mobile copy comes from the locale system (tests render raw keys).
+    expect(screen.getByTestId("switch-whatsapp-updates-hint").textContent).toContain(
+      "checkout.whatsappUpdatesShortHint",
+    );
+
+    // Toggling the switch updates the shared state (checkbox mirrors it) and
+    // fires whatsapp_updates_disabled exactly once.
+    await user.click(waSwitch);
+    expect(waSwitch.getAttribute("aria-checked")).toBe("false");
+    expect((screen.getByTestId("check-whatsapp-updates") as HTMLInputElement).checked).toBe(false);
+    const disabled = mockTrackWebEvent.mock.calls.filter(
+      ([e]) => (e as { type: string }).type === "whatsapp_updates_disabled",
+    );
+    expect(disabled.length).toBe(1);
+    // Re-enabling fires nothing extra.
+    await user.click(waSwitch);
+    expect(waSwitch.getAttribute("aria-checked")).toBe("true");
+    expect(
+      mockTrackWebEvent.mock.calls.filter(
+        ([e]) => (e as { type: string }).type === "whatsapp_updates_disabled",
+      ).length,
+    ).toBe(1);
+
+    // Anonymous switch: default OFF, independent of the WhatsApp toggle,
+    // fires mobile_checkout_anonymous_toggled once per change.
+    const anonSwitch = screen.getByTestId("switch-identity-secret");
+    expect(anonSwitch.getAttribute("role")).toBe("switch");
+    expect(anonSwitch.getAttribute("aria-checked")).toBe("false");
+    await user.click(anonSwitch);
+    expect(anonSwitch.getAttribute("aria-checked")).toBe("true");
+    expect((screen.getByTestId("check-identity-secret") as HTMLInputElement).checked).toBe(true);
+    expect(waSwitch.getAttribute("aria-checked")).toBe("true");
+    const anonEvents = mockTrackWebEvent.mock.calls.filter(
+      ([e]) => (e as { type: string }).type === "mobile_checkout_anonymous_toggled",
+    );
+    expect(anonEvents.length).toBe(1);
+    expect((anonEvents[0][0] as { properties: { enabled: boolean } }).properties.enabled).toBe(true);
   });
 });

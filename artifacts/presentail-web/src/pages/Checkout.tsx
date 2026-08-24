@@ -4225,16 +4225,19 @@ function CheckoutForm() {
                     </>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-x-3">
+                      {/* ≤767px: identity fields stack full-width in mockup order
+                          (first, last, email, phone) with taller 48px inputs;
+                          md+ keeps the side-by-side name pair. */}
+                      <div className="grid grid-cols-2 max-md:grid-cols-1 gap-x-3">
                         <CheckoutField label={t("checkout.firstName")} htmlFor="sender-first-name-input" required error={senderFirstNameError ? t("checkout.error.senderFirstName") : null} errorId="sender-first-name-error" errorTestId="error-sender-first-name">
-                          <Input id="sender-first-name-input" className={senderFirstNameError ? invalidControlClass : undefined} aria-invalid={senderFirstNameError || undefined} aria-describedby={senderFirstNameError ? "sender-first-name-error" : undefined} ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" autoCapitalize="words" />
+                          <Input id="sender-first-name-input" className={cn("max-md:h-12", senderFirstNameError && invalidControlClass)} aria-invalid={senderFirstNameError || undefined} aria-describedby={senderFirstNameError ? "sender-first-name-error" : undefined} ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" autoCapitalize="words" autoComplete="given-name" />
                         </CheckoutField>
                         <CheckoutField label={t("checkout.lastName")} htmlFor="sender-last-name-input" required>
-                          <Input id="sender-last-name-input" ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" autoCapitalize="words" />
+                          <Input id="sender-last-name-input" className="max-md:h-12" ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: toTitleCase(e.target.value) })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" autoCapitalize="words" autoComplete="family-name" />
                         </CheckoutField>
                       </div>
                       <CheckoutField label={t("checkout.emailAddress")} htmlFor="sender-email-input" required className="lg:max-w-[480px]" error={senderEmailError ? t("checkout.error.senderEmail") : null} errorId="sender-email-error" errorTestId="error-sender-email">
-                        <Input id="sender-email-input" className={senderEmailError ? invalidControlClass : undefined} aria-invalid={senderEmailError || undefined} aria-describedby={senderEmailError ? "sender-email-error" : undefined} ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
+                        <Input id="sender-email-input" className={cn("max-md:h-12", senderEmailError && invalidControlClass)} aria-invalid={senderEmailError || undefined} aria-describedby={senderEmailError ? "sender-email-error" : undefined} ref={senderEmailRef} type="email" inputMode="email" autoComplete="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
                             // Run the full validation handler directly so Enter in the
@@ -4252,7 +4255,7 @@ function CheckoutForm() {
                     <CheckoutField
                       label={t("checkout.whatsappNumber")}
                       required
-                      className="lg:max-w-[480px]"
+                      className="lg:max-w-[480px] sender-phone-compact"
                     >
                       {ipCountrySettled ? (
                         <LazyWebPhoneField
@@ -4270,24 +4273,92 @@ function CheckoutForm() {
                           }}
                         />
                       ) : (
-                        <div aria-hidden className="h-9 rounded-sm bg-muted/60 animate-pulse" />
+                        <div aria-hidden className="h-9 max-md:h-12 rounded-sm bg-muted/60 animate-pulse" />
                       )}
                     </CheckoutField>
                   )}
 
-                  {/* "Get order updates on WhatsApp" — both breakpoints, default
-                      checked. Sits directly below the sender phone field and above
-                      the anonymous-gift control, per the checkout mockups.
-                      ≤767px (max-md): compact full-row tappable layout — 24px teal
-                      checkbox, row-level pressed feedback and focus-visible ring
-                      (native label/input association only; no row onClick). */}
-                  <div className="mb-4 max-md:mb-0 lg:max-w-[480px]">
-                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11 max-md:py-2 max-md:rounded-lg max-md:transition-colors max-md:hover:bg-black/[0.02] max-md:active:bg-black/[0.04] max-md:has-[:focus-visible]:ring-2 max-md:has-[:focus-visible]:ring-primary max-md:has-[:focus-visible]:ring-offset-1" data-testid="check-whatsapp-updates-label">
+                  {/* ≤767px: compact switch preference rows per the approved mockup.
+                      Same whatsappOptIn/identitySecret state as the md+ checkbox
+                      controls below; the wrapping <label> makes the whole row toggle
+                      the Radix switch exactly once via native label association —
+                      no row-level onClick. The switch's own focus ring is disabled
+                      in favour of the row-level has-[:focus-visible] ring. */}
+                  <div className="md:hidden space-y-3">
+                    <label
+                      className="flex items-center gap-3 min-h-14 rounded-xl border border-gray-100 px-3.5 py-2.5 cursor-pointer select-none transition-colors hover:bg-black/[0.02] active:bg-black/[0.04] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-1"
+                      data-testid="switch-whatsapp-updates-row"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-6 w-6 shrink-0 fill-[#25D366]"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.019-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413" />
+                      </svg>
+                      <span className="min-w-0 flex-1">
+                        {/* Name = title only via aria-labelledby; helper reaches AT
+                            once via aria-describedby (no subtree double-announce). */}
+                        <span id="whatsapp-updates-switch-title" className="block text-sm font-medium">
+                          {t("checkout.whatsappUpdatesShort")}
+                        </span>
+                        <span id="whatsapp-updates-switch-hint" className="block text-xs text-muted-foreground leading-snug mt-0.5" data-testid="switch-whatsapp-updates-hint">
+                          {t("checkout.whatsappUpdatesShortHint")}
+                        </span>
+                      </span>
+                      <Switch
+                        checked={whatsappOptIn}
+                        onCheckedChange={handleWhatsappOptInToggle}
+                        aria-labelledby="whatsapp-updates-switch-title"
+                        aria-describedby="whatsapp-updates-switch-hint"
+                        className="shrink-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        data-testid="switch-whatsapp-updates"
+                      />
+                    </label>
+                    <label
+                      className="flex items-center gap-3 min-h-14 rounded-xl border border-gray-100 px-3.5 py-2.5 cursor-pointer select-none transition-colors hover:bg-black/[0.02] active:bg-black/[0.04] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-1"
+                      data-testid="switch-identity-secret-row"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span id="identity-secret-switch-title" className="block text-sm font-medium">
+                          {t("checkout.anonymousShort")}
+                        </span>
+                        <span id="identity-secret-switch-hint" className="block text-xs text-muted-foreground leading-snug mt-0.5" data-testid="switch-identity-secret-hint">
+                          {t("checkout.anonymousShortHint")}
+                        </span>
+                      </span>
+                      <Switch
+                        checked={identitySecret}
+                        onCheckedChange={(checked) => {
+                          setIdentitySecret(checked);
+                          if (isMobile) {
+                            trackWebEvent({
+                              type: "mobile_checkout_anonymous_toggled",
+                              properties: { enabled: checked },
+                            });
+                          }
+                        }}
+                        aria-labelledby="identity-secret-switch-title"
+                        aria-describedby="identity-secret-switch-hint"
+                        className="shrink-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        data-testid="switch-identity-secret"
+                      />
+                    </label>
+                  </div>
+
+                  {/* "Get order updates on WhatsApp" — tablet/desktop checkbox row,
+                      default checked. Sits directly below the sender phone field and
+                      above the anonymous-gift control, per the checkout mockups.
+                      On phones (≤767px) the switch row above replaces this control
+                      (same whatsappOptIn state), so it is hidden below md. */}
+                  <div className="mb-4 max-md:hidden lg:max-w-[480px]">
+                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11" data-testid="check-whatsapp-updates-label">
                       <input
                         type="checkbox"
                         checked={whatsappOptIn}
                         onChange={(e) => handleWhatsappOptInToggle(e.target.checked)}
-                        className="mt-1 h-4 w-4 max-md:-mt-0.5 max-md:h-6 max-md:w-6 accent-primary cursor-pointer shrink-0 max-md:focus-visible:outline-none"
+                        className="mt-1 h-4 w-4 accent-primary cursor-pointer shrink-0"
                         aria-labelledby="whatsapp-updates-title"
                         aria-describedby="whatsapp-updates-hint"
                         data-testid="check-whatsapp-updates"
@@ -4308,20 +4379,20 @@ function CheckoutForm() {
                           </svg>
                           {t("checkout.whatsappUpdates")}
                         </span>
-                        <span id="whatsapp-updates-hint" className="block text-xs text-muted-foreground max-md:leading-snug mt-0.5 max-md:mt-1 max-md:ms-[22px]" data-testid="whatsapp-updates-hint">
+                        <span id="whatsapp-updates-hint" className="block text-xs text-muted-foreground mt-0.5" data-testid="whatsapp-updates-hint">
                           {t("checkout.whatsappUpdatesHint")}
                         </span>
                       </span>
                     </label>
                   </div>
 
-                  {/* Mobile/tablet: "Send this gift anonymously" checkbox. The helper
+                  {/* Tablet (md–lg): "Send this gift anonymously" checkbox. The helper
                       lives inside the tappable label (aria-describedby preserved) so
                       the full row — title, helper, whitespace — toggles the checkbox.
-                      ≤767px adds the compact layout: subtle divider above (content-edge
-                      to content-edge), 24px checkbox, row press/focus feedback. */}
-                  <div className="lg:hidden max-md:border-t max-md:border-gray-100">
-                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11 max-md:py-2 max-md:rounded-lg max-md:transition-colors max-md:hover:bg-black/[0.02] max-md:active:bg-black/[0.04] max-md:has-[:focus-visible]:ring-2 max-md:has-[:focus-visible]:ring-primary max-md:has-[:focus-visible]:ring-offset-1" data-testid="check-identity-secret-label">
+                      On phones (≤767px) the switch row above replaces this control
+                      (same identitySecret state). */}
+                  <div className="max-md:hidden lg:hidden">
+                    <label className="flex items-start gap-3 cursor-pointer select-none min-h-11" data-testid="check-identity-secret-label">
                       <input
                         type="checkbox"
                         checked={identitySecret}
@@ -4334,7 +4405,7 @@ function CheckoutForm() {
                             });
                           }
                         }}
-                        className="mt-0.5 h-4 w-4 max-md:-mt-0.5 max-md:h-6 max-md:w-6 accent-primary cursor-pointer shrink-0 max-md:focus-visible:outline-none"
+                        className="mt-0.5 h-4 w-4 accent-primary cursor-pointer shrink-0"
                         aria-labelledby="identity-secret-title"
                         aria-describedby="identity-secret-hint"
                         data-testid="check-identity-secret"
@@ -4342,7 +4413,7 @@ function CheckoutForm() {
                       <span className="min-w-0">
                         {/* Name = title only; hint reaches AT once via aria-describedby. */}
                         <span id="identity-secret-title" className="block text-sm">{t("checkout.anonymousGift")}</span>
-                        <span id="identity-secret-hint" className="block text-xs text-gray-500 max-md:text-muted-foreground max-md:leading-snug mt-1" data-testid="identity-secret-hint">
+                        <span id="identity-secret-hint" className="block text-xs text-gray-500 mt-1" data-testid="identity-secret-hint">
                           {t("checkout.anonymousGiftHint")}
                         </span>
                       </span>

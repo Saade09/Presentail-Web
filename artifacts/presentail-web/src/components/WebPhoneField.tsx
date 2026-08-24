@@ -168,6 +168,10 @@ export function WebPhoneField({
           countries={filteredCountries}
           data-testid={testId}
           numberInputProps={{
+            // Explicit mobile autofill/keyboard hints (autoComplete "tel" is
+            // also the library default; inputMode backs up type="tel").
+            autoComplete: "tel",
+            inputMode: "tel",
             "aria-invalid": showInlineError || undefined,
             "aria-describedby": showInlineError ? errorElementId : undefined,
           }}
