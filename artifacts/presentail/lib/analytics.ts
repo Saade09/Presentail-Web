@@ -46,7 +46,15 @@ type AnalyticsEventName =
   /** Phone number info tooltip opened on checkout */
   | "phone_tooltip_opened"
   /** User continued the checkout step after having opened the phone tooltip */
-  | "checkout_continued_after_phone_tooltip";
+  | "checkout_continued_after_phone_tooltip"
+  | "landmark_search_performed"
+  | "landmark_suggestions_shown"
+  | "landmark_search_no_results"
+  | "landmark_suggestion_selected"
+  | "landmark_continued_as_typed"
+  | "landmark_district_auto_changed"
+  | "landmark_selection_removed"
+  | "landmark_order_completed";
 
 type AnalyticsSurface =
   | "cart"

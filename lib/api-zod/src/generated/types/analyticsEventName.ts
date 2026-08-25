@@ -128,4 +128,12 @@ export const AnalyticsEventName = {
   midnight_selection_removed_after_address_change:
     "midnight_selection_removed_after_address_change",
   midnight_order_completed: "midnight_order_completed",
+  landmark_search_performed: "landmark_search_performed",
+  landmark_suggestions_shown: "landmark_suggestions_shown",
+  landmark_search_no_results: "landmark_search_no_results",
+  landmark_suggestion_selected: "landmark_suggestion_selected",
+  landmark_continued_as_typed: "landmark_continued_as_typed",
+  landmark_district_auto_changed: "landmark_district_auto_changed",
+  landmark_selection_removed: "landmark_selection_removed",
+  landmark_order_completed: "landmark_order_completed",
 } as const;

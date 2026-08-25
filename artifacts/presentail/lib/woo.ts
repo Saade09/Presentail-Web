@@ -258,6 +258,19 @@ export type WooOrderPayload = {
   // creation to the actual settled payment.
   paymentRef?: string;
   deliveryDetails: string;
+  /** Verified OS Address Book place selected at mobile checkout. */
+  addressBookPlace?: {
+    placeId: string;
+    name: string;
+    officialName?: string;
+    districtName?: string;
+    districtCityId?: string;
+    lat?: number;
+    lng?: number;
+    internalDetail?: string;
+    typedQuery?: string;
+    selectionSource?: string;
+  };
   deliveryDate: string;
   deliverySlot: string;
   cardMessage?: string;

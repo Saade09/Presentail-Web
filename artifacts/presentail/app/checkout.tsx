@@ -115,6 +115,8 @@ import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { buildCardFrom } from "@/lib/cardFrom";
 import { isDiscountActive } from "@/lib/salePriceHelpers";
 import { getDeviceId } from "@/services/notifications";
+import { CheckoutPlaceField } from "@/components/CheckoutPlaceField";
+import { flattenPlaceAddress, type CheckoutPlace } from "@/lib/addressBookPlaces";
 
 export {
   isPayMethodSupported,
@@ -415,6 +417,10 @@ function CheckoutScreen() {
   const [districtOpen, setDistrictOpen] = useState(false);
   const [noAddress, setNoAddress] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState("");
+  const [selectedPlace, setSelectedPlace] = useState<CheckoutPlace | null>(null);
+  const [placeInternalDetail, setPlaceInternalDetail] = useState("");
+  const [placeTypedQuery, setPlaceTypedQuery] = useState("");
+  const [placeDistrictNotice, setPlaceDistrictNotice] = useState<{ placeName: string; districtName: string } | null>(null);
   const [senderFirst, setSenderFirst] = useState("");
   const [senderLast, setSenderLast] = useState("");
   const [senderWhatsapp, setSenderWhatsapp] = useState("");
@@ -488,6 +494,12 @@ function CheckoutScreen() {
   }, []);
 
   const applySavedAddress = (addr: CustomerAddress) => {
+    if (selectedPlace) {
+      trackEvent({ name: "landmark_selection_removed", surface: "checkout" });
+      setSelectedPlace(null);
+      setPlaceInternalDetail("");
+      setPlaceDistrictNotice(null);
+    }
     const matchedCountry = COUNTRY_DIAL_CODES.find(
       (c) => c.code === addr.countryCode,
     );
@@ -575,6 +587,18 @@ function CheckoutScreen() {
     // change, not on every intermediate state update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, savedAddresses, districts]);
+  // The editable district picker can differ from the storefront city. A
+  // verified landmark is allowed to update that picker, so delivery slots,
+  // cutoff rules, and checkout fee verification must follow its matched city.
+  const deliveryCity = useMemo(
+    () =>
+      selectedCountry?.cities.find(
+        (city) =>
+          city.isActive !== false &&
+          city.name.trim().toLowerCase() === district?.name.trim().toLowerCase(),
+      ) ?? selectedCity,
+    [district?.name, selectedCountry?.cities, selectedCity],
+  );
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
   const now = useNow();
   // Use only OS-provided slots for the selected city. When the flat list is
@@ -582,10 +606,10 @@ function CheckoutScreen() {
   // derive the effective flat list as the deduplicated union of all per-day
   // arrays. When no OS schedule exists at all, timeSlots is empty and the
   // checkout shows an explicit "no time slots available" unavailable state.
-  const timeSlots = (selectedCity?.timeSlots?.length
-    ? selectedCity.timeSlots
-    : selectedCity?.slotsByDay && Object.keys(selectedCity.slotsByDay).length > 0
-      ? Object.values(selectedCity.slotsByDay as Record<string, TimeSlot[]>)
+  const timeSlots = (deliveryCity?.timeSlots?.length
+    ? deliveryCity.timeSlots
+    : deliveryCity?.slotsByDay && Object.keys(deliveryCity.slotsByDay).length > 0
+      ? Object.values(deliveryCity.slotsByDay as Record<string, TimeSlot[]>)
           .flat()
           .filter((s, i, arr) => arr.findIndex((slot) => slot.cutoffHour === s.cutoffHour) === i)
       : []) as TimeSlot[];
@@ -593,17 +617,17 @@ function CheckoutScreen() {
   // OS flag and cutoff hour. Otherwise fall back to the hardcoded 8 AM–10 PM
   // window so the feature keeps working for cities without OS config yet.
   const expressAvailable = useMemo(() => {
-    if (selectedCity?.expressAvailable === false) return false;
+    if (deliveryCity?.expressAvailable === false) return false;
     const h = getCountryHour(effectiveCountry, now);
     const closeHour =
-      typeof selectedCity?.sameDayCutoffHour === "number"
-        ? selectedCity.sameDayCutoffHour
+      typeof deliveryCity?.sameDayCutoffHour === "number"
+        ? deliveryCity.sameDayCutoffHour
         : EXPRESS_CLOSE_HOUR;
-    if (typeof selectedCity?.expressAvailable === "boolean") {
+    if (typeof deliveryCity?.expressAvailable === "boolean") {
       return h >= EXPRESS_OPEN_HOUR && h < closeHour;
     }
     return isExpressDeliveryAvailable(effectiveCountry, now);
-  }, [selectedCity, effectiveCountry, now]);
+  }, [deliveryCity, effectiveCountry, now]);
   const expressSurcharge = expressSurchargeForCountry(effectiveCountry);
   const { freeDeliveryEnabled: isFreeDeliveryEnabled, freeDeliveryThresholdUsd: freeDeliveryThreshold } = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();
@@ -895,7 +919,14 @@ function CheckoutScreen() {
         recipientFirst.trim() &&
         recipientLast.trim() &&
         isRecipientPhoneValid() &&
-        (noAddress || (!!district && district.isActive !== false && deliveryDetails.trim())) &&
+        (
+          noAddress ||
+          (
+            !!district &&
+            district.isActive !== false &&
+            (selectedPlace ? !!placeInternalDetail.trim() : !!deliveryDetails.trim())
+          )
+        ) &&
         (!senderNameRequired || (senderFirst.trim() && senderLast.trim())) &&
         (!senderPhoneRequired || senderWhatsapp.trim()) &&
         (!senderEmailRequired || senderEmail.trim())
@@ -913,7 +944,8 @@ function CheckoutScreen() {
     if (!recipientPhone.trim()) missing.push(t.checkoutMfRecipientPhone);
     else if (!isRecipientPhoneValid()) missing.push(t.phoneInvalidNumber);
     if (!noAddress && (!district || district.isActive === false)) missing.push(effectiveCountry === "AE" ? t.emirateLabel : t.districtLabel);
-    if (!noAddress && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
+    if (!noAddress && !selectedPlace && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
+    if (!noAddress && selectedPlace && !placeInternalDetail.trim()) missing.push(t.checkoutMfPlaceDetail);
     if (senderNameRequired && !senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
     if (senderNameRequired && !senderLast.trim()) missing.push(t.checkoutMfSenderLast);
     if (senderPhoneRequired && !senderWhatsapp.trim()) missing.push(t.checkoutMfSenderWhatsapp);
@@ -1085,7 +1117,13 @@ function CheckoutScreen() {
     // instead of a hardcoded LB.
     billingCountry: senderCountry.code,
     shippingCountry: recipientCountry.code,
-    deliveryDetails: noAddress ? "To be confirmed" : deliveryDetails,
+    // Keep legacy free-text consumers working when a verified landmark is
+    // selected while also sending the structured Address Book record below.
+    deliveryDetails: noAddress
+      ? "To be confirmed"
+      : selectedPlace
+        ? flattenPlaceAddress(selectedPlace, placeInternalDetail)
+        : deliveryDetails,
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
     deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
     cardMessage,
@@ -1101,6 +1139,24 @@ function CheckoutScreen() {
     // server should treat this as informational unless explicitly handled.
     currencyCode,
     ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
+    ...(!noAddress && selectedPlace
+      ? {
+          addressBookPlace: {
+            placeId: selectedPlace.id,
+            name: selectedPlace.name,
+            ...(selectedPlace.officialName ? { officialName: selectedPlace.officialName } : {}),
+            ...((selectedPlace.districtCityName ?? selectedPlace.districtName)
+              ? { districtName: (selectedPlace.districtCityName ?? selectedPlace.districtName)! }
+              : {}),
+            ...(selectedPlace.districtCityId ? { districtCityId: selectedPlace.districtCityId } : {}),
+            ...(typeof selectedPlace.lat === "number" ? { lat: selectedPlace.lat } : {}),
+            ...(typeof selectedPlace.lng === "number" ? { lng: selectedPlace.lng } : {}),
+            ...(placeInternalDetail.trim() ? { internalDetail: placeInternalDetail.trim() } : {}),
+            ...(placeTypedQuery ? { typedQuery: placeTypedQuery } : {}),
+            selectionSource: "suggestion",
+          },
+        }
+      : {}),
   });
 
   // Await WooCommerce order creation with a sensible timeout and a single
@@ -1138,7 +1194,7 @@ function CheckoutScreen() {
             paymentRef,
             ...(marketingAttribution ? { marketing_attribution: marketingAttribution } : {}),
           },
-          { authToken, filter: { countryCode: selectedCountry?.code, cityId: selectedCity?.id } },
+          { authToken, filter: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id } },
         ),
       warn: (msg, meta) =>
         console.warn(`[checkout] ${msg}`, { orderId, ...(meta ?? {}) }),
@@ -1190,8 +1246,8 @@ function CheckoutScreen() {
         slot,
         countryCode: effectiveCountry,
         sameDayCutoffHour:
-          typeof selectedCity?.sameDayCutoffHour === "number"
-            ? selectedCity.sameDayCutoffHour
+          typeof deliveryCity?.sameDayCutoffHour === "number"
+            ? deliveryCity.sameDayCutoffHour
             : undefined,
       });
       if (!staleCheck.bookable) {
@@ -1216,9 +1272,9 @@ function CheckoutScreen() {
       // the pre-payment verification call may compute a different slot fee than
       // the PaymentIntent creation and order submission calls that do send it.
       deliveryDate: deliveryMode === "express" ? days[0].iso : date,
-      ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+      ...(deliveryCity?.id != null ? { cityId: String(deliveryCity.id) } : {}),
       ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
-      storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+      storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
     });
     // Compare the server-authoritative charged amount (minor units) against what
     // the client would compute from the currently-displayed total. This catches
@@ -1315,7 +1371,7 @@ function CheckoutScreen() {
             await savePendingOrder({
               payload: { ...buildWooPayload(orderId), paymentRef },
               authToken,
-              filter: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+              filter: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
             });
           }
           router.replace(buildResultPath("failed", paymentRef));
@@ -1341,7 +1397,11 @@ function CheckoutScreen() {
               nickname: null,
               countryCode: recipientCountry.code,
               district: district?.name ?? "",
-              addressLine: deliveryDetails.trim() || (district?.name ?? ""),
+              addressLine: (
+                selectedPlace
+                  ? flattenPlaceAddress(selectedPlace, placeInternalDetail)
+                  : deliveryDetails
+              ).trim() || (district?.name ?? ""),
               apartment: null,
               building: null,
               directions: null,
@@ -1391,6 +1451,9 @@ function CheckoutScreen() {
           senderCountryDial: senderCountry.dial,
           paymentRef: paymentRef ?? undefined,
         });
+        if (selectedPlace) {
+          trackEvent({ name: "landmark_order_completed", surface: "checkout" });
+        }
         // Terminal success — drop any pending-order stash left over from an
         // earlier failed attempt so it can never be replayed on a later
         // failure screen.
@@ -1423,7 +1486,7 @@ function CheckoutScreen() {
           await savePendingOrder({
             payload: { ...buildWooPayload(orderId), paymentRef },
             authToken,
-            filter: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+            filter: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
           });
         }
         router.replace(buildResultPath("failed", paymentRef));
@@ -1461,7 +1524,7 @@ function CheckoutScreen() {
           date,
           slot: slotLabel,
         },
-        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
         // Always pass authToken for signed-in users so the server can attach
         // the Stripe Customer to the PaymentIntent. This is required both when
         // saving a new card (setup_future_usage) and when paying with a
@@ -1470,7 +1533,7 @@ function CheckoutScreen() {
         // Request card saving only when the shopper opted in and isn't using a saved card.
         ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
-        ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
+        ...(deliveryCity?.id ? { cityId: String(deliveryCity.id) } : {}),
         ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
         // Delivery context — required so the server computes the authoritative
         // district/express/slot fee and charges the correct amount.
@@ -1572,9 +1635,9 @@ function CheckoutScreen() {
           date,
           slot: slotLabel,
         },
-        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
-        ...(selectedCity?.id ? { cityId: String(selectedCity.id) } : {}),
+        ...(deliveryCity?.id ? { cityId: String(deliveryCity.id) } : {}),
         ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
         district: district?.name,
         expressDelivery: deliveryMode === "express",
@@ -1632,7 +1695,7 @@ function CheckoutScreen() {
           },
           successUrl,
           cancelUrl,
-          storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+          storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
           // Pass delivery context so the server includes the authoritative delivery
           // fee in the Stripe charge and can validate params at order finalization.
           district: district?.name ?? "",
@@ -1641,7 +1704,7 @@ function CheckoutScreen() {
           // Pass slot context so slot fees are computed server-side and bound
           // to the Stripe charge, preventing slot-upgrade attacks after payment.
           deliverySlot: deliveryMode === "express" ? "" : (slot?.label ?? ""),
-          cityId: selectedCity?.id,
+          cityId: deliveryCity?.id,
           ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
         });
         if (session.ok) {
@@ -1737,9 +1800,9 @@ function CheckoutScreen() {
         failureReturnUrl: cancelUrl,
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
         ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
-        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+        ...(deliveryCity?.id != null ? { cityId: String(deliveryCity.id) } : {}),
         deliveryDate: date,
-        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
       });
       if (session.ok) {
         const deferredStartedAt = Date.now();
@@ -1778,9 +1841,9 @@ function CheckoutScreen() {
         failureReturnUrl: cancelUrl,
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
         ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
-        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+        ...(deliveryCity?.id != null ? { cityId: String(deliveryCity.id) } : {}),
         deliveryDate: date,
-        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
       });
       if (session.ok) {
         const deferredStartedAt = Date.now();
@@ -1816,9 +1879,9 @@ function CheckoutScreen() {
         orderId,
         deliverySlot: deliveryMode === "express" ? "" : slotLabel,
         ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
-        ...(selectedCity?.id != null ? { cityId: String(selectedCity.id) } : {}),
+        ...(deliveryCity?.id != null ? { cityId: String(deliveryCity.id) } : {}),
         deliveryDate: date,
-        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
       });
       if (session.ok) {
         const deferredStartedAt = Date.now();
@@ -1862,6 +1925,93 @@ function CheckoutScreen() {
     } finally {
       setPaying(false);
     }
+  };
+
+  const resolvePlaceDistrict = (place: CheckoutPlace): CheckoutDistrict | null => {
+    const placeDistrictId = place.districtCityId?.trim();
+    const placeDistrictName = (place.districtCityName ?? place.districtName)?.trim().toLowerCase();
+    const targetCity = selectedCountry?.cities.find(
+      (city) =>
+        (placeDistrictId && String(city.id) === placeDistrictId) ||
+        (placeDistrictName && city.name.trim().toLowerCase() === placeDistrictName),
+    );
+    return (
+      districts.find(
+        (candidate) =>
+          candidate.isActive !== false &&
+          !!targetCity &&
+          candidate.name.trim().toLowerCase() === targetCity.name.trim().toLowerCase(),
+      ) ?? null
+    );
+  };
+
+  const handleSelectPlace = (place: CheckoutPlace, typedQuery: string) => {
+    setSelectedPlace(place);
+    setPlaceTypedQuery(typedQuery);
+    setPlaceInternalDetail("");
+    const targetDistrict = resolvePlaceDistrict(place);
+    if (targetDistrict && targetDistrict.name !== district?.name) {
+      const previousDistrict = district?.name;
+      districtManuallyEdited.current = true;
+      setDistrict(targetDistrict);
+      setPlaceDistrictNotice({
+        placeName: place.name,
+        districtName: targetDistrict.name,
+      });
+      trackEvent({ name: "landmark_district_auto_changed", surface: "checkout" });
+      // A verified place can move the order to a different delivery city.
+      // Keep a currently selected slot only when that city publishes the same
+      // slot; otherwise let the delivery picker choose the city's first slot.
+      if (deliveryMode !== "express") {
+        const targetCity = selectedCountry?.cities.find((city) => city.name === targetDistrict.name);
+        const targetSlots = (targetCity?.timeSlots ?? []) as TimeSlot[];
+        if (slot && targetSlots.length > 0 && !targetSlots.some((candidate) => candidate.label === slot.label)) {
+          const replacement = targetSlots.find((candidate) => candidate.cutoffHour > getCountryHour(effectiveCountry)) ?? targetSlots[0];
+          deliverySelection.setSelection({
+            mode: replacement ? "today_slot" : "schedule",
+            date: todayIso,
+            slotLabel: replacement?.label ?? null,
+          });
+        }
+      }
+      if (previousDistrict === targetDistrict.name) setPlaceDistrictNotice(null);
+    } else {
+      setPlaceDistrictNotice(null);
+    }
+  };
+
+  const handleClearPlace = () => {
+    if (!selectedPlace) return;
+    trackEvent({ name: "landmark_selection_removed", surface: "checkout" });
+    setSelectedPlace(null);
+    setPlaceInternalDetail("");
+    setPlaceDistrictNotice(null);
+    // deliveryDetails remains the original typed query, so Change returns to
+    // the exact free-text value the shopper entered before selecting.
+  };
+
+  const handleNoAddressChange = (next: boolean) => {
+    if (next && selectedPlace) {
+      trackEvent({ name: "landmark_selection_removed", surface: "checkout" });
+      setSelectedPlace(null);
+      setPlaceInternalDetail("");
+      setPlaceDistrictNotice(null);
+    }
+    setNoAddress(next);
+  };
+
+  const handleDistrictSelect = (next: CheckoutDistrict) => {
+    if (selectedPlace) {
+      const placeDistrict = resolvePlaceDistrict(selectedPlace);
+      if (!placeDistrict || placeDistrict.name !== next.name) {
+        trackEvent({ name: "landmark_selection_removed", surface: "checkout" });
+        setSelectedPlace(null);
+        setPlaceInternalDetail("");
+      }
+      setPlaceDistrictNotice(null);
+    }
+    districtManuallyEdited.current = true;
+    setDistrict(next);
   };
 
   if (items.length > 0 && productsLoading && detailed.length === 0) {
@@ -2067,14 +2217,20 @@ function CheckoutScreen() {
               locationsLoading={locationsLoading}
               districts={districts}
               district={district}
-              setDistrict={setDistrict}
+               setDistrict={handleDistrictSelect}
               districtManuallyEdited={districtManuallyEdited}
               districtOpen={districtOpen}
               setDistrictOpen={setDistrictOpen}
-              noAddress={noAddress}
-              setNoAddress={setNoAddress}
+               noAddress={noAddress}
+               setNoAddress={handleNoAddressChange}
               deliveryDetails={deliveryDetails}
               setDeliveryDetails={setDeliveryDetails}
+               selectedPlace={selectedPlace}
+               internalDetail={placeInternalDetail}
+               setInternalDetail={setPlaceInternalDetail}
+               onSelectPlace={handleSelectPlace}
+               onClearPlace={handleClearPlace}
+               districtNotice={placeDistrictNotice}
               senderFirst={senderFirst}
               setSenderFirst={setSenderFirst}
               senderLast={senderLast}
@@ -2125,7 +2281,7 @@ function CheckoutScreen() {
               setDeliveryMode={setDeliveryMode}
               expressAvailable={expressAvailable}
               timeSlots={timeSlots}
-              slotsByDay={selectedCity?.slotsByDay}
+              slotsByDay={deliveryCity?.slotsByDay}
               expressSurcharge={expressSurcharge}
               localHour={getCountryHour(effectiveCountry)}
             />
@@ -2860,6 +3016,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
     recipientPhoneShowError,
     locationsLoading, districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
+    selectedPlace, internalDetail, setInternalDetail, onSelectPlace, onClearPlace, districtNotice,
     isSignedIn, savedAddresses, activeAddressId, savedAddressPickerOpen, setSavedAddressPickerOpen, applySavedAddress,
     saveAddress, setSaveAddress,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
@@ -2907,14 +3064,14 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
   useImperativeHandle(ref, () => ({
     scrollToFirstError: () => {
       const phoneEmpty = !recipientPhone.trim();
-      const phoneInvalid = !phoneEmpty && (() => {
+       const phoneInvalid = !phoneEmpty && (() => {
         try { return !isValidPhoneNumber(recipientPhone.trim(), recipientCountry.code as CountryCode); } catch { return true; }
       })();
       if (!recipientFirst.trim() || !recipientLast.trim()) {
         scrollToRef(recipientNamesRef);
       } else if (phoneEmpty || phoneInvalid) {
         scrollToRef(recipientPhoneRef);
-      } else if (!noAddress && !deliveryDetails.trim()) {
+      } else if (!noAddress && ((!selectedPlace && !deliveryDetails.trim()) || (selectedPlace && !internalDetail.trim()))) {
         scrollToRef(deliveryDetailsRef);
       } else if (!hideSenderName && (!senderFirst.trim() || !senderLast.trim())) {
         scrollToRef(senderNamesRef);
@@ -3071,7 +3228,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
           }}
         >
           <Pressable
-            onPress={() => setNoAddress(!noAddress)}
+           onPress={() => setNoAddress(!noAddress)}
             style={{
               flex: 1,
               flexDirection: isRTL ? "row-reverse" : "row",
@@ -3121,7 +3278,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
           </Pressable>
           <Switch
             value={noAddress}
-            onValueChange={setNoAddress}
+           onValueChange={setNoAddress}
             trackColor={{ false: "#e5dcc9", true: colors.primary }}
             thumbColor="#fff"
             ios_backgroundColor="#e5dcc9"
@@ -3292,18 +3449,23 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         ) : null}
 
         {!noAddress ? (
-        <Field
-          colors={colors}
-          label={t.addressFormAddressLine}
-          value={deliveryDetails}
-          onChangeText={setDeliveryDetails}
-          placeholder={t.addressFormAddressLinePlaceholder}
-          helper={t.addressFormAddressLineHint}
-          required
-          multiline
-          error={showFieldErrors && !deliveryDetails.trim()}
-          fieldRef={deliveryDetailsRef}
-        />
+        <View>
+          <Label colors={colors} required>{t.addressFormAddressLine}</Label>
+          <CheckoutPlaceField
+            value={deliveryDetails}
+            onChange={setDeliveryDetails}
+            countryCode={effectiveCountry}
+            selectedPlace={selectedPlace}
+            internalDetail={internalDetail}
+            onInternalDetailChange={setInternalDetail}
+            onSelectPlace={onSelectPlace}
+            onClearPlace={onClearPlace}
+            districtNotice={districtNotice}
+            addressError={showFieldErrors && !selectedPlace && !deliveryDetails.trim()}
+            detailError={showFieldErrors && !!selectedPlace && !internalDetail.trim()}
+            fieldRef={deliveryDetailsRef}
+          />
+        </View>
         ) : null}
 
         {isSignedIn && !noAddress ? (
