@@ -6450,6 +6450,47 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     });
   });
 
+  it("renders the English-only proposal cake guide with Article and FAQ JSON-LD", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en/blog/cake-for-proposal",
+      OPTS,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain(
+      "<title>Cake for a Proposal: 9 Ideas for a Memorable Moment | Presentail</title>",
+    );
+    expect(out).toContain(
+      'content="Looking for a cake for a proposal in Lebanon? Here are nine elegant ideas, message tips, pairing suggestions and delivery advice for the moment you plan to remember."',
+    );
+    expect(out).toContain(
+      '<meta property="og:image" content="https://presentail.test/blog/best-cakes-lebanon.webp"',
+    );
+    expect(out).toContain(
+      '<link rel="canonical" href="https://presentail.test/en/blog/cake-for-proposal" />',
+    );
+
+    const article = byType(extractJsonLd(out), "Article");
+    expect(article).toMatchObject({
+      headline: "Cake for a Proposal: 9 Ideas for a Memorable Moment | Presentail",
+      datePublished: "2026-08-25",
+      dateModified: "2026-08-25",
+      image: "https://presentail.test/blog/best-cakes-lebanon.webp",
+      url: "https://presentail.test/en/blog/cake-for-proposal",
+    });
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(7);
+    expect(faq.mainEntity[0]).toMatchObject({
+      "@type": "Question",
+      name: "What kind of cake is best for a proposal?",
+    });
+  });
+
   it.each([
     { route: "return-policy", label: "Return Policy" },
     { route: "shipping-policy", label: "Shipping Policy" },

@@ -28,6 +28,7 @@ const LANGS = ["en", "ar", "fr"] as const satisfies readonly BlogLang[];
 const ENGLISH_ONLY_SLUGS = new Set<string>([
   "bouquet-delivery-dubai",
   "balloon-arrangement-ideas",
+  "cake-for-proposal",
 ]);
 
 // Slugs intentionally allowed to omit ogImage. This guide has no suitable
@@ -396,5 +397,102 @@ describe("balloon-arrangement-ideas content", () => {
       "balloon-arrangement-ideas",
     );
     expect(getBlogPostReadingTime(article.slug, "en")).toBeGreaterThan(2);
+  });
+});
+
+describe("cake-for-proposal content", () => {
+  const article = BLOG_POSTS["cake-for-proposal"].en;
+
+  it("has the requested English-only SEO, taxonomy, hero, CTA and recommendation data", () => {
+    expect(BLOG_POSTS["cake-for-proposal"].ar).toBeUndefined();
+    expect(BLOG_POSTS["cake-for-proposal"].fr).toBeUndefined();
+    expect(article).toMatchObject({
+      slug: "cake-for-proposal",
+      title: "Cake for a Proposal: 9 Ideas for a Memorable Moment | Presentail",
+      h1: "Cake for a Proposal: 9 Ideas for a Memorable Moment",
+      geographyLabel: "Lebanon",
+      categoryLabel: "Gifting Guides",
+      datePublished: "2026-08-25",
+      toc: true,
+      ogImage: {
+        url: "/blog/best-cakes-lebanon.webp",
+        width: 1408,
+        height: 768,
+      },
+      ogImageAlt: "Chocolate cake and chocolates prepared for a marriage proposal",
+      cta: {
+        label: "Shop proposal cakes",
+        path: "/category/cakes",
+        country: "lb",
+      },
+    });
+    expect(article.dek).toContain("Nine cake ideas");
+    expect(article.recommendation).toMatchObject({
+      title: "Cakes for the big question",
+      path: "/category/cakes",
+      country: "lb",
+      image: {
+        url: "/blog/best-cakes-lebanon.webp",
+        alt: "Chocolate cake and chocolates prepared for a marriage proposal",
+      },
+    });
+    expect(getBlogPostMeta(article.slug).category).toBe("gifting-guides");
+  });
+
+  it("contains nine ideas, practical proposal guidance and seven FAQ items mirrored to JSON-LD", () => {
+    const ideas = article.sections.filter((section) => section.subheading);
+    const customCakeSection = article.sections.find(
+      (section) => section.heading === "Custom cakes: plan around availability",
+    );
+    const deliverySection = article.sections.find(
+      (section) => section.heading === "Delivery across Lebanon",
+    );
+    const faqSection = article.sections.find(
+      (section) => section.heading === "Frequently asked questions",
+    );
+    const faqSchema = article.extraJsonLd?.find(
+      (schema) => schema["@type"] === "FAQPage",
+    ) as { mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }> } | undefined;
+
+    expect(ideas).toHaveLength(9);
+    expect(ideas.map((section) => section.heading)).toEqual([
+      "1. A classic chocolate drip cake",
+      "2. A small cake for two",
+      "3. A heart-shaped proposal cake",
+      "4. A cake with the question written on it",
+      "5. A minimalist white cake",
+      "6. A red velvet cake for the romantic route",
+      "7. A cake matched to their favourite flavour",
+      "8. A cake with flowers around the edge",
+      "9. A cake-and-chocolate celebration table",
+    ]);
+    expect(article.sections.some(
+      (section) =>
+        section.pullQuote ===
+        "The best proposal cake is the one that feels like your partner, not like a template for someone else's moment.",
+    )).toBe(true);
+    expect(customCakeSection?.body).toContain("confirm what can be made for your date");
+    expect(`${customCakeSection?.body}\n${customCakeSection?.note}`).not.toMatch(
+      /\b\d+\s*(?:business\s+)?days?\b/i,
+    );
+    expect(deliverySection?.callout?.variant).toBe("service");
+    expect(faqSection?.faqItems).toHaveLength(7);
+    expect(faqSchema?.mainEntity).toHaveLength(7);
+    expect(faqSchema?.mainEntity?.map((item) => item.name)).toEqual(
+      faqSection?.faqItems?.map((item) => item.q),
+    );
+    expect(faqSchema?.mainEntity?.map((item) => item.acceptedAnswer.text)).toEqual(
+      faqSection?.faqItems?.map((item) => item.a),
+    );
+    expect(getBlogPostReadingTime(article.slug, "en")).toBeGreaterThan(3);
+  });
+
+  it("registers the requested related-article graph without relying on stale per-locale links", () => {
+    expect(BLOG_RELATED_SLUGS["cake-for-proposal"]).toEqual([
+      "best-cakes-lebanon",
+      "balloon-arrangement-ideas",
+      "flower-shops-in-lebanon",
+    ]);
+    expect(article.relatedSlugs).toEqual(BLOG_RELATED_SLUGS["cake-for-proposal"]);
   });
 });
