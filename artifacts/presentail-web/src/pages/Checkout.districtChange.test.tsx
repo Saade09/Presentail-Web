@@ -22,6 +22,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
 import { getLocalIso, type TimeSlot } from "@workspace/delivery";
+import { apiFetch } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
 // Fixtures — mutable holders so individual tests can vary the delivery
@@ -454,6 +455,34 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("Checkout — district change revalidation", () => {
+  it("revalidates an untouched checkout when its default saved address changes district", async () => {
+    window.localStorage.clear();
+    vi.mocked(apiFetch).mockImplementation((path: string) => Promise.resolve(
+      path === "/me/addresses"
+        ? {
+            ok: true,
+            addresses: [{
+              id: 25,
+              label: "home",
+              isDefault: true,
+              countryCode: "LB",
+              district: "Akkar",
+              addressLine: "Saved street",
+              recipientFirstName: "Saved",
+              recipientPhone: "+12125550000",
+            }],
+          }
+        : { ok: true },
+    ) as never);
+
+    renderCheckout();
+
+    expect(await screen.findByTestId("saved-address-summary")).toBeTruthy();
+    expect(await screen.findByTestId("delivery-required-panel")).toBeTruthy();
+    expect(screen.queryByTestId("input-recipient-address")).toBeNull();
+    vi.mocked(apiFetch).mockResolvedValue({ ok: true, addresses: [] } as never);
+  });
+
   it("clears an invalid selection, shows the persistent notice + required-action card, blocks payment, and resolves via the picker", async () => {
     const user = userEvent.setup();
     renderCheckout();

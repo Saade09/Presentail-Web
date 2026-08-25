@@ -27,9 +27,8 @@ import {
   useFxRates,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Lock, MapPin, BookUser, CalendarDays, ChevronDown, Loader2, Plus, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Lock, MapPin, CalendarDays, ChevronDown, Loader2, Plus, Zap } from "lucide-react";
 import { buildFeeNode } from "@/lib/feeNode";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -69,6 +68,7 @@ import { fireGtagEvent } from "@/lib/gtag";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SavedAddressChooser, type CheckoutSavedAddress } from "@/components/checkout/SavedAddressChooser";
 import {
   dayLabels,
   expressSurchargeForCountry,
@@ -424,22 +424,22 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
   );
 }
 
-type SavedAddress = {
-  id: number;
-  label: string;
-  nickname?: string | null;
-  isDefault: boolean;
-  countryCode?: string | null;
-  district?: string | null;
-  addressLine?: string | null;
-  building?: string | null;
-  floor?: string | null;
-  apartment?: string | null;
-  directions?: string | null;
-  recipientFirstName?: string | null;
-  recipientLastName?: string | null;
-  recipientPhone?: string | null;
-  recipientPhoneCountryCode?: string | null;
+type SavedAddress = CheckoutSavedAddress;
+const CHECKOUT_ADDRESS_HANDOFF_KEY = "presentail.checkout.address-handoff";
+
+type AddressHandoffDraft = {
+  recipient: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    district: string;
+    address: string;
+    deliveryDate: string;
+    cardMessage: string;
+    cardTo: string;
+  };
+  sender: { firstName: string; lastName: string; email: string; phone: string };
+  step: 1 | 2;
 };
 
 function addressDisplayLabel(a: SavedAddress): string {
@@ -456,7 +456,13 @@ export function applyAddressToRecipient(
   opts: { onlyEmpty?: boolean } = {},
 ) {
   const phone = [a.recipientPhoneCountryCode, a.recipientPhone].filter(Boolean).join("");
-  const addressLine = [a.addressLine, a.building ? `Bldg: ${a.building}` : null, a.apartment ? `Apt: ${a.apartment}` : null]
+  const addressLine = [
+    a.addressLine,
+    a.building,
+    a.floor,
+    a.apartment,
+    a.directions,
+  ]
     .filter(Boolean)
     .join(" · ");
   setRecipient((prev) => {
@@ -534,6 +540,7 @@ function CheckoutForm() {
   const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const checkoutSearch = typeof window === "undefined" ? "" : window.location.search;
   // Mirror the cart-button gate for direct visits to /checkout: signed-out
   // shoppers see the same dismissible login prompt; dismissing returns them
   // to the cart with no state lost. Suppressed once they've explicitly
@@ -677,6 +684,10 @@ function CheckoutForm() {
   // Saved addresses for signed-in shoppers
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
+  const [activeSavedAddressId, setActiveSavedAddressId] = useState<number | null>(null);
+  const [savedAddressesLoading, setSavedAddressesLoading] = useState(false);
+  const [savedAddressesError, setSavedAddressesError] = useState(false);
+  const [savedAddressesRefreshKey, setSavedAddressesRefreshKey] = useState(0);
   const defaultAddressAppliedRef = useRef(false);
   // Raw address sub-fields from the last applied saved address.
   // Populated whenever applyAddressToRecipient is called; cleared when the
@@ -686,6 +697,7 @@ function CheckoutForm() {
     building?: string;
     apartment?: string;
     floor?: string;
+    directions?: string;
   } | null>(null);
 
   // Seed `recipient.deliveryDate` from the shared delivery-selection
@@ -718,6 +730,28 @@ function CheckoutForm() {
     email: user?.email || "",
     phone: user?.phone || "",
   });
+  const recipientRef = useRef(recipient);
+  useEffect(() => {
+    recipientRef.current = recipient;
+  }, [recipient]);
+
+  // Account address add/edit happens on a separate route. Restore only the
+  // local checkout draft saved by that handoff, then remove it so an old draft
+  // cannot unexpectedly overwrite a later checkout.
+  useEffect(() => {
+    if (!new URLSearchParams(checkoutSearch).get("savedAddressId")) return;
+    try {
+      const raw = sessionStorage.getItem(CHECKOUT_ADDRESS_HANDOFF_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Partial<AddressHandoffDraft>;
+      if (draft.recipient) setRecipient((current) => ({ ...current, ...draft.recipient }));
+      if (draft.sender) setSender((current) => ({ ...current, ...draft.sender }));
+      if (draft.step === 1 || draft.step === 2) setStep(draft.step);
+      sessionStorage.removeItem(CHECKOUT_ADDRESS_HANDOFF_KEY);
+    } catch {
+      // A malformed or unavailable session store must never block checkout.
+    }
+  }, [checkoutSearch]);
 
   // Signed-in shoppers already gave us their identity at signup, so we
   // hide the sender Name/Email inputs and only keep the WhatsApp field
@@ -789,28 +823,54 @@ function CheckoutForm() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    setSavedAddressesLoading(true);
+    setSavedAddressesError(false);
     apiFetch<{ ok: boolean; addresses: SavedAddress[] }>("/me/addresses")
       .then((r) => {
         if (cancelled) return;
         const addrs = r.addresses ?? [];
         setSavedAddresses(addrs);
+        const requestedId = Number(new URLSearchParams(checkoutSearch).get("savedAddressId"));
+        const inActiveCountry = (address: SavedAddress) =>
+          !address.countryCode ||
+          !countryCode ||
+          address.countryCode.toUpperCase().slice(0, 2) === countryCode.toUpperCase().slice(0, 2);
+        const requestedCandidate = Number.isFinite(requestedId)
+          ? addrs.find((address) => address.id === requestedId)
+          : undefined;
+        const requested = requestedCandidate && inActiveCountry(requestedCandidate)
+          ? requestedCandidate
+          : undefined;
+        if (requested && requested.id !== activeSavedAddressId) applyConfirmedSavedAddress(requested);
         if (!defaultAddressAppliedRef.current) {
           defaultAddressAppliedRef.current = true;
-          const def = addrs.find((a) => a.isDefault) ?? addrs[0];
-          if (def) {
-            applyAddressToRecipient(def, setRecipient, { onlyEmpty: true });
-            savedAddressSubFieldsRef.current = {
-              building: def.building ?? undefined,
-              floor: def.floor ?? undefined,
-              apartment: def.apartment ?? undefined,
-            };
+          const def = requested ?? addrs.find((address) => address.isDefault && inActiveCountry(address)) ?? addrs.find(inActiveCountry);
+          const hasCheckoutDraft = [
+            recipientRef.current.firstName,
+            recipientRef.current.lastName,
+            recipientRef.current.phone,
+            recipientRef.current.address,
+          ].some((value) => value.trim().length > 0);
+          // A default address can prefill an untouched checkout, but a
+          // shopper's in-progress form is not a confirmed saved address.
+          if (def && !hasCheckoutDraft) {
+            applyConfirmedSavedAddress(def);
           }
         }
+        if (activeSavedAddressId != null && !addrs.some((a) => a.id === activeSavedAddressId)) {
+          setActiveSavedAddressId(null);
+          savedAddressSubFieldsRef.current = null;
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setSavedAddressesError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setSavedAddressesLoading(false);
+      });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, checkoutSearch, savedAddressesRefreshKey]);
 
   // Best-effort: save the typed delivery address to the shopper's profile
   // when they've toggled "Save this address" and are signed in. Never
@@ -1643,6 +1703,11 @@ function CheckoutForm() {
   // preserved-with-notice when only the fee changed, cleared with a
   // persistent amber notice (and payment blocked) when invalid. The shopper
   // is never silently handed a substitute slot.
+  // Saved addresses are applied asynchronously. Queue their district check for
+  // the next committed render so it classifies the live date/slot/mode rather
+  // than a request callback's stale checkout snapshot.
+  const [pendingSavedAddressRevalidation, setPendingSavedAddressRevalidation] =
+    useState<string | null>(null);
 
   // Clear the current method/date/slot after a district change invalidated it.
   const clearDeliverySelectionForDistrictChange = () => {
@@ -1740,6 +1805,24 @@ function CheckoutForm() {
     applyDistrictChangeOutcome(districtName, newCity, epoch, oldFeeUsd);
   };
 
+  useEffect(() => {
+    if (!pendingSavedAddressRevalidation) return;
+    setPendingSavedAddressRevalidation(null);
+    if (recipient.district === pendingSavedAddressRevalidation) {
+      beginDistrictRevalidation(pendingSavedAddressRevalidation);
+    }
+    // The current render intentionally supplies the delivery snapshot to
+    // beginDistrictRevalidation after the saved address has committed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    pendingSavedAddressRevalidation,
+    recipient.district,
+    recipient.deliveryDate,
+    deliveryMode,
+    deliverySlot,
+    deliverySlotId,
+  ]);
+
   const handleDistrictSelect = (districtName: string) => {
     const prevEffective =
       recipient.district ||
@@ -1748,6 +1831,87 @@ function CheckoutForm() {
     setRecipient((r) => ({ ...r, district: districtName }));
     if (!districtName || districtName === prevEffective) return;
     beginDistrictRevalidation(districtName);
+  };
+
+  const activeSavedAddress = savedAddresses.find((address) => address.id === activeSavedAddressId) ?? null;
+
+  function applyConfirmedSavedAddress(address: SavedAddress) {
+    const previousRecipient = recipientRef.current;
+    const districtChanged = Boolean(
+      address.district && address.district !== previousRecipient.district,
+    );
+    const addressCountry = address.countryCode?.toUpperCase().slice(0, 2);
+    const activeCountry = countryCode?.toUpperCase().slice(0, 2);
+    if (addressCountry && activeCountry && addressCountry !== activeCountry) {
+      toast({
+        title: t("checkout.savedAddressCountryUnavailable"),
+        variant: "destructive",
+      });
+      return false;
+    }
+    applyAddressToRecipient(address, setRecipient);
+    setSelectedPlace(null);
+    setPlaceInternalDetail("");
+    setPlaceDistrictNotice(null);
+    savedAddressSubFieldsRef.current = {
+      building: address.building ?? undefined,
+      floor: address.floor ?? undefined,
+      apartment: address.apartment ?? undefined,
+      directions: address.directions ?? undefined,
+    };
+    setActiveSavedAddressId(address.id);
+    if (districtChanged && address.district) setPendingSavedAddressRevalidation(address.district);
+    return true;
+  }
+
+  const handleSavedAddressConfirm = (address: SavedAddress) => {
+    const previous = activeSavedAddress;
+    if (!applyConfirmedSavedAddress(address)) return;
+    trackWebEvent({
+      type: "saved_address_confirmed",
+      properties: {
+        addressId: address.id,
+        countryCode: address.countryCode?.toUpperCase() ?? undefined,
+        district: address.district ?? undefined,
+        previousAddressId: previous?.id ?? undefined,
+      },
+    });
+  };
+
+  const handleSavedAddressOpenChange = (open: boolean) => {
+    if (open) {
+      trackWebEvent({ type: "saved_address_chooser_opened", properties: { source: "checkout" } });
+    } else if (addressPickerOpen) {
+      trackWebEvent({
+        type: "saved_address_chooser_cancelled",
+        properties: { addressId: activeSavedAddressId ?? undefined },
+      });
+    }
+    setAddressPickerOpen(open);
+  };
+
+  const checkoutReturnTarget = "/checkout";
+
+  const goToAddressBook = (addressId?: number) => {
+    const query = new URLSearchParams();
+    query.set("tab", "addresses");
+    query.set("checkout_return", checkoutReturnTarget);
+    if (addressId != null) query.set("edit_address_id", String(addressId));
+    trackWebEvent({
+      type: addressId != null ? "saved_address_edit_clicked" : "saved_address_add_clicked",
+      properties: {
+        addressId: addressId ?? undefined,
+        countryCode: countryCode?.toUpperCase() ?? undefined,
+        district: recipient.district || undefined,
+      },
+    });
+    try {
+      const draft: AddressHandoffDraft = { recipient, sender, step: step === 2 ? 2 : 1 };
+      sessionStorage.setItem(CHECKOUT_ADDRESS_HANDOFF_KEY, JSON.stringify(draft));
+    } catch {
+      // Checkout remains usable if session storage is unavailable.
+    }
+    setLocation(`/account?${query.toString()}`);
   };
 
   // Retry after an availability-fetch failure: show the loading state again
@@ -4152,65 +4316,76 @@ function CheckoutForm() {
 
                 {/* Recipient Details */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 max-md:py-3 lg:p-6 mb-5 max-md:mb-3">
-                  <h3 className="font-serif text-lg lg:text-xl font-medium text-primary mb-4 max-md:mb-3 lg:mb-5">{t("checkout.section.recipientDetails")}</h3>
+                  <div className="mb-4 flex items-center justify-between gap-3 lg:mb-5">
+                    <h3 className="font-serif text-lg lg:text-xl font-medium text-primary">{t("checkout.section.recipientDetails")}</h3>
+                    {activeSavedAddress && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-[44px] shrink-0 rounded-full px-3 text-primary"
+                        onClick={() => handleSavedAddressOpenChange(true)}
+                        data-testid="saved-address-change"
+                      >
+                        {t("checkout.savedAddressChange")}
+                      </Button>
+                    )}
+                  </div>
 
-                  {savedAddresses.length > 0 && (
-                    <div className="mb-5 max-md:mb-4">
-                      <Popover open={addressPickerOpen} onOpenChange={setAddressPickerOpen}>
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-secondary/40 transition-colors"
-                            data-testid="button-use-saved-address"
-                          >
-                            <BookUser className="w-4 h-4 text-primary" />
-                            {t("checkout.useSavedAddress")}
-                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-72 p-1">
-                          <div className="py-1 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            {t("checkout.savedAddresses")}
+                  {activeSavedAddress ? (
+                    <div className="rounded-2xl border border-primary/30 bg-primary/[0.045] p-4" data-testid="saved-address-summary">
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-hidden>
+                          <Check className="h-5 w-5" strokeWidth={3} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold">{addressDisplayLabel(activeSavedAddress)}</span>
+                            {activeSavedAddress.isDefault && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                {t("checkout.defaultLabel")}
+                              </span>
+                            )}
                           </div>
-                          {savedAddresses.map((addr) => (
-                            <button
-                              key={addr.id}
-                              type="button"
-                              onClick={() => {
-                                applyAddressToRecipient(addr, setRecipient);
-                                savedAddressSubFieldsRef.current = {
-                                  building: addr.building ?? undefined,
-                                  floor: addr.floor ?? undefined,
-                                  apartment: addr.apartment ?? undefined,
-                                };
-                                setAddressPickerOpen(false);
-                                // Applying a saved address can switch the district —
-                                // revalidate the delivery selection the same way an
-                                // explicit dropdown change would.
-                                if (addr.district && addr.district !== _selectedDistrict) {
-                                  beginDistrictRevalidation(addr.district);
-                                }
-                              }}
-                              className="w-full flex items-start gap-2.5 rounded-lg px-2 py-2.5 text-left text-sm hover:bg-secondary/60 transition-colors"
-                              data-testid={`saved-address-option-${addr.id}`}
-                            >
-                              <MapPin className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
-                              <div className="min-w-0">
-                                <div className="font-medium leading-snug">{addressDisplayLabel(addr)}</div>
-                                {addr.district && (
-                                  <div className="text-xs text-muted-foreground mt-0.5 truncate">{addr.district}</div>
-                                )}
-                                {addr.isDefault && (
-                                  <div className="text-xs text-gold font-medium mt-0.5">{t("checkout.defaultLabel")}</div>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </PopoverContent>
-                      </Popover>
+                          {activeSavedAddress.district && (
+                            <div className="mt-1 flex items-center gap-1.5 text-sm">
+                              <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                              <span>{activeSavedAddress.district}</span>
+                            </div>
+                          )}
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            {[activeSavedAddress.addressLine, activeSavedAddress.building, activeSavedAddress.floor, activeSavedAddress.apartment].filter(Boolean).join(" · ")}
+                          </div>
+                          <div className="mt-2 text-sm">{joinRecipientName(activeSavedAddress.recipientFirstName, activeSavedAddress.recipientLastName)}</div>
+                          <div className="text-sm text-muted-foreground">{[activeSavedAddress.recipientPhoneCountryCode, activeSavedAddress.recipientPhone].filter(Boolean).join(" ")}</div>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="mt-3 min-h-[44px] px-0 text-primary"
+                        onClick={() => goToAddressBook(activeSavedAddress.id)}
+                        data-testid="saved-address-edit-recipient"
+                      >
+                        {t("checkout.savedAddressEditRecipient")}
+                      </Button>
                     </div>
+                  ) : (
+                    isSignedIn && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mb-5 min-h-[44px] rounded-full max-md:mb-4"
+                        onClick={() => handleSavedAddressOpenChange(true)}
+                        data-testid="button-use-saved-address"
+                      >
+                        <MapPin className="h-4 w-4 text-primary" aria-hidden />
+                        {t("checkout.useSavedAddress")}
+                      </Button>
+                    )
                   )}
 
+                  {!activeSavedAddress && (
+                  <>
                   <div
                     className={`flex items-center gap-3 mb-6 max-md:mb-4 rounded-xl border px-3.5 py-3 transition-colors ${
                       /* ≤767px unselected: standard secondary-control border (like the
@@ -4437,6 +4612,8 @@ function CheckoutForm() {
                     </>
                   )}
 
+                  </>
+                  )}
                 </div>
 
                 {/* Delivery confirmation card — mobile only. Replaces the large
@@ -5150,6 +5327,19 @@ function CheckoutForm() {
         </div>
       </div>
       {/* ── Dialogs ── */}
+      <SavedAddressChooser
+        open={addressPickerOpen}
+        addresses={savedAddresses}
+        activeAddressId={activeSavedAddressId}
+        loading={savedAddressesLoading}
+        error={savedAddressesError}
+        onOpenChange={handleSavedAddressOpenChange}
+        onConfirm={handleSavedAddressConfirm}
+        onEdit={(address) => goToAddressBook(address.id)}
+        onAdd={() => goToAddressBook()}
+        onRetry={() => setSavedAddressesRefreshKey((key) => key + 1)}
+        t={t}
+      />
       {/* Pre-payment prices-updated confirmation — shown when the server's
           charged minor-unit amount differs from what the client last displayed.
           Catches both catalog/fee changes and FX-rate drift. */}

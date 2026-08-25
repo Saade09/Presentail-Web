@@ -120,7 +120,13 @@ type WebEventType =
   | "landmark_continued_as_typed"
   | "landmark_district_auto_changed"
   | "landmark_selection_removed"
-  | "landmark_order_completed";
+  | "landmark_order_completed"
+  // Saved-address chooser: IDs and delivery context only, never address text or phone.
+  | "saved_address_chooser_opened"
+  | "saved_address_chooser_cancelled"
+  | "saved_address_confirmed"
+  | "saved_address_edit_clicked"
+  | "saved_address_add_clicked";
 
 export type WebEventItem = {
   productId: string;

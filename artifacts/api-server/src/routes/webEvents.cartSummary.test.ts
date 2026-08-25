@@ -103,4 +103,35 @@ describe("POST /web-events — cart Order Summary redesign events", () => {
     expect(res.body.ok).toBe(false);
     expect(mockValues).not.toHaveBeenCalled();
   });
+
+  it("keeps saved-address analytics privacy-safe before persisting", async () => {
+    const res = await request(app)
+      .post("/web-events")
+      .send({
+        type: "saved_address_confirmed",
+        sessionId: "11111111-2222-3333-4444-555555555555",
+        properties: {
+          addressId: 42,
+          previousAddressId: 7,
+          countryCode: "LB",
+          district: "Beirut",
+          addressLine: "Private street and building",
+          phone: "+961123456",
+          recipientName: "Private name",
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const rows = (mockValues.mock.calls[0] as unknown[])[0] as Array<{ propertiesJson: string }>;
+    const properties = JSON.parse(rows[0].propertiesJson);
+    expect(properties).toMatchObject({
+      addressId: 42,
+      previousAddressId: 7,
+      countryCode: "LB",
+      district: "Beirut",
+    });
+    expect(properties).not.toHaveProperty("addressLine");
+    expect(properties).not.toHaveProperty("phone");
+    expect(properties).not.toHaveProperty("recipientName");
+  });
 });

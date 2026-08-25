@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useSearch } from "wouter";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Package,
   MapPin,
@@ -732,7 +732,7 @@ function AddAddressModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (addressId?: number) => void;
   defaultCountryCode?: string;
   editAddress?: AddressData | null;
   t: (k: string) => string;
@@ -831,20 +831,20 @@ function AddAddressModal({
       });
 
       if (isEdit && editAddress) {
-        await apiFetch(`/me/addresses/${editAddress.id}`, {
+        const result = await apiFetch<{ ok: boolean; address?: AddressData }>(`/me/addresses/${editAddress.id}`, {
           method: "PATCH",
           body,
         });
         toast({ title: "Address updated" });
+        onSaved(result.address?.id ?? editAddress.id);
       } else {
-        await apiFetch("/me/addresses", {
+        const result = await apiFetch<{ ok: boolean; address?: AddressData }>("/me/addresses", {
           method: "POST",
           body,
         });
         toast({ title: "Address saved" });
+        onSaved(result.address?.id);
       }
-
-      onSaved();
       onClose();
     } catch (err: any) {
       const msg =
@@ -990,6 +990,25 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
   const { countryCode: activeCountryCode } = useLocationSelection();
   const { cityName } = useLocale();
   const { data: deliveryLocations } = useDeliveryLocations();
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+  const checkoutIntentHandledRef = useRef(false);
+  const checkoutReturn = useMemo(() => {
+    const target = new URLSearchParams(search).get("checkout_return");
+    if (!target || !target.startsWith("/") || target.startsWith("//")) return null;
+    try {
+      const parsed = new URL(target, window.location.origin);
+      return parsed.origin === window.location.origin && /\/checkout$/.test(parsed.pathname)
+        ? `${parsed.pathname}${parsed.search}`
+        : null;
+    } catch {
+      return null;
+    }
+  }, [search]);
+  const requestedEditId = useMemo(() => {
+    const id = Number(new URLSearchParams(search).get("edit_address_id"));
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }, [search]);
 
   const cityIdByName = useMemo(() => {
     const map = new Map<string, string>();
@@ -1019,6 +1038,28 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (loading || checkoutIntentHandledRef.current || !checkoutReturn) return;
+    checkoutIntentHandledRef.current = true;
+    if (requestedEditId != null) {
+      const requested = addresses.find((address) => address.id === requestedEditId);
+      if (requested) setEditAddress(requested);
+    } else {
+      setAddOpen(true);
+    }
+  }, [addresses, checkoutReturn, loading, requestedEditId]);
+
+  const handleAddressSaved = (addressId?: number) => {
+    load();
+    if (!checkoutReturn) return;
+    const separator = checkoutReturn.includes("?") ? "&" : "?";
+    setLocation(
+      addressId != null
+        ? `${checkoutReturn}${separator}savedAddressId=${encodeURIComponent(String(addressId))}`
+        : checkoutReturn,
+    );
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -1106,7 +1147,7 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
       <AddAddressModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onSaved={load}
+        onSaved={handleAddressSaved}
         defaultCountryCode={activeCountryCode ?? "LB"}
         t={t}
       />
@@ -1114,7 +1155,7 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
       <AddAddressModal
         open={!!editAddress}
         onClose={() => setEditAddress(null)}
-        onSaved={load}
+        onSaved={handleAddressSaved}
         defaultCountryCode={activeCountryCode ?? "LB"}
         editAddress={editAddress}
         t={t}

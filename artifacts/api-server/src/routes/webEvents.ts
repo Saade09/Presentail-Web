@@ -114,6 +114,13 @@ const WEB_EVENT_TYPES = [
   "landmark_district_auto_changed",
   "landmark_selection_removed",
   "landmark_order_completed",
+  // Saved-address chooser: validation accepts only the privacy-safe context
+  // supplied by the web client (address id + country/district).
+  "saved_address_chooser_opened",
+  "saved_address_chooser_cancelled",
+  "saved_address_confirmed",
+  "saved_address_edit_clicked",
+  "saved_address_add_clicked",
 ] as const;
 
 const webEventItemSchema = z.object({
@@ -170,6 +177,41 @@ const webEventsLimiter = rateLimit({
 function clip(value: string | undefined, max: number): string | undefined {
   if (typeof value !== "string") return undefined;
   return value.length > max ? `${value.slice(0, max)}…[truncated]` : value;
+}
+
+const SAVED_ADDRESS_EVENT_TYPES = new Set<string>([
+  "saved_address_chooser_opened",
+  "saved_address_chooser_cancelled",
+  "saved_address_confirmed",
+  "saved_address_edit_clicked",
+  "saved_address_add_clicked",
+]);
+
+/**
+ * Saved-address events must never persist or forward address text, directions,
+ * names, or phone numbers. Keep only opaque record identifiers and delivery
+ * context even if an older client or a malformed request includes more.
+ */
+function sanitizeSavedAddressEvent(event: WebEventBody): WebEventBody {
+  if (!SAVED_ADDRESS_EVENT_TYPES.has(event.type)) return event;
+  const source = event.properties ?? {};
+  const properties: Record<string, unknown> = {};
+  for (const key of ["addressId", "previousAddressId", "countryCode", "district", "source"]) {
+    const value = source[key];
+    if (
+      (key === "addressId" || key === "previousAddressId")
+        ? typeof value === "number" && Number.isInteger(value) && value > 0
+        : typeof value === "string" && value.length <= 128
+    ) {
+      properties[key] = value;
+    }
+  }
+  return {
+    type: event.type,
+    sessionId: event.sessionId,
+    occurredAt: event.occurredAt,
+    properties,
+  };
 }
 
 
@@ -260,7 +302,9 @@ router.post(
       events = [singleParsed.data];
     }
 
-    const toInsert = events.filter((e) => e.sessionId && e.sessionId.trim().length > 0);
+    const toInsert = events
+      .filter((e) => e.sessionId && e.sessionId.trim().length > 0)
+      .map(sanitizeSavedAddressEvent);
     const dropped = events.length - toInsert.length;
 
     if (toInsert.length > 0) {
