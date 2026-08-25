@@ -2,10 +2,12 @@
 /**
  * check-sitemap-prod.mjs
  *
- * Fetches /sitemap-ar.xml and /sitemap-fr.xml from the production domain
+ * Fetches the production locale sitemaps for the blog's supported languages
  * (https://presentail.com by default, or the URL passed as the first CLI
  * argument) and asserts that the Achrafieh and Roses blog posts appear as
- * <loc> entries with correct hreflang alternates.
+ * <loc> entries with correct hreflang alternates. Greek is intentionally not
+ * included: the blog has no Greek editorial content, so sitemap-el.xml must
+ * not advertise fallback blog pages.
  *
  * Usage:
  *   node artifacts/presentail-web/scripts/check-sitemap-prod.mjs [base-url]
@@ -22,7 +24,9 @@ const BLOG_SLUGS = [
   "send-roses-to-lebanon",
 ];
 
-const LOCALE_SITEMAPS = ["en", "ar", "fr", "el"];
+// Keep this in sync with SITEMAP_BLOG_LANGS in sitemap.mjs. Greek ("el") is
+// Cyprus-only and intentionally has no blog index or article translations.
+const LOCALE_SITEMAPS = ["en", "ar", "fr"];
 
 // hreflang values expected on every blog-article <url> entry.
 const EXPECTED_HREFLANGS = ["en", "ar", "fr", "x-default"];
