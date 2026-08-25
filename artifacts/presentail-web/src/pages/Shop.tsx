@@ -730,22 +730,24 @@ export default function Shop() {
       <div className={`container mx-auto max-w-content px-page pb-12 md:pb-16${(breadcrumbCrumbs.length > 0 || isOccasionRoute || isCategoryRoute) ? " pt-1.5 md:pt-4" : ""}`}>
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-3 md:gap-6 mb-2 pb-0 md:mb-4 md:pb-2">
           <div>
-            <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
-              {birthdayContextTitle ?? curatedSeo?.h1 ?? curatedCategorySeo?.h1 ?? pageTitle}
+            <div className="flex items-center">
+              <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
+                {birthdayContextTitle ?? curatedSeo?.h1 ?? curatedCategorySeo?.h1 ?? pageTitle}
+              </h1>
               {isLoading ? (
-                <span className="hidden md:inline ml-4 align-middle">
-                  <Skeleton className="inline-block h-4 w-16 rounded" />
-                </span>
+                <div className="hidden md:block ml-4 align-middle">
+                  <Skeleton className="h-4 w-16 rounded" />
+                </div>
               ) : (
                 <span className="hidden md:inline text-muted-foreground font-sans text-base md:text-lg font-normal">
                   {" "}<span className="mx-2 opacity-40">/</span>{t("shop.productCount", { count: String(products.length) })}
                 </span>
               )}
-            </h1>
+            </div>
             {isLoading ? (
-              <p className="md:hidden mt-1">
+              <div className="md:hidden mt-1">
                 <Skeleton className="h-3.5 w-20 rounded" />
-              </p>
+              </div>
             ) : (
               <p className="md:hidden text-sm text-muted-foreground font-normal mt-0.5 whitespace-nowrap">
                 {t("shop.productCount", { count: String(products.length) })}
