@@ -2618,7 +2618,7 @@ function CheckoutForm() {
     const invalidField = handleValidateAndAdvance();
     if (invalidField) {
       trackWebEvent({
-        type: "mobile_checkout_validation_failed",
+        type: "checkout_validation_failed",
         properties: { first_invalid_field: invalidField, surface: "mobile_sticky" },
       });
     }
@@ -2633,7 +2633,7 @@ function CheckoutForm() {
     const invalidField = handleValidateAndAdvance();
     if (invalidField) {
       trackWebEvent({
-        type: "mobile_checkout_validation_failed",
+        type: "checkout_validation_failed",
         properties: { first_invalid_field: invalidField, surface: "desktop_sidebar" },
       });
     }

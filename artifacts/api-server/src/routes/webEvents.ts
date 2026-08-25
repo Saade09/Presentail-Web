@@ -27,6 +27,8 @@ const WEB_EVENT_TYPES = [
   "klarna_redirect_started",
   "klarna_payment_processing",
   "klarna_payment_failed",
+  // Surface-neutral replacement for the historical mobile-only event name.
+  "checkout_validation_failed",
   "free_delivery_prompt_viewed",
   "free_delivery_addons_clicked",
   "free_delivery_unlocked",
@@ -56,7 +58,6 @@ const WEB_EVENT_TYPES = [
   "whatsapp_updates_disabled",
   "checkout_completed_with_whatsapp_updates",
   "mobile_checkout_continue_payment_clicked",
-  "mobile_checkout_validation_failed",
   "add_to_cart_popup_viewed",
   "add_to_cart_popup_closed",
   "upsell_category_selected",

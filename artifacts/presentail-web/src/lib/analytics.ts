@@ -46,6 +46,10 @@ type WebEventType =
   | "klarna_redirect_started"
   | "klarna_payment_processing"
   | "klarna_payment_failed"
+   // Surface-neutral name intentionally replaces the historical
+   // mobile_checkout_validation_failed event; use properties.surface to
+   // distinguish mobile_sticky from desktop_sidebar.
+   | "checkout_validation_failed"
   // Desktop checkout Delivery Details redesign events
   | "desktop_checkout_delivery_confirmation_viewed"
   | "desktop_checkout_delivery_change_clicked"
@@ -63,7 +67,6 @@ type WebEventType =
   | "whatsapp_updates_disabled"
   | "checkout_completed_with_whatsapp_updates"
   | "mobile_checkout_continue_payment_clicked"
-  | "mobile_checkout_validation_failed"
   // Added-to-cart popup (upsell modal) redesign events
   | "add_to_cart_popup_viewed"
   | "add_to_cart_popup_closed"
