@@ -1,0 +1,122 @@
+Context
+
+A customer may add products and select a delivery window earlier in the day, then return to the saved cart after that window has passed. The cart currently continues showing the expired promise (for example, “Arrives today, 9 AM–2 PM”) and allows the customer to continue toward checkout.
+
+Objective
+
+Automatically invalidate delivery selections that are no longer available, clearly explain what changed, and require the customer to confirm a new valid delivery option before checkout. Never silently move the customer to Express, another time, or another date.
+
+Required cart behavior
+
+1. Revalidate the selected delivery option whenever:
+- The cart is loaded or refreshed.
+- A persisted cart is restored.
+- The browser tab becomes active again after being in the background.
+- The customer clicks the main checkout CTA.
+- The checkout/order-creation request reaches the server.
+
+2. If the previously selected window has passed:
+- Clear the invalid delivery-slot selection.
+- Do not retain its delivery charge.
+- Block checkout until a new valid option is selected.
+- Replace the selected Standard Delivery card with the expired-state design shown in the attached reference image.
+
+Expired-state copy
+
+Heading:
+“Your delivery time has passed”
+
+Supporting text:
+“This cart was saved earlier. Choose a new delivery time to continue.”
+
+Express same-day option
+
+Show the currently available Express option directly below the warning:
+- Label: “Express delivery”
+- Promise: “Arrives by [dynamic local time]”
+- Supporting copy: “Within 90 minutes”
+- Show the applicable Express fee.
+- Button: “Deliver today”
+
+When “Deliver today” is clicked:
+- Select Express immediately without opening another popup because the arrival promise and fee are already visible.
+- Recalculate the delivery fee and total.
+- Replace the blocked CTA with the normal checkout CTA.
+- Confirm the new Express selection in Delivery Summary.
+
+Scheduled-delivery option
+
+Add a full-width outlined button:
+“Schedule another date”
+
+When clicked:
+- Open the existing “When should we deliver?” popup.
+- Open it in Schedule mode.
+- Show only currently valid dates and time windows as selectable.
+- Past windows may remain visible but must be disabled and labeled “Unavailable today.”
+- Change the Express card copy inside the popup from “Delivered in ~90 minutes” to “Arrives by [dynamic local time]” so it matches the cart.
+- Preserve the existing date selector, time-slot layout, prices, and late-night options.
+
+Order Summary while no valid delivery is selected
+
+- Keep the items subtotal.
+- Replace the stale Standard Delivery row with:
+  Delivery — Select a time
+- Remove the expired delivery charge.
+- Recalculate the displayed total using items only until a new option is confirmed.
+- Replace the normal checkout button with:
+  “Choose delivery time”
+- Clicking “Choose delivery time” opens the existing delivery-time popup.
+- Do not allow checkout/order submission in this state.
+
+After a new option is selected
+
+- Close the popup.
+- Update Delivery Summary with the confirmed delivery type, date, time/promise, and any surcharge.
+- Recalculate Order Summary and total.
+- Restore the standard “Checkout securely” CTA.
+- Persist the new selection to the cart.
+
+Validation and time-zone rules
+
+- Availability must be determined by the authoritative delivery availability service, not only by client-side cached data.
+- Evaluate times using the delivery market/location time zone, not the customer’s browser time zone. For Lebanon, use Beirut time.
+- The server must revalidate the selected option immediately before creating the order.
+- If the server rejects a slot because it expired between selection and checkout, return the customer to the cart/delivery selector with a clear recoverable message and no data loss.
+- If a slot becomes unavailable because of cutoff, capacity, district, product eligibility, or operational changes rather than the clock passing, use:
+  “This delivery time is no longer available”
+  “Choose another delivery time to continue.”
+
+Design requirements
+
+- Follow the attached high-fidelity mockup.
+- Keep Presentail typography, teal, cream warning treatment, borders, spacing, and card radius consistent with the current cart.
+- Apply the same behavior responsively on desktop and mobile.
+- Do not change products, quantities, card message, add-ons, promo-code behavior, or free-delivery progress bar as part of this task.
+- Currency and surcharge must remain dynamic by market.
+
+Acceptance criteria
+
+- A saved cart containing a past delivery window never displays that window as valid.
+- The expired Standard fee is removed immediately.
+- The customer cannot reach checkout until a valid delivery option is confirmed.
+- No delivery method/date is changed silently.
+- “Deliver today” selects Express directly and updates pricing.
+- “Schedule another date” and “Choose delivery time” open the existing delivery popup.
+- All past/cutoff time windows are disabled.
+- The Express promise uses “Arrives by [time]” everywhere.
+- Server-side order creation rejects any expired/stale slot even if client validation is bypassed.
+- Cart contents and entered card-message data are preserved throughout reselection.
+- Behavior is verified on desktop and mobile.
+
+QA scenarios
+
+1. Select a morning window, leave the cart open, then return after the window has passed.
+2. Close the browser, reopen a persisted cart after the selected window has passed.
+3. Let the selected window expire while the cart tab remains open, then click checkout.
+4. Select Express from the expired state and verify the fee, arrival time, total, and CTA.
+5. Open Schedule, confirm all past windows are disabled, and select tomorrow.
+6. Simulate the slot expiring between client selection and server-side order creation.
+7. Test with a customer browsing from a time zone different from the delivery market.
+8. Verify Lebanon and UAE use their correct local time, currency, availability, and fees.
+9. Verify all cart products, quantities, card message, promo code, and customer-entered data remain intact.

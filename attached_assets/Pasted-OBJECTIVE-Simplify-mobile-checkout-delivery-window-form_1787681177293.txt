@@ -1,0 +1,46 @@
+OBJECTIVE
+Simplify mobile checkout delivery-window formatting by removing unnecessary “:00” minutes from whole-hour delivery times. This should reduce visual clutter and keep the arrival summary on one line.
+
+APPROVED MOBILE COPY
+Arrives Today · 9 PM–11 PM
+
+IMPLEMENTATION SCOPE
+- Mobile checkout only.
+- Update the delivery summary card shown under the DELIVERY section.
+- For whole-hour delivery slots, render the time as “9 PM” rather than “9:00 PM”.
+- Apply the same rule to both the start and end of the window.
+- Format the range as “9 PM–11 PM” using an en dash (–) with no spaces around it.
+- Retain AM/PM on both times for clarity.
+- Keep the surrounding dynamic day label and separator unchanged, for example: “Arrives Today · 9 PM–11 PM”.
+- This is a display-formatting change only. Do not change delivery slot values, availability, cutoffs, timezone calculations, selection logic, or backend data.
+
+RESPONSIVE BEHAVIOR
+- Keep the arrival summary on a single line wherever supported by the approved mobile layout.
+- Ensure it does not overlap or crowd the “Change” action.
+- Do not reduce readability or alter the hierarchy of “Standard delivery” and “Scheduled delivery window”.
+- Preserve the current delivery card, calendar icon, colors, padding, and typography.
+
+FORMAT EXAMPLES
+- 9:00 PM–11:00 PM → 9 PM–11 PM
+- 8:00 AM–10:00 AM → 8 AM–10 AM
+- 11:00 PM–1:00 AM → 11 PM–1 AM
+
+ACCEPTANCE CRITERIA
+- No “:00” appears in mobile checkout delivery-window labels.
+- The approved example reads exactly: “Arrives Today · 9 PM–11 PM”.
+- The label remains legible and does not wrap or collide with “Change” at common mobile widths, including 320, 360, 375, 390, and 414 px.
+- AM/PM remains visible for both endpoints.
+- Desktop behavior remains unchanged unless the same shared formatter is intentionally used and separately verified.
+- Delivery date/time logic and the selected slot remain unchanged.
+- Tested for morning, afternoon/evening, and overnight ranges.
+- No regression to checkout submission, delivery selection, or the sticky payment footer.
+
+QA CHECKLIST
+- Verify Today and future-date delivery summaries.
+- Verify AM, PM, and overnight ranges.
+- Verify the selected slot remains identical before and after the UI formatting change.
+- Verify English mobile checkout at the listed viewport widths.
+- If the formatter is shared with Arabic or French, confirm there is no localization regression.
+
+DESIGN REFERENCE
+Use the attached final approved mockup. Ignore any earlier mockups that show “9:PM” or include “:00”.
