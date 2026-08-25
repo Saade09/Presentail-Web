@@ -90,7 +90,7 @@ export function CheckoutSignInCard({
   };
 
   const buttonClasses =
-    "h-11 rounded-full border border-primary/25 bg-white text-primary hover:bg-primary/5 flex items-center justify-center gap-2 text-sm font-medium";
+    "h-11 min-w-0 rounded-full border border-primary/25 bg-white text-primary hover:bg-primary/5 flex items-center justify-center gap-2 text-sm font-medium max-md:whitespace-normal";
 
   return (
     <section

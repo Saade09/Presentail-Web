@@ -112,16 +112,22 @@ test.beforeEach(async ({ page }) => {
   await installStubs(page);
 });
 
-async function openCheckout(page: Page) {
-  await page.goto("/en-lb/beirut/checkout?guest=1");
+async function openCheckout(page: Page, path = "/en-lb/beirut/checkout?guest=1") {
+  await page.goto(path);
   const guestBtn = page.getByTestId("button-checkout-as-guest");
   if (await guestBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await guestBtn.click();
   }
   await expect(page.getByTestId("card-checkout-signin")).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => document.fonts.ready);
 }
 
 const MOBILE_WIDTHS = [320, 375, 390, 430];
+const LOCALIZED_CHECKOUT_PATHS = [
+  { language: "Arabic", path: "/ar-lb/beirut/checkout?guest=1" },
+  { language: "French", path: "/fr-lb/beirut/checkout?guest=1" },
+  { language: "Greek", path: "/el-cy/nicosia/checkout?guest=1" },
+] as const;
 
 test.describe("Checkout sign-in card — compact mobile layout", () => {
   for (const width of MOBILE_WIDTHS) {
@@ -138,6 +144,17 @@ test.describe("Checkout sign-in card — compact mobile layout", () => {
 
       // Guest hint is gone at mobile widths.
       await expect(page.getByTestId("text-checkout-signin-guest-hint")).toBeHidden();
+
+      // The checkout document must fit the smallest supported phone viewport;
+      // otherwise shoppers can accidentally scroll the entire page sideways.
+      const documentWidth = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }));
+      expect(
+        documentWidth.scrollWidth,
+        `document overflow at ${width}px`,
+      ).toBeLessThanOrEqual(documentWidth.viewportWidth);
 
       const apple = page.getByTestId("button-checkout-signin-apple");
       const google = page.getByTestId("button-checkout-signin-google");
@@ -200,6 +217,27 @@ test.describe("Checkout sign-in card — compact mobile layout", () => {
 
       // The guest Recipient Details form below stays available.
       await expect(page.getByTestId("input-recipient-name")).toBeVisible();
+    });
+  }
+
+  for (const { language, path } of LOCALIZED_CHECKOUT_PATHS) {
+    test(`no document overflow at 320px in ${language}`, async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 844 });
+      await openCheckout(page, path);
+      await page.waitForFunction(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+        undefined,
+        { timeout: 5_000 },
+      );
+
+      const documentWidth = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }));
+      expect(
+        documentWidth.scrollWidth,
+        `${language} checkout document overflow at 320px`,
+      ).toBeLessThanOrEqual(documentWidth.viewportWidth);
     });
   }
 

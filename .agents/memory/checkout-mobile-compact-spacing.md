@@ -17,8 +17,6 @@ Web checkout step 1 (Delivery Details) uses one consistent compact scale via Tai
 
 **How to apply:** add `max-md:` variants alongside existing classes; never replace the base class (tablet keeps it).
 
-**320px pre-existing overflow:** checkout Step 1 has a page-level ~15px horizontal overflow at exactly 320px viewport (every card renders 319px wide starting at x=16, right edge 335) that predates the compact sign-in card work — the step column uses `items-start`, so its width is driven by the widest child's min-content. E2E width assertions at 320px must compare a card against its sibling cards/heading, not against the raw viewport width, or they fail on this unrelated baseline.
-
 **Responsive dual-copy pattern:** when mobile needs different copy than desktop on the same control (e.g. "Apple" vs "Continue with Apple"), keep ONE element with two spans (`md:hidden` / `hidden md:inline`) rather than duplicating the button — preserves single testids, handlers, refs, and analytics with zero duplicate-event risk.
 
 **Textarea height gotcha:** shadcn Input/Textarea are `text-base md:text-sm`, so mobile line-height is 24px, not 20px. A rows=3 textarea is ~90px on mobile (not ~78px); rows=2 ≈ 64px ≈ the "25% shorter" target. Compute height targets with the mobile line-height, and prefer responsive `rows={isMobile ? … : …}` over forcing `h-[…]`.

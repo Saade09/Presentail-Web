@@ -95,6 +95,10 @@ describe("CheckoutSignInCard", () => {
     // Two equal-width pills per row on mobile, three columns on desktop.
     expect(grid.className).toContain("grid-cols-2");
     expect(grid.className).toContain("md:grid-cols-3");
+    // The shared Button component uses whitespace-nowrap by default. The card
+    // must allow translated labels to wrap within their mobile grid cells.
+    expect(screen.getByTestId("button-checkout-signin-apple").className).toContain("min-w-0");
+    expect(screen.getByTestId("button-checkout-signin-apple").className).toContain("max-md:whitespace-normal");
     // Email trigger becomes a full-width centered text link on mobile.
     const email = screen.getByTestId("button-checkout-signin-email");
     expect(email.className).toContain("max-md:col-span-2");
