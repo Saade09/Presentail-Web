@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { apiFetch } from "@/lib/api";
 import { DeleteAccountDialog } from "@/components/account/DeleteAccountDialog";
+import { CheckoutField } from "@/components/checkout/CheckoutField";
 
 type Gender = "female" | "male" | "unspecified";
 const GENDER_VALUES: Gender[] = ["female", "male", "unspecified"];
@@ -239,39 +240,38 @@ export default function PersonalInformation() {
         >
           <h2 className="text-xl font-serif mb-4">{t("pi.title")}</h2>
 
-          <div className="grid sm:grid-cols-2 gap-4 mb-4">
-            <Field label={t("pi.firstName")} required>
+          <div className="grid sm:grid-cols-2 gap-x-4">
+            <CheckoutField label={t("pi.firstName")} htmlFor="pi-first-name" required>
               <Input
+                id="pi-first-name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder={t("pi.firstNamePlaceholder")}
                 data-testid="pi-first-name"
               />
-            </Field>
-            <Field label={t("pi.lastName")}>
+            </CheckoutField>
+            <CheckoutField label={t("pi.lastName")} htmlFor="pi-last-name">
               <Input
+                id="pi-last-name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder={t("pi.lastNamePlaceholder")}
                 data-testid="pi-last-name"
               />
-            </Field>
+            </CheckoutField>
           </div>
 
-          <div className="mb-4">
-            <Field label={t("pi.email")}>
-              <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+          <CheckoutField label={t("pi.email")}>
+            <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
                 {email || "—"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {t("pi.emailHelper")}
-              </p>
-            </Field>
-          </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {t("pi.emailHelper")}
+            </p>
+          </CheckoutField>
 
-          <div className="mb-4">
-            <Field label={t("pi.gender")}>
-              <div className="grid grid-cols-3 gap-2">
+          <CheckoutField label={t("pi.gender")}>
+            <div className="grid grid-cols-3 gap-2">
                 {GENDER_VALUES.map((g) => {
                   const active = gender === g;
                   return (
@@ -294,13 +294,11 @@ export default function PersonalInformation() {
                     </button>
                   );
                 })}
-              </div>
-            </Field>
-          </div>
+            </div>
+          </CheckoutField>
 
-          <div className="mb-2">
-            <Field label={t("pi.birthday")}>
-              <div className="flex gap-2" dir="ltr">
+          <CheckoutField label={t("pi.birthday")} className="mb-2">
+            <div className="flex gap-2" dir="ltr">
                 <Input
                   inputMode="numeric"
                   maxLength={2}
@@ -328,14 +326,13 @@ export default function PersonalInformation() {
                   className="text-center flex-1"
                   data-testid="pi-bday-year"
                 />
-              </div>
-              {bdayError ? (
-                <p className="text-sm text-destructive mt-2" data-testid="pi-bday-error">
-                  {bdayError}
-                </p>
-              ) : null}
-            </Field>
-          </div>
+            </div>
+            {bdayError ? (
+              <p className="text-sm text-destructive mt-2" data-testid="pi-bday-error">
+                {bdayError}
+              </p>
+            ) : null}
+          </CheckoutField>
 
           <div className="mt-6">
             <Button
@@ -434,26 +431,6 @@ export default function PersonalInformation() {
         />
       </div>
     </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 inline-block">
-        {label}
-        {required ? <span className="text-primary"> *</span> : null}
-      </span>
-      {children}
-    </label>
   );
 }
 

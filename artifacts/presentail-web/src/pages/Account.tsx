@@ -37,7 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
-import { Link } from "wouter";
+import { CheckoutField } from "@/components/checkout/CheckoutField";
 
 const SUPPORTED_COUNTRIES = [
   { code: "LB", name: "Lebanon", phoneCode: "+961" },
@@ -261,11 +261,8 @@ function EditNameDialog({
           <DialogTitle className="font-serif text-xl">{t("account.editName")}</DialogTitle>
           <DialogDescription>{t("account.editName.desc")}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">
-              {t("pi.firstName")} <span className="text-primary">*</span>
-            </Label>
+        <div className="py-2">
+          <CheckoutField label={t("pi.firstName")} required>
             <Input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -273,11 +270,8 @@ function EditNameDialog({
               data-testid="edit-name-first"
               autoFocus
             />
-          </div>
-          <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">
-              {t("pi.lastName")}
-            </Label>
+          </CheckoutField>
+          <CheckoutField label={t("pi.lastName")}>
             <Input
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -285,7 +279,7 @@ function EditNameDialog({
               data-testid="edit-name-last"
               onKeyDown={(e) => e.key === "Enter" && void handleSave()}
             />
-          </div>
+          </CheckoutField>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>

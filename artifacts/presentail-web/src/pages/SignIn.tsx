@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { CompleteProfileDialog } from "@/components/auth/CompleteProfileDialog";
 import { Logo } from "@/components/Logo";
+import { CheckoutField } from "@/components/checkout/CheckoutField";
 
 function InAppBrowserBanner({ t }: { t: (key: string) => string }) {
   const [copied, setCopied] = useState(false);
@@ -152,7 +153,7 @@ export default function SignInPage() {
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [socialProvider, setSocialProvider] = useState<"google" | "apple" | null>(initial.socialProvider);
+  const [socialProvider] = useState<"google" | "apple" | null>(initial.socialProvider);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -638,10 +639,12 @@ export default function SignInPage() {
             </div>
 
             {/* Email field */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-sm font-medium block" htmlFor="signin-email">
-                {t("auth.emailLabel")}
-              </label>
+            <CheckoutField
+              label={t("auth.emailLabel")}
+              htmlFor="signin-email"
+              required
+              className="mb-0"
+            >
               <Input
                 id="signin-email"
                 type="email"
@@ -672,7 +675,7 @@ export default function SignInPage() {
                   {t("auth.emailHelper")}
                 </p>
               )}
-            </div>
+            </CheckoutField>
 
             {/* Continue with Email button — strong teal once email is valid */}
             <Button
@@ -704,10 +707,12 @@ export default function SignInPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="signin-password">
-                {t("auth.passwordLabel")}
-              </label>
+            <CheckoutField
+              label={t("auth.passwordLabel")}
+              htmlFor="signin-password"
+              required
+              className="mb-0"
+            >
               <div className="relative">
                 <Input
                   id="signin-password"
@@ -733,7 +738,7 @@ export default function SignInPage() {
                   {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                 </button>
               </div>
-            </div>
+            </CheckoutField>
             <Button
               size="lg"
               className="w-full h-12 rounded-xl"

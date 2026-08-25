@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -12,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COUNTRY_DIAL_CODES } from "@/data/countryCodes";
+import { CheckoutField } from "@/components/checkout/CheckoutField";
 
 const CATEGORIES = [
   { key: "Chocolates", labelKey: "partner.form.cat.chocolates" },
@@ -52,13 +52,9 @@ function FileInput({
   const { t } = useLocale();
   const [fileName, setFileName] = useState<string | null>(null);
   return (
-    <div className="space-y-0">
-      <Label htmlFor={id}>
-        {label}
-        {required && <span className="text-destructive ms-0.5">*</span>}
-      </Label>
+    <CheckoutField label={label} htmlFor={id} required={required}>
       <div
-        className={`mt-1.5 flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors ${
+        className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors ${
           error ? "border-destructive" : "border-input"
         }`}
       >
@@ -85,7 +81,7 @@ function FileInput({
       </div>
       {hint && <p className="text-xs text-muted-foreground mt-1.5">{hint}</p>}
       <FieldError msg={error} />
-    </div>
+    </CheckoutField>
   );
 }
 
@@ -217,7 +213,7 @@ export default function PartnerForm() {
       ref={formRef}
       onSubmit={handleSubmit}
       noValidate
-      className="space-y-8"
+      className="space-y-0"
     >
       <div>
         <h2 className="text-2xl md:text-3xl font-serif mb-2">
@@ -226,16 +222,12 @@ export default function PartnerForm() {
         <p className="text-muted-foreground text-sm">{t("partner.form.subheading")}</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-0">
-          <Label htmlFor="partner-country">
-            {t("partner.form.country")}
-            <span className="text-destructive ms-0.5">*</span>
-          </Label>
+      <div className="grid gap-x-6 md:grid-cols-2">
+        <CheckoutField label={t("partner.form.country")} htmlFor="partner-country" required>
           <Select value={country} onValueChange={setCountry}>
             <SelectTrigger
               id="partner-country"
-              className={`mt-1.5 ${inputCls("country")}`}
+              className={inputCls("country")}
             >
               <SelectValue placeholder={t("partner.form.selectCountry")} />
             </SelectTrigger>
@@ -246,55 +238,43 @@ export default function PartnerForm() {
             </SelectContent>
           </Select>
           <FieldError msg={errors.country} />
-        </div>
+        </CheckoutField>
 
-        <div className="space-y-0">
-          <Label htmlFor="partner-city">
-            {t("partner.form.city")}
-            <span className="text-destructive ms-0.5">*</span>
-          </Label>
+        <CheckoutField label={t("partner.form.city")} htmlFor="partner-city" required>
           <Input
             id="partner-city"
             value={city}
             onChange={(e) => setCity(e.target.value)}
             placeholder={t("partner.form.cityPh")}
-            className={`mt-1.5 ${inputCls("city")}`}
+            className={inputCls("city")}
           />
           <FieldError msg={errors.city} />
-        </div>
+        </CheckoutField>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-0">
-          <Label htmlFor="partner-brand-name">
-            {t("partner.form.brandName")}
-            <span className="text-destructive ms-0.5">*</span>
-          </Label>
+      <div className="grid gap-x-6 md:grid-cols-2">
+        <CheckoutField label={t("partner.form.brandName")} htmlFor="partner-brand-name" required>
           <Input
             id="partner-brand-name"
             value={brandName}
             onChange={(e) => setBrandName(e.target.value)}
             placeholder={t("partner.form.brandNamePh")}
-            className={`mt-1.5 ${inputCls("brandName")}`}
+            className={inputCls("brandName")}
           />
           <FieldError msg={errors.brandName} />
-        </div>
+        </CheckoutField>
 
-        <div className="space-y-0">
-          <Label htmlFor="partner-website">
-            {t("partner.form.website")}
-            <span className="text-destructive ms-0.5">*</span>
-          </Label>
+        <CheckoutField label={t("partner.form.website")} htmlFor="partner-website" required>
           <Input
             id="partner-website"
             type="url"
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
             placeholder={t("partner.form.websitePh")}
-            className={`mt-1.5 ${inputCls("website")}`}
+            className={inputCls("website")}
           />
           <FieldError msg={errors.website} />
-        </div>
+        </CheckoutField>
       </div>
 
       <FileInput
@@ -307,16 +287,10 @@ export default function PartnerForm() {
         required
       />
 
-      <div className="space-y-3">
-        <div>
-          <p className="text-sm font-medium leading-none">
-            {t("partner.form.categories")}
-            <span className="text-destructive ms-0.5">*</span>
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("partner.form.categoriesHint")}
-          </p>
-        </div>
+      <CheckoutField label={t("partner.form.categories")} required>
+        <p className="text-xs text-muted-foreground mb-3">
+          {t("partner.form.categoriesHint")}
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {CATEGORIES.map(({ key, labelKey }) => (
             <label
@@ -332,29 +306,25 @@ export default function PartnerForm() {
           ))}
         </div>
         <FieldError msg={errors.categories} />
-      </div>
+      </CheckoutField>
 
-      <div className="space-y-0">
-        <Label htmlFor="partner-other-category">{t("partner.form.otherCategory")}</Label>
+      <CheckoutField label={t("partner.form.otherCategory")} htmlFor="partner-other-category">
         <Input
           id="partner-other-category"
           value={otherCategory}
           onChange={(e) => setOtherCategory(e.target.value)}
           placeholder={t("partner.form.otherCategoryPh")}
-          className="mt-1.5"
         />
-      </div>
+      </CheckoutField>
 
-      <div className="space-y-0">
-        <Label htmlFor="partner-social">{t("partner.form.socialMedia")}</Label>
+      <CheckoutField label={t("partner.form.socialMedia")} htmlFor="partner-social">
         <Input
           id="partner-social"
           value={socialMedia}
           onChange={(e) => setSocialMedia(e.target.value)}
           placeholder={t("partner.form.socialMediaPh")}
-          className="mt-1.5"
         />
-      </div>
+      </CheckoutField>
 
       <FileInput
         id="partner-product-list"
@@ -366,76 +336,56 @@ export default function PartnerForm() {
         required
       />
 
-      <div className="border-t border-border pt-6 space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-0">
-            <Label htmlFor="partner-first-name">
-              {t("partner.form.firstName")}
-              <span className="text-destructive ms-0.5">*</span>
-            </Label>
+      <div className="border-t border-border pt-6">
+        <div className="grid gap-x-6 md:grid-cols-2">
+          <CheckoutField label={t("partner.form.firstName")} htmlFor="partner-first-name" required>
             <Input
               id="partner-first-name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder={t("partner.form.firstNamePh")}
-              className={`mt-1.5 ${inputCls("firstName")}`}
+              className={inputCls("firstName")}
             />
             <FieldError msg={errors.firstName} />
-          </div>
+          </CheckoutField>
 
-          <div className="space-y-0">
-            <Label htmlFor="partner-last-name">
-              {t("partner.form.lastName")}
-              <span className="text-destructive ms-0.5">*</span>
-            </Label>
+          <CheckoutField label={t("partner.form.lastName")} htmlFor="partner-last-name" required>
             <Input
               id="partner-last-name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder={t("partner.form.lastNamePh")}
-              className={`mt-1.5 ${inputCls("lastName")}`}
+              className={inputCls("lastName")}
             />
             <FieldError msg={errors.lastName} />
-          </div>
+          </CheckoutField>
         </div>
 
-        <div className="space-y-0">
-          <Label htmlFor="partner-role">
-            {t("partner.form.contactRole")}
-            <span className="text-destructive ms-0.5">*</span>
-          </Label>
+        <CheckoutField label={t("partner.form.contactRole")} htmlFor="partner-role" required>
           <Input
             id="partner-role"
             value={contactRole}
             onChange={(e) => setContactRole(e.target.value)}
             placeholder={t("partner.form.contactRolePh")}
-            className={`mt-1.5 ${inputCls("contactRole")}`}
+            className={inputCls("contactRole")}
           />
           <FieldError msg={errors.contactRole} />
-        </div>
+        </CheckoutField>
 
-        <div className="space-y-0">
-          <Label htmlFor="partner-email">
-            {t("partner.form.email")}
-            <span className="text-destructive ms-0.5">*</span>
-          </Label>
+        <CheckoutField label={t("partner.form.email")} htmlFor="partner-email" required>
           <Input
             id="partner-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder={t("partner.form.emailPh")}
-            className={`mt-1.5 ${inputCls("email")}`}
+            className={inputCls("email")}
           />
           <FieldError msg={errors.email} />
-        </div>
+        </CheckoutField>
 
-        <div className="space-y-0">
-          <Label htmlFor="partner-phone">
-            {t("partner.form.phone")}
-            <span className="text-destructive ms-0.5">*</span>
-          </Label>
-          <div className="mt-1.5 flex gap-2">
+        <CheckoutField label={t("partner.form.phone")} htmlFor="partner-phone" required>
+          <div className="flex gap-2">
             <Select value={dialCode} onValueChange={setDialCode}>
               <SelectTrigger className="w-[140px] shrink-0">
                 <SelectValue />
@@ -460,7 +410,7 @@ export default function PartnerForm() {
             </div>
           </div>
           <FieldError msg={errors.phone} />
-        </div>
+        </CheckoutField>
       </div>
 
       {submitError && (

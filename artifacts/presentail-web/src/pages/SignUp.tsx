@@ -11,6 +11,7 @@ import type { ShimUser } from "@/contexts/AuthContext";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Logo } from "@/components/Logo";
 import { trackEvent } from "@/lib/analytics";
+import { CheckoutField } from "@/components/checkout/CheckoutField";
 
 type Step = "name-password" | "phone";
 
@@ -319,12 +320,13 @@ export default function SignUpPage() {
               </div>
             )}
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium" htmlFor="signup-first-name">
-                    {t("auth.firstNameLabel")} <span className="text-destructive">*</span>
-                  </label>
+            <div>
+              <div className="grid grid-cols-2 gap-x-3">
+                <CheckoutField
+                  label={t("auth.firstNameLabel")}
+                  htmlFor="signup-first-name"
+                  required
+                >
                   <Input
                     id="signup-first-name"
                     type="text"
@@ -342,11 +344,12 @@ export default function SignUpPage() {
                   {errors.firstName && (
                     <p className="text-xs text-destructive">{errors.firstName}</p>
                   )}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium" htmlFor="signup-last-name">
-                    {t("auth.lastNameLabel")} <span className="text-destructive">*</span>
-                  </label>
+                </CheckoutField>
+                <CheckoutField
+                  label={t("auth.lastNameLabel")}
+                  htmlFor="signup-last-name"
+                  required
+                >
                   <Input
                     id="signup-last-name"
                     type="text"
@@ -364,13 +367,15 @@ export default function SignUpPage() {
                   {errors.lastName && (
                     <p className="text-xs text-destructive">{errors.lastName}</p>
                   )}
-                </div>
+                </CheckoutField>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="signup-password">
-                  {t("auth.passwordLabel")} <span className="text-destructive">*</span>
-                </label>
+              <CheckoutField
+                label={t("auth.passwordLabel")}
+                htmlFor="signup-password"
+                required
+                className="mb-2"
+              >
                 <div className="relative">
                   <Input
                     id="signup-password"
@@ -401,7 +406,7 @@ export default function SignUpPage() {
                 {errors.password && (
                   <p className="text-xs text-destructive">{errors.password}</p>
                 )}
-              </div>
+              </CheckoutField>
 
               <Button
                 size="lg"
@@ -425,11 +430,10 @@ export default function SignUpPage() {
               </p>
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-1.5">
+            <div>
+              <CheckoutField label={t("auth.phoneLabel")} required className="mb-2">
                 <LazyWebPhoneField
-                  label={t("auth.phoneLabel")}
-                  required
+                  label=""
                   defaultCountry="LB"
                   value={phone}
                   onChange={(v) => {
@@ -440,7 +444,7 @@ export default function SignUpPage() {
                   errorMessage={errors.phone}
                   data-testid="input-signup-phone"
                 />
-              </div>
+              </CheckoutField>
 
               <Button
                 size="lg"
