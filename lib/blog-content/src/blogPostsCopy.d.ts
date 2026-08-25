@@ -40,6 +40,8 @@ export interface BlogSection {
   faqItems?: BlogFaqItem[];
   /** Large serif pull quote. */
   pullQuote?: string;
+  /** Small muted italic editorial note shown beneath the section content. */
+  note?: string;
   /** Info or service callout box. */
   callout?: BlogCallout;
   /** Inline editorial image with optional caption. */

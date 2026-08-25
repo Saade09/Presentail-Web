@@ -25,11 +25,15 @@ const LANGS = ["en", "ar", "fr"] as const satisfies readonly BlogLang[];
 // New articles may launch in English before editorial translations are ready.
 // Keep this allowlist explicit so older published posts still require all
 // supported translations.
-const ENGLISH_ONLY_SLUGS = new Set<string>(["bouquet-delivery-dubai"]);
+const ENGLISH_ONLY_SLUGS = new Set<string>([
+  "bouquet-delivery-dubai",
+  "balloon-arrangement-ideas",
+]);
 
-// Slugs intentionally allowed to omit ogImage. Keep empty unless an article
-// genuinely should not have a shared-link preview, and document the reason.
-const ALLOWED_NO_OG_IMAGE = new Set<string>();
+// Slugs intentionally allowed to omit ogImage. This guide has no suitable
+// arrangement photograph in the project, so it deliberately uses the shared
+// site-wide Open Graph fallback rather than a misleading placeholder image.
+const ALLOWED_NO_OG_IMAGE = new Set<string>(["balloon-arrangement-ideas"]);
 
 describe("@workspace/blog-content — ogImage integrity", () => {
   const slugs = Object.keys(BLOG_POSTS);
@@ -253,5 +257,144 @@ describe("teddy-bear-gifts-lebanon — part one content", () => {
       faqSection?.faqItems?.map((item) => item.a),
     );
     expect(getBlogPostReadingTime(article.slug, "en")).toBeGreaterThan(5);
+  });
+});
+
+describe("balloon-arrangement-ideas content", () => {
+  const article = BLOG_POSTS["balloon-arrangement-ideas"].en;
+
+  it("has the requested English-only SEO, taxonomy, hero, CTA, and recommendation data", () => {
+    expect(BLOG_POSTS["balloon-arrangement-ideas"].ar).toBeUndefined();
+    expect(BLOG_POSTS["balloon-arrangement-ideas"].fr).toBeUndefined();
+    expect(article.slug).toBe("balloon-arrangement-ideas");
+    expect(article.title).toBe("12 Balloon Arrangement Ideas for Any Occasion | Presentail");
+    expect(article.description).toBe(
+      "Balloon arrangement ideas that actually work — bouquets, columns, garlands, number displays and ceiling clouds, plus how to pick colours and how long each one lasts.",
+    );
+    expect(article.h1).toBe(
+      "Balloon Arrangement Ideas: 12 Ways to Style Balloons for Any Occasion",
+    );
+    expect(article.dek).toBe(
+      "Bouquets, columns, garlands, ceiling clouds and number displays — what each one suits, what it costs you in effort, and how long it lasts.",
+    );
+    expect(article.geographyLabel).toBe("Lebanon");
+    expect(article.categoryLabel).toBe("Gifting Guides");
+    expect(article.datePublished).toBe("2026-08-25");
+    expect(article.ogImage).toBeUndefined();
+    expect(article.ogImageAlt).toBeUndefined();
+    expect(article.toc).toBe(true);
+    expect(article.cta).toEqual({
+      label: "Shop balloon arrangements",
+      path: "/category/balloons",
+      country: "lb",
+    });
+    expect(article.recommendation).toEqual({
+      title: "Ready-made balloon bundles",
+      body:
+        "Sixty arrangements that arrive inflated, weighted and colour-matched — with same-day delivery across Lebanon.",
+      label: "View balloons",
+      path: "/category/balloons",
+      country: "lb",
+    });
+  });
+
+  it("contains the complete structure, ordered ideas, notes, pull quote, and FAQ", () => {
+    expect(article.sections.map((section) => section.heading).filter(Boolean)).toEqual([
+      "Before you choose: three decisions that do the work",
+      "Classic arrangements that work anywhere",
+      "1. The balloon bouquet",
+      "2. The balloon column",
+      "3. The table centrepiece cluster",
+      "Statement pieces for a big moment",
+      "4. The number display",
+      "5. The organic garland",
+      "6. The ceiling cloud",
+      "Small-space and gifting arrangements",
+      "7. The single oversized balloon",
+      "8. Balloon-in-a-box",
+      "9. Balloons paired with flowers or a cake",
+      "Themed ideas by occasion",
+      "10. New arrivals and baby showers",
+      "11. Get well and hospital visits",
+      "12. Anniversaries and proposals",
+      "Helium or air — and how long it all lasts",
+      "The easier route: order the arrangement ready-made",
+      "Frequently asked questions",
+    ]);
+    const beforeChoosing = article.sections[1];
+    expect(beforeChoosing.ordered).toBe(true);
+    expect(beforeChoosing.items).toHaveLength(3);
+    expect(beforeChoosing.callout).toEqual({
+      variant: "info",
+      body:
+        "Odd numbers look better than even ones. Three, five or seven balloons in a cluster read as designed; four or six read as leftover.",
+    });
+    const ideas = article.sections.filter((section) => section.subheading);
+    expect(ideas).toHaveLength(12);
+    expect(ideas.slice(0, 6).map((section) => section.note)).toEqual([
+      "Effort: none if ordered. Lifespan: helium latex floats 8–12 hours; foil holds for days.",
+      "Effort: moderate. Lifespan: several days.",
+      "Effort: low. Lifespan: one evening on helium.",
+      "Effort: low. Lifespan: foil numbers hold air for weeks.",
+      "Effort: high — budget two hours. Lifespan: several days, longer indoors.",
+      "Effort: minimal. Lifespan: one evening.",
+    ]);
+    expect(ideas.slice(6).every((section) => section.note === undefined)).toBe(true);
+    expect(article.sections.some(
+      (section) =>
+        section.pullQuote ===
+        "The best balloon arrangement is the one people photograph without being asked to.",
+    )).toBe(true);
+    const babySection = article.sections.find(
+      (section) => section.heading === "10. New arrivals and baby showers",
+    );
+    expect(babySection?.body).toContain(
+      'href="/en/blog/baby-boy-balloons">baby boy balloons</a>',
+    );
+    const readyMadeSection = article.sections.find(
+      (section) => section.heading === "The easier route: order the arrangement ready-made",
+    );
+    expect(readyMadeSection?.body).toContain(
+      'href="/en/blog/balloon-delivery-beirut-lebanon">our balloon delivery guide</a>',
+    );
+    const heliumSection = article.sections.find(
+      (section) => section.heading === "Helium or air — and how long it all lasts",
+    );
+    expect(heliumSection?.body).toBe(
+      "The single most common disappointment with balloons is timing, and it comes down to gas.",
+    );
+    expect(heliumSection?.items).toEqual([
+      "Helium latex floats roughly 8 to 12 hours untreated. Fine for an evening, not for a weekend.",
+      "Foil and mylar hold helium for several days and often a week or more, which is why every long-lived arrangement leans on them.",
+      "Air-filled arrangements — garlands, columns, anything built on a frame — last for days and do not float at all. If the balloons do not need to rise, use air.",
+    ]);
+    const faqSection = article.sections.find(
+      (section) => section.heading === "Frequently asked questions",
+    );
+    const faqSchema = article.extraJsonLd?.find(
+      (schema) => schema["@type"] === "FAQPage",
+    ) as { mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }> } | undefined;
+    expect(faqSection?.faqItems).toHaveLength(7);
+    expect(faqSchema?.mainEntity).toHaveLength(7);
+    expect(faqSchema?.mainEntity?.map((item) => item.name)).toEqual(
+      faqSection?.faqItems?.map((item) => item.q),
+    );
+    expect(faqSchema?.mainEntity?.map((item) => item.acceptedAnswer.text)).toEqual(
+      faqSection?.faqItems?.map((item) => item.a),
+    );
+    expect(getBlogPostMeta(article.slug).category).toBe("gifting-guides");
+  });
+
+  it("registers the requested related-article graph", () => {
+    expect(BLOG_RELATED_SLUGS["balloon-arrangement-ideas"]).toEqual([
+      "balloon-delivery-beirut-lebanon",
+      "baby-boy-balloons",
+      "best-cakes-lebanon",
+    ]);
+    expect(article.relatedSlugs).toEqual(BLOG_RELATED_SLUGS["balloon-arrangement-ideas"]);
+    expect(BLOG_POSTS["balloon-delivery-beirut-lebanon"].en.relatedSlugs).toContain(
+      "balloon-arrangement-ideas",
+    );
+    expect(getBlogPostReadingTime(article.slug, "en")).toBeGreaterThan(2);
   });
 });

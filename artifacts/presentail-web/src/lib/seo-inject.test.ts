@@ -6412,6 +6412,44 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     });
   });
 
+  it("renders the part-one balloon arrangement guide with Article JSON-LD", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en/blog/balloon-arrangement-ideas",
+      OPTS,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain(
+      "<title>12 Balloon Arrangement Ideas for Any Occasion | Presentail</title>",
+    );
+    expect(out).toContain(
+      'content="Balloon arrangement ideas that actually work — bouquets, columns, garlands, number displays and ceiling clouds, plus how to pick colours and how long each one lasts."',
+    );
+    expect(out).toContain(
+      '<meta property="og:image" content="https://presentail.test/opengraph.jpg?v=2"',
+    );
+
+    const article = byType(extractJsonLd(out), "Article");
+    expect(article).toMatchObject({
+      headline: "12 Balloon Arrangement Ideas for Any Occasion | Presentail",
+      datePublished: "2026-08-25",
+      dateModified: "2026-08-25",
+      image: "https://presentail.test/opengraph.jpg?v=2",
+      url: "https://presentail.test/en/blog/balloon-arrangement-ideas",
+    });
+    const faq = byType(extractJsonLd(out), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(7);
+    expect(faq.mainEntity[0]).toMatchObject({
+      "@type": "Question",
+      name: "What is the easiest balloon arrangement to make look good?",
+    });
+  });
+
   it.each([
     { route: "return-policy", label: "Return Policy" },
     { route: "shipping-policy", label: "Shipping Policy" },

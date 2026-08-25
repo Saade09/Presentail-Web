@@ -1191,6 +1191,38 @@ describe("buildSitemapXml — Achrafieh and Roses blog posts in all locale sitem
   });
 });
 
+describe("buildSitemapXml — English-only balloon arrangement ideas article", () => {
+  it("includes the English article URL and does not advertise fallback translations", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      locale: "en",
+    });
+    expect(xml).toContain(
+      `<loc>${ORIGIN}/en/blog/balloon-arrangement-ideas</loc>`,
+    );
+    expect(xml).toContain(
+      `hreflang="en" href="${ORIGIN}/en/blog/balloon-arrangement-ideas"`,
+    );
+    expect(xml).toContain(
+      `hreflang="x-default" href="${ORIGIN}/en/blog/balloon-arrangement-ideas"`,
+    );
+    expect(xml).not.toContain("/ar/blog/balloon-arrangement-ideas");
+    expect(xml).not.toContain("/fr/blog/balloon-arrangement-ideas");
+  });
+
+  it("omits the English-only article from Arabic and French child sitemaps", () => {
+    for (const locale of ["ar", "fr"]) {
+      const xml = buildSitemapXml({
+        origin: ORIGIN,
+        basePath: "/",
+        locale,
+      });
+      expect(xml).not.toContain(`/blog/balloon-arrangement-ideas`);
+    }
+  });
+});
+
 describe("generateSitemap — product availability fields passed to builder", () => {
   it("omits products with status=discontinued from the sitemap", async () => {
     const fakeFetch = async (url: string) => {

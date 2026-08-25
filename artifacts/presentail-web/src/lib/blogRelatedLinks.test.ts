@@ -16,6 +16,7 @@ const UNDER_LINKED_SLUGS = [
   "fathers-day-gifts-lebanon",
   "balloon-delivery-beirut-lebanon",
   "best-cakes-lebanon",
+  "balloon-arrangement-ideas",
 ] as const;
 
 describe("BLOG_RELATED_SLUGS", () => {

@@ -264,6 +264,11 @@ function SectionBlocks({
           {section.pullQuote}
         </blockquote>
       )}
+      {section.note && (
+        <p className="mt-2 text-sm italic text-muted-foreground">
+          {section.note}
+        </p>
+      )}
       {section.callout && (
         <div
           className={`mt-6 flex items-start gap-3 rounded-lg border p-4 md:p-5 ${
