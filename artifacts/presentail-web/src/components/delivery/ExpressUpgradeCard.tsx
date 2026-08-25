@@ -24,13 +24,28 @@ interface Props {
  */
 export function ExpressUpgradeCard({ arrival, deltaUsd, onUpgrade, upgrading = false }: Props) {
   const { t } = useLocale();
+
   return (
     <div
-      className="mt-3 flex items-center gap-3 rounded-xl border border-primary/25 bg-[#FBF7EF] px-4 py-3"
-      data-testid="card-express-upgrade"
+      onClick={() => {
+        if (!upgrading) onUpgrade();
+      }}
+      className="relative mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-primary/25 bg-[#FBF7EF] px-4 py-3 transition-colors hover:bg-[#F8F0E3]"
     >
-      <Zap className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-      <div className="flex-1 min-w-0">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onUpgrade();
+        }}
+        disabled={upgrading}
+        aria-busy={upgrading}
+        aria-label={t("cart.expressUpgradeCta")}
+        className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+        data-testid="card-express-upgrade"
+      />
+      <Zap className="relative z-[1] h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      <div className="relative z-[1] flex-1 min-w-0">
         <span className="block text-xs font-medium text-muted-foreground" data-testid="text-express-upgrade-title">
           {t("delivery.promise.expressTitle")}
         </span>
@@ -44,13 +59,16 @@ export function ExpressUpgradeCard({ arrival, deltaUsd, onUpgrade, upgrading = f
           {t("delivery.promise.within90")}
         </span>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
+      <div className="relative z-[1] flex shrink-0 flex-col items-end gap-1.5">
         <span className="whitespace-nowrap text-sm font-semibold text-primary tabular-nums" data-testid="text-express-upgrade-delta">
           {buildFeeNode(t("cart.expressDelta"), { amount: deltaUsd })}
         </span>
         <button
           type="button"
-          onClick={onUpgrade}
+          onClick={(event) => {
+            event.stopPropagation();
+            onUpgrade();
+          }}
           disabled={upgrading}
           aria-busy={upgrading}
           className="min-h-9 rounded-full border border-primary/30 bg-white px-4 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"

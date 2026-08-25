@@ -266,6 +266,20 @@ describe("Express upgrade card — Upgrade action", () => {
     expect(webEventsOf("express_upgrade_clicked")).toHaveLength(1);
   });
 
+  it("rapid full-card clicks use the same guard as the Upgrade control", async () => {
+    const setSelection = vi.fn();
+    mockUseDeliverySelection.mockReturnValue(standardSelection(setSelection));
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_BELOW, currency: CURRENCY_FIXTURE });
+
+    const card = screen.getByTestId("card-express-upgrade");
+    await userEvent.click(card);
+    await userEvent.click(card);
+    await userEvent.click(card);
+
+    expect(setSelection).toHaveBeenCalledOnce();
+    expect(webEventsOf("express_upgrade_clicked")).toHaveLength(1);
+  });
+
   it("emits express_upgrade_failed when setSelection throws", async () => {
     const setSelection = vi.fn(() => {
       throw new Error("boom");
@@ -342,5 +356,73 @@ describe("ExpressUpgradeCard — ETA fallback", () => {
     expect((screen.getByTestId("button-express-upgrade") as HTMLButtonElement).disabled).toBe(
       true,
     );
+  });
+});
+
+describe("ExpressUpgradeCard — full-card interaction", () => {
+  const renderCard = (onUpgrade = vi.fn(), upgrading = false) => {
+    render(
+      <LocaleContext.Provider value={DEFAULT_LOCALE}>
+        <ExpressUpgradeCard
+          arrival="Arrives by 1:30 PM"
+          deltaUsd={15}
+          onUpgrade={onUpgrade}
+          upgrading={upgrading}
+        />,
+      </LocaleContext.Provider>,
+    );
+    return { card: screen.getByTestId("card-express-upgrade"), onUpgrade };
+  };
+
+  it("activates from non-control content across the whole card", async () => {
+    const user = userEvent.setup();
+    const { card, onUpgrade } = renderCard();
+
+    await user.click(screen.getByTestId("text-express-upgrade-arrival"));
+    await user.click(screen.getByTestId("text-express-upgrade-delta"));
+    await user.click(card);
+
+    expect(onUpgrade).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps the nested Upgrade button as one independent action", async () => {
+    const user = userEvent.setup();
+    const { onUpgrade } = renderCard();
+
+    await user.click(screen.getByTestId("button-express-upgrade"));
+
+    expect(onUpgrade).toHaveBeenCalledOnce();
+  });
+
+  it("keeps keyboard activation on the nested Upgrade button to one action", async () => {
+    const user = userEvent.setup();
+    const { onUpgrade } = renderCard();
+    const button = screen.getByTestId("button-express-upgrade");
+
+    button.focus();
+    await user.keyboard("{Enter}");
+
+    expect(onUpgrade).toHaveBeenCalledOnce();
+  });
+
+  it.each(["Enter", " "])("activates with %s", async (key) => {
+    const user = userEvent.setup();
+    const { card, onUpgrade } = renderCard();
+
+    card.focus();
+    await user.keyboard(`{${key}}`);
+
+    expect(onUpgrade).toHaveBeenCalledOnce();
+  });
+
+  it("does not activate or focus the card while upgrading", async () => {
+    const user = userEvent.setup();
+    const { card, onUpgrade } = renderCard(vi.fn(), true);
+
+    expect((card as HTMLButtonElement).disabled).toBe(true);
+    expect(card.querySelector("button")).toBeNull();
+
+    await user.click(screen.getByTestId("text-express-upgrade-arrival"));
+    expect(onUpgrade).not.toHaveBeenCalled();
   });
 });
