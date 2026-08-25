@@ -43,7 +43,7 @@ export type OrderSummaryPanelProps = {
    *  "Arrives by" time, or the standard "Arrives [day · window]" text). */
   deliveryPromise?:
     | { type: "express"; arrivesBy: string | null }
-    | { type: "standard"; when: string | null }
+    | { type: "standard"; when: string | null; arrival?: string | null }
     | null;
   selectedDistrict: string;
   couponApplied: boolean;
@@ -893,7 +893,7 @@ export function OrderSummaryPanel({
                         <>
                           <p className="text-xs text-muted-foreground mt-1">{t("checkout.promise.standard")}</p>
                           <p className="text-sm font-semibold text-foreground mt-0.5" data-testid="text-delivery-promise">
-                            {t("checkout.promise.arrives", { when: deliveryPromise.when })}
+                            {deliveryPromise.arrival ?? t("checkout.promise.arrives", { when: deliveryPromise.when })}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.promise.scheduledWindow")}</p>
                         </>

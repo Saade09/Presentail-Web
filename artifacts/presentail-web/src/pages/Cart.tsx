@@ -1502,8 +1502,12 @@ export default function Cart() {
                           language,
                         ),
                       )
-                  : deliveryMode === "today_slot"
-                  ? t("cart.sticky.standardToday")
+                   : deliveryPromise?.type === "standard" && deliveryPromise.standardDay === "tonight"
+                   ? t("cart.sticky.standardTonight")
+                   : deliveryPromise?.type === "standard" && deliveryPromise.standardDay === "today"
+                   ? t("cart.sticky.standardToday")
+                   : deliveryMode === "today_slot"
+                   ? t("cart.sticky.standardToday")
                   : null}
               </span>
             )}

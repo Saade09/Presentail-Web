@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useNow } from "@/lib/useNow";
 import {
+  classifyStandardDeliveryDay,
   expressDeadlineFrom,
   formatCountryTime,
   formatPromiseDateLabel,
   getLocalIso,
   isMidnightSlot,
   slotTimeRangeShortForLabel,
+  type StandardDeliveryDay,
   type TimeSlot,
 } from "@workspace/delivery";
 
@@ -34,6 +37,8 @@ export type DeliveryPromise = {
   caption: string;
   /** Compact Order Summary label, e.g. "Standard delivery · Today, 2–5 PM". */
   summary: string;
+  /** Shared calendar classification for standard delivery consumers. */
+  standardDay?: StandardDeliveryDay;
 };
 
 /** Substitute `{x}` placeholders in a translation template. */
@@ -95,10 +100,16 @@ export function buildStandardPromise(args: {
   t: (key: string) => string;
 }): DeliveryPromise {
   const { dateIso, slotLabel, slots, todayIso, locale, t } = args;
+  const selectedSlot = slotLabel ? slots.find((slot) => slot.label === slotLabel) : null;
+  const standardDay = classifyStandardDeliveryDay({
+    dateIso,
+    slot: selectedSlot ?? (slotLabel ? { label: slotLabel } : null),
+    todayIso,
+  });
   const dateLabel = formatPromiseDateLabel(
     dateIso,
     todayIso,
-    t("delivery.promise.today"),
+    standardDay === "tonight" ? t("delivery.promise.tonight") : t("delivery.promise.today"),
     t("delivery.promise.tomorrow"),
     locale,
   );
@@ -111,6 +122,7 @@ export function buildStandardPromise(args: {
     arrival: fill(t("delivery.promise.arrives"), { when }),
     caption: t("delivery.promise.scheduledCaption"),
     summary: `${title} · ${when}`,
+    standardDay,
   };
 }
 
@@ -178,6 +190,7 @@ export function useDeliveryPromise(): DeliveryPromise | null {
   const { t, language } = useLocale();
   const { mode, date, slotLabel, slotId, serviceType } = useDeliverySelection();
   const { countryCode, city } = useLocationSelection();
+  const now = useNow();
   const slots = useCityTimeSlots();
   const quoteAnchor = useExpressQuoteAnchor(mode === "express");
 
@@ -203,9 +216,9 @@ export function useDeliveryPromise(): DeliveryPromise | null {
       dateIso: date,
       slotLabel: slotLabel ?? null,
       slots,
-      todayIso: getLocalIso(countryCode ?? null),
+       todayIso: getLocalIso(countryCode ?? null, now),
       locale: language,
       t,
     });
-  }, [mode, date, slotLabel, slotId, serviceType, slots, countryCode, city?.id, language, t, quoteAnchor]);
+  }, [mode, date, slotLabel, slotId, serviceType, slots, countryCode, city?.id, language, t, quoteAnchor, now]);
 }

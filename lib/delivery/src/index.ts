@@ -694,6 +694,71 @@ export function formatPromiseDateLabel(
   }
 }
 
+/** Same-day standard delivery windows beginning at or after this hour are "tonight". */
+export const STANDARD_TONIGHT_START_HOUR = 18;
+
+export type StandardDeliveryDay = "today" | "tonight" | "tomorrow" | "date";
+
+/** Minimal slot shape needed to classify a standard delivery promise. */
+export type DeliverySlotStartLike = {
+  startHour?: number;
+  label?: string;
+  serviceType?: string;
+};
+
+/** Parse the start hour from a slot label like "9:00 AM – 2:00 PM". */
+function parseSlotStartHour(label: string): number | null {
+  const firstPart = label.split(/[–-]/)[0]?.trim();
+  if (!firstPart) return null;
+  const match = /^(\d+)(?::\d+)?\s*(AM|PM)$/i.exec(firstPart);
+  if (!match) return null;
+  let hour = parseInt(match[1]!, 10);
+  const period = match[2]!.toUpperCase();
+  if (period === "AM") {
+    if (hour === 12) hour = 0;
+  } else if (hour !== 12) {
+    hour += 12;
+  }
+  return hour;
+}
+
+/**
+ * Return the local starting hour for a delivery slot. OS-configured slots
+ * carry startHour; legacy fallback slots retain a human-readable label.
+ */
+export function slotStartHour(slot: DeliverySlotStartLike | null | undefined): number | null {
+  if (!slot) return null;
+  if (typeof slot.startHour === "number" && Number.isFinite(slot.startHour)) {
+    return slot.startHour;
+  }
+  return slot.label ? parseSlotStartHour(slot.label) : null;
+}
+
+/**
+ * Classify a non-Midnight standard selection using the delivery market's
+ * calendar. A same-day slot beginning at 6 PM or later is "tonight"; the
+ * device timezone is never consulted. Callers rendering Midnight or Express
+ * must continue to use their dedicated promise builders.
+ */
+export function classifyStandardDeliveryDay(opts: {
+  dateIso: string;
+  slot?: DeliverySlotStartLike | null;
+  countryCode?: string | null;
+  /** Override the market-local today date when the caller already derived it. */
+  todayIso?: string;
+  now?: Date;
+}): StandardDeliveryDay {
+  const todayIso = opts.todayIso ?? getLocalIso(opts.countryCode, opts.now ?? new Date());
+  if (opts.dateIso === todayIso) {
+    const startHour = slotStartHour(opts.slot);
+    return startHour !== null && startHour >= STANDARD_TONIGHT_START_HOUR
+      ? "tonight"
+      : "today";
+  }
+  if (opts.dateIso === addIsoDays(todayIso, 1)) return "tomorrow";
+  return "date";
+}
+
 // ---------------------------------------------------------------------------
 // Slot bookability at submission time (stale-selection guard)
 // ---------------------------------------------------------------------------
@@ -973,22 +1038,6 @@ export type StickyDeliveryPromiseTranslations = {
   cartStickyDeliveryDate: string;
 };
 
-/** Parse the start hour from a slot label like "9:00 AM – 2:00 PM". Returns null on failure. */
-function parseSlotStartHour(label: string): number | null {
-  const parts = label.split(/[–-]/);
-  if (parts.length < 1) return null;
-  const m = /^(\d+)(?::\d+)?\s*(AM|PM)$/i.exec(parts[0]!.trim());
-  if (!m) return null;
-  let h = parseInt(m[1]!, 10);
-  const period = m[2]!.toUpperCase();
-  if (period === "AM") {
-    if (h === 12) h = 0;
-  } else if (h !== 12) {
-    h += 12;
-  }
-  return h;
-}
-
 /**
  * Returns a concise localised delivery promise string for the cart sticky bar.
  *
@@ -1007,7 +1056,7 @@ export function computeStickyDeliveryPromise(opts: {
   mode: "express" | "today_slot" | "schedule" | null | undefined;
   date: string | null | undefined;
   /** The resolved slot object for the current selection (used to determine tonight). */
-  slot?: { startHour?: number; label?: string } | null;
+  slot?: DeliverySlotStartLike | null;
   countryCode?: string | null;
   t: StickyDeliveryPromiseTranslations;
   /** Defaults to `new Date()`. Pass explicitly in tests. */
@@ -1024,25 +1073,11 @@ export function computeStickyDeliveryPromise(opts: {
     return t.cartStickyArrivesBy.replace("{time}", timeStr);
   }
 
-  // Scheduled or today_slot — compare date against country-local today / tomorrow.
-  const todayIso = getLocalIso(countryCode, now);
-  const [ty, tm, td] = todayIso.split("-").map(Number) as [number, number, number];
-  const tomDate = new Date(ty, tm - 1, td + 1, 12, 0, 0);
-  const tomorrowIso = `${tomDate.getFullYear()}-${String(tomDate.getMonth() + 1).padStart(2, "0")}-${String(tomDate.getDate()).padStart(2, "0")}`;
-
-  if (date === todayIso) {
-    // "Tonight" when the slot's start hour is in the evening (≥ 18).
-    const startHour =
-      typeof slot?.startHour === "number"
-        ? slot.startHour
-        : slot?.label
-          ? parseSlotStartHour(slot.label)
-          : null;
-    if (startHour !== null && startHour >= 18) return t.cartStickyDeliveryTonight;
-    return t.cartStickyDeliveryToday;
-  }
-
-  if (date === tomorrowIso) return t.cartStickyDeliveryTomorrow;
+  // Scheduled or today_slot — classify against the market-local calendar.
+  const day = classifyStandardDeliveryDay({ dateIso: date!, slot, countryCode, now });
+  if (day === "tonight") return t.cartStickyDeliveryTonight;
+  if (day === "today") return t.cartStickyDeliveryToday;
+  if (day === "tomorrow") return t.cartStickyDeliveryTomorrow;
 
   // Future date: short localised label e.g. "Fri, 22 Aug".
   const [y, m, d] = date!.split("-").map(Number) as [number, number, number];

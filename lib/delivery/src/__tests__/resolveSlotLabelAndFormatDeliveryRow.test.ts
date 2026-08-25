@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classifyStandardDeliveryDay,
   type DeliveryDay,
   formatDeliveryRow,
   formatSlotTimeRange,
@@ -416,5 +417,69 @@ describe("slotTimeRangeForLabel", () => {
     for (const s of lbSlots) {
       expect(slotTimeRangeForLabel(s.label, lbSlots)).toBeUndefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyStandardDeliveryDay
+// ---------------------------------------------------------------------------
+
+describe("classifyStandardDeliveryDay", () => {
+  const todayIso = "2026-08-14";
+
+  it("keeps a 5:59 PM same-day standard slot as today but switches at 6 PM", () => {
+    expect(
+      classifyStandardDeliveryDay({
+        dateIso: todayIso,
+        todayIso,
+        slot: { label: "5:59 PM – 8:00 PM" },
+      }),
+    ).toBe("today");
+    expect(
+      classifyStandardDeliveryDay({
+        dateIso: todayIso,
+        todayIso,
+        slot: { label: "6:00 PM – 9:00 PM" },
+      }),
+    ).toBe("tonight");
+  });
+
+  it("uses explicit slot bounds for later evening windows", () => {
+    expect(
+      classifyStandardDeliveryDay({
+        dateIso: todayIso,
+        todayIso,
+        slot: { label: "Late evening", startHour: 21 },
+      }),
+    ).toBe("tonight");
+  });
+
+  it("keeps tomorrow and future selections independent of their slot hour", () => {
+    expect(
+      classifyStandardDeliveryDay({
+        dateIso: "2026-08-15",
+        todayIso,
+        slot: { label: "9:00 PM – 11:00 PM" },
+      }),
+    ).toBe("tomorrow");
+    expect(
+      classifyStandardDeliveryDay({
+        dateIso: "2026-08-16",
+        todayIso,
+        slot: { label: "9:00 PM – 11:00 PM" },
+      }),
+    ).toBe("date");
+  });
+
+  it("uses the delivery market date instead of the device's UTC date", () => {
+    // 21:30 UTC on Aug 13 is already 00:30 on Aug 14 in Beirut (DST).
+    expect(
+      classifyStandardDeliveryDay({
+        dateIso: "2026-08-14",
+        slot: { label: "6:00 PM – 9:00 PM" },
+        countryCode: "LB",
+        now: new Date("2026-08-13T21:30:00Z"),
+      }),
+    ).toBe("tonight");
   });
 });

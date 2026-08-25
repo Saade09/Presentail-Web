@@ -86,6 +86,15 @@ const STANDARD_SLOT = {
   sameDayEnabled: true,
   nextDayEnabled: true,
 };
+const EVENING_STANDARD_SLOT = {
+  label: "6:00 PM – 9:00 PM",
+  slotId: "std-evening-1",
+  cutoffHour: 18,
+  startHour: 18,
+  endHour: 21,
+  sameDayEnabled: true,
+  nextDayEnabled: true,
+};
 const BEIRUT = {
   id: "lb-beirut",
   name: "Beirut",
@@ -306,5 +315,23 @@ describe("Non-midnight regression", () => {
       "cart.sticky.standardToday",
     );
     expect(screen.queryByTestId("text-midnight-fee")).toBeNull();
+  });
+
+  it("labels an evening standard selection as 'Standard delivery tonight' in the mobile sticky bar", () => {
+    mockUseLocationSelection.mockImplementation(() =>
+      locationFixture({ ...BEIRUT, timeSlots: [EVENING_STANDARD_SLOT, MIDNIGHT_SLOT] }),
+    );
+    mockUseDeliverySelection.mockReturnValue(
+      midnightSelection({
+        slotLabel: EVENING_STANDARD_SLOT.label,
+        slotId: EVENING_STANDARD_SLOT.slotId,
+        serviceType: null,
+      }),
+    );
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART, currency: CURRENCY_FIXTURE });
+
+    expect(screen.getByTestId("text-sticky-delivery-label").textContent).toContain(
+      "cart.sticky.standardTonight",
+    );
   });
 });

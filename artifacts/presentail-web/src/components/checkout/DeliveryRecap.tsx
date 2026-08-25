@@ -30,6 +30,8 @@ type Props = {
    * Covers all timing sub-states: express label, today-slot, and future-date.
    */
   deliveryRowText: string | null;
+  /** Shared standard-delivery arrival promise, when a valid standard slot is selected. */
+  deliveryPromiseText?: string | null;
   onEdit: () => void;
 };
 
@@ -42,6 +44,7 @@ export function DeliveryRecap({
   selfRecipient: _selfRecipient,
   deliveryMode,
   deliveryRowText,
+  deliveryPromiseText = null,
   onEdit,
 }: Props) {
   const { t } = useLocale();
@@ -49,12 +52,10 @@ export function DeliveryRecap({
   const recipientName =
     [recipientFirstName, recipientLastName].filter(Boolean).join(" ") || "—";
 
-  // Timing state: deliveryRowText already covers all three sub-states —
-  //   express ("Express Delivery"), standard ("Today · HH:MM – HH:MM"),
-  //   and scheduled ("Wed 13 · HH:MM – HH:MM") — via formatDeliveryRow().
-  // deliveryMode is also available here for icon/colour differentiation
-  // if the design calls for it in a future iteration.
-  const timingLabel = deliveryRowText ?? null;
+  // Standard delivery uses the shared promise so an evening same-day window
+  // reads naturally as "Arrives tonight". Express and Midnight retain their
+  // established delivery-row labels.
+  const timingLabel = deliveryPromiseText ?? deliveryRowText ?? null;
   void deliveryMode; // retained as an explicit prop for future rendering branches
 
   return (

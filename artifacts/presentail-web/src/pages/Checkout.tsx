@@ -57,6 +57,7 @@ import { CheckoutSignInCard } from "@/components/checkout/CheckoutSignInCard";
 import { isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { DeliveryRecap } from "@/components/checkout/DeliveryRecap";
+import { buildStandardPromise } from "@/components/delivery/deliveryPromise";
 import { PhoneInfoTooltip } from "@/components/checkout/PhoneInfoTooltip";
 import { CheckoutField } from "@/components/checkout/CheckoutField";
 import { cn } from "@/lib/utils";
@@ -2682,6 +2683,25 @@ function CheckoutForm() {
   } catch {
     // safe fallback — delivery row will show the picker affordance
   }
+  // Standard promises use the same market-local date + 6 PM "tonight"
+  // classification as cart delivery summaries. Midnight keeps its dedicated
+  // selected-service copy rather than flowing through the standard builder.
+  let standardDeliveryPromise: ReturnType<typeof buildStandardPromise> | null = null;
+  if (deliveryMode !== "express" && !isMidnightSlotActive && recipient.deliveryDate) {
+    try {
+      standardDeliveryPromise = buildStandardPromise({
+        dateIso: recipient.deliveryDate,
+        slotLabel: deliverySlot || null,
+        slots: timeSlots,
+        todayIso: getLocalIso(countryCode, now),
+        locale: language,
+        t,
+      });
+    } catch {
+      // Retain the established date-row fallback if a stale/incomplete slot
+      // selection cannot be rendered as a standard promise yet.
+    }
+  }
   // ── Mobile checkout redesign: analytics + express arrival promise ──
   // Authoritative quote-derived grand total shared by the sticky footer CTA
   // (OrderSummaryPanel derives the identical value from the same inputs).
@@ -2808,7 +2828,11 @@ function CheckoutForm() {
   const deliveryPromise =
     deliveryMode === "express"
       ? { type: "express" as const, arrivesBy: expressArrivesBy }
-      : { type: "standard" as const, when: deliveryRowText };
+      : {
+          type: "standard" as const,
+          when: standardDeliveryPromise?.arrival ?? deliveryRowText,
+          arrival: standardDeliveryPromise?.arrival ?? null,
+        };
 
   const isProcessing =
     createOrder.isPending ||
@@ -4701,7 +4725,9 @@ function CheckoutForm() {
                         <>
                           <p className="text-xs text-muted-foreground">{t("delivery.promise.standardTitle")}</p>
                           <p className="text-sm font-semibold text-foreground leading-snug" data-testid="text-delivery-promise">
-                            {t("delivery.promise.arrives", { when: deliveryRowText })}
+                            {deliveryPromise.type === "standard" && deliveryPromise.arrival
+                              ? deliveryPromise.arrival
+                              : t("delivery.promise.arrives", { when: deliveryRowText })}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t("delivery.promise.scheduledCaption")}</p>
                         </>
@@ -5261,6 +5287,7 @@ function CheckoutForm() {
                   }
                   deliveryMode={deliveryMode}
                   deliveryRowText={deliveryRowText}
+                  deliveryPromiseText={deliveryPromise.type === "standard" ? deliveryPromise.arrival : null}
                   onEdit={() => setStep(1)}
                 />
               </div>

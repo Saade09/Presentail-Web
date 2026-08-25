@@ -118,6 +118,60 @@ describe("buildStandardPromise", () => {
     expect(future.arrival).toMatch(/^Arrives Sat, (Aug 15|15 Aug), 2 PM–5 PM$/);
   });
 
+  it("says tonight for a same-day standard window beginning at 6 PM", () => {
+    const p = buildStandardPromise({
+      dateIso: "2026-08-13",
+      slotLabel: "6:00 PM – 9:00 PM",
+      slots: SLOTS,
+      todayIso: "2026-08-13",
+      locale: "en",
+      t,
+    });
+    expect(p.standardDay).toBe("tonight");
+    expect(p.arrival).toBe("Arrives tonight, 6 PM–9 PM");
+    expect(p.summary).toBe("Standard delivery · tonight, 6 PM–9 PM");
+  });
+
+  it("keeps a same-day 5:59 PM standard window as today", () => {
+    const p = buildStandardPromise({
+      dateIso: "2026-08-13",
+      slotLabel: "5:59 PM – 8:00 PM",
+      slots: [{ label: "5:59 PM – 8:00 PM", cutoffHour: 17 }],
+      todayIso: "2026-08-13",
+      locale: "en",
+      t,
+    });
+    expect(p.standardDay).toBe("today");
+    expect(p.arrival).toBe("Arrives today, 5 PM–8 PM");
+  });
+
+  it("localizes the standard tonight label in Arabic and French", () => {
+    const localeStrings = {
+      ar: {
+        ...en,
+        "delivery.promise.arrives": "يصل {when}",
+        "delivery.promise.tonight": "الليلة",
+      },
+      fr: {
+        ...en,
+        "delivery.promise.arrives": "Arrive {when}",
+        "delivery.promise.tonight": "ce soir",
+      },
+    };
+    for (const [locale, strings] of Object.entries(localeStrings)) {
+      const p = buildStandardPromise({
+        dateIso: "2026-08-13",
+        slotLabel: "6:00 PM – 9:00 PM",
+        slots: SLOTS,
+        todayIso: "2026-08-13",
+        locale,
+        t: (key) => strings[key as keyof typeof strings] ?? key,
+      });
+      expect(p.arrival).toContain(strings["delivery.promise.tonight"]);
+      expect(p.standardDay).toBe("tonight");
+    }
+  });
+
   it("falls back to the raw slot label when the slot is unknown", () => {
     const p = buildStandardPromise({
       dateIso: "2026-08-13",
