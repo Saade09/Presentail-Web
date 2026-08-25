@@ -17,10 +17,16 @@
  */
 
 import React, { act } from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as ReactTestRenderer from "react-test-renderer";
+import { Pressable, View } from "react-native";
 
 import { PHONE_COUNTRY_BLOCKLIST } from "@workspace/catalog-data";
+import {
+  __resetMockGeometry,
+  __setMockMeasurement,
+  __setMockWindowDimensions,
+} from "../tests/__mocks__/react-native";
 
 // ---------------------------------------------------------------------------
 // Capture countryPickerProps passed to <PhoneInput>
@@ -102,6 +108,45 @@ function renderPhoneField() {
   });
 }
 
+function renderPhoneFieldWithTooltip() {
+  const defaultCountry: CountryDialCode = {
+    code: "LB",
+    name: "Lebanon",
+    dial: "+961",
+    flag: "🇱🇧",
+  };
+
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  act(() => {
+    renderer = ReactTestRenderer.create(
+      <PhoneField
+        label="Phone"
+        value=""
+        onChangeText={() => {}}
+        countryCode={defaultCountry.code}
+        onChangeCountry={() => {}}
+        onInfoOpen={() => {}}
+      />,
+    );
+  });
+  return renderer;
+}
+
+function getPopoverLayout(renderer: ReactTestRenderer.ReactTestRenderer) {
+  const popover = renderer.root
+    .findAllByType(Pressable)
+    .find((node) => Array.isArray(node.props.style) && node.props.style.some(
+      (style: unknown) => typeof style === "object" && style !== null && "width" in style,
+    ));
+
+  expect(popover, "expected an open tooltip popover").toBeDefined();
+  const layout = (popover!.props.style as Array<Record<string, number>>).find(
+    (style) => typeof style === "object" && style !== null && "width" in style,
+  );
+  expect(layout).toBeDefined();
+  return layout!;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -145,5 +190,50 @@ describe("PhoneField — IL country blocklist", () => {
     expect(codes).toContain("LB");
     expect(codes).toContain("AE");
     expect(codes).toContain("US");
+  });
+});
+
+describe("PhoneField — phone info tooltip positioning", () => {
+  afterEach(() => {
+    __resetMockGeometry();
+  });
+
+  it.each([
+    { name: "iPhone SE", screenWidth: 320 },
+    { name: "iPhone Pro Max", screenWidth: 430 },
+  ])("keeps the phone tooltip within 8pt of the $name screen edges", ({ screenWidth }) => {
+    __setMockWindowDimensions({ width: screenWidth });
+    __setMockMeasurement("View", {
+      x: 0,
+      y: 100,
+      width: screenWidth - 16,
+      height: 56,
+    });
+    __setMockMeasurement("Pressable", {
+      x: screenWidth - 22,
+      y: 100,
+      width: 14,
+      height: 14,
+    });
+
+    const renderer = renderPhoneFieldWithTooltip();
+    const fieldContainer = renderer.root.findAllByType(View)[0];
+    act(() => {
+      fieldContainer.props.onLayout({
+        nativeEvent: { layout: { width: screenWidth - 16 } },
+      });
+    });
+
+    const trigger = renderer.root.findAllByType(Pressable)[0];
+
+    act(() => {
+      trigger.props.onPress();
+    });
+
+    const layout = getPopoverLayout(renderer);
+    expect(layout.left).toBeGreaterThanOrEqual(8);
+    expect(layout.left + layout.width).toBeLessThanOrEqual(screenWidth - 8);
+
+    renderer.unmount();
   });
 });

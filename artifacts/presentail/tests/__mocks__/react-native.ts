@@ -18,18 +18,62 @@ import * as React from "react";
 
 type AnyProps = { children?: React.ReactNode; [key: string]: unknown };
 
+export type MockMeasurement = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const DEFAULT_MEASUREMENT: MockMeasurement = { x: 0, y: 0, width: 0, height: 0 };
+let mockWindowDimensions = { width: 375, height: 812, scale: 2, fontScale: 1 };
+const mockMeasurements: Record<string, MockMeasurement> = {};
+
+/**
+ * Configure geometry for component tests that rely on native layout APIs.
+ * These controls are intentionally kept in the test-only native stub rather
+ * than in production components.
+ */
+export function __setMockWindowDimensions(
+  dimensions: Partial<typeof mockWindowDimensions>,
+): void {
+  mockWindowDimensions = { ...mockWindowDimensions, ...dimensions };
+}
+
+export function __setMockMeasurement(tag: string, measurement: MockMeasurement): void {
+  mockMeasurements[tag] = measurement;
+}
+
+export function __resetMockGeometry(): void {
+  mockWindowDimensions = { width: 375, height: 812, scale: 2, fontScale: 1 };
+  for (const tag of Object.keys(mockMeasurements)) delete mockMeasurements[tag];
+}
+
 const host =
   (tag: string) =>
   (props: AnyProps): React.ReactElement =>
     (React.createElement as (...a: unknown[]) => React.ReactElement)(tag, props);
 
 export const Text = host("Text");
-export const View = host("View");
+const measuredHost = (tag: string) =>
+  React.forwardRef<{ measureInWindow: (callback: (...values: number[]) => void) => void }, AnyProps>(
+    (props, ref) => {
+      React.useImperativeHandle(ref, () => ({
+        measureInWindow(callback) {
+          const { x, y, width, height } = mockMeasurements[tag] ?? DEFAULT_MEASUREMENT;
+          callback(x, y, width, height);
+        },
+      }));
+      return (React.createElement as (...a: unknown[]) => React.ReactElement)(tag, props);
+    },
+  );
+
+export const View = measuredHost("View");
 export const ScrollView = host("ScrollView");
 export const SafeAreaView = host("SafeAreaView");
 export const TouchableOpacity = host("TouchableOpacity");
 export const TouchableHighlight = host("TouchableHighlight");
-export const Pressable = host("Pressable");
+export const Pressable = measuredHost("Pressable");
 export const KeyboardAvoidingView = host("KeyboardAvoidingView");
 export const Modal = ({ visible, children, ...rest }: AnyProps): React.ReactElement | null => {
   if (visible === false) return null;
@@ -105,7 +149,7 @@ export const Vibration = { vibrate: () => {}, cancel: () => {} };
 export const BackHandler = { addEventListener: () => ({ remove: () => {} }), exitApp: () => {} };
 export const NativeModules = {};
 export const useColorScheme = () => null as string | null;
-export const useWindowDimensions = () => ({ width: 375, height: 812, scale: 2, fontScale: 1 });
+export const useWindowDimensions = () => mockWindowDimensions;
 
 export const TouchableWithoutFeedback = host("TouchableWithoutFeedback");
 
