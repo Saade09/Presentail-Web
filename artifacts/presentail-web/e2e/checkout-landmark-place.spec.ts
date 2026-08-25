@@ -410,6 +410,25 @@ test.describe("Checkout — landmark place selection end-to-end (stubbed Address
           "presentail_delivery_location_v1",
           JSON.stringify(location),
         );
+        // Checkout requires a committed delivery window before it can create
+        // a payment. Use tomorrow so this fixture remains bookable regardless
+        // of the time the browser test runs; the tested place selection still
+        // changes only the district and fee.
+        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10);
+        window.localStorage.setItem(
+          "presentail_delivery_selection_v1",
+          JSON.stringify({
+            mode: "schedule",
+            date: tomorrow,
+            slotLabel: "10:00–14:00",
+            slotId: null,
+            serviceType: null,
+            cityId: null,
+            source: "user_selected",
+          }),
+        );
       },
       { cart: [CART_ITEM], location: LOCATION },
     );
