@@ -408,8 +408,12 @@ describe("cake-for-proposal content", () => {
     expect(BLOG_POSTS["cake-for-proposal"].fr).toBeUndefined();
     expect(article).toMatchObject({
       slug: "cake-for-proposal",
-      title: "Cake for a Proposal: 9 Ideas for a Memorable Moment | Presentail",
-      h1: "Cake for a Proposal: 9 Ideas for a Memorable Moment",
+      title: "Cake for a Proposal: 9 Ideas and How to Order One | Presentail",
+      h1: "Cake for a Proposal: 9 Ideas, and How to Get One Made",
+      description:
+        "Proposal cake ideas that work — Marry Me designs, ring-box cakes, what to write on it, what size to order, and how to have a custom one made and delivered.",
+      dek:
+        "What to put on it, what size to order, when to bring it out — and how to have a custom proposal cake delivered.",
       geographyLabel: "Lebanon",
       categoryLabel: "Gifting Guides",
       datePublished: "2026-08-25",
@@ -419,34 +423,42 @@ describe("cake-for-proposal content", () => {
         width: 1408,
         height: 768,
       },
-      ogImageAlt: "Chocolate cake and chocolates prepared for a marriage proposal",
+      ogImageAlt: "A simple proposal cake with a piped message",
       cta: {
-        label: "Shop proposal cakes",
+        label: "Order a proposal cake",
         path: "/category/cakes",
         country: "lb",
       },
     });
-    expect(article.dek).toContain("Nine cake ideas");
-    expect(article.recommendation).toMatchObject({
-      title: "Cakes for the big question",
+    expect(article.recommendation).toEqual({
+      title: "Cakes for the moment",
+      body:
+        "Order from our range with a personalised message, or request a custom proposal cake — delivered across Lebanon.",
+      label: "Browse cakes",
       path: "/category/cakes",
       country: "lb",
       image: {
         url: "/blog/best-cakes-lebanon.webp",
-        alt: "Chocolate cake and chocolates prepared for a marriage proposal",
+        width: 1408,
+        height: 768,
+        alt: "A simple proposal cake with a piped message",
       },
     });
+    expect(article.sections[0]?.body).toBe(
+      "A proposal cake has one job, and it is not dessert. It is the reveal — the object that says the thing before you do, while your hands are busy and your voice is not cooperating. Which is why the best proposal cakes are simple, legible from a metre away, and photograph in a single frame.\n\nNine ideas below, then the practical part: what to write on it, what size to order for a proposal that is usually just two people, and how to have a custom one made.",
+    );
     expect(getBlogPostMeta(article.slug).category).toBe("gifting-guides");
   });
 
-  it("contains nine ideas, practical proposal guidance and seven FAQ items mirrored to JSON-LD", () => {
+  it("contains the exact ideas, practical guidance, quote, callout and inline link", () => {
     const ideas = article.sections.filter((section) => section.subheading);
-    const customCakeSection = article.sections.find(
-      (section) => section.heading === "Custom cakes: plan around availability",
+    const writingSection = article.sections.find((section) => section.heading === "What to write on it");
+    const sizeSection = article.sections.find(
+      (section) => section.heading === "Size and flavour: order for the moment, not the crowd",
     );
-    const deliverySection = article.sections.find(
-      (section) => section.heading === "Delivery across Lebanon",
-    );
+    const timingSection = article.sections.find((section) => section.heading === "Timing the reveal");
+    const pairingSection = article.sections.find((section) => section.heading === "What to send with it");
+    const orderingSection = article.sections.find((section) => section.heading === "How to order a proposal cake");
     const faqSection = article.sections.find(
       (section) => section.heading === "Frequently asked questions",
     );
@@ -454,30 +466,122 @@ describe("cake-for-proposal content", () => {
       (schema) => schema["@type"] === "FAQPage",
     ) as { mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }> } | undefined;
 
+    expect(article.sections.map((section) => section.heading).filter(Boolean)).toEqual([
+      "Nine proposal cake ideas",
+      "1. The classic \"Marry Me\" cake",
+      "2. The ring-box cake",
+      "3. White cake with fresh flowers",
+      "4. The reveal under the lid",
+      "5. The date cake",
+      "6. Dessert for two",
+      "7. The bilingual cake",
+      "8. Chocolate drip with a ring topper",
+      "9. The \"She Said Yes\" cake",
+      "What to write on it",
+      "Size and flavour: order for the moment, not the crowd",
+      "Timing the reveal",
+      "What to send with it",
+      "How to order a proposal cake",
+      "Frequently asked questions",
+    ]);
     expect(ideas).toHaveLength(9);
     expect(ideas.map((section) => section.heading)).toEqual([
-      "1. A classic chocolate drip cake",
-      "2. A small cake for two",
-      "3. A heart-shaped proposal cake",
-      "4. A cake with the question written on it",
-      "5. A minimalist white cake",
-      "6. A red velvet cake for the romantic route",
-      "7. A cake matched to their favourite flavour",
-      "8. A cake with flowers around the edge",
-      "9. A cake-and-chocolate celebration table",
+      "1. The classic \"Marry Me\" cake",
+      "2. The ring-box cake",
+      "3. White cake with fresh flowers",
+      "4. The reveal under the lid",
+      "5. The date cake",
+      "6. Dessert for two",
+      "7. The bilingual cake",
+      "8. Chocolate drip with a ring topper",
+      "9. The \"She Said Yes\" cake",
     ]);
-    expect(article.sections.some(
-      (section) =>
-        section.pullQuote ===
-        "The best proposal cake is the one that feels like your partner, not like a template for someone else's moment.",
-    )).toBe(true);
-    expect(customCakeSection?.body).toContain("confirm what can be made for your date");
-    expect(`${customCakeSection?.body}\n${customCakeSection?.note}`).not.toMatch(
-      /\b\d+\s*(?:business\s+)?days?\b/i,
+    expect(ideas.map((section) => section.body)).toEqual([
+      "Two words, piped clean across the top of a plain cake. It works because it removes every possible ambiguity, and because a photograph of it needs no caption. Keep the cake itself undecorated — white, ivory or dark chocolate — so the words carry the whole message.",
+      "A small square or round cake designed to look like a ring box, sometimes with the real ring set into a hollow on top. Higher-effort and much higher-impact, and it solves the question of where to hold the ring until the moment arrives.",
+      "A single-tier white cake dressed with fresh blooms — roses, ranunculus, whatever is in season. No writing at all. This is the choice when the proposal is the surprise and the cake is the setting rather than the announcement, and it doubles as the centrepiece if you are proposing at a dinner.",
+      "A cake delivered in a closed box, with the message on the inside of the lid or written across the cake so it appears only when the box opens. The pause between \"there is a cake\" and \"oh\" is the entire point.",
+      "Piped with the date you met, the date of your first trip, or the coordinates of where you are standing. Quieter than \"Marry Me\" and more personal — for the couple whose story has a specific reference point.",
+      "A miniature cake, sized for two people, because that is usually the actual audience. A six-inch cake for a proposal on a balcony makes far more sense than a party cake nobody will finish. Small also travels better and photographs closer.",
+      "\"Btetzawajini?\" in Arabic, or a mix of Arabic and English across the tiers. For a lot of couples here this reads warmer and more like them than the English version — and it lands differently with family afterwards.",
+      "A dark chocolate drip cake with a small gold or acrylic ring topper. The one on this list that suits a proposal happening at a restaurant table, since it looks like an ordinary celebration cake until you read the topper.",
+      "Not for the proposal — for the day after. A second, smaller cake for the family dinner or the office announcement, which is often the moment people forget to plan for and later wish they had photographed.",
+    ]);
+    expect(writingSection).toMatchObject({
+      body: "Short beats clever. The message has to be readable in a photo and understood in a second.",
+      items: [
+        "Marry me — unimprovable.",
+        "Will you marry me? — the full question, when you want it unmistakable.",
+        "Forever? — for couples who already talk about forever.",
+        "One more yes — if there is a running joke about it.",
+        "Btetzawajini? — the Arabic version, and often the one that gets the bigger reaction.",
+        "The date — no words at all, just the day that started it.",
+      ],
+      callout: {
+        variant: "info",
+        body:
+          "Test it by imagining the photo. If the message is not readable in a picture taken from across a table, it is too long or too ornate.",
+      },
+    });
+    expect(article.sections.find((section) => section.body?.startsWith("Avoid anything"))?.body).toBe(
+      "Avoid anything that needs explaining, anything longer than five words, and script fonts on a small cake — they blur at photo distance.",
     );
-    expect(deliverySection?.callout?.variant).toBe("service");
-    expect(faqSection?.faqItems).toHaveLength(7);
-    expect(faqSchema?.mainEntity).toHaveLength(7);
+    expect(sizeSection?.items).toEqual([
+      "Proposing privately — a six-inch cake, serving four to six. Enough to share that evening, small enough to carry.",
+      "Proposing at a family dinner — eight to ten servings, so nobody is watching someone else eat.",
+      "Proposing then announcing — order two: the small one for the moment, a larger one for the gathering after.",
+    ]);
+    expect(article.sections.find((section) => section.body?.startsWith("On flavour"))?.body).toBe(
+      "On flavour, choose theirs, not yours, and choose something that survives sitting out. Chocolate holds up. Cream-heavy and fresh-fruit cakes are less forgiving if the cake waits an hour in a warm room for its moment — a real consideration in a Lebanese or Gulf summer.",
+    );
+    expect(timingSection?.items).toEqual([
+      "Keep the cake out of sight until the moment — a car, a kitchen, a neighbour's flat, a restaurant's back room.",
+      "If you are at a restaurant, tell the staff exactly when to bring it out, and give them a signal rather than a time.",
+      "Decide who is filming before you start. Ask them to hold one wide shot rather than moving around.",
+      "If the cake is being delivered, schedule it before the two of you arrive, not during.",
+    ]);
+    expect(pairingSection?.items?.[1]).toBe(
+      'A <a href="/en/blog/balloon-arrangement-ideas">ring balloon</a> or a small cluster of red heart balloons gives the photo a background.',
+    );
+    expect(article.sections.find((section) => section.body?.startsWith("What not to do"))?.body).toBe(
+      "What not to do: all three. A proposal photographed against a wall of decoration looks like a party, not a question.",
+    );
+    expect(orderingSection?.body).toBe(
+      "Custom proposal cakes — piped messages, ring-box designs, toppers — can be made on request. Tell us what you want written and the design you have in mind, and allow a few days' lead time so it can be made properly rather than rushed.",
+    );
+    expect(article.sections.find((section) => section.pullQuote)?.pullQuote).toBe(
+      "The cake is not dessert. It is the sentence you cannot get out.",
+    );
+    expect(faqSection?.faqItems).toEqual([
+      {
+        q: "What should I write on a proposal cake?",
+        a: 'Keep it under five words so it reads in a photograph. "Marry me", "Will you marry me?", "Forever?" or the Arabic "Btetzawajini?" all work. A meaningful date with no words at all is a quieter alternative.',
+      },
+      {
+        q: "Can I order a custom proposal cake?",
+        a: "Yes. Custom messages, ring-box designs and toppers can be made on request. Tell us the wording and design you want and allow a few days' lead time. Cakes from our standard range can be ordered same-day with a personalised gift note when you order before midday.",
+      },
+      {
+        q: "What size cake should I get for a proposal?",
+        a: "A six-inch cake serving four to six is right for a private proposal, since the audience is usually two people. Order eight to ten servings if you are proposing at a family dinner, or order two cakes — a small one for the moment and a larger one for the celebration after.",
+      },
+      {
+        q: "What flavour works best for a proposal cake?",
+        a: "Choose the flavour they like, and favour something that holds up if the cake has to wait out of the fridge. Chocolate is the safest choice; cream-heavy and fresh-fruit cakes are less forgiving in a warm room.",
+      },
+      {
+        q: "When should the cake come out during a proposal?",
+        a: "After the moment has started, not before, since once the cake is on the table the surprise is over. If you are in a restaurant, agree a signal with the staff rather than a fixed time. If it is being delivered, schedule it to arrive before you do.",
+      },
+      {
+        q: "Can I have a proposal cake delivered with flowers?",
+        a: "Yes. Cakes can be ordered alongside flowers, balloons and chocolates for a single delivery, with a two-hour delivery window so everything arrives together at the right moment.",
+      },
+      {
+        q: "How far in advance should I order?",
+        a: "For a custom cake, allow a few days. For a cake from our existing range, order before midday for same-day delivery, or schedule up to 30 days ahead and pick your two-hour window.",
+      },
+    ]);
     expect(faqSchema?.mainEntity?.map((item) => item.name)).toEqual(
       faqSection?.faqItems?.map((item) => item.q),
     );

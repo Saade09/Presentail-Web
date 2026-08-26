@@ -6462,10 +6462,10 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(out).toContain(
-      "<title>Cake for a Proposal: 9 Ideas for a Memorable Moment | Presentail</title>",
+      "<title>Cake for a Proposal: 9 Ideas and How to Order One | Presentail</title>",
     );
     expect(out).toContain(
-      'content="Looking for a cake for a proposal in Lebanon? Here are nine elegant ideas, message tips, pairing suggestions and delivery advice for the moment you plan to remember."',
+      'content="Proposal cake ideas that work — Marry Me designs, ring-box cakes, what to write on it, what size to order, and how to have a custom one made and delivered."',
     );
     expect(out).toContain(
       '<meta property="og:image" content="https://presentail.test/blog/best-cakes-lebanon.webp"',
@@ -6476,7 +6476,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
 
     const article = byType(extractJsonLd(out), "Article");
     expect(article).toMatchObject({
-      headline: "Cake for a Proposal: 9 Ideas for a Memorable Moment | Presentail",
+      headline: "Cake for a Proposal: 9 Ideas and How to Order One | Presentail",
       datePublished: "2026-08-25",
       dateModified: "2026-08-25",
       image: "https://presentail.test/blog/best-cakes-lebanon.webp",
@@ -6487,7 +6487,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(faq.mainEntity).toHaveLength(7);
     expect(faq.mainEntity[0]).toMatchObject({
       "@type": "Question",
-      name: "What kind of cake is best for a proposal?",
+      name: "What should I write on a proposal cake?",
     });
   });
 
