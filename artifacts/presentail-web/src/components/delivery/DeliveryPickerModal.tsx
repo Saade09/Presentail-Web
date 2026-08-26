@@ -1008,7 +1008,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                               properties: { city_id: city?.id ?? "unknown", date: selectedIso, slot_id: midnightState.slot.slotId ?? undefined },
                             }, `${city?.id ?? "unknown"}|${selectedIso}|${midnightState.slot.slotId ?? ""}`);
                           }}
-                          className={`flex min-h-[62px] w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5 ${
+                          className={`mt-2 flex min-h-[62px] w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5 ${
                             isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-foreground/20"
                           }`}
                           data-testid={`slot-${midnightState.slot.label}`}
