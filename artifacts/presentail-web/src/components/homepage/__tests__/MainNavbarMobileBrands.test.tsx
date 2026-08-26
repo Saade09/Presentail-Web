@@ -502,6 +502,31 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect(screen.queryByRole("link", { name: /Balloon Arrangements/ })).toBeNull();
   });
 
+  it("hides OS taxonomy tags and occasion labels from the Gifts menu", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          { id: "red", name: "Red", icon: "tag", count: 13 },
+          { id: "valentines-specials", name: "Valentine's Specials", icon: "tag", count: 1 },
+          { id: "friend", name: "friend", icon: "tag", count: 5 },
+          { id: "flowers-plants", name: "Flowers & Plants", icon: "tag", count: 118 },
+          { id: "candles", name: "Candles", icon: "tag", count: 3 },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("nav-trigger-gifts"));
+
+    expect(screen.queryByTestId("megamenu-item-red")).toBeNull();
+    expect(screen.queryByTestId("megamenu-item-valentines-specials")).toBeNull();
+    expect(screen.queryByTestId("megamenu-item-friend")).toBeNull();
+    expect(screen.queryByTestId("megamenu-item-flowers-&-plants")).toBeNull();
+    expect(screen.queryByTestId("megamenu-item-candles")).toBeDefined();
+  });
+
   it("keeps the occasions CTA outside the scrolling skeleton while the catalog loads", async () => {
     const user = userEvent.setup();
     mockUseCatalogOccasions.mockReturnValue({ data: undefined, isPending: true });

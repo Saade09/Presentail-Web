@@ -11,6 +11,8 @@ description: Category links must be filtered by per-country catalog metadata cou
 
 **OS eligibility:** category navigation requires all three signals: membership in the OS public active-only taxonomy, `is_featured === true` (Mega menu enabled), and a positive per-country product count. Explicit inactive aliases always win.
 
+**Top-level menu curation:** do not let OS taxonomy tags (colors, recipients, or occasion labels) auto-append to Gifts; flower subcategories should be grouped under Flowers instead.
+
 **Why:** the sitemap generator was fixed the same way earlier (only emits category URLs with per-country count > 0); nav and sitemap must agree or Semrush crawls flag 404s.
 
 **Related:** blog shell's nested wouter router base is `/${lang}`; bare-language roots like `/fr/` are NOT routes. Home links on lang-based shells must escape the router base with wouter's `~` prefix (`~/`).

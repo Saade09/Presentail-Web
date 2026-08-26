@@ -31,6 +31,8 @@ export const CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   "orchids": "flowers",
   "roses": "flowers",
   "roses-lebanon": "flowers",
+  "flowers-plants": "flowers",
+  "luxury": "flowers",
   "balloons": "gifts",
   "balloon-arrangements": "gifts",
   "religious-gifts": "gifts",
@@ -86,6 +88,20 @@ export const CATEGORY_STATIC_IMAGES: Record<string, string> = {
  */
 export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
   "gift-cards",
+  // OS taxonomy tags/occasion labels are useful for catalog organization but
+  // should not become top-level navigation links in the Gifts mega menu.
+  "red",
+  "valentines-specials",
+  "pink",
+  "birthday-bundles",
+  "im-sorry",
+  "fathers-day",
+  "friend",
+  "colleague",
+  "yellow",
+  "sunflower",
+  "sweets",
+  "children",
 ]);
 
 /**
