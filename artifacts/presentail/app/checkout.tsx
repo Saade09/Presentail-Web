@@ -89,7 +89,6 @@ import {
   firstAvailableDay,
   getCountryHour,
   isExpressDeliveryAvailable,
-  isSlotStillBookable,
   resolveSlotLabel,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -113,6 +112,7 @@ import { firePostOrderAnalytics } from "@/lib/postOrderAnalytics";
 import { useNow } from "@/lib/useNow";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { buildCardFrom } from "@/lib/cardFrom";
+import { checkNativeStaleSlotSelection } from "@/lib/staleSlotCheck";
 import { isDiscountActive } from "@/lib/salePriceHelpers";
 import { getDeviceId } from "@/services/notifications";
 import { CheckoutPlaceField } from "@/components/CheckoutPlaceField";
@@ -1202,12 +1202,12 @@ function CheckoutScreen() {
     return result.ok;
   };
 
-  // The selected same-day slot went stale (window ended / city cutoff passed)
+  // The selected same-day slot went stale (date or delivery window ended)
   // — either caught by the local pre-check or rejected by the server with
-  // code "expired_delivery_slot". Snap the selection to the next available
+  // a structured delivery-slot code. Snap the selection to the next available
   // date/slot and prompt the shopper to review it. Cart and all other
   // checkout data are preserved; no payment has been initiated.
-  const promptStaleSlotRepick = () => {
+  const promptStaleSlotRepick = (reason: "expired" | "unavailable" = "expired") => {
     const h = getCountryHour(effectiveCountry);
     const next = firstAvailableDay(todayIso, timeSlots, h, todayIso);
     deliverySelection.setSelection({
@@ -1215,14 +1215,29 @@ function CheckoutScreen() {
       date: next?.iso ?? todayIso,
       slotLabel: next?.slot.label ?? null,
     });
-    Alert.alert(t.checkoutSlotExpiredTitle, t.checkoutSlotExpiredMsg);
+    Alert.alert(
+      reason === "unavailable"
+        ? t.checkoutSlotUnavailableTitle
+        : t.checkoutSlotExpiredTitle,
+      reason === "unavailable"
+        ? t.checkoutSlotUnavailableMsg
+        : t.checkoutSlotExpiredMsg,
+    );
     setPaying(false);
   };
   // True when a payment-initiation response carries the server's stale-slot
   // rejection; the caller must return immediately after this handles it.
   const handledStaleSlotCode = (code: string | undefined): boolean => {
-    if (code !== "expired_delivery_slot" && code !== "past_delivery_date") return false;
-    promptStaleSlotRepick();
+    if (
+      code !== "expired_delivery_slot" &&
+      code !== "past_delivery_date" &&
+      code !== "delivery_slot_unavailable"
+    ) {
+      return false;
+    }
+    promptStaleSlotRepick(
+      code === "delivery_slot_unavailable" ? "unavailable" : "expired",
+    );
     return true;
   };
 
@@ -1240,20 +1255,16 @@ function CheckoutScreen() {
     // bug). Re-validate BEFORE any payment is initiated; if stale, snap the
     // selection to the next available date/slot and prompt the shopper to
     // review it. Cart and all other checkout data are preserved.
-    if (deliveryMode !== "express") {
-      const staleCheck = isSlotStillBookable({
-        deliveryDate: date,
-        slot,
-        countryCode: effectiveCountry,
-        sameDayCutoffHour:
-          typeof deliveryCity?.sameDayCutoffHour === "number"
-            ? deliveryCity.sameDayCutoffHour
-            : undefined,
-      });
-      if (!staleCheck.bookable) {
-        promptStaleSlotRepick();
-        return;
-      }
+    const staleCheck = checkNativeStaleSlotSelection({
+      deliveryMode,
+      deliveryDate: date,
+      slot,
+      countryCode: effectiveCountry,
+      cityId: deliveryCity?.id,
+    });
+    if (!staleCheck.bookable) {
+      promptStaleSlotRepick();
+      return;
     }
 
     // Pre-payment server total verification — detect any fee mismatch (FX tick,

@@ -1741,7 +1741,6 @@ function CheckoutForm() {
         deliveryDate: currentDate,
         timeSlots,
         countryCode,
-        sameDayCutoffHour: selectedCityData?.sameDayCutoffHour,
         cityId: selectedCityData?.id ?? deliverySelection.cityId,
         now,
       }).bookable;
@@ -2868,8 +2867,8 @@ function CheckoutForm() {
       });
     }
   };
-  // The selected delivery date/slot went stale (same-day window ended or the
-  // city cutoff passed) — surface a friendly prompt and open the delivery
+  // The selected delivery date/slot went stale (date or window ended) —
+  // surface a friendly prompt and open the delivery
   // picker so the shopper re-picks. Cart and all other checkout state are
   // preserved; payment is simply not initiated.
   const promptStaleSlotRepick = () => {
@@ -2880,7 +2879,9 @@ function CheckoutForm() {
     });
     setDeliveryPickerOpen(true);
   };
-  const returnToCartForAuthoritativeDeliveryRejection = () => {
+  const returnToCartForAuthoritativeDeliveryRejection = (
+    reason: "expired" | "unavailable",
+  ) => {
     try {
       const draft: AddressHandoffDraft = { recipient, sender, step: step === 2 ? 2 : 1 };
       sessionStorage.setItem(CHECKOUT_DELIVERY_RECOVERY_KEY, JSON.stringify(draft));
@@ -2888,7 +2889,7 @@ function CheckoutForm() {
       // Delivery recovery remains useful even when browser storage is blocked.
     }
     if (deliverySelection.invalidate) {
-      deliverySelection.invalidate("expired");
+      deliverySelection.invalidate(reason);
     } else {
       deliverySelection.clear();
     }
@@ -3229,10 +3230,16 @@ function CheckoutForm() {
         );
       } catch { /* best-effort */ }
       setLocation(`/order-confirmed?status=success&ref=${payload.orderId}`);
-    } else if (res.code === "expired_delivery_slot" || res.code === "past_delivery_date") {
+    } else if (
+      res.code === "expired_delivery_slot" ||
+      res.code === "past_delivery_date" ||
+      res.code === "delivery_slot_unavailable"
+    ) {
       // The selection changed after the pre-check. Returning to cart makes the
-      // expired fee/promise impossible to submit again while retaining the form.
-      returnToCartForAuthoritativeDeliveryRejection();
+      // invalid fee/promise impossible to submit again while retaining the form.
+      returnToCartForAuthoritativeDeliveryRejection(
+        res.code === "delivery_slot_unavailable" ? "unavailable" : "expired",
+      );
     } else if (res.code === "coupon_invalid") {
       // Coupon-specific error: surface inline below the coupon field (using
       // WC's specific message when available) so the shopper can correct the
@@ -3324,10 +3331,6 @@ function CheckoutForm() {
           deliveryDate: recipient.deliveryDate,
           timeSlots,
           countryCode,
-          sameDayCutoffHour:
-            typeof selectedCityData?.sameDayCutoffHour === "number"
-              ? selectedCityData.sameDayCutoffHour
-              : undefined,
           cityId: selectedCityData?.id ?? deliverySelection.cityId,
           now,
         });
@@ -4177,8 +4180,14 @@ function CheckoutForm() {
       // Server-authoritative stale-slot rejection (payment-intent / hosted
       // session / order creation). Prompt a re-pick instead of a raw failure.
       const apiErrCode = (apiErr?.data as { code?: string } | null)?.code;
-      if (apiErrCode === "expired_delivery_slot" || apiErrCode === "past_delivery_date") {
-        returnToCartForAuthoritativeDeliveryRejection();
+      if (
+        apiErrCode === "expired_delivery_slot" ||
+        apiErrCode === "past_delivery_date" ||
+        apiErrCode === "delivery_slot_unavailable"
+      ) {
+        returnToCartForAuthoritativeDeliveryRejection(
+          apiErrCode === "delivery_slot_unavailable" ? "unavailable" : "expired",
+        );
         return;
       }
       const isColdCache = apiErr?.status === 503;

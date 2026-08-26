@@ -142,6 +142,9 @@ export function sanitize(
   if (!mode) return EMPTY;
   const localToday = todayIso(countryCode, now);
   const datePassed = !!date && date < localToday;
+  // Exact persisted scheduled selections are validated against the live city
+  // schedule by Cart/ProductDetail. Keep them through rehydration so an
+  // ordinary overnight window is not erased just after local midnight.
   const activeMidnight =
     datePassed &&
     serviceType === "midnight" &&
@@ -154,9 +157,16 @@ export function sanitize(
       countryCode,
       now,
     }).bookable;
-  if (datePassed && !activeMidnight) date = null;
+  const deferExactOrdinaryValidation =
+    datePassed &&
+    serviceType !== "midnight" &&
+    !!slotId &&
+    !!slotLabel &&
+    !!cityId;
+  const preservePastDate = activeMidnight || deferExactOrdinaryValidation;
+  if (datePassed && !preservePastDate) date = null;
   const source =
-    datePassed && !activeMidnight
+    datePassed && !preservePastDate
       ? "system_reselected"
       : restoredSource(obj.source);
   if (mode === "express") {

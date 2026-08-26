@@ -3,7 +3,7 @@
 // Covers:
 //  1. checkSubmittedSlotBookable — resolves the booked slot from the OS city
 //     config (slotId-first) and rejects a same-day slot whose window ended or
-//     whose city same-day cutoff passed, in the store's local timezone.
+//     whose delivery window ended, in the store's local timezone.
 //  2. evaluateOrderSlotGuard — order-creation policy: unpaid submissions with
 //     a stale slot are rejected; paid submissions (paymentRef present — the
 //     webhook/sweeper/recovery rescue paths) are ALLOWED and only flagged, so
@@ -92,17 +92,17 @@ describe("checkSubmittedSlotBookable", () => {
     expect(r).toEqual({ bookable: true });
   });
 
-  it("rejects any same-day slot after the city cutoff", () => {
-    getExpressConfigMock.mockReturnValue({ sameDayCutoffHour: 18 });
+  it("keeps an ordinary same-day slot valid after the city cutoff", () => {
+    getExpressConfigMock.mockReturnValue({ sameDayCutoffHour: 11 });
     const r = checkSubmittedSlotBookable({
       deliverySlot: "3:00 PM – 8:00 PM",
       deliverySlotId: "evening",
       deliveryDate: TODAY,
       cityId: "beirut",
       district: "Beirut",
-      now: beirut(19),
+      now: beirut(11, 25),
     });
-    expect(r).toEqual({ bookable: false, reason: "same_day_cutoff_passed" });
+    expect(r).toEqual({ bookable: true });
   });
 
   it("enforces the exact Beirut late-slot cutoff before payment", () => {
@@ -129,11 +129,20 @@ describe("checkSubmittedSlotBookable", () => {
       bookable: false,
       reason: "same_day_cutoff_passed",
     });
+    expect(
+      checkSubmittedSlotBookable({
+        ...base,
+        now: new Date("2026-08-18T21:10:00.000Z"),
+      }),
+    ).toEqual({
+      bookable: false,
+      reason: "same_day_cutoff_passed",
+    });
   });
 
   it("uses an earlier verified slot cutoff for the Beirut late slot", () => {
     getDeliverySlotsMock.mockReturnValue([
-      { ...LATE_SLOT, cutoffHour: 22, cutoffMinute: 15 },
+      { ...LATE_SLOT, cutoffHour: 23, cutoffMinute: 15 },
     ]);
     getExpressConfigMock.mockReturnValue({
       sameDayCutoffHour: 23,
@@ -146,9 +155,95 @@ describe("checkSubmittedSlotBookable", () => {
         deliveryDate: TODAY,
         cityId: "lb-beirut",
         district: "Beirut",
-        now: beirut(22, 15),
+        now: beirut(23, 15),
       }),
     ).toEqual({ bookable: false, reason: "same_day_cutoff_passed" });
+  });
+
+  it("preserves the verified campaign cutoff for an 18:00 late window", () => {
+    const campaignSlot = {
+      ...LATE_SLOT,
+      label: "6:00 PM – 11:00 PM",
+      startHour: 18,
+      endHour: 23,
+      cutoffHour: 22,
+      cutoffMinute: 0,
+    };
+    getDeliverySlotsMock.mockReturnValue([campaignSlot]);
+    getExpressConfigMock.mockReturnValue({
+      sameDayCutoffHour: 23,
+      sameDayCutoffMinute: 30,
+    });
+    expect(
+      checkSubmittedSlotBookable({
+        deliverySlot: campaignSlot.label,
+        deliverySlotId: campaignSlot.slotId,
+        deliveryDate: TODAY,
+        cityId: "lb-beirut",
+        district: "Beirut",
+        now: beirut(22),
+      }),
+    ).toEqual({ bookable: false, reason: "same_day_cutoff_passed" });
+  });
+
+  it("does not apply the campaign cutoff to an ordinary 18:00–22:00 window", () => {
+    const ordinaryEvening = {
+      ...LATE_SLOT,
+      label: "6:00 PM – 10:00 PM",
+      startHour: 18,
+      endHour: 22,
+      cutoffHour: 18,
+      cutoffMinute: 0,
+    };
+    getDeliverySlotsMock.mockReturnValue([ordinaryEvening]);
+    expect(
+      checkSubmittedSlotBookable({
+        deliverySlot: ordinaryEvening.label,
+        deliverySlotId: ordinaryEvening.slotId,
+        deliveryDate: TODAY,
+        cityId: "lb-beirut",
+        district: "Beirut",
+        now: beirut(18, 30),
+      }),
+    ).toEqual({ bookable: true });
+  });
+
+  it("rejects a disabled same-day slot submitted by label only", () => {
+    getDeliverySlotsMock.mockReturnValue([
+      {
+        ...CITY_SLOTS[1],
+        enabled: false,
+        sameDayEnabled: true,
+      },
+    ]);
+    expect(
+      checkSubmittedSlotBookable({
+        deliverySlot: CITY_SLOTS[1]!.label,
+        deliveryDate: TODAY,
+        cityId: "beirut",
+        district: "Beirut",
+        now: beirut(11),
+      }),
+    ).toEqual({ bookable: false, reason: "slot_unavailable" });
+  });
+
+  it("rejects a disabled future slot submitted by label only", () => {
+    getDeliverySlotsMock.mockReturnValue([
+      {
+        ...CITY_SLOTS[1],
+        enabled: false,
+        nextDayEnabled: true,
+      },
+    ]);
+    expect(
+      checkSubmittedSlotBookable({
+        deliverySlot: CITY_SLOTS[1]!.label,
+        deliveryDate: TOMORROW,
+        cityId: "beirut",
+        district: "Beirut",
+        now: beirut(11),
+      }),
+    ).toEqual({ bookable: false, reason: "slot_unavailable" });
   });
 
   it("allows future-date orders regardless of the hour", () => {
@@ -251,6 +346,31 @@ describe("evaluateOrderSlotGuard — paid-recovery exemption", () => {
   it("allows a valid submission outright", () => {
     expect(
       evaluateOrderSlotGuard({ ...staleInput, now: beirut(10) }),
+    ).toEqual({ action: "allow" });
+  });
+
+  it("allows an ordinary overnight slot after midnight, including paid recovery", () => {
+    const overnight = {
+      label: "10 PM – 6 AM",
+      slotId: "overnight",
+      startHour: 22,
+      endHour: 6,
+      enabled: true,
+      sameDayEnabled: true,
+      nextDayEnabled: false,
+    };
+    getDeliverySlotsMock.mockReturnValue([overnight]);
+    const input = {
+      deliverySlot: overnight.label,
+      deliverySlotId: overnight.slotId,
+      deliveryDate: TODAY,
+      cityId: "beirut",
+      district: "Beirut",
+      now: new Date("2026-08-18T21:30:00.000Z"),
+    };
+    expect(evaluateOrderSlotGuard(input)).toEqual({ action: "allow" });
+    expect(
+      evaluateOrderSlotGuard({ ...input, paymentRef: "pi_paid" }),
     ).toEqual({ action: "allow" });
   });
 });

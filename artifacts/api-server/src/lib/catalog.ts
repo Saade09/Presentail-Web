@@ -22,6 +22,7 @@ import {
   midnightWindowForOccasionDate,
   type SlotBookability,
 } from "@workspace/delivery";
+import { selectLateSlot } from "./beirutLateNightCampaign";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
 // server-side so the client cannot manipulate the delivery fee.
@@ -191,6 +192,11 @@ export function resolveSlotForDate<T extends SlotLike>(
     );
     if (!exact || exact.label !== deliverySlot) return undefined;
     if (isMidnightSlot(exact, opts.cityId)) return exact;
+    const exactWrapsPastMidnight =
+      typeof exact.startHour === "number" &&
+      typeof exact.endHour === "number" &&
+      (exact.endHour >= 24 || exact.endHour <= exact.startHour);
+    if (dateIso < todayIso && exactWrapsPastMidnight) return exact;
     if (
       isToday &&
       citySlots.some((s) => s.sameDayEnabled !== undefined) &&
@@ -210,10 +216,14 @@ export function resolveSlotForDate<T extends SlotLike>(
 
   let eligible = citySlots.filter((slot) => slot.enabled !== false);
   if (isToday && citySlots.some((s) => s.sameDayEnabled !== undefined)) {
-    eligible = citySlots.filter((s) => s.sameDayEnabled !== false);
+    eligible = citySlots.filter(
+      (s) => s.enabled !== false && s.sameDayEnabled !== false,
+    );
   } else if (!isToday && citySlots.some((s) => s.nextDayEnabled !== undefined)) {
     // Tomorrow and later both use the next-day flag (matches client).
-    eligible = citySlots.filter((s) => s.nextDayEnabled !== false);
+    eligible = citySlots.filter(
+      (s) => s.enabled !== false && s.nextDayEnabled !== false,
+    );
   }
 
   // Deduplicate by label, keeping the variant best suited to the date.
@@ -378,26 +388,37 @@ export function checkSubmittedSlotBookable(
   const { sameDayCutoffHour, sameDayCutoffMinute } = getExpressConfig(
     opts.cityId,
   );
+  // Only the explicit late-night service window keeps its operational cutoff.
+  // Ordinary evening windows such as 6 PM–10 PM are persisted selections and
+  // remain valid until their window ends.
+  const verifiedBeirutLateSlot =
+    country === "LB" && /(?:^|-)beirut$/i.test(opts.cityId ?? "")
+      ? selectLateSlot(citySlots, undefined, "")
+      : null;
   const isBeirutLateSlot =
     country === "LB" &&
     /(?:^|-)beirut$/i.test(opts.cityId ?? "") &&
     Boolean(opts.deliverySlotId) &&
-    exactSubmittedSlot?.enabled === true &&
-    exactSubmittedSlot.sameDayEnabled === true &&
-    typeof exactSubmittedSlot.startHour === "number" &&
-    exactSubmittedSlot.startHour >= 18 &&
+    verifiedBeirutLateSlot?.slotId === exactSubmittedSlot?.slotId &&
+    typeof exactSubmittedSlot?.startHour === "number" &&
     typeof exactSubmittedSlot.endHour === "number" &&
-    (exactSubmittedSlot.endHour >= 21 ||
+    (exactSubmittedSlot.endHour >= 23 ||
       exactSubmittedSlot.endHour < exactSubmittedSlot.startHour);
+  const verifiedLateHardCutoffMinutes = isBeirutLateSlot
+    ? Math.min(
+        23 * 60 + 30,
+        typeof sameDayCutoffHour === "number"
+          ? sameDayCutoffHour * 60 + (sameDayCutoffMinute ?? 0)
+          : Number.POSITIVE_INFINITY,
+      )
+    : undefined;
   const bookability = isSlotStillBookable({
     deliveryDate: opts.deliveryDate,
     slot: bookedSlot,
     countryCode: country,
     cityId: opts.cityId,
-    sameDayCutoffHour,
-    sameDayCutoffMinute,
     enforceSlotCutoff: isBeirutLateSlot,
-    hardCutoffMinutes: isBeirutLateSlot ? 23 * 60 + 30 : undefined,
+    hardCutoffMinutes: verifiedLateHardCutoffMinutes,
     now: opts.now,
   });
   return bookability.bookable && bookedIsMidnight

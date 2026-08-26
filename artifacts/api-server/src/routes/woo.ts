@@ -349,8 +349,6 @@ const CATEGORY_MAP: Record<string, string> = {
   "flower-boxes": "flower-boxes",
   "flower-vases": "flower-vases",
   bundles: "bundles",
-  "balloon-arrangements": "balloon-arrangements",
-  "religious-gifts": "religious-gifts",
   baskets: "baskets",
   "lux-arrangements": "lux-arrangements",
   "dried-flowers": "dried-flowers",
@@ -371,10 +369,7 @@ function mapCategory(cats: { id: number; name: string; slug: string }[]): string
     const mapped = CATEGORY_MAP[cat.slug];
     if (mapped) return mapped;
   }
-  // Presentail OS can add categories without a matching web release. Preserve
-  // the product's real primary category instead of silently relabelling every
-  // new category as "bundles".
-  return cats.find((cat) => cat.id < 10_000)?.slug ?? "bundles";
+  return "bundles";
 }
 
 type DeliveryFilter = {
@@ -1349,40 +1344,7 @@ router.post("/woo/order", async (req, res) => {
     );
   }
 
-  // Server-side past-date guard — reject any scheduled delivery date that is
-  // strictly before "today" in the recipient country's local timezone. The
-  // sole exception is an exact Midnight slot whose selected 23:00 start date
-  // was yesterday and whose cross-midnight window is still active.
-  if (body.deliveryDate) {
-    const todayLocal = getLocalIso(store.country);
-    const priorDateSlotCheck =
-      body.deliveryDate < todayLocal
-        ? checkSubmittedSlotBookable({
-            deliverySlot: body.deliverySlot,
-            deliverySlotId: body.deliverySlotId,
-            deliveryDate: body.deliveryDate,
-            cityId: body.cityId,
-            deliveryServiceType: body.deliveryServiceType,
-            district: body.district,
-          })
-        : null;
-    const activePriorDateMidnight =
-      priorDateSlotCheck?.bookable === true &&
-      priorDateSlotCheck.serviceType === "midnight";
-    if (body.deliveryDate < todayLocal && !activePriorDateMidnight) {
-      req.log?.warn?.(
-        { deliveryDate: body.deliveryDate, todayLocal, country: store.country },
-        "woo.order: delivery date is in the past — rejecting",
-      );
-      return res.status(422).json({
-        ok: false,
-        code: "past_delivery_date",
-        message: "The selected delivery date has already passed. Please select a date from today onwards.", // i18n-ignore
-      });
-    }
-  }
-
-  // Stale same-day slot guard — reject an order whose selected same-day slot
+  // Authoritative slot guard — includes past dates and overnight windows.
   // window has already ended (or whose city same-day cutoff has passed) in the
   // store's local timezone. CRITICAL: orders carrying a paymentRef are already
   // paid (card/wallet finalization, redirect returns, webhook/sweeper recovery
@@ -1405,7 +1367,10 @@ router.post("/woo/order", async (req, res) => {
       );
       return res.status(422).json({
         ok: false,
-        code: "expired_delivery_slot",
+        code:
+          slotGuard.reason === "slot_unavailable"
+            ? "delivery_slot_unavailable"
+            : "expired_delivery_slot",
         reason: slotGuard.reason,
         message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
       });

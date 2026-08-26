@@ -90,6 +90,24 @@ describe("sanitize — source handling", () => {
     expect(out.source).toBe("restored_user_selection");
   });
 
+  it("defers an exact ordinary overnight selection to live validation", () => {
+    const out = sanitize(
+      {
+        mode: "schedule",
+        date: "2026-08-20",
+        slotLabel: "10 PM – 6 AM",
+        slotId: "overnight",
+        cityId: "lb-beirut",
+        source: "user_selected",
+      },
+      "LB",
+      new Date("2026-08-20T21:30:00.000Z"),
+    );
+    expect(out.date).toBe("2026-08-20");
+    expect(out.slotId).toBe("overnight");
+    expect(out.source).toBe("restored_user_selection");
+  });
+
   it("clears yesterday's Midnight start date once the window ends at 01:00", () => {
     const out = sanitize(
       {

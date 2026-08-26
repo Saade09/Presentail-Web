@@ -21,14 +21,14 @@ const selected = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("classifyCartDeliverySelection", () => {
-  it("classifies a Beirut cutoff that passed while the cart was open as time expiry", () => {
+  it("keeps an ordinary Beirut slot valid after booking cutoff while its window is open", () => {
     expect(classifyCartDeliverySelection({
       selection: selected(),
       countryCode: "LB",
       city: { id: "city", name: "Beirut", timeSlots: [slot], expressAvailable: true },
-      // 18:00 in Beirut in August: the 16:00 booking cutoff has passed.
+      // 18:00 in Beirut: booking cutoff passed, but the selected window is open.
       now: new Date("2026-08-14T15:00:00.000Z"),
-    })).toEqual({ valid: false, reason: "expired" });
+    })).toEqual({ valid: true });
   });
 
   it("keeps a still-bookable Dubai window valid in the destination market timezone", () => {
@@ -120,5 +120,32 @@ describe("classifyCartDeliverySelection", () => {
       },
       now: new Date("2026-08-14T22:00:00.000Z"),
     })).toEqual({ valid: false, reason: "expired" });
+  });
+
+  it("keeps a same-day-only ordinary overnight slot valid after midnight", () => {
+    const overnight = {
+      label: "10 PM – 6 AM",
+      slotId: "overnight",
+      startHour: 22,
+      endHour: 6,
+      sameDayEnabled: true,
+      nextDayEnabled: false,
+    };
+    expect(classifyCartDeliverySelection({
+      selection: selected({
+        date: "2026-08-14",
+        slotLabel: overnight.label,
+        slotId: overnight.slotId,
+      }),
+      countryCode: "LB",
+      city: {
+        id: "city",
+        name: "Beirut",
+        slotsByDay: { friday: [overnight] },
+        timeSlots: [],
+        expressAvailable: true,
+      },
+      now: new Date("2026-08-14T21:30:00.000Z"),
+    })).toEqual({ valid: true });
   });
 });

@@ -206,7 +206,10 @@ router.post("/checkout/session", async (req, res) => {
       );
       return res.status(422).json({
         ok: false,
-        code: "expired_delivery_slot",
+        code:
+          slotCheck.reason === "slot_unavailable"
+            ? "delivery_slot_unavailable"
+            : "expired_delivery_slot",
         reason: slotCheck.reason,
         message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
       });
@@ -702,7 +705,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
       );
       return res.status(422).json({
         ok: false,
-        code: "expired_delivery_slot",
+        code:
+          slotCheck.reason === "slot_unavailable"
+            ? "delivery_slot_unavailable"
+            : "expired_delivery_slot",
         reason: slotCheck.reason,
         message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
       });
@@ -1360,7 +1366,10 @@ router.post("/checkout/fees", async (req, res) => {
   if (!slotCheck.bookable) {
     return res.status(422).json({
       ok: false,
-      code: "expired_delivery_slot",
+      code:
+        slotCheck.reason === "slot_unavailable"
+          ? "delivery_slot_unavailable"
+          : "expired_delivery_slot",
       reason: slotCheck.reason,
       message:
         "The selected delivery time is no longer available. Please choose another time.", // i18n-ignore

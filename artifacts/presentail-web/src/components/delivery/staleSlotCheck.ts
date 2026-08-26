@@ -21,9 +21,10 @@ export function checkStaleSlotSelection(opts: {
   deliveryDate: string;
   timeSlots: TimeSlot[];
   countryCode?: string | null;
-  sameDayCutoffHour?: number;
-  /** Cart availability uses the selected OS slot's booking cutoff as well. */
+  /** Reserved for verified special-service selections. */
   enforceSlotCutoff?: boolean;
+  /** Reserved for verified special-service selections. */
+  hardCutoffMinutes?: number;
   /** Required so Midnight slots use their special date-window rules. */
   cityId?: string | null;
   now?: Date;
@@ -41,8 +42,8 @@ export function checkStaleSlotSelection(opts: {
     deliveryDate: opts.deliveryDate,
     slot,
     countryCode: opts.countryCode,
-    sameDayCutoffHour: opts.sameDayCutoffHour,
     enforceSlotCutoff: opts.enforceSlotCutoff,
+    hardCutoffMinutes: opts.hardCutoffMinutes,
     cityId: opts.cityId,
     now: opts.now,
   });

@@ -71,29 +71,32 @@ export function classifyCartDeliverySelection(args: {
   // exception to generic same-day/next-day flags: its selected date is now
   // yesterday, but the exact OS row remains valid until the absolute 01:00 end.
   const rawSlots = rawSlotsForDate(city, selection.date);
-  const exactPersistedMidnight =
-    selection.serviceType === "midnight" &&
-    selection.cityId === city.id &&
-    !!selection.slotId
+  const exactPersistedContinuation =
+    selection.cityId === city.id && !!selection.slotId
       ? rawSlots.find(
           (rawSlot) => {
             const slot = rawSlot as IdentifiedTimeSlot;
+            const overnight =
+              typeof slot.startHour === "number" &&
+              typeof slot.endHour === "number" &&
+              (slot.endHour >= 24 || slot.endHour <= slot.startHour);
             return (
               slot.slotId === selection.slotId &&
               slot.label === selection.slotLabel &&
               slot.enabled !== false &&
-              isMidnightSlot(slot, city.id)
+              (isMidnightSlot(slot, city.id) ||
+                (selection.date! < todayIso && overnight))
             );
           },
         ) as IdentifiedTimeSlot | undefined
       : undefined;
-  if (exactPersistedMidnight) {
+  if (exactPersistedContinuation) {
     const midnightOutcome = checkStaleSlotSelection({
       deliveryMode: "schedule",
       deliverySlot: selection.slotLabel,
       deliverySlotId: selection.slotId ?? undefined,
       deliveryDate: selection.date,
-      timeSlots: [exactPersistedMidnight],
+      timeSlots: [exactPersistedContinuation],
       countryCode,
       cityId: city.id,
       now,
@@ -123,8 +126,6 @@ export function classifyCartDeliverySelection(args: {
     deliveryDate: selection.date,
     timeSlots: slots,
     countryCode,
-    sameDayCutoffHour: city.sameDayCutoffHour,
-    enforceSlotCutoff: true,
     cityId: selection.cityId ?? city.id,
     now,
   });
