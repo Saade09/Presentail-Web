@@ -6,12 +6,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Zap, CalendarDays, Check, ChevronLeft, ChevronRight, ArrowRight, Moon } from "lucide-react";
+import { Zap, CalendarDays, Check, ChevronLeft, ChevronRight, ArrowRight, Moon, ChevronDown, AlertCircle } from "lucide-react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useLocationSelection, type DeliveryCity } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useNow } from "@/lib/useNow";
 import { trackEvent } from "@/lib/analytics";
 import { FormattedPrice } from "@/components/FormattedPrice";
@@ -166,6 +165,37 @@ function SectionHeading({ children }: { children: ReactNode }) {
   return (
     <p className="text-sm font-semibold text-foreground">{children}</p>
   );
+}
+
+/** Give button-based radio groups the standard Arrow/Home/End behavior. */
+function handleRadioGroupKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  const target = event.target instanceof HTMLElement
+    ? event.target.closest<HTMLButtonElement>('[role="radio"]')
+    : null;
+  if (!target) return;
+
+  const radios = Array.from(
+    event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not([disabled])'),
+  );
+  const currentIndex = radios.indexOf(target);
+  if (currentIndex < 0 || radios.length < 2) return;
+
+  let nextIndex: number | null = null;
+  if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+    nextIndex = (currentIndex + 1) % radios.length;
+  } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+    nextIndex = (currentIndex - 1 + radios.length) % radios.length;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = radios.length - 1;
+  }
+  if (nextIndex === null) return;
+
+  event.preventDefault();
+  const next = radios[nextIndex]!;
+  next.focus();
+  next.click();
 }
 
 // ---------------------------------------------------------------------------
@@ -385,6 +415,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const [date, setDate] = useState(initialDate);
   const [slot, setSlot] = useState(initialSlot);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [unavailableExpanded, setUnavailableExpanded] = useState(false);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const midnightViewedRef = useRef(false);
   useEffect(() => {
@@ -410,6 +442,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   useEffect(() => {
     if (!open) return;
     setCalendarOpen(false);
+    setUnavailableExpanded(false);
     setMode(
       initialModeOverride === "express" && expressAvailable
         ? "express"
@@ -459,6 +492,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const handleDateChange = (newDate: string) => {
     setDate(newDate);
     setSlot(defaultSlotForDate(newDate || todayIso));
+    setUnavailableExpanded(false);
   };
 
   const selectedIso = date || todayIso;
@@ -479,6 +513,16 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     [slotsForDate, selectedIso, isSelectedToday, currentHour],
   );
   const hasAnyAvailableSlot = slotStates.some((s) => !s.unavailable);
+  const availableSlotStates = slotStates.filter((s) => !s.unavailable);
+  const unavailableSlotStates = slotStates.filter((s) => s.unavailable);
+  const nextAvailableDate = useMemo(() => {
+    if (hasAnyAvailableSlot) return null;
+    for (let i = 1; i <= 30; i++) {
+      const candidate = addDaysIso(selectedIso, i);
+      if (slotsForDate(candidate).length > 0) return candidate;
+    }
+    return null;
+  }, [hasAnyAvailableSlot, selectedIso, slotsForDate]);
   const selectedSlotState = slotStates.find((s) => s.slot.label === slot && !s.unavailable) ?? null;
 
   // Pending selection awaiting the "Deliver earlier?" confirmation. Set when a
@@ -631,69 +675,85 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg sm:max-w-xl max-h-[90dvh] overflow-y-auto p-0">
-        <div className="p-6 pb-0 sm:px-8 sm:pt-7">
-          <DialogTitle className="text-2xl font-serif">
+      <DialogContent
+        className="flex h-[min(680px,calc(100dvh-32px))] max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-[680px] flex-col gap-0 overflow-hidden rounded-2xl border-[#E7E1D8] bg-[#FFFDFC] p-0 shadow-2xl sm:rounded-2xl"
+        onOpenAutoFocus={() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement && active !== document.body && !active.closest('[role="dialog"]')) {
+            openerRef.current = active;
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = openerRef.current;
+          if (!opener?.isConnected || opener.hasAttribute("disabled")) return;
+          event.preventDefault();
+          requestAnimationFrame(() => opener.focus());
+        }}
+      >
+        <div className="shrink-0 border-b border-border/70 px-5 pb-3 pt-5 sm:px-7 sm:pb-4 sm:pt-6">
+          <DialogTitle className="pr-10 text-[23px] font-serif leading-tight sm:text-2xl">
             {t("delivery.picker.title")}
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground mt-1">
+          <DialogDescription className="mt-1 text-xs text-muted-foreground sm:text-sm">
             {t("delivery.picker.subtitle")}
           </DialogDescription>
         </div>
 
-        <div className="space-y-6 p-6 pt-4 sm:space-y-8 sm:px-8 sm:pb-8 sm:pt-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-7 sm:py-5">
+          <div className="space-y-5 sm:space-y-6">
           {/* ── 1. Delivery option ─────────────────────────────── */}
-          <div className="space-y-3">
-            <SectionHeading>1. {t("delivery.picker.step1")}</SectionHeading>
+          <div className="space-y-2">
+            <SectionHeading>{t("delivery.picker.step1")}</SectionHeading>
             <div
               role="radiogroup"
               aria-label={t("delivery.picker.step1")}
-              className={`grid gap-3 sm:gap-4 ${expressAvailable ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}
+              onKeyDown={handleRadioGroupKeyDown}
+              className={`grid gap-2 ${expressAvailable ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}
             >
               {expressAvailable && (
-                <div className="relative">
                   <button
                     type="button"
                     role="radio"
                     aria-checked={mode === "express"}
                     onClick={() => setMode("express")}
-                    className={`flex h-full w-full items-start gap-3 rounded-xl border-2 px-4 py-4 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`flex min-h-[62px] w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5 ${
                       mode === "express"
-                        ? "border-primary bg-primary/5"
+                        ? "border-primary bg-primary/5 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
                         : "border-border bg-card hover:border-foreground/20"
                     }`}
                     data-testid="option-express"
                   >
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary/60 text-primary" aria-hidden="true">
-                      <Zap className="h-4 w-4" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/60 text-primary" aria-hidden="true">
+                      <Zap className="h-3.5 w-3.5" />
                     </span>
                     <span className="flex-1 min-w-0">
                       <span className="block font-semibold text-foreground">{t("checkout.expressDelivery")}</span>
-                      <span className="block text-xs text-muted-foreground mt-1">{t("checkout.expressDelivery.subtitle")}</span>
-                      <span className="block text-xs font-semibold text-primary mt-1">+<FormattedPrice usdValue={expressSurcharge} /></span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {buildExpressPromise({ quotedAt: now, countryCode: countryCode ?? null, locale: language, t }).arrival}
+                      </span>
                     </span>
+                    <span className="shrink-0 text-[11px] font-semibold text-primary">+<FormattedPrice usdValue={expressSurcharge} /></span>
                     <RadioDot selected={mode === "express"} />
                   </button>
-                </div>
               )}
               <button
                 type="button"
                 role="radio"
                 aria-checked={mode === "schedule"}
                 onClick={() => setMode("schedule")}
-                className={`flex h-full w-full items-start gap-3 rounded-xl border-2 px-4 py-4 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`flex min-h-[62px] w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5 ${
                   mode === "schedule"
-                    ? "border-primary bg-primary/5"
+                    ? "border-primary bg-primary/5 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
                     : "border-border bg-card hover:border-foreground/20"
                 }`}
                 data-testid="option-schedule"
               >
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary/60 text-primary" aria-hidden="true">
-                  <CalendarDays className="h-4 w-4" />
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/60 text-primary" aria-hidden="true">
+                  <CalendarDays className="h-3.5 w-3.5" />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block font-semibold text-foreground">{t("checkout.scheduleDelivery")}</span>
-                  <span className="block text-xs text-muted-foreground mt-1">{t("checkout.scheduleDeliveryDesc")}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">{t("checkout.scheduleDeliveryDesc")}</span>
                 </span>
                 <RadioDot selected={mode === "schedule"} />
               </button>
@@ -703,10 +763,10 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
           {mode === "schedule" && (
             <>
               {/* ── 2. Choose date ─────────────────────────────── */}
-              <div className="space-y-3">
-                <SectionHeading>2. {t("delivery.picker.step2")}</SectionHeading>
+              <div className="space-y-2">
+                <SectionHeading>{t("delivery.picker.step2")}</SectionHeading>
 
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {quickDays.map((d) => {
                     const isDisabledToday = d.iso === todayIso && !todayHasSlots;
                     const isSelected = !isCustomDate && selectedIso === d.iso;
@@ -722,7 +782,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                           setCalendarOpen(false);
                           handleDateChange(d.iso);
                         }}
-                        className={`rounded-xl border-2 px-2.5 py-3 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        className={`flex min-h-[52px] flex-col justify-center rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           isSelected
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-border bg-card text-foreground hover:border-foreground/20"
@@ -739,7 +799,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                     aria-pressed={isCustomDate}
                     aria-expanded={calendarOpen}
                     onClick={() => setCalendarOpen((prev) => !prev)}
-                    className={`rounded-xl border-2 px-2.5 py-3 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`flex min-h-[52px] flex-col justify-center rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       isCustomDate
                         ? "border-primary bg-primary text-primary-foreground"
                         : calendarOpen
@@ -777,136 +837,159 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
               </div>
 
               {/* ── 3. Choose time ─────────────────────────────── */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <SectionHeading>
-                  3. {isCustomDate
+                  {isCustomDate
                     ? <>{t("delivery.picker.step3For")} <span className="text-primary">{weekdayDayMonth(selectedIso)}</span></>
                     : t("delivery.picker.step3")}
                 </SectionHeading>
                 {hasAnyAvailableSlot ? (
                   <>
-                    <div
-                      role="radiogroup"
-                      aria-label={t("delivery.picker.step3")}
-                      className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2"
-                    >
-                    {slotStates.map(({ slot: s, unavailable, startH, displayFee }) => {
-                      const isSelected = slot === s.label && !unavailable;
-                      const isMidnight = isMidnightSlot(s, city?.id);
-                      // Don't show the +$20 fee badge inside the pill if it is selected,
-                      // because the large banner will show it.
-                      const showBadge = displayFee && !(isMidnight && isSelected);
-                      return (
+                    <div role="radiogroup" aria-label={t("delivery.picker.step3")} onKeyDown={handleRadioGroupKeyDown}>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {availableSlotStates
+                        .filter(({ slot: s }) => !isMidnightSlot(s, city?.id))
+                        .map(({ slot: s, startH, displayFee }) => {
+                          const isSelected = slot === s.label;
+                          return (
+                            <button
+                              key={s.slotId ?? `${s.label}-${s.startHour ?? "na"}-${s.endHour ?? "na"}-${s.cutoffHour}`}
+                              type="button"
+                              role="radio"
+                              aria-checked={isSelected}
+                              onClick={() => setSlot(s.label)}
+                              className={`flex min-h-[62px] items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5 ${
+                                isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-foreground/20"
+                              }`}
+                              data-testid={`slot-${s.label}`}
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block font-semibold text-foreground">{slotTimeText(s)}</span>
+                                <span className="block text-xs font-normal text-muted-foreground">{t(periodKeyForStartHour(startH))}</span>
+                              </span>
+                              {displayFee ? (
+                                <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">+<FormattedPrice usdValue={displayFee} /></span>
+                              ) : null}
+                              <RadioDot selected={isSelected} />
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                    {availableSlotStates
+                      .filter(({ slot: s }) => isMidnightSlot(s, city?.id))
+                      .map((midnightState) => {
+                        const isSelected = slot === midnightState.slot.label;
+                        const midnightMessage = buildMidnightDeliveryMessage(t, selectedIso, todayIso);
+                        return (
                         <button
-                          key={
-                            s.slotId ??
-                            `${s.label}-${s.startHour ?? "na"}-${s.endHour ?? "na"}-${s.cutoffHour}`
-                          }
+                          key={midnightState.slot.slotId ?? `${midnightState.slot.label}-${midnightState.slot.startHour ?? "na"}-${midnightState.slot.endHour ?? "na"}`}
                           type="button"
                           role="radio"
                           aria-checked={isSelected}
-                          disabled={unavailable}
-                          aria-disabled={unavailable}
                           onClick={() => {
-                            if (!unavailable) {
-                              setSlot(s.label);
-                              if (isMidnight) {
-                                trackWebEventOnce({
-                                  type: "midnight_option_selected",
-                                  properties: {
-                                    city_id: city?.id ?? "unknown",
-                                    date: selectedIso,
-                                    slot_id: s.slotId ?? undefined
-                                  }
-                                }, `${city?.id ?? "unknown"}|${selectedIso}|${s.slotId ?? ""}`);
-                              }
-                            }
+                            setSlot(midnightState.slot.label);
+                            trackWebEventOnce({
+                              type: "midnight_option_selected",
+                              properties: { city_id: city?.id ?? "unknown", date: selectedIso, slot_id: midnightState.slot.slotId ?? undefined },
+                            }, `${city?.id ?? "unknown"}|${selectedIso}|${midnightState.slot.slotId ?? ""}`);
                           }}
-                          className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                            isSelected
-                              ? "border-primary bg-primary/5"
-                              : unavailable
-                                ? "border-border bg-muted/40 cursor-not-allowed"
-                                : "border-border bg-card hover:border-foreground/20"
+                          className={`flex min-h-[62px] w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5 ${
+                            isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-foreground/20"
                           }`}
-                          data-testid={`slot-${s.label}`}
+                          data-testid={`slot-${midnightState.slot.label}`}
                         >
-                          <span className="flex-1 min-w-0">
-                            <span className={`flex items-center gap-1.5 font-semibold sm:whitespace-nowrap ${unavailable ? "text-muted-foreground" : "text-foreground"}`}>
-                              {isMidnight && <Moon className="w-4 h-4 opacity-80" />}
-                              {slotTimeText(s)}
-                            </span>
-                            <span className="block text-xs font-normal text-muted-foreground mt-1">
-                              {t(periodKeyForStartHour(startH))}
-                            </span>
-                            {unavailable && (
-                              <span className="block text-xs font-medium text-muted-foreground/80 mt-1">
-                                {t("delivery.picker.unavailableToday")}
-                              </span>
-                            )}
+                          <Moon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-foreground">{t("product.midnightDelivery")}</span>
+                            <span className="block text-xs text-muted-foreground">{slotTimeText(midnightState.slot)} · {t("delivery.picker.midnightEndsNextDay")}</span>
+                            {isSelected && <span className="sr-only" data-testid="midnight-delivery-banner">{midnightMessage}</span>}
                           </span>
-                          {!unavailable && (
-                            <>
-                              {showBadge ? (
-                                <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">+<FormattedPrice usdValue={displayFee} /></span>
-                              ) : null}
-                              <RadioDot selected={isSelected} />
-                            </>
-                          )}
+                          <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">+<FormattedPrice usdValue={midnightState.displayFee ?? 20} /></span>
+                          <RadioDot selected={isSelected} />
                         </button>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
 
-                  {(() => {
-                    const activeSlotState = slotStates.find(s => s.slot.label === slot && !s.unavailable);
-                    if (activeSlotState && isMidnightSlot(activeSlotState.slot, city?.id)) {
-                      const midnightMessage = buildMidnightDeliveryMessage(t, selectedIso, todayIso);
-                      return (
-                        <div className="rounded-xl bg-[#FFF8EE] text-[#1A1A1A] p-4 flex items-center justify-between mt-3" data-testid="midnight-delivery-banner">
-                          <div className="flex gap-3 items-start">
-                            <Moon className="w-5 h-5 mt-0.5 opacity-80" />
-                            <div>
-                              <p className="text-sm font-semibold leading-tight">{t("product.midnightDelivery")}</p>
-                              <p className="text-xs opacity-70 mt-1 leading-tight">
-                                {midnightMessage}
-                              </p>
-                            </div>
+                    {unavailableSlotStates.length > 0 && (
+                      <div>
+                        <button
+                          type="button"
+                          aria-expanded={unavailableExpanded}
+                          aria-controls="unavailable-delivery-windows"
+                          onClick={() => setUnavailableExpanded((expanded) => !expanded)}
+                          className="mt-2 flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl bg-muted/60 px-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          data-testid="unavailable-slots-disclosure"
+                        >
+                          <span className="flex items-center gap-2">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                            {t("delivery.picker.unavailableCount").replace("{count}", String(unavailableSlotStates.length))}
+                          </span>
+                          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${unavailableExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                        </button>
+                        {unavailableExpanded && (
+                          <div id="unavailable-delivery-windows" className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {unavailableSlotStates.map(({ slot: s, startH }) => (
+                              <button
+                                key={s.slotId ?? `${s.label}-${s.startHour ?? "na"}-${s.endHour ?? "na"}-${s.cutoffHour}`}
+                                type="button"
+                                disabled
+                                aria-disabled="true"
+                                className="flex min-h-[52px] cursor-not-allowed items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-left text-sm opacity-65"
+                                data-testid={`unavailable-slot-${s.label}`}
+                              >
+                                <span className="min-w-0 flex-1">
+                                  <span className="block font-semibold text-muted-foreground">{slotTimeText(s)}</span>
+                                  <span className="block text-xs text-muted-foreground">{t(periodKeyForStartHour(startH))} · {t("delivery.picker.unavailableToday")}</span>
+                                </span>
+                              </button>
+                            ))}
                           </div>
-                          <div className="text-base font-semibold whitespace-nowrap pl-4">
-                            +<FormattedPrice usdValue={activeSlotState.displayFee ?? 20} />
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </>
-              ) : (
-                <div
-                    className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground"
-                    role="status"
-                    data-testid="slots-empty-state"
-                  >
-                    {t("delivery.picker.noSlots")}
+                        )}
+                      </div>
+                    )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground" role="status" data-testid="slots-empty-state">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                      <div className="min-w-0">
+                        <p>{t("delivery.picker.noSlots")}</p>
+                        {nextAvailableDate && (
+                          <button
+                            type="button"
+                            onClick={() => handleDateChange(nextAvailableDate)}
+                            className="mt-2 font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            data-testid="next-available-date"
+                          >
+                            {t("delivery.picker.nextAvailable").replace("{date}", weekdayDayMonth(nextAvailableDate))}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </>
           )}
 
-          {/* ── Footer ─────────────────────────────────────────── */}
-          <div className="flex gap-3 pt-2">
+          </div>
+        </div>
+
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <div className="shrink-0 border-t border-border/70 bg-[#FFFDFC] px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:py-4">
+          <div className="flex items-center gap-3">
             <Button
               variant="outline"
-              className="h-14 shrink-0 rounded-full px-6"
+              className="min-h-[44px] shrink-0 rounded-full border-0 px-1 text-sm font-semibold shadow-none hover:bg-transparent hover:underline"
               onClick={() => onOpenChange(false)}
               data-testid="button-picker-cancel"
             >
               {t("delivery.picker.cancel")}
             </Button>
             <Button
-              className="h-14 flex-1 rounded-full px-6"
+              className="min-h-[48px] flex-1 rounded-xl px-4"
               onClick={handleConfirm}
               disabled={confirmDisabled}
               data-testid="button-picker-confirm"

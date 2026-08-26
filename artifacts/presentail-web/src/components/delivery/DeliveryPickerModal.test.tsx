@@ -66,8 +66,6 @@ const OS_SLOTS = [
   { label: "Morning", cutoffHour: 20, startHour: 9, endHour: 13 },
 ];
 
-const TODAY_ISO = "2026-06-15";
-const TOMORROW_ISO = "2026-06-16";
 const midnightLocale = {
   t: (key: string) =>
     key === "product.midnightDelivery"
@@ -152,6 +150,97 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
     // and should be auto-selected for today.
     const morningBtn = screen.getByTestId("slot-Morning") as HTMLButtonElement;
     expect(morningBtn.className).toContain("border-primary");
+  });
+});
+
+describe("DeliveryPickerModal — compact availability layouts", () => {
+  it("keeps bookable slots visible while unavailable same-day windows stay collapsed until requested", async () => {
+    const user = userEvent.setup();
+    const slots = [
+      { label: "Morning", cutoffHour: 9, startHour: 9, endHour: 13 },
+      { label: "Afternoon", cutoffHour: 10, startHour: 14, endHour: 18 },
+      { label: "Evening", cutoffHour: 22, startHour: 18, endHour: 22 },
+    ];
+    renderWithProviders(<DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={slots} />);
+
+    expect(screen.getByTestId("slot-Evening")).toBeTruthy();
+    expect(screen.queryByTestId("unavailable-slot-Morning")).toBeNull();
+    const disclosure = screen.getByTestId("unavailable-slots-disclosure");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+
+    await user.click(disclosure);
+
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect((screen.getByTestId("unavailable-slot-Morning") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("unavailable-slot-Afternoon") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("renders every available window with Midnight Delivery as a full-width final row", () => {
+    const slots = [
+      { label: "Morning", cutoffHour: 20, startHour: 9, endHour: 13 },
+      { label: "Afternoon", cutoffHour: 20, startHour: 14, endHour: 18 },
+      { label: "Evening", cutoffHour: 20, startHour: 18, endHour: 22 },
+      { label: "Late night", cutoffHour: 20, startHour: 21, endHour: 23 },
+      { label: "11 PM – 1 AM", slotId: "os-midnight-beirut", serviceType: "midnight" as const, cutoffHour: 20, startHour: 23, endHour: 1, extraFee: 20 },
+    ];
+    renderWithProviders(<DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={slots} />);
+
+    for (const label of ["Morning", "Afternoon", "Evening", "Late night", "11 PM – 1 AM"]) {
+      expect(screen.getByTestId(`slot-${label}`)).toBeTruthy();
+    }
+    expect(screen.queryByTestId("unavailable-slots-disclosure")).toBeNull();
+    const midnight = screen.getByTestId("slot-11 PM – 1 AM");
+    expect(midnight.className).toContain("w-full");
+    expect(midnight.textContent).toContain("delivery.picker.midnightEndsNextDay");
+  });
+
+  it("keeps each eligible Midnight configuration visible instead of only the first", () => {
+    const slots = [
+      { label: "Evening", cutoffHour: 20, startHour: 18, endHour: 22 },
+      { label: "Midnight A", slotId: "midnight-a", serviceType: "midnight" as const, cutoffHour: 20, startHour: 23, endHour: 1, extraFee: 20 },
+      { label: "Midnight B", slotId: "midnight-b", serviceType: "midnight" as const, cutoffHour: 20, startHour: 23, endHour: 1, extraFee: 30 },
+    ];
+    renderWithProviders(<DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={slots} />);
+
+    expect(screen.getByTestId("slot-Midnight A")).toBeTruthy();
+    expect(screen.getByTestId("slot-Midnight B")).toBeTruthy();
+    expect(screen.getAllByText("product.midnightDelivery")).toHaveLength(2);
+  });
+
+  it("uses standard radio keyboard navigation for delivery type and times", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<DeliveryPickerModal open={true} onOpenChange={() => {}} timeSlots={OS_SLOTS} />);
+
+    const morning = screen.getByTestId("slot-Morning") as HTMLButtonElement;
+    morning.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByTestId("slot-Evening").getAttribute("aria-checked")).toBe("true");
+
+    const schedule = screen.getByTestId("option-schedule") as HTMLButtonElement;
+    schedule.focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(screen.getByTestId("option-express").getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("offers the next available date without committing a fully booked date", async () => {
+    const user = userEvent.setup();
+    const city = {
+      id: "lb-beirut",
+      name: "Beirut",
+      slotsByDay: {
+        monday: [{ label: "Monday slot", cutoffHour: 20, startHour: 14, endHour: 18 }],
+        thursday: [{ label: "Thursday slot", cutoffHour: 20, startHour: 14, endHour: 18 }],
+      },
+    };
+    renderWithProviders(<DeliveryPickerModal open={true} onOpenChange={() => {}} city={city} />);
+
+    await user.click(screen.getByTestId("quick-date-2026-06-17"));
+    expect(screen.getByTestId("slots-empty-state")).toBeTruthy();
+    expect((screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled).toBe(true);
+
+    await user.click(screen.getByTestId("next-available-date"));
+    expect(screen.getByTestId("slot-Thursday slot")).toBeTruthy();
+    expect((screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled).toBe(false);
   });
 });
 
