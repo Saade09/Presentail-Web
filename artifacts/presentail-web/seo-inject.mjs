@@ -9,6 +9,7 @@ import { LOCATION_DATA } from "./src/lib/locationData.mjs";
 import {
   BLOG_POSTS,
   getBlogPostMeta,
+  getBlogPostLanguages,
   getBlogPostReadingTime,
   getFeaturedBlogSlug,
 } from "@workspace/blog-content";
@@ -4019,6 +4020,24 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
     ? `/${lang}/blog/${blogPostSlug}`
     : `/${lang}/blog`;
   const canonicalHref = origin + cleanBase + canonicalPathname;
+  const extraLines = [];
+
+  // Blog posts use language-only URLs, so their alternates are language
+  // values (en/ar/fr), not the market-specific values used by storefront
+  // pages. Exclude getter aliases that render the English fallback.
+  const blogLanguages = getBlogPostLanguages(BLOG_POSTS[article.slug]);
+  for (const alternateLang of blogLanguages) {
+    extraLines.push(
+      `<link rel="alternate" hreflang="${escapeAttr(alternateLang)}" href="${escapeAttr(
+        `${origin}${cleanBase}/${alternateLang}/blog/${blogPostSlug}`,
+      )}" />`,
+    );
+  }
+  extraLines.push(
+    `<link rel="alternate" hreflang="x-default" href="${escapeAttr(
+      `${origin}${cleanBase}/en/blog/${blogPostSlug}`,
+    )}" />`,
+  );
 
   // Per-article hero image (src/data/blogPostsCopy.js) — a site-root-relative
   // path resolved to an absolute URL here so crawlers get a self-contained
@@ -4039,7 +4058,6 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
   const imageWidth = ogImage ? ogImage.width : undefined;
   const imageHeight = ogImage ? ogImage.height : undefined;
 
-  const extraLines = [];
   extraLines.push(
     `<meta property="article:published_time" content="${escapeAttr(article.datePublished)}" />`,
   );

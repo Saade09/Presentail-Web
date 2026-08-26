@@ -198,3 +198,36 @@ describe("BlogPost — shared-link preview metadata", () => {
     expect(json.dateModified).toBe(ARTICLE.dateModified ?? ARTICLE.datePublished);
   });
 });
+
+describe("BlogPost — hreflang alternates", () => {
+  it("emits dedicated language alternates and x-default", () => {
+    mockSlug = "inside-spring-sourcing-trip";
+    renderWithProviders(<BlogPost />);
+
+    const links = [...document.head.querySelectorAll<HTMLLinkElement>(
+      'link[rel="alternate"][data-seo-blog]',
+    )];
+    expect(links.map((link) => link.getAttribute("hreflang"))).toEqual([
+      "en",
+      "ar",
+      "fr",
+      "x-default",
+    ]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      `${window.location.origin}/en/blog/inside-spring-sourcing-trip`,
+      `${window.location.origin}/ar/blog/inside-spring-sourcing-trip`,
+      `${window.location.origin}/fr/blog/inside-spring-sourcing-trip`,
+      `${window.location.origin}/en/blog/inside-spring-sourcing-trip`,
+    ]);
+  });
+
+  it("does not advertise getter-alias fallback languages", () => {
+    mockSlug = "gift-shop-in-lebanon";
+    renderWithProviders(<BlogPost />);
+
+    const hreflangs = [...document.head.querySelectorAll<HTMLLinkElement>(
+      'link[rel="alternate"][data-seo-blog]',
+    )].map((link) => link.getAttribute("hreflang"));
+    expect(hreflangs).toEqual(["en", "x-default"]);
+  });
+});

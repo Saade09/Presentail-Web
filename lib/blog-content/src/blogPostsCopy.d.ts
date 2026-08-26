@@ -139,6 +139,11 @@ export type BlogPostsBySlug = Record<string, Record<BlogLang, BlogPostContent>>;
 
 export const BLOG_POSTS: BlogPostsBySlug;
 
+/** Languages with dedicated copy; getter aliases to English are excluded. */
+export function getBlogPostLanguages(
+  articlesByLang: Partial<Record<BlogLang, BlogPostContent>> | null | undefined,
+): BlogLang[];
+
 /** Stable editorial category slugs used by the blog landing page. */
 export type BlogCategory =
   | "flowers"

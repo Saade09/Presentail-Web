@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Clock, Info, Truck } from "lucide-react";
 import {
   BLOG_POSTS,
   BLOG_RELATED_SLUGS,
+  getBlogPostLanguages,
   getBlogPostMeta,
   getBlogPostReadingTime,
   type BlogPostContent,
@@ -358,6 +359,32 @@ export default function BlogPost() {
       upsertMeta("og:image", "property", absolute);
       upsertMeta("og:image:width", "property", String(article.ogImage.width));
       upsertMeta("og:image:height", "property", String(article.ogImage.height));
+    }
+
+    const basePath = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+    const blogLanguages = getBlogPostLanguages(articlesByLang);
+    const blogHreflangEntries = [
+      ...blogLanguages.map((alternateLang) => ({
+        hreflang: alternateLang,
+        href: `${window.location.origin}${basePath}/${alternateLang}/blog/${article.slug}`,
+      })),
+      {
+        hreflang: "x-default",
+        href: `${window.location.origin}${basePath}/en/blog/${article.slug}`,
+      },
+    ];
+    for (const { hreflang, href } of blogHreflangEntries) {
+      // Claim an SSR-injected alternate before creating one so hydration does
+      // not leave duplicate links in the document head.
+      const existing = document.head.querySelector<HTMLLinkElement>(
+        `link[rel="alternate"][hreflang="${hreflang}"]`,
+      );
+      const link = existing ?? document.createElement("link");
+      if (!existing) document.head.appendChild(link);
+      link.setAttribute("data-seo-blog", "true");
+      link.setAttribute("rel", "alternate");
+      link.setAttribute("hreflang", hreflang);
+      link.setAttribute("href", href);
     }
 
     const schemaId = "blog-post-schema";

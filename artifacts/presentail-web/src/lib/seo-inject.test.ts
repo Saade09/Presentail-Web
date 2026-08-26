@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest } from "../../seo-inject.mjs";
+import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 
 // Seed the per-country available-category cache so the shop-route body
 // fragment emits its (now country-filtered) "Shop by Category" list, and so
@@ -27,6 +28,12 @@ const OPTS = {
   origin: "https://presentail.test",
   basePath: "",
 };
+
+function extractAlternateLinks(snippet: string) {
+  return [...snippet.matchAll(
+    /<link rel="alternate" hreflang="([^"]+)" href="([^"]+)" \/>/g,
+  )].map((match) => ({ hreflang: match[1], href: match[2] }));
+}
 
 function mockFetchOnce(body: unknown, ok = true) {
   const fn = vi.fn().mockResolvedValueOnce({
@@ -6327,6 +6334,35 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(article.url).toBeTruthy();
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
+
+  it.each(Object.keys(BLOG_POSTS))(
+    "blog post %s emits only dedicated-language hreflang alternates plus English x-default",
+    (slug) => {
+      const articlesByLang = BLOG_POSTS[slug];
+      const article = articlesByLang.en ?? articlesByLang.ar ?? articlesByLang.fr;
+      const requestLang =
+        article === articlesByLang.en ? "en" : article === articlesByLang.ar ? "ar" : "fr";
+      const { headSnippet } = buildBlogPostHead({
+        article,
+        lang: requestLang,
+        basePath: "",
+        origin: "https://presentail.com",
+        pathname: `/${requestLang}/blog/${slug}`,
+      });
+
+      const expected = [
+        ...getBlogPostLanguages(articlesByLang).map((alternateLang) => ({
+          hreflang: alternateLang,
+          href: `https://presentail.com/${alternateLang}/blog/${slug}`,
+        })),
+        {
+          hreflang: "x-default",
+          href: `https://presentail.com/en/blog/${slug}`,
+        },
+      ];
+      expect(extractAlternateLinks(headSnippet)).toEqual(expected);
+    },
+  );
 
   it("renders Bouquet Delivery in Dubai with its canonical metadata and Article JSON-LD", async () => {
     const fetchMock = vi.fn();
