@@ -213,6 +213,9 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
     expect(out).toContain(
       '<meta name="twitter:card" content="summary_large_image"',
     );
+    expect(out).toContain(
+      '<meta name="twitter:site" content="@presentail"',
+    );
   });
 
   it("falls back to the generic preview when the brand 404s", async () => {

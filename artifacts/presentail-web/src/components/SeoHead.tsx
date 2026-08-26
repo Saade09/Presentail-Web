@@ -222,6 +222,11 @@ export function SeoHead() {
       head,
     );
     setMeta(
+      'meta[name="twitter:site"]',
+      { name: "twitter:site", content: "@presentail" },
+      head,
+    );
+    setMeta(
       'meta[name="twitter:title"]',
       { name: "twitter:title", content: twitterTitle },
       head,

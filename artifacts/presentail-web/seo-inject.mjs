@@ -780,6 +780,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
   lines.push(`<meta name="twitter:card" content="summary_large_image" />`);
+  lines.push(`<meta name="twitter:site" content="@presentail" />`);
   lines.push(`<meta name="twitter:title" content="${escapeAttr(twitterTitle)}" />`);
   lines.push(
     `<meta name="twitter:description" content="${escapeAttr(twitterDescription)}" />`,
@@ -3715,6 +3716,7 @@ function buildEntityHead({
   }
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(effectiveImageAlt)}" />`);
   lines.push(`<meta name="twitter:card" content="summary_large_image" />`);
+  lines.push(`<meta name="twitter:site" content="@presentail" />`);
   lines.push(`<meta name="twitter:title" content="${escapeAttr(title)}" />`);
   lines.push(
     `<meta name="twitter:description" content="${escapeAttr(description)}" />`,
@@ -5301,6 +5303,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           `<meta property="og:image:width" content="1200" />`,
           `<meta property="og:image:height" content="630" />`,
           `<meta name="twitter:card" content="summary_large_image" />`,
+          `<meta name="twitter:site" content="@presentail" />`,
           `<meta name="twitter:title" content="${escapeAttr(blogSeo.twitterTitle)}" />`,
           `<meta name="twitter:description" content="${escapeAttr(blogSeo.twitterDescription)}" />`,
           `<meta name="twitter:image" content="${escapeAttr(ogImage)}" />`,
