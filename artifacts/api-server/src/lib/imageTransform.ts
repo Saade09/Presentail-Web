@@ -1,4 +1,6 @@
 import sharp from "sharp";
+import { ImageDeliveryError } from "./imageDelivery";
+import { recordImageTransformState } from "./imageProxyMetrics";
 
 export type ImageFormat = "webp" | "jpeg";
 
@@ -16,6 +18,40 @@ export interface TransformResult {
 const MAX_WIDTH = 1600;
 const DEFAULT_WIDTH = 800;
 const DEFAULT_QUALITY = 82;
+export const MAX_INPUT_PIXELS = 12_000_000;
+export const MAX_CONCURRENT_TRANSFORMS = 4;
+export const MAX_TRANSFORM_WAITERS = 32;
+
+let activeTransforms = 0;
+let waitingTransforms = 0;
+const transformWaiters: Array<() => void> = [];
+
+function recordTransformState(): void {
+  recordImageTransformState({ activeTransforms, waitingTransforms });
+}
+
+async function acquireTransformSlot(): Promise<void> {
+  if (activeTransforms < MAX_CONCURRENT_TRANSFORMS) {
+    activeTransforms += 1;
+    recordTransformState();
+    return;
+  }
+  if (waitingTransforms >= MAX_TRANSFORM_WAITERS) {
+    throw new ImageDeliveryError("queue-full", "Image transform queue is full", 503);
+  }
+  waitingTransforms += 1;
+  recordTransformState();
+  await new Promise<void>((resolve) => transformWaiters.push(resolve));
+  waitingTransforms -= 1;
+  recordTransformState();
+}
+
+function releaseTransformSlot(): void {
+  const next = transformWaiters.shift();
+  if (next) next();
+  else activeTransforms -= 1;
+  recordTransformState();
+}
 
 /**
  * Clamp width to [1, MAX_WIDTH], falling back to DEFAULT_WIDTH when the input
@@ -53,16 +89,22 @@ export async function transformImage(
   source: Buffer,
   opts: TransformOptions,
 ): Promise<TransformResult> {
-  const { width, format, quality } = opts;
-  const pipeline = sharp(source).resize({ width, withoutEnlargement: true });
-  let data: Buffer;
-  if (format === "jpeg") {
-    data = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
-  } else {
-    data = await pipeline.webp({ quality }).toBuffer();
+  await acquireTransformSlot();
+  try {
+    const { width, format, quality } = opts;
+    const pipeline = sharp(source, { limitInputPixels: MAX_INPUT_PIXELS })
+      .resize({ width, withoutEnlargement: true });
+    let data: Buffer;
+    if (format === "jpeg") {
+      data = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+    } else {
+      data = await pipeline.webp({ quality }).toBuffer();
+    }
+    return {
+      data,
+      contentType: format === "jpeg" ? "image/jpeg" : "image/webp",
+    };
+  } finally {
+    releaseTransformSlot();
   }
-  return {
-    data,
-    contentType: format === "jpeg" ? "image/jpeg" : "image/webp",
-  };
 }

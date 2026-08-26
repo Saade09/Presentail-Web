@@ -7375,7 +7375,7 @@ describe("buildFaqsSeo — title-length guardrail", () => {
 // ---------------------------------------------------------------------------
 describe("injectSeoTagsAsync — banner LCP preload tag", () => {
   const OS_BANNER_URL =
-    "https://os.presentail.com/api/storage/banners/hero.jpg";
+    "https://os.presentail.com/api/storage/public-objects/banners/hero.jpg";
   // Unsplash URL with a `&` — escapeAttr encodes it as &amp; in the HTML attr.
   const NON_OS_BANNER_URL =
     "https://images.unsplash.com/photo-123?w=1280&q=80";
@@ -7463,12 +7463,12 @@ describe("injectSeoTagsAsync — banner LCP preload tag", () => {
   }> = [
     {
       label: "OS storage URL (canonical path prefix)",
-      url: "https://os.presentail.com/api/storage/banners/hero.jpg",
+      url: "https://os.presentail.com/api/storage/public-objects/banners/hero.jpg",
       allowed: true,
     },
     {
       label: "OS storage URL with query string",
-      url: "https://os.presentail.com/api/storage/images/bouquet.webp?v=2",
+      url: "https://os.presentail.com/api/storage/public-objects/images/bouquet.webp?v=2",
       allowed: true,
     },
     {
@@ -7717,7 +7717,7 @@ describe("JSON-LD — url and @id fields do not contain tracking params on entit
 
 describe("injectSeoTagsAsync — homepage LCP preload tag", () => {
   const OS_IMAGE_URL =
-    "https://os.presentail.com/api/storage/banners/hero-1.jpg";
+    "https://os.presentail.com/api/storage/public-objects/banners/hero-1.jpg";
 
   beforeEach(() => {
     genericSeoCache.clear();

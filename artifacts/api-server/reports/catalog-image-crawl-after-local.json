@@ -1,0 +1,629 @@
+{
+  "ranAt": "2026-08-26T15:35:09.489Z",
+  "apiBaseUrl": "http://localhost:8080",
+  "webBaseUrl": "http://localhost:80",
+  "catalog": [
+    {
+      "countryCode": "LB",
+      "cityId": null,
+      "status": 200,
+      "products": 352,
+      "sampled": 21
+    },
+    {
+      "countryCode": "AE",
+      "cityId": "ae-dubai",
+      "status": 200,
+      "products": 359,
+      "sampled": 21
+    },
+    {
+      "countryCode": "CY",
+      "cityId": "cy-nicosia",
+      "status": 200,
+      "products": 62,
+      "sampled": 21
+    }
+  ],
+  "reportedPages": [
+    {
+      "page": "/en-lb/aley/shop",
+      "status": 200,
+      "bytes": 58322
+    },
+    {
+      "page": "/en-lb/marjayoun/shop",
+      "status": 200,
+      "bytes": 58548
+    },
+    {
+      "page": "/fr-lb/akkar/shop",
+      "status": 200,
+      "bytes": 58786
+    },
+    {
+      "page": "/ar-lb/baabda/shop",
+      "status": 200,
+      "bytes": 59843
+    },
+    {
+      "page": "/fr-lb/hermel/shop",
+      "status": 200,
+      "bytes": 58863
+    },
+    {
+      "page": "/fr-ae/dubai/product/hallab-maamoul-mini-mixed",
+      "status": 200,
+      "bytes": 59013
+    },
+    {
+      "page": "/ar-ae/dubai/product/hallab-maamoul-mini-mixed",
+      "status": 200,
+      "bytes": 59421
+    },
+    {
+      "page": "/ar-lb/beirut/shop",
+      "status": 200,
+      "bytes": 60061
+    },
+    {
+      "page": "/ar-lb/chouf/shop",
+      "status": 200,
+      "bytes": 59749
+    },
+    {
+      "page": "/en-ae/sharjah/shop",
+      "status": 200,
+      "bytes": 58416
+    }
+  ],
+  "uniqueImages": 40,
+  "statuses": {
+    "200": 40
+  },
+  "unexpected5xx": 0,
+  "non200": [],
+  "maxDurationMs": 1334,
+  "results": [
+    {
+      "productId": "7-red-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1000/main.jpg",
+      "status": 200,
+      "bytes": 4584,
+      "durationMs": 164,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "14-red-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1001/main.jpg",
+      "status": 200,
+      "bytes": 4584,
+      "durationMs": 216,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "21-red-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1002/main.jpg",
+      "status": 200,
+      "bytes": 4584,
+      "durationMs": 229,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "anthurium",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1003/main.jpg",
+      "status": 200,
+      "bytes": 6188,
+      "durationMs": 510,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "poinsettia",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1004/main.jpg",
+      "status": 200,
+      "bytes": 6146,
+      "durationMs": 635,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "blush-rose-vase",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1008/main.webp",
+      "status": 200,
+      "bytes": 5058,
+      "durationMs": 1168,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "crimson-rose-vase",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1009/main.webp",
+      "status": 200,
+      "bytes": 5624,
+      "durationMs": 1334,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "ivory-rose-vase",
+      "markets": [
+        "LB",
+        "AE-ae-dubai",
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1010/main.webp",
+      "status": 200,
+      "bytes": 3982,
+      "durationMs": 905,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "golden-rose-vase",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1011/main.webp",
+      "status": 200,
+      "bytes": 4988,
+      "durationMs": 1217,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pink-lily-vase",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/1014/main.png",
+      "status": 200,
+      "bytes": 5404,
+      "durationMs": 711,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "ray-of-joy",
+      "markets": [
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1027/main.png",
+      "status": 200,
+      "bytes": 11142,
+      "durationMs": 693,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "blushing-grace",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1028/main.png",
+      "status": 200,
+      "bytes": 5636,
+      "durationMs": 767,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "love-bomb-box",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1029/main.png",
+      "status": 200,
+      "bytes": 7102,
+      "durationMs": 522,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "happy-birthday-bundle-rocher",
+      "markets": [
+        "LB"
+      ],
+      "asset": "/api/storage/public-objects/products/1030/main.jpg",
+      "status": 200,
+      "bytes": 11454,
+      "durationMs": 274,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "heart-of-roses",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1031/main.png",
+      "status": 200,
+      "bytes": 13160,
+      "durationMs": 512,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "small-yellow-baby-rose-bouquet",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1032/main.png",
+      "status": 200,
+      "bytes": 8088,
+      "durationMs": 357,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "big-yellow-baby-rose-bouquet",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1033/main.png",
+      "status": 200,
+      "bytes": 18150,
+      "durationMs": 404,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "blue-serenity",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1034/main.png",
+      "status": 200,
+      "bytes": 19176,
+      "durationMs": 429,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "golden-harmony",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1035/main.png",
+      "status": 200,
+      "bytes": 15114,
+      "durationMs": 369,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "hello-little-one",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1036/main.png",
+      "status": 200,
+      "bytes": 21508,
+      "durationMs": 509,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "welcome-baby-boy-luxe-setup",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1037/main.png",
+      "status": 200,
+      "bytes": 23514,
+      "durationMs": 525,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "personalized-baby-boy-welcome-setup",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1038/main.png",
+      "status": 200,
+      "bytes": 24216,
+      "durationMs": 483,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "little-princess-welcome-setup",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1039/main.png",
+      "status": 200,
+      "bytes": 17044,
+      "durationMs": 520,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "it-s-a-girl-celebration-setup",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1040/main.png",
+      "status": 200,
+      "bytes": 14380,
+      "durationMs": 377,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "birthday-boy-grand-celebration",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1041/main.png",
+      "status": 200,
+      "bytes": 34900,
+      "durationMs": 699,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "jungle-adventure-birthday",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1042/main.png",
+      "status": 200,
+      "bytes": 33078,
+      "durationMs": 681,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "ivory-grandeur",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1043/main.png",
+      "status": 200,
+      "bytes": 10354,
+      "durationMs": 649,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "scarlet-majesty",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1044/main.png",
+      "status": 200,
+      "bytes": 10462,
+      "durationMs": 374,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "blush-grandeur",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1045/main.png",
+      "status": 200,
+      "bytes": 10262,
+      "durationMs": 630,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "crimson-devotion--1046",
+      "markets": [
+        "LB",
+        "AE-ae-dubai"
+      ],
+      "asset": "/api/storage/public-objects/products/1046/main.png",
+      "status": 200,
+      "bytes": 14064,
+      "durationMs": 737,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "always-yours",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/990/main.jpg",
+      "status": 200,
+      "bytes": 5002,
+      "durationMs": 320,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "7-pink-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/991/main.jpg",
+      "status": 200,
+      "bytes": 4722,
+      "durationMs": 364,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "7-white-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/992/main.jpg",
+      "status": 200,
+      "bytes": 4510,
+      "durationMs": 281,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "7-yellow-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/993/main.jpg",
+      "status": 200,
+      "bytes": 4900,
+      "durationMs": 331,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "14-pink-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/994/main.jpg",
+      "status": 200,
+      "bytes": 4722,
+      "durationMs": 319,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "14-white-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/995/main.jpg",
+      "status": 200,
+      "bytes": 4510,
+      "durationMs": 310,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "14-yellow-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/996/main.jpg",
+      "status": 200,
+      "bytes": 4900,
+      "durationMs": 226,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "21-pink-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/997/main.jpg",
+      "status": 200,
+      "bytes": 4722,
+      "durationMs": 258,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "21-yellow-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/998/main.jpg",
+      "status": 200,
+      "bytes": 4900,
+      "durationMs": 274,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    },
+    {
+      "productId": "21-white-roses-bouquet",
+      "markets": [
+        "CY-cy-nicosia"
+      ],
+      "asset": "/api/storage/public-objects/products/999/main.jpg",
+      "status": 200,
+      "bytes": 4510,
+      "durationMs": 178,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "xCache": "MISS"
+    }
+  ]
+}

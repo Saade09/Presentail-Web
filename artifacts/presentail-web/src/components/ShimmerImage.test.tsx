@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { ShimmerImage } from "./ShimmerImage";
 
 // ---------------------------------------------------------------------------
@@ -87,6 +87,27 @@ describe("ShimmerImage — non-catalog URLs do not get auto srcset", () => {
     const src = "https://example.com/image.jpg";
     const img = renderImage({ src, alt: "External" });
     expect(img.src).toBe(src);
+  });
+});
+
+describe("ShimmerImage — OS proxy recovery", () => {
+  const raw = "https://os.presentail.com/api/storage/public-objects/products/318/main.png";
+
+  it("retries the raw public source after a proxy failure", () => {
+    const img = renderImage({ src: raw, alt: "Product" });
+    expect(img.src).toContain("/api/img/proxy");
+    fireEvent.error(img);
+    const retried = document.querySelector("img")!;
+    expect(retried.src).toBe(raw);
+    expect(retried.srcset).toBe("");
+  });
+
+  it("shows a neutral accessible fallback only after proxy and raw source fail", () => {
+    renderImage({ src: raw, alt: "Product" });
+    fireEvent.error(document.querySelector("img")!);
+    fireEvent.error(document.querySelector("img")!);
+    expect(document.querySelector("img")).toBeNull();
+    expect(document.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Product");
   });
 });
 

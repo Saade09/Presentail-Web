@@ -186,9 +186,11 @@ paths:
       description: |
         Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),
         resizes it to the requested pixel width, and returns it as WebP (or JPEG).
-        Results are cached server-side in an LRU cache and returned with a
-        one-year immutable `Cache-Control` header so repeat requests are served
-        instantly by the browser and any CDN in front of the API.
+        Results are cached server-side in a bounded LRU cache. Identical cold
+        requests are coalesced, source bodies and transform concurrency are
+        bounded, and transient network/502/503/504 failures receive one retry.
+        Successful responses use a one-day browser TTL and seven-day shared
+        cache TTL with stale-while-revalidate because OS paths may be replaced.
 
         Only URLs whose host is `os.presentail.com` and whose path begins with
         `/api/storage/` are accepted — all other origins are rejected with 400
@@ -235,8 +237,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Source object is permanently missing
+        "413":
+          description: Source image exceeds the proxy size limit
+        "415":
+          description: Source returned a non-image MIME type
+        "422":
+          description: Source image is empty or corrupt
         "502":
-          description: Upstream OS fetch failed
+          description: Upstream OS network or redirect failure
+        "503":
+          description: Upstream OS is temporarily unavailable or transform queue is full
+        "504":
+          description: Upstream OS timed out after the bounded retry
   /healthz:
     get:
       operationId: healthCheck

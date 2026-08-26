@@ -92,7 +92,7 @@ const osStorageProduct: Product = {
   priceValue: 65,
   // Must be a valid OS storage URL so buildOsImageSrcset returns a srcset
   // and ProductImage renders the <source> element with the sizes hint.
-  image: { uri: "https://os.presentail.com/api/storage/products/red-roses.webp" },
+  image: { uri: "https://os.presentail.com/api/storage/public-objects/products/red-roses.webp" },
   category: "flowers",
   categories: ["flowers"],
   inStock: true,

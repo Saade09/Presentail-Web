@@ -33,7 +33,7 @@ import { ProductImage } from "../ProductImage";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const RAW_SRC = "https://os.presentail.com/api/storage/img/flower.jpg";
+const RAW_SRC = "https://os.presentail.com/api/storage/public-objects/img/flower.jpg";
 const PROXY_SRC = "/api/img/proxy?url=...&w=800&f=webp";
 const PROXY_SRCSET = "/api/img/proxy?url=...&w=400&f=webp 400w, /api/img/proxy?url=...&w=800&f=webp 800w";
 
@@ -150,7 +150,7 @@ describe("ProductImage — stuck-load failsafe", () => {
   it("reveals the image via the bounded timeout when onLoad never fires", () => {
     vi.useFakeTimers();
     try {
-      const { container } = renderImage({ src: "https://os.presentail.com/api/storage/img/never-onload.jpg" });
+      const { container } = renderImage({ src: "https://os.presentail.com/api/storage/public-objects/img/never-onload.jpg" });
       const img = container.querySelector("img")!;
       expect(img.className).toContain("opacity-0");
 
@@ -168,7 +168,7 @@ describe("ProductImage — stuck-load failsafe", () => {
     try {
       const fallback = <div data-testid="fallback-el">fallback</div>;
       const { container, getByTestId } = renderImage({
-        src: "https://os.presentail.com/api/storage/img/broken.jpg",
+        src: "https://os.presentail.com/api/storage/public-objects/img/broken.jpg",
         fallback,
       });
       // Simulate an image that finished loading with no data (failure the
@@ -196,7 +196,7 @@ describe("ProductImage — stuck-load failsafe", () => {
   });
 
   it("reveals immediately on the retry path when the raw image is already complete (cached)", () => {
-    const { container } = renderImage({ src: "https://os.presentail.com/api/storage/img/cached-raw.jpg" });
+    const { container } = renderImage({ src: "https://os.presentail.com/api/storage/public-objects/img/cached-raw.jpg" });
     const proxyImg = container.querySelector("img")!;
 
     // Simulate the retry img mounting already-complete with real data.

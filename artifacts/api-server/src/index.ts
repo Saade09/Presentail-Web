@@ -33,6 +33,7 @@ import { registerOnFirstPopulatedCallback } from "./lib/osProductsCache";
 import { enqueueBulkSeed } from "./lib/pageDescriptionQueue";
 import { validateFbPixelEnv } from "./lib/fbConversions";
 import { warmActiveProductSocialCards } from "./lib/productSocialBackfillJob";
+import { startCatalogImageHealthMonitor } from "./lib/catalogImageHealth";
 // Prevent unhandled 'error' events on idle pg pool clients from crashing the
 // process. pg emits these when a connection is terminated unexpectedly (e.g. a
 // database restart or transient network drop). The pool will automatically
@@ -101,6 +102,7 @@ app.listen(port, (err) => {
   startPlantClassificationJob();
   startProductTranslationWarmJob();
   startMerchantListingSuggestionsMonitor();
+  startCatalogImageHealthMonitor();
 
   // Seed contextual descriptions for all category/occasion × area × language
   // combinations once the OS product catalog is first populated. Runs in the

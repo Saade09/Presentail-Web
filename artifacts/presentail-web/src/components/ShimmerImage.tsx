@@ -48,17 +48,21 @@ export function ShimmerImage({
 }: ShimmerImageProps) {
   const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   // Auto-apply srcset when the caller did not supply one.
   // Priority: explicit prop > OS storage srcset > catalog proxy srcset.
   const osProps = !srcset ? buildOsImageSrcset(src) : null;
   const catalogProps = !srcset && !osProps ? buildCatalogImageSrcset(src) : null;
-  const resolvedSrc = osProps?.src ?? catalogProps?.src ?? src;
-  const resolvedSrcset = srcset ?? osProps?.srcset ?? catalogProps?.srcset;
-  const resolvedSizes = sizes ?? osProps?.sizes ?? catalogProps?.sizes;
+  const proxiedSrc = osProps?.src ?? catalogProps?.src ?? src;
+  const resolvedSrc = retrying ? src : proxiedSrc;
+  const resolvedSrcset = retrying ? undefined : (srcset ?? osProps?.srcset ?? catalogProps?.srcset);
+  const resolvedSizes = retrying ? undefined : (sizes ?? osProps?.sizes ?? catalogProps?.sizes);
 
   if (failed) {
-    return fallback ? <>{fallback}</> : null;
+    return fallback ? <>{fallback}</> : (
+      <div className={`h-full w-full bg-muted ${containerClassName}`} role="img" aria-label={alt} />
+    );
   }
 
   return (
@@ -85,7 +89,13 @@ export function ShimmerImage({
           loadedUrls.add(src);
           setLoaded(true);
         }}
-        onError={() => setFailed(true)}
+        onError={() => {
+          if (!retrying && proxiedSrc !== src) {
+            setRetrying(true);
+          } else {
+            setFailed(true);
+          }
+        }}
       />
     </div>
   );

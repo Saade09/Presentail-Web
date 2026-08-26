@@ -13,6 +13,7 @@
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:image-delivery": "node scripts/check-image-delivery.mjs",
     "backfill:product-social": "node ./scripts/backfill-product-social-cards.mjs"
   },
   "dependencies": {

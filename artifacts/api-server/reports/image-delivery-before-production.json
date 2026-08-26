@@ -1,0 +1,139 @@
+{
+  "ranAt": "2026-08-26T15:25:27.186Z",
+  "baseUrl": "https://presentail.com",
+  "sourceAsset": "/api/storage/public-objects/products/318/main.png",
+  "source": {
+    "status": 200,
+    "durationMs": 474,
+    "bytes": 483334,
+    "contentType": "image/png",
+    "cacheControl": "private, max-age=3600",
+    "etag": null,
+    "age": null,
+    "xCache": null
+  },
+  "userAgents": {
+    "browser": {
+      "status": 200,
+      "durationMs": 533,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "private, max-age=31536000, immutable",
+      "etag": "W/\"703e-rpE5oZiiA156u7t0NyrwxJO5SB0\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    "curl": {
+      "status": 200,
+      "durationMs": 450,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "private, max-age=31536000, immutable",
+      "etag": "W/\"703e-rpE5oZiiA156u7t0NyrwxJO5SB0\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    "semrush": {
+      "status": 200,
+      "durationMs": 419,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "private, max-age=31536000, immutable",
+      "etag": "W/\"703e-rpE5oZiiA156u7t0NyrwxJO5SB0\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    "googlebot": {
+      "status": 200,
+      "durationMs": 345,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "private, max-age=31536000, immutable",
+      "etag": "W/\"703e-rpE5oZiiA156u7t0NyrwxJO5SB0\"",
+      "age": null,
+      "xCache": "MISS"
+    }
+  },
+  "warm": [
+    {
+      "status": 200,
+      "durationMs": 329,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "private, max-age=31536000, immutable",
+      "etag": "W/\"703e-rpE5oZiiA156u7t0NyrwxJO5SB0\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "status": 200,
+      "durationMs": 26,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "private, max-age=31536000, immutable",
+      "etag": "W/\"703e-rpE5oZiiA156u7t0NyrwxJO5SB0\"",
+      "age": null,
+      "xCache": "HIT"
+    },
+    {
+      "status": 200,
+      "durationMs": 29,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "private, max-age=31536000, immutable",
+      "etag": "W/\"703e-rpE5oZiiA156u7t0NyrwxJO5SB0\"",
+      "age": null,
+      "xCache": "HIT"
+    }
+  ],
+  "concurrency": {
+    "1": {
+      "total": 1,
+      "statuses": {
+        "200": 1
+      },
+      "minMs": 407,
+      "maxMs": 407,
+      "averageMs": 407,
+      "cacheStates": {
+        "MISS": 1
+      }
+    },
+    "5": {
+      "total": 5,
+      "statuses": {
+        "200": 5
+      },
+      "minMs": 482,
+      "maxMs": 606,
+      "averageMs": 543,
+      "cacheStates": {
+        "MISS": 5
+      }
+    },
+    "10": {
+      "total": 10,
+      "statuses": {
+        "200": 10
+      },
+      "minMs": 558,
+      "maxMs": 858,
+      "averageMs": 697,
+      "cacheStates": {
+        "MISS": 10
+      }
+    },
+    "25": {
+      "total": 25,
+      "statuses": {
+        "200": 25
+      },
+      "minMs": 366,
+      "maxMs": 1737,
+      "averageMs": 1185,
+      "cacheStates": {
+        "MISS": 25
+      }
+    }
+  }
+}

@@ -334,6 +334,28 @@ function escapeAttr(s) {
     .replace(/>/g, "&gt;");
 }
 
+const OS_IMAGE_HOSTNAME = "os.presentail.com";
+const OS_IMAGE_PATH_PREFIX = "/api/storage/public-objects/";
+
+export function buildTrustedOsImageProxyUrl(rawUrl, width, format = "webp") {
+  try {
+    const target = new URL(String(rawUrl).replace(/%(?![0-9a-fA-F]{2})/g, "%25"));
+    if (
+      target.protocol !== "https:" ||
+      target.hostname !== OS_IMAGE_HOSTNAME ||
+      target.username ||
+      target.password ||
+      !target.pathname.startsWith(OS_IMAGE_PATH_PREFIX) ||
+      target.pathname === OS_IMAGE_PATH_PREFIX
+    ) {
+      return null;
+    }
+    return `/api/img/proxy?url=${encodeURIComponent(target.toString())}&w=${width}&f=${format}`;
+  } catch {
+    return null;
+  }
+}
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -5008,17 +5030,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       (!parsed.hasLocalePrefix && (pathname === "/" || pathname === "")) ||
       (parsed.hasLocalePrefix && (parsed.rest === "" || parsed.rest === "/"));
     if (isHomepage) {
-      const isOsStorage = (() => {
-        try {
-          const u = new URL(firstBannerImageUrl);
-          return (
-            u.hostname === "os.presentail.com" &&
-            u.pathname.startsWith("/api/storage/")
-          );
-        } catch {
-          return false;
-        }
-      })();
+      const isOsStorage = buildTrustedOsImageProxyUrl(firstBannerImageUrl, 800) !== null;
       // Only emit the LCP preload for trusted OS storage image URLs.  Third-party
       // or unknown image domains (e.g. Unsplash CDN) are excluded: injecting an
       // arbitrary external URL as a preload hint exposes server-side SSRF risk via
@@ -5028,13 +5040,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       if (isOsStorage) {
         const widths = [400, 800, 1200];
         const srcset = widths
-          .map(
-            (w) =>
-              `/api/img/proxy?url=${encodeURIComponent(firstBannerImageUrl)}&w=${w}&f=webp ${w}w`,
-          )
+          .map((w) => `${buildTrustedOsImageProxyUrl(firstBannerImageUrl, w)} ${w}w`)
           .join(", ");
         const sizes = "(max-width: 1280px) 100vw, 1280px";
-        const href = `/api/img/proxy?url=${encodeURIComponent(firstBannerImageUrl)}&w=800&f=webp`;
+        const href = buildTrustedOsImageProxyUrl(firstBannerImageUrl, 800);
         const preloadTag =
           `<link rel="preload" as="image" fetchpriority="high"` +
           ` href="${escapeAttr(href)}"` +
@@ -5677,24 +5686,14 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
         null;
       if (_prodImageUri) {
-        const _isProdOsStorage = (() => {
-          try {
-            const u = new URL(_prodImageUri);
-            return (
-              u.hostname === "os.presentail.com" &&
-              u.pathname.startsWith("/api/storage/")
-            );
-          } catch {
-            return false;
-          }
-        })();
+        const _isProdOsStorage = buildTrustedOsImageProxyUrl(_prodImageUri, 800) !== null;
         if (_isProdOsStorage) {
           const _pdpWidths = [400, 800, 1200];
           const _pdpSrcset = _pdpWidths
-            .map((w) => `/api/img/proxy?url=${encodeURIComponent(_prodImageUri)}&w=${w}&f=webp ${w}w`)
+            .map((w) => `${buildTrustedOsImageProxyUrl(_prodImageUri, w)} ${w}w`)
             .join(", ");
           const _pdpSizes = "(max-width: 1280px) 100vw, 1280px";
-          const _pdpHref = `/api/img/proxy?url=${encodeURIComponent(_prodImageUri)}&w=800&f=webp`;
+          const _pdpHref = buildTrustedOsImageProxyUrl(_prodImageUri, 800);
           const _pdpPreloadTag =
             `<link rel="preload" as="image" fetchpriority="high"` +
             ` href="${escapeAttr(_pdpHref)}"` +

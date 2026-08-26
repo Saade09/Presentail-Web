@@ -13,7 +13,7 @@ import {
 // updated the test will catch any accidental regression in which URL types get
 // which srcset strategy.
 
-const OS_URL = "https://os.presentail.com/api/storage/categories/bouquets.webp";
+const OS_URL = "https://os.presentail.com/api/storage/public-objects/categories/bouquets.webp";
 const STATIC_URL = "/assets/category-bouquets.png";  // bundled static asset
 const ENCODED_OS = encodeURIComponent(OS_URL);
 

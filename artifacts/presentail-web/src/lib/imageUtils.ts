@@ -2,7 +2,7 @@ const UNSPLASH_HOST = "images.unsplash.com";
 const UNSPLASH_SRCSET_WIDTHS = [640, 960, 1280, 1920] as const;
 
 const OS_STORAGE_HOST = "os.presentail.com";
-const OS_STORAGE_PATH_PREFIX = "/api/storage/";
+const OS_STORAGE_PATH_PREFIX = "/api/storage/public-objects/";
 const OS_SRCSET_WIDTHS = [400, 800, 1200] as const;
 
 // Catalog proxy URL path prefixes (relative, served by the API server).
@@ -19,6 +19,25 @@ const CATALOG_SRCSET_WIDTHS = [144, 288, 480] as const;
 // 800 covers narrow viewports (≤768 px); 1200 covers desktop up to the 1280 px
 // content cap; 1600 serves 2× retina desktop displays.
 const CATALOG_HERO_SRCSET_WIDTHS = [800, 1200, 1600] as const;
+
+function parseOsStorageUrl(url: string): URL | null {
+  try {
+    const parsed = new URL(url.replace(/%(?![0-9a-fA-F]{2})/g, "%25"));
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.hostname !== OS_STORAGE_HOST ||
+      parsed.username ||
+      parsed.password ||
+      !parsed.pathname.startsWith(OS_STORAGE_PATH_PREFIX) ||
+      parsed.pathname === OS_STORAGE_PATH_PREFIX
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Given an Unsplash image URL that already contains a `w=` parameter, returns
@@ -82,12 +101,16 @@ export function buildSrcSet(url: string, variantWidths: number[], intrinsicWidth
  * served via the `/api/img/proxy` endpoint.
  */
 export function isOsStorageUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname === OS_STORAGE_HOST && parsed.pathname.startsWith(OS_STORAGE_PATH_PREFIX);
-  } catch {
-    return false;
-  }
+  return parseOsStorageUrl(url) !== null;
+}
+
+/**
+ * Return the canonical URL string used as the nested `url` query parameter.
+ * URL serialisation encodes spaces and Unicode once; encodeURIComponent then
+ * safely nests that URL, including literal +, %, &, and its own query params.
+ */
+export function canonicalizeOsStorageUrl(url: string): string | null {
+  return parseOsStorageUrl(url)?.toString() ?? null;
 }
 
 /**
@@ -103,8 +126,9 @@ export function isCatalogProxyUrl(url: string): boolean {
  * Returns the raw URL unchanged when it is not an OS storage path.
  */
 export function buildOsProxyUrl(url: string, width: number, format: "webp" | "jpeg" = "webp"): string {
-  if (!isOsStorageUrl(url)) return url;
-  return `/api/img/proxy?url=${encodeURIComponent(url)}&w=${width}&f=${format}`;
+  const canonical = canonicalizeOsStorageUrl(url);
+  if (!canonical) return url;
+  return `/api/img/proxy?url=${encodeURIComponent(canonical)}&w=${width}&f=${format}`;
 }
 
 /**

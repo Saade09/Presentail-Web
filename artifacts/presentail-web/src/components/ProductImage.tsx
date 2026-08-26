@@ -118,6 +118,12 @@ export function ProductImage({
   }, [src, retrying, loaded, failed]);
 
   const alt = buildProductImageAlt(product, locale, cityName, { decorative });
+  const resolvedFallback = fallback ?? (
+    <div
+      className="h-full w-full bg-muted"
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": alt })}
+    />
+  );
 
   // Resolve the WebP srcset from the OS proxy or catalog proxy.
   // buildOsImageSrcset produces URLs served by /api/img/proxy with f=webp.
@@ -130,7 +136,7 @@ export function ProductImage({
   const resolvedSizes = sizes ?? osProps?.sizes ?? catalogProps?.sizes;
 
   if (failed) {
-    return fallback ? <>{fallback}</> : null;
+    return <>{resolvedFallback}</>;
   }
 
   // Retry path: proxy URL failed but the raw OS URL may still be reachable.

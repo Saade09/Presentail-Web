@@ -1,0 +1,142 @@
+{
+  "ranAt": "2026-08-26T15:39:28.404Z",
+  "baseUrl": "http://localhost:8080",
+  "sourceAsset": "/api/storage/public-objects/products/318/main.png",
+  "source": {
+    "status": 200,
+    "durationMs": 438,
+    "bytes": 483334,
+    "contentType": "image/png",
+    "cacheControl": "private, max-age=3600",
+    "etag": null,
+    "age": null,
+    "xCache": null
+  },
+  "userAgents": {
+    "browser": {
+      "status": 200,
+      "durationMs": 339,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"cc74c6c62c419c798028b55b1a8accb5c05edce8a4b182fbe5e6679607d2a878\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    "curl": {
+      "status": 200,
+      "durationMs": 382,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"cc74c6c62c419c798028b55b1a8accb5c05edce8a4b182fbe5e6679607d2a878\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    "semrush": {
+      "status": 200,
+      "durationMs": 291,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"cc74c6c62c419c798028b55b1a8accb5c05edce8a4b182fbe5e6679607d2a878\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    "googlebot": {
+      "status": 200,
+      "durationMs": 283,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"cc74c6c62c419c798028b55b1a8accb5c05edce8a4b182fbe5e6679607d2a878\"",
+      "age": null,
+      "xCache": "MISS"
+    }
+  },
+  "warm": [
+    {
+      "status": 200,
+      "durationMs": 738,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"cc74c6c62c419c798028b55b1a8accb5c05edce8a4b182fbe5e6679607d2a878\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "status": 200,
+      "durationMs": 2,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"cc74c6c62c419c798028b55b1a8accb5c05edce8a4b182fbe5e6679607d2a878\"",
+      "age": null,
+      "xCache": "HIT"
+    },
+    {
+      "status": 200,
+      "durationMs": 2,
+      "bytes": 28734,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"cc74c6c62c419c798028b55b1a8accb5c05edce8a4b182fbe5e6679607d2a878\"",
+      "age": null,
+      "xCache": "HIT"
+    }
+  ],
+  "concurrency": {
+    "1": {
+      "total": 1,
+      "statuses": {
+        "200": 1
+      },
+      "minMs": 273,
+      "maxMs": 273,
+      "averageMs": 273,
+      "cacheStates": {
+        "MISS": 1
+      }
+    },
+    "5": {
+      "total": 5,
+      "statuses": {
+        "200": 5
+      },
+      "minMs": 286,
+      "maxMs": 286,
+      "averageMs": 286,
+      "cacheStates": {
+        "MISS": 1,
+        "COALESCED": 4
+      }
+    },
+    "10": {
+      "total": 10,
+      "statuses": {
+        "200": 10
+      },
+      "minMs": 273,
+      "maxMs": 276,
+      "averageMs": 275,
+      "cacheStates": {
+        "MISS": 1,
+        "COALESCED": 9
+      }
+    },
+    "25": {
+      "total": 25,
+      "statuses": {
+        "200": 25
+      },
+      "minMs": 589,
+      "maxMs": 593,
+      "averageMs": 591,
+      "cacheStates": {
+        "MISS": 1,
+        "COALESCED": 24
+      }
+    }
+  }
+}

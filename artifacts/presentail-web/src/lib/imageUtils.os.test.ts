@@ -6,12 +6,12 @@ import { isOsStorageUrl, buildOsProxyUrl, buildOsImageSrcset } from "./imageUtil
 // ---------------------------------------------------------------------------
 
 describe("isOsStorageUrl", () => {
-  it("returns true for an os.presentail.com /api/storage/ URL", () => {
-    expect(isOsStorageUrl("https://os.presentail.com/api/storage/img.jpg")).toBe(true);
+  it("returns true for an os.presentail.com public-object URL", () => {
+    expect(isOsStorageUrl("https://os.presentail.com/api/storage/public-objects/img.jpg")).toBe(true);
   });
 
   it("returns true for a URL with a deep /api/storage/ path", () => {
-    expect(isOsStorageUrl("https://os.presentail.com/api/storage/products/bouquet.webp")).toBe(true);
+    expect(isOsStorageUrl("https://os.presentail.com/api/storage/public-objects/products/bouquet.webp")).toBe(true);
   });
 
   it("returns false for a different host with /api/storage/ path", () => {
@@ -41,14 +41,14 @@ describe("isOsStorageUrl", () => {
 
 describe("buildOsProxyUrl", () => {
   it("returns a /api/img/proxy URL for a valid OS storage URL", () => {
-    const result = buildOsProxyUrl("https://os.presentail.com/api/storage/img.jpg", 800);
+    const result = buildOsProxyUrl("https://os.presentail.com/api/storage/public-objects/img.jpg", 800);
     expect(result).toBe(
-      "/api/img/proxy?url=https%3A%2F%2Fos.presentail.com%2Fapi%2Fstorage%2Fimg.jpg&w=800&f=webp",
+      "/api/img/proxy?url=https%3A%2F%2Fos.presentail.com%2Fapi%2Fstorage%2Fpublic-objects%2Fimg.jpg&w=800&f=webp",
     );
   });
 
   it("uses the jpeg format when specified", () => {
-    const result = buildOsProxyUrl("https://os.presentail.com/api/storage/img.jpg", 400, "jpeg");
+    const result = buildOsProxyUrl("https://os.presentail.com/api/storage/public-objects/img.jpg", 400, "jpeg");
     expect(result).toContain("f=jpeg");
   });
 
@@ -56,13 +56,34 @@ describe("buildOsProxyUrl", () => {
     const url = "https://example.com/img.jpg";
     expect(buildOsProxyUrl(url, 800)).toBe(url);
   });
+
+  it("canonicalizes and nests special characters exactly once", () => {
+    const raw = "https://os.presentail.com/api/storage/public-objects/products/ورد + 50% & more.png?label=a+b&next=x%26y";
+    const proxied = buildOsProxyUrl(raw, 800);
+    const nested = new URL(proxied, "https://presentail.com").searchParams.get("url");
+    expect(nested).toBe(new URL(raw.replace("% ", "%25 ")).toString());
+    expect(new URL(nested!).searchParams.get("label")).toBe("a b");
+    expect(new URL(nested!).searchParams.get("next")).toBe("x&y");
+  });
+
+  it("rejects HTTP and credentialed OS URLs", () => {
+    const http = "http://os.presentail.com/api/storage/public-objects/a.png";
+    const credentialed = "https://user:pass@os.presentail.com/api/storage/public-objects/a.png";
+    expect(buildOsProxyUrl(http, 800)).toBe(http);
+    expect(buildOsProxyUrl(credentialed, 800)).toBe(credentialed);
+  });
+
+  it("does not proxy non-public OS storage paths", () => {
+    const privatePath = "https://os.presentail.com/api/storage/private/customer-file.png";
+    expect(buildOsProxyUrl(privatePath, 800)).toBe(privatePath);
+  });
 });
 
 // ---------------------------------------------------------------------------
 // buildOsImageSrcset
 // ---------------------------------------------------------------------------
 
-const OS_URL = "https://os.presentail.com/api/storage/products/bouquet.webp";
+const OS_URL = "https://os.presentail.com/api/storage/public-objects/products/bouquet.webp";
 
 describe("buildOsImageSrcset", () => {
   it("returns null for a non-OS-storage URL", () => {
@@ -131,7 +152,7 @@ describe("buildOsImageSrcset", () => {
   });
 
   it("produces the exact srcset string for a known URL", () => {
-    const url = "https://os.presentail.com/api/storage/test.jpg";
+    const url = "https://os.presentail.com/api/storage/public-objects/test.jpg";
     const encoded = encodeURIComponent(url);
     const result = buildOsImageSrcset(url)!;
     expect(result.srcset).toBe(

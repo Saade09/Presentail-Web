@@ -57,6 +57,8 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsOccasionProductCounts: vi.fn().mockReturnValue(new Map()),
   getOsProductOccasions: vi.fn().mockReturnValue(new Map()),
   getOsProductEmbeddedCategories: vi.fn().mockReturnValue(new Map()),
+  registerOsProductsRefreshListener: vi.fn(),
+  registerPricingEnrichmentListener: vi.fn(),
 }));
 
 vi.mock("pino-http", () => ({
@@ -250,6 +252,48 @@ describe("GET /api/catalog/brand-image/:filename", () => {
     expect(r82.headers["x-cache"]).toBe("MISS");
     expect(r60.headers["x-cache"]).toBe("MISS");
     expect(transformImageMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("bounds distinct concurrent catalog image fetches before buffering", async () => {
+    let activeFetches = 0;
+    let maxActiveFetches = 0;
+    fetchMock.mockImplementation(async () => {
+      activeFetches += 1;
+      maxActiveFetches = Math.max(maxActiveFetches, activeFetches);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      activeFetches -= 1;
+      return makeFakeImageFetchResponse("image/jpeg");
+    });
+    const app = await buildApp();
+    const responses = await Promise.all(
+      Array.from({ length: 16 }, (_, index) =>
+        request(app).get(`/api/catalog/brand-image/concurrent-${index}.jpg`),
+      ),
+    );
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(maxActiveFetches).toBeLessThanOrEqual(8);
+  });
+
+  it("rejects an oversized chunked catalog image without using arrayBuffer", async () => {
+    const oneMiB = new Uint8Array(1024 * 1024);
+    const arrayBuffer = vi.fn(() => Promise.reject(new Error("must not buffer unbounded body")));
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (header: string) => (header === "content-type" ? "image/jpeg" : null) },
+      body: new ReadableStream({
+        start(controller) {
+          for (let index = 0; index < 13; index += 1) controller.enqueue(oneMiB);
+          controller.close();
+        },
+      }),
+      arrayBuffer,
+    } as unknown as Response);
+    const app = await buildApp();
+    const response = await request(app).get("/api/catalog/brand-image/oversized.jpg");
+    expect(response.status).toBe(413);
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(transformImageMock).not.toHaveBeenCalled();
   });
 });
 

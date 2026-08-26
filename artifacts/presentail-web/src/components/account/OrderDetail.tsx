@@ -1,12 +1,13 @@
 import { X, Package, MapPin, User, Phone, MessageSquare, CreditCard, ExternalLink, Calendar } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { MyOrder } from "@/lib/queries";
+import { buildOsProxyUrl } from "@/lib/imageUtils";
 
 function proxyImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const abs = url.startsWith("http") ? url : `https://os.presentail.com${url}`;
-  if (!abs.includes("os.presentail.com")) return null;
-  return `/api/img/proxy?url=${encodeURIComponent(abs)}&w=160`;
+  const proxied = buildOsProxyUrl(abs, 160);
+  return proxied === abs ? null : proxied;
 }
 
 function statusConfig(status: string | null): { label: string; className: string } {

@@ -20,8 +20,44 @@ import { db } from "@workspace/db";
 import { plantEnvironmentCacheTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { translateCategoryOccasionNames, type CategoryOccasionLang } from "../lib/categoryOccasionTranslation";
+import {
+  IMAGE_FETCH_TIMEOUT_MS,
+  ImageDeliveryError,
+  parseOsImageUrl,
+  readBoundedImageBody,
+  withImageLoadLimit,
+} from "../lib/imageDelivery";
 
 const router: IRouter = Router();
+
+async function fetchAndTransformCatalogImage(
+  rawUrl: string,
+  apiKey: string,
+  options: { width: number; format: "webp" | "jpeg"; quality: number },
+) {
+  return withImageLoadLimit(async () => {
+    const target = parseOsImageUrl(rawUrl);
+    const upstream = await fetch(target.toString(), {
+      headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
+      redirect: "manual",
+      signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+    });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      throw new ImageDeliveryError("redirect", "Catalog image redirected", 502, upstream.status);
+    }
+    if (!upstream.ok) {
+      const status = upstream.status === 404 || upstream.status === 410 ? 404 : 502;
+      throw new ImageDeliveryError("upstream-status", "Catalog image fetch failed", status, upstream.status);
+    }
+    const source = await readBoundedImageBody(upstream);
+    try {
+      return await transformImage(source, options);
+    } catch (error) {
+      if (error instanceof ImageDeliveryError) throw error;
+      throw new ImageDeliveryError("invalid-url", "Catalog image is corrupt", 422);
+    }
+  });
+}
 
 const CATALOG_DEFAULT_OCCASION_ORDER = [
   "birthday", "love-romance", "congratulations", "thank-you", "get-well-soon",
@@ -119,35 +155,15 @@ router.get("/catalog/brand-image/:filename", async (req, res) => {
 
   const upstream = `${OS_BRAND_IMAGE_PREFIX}${filename}`;
   try {
-    const upstream_res = await fetch(upstream, {
-      headers: { "x-api-key": apiKey },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!upstream_res.ok) {
-      res.status(upstream_res.status).json({ error: "Upstream error" });
-      return;
-    }
-    const contentType = upstream_res.headers.get("content-type") ?? "image/webp";
-    if (!contentType.startsWith("image/")) {
-      res.status(404).json({ error: "Brand image not accessible" });
-      return;
-    }
-    const sourceBuffer = Buffer.from(await upstream_res.arrayBuffer());
-    let result: { data: Buffer; contentType: string };
-    try {
-      result = await transformImage(sourceBuffer, { width, format, quality });
-    } catch (err) {
-      req.log.warn({ err }, "catalog/brand-image: sharp transform failed");
-      res.status(500).end();
-      return;
-    }
+    const result = await fetchAndTransformCatalogImage(upstream, apiKey, { width, format, quality });
     catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
     res.setHeader("Content-Type", result.contentType);
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("X-Cache", "MISS"); // i18n-ignore
     res.send(result.data);
-  } catch {
-    res.status(502).json({ error: "Failed to fetch brand image" });
+  } catch (error) {
+    req.log.warn({ err: error }, "catalog/brand-image: delivery failed");
+    res.status(error instanceof ImageDeliveryError ? error.status : 502).end();
   }
 });
 
@@ -212,38 +228,15 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
     return;
   }
   try {
-    const upstream_res = await fetch(imageUrl, {
-      headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!upstream_res.ok) {
-      res.status(upstream_res.status).json({ error: "Upstream error" });
-      return;
-    }
-    const contentType = upstream_res.headers.get("content-type") ?? "";
-    // OS private storage paths return the web-app HTML shell instead of an image
-    // when the storage URL is not directly accessible. Detect and surface as 404
-    // so the client can fall back to its icon.
-    if (!contentType.startsWith("image/")) {
-      res.status(404).json({ error: "Occasion image not accessible" });
-      return;
-    }
-    const sourceBuffer = Buffer.from(await upstream_res.arrayBuffer());
-    let result: { data: Buffer; contentType: string };
-    try {
-      result = await transformImage(sourceBuffer, { width, format, quality });
-    } catch (err) {
-      req.log.warn({ err }, "catalog/occasion-image: sharp transform failed");
-      res.status(500).end();
-      return;
-    }
+    const result = await fetchAndTransformCatalogImage(imageUrl, apiKey, { width, format, quality });
     catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
     res.setHeader("Content-Type", result.contentType);
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("X-Cache", "MISS"); // i18n-ignore
     res.send(result.data);
-  } catch {
-    res.status(502).json({ error: "Failed to fetch occasion image" });
+  } catch (error) {
+    req.log.warn({ err: error }, "catalog/occasion-image: delivery failed");
+    res.status(error instanceof ImageDeliveryError ? error.status : 502).end();
   }
 });
 
@@ -287,29 +280,7 @@ router.get("/catalog/category-image/:id", async (req, res) => {
   }
 
   try {
-    const upstreamRes = await fetch(imageUrl, {
-      headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!upstreamRes.ok) {
-      res.status(upstreamRes.status).json({ error: "Upstream error" });
-      return;
-    }
-    const contentType = upstreamRes.headers.get("content-type") ?? "";
-    if (!contentType.startsWith("image/")) {
-      res.status(404).json({ error: "Category image not accessible" });
-      return;
-    }
-
-    const sourceBuffer = Buffer.from(await upstreamRes.arrayBuffer());
-    let result: { data: Buffer; contentType: string };
-    try {
-      result = await transformImage(sourceBuffer, { width, format, quality });
-    } catch (err) {
-      req.log.warn({ err }, "catalog/category-image: sharp transform failed");
-      res.status(500).end();
-      return;
-    }
+    const result = await fetchAndTransformCatalogImage(imageUrl, apiKey, { width, format, quality });
 
     catalogCacheSet(cacheKey, {
       data: result.data,
@@ -320,8 +291,9 @@ router.get("/catalog/category-image/:id", async (req, res) => {
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("X-Cache", "MISS"); // i18n-ignore
     res.send(result.data);
-  } catch {
-    res.status(502).json({ error: "Failed to fetch category image" });
+  } catch (error) {
+    req.log.warn({ err: error }, "catalog/category-image: delivery failed");
+    res.status(error instanceof ImageDeliveryError ? error.status : 502).end();
   }
 });
 

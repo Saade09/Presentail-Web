@@ -16,6 +16,7 @@ import {
 import { logger } from "./lib/logger";
 import { resolveStoreLogContext } from "./lib/wooStore";
 import { adminTokenIpLimiter } from "./lib/auth-rate-limit";
+import imgProxyRouter from "./routes/imgProxy";
 
 const app: Express = express();
 
@@ -69,6 +70,12 @@ app.use(
     },
   }),
 );
+
+// Public product images must bypass Clerk entirely. Authentication middleware
+// can attach session-dependent headers/cookies that make otherwise cacheable
+// responses private at the edge. The route performs its own strict OS-host/path
+// validation and needs no body parser, so it is safe to mount here.
+app.use("/api", imgProxyRouter);
 
 // Clerk Frontend API proxy. No-op outside production / when CLERK_SECRET_KEY
 // is unset. Must run BEFORE any body parser because the proxy streams raw
