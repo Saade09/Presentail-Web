@@ -317,6 +317,54 @@ describe("fetchOsCategories — feature flag normalisation", () => {
     expect(result.categories[0]?.is_featured).toBe(expected);
   });
 
+  it("uses the public catalog taxonomy endpoint without leaking the API key into the URL", async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ categories: [] })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchOsCategories(config);
+
+    const requestedUrl = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(requestedUrl.pathname).toBe("/api/public/catalog/categories");
+    expect(requestedUrl.searchParams.get("workspace")).toBe("presentail");
+    expect(requestedUrl.searchParams.has("apiKey")).toBe(false);
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({ "x-api-key": "test-key" }),
+      }),
+    );
+  });
+
+  it.each([
+    [{ featured: true }, true],
+    [{ isFeatured: "yes" }, true],
+    [{ is_featured: false, featured: true }, false],
+    [{ is_featured: "off", isFeatured: true }, false],
+  ])("normalises visibility aliases with explicit disabled states winning: %j", async (flags, expected) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            categories: [
+              {
+                id: 92,
+                slug: "balloon-arrangements",
+                name: "Balloon Arrangements",
+                ...flags,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    const result = await fetchOsCategories(config);
+
+    expect(result.categories[0]?.is_featured).toBe(expected);
+  });
+
   it("preserves category names and ids while normalising feature flags", async () => {
     vi.stubGlobal(
       "fetch",

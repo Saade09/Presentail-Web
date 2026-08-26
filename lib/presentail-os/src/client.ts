@@ -612,9 +612,11 @@ export async function fetchOsCategories(
     throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsCategories.");
   }
 
-  const url = new URL(`${baseUrl}/api/categories`);
+  // The legacy /api/categories route is an admin endpoint and rejects API-key
+  // callers with 403. Use the public catalog taxonomy route, matching the
+  // public occasions endpoint below.
+  const url = new URL(`${baseUrl}/api/public/catalog/categories`);
   url.searchParams.set("workspace", workspace);
-  url.searchParams.set("apiKey", apiKey);
   const res = await fetch(url.toString(), {
     headers: {
       Accept: "application/json",
@@ -632,8 +634,11 @@ export async function fetchOsCategories(
       slug: string;
       name: string;
       // Depending on the OS deployment/database driver, boolean columns may
-      // arrive as JSON booleans, numeric flags, or strings.
+      // arrive as JSON booleans, numeric flags, or strings. Public catalog
+      // responses may also expose the same flag as featured/isFeatured.
       is_featured?: boolean | string | number | null;
+      isFeatured?: boolean | string | number | null;
+      featured?: boolean | string | number | null;
       image_url?: string | null;
       image_public_url?: string | null;
       description?: string | null;
@@ -644,14 +649,35 @@ export async function fetchOsCategories(
   };
   const toAbs = (u: string | null | undefined) =>
     u ? (u.startsWith("http") ? u : `${baseUrl}${u}`) : null;
-  const normaliseBooleanFlag = (value: boolean | string | number | null | undefined): boolean => {
+  const parseBooleanFlag = (
+    value: boolean | string | number | null | undefined,
+  ): boolean | undefined => {
     if (typeof value === "boolean") return value;
-    if (typeof value === "number") return value === 1;
+    if (typeof value === "number") {
+      if (value === 1) return true;
+      if (value === 0) return false;
+      return undefined;
+    }
     if (typeof value === "string") {
       const normalised = value.trim().toLowerCase();
-      return normalised === "true" || normalised === "1" || normalised === "yes" || normalised === "on";
+      if (normalised === "true" || normalised === "1" || normalised === "yes" || normalised === "on") {
+        return true;
+      }
+      if (normalised === "false" || normalised === "0" || normalised === "no" || normalised === "off") {
+        return false;
+      }
     }
-    return false;
+    return undefined;
+  };
+  const normaliseVisibility = (
+    item: NonNullable<typeof raw.categories>[number],
+  ): boolean => {
+    const flags = [item.is_featured, item.isFeatured, item.featured]
+      .map(parseBooleanFlag)
+      .filter((flag): flag is boolean => flag !== undefined);
+    // A false value is an explicit hide decision and wins if aliases conflict.
+    if (flags.includes(false)) return false;
+    return flags.includes(true);
   };
   const categories: OSCategoriesResponse["categories"] = (
     raw.categories ?? []
@@ -659,7 +685,7 @@ export async function fetchOsCategories(
     id: String(item.id),
     slug: item.slug,
     name: item.name,
-    is_featured: normaliseBooleanFlag(item.is_featured),
+    is_featured: normaliseVisibility(item),
     description: item.description ?? null,
     // Normalise snake_case → camelCase so the proxy and buildOsCategories
     // can reliably read image fields regardless of which OS version is deployed.

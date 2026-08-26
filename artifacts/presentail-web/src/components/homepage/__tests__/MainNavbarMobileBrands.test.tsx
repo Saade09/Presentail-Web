@@ -419,6 +419,33 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect(screen.queryByTestId("megamenu-item-balloon-arrangements")).toBeNull();
   });
 
+  it("hides a zero-inventory OS category from the mobile Gifts sub-panel", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          {
+            id: "balloon-arrangements",
+            name: "Balloon Arrangements",
+            icon: "tag",
+            count: 0,
+          },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+    await user.click(
+      within(screen.getByTestId("sheet-content")).getByRole("button", {
+        name: /nav\.gifts/i,
+      }),
+    );
+
+    expect(screen.queryByRole("link", { name: /Balloon Arrangements/ })).toBeNull();
+  });
+
   it("keeps the occasions CTA outside the scrolling skeleton while the catalog loads", async () => {
     const user = userEvent.setup();
     mockUseCatalogOccasions.mockReturnValue({ data: undefined, isPending: true });

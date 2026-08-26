@@ -457,12 +457,16 @@ export function __resetBrandFilterStateForTest(): void {
   storeCache.clear();
   storeRefreshState.clear();
   lastRefreshedAt = null;
+  cachedCategories = null;
   cachedBrands = null;
+  cachedOccasions = null;
   cachedRawCatalogBrands = null;
   cachedBrandProductCounts = new Map();
   cachedBrandNameToCanonicalSlug = new Map();
   cachedCategoryProductCounts = new Map();
   cachedOccasionProductCounts = new Map();
+  cachedCategoryProductCountsByCountry = new Map();
+  cachedOccasionProductCountsByCountry = new Map();
   cachedProductOccasions = new Map();
   cachedProductPricing = new Map();
 }
@@ -1179,6 +1183,13 @@ async function fetchAndStore(): Promise<void> {
       if (cats.length > 0) {
         cachedCategories = cats;
         freshCategories = cats;
+        logger.info(
+          {
+            categoryCount: cats.length,
+            featuredCount: cats.filter((category) => category.is_featured === true).length,
+          },
+          "osProductsCache: categories refreshed from Presentail OS",
+        );
       }
     }
     if (occasionsResp.status === "fulfilled") {

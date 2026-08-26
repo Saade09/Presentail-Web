@@ -20,10 +20,16 @@
  */
 
 import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
-import type { OSProduct, OSProductBrand, OSCatalogAttributeBrand } from "@workspace/presentail-os";
+import type {
+  OSProduct,
+  OSProductBrand,
+  OSProductCategory,
+  OSCatalogAttributeBrand,
+} from "@workspace/presentail-os";
 import {
   getOsBrands,
   getOsBrandProductCounts,
+  getOsCategories,
   getOsRawCatalogBrands,
   fetchAndStoreForTesting,
   __resetBrandFilterStateForTest,
@@ -113,7 +119,11 @@ function makeProduct(
 
 // ── Test setup ───────────────────────────────────────────────────────────────
 
-import { fetchOsProducts, fetchOsCatalogAttributesBrands } from "@workspace/presentail-os";
+import {
+  fetchOsProducts,
+  fetchOsCategories,
+  fetchOsCatalogAttributesBrands,
+} from "@workspace/presentail-os";
 
 const originalApiKey = process.env.PRESENTAIL_OS_API_KEY;
 const originalBrandAllowlist = process.env.PRESENTAIL_OS_BRAND_ALLOWLIST;
@@ -127,6 +137,7 @@ beforeEach(() => {
   process.env.PRESENTAIL_OS_BRAND_ALLOWLIST = "";
   __resetBrandFilterStateForTest();
   vi.mocked(fetchOsProducts).mockResolvedValue({ products: [] });
+  vi.mocked(fetchOsCategories).mockResolvedValue({ categories: [] });
   vi.mocked(fetchOsCatalogAttributesBrands).mockResolvedValue({ brands: [] });
 });
 
@@ -146,6 +157,28 @@ afterAll(() => {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe("osProductsCache — zero-product brand filter", () => {
+  it("retains normalized enabled and disabled categories after a taxonomy refresh", async () => {
+    const categories: OSProductCategory[] = [
+      {
+        id: "92",
+        slug: "balloon-arrangements",
+        name: "Balloon Arrangements",
+        is_featured: true,
+      },
+      {
+        id: "93",
+        slug: "hidden-category",
+        name: "Hidden Category",
+        is_featured: false,
+      },
+    ];
+    vi.mocked(fetchOsCategories).mockResolvedValue({ categories });
+
+    await fetchAndStoreForTesting();
+
+    expect(getOsCategories()).toEqual(categories);
+  });
+
   it("getOsBrands excludes brand C when brandMap has A/B/C but only A/B have products", async () => {
     // This is the core regression guard: the catalog-attributes endpoint returns
     // three brands (A, B, C) but only products for A and B exist in the store
