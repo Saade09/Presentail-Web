@@ -21,6 +21,7 @@ import {
   expressSurchargeUsd,
   countryForDistrict,
   computeSlotFeeUsd,
+  checkSubmittedSlotBookable,
   evaluateOrderSlotGuard,
   verifyMamoPayment,
   captureAndVerifyPayPalOrder,
@@ -1344,12 +1345,26 @@ router.post("/woo/order", async (req, res) => {
   }
 
   // Server-side past-date guard — reject any scheduled delivery date that is
-  // strictly before "today" in the recipient country's local timezone.  This
-  // catches stale clients (e.g. a browser tab left open past midnight) that
-  // still hold a UTC-derived date string from the previous calendar day.
+  // strictly before "today" in the recipient country's local timezone. The
+  // sole exception is an exact Midnight slot whose selected 23:00 start date
+  // was yesterday and whose cross-midnight window is still active.
   if (body.deliveryDate) {
     const todayLocal = getLocalIso(store.country);
-    if (body.deliveryDate < todayLocal) {
+    const priorDateSlotCheck =
+      body.deliveryDate < todayLocal
+        ? checkSubmittedSlotBookable({
+            deliverySlot: body.deliverySlot,
+            deliverySlotId: body.deliverySlotId,
+            deliveryDate: body.deliveryDate,
+            cityId: body.cityId,
+            deliveryServiceType: body.deliveryServiceType,
+            district: body.district,
+          })
+        : null;
+    const activePriorDateMidnight =
+      priorDateSlotCheck?.bookable === true &&
+      priorDateSlotCheck.serviceType === "midnight";
+    if (body.deliveryDate < todayLocal && !activePriorDateMidnight) {
       req.log?.warn?.(
         { deliveryDate: body.deliveryDate, todayLocal, country: store.country },
         "woo.order: delivery date is in the past — rejecting",

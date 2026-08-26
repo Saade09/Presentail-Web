@@ -68,7 +68,8 @@ function midnightSlots() {
       startHour: 23,
       endHour: 1,
       cutoffHour: 20,
-      nextDayEnabled: true,
+      sameDayEnabled: true,
+      nextDayEnabled: false,
       extraFee: 20,
     },
   ];
@@ -224,6 +225,26 @@ async function seedCheckoutCart(page: Page) {
   }, PRODUCT);
 }
 
+async function seedActivePriorDateMidnight(page: Page, market: (typeof MARKETS)[number]) {
+  await page.addInitScript(
+    ({ cityId }) => {
+      window.localStorage.setItem(
+        "presentail_delivery_selection_v1",
+        JSON.stringify({
+          mode: "today_slot",
+          date: "2026-07-02",
+          slotLabel: "11 PM – 1 AM",
+          slotId: "os-midnight-boundary",
+          serviceType: "midnight",
+          cityId,
+          source: "user_selected",
+        }),
+      );
+    },
+    { cityId: market.cityId },
+  );
+}
+
 test.describe("Midnight Delivery date boundary", () => {
   for (const market of MARKETS) {
     // Each country's setup must be scoped to its tests. Root-level hooks from
@@ -281,6 +302,40 @@ test.describe("Midnight Delivery date boundary", () => {
             ),
           )
           .toContain('"slotId":"os-midnight-boundary"');
+      });
+
+      test("cart keeps the prior start date active after midnight and expires it at 1 AM", async ({
+        page,
+      }) => {
+        await seedCheckoutCart(page);
+        await seedActivePriorDateMidnight(page, market);
+        await page.goto(`/${market.pathPrefix}/cart`);
+        await page.clock.runFor(1_000);
+
+        await expect(page.getByTestId("cart-delivery-invalid")).not.toBeVisible();
+        await expect
+          .poll(() =>
+            page.evaluate(() =>
+              window.localStorage.getItem("presentail_delivery_selection_v1"),
+            ),
+          )
+          .toContain('"date":"2026-07-02"');
+        await expect
+          .poll(() =>
+            page.evaluate(() =>
+              window.localStorage.getItem("presentail_delivery_selection_v1"),
+            ),
+          )
+          .toContain('"serviceType":"midnight"');
+
+        // 00:09 → 01:00 Beirut. The minute-driven cart guard must switch to
+        // recovery at the exact fulfillment-window endpoint, not at midnight.
+        await page.clock.fastForward(51 * 60 * 1_000);
+        await expect(page.getByTestId("cart-delivery-invalid")).toBeVisible();
+        const scheduleAnother = page.getByTestId("button-schedule-another-date");
+        await expect(scheduleAnother).toBeVisible();
+        await scheduleAnother.click();
+        await expect(page.getByTestId("button-picker-confirm")).toBeDisabled();
       });
 
       test("picker uses the market-local date and confirms the slot", async ({

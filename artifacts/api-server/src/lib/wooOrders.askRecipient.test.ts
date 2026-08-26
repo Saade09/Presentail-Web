@@ -43,6 +43,7 @@ vi.mock("./catalog", () => ({
   expressSurchargeUsd: vi.fn().mockReturnValue(0),
   resolveOsEffectivePrice: vi.fn((p: { price: number }) => p.price),
   resolveMidnightWindow: vi.fn().mockReturnValue(null),
+  resolveSlotForDate: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("./wooStore", () => ({
@@ -176,10 +177,22 @@ const PREVERIFIED_ITEMS = [
 ];
 
 type OsPayloadShape = {
-  delivery: { address: string; noAddress: boolean };
+  delivery: {
+    address: string;
+    noAddress: boolean;
+    date?: string;
+    serviceType?: string;
+    slotId?: string;
+    timeZone?: string;
+    windowStart?: string;
+    windowEnd?: string;
+  };
   delivery_address?: { address_1?: string };
   delivery_instructions?: string;
   orderNotes?: string;
+  delivery_type?: string;
+  window_start?: string;
+  window_end?: string;
 };
 
 async function submit(body: WooOrderPayload): Promise<OsPayloadShape> {
@@ -213,6 +226,30 @@ describe("attemptCreateOsOrder — ask-recipient signal", () => {
     expect(payload.delivery_address?.address_1).toBe(ASK_RECIPIENT_ADDRESS_PLACEHOLDER);
     expect(payload.delivery_instructions).toBe(ASK_RECIPIENT_NOTE);
     expect(payload.orderNotes).toBe(ASK_RECIPIENT_NOTE);
+  });
+
+  it("sends Midnight's selected start date and cross-year fulfillment timestamps to OS", async () => {
+    const payload = await submit(
+      makeBody({
+        deliveryDate: "2026-12-31",
+        deliverySlot: "11 PM – 1 AM",
+        deliverySlotId: "os-midnight-new-year",
+        deliveryServiceType: "midnight",
+        cityId: "lb-beirut",
+      }),
+    );
+
+    expect(payload.delivery).toMatchObject({
+      date: "2026-12-31",
+      serviceType: "midnight",
+      slotId: "os-midnight-new-year",
+      timeZone: "Asia/Beirut",
+      windowStart: "2026-12-31T21:00:00.000Z",
+      windowEnd: "2026-12-31T23:00:00.000Z",
+    });
+    expect(payload.delivery_type).toBe("midnight");
+    expect(payload.window_start).toBe("2026-12-31T21:00:00.000Z");
+    expect(payload.window_end).toBe("2026-12-31T23:00:00.000Z");
   });
 
   it("toggle on with customer notes: notes preserved, ask-recipient line appended", async () => {

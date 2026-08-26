@@ -500,8 +500,8 @@ export function applyAddressToRecipient(
   });
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+function todayIso(countryCode?: string | null, now: Date = new Date()): string {
+  return getLocalIso(countryCode, now);
 }
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
@@ -1595,48 +1595,78 @@ function CheckoutForm() {
   // checkout would persist a "default" schedule selection that the
   // shopper never explicitly chose, polluting the product page and cart
   // for subsequent visits.
+  const checkoutLocalToday = getLocalIso(countryCode, now);
   const didSyncDeliveryRef = useRef(false);
   useEffect(() => {
     if (!didSyncDeliveryRef.current) {
       didSyncDeliveryRef.current = true;
       return;
     }
+    const selectedSlot =
+      (deliverySlotId
+        ? timeSlots.find(
+            (slot) =>
+              (slot as typeof slot & { slotId?: string }).slotId === deliverySlotId,
+          )
+        : undefined) ?? timeSlots.find((slot) => slot.label === deliverySlot);
+    const persistedMidnightMarkerMatches =
+      deliverySelection.serviceType === "midnight" &&
+      deliverySelection.date === recipient.deliveryDate &&
+      (deliverySelection.slotId
+        ? deliverySelection.slotId === deliverySlotId
+        : deliverySelection.slotLabel === deliverySlot) &&
+      (!selectedCityData?.id ||
+        deliverySelection.cityId === selectedCityData.id);
+    // Keep the exact persisted Midnight marker while the city's live schedule
+    // is still loading. Once loaded, district revalidation remains responsible
+    // for rejecting a slot that no longer exists.
+    const selectedIsMidnight =
+      isMidnightSlot(selectedSlot, selectedCityData?.id) ||
+      persistedMidnightMarkerMatches;
+    const preserveActiveSameDayMidnight =
+      selectedIsMidnight &&
+      deliverySelection.mode === "today_slot" &&
+      deliverySelection.date === recipient.deliveryDate;
     const mode: "express" | "today_slot" | "schedule" =
       deliveryMode === "express"
         ? "express"
         : recipient.deliveryDate &&
-            recipient.deliveryDate === new Date().toISOString().slice(0, 10)
+            (recipient.deliveryDate === checkoutLocalToday ||
+              preserveActiveSameDayMidnight)
           ? "today_slot"
           : "schedule";
     deliverySelection.setSelection({
       mode,
       date:
         deliveryMode === "express"
-          ? new Date().toISOString().slice(0, 10)
+          ? checkoutLocalToday
           : recipient.deliveryDate || null,
       slotLabel: deliveryMode === "express" ? null : deliverySlot || null,
       slotId: deliveryMode === "express" ? null : deliverySlotId ?? null,
       serviceType:
         deliveryMode !== "express" &&
-        isMidnightSlot(
-          (deliverySlotId
-            ? timeSlots.find(
-                (slot) =>
-                  (slot as typeof slot & { slotId?: string }).slotId === deliverySlotId,
-              )
-            : undefined) ?? timeSlots.find((slot) => slot.label === deliverySlot),
-          selectedCityData?.id,
-        )
+        selectedIsMidnight
           ? "midnight"
           : null,
-      cityId: deliveryMode === "express" ? null : selectedCityData?.id ?? null,
+      cityId:
+        deliveryMode === "express"
+          ? null
+          : selectedCityData?.id ?? deliverySelection.cityId ?? null,
       // A change caused by the sold-out correction effect below is a system
       // re-pick; anything else here reflects an explicit checkout interaction.
       source: systemCorrectionRef.current ? "system_reselected" : "user_selected",
     });
     systemCorrectionRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deliveryMode, deliverySlot, deliverySlotId, recipient.deliveryDate]);
+  }, [
+    deliveryMode,
+    deliverySlot,
+    deliverySlotId,
+    recipient.deliveryDate,
+    checkoutLocalToday,
+    timeSlots,
+    selectedCityData?.id,
+  ]);
 
   const prevCountryRef = useRef(countryCode);
   useEffect(() => {
@@ -1683,18 +1713,60 @@ function CheckoutForm() {
     // A district change cleared (or is revalidating) the selection: the
     // shopper must explicitly re-pick — never auto-substitute a slot here.
     if (isDeliveryGateBlocked(districtRevalRef.current)) return;
+    if (deliverySelection.invalidationReason === "expired") return;
     if (timeSlots.length === 0) {
       setDeliverySlot("");
       return;
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalIso(countryCode, now);
     const currentDate = recipient.deliveryDate;
+    const selectedSlot =
+      (deliverySlotId
+        ? timeSlots.find(
+            (slot) =>
+              (slot as typeof slot & { slotId?: string }).slotId === deliverySlotId,
+          )
+        : undefined) ?? timeSlots.find((slot) => slot.label === deliverySlot);
+    const selectedSlotIsMidnight = isMidnightSlot(
+      selectedSlot,
+      selectedCityData?.id,
+    );
+    const currentMidnightStillActive =
+      !!currentDate &&
+      selectedSlotIsMidnight &&
+      checkStaleSlotSelection({
+        deliveryMode: "schedule",
+        deliverySlot,
+        deliverySlotId,
+        deliveryDate: currentDate,
+        timeSlots,
+        countryCode,
+        sameDayCutoffHour: selectedCityData?.sameDayCutoffHour,
+        cityId: selectedCityData?.id ?? deliverySelection.cityId,
+        now,
+      }).bookable;
+    // Midnight's chosen date is the 23:00 start date. Keep that exact selection
+    // through 01:00 the following day instead of feeding it through today's
+    // generic cutoff/default replacement logic.
+    if (currentMidnightStillActive) return;
+    if (currentDate && currentDate < today && selectedSlotIsMidnight) {
+      // The carried-over window has reached its 01:00 endpoint. Clear the
+      // expired row and force an explicit new choice instead of silently
+      // substituting another date/slot in checkout.
+      deliverySelection.invalidate?.("expired");
+      systemCorrectionRef.current = true;
+      setDeliverySlot("");
+      setDeliverySlotId(undefined);
+      setRecipient((current) => ({ ...current, deliveryDate: "" }));
+      setDeliveryPickerOpen(true);
+      return;
+    }
     // Only correct when the current date is today or not yet set.
     if (currentDate && currentDate !== today) return;
     // Skip if already corrected and nothing has changed.
     if (deliveryDayInitRef.current && currentDate && currentDate !== today) return;
     deliveryDayInitRef.current = true;
-    const h = getCountryHour(countryCode, new Date());
+    const h = getCountryHour(countryCode, now);
     const todayHasSlots = timeSlots.some((s) => s.cutoffHour > h);
     if (todayHasSlots) {
       // Today still has available slots — ensure the pre-selected slot is the
@@ -1726,7 +1798,7 @@ function CheckoutForm() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeSlots]);
+  }, [timeSlots, now, deliverySelection.invalidationReason]);
 
   // ── District-change revalidation ──────────────────────────────────────────
   // On a district change, the current delivery selection is revalidated
@@ -3041,7 +3113,10 @@ function CheckoutForm() {
       : selectedPlace
         ? flattenPlaceAddress(selectedPlace, placeInternalDetail)
         : recipient.address,
-    deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
+    deliveryDate:
+      deliveryMode === "express"
+        ? todayIso(countryCode, now)
+        : recipient.deliveryDate,
     deliverySlot: deliveryMode === "express" ? "" : deliverySlot,
     ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
     deliveryServiceType: isMidnightSlotActive ? "midnight" : undefined,
@@ -5476,6 +5551,9 @@ function CheckoutForm() {
         open={deliveryPickerOpen}
         onOpenChange={setDeliveryPickerOpen}
         onConfirm={handleDeliveryPickerConfirm}
+        requireExplicitSelection={
+          deliverySelection.invalidationReason === "expired"
+        }
         timeSlots={timeSlots}
         cityExpressAvailable={selectedCityData?.expressAvailable === true}
         /* The picker must show the schedule of the district selected at

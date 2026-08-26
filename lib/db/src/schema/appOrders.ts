@@ -147,7 +147,7 @@ export const appOrdersTable = pgTable(
     deliverySlotFeeCents: integer("delivery_slot_fee_cents"),
     // UTC ISO timestamp for the start of the delivery window
     // (e.g. "2026-06-18T21:00:00.000Z" for a 23:00 Beirut Midnight window).
-    // For Midnight: 23:00 the night before occasionDate in Asia/Beirut.
+    // For Midnight: 23:00 on deliveryDate in Asia/Beirut.
     // Null for express orders, standard slots without hours, and legacy rows.
     deliveryWindowStart: timestamp("delivery_window_start", {
       withTimezone: true,

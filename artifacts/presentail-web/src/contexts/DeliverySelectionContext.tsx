@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import {
+  getLocalIso,
+  isSlotStillBookable,
 } from "@workspace/delivery";
 
 export type DeliveryMode = "express" | "today_slot" | "schedule";
@@ -65,8 +67,8 @@ const INVALIDATION_STORAGE_KEY = "presentail_delivery_invalidation_v1";
 const DeliverySelectionContext =
   createContext<DeliverySelectionContextValue | null>(null);
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+function todayIso(countryCode?: string | null, now: Date = new Date()): string {
+  return getLocalIso(countryCode, now);
 }
 
 /** Read the stored country code from LocationContext's localStorage entry. */
@@ -104,7 +106,11 @@ export function restoredSource(raw: unknown): DeliverySelectionSource {
   return "restored_user_selection";
 }
 
-export function sanitize(raw: unknown, countryCode?: string | null): DeliverySelection {
+export function sanitize(
+  raw: unknown,
+  countryCode?: string | null,
+  now: Date = new Date(),
+): DeliverySelection {
   if (!raw || typeof raw !== "object") return EMPTY;
   const obj = raw as Record<string, unknown>;
   const mode =
@@ -115,9 +121,7 @@ export function sanitize(raw: unknown, countryCode?: string | null): DeliverySel
       : null;
   let date =
     typeof obj.date === "string" && obj.date.length === 10 ? obj.date : null;
-  const datePassed = !!date && date < todayIso();
-  if (datePassed) date = null;
-  let slotLabel =
+  const slotLabel =
     typeof obj.slotLabel === "string" && obj.slotLabel.length > 0
       ? obj.slotLabel
       : null;
@@ -136,11 +140,29 @@ export function sanitize(raw: unknown, countryCode?: string | null): DeliverySel
       ? obj.cityId
       : null;
   if (!mode) return EMPTY;
-  const source = restoredSource(obj.source);
+  const localToday = todayIso(countryCode, now);
+  const datePassed = !!date && date < localToday;
+  const activeMidnight =
+    datePassed &&
+    serviceType === "midnight" &&
+    !!slotLabel &&
+    !!cityId &&
+    isSlotStillBookable({
+      deliveryDate: date,
+      slot: { label: slotLabel, serviceType: "midnight" },
+      cityId,
+      countryCode,
+      now,
+    }).bookable;
+  if (datePassed && !activeMidnight) date = null;
+  const source =
+    datePassed && !activeMidnight
+      ? "system_reselected"
+      : restoredSource(obj.source);
   if (mode === "express") {
     return {
       mode,
-      date: todayIso(),
+      date: localToday,
       slotLabel: null,
       slotId: null,
       serviceType: null,

@@ -24,6 +24,8 @@ import {
   getLocalIso,
   isExpressDeliveryAvailable,
   isMidnightSlot,
+  isSlotStillBookable,
+  MIDNIGHT_FEE_USD,
   nearestSlotForHour,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -55,6 +57,11 @@ export type DeliveryPickerSelection = {
   slotId: string | null;
   serviceType: "midnight" | null;
   cityId: string | null;
+};
+
+type IdentifiedTimeSlot = TimeSlot & {
+  slotId?: string;
+  enabled?: boolean;
 };
 
 interface Props {
@@ -363,18 +370,76 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   // Date-aware slot list for a given ISO date — same filtering/dedup semantics
   // as the product page's ScheduleInlinePanel (sameDayEnabled/nextDayEnabled
   // flags, duplicate-label preference, $5 same-day night fallback).
-  const slotsForDate = useCallback(
+  const rawSlotsForDate = useCallback(
     (dateIso: string) => {
       const weekday = new Date(`${dateIso}T12:00:00`).toLocaleDateString("en-US", {
         weekday: "long",
       }).toLowerCase();
-      const source =
+      return (
         city?.slotsByDay && Object.prototype.hasOwnProperty.call(city.slotsByDay, weekday)
           ? city.slotsByDay[weekday] ?? []
-          : rawTimeSlots;
-      return sortSlots(displayedSlotsForDate(source, dateIso, todayIso, tomorrowIso, city?.id));
+          : rawTimeSlots
+      );
     },
-    [rawTimeSlots, todayIso, tomorrowIso, city?.id, city?.slotsByDay],
+    [rawTimeSlots, city?.slotsByDay],
+  );
+  const slotsForDate = useCallback(
+    (dateIso: string) =>
+      sortSlots(
+        displayedSlotsForDate(
+          rawSlotsForDate(dateIso),
+          dateIso,
+          todayIso,
+          tomorrowIso,
+          city?.id,
+        ),
+      ),
+    [rawSlotsForDate, todayIso, tomorrowIso, city?.id],
+  );
+  const persistedMidnightForDate = useCallback(
+    (dateIso: string): TimeSlot | undefined => {
+      if (
+        deliverySelection.serviceType !== "midnight" ||
+        deliverySelection.date !== dateIso ||
+        deliverySelection.cityId !== city?.id ||
+        !deliverySelection.slotId
+      ) {
+        return undefined;
+      }
+      const exact = rawSlotsForDate(dateIso).find((rawCandidate) => {
+        const candidate = rawCandidate as IdentifiedTimeSlot;
+        return (
+          candidate.slotId === deliverySelection.slotId &&
+          candidate.label === deliverySelection.slotLabel &&
+          candidate.enabled !== false &&
+          isMidnightSlot(candidate, city?.id)
+        );
+      }) as IdentifiedTimeSlot | undefined;
+      return exact ? { ...exact, extraFee: MIDNIGHT_FEE_USD } : undefined;
+    },
+    [
+      deliverySelection.serviceType,
+      deliverySelection.date,
+      deliverySelection.cityId,
+      deliverySelection.slotId,
+      deliverySelection.slotLabel,
+      city?.id,
+      rawSlotsForDate,
+    ],
+  );
+  const slotsIncludingPersistedMidnight = useCallback(
+    (dateIso: string) => {
+      const displayed = slotsForDate(dateIso);
+      const persisted = persistedMidnightForDate(dateIso);
+      return persisted &&
+        !displayed.some(
+          (slot) =>
+            slot.slotId === persisted.slotId && slot.label === persisted.label,
+        )
+        ? sortSlots([...displayed, persisted])
+        : displayed;
+    },
+    [slotsForDate, persistedMidnightForDate],
   );
 
   const todaySlots = useMemo(() => slotsForDate(todayIso), [slotsForDate, todayIso]);
@@ -482,7 +547,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
 
     setDate(newDate);
     const dateIso = newDate || todayIso;
-    const daySlots = slotsForDate(dateIso);
+    const daySlots = slotsIncludingPersistedMidnight(dateIso);
     // Keep the persisted slot only when it's valid for this date's slot list.
     const persisted = deliverySelection.slotLabel;
     const persistedById = deliverySelection.slotId
@@ -514,13 +579,49 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   // preference, and the $5 same-day night surcharge fallback (as extraFee).
   const slotStates = useMemo(
     () =>
-      (selectedIso ? slotsForDate(selectedIso) : []).map((s) => {
-        const unavailable = isSelectedToday && s.cutoffHour <= currentHour;
+      (selectedIso ? slotsIncludingPersistedMidnight(selectedIso) : []).map((s) => {
+        const isPersistedMidnight =
+          deliverySelection.serviceType === "midnight" &&
+          deliverySelection.date === selectedIso &&
+          deliverySelection.cityId === city?.id &&
+          isMidnightSlot(s, city?.id) &&
+          (deliverySelection.slotId
+            ? deliverySelection.slotId === s.slotId
+            : deliverySelection.slotLabel === s.label);
+        const persistedMidnightStillActive =
+          isPersistedMidnight &&
+          isSlotStillBookable({
+            deliveryDate: selectedIso,
+            slot: s,
+            cityId: city?.id,
+            countryCode,
+            now,
+          }).bookable;
+        const unavailable =
+          selectedIso < todayIso
+            ? !persistedMidnightStillActive
+            : isSelectedToday &&
+              s.cutoffHour <= currentHour &&
+              !persistedMidnightStillActive;
         const startH = slotStartHour(s);
         const displayFee = s.extraFee && s.extraFee > 0 ? s.extraFee : null;
         return { slot: s, unavailable, startH, displayFee };
       }),
-    [slotsForDate, selectedIso, isSelectedToday, currentHour],
+    [
+      slotsIncludingPersistedMidnight,
+      selectedIso,
+      todayIso,
+      isSelectedToday,
+      currentHour,
+      deliverySelection.serviceType,
+      deliverySelection.date,
+      deliverySelection.cityId,
+      deliverySelection.slotId,
+      deliverySelection.slotLabel,
+      city?.id,
+      countryCode,
+      now,
+    ],
   );
   const hasAnyAvailableSlot = slotStates.some((s) => !s.unavailable);
   const availableSlotStates = slotStates.filter((s) => !s.unavailable);

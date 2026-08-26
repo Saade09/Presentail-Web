@@ -825,7 +825,8 @@ export function slotEndHour(slot: BookableSlotLike | null | undefined): number |
  * at 4PM Beirut time).
  *
  * Rules:
- *  - `deliveryDate` before today (local)      → not bookable ("past_date")
+ *  - `deliveryDate` before today (local)      → not bookable ("past_date"),
+ *    except an active Midnight window whose selected start date was yesterday
  *  - future dates                             → always bookable
  *  - today, local hour ≥ `sameDayCutoffHour`  → not bookable ("same_day_cutoff_passed")
  *  - today, local hour ≥ slot window end      → not bookable ("slot_window_ended")
@@ -863,12 +864,13 @@ export function isSlotStillBookable(opts: {
     if (now.getTime() >= new Date(window.end).getTime()) {
       return { bookable: false, reason: "slot_window_ended" };
     }
-    const previousIso = addIsoDays(dateIso, -1);
-    if (todayIso > dateIso) return { bookable: false, reason: "past_date" };
-    if (todayIso === previousIso && typeof opts.slot?.cutoffHour === "number") {
-      const hour = getCountryHour(opts.countryCode, now);
-      if (hour >= opts.slot.cutoffHour) {
-        return { bookable: false, reason: "same_day_cutoff_passed" };
+    if (dateIso < todayIso) {
+      // The chosen date is the 23:00 start date. It may therefore be yesterday
+      // only while its 23:00→01:00 window is still active after local midnight.
+      // The absolute end check above is authoritative across DST/month/year
+      // boundaries; older dates retain the normal past-date rejection.
+      if (todayIso !== addIsoDays(dateIso, 1)) {
+        return { bookable: false, reason: "past_date" };
       }
     }
     return { bookable: true };
@@ -914,11 +916,12 @@ export function isSlotStillBookable(opts: {
 }
 
 export type MidnightWindow = {
+  /** Selected delivery date: the market-local calendar date on which 23:00 starts. */
   occasionDate: string;
   timeZone: "Asia/Beirut";
-  /** UTC ISO instant for 23:00 on the calendar day before occasionDate. */
+  /** UTC ISO instant for 23:00 on the selected delivery date. */
   start: string;
-  /** UTC ISO instant for 01:00 on occasionDate. */
+  /** UTC ISO instant for 01:00 on the following calendar day. */
   end: string;
 };
 
@@ -988,17 +991,20 @@ function localWallClockToUtc(
 }
 
 /**
- * The selected date is the occasion date that begins during the service:
- * selecting Thursday means Wednesday 23:00 through Thursday 01:00 Beirut time.
+ * Convert the selected Midnight delivery date to its fulfillment window.
+ *
+ * The historical function/property name is retained for API compatibility,
+ * but the selected date is now the window's START date: selecting Thursday
+ * means Thursday 23:00 through Friday 01:00 Beirut time.
  */
 export function midnightWindowForOccasionDate(occasionDate: string): MidnightWindow {
   const timeZone = "Asia/Beirut" as const;
-  const previousDate = addIsoDays(occasionDate, -1);
+  const followingDate = addIsoDays(occasionDate, 1);
   return {
     occasionDate,
     timeZone,
-    start: localWallClockToUtc(previousDate, MIDNIGHT_START_HOUR, timeZone).toISOString(),
-    end: localWallClockToUtc(occasionDate, MIDNIGHT_END_HOUR, timeZone).toISOString(),
+    start: localWallClockToUtc(occasionDate, MIDNIGHT_START_HOUR, timeZone).toISOString(),
+    end: localWallClockToUtc(followingDate, MIDNIGHT_END_HOUR, timeZone).toISOString(),
   };
 }
 

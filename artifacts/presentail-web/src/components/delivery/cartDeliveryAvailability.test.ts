@@ -59,7 +59,7 @@ describe("classifyCartDeliverySelection", () => {
     })).toEqual({ valid: false, reason: "unavailable" });
   });
 
-  it("applies Midnight's prior-day city cutoff instead of treating it as any future slot", () => {
+  it("keeps yesterday's Midnight start date valid while the cross-midnight window is active", () => {
     const midnightSlot = {
       label: "11 PM – 1 AM",
       slotId: "midnight",
@@ -67,10 +67,12 @@ describe("classifyCartDeliverySelection", () => {
       startHour: 23,
       endHour: 1,
       cutoffHour: 20,
+      sameDayEnabled: true,
+      nextDayEnabled: false,
     };
     expect(classifyCartDeliverySelection({
       selection: selected({
-        date: "2026-08-15",
+        date: "2026-08-14",
         slotLabel: midnightSlot.label,
         slotId: midnightSlot.slotId,
         serviceType: "midnight",
@@ -80,11 +82,43 @@ describe("classifyCartDeliverySelection", () => {
       city: {
         id: "lb-beirut",
         name: "Beirut",
-        timeSlots: [midnightSlot],
+        timeSlots: [{ ...midnightSlot, slotId: "flat-list-variant" }],
+        slotsByDay: { friday: [midnightSlot] },
         expressAvailable: true,
       },
-      // 21:00 Beirut on the preceding day, after the 20:00 Midnight cutoff.
-      now: new Date("2026-08-14T18:00:00.000Z"),
+      // 00:30 Beirut on Aug 15: the Aug 14 start-date window is still active.
+      now: new Date("2026-08-14T21:30:00.000Z"),
+    })).toEqual({ valid: true });
+  });
+
+  it("expires yesterday's Midnight start date when the window reaches 01:00", () => {
+    const midnightSlot = {
+      label: "11 PM – 1 AM",
+      slotId: "midnight",
+      serviceType: "midnight" as const,
+      startHour: 23,
+      endHour: 1,
+      cutoffHour: 20,
+      sameDayEnabled: true,
+      nextDayEnabled: false,
+    };
+    expect(classifyCartDeliverySelection({
+      selection: selected({
+        date: "2026-08-14",
+        slotLabel: midnightSlot.label,
+        slotId: midnightSlot.slotId,
+        serviceType: "midnight",
+        cityId: "lb-beirut",
+      }),
+      countryCode: "LB",
+      city: {
+        id: "lb-beirut",
+        name: "Beirut",
+        timeSlots: [{ ...midnightSlot, slotId: "flat-list-variant" }],
+        slotsByDay: { friday: [midnightSlot] },
+        expressAvailable: true,
+      },
+      now: new Date("2026-08-14T22:00:00.000Z"),
     })).toEqual({ valid: false, reason: "expired" });
   });
 });

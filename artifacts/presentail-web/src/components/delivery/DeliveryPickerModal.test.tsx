@@ -11,9 +11,17 @@ import { renderWithProviders } from "@/test-utils";
 // ---------------------------------------------------------------------------
 
 // Use vi.hoisted so the mutable `mockNow` reference can be updated per-test.
-const { mockNow } = vi.hoisted(() => {
+const { mockNow, mockDeliverySelection } = vi.hoisted(() => {
   const mockNow = vi.fn(() => new Date("2026-06-15T10:00:00"));
-  return { mockNow };
+  const mockDeliverySelection = {
+    mode: "schedule",
+    date: "",
+    slotLabel: null as string | null,
+    slotId: null as string | null,
+    serviceType: null as "midnight" | null,
+    cityId: null as string | null,
+  };
+  return { mockNow, mockDeliverySelection };
 });
 
 vi.mock("@/lib/useNow", () => ({
@@ -33,9 +41,7 @@ const mockSetSelection = vi.fn();
 
 vi.mock("@/contexts/DeliverySelectionContext", () => ({
   useDeliverySelection: () => ({
-    mode: "schedule",
-    date: "",
-    slotLabel: null,
+    ...mockDeliverySelection,
     setSelection: mockSetSelection,
   }),
 }));
@@ -46,6 +52,14 @@ vi.mock("@/contexts/LocationContext", () => ({
 
 beforeEach(() => {
   mockSetSelection.mockClear();
+  Object.assign(mockDeliverySelection, {
+    mode: "schedule",
+    date: "",
+    slotLabel: null,
+    slotId: null,
+    serviceType: null,
+    cityId: null,
+  });
   // Restore the default stable clock so existing tests are unaffected.
   mockNow.mockReturnValue(new Date("2026-06-15T10:00:00"));
 });
@@ -175,6 +189,60 @@ describe("DeliveryPickerModal — explicit invalid-cart recovery", () => {
 
     await user.click(screen.getByTestId("slot-Morning"));
     expect((screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("DeliveryPickerModal — active prior-date Midnight selection", () => {
+  const midnightOnlyToday = {
+    label: "11 PM – 1 AM",
+    slotId: "midnight-active",
+    serviceType: "midnight" as const,
+    cutoffHour: 20,
+    startHour: 23,
+    endHour: 1,
+    sameDayEnabled: true,
+    nextDayEnabled: false,
+    extraFee: 20,
+  };
+
+  beforeEach(() => {
+    Object.assign(mockDeliverySelection, {
+      mode: "today_slot",
+      date: "2026-08-14",
+      slotLabel: midnightOnlyToday.label,
+      slotId: midnightOnlyToday.slotId,
+      serviceType: "midnight",
+      cityId: "lb-beirut",
+    });
+  });
+
+  it("keeps the exact same-day-only row confirmable at 00:30 the following day", () => {
+    mockNow.mockReturnValue(new Date("2026-08-14T21:30:00.000Z"));
+    renderWithProviders(
+      <DeliveryPickerModal
+        open
+        onOpenChange={() => {}}
+        timeSlots={[midnightOnlyToday]}
+      />,
+    );
+    expect(screen.getByTestId(`slot-${midnightOnlyToday.label}`)).toBeTruthy();
+    expect(
+      (screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("disables confirmation at the exact 01:00 endpoint", () => {
+    mockNow.mockReturnValue(new Date("2026-08-14T22:00:00.000Z"));
+    renderWithProviders(
+      <DeliveryPickerModal
+        open
+        onOpenChange={() => {}}
+        timeSlots={[midnightOnlyToday]}
+      />,
+    );
+    expect(
+      (screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 import {
   getLocalIso,
   isExpressDeliveryAvailable,
+  isMidnightSlot,
   type TimeSlot,
 } from "@workspace/delivery";
 import type { DeliveryCity } from "@/contexts/LocationContext";
@@ -14,14 +15,24 @@ export type CartDeliveryAvailability =
   | { valid: true }
   | { valid: false; reason: CartDeliveryInvalidationReason };
 
-function slotsForDate(city: DeliveryCity, dateIso: string, todayIso: string): TimeSlot[] {
+type IdentifiedTimeSlot = TimeSlot & {
+  slotId?: string;
+  enabled?: boolean;
+};
+
+function rawSlotsForDate(city: DeliveryCity, dateIso: string): TimeSlot[] {
   const weekday = new Date(`${dateIso}T12:00:00`).toLocaleDateString("en-US", {
     weekday: "long",
   }).toLowerCase();
-  const source =
+  return (
     city.slotsByDay && Object.prototype.hasOwnProperty.call(city.slotsByDay, weekday)
       ? city.slotsByDay[weekday] ?? []
-      : city.timeSlots ?? [];
+      : city.timeSlots ?? []
+  );
+}
+
+function slotsForDate(city: DeliveryCity, dateIso: string, todayIso: string): TimeSlot[] {
+  const source = rawSlotsForDate(city, dateIso);
   const tomorrow = new Date(`${todayIso}T12:00:00`);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowIso = tomorrow.toISOString().slice(0, 10);
@@ -56,6 +67,47 @@ export function classifyCartDeliverySelection(args: {
   }
 
   const todayIso = getLocalIso(countryCode, now);
+  // An active Midnight continuation after local midnight is intentionally an
+  // exception to generic same-day/next-day flags: its selected date is now
+  // yesterday, but the exact OS row remains valid until the absolute 01:00 end.
+  const rawSlots = rawSlotsForDate(city, selection.date);
+  const exactPersistedMidnight =
+    selection.serviceType === "midnight" &&
+    selection.cityId === city.id &&
+    !!selection.slotId
+      ? rawSlots.find(
+          (rawSlot) => {
+            const slot = rawSlot as IdentifiedTimeSlot;
+            return (
+              slot.slotId === selection.slotId &&
+              slot.label === selection.slotLabel &&
+              slot.enabled !== false &&
+              isMidnightSlot(slot, city.id)
+            );
+          },
+        ) as IdentifiedTimeSlot | undefined
+      : undefined;
+  if (exactPersistedMidnight) {
+    const midnightOutcome = checkStaleSlotSelection({
+      deliveryMode: "schedule",
+      deliverySlot: selection.slotLabel,
+      deliverySlotId: selection.slotId ?? undefined,
+      deliveryDate: selection.date,
+      timeSlots: [exactPersistedMidnight],
+      countryCode,
+      cityId: city.id,
+      now,
+    });
+    if (midnightOutcome.bookable) return { valid: true };
+    return {
+      valid: false,
+      reason:
+        midnightOutcome.reason === "slot_window_ended" ||
+        midnightOutcome.reason === "past_date"
+          ? "expired"
+          : "unavailable",
+    };
+  }
   const slots = slotsForDate(city, selection.date, todayIso);
   const selectedSlot =
     (selection.slotId ? slots.find((slot) => slot.slotId === selection.slotId) : undefined) ??

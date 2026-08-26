@@ -15,6 +15,14 @@ const SLOTS: TimeSlot[] = [
   { label: "9:00 AM – 2:00 PM", slotId: "morning", cutoffHour: 12, startHour: 9, endHour: 14 },
   { label: "3:00 PM – 8:00 PM", slotId: "evening", cutoffHour: 17, startHour: 15, endHour: 20 },
 ];
+const MIDNIGHT: TimeSlot = {
+  label: "11 PM – 1 AM",
+  slotId: "midnight",
+  serviceType: "midnight",
+  startHour: 23,
+  endHour: 1,
+  cutoffHour: 20,
+};
 
 describe("checkStaleSlotSelection", () => {
   it("flags a same-day slot whose window ended (triggers the re-pick prompt)", () => {
@@ -111,5 +119,35 @@ describe("checkStaleSlotSelection", () => {
     });
     expect(r.bookable).toBe(false);
     if (!r.bookable) expect(r.reason).toBe("slot_window_ended");
+  });
+
+  it("keeps the selected Midnight start date valid at 00:30 the following day", () => {
+    expect(
+      checkStaleSlotSelection({
+        deliveryMode: "schedule",
+        deliverySlot: MIDNIGHT.label,
+        deliverySlotId: MIDNIGHT.slotId,
+        deliveryDate: TODAY,
+        timeSlots: [MIDNIGHT],
+        countryCode: "LB",
+        cityId: "lb-beirut",
+        now: new Date("2026-08-18T21:30:00.000Z"),
+      }),
+    ).toEqual({ bookable: true });
+  });
+
+  it("expires the selected Midnight start date exactly at 01:00 the following day", () => {
+    expect(
+      checkStaleSlotSelection({
+        deliveryMode: "schedule",
+        deliverySlot: MIDNIGHT.label,
+        deliverySlotId: MIDNIGHT.slotId,
+        deliveryDate: TODAY,
+        timeSlots: [MIDNIGHT],
+        countryCode: "LB",
+        cityId: "lb-beirut",
+        now: new Date("2026-08-18T22:00:00.000Z"),
+      }),
+    ).toEqual({ bookable: false, reason: "slot_window_ended" });
   });
 });

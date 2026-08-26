@@ -1430,7 +1430,8 @@ export async function attemptCreateOsOrder(
         // Express: window starts now; no end window.
         return { window_start: new Date().toISOString() };
       }
-      // Midnight: use the exact UTC window from midnightWindowForOccasionDate.
+      // Midnight: selected date is the local 23:00 start date; the helper
+      // derives the following calendar day's 01:00 endpoint.
       if (isMidnightOrder && midnightWindow) {
         return {
           window_start: midnightWindow.start,

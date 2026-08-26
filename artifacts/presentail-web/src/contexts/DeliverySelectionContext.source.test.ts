@@ -69,4 +69,42 @@ describe("sanitize — source handling", () => {
     expect(out.mode).toBe("express");
     expect(out.source).toBe("restored_user_selection");
   });
+
+  it("keeps yesterday's Midnight start date while its window is active after local midnight", () => {
+    const out = sanitize(
+      {
+        mode: "today_slot",
+        date: "2026-08-20",
+        slotLabel: "11 PM – 1 AM",
+        slotId: "midnight",
+        serviceType: "midnight",
+        cityId: "lb-beirut",
+        source: "user_selected",
+      },
+      "LB",
+      new Date("2026-08-20T21:30:00.000Z"), // Aug 21, 00:30 Beirut
+    );
+    expect(out.date).toBe("2026-08-20");
+    expect(out.mode).toBe("today_slot");
+    expect(out.serviceType).toBe("midnight");
+    expect(out.source).toBe("restored_user_selection");
+  });
+
+  it("clears yesterday's Midnight start date once the window ends at 01:00", () => {
+    const out = sanitize(
+      {
+        mode: "today_slot",
+        date: "2026-08-20",
+        slotLabel: "11 PM – 1 AM",
+        slotId: "midnight",
+        serviceType: "midnight",
+        cityId: "lb-beirut",
+        source: "user_selected",
+      },
+      "LB",
+      new Date("2026-08-20T22:00:00.000Z"), // Aug 21, 01:00 Beirut
+    );
+    expect(out.date).toBeNull();
+    expect(out.source).toBe("system_reselected");
+  });
 });

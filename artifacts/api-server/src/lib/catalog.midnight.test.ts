@@ -39,7 +39,7 @@ const STANDARD_SLOT = {
 };
 
 const TODAY = "2026-06-17";
-const OCCASION_DATE = "2026-06-18"; // one day ahead (tomorrow → next-day midnight)
+const OCCASION_DATE = "2026-06-18"; // selected local 23:00 start date
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,9 @@ vi.mock("@workspace/delivery", async (importActual) => {
     ...actual,
     // Pin "today" to a fixed date so all tests are deterministic.
     // Must use a literal here — vi.mock factories are hoisted before const declarations.
-    getLocalIso: vi.fn().mockReturnValue("2026-06-17"),
+    getLocalIso: vi.fn((countryCode?: string | null, now?: Date) =>
+      now ? actual.getLocalIso(countryCode, now) : "2026-06-17",
+    ),
   };
 });
 
@@ -351,10 +353,10 @@ describe("resolveMidnightWindow — cross-date UTC timestamps", () => {
     if (!win) return;
     expect(win.occasionDate).toBe(OCCASION_DATE);
     expect(win.timeZone).toBe("Asia/Beirut");
-    // start: 23:00 on 2026-06-17 Asia/Beirut ≡ 20:00 UTC (UTC+3)
-    expect(win.start).toBe("2026-06-17T20:00:00.000Z");
-    // end: 01:00 on 2026-06-18 Asia/Beirut ≡ 22:00 UTC on 2026-06-17
-    expect(win.end).toBe("2026-06-17T22:00:00.000Z");
+    // start: 23:00 on 2026-06-18 Asia/Beirut ≡ 20:00 UTC (UTC+3)
+    expect(win.start).toBe("2026-06-18T20:00:00.000Z");
+    // end: 01:00 on 2026-06-19 Asia/Beirut ≡ 22:00 UTC on 2026-06-18
+    expect(win.end).toBe("2026-06-18T22:00:00.000Z");
   });
 
   it("start is before end (window straddles midnight in UTC)", () => {
@@ -368,6 +370,47 @@ describe("resolveMidnightWindow — cross-date UTC timestamps", () => {
     expect(win).not.toBeUndefined();
     if (!win) return;
     expect(new Date(win.start).getTime()).toBeLessThan(new Date(win.end).getTime());
+  });
+
+  it("accepts the selected start date before 23:00 and after midnight until 01:00", () => {
+    const beforeStart = checkSubmittedSlotBookable({
+      deliverySlot: MIDNIGHT_SLOT.label,
+      deliverySlotId: MIDNIGHT_SLOT.slotId,
+      deliveryDate: OCCASION_DATE,
+      cityId: "lb-beirut",
+      district: "Beirut",
+      now: new Date("2026-06-18T19:59:00.000Z"), // 22:59 Beirut
+    });
+    expect(beforeStart).toMatchObject({
+      bookable: true,
+      serviceType: "midnight",
+    });
+
+    const afterMidnight = checkSubmittedSlotBookable({
+      deliverySlot: MIDNIGHT_SLOT.label,
+      deliverySlotId: MIDNIGHT_SLOT.slotId,
+      deliveryDate: OCCASION_DATE,
+      cityId: "lb-beirut",
+      district: "Beirut",
+      now: new Date("2026-06-18T21:30:00.000Z"), // 00:30 Beirut, June 19
+    });
+    expect(afterMidnight).toMatchObject({
+      bookable: true,
+      serviceType: "midnight",
+    });
+
+    const atEnd = checkSubmittedSlotBookable({
+      deliverySlot: MIDNIGHT_SLOT.label,
+      deliverySlotId: MIDNIGHT_SLOT.slotId,
+      deliveryDate: OCCASION_DATE,
+      cityId: "lb-beirut",
+      district: "Beirut",
+      now: new Date("2026-06-18T22:00:00.000Z"), // 01:00 Beirut, June 19
+    });
+    expect(atEnd).toMatchObject({
+      bookable: false,
+      reason: "slot_window_ended",
+    });
   });
 
   it("returns undefined for a standard slot", () => {

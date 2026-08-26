@@ -183,8 +183,8 @@ export function resolveSlotForDate<T extends SlotLike>(
   // An OS slot ID is the authoritative identity. When one is submitted, never
   // substitute another same-label variant: identity, label, enabled state, and
   // date eligibility must all describe the same configured row. Midnight is
-  // the sole date-flag exception because the occasion date anchors the 01:00
-  // end of its previous-day 23:00 → occasion-day 01:00 window.
+  // the sole date-flag exception because its selected start date owns a
+  // 23:00 → following-day 01:00 window.
   if (deliverySlotId) {
     const exact = citySlots.find(
       (slot) => slot.slotId === deliverySlotId && slot.enabled !== false,
@@ -427,7 +427,7 @@ export function evaluateOrderSlotGuard(
  * Midnight-specific pre-payment guard (409 before charge creation).
  *
  * When the submitted delivery slot resolves to a Midnight slot for the given
- * cityId + occasionDate, this verifier checks that the exact slotId still
+ * cityId + selected start date, this verifier checks that the exact slotId still
  * exists and is enabled in the OS city config for that day. Returns a 409
  * error if the slot is missing or disabled so the client can show an
  * actionable error before any money moves.
