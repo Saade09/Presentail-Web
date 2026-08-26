@@ -94,6 +94,12 @@ test.describe("Cache-Control — public HTML pages (/en-lb/beirut/)", () => {
       sMaxAge,
       `s-maxage=${sMaxAge} must be ≥ 60 (at least 1 minute CDN cache)`,
     ).toBeGreaterThanOrEqual(60);
+    expect(cc).toContain("public");
+    expect(cc).not.toContain("private");
+    expect(cc).not.toContain("no-cache");
+    expect(response.headers()["cdn-cache-control"]).toContain("s-maxage=300");
+    expect(response.headers()["surrogate-control"]).toContain("max-age=300");
+    expect(response.headers()["server-timing"]).toMatch(/route;dur=.*seo;dur=.*total;dur=/);
   });
 
   test("root homepage (/) also has s-maxage in Cache-Control", async ({
@@ -108,6 +114,52 @@ test.describe("Cache-Control — public HTML pages (/en-lb/beirut/)", () => {
     expect(sMaxAgeMatch, `Cache-Control '${cc}' must contain s-maxage`).not.toBeNull();
     const sMaxAge = parseInt(sMaxAgeMatch![1], 10);
     expect(sMaxAge).toBeGreaterThanOrEqual(60);
+    expect(cc).not.toContain("private");
+    expect(cc).not.toContain("no-cache");
+  });
+});
+
+test.describe("Compression — bare shared-link HTML routes", () => {
+  test("legacy category HTML is compressed and varies by Accept-Encoding", async ({
+    request,
+  }) => {
+    const response = await request.get("/category/balloons", {
+      headers: { "Accept-Encoding": "gzip" },
+    });
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-encoding"]).toBe("gzip");
+    expect(response.headers()["vary"]).toContain("Accept-Encoding");
+    expect(response.headers()["server-timing"]).toContain("compression;dur=");
+  });
+
+  test("honours q=0 and chooses the highest-quality supported encoding", async ({
+    request,
+  }) => {
+    const gzip = await request.get("/category/balloons", {
+      headers: { "Accept-Encoding": "br;q=0, gzip;q=0.8" },
+    });
+    expect(gzip.headers()["content-encoding"]).toBe("gzip");
+
+    const br = await request.get("/category/balloons", {
+      headers: { "Accept-Encoding": "gzip;q=0.2, br;q=0.9" },
+    });
+    expect(br.headers()["content-encoding"]).toBe("br");
+
+    const identity = await request.get("/category/balloons", {
+      headers: { "Accept-Encoding": "br;q=0, gzip;q=0, identity;q=1" },
+    });
+    expect(identity.headers()["content-encoding"]).toBeUndefined();
+
+    const refused = await request.get("/category/balloons", {
+      headers: { "Accept-Encoding": "br;q=0, gzip;q=0, identity;q=0" },
+    });
+    expect(refused.status()).toBe(406);
+    expect(refused.headers()["cache-control"]).toContain("no-store");
+
+    const wildcardRefused = await request.get("/category/balloons", {
+      headers: { "Accept-Encoding": "*;q=0" },
+    });
+    expect(wildcardRefused.status()).toBe(406);
   });
 });
 
@@ -125,6 +177,19 @@ test.describe("Cache-Control — transactional HTML pages (/checkout)", () => {
       cc,
       "Transactional pages (checkout) must have no-store to prevent caching of payment state",
     ).toContain("no-store");
+  });
+
+  test("faceted noindex HTML is private and has no shared-cache directives", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      "/en-lb/beirut/category/flowers?sort=price-asc",
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["x-robots-tag"]).toContain("noindex");
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(response.headers()["cdn-cache-control"]).toBeUndefined();
+    expect(response.headers()["surrogate-control"]).toBeUndefined();
   });
 });
 

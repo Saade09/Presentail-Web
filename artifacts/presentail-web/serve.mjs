@@ -9,6 +9,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { performance } from "node:perf_hooks";
 import {
   SITEMAP_CITIES,
   SITEMAP_LANGS,
@@ -613,15 +614,58 @@ const BINARY_EXTS = new Set([
 // Compression helpers
 // ---------------------------------------------------------------------------
 
+class NotAcceptableEncodingError extends Error {
+  constructor() {
+    super("No acceptable response content encoding");
+    this.name = "NotAcceptableEncodingError";
+  }
+}
+
 /**
  * Pick the best compression encoding the client accepts, skipping binary types.
  * Returns "br", "gzip", or null (no compression).
  */
 function pickEncoding(req, ext) {
   if (BINARY_EXTS.has(ext)) return null;
-  const accept = req.headers["accept-encoding"] ?? "";
-  if (accept.includes("br")) return "br";
-  if (accept.includes("gzip")) return "gzip";
+  const raw = String(req.headers["accept-encoding"] ?? "").toLowerCase();
+  if (!raw.trim()) return null;
+
+  const qualities = new Map();
+  for (const token of raw.split(",")) {
+    const [namePart, ...params] = token.trim().split(";");
+    const name = namePart.trim();
+    if (!name) continue;
+    let quality = 1;
+    for (const param of params) {
+      const match = param.trim().match(/^q\s*=\s*(0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/);
+      if (match) quality = Number(match[1]);
+    }
+    qualities.set(name, Math.max(qualities.get(name) ?? 0, quality));
+  }
+
+  const wildcard = qualities.get("*");
+  const qualityFor = (name) => {
+    if (qualities.has(name)) return qualities.get(name);
+    if (wildcard !== undefined) return wildcard;
+    return name === "identity" ? 1 : 0;
+  };
+  const candidates = [
+    { encoding: "br", quality: qualityFor("br"), preference: 3 },
+    { encoding: "gzip", quality: qualityFor("gzip"), preference: 2 },
+    ...(qualities.has("identity")
+      ? [{ encoding: null, quality: qualityFor("identity"), preference: 1 }]
+      : []),
+  ]
+    .filter((candidate) => candidate.quality > 0)
+    .sort((a, b) => b.quality - a.quality || b.preference - a.preference);
+  if (candidates.length > 0) return candidates[0].encoding;
+
+  // Per RFC 9110, identity is acceptable unless the client explicitly
+  // excludes it either by name or with a wildcard exclusion.
+  const identityForbidden =
+    qualities.get("identity") === 0 ||
+    (!qualities.has("identity") && qualities.get("*") === 0);
+  if (identityForbidden) throw new NotAcceptableEncodingError();
   return null;
 }
 
@@ -630,9 +674,77 @@ function pickEncoding(req, ext) {
  * Returns a Buffer (or the original if encoding is null).
  */
 async function compressBuffer(data, encoding) {
-  if (encoding === "br") return brotliCompress(data);
-  if (encoding === "gzip") return gzipCompress(data);
+  // Dynamic HTML is tiny compared with hashed assets, which already use
+  // build-time sidecars. Moderate Brotli/gzip levels cut CPU/thread-pool time
+  // sharply under crawler bursts while preserving almost all size savings.
+  if (encoding === "br") {
+    return brotliCompress(data, {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
+      },
+    });
+  }
+  if (encoding === "gzip") {
+    return gzipCompress(data, { level: zlib.constants.Z_BEST_SPEED });
+  }
   return Buffer.isBuffer(data) ? data : Buffer.from(data);
+}
+
+const PUBLIC_HTML_CACHE_CONTROL =
+  "public, max-age=0, s-maxage=300, stale-while-revalidate=60";
+const PUBLIC_EDGE_CACHE_CONTROL =
+  "public, s-maxage=300, stale-while-revalidate=60";
+const PRIVATE_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
+
+/**
+ * Build cache headers that remain unambiguous to browsers and shared proxies.
+ * `no-cache` and `Expires: 0` caused the deployment edge to rewrite otherwise
+ * public responses to `private`. max-age=0 keeps browser revalidation while
+ * explicit CDN/Surrogate directives retain safe shared caching.
+ */
+function buildHtmlCacheHeaders(pathname, xRobotsTag, html = "") {
+  const noindex =
+    typeof xRobotsTag === "string" && xRobotsTag.toLowerCase().includes("noindex");
+  const metaNoindex =
+    /<meta\s+name=["']robots["'][^>]*content=["'][^"']*noindex/i.test(html);
+  if (isTransactionalPage(pathname) || noindex || metaNoindex) {
+    return { "cache-control": PRIVATE_HTML_CACHE_CONTROL };
+  }
+  return {
+    "cache-control": PUBLIC_HTML_CACHE_CONTROL,
+    "cdn-cache-control": PUBLIC_EDGE_CACHE_CONTROL,
+    "surrogate-control": "max-age=300, stale-while-revalidate=60",
+  };
+}
+
+function formatServerTiming(timings) {
+  return Object.entries(timings)
+    .filter(([, value]) => Number.isFinite(value))
+    .map(([name, value]) => `${name};dur=${Math.max(0, value).toFixed(1)}`)
+    .join(", ");
+}
+
+function routeFamily(pathname) {
+  if (/(?:^|\/)product(?:\/|$)/.test(pathname)) return "product";
+  if (/(?:^|\/)brand(?:\/|$)/.test(pathname)) return "brand";
+  if (/(?:^|\/)category(?:\/|$)/.test(pathname)) return "category";
+  if (/(?:^|\/)occasion(?:\/|$)/.test(pathname)) return "occasion";
+  if (/(?:^|\/)(?:checkout|cart|order-confirmed)(?:\/|$)/.test(pathname)) return "transactional";
+  if (/\/faqs(?:\/|$)/.test(pathname)) return "faqs";
+  return "page";
+}
+
+function recordSlowHtmlTiming(pathname, status, timings) {
+  const totalMs = timings.total ?? 0;
+  if (totalMs < 500) return;
+  console.info(JSON.stringify({
+    event: "storefront_html_timing",
+    routeFamily: routeFamily(pathname),
+    status,
+    timings: Object.fromEntries(
+      Object.entries(timings).map(([key, value]) => [key, Number(value.toFixed(1))]),
+    ),
+  }));
 }
 
 /**
@@ -1129,6 +1241,7 @@ async function fetchSitemapJson(url) {
 }
 
 const server = http.createServer(async (req, res) => {
+  const requestStartedAt = performance.now();
   try {
     // Test-only hook: deliberately triggers the catch block so that the
     // ai-discovery-headers e2e-serve spec can assert the 500 path returns
@@ -1279,6 +1392,13 @@ const server = http.createServer(async (req, res) => {
       const canonicalTarget = `${BASE_PATH}/en-lb/beirut/product/${slug}`;
       if (typeof injectSeoTagsAsync === "function") {
         try {
+          const seoStartedAt = performance.now();
+          const nestedTimings = { entity: 0, listing: 0 };
+          const telemetry = {
+            add(name, duration) {
+              nestedTimings[name] = (nestedTimings[name] ?? 0) + duration;
+            },
+          };
           // Use the locale-prefixed virtual path so seo-inject resolves the
           // correct product data and builds the branded OG image URL.
           const virtualPath = `/en-lb/beirut/product/${slug}`;
@@ -1287,7 +1407,9 @@ const server = http.createServer(async (req, res) => {
             origin,
             apiBaseUrl: INTERNAL_API_BASE_URL,
             acceptLanguage: req.headers["accept-language"],
+            telemetry,
           });
+          const seoMs = performance.now() - seoStartedAt;
           // Inject meta-refresh and JS redirect so real browsers navigate to
           // the canonical page immediately (crawlers ignore these and read the
           // OG tags instead).
@@ -1295,14 +1417,33 @@ const server = http.createServer(async (req, res) => {
           const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
           const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
           productHtml = productHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
-          await sendCompressedHtml(res, req, productHtml, {
+          const compressionStartedAt = performance.now();
+          const encoding = pickEncoding(req, ".html");
+          const body = await compressBuffer(productHtml, encoding);
+          const timings = {
+            route: seoStartedAt - requestStartedAt,
+            seo: seoMs,
+            entity: nestedTimings.entity,
+            listing: nestedTimings.listing,
+            assembly: compressionStartedAt - seoStartedAt - seoMs,
+            compression: performance.now() - compressionStartedAt,
+          };
+          timings.total = performance.now() - requestStartedAt;
+          const headers = {
+            "content-type": MIME[".html"],
             "x-robots-tag": "noindex",
-            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
-            "expires": "0",
+            ...buildHtmlCacheHeaders(virtualPath, "noindex", productHtml),
+            "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
-          });
+            "server-timing": formatServerTiming(timings),
+          };
+          if (encoding) headers["content-encoding"] = encoding;
+          res.writeHead(200, headers);
+          res.end(body);
+          recordSlowHtmlTiming(virtualPath, 200, timings);
           return;
         } catch (_err) {
+          if (_err instanceof NotAcceptableEncodingError) throw _err;
           // OG injection failed — fall through to the 301 below.
         }
       }
@@ -1340,6 +1481,13 @@ const server = http.createServer(async (req, res) => {
       const canonicalTarget = `${BASE_PATH}/en-lb/beirut/brand/${slug}`;
       if (typeof injectSeoTagsAsync === "function") {
         try {
+          const seoStartedAt = performance.now();
+          const nestedTimings = { entity: 0, listing: 0 };
+          const telemetry = {
+            add(name, duration) {
+              nestedTimings[name] = (nestedTimings[name] ?? 0) + duration;
+            },
+          };
           // Use the locale-prefixed virtual path so seo-inject resolves the
           // correct brand data and builds the branded OG image URL.
           const virtualPath = `/en-lb/beirut/brand/${slug}`;
@@ -1348,7 +1496,9 @@ const server = http.createServer(async (req, res) => {
             origin,
             apiBaseUrl: INTERNAL_API_BASE_URL,
             acceptLanguage: req.headers["accept-language"],
+            telemetry,
           });
+          const seoMs = performance.now() - seoStartedAt;
           // Inject meta-refresh and JS redirect so real browsers navigate to
           // the canonical page immediately (crawlers ignore these and read the
           // OG tags instead).
@@ -1356,14 +1506,33 @@ const server = http.createServer(async (req, res) => {
           const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
           const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
           brandHtml = brandHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
-          await sendCompressedHtml(res, req, brandHtml, {
+          const compressionStartedAt = performance.now();
+          const encoding = pickEncoding(req, ".html");
+          const body = await compressBuffer(brandHtml, encoding);
+          const timings = {
+            route: seoStartedAt - requestStartedAt,
+            seo: seoMs,
+            entity: nestedTimings.entity,
+            listing: nestedTimings.listing,
+            assembly: compressionStartedAt - seoStartedAt - seoMs,
+            compression: performance.now() - compressionStartedAt,
+          };
+          timings.total = performance.now() - requestStartedAt;
+          const headers = {
+            "content-type": MIME[".html"],
             "x-robots-tag": "noindex",
-            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
-            "expires": "0",
+            ...buildHtmlCacheHeaders(virtualPath, "noindex", brandHtml),
+            "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
-          });
+            "server-timing": formatServerTiming(timings),
+          };
+          if (encoding) headers["content-encoding"] = encoding;
+          res.writeHead(200, headers);
+          res.end(body);
+          recordSlowHtmlTiming(virtualPath, 200, timings);
           return;
         } catch (_err) {
+          if (_err instanceof NotAcceptableEncodingError) throw _err;
           // OG injection failed — fall through to the 301 below.
         }
       }
@@ -1393,6 +1562,13 @@ const server = http.createServer(async (req, res) => {
       const canonicalTarget = `${BASE_PATH}/en-lb/beirut/${kind}/${slug}`;
       if (typeof injectSeoTagsAsync === "function") {
         try {
+          const seoStartedAt = performance.now();
+          const nestedTimings = { entity: 0, listing: 0 };
+          const telemetry = {
+            add(name, duration) {
+              nestedTimings[name] = (nestedTimings[name] ?? 0) + duration;
+            },
+          };
           // Use the locale-prefixed virtual path so seo-inject resolves the
           // correct occasion/category data and builds the right OG tags.
           const virtualPath = `/en-lb/beirut/${kind}/${slug}`;
@@ -1401,7 +1577,9 @@ const server = http.createServer(async (req, res) => {
             origin,
             apiBaseUrl: INTERNAL_API_BASE_URL,
             acceptLanguage: req.headers["accept-language"],
+            telemetry,
           });
+          const seoMs = performance.now() - seoStartedAt;
           // Inject meta-refresh and JS redirect so real browsers navigate to
           // the canonical page immediately (crawlers ignore these and read the
           // OG tags instead).
@@ -1409,14 +1587,33 @@ const server = http.createServer(async (req, res) => {
           const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
           const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
           pageHtml = pageHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
-          await sendCompressedHtml(res, req, pageHtml, {
+          const compressionStartedAt = performance.now();
+          const encoding = pickEncoding(req, ".html");
+          const body = await compressBuffer(pageHtml, encoding);
+          const timings = {
+            route: seoStartedAt - requestStartedAt,
+            seo: seoMs,
+            entity: nestedTimings.entity,
+            listing: nestedTimings.listing,
+            assembly: compressionStartedAt - seoStartedAt - seoMs,
+            compression: performance.now() - compressionStartedAt,
+          };
+          timings.total = performance.now() - requestStartedAt;
+          const headers = {
+            "content-type": MIME[".html"],
             "x-robots-tag": "noindex",
-            "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
-            "expires": "0",
+            ...buildHtmlCacheHeaders(virtualPath, "noindex", pageHtml),
+            "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
-          });
+            "server-timing": formatServerTiming(timings),
+          };
+          if (encoding) headers["content-encoding"] = encoding;
+          res.writeHead(200, headers);
+          res.end(body);
+          recordSlowHtmlTiming(virtualPath, 200, timings);
           return;
         } catch (_err) {
+          if (_err instanceof NotAcceptableEncodingError) throw _err;
           // OG injection failed — fall through to the 301 below.
         }
       }
@@ -2248,12 +2445,33 @@ const server = http.createServer(async (req, res) => {
       res.end("Not Found");
       return;
     }
-    if (filePath && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+    let fileStat = null;
+    if (filePath) {
+      try {
+        fileStat = await fs.promises.stat(filePath);
+      } catch {
+        fileStat = null;
+      }
+    }
+    if (filePath && fileStat?.isFile()) {
       const ext = path.extname(filePath).toLowerCase();
       // index.html gets locale-aware SEO injection.
       if (ext === ".html") {
-        const html = fs.readFileSync(filePath, "utf8");
+        // index.html is immutable for the lifetime of this process and was
+        // already loaded/validated at startup. Reuse it instead of blocking the
+        // event loop with readFileSync on every HTML request.
+        const html =
+          filePath === path.join(DIST, "index.html")
+            ? indexHtml
+            : await fs.promises.readFile(filePath, "utf8");
         const lifecycleOut = {};
+        const seoStartedAt = performance.now();
+        const nestedTimings = { entity: 0, listing: 0 };
+        const telemetry = {
+          add(name, duration) {
+            nestedTimings[name] = (nestedTimings[name] ?? 0) + duration;
+          },
+        };
         const seoOut = await injectSeoTagsAsync(html, pathname, {
           basePath: BASE_PATH,
           origin,
@@ -2262,7 +2480,9 @@ const server = http.createServer(async (req, res) => {
           acceptLanguage: req.headers["accept-language"],
           firstBannerImageUrl: firstBannerImageUrl ?? undefined,
           lifecycleOut,
+          telemetry,
         });
+        const seoMs = performance.now() - seoStartedAt;
         // Product lifecycle: issue 301 (renamed) or 410 (discontinued/absent).
         const lifecycleResponse = resolveProductLifecycleResponse(
           pathname, lifecycleOut, origin, BASE_PATH,
@@ -2275,6 +2495,7 @@ const server = http.createServer(async (req, res) => {
           res.end(lifecycleResponse.body);
           return;
         }
+        const assemblyStartedAt = performance.now();
         let out = injectPageChunkPreload(injectFontPreloads(injectGmcMeta(seoOut), pathname), pathname);
         // Inject <link rel="alternate" type="text/markdown"> for pages with a
         // Markdown mirror. This allows crawlers and AI agents to discover the
@@ -2295,8 +2516,11 @@ const server = http.createServer(async (req, res) => {
             `    <link rel="alternate" type="text/markdown" href="${indexMdHref}">\n  </head>`,
           );
         }
+        const assemblyMs = performance.now() - assemblyStartedAt;
+        const compressionStartedAt = performance.now();
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
+        const compressionMs = performance.now() - compressionStartedAt;
         const canonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
         const xRobotsTag = resolveXRobotsTag(normalizeHostHeader(host), pathname, url.search);
         const cleanBaseForLink = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";
@@ -2312,16 +2536,10 @@ const server = http.createServer(async (req, res) => {
           // Transactional pages (cart, checkout, order-confirmed) use no-store to
           // prevent any cache layer from serving stale payment/order state and to
           // opt Safari out of BFCache for those critical flows.
-          // All other HTML pages use no-cache so browsers (especially Safari on iOS)
-          // always revalidate index.html instead of serving a stale shell with old
-          // chunk hashes after a redeploy — stale chunks produce a blank page.
-          // s-maxage=300 allows CDN layers to cache the SEO-injected shell for up to
-          // 5 minutes; no-cache only prevents browser disk/BFCache serving.
-          // perf: browser always-revalidate + CDN cache for LCP/TTFB
-          "cache-control": isTransactionalPage(pathname)
-            ? "no-store, no-cache, must-revalidate"
-            : "public, no-cache, s-maxage=300, stale-while-revalidate=60",
-          "expires": "0",
+          // All other HTML pages use max-age=0 so browsers revalidate the shell,
+          // while explicit s-maxage/CDN directives allow the deployed edge to
+          // retain the SEO-injected response for five minutes.
+          ...buildHtmlCacheHeaders(pathname, xRobotsTag, out),
           "vary": "Accept-Encoding",
           // HTTP Link header mirrors the <link rel="canonical"> injected into
           // the HTML by seo-inject.mjs so HTTP-level crawlers and preload
@@ -2329,9 +2547,20 @@ const server = http.createServer(async (req, res) => {
           // Also includes the Markdown alternate link for mirrored pages.
           "link": `<${canonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"${mdAlternateLink}`,
         };
+        const timings = {
+          route: seoStartedAt - requestStartedAt,
+          seo: seoMs,
+          entity: nestedTimings.entity,
+          listing: nestedTimings.listing,
+          assembly: assemblyMs,
+          compression: compressionMs,
+          total: performance.now() - requestStartedAt,
+        };
+        headers["server-timing"] = formatServerTiming(timings);
         if (encoding) headers["content-encoding"] = encoding;
         res.writeHead(200, headers);
         res.end(body);
+        recordSlowHtmlTiming(pathname, 200, timings);
         return;
       }
       const baseName = path.basename(filePath);
@@ -2581,6 +2810,13 @@ const server = http.createServer(async (req, res) => {
     // SPA fallback: rewrite to index.html with locale-aware SEO.
     const paginationRef = {};
     const spaLifecycleOut = {};
+    const seoStartedAt = performance.now();
+    const nestedTimings = { entity: 0, listing: 0 };
+    const telemetry = {
+      add(name, duration) {
+        nestedTimings[name] = (nestedTimings[name] ?? 0) + duration;
+      },
+    };
     const seoOut = await injectSeoTagsAsync(indexHtml, pathname, {
       basePath: BASE_PATH,
       origin,
@@ -2590,7 +2826,9 @@ const server = http.createServer(async (req, res) => {
       firstBannerImageUrl: firstBannerImageUrl ?? undefined,
       paginationRef,
       lifecycleOut: spaLifecycleOut,
+      telemetry,
     });
+    const seoMs = performance.now() - seoStartedAt;
     if (paginationRef.outOfRange) {
       res.writeHead(404, {
         "content-type": "text/html; charset=utf-8",
@@ -2639,6 +2877,7 @@ const server = http.createServer(async (req, res) => {
       res.end(notFoundBody);
       return;
     }
+    const assemblyStartedAt = performance.now();
     let spaOut = injectPageChunkPreload(injectFontPreloads(injectGmcMeta(seoOut), pathname), pathname);
     // Inject <link rel="alternate" type="text/markdown"> for pages with a mirror.
     if (isMirroredPath(pathname)) {
@@ -2649,8 +2888,11 @@ const server = http.createServer(async (req, res) => {
         `    <link rel="alternate" type="text/markdown" href="${spaMdHref.replace(/"/g, "&quot;")}">\n  </head>`,
       );
     }
+    const assemblyMs = performance.now() - assemblyStartedAt;
+    const compressionStartedAt = performance.now();
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(spaOut, encoding);
+    const compressionMs = performance.now() - compressionStartedAt;
     // Extract the resolved canonical from the SEO-injected HTML so the HTTP
     // Link header agrees with the <link rel="canonical"> tag in the document.
     // For entity pages (product / brand / category / occasion) the canonical
@@ -2670,21 +2912,36 @@ const server = http.createServer(async (req, res) => {
       // On the canonical production host: "index, follow" for public pages,
       // "noindex" for private/transactional paths.
       ...(xRobotsTagSpa !== null ? { "x-robots-tag": xRobotsTagSpa } : {}),
-      // Transactional pages keep no-store to prevent BFCache and payment-state
-      // caching. Public SPA pages use CDN cache (s-maxage=300) with a 60-second
-      // stale-while-revalidate window for fresh SEO-injected heads.
-      // perf: CDN cache for LCP/TTFB
-      "cache-control": isTransactionalPage(pathname)
-        ? "no-store, no-cache, must-revalidate"
-        : "public, no-cache, s-maxage=300, stale-while-revalidate=60",
-      "expires": "0",
+      // Transactional/noindex pages keep no-store. Public SPA pages use
+      // browser revalidation plus a five-minute shared-cache TTL.
+      ...buildHtmlCacheHeaders(pathname, xRobotsTagSpa, spaOut),
       "vary": "Accept-Encoding",
       "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"${spaMdAlternateLink}`,
     };
+    const timings = {
+      route: seoStartedAt - requestStartedAt,
+      seo: seoMs,
+      entity: nestedTimings.entity,
+      listing: nestedTimings.listing,
+      assembly: assemblyMs,
+      compression: compressionMs,
+      total: performance.now() - requestStartedAt,
+    };
+    headers["server-timing"] = formatServerTiming(timings);
     if (encoding) headers["content-encoding"] = encoding;
     res.writeHead(200, headers);
     res.end(body);
+    recordSlowHtmlTiming(pathname, 200, timings);
   } catch (err) {
+    if (err instanceof NotAcceptableEncodingError && !res.headersSent) {
+      res.writeHead(406, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": PRIVATE_HTML_CACHE_CONTROL,
+        "vary": "Accept-Encoding",
+      });
+      res.end("Not Acceptable");
+      return;
+    }
     console.error("serve error:", err);
     // No AI-discovery Link header here: this response is text/plain (not HTML),
     // so there is no <head> for a crawler to parse and no expectation that a

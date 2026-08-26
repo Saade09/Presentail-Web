@@ -83,3 +83,4 @@
 - [Metro image-size path compatibility](metro-image-size-path-compat.md) — Metro passes asset paths, but image-size-next needs bytes; retain the pnpm patch while the security alias is active.
 - [Cross-midnight slot carryover](cross-midnight-slot-carryover.md) — persisted cross-midnight slots bypass generic date flags only while their exact absolute window remains active.
 - [JazzHR job board iframe embed](job-board-iframe-embed.md) — presentail.applytojob.com has no cross-origin resize cooperation; use a generous static height, not a small "safe" default that clips under scrolling=no.
+- [Storefront HTML edge caching](storefront-html-edge-caching.md) — avoid public+no-cache edge rewrites; keep private HTML no-store and dynamic compression moderate.

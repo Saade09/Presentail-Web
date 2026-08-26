@@ -2085,6 +2085,8 @@ function buildWishlistBodyHtml({ count, items, title, origin, basePath }) {
 const ENTITY_FETCH_TIMEOUT_MS = 2500;
 const ENTITY_CACHE_TTL_MS = 60_000;
 const ENTITY_CACHE_MAX_ENTRIES = 500;
+const LISTING_CACHE_TTL_MS = 15_000;
+const LISTING_CACHE_MAX_ENTRIES = 300;
 
 export const PAGINATION_PAGE_SIZE = 24;
 const PAGINATION_SUFFIX_RE = /^(\/(?:category|occasion|brand)\/[^/]+)\/page\/(\d+)$/;
@@ -2097,6 +2099,13 @@ const PAGINATION_SUFFIX_RE = /^(\/(?:category|occasion|brand)\/[^/]+)\/page\/(\d
 // intentionally NOT cached so a transient blip can't pin an entity to the
 // generic fallback for the full TTL.
 const entitySeoCache = new Map();
+// A crawler burst commonly asks for the same cold entity several times before
+// the first response has populated the TTL cache. Share that one upstream
+// request instead of multiplying API/translation/image work. This map only
+// contains active requests, so it is naturally bounded by server concurrency.
+const entitySeoInFlight = new Map();
+const listingSeoCache = new Map();
+const listingSeoInFlight = new Map();
 
 function entityCacheKey({ kind, slug, lang, countryCode, cityId }) {
   return `${kind}\u0000${slug}\u0000${lang ?? ""}\u0000${countryCode ?? ""}\u0000${cityId ?? ""}`;
@@ -2176,7 +2185,17 @@ async function fetchEntityForSeoCached(kind, fetcher, opts, out = {}) {
 
   // Either the entry is stale OR we have validation headers: hit upstream.
   const fetchOpts = hasConditional ? { ...opts, conditionalHeaders } : opts;
-  const result = await fetcher(fetchOpts);
+  let fetchPromise = entitySeoInFlight.get(key);
+  if (!fetchPromise) {
+    fetchPromise = Promise.resolve().then(() => fetcher(fetchOpts));
+    entitySeoInFlight.set(key, fetchPromise);
+    fetchPromise.finally(() => {
+      if (entitySeoInFlight.get(key) === fetchPromise) entitySeoInFlight.delete(key);
+    }).catch(() => {});
+  }
+  const fetchStartedAt = performance.now();
+  const result = await fetchPromise;
+  opts.telemetry?.add?.("entity", performance.now() - fetchStartedAt);
 
   // 304 Not Modified: entity is unchanged. Restore the entry with a fresh TTL.
   // Image dims are NOT evicted — the entity's image URL(s) have not changed
@@ -2714,7 +2733,7 @@ function fetchBrandForSeo(opts) {
  * failure so the page still renders without a count (FAQ will be suppressed
  * rather than risk emitting it for an empty page).
  */
-async function fetchBrandProductCountForSeo({ slug, countryCode, cityId, lang, apiBaseUrl }) {
+async function fetchBrandProductCountForSeoUncached({ slug, countryCode, cityId, lang, apiBaseUrl }) {
   if (!slug || !apiBaseUrl) return null;
   const params = new URLSearchParams({ slug });
   if (countryCode) params.set("countryCode", countryCode);
@@ -2740,6 +2759,50 @@ async function fetchBrandProductCountForSeo({ slug, countryCode, cityId, lang, a
   }
 }
 
+async function fetchBrandProductCountForSeo(args) {
+  const { slug, countryCode, cityId, lang } = args;
+  const key = [
+    "brand",
+    args.apiBaseUrl ?? "",
+    slug,
+    lang ?? "",
+    countryCode ?? "",
+    cityId ?? "",
+    1,
+  ].join("\u0000");
+  const hit = listingSeoCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) {
+    listingSeoCache.delete(key);
+    listingSeoCache.set(key, hit);
+    return hit.value;
+  }
+  if (hit) listingSeoCache.delete(key);
+
+  let fetchPromise = listingSeoInFlight.get(key);
+  if (!fetchPromise) {
+    fetchPromise = fetchBrandProductCountForSeoUncached(args);
+    listingSeoInFlight.set(key, fetchPromise);
+    fetchPromise.finally(() => {
+      if (listingSeoInFlight.get(key) === fetchPromise) listingSeoInFlight.delete(key);
+    }).catch(() => {});
+  }
+  const fetchStartedAt = performance.now();
+  const value = await fetchPromise;
+  args.telemetry?.add?.("listing", performance.now() - fetchStartedAt);
+  if (value) {
+    if (listingSeoCache.size >= LISTING_CACHE_MAX_ENTRIES) {
+      const oldest = listingSeoCache.keys().next().value;
+      if (oldest !== undefined) listingSeoCache.delete(oldest);
+    }
+    listingSeoCache.delete(key);
+    listingSeoCache.set(key, {
+      value,
+      expiresAt: Date.now() + LISTING_CACHE_TTL_MS,
+    });
+  }
+  return value;
+}
+
 function fetchCategoryForSeo(opts) {
   return fetchEntityForSeo({
     endpoint: "/api/woo/category",
@@ -2762,7 +2825,7 @@ function fetchOccasionForSeo(opts) {
  * (b) mark genuinely empty listing pages as `noindex, follow`. Best-effort:
  * returns null on any failure so the page still renders without a count.
  */
-async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityId, apiBaseUrl, page }) {
+async function fetchListingProductsForSeoUncached({ kind, slug, lang, countryCode, cityId, apiBaseUrl, page }) {
   if (!slug || !apiBaseUrl) return null;
   const endpoint =
     kind === "occasion" ? "/api/woo/occasion-products" : "/api/woo/category-products";
@@ -2831,6 +2894,58 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Short-lived listing cache for crawler-facing ItemList/noscript data.
+ *
+ * Listing responses are derived from the in-process catalog cache and can be
+ * invalidated by the normal TTL when the catalog refreshes. Keep this shorter
+ * than entity metadata so authoritative removals are not hidden for long, and
+ * never cache failures.
+ */
+async function fetchListingProductsForSeo(args) {
+  const { kind, slug, lang, countryCode, cityId, apiBaseUrl, page } = args;
+  const key = [
+    apiBaseUrl ?? "",
+    kind,
+    slug,
+    lang ?? "",
+    countryCode ?? "",
+    cityId ?? "",
+    page ?? 1,
+  ].join("\u0000");
+  const hit = listingSeoCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) {
+    listingSeoCache.delete(key);
+    listingSeoCache.set(key, hit);
+    return hit.value;
+  }
+  if (hit) listingSeoCache.delete(key);
+
+  let fetchPromise = listingSeoInFlight.get(key);
+  if (!fetchPromise) {
+    fetchPromise = fetchListingProductsForSeoUncached(args);
+    listingSeoInFlight.set(key, fetchPromise);
+    fetchPromise.finally(() => {
+      if (listingSeoInFlight.get(key) === fetchPromise) listingSeoInFlight.delete(key);
+    }).catch(() => {});
+  }
+  const fetchStartedAt = performance.now();
+  const value = await fetchPromise;
+  args.telemetry?.add?.("listing", performance.now() - fetchStartedAt);
+  if (value) {
+    if (listingSeoCache.size >= LISTING_CACHE_MAX_ENTRIES) {
+      const oldest = listingSeoCache.keys().next().value;
+      if (oldest !== undefined) listingSeoCache.delete(oldest);
+    }
+    listingSeoCache.delete(key);
+    listingSeoCache.set(key, {
+      value,
+      expiresAt: Date.now() + LISTING_CACHE_TTL_MS,
+    });
+  }
+  return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -4891,7 +5006,17 @@ function applyEligibilityNoindex(result) {
  * locale-aware injector on any failure.
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
-  const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, paginationRef, lifecycleOut, ...rest } = opts;
+  const {
+    apiBaseUrl,
+    search,
+    hintLang,
+    acceptLanguage,
+    firstBannerImageUrl,
+    paginationRef,
+    lifecycleOut,
+    telemetry,
+    ...rest
+  } = opts;
   // Pre-warm the per-country available-category cache BEFORE building the
   // head/body so the shop route's crawler-facing "Shop by Category" list can
   // be filtered synchronously to categories with real inventory in this
@@ -5420,6 +5545,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     countryCode,
     cityId,
     apiBaseUrl,
+    telemetry,
   };
   const headOpts = {
     lang: generic.lang,
