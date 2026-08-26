@@ -3884,6 +3884,10 @@ components:
         description:
           type: string
           nullable: true
+        image:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogImageRef"
+            - type: "null"
         count:
           type: integer
           description: Number of in-stock products in this category across all supported countries.

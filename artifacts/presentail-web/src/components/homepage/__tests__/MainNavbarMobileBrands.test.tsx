@@ -349,6 +349,7 @@ describe("MainNavbar — mobile brands sub-panel", () => {
             id: "balloon-arrangements",
             name: "Balloon Arrangements",
             icon: "tag",
+            image: { uri: "/api/catalog/category-image/42" },
             count: 7,
           },
         ],
@@ -364,6 +365,9 @@ describe("MainNavbar — mobile brands sub-panel", () => {
       "/category/balloon-arrangements",
     );
     expect(link.textContent).toContain("Balloon Arrangements");
+    expect(link.querySelector("img")?.getAttribute("src")).toBe(
+      "/api/catalog/category-image/42",
+    );
   });
 
   it("shows the available OS category in the mobile Gifts sub-panel", async () => {

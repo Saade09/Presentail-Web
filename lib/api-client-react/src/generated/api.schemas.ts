@@ -1107,6 +1107,7 @@ export interface CatalogCategory {
   name: string;
   icon: string;
   description?: string | null;
+  image?: CatalogImageRef | null;
   /** Number of in-stock products in this category across all supported countries. */
   count: number;
 }

@@ -518,7 +518,14 @@ export const useDeliveryLocations = () => {
 // the session. Type matches `CatalogMetadataResponse` in OpenAPI.
 export type CatalogImageRef = { asset?: string; uri?: string } | null;
 
-export type CatalogCategory = { id: string; name: string; icon: string; description?: string | null; count: number };
+export type CatalogCategory = {
+  id: string;
+  name: string;
+  icon: string;
+  description?: string | null;
+  image?: CatalogImageRef;
+  count: number;
+};
 export type CatalogOccasion = { id: string; name: string; icon: string; description?: string; image?: CatalogImageRef };
 export type CatalogBrand = { name: string; slug: string; image: string | null; count: number; sort_order?: number | null };
 export type CatalogMetadataResponse = {

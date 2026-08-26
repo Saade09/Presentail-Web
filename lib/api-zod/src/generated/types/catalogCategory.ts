@@ -5,12 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CatalogImageRef } from "./catalogImageRef";
 
 export interface CatalogCategory {
   id: string;
   name: string;
   icon: string;
   description?: string | null;
+  image?: CatalogImageRef | null;
   /** Number of in-stock products in this category across all supported countries. */
   count: number;
 }

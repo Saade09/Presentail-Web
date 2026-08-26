@@ -247,6 +247,84 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
   }
 });
 
+// ── Category image proxy ──────────────────────────────────────────────────────
+//
+// Category images are configured in Presentail OS. Proxy them through the API
+// so private/public storage variants both work without exposing OS credentials
+// to the browser.
+
+router.get("/catalog/category-image/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const apiKey = process.env.PRESENTAIL_OS_API_KEY;
+  if (!apiKey) {
+    res.status(503).json({ error: "OS API key not configured" });
+    return;
+  }
+
+  const width = resolveWidth(typeof req.query.w === "string" ? req.query.w : undefined);
+  const format = resolveFormat(typeof req.query.f === "string" ? req.query.f : undefined);
+  const quality = resolveQuality(typeof req.query.q === "string" ? req.query.q : undefined);
+  const cacheKey = `category|${id}|${width}|${format}|${quality}`;
+
+  const cached = catalogCacheGet(cacheKey);
+  if (cached) {
+    res.setHeader("Content-Type", cached.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "HIT"); // i18n-ignore
+    res.send(cached.data);
+    return;
+  }
+
+  const category = getOsCategories()?.find((item) => String(item.id) === id);
+  const imageUrl = category?.imagePublicUrl ?? category?.image ?? null;
+  if (!imageUrl) {
+    res.status(404).json({ error: "Category image not found" });
+    return;
+  }
+
+  try {
+    const upstreamRes = await fetch(imageUrl, {
+      headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!upstreamRes.ok) {
+      res.status(upstreamRes.status).json({ error: "Upstream error" });
+      return;
+    }
+    const contentType = upstreamRes.headers.get("content-type") ?? "";
+    if (!contentType.startsWith("image/")) {
+      res.status(404).json({ error: "Category image not accessible" });
+      return;
+    }
+
+    const sourceBuffer = Buffer.from(await upstreamRes.arrayBuffer());
+    let result: { data: Buffer; contentType: string };
+    try {
+      result = await transformImage(sourceBuffer, { width, format, quality });
+    } catch (err) {
+      req.log.warn({ err }, "catalog/category-image: sharp transform failed");
+      res.status(500).end();
+      return;
+    }
+
+    catalogCacheSet(cacheKey, {
+      data: result.data,
+      contentType: result.contentType,
+      size: result.data.byteLength,
+    });
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Cache", "MISS"); // i18n-ignore
+    res.send(result.data);
+  } catch {
+    res.status(502).json({ error: "Failed to fetch category image" });
+  }
+});
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 router.get("/currencies", (_req, res) => {
@@ -567,6 +645,12 @@ router.get("/catalog/metadata", async (req, res) => {
   };
 
   const osCategories = getOsCategories();
+  const toOsCategoryImageRef = (
+    category: { id: string; image?: string | null; imagePublicUrl?: string | null } | undefined,
+  ) =>
+    category?.imagePublicUrl || category?.image
+      ? { uri: `/api/catalog/category-image/${encodeURIComponent(category.id)}` }
+      : null;
   // Collect categories embedded in product data. Used as a fallback for
   // categories not yet listed in the OS /api/categories endpoint.
   const productEmbeddedCategories = getOsProductEmbeddedCategories();
@@ -602,6 +686,7 @@ router.get("/catalog/metadata", async (req, res) => {
         return {
           ...c,
           description: osCat?.description ?? productEmbeddedCategories.get(c.id)?.description ?? null,
+          image: toOsCategoryImageRef(osCat) ?? c.image,
           count: categoryCountMap.get(c.id) ?? 0,
         };
       });
@@ -615,6 +700,7 @@ router.get("/catalog/metadata", async (req, res) => {
         name: c.name,
         icon: OS_CATEGORY_ICONS[c.slug] ?? "tag",
         description: c.description ?? null,
+        image: toOsCategoryImageRef(c),
         count: categoryCountMap.get(c.slug) ?? 0,
       }));
     mergedCategories = [...filteredHardcoded, ...extraOsCategories];

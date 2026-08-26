@@ -32,6 +32,7 @@ import {
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
 import { CATEGORY_GROUPS, CATEGORY_STATIC_IMAGES, OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
+import { catalogAssetUrl } from "@/lib/catalogAssets";
 
 const LABEL_EXPLORE_PRESENTAIL = "Explore Presentail"; // i18n-ignore
 
@@ -323,14 +324,26 @@ export function MainNavbar() {
   const categoryNameBySlug = new Map<string, string>(
     (catalogMetadata?.categories ?? []).map((c) => [c.id, c.name]),
   );
+  const categoryImageBySlug = new Map<string, string>(
+    (catalogMetadata?.categories ?? [])
+      .map((c) => [c.id, catalogAssetUrl(c.image)] as const)
+      .filter((entry): entry is readonly [string, string] => entry[1] !== null),
+  );
   const localizedStaticLabel = (item: MegaItem): MegaItem => {
-    if (language === "en" || item.labelKey) return item;
     const slug = item.href.split("/category/")[1] ?? "";
     if (!slug) return item;
+    const sourceSlug = remapTargetToSource[slug];
+    const osImage =
+      categoryImageBySlug.get(slug) ??
+      (sourceSlug ? categoryImageBySlug.get(sourceSlug) : undefined);
     const name =
       categoryNameBySlug.get(slug) ??
-      (remapTargetToSource[slug] ? categoryNameBySlug.get(remapTargetToSource[slug]!) : undefined);
-    return name ? { ...item, label: name } : item;
+      (sourceSlug ? categoryNameBySlug.get(sourceSlug) : undefined);
+    return {
+      ...item,
+      ...(language !== "en" && !item.labelKey && name ? { label: name } : {}),
+      ...(osImage ? { img: osImage } : {}),
+    };
   };
 
   const filteredStaticMenus: MegaMenuDef[] = STATIC_MENUS.map((menu) => {
@@ -362,7 +375,10 @@ export function MainNavbar() {
           )
           .map((c) => {
             const productSlug = CATEGORY_SLUG_REMAP[c.id] ?? c.id;
-            const img = CATEGORY_STATIC_IMAGES[productSlug] ?? CATEGORY_STATIC_IMAGES[c.id];
+            const img =
+              catalogAssetUrl(c.image) ??
+              CATEGORY_STATIC_IMAGES[productSlug] ??
+              CATEGORY_STATIC_IMAGES[c.id];
             return {
               label: c.name,
               href: `/category/${productSlug}`,

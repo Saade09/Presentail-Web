@@ -355,6 +355,7 @@ describe("featured OS categories", () => {
         name: "Balloon Arrangements",
         is_active: true,
         is_featured: true,
+        imagePublicUrl: "https://os.presentail.com/api/storage/public-objects/catalog_categories/balloons.webp",
       },
     ]);
     getOsCategoryProductCountsByCountryMock.mockReturnValue(
@@ -370,6 +371,7 @@ describe("featured OS categories", () => {
         id: "balloon-arrangements",
         name: "Balloon Arrangements",
         count: 7,
+        image: { uri: "/api/catalog/category-image/42" },
       }),
     );
   });
