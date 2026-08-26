@@ -1,6 +1,6 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
+import { CITY_NAMES, buildStaticSeo } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -180,10 +180,11 @@ export default function Corporate() {
   const cityDisplay = cityId
     ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
     : "";
-  const h1 = formatTemplate(
-    (TITLES[language] ?? TITLES.en).corporate,
-    { city: cityDisplay },
-  ).split(" | ")[0];
+  const h1 = buildStaticSeo({
+    lang: language,
+    routeKey: "corporate",
+    city: cityDisplay,
+  }).h1;
 
   return (
     <div className="bg-background" data-testid="corporate-page" lang={language}>

@@ -141,6 +141,31 @@ function countH1(html: string): number {
   return (html.match(/<h1[\s>]/gi) ?? []).length;
 }
 
+function parseH1(html: string): string | null {
+  const match = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
+  return match ? match[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : null;
+}
+
+function normalizeSeoText(value: string | null): string {
+  return String(value ?? "")
+    .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([\da-f]+);/gi, (_, n: string) => String.fromCodePoint(Number.parseInt(n, 16)))
+    .replace(/&(?:amp|lt|gt|quot|apos|nbsp);/gi, (entity) => ({
+      "&amp;": "&",
+      "&lt;": "<",
+      "&gt;": ">",
+      "&quot;": "\"",
+      "&apos;": "'",
+      "&nbsp;": " ",
+    })[entity.toLowerCase()] ?? entity)
+    .normalize("NFKC")
+    .replace(/\s*(?:[|—–-]\s*)?presentail(?:['’]s)?\s*$/iu, "")
+    .toLocaleLowerCase()
+    .replace(/[\p{P}\p{S}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function countHreflang(html: string): number {
   return (html.match(/rel="alternate"[^>]*hreflang=/gi) ?? []).length;
 }
@@ -298,6 +323,34 @@ async function checkH1Issues(): Promise<AuditCheckResult> {
       affected.length > 0
         ? "These pages have 0 or more than 1 <h1> tag. Each page should have exactly one H1 that describes its primary topic."
         : "All sampled pages have exactly one H1.",
+  };
+}
+
+async function checkH1TitleCollisions(): Promise<AuditCheckResult> {
+  const urls = sampleSitemapUrls();
+  const affected: string[] = [];
+
+  await Promise.all(
+    urls.map(async (url) => {
+      const html = await fetchHtml(url);
+      if (!html) return;
+      const title = parseTitle(html);
+      const h1 = parseH1(html);
+      if (title && h1 && normalizeSeoText(title) === normalizeSeoText(h1)) {
+        affected.push(url);
+      }
+    }),
+  );
+
+  return {
+    checkId: "h1-title-collisions",
+    severity: affected.length > 0 ? "warn" : "pass",
+    label: "H1 and SEO title have distinct search intent",
+    affectedUrls: affected,
+    recommendation:
+      affected.length > 0
+        ? "These pages have an H1 and title with the same normalized meaning, including suffix-only differences. Keep the user-facing heading and add meaningful localized search context to the SEO title."
+        : "No normalized H1/title collisions detected in the sample.",
   };
 }
 
@@ -699,6 +752,7 @@ const CHECKS: Array<() => Promise<AuditCheckResult>> = [
   checkDuplicateTitles,
   checkMissingDescriptions,
   checkH1Issues,
+  checkH1TitleCollisions,
   checkCanonicalConflicts,
   checkThinPages,
   checkBrokenInternalLinks,

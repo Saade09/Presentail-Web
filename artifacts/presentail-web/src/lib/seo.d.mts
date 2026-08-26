@@ -8,6 +8,7 @@ export type RobotsDirective = "index, follow" | "noindex, follow";
 /** Plain copy object consumed by both the server injector and `SeoHead`. */
 export interface SeoMeta {
   title: string;
+  h1: string;
   description: string;
   ogTitle: string;
   ogDescription: string;
@@ -35,6 +36,8 @@ export const GENERIC_OG: Record<string, Record<Lang, { title: string; descriptio
 export const GENERIC_TWITTER: Record<string, Record<Lang, { title: string; description: string }>>;
 export const ENTITY_TITLES: EntityTemplateMap;
 export const ENTITY_TITLES_NO_CITY: EntityTemplateMap;
+export const ENTITY_H1: Record<"product" | "category" | "occasion" | "brand", Record<Lang, string>>;
+export const ROUTE_H1: Record<Lang, Record<string, string>>;
 export const ENTITY_DESCRIPTIONS: EntityTemplateMap;
 export const ENTITY_DESCRIPTIONS_NO_CITY: EntityTemplateMap;
 export const STATIC_PAGE_GROUP: { A: Set<string>; B: Set<string> };
@@ -91,6 +94,13 @@ export function buildBrandSeo(args?: {
   city?: string;
   country?: string;
 }): SeoMeta;
+export function buildBlogSeo(args?: {
+  lang?: string;
+  seoTitle?: string;
+  articleTitle?: string;
+  h1?: string;
+  description?: string;
+}): SeoMeta;
 export function buildFaqsSeo(args?: {
   lang?: string;
   city?: string;
@@ -114,3 +124,4 @@ export function buildNonIndexableSeo(args?: {
   country?: string;
 }): SeoMeta;
 export function isNonIndexableRouteKey(routeKey: string): boolean;
+export function normalizeSeoText(value: unknown): string;

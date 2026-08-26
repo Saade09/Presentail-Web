@@ -6,6 +6,7 @@
  */
 
 import { fetchText, extractLang, extractDir, extractH1Count, extractH1Text } from "./utils.mjs";
+import { validateSeoDocument } from "./metadata-validator.mjs";
 
 /**
  * Check 6: <html lang> set correctly for EN/AR/FR locale pages.
@@ -114,5 +115,33 @@ export async function checkH1EntityName(BASE, record) {
     "<h1> non-empty and domain-relevant on indexable pages",
     fails.length === 0,
     fails.length === 0 ? "all sampled pages have a relevant h1" : fails.join("; ")
+  );
+}
+
+export async function checkH1TitleCollisions(BASE, record) {
+  const paths = [
+    "/en-lb/chouf/product/summer-daisy-garden",
+    "/en-lb/jezzine/product/my-protector",
+    "/en/blog/flower-shops-in-lebanon",
+    "/fr/blog/corporate-gifting-lebanon",
+    "/fr/blog/flower-shops-in-lebanon",
+    "/en-lb/beirut",
+    "/fr-lb/beirut/category/hand-bouquets",
+    "/ar-ae/dubai/occasion/birthday",
+    "/en-lb/beirut/brand/roses-de-chloe",
+    "/fr-lb/beirut/corporate",
+  ];
+  const failures = [];
+  for (const path of paths) {
+    const url = `${BASE}${path}`;
+    const response = await fetchText(url);
+    const collision = validateSeoDocument(response.text, url).issues
+      .find((issue) => issue.code === "h1-title-collision");
+    if (collision) failures.push(`${url}: ${collision.detail}`);
+  }
+  record(
+    "H1 and title have distinct search intent",
+    failures.length === 0,
+    failures.join("; ") || `${paths.length} representative product, blog, city, category, occasion, brand and corporate pages checked`,
   );
 }

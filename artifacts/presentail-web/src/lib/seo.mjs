@@ -765,9 +765,100 @@ export const ENTITY_TITLES = {
 
 // No-city fallback titles (bare/legacy paths without a locale-prefixed city).
 export const ENTITY_TITLES_NO_CITY = {
-  product: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail", el: "{name} | Presentail" },
-  category: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail", el: "{name} | Presentail" },
-  occasion: { en: "{name} | Presentail", ar: "{name} | Presentail", fr: "{name} | Presentail", el: "{name} | Presentail" },
+  product: {
+    en: "Order {name} Online | Presentail",
+    ar: "اطلب {name} أونلاين | Presentail",
+    fr: "Commander {name} en ligne | Presentail",
+    el: "Παραγγείλετε {name} online | Presentail",
+  },
+  category: {
+    en: "Shop {name} Online | Presentail",
+    ar: "تسوّق {name} أونلاين | Presentail",
+    fr: "Acheter {name} en ligne | Presentail",
+    el: "Αγοράστε {name} online | Presentail",
+  },
+  occasion: {
+    en: "{name} Flowers & Gifts Online | Presentail",
+    ar: "زهور وهدايا {name} أونلاين | Presentail",
+    fr: "Fleurs et cadeaux {name} en ligne | Presentail",
+    el: "Λουλούδια και δώρα {name} online | Presentail",
+  },
+};
+
+export const ENTITY_H1 = {
+  product: {
+    en: "{name}", ar: "{name}", fr: "{name}", el: "{name}",
+  },
+  category: {
+    en: "{name} in {city}",
+    ar: "{name} في {city}",
+    fr: "{name} à {city}",
+    el: "{name} στην πόλη {city}",
+  },
+  occasion: {
+    en: "{name} Flowers & Gifts",
+    ar: "زهور وهدايا {name}",
+    fr: "Fleurs et cadeaux {name}",
+    el: "Λουλούδια και δώρα {name}",
+  },
+  brand: {
+    en: "{name}", ar: "{name}", fr: "{name}", el: "{name}",
+  },
+};
+
+export const ROUTE_H1 = {
+  en: {
+    landing: "Flowers, Gifts & Cakes Delivered Across Lebanon, UAE & Cyprus",
+    home: "Fresh Flowers & Gifts, Delivered in {city}",
+    shop: "The Full Collection — Flowers, Gifts & Plants in {city}",
+    brands: "Curated Partner Brands Available in {city}",
+    allOccasions: "Gifts for Every Occasion, Delivered to {city}",
+    occasions: "Gifts for Every Occasion, Delivered to {city}",
+    blog: "Gift Ideas, Flower Guides & Stories",
+    contact: "Talk to Us — Order & Delivery Help in {city}",
+    faqs: "Flower & Gift Delivery in {city} — Your Questions Answered",
+    weddings: "Bridal Flowers, Table Arrangements & Wedding Gifts in {city}",
+    corporate: "Hampers, Branded Gifts & Bulk Delivery for Teams in {city}",
+  },
+  ar: {
+    landing: "توصيل الزهور والهدايا والكيك في لبنان والإمارات وقبرص",
+    home: "توصيل الزهور والهدايا في {city}",
+    shop: "المجموعة الكاملة — زهور وهدايا ونباتات في {city}",
+    brands: "العلامات الشريكة المتاحة في {city}",
+    allOccasions: "هدايا لكل مناسبة توصّل إلى {city}",
+    occasions: "هدايا لكل مناسبة توصّل إلى {city}",
+    blog: "أفكار هدايا وأدلة زهور وقصص",
+    contact: "تواصل معنا — دعم الطلبات والتوصيل في {city}",
+    faqs: "توصيل الزهور والهدايا في {city} — إجابات على أسئلتك",
+    weddings: "زهور الزفاف وتنسيق الطاولات وهدايا الأعراس في {city}",
+    corporate: "هدايا الشركات والتوصيل بالجملة للفرق في {city}",
+  },
+  fr: {
+    landing: "Fleurs, cadeaux et gâteaux livrés au Liban, aux Émirats et à Chypre",
+    home: "Fleurs et cadeaux livrés à {city}",
+    shop: "Toute la collection — fleurs, cadeaux et plantes à {city}",
+    brands: "Marques partenaires disponibles à {city}",
+    allOccasions: "Cadeaux pour chaque occasion, livrés à {city}",
+    occasions: "Cadeaux pour chaque occasion, livrés à {city}",
+    blog: "Idées cadeaux, guides floraux et histoires",
+    contact: "Contactez-nous — aide commandes et livraisons à {city}",
+    faqs: "Livraison de fleurs et cadeaux à {city} — vos questions",
+    weddings: "Fleurs de mariage, compositions de table et cadeaux à {city}",
+    corporate: "Coffrets, cadeaux de marque et livraisons groupées à {city}",
+  },
+  el: {
+    landing: "Λουλούδια, δώρα και τούρτες σε Λίβανο, ΗΑΕ και Κύπρο",
+    home: "Φρέσκα λουλούδια και δώρα στην πόλη {city}",
+    shop: "Η πλήρης συλλογή λουλουδιών και δώρων στην πόλη {city}",
+    brands: "Επιλεγμένες συνεργαζόμενες μάρκες στην πόλη {city}",
+    allOccasions: "Δώρα για κάθε περίσταση στην πόλη {city}",
+    occasions: "Δώρα για κάθε περίσταση στην πόλη {city}",
+    blog: "Ιδέες δώρων, οδηγοί λουλουδιών και ιστορίες",
+    contact: "Επικοινωνήστε μαζί μας για παραγγελίες στην πόλη {city}",
+    faqs: "Παράδοση λουλουδιών και δώρων στην πόλη {city}",
+    weddings: "Λουλούδια γάμου και δώρα στην πόλη {city}",
+    corporate: "Εταιρικά δώρα και μαζική παράδοση στην πόλη {city}",
+  },
 };
 
 export const ENTITY_DESCRIPTIONS = {
@@ -893,9 +984,10 @@ function pickLang(lang) {
 }
 
 /** @returns {object} a plain SeoMeta object */
-function meta({ title, description, robots = ROBOTS_INDEX, ogTitle, ogDescription, twitterTitle, twitterDescription }) {
+function meta({ title, h1, description, robots = ROBOTS_INDEX, ogTitle, ogDescription, twitterTitle, twitterDescription }) {
   return {
     title,
+    h1,
     description,
     ogTitle: ogTitle ?? title,
     ogDescription: ogDescription ?? description,
@@ -909,6 +1001,7 @@ export function buildHomepageSeo({ lang } = {}) {
   const l = pickLang(lang);
   return meta({
     title: TITLES[l].landing,
+    h1: ROUTE_H1[l].landing,
     description: DESCRIPTIONS[l].landing,
     ogTitle: LANDING_OG[l].title,
     ogDescription: LANDING_OG[l].description,
@@ -922,6 +1015,7 @@ export function buildCitySeo({ lang, city, country } = {}) {
   const params = { city: city ?? "", country: country ?? "" };
   return meta({
     title: formatTemplate(TITLES[l].home, params),
+    h1: formatTemplate(ROUTE_H1[l].home, params),
     description: formatTemplate(DESCRIPTIONS[l].home, params),
   });
 }
@@ -935,6 +1029,7 @@ export function buildCategorySeo({ lang, categoryName, city, country, productCou
   const robots = productCount === 0 ? ROBOTS_NOINDEX : ROBOTS_INDEX;
   return meta({
     title: formatTemplate(titleTpl, params),
+    h1: formatTemplate(ENTITY_H1.category[l], params),
     description: formatTemplate(descTpl, params),
     robots,
   });
@@ -949,6 +1044,7 @@ export function buildOccasionSeo({ lang, occasionName, city, country, productCou
   const robots = productCount === 0 ? ROBOTS_NOINDEX : ROBOTS_INDEX;
   return meta({
     title: formatTemplate(titleTpl, params),
+    h1: formatTemplate(ENTITY_H1.occasion[l], params),
     description: formatTemplate(descTpl, params),
     robots,
   });
@@ -986,7 +1082,11 @@ export function buildProductSeo({ lang, productName, city, country, shortDescrip
     }
   }
 
-  return meta({ title, description });
+  return meta({
+    title,
+    h1: formatTemplate(ENTITY_H1.product[l], params),
+    description,
+  });
 }
 
 export function buildBrandSeo({ lang, brandName, city, country } = {}) {
@@ -995,11 +1095,40 @@ export function buildBrandSeo({ lang, brandName, city, country } = {}) {
   const params = { name, city: city ?? "", country: country ?? "" };
   const titleTpl = city
     ? { en: "{name} Delivery in {city} | Presentail", ar: "توصيل {name} في {city} | Presentail", fr: "Livraison {name} à {city} | Presentail", el: "Αποστολή {name} στην πόλη {city} | Presentail" }[l]
-    : `${name} | Presentail`;
+    : { en: "Shop {name} Online | Presentail", ar: "تسوّق {name} أونلاين | Presentail", fr: "Acheter {name} en ligne | Presentail", el: "Αγοράστε {name} online | Presentail" }[l];
   const descTpl = city ? ENTITY_DESCRIPTIONS.brand[l] : ENTITY_DESCRIPTIONS_NO_CITY.brand[l];
   return meta({
     title: typeof titleTpl === "string" && titleTpl.includes("{") ? formatTemplate(titleTpl, params) : titleTpl ?? `${name} | Presentail`,
+    h1: formatTemplate(ENTITY_H1.brand[l], params),
     description: formatTemplate(descTpl, params),
+  });
+}
+
+export function buildBlogSeo({ lang, seoTitle, articleTitle, h1, description } = {}) {
+  const l = pickLang(lang);
+  const displayH1 = String(h1 ?? articleTitle ?? seoTitle ?? "").trim();
+  const explicitTitle = String(seoTitle ?? articleTitle ?? "").trim();
+  const fallbackSuffixes = {
+    en: " — Gift Guide | Presentail",
+    ar: " — دليل الهدايا | Presentail",
+    fr: " — Guide cadeaux | Presentail",
+    el: " — Οδηγός δώρων | Presentail",
+  };
+  const suffix = fallbackSuffixes[l];
+  const maxNameLength = Math.max(1, 65 - suffix.length);
+  const clippedName = displayH1.length > maxNameLength
+    ? displayH1
+        .slice(0, maxNameLength + 1)
+        .replace(/\s+\S*$/u, "")
+        .replace(/[\s,:;.!?—–-]+$/u, "")
+    : displayH1;
+  const title = explicitTitle && normalizeSeoText(explicitTitle) !== normalizeSeoText(displayH1)
+    ? explicitTitle
+    : `${clippedName || displayH1}${suffix}`;
+  return meta({
+    title: title || TITLES[l].blog,
+    h1: displayH1 || ROUTE_H1[l].blog,
+    description: String(description ?? "").trim() || DESCRIPTIONS[l].blog,
   });
 }
 
@@ -1059,6 +1188,14 @@ export function buildFaqsSeo({ lang, city, country } = {}) {
 
   return meta({
     title,
+    h1: params.city.trim()
+      ? formatTemplate(ROUTE_H1[l].faqs, params)
+      : {
+          en: "Flower & Gift Delivery — Your Questions Answered",
+          ar: "توصيل الزهور والهدايا — إجابات على أسئلتك",
+          fr: "Livraison de fleurs et cadeaux — réponses à vos questions",
+          el: "Παράδοση λουλουδιών και δώρων — απαντήσεις στις ερωτήσεις σας",
+        }[l],
     description: formatTemplate(DESCRIPTIONS[l].faqs, params),
   });
 }
@@ -1118,6 +1255,12 @@ export function buildContactSeo({ lang, city, country } = {}) {
   if (!params.city.trim()) {
     return meta({
       title: CONTACT_TITLE_NO_CITY[l],
+      h1: {
+        en: "Talk to Us — Order & Delivery Help",
+        ar: "تواصل معنا — دعم الطلبات والتوصيل",
+        fr: "Contactez-nous — aide aux commandes et livraisons",
+        el: "Επικοινωνήστε μαζί μας — βοήθεια παραγγελιών και αποστολών",
+      }[l],
       description: formatTemplate(DESCRIPTIONS[l].contact, params),
     });
   }
@@ -1137,6 +1280,7 @@ export function buildContactSeo({ lang, city, country } = {}) {
 
   return meta({
     title,
+    h1: formatTemplate(ROUTE_H1[l].contact, params),
     description: formatTemplate(DESCRIPTIONS[l].contact, params),
   });
 }
@@ -1148,8 +1292,10 @@ export function buildStaticSeo({ lang, routeKey, city, country } = {}) {
   const titleTpl = TITLES[l][key] ?? TITLES[l].home;
   const descTpl = DESCRIPTIONS[l][key] ?? DESCRIPTIONS[l].home;
   const robots = NONINDEX_ROUTE_KEYS.has(key) ? ROBOTS_NOINDEX : ROBOTS_INDEX;
+  const h1Tpl = ROUTE_H1[l][key] ?? ROUTE_H1[l].home;
   return meta({
     title: formatTemplate(titleTpl, params),
+    h1: formatTemplate(h1Tpl, params),
     description: formatTemplate(descTpl, params),
     robots,
   });
@@ -1163,6 +1309,26 @@ export function buildNonIndexableSeo({ lang, routeKey, city, country } = {}) {
 /** True when a route key should carry a noindex directive. */
 export function isNonIndexableRouteKey(routeKey) {
   return NONINDEX_ROUTE_KEYS.has(routeKey);
+}
+
+export function normalizeSeoText(value) {
+  return String(value ?? "")
+    .replace(/&(?:amp|lt|gt|quot|apos|#39|#x27|nbsp);/gi, (entity) => ({
+      "&amp;": "&",
+      "&lt;": "<",
+      "&gt;": ">",
+      "&quot;": "\"",
+      "&apos;": "'",
+      "&#39;": "'",
+      "&#x27;": "'",
+      "&nbsp;": " ",
+    })[entity.toLowerCase()] ?? entity)
+    .normalize("NFKC")
+    .replace(/\s*(?:[|—–-]\s*)?presentail(?:['’]s)?\s*$/iu, "")
+    .toLocaleLowerCase()
+    .replace(/[\p{P}\p{S}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -1199,7 +1365,7 @@ export const CITY_HOME_SEO_OVERRIDES = {
 
   "lb-batroun": {
     en: {
-      title: "Flower Delivery in Batroun, Lebanon | Presentail", // i18n-ignore — crawler-facing EN SEO copy
+      title: "Same-Day Flower Delivery in Batroun | Presentail", // i18n-ignore — crawler-facing EN SEO copy
       description:
         "Order fresh flowers online for delivery in Batroun, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.", // i18n-ignore
       h1: "Flower Delivery in Batroun, Lebanon", // i18n-ignore
@@ -1259,7 +1425,7 @@ export const CITY_HOME_SEO_OVERRIDES = {
 
   "lb-tripoli": {
     en: {
-      title: "Flower Delivery in Tripoli, Lebanon | Presentail", // i18n-ignore — crawler-facing EN SEO copy
+      title: "Same-Day Flower Delivery in Tripoli | Presentail", // i18n-ignore — crawler-facing EN SEO copy
       description:
         "Order fresh flowers online for delivery in Tripoli, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.", // i18n-ignore
       h1: "Flower Delivery in Tripoli, Lebanon", // i18n-ignore

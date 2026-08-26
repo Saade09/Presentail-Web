@@ -14,6 +14,7 @@ import {
   type BlogSection,
   type BlogCategory,
 } from "@workspace/blog-content";
+import { buildBlogSeo } from "@/lib/seo";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -333,10 +334,14 @@ export default function BlogPost() {
 
   useEffect(() => {
     if (!article) return;
-    // When an article has a separate H1 field the `title` is already the
-    // complete meta title (e.g. "Flower Shop in Achrafieh | Presentail's
-    // Beirut Boutique") and must NOT have "| Presentail" appended again.
-    const title = article.h1 ? article.title : `${article.title} | Presentail`;
+    const seo = buildBlogSeo({
+      lang: language,
+      seoTitle: article.seoTitle,
+      articleTitle: article.title,
+      h1: article.h1,
+      description: article.description,
+    });
+    const title = seo.title;
     document.title = title;
 
     const upsertMeta = (selector: string, attr: string, value: string) => {
@@ -439,7 +444,7 @@ export default function BlogPost() {
         document.getElementById(`blog-post-schema-extra-${idx}`)?.remove();
       });
     };
-  }, [article]);
+  }, [article, articlesByLang, language]);
 
   // When this locale has no dedicated translation the article falls back to
   // English content.  Emit noindex,follow so crawlers don't treat the duplicate
@@ -600,7 +605,13 @@ export default function BlogPost() {
               data-testid="blog-post-title"
               itemProp="headline"
             >
-              {article.h1 ?? article.title}
+              {buildBlogSeo({
+                lang: language,
+                seoTitle: article.seoTitle,
+                articleTitle: article.title,
+                h1: article.h1,
+                description: article.description,
+              }).h1}
             </h1>
             <p className="text-lg md:text-xl leading-relaxed text-muted-foreground mb-4 max-w-[52ch]" data-testid="blog-post-dek">
               {dek}

@@ -305,7 +305,7 @@ export const OCCASION_SEO_CONTENT = {
       // sympathy-audit copy adapted to the real occasion. Tone kept
       // respectful: no "Same-Day!" promotion in title/H1; stated plainly in
       // the meta description and FAQs instead.
-      title: "Funeral & Sympathy Flower Delivery in Dubai | Presentail",
+      title: "Funeral Flowers & Sympathy Gifts in Dubai | Presentail",
       metaDescription:
         "Send funeral and sympathy flowers in Dubai with same-day delivery, delivered with care to homes and offices.",
       h1: "Funeral & Sympathy Flower Delivery in Dubai",

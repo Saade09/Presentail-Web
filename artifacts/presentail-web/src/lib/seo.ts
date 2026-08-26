@@ -28,6 +28,8 @@ export {
   LANDING_TWITTER,
   ENTITY_TITLES,
   ENTITY_TITLES_NO_CITY,
+  ENTITY_H1,
+  ROUTE_H1,
   ENTITY_DESCRIPTIONS,
   ENTITY_DESCRIPTIONS_NO_CITY,
   STATIC_PAGE_GROUP,
@@ -39,6 +41,7 @@ export {
   buildOccasionSeo,
   buildProductSeo,
   buildBrandSeo,
+  buildBlogSeo,
   buildFaqsSeo,
   buildContactSeo,
   buildStaticSeo,
@@ -47,4 +50,5 @@ export {
   isGroupAStaticPage,
   CITY_HOME_SEO_OVERRIDES,
   getCityHomeSeoOverride,
+  normalizeSeoText,
 } from "./seo.mjs";

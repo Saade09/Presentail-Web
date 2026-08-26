@@ -86,6 +86,8 @@ export interface BlogPostContent {
   slug: string;
   eyebrow: string;
   title: string;
+  /** Optional explicitly authored SEO title. `title` remains supported for backwards compatibility. */
+  seoTitle?: string;
   /** Visible page heading (H1). Falls back to `title` when absent. */
   h1?: string;
   description: string;

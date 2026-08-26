@@ -592,6 +592,23 @@ export default function Shop() {
     : occasion
       ? (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) || catalogOccasion?.name || slugToTitle(occasion)
       : "";
+  const entityCityLabel = city ? cityName(city.id, city.name) : "";
+  const entityCountryLabel = country ? countryName(country.code, country.name) : "";
+  const entitySeo = entityName
+    ? (isCategoryRoute
+        ? buildCategorySeo({
+            lang: language,
+            categoryName: entityName,
+            city: entityCityLabel,
+            country: entityCountryLabel,
+          })
+        : buildOccasionSeo({
+            lang: language,
+            occasionName: entityName,
+            city: entityCityLabel,
+            country: entityCountryLabel,
+          }))
+    : null;
 
   // Curated per-occasion SEO content (Dubai EN pages for now). When present
   // it overrides the template title/description, provides the visible H1 and
@@ -638,11 +655,8 @@ export default function Shop() {
     if (cityId && !city) return;
     if (countryCode && !country) return;
     const head = document.head;
-    const cityLabel = city ? cityName(city.id, city.name) : "";
-    const countryLabel = country ? countryName(country.code, country.name) : "";
-    const seo = isCategoryRoute
-      ? buildCategorySeo({ lang: language, categoryName: entityName, city: cityLabel, country: countryLabel })
-      : buildOccasionSeo({ lang: language, occasionName: entityName, city: cityLabel, country: countryLabel });
+    const seo = entitySeo;
+    if (!seo) return;
     // Curated occasion/category pages have hand-written title/meta copy that
     // must match what the server prerender emits for crawlers.
     const activeCurated = curatedSeo ?? curatedCategorySeo;
@@ -658,7 +672,7 @@ export default function Shop() {
     return () => {
       head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
     };
-  }, [entityName, isCategoryRoute, isOccasionRoute, city, country, language, cityName, countryName, curatedSeo, curatedCategorySeo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entityName, entitySeo, isCategoryRoute, isOccasionRoute, city, country, language, cityName, countryName, curatedSeo, curatedCategorySeo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const capitalizeFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -745,7 +759,7 @@ export default function Shop() {
           <div>
             <div className="flex items-center">
               <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
-                {birthdayContextTitle ?? curatedSeo?.h1 ?? curatedCategorySeo?.h1 ?? pageTitle}
+                {birthdayContextTitle ?? curatedSeo?.h1 ?? curatedCategorySeo?.h1 ?? entitySeo?.h1 ?? pageTitle}
               </h1>
               {isLoading ? (
                 <div className="hidden md:block ml-4 align-middle">

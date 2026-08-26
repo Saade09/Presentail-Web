@@ -182,7 +182,7 @@ export default function Contact() {
   const cityDisplay = cityId
     ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
     : "";
-  const h1 = buildContactSeo({ lang: language, city: cityDisplay }).title.split(" | ")[0];
+  const h1 = buildContactSeo({ lang: language, city: cityDisplay }).h1;
 
   return (
     <div className="bg-background" data-testid="contact-page" lang={language}>

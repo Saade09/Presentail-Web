@@ -70,6 +70,7 @@ const {
   checkHtmlDir,
   checkH1Count,
   checkH1EntityName,
+  checkH1TitleCollisions,
 } = await import(join(checks, "html-attrs.mjs"));
 
 const { checkHreflangCompleteness } = await import(join(checks, "hreflang.mjs"));
@@ -132,6 +133,7 @@ await checkHtmlLang(BASE, record);          // 6
 await checkHtmlDir(BASE, record);           // 7
 await checkH1Count(BASE, record);           // 8
 await checkH1EntityName(BASE, record);      // 9  NEW
+await checkH1TitleCollisions(BASE, record); // 10
 
 // ── Group 3: Hreflang (check 10) ──────────────────────────────────────────────
 console.log("\n── Hreflang ────────────────────────────────────────────────────────────");

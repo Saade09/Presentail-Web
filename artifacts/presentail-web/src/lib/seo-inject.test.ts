@@ -199,7 +199,7 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + brand listing fetch + brand parent listing fetch (dims skipped — branded og-image URL always used)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/brand?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=acme-florals");
-    expect(out).toContain("<title>Acme Florals | Presentail</title>");
+    expect(out).toContain("<title>Acme Florals Delivery in Dubai | Presentail</title>");
     expect(out).toContain(
       'content="Hand-tied bouquets &amp; gifts."',
     );
@@ -3540,12 +3540,14 @@ describe("seo_entity_fetch_failed analytics event — emitted on entity lookup f
 
   it("still returns the generic fallback HTML when seo_entity_fetch_failed fires", async () => {
     makeAnalyticsMock({ ok: false });
+    const htmlWithRoot = HTML.replace("<body></body>", '<body><div id="root"></div></body>');
     const out = await injectSeoTagsAsync(
-      HTML,
+      htmlWithRoot,
       "/en-ae/dubai/product/any-slug",
       OPTS,
     );
     expect(out).toContain("<title>Any Slug — Dubai | Presentail</title>");
+    expect(out).toContain("<h1>Any Slug</h1>");
     expect(out).not.toContain('property="product:price:amount"');
   });
 });
@@ -4665,7 +4667,7 @@ describe("shared-link preview cache — cache-hit skips upstream (brand)", () =>
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(1);
-    expect(out1).toContain("<title>Cached Preview Brand | Presentail</title>");
+    expect(out1).toContain("<title>Cached Preview Brand Delivery in Dubai | Presentail</title>");
 
     const out2 = await injectSeoTagsAsync(
       PREVIEW_HTML,
@@ -4673,7 +4675,7 @@ describe("shared-link preview cache — cache-hit skips upstream (brand)", () =>
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(1); // still 1 — served from cache
-    expect(out2).toContain("<title>Cached Preview Brand | Presentail</title>");
+    expect(out2).toContain("<title>Cached Preview Brand Delivery in Dubai | Presentail</title>");
   });
 });
 
@@ -4778,7 +4780,7 @@ describe("shared-link preview cache — null result is NOT cached", () => {
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(2);
-    expect(out2).toContain("<title>Recovered Brand | Presentail</title>");
+    expect(out2).toContain("<title>Recovered Brand Delivery in Dubai | Presentail</title>");
   });
 });
 
@@ -5096,7 +5098,7 @@ describe("injectSeoTagsAsync — /product/<slug> bare path — locale resolution
       "/product/bare-success-full-unique",
       { ...BARE_OPTS },
     );
-    expect(out).toContain("<title>Bare Rose Bouquet | Presentail</title>");
+    expect(out).toContain("<title>Order Bare Rose Bouquet Online | Presentail</title>");
     expect(out).toContain('content="Fresh roses."');
     expect(out).toContain('<meta property="product:price:amount" content="65.00"');
     expect(out).toContain('<meta property="product:price:currency" content="USD"');
@@ -6483,7 +6485,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(out).toContain(
-      "<title>Teddy Bear Gifts in Lebanon: Sizes, Prices &amp; Delivery | Presentail</title>",
+      "<title>Teddy Bear Gifts in Lebanon: Sizes &amp; Delivery | Presentail</title>",
     );
     expect(out).toContain(
       'content="Choosing a teddy bear in Lebanon — which size suits which occasion, what they cost, how to pair one with flowers or balloons, and same-day delivery nationwide."',
@@ -6494,7 +6496,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
 
     const article = byType(extractJsonLd(out), "Article");
     expect(article).toMatchObject({
-      headline: "Teddy Bear Gifts in Lebanon: Sizes, Prices & Delivery | Presentail",
+      headline: "Teddy Bear Gifts in Lebanon: Sizes & Delivery | Presentail",
       datePublished: "2026-08-13",
       dateModified: "2026-08-24",
       url: "https://presentail.test/en/blog/teddy-bear-gifts-lebanon",
@@ -6888,9 +6890,9 @@ describe("Client-side SEO builders — return shape (title, ogTitle, twitterTitl
     expect(seo.description).toBe("Shop Acme Florals gifts online in Beirut. Send curated Acme Florals products with reliable delivery from Presentail.");
   });
 
-  it("buildBrandSeo falls back to brand-name-only title when no city is provided", () => {
+  it("buildBrandSeo adds shopping intent when no city is provided", () => {
     const seo = buildBrandSeo({ lang: "en", brandName: "Acme Florals", city: "", country: "Lebanon" });
-    expect(seo.title).toBe("Acme Florals | Presentail");
+    expect(seo.title).toBe("Shop Acme Florals Online | Presentail");
     expect(seo.description).toBe("Shop Acme Florals gifts online. Send curated Acme Florals products with reliable delivery from Presentail.");
   });
 
@@ -8648,7 +8650,7 @@ describe("Prerender body — category/occasion page product count and links", ()
 });
 
 describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
-  const TRIPOLI_TITLE = "Flower Delivery in Tripoli, Lebanon | Presentail";
+  const TRIPOLI_TITLE = "Same-Day Flower Delivery in Tripoli | Presentail";
   const TRIPOLI_DESC =
     "Order fresh flowers online for delivery in Tripoli, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.";
   const TRIPOLI_H1 = "Flower Delivery in Tripoli, Lebanon";
@@ -8758,7 +8760,7 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
 });
 
 describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
-  const BATROUN_TITLE = "Flower Delivery in Batroun, Lebanon | Presentail";
+  const BATROUN_TITLE = "Same-Day Flower Delivery in Batroun | Presentail";
   const BATROUN_DESC =
     "Order fresh flowers online for delivery in Batroun, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.";
   const BATROUN_H1 = "Flower Delivery in Batroun, Lebanon";
@@ -8874,7 +8876,7 @@ describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
 
   it("other city pages are not regressed (Tripoli and Beirut unaffected)", async () => {
     const { title: tripoliTitle } = buildSeoHead("/en-lb/tripoli", B_OPTS);
-    expect(tripoliTitle).toBe("Flower Delivery in Tripoli, Lebanon | Presentail");
+    expect(tripoliTitle).toBe("Same-Day Flower Delivery in Tripoli | Presentail");
     const { title: beirutTitle } = buildSeoHead("/en-lb/beirut", B_OPTS);
     expect(beirutTitle).toContain("Beirut");
     expect(beirutTitle).not.toBe(BATROUN_TITLE);

@@ -149,6 +149,9 @@ import {
   buildProductSeo,
   buildCategorySeo,
   buildOccasionSeo,
+  buildBrandSeo,
+  buildBlogSeo,
+  buildStaticSeo,
   buildFaqsSeo,
   buildContactSeo,
   formatTemplate,
@@ -474,25 +477,19 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   const params = { city: cityLabel, country: countryLabel };
   // Contact and FAQs pages use a tiered title-length guardrail instead of the
   // plain TITLES template so all city names land in the 30–65 char audit window.
-  let title = routeKey === "contact"
-    ? buildContactSeo({ lang, city: cityLabel, country: countryLabel }).title
+  const sharedSeo = routeKey === "contact"
+    ? buildContactSeo({ lang, city: cityLabel, country: countryLabel })
     : routeKey === "faqs"
-    ? buildFaqsSeo({ lang, city: cityLabel, country: countryLabel }).title
-    : format(
-        TITLES[lang]?.[routeKey] ?? TITLES.en[routeKey] ?? TITLES.en.landing,
-        params,
-      );
+      ? buildFaqsSeo({ lang, city: cityLabel, country: countryLabel })
+      : buildStaticSeo({ lang, routeKey, city: cityLabel, country: countryLabel });
+  let title = sharedSeo.title;
+  let h1 = sharedSeo.h1;
   if (process.env.NODE_ENV !== "production" && title.length > 65) {
     console.warn(
       `SEO title exceeds 65 chars (${title.length}) [${routeKey}/${lang}]: "${title}"`,
     );
   }
-  let description = format(
-    DESCRIPTIONS[lang]?.[routeKey] ??
-      DESCRIPTIONS.en[routeKey] ??
-      DESCRIPTIONS.en.landing,
-    params,
-  );
+  let description = sharedSeo.description;
 
   // Per-city home-page overrides (hand-written, high-intent copy for selected
   // city landing pages, e.g. /en-lb/tripoli). Applied only on the exact city
@@ -503,6 +500,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       : null;
   if (cityHomeOverride) {
     title = cityHomeOverride.title;
+    h1 = cityHomeOverride.h1;
     description = cityHomeOverride.description;
   }
 
@@ -627,6 +625,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
                 country: countryLabel,
               });
         if (slugSeo.title) title = slugSeo.title;
+        if (slugSeo.h1) h1 = slugSeo.h1;
         if (slugSeo.description) description = slugSeo.description;
       }
     }
@@ -1164,7 +1163,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   }
 
   const bodyHtml = buildGenericBodyHtml(routeKey, {
-    title,
+    h1,
     description,
     localeBase,
     faqItems: bodyFaqItems,
@@ -1464,40 +1463,6 @@ const ROUTE_BODY_INTRO = {
 // convention as TITLES; format() resolves it at render time.
 // i18n-ignore — these are static EN-only sr-only headings for crawlers;
 // the SPA renders its own translated h1 after hydration.
-const ROUTE_H1 = {
-  landing:   "Flowers, Gifts & Cakes Delivered Across Lebanon, UAE & Cyprus", // i18n-ignore — static EN-only sr-only heading for crawlers
-  home:      "Fresh Flowers & Gifts, Delivered in {city}",
-  shop:      "The Full Collection — Flowers, Gifts & Plants in {city}",
-  brands:    "Curated Partner Brands Available in {city}",
-  occasions: "Gifts for Every Occasion, Delivered to {city}",
-  contact:   "Talk to Us — Order & Delivery Help in {city}",
-  faqs:      "Flower & Gift Delivery in {city} — Your Questions Answered",
-  weddings:  "Bridal Flowers, Table Arrangements & Wedding Gifts in {city}",
-  corporate: "Hampers, Branded Gifts & Bulk Delivery for Teams in {city}",
-};
-// Locale-aware H1 templates for Arabic and French city pages so crawlers see
-// fully translated headings rather than mixed-language text.
-const ROUTE_H1_AR = {
-  home:      "توصيل الزهور والهدايا في {city}",
-  shop:      "المجموعة الكاملة — زهور وهدايا ونباتات في {city}",
-  brands:    "العلامات الشريكة المتاحة في {city}",
-  occasions: "هدايا لكل مناسبة توصّل إلى {city}",
-  contact:   "تواصل معنا — دعم الطلبات والتوصيل في {city}",
-  faqs:      "توصيل الزهور والهدايا في {city} — إجابات على أسئلتك",
-  weddings:  "زهور الزفاف وتنسيق الطاولات وهدايا الأعراس في {city}",
-  corporate: "هدايا الشركات والتوصيل بالجملة للفرق في {city}",
-};
-const ROUTE_H1_FR = {
-  home:      "Fleurs et cadeaux livrés à {city}",
-  shop:      "Toute la collection — fleurs, cadeaux et plantes à {city}",
-  brands:    "Marques partenaires disponibles à {city}",
-  occasions: "Cadeaux pour chaque occasion, livrés à {city}",
-  contact:   "Contactez-nous — aide commandes et livraisons à {city}",
-  faqs:      "Livraison de fleurs et cadeaux à {city} — vos questions",
-  weddings:  "Fleurs de mariage, compositions de table et cadeaux à {city}",
-  corporate: "Coffrets, cadeaux de marque et livraisons groupées à {city}",
-};
-
 function buildNavLinks(localeBase) {
   if (!localeBase) return "";
   // Blog canonical is /{lang}/blog — never city-scoped — so derive the
@@ -1569,25 +1534,9 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
   return `${featuredHtml}<h2>Recent stories</h2><ul>${items.join("")}</ul>`; // i18n-ignore
 }
 
-function buildGenericBodyHtml(routeKey, { title, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined, campaignLanding = null }) {
+function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined, campaignLanding = null }) {
   const intro = introOverride ?? ROUTE_BODY_INTRO[routeKey] ?? "";
-  const safeTitle = escapeHtml(title);
-  // Compute a distinct H1 from ROUTE_H1 — same topic as <title> but
-  // different phrasing, no "| Presentail" suffix. Falls back to title
-  // when the route has no entry or cityLabel is unavailable. An explicit
-  // h1Override (per-city hand-written copy, e.g. Tripoli) wins over both.
-  const h1Template =
-    (lang === "ar" ? ROUTE_H1_AR[routeKey] : lang === "fr" ? ROUTE_H1_FR[routeKey] : null) ??
-    ROUTE_H1[routeKey];
-  // Use the template directly when it has no {city} placeholder (e.g. landing),
-  // or when a cityLabel is available to fill one. Fall back to title otherwise.
-  const h1Text = h1Override ?? (
-    h1Template
-      ? (h1Template.includes("{city}")
-          ? (cityLabel ? format(h1Template, { city: cityLabel }) : title)
-          : h1Template)
-      : title
-  );
+  const h1Text = h1Override ?? h1;
   const safeH1 = escapeHtml(h1Text);
   const safeDesc = escapeHtml(description);
   const safeIntro = escapeHtml(intro);
@@ -4097,7 +4046,7 @@ export function buildProductHead({
   );
 
   const bodyHtml = buildProductBodyHtml(product, {
-    title,
+    title: seo.h1,
     description,
     localeBase: locBase,
     imageUrl,
@@ -4141,14 +4090,15 @@ export function buildProductHead({
  */
 export function buildBlogPostHead({ article, lang, country, basePath, origin, pathname }) {
   const rawTitle = typeof article.title === "string" ? article.title.trim() : "";
-  // When an article carries a separate display heading (`h1`), `title` is
-  // already the complete meta title and must NOT have "| Presentail" appended.
-  const title = article.h1
-    ? rawTitle || "Presentail"
-    : rawTitle ? `${rawTitle} | Presentail` : "Presentail";
-  const description =
-    clampDescription(article.description) ||
-    genericFallbackDescription(lang, "blogPost");
+  const seo = buildBlogSeo({
+    lang,
+    seoTitle: article.seoTitle,
+    articleTitle: rawTitle,
+    h1: article.h1,
+    description: clampDescription(article.description),
+  });
+  const title = seo.title;
+  const description = seo.description || genericFallbackDescription(lang, "blogPost");
   const cleanBase = basePath.replace(/\/$/, "");
   // Blog posts carry a single language-scoped canonical: /{lang}/blog/:slug.
   // No city or country segment — blog content does not vary by delivery
@@ -4258,7 +4208,7 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
       title,
       description,
       imageUrl,
-      imageAlt: rawTitle || "Presentail",
+      imageAlt: seo.h1 || "Presentail",
       imageWidth,
       imageHeight,
       basePath,
@@ -4356,10 +4306,11 @@ function buildBrandsFilterHead({
 
 export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname, cityLabel, country, productCount, brandProducts, ogImageUrl }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
-  const title = rawName ? `${rawName} | Presentail` : "Presentail";
+  const seo = buildBrandSeo({ lang, brandName: rawName, city: cityLabel || "" });
+  const title = rawName ? seo.title : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
   const description =
-    clampDescription(rawDesc) || genericFallbackDescription(lang, "brand");
+    clampDescription(rawDesc) || seo.description || genericFallbackDescription(lang, "brand");
   // ogImageUrl is a pre-generated branded share image (1200×630 JPEG served
   // by the API). When provided it takes precedence over the raw brand image
   // so WhatsApp / iMessage / Slack previews show a Presentail-branded card
@@ -4442,7 +4393,7 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   const brandSeoIntro = brandIntroTpl
     ? formatTemplate(brandIntroTpl, brandParams)
     : "";
-  const safeBrandTitle = escapeHtml(rawName || title);
+  const safeBrandTitle = escapeHtml(seo.h1 || rawName);
   const safeBrandDesc = escapeHtml(description);
   const safeBrandHeading = escapeHtml(brandSeoHeading);
   const safeBrandIntro = escapeHtml(brandSeoIntro);
@@ -4814,7 +4765,8 @@ function buildShopEntityHead({
   const seoHeading = headingTpl ? formatTemplate(headingTpl, entityParams) : "";
   const seoIntro = introTpl ? formatTemplate(introTpl, entityParams) : "";
   const rawEntityDesc = entity.description ? stripHtml(entity.description) : "";
-  const safeEntityTitle = escapeHtml(rawName || title);
+  const resolvedH1 = curated?.h1 ?? seo.h1;
+  const safeEntityTitle = escapeHtml(resolvedH1 || rawName);
   const safeEntityDesc = escapeHtml(clampDescription(rawEntityDesc) || description);
   const safeSeoHeading = escapeHtml(seoHeading);
   const safeSeoIntro = escapeHtml(seoIntro);
@@ -5315,16 +5267,21 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         const siteOrigin = (rest.origin ?? "").replace(/\/$/, "");
         const blogIndexHref = `${siteOrigin}${cleanBase}/${blogLang}/blog`;
         const blogLocaleBase = `${siteOrigin}${cleanBase}/${blogLang}`;
-        const blogBodyHtml = buildBlogIndexBodyHtml(blogLang, { localeBase: blogLocaleBase });
-        const blogIndexTitle =
-          blogLang === "ar" ? "مدونة Presentail" : blogLang === "fr" ? "Journal Presentail" : "Presentail Journal";
-        const indexDescription = genericFallbackDescription(blogLang, "blog");
+        const blogSeo = buildStaticSeo({ lang: blogLang, routeKey: "blog" });
+        const blogBodyHtml =
+          `<h1>${escapeHtml(blogSeo.h1)}</h1><p>${escapeHtml(blogSeo.description)}</p>` +
+          buildBlogIndexBodyHtml(blogLang, { localeBase: blogLocaleBase });
         const ogImage = `${siteOrigin}${cleanBase}/opengraph.jpg?v=2`;
+        const alternateHref = (alternateLang) =>
+          `${siteOrigin}${cleanBase}/${alternateLang}/blog`;
         const indexLines = [
-          `<meta name="description" content="${escapeAttr(indexDescription)}" />`,
+          `<meta name="description" content="${escapeAttr(blogSeo.description)}" />`,
           `<link rel="canonical" href="${escapeAttr(blogIndexHref)}" />`,
-          `<meta property="og:title" content="${escapeAttr(blogIndexTitle)}" />`,
-          `<meta property="og:description" content="${escapeAttr(indexDescription)}" />`,
+          ...["en", "ar", "fr"].map((alternateLang) =>
+            `<link rel="alternate" hreflang="${alternateLang}" href="${escapeAttr(alternateHref(alternateLang))}" />`),
+          `<link rel="alternate" hreflang="x-default" href="${escapeAttr(alternateHref("en"))}" />`,
+          `<meta property="og:title" content="${escapeAttr(blogSeo.ogTitle)}" />`,
+          `<meta property="og:description" content="${escapeAttr(blogSeo.ogDescription)}" />`,
           `<meta property="og:type" content="website" />`,
           `<meta property="og:site_name" content="Presentail" />`,
           `<meta property="og:locale" content="${escapeAttr(OG_LOCALE[blogLang] || "en_US")}" />`,
@@ -5335,8 +5292,8 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           `<meta property="og:image:width" content="1200" />`,
           `<meta property="og:image:height" content="630" />`,
           `<meta name="twitter:card" content="summary_large_image" />`,
-          `<meta name="twitter:title" content="${escapeAttr(blogIndexTitle)}" />`,
-          `<meta name="twitter:description" content="${escapeAttr(indexDescription)}" />`,
+          `<meta name="twitter:title" content="${escapeAttr(blogSeo.twitterTitle)}" />`,
+          `<meta name="twitter:description" content="${escapeAttr(blogSeo.twitterDescription)}" />`,
           `<meta name="twitter:image" content="${escapeAttr(ogImage)}" />`,
           jsonLdTag(buildOrganizationSchema(`${siteOrigin}${cleanBase}`)),
         ];
@@ -5344,7 +5301,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           lang: blogLang,
           dir: blogLang === "ar" ? "rtl" : "ltr",
           headSnippet: indexLines.join("\n    "),
-          titleTag: `<title>${escapeHtml(`${blogIndexTitle} | Presentail`)}</title>`,
+          titleTag: `<title>${escapeHtml(blogSeo.title)}</title>`,
           bodyHtml: blogBodyHtml,
         });
       }
