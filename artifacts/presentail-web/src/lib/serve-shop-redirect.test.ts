@@ -48,6 +48,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import zlib from "node:zlib";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVE_MJS = path.resolve(__dirname, "../../serve.mjs");
@@ -103,32 +104,54 @@ function waitForReady(port: number, maxMs = 12_000): Promise<void> {
 function get(
   port: number,
   urlPath: string,
+  requestHeaders: Record<string, string> = {},
 ): Promise<{
   status: number;
   location: string | undefined;
   body: string;
+  rawBody: Buffer;
   headers: Record<string, string | string[] | undefined>;
 }> {
   return new Promise((resolve, reject) => {
     const req = http.request(
-      { host: "127.0.0.1", port, path: urlPath },
+      { host: "127.0.0.1", port, path: urlPath, headers: requestHeaders },
       (res) => {
-        let body = "";
-        res.setEncoding("utf8");
-        res.on("data", (chunk) => (body += chunk));
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
         res.on("end", () =>
-          resolve({
-            status: res.statusCode ?? 0,
-            location: res.headers["location"] as string | undefined,
-            body,
-            headers: res.headers as Record<string, string | string[] | undefined>,
-          }),
+          (() => {
+            const rawBody = Buffer.concat(chunks);
+            resolve({
+              status: res.statusCode ?? 0,
+              location: res.headers["location"] as string | undefined,
+              body: rawBody.toString("utf8"),
+              rawBody,
+              headers: res.headers as Record<string, string | string[] | undefined>,
+            });
+          })(),
         );
       },
     );
     req.on("error", reject);
     req.end();
   });
+}
+
+function header(
+  headers: Record<string, string | string[] | undefined>,
+  name: string,
+): string | undefined {
+  const value = headers[name.toLowerCase()];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function decodedBody(response: Awaited<ReturnType<typeof get>>): string {
+  const encoding = header(response.headers, "content-encoding");
+  if (encoding === "br") return zlib.brotliDecompressSync(response.rawBody).toString("utf8");
+  if (encoding === "gzip") return zlib.gunzipSync(response.rawBody).toString("utf8");
+  return response.body;
 }
 
 // ---------------------------------------------------------------------------
@@ -453,4 +476,49 @@ describe("serve.mjs — bare /category/<slug> share-link OG+redirect", () => {
     expect(status).toBe(200);
     expect(body).toContain("/en-lb/beirut/category/red%20roses");
   });
+});
+
+describe("serve.mjs — bare share-page compression", () => {
+  const routes = [
+    { kind: "product", path: "/product/red-roses", target: "/en-lb/beirut/product/red-roses" },
+    { kind: "brand", path: "/brand/roses-de-chloe", target: "/en-lb/beirut/brand/roses-de-chloe" },
+    { kind: "occasion", path: "/occasion/birthday", target: "/en-lb/beirut/occasion/birthday" },
+    { kind: "category", path: "/category/hand-bouquets", target: "/en-lb/beirut/category/hand-bouquets" },
+  ] as const;
+
+  const encodings = [
+    { name: "Brotli", acceptEncoding: "br", responseEncoding: "br" },
+    { name: "gzip", acceptEncoding: "gzip", responseEncoding: "gzip" },
+    { name: "identity", acceptEncoding: "identity", responseEncoding: undefined },
+    { name: "unsupported", acceptEncoding: "deflate", responseEncoding: undefined },
+  ] as const;
+
+  for (const route of routes) {
+    for (const encoding of encodings) {
+      it(`serves ${route.kind} share HTML with ${encoding.name} negotiation`, async () => {
+        const response = await get(serverPort, route.path, {
+          "accept-encoding": encoding.acceptEncoding,
+        });
+        const body = decodedBody(response);
+
+        expect(response.status).toBe(200);
+        expect(response.location).toBeUndefined();
+        expect(header(response.headers, "vary")?.toLowerCase()).toContain("accept-encoding");
+        expect(header(response.headers, "content-encoding")).toBe(encoding.responseEncoding);
+        expect(header(response.headers, "content-type")).toBe("text/html; charset=utf-8");
+        expect(header(response.headers, "x-robots-tag")).toBe("noindex");
+        expect(header(response.headers, "cache-control")).toBe(
+          "public, no-cache, s-maxage=300, stale-while-revalidate=60",
+        );
+        expect(header(response.headers, "expires")).toBe("0");
+        expect(header(response.headers, "link")).toContain(
+          `<http://127.0.0.1:${serverPort}${route.target}>; rel="canonical"`,
+        );
+        expect(body).toContain('property="og:title"');
+        expect(body).toContain('http-equiv="refresh"');
+        expect(body).toContain("window.location.replace");
+        expect(body).toContain(route.target);
+      });
+    }
+  }
 });

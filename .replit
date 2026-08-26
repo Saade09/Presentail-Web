@@ -57,7 +57,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bash -c 'set -e; pnpm --filter @workspace/presentail-web run build; PORT=19234 BASE_PATH=\"/\" node artifacts/presentail-web/serve.mjs & SERVER_PID=$!; sleep 3; node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/; node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234; kill $SERVER_PID 2>/dev/null'"
+args = "bash -c 'set -e; pnpm --filter @workspace/presentail-web run build; PORT=19234 BASE_PATH=\"/\" node artifacts/presentail-web/serve.mjs & SERVER_PID=$!; trap \"kill $SERVER_PID 2>/dev/null\" EXIT INT TERM; sleep 3; node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/ http://localhost:19234/product/gold-heart-balloon--313 http://localhost:19234/brand/roses-de-chloe http://localhost:19234/occasion/birthday http://localhost:19234/category/balloons http://localhost:19234/en-lb/beirut http://localhost:19234/en-lb/beirut/product/gold-heart-balloon--313 http://localhost:19234/en-lb/beirut/category/balloons; node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234'"
 
 [workflows.workflow.metadata]
 isValidation = true

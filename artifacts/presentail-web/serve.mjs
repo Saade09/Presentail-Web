@@ -636,6 +636,25 @@ async function compressBuffer(data, encoding) {
 }
 
 /**
+ * Send a generated HTML response using the same content negotiation as static
+ * and SPA HTML.  Share-page previews are generated dynamically, so they cannot
+ * use a pre-compressed sidecar, but they should otherwise be indistinguishable
+ * from the normal HTML response path.
+ */
+async function sendCompressedHtml(res, req, html, headers = {}) {
+  const encoding = pickEncoding(req, ".html");
+  const body = await compressBuffer(html, encoding);
+  const responseHeaders = {
+    "content-type": MIME[".html"],
+    ...headers,
+    "vary": "Accept-Encoding",
+  };
+  if (encoding) responseHeaders["content-encoding"] = encoding;
+  res.writeHead(200, responseHeaders);
+  res.end(body);
+}
+
+/**
  * Create a zlib transform stream for the chosen encoding, or null.
  */
 function compressStream(encoding) {
@@ -1276,15 +1295,12 @@ const server = http.createServer(async (req, res) => {
           const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
           const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
           productHtml = productHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
-          res.writeHead(200, {
-            "content-type": MIME[".html"],
+          await sendCompressedHtml(res, req, productHtml, {
             "x-robots-tag": "noindex",
             "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
             "expires": "0",
-            "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
           });
-          res.end(productHtml);
           return;
         } catch (_err) {
           // OG injection failed — fall through to the 301 below.
@@ -1340,15 +1356,12 @@ const server = http.createServer(async (req, res) => {
           const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
           const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
           brandHtml = brandHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
-          res.writeHead(200, {
-            "content-type": MIME[".html"],
+          await sendCompressedHtml(res, req, brandHtml, {
             "x-robots-tag": "noindex",
             "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
             "expires": "0",
-            "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
           });
-          res.end(brandHtml);
           return;
         } catch (_err) {
           // OG injection failed — fall through to the 301 below.
@@ -1396,15 +1409,12 @@ const server = http.createServer(async (req, res) => {
           const refreshMeta = `<meta http-equiv="refresh" content="0; url=${safeTarget}">`;
           const jsRedirect = `<script>window.location.replace(${JSON.stringify(canonicalTarget)});</script>`; // i18n-ignore — server-side JS redirect injected into HTML; not a UI string
           pageHtml = pageHtml.replace("</head>", `${refreshMeta}${jsRedirect}</head>`);
-          res.writeHead(200, {
-            "content-type": MIME[".html"],
+          await sendCompressedHtml(res, req, pageHtml, {
             "x-robots-tag": "noindex",
             "cache-control": "public, no-cache, s-maxage=300, stale-while-revalidate=60",
             "expires": "0",
-            "vary": "Accept-Encoding",
             "link": `<${origin}${canonicalTarget}>; rel="canonical"`,
           });
-          res.end(pageHtml);
           return;
         } catch (_err) {
           // OG injection failed — fall through to the 301 below.
