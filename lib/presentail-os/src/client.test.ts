@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  fetchOsCategories,
   fetchOsLocations,
   fetchOsOccasions,
   searchOsAddressBookPlaces,
@@ -271,6 +272,80 @@ describe("fetchOsLocations — Cyprus/legacy merge", () => {
     const result = await fetchOsLocations(config);
     expect(result.countries).toHaveLength(1);
     expect(result.countries[0]!.code).toBe("LB");
+  });
+});
+
+describe("fetchOsCategories — feature flag normalisation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    [true, true],
+    [false, false],
+    ["true", true],
+    ["TRUE", true],
+    ["1", true],
+    [1, true],
+    ["yes", true],
+    ["false", false],
+    ["0", false],
+    [0, false],
+    [null, false],
+    [undefined, false],
+  ])("normalises is_featured=%s to %s", async (rawFlag, expected) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            categories: [
+              {
+                id: 42,
+                slug: "balloon-arrangements",
+                name: "Balloon Arrangements",
+                is_featured: rawFlag,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    const result = await fetchOsCategories(config);
+
+    expect(result.categories[0]?.is_featured).toBe(expected);
+  });
+
+  it("preserves category names and ids while normalising feature flags", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            categories: [
+              {
+                id: "cat-1",
+                slug: "balloon-arrangements",
+                name: "Balloon Arrangements",
+                is_featured: "on",
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    const result = await fetchOsCategories(config);
+
+    expect(result.categories[0]).toEqual(
+      expect.objectContaining({
+        id: "cat-1",
+        slug: "balloon-arrangements",
+        name: "Balloon Arrangements",
+        is_featured: true,
+      }),
+    );
   });
 });
 

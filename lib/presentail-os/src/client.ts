@@ -631,7 +631,9 @@ export async function fetchOsCategories(
       id: string | number;
       slug: string;
       name: string;
-      is_featured?: boolean;
+      // Depending on the OS deployment/database driver, boolean columns may
+      // arrive as JSON booleans, numeric flags, or strings.
+      is_featured?: boolean | string | number | null;
       image_url?: string | null;
       image_public_url?: string | null;
       description?: string | null;
@@ -642,13 +644,22 @@ export async function fetchOsCategories(
   };
   const toAbs = (u: string | null | undefined) =>
     u ? (u.startsWith("http") ? u : `${baseUrl}${u}`) : null;
+  const normaliseBooleanFlag = (value: boolean | string | number | null | undefined): boolean => {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value === 1;
+    if (typeof value === "string") {
+      const normalised = value.trim().toLowerCase();
+      return normalised === "true" || normalised === "1" || normalised === "yes" || normalised === "on";
+    }
+    return false;
+  };
   const categories: OSCategoriesResponse["categories"] = (
     raw.categories ?? []
   ).map((item) => ({
     id: String(item.id),
     slug: item.slug,
     name: item.name,
-    is_featured: item.is_featured,
+    is_featured: normaliseBooleanFlag(item.is_featured),
     description: item.description ?? null,
     // Normalise snake_case → camelCase so the proxy and buildOsCategories
     // can reliably read image fields regardless of which OS version is deployed.

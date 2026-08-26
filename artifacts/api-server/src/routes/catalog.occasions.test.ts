@@ -37,6 +37,7 @@ import request from "supertest";
 
 const {
   getOsOccasionsMock,
+  getOsCategoriesMock,
   getOsProductOccasionsMock,
   getOsBrandsMock,
   getOsRawCatalogBrandsMock,
@@ -47,6 +48,7 @@ const {
   getOsOccasionProductCountsByCountryMock,
 } = vi.hoisted(() => ({
   getOsOccasionsMock: vi.fn(),
+  getOsCategoriesMock: vi.fn(),
   getOsProductOccasionsMock: vi.fn(),
   getOsBrandsMock: vi.fn(),
   getOsRawCatalogBrandsMock: vi.fn(),
@@ -66,7 +68,7 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsProductOccasions: getOsProductOccasionsMock,
   getOsBrands: getOsBrandsMock,
   getOsRawCatalogBrands: getOsRawCatalogBrandsMock,
-  getOsCategories: vi.fn().mockReturnValue([]),
+  getOsCategories: getOsCategoriesMock,
   getOsBrandProductCounts: getOsBrandProductCountsMock,
   getOsCategoryProductCounts: getOsCategoryProductCountsMock,
   getOsCategoryProductCountsByCountry: getOsCategoryProductCountsByCountryMock,
@@ -149,6 +151,7 @@ async function getOccasions(app: express.Express): Promise<{ id: string }[]> {
 beforeEach(() => {
   vi.clearAllMocks();
   getOsBrandsMock.mockReturnValue([]);
+  getOsCategoriesMock.mockReturnValue([]);
   getOsRawCatalogBrandsMock.mockReturnValue([]);
   getOsBrandProductCountsMock.mockReturnValue(new Map());
   getOsCategoryProductCountsMock.mockReturnValue(new Map());
@@ -336,5 +339,58 @@ describe("OS-only occasions", () => {
     const app = await buildApp();
     const ids = (await getOccasions(app)).map((o) => o.id);
     expect(ids).toContain("mothers-day");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E. Featured OS categories
+// ---------------------------------------------------------------------------
+
+describe("featured OS categories", () => {
+  it("includes an available featured OS category with its OS-provided name", async () => {
+    getOsCategoriesMock.mockReturnValue([
+      {
+        id: "42",
+        slug: "balloon-arrangements",
+        name: "Balloon Arrangements",
+        is_featured: true,
+      },
+    ]);
+    getOsCategoryProductCountsByCountryMock.mockReturnValue(
+      new Map([["balloon-arrangements", 7]]),
+    );
+
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/metadata?countryCode=LB");
+
+    expect(res.status).toBe(200);
+    expect(res.body.categories).toContainEqual(
+      expect.objectContaining({
+        id: "balloon-arrangements",
+        name: "Balloon Arrangements",
+        count: 7,
+      }),
+    );
+  });
+
+  it("keeps unfeatured categories out of metadata even when products exist", async () => {
+    getOsCategoriesMock.mockReturnValue([
+      {
+        id: "42",
+        slug: "balloon-arrangements",
+        name: "Balloon Arrangements",
+        is_featured: false,
+      },
+    ]);
+    getOsCategoryProductCountsByCountryMock.mockReturnValue(
+      new Map([["balloon-arrangements", 7]]),
+    );
+
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/metadata?countryCode=LB");
+
+    expect(res.body.categories).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "balloon-arrangements" })]),
+    );
   });
 });

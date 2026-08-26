@@ -571,7 +571,7 @@ router.get("/catalog/metadata", async (req, res) => {
 
   // When the OS cache is cold (null) fall back to the full hardcoded list so
   // the UI is never blank. Once the cache is warm, OS is the source of truth:
-  // only categories marked is_featured === true are shown. Non-featured
+  // only categories normalized as featured === true are shown. Non-featured
   // categories are intentionally hidden even if they have products.
   let mergedCategories;
   if (osCategories === null) {

@@ -339,6 +339,86 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect(screen.getByTestId("megamenu-item-birthday")).toBeDefined();
   });
 
+  it("shows an available featured OS category in the desktop Gifts menu", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          {
+            id: "balloon-arrangements",
+            name: "Balloon Arrangements",
+            icon: "tag",
+            count: 7,
+          },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("nav-trigger-gifts"));
+
+    const link = screen.getByTestId("megamenu-item-balloon-arrangements");
+    expect(link).toBeDefined();
+    expect((link as HTMLAnchorElement).href).toContain(
+      "/category/balloon-arrangements",
+    );
+    expect(link.textContent).toContain("Balloon Arrangements");
+  });
+
+  it("shows the available OS category in the mobile Gifts sub-panel", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          {
+            id: "balloon-arrangements",
+            name: "Balloon Arrangements",
+            icon: "tag",
+            count: 7,
+          },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+    await user.click(
+      within(screen.getByTestId("sheet-content")).getByRole("button", {
+        name: /nav\.gifts/i,
+      }),
+    );
+
+    const link = screen.getByRole("link", { name: /Balloon Arrangements/ });
+    expect(link).toBeDefined();
+    expect((link as HTMLAnchorElement).href).toContain(
+      "/category/balloon-arrangements",
+    );
+  });
+
+  it("hides an OS category from Gifts when it has no available products", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          {
+            id: "balloon-arrangements",
+            name: "Balloon Arrangements",
+            icon: "tag",
+            count: 0,
+          },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("nav-trigger-gifts"));
+
+    expect(screen.queryByTestId("megamenu-item-balloon-arrangements")).toBeNull();
+  });
+
   it("keeps the occasions CTA outside the scrolling skeleton while the catalog loads", async () => {
     const user = userEvent.setup();
     mockUseCatalogOccasions.mockReturnValue({ data: undefined, isPending: true });
