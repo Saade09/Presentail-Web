@@ -30,6 +30,7 @@ import {
   type TimeSlot,
 } from "@workspace/delivery";
 import { displayedSlotsForDate } from "./displayedSlots";
+import { citySlotsForDate } from "./citySlotsForDate";
 import { trackWebEvent, trackWebEventOnce } from "@/lib/analytics";
 import { buildExpressPromise, buildStandardPromise } from "./deliveryPromise";
 import { DeliverEarlierDialog } from "./DeliverEarlierDialog";
@@ -371,16 +372,12 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   // as the product page's ScheduleInlinePanel (sameDayEnabled/nextDayEnabled
   // flags, duplicate-label preference, $5 same-day night fallback).
   const rawSlotsForDate = useCallback(
-    (dateIso: string) => {
-      const weekday = new Date(`${dateIso}T12:00:00`).toLocaleDateString("en-US", {
-        weekday: "long",
-      }).toLowerCase();
-      return (
-        city?.slotsByDay && Object.prototype.hasOwnProperty.call(city.slotsByDay, weekday)
-          ? city.slotsByDay[weekday] ?? []
-          : rawTimeSlots
-      );
-    },
+    (dateIso: string) =>
+      citySlotsForDate(
+        rawTimeSlots,
+        city?.slotsByDay as Record<string, TimeSlot[]> | undefined,
+        dateIso,
+      ),
     [rawTimeSlots, city?.slotsByDay],
   );
   const slotsForDate = useCallback(

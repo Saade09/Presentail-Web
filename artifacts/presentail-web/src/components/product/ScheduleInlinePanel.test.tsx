@@ -547,6 +547,55 @@ describe("ScheduleInlinePanel — interactions", () => {
     expect(lastCall.slotLabel).toBe("Morning");
   });
 
+  it("seeds and renders only the selected weekday's OS slots", async () => {
+    const weekday = new Date(`${TOMORROW_ISO}T12:00:00`)
+      .toLocaleDateString("en-US", { weekday: "long" })
+      .toLowerCase();
+    const onChange = vi.fn();
+
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        cityId="lb-beirut"
+        initialDate={TOMORROW_ISO}
+        timeSlots={[
+          {
+            label: "Made-up flat slot",
+            slotId: "flat-made-up",
+            cutoffHour: 9,
+            startHour: 9,
+            endHour: 13,
+          },
+        ]}
+        slotsByDay={{
+          [weekday]: [
+            {
+              label: "OS Thursday",
+              slotId: "os-thursday",
+              cutoffHour: 14,
+              startHour: 14,
+              endHour: 18,
+            },
+          ],
+        }}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+
+    expect(screen.queryByTestId("schedule-slot-flat-made-up")).toBeNull();
+    expect(screen.getByTestId("schedule-slot-os-thursday")).toBeTruthy();
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          date: TOMORROW_ISO,
+          slotLabel: "OS Thursday",
+          slotId: "os-thursday",
+        }),
+      );
+    });
+  });
+
   it("shows the desktop popover (not the modal backdrop) when viewport is wide", async () => {
     // matchMedia already mocked to matches=false (desktop) in beforeEach.
     const user = userEvent.setup();

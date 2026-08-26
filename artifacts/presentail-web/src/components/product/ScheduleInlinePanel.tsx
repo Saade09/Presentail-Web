@@ -15,6 +15,7 @@ import {
 } from "@workspace/delivery";
 import { CalendarPopover } from "./CalendarPopover";
 import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
+import { citySlotsForDate } from "@/components/delivery/citySlotsForDate";
 import { buildMidnightDeliveryMessage } from "@/components/delivery/midnightCopy";
 
 import { trackWebEventOnce } from "@/lib/analytics";
@@ -30,7 +31,7 @@ type Props = {
   /**
    * Per-day-of-week slots from OS. Keys are lowercase English weekday names (e.g. "monday").
    * When present, only the slots for the selected date's day of week are shown.
-   * Falls back to the flat `timeSlots` when the day key is absent or this prop is omitted.
+   * Falls back to the flat `timeSlots` only when this prop is omitted.
    */
   slotsByDay?: Record<string, TimeSlot[]>;
   /**
@@ -96,17 +97,7 @@ export function ScheduleInlinePanel({
   // Prefers the per-day-of-week OS override when available, otherwise falls
   // back to the flat list — the same resolution logic used for the time picker.
   const todaySlotsForCheck = useMemo<TimeSlot[]>(() => {
-    if (propSlotsByDay) {
-      const weekday = new Date(`${todayIso}T00:00:00`)
-        .toLocaleDateString("en-US", { weekday: "long" })
-        .toLowerCase();
-      const daySlots = propSlotsByDay[weekday];
-      if (daySlots && daySlots.length > 0)
-        return [...daySlots].sort(
-          (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
-        );
-    }
-    return flatTimeSlots;
+    return citySlotsForDate(flatTimeSlots, propSlotsByDay, todayIso);
   }, [propSlotsByDay, todayIso, flatTimeSlots]);
 
   // Hide "Today" from the date chip strip when every slot has passed its cutoff.
@@ -147,34 +138,28 @@ export function ScheduleInlinePanel({
   /**
    * Active slot list for the currently selected date.
    * When OS provides per-day slots, use the day-of-week subset;
-   * fall back to the flat list otherwise.
+   * use the flat list only for legacy payloads without `slotsByDay`.
    */
   const timeSlots = useMemo<TimeSlot[]>(() => {
-    const byStart = (arr: TimeSlot[]) =>
-      [...arr].sort(
-        (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
-      );
-    if (propSlotsByDay) {
-      const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
-      if (Object.prototype.hasOwnProperty.call(propSlotsByDay, weekday)) {
-        return byStart(propSlotsByDay[weekday] ?? []);
-      }
-    }
-    return byStart(flatTimeSlots);
+    return citySlotsForDate(flatTimeSlots, propSlotsByDay, date);
   }, [propSlotsByDay, date, flatTimeSlots]);
 
+  const seedTimeSlots = useMemo(
+    () => citySlotsForDate(flatTimeSlots, propSlotsByDay, seedDate),
+    [flatTimeSlots, propSlotsByDay, seedDate],
+  );
+
   const [slotLabel, setSlotLabel] = useState<string | null>(() => {
-    // Use flatTimeSlots for seed-time lookup since `date` may not be set yet.
     if (initialSlotLabel && initialDate && initialDate >= todayIso) {
       const known =
-        (initialSlotId ? flatTimeSlots.find((s) => s.slotId === initialSlotId) : undefined) ??
-        flatTimeSlots.find((s) => s.label === initialSlotLabel);
+        (initialSlotId ? seedTimeSlots.find((s) => s.slotId === initialSlotId) : undefined) ??
+        seedTimeSlots.find((s) => s.label === initialSlotLabel);
       const isToday = seedDate === todayIso;
       if (known && (!isToday || localHour < known.cutoffHour))
         return known.label;
     }
     const isToday = seedDate === todayIso;
-    return firstAvailableSlot(flatTimeSlots, isToday, localHour)?.label ?? null;
+    return firstAvailableSlot(seedTimeSlots, isToday, localHour)?.label ?? null;
   });
 
   const [calendarOpen, setCalendarOpen] = useState(false);
