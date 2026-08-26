@@ -172,6 +172,32 @@ describe("classifyDistrictChange — scheduled mode", () => {
     expect(outcome).toMatchObject({ kind: "kept", slotId: "other-city-morning" });
   });
 
+  it("keeps the selected weekday's slot id instead of a same-label flat fallback id", () => {
+    const weekday = new Date(`${TODAY}T12:00:00Z`)
+      .toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })
+      .toLowerCase();
+    const todaySlot: TimeSlot = {
+      ...AFTERNOON_SLOT,
+      slotId: "today-afternoon",
+    };
+    const outcome = classifyDistrictChange(
+      mkInput({
+        dateIso: TODAY,
+        slotLabel: AFTERNOON_SLOT.label,
+        slotId: todaySlot.slotId ?? null,
+        now: beirutNowAtHour(10),
+        city: mkCity({
+          timeSlots: [{ ...AFTERNOON_SLOT, slotId: "flat-other-day-afternoon" }],
+          slotsByDay: { [weekday]: [todaySlot] },
+        }),
+      }),
+    );
+    expect(outcome).toMatchObject({
+      kind: "kept",
+      slotId: "today-afternoon",
+    });
+  });
+
   it("invalidates when neither the slot id nor the label exists in the new city", () => {
     const outcome = classifyDistrictChange(
       mkInput({
@@ -249,6 +275,19 @@ describe("classifyDistrictChange — scheduled mode", () => {
 describe("slotCatalogueForCity", () => {
   it("prefers the flat OS timeSlots list", () => {
     expect(slotCatalogueForCity(mkCity())).toEqual([MORNING_SLOT, AFTERNOON_SLOT]);
+  });
+
+  it("prefers the selected weekday schedule when a date is provided", () => {
+    const weekday = new Date(`${FUTURE}T12:00:00Z`)
+      .toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })
+      .toLowerCase();
+    const weekdaySlot = { ...AFTERNOON_SLOT, slotId: "weekday-afternoon" };
+    expect(
+      slotCatalogueForCity(
+        mkCity({ slotsByDay: { [weekday]: [weekdaySlot] } }),
+        FUTURE,
+      ),
+    ).toEqual([weekdaySlot]);
   });
 
   it("flattens slotsByDay (deduped by cutoffHour) when no flat list exists", () => {

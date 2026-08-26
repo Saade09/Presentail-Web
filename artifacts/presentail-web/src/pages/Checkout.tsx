@@ -92,7 +92,11 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
-import { classifyDistrictChange, feesDiffer } from "./checkoutDistrictChange";
+import {
+  classifyDistrictChange,
+  feesDiffer,
+  slotCatalogueForCity,
+} from "./checkoutDistrictChange";
 import {
   DistrictChangeNotice,
   isDeliveryGateBlocked,
@@ -1477,19 +1481,18 @@ function CheckoutForm() {
     }
   }, [expressQuote, language, marketTimeZone]);
 
-  // Use only the selected city's OS time slots. If OS has no schedule for the
-  // city, keep this empty rather than displaying a country-wide fallback.
-  // `selectedCityData?.timeSlots` is populated from /api/delivery-locations.
+  // Use the selected date's weekday-specific OS slots. Slot IDs differ by
+  // weekday even when labels and hours are identical; using the flat fallback
+  // list here can silently replace today's valid ID with another day's ID and
+  // make authoritative checkout validation reject every same-day selection.
+  // If OS has no schedule for the city/date, keep this empty rather than
+  // displaying a country-wide fallback.
+  const checkoutSlotDate =
+    recipient.deliveryDate || getLocalIso(countryCode, now);
   const timeSlots = useMemo(() => {
-    if (selectedCityData?.timeSlots?.length) return selectedCityData.timeSlots;
-    if (selectedCityData?.slotsByDay) {
-      const derived = Object.values(selectedCityData.slotsByDay)
-        .flat()
-        .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i);
-      if (derived.length > 0) return derived;
-    }
-    return [];
-  }, [selectedCityData]);
+    if (!selectedCityData) return [];
+    return slotCatalogueForCity(selectedCityData, checkoutSlotDate);
+  }, [selectedCityData, checkoutSlotDate]);
 
   useMidnightSlotValidation(
     timeSlots,

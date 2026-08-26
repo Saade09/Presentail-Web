@@ -43,11 +43,23 @@ export type DistrictChangeOutcome =
   | { kind: "invalid"; reason: "express" | "slot" };
 
 /**
- * Mirror of the Checkout `timeSlots` memo: prefer the city's flat OS slot
- * list; otherwise flatten slotsByDay (deduped by cutoffHour); otherwise empty
- * (never fall back to a country-wide catalogue).
+ * Resolve the city's slot catalogue for a selected date. OS slot IDs are
+ * weekday-specific, so a date-aware lookup must take priority over the flat
+ * fallback list; otherwise checkout can replace a valid selected slot ID with
+ * a same-label ID from a different weekday.
  */
-export function slotCatalogueForCity(city: DistrictCityInput): TimeSlot[] {
+export function slotCatalogueForCity(
+  city: DistrictCityInput,
+  dateIso?: string | null,
+): TimeSlot[] {
+  if (dateIso && city.slotsByDay) {
+    const weekday = new Date(`${dateIso}T12:00:00Z`)
+      .toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })
+      .toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(city.slotsByDay, weekday)) {
+      return city.slotsByDay[weekday] ?? [];
+    }
+  }
   if (city.timeSlots?.length) return city.timeSlots;
   if (city.slotsByDay) {
     const derived = Object.values(city.slotsByDay)
@@ -99,8 +111,9 @@ export function classifyDistrictChange(
 ): DistrictChangeOutcome {
   const { mode, slotLabel, slotId, countryCode, city } = input;
   const now = input.now ?? new Date();
-  const catalogue = slotCatalogueForCity(city);
-  const todayIso = getLocalIso(countryCode);
+  const todayIso = getLocalIso(countryCode, now);
+  const dateIso = input.dateIso || todayIso;
+  const catalogue = slotCatalogueForCity(city, dateIso);
   const cityIdStr = city.id ? String(city.id) : null;
 
   const feeFor = (
@@ -140,7 +153,6 @@ export function classifyDistrictChange(
   if (!slotLabel) return { kind: "none" };
   if (catalogue.length === 0) return { kind: "invalid", reason: "slot" };
 
-  const dateIso = input.dateIso || todayIso;
   // A past date can never be fulfilled — treat as invalid rather than
   // silently re-dating the order.
   if (dateIso < todayIso) return { kind: "invalid", reason: "slot" };
