@@ -1,0 +1,270 @@
+Semrush Site Audit is reporting **17 pages with slow load speed** on Presentail.com.
+
+The affected pages include a mix of:
+
+* Product pages
+* FAQ pages
+* Corporate landing pages
+* Brand pages
+* Occasion pages
+* Contact/location pages
+* Multiple languages and markets
+
+Examples from the audit:
+
+* `/ar-ae/dubai/product/air-filled-happy-birthday-balloon---258` — ~3.09s
+* `/ar-ae/ras-al-khaimah/faqs` — ~5.13s
+* `/ar-lb/beirut/product/pink-town-funk` — ~5.41s
+* `/ar-lb/beirut/product/red-carpet` — ~5.47s
+* `/en-ae/dubai/product/blue-serenity` — ~5.19s
+* `/fr-ae/ajman/contact` — ~5.14s
+* `/fr-ae/fujairah/faqs` — ~5.22s
+* `/fr-ae/ras-al-khaimah/occasions` — ~3.84s
+* `/fr-ae/sharjah` — ~5.15s
+* `/fr-ae/umm-al-quwain/corporate` — ~5.16s
+
+There are more affected URLs in the Semrush report.
+
+## Goal
+
+Investigate the **root cause of the slow server/page response times** and improve performance globally.
+
+Do not optimize these 17 URLs individually unless there is something genuinely route-specific causing the issue.
+
+Because the slow pages span many templates, languages, cities, and countries, assume there may be a shared performance bottleneck somewhere in the application architecture.
+
+## Please investigate
+
+### 1. Server response / TTFB
+
+Measure:
+
+* DNS time
+* Connection time
+* TLS time
+* Time to First Byte
+* Full HTML response time
+
+Determine whether the primary delay is:
+
+* Server-side rendering
+* Database/API calls
+* Middleware
+* CDN/cache misses
+* External APIs
+* Translation loading
+* Product/catalog loading
+* SEO metadata generation
+* Image processing
+* Authentication/session middleware
+* Redirect handling
+
+### 2. Compare fast vs slow pages
+
+Take several affected URLs and compare them with similar pages that Semrush considers fast.
+
+Examples:
+
+* Slow product page vs fast product page
+* Slow FAQ page vs fast FAQ page
+* Slow city landing page vs fast city landing page
+* Slow French/Arabic page vs equivalent English page
+
+Identify what is different in the server execution path.
+
+### 3. Check SSR/database waterfalls
+
+Look for sequential requests that could run in parallel.
+
+For example, avoid patterns like:
+
+Fetch city
+→ wait
+→ fetch products
+→ wait
+→ fetch SEO data
+→ wait
+→ fetch categories
+→ wait
+→ render page
+
+Where possible, independent requests should run concurrently.
+
+Use parallel fetching such as `Promise.all()` where safe.
+
+### 4. Inspect database queries
+
+Identify:
+
+* Slow queries
+* N+1 queries
+* Duplicate queries
+* Queries loading unnecessary columns/data
+* Queries missing useful indexes
+* Queries running repeatedly during the same request
+
+Especially inspect:
+
+* Product pages
+* City landing pages
+* FAQ pages
+* Brands
+* Corporate pages
+* Occasion pages
+
+### 5. Review caching
+
+Check whether appropriate caching exists for data that does not need to be generated on every request.
+
+Potential candidates:
+
+* City configuration
+* Product catalog data
+* Categories
+* Brands
+* FAQs
+* SEO metadata
+* Translations
+* Delivery configuration
+* Static landing-page content
+
+Use the appropriate caching mechanism for our current architecture.
+
+Do not cache highly dynamic information incorrectly.
+
+### 6. Translation / localization performance
+
+Several affected pages are Arabic and French.
+
+Please confirm that locale handling is not causing:
+
+* Repeated translation-file loading
+* Database calls for translations
+* Large locale payloads
+* Server-side translation generation on every request
+
+Translation resources should be efficiently reused/cached.
+
+### 7. External services
+
+Check whether page rendering waits for any external service unnecessarily.
+
+Examples could include:
+
+* Maps
+* Currency/exchange-rate APIs
+* Reviews
+* Analytics
+* Recommendation services
+* Delivery services
+* Payment providers
+
+Anything non-critical to initial rendering should not block the HTML response.
+
+### 8. Frontend payload
+
+Also inspect:
+
+* JavaScript bundle size
+* Unnecessary client components
+* Large hydration payloads
+* Duplicate libraries
+* Components being loaded globally that are only required on certain routes
+
+Apply route-level lazy loading/code splitting where appropriate.
+
+### 9. Images
+
+Make sure product/category imagery uses:
+
+* WebP/AVIF where supported
+* Responsive image sizing
+* Lazy loading below the fold
+* Correct dimensions
+* CDN delivery
+* No unnecessarily huge source files
+
+However, do not lazy-load the primary/LCP image if doing so hurts Core Web Vitals.
+
+## Important
+
+Do **not**:
+
+* Remove content purely to make the pages faster
+* Damage SEO
+* Remove structured data
+* Remove translations
+* Change page URLs
+* Change product availability logic
+* Change delivery logic
+* Change pricing logic
+* Change the visual design unless required for performance
+* Hardcode fixes for the 17 URLs
+
+This should be a **system-level performance improvement**.
+
+## Performance targets
+
+Where realistically achievable, target:
+
+* Server response / TTFB: **< 800ms**
+* Typical page HTML response: ideally **< 1–1.5 seconds**
+* LCP: **< 2.5 seconds**
+* INP: **< 200ms**
+* CLS: **< 0.1**
+
+The most important immediate objective is to remove Semrush's **slow load speed** errors.
+
+## Verification
+
+After implementing the changes:
+
+1. Test every one of the 17 affected Semrush URLs.
+
+2. Test at least 10 additional representative Presentail pages.
+
+3. Cover:
+
+   * Lebanon
+   * UAE
+   * English
+   * Arabic
+   * French
+   * Product pages
+   * City pages
+   * Category pages
+   * FAQ pages
+   * Brands
+   * Corporate pages
+
+4. Record before/after timings for:
+
+   * TTFB
+   * HTML response
+   * LCP where measurable
+
+5. Confirm:
+
+   * No broken pages
+   * No missing products
+   * No SEO metadata regressions
+   * No structured data regressions
+   * No hydration errors
+   * No localization regressions
+   * No delivery/pricing regressions
+
+Please first diagnose the shared bottleneck, then implement the safest root-cause fix.
+
+When complete, report back:
+
+**Root cause**
+What was making these pages slow.
+
+**Changes made**
+Exactly what was optimized.
+
+**Performance improvement**
+Before vs after measurements.
+
+**Remaining bottlenecks**
+Anything else you found that should be optimized separately.

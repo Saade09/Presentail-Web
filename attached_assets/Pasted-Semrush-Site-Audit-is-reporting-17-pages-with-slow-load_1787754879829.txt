@@ -1,0 +1,519 @@
+Semrush Site Audit is reporting **17 pages with slow load speed**, across multiple templates, languages, and markets.
+
+This should be treated as a **platform-level performance issue**, not as 17 isolated URL problems.
+
+Examples currently flagged include:
+
+* `/fr-ae/ajman/contact` — ~5.14s
+* `/fr-ae/sharjah` — ~5.15s
+* `/fr-ae/ras-al-khaimah/occasions` — ~3.84s
+* `/fr-lb/beirut/product/15-red-roses-arrangement` — ~5.42s
+* `/ar-ae/dubai/product/air-filled-happy-birthday-balloon---258` — ~3.09s
+* `/fr-lb/beirut/product/50-colorful-balloons-bundle` — ~5.68s
+* `/fr-lb/west-bekaa/corporate` — ~4.66s
+* `/fr-lb/zahle/brands` — ~5.12s
+
+The affected pages span:
+
+* Products
+* Contact pages
+* Corporate pages
+* Occasion pages
+* Brand pages
+* Different cities
+* Lebanon and UAE
+* English / French / Arabic
+
+That strongly suggests a shared bottleneck.
+
+# Core Requirement
+
+Please investigate the **root cause of slow page generation/load time** and implement a permanent, reusable fix.
+
+Do **not**:
+
+* Patch the 17 URLs individually
+* Add special cases for SemrushBot
+* Hide the problem with artificial caching only on affected pages
+* Remove useful content
+* Disable localization
+* Remove SEO data
+* Reduce functionality just to lower the metric
+
+The goal is to improve Presentail's underlying performance architecture.
+
+---
+
+# 1. Measure the Full Request Lifecycle
+
+For representative slow and fast pages, measure:
+
+* DNS
+* TCP/connect
+* TLS
+* CDN/cache time
+* TTFB
+* Server-side render time
+* Database time
+* API time
+* HTML transfer time
+* Hydration time
+* LCP
+
+The first objective is to determine **where the 3–6 second delay actually occurs**.
+
+Do not guess.
+
+Instrument the request path if necessary.
+
+---
+
+# 2. Compare Slow vs Fast Equivalent Pages
+
+Compare pages using the same template.
+
+Examples:
+
+### Product
+
+Slow:
+`/fr-lb/beirut/product/15-red-roses-arrangement`
+
+Compare against a fast product route.
+
+### City
+
+Slow:
+`/fr-ae/sharjah`
+
+Compare against a similar fast UAE city page.
+
+### Contact
+
+Slow:
+`/fr-ae/ajman/contact`
+
+Compare against the same contact template in another city/language.
+
+### Corporate
+
+Slow:
+`/fr-lb/west-bekaa/corporate`
+
+Compare against a fast corporate route.
+
+The comparison should identify differences in:
+
+* Data-fetching path
+* Query count
+* Locale processing
+* Cache behavior
+* Content size
+* External requests
+* SSR execution
+
+---
+
+# 3. Audit Server-Side Data Fetching
+
+Look for sequential waterfalls.
+
+Bad pattern:
+
+`getCity()`
+→ wait
+`getProducts()`
+→ wait
+`getSEO()`
+→ wait
+`getBrands()`
+→ wait
+`getTranslations()`
+
+Where requests are independent, execute them concurrently.
+
+Use parallel loading safely, for example with `Promise.all()` or the equivalent pattern in our stack.
+
+Avoid making a page wait unnecessarily for data that can load in parallel.
+
+---
+
+# 4. Find N+1 and Duplicate Queries
+
+Instrument database access for representative requests.
+
+Look for:
+
+* N+1 product queries
+* Re-fetching the same city
+* Re-fetching currency/configuration
+* Re-fetching categories/brands
+* Re-fetching SEO metadata
+* Duplicate locale lookups
+* Querying the same data in layout + page
+* Fetching complete records when only a few fields are required
+
+Consolidate duplicate queries.
+
+Add indexes where query analysis shows they are needed.
+
+Do not add indexes blindly.
+
+---
+
+# 5. Cache Shared Data Properly
+
+Review whether we regenerate relatively static data on every request.
+
+Candidates may include:
+
+* Country configuration
+* City configuration
+* Currency display settings
+* Categories
+* Brands
+* Occasions
+* FAQ content
+* SEO templates
+* Localization resources
+* Navigation
+* Static page content
+
+Implement appropriate caching/revalidation based on how frequently the data changes.
+
+Important:
+
+Dynamic values such as:
+
+* Pricing
+* Product availability
+* Delivery availability
+* Inventory-sensitive data
+
+must remain fresh according to existing business requirements.
+
+Do not solve the problem by serving stale commercial data.
+
+---
+
+# 6. Audit Localization Performance
+
+A large number of the affected URLs are French.
+
+Also inspect Arabic routes.
+
+Check whether localization currently causes:
+
+* Full translation bundles loaded on every request
+* Large database queries
+* Translation joins
+* Per-request parsing
+* Re-fetching locale resources
+* Client-side translation dependencies blocking SSR
+
+Locale resources should be reusable/cached efficiently.
+
+If translation handling is the cause, fix it globally for all locales.
+
+---
+
+# 7. Audit Layout-Level Work
+
+Check shared layouts/components used by every page.
+
+Possible hidden bottlenecks include:
+
+* Header data
+* Footer data
+* Navigation
+* Cart state
+* Country/city detection
+* Currency conversion
+* Delivery calculation
+* Authentication checks
+* Recommendations
+* Reviews
+* Banners
+* User location handling
+
+A slow shared layout can make otherwise simple pages slow.
+
+Anything not required to produce the first HTML response should not block SSR.
+
+---
+
+# 8. External Requests Must Not Block Rendering
+
+Identify all external services used during page generation.
+
+For example:
+
+* Google APIs
+* Review APIs
+* Currency APIs
+* Analytics
+* Recommendations
+* Delivery services
+* Payment services
+* CRM
+* Third-party content
+
+Non-critical services should not block page HTML generation.
+
+Use:
+
+* Cached values
+* Background refresh
+* Lazy client-side loading
+
+where appropriate.
+
+Do not delay SEO-visible primary content.
+
+---
+
+# 9. Improve Cache/CDN Behavior
+
+Inspect headers for fast and slow pages.
+
+Review:
+
+* `Cache-Control`
+* CDN status
+* cache hit/miss
+* `Age`
+* `ETag`
+* `Vary`
+* compression
+
+Determine whether requests that could be served efficiently are repeatedly reaching the application server.
+
+Use our existing deployment/CDN architecture properly.
+
+Do not create conflicting cache rules.
+
+---
+
+# 10. Reduce SSR Payload Size
+
+Inspect rendered HTML size.
+
+Look for:
+
+* Huge embedded JSON payloads
+* Full product/catalog objects serialized unnecessarily
+* Duplicate translation data
+* Large hydration state
+* Repeated structured data
+* Unnecessary attributes
+* Entire collections passed to client components
+
+Only send what the page actually needs.
+
+---
+
+# 11. Audit Client-Side JavaScript
+
+Profile bundles by route.
+
+Look for:
+
+* Large shared bundles
+* Libraries imported globally unnecessarily
+* Admin/internal code accidentally included
+* Huge UI packages
+* Large carousel libraries
+* Maps loaded immediately
+* Chat/support scripts blocking interaction
+* Excessive hydration
+
+Use:
+
+* Dynamic imports
+* Route-level splitting
+* Lazy loading
+* Server components / server rendering where appropriate
+
+Do not sacrifice functionality.
+
+---
+
+# 12. Images and LCP
+
+Audit product and landing pages for:
+
+* Oversized source images
+* Incorrect responsive `srcset`
+* Missing dimensions
+* Poor CDN transformation
+* Non-WebP/AVIF where appropriate
+* Below-the-fold images loaded immediately
+
+The primary LCP image should:
+
+* Load early
+* Have correct dimensions
+* Not be lazy-loaded
+* Be properly sized
+
+Below-the-fold imagery should be lazy-loaded.
+
+---
+
+# 13. Establish a Performance Budget
+
+Please add automated guardrails so performance regressions are caught before Semrush reports them.
+
+At minimum establish targets for representative production routes.
+
+Suggested thresholds:
+
+### Server / HTML
+
+* TTFB target: `< 800ms`
+* Prefer HTML response `< 1–1.5s`
+
+### Core Web Vitals
+
+* LCP `< 2.5s`
+* INP `< 200ms`
+* CLS `< 0.1`
+
+These should be treated as targets, not reasons to break functionality.
+
+---
+
+# 14. Add Automated Performance Checks
+
+Create a reusable performance test suite or script.
+
+Test representative routes such as:
+
+### Lebanon
+
+* Homepage
+* City page
+* Product
+* Category
+* Brand
+* Occasion
+* Corporate
+
+### UAE
+
+Same templates.
+
+### Languages
+
+* English
+* French
+* Arabic
+
+Record at minimum:
+
+* HTTP status
+* TTFB
+* Full HTML response time
+* Response size
+
+If practical, also run Lighthouse or equivalent for representative pages.
+
+The goal is to detect future regressions before Semrush does.
+
+---
+
+# 15. Add Observability
+
+If we do not already have it, add lightweight server timing visibility.
+
+For example, log or expose internal timings for:
+
+* routing
+* database
+* product queries
+* city queries
+* translations
+* SEO generation
+* external APIs
+* SSR
+
+This should make it easy to answer:
+
+**“Why did this request take 5 seconds?”**
+
+without repeatedly debugging blindly.
+
+Avoid noisy production logging.
+
+---
+
+# 16. Fix the Current 17 Pages Through the Global Solution
+
+Once the root cause is fixed, retest all 17 Semrush URLs.
+
+Do not hardcode fixes for them.
+
+The expected outcome should be that they improve because the shared performance problem was corrected.
+
+---
+
+# 17. Verify No Functional Regression
+
+After optimization, confirm:
+
+* Product prices correct
+* Currency correct
+* Product availability correct
+* Delivery logic correct
+* City-specific behavior correct
+* Locale translations correct
+* SEO metadata correct
+* Canonicals correct
+* hreflang correct
+* Structured data still present
+* Cart works
+* Checkout works
+* No hydration errors
+* No console errors
+
+---
+
+# Definition of Done
+
+This task is complete only when:
+
+1. The root cause of the slow pages is identified.
+2. The fix is applied at the shared architecture/template/data layer.
+3. No URL-specific hacks are used.
+4. The 17 Semrush URLs are retested.
+5. Similar pages outside the Semrush list are also faster.
+6. Performance monitoring/validation exists to prevent recurrence.
+7. No SEO or commercial functionality is broken.
+
+Please report back with:
+
+## Root Cause
+
+What specifically was causing the slow requests.
+
+## Permanent Fix
+
+What was changed in the application architecture.
+
+## Before vs After
+
+Provide representative timings for:
+
+* TTFB
+* HTML response
+* LCP where available
+
+## Scope
+
+Which templates/routes benefited from the fix.
+
+## Guardrails
+
+What automated checks or instrumentation now prevent this issue from silently returning.
+
+**Permanent-solution principle:** whenever Semrush identifies an SEO or performance bug, first determine whether it exposes a shared platform weakness. If it does, fix the reusable system or template responsible rather than correcting only the URLs Semrush happened to discover.

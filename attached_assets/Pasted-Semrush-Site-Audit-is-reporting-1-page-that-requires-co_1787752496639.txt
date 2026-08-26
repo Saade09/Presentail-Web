@@ -1,0 +1,248 @@
+Semrush Site Audit is reporting **1 page that requires content optimization**:
+
+**URL:**
+`https://presentail.com/fr/blog/corporate-gifting-lebanon`
+
+**Page title:**
+“Cadeaux d’entreprise au Liban : commander en ligne pour les équipes, les clients et les collègues”
+
+Please investigate the exact reason Semrush is flagging this page and fix the **underlying SEO/content issue**, not just the warning superficially.
+
+## Step 1 — Diagnose the Exact Issue
+
+Inspect the rendered page, HTML, metadata, structured data, headings, internal links, and article content.
+
+Determine exactly what Semrush considers deficient.
+
+Check for:
+
+* Thin or insufficient content
+* Weak topical coverage
+* Poor keyword relevance
+* Duplicate or near-duplicate content
+* Incorrect French localization
+* Missing/weak H1
+* Bad heading hierarchy
+* Missing introduction or conclusion
+* Keyword stuffing
+* Poor readability
+* Missing internal links
+* Missing relevant product/category links
+* Weak title tag
+* Weak meta description
+* Missing image alt text
+* Incorrect canonical
+* Incorrect hreflang
+* Structured-data issues
+* Content rendered only client-side and therefore not available properly to crawlers
+* Accidental placeholder/generated content
+
+## Step 2 — Improve the Article
+
+If the article itself needs improvement, enhance it into a genuinely useful French resource about **corporate gifting in Lebanon**.
+
+The page should naturally cover topics such as:
+
+* Cadeaux d’entreprise au Liban
+* Cadeaux pour employés
+* Cadeaux pour clients
+* Cadeaux pour collègues
+* Cadeaux pour événements d’entreprise
+* Fleurs et cadeaux d’entreprise
+* Livraison de cadeaux d’entreprise au Liban
+* Commandes en volume
+* Cadeaux personnalisés
+* Occasions such as:
+
+  * Employee appreciation
+  * Client gifting
+  * New hires
+  * Promotions
+  * Birthdays
+  * Holidays
+  * Corporate events
+  * Thank-you gifts
+
+Do not simply repeat keywords.
+
+The article should read as **natural, professional French written for humans first**.
+
+## Presentail Context
+
+Where appropriate, explain that Presentail can help businesses order gifts and flowers for:
+
+* Employees
+* Clients
+* Partners
+* Teams
+* Corporate events
+
+Naturally mention delivery availability within Lebanon where supported by the existing platform.
+
+Do not invent:
+
+* Corporate discounts
+* SLA guarantees
+* Minimum order quantities
+* Delivery coverage
+* Pricing
+* Account-management services
+* Features we do not currently offer
+
+Use existing Presentail functionality/data as the source of truth.
+
+## SEO Structure
+
+Make sure the page has:
+
+### One clear H1
+
+Something close to:
+
+**Cadeaux d’entreprise au Liban : idées et livraison pour vos équipes et clients**
+
+Do not automatically change it if the existing H1 is already stronger.
+
+### Useful H2/H3 sections
+
+Potential structure:
+
+* Pourquoi offrir des cadeaux d’entreprise ?
+* Idées de cadeaux pour vos employés
+* Cadeaux pour remercier vos clients
+* Fleurs et cadeaux pour les événements d’entreprise
+* Comment commander des cadeaux d’entreprise en ligne au Liban
+* Livraison de cadeaux d’entreprise avec Presentail
+* Questions fréquentes
+
+Only add sections that genuinely help the reader.
+
+## Internal Linking
+
+Add natural internal links where relevant to existing Presentail pages such as:
+
+* Corporate gifting
+* Flowers
+* Chocolates
+* Cakes
+* Balloons
+* Gift categories
+* Relevant Lebanon/location pages
+
+Do not create fake URLs.
+
+Resolve URLs from our existing route structure/database before linking.
+
+Avoid excessive internal linking.
+
+## French Quality
+
+This is important.
+
+Review the full article for:
+
+* Natural French grammar
+* Correct accents
+* Proper punctuation
+* Correct capitalization
+* Avoiding awkward literal English translations
+* Avoiding repetitive AI-style phrases
+
+The result should sound like a high-quality French editorial page, not machine-translated SEO copy.
+
+## Metadata
+
+Review and improve if necessary:
+
+### Title tag
+
+Target roughly **50–60 characters** where practical.
+
+It should focus on concepts such as:
+
+**Cadeaux d’entreprise au Liban | Presentail**
+
+### Meta description
+
+Create a strong, unique French description of approximately **140–160 characters**.
+
+It should encourage clicks while accurately describing the page.
+
+Do not stuff keywords.
+
+## Structured Data
+
+If this blog template already supports Article/BlogPosting schema, verify:
+
+* headline
+* description
+* image
+* datePublished
+* dateModified
+* author
+* publisher
+* canonical URL
+
+Do not add duplicate schema if the existing system already generates it.
+
+If an FAQ section exists and our SEO architecture supports FAQ structured data, follow our existing implementation rather than introducing a page-specific workaround.
+
+## Technical SEO
+
+Verify:
+
+* HTTP 200
+* Self-referencing canonical
+* Correct French hreflang
+* Correct corresponding English/Arabic hreflang where equivalent pages exist
+* Page is indexable
+* No accidental `noindex`
+* Content is visible in server-rendered/crawler HTML
+* Only one H1
+* Valid heading hierarchy
+* No duplicate title/meta description
+
+## Important
+
+Do **not**:
+
+* Change the URL
+* Remove existing useful content
+* Add fake business claims
+* Stuff keywords
+* Generate dozens of repetitive paragraphs
+* Create doorway/location spam
+* Alter unrelated blog posts
+* Break the EN/AR versions of the site
+
+This should improve both **Semrush SEO quality and actual user value**.
+
+## Final Verification
+
+After making the changes:
+
+1. Re-fetch the rendered HTML for:
+   `https://presentail.com/fr/blog/corporate-gifting-lebanon`
+
+2. Verify title, description, canonical, hreflang, H1, headings and structured data.
+
+3. Confirm all internal links resolve correctly.
+
+4. Confirm the article displays correctly on desktop and mobile.
+
+5. Confirm there are no console/hydration errors.
+
+6. Compare the content against nearby Presentail blog articles to ensure it is unique rather than templated duplication.
+
+When finished, report:
+
+**Semrush issue identified**
+What specifically was triggering the content optimization notice.
+
+**Changes made**
+Content, technical SEO, metadata, internal linking, etc.
+
+**Verification**
+What was checked after deployment.
+
+Please prioritize fixing the **actual root cause** of the Semrush warning rather than blindly rewriting the entire page.

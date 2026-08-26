@@ -1,0 +1,70 @@
+Semrush Site Audit is reporting an **“Uncompressed page”** warning for the following URL:
+
+**https://presentail.com/category/balloons**
+
+Semrush currently shows:
+
+* Failed: 1 page
+* Successful: 3,302 pages
+* Affected page: `/category/balloons`
+* Issue: HTML/page response is being served without compression
+
+Please investigate and fix this properly at the application/server/CDN level.
+
+### What to investigate
+
+1. Compare the HTTP response headers for:
+
+   * `https://presentail.com/category/balloons`
+   * Another similar category page that passes the Semrush compression check.
+
+2. Determine why `/category/balloons` is not being compressed while the other pages are.
+
+3. Check whether the HTML response supports:
+
+   * Brotli (`br`) compression where available
+   * gzip as a fallback
+   * Correct `Content-Encoding`
+   * Correct `Vary: Accept-Encoding` header
+
+4. Check whether there is anything unique about this route that bypasses the normal compression middleware, CDN configuration, caching layer, SSR response handling, redirects, or proxy configuration.
+
+5. Make sure compression is applied to text-based responses such as:
+
+   * HTML
+   * CSS
+   * JavaScript
+   * JSON
+   * SVG
+
+Do **not** unnecessarily recompress file formats that are already compressed such as JPG, PNG, WebP, AVIF, ZIP, etc.
+
+### Important
+
+Do not implement a hack specifically for `/category/balloons`.
+
+If this page exposed a configuration problem that could affect other routes in the future, fix the underlying compression configuration globally so all eligible Presentail pages are served correctly.
+
+Do not change:
+
+* Page design
+* Page content
+* URLs
+* SEO metadata
+* Canonical tags
+* Structured data
+* Product/category functionality
+
+### Verification
+
+After implementing the fix:
+
+1. Request `/category/balloons` using an `Accept-Encoding: br, gzip` header.
+2. Confirm the response includes a valid `Content-Encoding` such as `br` or `gzip`.
+3. Compare compressed vs uncompressed response size.
+4. Test several other category, product, landing, and homepage URLs to ensure compression still works correctly.
+5. Confirm there are no rendering or hydration issues.
+6. Confirm the page still returns the expected `200` status.
+7. Make sure bots such as Googlebot and SemrushBot receive the compressed response normally.
+
+Please first identify **why this single page was bypassing compression**, then implement the safest global/root-cause fix and report back what caused it and what you changed.
