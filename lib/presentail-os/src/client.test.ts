@@ -317,6 +317,68 @@ describe("fetchOsCategories — feature flag normalisation", () => {
     expect(result.categories[0]?.is_featured).toBe(expected);
   });
 
+  it.each([
+    [true, true],
+    [false, false],
+    ["true", true],
+    ["1", true],
+    ["inactive", false],
+    [null, true],
+    [undefined, true],
+  ])("normalises is_active=%s to %s", async (rawFlag, expected) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            categories: [
+              {
+                id: 42,
+                slug: "balloon-arrangements",
+                name: "Balloon Arrangements",
+                is_active: rawFlag,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    const result = await fetchOsCategories(config);
+
+    expect(result.categories[0]?.is_active).toBe(expected);
+  });
+
+  it.each([
+    [{ active: true }, true],
+    [{ status: "active" }, true],
+    [{ active: false }, false],
+    [{ status: "inactive" }, false],
+    [{ is_active: true, active: false }, false],
+  ])("normalises active aliases with explicit inactive states winning: %j", async (flags, expected) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            categories: [
+              {
+                id: 42,
+                slug: "balloon-arrangements",
+                name: "Balloon Arrangements",
+                ...flags,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    const result = await fetchOsCategories(config);
+
+    expect(result.categories[0]?.is_active).toBe(expected);
+  });
+
   it("uses the public catalog taxonomy endpoint without leaking the API key into the URL", async () => {
     const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
       Promise.resolve(jsonResponse({ categories: [] })),

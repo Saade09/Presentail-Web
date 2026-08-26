@@ -353,6 +353,7 @@ describe("featured OS categories", () => {
         id: "42",
         slug: "balloon-arrangements",
         name: "Balloon Arrangements",
+        is_active: true,
         is_featured: true,
       },
     ]);
@@ -379,6 +380,7 @@ describe("featured OS categories", () => {
         id: "42",
         slug: "balloon-arrangements",
         name: "Balloon Arrangements",
+        is_active: true,
         is_featured: false,
       },
     ]);
@@ -389,6 +391,29 @@ describe("featured OS categories", () => {
     const app = await buildApp();
     const res = await request(app).get("/api/catalog/metadata?countryCode=LB");
 
+    expect(res.body.categories).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "balloon-arrangements" })]),
+    );
+  });
+
+  it("keeps inactive featured categories out of metadata even when products exist", async () => {
+    getOsCategoriesMock.mockReturnValue([
+      {
+        id: "42",
+        slug: "balloon-arrangements",
+        name: "Balloon Arrangements",
+        is_active: false,
+        is_featured: true,
+      },
+    ]);
+    getOsCategoryProductCountsByCountryMock.mockReturnValue(
+      new Map([["balloon-arrangements", 7]]),
+    );
+
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/metadata?countryCode=LB");
+
+    expect(res.status).toBe(200);
     expect(res.body.categories).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "balloon-arrangements" })]),
     );

@@ -635,7 +635,11 @@ export async function fetchOsCategories(
       name: string;
       // Depending on the OS deployment/database driver, boolean columns may
       // arrive as JSON booleans, numeric flags, or strings. Public catalog
-      // responses may also expose the same flag as featured/isFeatured.
+       // responses may also expose these aliases.
+       is_active?: boolean | string | number | null;
+       isActive?: boolean | string | number | null;
+       active?: boolean | string | number | null;
+       status?: string | null;
       is_featured?: boolean | string | number | null;
       isFeatured?: boolean | string | number | null;
       featured?: boolean | string | number | null;
@@ -660,10 +664,22 @@ export async function fetchOsCategories(
     }
     if (typeof value === "string") {
       const normalised = value.trim().toLowerCase();
-      if (normalised === "true" || normalised === "1" || normalised === "yes" || normalised === "on") {
+      if (
+        normalised === "true" ||
+        normalised === "1" ||
+        normalised === "yes" ||
+        normalised === "on" ||
+        normalised === "active"
+      ) {
         return true;
       }
-      if (normalised === "false" || normalised === "0" || normalised === "no" || normalised === "off") {
+      if (
+        normalised === "false" ||
+        normalised === "0" ||
+        normalised === "no" ||
+        normalised === "off" ||
+        normalised === "inactive"
+      ) {
         return false;
       }
     }
@@ -679,12 +695,25 @@ export async function fetchOsCategories(
     if (flags.includes(false)) return false;
     return flags.includes(true);
   };
+  const normaliseActive = (
+    item: NonNullable<typeof raw.categories>[number],
+  ): boolean => {
+    const flags = [item.is_active, item.isActive, item.active, item.status]
+      .map(parseBooleanFlag)
+      .filter((flag): flag is boolean => flag !== undefined);
+    if (flags.includes(false)) return false;
+    if (flags.includes(true)) return true;
+    // The public catalog taxonomy endpoint only returns active categories, so
+    // endpoint membership is the active signal on deployments that omit a flag.
+    return true;
+  };
   const categories: OSCategoriesResponse["categories"] = (
     raw.categories ?? []
   ).map((item) => ({
     id: String(item.id),
     slug: item.slug,
     name: item.name,
+    is_active: normaliseActive(item),
     is_featured: normaliseVisibility(item),
     description: item.description ?? null,
     // Normalise snake_case → camelCase so the proxy and buildOsCategories

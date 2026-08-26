@@ -127,6 +127,8 @@ export type OSProductCategory = {
   id: string;
   slug: string;
   name: string;
+  /** Whether the category is active in the OS catalog. */
+  is_active?: boolean;
   is_featured?: boolean;
   /** Private storage URL (auth-gated). Use imagePublicUrl when available. */
   image?: string | null;

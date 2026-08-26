@@ -582,9 +582,12 @@ router.get("/catalog/metadata", async (req, res) => {
       count: categoryCountMap.get(c.id) ?? 0,
     }));
   } else {
-    // Split into featured (what we show) vs. all (used to block product-embedded
-    // injection for categories OS knows about but chose not to feature).
-    const featuredOsCategories = osCategories.filter((c) => c.is_featured === true);
+    // Split into active + featured (what we show) vs. all (used to block
+    // product-embedded injection for categories OS knows about but chose not
+    // to expose). Both flags must be explicitly true.
+    const featuredOsCategories = osCategories.filter(
+      (c) => c.is_active === true && c.is_featured === true,
+    );
     const allOsCategorySlugs = new Set(osCategories.map((c) => c.slug));
     const featuredOsCategorySlugs = new Set(featuredOsCategories.map((c) => c.slug));
     const featuredOsCategoryBySlug = new Map(featuredOsCategories.map((c) => [c.slug, c]));

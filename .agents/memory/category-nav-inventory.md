@@ -9,6 +9,8 @@ description: Category links must be filtered by per-country catalog metadata cou
 
 **How to apply:** every surface that lists category links (Shop sidebar, BestSellers sidebar, Footer "Popular Categories", MainNavbar menus) must filter by metadata counts. While metadata is loading or failed, render NO category links — a static fallback shows clickable dead links. Static labelKey entries keep their i18n labels; metadata-only categories use the server-translated `name`.
 
+**OS eligibility:** category navigation requires all three signals: membership in the OS public active-only taxonomy, `is_featured === true` (Mega menu enabled), and a positive per-country product count. Explicit inactive aliases always win.
+
 **Why:** the sitemap generator was fixed the same way earlier (only emits category URLs with per-country count > 0); nav and sitemap must agree or Semrush crawls flag 404s.
 
 **Related:** blog shell's nested wouter router base is `/${lang}`; bare-language roots like `/fr/` are NOT routes. Home links on lang-based shells must escape the router base with wouter's `~` prefix (`~/`).
