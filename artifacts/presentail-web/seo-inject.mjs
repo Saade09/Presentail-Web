@@ -1900,33 +1900,51 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
 
 /**
  * Safely render a section body string as HTML, emitting author-controlled
- * `<a href="...">text</a>` anchors as real elements while HTML-escaping
- * everything else. Only site-relative hrefs (starting with "/") are allowed —
- * javascript:, data:, and external URLs are escaped to plain text.
+ * `<a href="...">text</a>` anchors and `<strong>` emphasis as real elements
+ * while HTML-escaping everything else. Only site-relative hrefs and canonical
+ * https://presentail.com URLs are allowed; all other URLs are escaped.
  *
  * This function is deliberately narrow: it supports only the small subset of
  * HTML that blog authors embed in body strings (internal links). All other
  * markup is escaped normally, so there is no XSS risk.
  *
- * @param {string} body - Raw body string, may contain `<a href="...">...</a>`.
+ * @param {string} body - Raw body string with narrow editorial markup.
+ * @param {string} lang - Current article language, used to localise links.
  * @returns {string} - HTML-safe string with validated anchors preserved.
  */
-function safeBodyHtml(body) {
-  const TOKEN_RE = /<a\s+href="([^"<>]*)"[^>]*>(.*?)<\/a>/g;
+function safeBodyHtml(body, lang) {
+  const TOKEN_RE = /(<a\s+href="([^"<>]*)"[^>]*>(.*?)<\/a>|<strong>(.*?)<\/strong>)/g;
   let result = "";
   let lastIndex = 0;
   let match;
   while ((match = TOKEN_RE.exec(body)) !== null) {
-    // Escape the text before this anchor.
+    // Escape the text before this approved editorial token.
     result += escapeHtml(body.slice(lastIndex, match.index));
-    const href = match[1];
-    const text = match[2];
-    // Only emit anchors with a single leading slash — rejects javascript:, data:,
-    // and protocol-relative //host URLs while permitting all valid site paths.
-    if (/^\/[^/]/.test(href)) {
-      result += `<a href="${escapeAttr(href)}">${escapeHtml(text)}</a>`;
+    const href = match[2];
+    const text = match[3];
+    const strongText = match[4];
+
+    if (strongText !== undefined) {
+      result += `<strong>${safeBodyHtml(strongText, lang)}</strong>`;
+      lastIndex = match.index + match[0].length;
+      continue;
+    }
+
+    const isRelativePath = /^\/[^/]/.test(href);
+    const canonicalMatch = /^https:\/\/presentail\.com(\/[^/].*)$/.exec(href);
+    if (isRelativePath || canonicalMatch) {
+      const path = canonicalMatch?.[1] ?? href;
+      const localeMatch = /^\/(en|ar|fr|el)(-[a-z]{2})?(\/.*)/.exec(path);
+      const localizedPath =
+        localeMatch && lang && lang !== localeMatch[1]
+          ? `/${lang}${localeMatch[2] ?? ""}${localeMatch[3]}`
+          : path;
+      const localizedHref = canonicalMatch
+        ? `https://presentail.com${localizedPath}`
+        : localizedPath;
+      result += `<a href="${escapeAttr(localizedHref)}">${escapeHtml(text)}</a>`;
     } else {
-      // Fall back: emit the full anchor source as escaped text.
+      // Fall back: emit the full unapproved anchor source as escaped text.
       result += escapeHtml(match[0]);
     }
     lastIndex = match.index + match[0].length;
@@ -1959,10 +1977,10 @@ function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
       const tag = sec.subheading ? "h3" : "h2";
       inner += `<${tag}>${escapeHtml(sec.heading)}</${tag}>`;
     }
-    if (sec.body) inner += `<p>${safeBodyHtml(sec.body)}</p>`;
+    if (sec.body) inner += `<p>${safeBodyHtml(sec.body, lang)}</p>`;
     if (Array.isArray(sec.items) && sec.items.length > 0) {
       const listTag = sec.ordered ? "ol" : "ul";
-      inner += `<${listTag}>${sec.items.map((item) => `<li>${safeBodyHtml(item)}</li>`).join("")}</${listTag}>`;
+      inner += `<${listTag}>${sec.items.map((item) => `<li>${safeBodyHtml(item, lang)}</li>`).join("")}</${listTag}>`;
     }
     if (sec.pullQuote) inner += `<blockquote>${escapeHtml(sec.pullQuote)}</blockquote>`;
     if (sec.callout?.body) {
@@ -2002,12 +2020,20 @@ function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
     }
   }
 
+  const navLabels = {
+    en: { home: "Home", journal: "Journal" },
+    ar: { home: "الرئيسية", journal: "المجلة" },
+    fr: { home: "Accueil", journal: "Journal" },
+  };
+  const labels = navLabels[lang] ?? navLabels.en;
   const nav = localeBase
-    ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/blog">Journal</a></nav>` // i18n-ignore — breadcrumb labels
+    ? `<nav aria-label="Breadcrumb"><a href="${localeBase}/">${escapeHtml(labels.home)}</a> › <a href="${localeBase}/blog">${escapeHtml(labels.journal)}</a></nav>` // i18n-ignore — standard accessibility landmark label
     : "";
-  // The sr-only h1 lives OUTSIDE the display:none wrapper so Googlebot indexes
-  // it without the cloaking risk that display:none carries.
-  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${inner}${nav}</div>`;
+  // The shared data-seo-fallback wrapper is hidden synchronously for
+  // JavaScript-enabled visitors and replaced by React on mount. No-JS clients
+  // and crawlers receive the full, visible semantic article instead of hidden
+  // or screen-reader-only copy.
+  return `<article><h1>${safeTitle}</h1>${inner}${nav}</article>`;
 }
 
 /**

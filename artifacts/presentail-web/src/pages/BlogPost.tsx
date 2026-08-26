@@ -128,6 +128,19 @@ const UI_COPY: Record<Language, UiCopy> = {
 // /ar-lb/ar/blog/...).  Country code is optional (?).
 const LOCALE_HREF_RE = /^\/(en|ar|fr|el)(-[a-z]{2})?(\/.*)/;
 
+function localizeEditorialHref(href: string, lang?: string): string {
+  const canonicalMatch = /^https:\/\/presentail\.com(\/[^/].*)$/.exec(href);
+  const path = canonicalMatch?.[1] ?? href;
+  const localeMatch = LOCALE_HREF_RE.exec(path);
+  if (!localeMatch || !lang || lang === localeMatch[1]) return href;
+
+  const countryPart = localeMatch[2] ?? "";
+  const localizedPath = `/${lang}${countryPart}${localeMatch[3]}`;
+  return canonicalMatch
+    ? `https://presentail.com${localizedPath}`
+    : localizedPath;
+}
+
 /**
  * Render a section body string, converting simple anchors and strong tags into
  * real elements. Only controlled Presentail URLs (or relative paths) are
@@ -170,22 +183,12 @@ function renderBody(body: string, lang?: string): ReactNode {
       continue;
     }
 
-    // Locale-prefixed relative paths (e.g. /en-lb/beirut/product/X) must be
-    // rewritten to the current page locale and rendered as plain <a> tags.
-    // Using wouter <Link> for these would cause the router base to prepend
-    // another /lang segment in SSR output, producing broken double-prefix URLs.
-    const localeMatch = isRelativePath ? LOCALE_HREF_RE.exec(href) : null;
-    if (localeMatch) {
-      // localeMatch[2] is the country-code part ("-lb", "-ae", etc.) or
-      // undefined for bare lang-only paths (/ar/blog/...).  Preserve it.
-      const countryPart = localeMatch[2] ?? "";
-      const rest = localeMatch[3];
-      const rewritten =
-        lang && lang !== localeMatch[1]
-          ? `/${lang}${countryPart}${rest}`
-          : href;
+    const localizedHref = localizeEditorialHref(href, lang);
+    // Locale-prefixed relative paths must use a plain <a>. Wouter would
+    // otherwise prepend the blog router base and create a double-prefix URL.
+    if (isRelativePath && LOCALE_HREF_RE.test(href)) {
       parts.push(
-        <a key={match.index} href={rewritten} className="text-primary underline hover:no-underline">
+        <a key={match.index} href={localizedHref} className="text-primary underline hover:no-underline">
           {text}
         </a>,
       );
@@ -196,7 +199,7 @@ function renderBody(body: string, lang?: string): ReactNode {
             {text}
           </Link>
         ) : (
-          <a key={match.index} href={href} className="text-primary underline hover:no-underline">
+          <a key={match.index} href={localizedHref} className="text-primary underline hover:no-underline">
             {text}
           </a>
         ),

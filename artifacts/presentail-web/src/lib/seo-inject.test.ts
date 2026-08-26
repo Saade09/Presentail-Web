@@ -6335,6 +6335,69 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 
+  it("serves the optimized French corporate article as visible semantic fallback HTML", async () => {
+    const articleSource = BLOG_POSTS["corporate-gifting-lebanon"].fr!;
+    const rootHtml =
+      '<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>';
+    const out = await injectSeoTagsAsync(
+      rootHtml,
+      "/fr/blog/corporate-gifting-lebanon",
+      { ...OPTS, origin: "https://presentail.com" },
+    );
+
+    expect(out).toContain(`<title>${articleSource.title.replace("&", "&amp;")}</title>`);
+    expect(articleSource.title.length).toBeGreaterThanOrEqual(50);
+    expect(articleSource.title.length).toBeLessThanOrEqual(60);
+    expect(articleSource.description.length).toBeGreaterThanOrEqual(140);
+    expect(articleSource.description.length).toBeLessThanOrEqual(160);
+    expect(out).toContain(
+      '<link rel="canonical" href="https://presentail.com/fr/blog/corporate-gifting-lebanon" />',
+    );
+    expect(extractAlternateLinks(out)).toEqual([
+      {
+        hreflang: "en",
+        href: "https://presentail.com/en/blog/corporate-gifting-lebanon",
+      },
+      {
+        hreflang: "fr",
+        href: "https://presentail.com/fr/blog/corporate-gifting-lebanon",
+      },
+      {
+        hreflang: "x-default",
+        href: "https://presentail.com/en/blog/corporate-gifting-lebanon",
+      },
+    ]);
+    expect(out).not.toContain('name="robots" content="noindex');
+
+    const fallback = out.match(/<div data-seo-fallback>([\s\S]*?)<\/div><\/div>/)?.[1] ?? "";
+    expect(fallback).toContain(`<article><h1>${articleSource.h1}</h1>`);
+    expect(fallback).not.toContain('<div style="display:none">');
+    expect(fallback.match(/<h1(?:\s|>)/g)).toHaveLength(1);
+    expect(fallback.match(/<h2(?:\s|>)/g)?.length).toBeGreaterThanOrEqual(5);
+    expect(fallback).not.toContain("<h3>");
+    expect(fallback).toContain("<strong>Pour un employé ou une nouvelle recrue</strong>");
+    expect(fallback).toContain(
+      '<a href="https://presentail.com/fr-lb/beirut/category/chocolate">chocolats</a>',
+    );
+    expect(fallback).toContain(
+      '<a href="https://presentail.com/fr-lb/beirut/corporate">Cadeaux d’entreprise</a>',
+    );
+    expect(fallback).not.toContain("&lt;strong&gt;");
+    expect(fallback).not.toContain("&lt;a href=");
+    expect(fallback).not.toContain("/en-lb/");
+
+    const blocks = assertAllJsonLdValid(out, "French corporate blog post");
+    const articleSchema = blocks.filter((block) => block["@type"] === "Article");
+    const breadcrumbSchema = blocks.filter((block) => block["@type"] === "BreadcrumbList");
+    expect(articleSchema).toHaveLength(1);
+    expect(breadcrumbSchema).toHaveLength(1);
+    expect(articleSchema[0].headline).toBe(articleSource.title);
+    expect(articleSchema[0].description).toBe(articleSource.description);
+    expect(articleSchema[0].url).toBe(
+      "https://presentail.com/fr/blog/corporate-gifting-lebanon",
+    );
+  });
+
   it.each(Object.keys(BLOG_POSTS))(
     "blog post %s emits only dedicated-language hreflang alternates plus English x-default",
     (slug) => {

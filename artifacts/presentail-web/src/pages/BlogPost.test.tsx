@@ -163,6 +163,39 @@ describe("BlogPost — corporate gifting in Lebanon", () => {
     );
     expect(screen.getByText("Desk plants").tagName).toBe("STRONG");
   });
+
+  it("renders the optimized French article with distinct metadata and localized semantic links", () => {
+    const article = BLOG_POSTS["corporate-gifting-lebanon"].fr!;
+    renderWithProviders(<BlogPost />, {
+      locale: { language: "fr" },
+    });
+
+    expect(document.title).toBe(article.title);
+    expect(article.title.length).toBeGreaterThanOrEqual(50);
+    expect(article.title.length).toBeLessThanOrEqual(60);
+    expect(article.description.length).toBeGreaterThanOrEqual(140);
+    expect(article.description.length).toBeLessThanOrEqual(160);
+    expect(screen.getByTestId("blog-post-title").textContent).toBe(article.h1);
+    expect(article.h1).not.toBe(article.title);
+    expect(document.body.querySelectorAll("h1")).toHaveLength(1);
+
+    const headings = [...document.body.querySelectorAll("article h1, article h2, article h3")]
+      .map((heading) => heading.tagName);
+    expect(headings[0]).toBe("H1");
+    expect(headings.slice(1).every((tag) => tag === "H2")).toBe(true);
+
+    expect(screen.getByText("Pour un employé ou une nouvelle recrue").tagName).toBe("STRONG");
+    const authoredLinks = [...document.body.querySelectorAll<HTMLAnchorElement>(
+      'article a[href*="/occasion/"], article a[href*="/category/"], article a[href$="/corporate"], article a[href$="/contact"]',
+    )];
+    expect(authoredLinks.length).toBeGreaterThanOrEqual(8);
+    expect(authoredLinks.every((link) => /^https:\/\/presentail\.com\/fr(?:-lb)?\//.test(link.href))).toBe(true);
+    expect(authoredLinks.some((link) => link.href.includes("/en-lb/"))).toBe(false);
+
+    const schema = JSON.parse(document.getElementById("blog-post-schema")!.textContent ?? "{}");
+    expect(schema.headline).toBe(article.title);
+    expect(schema.description).toBe(article.description);
+  });
 });
 
 describe("BlogPost — shared-link preview metadata", () => {
