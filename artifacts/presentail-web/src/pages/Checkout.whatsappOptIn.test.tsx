@@ -604,6 +604,11 @@ describe("Checkout — WhatsApp order-updates opt-in", () => {
 
     const whatsapp = (await screen.findByTestId("check-whatsapp-updates")) as HTMLInputElement;
     const anonymous = (await screen.findByTestId("check-anonymous-gift")) as HTMLInputElement;
+    for (const variant of ["mobile", "tablet", "desktop"]) {
+      const icon = screen.getByTestId(`identity-secret-icon-${variant}`);
+      expect(icon.getAttribute("aria-hidden")).toBe("true");
+      expect(icon.getAttribute("focusable")).toBe("false");
+    }
 
     expect(whatsapp.checked).toBe(true);
     expect(anonymous.checked).toBe(false);

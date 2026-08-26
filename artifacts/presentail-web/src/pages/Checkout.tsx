@@ -27,7 +27,7 @@ import {
   useFxRates,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Lock, MapPin, CalendarDays, ChevronDown, Loader2, Plus, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Glasses, Lock, MapPin, CalendarDays, ChevronDown, Loader2, Plus, Zap } from "lucide-react";
 import { buildFeeNode } from "@/lib/feeNode";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -119,6 +119,18 @@ import { LocationCombobox } from "@/components/checkout/LocationCombobox";
 const LazyStripeSection = lazy(() =>
   import("@/components/StripeCheckoutSection").then((m) => ({ default: m.StripeCheckoutSection })),
 );
+
+function AnonymityIcon({ testId }: { testId: string }) {
+  return (
+    <Glasses
+      className="h-4 w-4 shrink-0 text-muted-foreground"
+      strokeWidth={1.75}
+      aria-hidden="true"
+      focusable="false"
+      data-testid={testId}
+    />
+  );
+}
 
 /**
  * Absolute return URL for payment providers, pointing at the order-confirmed
@@ -4935,6 +4947,7 @@ function CheckoutForm() {
                       className="flex items-center gap-3 min-h-14 rounded-xl border border-gray-100 px-3.5 py-2.5 cursor-pointer select-none transition-colors hover:bg-black/[0.02] active:bg-black/[0.04] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-1"
                       data-testid="switch-identity-secret-row"
                     >
+                      <AnonymityIcon testId="identity-secret-icon-mobile" />
                       <span className="min-w-0 flex-1">
                         <span id="identity-secret-switch-title" className="block text-sm font-medium">
                           {t("checkout.anonymousShort")}
@@ -5025,6 +5038,7 @@ function CheckoutForm() {
                         aria-describedby="identity-secret-hint"
                         data-testid="check-identity-secret"
                       />
+                      <AnonymityIcon testId="identity-secret-icon-tablet" />
                       <span className="min-w-0">
                         {/* Name = title only; hint reaches AT once via aria-describedby. */}
                         <span id="identity-secret-title" className="block text-sm">{t("checkout.anonymousGift")}</span>
@@ -5041,11 +5055,12 @@ function CheckoutForm() {
                         type="checkbox"
                         checked={identitySecret}
                         onChange={(e) => handleAnonymousGiftToggle(e.target.checked)}
-                        className="mt-1 h-4 w-4 accent-primary cursor-pointer"
+                        className="mt-1 h-4 w-4 accent-primary cursor-pointer shrink-0"
                         aria-describedby="anonymous-gift-hint"
                         data-testid="check-anonymous-gift"
                       />
-                      <span>
+                      <AnonymityIcon testId="identity-secret-icon-desktop" />
+                      <span className="min-w-0">
                         <span className="block text-sm">{t("checkout.anonymousGift")}</span>
                         <span id="anonymous-gift-hint" className="block text-xs text-muted-foreground mt-0.5" data-testid="anonymous-gift-hint">
                           {t("checkout.anonymousGiftHint")}
