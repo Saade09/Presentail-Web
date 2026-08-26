@@ -151,7 +151,7 @@ describe("BlogPost — corporate gifting in Lebanon", () => {
       "Corporate Gifting in Lebanon: Ordering Online for Teams, Clients, and Colleagues",
     );
     expect(document.title).toBe(
-      "Corporate Gifting in Lebanon: Ordering Online for Teams, Clients & Colleagues",
+      "Corporate Gifting in Lebanon | Presentail",
     );
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute("content")).toMatch(
       /corporate and office gifts online in Lebanon/i,
