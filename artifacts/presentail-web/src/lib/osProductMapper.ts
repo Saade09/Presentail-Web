@@ -33,6 +33,8 @@ const CATEGORY_MAP: Record<string, string> = {
   "flower-boxes": "flower-boxes",
   "flower-vases": "flower-vases",
   bundles: "bundles",
+  "balloon-arrangements": "balloon-arrangements",
+  "religious-gifts": "religious-gifts",
   baskets: "baskets",
   "lux-arrangements": "lux-arrangements",
   "dried-flowers": "dried-flowers",

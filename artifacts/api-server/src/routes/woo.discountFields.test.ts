@@ -160,6 +160,41 @@ describe("mapOsProductToWcShape — discount fields", () => {
 // ── transformProduct — discount field pass-through ────────────────────────────
 
 describe("transformProduct — discount fields", () => {
+  it("preserves a newly introduced OS category instead of defaulting it to bundles", () => {
+    const wc = {
+      id: 0,
+      slug: "birthday-boy-grand-celebration",
+      price: "120",
+      name: "Birthday Boy Grand Celebration",
+      stock_status: "instock",
+      images: [],
+      categories: [
+        { id: 901, slug: "balloon-arrangements", name: "Balloon Arrangements" },
+      ],
+    };
+
+    const result = transformProduct(wc);
+
+    expect(result.category).toBe("balloon-arrangements");
+    expect(result.categories).toEqual(["balloon-arrangements"]);
+  });
+
+  it("preserves an unknown future OS category until the navigation learns about it", () => {
+    const wc = {
+      id: 0,
+      slug: "future-category-product",
+      price: "25",
+      name: "Future Category Product",
+      stock_status: "instock",
+      images: [],
+      categories: [
+        { id: 902, slug: "future-gifts", name: "Future Gifts" },
+      ],
+    };
+
+    expect(transformProduct(wc).category).toBe("future-gifts");
+  });
+
   it("passes discountPriceValue through from WcProduct", () => {
     const wc = {
       id: 0,

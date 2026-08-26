@@ -397,6 +397,62 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     );
   });
 
+  it("shows Religious Gifts in the desktop Gifts menu when it has inventory", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          {
+            id: "religious-gifts",
+            name: "Religious Gifts",
+            icon: "gift",
+            count: 5,
+          },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("nav-trigger-gifts"));
+
+    const link = screen.getByTestId("megamenu-item-religious-gifts");
+    expect((link as HTMLAnchorElement).href).toContain(
+      "/category/religious-gifts",
+    );
+    expect(link.textContent).toContain("Religious Gifts");
+  });
+
+  it("shows Religious Gifts in the mobile Gifts sub-panel when it has inventory", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          {
+            id: "religious-gifts",
+            name: "Religious Gifts",
+            icon: "gift",
+            count: 5,
+          },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("button-mobile-menu"));
+    await user.click(
+      within(screen.getByTestId("sheet-content")).getByRole("button", {
+        name: /nav\.gifts/i,
+      }),
+    );
+
+    const link = screen.getByRole("link", { name: /Religious Gifts/ });
+    expect((link as HTMLAnchorElement).href).toContain(
+      "/category/religious-gifts",
+    );
+  });
+
   it("hides an OS category from Gifts when it has no available products", async () => {
     const user = userEvent.setup();
     mockUseCatalogMetadata.mockReturnValue({

@@ -46,6 +46,7 @@ import {
   type TimeSlot,
 } from "@workspace/delivery";
 import { useNow } from "@/lib/useNow";
+import { resolveProductBreadcrumbCategory } from "@/lib/productCategory";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { trackWebEvent, trackEvent } from "@/lib/analytics";
@@ -90,7 +91,7 @@ export default function ProductDetail() {
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
   const { data: allData, isLoading } = useProducts(locParams);
-  const { data: catalogMetadata } = useCatalogMetadata();
+  const { data: catalogMetadata } = useCatalogMetadata(countryCode ?? undefined, language);
   const product = allData?.products?.find((p) => p.id === slug);
 
   // The OS list endpoint omits discount pricing. Fetch it from the single-product
@@ -309,15 +310,18 @@ export default function ProductDetail() {
     const home: Crumb = { label: t("nav.home"), href: "/" };
     const shop: Crumb = { label: t("shop.allCollection"), href: "/shop" };
     if (!product) return [home];
-    const catSlug = product.category;
-    const catEntry = catSlug
-      ? catalogMetadata?.categories.find((c) => c.id === catSlug)
-      : undefined;
+    // The source category list is authoritative. The singular `category`
+    // field is retained for compatibility and older API responses may have
+    // defaulted a newly introduced category to "bundles".
+    const catEntry = resolveProductBreadcrumbCategory(
+      product,
+      catalogMetadata?.categories,
+    );
     if (catEntry) {
       return [
         home,
         shop,
-        { label: catEntry.name, href: `/category/${catSlug}` },
+        { label: catEntry.name, href: `/category/${catEntry.id}` },
         { label: product.name },
       ];
     }

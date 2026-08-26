@@ -553,6 +553,8 @@ router.get("/catalog/metadata", async (req, res) => {
     "dried-flowers": "flower-poppy",
     "artificial-flowers": "flower-outline",
     "balloon-deco": "balloon",
+    "balloon-arrangements": "balloon",
+    "religious-gifts": "gift",
     beauty: "lipstick",
     accessories: "hanger",
     candles: "candle",

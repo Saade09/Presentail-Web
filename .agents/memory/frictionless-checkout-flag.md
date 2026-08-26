@@ -9,4 +9,5 @@ description: Web guest checkout flag semantics and the legacy popup path kept be
 - Semantics: "1/true/on" → on, "0/false/off" → off, unset → on in dev builds, OFF in prod builds. Production rollout requires explicitly setting the var and redeploying.
 - **Why:** flag off must reproduce the legacy `CheckoutLoginDialog` popup flow exactly (including `?guest=1` handoff and the checkout login gate) so rollback is a pure env change.
 - **How to apply:** never delete the CheckoutLoginDialog/guestAcked path while the flag exists; unit tests mock the flag module per-scenario. Inline OAuth on checkout lives in a separate popup module that returns structured results (no toasts/navigation) — reuse it, don't re-fork SignIn.tsx logic.
+- PDP add-to-cart tests that expect the legacy schedule panel must explicitly disable frictionless checkout; otherwise the dev-default-on flag can hide that panel and produce unrelated baseline failures.
 - Apple popup `redirectURI` stays `${origin}/sign-in` even when invoked from checkout — it's the registered Service ID URI; popup mode never navigates.

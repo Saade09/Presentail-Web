@@ -349,6 +349,8 @@ const CATEGORY_MAP: Record<string, string> = {
   "flower-boxes": "flower-boxes",
   "flower-vases": "flower-vases",
   bundles: "bundles",
+  "balloon-arrangements": "balloon-arrangements",
+  "religious-gifts": "religious-gifts",
   baskets: "baskets",
   "lux-arrangements": "lux-arrangements",
   "dried-flowers": "dried-flowers",
@@ -369,7 +371,10 @@ function mapCategory(cats: { id: number; name: string; slug: string }[]): string
     const mapped = CATEGORY_MAP[cat.slug];
     if (mapped) return mapped;
   }
-  return "bundles";
+  // Presentail OS can add categories without a matching web release. Preserve
+  // the product's real primary category instead of silently relabelling every
+  // new category as "bundles".
+  return cats.find((cat) => cat.id < 10_000)?.slug ?? "bundles";
 }
 
 type DeliveryFilter = {
