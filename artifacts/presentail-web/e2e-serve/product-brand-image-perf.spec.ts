@@ -4,7 +4,7 @@
  * The highest-traffic storefront pages (product detail, brand) render their
  * hero/card imagery through `buildOsImageSrcset` / `buildOsProxyUrl`
  * (artifacts/presentail-web/src/lib/imageUtils.ts), which turn an OS storage
- * original (`os.presentail.com/api/storage/...`) into a responsive set of
+ * original (`os.presentail.com/api/storage/public-objects/...`) into a responsive set of
  * sized `/api/img/proxy` variants. The web-vitals monitor tracks LCP globally,
  * but nothing asserts the product/brand markup, so a regression — dropping the
  * srcset/sizes, removing fetchpriority on the hero, or painting the
@@ -46,10 +46,13 @@ import { test, expect, type Route } from "@playwright/test";
 // them and emit /api/img/proxy variants — exactly the production behaviour.
 // ---------------------------------------------------------------------------
 
-const OS_STORAGE = "https://os.presentail.com/api/storage";
+const OS_STORAGE = "https://os.presentail.com/api/storage/public-objects";
 
-const PRODUCT_SLUG = "e2e-roses";
-const BRAND_SLUG = "e2e-blooms";
+// The initial document request is validated by serve.mjs before browser route
+// interception can run. Use the entities seeded by seo-entity-fixture-server
+// so the server and client fixtures agree that these routes exist.
+const PRODUCT_SLUG = "rose-bouquet";
+const BRAND_SLUG = "roses";
 
 function osImage(name: string): { uri: string } {
   return { uri: `${OS_STORAGE}/e2e/${name}.jpg` };
@@ -134,19 +137,22 @@ async function installCatalogRoutes(page: import("@playwright/test").Page): Prom
     );
   });
 
-  await page.route("**/api/woo/products", (route) =>
+  await page.route("**/api/woo/products**", (route) =>
     jsonRoute(route, { ok: true, products: [PRODUCT, ...BRAND_PRODUCTS] }),
   );
-  await page.route("**/api/woo/brands", (route) =>
+  await page.route("**/api/woo/brands**", (route) =>
     jsonRoute(route, { ok: true, brands: BRANDS }),
   );
-  await page.route("**/api/woo/brand-products*", (route) =>
+  await page.route("**/api/woo/brand-products**", (route) =>
     jsonRoute(route, {
       ok: true,
       products: BRAND_PRODUCTS,
       count: BRAND_PRODUCTS.length,
       brandName: "E2E Blooms",
     }),
+  );
+  await page.route("**/api/catalog/products-pricing**", (route) =>
+    jsonRoute(route, { ok: true, pricing: {} }),
   );
   // The image proxy returns a real, decodable image for every variant width so
   // the browser's painted LCP candidate has a non-zero natural size.
@@ -175,10 +181,13 @@ test.describe("Product image performance — detail page main image", () => {
     await page.goto(PRODUCT_PATH, { waitUntil: "domcontentloaded" });
 
     const main = page.getByTestId("product-gallery-main-image");
+    const mainSource = main.locator("xpath=..").locator('source[type="image/webp"]');
     await expect(main).toBeVisible();
+    await expect(mainSource).toHaveCount(1);
 
-    // Responsive srcset built from /api/img/proxy variants.
-    const srcset = await main.getAttribute("srcset");
+    // The gallery keeps WebP candidates on <picture><source>; the fallback
+    // <img> retains loading/priority/src for non-WebP consumers.
+    const srcset = await mainSource.getAttribute("srcset");
     expect(srcset, "main image must declare a responsive srcset").toBeTruthy();
     expect(srcset).toContain("/api/img/proxy");
     expect(srcset).toContain("400w");
@@ -186,7 +195,7 @@ test.describe("Product image performance — detail page main image", () => {
     expect(srcset).toContain("1200w");
 
     // A sizes hint so the browser can pick the right candidate.
-    const sizes = await main.getAttribute("sizes");
+    const sizes = await mainSource.getAttribute("sizes");
     expect(sizes, "main image must declare a sizes hint").toBeTruthy();
 
     // The gallery hero is the LCP element: eager + high priority.
@@ -230,16 +239,22 @@ test.describe("Brand image performance — product grid cards", () => {
     const firstCardImg = page
       .getByTestId(`card-product-${BRAND_PRODUCTS[0].id}`)
       .locator("img");
+    const firstCardSource = page
+      .getByTestId(`card-product-${BRAND_PRODUCTS[0].id}`)
+      .locator('picture source[type="image/webp"]');
     await expect(firstCardImg).toBeVisible();
+    await expect(firstCardSource).toHaveCount(1);
 
-    const srcset = await firstCardImg.getAttribute("srcset");
+    // ProductImage keeps the WebP candidates on <picture><source>; the <img>
+    // remains the fallback candidate for browsers without WebP support.
+    const srcset = await firstCardSource.getAttribute("srcset");
     expect(srcset, "card image must declare a responsive srcset").toBeTruthy();
     expect(srcset).toContain("/api/img/proxy");
     expect(srcset).toContain("400w");
     expect(srcset).toContain("800w");
     expect(srcset).toContain("1200w");
 
-    const sizes = await firstCardImg.getAttribute("sizes");
+    const sizes = await firstCardSource.getAttribute("sizes");
     expect(sizes, "card image must declare a sizes hint").toBeTruthy();
 
     // The first row of cards is above the fold (ProductCard priority index < 4).
@@ -276,12 +291,16 @@ test.describe("Brand image performance — product grid cards", () => {
     const lazyCardImg = page
       .getByTestId(`card-product-${BRAND_PRODUCTS[BRAND_PRODUCTS.length - 1].id}`)
       .locator("img");
+    const lazyCardSource = page
+      .getByTestId(`card-product-${BRAND_PRODUCTS[BRAND_PRODUCTS.length - 1].id}`)
+      .locator('picture source[type="image/webp"]');
     await expect(lazyCardImg).toBeVisible();
+    await expect(lazyCardSource).toHaveCount(1);
 
     expect(await lazyCardImg.getAttribute("loading")).toBe("lazy");
 
     // It still carries the responsive proxy srcset — lazy, not unoptimised.
-    const srcset = await lazyCardImg.getAttribute("srcset");
+    const srcset = await lazyCardSource.getAttribute("srcset");
     expect(srcset, "below-the-fold card must still declare a responsive srcset").toBeTruthy();
     expect(srcset).toContain("/api/img/proxy");
   });

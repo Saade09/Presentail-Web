@@ -1575,16 +1575,16 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
   it("AR locale home (/ar-lb/beirut) uses the Arabic home copy with the Arabic city name", () => {
     const { headSnippet } = buildSeoHead("/ar-lb/beirut", ORIGIN_OPTS);
     expect(getMeta(headSnippet, 'property="og:title"')).toBe(
-      "الأزهار والهدايا في بيروت | Presentail",
+      "توصيل هدايا في لبنان وبيروت | Presentail",
     );
     expect(getMeta(headSnippet, 'property="og:description"')).toBe(
-      "أرسل الأزهار والكعك والهدايا في بيروت مع توصيل في نفس اليوم من Presentail.",
+      "اطلب توصيل هدايا في لبنان وبيروت: ورد، كيك، بالونات، شوكولاتة ونباتات. توصيل سريع في نفس اليوم إلى جميع المناطق مع Presentail.",
     );
     expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
-      "الأزهار والهدايا في بيروت | Presentail",
+      "توصيل هدايا في لبنان وبيروت | Presentail",
     );
     expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
-      "أرسل الأزهار والهدايا في بيروت — توصيل في نفس اليوم من Presentail.",
+      "اطلب توصيل هدايا في لبنان وبيروت: ورد، كيك، بالونات، شوكولاتة ونباتات. توصيل سريع في نفس اليوم إلى جميع المناطق مع Presentail.",
     );
   });
 
@@ -5758,7 +5758,7 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
     expect(site.potentialAction).toBeUndefined();
   });
 
-  it("emits an LocalBusiness organisation block and a Home > City breadcrumb on a hub-city homepage", () => {
+  it("emits a LocalBusiness organisation block and a Home > Country > City breadcrumb on a hub-city homepage", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
       basePath: "",
@@ -5781,11 +5781,13 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
     expect(crumb).toBeTruthy();
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
       "Home",
+      "Lebanon",
       "Beirut",
     ]);
     expect(crumb.itemListElement[0].item).toBe("https://presentail.test");
+    expect(crumb.itemListElement[1].item).toBe("https://presentail.test/en-lb");
     // The current page (last crumb) omits the item URL per schema.org guidance.
-    expect(crumb.itemListElement[1].item).toBeUndefined();
+    expect(crumb.itemListElement[2].item).toBeUndefined();
   });
 
   it("emits currenciesAccepted=AED on an AE city homepage", () => {
@@ -6145,9 +6147,11 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     const crumbs = blocks.filter((b: any) => b["@type"] === "BreadcrumbList");
     expect(crumbs).toHaveLength(1);
     const items = crumbs[0].itemListElement;
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(3);
     expect(items[0].name).toBe("Home");
-    expect(items[1].name).toBe("Beirut");
+    expect(items[1].name).toBe("Lebanon");
+    expect(items[1].item).toBe("https://presentail.test/en-lb");
+    expect(items[2].name).toBe("Beirut");
   });
 
   it("locale homepage without city emits no BreadcrumbList", () => {

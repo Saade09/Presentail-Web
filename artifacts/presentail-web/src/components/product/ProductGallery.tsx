@@ -71,17 +71,25 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
         {/* Main image */}
         <div className="relative flex-1 bg-secondary/40 rounded-3xl overflow-hidden order-1 md:order-2 aspect-square">
           {current.uri ? (
-            <img
-              src={mainImageResponsive?.src ?? current.uri}
-              alt={buildProductImageAlt({ name: productName }, language, city?.name ?? "")}
-              width={800}
-              height={800}
-              className="w-full h-full object-cover"
-              loading="eager"
-              fetchPriority="high"
-              data-testid="product-gallery-main-image"
-              {...(mainImageResponsive ? { srcSet: mainImageResponsive.srcset, sizes: mainImageResponsive.sizes } : {})}
-            />
+            <picture className="block w-full h-full">
+              {mainImageResponsive && (
+                <source
+                  type="image/webp"
+                  srcSet={mainImageResponsive.srcset}
+                  sizes={mainImageResponsive.sizes}
+                />
+              )}
+              <img
+                src={mainImageResponsive?.src ?? current.uri}
+                alt={buildProductImageAlt({ name: productName }, language, city?.name ?? "")}
+                width={800}
+                height={800}
+                className="w-full h-full object-cover"
+                loading="eager"
+                fetchPriority="high"
+                data-testid="product-gallery-main-image"
+              />
+            </picture>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground font-serif text-4xl">
               Presentail

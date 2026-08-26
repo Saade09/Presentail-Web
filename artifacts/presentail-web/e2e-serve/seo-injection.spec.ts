@@ -45,6 +45,16 @@
 
 import { test, expect } from "@playwright/test";
 
+// Stable entities served by seo-entity-fixture-server.mjs in the web-serve
+// workflow. Centralising the paths here prevents this spec from drifting back
+// to product or brand slugs that only happen to exist in the live catalog.
+const SEO_FIXTURE_PRODUCT_SLUG = "rose-bouquet";
+const SEO_FIXTURE_BRAND_SLUG = "roses";
+const SEO_FIXTURE_PRODUCT_PATH =
+  `/en-lb/beirut/product/${SEO_FIXTURE_PRODUCT_SLUG}`;
+const SEO_FIXTURE_BRAND_PATH =
+  `/en-lb/beirut/brand/${SEO_FIXTURE_BRAND_SLUG}`;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -323,7 +333,7 @@ test.describe("Production SEO — OG/Twitter tags on a product entity page", () 
   let origin: string;
 
   test.beforeAll(async ({ request }) => {
-    const response = await request.get("/en-lb/beirut/product/rose-bouquet");
+    const response = await request.get(SEO_FIXTURE_PRODUCT_PATH);
     expect(response.status()).toBe(200);
     origin = new URL(response.url()).origin;
     html = await response.text();
@@ -392,7 +402,7 @@ test.describe("Production SEO — og:image dimensions on a resolved entity image
   let realImageResolved: boolean;
 
   test.beforeAll(async ({ request }) => {
-    const response = await request.get("/en-lb/beirut/product/rose-bouquet");
+    const response = await request.get(SEO_FIXTURE_PRODUCT_PATH);
     expect(response.status()).toBe(200);
     html = await response.text();
     ogImage = findMetaContent(html, "property", "og:image");
@@ -463,7 +473,7 @@ test.describe("Production SEO — og:image dimensions on a resolved entity image
 // same way the product block skips the static /opengraph.jpg fallback.
 // ---------------------------------------------------------------------------
 
-describeEntityImageDimensions("brand", "/en-lb/beirut/brand/roses");
+describeEntityImageDimensions("brand", SEO_FIXTURE_BRAND_PATH);
 describeEntityImageDimensions("category", "/en-lb/beirut/category/flowers");
 describeEntityImageDimensions("occasion", "/en-lb/beirut/occasion/birthday");
 
@@ -606,23 +616,21 @@ test.describe("Production SEO — og:image dimensions on a shared wishlist hero 
 // /opengraph.jpg head). The slug mirrors the section-4 product page.
 // ---------------------------------------------------------------------------
 
-describeEntityImageDimensions("bare product", "/product/rose-bouquet");
+describeEntityImageDimensions(
+  "bare product",
+  `/product/${SEO_FIXTURE_PRODUCT_SLUG}`,
+);
 
 // ---------------------------------------------------------------------------
-// 9. og:image:width / og:image:height on a resolved BARE /blog/<slug> page
+// 9. og:image:width / og:image:height on a resolved lang-only blog page
 //
 // Section 6 only exercises the locale-prefixed /en-lb/beirut/blog/<slug> route.
-// The locale-less "bare" fallback in seo-inject.mjs (the bareBlogSlug =
-// extractBlogPostSlug(pathname) branch around line 2074) handles /blog/<slug>
-// links shared before the locale-prefix fix or from external integrations. It
-// resolves the article from the shared BLOG_POSTS source of truth and passes
-// the hero image's dimensions through buildBlogPostHead, which emits
-// og:image:width / og:image:height. A regression there — a dropped
-// imageWidth/imageHeight pass-through into buildBlogPostHead or a broken hero
-// image — would silently ship badly-sized previews for every bare blog link
-// shared externally, yet section 6 only covers the locale-prefixed path.
+// Canonical city-less article routes use /<lang>/blog/<slug>; bare /blog/<slug>
+// intentionally returns 404 to avoid soft-404 pollution. This route verifies
+// the lang-only article branch still passes hero dimensions through
+// buildBlogPostHead.
 //
-// The bare branch resolves the same kind of static hero image as the
+// The lang-only branch resolves the same kind of static hero image as the
 // locale-prefixed blog page, so describeEntityImageDimensions applies
 // unchanged: it fetches the og:image URL and asserts the dimension tags only
 // when a genuinely measurable image file is resolved, otherwise it degrades
@@ -630,29 +638,23 @@ describeEntityImageDimensions("bare product", "/product/rose-bouquet");
 // exist in src/data/blogPostsCopy.js.
 // ---------------------------------------------------------------------------
 
-describeEntityImageDimensions("bare blog post", "/blog/inside-spring-sourcing-trip");
+describeEntityImageDimensions(
+  "lang-only blog post",
+  "/en/blog/inside-spring-sourcing-trip",
+);
 
 // ---------------------------------------------------------------------------
-// 10. Unknown-slug fallback — brand, category, and occasion pages degrade
-//     cleanly to a generic OG head with no malformed structured-data nodes.
+// 10. Unknown-slug handling — brand, category, and occasion pages return a
+//     real noindex 404 with no canonical or structured data.
 //
-// When seo-inject.mjs calls /api/woo/brand (or /category / /occasion) and the
-// fixture server returns 404, `injectSeoTagsAsync` falls through to
-// `assembleHtml(html, generic)` — the same generic locale-aware head that
-// non-entity routes receive. A regression in this path — e.g. accidentally
-// emitting a partial Product or BreadcrumbList node whose required fields are
-// empty or missing — would let malformed structured data ship to Google for
-// every broken/retired slug, yet the fixture server's unknown-slug 404 was
-// previously untested.
+// A definitive upstream 404 must not become an indexable generic storefront
+// shell. The real 404 and noindex header prevent stale catalog URLs from
+// becoming soft 404s.
 //
 // Each sub-case asserts:
-//   (a) The server returns 200 (always serves the SPA shell).
-//   (b) og:title is present and non-empty (the generic head always sets this).
-//   (c) og:image is present and is an absolute URL (generic fallback).
-//   (d) No JSON-LD <script type="application/ld+json"> block contains a node
-//       with missing required schema.org fields — the same contract enforced by
-//       `collectJsonLdProblems` in seo-inject.mjs but evaluated end-to-end on
-//       the served HTML so serve.mjs's branching logic is covered too.
+//   (a) HTTP 404 plus X-Robots-Tag: noindex.
+//   (b) No canonical URL for the missing entity.
+//   (c) No structured data for an entity that does not exist.
 // ---------------------------------------------------------------------------
 
 /**
@@ -725,8 +727,12 @@ function collectJsonLdProblemsLocal(node: unknown): string[] {
   };
   if (type && requiredByType[type]) {
     for (const field of requiredByType[type]) {
-      const v = obj[field];
-      if (v == null || v === "" || (Array.isArray(v) && v.length === 0)) {
+      const value = obj[field];
+      if (
+        value == null ||
+        value === "" ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
         problems.push(`@type ${type}: missing required field "${field}"`);
       }
     }
@@ -820,60 +826,37 @@ function describeEntityH1(label: string, path: string): void {
 
 describeEntityH1("category", "/en-lb/beirut/category/flowers");
 describeEntityH1("occasion", "/en-lb/beirut/occasion/birthday");
-describeEntityH1("brand", "/en-lb/beirut/brand/roses");
-describeEntityH1("product", "/en-lb/beirut/product/rose-bouquet");
+describeEntityH1("brand", SEO_FIXTURE_BRAND_PATH);
+describeEntityH1("product", SEO_FIXTURE_PRODUCT_PATH);
 describeEntityH1("occasions list", "/en-lb/beirut/occasions");
 describeEntityH1("shop overview", "/en-lb/beirut/shop");
 
 for (const { label, path } of UNKNOWN_SLUG_CASES) {
   test.describe(
-    `Production SEO — unknown ${label} slug degrades to generic OG head (${path})`,
+    `Production SEO — unknown ${label} slug returns a noindex 404 (${path})`,
     () => {
       let html: string;
+      let status: number;
+      let headers: Record<string, string>;
 
       test.beforeAll(async ({ request }) => {
         const response = await request.get(path);
-        // serve.mjs always responds 200 (SPA shell) even for unknown slugs —
-        // the client-side router handles the redirect / 404 UI.
-        expect(
-          response.status(),
-          `expected 200 for unknown ${label} slug, got ${response.status()}`,
-        ).toBe(200);
+        status = response.status();
+        headers = response.headers();
         html = await response.text();
       });
 
-      test("og:title is present and non-empty", () => {
-        const content = findMetaContent(html, "property", "og:title");
-        expect(
-          content,
-          `meta[property="og:title"] not found on unknown ${label} page`,
-        ).toBeTruthy();
-        expect(content!.trim().length).toBeGreaterThan(0);
+      test("returns HTTP 404 with x-robots-tag: noindex", () => {
+        expect(status, `unexpected status for unknown ${label} slug`).toBe(404);
+        expect(headers["x-robots-tag"]).toBe("noindex");
       });
 
-      test("og:image is present and is an absolute URL", () => {
-        const content = findMetaContent(html, "property", "og:image");
-        expect(
-          content,
-          `meta[property="og:image"] not found on unknown ${label} page`,
-        ).toBeTruthy();
-        expect(content!.trim().length).toBeGreaterThan(0);
-        expect(
-          content,
-          `og:image must be absolute on unknown ${label} page, got "${content}"`,
-        ).toMatch(/^https?:\/\//);
+      test("does not emit a canonical for the missing entity", () => {
+        expect(findCanonicalHrefs(html)).toHaveLength(0);
       });
 
-      test("no JSON-LD node has missing required schema.org fields", () => {
-        const nodes = findAllJsonLdNodes(html);
-        const problems: string[] = [];
-        for (const node of nodes) {
-          problems.push(...collectJsonLdProblemsLocal(node));
-        }
-        expect(
-          problems,
-          `Unknown ${label} slug page emitted JSON-LD with missing required fields:\n${problems.join("\n")}`,
-        ).toHaveLength(0);
+      test("does not emit structured data for the missing entity", () => {
+        expect(findAllJsonLdNodes(html)).toHaveLength(0);
       });
     },
   );

@@ -871,9 +871,14 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
         COUNTRY_PLAIN_NAMES.en[parsed.country] ??
         countryLabel
       : null;
+    const countryBreadcrumbUrl = parsed.country
+      ? `${origin}${cleanBase}/${lang}-${parsed.country}`
+      : null;
     const cityBreadcrumb = buildBreadcrumbListSchema([
       { name: breadcrumbHomeLabel, url: siteUrl },
-      ...(breadcrumbCountryLabel ? [{ name: breadcrumbCountryLabel }] : []),
+      ...(breadcrumbCountryLabel
+        ? [{ name: breadcrumbCountryLabel, url: countryBreadcrumbUrl }]
+        : []),
       { name: cityLabel },
     ]);
     // Give the breadcrumb a stable @id when the city home also emits a
