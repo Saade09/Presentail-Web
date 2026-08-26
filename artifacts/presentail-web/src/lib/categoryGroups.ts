@@ -88,6 +88,9 @@ export const CATEGORY_STATIC_IMAGES: Record<string, string> = {
  */
 export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
   "gift-cards",
+  // Parent category pages already have a "View All" footer link in the mega
+  // menu — suppress them from appearing as a duplicate tile in the grid.
+  "flowers",
   // OS taxonomy tags/occasion labels are useful for catalog organization but
   // should not become top-level navigation links in the Gifts mega menu.
   "red",
