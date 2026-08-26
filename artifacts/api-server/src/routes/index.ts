@@ -54,6 +54,7 @@ import stripeWebhookRouter from "./stripeWebhook";
 import cyberSourceRouter from "./cyberSource";
 import adminProductSocialShareRouter from "./adminProductSocialShare";
 import addressBookPlacesRouter from "./addressBookPlaces";
+import jobBoardRouter from "./jobBoard";
 
 const router: IRouter = Router();
 
@@ -112,5 +113,6 @@ router.use(adminSeoDashboardRouter);
 router.use(stripeWebhookRouter);
 router.use(cyberSourceRouter);
 router.use(addressBookPlacesRouter);
+router.use(jobBoardRouter);
 
 export default router;

@@ -82,3 +82,4 @@
 - [Web test-utils locale stub](web-test-locale-stub.md) — default t() echoes raw keys; pass a real STRINGS-backed translator when asserting visible copy; klarna suite fails 4/4 at baseline
 - [Metro image-size path compatibility](metro-image-size-path-compat.md) — Metro passes asset paths, but image-size-next needs bytes; retain the pnpm patch while the security alias is active.
 - [Cross-midnight slot carryover](cross-midnight-slot-carryover.md) — persisted cross-midnight slots bypass generic date flags only while their exact absolute window remains active.
+- [JazzHR job board iframe embed](job-board-iframe-embed.md) — presentail.applytojob.com has no cross-origin resize cooperation; use a generous static height, not a small "safe" default that clips under scrolling=no.

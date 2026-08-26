@@ -1,6 +1,7 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { JobBoardEmbed } from "@/components/careers/JobBoardEmbed";
 
 type Copy = {
   eyebrow: string;
@@ -9,7 +10,10 @@ type Copy = {
   perksHeading: string;
   perks: { title: string; body: string }[];
   openingsHeading: string;
-  noOpenings: string;
+  openingsIntro: string;
+  jobBoardTitle: string;
+  viewAllJobs: string;
+  jobBoardUnavailable: string;
   generalPitch: string;
   applyHeading: string;
   applyBody: string;
@@ -41,8 +45,12 @@ const COPY: Record<Language, Copy> = {
       },
     ],
     openingsHeading: "Open roles",
-    noOpenings:
-      "We don't have specific roles open right now, but we're always interested in meeting florists, designers, mobile engineers, and concierge specialists who'd be a great fit.",
+    openingsIntro:
+      "Browse our current openings below and apply directly — or send us a note if nothing quite fits yet.",
+    jobBoardTitle: "Presentail open roles",
+    viewAllJobs: "View all jobs",
+    jobBoardUnavailable:
+      "We couldn't load our live job board right now — use the link below to view all open roles, or reach out directly.",
     generalPitch:
       "Tell us a little about yourself, what you'd love to work on, and where you're based.",
     applyHeading: "Get in touch",
@@ -72,8 +80,12 @@ const COPY: Record<Language, Copy> = {
       },
     ],
     openingsHeading: "الوظائف المتاحة",
-    noOpenings:
-      "لا توجد وظائف محدّدة مفتوحة حالياً، لكن يسعدنا دائماً التعرّف على منسّقي أزهار ومصمّمين ومهندسي تطبيقات وأخصائيي خدمة كونسيرج يناسبون فريقنا.",
+    openingsIntro:
+      "تصفّح وظائفنا المتاحة حالياً أدناه وقدّم طلبك مباشرة — أو راسلنا إذا لم تجد ما يناسبك بعد.",
+    jobBoardTitle: "الوظائف المتاحة في بريزانتيل",
+    viewAllJobs: "عرض جميع الوظائف",
+    jobBoardUnavailable:
+      "تعذّر تحميل لوحة الوظائف المباشرة حالياً — استخدم الرابط أدناه لعرض جميع الوظائف المتاحة، أو تواصل معنا مباشرة.",
     generalPitch:
       "حدّثنا قليلاً عن نفسك، وعمّا تودّ العمل عليه، وأين تقيم.",
     applyHeading: "تواصل معنا",
@@ -103,8 +115,12 @@ const COPY: Record<Language, Copy> = {
       },
     ],
     openingsHeading: "Postes ouverts",
-    noOpenings:
-      "Nous n'avons pas de postes spécifiques ouverts pour le moment, mais nous serons toujours ravis de rencontrer des fleuristes, designers, ingénieurs mobiles et spécialistes conciergerie qui pourraient nous rejoindre.",
+    openingsIntro:
+      "Parcourez nos postes ouverts ci-dessous et postulez directement — ou écrivez-nous si rien ne correspond encore tout à fait.",
+    jobBoardTitle: "Postes ouverts chez Presentail",
+    viewAllJobs: "Voir tous les postes",
+    jobBoardUnavailable:
+      "Nous n'avons pas pu charger notre offre d'emploi en direct — utilisez le lien ci-dessous pour voir tous les postes ouverts, ou contactez-nous directement.",
     generalPitch:
       "Parlez-nous un peu de vous, de ce sur quoi vous aimeriez travailler, et d'où vous êtes basé(e).",
     applyHeading: "Contactez-nous",
@@ -134,8 +150,12 @@ const COPY: Record<Language, Copy> = {
       },
     ],
     openingsHeading: "Ανοιχτές θέσεις",
-    noOpenings:
-      "Δεν έχουμε συγκεκριμένες ανοιχτές θέσεις αυτή τη στιγμή, αλλά πάντα μας ενδιαφέρει να γνωρίσουμε ανθοπώλες, σχεδιαστές, μηχανικούς mobile και ειδικούς concierge που θα ταίριαζαν άψογα.",
+    openingsIntro:
+      "Δείτε τις ανοιχτές θέσεις μας παρακάτω και κάντε αίτηση απευθείας — ή στείλτε μας ένα σημείωμα αν δεν βρείτε κάτι που ταιριάζει ακόμα.",
+    jobBoardTitle: "Ανοιχτές θέσεις στο Presentail",
+    viewAllJobs: "Δείτε όλες τις θέσεις",
+    jobBoardUnavailable:
+      "Δεν μπορέσαμε να φορτώσουμε τον πίνακα θέσεων εργασίας αυτή τη στιγμή — χρησιμοποιήστε τον παρακάτω σύνδεσμο για να δείτε όλες τις ανοιχτές θέσεις, ή επικοινωνήστε μαζί μας απευθείας.",
     generalPitch:
       "Πείτε μας λίγα λόγια για εσάς, με τι θα θέλατε να ασχοληθείτε και πού βρίσκεστε.",
     applyHeading: "Επικοινωνήστε μαζί μας",
@@ -193,13 +213,18 @@ export default function Careers() {
           {c.openingsHeading}
         </h2>
         <div
-          className="rounded-lg border border-dashed border-border p-6 bg-card/50"
-          data-testid="careers-no-openings"
+          className="rounded-lg border border-border p-6 bg-card/50 overflow-hidden"
+          data-testid="careers-open-roles"
         >
-          <p className="text-muted-foreground leading-relaxed mb-3">
-            {c.noOpenings}
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            {c.openingsIntro}
           </p>
-          <p className="text-sm text-muted-foreground">{c.generalPitch}</p>
+          <JobBoardEmbed
+            title={c.jobBoardTitle}
+            viewAllLabel={c.viewAllJobs}
+            unavailableMessage={c.jobBoardUnavailable}
+          />
+          <p className="text-sm text-muted-foreground mt-6">{c.generalPitch}</p>
         </div>
       </section>
 
