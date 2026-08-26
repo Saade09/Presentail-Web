@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronRight, Moon, Zap } from "lucide-react";
+import { CalendarDays, ChevronRight, Moon, Zap, AlertTriangle } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { buildFeeNode } from "@/lib/feeNode";
 import { DeliveryPickerModal } from "./DeliveryPickerModal";
 import { useCityTimeSlots, useDeliveryPromise } from "./deliveryPromise";
+import { FormattedPrice } from "@/components/FormattedPrice";
+import type { CartDeliveryInvalidationReason } from "./cartDeliveryAvailability";
 
 interface Props {
   className?: string;
@@ -24,9 +26,16 @@ interface Props {
    * the price line.
    */
   midnightFeeUsd?: number | null;
+  invalidReason?: CartDeliveryInvalidationReason | null;
+  expressArrival?: string | null;
+  expressFeeUsd?: number;
+  onExpiredExpress?: () => void;
+  /** Imperative cart CTA recovery path; opens Schedule without selecting it. */
+  openScheduleRequest?: boolean;
+  onOpenScheduleRequestConsumed?: () => void;
 }
 
-export function DeliveryDateRow({ className = "", onChangeClick, openWithExpress = false, onExpressPreselectConsumed, midnightFeeUsd = null }: Props) {
+export function DeliveryDateRow({ className = "", onChangeClick, openWithExpress = false, onExpressPreselectConsumed, midnightFeeUsd = null, invalidReason = null, expressArrival = null, expressFeeUsd = 0, onExpiredExpress, openScheduleRequest = false, onOpenScheduleRequestConsumed }: Props) {
   const { t } = useLocale();
   const { city } = useLocationSelection();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -55,6 +64,13 @@ export function DeliveryDateRow({ className = "", onChangeClick, openWithExpress
     }
   }, [openWithExpress, onChangeClick, onExpressPreselectConsumed]);
 
+  useEffect(() => {
+    if (!openScheduleRequest || onChangeClick) return;
+    setPreselectExpress(false);
+    setPickerOpen(true);
+    onOpenScheduleRequestConsumed?.();
+  }, [openScheduleRequest, onChangeClick, onOpenScheduleRequestConsumed]);
+
   const handleClick = () => {
     trackEvent({
       name: "delivery_change_opened",
@@ -72,6 +88,77 @@ export function DeliveryDateRow({ className = "", onChangeClick, openWithExpress
       setPickerOpen(true);
     }
   };
+
+  if (invalidReason) {
+    const expired = invalidReason === "expired";
+    const openSchedule = () => {
+      setPreselectExpress(false);
+      setPickerOpen(true);
+    };
+    return (
+      <>
+        <div
+          className={`rounded-xl border border-[#E8D7B8] bg-[#FFF8EA] px-4 py-4 ${className}`}
+          data-testid="cart-delivery-invalid"
+          role="alert"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#B87924]" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[#6C4A1E]">
+                {expired ? t("cart.deliveryExpired.title") : t("cart.deliveryUnavailable.title")}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-[#7A5A32]">
+                {expired ? t("cart.deliveryExpired.body") : t("cart.deliveryUnavailable.body")}
+              </p>
+              {expired && expressArrival && (
+                <div className="mt-3 rounded-lg border border-[#E8D7B8] bg-white/70 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-foreground">{t("checkout.expressDelivery")}</p>
+                      <p className="text-xs text-muted-foreground">{expressArrival}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{t("checkout.promise.within90")}</p>
+                    </div>
+                    {expressFeeUsd > 0 && <FormattedPrice usdValue={expressFeeUsd} className="shrink-0 text-sm font-semibold text-primary" />}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onExpiredExpress}
+                    className="mt-2.5 min-h-10 w-full rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                    disabled={!onExpiredExpress}
+                    data-testid="button-deliver-today"
+                  >
+                    {t("cart.deliveryExpired.expressCta")}
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={openSchedule}
+                className="mt-3 min-h-10 w-full rounded-lg border border-[#B87924] bg-transparent px-3 text-sm font-semibold text-[#6C4A1E] transition-colors hover:bg-[#FFF1D6]"
+                data-testid="button-schedule-another-date"
+              >
+                {t("cart.deliveryExpired.scheduleCta")}
+              </button>
+            </div>
+          </div>
+        </div>
+        {!onChangeClick && (
+          <DeliveryPickerModal
+            open={pickerOpen}
+            onOpenChange={(o) => {
+              setPickerOpen(o);
+              if (!o) setPreselectExpress(false);
+            }}
+            timeSlots={cityTimeSlots}
+            cityExpressAvailable={city?.expressAvailable === true}
+            initialModeOverride="schedule"
+            requireExplicitSelection
+          />
+        )}
+      </>
+    );
+  }
 
   const isMidnight = promise?.type === "midnight";
 

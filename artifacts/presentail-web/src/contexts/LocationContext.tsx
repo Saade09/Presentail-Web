@@ -53,6 +53,10 @@ type LocationContextType = {
   city: DeliveryCity | null;
   countries: DeliveryCountry[];
   deliveryDataStatus?: DeliveryLocationsResponse["dataStatus"];
+  /** Latest delivery query payload, exposed for cart-level revalidation. */
+  deliveryLocations?: DeliveryLocationsResponse | null;
+  /** Fetch a fresh payload before a checkout CTA is allowed to navigate. */
+  refetchDeliveryLocations?: () => Promise<{ data?: DeliveryLocationsResponse }>;
   isLoadingCountries: boolean;
   setLocation: (countryCode: string, cityId: string) => void;
   clearLocation: () => void;
@@ -88,7 +92,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [stored, setStored] = useState<StoredLocation | null>(() => readStored());
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerForceCountryStep, setPickerForceCountryStep] = useState(false);
-  const { data, isLoading } = useDeliveryLocations();
+  const { data, isLoading, refetch } = useDeliveryLocations();
 
   // Subscribe to server-sent events so any change made in OS (city active
   // state, express flag, time slots, fees) propagates to this tab immediately
@@ -222,6 +226,11 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     city,
     countries,
     deliveryDataStatus: data?.dataStatus ?? "fallback",
+    deliveryLocations: data ?? null,
+    refetchDeliveryLocations: async () => {
+      const result = await refetch();
+      return { data: result.data };
+    },
     isLoadingCountries: isLoading,
     setLocation,
     clearLocation,

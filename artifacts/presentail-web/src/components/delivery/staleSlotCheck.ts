@@ -22,6 +22,10 @@ export function checkStaleSlotSelection(opts: {
   timeSlots: TimeSlot[];
   countryCode?: string | null;
   sameDayCutoffHour?: number;
+  /** Cart availability uses the selected OS slot's booking cutoff as well. */
+  enforceSlotCutoff?: boolean;
+  /** Required so Midnight slots use their special date-window rules. */
+  cityId?: string | null;
   now?: Date;
 }): SlotBookability {
   // Express has its own availability gate; nothing to re-validate here.
@@ -38,6 +42,8 @@ export function checkStaleSlotSelection(opts: {
     slot,
     countryCode: opts.countryCode,
     sameDayCutoffHour: opts.sameDayCutoffHour,
+    enforceSlotCutoff: opts.enforceSlotCutoff,
+    cityId: opts.cityId,
     now: opts.now,
   });
 }

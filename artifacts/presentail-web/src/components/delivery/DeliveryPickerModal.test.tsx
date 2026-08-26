@@ -153,6 +153,31 @@ describe("DeliveryPickerModal — default slot for future dates", () => {
   });
 });
 
+describe("DeliveryPickerModal — explicit invalid-cart recovery", () => {
+  it("does not preselect Today or enable confirmation until the shopper explicitly chooses a date and slot", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DeliveryPickerModal
+        open={true}
+        onOpenChange={() => {}}
+        timeSlots={OS_SLOTS}
+        initialModeOverride="schedule"
+        requireExplicitSelection
+      />,
+    );
+
+    const today = screen.getByTestId("quick-date-2026-06-15");
+    expect(today.getAttribute("aria-pressed")).toBe("false");
+    expect((screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled).toBe(true);
+
+    await user.click(today);
+    expect((screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled).toBe(true);
+
+    await user.click(screen.getByTestId("slot-Morning"));
+    expect((screen.getByTestId("button-picker-confirm") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
 describe("DeliveryPickerModal — compact availability layouts", () => {
   it("keeps bookable slots visible while unavailable same-day windows stay collapsed until requested", async () => {
     const user = userEvent.setup();

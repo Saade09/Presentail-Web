@@ -427,6 +427,7 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
 
 type SavedAddress = CheckoutSavedAddress;
 const CHECKOUT_ADDRESS_HANDOFF_KEY = "presentail.checkout.address-handoff";
+const CHECKOUT_DELIVERY_RECOVERY_KEY = "presentail.checkout.delivery-recovery";
 
 type AddressHandoffDraft = {
   recipient: {
@@ -753,6 +754,23 @@ function CheckoutForm() {
       // A malformed or unavailable session store must never block checkout.
     }
   }, [checkoutSearch]);
+
+  // A server can invalidate a window after the client check has passed. Keep
+  // the shopper's entered checkout fields while returning them to the cart to
+  // explicitly choose a live delivery option.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(CHECKOUT_DELIVERY_RECOVERY_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Partial<AddressHandoffDraft>;
+      if (draft.recipient) setRecipient((current) => ({ ...current, ...draft.recipient }));
+      if (draft.sender) setSender((current) => ({ ...current, ...draft.sender }));
+      if (draft.step === 1 || draft.step === 2) setStep(draft.step);
+      sessionStorage.removeItem(CHECKOUT_DELIVERY_RECOVERY_KEY);
+    } catch {
+      // A malformed recovery draft must never prevent returning to checkout.
+    }
+  }, []);
 
   // Signed-in shoppers already gave us their identity at signup, so we
   // hide the sender Name/Email inputs and only keep the WhatsApp field
@@ -2778,6 +2796,20 @@ function CheckoutForm() {
     });
     setDeliveryPickerOpen(true);
   };
+  const returnToCartForAuthoritativeDeliveryRejection = () => {
+    try {
+      const draft: AddressHandoffDraft = { recipient, sender, step: step === 2 ? 2 : 1 };
+      sessionStorage.setItem(CHECKOUT_DELIVERY_RECOVERY_KEY, JSON.stringify(draft));
+    } catch {
+      // Delivery recovery remains useful even when browser storage is blocked.
+    }
+    if (deliverySelection.invalidate) {
+      deliverySelection.invalidate("expired");
+    } else {
+      deliverySelection.clear();
+    }
+    setLocation("/cart");
+  };
   const handleMobileDeliveryChange = () => {
     trackWebEvent({
       type: "mobile_checkout_delivery_change_clicked",
@@ -3111,9 +3143,9 @@ function CheckoutForm() {
       } catch { /* best-effort */ }
       setLocation(`/order-confirmed?status=success&ref=${payload.orderId}`);
     } else if (res.code === "expired_delivery_slot" || res.code === "past_delivery_date") {
-      // The selected date/slot went stale between the client pre-check and the
-      // server's authoritative validation — prompt a re-pick (cart preserved).
-      promptStaleSlotRepick();
+      // The selection changed after the pre-check. Returning to cart makes the
+      // expired fee/promise impossible to submit again while retaining the form.
+      returnToCartForAuthoritativeDeliveryRejection();
     } else if (res.code === "coupon_invalid") {
       // Coupon-specific error: surface inline below the coupon field (using
       // WC's specific message when available) so the shopper can correct the
@@ -3209,6 +3241,7 @@ function CheckoutForm() {
             typeof selectedCityData?.sameDayCutoffHour === "number"
               ? selectedCityData.sameDayCutoffHour
               : undefined,
+          cityId: selectedCityData?.id ?? deliverySelection.cityId,
           now,
         });
         if (!staleCheck.bookable) {
@@ -4058,7 +4091,7 @@ function CheckoutForm() {
       // session / order creation). Prompt a re-pick instead of a raw failure.
       const apiErrCode = (apiErr?.data as { code?: string } | null)?.code;
       if (apiErrCode === "expired_delivery_slot" || apiErrCode === "past_delivery_date") {
-        promptStaleSlotRepick();
+        returnToCartForAuthoritativeDeliveryRejection();
         return;
       }
       const isColdCache = apiErr?.status === 503;

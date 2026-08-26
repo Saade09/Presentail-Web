@@ -12,6 +12,7 @@ import {
 } from "@workspace/delivery";
 
 export type DeliveryMode = "express" | "today_slot" | "schedule";
+export type DeliveryInvalidationReason = "expired" | "unavailable";
 
 /**
  * Provenance of the active delivery selection. Drives the cart's Express
@@ -53,9 +54,13 @@ type DeliverySelectionContextValue = DeliverySelection & {
   hasSelection: boolean;
   setSelection: (next: Partial<DeliverySelection>) => void;
   clear: () => void;
+  /** Retained across the cart/checkout handoff to explain a forced re-pick. */
+  invalidationReason?: DeliveryInvalidationReason | null;
+  invalidate?: (reason: DeliveryInvalidationReason) => void;
 };
 
 const STORAGE_KEY = "presentail_delivery_selection_v1";
+const INVALIDATION_STORAGE_KEY = "presentail_delivery_invalidation_v1";
 
 const DeliverySelectionContext =
   createContext<DeliverySelectionContextValue | null>(null);
@@ -172,6 +177,16 @@ function readInitial(): DeliverySelection {
   }
 }
 
+function readInitialInvalidationReason(): DeliveryInvalidationReason | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const reason = window.localStorage.getItem(INVALIDATION_STORAGE_KEY);
+    return reason === "expired" || reason === "unavailable" ? reason : null;
+  } catch {
+    return null;
+  }
+}
+
 export function DeliverySelectionProvider({
   children,
 }: {
@@ -179,6 +194,8 @@ export function DeliverySelectionProvider({
 }) {
   const [selection, setSelectionState] =
     useState<DeliverySelection>(readInitial);
+  const [invalidationReason, setInvalidationReason] =
+    useState<DeliveryInvalidationReason | null>(readInitialInvalidationReason);
   const isFirst = useRef(true);
 
   useEffect(() => {
@@ -193,10 +210,30 @@ export function DeliverySelectionProvider({
     }
   }, [selection]);
 
+  useEffect(() => {
+    try {
+      if (invalidationReason) {
+        window.localStorage.setItem(INVALIDATION_STORAGE_KEY, invalidationReason);
+      } else {
+        window.localStorage.removeItem(INVALIDATION_STORAGE_KEY);
+      }
+    } catch {
+      // Storage is best-effort only; in-memory recovery still works.
+    }
+  }, [invalidationReason]);
+
   const setSelection = useCallback((next: Partial<DeliverySelection>) => {
     setSelectionState((prev) => ({ ...prev, ...next }));
+    setInvalidationReason(null);
   }, []);
-  const clear = useCallback(() => setSelectionState(EMPTY), []);
+  const clear = useCallback(() => {
+    setSelectionState(EMPTY);
+    setInvalidationReason(null);
+  }, []);
+  const invalidate = useCallback((reason: DeliveryInvalidationReason) => {
+    setSelectionState(EMPTY);
+    setInvalidationReason(reason);
+  }, []);
 
   const value = useMemo<DeliverySelectionContextValue>(
     () => ({
@@ -204,8 +241,10 @@ export function DeliverySelectionProvider({
       hasSelection: !!selection.mode,
       setSelection,
       clear,
+      invalidationReason,
+      invalidate,
     }),
-    [selection, setSelection, clear],
+    [selection, setSelection, clear, invalidationReason, invalidate],
   );
 
   return (

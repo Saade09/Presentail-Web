@@ -38,6 +38,10 @@ import { DeliverEarlierDialog } from "@/components/delivery/DeliverEarlierDialog
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
 import { useToast } from "@/hooks/use-toast";
 import { displayedSlotsForDate } from "@/components/delivery/displayedSlots";
+import {
+  classifyCartDeliverySelection,
+  type CartDeliveryInvalidationReason,
+} from "@/components/delivery/cartDeliveryAvailability";
 import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
 import cardLogoEn from "@assets/Presentail_PNG-01_white.png";
 import cardLogoAr from "@assets/Presentail-Arabic-Logo-white.png";
@@ -117,12 +121,139 @@ export default function Cart() {
     isLoaded: deliveryConfigLoaded,
     freeDeliveryThresholdUsd: configThresholdUsd,
   } = useDeliveryConfig();
-  const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
+  const {
+    countryCode,
+    city: locationCity,
+    country: locationCountry,
+    deliveryLocations,
+    refetchDeliveryLocations,
+  } = useLocationSelection();
   const expressSurcharge = expressSurchargeForCountry(countryCode);
-  const { mode: deliveryMode, slotLabel, slotId, date: deliveryDate, source: deliverySource, serviceType: deliveryServiceType, setSelection } = useDeliverySelection();
+  const {
+    mode: deliveryMode,
+    slotLabel,
+    slotId,
+    date: deliveryDate,
+    source: deliverySource,
+    serviceType: deliveryServiceType,
+    hasSelection,
+    setSelection,
+    clear: clearDeliverySelection,
+    invalidationReason,
+    invalidate: invalidateDeliverySelection,
+  } = useDeliverySelection();
   const { currencyCode } = useDisplayCurrency();
   const deliveryPromise = useDeliveryPromise();
   const now = useNow();
+  const [deliveryInvalidation, setDeliveryInvalidation] =
+    useState<CartDeliveryInvalidationReason | null>(null);
+  const [deliveryRevalidating, setDeliveryRevalidating] = useState(false);
+  const [openScheduleRequest, setOpenScheduleRequest] = useState(false);
+  const initialDeliveryRevalidationRef = useRef(false);
+  const deliverySelectionSignature = [
+    deliveryMode,
+    deliveryDate,
+    slotLabel,
+    slotId,
+    deliveryServiceType,
+    deliverySource,
+    locationCity?.id,
+  ].join("|");
+  const deliverySelectionSignatureRef = useRef(deliverySelectionSignature);
+  useEffect(() => {
+    deliverySelectionSignatureRef.current = deliverySelectionSignature;
+  }, [deliverySelectionSignature]);
+
+  const cityFromLocations = (locations: typeof deliveryLocations) => {
+    if (!locations || !countryCode || !locationCity?.id) return locationCity;
+    return (
+      locations.countries
+        .find((country) => country.code === countryCode)
+        ?.cities.find((city) => city.id === locationCity.id) ?? locationCity
+    );
+  };
+
+  /**
+   * Revalidate the persisted choice against the latest city schedule. This
+   * function only ever clears an invalid choice; it intentionally never picks
+   * a replacement on the customer's behalf.
+   */
+  const revalidateDeliverySelection = async (refresh = false): Promise<boolean> => {
+    if (!hasSelection || !deliveryMode) {
+      setDeliveryInvalidation(null);
+      return true;
+    }
+    const validatedSignature = deliverySelectionSignature;
+    setDeliveryRevalidating(refresh);
+    try {
+      let freshLocations = deliveryLocations;
+      if (refresh && refetchDeliveryLocations) {
+        const result = await refetchDeliveryLocations();
+        freshLocations = result.data ?? freshLocations;
+      }
+      // A visibility/CTA check must not clear a newer explicit choice that
+      // was confirmed while the network refresh was still in flight.
+      if (deliverySelectionSignatureRef.current !== validatedSignature) return false;
+      const outcome = classifyCartDeliverySelection({
+        selection: {
+          mode: deliveryMode,
+          date: deliveryDate,
+          slotLabel,
+          slotId,
+          serviceType: deliveryServiceType,
+          cityId: locationCity?.id ?? null,
+          source: deliverySource,
+        },
+        city: cityFromLocations(freshLocations),
+        countryCode,
+        now,
+      });
+      if (!outcome.valid) {
+        if (invalidateDeliverySelection) invalidateDeliverySelection(outcome.reason);
+        else clearDeliverySelection();
+        setDeliveryInvalidation(outcome.reason);
+        return false;
+      }
+      setDeliveryInvalidation(null);
+      return true;
+    } finally {
+      setDeliveryRevalidating(false);
+    }
+  };
+
+  // Hydration, location-query refreshes, and the minute tick all re-check the
+  // persisted selection. The visibility listener covers a tab left in the
+  // background where the browser throttled timers and query polling.
+  useEffect(() => {
+    if (!isHydrated || itemCount === 0 || !hasSelection || !deliveryMode) return;
+    const shouldRefresh = !initialDeliveryRevalidationRef.current;
+    initialDeliveryRevalidationRef.current = true;
+    void revalidateDeliverySelection(shouldRefresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isHydrated,
+    itemCount,
+    hasSelection,
+    deliveryMode,
+    deliveryDate,
+    slotLabel,
+    slotId,
+    deliveryLocations,
+    locationCity?.id,
+    countryCode,
+    now,
+  ]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible" && hasSelection && deliveryMode) {
+        void revalidateDeliverySelection(true);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSelection, deliveryMode]);
   // Express upsell visibility: city allows express AND we're inside the
   // express operating window in the recipient market's timezone.
   const expressAvailableNow =
@@ -185,6 +316,7 @@ export default function Cart() {
   // 0    → above free-delivery threshold (show "Free")
   // >0   → show the fee amount
   const deliveryFeeUsd: number | null = (() => {
+    if (deliveryMode === null) return null;
     if (cityFeeUsd === null) return null;
     const threshold = thresholdUsd ?? Infinity;
     return freeDeliveryEnabled !== false && subtotal >= threshold ? 0 : cityFeeUsd;
@@ -789,7 +921,23 @@ export default function Cart() {
   // social sign-in or a clearly visible "Checkout as Guest" button. Signed-in
   // shoppers (and the brief auth-loading window) bypass the prompt entirely.
   const [loginOpen, setLoginOpen] = useState(false);
-  const handleProceed = (e: React.MouseEvent) => {
+  const activeDeliveryInvalidation = deliveryInvalidation ?? invalidationReason ?? null;
+  const deliverySelectionRequired =
+    !!locationCity && (deliveryMode === null || activeDeliveryInvalidation !== null || deliveryRevalidating);
+
+  const handleProceed = async (e: React.MouseEvent) => {
+    if (deliverySelectionRequired) {
+      e.preventDefault();
+      setOpenScheduleRequest(true);
+      return;
+    }
+    if (hasSelection && deliveryMode) {
+      e.preventDefault();
+      if (!(await revalidateDeliverySelection(true))) {
+        setOpenScheduleRequest(true);
+        return;
+      }
+    }
     trackWebEvent({
       type: "checkout_clicked",
       value: Math.max(0, cartTotal),
@@ -818,7 +966,10 @@ export default function Cart() {
       isSignedIn: !!user,
       authLoading,
     });
-    if (decision === "navigate") return;
+    if (decision === "navigate") {
+      if (e.defaultPrevented) setLocation("/checkout");
+      return;
+    }
     e.preventDefault();
     setLoginOpen(true);
   };
@@ -1142,7 +1293,32 @@ export default function Cart() {
               <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm mb-4">
                 <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
                 <div className="text-sm">
-                  <DeliveryDateRow midnightFeeUsd={isMidnightSlotActive ? slotFeeUsd : null} />
+                  <DeliveryDateRow
+                    midnightFeeUsd={isMidnightSlotActive ? slotFeeUsd : null}
+                    invalidReason={activeDeliveryInvalidation}
+                    expressArrival={activeDeliveryInvalidation === "expired" && expressAvailableNow
+                      ? expressArrivalPreview
+                      : null}
+                    expressFeeUsd={expressSurcharge}
+                    onExpiredExpress={
+                      activeDeliveryInvalidation === "expired" && expressAvailableNow
+                        ? () => {
+                            setSelection({
+                              mode: "express",
+                              date: getLocalIso(countryCode),
+                              slotLabel: null,
+                              slotId: null,
+                              serviceType: null,
+                              cityId: null,
+                              source: "user_selected",
+                            });
+                            setDeliveryInvalidation(null);
+                          }
+                        : undefined
+                    }
+                    openScheduleRequest={openScheduleRequest}
+                    onOpenScheduleRequestConsumed={() => setOpenScheduleRequest(false)}
+                  />
                   {expressUpgradeVisible && (
                     <ExpressUpgradeCard
                       arrival={expressArrivalPreview}
@@ -1206,7 +1382,7 @@ export default function Cart() {
                           : <FormattedPrice usdValue={effectiveDeliveryFeeUsd} />}
                       </dd>
                     </div>
-                  ) : (
+                  ) : deliveryMode ? (
                     <div className="flex justify-between gap-3" data-testid="row-standard-delivery">
                       <dt className="min-w-0">
                         <span className="block font-medium">{t("cart.standardDelivery")}</span>
@@ -1226,6 +1402,11 @@ export default function Cart() {
                             : <FormattedPrice usdValue={deliveryFeeUsd} />
                         }
                       </dd>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between gap-3" data-testid="row-no-delivery">
+                      <dt className="font-medium">{t("cart.noDeliverySelected")}</dt>
+                      <dd className="font-medium text-end text-muted-foreground">—</dd>
                     </div>
                   )}
 
@@ -1345,17 +1526,23 @@ export default function Cart() {
                   <span className="text-2xl font-serif" data-testid="text-cart-total"><FormattedPrice usdValue={Math.max(0, cartTotal)} /></span>
                 </div>
 
-                <Button asChild size="lg" className="hidden lg:flex w-full h-14 text-base rounded-xl px-5">
+                <Button asChild size="lg" className={`hidden lg:flex w-full h-14 text-base rounded-xl px-5 ${deliverySelectionRequired ? "opacity-70" : ""}`}>
                   <Link
                     href="/checkout"
                     onClick={handleProceed}
                     data-testid="link-proceed-to-checkout"
                     className="flex items-center justify-center gap-2"
                   >
-                    <Lock className="w-4 h-4 shrink-0" aria-hidden />
-                    <span>{t("cart.checkoutSecurely")}</span>
-                    <span aria-hidden>·</span>
-                    <FormattedPrice usdValue={Math.max(0, cartTotal)} className="font-semibold shrink-0 text-white" />
+                    {deliverySelectionRequired ? (
+                      <span>{t("cart.chooseDeliveryTime")}</span>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 shrink-0" aria-hidden />
+                        <span>{t("cart.checkoutSecurely")}</span>
+                        <span aria-hidden>·</span>
+                        <FormattedPrice usdValue={Math.max(0, cartTotal)} className="font-semibold shrink-0 text-white" />
+                      </>
+                    )}
                   </Link>
                 </Button>
               </div>
@@ -1484,7 +1671,7 @@ export default function Cart() {
             <span className="font-semibold">
               {itemCount} {itemCount === 1 ? t("cart.sticky.itemSingular") : t("cart.sticky.itemPlural")}
             </span>
-            {deliveryMode && (
+             {deliveryMode && (
               <span className="text-muted-foreground" data-testid="text-sticky-delivery-label">
                 {"  ·  "}
                 {deliveryMode === "express"
@@ -1518,17 +1705,23 @@ export default function Cart() {
           </div>
         </div>
         {/* CTA button */}
-        <Button asChild size="lg" className="w-full h-[52px] text-sm rounded-2xl px-5">
+        <Button asChild size="lg" className={`w-full h-[52px] text-sm rounded-2xl px-5 ${deliverySelectionRequired ? "opacity-70" : ""}`}>
           <Link
             href="/checkout"
             onClick={handleProceed}
             data-testid="link-proceed-to-checkout-sticky"
             className="flex items-center justify-center gap-2"
           >
-            <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            <span>{t("cart.checkoutSecurely")}</span>
-            <span aria-hidden>·</span>
-            <FormattedPrice usdValue={Math.max(0, cartTotal)} className="font-semibold shrink-0 text-white" />
+            {deliverySelectionRequired ? (
+              <span>{t("cart.chooseDeliveryTime")}</span>
+            ) : (
+              <>
+                <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                <span>{t("cart.checkoutSecurely")}</span>
+                <span aria-hidden>·</span>
+                <FormattedPrice usdValue={Math.max(0, cartTotal)} className="font-semibold shrink-0 text-white" />
+              </>
+            )}
           </Link>
         </Button>
       </div>

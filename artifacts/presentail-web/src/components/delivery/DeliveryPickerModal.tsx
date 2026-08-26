@@ -83,6 +83,8 @@ interface Props {
    * highlighted). Still subject to express availability.
    */
   initialModeOverride?: "express" | "schedule";
+  /** Recovery mode: do not restore or auto-pick a date/slot. */
+  requireExplicitSelection?: boolean;
   /**
    * The city whose schedule the modal should show. When provided (even as
    * null), it takes precedence over the browsing city from LocationContext —
@@ -325,7 +327,7 @@ function InlineCalendar({ selectedIso, todayIso, todaySelectable, onSelect, prev
 // Main modal
 // ---------------------------------------------------------------------------
 
-export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd, initialModeOverride, city: cityProp }: Props) {
+export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd, initialModeOverride, requireExplicitSelection = false, city: cityProp }: Props) {
   const { t, language } = useLocale();
   const { countryCode, city: browsingCity } = useLocationSelection();
   // Distinguish "prop omitted" (undefined → browsing city) from an explicit
@@ -453,9 +455,15 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
             : "schedule",
     );
     let newDate =
-      deliverySelection.mode !== "express" && deliverySelection.date
+      !requireExplicitSelection && deliverySelection.mode !== "express" && deliverySelection.date
         ? deliverySelection.date
         : "";
+
+    if (requireExplicitSelection) {
+      setDate("");
+      setSlot("");
+      return;
+    }
 
     const dateIsEmptyOrToday = !newDate || newDate === todayIso;
     if (dateIsEmptyOrToday && !todayHasSlots) {
@@ -486,25 +494,27 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
         ? persisted
         : defaultSlotForDate(dateIso))
     );
-  }, [open]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, requireExplicitSelection]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Change date and reset the slot to the appropriate first-available. */
   const handleDateChange = (newDate: string) => {
     setDate(newDate);
-    setSlot(defaultSlotForDate(newDate || todayIso));
+    setSlot(requireExplicitSelection ? "" : defaultSlotForDate(newDate || todayIso));
     setUnavailableExpanded(false);
   };
 
-  const selectedIso = date || todayIso;
+  // Recovery must require an intentional date click. Keep "no date yet"
+  // distinct from today rather than using today's date as an implicit fallback.
+  const selectedIso = date || (requireExplicitSelection ? "" : todayIso);
   const isSelectedToday = selectedIso === todayIso;
-  const isCustomDate = !quickDays.some((d) => d.iso === selectedIso);
+  const isCustomDate = !!selectedIso && !quickDays.some((d) => d.iso === selectedIso);
 
   // Per-slot availability for the selected date (today filters by cutoff).
   // slotsForDate already applies same-day/next-day filtering, duplicate-label
   // preference, and the $5 same-day night surcharge fallback (as extraFee).
   const slotStates = useMemo(
     () =>
-      slotsForDate(selectedIso).map((s) => {
+      (selectedIso ? slotsForDate(selectedIso) : []).map((s) => {
         const unavailable = isSelectedToday && s.cutoffHour <= currentHour;
         const startH = slotStartHour(s);
         const displayFee = s.extraFee && s.extraFee > 0 ? s.extraFee : null;
@@ -517,6 +527,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const unavailableSlotStates = slotStates.filter((s) => s.unavailable);
   const nextAvailableDate = useMemo(() => {
     if (hasAnyAvailableSlot) return null;
+    if (!selectedIso) return null;
     for (let i = 1; i <= 30; i++) {
       const candidate = addDaysIso(selectedIso, i);
       if (slotsForDate(candidate).length > 0) return candidate;
@@ -571,6 +582,9 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     // Use the already-memoized local-timezone today (getLocalIso(countryCode, now))
     // so that "today" comparisons and the express date payload are correct even
     // between midnight UTC and ~3 AM Beirut time.
+    if (requireExplicitSelection && mode === "schedule" && (!date || !selectedSlotState)) {
+      return;
+    }
     let selection: DeliveryPickerSelection;
     if (mode === "express") {
       selection = {
@@ -657,7 +671,9 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     commitSelection(selection);
   };
 
-  const confirmDisabled = mode === "schedule" && (!hasAnyAvailableSlot || !selectedSlotState);
+  const confirmDisabled =
+    mode === "schedule" &&
+    ((requireExplicitSelection && !date) || !hasAnyAvailableSlot || !selectedSlotState);
 
   // Secondary line inside the primary CTA: selected window (+ surcharge) or express ETA.
   const ctaDetail: ReactNode =
