@@ -508,6 +508,7 @@ describe("MainNavbar — mobile brands sub-panel", () => {
       data: {
         brands: [],
         categories: [
+          { id: "balloon-arrangements", name: "Balloon Arrangements", icon: "tag", count: 7 },
           { id: "red", name: "Red", icon: "tag", count: 13 },
           { id: "valentines-specials", name: "Valentine's Specials", icon: "tag", count: 1 },
           { id: "friend", name: "friend", icon: "tag", count: 5 },
@@ -524,7 +525,8 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect(screen.queryByTestId("megamenu-item-valentines-specials")).toBeNull();
     expect(screen.queryByTestId("megamenu-item-friend")).toBeNull();
     expect(screen.queryByTestId("megamenu-item-flowers-&-plants")).toBeNull();
-    expect(screen.queryByTestId("megamenu-item-candles")).toBeDefined();
+    expect(screen.getByTestId("megamenu-item-balloon-arrangements")).toBeDefined();
+    expect(screen.queryByTestId("megamenu-item-candles")).toBeNull();
   });
 
   it("keeps the occasions CTA outside the scrolling skeleton while the catalog loads", async () => {
