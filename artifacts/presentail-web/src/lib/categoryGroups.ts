@@ -90,7 +90,11 @@ export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
   "gift-cards",
   // Parent category pages already have a "View All" footer link in the mega
   // menu — suppress them from appearing as a duplicate tile in the grid.
+  // "flowers" = product-level slug; "flowers-plants" = OS catalog slug (not
+  // featured, so OS's own filter should hide it, but block it here too so the
+  // cold-cache fallback path can't surface it).
   "flowers",
+  "flowers-plants",
   // OS taxonomy tags/occasion labels are useful for catalog organization but
   // should not become top-level navigation links in the Gifts mega menu.
   "red",
