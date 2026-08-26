@@ -35,6 +35,7 @@ import {
   getLastRefreshedAt,
   getStoreLastRefreshedAt,
   getOsProducts,
+  isOsProductsReady,
 } from "./osProductsCache";
 
 // ── Module-level mocks ──────────────────────────────────────────────────────
@@ -161,6 +162,16 @@ afterAll(() => {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe("per-store catalog freshness", () => {
+  it("marks a successful zero-product response ready without populating the product cache", async () => {
+    expect(isOsProductsReady("lebanon")).toBe(false);
+
+    vi.mocked(fetchOsProducts).mockResolvedValue({ products: [] });
+    await fetchAndStoreForTesting();
+
+    expect(isOsProductsReady("lebanon")).toBe(true);
+    expect(getOsProducts("lebanon")).toBeNull();
+  });
+
   it("fails Lebanon freshness closed when another store refresh succeeds", async () => {
     let refreshCycle = 1;
     vi.mocked(fetchOsProducts).mockImplementation(async (_config, options) => {

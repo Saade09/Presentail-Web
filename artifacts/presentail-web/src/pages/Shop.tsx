@@ -243,13 +243,26 @@ export default function Shop() {
   const occasionProducts = useOccasionProducts(occasion, queryParams);
   const brandProducts = useBrandProducts(brand, queryParams);
 
-  const isLoading = category
-    ? categoryProducts.isLoading
+  // An absent result is not an empty catalog. In particular, the API returns
+  // an explicit temporary readiness response while its OS cache is warming;
+  // the shared queries retry it until they have a real listing. Keep the
+  // skeleton visible until every query needed by this route has data, so Shop
+  // only reaches its sold-out state after filtering a ready catalog.
+  const hasReadyCatalog = category
+    ? categoryProducts.data !== undefined
     : occasion
-      ? occasionProducts.isLoading || (!!brand && brandProducts.isLoading)
+      ? occasionProducts.data !== undefined && (!brand || brandProducts.data !== undefined)
       : brand
-        ? brandProducts.isLoading
-        : allProducts.isLoading;
+        ? brandProducts.data !== undefined
+        : allProducts.data !== undefined;
+
+  const isLoading = category
+    ? categoryProducts.isLoading || !hasReadyCatalog
+    : occasion
+      ? occasionProducts.isLoading || (!!brand && brandProducts.isLoading) || !hasReadyCatalog
+      : brand
+        ? brandProducts.isLoading || !hasReadyCatalog
+        : allProducts.isLoading || !hasReadyCatalog;
 
   const sourceProducts: Product[] = useMemo(() => {
     const visible = (list: Product[]) => list.filter((p) => p.inStock && !!p.image);

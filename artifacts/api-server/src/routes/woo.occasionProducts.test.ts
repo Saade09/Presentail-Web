@@ -29,10 +29,12 @@ const {
   getOsOccasionsMock,
   getOsProductOccasionsMock,
   getOsProductsMock,
+  isOsProductsReadyMock,
 } = vi.hoisted(() => ({
   getOsOccasionsMock: vi.fn<() => OSProductOccasion[] | null>(),
   getOsProductOccasionsMock: vi.fn<() => ReadonlyMap<string, OSProductOccasion>>(),
   getOsProductsMock: vi.fn<(storeKey: string) => OSProduct[] | null>(),
+  isOsProductsReadyMock: vi.fn<(storeKey: string) => boolean>(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -47,6 +49,7 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsOccasions: getOsOccasionsMock,
   getOsProductOccasions: getOsProductOccasionsMock,
   getOsProductBySlug: vi.fn().mockReturnValue(null),
+  isOsProductsReady: isOsProductsReadyMock,
 }));
 
 vi.mock("../lib/wooStore", () => ({
@@ -119,6 +122,12 @@ const RAMADAN_OCCASION: OSProductOccasion = {
   name: "Ramadan",
 };
 
+const SUMMER_OCCASION: OSProductOccasion = {
+  id: "occ-summer",
+  slug: "summer",
+  name: "Summer",
+};
+
 /**
  * Builds a minimal OS product that:
  *  - is in stock (passes isVisibleProduct)
@@ -163,6 +172,7 @@ async function buildApp() {
 describe("GET /woo/occasion-products — product-embedded occasion fallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isOsProductsReadyMock.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -287,6 +297,63 @@ describe("GET /woo/occasion-products — product-embedded occasion fallback", ()
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.groups).toEqual([]);
+  });
+
+  it("returns retryable catalog-not-ready responses for every listing route while the store cache is cold", async () => {
+    getOsOccasionsMock.mockReturnValue([SUMMER_OCCASION]);
+    getOsProductOccasionsMock.mockReturnValue(new Map());
+    getOsProductsMock.mockReturnValue(null);
+    isOsProductsReadyMock.mockReturnValue(false);
+
+    const app = await buildApp();
+    const responses = await Promise.all([
+      request(app).get("/woo/products"),
+      request(app).get("/woo/category-products?slug=flowers"),
+      request(app).get("/woo/occasion-products?slug=summer"),
+      request(app).get("/woo/brand-products?slug=presentail"),
+    ]);
+
+    for (const res of responses) {
+      expect(res.status).toBe(503);
+      expect(res.headers["retry-after"]).toBe("1");
+      expect(res.body).toMatchObject({
+        ok: false,
+        code: "catalog_not_ready",
+      });
+    }
+  });
+
+  it("returns Summer products once the catalog is ready", async () => {
+    getOsOccasionsMock.mockReturnValue([SUMMER_OCCASION]);
+    getOsProductOccasionsMock.mockReturnValue(new Map());
+    getOsProductsMock.mockReturnValue([
+      makeRamadanProduct({
+        id: "summer-bouquet",
+        name: "Summer Bouquet",
+        occasions: [SUMMER_OCCASION],
+      }),
+    ]);
+
+    const app = await buildApp();
+    const res = await request(app).get("/woo/occasion-products?slug=summer");
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.total).toBe(1);
+    expect(res.body.groups.flatMap((g: { products: { name: string }[] }) => g.products))
+      .toEqual(expect.arrayContaining([expect.objectContaining({ name: "Summer Bouquet" })]));
+  });
+
+  it("returns a normal empty collection only after the catalog is ready", async () => {
+    getOsOccasionsMock.mockReturnValue([SUMMER_OCCASION]);
+    getOsProductOccasionsMock.mockReturnValue(new Map());
+    getOsProductsMock.mockReturnValue([]);
+
+    const app = await buildApp();
+    const res = await request(app).get("/woo/occasion-products?slug=summer");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, groups: [], total: 0 });
   });
 
   it("places products with unrecognised categories into the catch-all 'other-gifts' group", async () => {

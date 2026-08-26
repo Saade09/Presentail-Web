@@ -1149,12 +1149,16 @@ async function fetchAndStore(): Promise<void> {
         storeRefreshState.set(spec.storeKey, {
           lastAttemptAt: new Date(),
           lastSuccessfulAt: previous?.lastSuccessfulAt ?? null,
-          lastAttemptSucceeded: false,
+          // A successful OS response with no eligible products is an
+          // authoritative empty catalog, not a failed warm-up. Keep the
+          // last-good cache when there is one, but let listing routes
+          // distinguish this state from a cache that has never loaded.
+          lastAttemptSucceeded: true,
         });
         if (!storeCache.has(spec.storeKey)) {
           logger.warn(
             { storeKey: spec.storeKey },
-            "osProductsCache: OS returned 0 products — WooCommerce will serve listings until OS has data",
+            "osProductsCache: OS returned 0 eligible products",
           );
         } else {
           logger.warn(
@@ -1675,6 +1679,17 @@ export function getOsProducts(storeKey?: string): OSProduct[] | null {
 }
 
 /**
+ * Whether a completed OS catalog read has established the listing state for
+ * a store. This intentionally differs from `hasOsProducts()`: a completed
+ * read may authoritatively contain zero eligible products, while a cold cache
+ * has not yet established whether an empty listing is real.
+ */
+export function isOsProductsReady(storeKey?: string): boolean {
+  const key = (storeKey ?? "lebanon") as StoreKey;
+  return storeRefreshState.get(key)?.lastAttemptSucceeded === true;
+}
+
+/**
  * Look up a product by its WooCommerce numeric id within a specific store's
  * cache. Falls back to searching all store caches when storeKey is not
  * provided (for checkout where the storeKey may not be available).
@@ -2106,23 +2121,24 @@ export function startOsProductsSync(): void {
     return;
   }
 
-  const initTimer = setTimeout(() => {
-    // Seed the startup price snapshot and the price-alert deduplication map
-    // from the DB before the first OS fetch. Both must be populated before
-    // `fetchAndStore` runs so that:
-    //   1. `maybeRecordStartupSnapshot` uses the persisted prior-day baseline
-    //      rather than treating the fresh prices as the baseline (which would
-    //      make every product look "unchanged" immediately after a restart).
-    //   2. `detectAndAlertPriceChanges` doesn't re-fire alerts that were
-    //      already sent within the past 24 h before the restart.
-    Promise.all([seedStartupSnapshotFromDb(), seedPriceAlertDedupeFromDb()])
-      .then(() => fetchAndStore())
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        logger.warn({ err: msg }, "osProductsCache: initial fetch failed");
-      });
-  }, 8_000);
-  initTimer.unref?.();
+  // Seed the startup price snapshot and the price-alert deduplication map
+  // from the DB before the first OS fetch. Both must be populated before
+  // `fetchAndStore` runs so that:
+  //   1. `maybeRecordStartupSnapshot` uses the persisted prior-day baseline
+  //      rather than treating the fresh prices as the baseline (which would
+  //      make every product look "unchanged" immediately after a restart).
+  //   2. `detectAndAlertPriceChanges` doesn't re-fire alerts that were
+  //      already sent within the past 24 h before the restart.
+  //
+  // Do not delay this initial read: listing clients can now explicitly wait
+  // for readiness, and starting immediately minimizes that wait after a
+  // server restart.
+  Promise.all([seedStartupSnapshotFromDb(), seedPriceAlertDedupeFromDb()])
+    .then(() => fetchAndStore())
+    .catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn({ err: msg }, "osProductsCache: initial fetch failed");
+    });
 
   timer = setInterval(() => {
     if (fetching) return;

@@ -116,6 +116,39 @@ export type DeliveryLocationsResponse = {
 
 type LocalizedParams = { countryCode?: string; cityId?: string; lang?: string };
 
+type CatalogNotReadyError = Error & {
+  status?: number;
+  code?: string;
+  data?: { code?: string };
+};
+
+const CATALOG_NOT_READY_CODE = "catalog_not_ready";
+const CATALOG_NOT_READY_RETRY_DELAY_MS = 1_000;
+
+function isCatalogNotReadyError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const catalogError = error as CatalogNotReadyError;
+  return catalogError.status === 503 &&
+    (catalogError.code === CATALOG_NOT_READY_CODE ||
+      catalogError.data?.code === CATALOG_NOT_READY_CODE);
+}
+
+/**
+ * Catalog readiness is a temporary state after an API restart, not a failed
+ * empty listing. Keep retrying that explicit response until the server has
+ * completed its first OS catalog read; preserve React Query's normal retry
+ * budget for every other failure.
+ */
+function retryCatalogQuery(failureCount: number, error: unknown): boolean {
+  return isCatalogNotReadyError(error) || failureCount < 3;
+}
+
+function catalogRetryDelay(failureCount: number, error: unknown): number {
+  return isCatalogNotReadyError(error)
+    ? CATALOG_NOT_READY_RETRY_DELAY_MS
+    : Math.min(1_000 * 2 ** failureCount, 30_000);
+}
+
 // ── Occasion-type grouping (mirrors OCCASION_TYPE_CATEGORIES in routes/woo.ts) ─
 
 const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
@@ -256,6 +289,8 @@ function mergeProductsPricing(products: Product[], pricing: ProductsPricingMap):
 // up full React/TanStack Query machinery.
 export { mergeProductsPricing as __mergeProductsPricingForTest };
 export { fetchProductsPricing as __fetchProductsPricingForTest };
+export { isCatalogNotReadyError as __isCatalogNotReadyErrorForTest };
+export { retryCatalogQuery as __retryCatalogQueryForTest };
 
 // ── Base OS products hook ──────────────────────────────────────────────────
 //
@@ -329,6 +364,8 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
     },
     enabled,
     staleTime: 5 * 60 * 1000,
+    retry: retryCatalogQuery,
+    retryDelay: catalogRetryDelay,
   });
 }
 
@@ -444,6 +481,8 @@ export const useBrandProducts = (
     },
     enabled: !!slug,
     staleTime: 5 * 60 * 1000,
+    retry: retryCatalogQuery,
+    retryDelay: catalogRetryDelay,
   });
 };
 

@@ -127,6 +127,7 @@ import {
 import { getLocalIso } from "@workspace/delivery";
 import {
   getOsProducts,
+  isOsProductsReady,
   getOsCategories,
   getOsBrands,
   getOsRawCatalogBrands,
@@ -588,7 +589,11 @@ router.get("/woo/brand-products", async (req, res) => {
   if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
 
   const store = resolveStoreFromRequest(req);
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  const cachedOsProducts = getOsProducts(store.storeKey);
+  if (cachedOsProducts === null && !isOsProductsReady(store.storeKey)) {
+    return sendCatalogNotReady(res);
+  }
+  const osProducts = cachedOsProducts ?? [];
   const filter = readDeliveryFilter(req);
   const lang = readLang(req);
   const osBrands = getOsBrands() ?? [];
@@ -706,6 +711,17 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "bundles", label: "Gift Bundles" },
 ];
 
+function sendCatalogNotReady(res: import("express").Response) {
+  return res
+    .status(503)
+    .set("Retry-After", "1")
+    .json({
+      ok: false,
+      code: "catalog_not_ready",
+      message: "Catalog is loading. Please retry shortly.",
+    }); // i18n-ignore
+}
+
 router.get("/woo/category-products", async (req, res) => {
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
@@ -714,7 +730,11 @@ router.get("/woo/category-products", async (req, res) => {
   }
 
   const store = resolveStoreFromRequest(req);
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  const cachedOsProducts = getOsProducts(store.storeKey);
+  if (cachedOsProducts === null && !isOsProductsReady(store.storeKey)) {
+    return sendCatalogNotReady(res);
+  }
+  const osProducts = cachedOsProducts ?? [];
   const filter = readDeliveryFilter(req);
   const sortMode = readSortMode(req);
   const lang = readLang(req);
@@ -773,7 +793,11 @@ router.get("/woo/occasion-products", async (req, res) => {
   }
 
   const store = resolveStoreFromRequest(req);
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  const cachedOsProducts = getOsProducts(store.storeKey);
+  if (cachedOsProducts === null && !isOsProductsReady(store.storeKey)) {
+    return sendCatalogNotReady(res);
+  }
+  const osProducts = cachedOsProducts ?? [];
   const filter = readDeliveryFilter(req);
   const lang = readLang(req);
   const sortMode = readSortMode(req);
@@ -878,7 +902,11 @@ router.get("/woo/occasion-products", async (req, res) => {
 
 router.get("/woo/products", async (req, res) => {
   const store = resolveStoreFromRequest(req);
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  const cachedOsProducts = getOsProducts(store.storeKey);
+  if (cachedOsProducts === null && !isOsProductsReady(store.storeKey)) {
+    return sendCatalogNotReady(res);
+  }
+  const osProducts = cachedOsProducts ?? [];
   const filter = readDeliveryFilter(req);
   const sortMode = readSortMode(req);
   const lang = readLang(req);

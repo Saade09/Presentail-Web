@@ -49,7 +49,12 @@ vi.mock("./attribution", () => ({
 }));
 
 // Import the test exports after mocks are in place.
-import { __mergeProductsPricingForTest as merge, __fetchProductsPricingForTest as fetchPricing } from "@/lib/queries";
+import {
+  __mergeProductsPricingForTest as merge,
+  __fetchProductsPricingForTest as fetchPricing,
+  __isCatalogNotReadyErrorForTest as isCatalogNotReady,
+  __retryCatalogQueryForTest as retryCatalogQuery,
+} from "@/lib/queries";
 import type { Product } from "@/lib/queries";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -96,6 +101,23 @@ describe("mergeProductsPricing — modern regular_price / sale_price scheme", ()
     expect(result[0].priceValue).toBe(90);
     expect(result[0].discountPriceValue).toBe(55);
     expect(result[0].discountPriceAed).toBe(200);
+  });
+});
+
+describe("catalog readiness retry policy", () => {
+  it("retries the explicit temporary catalog response without treating it as an empty result", () => {
+    const notReady = Object.assign(new Error("Catalog is loading"), {
+      status: 503,
+      code: "catalog_not_ready",
+    });
+
+    expect(isCatalogNotReady(notReady)).toBe(true);
+    expect(retryCatalogQuery(100, notReady)).toBe(true);
+  });
+
+  it("keeps the normal bounded retry budget for other failures", () => {
+    expect(retryCatalogQuery(2, new Error("network down"))).toBe(true);
+    expect(retryCatalogQuery(3, new Error("network down"))).toBe(false);
   });
 });
 
