@@ -6,7 +6,7 @@
  * well-known places (hospitals, universities, hotels, malls...). Per the
  * confirmed OS contract (Aug 2026) the SEARCH ITSELF happens OS-side:
  * we forward the shopper's debounced text as `q` to
- * GET /api/public/address-book/places and relay only checkout-safe records.
+ * GET /api/address-book/places and relay only checkout-safe records.
  * This repo never invents places, districts, or coordinates, and never
  * re-ranks the OS relevance ordering.
  *
@@ -19,7 +19,7 @@
  *
  * Fallback policy (checkout free-text entry must never depend on this API):
  *   - Flag off → always empty, no OS calls at all.
- *   - OS failure (403 while access is pending, network, bad payload) →
+ *   - OS failure (authorization, network, bad payload) →
  *     empty list AND a global backoff so a shopper typing does not hammer
  *     OS with one failing request per keystroke.
  *   - Per-query results are cached briefly so repeated queries (backspacing,
@@ -226,7 +226,7 @@ async function fetchEligiblePlaces(
           apiKey: process.env.PRESENTAIL_OS_API_KEY ?? "",
           baseUrl: process.env.PRESENTAIL_OS_API_URL || undefined,
         },
-        { q: rawQuery, countryCode: countryCode ?? undefined },
+        { q: rawQuery },
       );
       // Defensive eligibility filter — the OS contract promises only
       // checkout-safe records, but unverified places must never reach a

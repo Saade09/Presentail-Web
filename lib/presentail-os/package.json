@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:address-book-live": "OS_ADDRESS_BOOK_LIVE_SMOKE=1 vitest run src/addressBook.live.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {

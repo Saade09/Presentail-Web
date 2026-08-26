@@ -1143,11 +1143,11 @@ export async function validateOsCoupon(
 // ── Address Book (verified landmarks / well-known places) ──────────────────
 
 /**
- * Raw wire shape of an OS Address Book place. The confirmed contract
- * (OS team, Aug 2026) sends camelCase fields — displayName, approvedAliases,
- * deliveryDistrict, verificationState, followUpCopy — but OS endpoints have
- * historically flipped between snake_case and camelCase across deployments,
- * so every field is read via the `raw.x_y ?? raw.xY` pattern.
+ * Raw wire shape of an OS Address Book place. The places endpoint sends
+ * camelCase fields — displayName, approvedAliases, deliveryDistrict,
+ * verificationState, followUpCopy — but OS endpoints have historically
+ * flipped between snake_case and camelCase across deployments, so every field
+ * is read via the `raw.x_y ?? raw.xY` pattern.
  */
 type RawOSAddressBookPlace = {
   id?: string | number;
@@ -1201,6 +1201,9 @@ type RawOSAddressBookPlace = {
   checkoutEnabled?: boolean;
   is_checkout_enabled?: boolean;
   checkout_active?: boolean;
+  is_checkout_active?: boolean;
+  isCheckoutActive?: boolean;
+  checkoutActive?: boolean;
   follow_up_question?: string | null;
   followUpQuestion?: string | null;
   follow_up_copy?: string | null;
@@ -1268,38 +1271,37 @@ export function normaliseOsAddressBookPlace(
     raw.district && typeof raw.district === "object" ? raw.district : null;
 
   // Confirmed contract (Aug 2026): a single `verificationState` string where
-  // "delivery_verified" means the record is checkout-safe. That one state
-  // satisfies all three legacy eligibility booleans at once. Any other state
-  // (or absence) falls back to the legacy flags, which default to FALSE —
-  // fail closed, never open.
+  // "delivery_verified" means the record is checkout-safe when the legacy
+  // eligibility flags are absent. Explicit false flags always win, so a
+  // mistakenly published or checkout-disabled record cannot leak through.
   const verificationState = toStringOrNull(
     raw.verification_state ?? raw.verificationState,
   );
   const deliveryVerified = verificationState === "delivery_verified";
 
   const verified =
-    (deliveryVerified ? true : undefined) ??
     raw.verified ??
     raw.is_verified ??
     raw.isVerified ??
     ((raw.verification_status ?? raw.verificationStatus) === "verified"
       ? true
       : undefined) ??
-    false;
+    (deliveryVerified ? true : false);
   const published =
-    (deliveryVerified ? true : undefined) ??
     raw.published ??
     raw.is_published ??
     raw.isPublished ??
     (raw.status === "published" ? true : undefined) ??
-    false;
+    (deliveryVerified ? true : false);
   const checkoutEnabled =
-    (deliveryVerified ? true : undefined) ??
     raw.checkout_enabled ??
     raw.checkoutEnabled ??
     raw.is_checkout_enabled ??
+    raw.is_checkout_active ??
+    raw.isCheckoutActive ??
     raw.checkout_active ??
-    false;
+    raw.checkoutActive ??
+    (deliveryVerified ? true : false);
 
   return {
     id,
@@ -1361,19 +1363,14 @@ export function normaliseOsAddressBookPlace(
  * Confirmed OS Address Book search endpoint (contract from the OS team,
  * Aug 2026):
  *
- *   GET /api/public/address-book/places
- *     ?workspace=<workspace-slug>
- *     &q=<customer-search-text>
- *     &country=<ISO-country-code>
- *     [&city_slug=<city-slug>]
+ *   GET /api/address-book/places?q=<customer-search-text>
  *
  * The search happens OS-side: we forward the shopper's (debounced) text as
- * `q` and the OS returns only checkout-safe records. Note: as of Aug 24 2026
- * the endpoint still answers 403 {"error":"no_access"} for the storefront
- * key — the integration lights up automatically once the OS team grants
- * access (all failures degrade to an empty suggestion list downstream).
+ * `q`. The API key is server-only and is sent using the authenticated OS
+ * header contract; it must never be placed in the URL or returned to either
+ * checkout client.
  */
-const ADDRESS_BOOK_SEARCH_PATH = "/api/public/address-book/places";
+const ADDRESS_BOOK_SEARCH_PATH = "/api/address-book/places";
 
 /**
  * Search the OS Address Book for verified places matching the shopper's
@@ -1385,9 +1382,9 @@ const ADDRESS_BOOK_SEARCH_PATH = "/api/public/address-book/places";
  */
 export async function searchOsAddressBookPlaces(
   config: PresentailOsConfig,
-  opts: { q: string; countryCode?: string; citySlug?: string },
+  opts: { q: string },
 ): Promise<OSAddressBookPlacesResponse> {
-  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+  const { apiKey, baseUrl = DEFAULT_BASE_URL } = config;
 
   if (!apiKey) {
     throw new Error(
@@ -1396,15 +1393,7 @@ export async function searchOsAddressBookPlaces(
   }
 
   const url = new URL(`${baseUrl}${ADDRESS_BOOK_SEARCH_PATH}`);
-  url.searchParams.set("workspace", workspace);
   url.searchParams.set("q", opts.q);
-  if (opts.countryCode) {
-    url.searchParams.set("country", opts.countryCode.toUpperCase());
-  }
-  if (opts.citySlug) {
-    url.searchParams.set("city_slug", opts.citySlug);
-  }
-  url.searchParams.set("apiKey", apiKey);
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -1423,7 +1412,8 @@ export async function searchOsAddressBookPlaces(
   }
 
   const body = (await res.json().catch(() => null)) as unknown;
-  // Accept { places: [...] }, { items: [...] }, { data: [...] }, or a bare array.
+  // Accept the confirmed { places: [...] } response, plus the common wrapper
+  // variants used by older OS deployments.
   const rawList: unknown = Array.isArray(body)
     ? body
     : body && typeof body === "object"

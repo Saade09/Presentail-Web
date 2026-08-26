@@ -106,11 +106,11 @@ describe("searchAddressBookPlaces", () => {
     expect(searchOsMock).not.toHaveBeenCalled();
   });
 
-  it("forwards the shopper's text as q with the uppercased country", async () => {
+  it("forwards only the shopper's text as q; country filtering stays server-side", async () => {
     await searchAddressBookPlaces(" AUB ", "lb");
     expect(searchOsMock).toHaveBeenCalledWith(
       expect.objectContaining({ apiKey: expect.any(String) }),
-      { q: "AUB", countryCode: "LB" },
+      { q: "AUB" },
     );
   });
 

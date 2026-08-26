@@ -498,35 +498,30 @@ describe("searchOsAddressBookPlaces — confirmed OS contract", () => {
     followUpCopy: "Please add floor, apartment, and delivery instructions.",
   };
 
-  it("calls the confirmed endpoint with workspace, q, and country", async () => {
-    const fetchMock = vi.fn((_url: string) =>
+  it("calls the confirmed endpoint with only q and the server-side API-key header", async () => {
+    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
       Promise.resolve(jsonResponse({ places: [contractPlace] })),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await searchOsAddressBookPlaces(config, { q: "AUB", countryCode: "lb" });
+    await searchOsAddressBookPlaces(config, { q: "AUB" });
 
     const calledUrl = new URL(fetchMock.mock.calls[0]![0]);
-    expect(calledUrl.pathname).toBe("/api/public/address-book/places");
-    expect(calledUrl.searchParams.get("workspace")).toBe("presentail");
+    expect(calledUrl.pathname).toBe("/api/address-book/places");
     expect(calledUrl.searchParams.get("q")).toBe("AUB");
-    expect(calledUrl.searchParams.get("country")).toBe("LB");
+    expect(calledUrl.searchParams.get("workspace")).toBeNull();
+    expect(calledUrl.searchParams.get("country")).toBeNull();
     expect(calledUrl.searchParams.get("city_slug")).toBeNull();
-  });
-
-  it("passes city_slug through when provided", async () => {
-    const fetchMock = vi.fn((_url: string) =>
-      Promise.resolve(jsonResponse({ places: [] })),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await searchOsAddressBookPlaces(config, {
-      q: "abc",
-      countryCode: "LB",
-      citySlug: "beirut",
+    expect(calledUrl.searchParams.get("apiKey")).toBeNull();
+    expect(fetchMock.mock.calls[0]![1]).toEqual({
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "PresentailApp/1.0",
+        "x-api-key": "test-key",
+        Authorization: "Bearer test-key",
+      },
+      signal: expect.anything(),
     });
-    const calledUrl = new URL(fetchMock.mock.calls[0]![0]);
-    expect(calledUrl.searchParams.get("city_slug")).toBe("beirut");
   });
 
   it("normalises the contract payload into the internal place shape", async () => {
@@ -547,7 +542,7 @@ describe("searchOsAddressBookPlaces — confirmed OS contract", () => {
     expect(place.area).toBe("Hamra");
     expect(place.lat).toBe(33.895);
     expect(place.lng).toBe(35.478);
-    // verificationState "delivery_verified" satisfies all three eligibility flags.
+    // verificationState "delivery_verified" supplies absent eligibility flags.
     expect(place.verified).toBe(true);
     expect(place.published).toBe(true);
     expect(place.checkoutEnabled).toBe(true);
@@ -571,9 +566,33 @@ describe("searchOsAddressBookPlaces — confirmed OS contract", () => {
       ),
     );
     const { places } = await searchOsAddressBookPlaces(config, { q: "abc" });
-    expect(places.every((p) => !p.verified || !p.published || !p.checkoutEnabled)).toBe(
-      true,
+    expect(
+      places.every((p) => !p.verified || !p.published || !p.checkoutEnabled),
+    ).toBe(true);
+  });
+
+  it("keeps explicit unpublished and checkout-inactive flags ineligible", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            places: [
+              {
+                ...contractPlace,
+                published: false,
+                checkoutEnabled: false,
+              },
+            ],
+          }),
+        ),
+      ),
     );
+
+    const { places } = await searchOsAddressBookPlaces(config, { q: "abc" });
+    expect(places[0]?.verified).toBe(true);
+    expect(places[0]?.published).toBe(false);
+    expect(places[0]?.checkoutEnabled).toBe(false);
   });
 
   it("also accepts snake_case field names", async () => {
