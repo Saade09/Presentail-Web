@@ -533,6 +533,27 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect(screen.queryByTestId("megamenu-item-candles")).toBeNull();
   });
 
+  it("hides Luxury Flowers and Roses from the Flowers & Plants menu", async () => {
+    const user = userEvent.setup();
+    mockUseCatalogMetadata.mockReturnValue({
+      data: {
+        brands: [],
+        categories: [
+          { id: "luxury", name: "Luxury Flowers", icon: "tag", count: 7 },
+          { id: "roses", name: "Roses", icon: "tag", count: 32 },
+          { id: "plants", name: "Plants", icon: "tag", count: 13 },
+        ],
+      },
+    });
+    renderWithProviders(<MainNavbar />);
+
+    await user.click(screen.getByTestId("nav-trigger-flowers"));
+
+    expect(screen.queryByTestId("megamenu-item-luxury-flowers")).toBeNull();
+    expect(screen.queryByTestId("megamenu-item-roses")).toBeNull();
+    expect(screen.getByTestId("megamenu-item-plants")).toBeDefined();
+  });
+
   it("keeps the occasions CTA outside the scrolling skeleton while the catalog loads", async () => {
     const user = userEvent.setup();
     mockUseCatalogOccasions.mockReturnValue({ data: undefined, isPending: true });

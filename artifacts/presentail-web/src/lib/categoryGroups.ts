@@ -103,6 +103,8 @@ export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
   "sweets",
   "children",
   "candles",
+  "luxury",
+  "roses",
 ]);
 
 /**
