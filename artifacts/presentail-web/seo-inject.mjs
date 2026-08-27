@@ -22,6 +22,7 @@ import {
   expressSurchargeForCountry,
 } from "@workspace/delivery";
 import { roundToNearestFive } from "@workspace/display-currency";
+import { WindowedKeyRateLimiter } from "./server-analytics-policy.mjs";
 
 // Hub city per country — only these pages emit the LocalBusiness organisation
 // block.  Declaring a near-identical Florist on all 37 city homepages sharing
@@ -2614,9 +2615,16 @@ function buildWishlistHead({
  * `entityKind` is a fixed server-side value (e.g. "product", "brand",
  * "category", "occasion") stored in the `error_code` column for filtering.
  */
+const seoFailureLimiter = new WindowedKeyRateLimiter(5 * 60 * 1000, 100);
+
+export function __resetSeoFailureAggregationForTest() {
+  seoFailureLimiter.reset();
+}
+
 function reportSeoFetchFailure(apiBaseUrl, entityKind) {
   if (!apiBaseUrl) return;
   const base = apiBaseUrl.replace(/\/$/, "");
+  if (!seoFailureLimiter.shouldAllow(`${base}:${entityKind}`)) return;
   try {
     void fetch(`${base}/api/analytics/events`, {
       method: "POST",
@@ -2663,11 +2671,11 @@ async function fetchEntityForSeo({
     // 304: upstream confirms entity is unchanged — no body to parse.
     if (res.status === 304) return { notModified: true };
     if (!res.ok) {
-      reportSeoFetchFailure(apiBaseUrl, responseKey);
       // Return a distinct sentinel for genuine HTTP 404 (product definitively
       // absent) so callers can distinguish it from a transient error (503,
       // network failure, timeout) that does NOT confirm the product is gone.
       if (res.status === 404) return { notFound: true };
+      reportSeoFetchFailure(apiBaseUrl, responseKey);
       return null;
     }
     const body = await res.json();

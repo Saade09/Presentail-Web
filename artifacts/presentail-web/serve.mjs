@@ -37,6 +37,10 @@ import {
   stripTrackingParams,
   stripTrackingParamsFromReqUrl,
 } from "./serve-tracking.mjs";
+import {
+  WindowedKeyRateLimiter,
+  buildProductLifecycle410Event,
+} from "./server-analytics-policy.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -115,14 +119,13 @@ const WWW_REDIRECT_TARGET_ORIGIN = (
 // that returned 410 in the prior UTC day so ops can add redirect entries before
 // link equity is permanently lost.
 // ---------------------------------------------------------------------------
+const product410Limiter = new WindowedKeyRateLimiter(24 * 60 * 60 * 1000);
+
 function recordProduct410Event(productSlug) {
   if (!productSlug) return;
+  if (!product410Limiter.shouldAllow(String(productSlug))) return;
   const url = `${INTERNAL_API_BASE_URL}/api/analytics/events`;
-  const body = JSON.stringify({
-    name: "product_lifecycle_410",
-    productId: String(productSlug).slice(0, 64),
-    surface: "web",
-  });
+  const body = JSON.stringify(buildProductLifecycle410Event(productSlug));
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 5_000);
   fetch(url, {

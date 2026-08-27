@@ -2,6 +2,12 @@ import { Router, type IRouter } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { db, analyticsEventsTable } from "@workspace/db";
+import {
+  analyticsSamplingMetadata,
+  decideViewSampling,
+  getAnalyticsSamplingConfig,
+  type AnalyticsSamplingDecision,
+} from "../lib/analyticsSampling";
 
 const WEB_EVENT_TYPES = [
   "page_view",
@@ -215,7 +221,10 @@ function sanitizeSavedAddressEvent(event: WebEventBody): WebEventBody {
 }
 
 
-function mapEventToRow(event: WebEventBody): typeof analyticsEventsTable.$inferInsert {
+function mapEventToRow(
+  event: WebEventBody,
+  samplingDecision?: AnalyticsSamplingDecision,
+): typeof analyticsEventsTable.$inferInsert {
   const propertiesMeta: Record<string, unknown> = {};
   if (event.currency) propertiesMeta.currency = event.currency;
   if (event.brand) propertiesMeta.brand = event.brand;
@@ -227,6 +236,10 @@ function mapEventToRow(event: WebEventBody): typeof analyticsEventsTable.$inferI
   if (event.utmCampaign) propertiesMeta.utmCampaign = event.utmCampaign;
   if (event.path) propertiesMeta.path = event.path;
   if (event.properties) Object.assign(propertiesMeta, event.properties);
+  if (samplingDecision) {
+    propertiesMeta.analyticsSampling =
+      analyticsSamplingMetadata(samplingDecision);
+  }
   return {
     name: event.type,
     platform: "web",
@@ -302,13 +315,27 @@ router.post(
       events = [singleParsed.data];
     }
 
-    const toInsert = events
+    const acceptedEvents = events
       .filter((e) => e.sessionId && e.sessionId.trim().length > 0)
       .map(sanitizeSavedAddressEvent);
-    const dropped = events.length - toInsert.length;
+    const dropped = events.length - acceptedEvents.length;
+    const samplingConfig = getAnalyticsSamplingConfig();
+    const evaluated = acceptedEvents.map((event) => ({
+      event,
+      samplingDecision:
+        event.type === "page_view" || event.type === "product_view"
+          ? decideViewSampling(event.sessionId, samplingConfig)
+          : undefined,
+    }));
+    const toInsert = evaluated.filter(
+      ({ samplingDecision }) => !samplingDecision || samplingDecision.persist,
+    );
+    const sampledOut = evaluated.length - toInsert.length;
 
     if (toInsert.length > 0) {
-      const rows = toInsert.map(mapEventToRow);
+      const rows = toInsert.map(({ event, samplingDecision }) =>
+        mapEventToRow(event, samplingDecision),
+      );
       void db
         .insert(analyticsEventsTable)
         .values(rows)
@@ -319,16 +346,35 @@ router.post(
             "web-events: failed to persist events",
           );
         });
-
-      forwardToOs(toInsert, req.log);
     }
+    // Keep the external analytics stream complete. Sampling only limits the
+    // local PostgreSQL copy that is responsible for the database growth.
+    forwardToOs(acceptedEvents, req.log);
 
     req.log.info(
-      { accepted: toInsert.length, dropped, types: toInsert.map((e) => e.type) },
+      {
+        accepted: acceptedEvents.length,
+        persisted: toInsert.length,
+        sampledOut,
+        dropped,
+        types: acceptedEvents.map((e) => e.type),
+        analyticsSampling: {
+          mode: samplingConfig.mode,
+          viewRate: samplingConfig.viewRate,
+          shadowWouldPersist: evaluated.filter(
+            ({ samplingDecision }) =>
+              !samplingDecision || samplingDecision.selected,
+          ).length,
+        },
+      },
       "web-events ingested",
     );
 
-    res.status(200).json({ ok: true, accepted: toInsert.length, dropped });
+    res.status(200).json({
+      ok: true,
+      accepted: acceptedEvents.length,
+      dropped,
+    });
   },
 );
 

@@ -7,6 +7,11 @@ import {
   RecordAnalyticsEventResponse,
 } from "@workspace/api-zod";
 import { db, analyticsEventsTable } from "@workspace/db";
+import {
+  analyticsSamplingMetadata,
+  decideWebVitalSampling,
+  getAnalyticsSamplingConfig,
+} from "../lib/analyticsSampling";
 
 const ADS_CONVERSION_ID = "AW-18281774261"; // i18n-ignore
 const ADS_CONVERSION_LABEL = "XYi_CNabpMccELX5to1E"; // i18n-ignore
@@ -214,6 +219,19 @@ router.post(
       typeof metricValue === "number" && Number.isFinite(metricValue)
         ? Math.min(Math.max(metricValue, 0), 60_000)
         : null;
+    const samplingConfig = getAnalyticsSamplingConfig();
+    const samplingDecision =
+      name === "web_vital"
+        ? decideWebVitalSampling(
+            {
+              sessionId: clippedSessionId,
+              action,
+              metricValue: clampedMetricValue ?? undefined,
+              errorCode: clippedErrorCode,
+            },
+            samplingConfig,
+          )
+        : null;
 
     req.log.info(
       {
@@ -237,6 +255,16 @@ router.post(
         linkUrl: clippedLinkUrl,
         userId,
         signedIn: Boolean(userId),
+        analyticsSampling: samplingDecision
+          ? {
+              mode: samplingDecision.mode,
+              rate: samplingDecision.sampleRate,
+              selected: samplingDecision.selected,
+              retainedByException: samplingDecision.retainedByException,
+              persisted: samplingDecision.persist,
+              reason: samplingDecision.reason,
+            }
+          : { mode: "full_fidelity", persisted: true },
       },
       "analytics event",
     );
@@ -244,38 +272,50 @@ router.post(
     // Persist the event so the scheduled funnel monitor can compute
     // platform/surface ratios after the fact. Best-effort: a DB outage
     // must not break analytics ingestion.
-    void db
-      .insert(analyticsEventsTable)
-      .values({
-        name,
-        surface: surface ?? null,
-        action: action ?? null,
-        platform: platform ?? null,
-        appVersion: clippedAppVersion ?? null,
-        errorCode: clippedErrorCode ?? null,
-        productId: clippedProductId ?? null,
-        sessionId: clippedSessionId ?? null,
-        propertiesJson: clippedCampaignIdentity
-          ? JSON.stringify({ campaignIdentity: clippedCampaignIdentity })
-          : null,
-        state: clippedState ?? null,
-        appOrderId: clippedAppOrderId ?? null,
-        wcOrderId: clippedWcOrderId ?? null,
-        metricValue: clampedMetricValue,
-        bannerId: clippedBannerId ?? null,
-        linkKind: clippedLinkKind ?? null,
-        linkSlug: clippedLinkSlug ?? null,
-        linkUrl: clippedLinkUrl ?? null,
-        userId: userId ?? null,
-        signedIn: Boolean(userId),
-      })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        req.log.warn(
-          { err: message, event: name },
-          "analytics: failed to persist event",
-        );
-      });
+    if (!samplingDecision || samplingDecision.persist) {
+      const properties: Record<string, unknown> = {};
+      if (clippedCampaignIdentity) {
+        properties.campaignIdentity = clippedCampaignIdentity;
+      }
+      if (samplingDecision) {
+        properties.analyticsSampling =
+          analyticsSamplingMetadata(samplingDecision);
+      }
+
+      void db
+        .insert(analyticsEventsTable)
+        .values({
+          name: samplingDecision?.storedName ?? name,
+          surface: surface ?? null,
+          action: action ?? null,
+          platform: platform ?? null,
+          appVersion: clippedAppVersion ?? null,
+          errorCode: clippedErrorCode ?? null,
+          productId: clippedProductId ?? null,
+          sessionId: clippedSessionId ?? null,
+          propertiesJson:
+            Object.keys(properties).length > 0
+              ? JSON.stringify(properties)
+              : null,
+          state: clippedState ?? null,
+          appOrderId: clippedAppOrderId ?? null,
+          wcOrderId: clippedWcOrderId ?? null,
+          metricValue: clampedMetricValue,
+          bannerId: clippedBannerId ?? null,
+          linkKind: clippedLinkKind ?? null,
+          linkSlug: clippedLinkSlug ?? null,
+          linkUrl: clippedLinkUrl ?? null,
+          userId: userId ?? null,
+          signedIn: Boolean(userId),
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          req.log.warn(
+            { err: message, event: name },
+            "analytics: failed to persist event",
+          );
+        });
+    }
 
     const body = RecordAnalyticsEventResponse.parse({ ok: true });
     res.status(200).json(body);

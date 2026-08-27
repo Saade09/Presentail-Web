@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __resetSeoFailureAggregationForTest } from "../../seo-inject.mjs";
 import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 
 // Seed the per-country available-category cache so the shop-route body
@@ -3456,18 +3456,23 @@ describe("ETag on hero product within wishlist cache miss", () => {
 // ---------------------------------------------------------------------------
 
 describe("seo_entity_fetch_failed analytics event — emitted on entity lookup failure", () => {
+  beforeEach(() => {
+    __resetSeoFailureAggregationForTest();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  function makeAnalyticsMock(entityResponse: { ok: boolean; body?: unknown }) {
+  function makeAnalyticsMock(entityResponse: { ok: boolean; status?: number; body?: unknown }) {
     const fn = vi.fn().mockImplementation(async (url: string) => {
       if (String(url).includes("/api/analytics/events")) {
         return { ok: true, json: async () => ({ ok: true }) };
       }
       return {
         ok: entityResponse.ok,
+        status: entityResponse.status,
         json: async () => entityResponse.body ?? {},
       };
     });
@@ -3475,13 +3480,22 @@ describe("seo_entity_fetch_failed analytics event — emitted on entity lookup f
     return fn;
   }
 
-  it("fires seo_entity_fetch_failed when a product HTTP 404 occurs", async () => {
-    const fetchMock = makeAnalyticsMock({ ok: false });
+  it("does not classify a definitive product HTTP 404 as an upstream failure", async () => {
+    const fetchMock = makeAnalyticsMock({ ok: false, status: 404 });
     await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/missing-slug", OPTS);
     const analyticsCalls = fetchMock.mock.calls.filter((c) =>
       String(c[0]).includes("/api/analytics/events"),
     );
-    expect(analyticsCalls.length).toBeGreaterThanOrEqual(1);
+    expect(analyticsCalls).toHaveLength(0);
+  });
+
+  it("fires seo_entity_fetch_failed for a transient product HTTP 503", async () => {
+    const fetchMock = makeAnalyticsMock({ ok: false, status: 503 });
+    await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/transient-slug", OPTS);
+    const analyticsCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(analyticsCalls).toHaveLength(1);
     const body = JSON.parse(analyticsCalls[0][1].body);
     expect(body.name).toBe("seo_entity_fetch_failed");
     expect(body.platform).toBe("web");
@@ -4812,6 +4826,10 @@ describe("shared-link preview cache — null result is NOT cached", () => {
 });
 
 describe("shared-link preview cache — analytics event fired on live failure but not on cache hit", () => {
+  beforeEach(() => {
+    __resetSeoFailureAggregationForTest();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -4858,7 +4876,7 @@ describe("shared-link preview cache — analytics event fired on live failure bu
 
       if (u.includes(`slug=${failSlug}`)) {
         failFetchCount++;
-        return { ok: false, status: 404, json: async () => ({}) };
+        return { ok: false, status: 503, json: async () => ({}) };
       }
 
       return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) };
