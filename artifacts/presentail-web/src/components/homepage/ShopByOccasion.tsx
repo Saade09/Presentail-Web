@@ -80,7 +80,14 @@ export function ShopByOccasion() {
   // Fall back to the hardcoded ITEMS order ONLY while the query is still in
   // flight (loading state). Once the query has settled — even to an empty list
   // — we render strictly from the API data so the order is always server-driven.
-  const apiOccasions = occasionsData?.occasions ?? [];
+  // Only show occasions the OS has marked as featured — same rule as the mega menu.
+  // Non-featured occasions (e.g. Funeral, Wedding, I'm Sorry) are excluded so the
+  // grid stays curated. The featured flag is included in every /catalog/occasions
+  // response item; fall back to showing all active occasions only when NONE are
+  // featured (e.g. fresh OS instance with no flags set), to avoid a blank section.
+  const allApiOccasions = occasionsData?.occasions ?? [];
+  const featuredApiOccasions = allApiOccasions.filter((o) => o.featured === true);
+  const apiOccasions = featuredApiOccasions.length > 0 ? featuredApiOccasions : allApiOccasions;
 
   const displayItems: Array<{ slug: string; key: string; Icon: LucideIcon; image: string | null }> =
     isPending

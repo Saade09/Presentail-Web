@@ -172,6 +172,19 @@ router.get("/catalog/brand-image/:filename", async (req, res) => {
 // OS stores occasion images at auth-gated /objects/… paths. The browser cannot
 // supply the API key, so we proxy through here. The occasion ID (numeric string
 // as returned by the occasions API) is used as the cache key.
+//
+// Static fallbacks are used when OS has no image configured for an occasion, or
+// when the stored imagePublicUrl is not a real image asset (e.g. an SPA route).
+const OCCASION_STATIC_IMAGES_PROXY: Record<string, string> = {
+  "birthday":      "/catalog/occasions/birthday.webp",
+  "love-romance":  "/catalog/occasions/love-romance.webp",
+  "thank-you":     "/catalog/occasions/thank-you.webp",
+  "condolences":   "/catalog/occasions/condolences.webp",
+  "farewell":      "/catalog/occasions/farewell.avif",
+  "housewarming":  "/catalog/occasions/housewarming.avif",
+  "new-job":       "/catalog/occasions/new-job.avif",
+  "promotion":     "/catalog/occasions/promotion.avif",
+};
 
 router.get("/catalog/occasion-image/:id", async (req, res) => {
   const { id } = req.params;
@@ -209,17 +222,7 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
     // Fall back to a bundled static asset when a known slug has one.
     // This benefits any consumer of the proxy (homepage carousel, all-occasions
     // page) without requiring a client-side change per consumer.
-    const OCCASION_STATIC_IMAGES: Record<string, string> = {
-      "birthday":      "/catalog/occasions/birthday.webp",
-      "love-romance":  "/catalog/occasions/love-romance.webp",
-      "thank-you":     "/catalog/occasions/thank-you.webp",
-      "condolences":   "/catalog/occasions/condolences.webp",
-      "farewell":      "/catalog/occasions/farewell.avif",
-      "housewarming":  "/catalog/occasions/housewarming.avif",
-      "new-job":       "/catalog/occasions/new-job.avif",
-      "promotion":     "/catalog/occasions/promotion.avif",
-    };
-    const staticPath = occasion?.slug ? OCCASION_STATIC_IMAGES[occasion.slug] : undefined;
+    const staticPath = occasion?.slug ? OCCASION_STATIC_IMAGES_PROXY[occasion.slug] : undefined;
     if (staticPath) {
       res.redirect(302, staticPath);
       return;
@@ -236,6 +239,19 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
     res.send(result.data);
   } catch (error) {
     req.log.warn({ err: error }, "catalog/occasion-image: delivery failed");
+    // When OS provides a URL that isn't a real image asset (e.g. an SPA route
+    // or a private upload path returning HTML), fall through to the static
+    // fallback the same way we do when imagePublicUrl is absent entirely.
+    const code = error instanceof ImageDeliveryError ? error.code : null;
+    if (code === "invalid-url" || code === "non-image") {
+      const staticPath = occasion?.slug ? OCCASION_STATIC_IMAGES_PROXY[occasion.slug] : undefined;
+      if (staticPath) {
+        res.redirect(302, staticPath);
+        return;
+      }
+      res.status(404).json({ error: "Occasion image not found" });
+      return;
+    }
     res.status(error instanceof ImageDeliveryError ? error.status : 502).end();
   }
 });
@@ -369,7 +385,10 @@ router.get("/catalog/occasions", async (req, res) => {
     res.json({ occasions: [] });
     return;
   }
-  const rawItems = activeOs.map((o) => ({ id: o.id, slug: o.slug, name: o.name, osImage: o.image, featured: o.featured ?? false }));
+  // Prefer imagePublicUrl (public CDN) over image (private auth-gated URL).
+  // The /catalog/occasion-image/:id proxy serves via imagePublicUrl, so the
+  // condition here must check the same field or proxy hits return 404.
+  const rawItems = activeOs.map((o) => ({ id: o.id, slug: o.slug, name: o.name, osImage: o.imagePublicUrl ?? o.image, featured: o.featured ?? false }));
   // Build a map of OS best-selling position from the merged occasion set.
   // Only OS-catalog occasions (those from getOsOccasions()) carry osPosition;
   // product-tag-only occasions have no rank and are excluded from the map.
@@ -418,7 +437,7 @@ router.get("/catalog/occasions", async (req, res) => {
     const occasions = await localizeNames(fallbackSorted.map((o) => ({
       slug: o.slug,
       name: o.name,
-      image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,
+      image: (o.imagePublicUrl ?? o.image) ? `/api/catalog/occasion-image/${o.id}` : null,
       count: occasionCountMap.get(o.slug) ?? 0,
       featured: o.featured ?? false,
     })));
