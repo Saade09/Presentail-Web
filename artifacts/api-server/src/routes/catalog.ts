@@ -176,25 +176,14 @@ router.get("/catalog/brand-image/:filename", async (req, res) => {
 // Static fallbacks are used when OS has no image configured for an occasion, or
 // when the stored imagePublicUrl is not a real image asset (e.g. an SPA route).
 const OCCASION_STATIC_IMAGES_PROXY: Record<string, string> = {
-  "birthday":        "/catalog/occasions/birthday.webp",
-  "love-romance":    "/catalog/occasions/love-romance.webp",
-  "thank-you":       "/catalog/occasions/thank-you.webp",
-  "condolences":     "/catalog/occasions/condolences.webp",
-  "farewell":        "/catalog/occasions/farewell.avif",
-  "housewarming":    "/catalog/occasions/housewarming.avif",
-  "new-job":         "/catalog/occasions/new-job.avif",
-  "promotion":       "/catalog/occasions/promotion.avif",
-  // Generated fallbacks for featured occasions that OS serves as non-image content
-  "congratulations": "/catalog/occasions/congratulations.jpg",
-  "anniversary":     "/catalog/occasions/anniversary.jpg",
-  "graduation":      "/catalog/occasions/graduation.jpg",
-  "get-well-soon":   "/catalog/occasions/get-well-soon.jpg",
-  "new-born":        "/catalog/occasions/new-born.jpg",
-  "im-sorry":        "/catalog/occasions/im-sorry.jpg",
-  "wedding":         "/catalog/occasions/wedding.jpg",
-  "christmas":       "/catalog/occasions/christmas.jpg",
-  "katb-kitab":      "/catalog/occasions/katb-kitab.jpg",
-  "funeral":         "/catalog/occasions/funeral.jpg",
+  "birthday":     "/catalog/occasions/birthday.webp",
+  "love-romance": "/catalog/occasions/love-romance.webp",
+  "thank-you":    "/catalog/occasions/thank-you.webp",
+  "condolences":  "/catalog/occasions/condolences.webp",
+  "farewell":     "/catalog/occasions/farewell.avif",
+  "housewarming": "/catalog/occasions/housewarming.avif",
+  "new-job":      "/catalog/occasions/new-job.avif",
+  "promotion":    "/catalog/occasions/promotion.avif",
 };
 
 router.get("/catalog/occasion-image/:id", async (req, res) => {
