@@ -8,6 +8,8 @@ type Props = {
   htmlFor?: string;
   /** Renders the required asterisk 4px after the label, baseline-aligned. */
   required?: boolean;
+  /** Localized required-status text announced as part of a fieldset legend. */
+  requiredText?: ReactNode;
   /** Optional element rendered after the label + asterisk (e.g. the phone info icon). */
   labelTrailing?: ReactNode;
   /** Extra classes on the group wrapper (e.g. width constraints). Never spacing. */
@@ -26,6 +28,12 @@ type Props = {
   errorId?: string;
   /** Test id for the error message element (e.g. "error-recipient-name"). */
   errorTestId?: string;
+  /** Render this field group as a semantic fieldset with a legend. */
+  asFieldset?: boolean;
+  /** Accessible description for a semantic fieldset. */
+  ariaDescribedBy?: string;
+  /** Exposes validation state for a semantic fieldset. */
+  ariaInvalid?: boolean;
   children: ReactNode;
 };
 
@@ -77,28 +85,54 @@ export function CheckoutField({
   label,
   htmlFor,
   required,
+  requiredText,
   labelTrailing,
   className,
   error,
   errorId,
   errorTestId,
+  asFieldset,
+  ariaDescribedBy,
+  ariaInvalid,
   children,
 }: Props) {
+  const Wrapper = asFieldset ? "fieldset" : "div";
+
   return (
-    <div className={cn("mb-6 max-md:mb-4", className)}>
-      <div className="mb-2 max-md:mb-1.5 flex items-center">
-        <label htmlFor={htmlFor} className="text-sm font-medium leading-5">
+    <Wrapper
+      className={cn("mb-6 max-md:mb-4", asFieldset && "border-0 p-0", className)}
+      {...(asFieldset
+        ? {
+            "aria-describedby": ariaDescribedBy,
+            "aria-invalid": ariaInvalid || undefined,
+          }
+        : {})}
+    >
+      {asFieldset ? (
+        <legend className="mb-2 max-md:mb-1.5 text-sm font-medium leading-5">
           {label}
-          {required ? <span className="text-destructive ms-1">*</span> : null}
-        </label>
-        {labelTrailing}
-      </div>
+          {required ? (
+            <>
+              <span className="text-destructive ms-1" aria-hidden="true">*</span>
+              {requiredText ? <span className="sr-only"> ({requiredText})</span> : null}
+            </>
+          ) : null}
+        </legend>
+      ) : (
+        <div className="mb-2 max-md:mb-1.5 flex items-center">
+          <label htmlFor={htmlFor} className="text-sm font-medium leading-5">
+            {label}
+            {required ? <span className="text-destructive ms-1">*</span> : null}
+          </label>
+          {labelTrailing}
+        </div>
+      )}
       {children}
       {error ? (
         <CheckoutFieldError id={errorId} testId={errorTestId}>
           {error}
         </CheckoutFieldError>
       ) : null}
-    </div>
+    </Wrapper>
   );
 }

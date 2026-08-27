@@ -811,7 +811,10 @@ export default function ProductDetail() {
             ) : product.hasInputField ? (
               /* General personalisation text input — for cakes, etc. */
               <div className="space-y-3">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 block">
+                <label
+                  htmlFor="product-custom-note"
+                  className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 block"
+                >
                   {product.personalisationRequired
                     ? t("product.customNote.labelRequired")
                     : product.category === "cakes"
@@ -820,6 +823,7 @@ export default function ProductDetail() {
                 </label>
                 <div className="relative">
                   <Input
+                    id="product-custom-note"
                     value={customNote}
                     onChange={(e) => {
                       if (e.target.value.length <= 22) setCustomNote(e.target.value);
@@ -827,6 +831,15 @@ export default function ProductDetail() {
                     placeholder={product.category === "cakes" ? t("product.customNote.cakePlaceholder") : t("product.customNote.placeholder")}
                     maxLength={22}
                     className="pr-12"
+                    aria-required={product.personalisationRequired || undefined}
+                    aria-invalid={
+                      product.personalisationRequired && customNote.trim().length === 0
+                    }
+                    aria-describedby={
+                      product.personalisationRequired && customNote.trim().length === 0
+                        ? "product-custom-note-error"
+                        : undefined
+                    }
                     data-testid="input-custom-note"
                   />
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground tabular-nums">
@@ -834,7 +847,11 @@ export default function ProductDetail() {
                   </span>
                 </div>
                 {product.personalisationRequired && customNote.trim().length === 0 && (
-                  <p className="text-xs text-destructive" data-testid="personalisation-required-error">
+                  <p
+                    id="product-custom-note-error"
+                    className="text-xs text-destructive"
+                    data-testid="personalisation-required-error"
+                  >
                     {t("product.customNote.labelRequired")}
                   </p>
                 )}

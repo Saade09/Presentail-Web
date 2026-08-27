@@ -54,18 +54,20 @@ function CollapsibleSection({ heading, children }: CollapsibleSectionProps) {
   return (
     <div>
       {/* Mobile toggle button — hidden on md+ */}
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        className="flex items-center justify-between w-full md:hidden mb-2"
-      >
-        <span className="font-serif text-base text-white">{heading}</span>
-        <ChevronDown
-          className={`w-4 h-4 text-white/70 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        />
-      </button>
+      <h2 className="md:hidden mb-2">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          aria-expanded={open}
+          className="flex items-center justify-between w-full"
+        >
+          <span className="font-serif text-base text-white">{heading}</span>
+          <ChevronDown
+            className={`w-4 h-4 text-white/70 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+      </h2>
 
       {/* Desktop heading — always visible, hidden on mobile */}
       <h2 className="hidden md:block font-serif text-base text-white mb-3">{heading}</h2>

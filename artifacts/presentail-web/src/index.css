@@ -244,7 +244,8 @@
   --accent: 220 13% 88%;
   --accent-foreground: 190 100% 15%;
 
-  --destructive: 0 84% 60%;
+  /* dark enough for white normal-size text to meet WCAG AA contrast */
+  --destructive: 0 72% 42%;
   --destructive-foreground: 0 0% 100%;
 
   --input: 220 13% 95%;

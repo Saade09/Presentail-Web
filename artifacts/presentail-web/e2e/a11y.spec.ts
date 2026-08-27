@@ -8,7 +8,7 @@
  * API calls are stubbed so the suite runs in CI without a live backend.
  */
 
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Result, NodeResult } from "axe-core";
 
@@ -184,6 +184,38 @@ test.describe("Accessibility — no critical/serious WCAG violations", () => {
     // Wait for the main content area to mount before running axe.
     await page.waitForSelector("main, #root > *", { timeout: 15_000 });
     await assertNoA11yViolations(page, "Landing / Home");
+  });
+
+  test("Partner application page", async ({ page }) => {
+    // Registered after the broad fallback so this route wins for this scan.
+    await page.route("**/api/currencies**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(STUB_CURRENCIES),
+      }),
+    );
+    await page.route("**/api/catalog/metadata**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ categories: [], occasions: [], brands: [] }),
+      }),
+    );
+    await page.goto("/partner");
+    await page.waitForSelector("[data-testid='partner-page']", { timeout: 15_000 });
+
+    const categories = page.getByRole("group", {
+      name: /Category.*This field is required/i,
+    });
+    await expect(categories).toBeVisible();
+    await expect(categories).toHaveAttribute("aria-describedby", "partner-categories-hint");
+    expect(await categories.getAttribute("aria-required")).toBeNull();
+
+    const ariaResults = await new AxeBuilder({ page })
+      .withRules(["aria-allowed-attr"])
+      .analyze();
+    expect(ariaResults.violations).toEqual([]);
   });
 
   test("Shop page", async ({ page }) => {

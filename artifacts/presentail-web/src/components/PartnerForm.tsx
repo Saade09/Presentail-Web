@@ -287,8 +287,17 @@ export default function PartnerForm() {
         required
       />
 
-      <CheckoutField label={t("partner.form.categories")} required>
-        <p className="text-xs text-muted-foreground mb-3">
+      <CheckoutField
+        label={t("partner.form.categories")}
+        required
+        requiredText={t("partner.form.error.required")}
+        asFieldset
+        ariaDescribedBy={`partner-categories-hint${errors.categories ? " partner-categories-error" : ""}`}
+        ariaInvalid={Boolean(errors.categories)}
+        error={errors.categories}
+        errorId="partner-categories-error"
+      >
+        <p id="partner-categories-hint" className="text-xs text-muted-foreground mb-3">
           {t("partner.form.categoriesHint")}
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -305,7 +314,6 @@ export default function PartnerForm() {
             </label>
           ))}
         </div>
-        <FieldError msg={errors.categories} />
       </CheckoutField>
 
       <CheckoutField label={t("partner.form.otherCategory")} htmlFor="partner-other-category">
