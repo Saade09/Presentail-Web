@@ -1,0 +1,144 @@
+# Objective
+
+Promote Balloons from a nested Gifts option into a first-class mobile navigation category and create a dedicated Balloons category landing page. This supports Presentail’s plan to grow balloons as a standalone product pillar alongside Flowers & Plants and Gifts.
+
+# Approved mockups
+
+Two approved mockups will be attached to this task:
+
+1. Mobile menu with Balloons added as a main category.
+2. Dedicated Balloons category landing page.
+
+Treat the attached images as the visual source of truth for hierarchy, spacing, tile order, labels, imagery direction, and CTA placement.
+
+# Scope A — Mobile “Explore Presentail” menu
+
+- Add a new collapsed main-category row labeled exactly **Balloons**.
+- Place it between **Flowers & Plants** and **Gifts**.
+- Final row order:
+  1. Occasions
+  2. Flowers & Plants
+  3. Balloons
+  4. Gifts
+  5. Brands
+- Match the existing menu row component exactly:
+  - Same height, padding, typography, dividers and touch target.
+  - Circular light-grey image container on the left.
+  - Real balloon-arrangement thumbnail centered inside the circle.
+  - Right-facing chevron aligned consistently with the other categories.
+- Tapping anywhere on the Balloons row must open the dedicated Balloons landing page.
+- Keep the rest of the mobile menu unchanged. Do not add search, chips, promotional banners, or any unrelated redesign in this task.
+
+# Scope B — Dedicated Balloons landing page
+
+Build the page using the current Gifts category page as the structural reference.
+
+## Header
+
+- Back arrow on the left.
+- Page title: **Balloons**.
+- Close icon on the right.
+- Preserve the existing header height, spacing, typography and divider.
+
+## Category grid
+
+Use the same responsive three-column mobile grid, image-card styling, typography and spacing as the Gifts page.
+
+Display these tiles in this exact order:
+
+### Row 1
+
+1. **Birthday Balloons**
+2. **Balloon Bouquets**
+3. **Number & Letter Balloons**
+
+### Row 2
+
+4. **Balloon Arrangements**
+5. **Balloon Arches**
+6. **New Baby Balloons**
+
+### Row 3
+
+7. **Love & Anniversary**
+8. **Kids & Character**
+9. **Personalized Balloons**
+
+Each tile must:
+
+- Use a high-quality representative balloon image.
+- Keep the product centered on the existing very-light-grey rounded image card.
+- Support two-line labels without collision or uneven grid spacing.
+- Make the entire tile clickable, not only the image or label.
+- Route to the correct live collection/category for the currently selected market and language.
+- Follow the platform’s existing behavior for inactive or unavailable categories rather than leading to an empty/broken page.
+
+## Bottom CTA
+
+- Add the existing large rounded CTA at the bottom.
+- Exact label: **Shop all Balloons →**
+- CTA opens the complete Balloon product listing.
+- Preserve the same spacing and styling used by **Shop all Gifts**.
+
+# Scope C — Gifts-page cleanup
+
+- Remove the existing **Balloon Arrangements** and **Balloons** tiles from the Gifts grid now that Balloons has its own main category.
+- Keep all other Gifts-page categories, ordering, styling and behavior unchanged.
+- Existing balloon product URLs must remain valid; this is a navigation/taxonomy change and must not break indexed or shared links.
+
+# Content and configuration requirements
+
+- Use reusable category data/components rather than creating a one-off hard-coded page.
+- Category labels, images, destination routes and active/inactive state should use the existing category configuration or CMS/admin source where available.
+- Add translation keys for English, Arabic and French.
+- Verify Arabic RTL alignment and label wrapping.
+- Respect current market/country availability for Lebanon and UAE.
+- Preserve the selected country, city, language and currency while navigating.
+
+# Analytics
+
+Use the existing analytics naming conventions and capture:
+
+- Click on the Balloons row in the mobile menu.
+- Click on each Balloons subcategory tile.
+- Click on **Shop all Balloons**.
+- Include category/subcategory slug, market and locale in the event payload where supported.
+
+# Responsive and accessibility requirements
+
+- The supplied mockups show the approved mobile state.
+- Verify common small and large mobile widths; no clipped labels, overlapping tiles or hidden CTA.
+- Maintain minimum touch targets consistent with the existing navigation.
+- All category images need meaningful alt text.
+- Rows and tiles must be keyboard accessible and expose correct link/button semantics.
+- Ensure visible focus treatment follows the existing site design system.
+
+# Acceptance criteria
+
+- Balloons appears as the third main category, between Flowers & Plants and Gifts.
+- The complete row is tappable and routes to the Balloons landing page.
+- The Balloons page contains all nine approved tiles in the exact approved order.
+- Every tile routes to the correct category and preserves market/locale context.
+- The **Shop all Balloons** CTA routes to the complete balloon listing.
+- Balloons and Balloon Arrangements are removed from the Gifts grid.
+- No unrelated visual changes are introduced to the menu or Gifts page.
+- Existing balloon links continue working.
+- English, Arabic and French versions are verified, including Arabic RTL.
+- The page is responsive and free of visual regressions on supported mobile breakpoints.
+- Analytics events fire once per interaction with the correct metadata.
+- QA is completed in both Lebanon and UAE storefront contexts.
+
+# QA checklist
+
+- Open and close the mobile menu.
+- Confirm exact five-row ordering.
+- Tap the Balloons row and verify the landing page.
+- Test all nine subcategory destinations.
+- Test the Shop all Balloons CTA.
+- Verify browser back and the page close action.
+- Confirm the two balloon tiles no longer appear under Gifts.
+- Verify direct/shared legacy balloon links.
+- Test EN, AR and FR.
+- Test Lebanon and UAE availability.
+- Test small iPhone width and a larger mobile viewport.
+- Confirm no horizontal scrolling, clipped text, duplicated tracking events or empty destination pages.
