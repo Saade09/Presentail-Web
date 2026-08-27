@@ -17,6 +17,7 @@ import {
   type Lang,
 } from "@/lib/locale-route";
 import { LazySearchOverlay } from "@/components/search/LazySearchOverlay";
+import { trackEvent } from "@/lib/analytics";
 import { useBrands, useCatalogMetadata, useCatalogOccasions } from "@/lib/queries";
 import { CATEGORY_SLUG_REMAP, CATEGORY_NAV_BLOCKLIST } from "@/lib/categoryGroups";
 import { OCCASION_OPTIONS } from "@/data/occasions";
@@ -108,27 +109,6 @@ type MegaMenuDef = {
 
 const STATIC_MENUS: MegaMenuDef[] = [
   {
-    key: "gifts",
-    labelKey: "nav.gifts",
-    items: [
-      { label: "Gift Bundles",    href: "/category/bundles",         img: "/catalog/categories/bundles.webp" },
-      { label: "Balloon Arrangements", href: "/category/balloon-arrangements", img: "/catalog/categories/balloons.webp" },
-      { label: "Table Arrangements", href: "/category/table-arrangements", emoji: "🌿" },
-      { label: "Religious Gifts",  href: "/category/religious-gifts", emoji: "🕊️" },
-      { label: "Cakes",           href: "/category/cakes",           img: "/catalog/categories/cakes.webp" },
-      { label: "Single Balloons", href: "/category/single-balloons", img: "/catalog/categories/balloons.webp" },
-      { label: "Stuffed Animals", href: "/category/stuffed-animals", img: "/catalog/categories/stuffed-animals.webp" },
-      { label: "Chocolate",       href: "/category/chocolate",       img: "/catalog/categories/chocolate.webp" },
-      { label: "Balloon Bundles", href: "/category/balloon-bundles", img: "/catalog/categories/balloons.webp" },
-      { label: "Beauty",          href: "/category/beauty",          emoji: "💄" },
-      { label: "Gift Baskets",    href: "/category/gift-baskets",    img: "/catalog/categories/gift-baskets.webp" },
-      { label: "Arabic Sweets",   href: "/category/arabic-sweets",   img: "/catalog/categories/arabic-sweets.webp" },
-      { label: "Balloon Deco",    href: "/category/balloon-deco",    img: "/catalog/categories/balloons.webp" },
-      { label: "Electronics",     labelKey: "nav.electronics", href: "/category/electronics",     img: "/catalog/categories/electronics.webp" },
-    ],
-    footer: { label: "Shop all Gifts", labelKey: "nav.viewAllGifts", href: "/shop" },
-  },
-  {
     key: "flowers",
     labelKey: "nav.flowersPlants",
     items: [
@@ -143,6 +123,39 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Artificial Flowers", href: "/category/artificial-flowers",  emoji: "🌺" },
     ],
     footer: { label: "Shop all Flowers & Plants", labelKey: "nav.viewAllFlowers", href: "/category/flowers" },
+  },
+  {
+    key: "balloons",
+    labelKey: "nav.balloons",
+    items: [
+      { label: "Birthday Balloons",       labelKey: "nav.birthdayBalloons",       href: "/category/birthday-balloons",        img: "/catalog/categories/birthday-balloons.jpg" },
+      { label: "Balloon Bouquets",        labelKey: "nav.balloonBouquets",        href: "/category/balloon-bouquets",         img: "/catalog/categories/balloon-bouquets.jpg" },
+      { label: "Number & Letter Balloons",labelKey: "nav.numberLetterBalloons",   href: "/category/number-letter-balloons",   img: "/catalog/categories/number-letter-balloons.jpg" },
+      { label: "Balloon Arrangements",    labelKey: "nav.balloonArrangements",    href: "/category/balloon-arrangements",     img: "/catalog/categories/balloon-arrangements.jpg" },
+      { label: "Balloon Arches",          labelKey: "nav.balloonArches",          href: "/category/balloon-arches",           img: "/catalog/categories/balloon-arches.jpg" },
+      { label: "New Baby Balloons",       labelKey: "nav.newBabyBalloons",        href: "/category/new-baby-balloons",        img: "/catalog/categories/new-baby-balloons.jpg" },
+      { label: "Love & Anniversary",      labelKey: "nav.loveAnniversaryBalloons",href: "/category/love-anniversary-balloons",img: "/catalog/categories/love-anniversary-balloons.jpg" },
+      { label: "Kids & Character",        labelKey: "nav.kidsCharacterBalloons",  href: "/category/kids-character-balloons",  img: "/catalog/categories/kids-character-balloons.jpg" },
+      { label: "Personalized Balloons",   labelKey: "nav.personalizedBalloons",   href: "/category/personalized-balloons",    img: "/catalog/categories/personalized-balloons.jpg" },
+    ],
+    footer: { label: "Shop all Balloons", labelKey: "nav.viewAllBalloons", href: "/category/balloons" },
+  },
+  {
+    key: "gifts",
+    labelKey: "nav.gifts",
+    items: [
+      { label: "Gift Bundles",       href: "/category/bundles",            img: "/catalog/categories/bundles.webp" },
+      { label: "Table Arrangements", href: "/category/table-arrangements", emoji: "🌿" },
+      { label: "Religious Gifts",    href: "/category/religious-gifts",    emoji: "🕊️" },
+      { label: "Cakes",              href: "/category/cakes",              img: "/catalog/categories/cakes.webp" },
+      { label: "Stuffed Animals",    href: "/category/stuffed-animals",    img: "/catalog/categories/stuffed-animals.webp" },
+      { label: "Chocolate",          href: "/category/chocolate",          img: "/catalog/categories/chocolate.webp" },
+      { label: "Beauty",             href: "/category/beauty",             emoji: "💄" },
+      { label: "Gift Baskets",       href: "/category/gift-baskets",       img: "/catalog/categories/gift-baskets.webp" },
+      { label: "Arabic Sweets",      href: "/category/arabic-sweets",      img: "/catalog/categories/arabic-sweets.webp" },
+      { label: "Electronics",        labelKey: "nav.electronics", href: "/category/electronics", img: "/catalog/categories/electronics.webp" },
+    ],
+    footer: { label: "Shop all Gifts", labelKey: "nav.viewAllGifts", href: "/shop" },
   },
 ];
 
@@ -428,9 +441,10 @@ export function MainNavbar() {
   };
 
   // Desktop mega-menu triggers (excludes brands — desktop uses a plain link in the right nav)
-  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus];
-  // Mobile sub-panel lookup includes brands so the mobile sheet can drill into it
-  const mobileMenuDefs: MegaMenuDef[] = [...megaMenus, brandsMegaMenuDef];
+  // Desktop mega-menu excludes balloons — it lives under Gifts on desktop for now.
+  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus.filter((m) => m.key !== "balloons")];
+  // Mobile sub-panel lookup includes balloons and brands.
+  const mobileMenuDefs: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus, brandsMegaMenuDef];
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSubPanel, setMobileSubPanel] = useState<string | null>(null);
@@ -543,6 +557,12 @@ export function MainNavbar() {
                         emoji: "🌸",
                       },
                       {
+                        key: "balloons",
+                        label: t("nav.balloons"),
+                        img: "/catalog/categories/balloons.webp",
+                        emoji: "🎈",
+                      },
+                      {
                         key: "gifts",
                         label: t("nav.gifts"),
                         img: "/catalog/categories/bundles.webp",
@@ -558,7 +578,10 @@ export function MainNavbar() {
                       <button
                         key={cat.key}
                         type="button"
-                        onClick={() => setMobileSubPanel(cat.key)}
+                        onClick={() => {
+                          setMobileSubPanel(cat.key);
+                          trackEvent({ name: "nav_menu_row_clicked", linkSlug: cat.key, locale: language, country: countryCode ?? undefined });
+                        }}
                         className="w-full flex items-center gap-4 py-3.5 border-b border-gray-100 last:border-0"
                       >
                         <div className="w-11 h-11 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center shrink-0 shadow-sm">
@@ -633,6 +656,12 @@ export function MainNavbar() {
                                <SheetClose asChild key={item.label + item.href}>
                                  <Link
                                    href={toCityHref(item.href)}
+                                   onClick={() => {
+                                     if (subDef?.key === "balloons") {
+                                       const slug = item.href.split("/category/")[1] ?? item.href;
+                                       trackEvent({ name: "nav_menu_tile_clicked", linkSlug: slug, locale: language, country: countryCode ?? undefined });
+                                     }
+                                   }}
                                    className={`flex flex-col items-center ${
                                      isCompactOccasions ? "gap-0.5" : "gap-1"
                                    } group min-h-[44px]`}
@@ -685,6 +714,9 @@ export function MainNavbar() {
                                    <Link
                                      href={toCityHref(subDef.footer.href)}
                                      onClick={() => {
+                                       if (subDef.key === "balloons") {
+                                         trackEvent({ name: "nav_menu_view_all_clicked", linkSlug: "balloons", locale: language, country: countryCode ?? undefined });
+                                       }
                                        setMobileMenuOpen(false);
                                        setMobileSubPanel(null);
                                      }}

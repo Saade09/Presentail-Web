@@ -136,4 +136,7 @@ export const AnalyticsEventName = {
   landmark_district_auto_changed: "landmark_district_auto_changed",
   landmark_selection_removed: "landmark_selection_removed",
   landmark_order_completed: "landmark_order_completed",
+  nav_menu_row_clicked: "nav_menu_row_clicked",
+  nav_menu_tile_clicked: "nav_menu_tile_clicked",
+  nav_menu_view_all_clicked: "nav_menu_view_all_clicked",
 } as const;

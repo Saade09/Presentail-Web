@@ -36,6 +36,17 @@ export const navStrings: Dict = {
   "nav.viewAllGifts": { en: "Shop all Gifts", ar: "تسوّق جميع الهدايا" },
   "nav.viewAllBrands": { en: "View all brands", ar: "عرض جميع العلامات التجارية" },
   "nav.electronics": { en: "Electronics", ar: "إلكترونيات" },
+  "nav.balloons": { en: "Balloons", ar: "البالونات" },
+  "nav.viewAllBalloons": { en: "Shop all Balloons", ar: "تسوّق جميع البالونات" },
+  "nav.birthdayBalloons": { en: "Birthday Balloons", ar: "بالونات عيد الميلاد" },
+  "nav.balloonBouquets": { en: "Balloon Bouquets", ar: "باقات البالونات" },
+  "nav.numberLetterBalloons": { en: "Number & Letter Balloons", ar: "بالونات الأرقام والحروف" },
+  "nav.balloonArrangements": { en: "Balloon Arrangements", ar: "تنسيقات البالونات" },
+  "nav.balloonArches": { en: "Balloon Arches", ar: "أقواس البالونات" },
+  "nav.newBabyBalloons": { en: "New Baby Balloons", ar: "بالونات المولود" },
+  "nav.loveAnniversaryBalloons": { en: "Love & Anniversary", ar: "الحب والذكرى السنوية" },
+  "nav.kidsCharacterBalloons": { en: "Kids & Character", ar: "الأطفال والشخصيات" },
+  "nav.personalizedBalloons": { en: "Personalized Balloons", ar: "بالونات مخصصة" },
 };
 
 export const navStringsFr: Record<string, string> = {
@@ -74,6 +85,17 @@ export const navStringsFr: Record<string, string> = {
   "nav.viewAllGifts": "Acheter tous les cadeaux",
   "nav.viewAllBrands": "Voir toutes les marques",
   "nav.electronics": "Électronique",
+  "nav.balloons": "Ballons",
+  "nav.viewAllBalloons": "Acheter tous les ballons",
+  "nav.birthdayBalloons": "Ballons d'anniversaire",
+  "nav.balloonBouquets": "Bouquets de ballons",
+  "nav.numberLetterBalloons": "Ballons chiffres & lettres",
+  "nav.balloonArrangements": "Compositions de ballons",
+  "nav.balloonArches": "Arches de ballons",
+  "nav.newBabyBalloons": "Ballons naissance",
+  "nav.loveAnniversaryBalloons": "Amour & Anniversaire",
+  "nav.kidsCharacterBalloons": "Enfants & Personnages",
+  "nav.personalizedBalloons": "Ballons personnalisés",
 };
 
 export const navStringsEl: Record<string, string> = {
@@ -112,4 +134,15 @@ export const navStringsEl: Record<string, string> = {
   "nav.viewAllGifts": "Αγοράστε όλα τα δώρα",
   "nav.viewAllBrands": "Δείτε όλες τις μάρκες",
   "nav.electronics": "Ηλεκτρονικά",
+  "nav.balloons": "Μπαλόνια",
+  "nav.viewAllBalloons": "Αγοράστε όλα τα μπαλόνια",
+  "nav.birthdayBalloons": "Μπαλόνια γενεθλίων",
+  "nav.balloonBouquets": "Ανθοδέσμες μπαλονιών",
+  "nav.numberLetterBalloons": "Μπαλόνια αριθμοί & γράμματα",
+  "nav.balloonArrangements": "Συνθέσεις μπαλονιών",
+  "nav.balloonArches": "Αψίδες μπαλονιών",
+  "nav.newBabyBalloons": "Μπαλόνια νεογέννητου",
+  "nav.loveAnniversaryBalloons": "Αγάπη & Επέτειος",
+  "nav.kidsCharacterBalloons": "Παιδιά & Χαρακτήρες",
+  "nav.personalizedBalloons": "Εξατομικευμένα μπαλόνια",
 };

@@ -322,7 +322,13 @@ type AnalyticsEventName =
   /** Cart Delivery Summary card rendered with a concrete promise (standard/express). */
   | "delivery_summary_viewed"
   /** Checkout CTA clicked on the cart page (fires before auth gating). */
-  | "checkout_clicked";
+  | "checkout_clicked"
+  /** Mobile nav Balloons main-menu row tapped. */
+  | "nav_menu_row_clicked"
+  /** Mobile nav Balloons subcategory tile tapped. */
+  | "nav_menu_tile_clicked"
+  /** Mobile nav "Shop all Balloons" CTA tapped. */
+  | "nav_menu_view_all_clicked";
 
 type AnalyticsSurface =
   | "cart"

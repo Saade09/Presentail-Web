@@ -190,7 +190,7 @@ router.post(
       });
       return;
     }
-    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, campaignIdentity, state, appOrderId, wcOrderId, metricValue, bannerId, linkKind, linkSlug, linkUrl } = parsed.data;
+    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, campaignIdentity, state, appOrderId, wcOrderId, metricValue, bannerId, linkKind, linkSlug, linkUrl, locale, country } = parsed.data;
 
     let userId: string | undefined;
     try {
@@ -212,6 +212,8 @@ router.post(
     const clippedLinkKind = clip(linkKind, 32);
     const clippedLinkSlug = clip(linkSlug, 128);
     const clippedLinkUrl = clip(linkUrl, 512);
+    const clippedLocale = clip(locale, 8);
+    const clippedCountry = clip(country, 8);
 
     // Clamp metric values to [0, 60000] — CLS ratios are tiny, timing
     // metrics max out well below 60 s in practice.
@@ -253,6 +255,8 @@ router.post(
         linkKind: clippedLinkKind,
         linkSlug: clippedLinkSlug,
         linkUrl: clippedLinkUrl,
+        locale: clippedLocale,
+        country: clippedCountry,
         userId,
         signedIn: Boolean(userId),
         analyticsSampling: samplingDecision
@@ -276,6 +280,12 @@ router.post(
       const properties: Record<string, unknown> = {};
       if (clippedCampaignIdentity) {
         properties.campaignIdentity = clippedCampaignIdentity;
+      }
+      if (clippedLocale) {
+        properties.locale = clippedLocale;
+      }
+      if (clippedCountry) {
+        properties.country = clippedCountry;
       }
       if (samplingDecision) {
         properties.analyticsSampling =
