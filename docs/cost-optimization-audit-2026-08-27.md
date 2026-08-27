@@ -388,6 +388,32 @@ This is an approval-ready plan only. None of these changes were implemented.
    - AI feature/model/input tokens/output tokens/cache status
 5. Obtain/export 60–90 days of Replit usage/billing, database usage, Object Storage, GitHub Actions, EAS, OpenAI, and provider billing for reconciliation.
 
+### Durable job ownership implementation
+
+The first duplicate-work control is now implemented for OS products, OS
+locations, catalog-image health, SEO audit, product translation warming, order
+reconciliation, and pending-checkout sweeping.
+
+- `background_job_leases` stores one atomic due-window claim per named job,
+  owner token, fencing generation, heartbeat expiry, completion status, and
+  run/success/skip/failure/duration metrics.
+- Each elected run also holds a PostgreSQL session advisory lock for its full
+  lifetime. This prevents a paused but still-live process from overlapping a
+  replacement; PostgreSQL releases the lock automatically if the process or
+  connection stops.
+- `background_job_snapshots` lets the elected OS refresher publish products
+  and locations so every API replica hydrates its in-process request cache
+  without repeating Presentail OS calls.
+- Lease acquisition fails closed: a database outage skips shared work rather
+  than allowing every replica to run it.
+- A stopped owner is replaced after lease expiry; heartbeat renewal prevents a
+  healthy long-running job from being taken over.
+- Set `DISTRIBUTED_JOB_LEASES_ENABLED=false` to roll back all leases. To roll
+  back one job independently, set
+  `DISTRIBUTED_JOB_<JOB_NAME>_LEASE_ENABLED=false`, replacing punctuation with
+  underscores (for example,
+  `DISTRIBUTED_JOB_CATALOG_IMAGE_HEALTH_LEASE_ENABLED=false`).
+
 ### Expected savings
 
 - **Estimated monthly:** 50% of affected background executions at the two observed replicas; approximately 43,200 duplicate two-minute ticks and 5,760 duplicate 15-minute OS ticks avoided under continuous two-replica assumptions.

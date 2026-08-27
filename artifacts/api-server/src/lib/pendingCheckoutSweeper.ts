@@ -25,6 +25,7 @@ import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
 import { fetchStripePaymentIntentDetails } from "./catalog";
+import { runDistributedJob } from "./distributedJob";
 
 const SWEEP_INTERVAL_MS = 2 * 60_000;
 const MIN_AGE_MS = 90_000;
@@ -33,10 +34,13 @@ const BATCH_LIMIT = 50;
 
 let sweeping = false;
 
-export async function sweepPendingCheckoutsOnce(): Promise<void> {
+export async function sweepPendingCheckoutsOnce(
+  signal?: AbortSignal,
+): Promise<void> {
   if (sweeping) return; // prevent overlapping sweeps
   sweeping = true;
   try {
+    signal?.throwIfAborted();
     const now = Date.now();
     const rows = await db
       .select({
@@ -68,12 +72,20 @@ export async function sweepPendingCheckoutsOnce(): Promise<void> {
     ].filter((k): k is string => !!k);
 
     for (const row of rows) {
+      signal?.throwIfAborted();
       try {
         // Probe Stripe directly (both accounts). Returns non-null only when
         // the PI succeeded AND its metadata.orderId matches this row.
         let details: Awaited<ReturnType<typeof fetchStripePaymentIntentDetails>> = null;
         for (const key of stripeKeys) {
-          details = await fetchStripePaymentIntentDetails(row.piId, row.orderId, key);
+          signal?.throwIfAborted();
+          details = await fetchStripePaymentIntentDetails(
+            row.piId,
+            row.orderId,
+            key,
+            signal,
+          );
+          signal?.throwIfAborted();
           if (details) break;
         }
         if (!details) continue; // not (yet) paid — check again next sweep
@@ -89,7 +101,9 @@ export async function sweepPendingCheckoutsOnce(): Promise<void> {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body,
-          signal: AbortSignal.timeout(60_000),
+          signal: signal
+            ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+            : AbortSignal.timeout(60_000),
         });
         const respBody = (await resp.json()) as {
           ok?: boolean;
@@ -135,6 +149,7 @@ export async function sweepPendingCheckoutsOnce(): Promise<void> {
           );
         }
       } catch (err: any) {
+        if (signal?.aborted) throw signal.reason;
         logger.warn(
           { err: err?.message, orderId: row.orderId, piId: row.piId },
           "pendingCheckoutSweeper: row sweep failed (non-fatal)", // i18n-ignore
@@ -143,14 +158,38 @@ export async function sweepPendingCheckoutsOnce(): Promise<void> {
     }
   } catch (err: any) {
     logger.warn({ err: err?.message }, "pendingCheckoutSweeper: sweep failed (non-fatal)"); // i18n-ignore
+    throw err;
   } finally {
     sweeping = false;
   }
 }
 
 export function startPendingCheckoutSweeper(): void {
+  const tick = async () => {
+    await runDistributedJob({
+      jobName: "pending-checkout-sweeper",
+      intervalMs: SWEEP_INTERVAL_MS,
+      leaseMs: 5 * 60_000,
+      task: (context) => sweepPendingCheckoutsOnce(context.signal),
+    });
+  };
   // First sweep shortly after boot so a restart doesn't delay rescues.
-  setTimeout(() => void sweepPendingCheckoutsOnce(), 30_000);
-  setInterval(() => void sweepPendingCheckoutsOnce(), SWEEP_INTERVAL_MS);
+  setTimeout(() => {
+    void tick().catch((err: unknown) => {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "pendingCheckoutSweeper: scheduled sweep failed",
+      );
+    });
+  }, 30_000).unref?.();
+  const timer = setInterval(() => {
+    void tick().catch((err: unknown) => {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "pendingCheckoutSweeper: scheduled sweep failed",
+      );
+    });
+  }, SWEEP_INTERVAL_MS);
+  timer.unref?.();
   logger.info("pendingCheckoutSweeper: started"); // i18n-ignore
 }

@@ -9,6 +9,7 @@ import {
 } from "./imageDelivery";
 import { logger } from "./logger";
 import { getOsProducts } from "./osProductsCache";
+import { runDistributedJob } from "./distributedJob";
 
 export type CatalogImageFindingKind =
   | "missing-reference"
@@ -50,7 +51,11 @@ function catalogProducts() {
   return [...byId.values()];
 }
 
-async function checkOne(productId: string, rawUrl: string): Promise<CatalogImageFinding | null> {
+async function checkOne(
+  productId: string,
+  rawUrl: string,
+  signal?: AbortSignal,
+): Promise<CatalogImageFinding | null> {
   let target: URL;
   try {
     target = parseOsImageUrl(rawUrl);
@@ -69,7 +74,9 @@ async function checkOne(productId: string, rawUrl: string): Promise<CatalogImage
         ? { "x-api-key": process.env.PRESENTAIL_OS_API_KEY }
         : {},
       redirect: "manual",
-      signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS)])
+        : AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
     });
     if (response.status === 404 || response.status === 410) {
       return {
@@ -101,6 +108,7 @@ async function checkOne(productId: string, rawUrl: string): Promise<CatalogImage
     }
     return null;
   } catch (error) {
+    if (signal?.aborted) throw signal.reason;
     if (error instanceof ImageDeliveryError) {
       const kind: CatalogImageFindingKind =
         error.code === "non-image" ? "non-image"
@@ -126,6 +134,7 @@ async function checkOne(productId: string, rawUrl: string): Promise<CatalogImage
 
 export async function runCatalogImageHealthCheck(
   requestedLimit = DEFAULT_SAMPLE_SIZE,
+  signal?: AbortSignal,
 ): Promise<CatalogImageHealthSummary> {
   const products = catalogProducts();
   const limit = Math.min(Math.max(1, requestedLimit), MAX_SAMPLE_SIZE);
@@ -134,6 +143,7 @@ export async function runCatalogImageHealthCheck(
   const seen = new Set<string>();
 
   for (const product of products) {
+    signal?.throwIfAborted();
     const url = product.images?.[0]?.url?.trim();
     if (!url) {
       findings.push({
@@ -153,8 +163,9 @@ export async function runCatalogImageHealthCheck(
   let cursor = 0;
   await Promise.all(Array.from({ length: Math.min(CHECK_CONCURRENCY, candidates.length) }, async () => {
     while (cursor < candidates.length) {
+      signal?.throwIfAborted();
       const candidate = candidates[cursor++];
-      const finding = await checkOne(candidate.productId, candidate.url);
+      const finding = await checkOne(candidate.productId, candidate.url, signal);
       if (finding) findings.push(finding);
     }
   }));
@@ -182,35 +193,51 @@ export function startCatalogImageHealthMonitor(): void {
 
   const run = async () => {
     try {
-      const summary = await runCatalogImageHealthCheck();
-      logger.info(
-        {
-          checked: summary.uniqueImagesChecked,
-          healthy: summary.healthy,
-          failing: summary.failing,
+      await runDistributedJob({
+        jobName: "catalog-image-health",
+        intervalMs: 24 * 60 * 60 * 1000,
+        leaseMs: 30 * 60_000,
+        task: async (context) => {
+          const summary = await runCatalogImageHealthCheck(
+            DEFAULT_SAMPLE_SIZE,
+            context.signal,
+          );
+          context.signal.throwIfAborted();
+          logger.info(
+            {
+              checked: summary.uniqueImagesChecked,
+              healthy: summary.healthy,
+              failing: summary.failing,
+            },
+            "catalog image health check completed",
+          );
+          if (summary.failing === 0) {
+            lastAlertFingerprint = "";
+            return;
+          }
+          const fingerprint = summary.findings
+            .map((item) => `${item.productId}:${item.kind}:${item.asset ?? ""}`)
+            .sort()
+            .join("|");
+          if (
+            fingerprint === lastAlertFingerprint &&
+            Date.now() - lastAlertAt < 24 * 60 * 60 * 1000
+          ) {
+            return;
+          }
+          lastAlertFingerprint = fingerprint;
+          lastAlertAt = Date.now();
+          await sendAlert({
+            title: "Catalog image health check found broken assets",
+            body: `${summary.failing} sampled catalog image references need attention.`,
+            severity: "warn",
+            fields: summary.findings.slice(0, 8).map((item) => ({
+              title: item.productId,
+              value: `${item.kind}: ${item.asset ?? "no image reference"}`,
+            })),
+            source: "catalogImageHealth",
+          });
         },
-        "catalog image health check completed",
-      );
-      if (summary.failing === 0) {
-        lastAlertFingerprint = "";
-        return;
-      }
-      const fingerprint = summary.findings
-        .map((item) => `${item.productId}:${item.kind}:${item.asset ?? ""}`)
-        .sort()
-        .join("|");
-      if (fingerprint === lastAlertFingerprint && Date.now() - lastAlertAt < 24 * 60 * 60 * 1000) return;
-      lastAlertFingerprint = fingerprint;
-      lastAlertAt = Date.now();
-      await sendAlert({
-        title: "Catalog image health check found broken assets",
-        body: `${summary.failing} sampled catalog image references need attention.`,
-        severity: "warn",
-        fields: summary.findings.slice(0, 8).map((item) => ({
-          title: item.productId,
-          value: `${item.kind}: ${item.asset ?? "no image reference"}`,
-        })),
-        source: "catalogImageHealth",
       });
     } catch (error) {
       logger.warn(

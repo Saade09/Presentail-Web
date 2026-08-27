@@ -34,3 +34,4 @@ export * from "./klarnaPendingCheckouts";
 export * from "./csPaymentAttempts";
 export * from "./firstOrderCouponClaims";
 export * from "./productSocialShares";
+export * from "./backgroundJobLeases";

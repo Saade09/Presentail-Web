@@ -751,6 +751,7 @@ export async function fetchStripePaymentIntentDetails(
   paymentIntentId: string,
   expectedOrderId: string,
   stripeKey?: string,
+  signal?: AbortSignal,
 ): Promise<{ paid: boolean; amountReceived: number; currency: string } | null> {
   const key = stripeKey ?? process.env.STRIPE_SECRET_KEY;
   if (!key || !paymentIntentId) return null;
@@ -758,7 +759,12 @@ export async function fetchStripePaymentIntentDetails(
     const encoded = Buffer.from(`${key}:`).toString("base64");
     const r = await fetch(
       `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`,
-      { headers: { Authorization: `Basic ${encoded}` } },
+      {
+        headers: { Authorization: `Basic ${encoded}` },
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(30_000)])
+          : AbortSignal.timeout(30_000),
+      },
     );
     if (!r.ok) return null;
     const data = (await r.json()) as {
@@ -776,6 +782,7 @@ export async function fetchStripePaymentIntentDetails(
       currency: (data.currency ?? "usd").toUpperCase(),
     };
   } catch {
+    if (signal?.aborted) throw signal.reason;
     return null;
   }
 }

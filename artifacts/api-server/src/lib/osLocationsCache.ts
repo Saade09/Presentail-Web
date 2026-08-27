@@ -41,6 +41,11 @@ import {
 import { resolveDeliveryConfig } from "../data/deliveryConfig";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
+import {
+  runDistributedJob,
+  saveBackgroundJobSnapshot,
+  waitForBackgroundJobSnapshot,
+} from "./distributedJob";
 
 // Mirrors lib/delivery EXPRESS_CLOSE_HOUR. Using a local constant avoids
 // adding @workspace/delivery as a runtime dep of api-server.
@@ -175,6 +180,7 @@ let cityIndex = new Map<string, CachedCity>();
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
 let locationsDataStatus: "live" | "stale" | "fallback" = "fallback";
+const SHARED_LOCATIONS_SNAPSHOT = "os-locations-cache";
 
 /** Change-detection: tracks key delivery fields across OS polls. */
 let lastLocationsSignature: string | null = null;
@@ -832,12 +838,12 @@ function hardcodedFallback(): CachedCountry[] {
 
 // ── Fetch ──────────────────────────────────────────────────────────────────
 
-async function fetchAndStore(): Promise<void> {
+async function fetchAndStore(signal?: AbortSignal): Promise<boolean> {
   const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
   const baseUrl = process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com";
 
   try {
-    const resp = await fetchOsLocations({ baseUrl, apiKey });
+    const resp = await fetchOsLocations({ baseUrl, apiKey, signal });
     const countries = transformOsResponse(resp, cachedCountries);
     cachedCountries = countries;
     cityIndex = buildCityIndex(countries);
@@ -851,6 +857,7 @@ async function fetchAndStore(): Promise<void> {
       { countryCount: countries.length, locationsChanged: locationsChangedFlag },
       "osLocationsCache: locations refreshed from Presentail OS",
     );
+    return true;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (cachedCountries !== null) {
@@ -876,7 +883,77 @@ async function fetchAndStore(): Promise<void> {
       cityIndex = buildCityIndex(cachedCountries);
       locationsDataStatus = "fallback";
     }
+    return false;
   }
+}
+
+type OsLocationsSharedSnapshot = {
+  version: 1;
+  countries: CachedCountry[];
+  status: "live" | "stale" | "fallback";
+};
+
+function applySharedLocationsSnapshot(
+  snapshot: OsLocationsSharedSnapshot,
+): void {
+  if (snapshot.version !== 1 || !Array.isArray(snapshot.countries)) {
+    throw new Error("Unsupported OS locations shared snapshot");
+  }
+  cachedCountries = snapshot.countries;
+  cityIndex = buildCityIndex(snapshot.countries);
+  locationsDataStatus = snapshot.status;
+  const sig = locationsSignature(snapshot.countries);
+  if (lastLocationsSignature !== null && lastLocationsSignature !== sig) {
+    locationsChangedFlag = true;
+  }
+  lastLocationsSignature = sig;
+  logger.info(
+    { countryCount: snapshot.countries.length },
+    "osLocationsCache: hydrated shared snapshot",
+  );
+}
+
+async function runLocationsRefreshJob(
+  jobName: string,
+  intervalMs: number,
+): Promise<void> {
+  const result = await runDistributedJob({
+    jobName,
+    intervalMs,
+    leaseMs: 10 * 60_000,
+    task: async (context) => {
+      const succeeded = await fetchAndStore(context.signal);
+      context.signal.throwIfAborted();
+      await saveBackgroundJobSnapshot(context, {
+        version: 1,
+        countries: cachedCountries ?? hardcodedFallback(),
+        status: locationsDataStatus,
+      } satisfies OsLocationsSharedSnapshot, SHARED_LOCATIONS_SNAPSHOT);
+      if (!succeeded) {
+        throw new Error("Presentail OS locations refresh failed");
+      }
+    },
+  });
+  if (result.status === "ran") {
+    return;
+  }
+  const snapshot =
+    await waitForBackgroundJobSnapshot<OsLocationsSharedSnapshot>(
+      SHARED_LOCATIONS_SNAPSHOT,
+      {
+        windowStart: result.windowStart,
+        generation: result.generation,
+      },
+    );
+  if (!snapshot) {
+    logger.warn("osLocationsCache: shared snapshot unavailable after lease skip");
+    return;
+  }
+  applySharedLocationsSnapshot(snapshot.payload);
+}
+
+async function runScheduledLocationsSync(): Promise<void> {
+  await runLocationsRefreshJob("os-locations", INTERVAL_MS);
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -1048,7 +1125,7 @@ export function storeLocationsFromWebhook(payload: OSLocationsResponse): void {
  * Use storeLocationsFromWebhook() instead when the OS pushes a full payload.
  */
 export function invalidateOsLocationsCache(): void {
-  fetchAndStore().catch((err: unknown) => {
+  runLocationsRefreshJob("os-locations", 30_000).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn({ err: msg }, "osLocationsCache: invalidation fetch failed");
   });
@@ -1093,7 +1170,7 @@ export function startOsLocationSync(): void {
   // Initial fetch shortly after startup (stagger slightly to avoid
   // hammering the OS API at the same time as other workers).
   const initTimer = setTimeout(() => {
-    fetchAndStore().catch((err: unknown) => {
+    runScheduledLocationsSync().catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ err: msg }, "osLocationsCache: initial fetch failed");
     });
@@ -1103,7 +1180,7 @@ export function startOsLocationSync(): void {
   timer = setInterval(() => {
     if (fetching) return;
     fetching = true;
-    fetchAndStore()
+    runScheduledLocationsSync()
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         logger.warn({ err: msg }, "osLocationsCache: scheduled fetch failed");
@@ -1147,7 +1224,7 @@ export function resetCacheForTesting(): void {
  * starting the background interval.
  */
 export async function fetchAndStoreForTesting(): Promise<void> {
-  return fetchAndStore();
+  await fetchAndStore();
 }
 
 /**

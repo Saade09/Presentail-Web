@@ -24,6 +24,7 @@
 import { desc, eq, gte, lt } from "drizzle-orm";
 import { db, monitorStateTable, seoAuditLogTable } from "@workspace/db";
 import { logger } from "./logger";
+import { runDistributedJob } from "./distributedJob";
 import { sendAlert } from "./alerts";
 import { runSeoAudit } from "./seoAuditEngine";
 import {
@@ -354,17 +355,23 @@ export async function getAuditHistory(days: number): Promise<AuditHistoryRow[]> 
   }));
 }
 
-async function fetchPageHtml(pageUrl: string): Promise<string | null> {
+async function fetchPageHtml(
+  pageUrl: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
   try {
     const resp = await fetch(pageUrl, {
-      signal: controller.signal,
+      signal: signal
+        ? AbortSignal.any([signal, controller.signal])
+        : controller.signal,
       headers: { "user-agent": "Presentail-SeoAudit/1.0" },
     });
     if (!resp.ok) return null;
     return await resp.text();
   } catch {
+    if (signal?.aborted) throw signal.reason;
     return null;
   } finally {
     clearTimeout(timer);
@@ -392,16 +399,22 @@ function parseMetaTag(
   return m ? m[1] : null;
 }
 
-async function checkImageReachable(imageUrl: string): Promise<boolean> {
+async function checkImageReachable(
+  imageUrl: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6_000);
   try {
     const resp = await fetch(imageUrl, {
       method: "HEAD",
-      signal: controller.signal,
+      signal: signal
+        ? AbortSignal.any([signal, controller.signal])
+        : controller.signal,
     });
     return resp.ok;
   } catch {
+    if (signal?.aborted) throw signal.reason;
     return false;
   } finally {
     clearTimeout(timer);
@@ -432,8 +445,11 @@ function checkOgImageSize(
 
 const DEFAULT_OG_IMAGE_PATH = "/opengraph.jpg";
 
-async function auditPage(page: { locale: string; label: string; url: string }): Promise<SeoPageResult> {
-  const html = await fetchPageHtml(page.url);
+async function auditPage(
+  page: { locale: string; label: string; url: string },
+  signal?: AbortSignal,
+): Promise<SeoPageResult> {
+  const html = await fetchPageHtml(page.url, signal);
   if (!html) {
     return {
       locale: page.locale,
@@ -456,7 +472,7 @@ async function auditPage(page: { locale: string; label: string; url: string }): 
   let ogImageSizeOk: boolean | null = null;
 
   if (ogImage) {
-    ogImageReachable = await checkImageReachable(ogImage);
+    ogImageReachable = await checkImageReachable(ogImage, signal);
     if (ogImageReachable) {
       ogImageSizeOk = checkOgImageSize(html, ogImage);
     }
@@ -521,7 +537,7 @@ export async function runAuditNow(): Promise<AuditSummary> {
       "seoAuditMonitor: on-demand audit started",
     );
 
-    const results = await Promise.all(pages.map(auditPage));
+    const results = await Promise.all(pages.map((page) => auditPage(page)));
 
     const failing = results.filter((r) => classifyResult(r) === "error");
     const warned = results.filter((r) => classifyResult(r) === "warn");
@@ -708,10 +724,11 @@ export async function validateKeyPageSlugs(): Promise<void> {
 
 // ── Core evaluation ─────────────────────────────────────────────────────────
 
-export async function runOnce(): Promise<void> {
+export async function runOnce(signal?: AbortSignal): Promise<void> {
   if (running) return;
   running = true;
   try {
+    signal?.throwIfAborted();
     const prevDay = previousUtcDay();
 
     if (lastEvaluatedDay === prevDay) {
@@ -741,7 +758,10 @@ export async function runOnce(): Promise<void> {
     );
 
     const ranAt = new Date().toISOString();
-    const results = await Promise.all(pages.map(auditPage));
+    const results = await Promise.all(
+      pages.map((page) => auditPage(page, signal)),
+    );
+    signal?.throwIfAborted();
     lastEvaluatedDay = prevDay;
 
     const failing = results.filter((r) => classifyResult(r) === "error");
@@ -773,7 +793,8 @@ export async function runOnce(): Promise<void> {
     // Run the structured SEO quality audit engine (13 checks) alongside the
     // daily OG-image digest. Results are persisted to seo_audit_runs by the
     // engine itself; critical findings trigger a separate Slack alert.
-    runSeoAudit("scheduler")
+    if (signal) {
+      await runSeoAudit("scheduler")
       .then(async (engineResult) => {
         if (engineResult.criticalCount > 0) {
           const criticalChecks = engineResult.checks.filter((c) => c.severity === "critical");
@@ -803,6 +824,8 @@ export async function runOnce(): Promise<void> {
           "seoAuditMonitor: SEO engine run failed — OG digest continues",
         );
       });
+      signal.throwIfAborted();
+    }
 
     logger.info(
       {
@@ -926,11 +949,25 @@ export function startSeoAuditMonitor(): void {
   // the monitor is started after the cache), `registerOnFirstPopulatedCallback`
   // schedules the call on the next microtask — so the coverage check always
   // fires at least once before the first hourly tick.
+  const scheduledTick = async () => {
+    await runDistributedJob({
+      jobName: "seo-audit",
+      intervalMs: TICK_MS,
+      leaseMs: 30 * 60_000,
+      task: async (context) => {
+        context.signal.throwIfAborted();
+        await validateKeyPageSlugs();
+        context.signal.throwIfAborted();
+        await runOnce(context.signal);
+      },
+    });
+  };
+
   registerOnFirstPopulatedCallback(() => {
-    validateKeyPageSlugs().catch((err) => {
+    scheduledTick().catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
-        "seoAuditMonitor: first-population catalog coverage check failed",
+        "seoAuditMonitor: first-population audit tick failed",
       );
     });
   });
@@ -943,13 +980,7 @@ export function startSeoAuditMonitor(): void {
   // hourly tick will retry. If the cache is warm by 90 s this call is a
   // harmless no-op (dedup flag prevents a duplicate alert).
   const baseline = setTimeout(() => {
-    validateKeyPageSlugs().catch((err) => {
-      logger.warn(
-        { err: (err as Error)?.message },
-        "seoAuditMonitor: startup catalog coverage check failed",
-      );
-    });
-    runOnce().catch((err) => {
+    scheduledTick().catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "seoAuditMonitor: baseline run failed",
@@ -959,16 +990,7 @@ export function startSeoAuditMonitor(): void {
   baseline.unref?.();
 
   timer = setInterval(() => {
-    // Check catalog coverage on every tick so Slack alerts fire even on days
-    // when the daily audit guard has already run (lastEvaluatedDay matches
-    // prevDay and runOnce() returns early).
-    validateKeyPageSlugs().catch((err) => {
-      logger.warn(
-        { err: (err as Error)?.message },
-        "seoAuditMonitor: hourly catalog coverage check failed",
-      );
-    });
-    runOnce().catch((err) => {
+    scheduledTick().catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "seoAuditMonitor: tick failed",

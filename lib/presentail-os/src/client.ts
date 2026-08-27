@@ -28,7 +28,14 @@ export type PresentailOsConfig = {
   apiKey: string;
   /** Workspace slug to pass to the public endpoint. Defaults to "presentail". */
   workspace?: string;
+  /** Optional caller cancellation, composed with the client's request timeout. */
+  signal?: AbortSignal;
 };
+
+function requestSignal(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
 
 // ── Legacy /api/delivery-locations normalisation ────────────────────────────
 //
@@ -343,7 +350,7 @@ export async function fetchOsLocations(
         "User-Agent": "PresentailApp/1.0",
         "x-api-key": apiKey,
       },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: requestSignal(config.signal),
     });
   }
 
@@ -554,7 +561,7 @@ export async function fetchOsProducts(
         "User-Agent": "PresentailApp/1.0",
         "x-api-key": apiKey,
       },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: requestSignal(config.signal),
     });
   }
 
@@ -623,7 +630,7 @@ export async function fetchOsCategories(
       "User-Agent": "PresentailApp/1.0",
       "x-api-key": apiKey,
     },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: requestSignal(config.signal),
   });
   if (!res.ok) {
     throw new Error(`Presentail OS categories API returned HTTP ${res.status}`);
@@ -748,7 +755,7 @@ export async function fetchOsCatalogAttributesBrands(
       "User-Agent": "PresentailApp/1.0",
       "x-api-key": apiKey,
     },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: requestSignal(config.signal),
   });
   if (!res.ok) {
     throw new Error(`Presentail OS catalog-attributes/brands API returned HTTP ${res.status}`);
@@ -792,7 +799,7 @@ export async function fetchOsOccasions(
       "User-Agent": "PresentailApp/1.0",
       "x-api-key": apiKey,
     },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: requestSignal(config.signal),
   });
   if (!res.ok) {
     throw new Error(`Presentail OS occasions API returned HTTP ${res.status}`);
@@ -1030,7 +1037,7 @@ export async function createOsOrder(
       "x-api-key": apiKey,
     },
     body: JSON.stringify({ ...payload, workspace }),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: requestSignal(config.signal),
   });
 
   if (!res.ok) {
@@ -1099,7 +1106,7 @@ export async function fetchOsCoupons(
       Authorization: `Bearer ${apiKey}`,
       "x-api-key": apiKey,
     },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: requestSignal(config.signal),
   });
   if (!res.ok) {
     throw new Error(`[presentail-os] fetchOsCoupons HTTP ${res.status}`); // i18n-ignore
@@ -1130,7 +1137,7 @@ export async function validateOsCoupon(
       "x-api-key": apiKey,
     },
     body: JSON.stringify({ code, cartItems, cartTotalUsd }),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: requestSignal(config.signal),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -1431,7 +1438,7 @@ export async function searchOsAddressBookPlaces(
       "x-api-key": apiKey,
       Authorization: `Bearer ${apiKey}`,
     },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: requestSignal(config.signal),
   });
   if (!res.ok) {
     throw new Error(

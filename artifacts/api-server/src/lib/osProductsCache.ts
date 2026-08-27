@@ -46,6 +46,11 @@ import type { StoreKey } from "./wooStore";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
 import { submitIndexNowUrls, buildCanonicalUrls } from "./indexNow";
+import {
+  runDistributedJob,
+  saveBackgroundJobSnapshot,
+  waitForBackgroundJobSnapshot,
+} from "./distributedJob";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -200,6 +205,7 @@ let cachedProductOccasions: Map<string, OSProductOccasion> = new Map();
 
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
+const SHARED_PRODUCTS_SNAPSHOT = "os-products-cache";
 
 /** Timestamp of the most recent successful `fetchAndStore()` completion. */
 let lastRefreshedAt: Date | null = null;
@@ -477,7 +483,7 @@ export function __resetBrandFilterStateForTest(): void {
  * with mocked OS fetchers. Only call from tests.
  */
 export async function fetchAndStoreForTesting(): Promise<void> {
-  return fetchAndStore();
+  await fetchAndStore();
 }
 
 /**
@@ -517,11 +523,12 @@ const INTERVAL_MS = (() => {
   return raw;
 })();
 
-function getOsConfig(): PresentailOsConfig {
+function getOsConfig(signal?: AbortSignal): PresentailOsConfig {
   return {
     apiKey: process.env.PRESENTAIL_OS_API_KEY ?? "",
     baseUrl: process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com",
     workspace: process.env.PRESENTAIL_OS_WORKSPACE ?? "presentail",
+    signal,
   };
 }
 
@@ -1020,9 +1027,9 @@ function buildStoreCache(products: OSProduct[]): StoreProductCache {
 
 // ── Fetch ──────────────────────────────────────────────────────────────────
 
-async function fetchAndStore(): Promise<void> {
-  const config = getOsConfig();
-  if (!config.apiKey) return;
+async function fetchAndStore(signal?: AbortSignal): Promise<boolean> {
+  const config = getOsConfig(signal);
+  if (!config.apiKey) return false;
 
   try {
     // Shared unfiltered fallback: if any store's country-filtered fetch returns
@@ -1600,7 +1607,7 @@ async function fetchAndStore(): Promise<void> {
     // sale_price / discount_price_usd / discount_price_aed — fields the list
     // endpoint omits. Runs asynchronously so it doesn't delay the cache
     // refresh or block the first-population callback.
-    enrichProductPricingFromOs(config).catch((err: unknown) => {
+    await enrichProductPricingFromOs(config).catch((err: unknown) => {
       logger.warn(
         { err: err instanceof Error ? err.message : String(err) },
         "osProductsCache: product pricing enrichment failed",
@@ -1650,9 +1657,11 @@ async function fetchAndStore(): Promise<void> {
         );
       }
     }
+    return true;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn({ err: msg }, "osProductsCache: fetch crashed");
+    return false;
   }
 }
 
@@ -2108,13 +2117,211 @@ export function removeOsProductById(deletedId: number | string): void {
  * Retains the last-good cache while the refetch is in progress.
  */
 export function invalidateOsProductsCache(): void {
-  fetchAndStore().catch((err: unknown) => {
+  runProductsRefreshJob("os-products", 30_000).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn(
       { err: msg },
       "osProductsCache: invalidation fetch failed",
     );
   });
+}
+
+type OsProductsSharedSnapshot = {
+  version: 1;
+  refreshedAt: string;
+  stores: Array<[StoreKey, OSProduct[]]>;
+  storeRefreshState: Array<
+    [
+      StoreKey,
+      {
+        lastAttemptAt: string;
+        lastSuccessfulAt: string | null;
+        lastAttemptSucceeded: boolean;
+      },
+    ]
+  >;
+  categories: OSProductCategory[] | null;
+  brands: OSProductBrand[] | null;
+  occasions: OSProductOccasion[] | null;
+  rawCatalogBrands:
+    | import("@workspace/presentail-os").OSCatalogAttributeBrand[]
+    | null;
+  bestSellerIds: string[];
+  brandProductCounts: Array<[string, number]>;
+  categoryProductCounts: Array<[string, number]>;
+  occasionProductCounts: Array<[string, number]>;
+  categoryProductCountsByCountry: Array<
+    [string, Array<[string, number]>]
+  >;
+  occasionProductCountsByCountry: Array<
+    [string, Array<[string, number]>]
+  >;
+  productOccasions: Array<[string, OSProductOccasion]>;
+  productPricing: Array<[string, ProductPricingEntry]>;
+  occasionsByCity: Array<
+    [string, { occasions: OSProductOccasion[]; fetchedAt: number }]
+  >;
+};
+
+function buildSharedProductsSnapshot(): OsProductsSharedSnapshot {
+  return {
+    version: 1,
+    refreshedAt: (lastRefreshedAt ?? new Date()).toISOString(),
+    stores: OS_STORE_SPECS.flatMap((spec) => {
+      const entry = storeCache.get(spec.storeKey);
+      return entry ? [[spec.storeKey, entry.products]] : [];
+    }),
+    storeRefreshState: [...storeRefreshState.entries()].map(
+      ([storeKey, state]) => [
+        storeKey,
+        {
+          lastAttemptAt: state.lastAttemptAt.toISOString(),
+          lastSuccessfulAt: state.lastSuccessfulAt?.toISOString() ?? null,
+          lastAttemptSucceeded: state.lastAttemptSucceeded,
+        },
+      ],
+    ),
+    categories: cachedCategories,
+    brands: cachedBrands,
+    occasions: cachedOccasions,
+    rawCatalogBrands: cachedRawCatalogBrands,
+    bestSellerIds: [...cachedBestSellerIdSet],
+    brandProductCounts: [...cachedBrandProductCounts.entries()],
+    categoryProductCounts: [...cachedCategoryProductCounts.entries()],
+    occasionProductCounts: [...cachedOccasionProductCounts.entries()],
+    categoryProductCountsByCountry: [
+      ...cachedCategoryProductCountsByCountry.entries(),
+    ].map(([country, counts]) => [country, [...counts.entries()]]),
+    occasionProductCountsByCountry: [
+      ...cachedOccasionProductCountsByCountry.entries(),
+    ].map(([country, counts]) => [country, [...counts.entries()]]),
+    productOccasions: [...cachedProductOccasions.entries()],
+    productPricing: [...cachedProductPricing.entries()],
+    occasionsByCity: [...cachedOccasionsByCity.entries()],
+  };
+}
+
+function applySharedProductsSnapshot(
+  snapshot: OsProductsSharedSnapshot,
+): void {
+  if (snapshot.version !== 1 || !Array.isArray(snapshot.stores)) {
+    throw new Error("Unsupported OS products shared snapshot");
+  }
+  storeCache.clear();
+  for (const [storeKey, products] of snapshot.stores) {
+    storeCache.set(storeKey, buildStoreCache(products));
+    maybeRecordStartupSnapshot(products, storeKey);
+  }
+  storeRefreshState.clear();
+  for (const [storeKey, state] of snapshot.storeRefreshState) {
+    storeRefreshState.set(storeKey, {
+      lastAttemptAt: new Date(state.lastAttemptAt),
+      lastSuccessfulAt: state.lastSuccessfulAt
+        ? new Date(state.lastSuccessfulAt)
+        : null,
+      lastAttemptSucceeded: state.lastAttemptSucceeded,
+    });
+  }
+  cachedCategories = snapshot.categories;
+  cachedBrands = snapshot.brands;
+  cachedOccasions = snapshot.occasions;
+  cachedRawCatalogBrands = snapshot.rawCatalogBrands;
+  cachedBrandNameToCanonicalSlug = new Map(
+    (snapshot.rawCatalogBrands ?? []).flatMap((brand) =>
+      brand.slug ? [[normaliseBrandName(brand.name), brand.slug]] : [],
+    ),
+  );
+  cachedBestSellerIdSet = new Set(snapshot.bestSellerIds);
+  cachedBrandProductCounts = new Map(snapshot.brandProductCounts);
+  cachedCategoryProductCounts = new Map(snapshot.categoryProductCounts);
+  cachedOccasionProductCounts = new Map(snapshot.occasionProductCounts);
+  cachedCategoryProductCountsByCountry = new Map(
+    snapshot.categoryProductCountsByCountry.map(([country, counts]) => [
+      country,
+      new Map(counts),
+    ]),
+  );
+  cachedOccasionProductCountsByCountry = new Map(
+    snapshot.occasionProductCountsByCountry.map(([country, counts]) => [
+      country,
+      new Map(counts),
+    ]),
+  );
+  cachedProductOccasions = new Map(snapshot.productOccasions);
+  cachedProductPricing = new Map(snapshot.productPricing);
+  cachedOccasionsByCity.clear();
+  for (const [city, entry] of snapshot.occasionsByCity) {
+    cachedOccasionsByCity.set(city, entry);
+  }
+  lastRefreshedAt = new Date(snapshot.refreshedAt);
+
+  for (const fn of osRefreshListeners) {
+    try {
+      fn();
+    } catch (err) {
+      logger.warn({ err }, "osProductsCache: osRefreshListener threw");
+    }
+  }
+  for (const fn of pricingEnrichmentListeners) {
+    try {
+      fn();
+    } catch (err) {
+      logger.warn({ err }, "osProductsCache: pricingEnrichmentListener threw");
+    }
+  }
+  if (!firstPopulatedFired && storeCache.size > 0 && onFirstPopulatedCallback) {
+    firstPopulatedFired = true;
+    const fn = onFirstPopulatedCallback;
+    onFirstPopulatedCallback = null;
+    fn();
+  }
+  logger.info(
+    { storeCount: storeCache.size, refreshedAt: snapshot.refreshedAt },
+    "osProductsCache: hydrated shared snapshot",
+  );
+}
+
+async function runProductsRefreshJob(
+  jobName: string,
+  intervalMs: number,
+): Promise<void> {
+  const result = await runDistributedJob({
+    jobName,
+    intervalMs,
+    leaseMs: 10 * 60_000,
+    task: async (context) => {
+      const succeeded = await fetchAndStore(context.signal);
+      context.signal.throwIfAborted();
+      if (!succeeded) {
+        throw new Error("Presentail OS products refresh failed");
+      }
+      await saveBackgroundJobSnapshot(
+        context,
+        buildSharedProductsSnapshot(),
+        SHARED_PRODUCTS_SNAPSHOT,
+      );
+    },
+  });
+  if (result.status === "ran") {
+    return;
+  }
+  const snapshot =
+    await waitForBackgroundJobSnapshot<OsProductsSharedSnapshot>(
+      SHARED_PRODUCTS_SNAPSHOT,
+      {
+        windowStart: result.windowStart,
+        generation: result.generation,
+      },
+    );
+  if (!snapshot) {
+    logger.warn("osProductsCache: shared snapshot unavailable after lease skip");
+    return;
+  }
+  applySharedProductsSnapshot(snapshot.payload);
+}
+
+async function runScheduledProductsSync(): Promise<void> {
+  await runProductsRefreshJob("os-products", INTERVAL_MS);
 }
 
 /**
@@ -2145,7 +2352,7 @@ export function startOsProductsSync(): void {
   // for readiness, and starting immediately minimizes that wait after a
   // server restart.
   Promise.all([seedStartupSnapshotFromDb(), seedPriceAlertDedupeFromDb()])
-    .then(() => fetchAndStore())
+    .then(() => runScheduledProductsSync())
     .catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ err: msg }, "osProductsCache: initial fetch failed");
@@ -2154,7 +2361,7 @@ export function startOsProductsSync(): void {
   timer = setInterval(() => {
     if (fetching) return;
     fetching = true;
-    fetchAndStore()
+    runScheduledProductsSync()
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         logger.warn({ err: msg }, "osProductsCache: scheduled fetch failed");

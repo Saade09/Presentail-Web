@@ -19,10 +19,9 @@
  * - Lebanon first (the store with FR traffic flagged in the audit), then the
  *   remaining stores.
  */
-import { sql } from "drizzle-orm";
-import { db } from "@workspace/db";
 import { logger } from "./logger";
 import { getOsProducts } from "./osProductsCache";
+import { runDistributedJob } from "./distributedJob";
 import {
   translateProductContent,
   hasCachedProductTranslation,
@@ -41,48 +40,31 @@ const langsForStore = (storeKey: string): TranslationLang[] =>
 let timer: ReturnType<typeof setTimeout> | null = null;
 let running = false;
 
-// Advisory lock key: prevents two autoscale replicas from running a warm
-// cycle simultaneously (translations are persisted in Postgres, so whichever
-// replica warms first benefits all of them).
-const ADVISORY_LOCK_KEY = 0x70726474; // "prdt"
-
 // Stop a cycle after this many consecutive translation failures — a sustained
 // provider outage would otherwise keep a sequential cycle burning retries for
 // hours. The next scheduled cycle picks up where this one left off.
 const MAX_CONSECUTIVE_FAILURES = 10;
 
-async function runWarmCycle(): Promise<void> {
+async function runWarmCycle(signal?: AbortSignal): Promise<void> {
   if (running) return;
   running = true;
   const started = Date.now();
   let warmed = 0;
   let skipped = 0;
   let failed = 0;
-  let gotLock = false;
   try {
-    try {
-      const lockRes = await db.execute(
-        sql`SELECT pg_try_advisory_lock(${ADVISORY_LOCK_KEY}) AS locked`,
-      );
-      gotLock = (lockRes as unknown as { rows?: Array<{ locked: boolean }> }).rows?.[0]?.locked === true;
-    } catch {
-      // DB unavailable — proceed without the cross-replica guard rather than
-      // never warming (the in-flight dedup still protects within-process).
-      gotLock = true;
-    }
-    if (!gotLock) {
-      logger.info("productTranslationWarmJob: another replica holds the lock — skipping cycle"); // i18n-ignore
-      return;
-    }
     let consecutiveFailures = 0;
     const seen = new Set<string>();
     for (const storeKey of STORE_KEYS) {
+      signal?.throwIfAborted();
       const products = getOsProducts(storeKey);
       if (!products || products.length === 0) continue;
       for (const p of products) {
+        signal?.throwIfAborted();
         const id = p.osNumericId ?? p.id;
         if (id === undefined || id === null) continue;
         for (const lang of langsForStore(storeKey)) {
+          signal?.throwIfAborted();
           const key = `${id}:${lang}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -96,6 +78,7 @@ async function runWarmCycle(): Promise<void> {
             p.name ?? "",
             p.description ?? "",
           );
+          signal?.throwIfAborted();
           if (result.translated) {
             warmed++;
             consecutiveFailures = 0;
@@ -114,18 +97,8 @@ async function runWarmCycle(): Promise<void> {
       }
     }
   } catch (err) {
-    logger.warn(
-      { err: (err as Error)?.message },
-      "productTranslationWarmJob: cycle error", // i18n-ignore
-    );
+    throw err;
   } finally {
-    if (gotLock) {
-      try {
-        await db.execute(sql`SELECT pg_advisory_unlock(${ADVISORY_LOCK_KEY})`);
-      } catch {
-        // Connection-level failure releases the lock automatically.
-      }
-    }
     running = false;
     logger.info(
       { warmed, skipped, failed, durationMs: Date.now() - started },
@@ -134,12 +107,29 @@ async function runWarmCycle(): Promise<void> {
   }
 }
 
+async function runScheduledWarmCycle(): Promise<void> {
+  await runDistributedJob({
+    jobName: "product-translation-warm",
+    intervalMs: INTERVAL_MS,
+    leaseMs: 2 * 60 * 60_000,
+    task: (context) => runWarmCycle(context.signal),
+  });
+}
+
 export function startProductTranslationWarmJob(): void {
   if (timer) return;
   const schedule = (delay: number) => {
     timer = setTimeout(async () => {
-      await runWarmCycle();
-      schedule(INTERVAL_MS);
+      try {
+        await runScheduledWarmCycle();
+      } catch (err) {
+        logger.warn(
+          { err: (err as Error)?.message },
+          "productTranslationWarmJob: scheduled cycle failed", // i18n-ignore
+        );
+      } finally {
+        schedule(INTERVAL_MS);
+      }
     }, delay);
     timer.unref?.();
   };

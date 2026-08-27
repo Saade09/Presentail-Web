@@ -92,6 +92,7 @@ import {
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
 import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 import { appendOrderToSheet } from "./ordersSheet.js";
+import { runDistributedJob } from "./distributedJob";
 
 async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
   const s = store ?? resolveStore();
@@ -1879,25 +1880,30 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
   );
 }
 
-export async function runReconcileTick(): Promise<{
+export async function runReconcileTick(signal?: AbortSignal): Promise<{
   claimed: number;
 }> {
   
   let claimed: PendingWooOrder[] = [];
   try {
+    signal?.throwIfAborted();
     claimed = await claimDueRows();
+    signal?.throwIfAborted();
   } catch (err: any) {
     logger.warn(
       { err: err?.message },
       "wooReconcile: failed to claim due rows",
     );
-    return { claimed: 0 };
+    throw err;
   }
   if (!claimed.length) return { claimed: 0 };
   for (const row of claimed) {
+    signal?.throwIfAborted();
     try {
       await processPendingRow(row);
+      signal?.throwIfAborted();
     } catch (err: any) {
+      if (signal?.aborted) throw signal.reason;
       logger.error(
         { err: err?.message, id: row.id, appOrderId: row.appOrderId },
         "wooReconcile: unexpected error processing row",
@@ -1917,10 +1923,17 @@ export function startReconcileWorker(): void {
   }
   const tick = async () => {
     try {
-      const { claimed } = await runReconcileTick();
-      if (claimed > 0) {
-        logger.info({ claimed }, "wooReconcile: tick processed rows");
-      }
+      await runDistributedJob({
+        jobName: "order-reconciliation",
+        intervalMs: RECONCILE_TICK_MS,
+        leaseMs: 3 * 60_000,
+        task: async (context) => {
+          const { claimed } = await runReconcileTick(context.signal);
+          if (claimed > 0) {
+            logger.info({ claimed }, "wooReconcile: tick processed rows");
+          }
+        },
+      });
     } catch (err: any) {
       logger.error({ err: err?.message }, "wooReconcile: tick crashed");
     }
