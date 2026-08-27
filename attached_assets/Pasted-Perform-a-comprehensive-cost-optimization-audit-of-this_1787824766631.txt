@@ -1,0 +1,233 @@
+Perform a comprehensive cost-optimization audit of this entire Replit project.
+
+# Objective
+
+Identify why this application is becoming expensive and find permanent opportunities to reduce its Replit usage and overall infrastructure cost without negatively affecting functionality, reliability, security, data integrity, or user experience.
+
+# Important Instructions
+
+* Begin with a read-only audit.
+* Do not change code, database schemas, deployment settings, or infrastructure during the audit.
+* Do not downgrade or disable any production service.
+* Do not delete data, logs, backups, files, deployments, or dependencies.
+* Do not make assumptions about costs. Use actual usage, billing, deployment, database, and application data wherever accessible.
+* If exact cost information is unavailable, clearly label estimates and explain the basis for them.
+* Focus on permanent root-cause improvements, not temporary workarounds.
+* Preserve all existing functionality.
+* Consider that this is a production business system and interruptions could affect customers and employees.
+
+# Audit Replit Usage
+
+Inspect all available Replit usage and configuration, including:
+
+* Current deployment type and configuration
+* Reserved VM, Autoscale, Scheduled, Static, or other deployments
+* CPU usage
+* Memory usage
+* Compute units or equivalent usage
+* Deployment uptime
+* Autoscaling behavior
+* Minimum and maximum instances
+* Idle instances
+* Development workspace usage
+* Database usage and storage
+* Object storage
+* Outbound data transfer
+* Build frequency and build duration
+* Deployment frequency
+* Scheduled jobs
+* Background workers
+* Agent and AI usage, if visible
+* Any paid Replit services that are enabled but unnecessary
+* Differences between recent billing periods, if billing history is accessible
+
+Identify the largest cost drivers and explain why each one is consuming resources.
+
+# Audit Application Architecture
+
+Inspect the complete codebase for avoidable resource usage, including:
+
+* Processes that run continuously when they do not need to
+* Infinite loops or unnecessarily frequent polling
+* Duplicate background workers
+* Duplicate scheduled jobs
+* Cron jobs running more frequently than necessary
+* Jobs that overlap before the previous run finishes
+* Missing concurrency controls or job locks
+* Repeated API requests
+* Excessive third-party API calls
+* Repeated AI model calls
+* AI calls using more expensive models than necessary
+* Excessively large AI prompts or unnecessary context
+* Responses that could be cached
+* Database queries running repeatedly
+* N+1 database queries
+* Missing indexes
+* Full-table scans
+* Queries returning more rows or columns than required
+* Excessive database connections
+* Connections not being closed correctly
+* Memory leaks
+* CPU-intensive transformations
+* Large files being processed in memory
+* Uncompressed images or assets
+* Large application bundles
+* Excessive server-side rendering
+* Duplicate packages or unnecessary dependencies
+* Development dependencies included in production
+* Excessive logging
+* Repeated errors creating large volumes of logs
+* Log files or temporary files that continually grow
+* WebSocket or SSE connections left open unnecessarily
+* Health checks running too frequently
+* Retry loops without limits or exponential backoff
+* Endpoints being called repeatedly by the frontend
+* Pages that fetch the same information multiple times
+* Missing client-side or server-side caching
+* Production services that are running but no longer used
+
+# Audit External Integrations
+
+Review integrations such as Stripe, Odoo, Wafeq, Clerk, Google APIs, delivery services, messaging services, AI providers, and other external APIs.
+
+Look for:
+
+* Duplicate webhook processing
+* Webhook retry loops
+* Unnecessary synchronization
+* Full synchronization when incremental synchronization is possible
+* Reprocessing records that have not changed
+* Missing idempotency
+* Excessive API polling
+* Opportunities to use webhooks instead of polling
+* Expensive AI operations that can use rules, cached results, batching, or smaller models
+* External calls happening during every page load
+* Failures that create repeated requests
+
+# Measure Before Recommending
+
+Where possible, measure or collect:
+
+* Most resource-intensive processes
+* Highest CPU endpoints and jobs
+* Highest-memory processes
+* Most frequently called endpoints
+* Slowest endpoints
+* Most frequent database queries
+* Slowest database queries
+* Most frequent scheduled tasks
+* Largest database tables
+* Largest stored files
+* Most frequent errors
+* Volume of logs generated
+* Number and frequency of external API calls
+* Number, model, prompt size, and frequency of AI calls
+* Resources used during idle periods versus active periods
+
+Add lightweight temporary instrumentation only if absolutely required to obtain this information. Explain exactly what would be added before adding it.
+
+# Required Report
+
+Produce a report with these sections:
+
+## 1. Executive Summary
+
+Explain in simple language:
+
+* What is driving the current cost
+* Whether the cost appears normal or abnormal
+* The three biggest opportunities to reduce it
+* The approximate total savings available
+* Any urgent issue, leak, runaway process, or misconfiguration
+
+## 2. Current Cost Breakdown
+
+Create a table with:
+
+* Cost category
+* Current usage
+* Current estimated monthly cost
+* Percentage of total cost
+* Evidence/source
+* Confidence level
+
+## 3. Optimization Opportunities
+
+Create a prioritized table containing:
+
+* Priority
+* Issue
+* Root cause
+* Evidence
+* Recommended permanent solution
+* Expected monthly savings
+* Expected percentage reduction
+* Implementation effort
+* Implementation risk
+* Performance impact
+* Files or settings affected
+* How the improvement will be verified
+
+Categorize every recommendation as:
+
+* Quick win
+* Medium improvement
+* Architectural improvement
+* Replit configuration improvement
+* Database improvement
+* AI/API usage improvement
+
+## 4. Unused Resources
+
+List any unused or duplicate:
+
+* Deployments
+* Services
+* Background workers
+* Scheduled jobs
+* Databases
+* Storage
+* Dependencies
+* APIs
+* Development processes
+
+Do not remove them. Explain how you determined that each appears unused.
+
+## 5. Recommended Implementation Plan
+
+Create a staged plan:
+
+* Phase 1: Safe, high-confidence quick wins
+* Phase 2: Code and database optimizations
+* Phase 3: Deployment and architecture improvements
+* Phase 4: Monitoring and cost safeguards
+
+For every phase, include:
+
+* Exact changes
+* Expected savings
+* Risks
+* Tests required
+* Rollback approach
+
+## 6. Cost Safeguards
+
+Recommend permanent safeguards such as:
+
+* Usage alerts
+* Spending alerts
+* Maximum autoscaling limits
+* Job concurrency controls
+* AI request budgets
+* API rate limits
+* Query monitoring
+* Error and retry limits
+* Log retention limits
+* Automated weekly cost reports
+* Detection of unusual increases in resource usage
+
+# Final Instruction
+
+Stop after presenting the audit and implementation plan. Do not implement any recommendation until I explicitly approve the plan.
+
+The goal is not simply to make the application use fewer resources. The goal is to identify exactly where the money is going, fix the underlying causes, and prevent costs from unexpectedly increasing again.
