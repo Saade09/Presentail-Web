@@ -2317,6 +2317,18 @@ router.post("/woo/order", async (req, res) => {
       });
     }
 
+    // Payment not yet captured — return the OS error directly to the client.
+    // Log at error level so Whish/Western Union OS failures are immediately
+    // visible in server logs and can be diagnosed without waiting for ops.
+    req.log?.error?.(
+      {
+        appOrderId: body.orderId,
+        paymentMethod: body.paymentMethod,
+        osStatus: result.status,
+        osMessage: result.message,
+      },
+      "woo.order: OS order failed for offline/unverified payment — returning error to client",
+    );
     return res
       .status(result.status)
       .json({ ok: false, message: result.message });

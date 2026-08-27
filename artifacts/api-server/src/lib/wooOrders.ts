@@ -1466,8 +1466,6 @@ export async function attemptCreateOsOrder(
       ref: body.paymentRef || undefined,
       verified: opts.paymentVerified === true,
       currencyCode: presentedCurrency,
-      // Actual amount in the payment currency (what the customer paid).
-      totalAmount: totalInPaymentCurrency,
       // USD equivalent retained for OS's cross-currency accounting.
       totalUsd: Math.round(totalUsd * 100) / 100,
     },

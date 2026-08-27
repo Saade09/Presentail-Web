@@ -404,6 +404,12 @@ export type OSCreateOrderPayload = {
     currencyCode?: string;
     /** Authoritative total in USD (sum of product subtotal + all fees). */
     totalUsd: number;
+    /**
+     * Actual amount in the payment currency (what the customer paid).
+     * Not currently accepted by the OS API — reserved for future use when
+     * OS adds support for multi-currency payment amounts.
+     */
+    totalAmount?: number;
   };
   /**
    * Structured delivery address for the OS order view.
