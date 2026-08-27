@@ -1,0 +1,121 @@
+Audit and improve the AI agent in this application. The goal is to make it faster, more reliable, less expensive to operate, and more efficient without changing its intended purpose or user-facing behavior.
+
+Please investigate the implementation before making changes. Identify the root causes of inefficiency rather than applying temporary patches.
+
+Audit
+
+Review the complete agent workflow, including:
+
+* System prompt and injected context
+* Conversation history and memory handling
+* Knowledge-base retrieval
+* Tool and API calls
+* Model selection
+* Token usage
+* Response latency
+* Retry and timeout logic
+* Conversation routing and handoff
+* Database queries
+* Logging and error handling
+* Frontend loading and response states
+
+Identify:
+
+* Repeated or unnecessary model calls
+* Duplicate API, retrieval, or database requests
+* Prompts containing redundant or irrelevant context
+* Excessive conversation history being sent with every request
+* Tool calls that could be combined, cached, or avoided
+* Loops where the agent repeatedly searches or retries
+* Expensive models being used for simple decisions
+* Operations that run sequentially but could safely run in parallel
+* Missing timeouts, retry limits, or failure fallbacks
+* Any bugs causing slow, inconsistent, incomplete, or duplicate responses
+
+Implementation
+
+After completing the audit, implement permanent improvements.
+
+The optimized agent should:
+
+* Use one model call whenever one call is sufficient
+* Send only the relevant conversation history and context
+* Summarize older history instead of repeatedly sending full transcripts
+* Retrieve only the most relevant knowledge-base content
+* Avoid calling tools unless the result is genuinely required
+* Cache safe, reusable results where appropriate
+* Deduplicate simultaneous and repeated requests
+* Use lightweight deterministic logic for routing, validation, acknowledgements, and other simple decisions
+* Use the least expensive suitable model for each task
+* Reserve the strongest model for requests that require complex reasoning
+* Set clear limits for retries, tool calls, retrieval attempts, and overall execution time
+* Fail gracefully when a tool, model, or external service is unavailable
+* Prevent the agent from becoming stuck in loops
+* Prevent duplicate messages or actions
+* Preserve conversation context and existing handoff behavior
+* Keep replies concise and avoid unnecessary follow-up questions
+
+Do not remove working functionality merely to improve performance.
+
+Observability
+
+Add structured logging that records:
+
+* Request ID
+* Agent workflow selected
+* Model used
+* Number of model calls
+* Tool calls made
+* Retrieval queries and number of results
+* Input and output token usage
+* Total response time
+* Retries and timeouts
+* Errors and fallback behavior
+
+Do not log passwords, API keys, payment information, private customer data, or full sensitive conversations.
+
+Verification
+
+Create or update automated tests covering:
+
+* Normal customer conversations
+* Multi-turn conversations
+* Knowledge-base questions
+* Tool-dependent requests
+* Human handoff
+* Tool and API failures
+* Timeouts
+* Duplicate submissions
+* Concurrent requests
+* Long conversation histories
+* Prompt-injection attempts
+* Empty, unclear, and malformed messages
+
+Compare the system before and after optimization and report:
+
+* Average response time
+* Number of model calls per message
+* Tool calls per message
+* Estimated token usage
+* Estimated cost per conversation
+* Error and retry rates
+* Any behavior that changed
+
+Safety
+
+* Preserve all existing data, integrations, credentials, and production configuration.
+* Do not modify database schemas destructively.
+* Do not expose secrets in code, logs, or the frontend.
+* Do not replace working integrations with mocked functionality.
+* Maintain backward compatibility wherever possible.
+* If a behavior change is necessary, explain it before implementing it.
+* Work in small, testable changes and verify each change before continuing.
+
+When finished, provide:
+
+1. Root causes discovered
+2. Files and workflows changed
+3. Efficiency improvements implemented
+4. Test results
+5. Before-and-after performance comparison
+6. Remaining risks or recommended follow-up work
