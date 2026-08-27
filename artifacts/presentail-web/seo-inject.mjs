@@ -3506,6 +3506,24 @@ function localeBaseUrl(pathname, origin, basePath) {
   return `${origin}${cleanBase}${pfx}`;
 }
 
+/**
+ * Resolve the URL identity used by an entity page's canonical and structured
+ * data. Entity pages at satellite cities may canonicalize to their country's
+ * hub city, so every URL derived from that page must use the same pathname.
+ * Curated city-specific pages pass remapCityToHub=false and remain
+ * self-canonical.
+ */
+function buildEntityUrlContext({ pathname, origin, basePath, remapCityToHub }) {
+  const canonicalPathname = remapCityToHub
+    ? remapPathnameToHubCity(pathname)
+    : pathname;
+  return {
+    canonicalPathname,
+    localeBase: localeBaseUrl(canonicalPathname, origin, basePath),
+    canonicalUrl: buildCanonicalUrl(canonicalPathname, { origin, basePath }),
+  };
+}
+
 const TRACKING_PARAMS = new Set([
   "srsltid",
   "utm_source",
@@ -3683,7 +3701,12 @@ function buildEntityHead({
   // signals consolidate instead of fragmenting across near-duplicate city
   // URLs. City-level pages (home, shop, listings, static pages) keep
   // self-canonical — their stock/delivery content is genuinely city-specific.
-  const canonicalPathname = remapCityToHub ? remapPathnameToHubCity(pathname) : pathname;
+  const { canonicalPathname } = buildEntityUrlContext({
+    pathname,
+    origin,
+    basePath,
+    remapCityToHub,
+  });
   const canonicalHref = buildCanonicalUrl(canonicalPathname + (search || ""), { origin, basePath });
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
@@ -3897,11 +3920,17 @@ export function buildProductHead({
   }
 
   // Canonical product URL (no query string) — reused for the Product `url`,
-  // the offer `url`, and as the breadcrumb leaf reference.
+  // the offer `url`, and as the breadcrumb leaf reference. Use the same
+  // effective pathname as buildEntityHead so satellite-city entity pages do
+  // not emit schema URLs that disagree with their hub-city canonical.
   const cleanBase = basePath.replace(/\/$/, "");
   const siteRoot = `${origin}${cleanBase}`;
-  const canonicalUrl = `${siteRoot}${pathname}`;
-  const locBase = localeBaseUrl(pathname, origin, basePath);
+  const { localeBase: locBase, canonicalUrl } = buildEntityUrlContext({
+    pathname,
+    origin,
+    basePath,
+    remapCityToHub: true,
+  });
 
   // Stable identifier: prefer the numeric OS product id, then WC id, fall back to the slug.
   // osNumericId is the canonical numeric DB primary key that is stable across
@@ -4347,11 +4376,18 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
   const rawBrandImageUrl =
     typeof brand.image === "string" && brand.image ? brand.image : null;
   const imageUrl = ogImageUrl || rawBrandImageUrl;
-  // BreadcrumbList JSON-LD — Home > City > Brands > Brand Name.
+  // BreadcrumbList JSON-LD — Home > City > Brands > Brand Name. Keep the
+  // breadcrumb base aligned with the remapped entity canonical.
   // "Home" is the site root (not the locale/city page) so the trail is always
   // anchored to the top-level domain; a city crumb is inserted between Home and
   // Brands whenever a city is present in the path.
-  const locBase = localeBaseUrl(pathname, origin, basePath);
+  const { localeBase: locBase } = buildEntityUrlContext({
+    pathname,
+    origin,
+    basePath,
+    remapCityToHub: true,
+  });
+  const requestLocBase = localeBaseUrl(pathname, origin, basePath);
   const cleanBase = basePath.replace(/\/$/, "");
   const siteRoot = `${origin}${cleanBase}`;
   const brandCrumbs = [{ name: "Home", url: siteRoot }];
@@ -4465,8 +4501,8 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     parsedBrandLoc.country === "lb" &&
     parsedBrandLoc.city === "tripoli" &&
     lang === "en" &&
-    locBase
-      ? `<div class="sr-only"><p>Discover our full <a href="${locBase}/">Tripoli flower delivery</a> service.</p></div>` // i18n-ignore — crawler-facing EN copy
+    requestLocBase
+      ? `<div class="sr-only"><p>Discover our full <a href="${requestLocBase}/">Tripoli flower delivery</a> service.</p></div>` // i18n-ignore — crawler-facing EN copy
       : "";
   // Batroun brand pages: crawlable contextual link back to the city landing
   // page. Anchor text deliberately varied vs. the Tripoli brand and Batroun
@@ -4476,8 +4512,8 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     parsedBrandLoc.country === "lb" &&
     parsedBrandLoc.city === "batroun" &&
     lang === "en" &&
-    locBase
-      ? `<div class="sr-only"><p>Discover our full range of <a href="${locBase}/">Batroun flowers and gifts</a>.</p></div>` // i18n-ignore — crawler-facing EN copy
+    requestLocBase
+      ? `<div class="sr-only"><p>Discover our full range of <a href="${requestLocBase}/">Batroun flowers and gifts</a>.</p></div>` // i18n-ignore — crawler-facing EN copy
       : "";
   const bodyHtml = (
     `<h1 class="sr-only">${safeBrandTitle}</h1>` +
@@ -4662,13 +4698,23 @@ function buildShopEntityHead({
   // by the API). When provided it takes precedence over the raw entity image.
   const imageUrl = ogImageUrl ||
     (typeof entity.image === "string" && entity.image ? entity.image : null);
+  // Curated pages contain unique city-specific content and are self-canonical;
+  // all other entity pages consolidate to their country's hub city. The same
+  // context feeds canonical, breadcrumbs, ItemList URLs, and crawlable links.
+  const remapCityToHub = !curated;
   // BreadcrumbList + ItemList JSON-LD, emitted together in one @graph block.
   // Breadcrumb: Home > {City} > {Category/Occasion}. "Home" is the site root,
   // "{City}" is the locale/city homepage; the city crumb is dropped when no
   // city is in the path so the trail never shows an empty label.
   const cleanBase = basePath.replace(/\/$/, "");
   const siteRoot = `${origin}${cleanBase}`;
-  const locBase = localeBaseUrl(pathname, origin, basePath);
+  const { localeBase: locBase, canonicalUrl } = buildEntityUrlContext({
+    pathname,
+    origin,
+    basePath,
+    remapCityToHub,
+  });
+  const requestLocBase = localeBaseUrl(pathname, origin, basePath);
   const crumbItems = [{ name: "Home", url: siteRoot }];
   if (cityLabel && locBase !== siteRoot) {
     crumbItems.push({ name: cityLabel, url: locBase });
@@ -4692,7 +4738,7 @@ function buildShopEntityHead({
   // Both are scoped to curated pages only; template pages already get
   // BreadcrumbList + ItemList which is sufficient for non-curated listings.
   if (curated && entityKind === "category" && locBase) {
-    const selfHref = `${origin}${cleanBase}${pathname.replace(/\/$/, "")}`;
+    const selfHref = canonicalUrl;
     graphNodes.push({
       "@type": "CollectionPage",
       name: curated.title,
@@ -4886,8 +4932,8 @@ function buildShopEntityHead({
     parsedEntityLoc.country === "lb" &&
     parsedEntityLoc.city === "tripoli" &&
     lang === "en" &&
-    locBase
-      ? `<p>Explore more <a href="${locBase}/">flowers and gifts in Tripoli</a> for every occasion.</p>` // i18n-ignore — crawler-facing EN copy
+    requestLocBase
+      ? `<p>Explore more <a href="${requestLocBase}/">flowers and gifts in Tripoli</a> for every occasion.</p>` // i18n-ignore — crawler-facing EN copy
       : "";
   // Batroun occasion pages: crawlable contextual link back to the city landing
   // page (/en-lb/batroun). Anchor text varied vs. the /shop and brand back-links.
@@ -4896,8 +4942,8 @@ function buildShopEntityHead({
     parsedEntityLoc.country === "lb" &&
     parsedEntityLoc.city === "batroun" &&
     lang === "en" &&
-    locBase
-      ? `<p>Explore more <a href="${locBase}/">flowers and gifts in Batroun</a> for every occasion.</p>` // i18n-ignore — crawler-facing EN copy
+    requestLocBase
+      ? `<p>Explore more <a href="${requestLocBase}/">flowers and gifts in Batroun</a> for every occasion.</p>` // i18n-ignore — crawler-facing EN copy
       : "";
   const bodyHtml = curated
     ? (
@@ -4946,7 +4992,7 @@ function buildShopEntityHead({
       // point at themselves, not at the hub city. Non-curated category pages
       // at non-hub cities keep remapCityToHub:true so ranking signals
       // consolidate on the hub-city canonical as before.
-      remapCityToHub: !curated,
+       remapCityToHub,
     }),
     bodyHtml,
   };

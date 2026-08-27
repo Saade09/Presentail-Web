@@ -5186,6 +5186,161 @@ function extractJsonLd(html: string): any[] {
 const byType = (blocks: any[], type: string) =>
   blocks.find((b) => b && b["@type"] === type);
 
+function collectStructuredDataUrls(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectStructuredDataUrls(item));
+  }
+  if (!value || typeof value !== "object") return [];
+
+  return Object.entries(value).flatMap(([key, child]) => [
+    ...(key === "url" || key === "item"
+      ? (typeof child === "string" ? [child] : [])
+      : []),
+    ...collectStructuredDataUrls(child),
+  ]);
+}
+
+describe("JSON-LD entity URLs — satellite pages use their hub canonical", () => {
+  const cases = [
+    { kind: "product", slug: "satellite-product-url", path: "product" },
+    { kind: "brand", slug: "satellite-brand-url", path: "brand" },
+    { kind: "category", slug: "satellite-category-url", path: "category" },
+    { kind: "occasion", slug: "satellite-occasion-url", path: "occasion" },
+  ] as const;
+
+  it.each(cases)(
+    "$kind schema URLs agree with its remapped canonical",
+    async ({ kind, slug, path }) => {
+      const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+        const requestUrl = String(url);
+        if (requestUrl.includes("/api/woo/product?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              product: {
+                name: "Satellite URL Product",
+                description: "A product used to verify canonical identity.",
+                image: { uri: "https://cdn.test/satellite-url-product.jpg" },
+                priceValue: 89,
+                inStock: true,
+                categories: ["flowers"],
+              },
+            }),
+          };
+        }
+        if (requestUrl.includes("/api/woo/brand?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              brand: {
+                name: "Satellite URL Brand",
+                description: "A brand used to verify canonical identity.",
+              },
+            }),
+          };
+        }
+        if (requestUrl.includes("/api/woo/brand-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              count: 1,
+              products: [{ slug: "brand-linked-product", name: "Brand Linked Product" }],
+            }),
+          };
+        }
+        if (requestUrl.includes("/api/woo/category?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              category: {
+                name: "Satellite URL Category",
+                description: "A category used to verify canonical identity.",
+              },
+            }),
+          };
+        }
+        if (requestUrl.includes("/api/woo/category-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              count: 1,
+              products: [{ id: "category-linked-product", name: "Category Linked Product" }],
+            }),
+          };
+        }
+        if (requestUrl.includes("/api/woo/occasion?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              occasion: {
+                name: "Satellite URL Occasion",
+                description: "An occasion used to verify canonical identity.",
+              },
+            }),
+          };
+        }
+        if (requestUrl.includes("/api/woo/occasion-products?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              total: 1,
+              groups: [
+                {
+                  count: 1,
+                  products: [{ id: "occasion-linked-product", name: "Occasion Linked Product" }],
+                },
+              ],
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({ ok: true }) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const out = await injectSeoTagsAsync(
+        HTML.replace("<body></body>", '<body><div id="root"></div></body>'),
+        `/en-lb/tripoli/${path}/${slug}`,
+        OPTS,
+      );
+      const canonicalMatch = out.match(
+        /<link rel="canonical" href="([^"]+)" \/>/,
+      );
+      const canonical = canonicalMatch?.[1];
+      const expectedCanonical =
+        `https://presentail.test/en-lb/beirut/${path}/${slug}`;
+      expect(canonical).toBe(expectedCanonical);
+
+      const localeBase = "https://presentail.test/en-lb/beirut/";
+      const schemaUrls = collectStructuredDataUrls(extractJsonLd(out));
+      const localeSchemaUrls = schemaUrls.filter((url) =>
+        url.includes("https://presentail.test/en-lb/"),
+      );
+      expect(localeSchemaUrls.length).toBeGreaterThan(0);
+      for (const url of localeSchemaUrls) {
+        expect(url).toMatch(/^https:\/\/presentail\.test\/en-lb\/beirut(?:\/|$)/);
+        expect(url).not.toContain("/en-lb/tripoli/");
+      }
+
+      if (kind === "product") {
+        const product = byType(extractJsonLd(out), "Product");
+        expect(product?.url).toBe(canonical);
+        expect(product?.offers?.url).toBe(canonical);
+      }
+      if (kind === "brand") {
+        expect(out).toContain(`${localeBase}product/brand-linked-product`);
+        expect(out).not.toContain("/en-lb/tripoli/product/");
+      }
+    },
+  );
+});
+
 describe("JSON-LD — Product rich result on /product/<slug>", () => {
   it("emits a valid Product schema with name, image, brand and an in-stock offer", async () => {
     // Uses a slug not shared with other tests to avoid module-level cache
