@@ -29,3 +29,23 @@ args = ["sh", "-c", "pnpm --filter @workspace/presentail run typecheck && pnpm -
 [services.env]
 PORT = "20808"
 BASE_PATH = "/app/"
+STATIC_ASSET_BASE_PATH = "/app-static/"
+STATIC_ASSET_CANARY_PERCENT = "0"
+
+[[services]]
+name = "static"
+paths = [ "/app-static/" ]
+localPort = 20809
+
+[services.development]
+run = "PORT=20809 BASE_PATH=/app-static/ STATIC_LANDING=true pnpm --filter @workspace/presentail run serve"
+
+[services.production]
+serve = "static"
+publicDir = "static-build"
+
+[services.production.build]
+args = ["sh", "-c", "pnpm --filter @workspace/presentail run typecheck && pnpm --filter @workspace/presentail run build"]
+
+[services.env]
+STATIC_ASSET_BASE_PATH = "/app-static/"

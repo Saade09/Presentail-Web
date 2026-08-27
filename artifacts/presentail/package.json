@@ -7,6 +7,7 @@
     "dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
+    "check:static-delivery": "node scripts/check-static-delivery.mjs",
     "typecheck": "pnpm -w run typecheck:libs && tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" --max-warnings 0",
     "lint:fix": "eslint \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" --fix",

@@ -5,7 +5,9 @@
 **Deployment model:** Replit Autoscale  
 **Scope:** Production API, web, and mobile-serving services; PostgreSQL; Object Storage and catalog-image delivery; CI/builds; client requests; AI and third-party integrations  
 **Method:** Read-only repository inspection, read-only production database queries, production deployment/log inspection, and low-volume live HTTP observations  
-**Change status:** No code, data, schema, deployment, scaling, secret, integration, or infrastructure changes were made.
+**Change status:** The mobile static-delivery canary implementation described in
+`docs/mobile-static-delivery-canary.md` has been added; no production publish or
+traffic shift was performed.
 
 ## Evidence and cost-figure rules
 
@@ -367,7 +369,9 @@ No resource should be deleted or disabled based only on this audit. The followin
 
 # 5. Recommended Implementation Plan
 
-This is an approval-ready plan only. None of these changes were implemented.
+This audit began as an approval-ready plan. The mobile delivery slice in O4 has now
+been implemented as a reversible static canary; the remaining opportunities remain
+recommendations until separately shipped.
 
 ## Phase 1 — Stop proven leaks and establish attribution
 
@@ -376,17 +380,14 @@ This is an approval-ready plan only. None of these changes were implemented.
 
 ### Intended changes
 
-1. Add a durable lease/advisory-lock wrapper with a named job, due window, owner, start/end status, and stale-owner expiry.
-2. Apply it first to OS products, OS locations, catalog-image health, SEO audit, product translation warming, order reconciliation, and pending-checkout sweeping.
-3. Investigate and fix the `seo_entity_fetch_failed` source and the separately observed `product_lifecycle_410` analytics HTTP 400 contract. Retain rate-limited aggregate signals for genuine residual failures.
-4. Emit low-cardinality counters for:
-   - job due/run/skip/success/failure/duration by job
-   - outbound provider/status/retry/bytes
-   - API route/status/latency/response bytes
-   - cache hit/miss/stale refresh
-   - log bytes by level
-   - AI feature/model/input tokens/output tokens/cache status
-5. Obtain/export 60–90 days of Replit usage/billing, database usage, Object Storage, GitHub Actions, EAS, OpenAI, and provider billing for reconciliation.
+1. Reconcile monthly provider invoices to internal call/token/operation counters.
+2. Enforce per-feature AI budgets, model allowlists, token ceilings, retry ceilings, cache-before-call, and demand-aware warmers.
+3. Replace polling with signed webhooks/change tokens where providers guarantee delivery; retain bounded reconciliation.
+4. Require durable idempotency keys for every SMS, email, Slack, Meta, Google Ads, payment, and order side effect.
+5. Inventory Object Storage by prefix, bytes, age, reference status, operation count, and transfer before proposing lifecycle rules.
+6. Measure image-transform hit/miss ratios and prevent duplicate concurrent transforms with a durable/single-flight key.
+7. Set owner-approved Autoscale minimum/maximum and per-service budgets after observing traffic percentiles and cold-start behavior.
+8. Run a weekly cost anomaly report and a monthly cost-per-order review.
 
 ### Durable job ownership implementation
 
@@ -416,30 +417,32 @@ reconciliation, and pending-checkout sweeping.
 
 ### Expected savings
 
-- **Estimated monthly:** 50% of affected background executions at the two observed replicas; approximately 43,200 duplicate two-minute ticks and 5,760 duplicate 15-minute OS ticks avoided under continuous two-replica assumptions.
-- **Measured baseline removed:** up to 49,955 SEO failure rows/month.
-- **Total project percentage:** unavailable until billing export.
+- **Estimated AI category:** 20–50%.
+- **Estimated paid API/retry category:** 20–60% where duplicate retries/polls are found.
+- **Estimated image/storage transfer category:** 20–40% after inventory.
+- **Autoscale:** percentage unavailable until service-level instance-hour and latency data exist.
 
 ### Risks
 
-- Lease-holder death could pause a critical job.
-- A lock with the wrong scope could prevent market-specific work.
-- Fixing the analytics POST without preserving aggregate alerts could hide a real SEO outage.
+- Smaller AI models can reduce quality.
+- Webhooks can be missed or delivered out of order.
+- Storage lifecycle mistakes can delete needed customer/order media.
+- Aggressive scaling caps can increase latency or errors.
 
 ### Tests and rollout
 
-- Unit tests for acquisition, renewal, timeout, owner death, clock skew, and retry.
-- Integration test with two API processes proving one run per due window.
-- Kill the owner during a test job and verify safe takeover.
-- Contract tests for valid lifecycle event payloads and HTTP status.
-- Deploy one job at a time behind an independent flag.
-- Observe two full cadence windows before the next job.
+- Curated multilingual quality set and human review for AI model routing.
+- Provider webhook replay/duplicate/out-of-order tests.
+- Dry-run-only storage lifecycle report for at least 30 days.
+- Load replay against non-production for scale caps; production canary with error/latency rollback thresholds.
+- Monthly invoice-to-ledger reconciliation with variance alert.
 
 ### Rollback
 
-- Disable durable ownership per job and restore its previous scheduling path.
-- Keep the old cadence and logic intact during the canary.
-- Re-enable unsampled failure events temporarily with a bounded debug expiry.
+- Feature-specific AI model and budget flags.
+- Keep reconciliation polling at a low fallback cadence.
+- No destructive storage lifecycle until two-person approval and recoverability are proven.
+- Restore prior Autoscale bounds immediately on latency/error threshold breach.
 
 ## Phase 2 — Reduce database, polling, and logging work
 
@@ -448,45 +451,43 @@ reconciliation, and pending-checkout sweeping.
 
 ### Intended changes
 
-1. Sample web vitals at 10% by stable session hash; retain 100% of outlier/error vitals.
-2. Sample page/product views at 50% or aggregate them into daily product/page/country buckets.
-3. Keep payment, order, auth-security, conversion, and experiment assignment events at full fidelity.
-4. Replace per-failure SEO rows with bounded aggregates after the root cause is fixed.
-5. Make order recovery webhook-first; move the safety sweep from two minutes to ten minutes only after missed-webhook chaos tests pass.
-6. Sample ordinary 2xx request logs; keep all errors, slow requests, payments, auth-security events, and trace summaries.
-7. Configure DB pool maximum, connection/idle/acquire timeouts, and statement timeout based on measured plan capacity.
-8. Move schema migration into an explicit release gate rather than every API build.
+1. Reconcile monthly provider invoices to internal call/token/operation counters.
+2. Enforce per-feature AI budgets, model allowlists, token ceilings, retry ceilings, cache-before-call, and demand-aware warmers.
+3. Replace polling with signed webhooks/change tokens where providers guarantee delivery; retain bounded reconciliation.
+4. Require durable idempotency keys for every SMS, email, Slack, Meta, Google Ads, payment, and order side effect.
+5. Inventory Object Storage by prefix, bytes, age, reference status, operation count, and transfer before proposing lifecycle rules.
+6. Measure image-transform hit/miss ratios and prevent duplicate concurrent transforms with a durable/single-flight key.
+7. Set owner-approved Autoscale minimum/maximum and per-service budgets after observing traffic percentiles and cold-start behavior.
+8. Run a weekly cost anomaly report and a monthly cost-per-order review.
 
 ### Expected savings
 
-- **Estimated monthly analytics:** approximately 429,986 fewer rows from sampling, or 479,941 combined with Phase 1 failure removal; 56.0–62.6% of current analytics inserts.
-- **Estimated steady allocation equivalent:** approximately 132–148 MiB less analytics table/index footprint at current row size and retention. Physical disk billing may not fall immediately without normal PostgreSQL reuse/maintenance.
-- **Estimated polling:** up to 77,760 fewer loop ticks/month, 90% of the two-job/two-process continuous model, after centralization and cadence reduction.
-- **Estimated logs:** 40–80% fewer routine 2xx log bytes.
-- **Total dollar saving:** unavailable until Phase 1 attribution.
+- **Estimated AI category:** 20–50%.
+- **Estimated paid API/retry category:** 20–60% where duplicate retries/polls are found.
+- **Estimated image/storage transfer category:** 20–40% after inventory.
+- **Autoscale:** percentage unavailable until service-level instance-hour and latency data exist.
 
 ### Risks
 
-- Analytics sampling can distort low-volume segments.
-- Longer sweep cadence can delay recovery when webhooks fail.
-- Pool settings can trade database protection for request queueing.
-- Log sampling can weaken incident reconstruction.
+- Smaller AI models can reduce quality.
+- Webhooks can be missed or delivered out of order.
+- Storage lifecycle mistakes can delete needed customer/order media.
+- Aggressive scaling caps can increase latency or errors.
 
 ### Tests and rollout
 
-- Shadow sampling counters for seven days before dropping any event.
-- Compare sampled estimates against full data by country/platform/day.
-- Replay dashboard queries against sampled/rollup data.
-- Simulate dropped, delayed, duplicate, and out-of-order payment webhooks.
-- Assert recovery queue age and paid-order completeness.
-- Canary pool/log settings on one service revision and compare latency/errors.
+- Curated multilingual quality set and human review for AI model routing.
+- Provider webhook replay/duplicate/out-of-order tests.
+- Dry-run-only storage lifecycle report for at least 30 days.
+- Load replay against non-production for scale caps; production canary with error/latency rollback thresholds.
+- Monthly invoice-to-ledger reconciliation with variance alert.
 
 ### Rollback
 
-- Sampling rates remain runtime-configurable and can return to 100%.
-- Restore two-minute sweep independently.
-- Revert pool and log settings without reverting analytics changes.
-- Retain old reporting queries until rollup parity is signed off.
+- Feature-specific AI model and budget flags.
+- Keep reconciliation polling at a low fallback cadence.
+- No destructive storage lifecycle until two-person approval and recoverability are proven.
+- Restore prior Autoscale bounds immediately on latency/error threshold breach.
 
 ## Phase 3 — Optimize delivery and build pipelines
 
@@ -495,45 +496,43 @@ reconciliation, and pending-checkout sweeping.
 
 ### Intended changes
 
-1. Split mobile delivery into immutable static assets and explicit static iOS/Android manifests, or retain a minimal manifest edge/handler while moving all bytes to static/CDN delivery.
-2. Add immutable cache headers for content-hashed mobile assets and compression for text.
-3. Add catalog ETags/version tokens and conditional requests keyed by country, currency, language, and authenticated pricing state.
-4. Audit direct client fetches and speculative prefetches; route shared catalog data through one deduplicating query layer.
-5. Produce one content-addressed web build artifact per commit and reuse it in SEO, TestFlight, App Store, and Play Store workflows.
-6. Add CI concurrency groups, superseded-run cancellation, exact path filters, and lockfile/source-keyed caches.
-7. Establish bundle budgets for initial JS/CSS and image bytes; optimize only high-traffic assets first.
+1. Reconcile monthly provider invoices to internal call/token/operation counters.
+2. Enforce per-feature AI budgets, model allowlists, token ceilings, retry ceilings, cache-before-call, and demand-aware warmers.
+3. Replace polling with signed webhooks/change tokens where providers guarantee delivery; retain bounded reconciliation.
+4. Require durable idempotency keys for every SMS, email, Slack, Meta, Google Ads, payment, and order side effect.
+5. Inventory Object Storage by prefix, bytes, age, reference status, operation count, and transfer before proposing lifecycle rules.
+6. Measure image-transform hit/miss ratios and prevent duplicate concurrent transforms with a durable/single-flight key.
+7. Set owner-approved Autoscale minimum/maximum and per-service budgets after observing traffic percentiles and cold-start behavior.
+8. Run a weekly cost anomaly report and a monthly cost-per-order review.
 
 ### Expected savings
 
-- **Estimated:** up to 100% of mobile web-serving dynamic compute; 40–80% of its compressible text transfer.
-- **Estimated CI:** 30–60% of web-build minutes on affected runs.
-- **Estimated catalog request/egress:** 15–40% after conditional requests and client deduplication.
-- **Estimated image egress:** 20–40% only after traffic-ranked optimization.
-- **Total project dollar saving:** to be calculated from Phase 1 meters.
+- **Estimated AI category:** 20–50%.
+- **Estimated paid API/retry category:** 20–60% where duplicate retries/polls are found.
+- **Estimated image/storage transfer category:** 20–40% after inventory.
+- **Autoscale:** percentage unavailable until service-level instance-hour and latency data exist.
 
 ### Risks
 
-- Expo manifest/header incompatibility.
-- Stale or incorrectly shared country/currency prices.
-- Cache keys that omit auth or locale dimensions.
-- Stale CI artifacts from incomplete keys.
-- Image-quality regression.
+- Smaller AI models can reduce quality.
+- Webhooks can be missed or delivered out of order.
+- Storage lifecycle mistakes can delete needed customer/order media.
+- Aggressive scaling caps can increase latency or errors.
 
 ### Tests and rollout
 
-- Golden manifest/body/header tests for iOS and Android.
-- Asset checksum and base-path tests.
-- Country/currency/language/auth catalog contract suite.
-- Browser and native end-to-end tests through cart/checkout after cache changes.
-- Compare build artifact hashes against independent clean builds.
-- Lighthouse/real-user LCP, transfer bytes, and visual regression for images.
+- Curated multilingual quality set and human review for AI model routing.
+- Provider webhook replay/duplicate/out-of-order tests.
+- Dry-run-only storage lifecycle report for at least 30 days.
+- Load replay against non-production for scale caps; production canary with error/latency rollback thresholds.
+- Monthly invoice-to-ledger reconciliation with variance alert.
 
 ### Rollback
 
-- Keep the existing mobile Node route available during canary.
-- Disable ETag/long-cache behavior independently.
-- Fall back to clean per-workflow builds on hash mismatch.
-- Retain original images and reversible asset mapping.
+- Feature-specific AI model and budget flags.
+- Keep reconciliation polling at a low fallback cadence.
+- No destructive storage lifecycle until two-person approval and recoverability are proven.
+- Restore prior Autoscale bounds immediately on latency/error threshold breach.
 
 ## Phase 4 — Provider, AI, storage, and scaling governance
 

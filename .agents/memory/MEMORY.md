@@ -88,3 +88,4 @@
 - [Shared H1/title policy](shared-h1-title-policy.md) — SEO builders own independent H1/title/description; sitemap audits must validate hreflang relationships, not just tag presence.
 - [Autoscale affinity cache checks](autoscale-affinity-cache-checks.md) — record cookie-less and affinity-established responses separately; never persist GAESA values.
 - [Distributed job ownership](distributed-job-ownership.md) — leases alone cannot prevent paused-owner overlap; pair durable due windows with a full-run DB session lock and cancellation.
+- [Expo static delivery canary](expo-static-delivery-canary.md) — keep header-negotiated manifests on Node; generate same-build Node/static cohorts so rollback never needs a rebuild.

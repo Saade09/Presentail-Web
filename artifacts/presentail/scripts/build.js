@@ -3,6 +3,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
+const zlib = require("zlib");
 
 let metroProcess = null;
 
@@ -21,6 +22,12 @@ function findWorkspaceRoot(startDir) {
 
 const workspaceRoot = findWorkspaceRoot(projectRoot);
 const basePath = (process.env.BASE_PATH || "/").replace(/\/+$/, "");
+const staticAssetBasePath = (
+  process.env.STATIC_ASSET_BASE_PATH || basePath || "/"
+).replace(/\/+$/, "");
+const staticAssetBaseUrl = (
+  process.env.STATIC_ASSET_BASE_URL || ""
+).replace(/\/+$/, "");
 
 function exitWithError(message) {
   console.error(message);
@@ -436,8 +443,27 @@ async function downloadAssets(assets, timestamp) {
   return successCount;
 }
 
-function updateBundleUrls(timestamp, baseUrl) {
-  const updateForPlatform = (platform) => {
+function rewriteBundleAssetUrls(bundle, timestamp, assetUrlBase, assetBasePath) {
+  return bundle.replace(
+    /httpServerLocation:"(\/[^"]+)"/g,
+    (_match, capturedPath) => {
+      const tempUrl = new URL(`http://localhost:8081${capturedPath}`);
+      const unstablePath = tempUrl.searchParams.get("unstable_path");
+
+      if (!unstablePath) {
+        throw new Error(
+          `Asset missing unstable_path in bundle: ${capturedPath}`,
+        );
+      }
+
+      const decodedPath = decodeURIComponent(unstablePath);
+      return `httpServerLocation:"${assetUrlBase}${assetBasePath}/${timestamp}/_expo/static/js/${decodedPath}"`;
+    },
+  );
+}
+
+function writeBundleVariants(timestamp, baseUrl) {
+  for (const platform of ["ios", "android"]) {
     const bundlePath = path.join(
       projectRoot,
       "static-build",
@@ -448,40 +474,52 @@ function updateBundleUrls(timestamp, baseUrl) {
       platform,
       "bundle.js",
     );
-    let bundle = fs.readFileSync(bundlePath, "utf-8");
-
-    bundle = bundle.replace(
-      /httpServerLocation:"(\/[^"]+)"/g,
-      (_match, capturedPath) => {
-        const tempUrl = new URL(`http://localhost:8081${capturedPath}`);
-        const unstablePath = tempUrl.searchParams.get("unstable_path");
-
-        if (!unstablePath) {
-          throw new Error(
-            `Asset missing unstable_path in bundle: ${capturedPath}`,
-          );
-        }
-
-        const decodedPath = decodeURIComponent(unstablePath);
-        return `httpServerLocation:"${baseUrl}${basePath}/${timestamp}/_expo/static/js/${decodedPath}"`;
-      },
+    const source = fs.readFileSync(bundlePath, "utf-8");
+    fs.writeFileSync(
+      bundlePath,
+      rewriteBundleAssetUrls(source, timestamp, baseUrl, basePath),
     );
 
-    fs.writeFileSync(bundlePath, bundle);
-  };
-
-  updateForPlatform("ios");
-  updateForPlatform("android");
-  console.log("Updated bundle URLs");
+    const staticBundlePath = path.join(
+      projectRoot,
+      "static-build",
+      "static",
+      timestamp,
+      "_expo",
+      "static",
+      "js",
+      platform,
+      "bundle.js",
+    );
+    fs.mkdirSync(path.dirname(staticBundlePath), { recursive: true });
+    fs.writeFileSync(
+      staticBundlePath,
+      rewriteBundleAssetUrls(
+        source,
+        timestamp,
+        staticAssetBaseUrl || baseUrl,
+        staticAssetBasePath,
+      ),
+    );
+  }
+  console.log("Wrote Node and static bundle variants");
 }
 
 function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
-  const updateForPlatform = (platform, manifest) => {
+  const writeVariant = (
+    platform,
+    sourceManifest,
+    filename,
+    assetUrlBase,
+    assetBasePath,
+    bundlePathPrefix,
+  ) => {
+    const manifest = structuredClone(sourceManifest);
     if (!manifest.launchAsset || !manifest.extra) {
       exitWithError(`Malformed manifest for ${platform}`);
     }
 
-    manifest.launchAsset.url = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${platform}/bundle.js`;
+    manifest.launchAsset.url = `${assetUrlBase}${assetBasePath}/${bundlePathPrefix}${timestamp}/_expo/static/js/${platform}/bundle.js`;
     manifest.launchAsset.key = `bundle-${timestamp}`;
     manifest.createdAt = new Date(
       Number(timestamp.split("-")[0]),
@@ -502,19 +540,105 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
         const assetInfo = assetsByHash.get(hash);
         if (!assetInfo) return;
 
-        asset.url = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${assetInfo.relativePath}/${assetInfo.filename}`;
+        asset.url = `${assetUrlBase}${assetBasePath}/${timestamp}/_expo/static/js/${assetInfo.relativePath}/${assetInfo.filename}`;
       });
     }
 
     fs.writeFileSync(
-      path.join(projectRoot, "static-build", platform, "manifest.json"),
+      path.join(projectRoot, "static-build", platform, filename),
       JSON.stringify(manifest, null, 2),
     );
   };
 
-  updateForPlatform("ios", manifests.ios);
-  updateForPlatform("android", manifests.android);
-  console.log("Manifests updated");
+  for (const platform of ["ios", "android"]) {
+    writeVariant(
+      platform,
+      manifests[platform],
+      "manifest.json",
+      baseUrl,
+      basePath,
+      "",
+    );
+    writeVariant(
+      platform,
+      manifests[platform],
+      "manifest-static.json",
+      staticAssetBaseUrl || baseUrl,
+      staticAssetBasePath,
+      "static/",
+    );
+  }
+  console.log("Wrote Node and static manifest variants");
+}
+
+function writeStaticLandingPage(baseUrl, domain, appName) {
+  const templatePath = path.join(
+    projectRoot,
+    "server",
+    "templates",
+    "landing-page.html",
+  );
+  const template = fs.readFileSync(templatePath, "utf-8");
+  const html = template
+    .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
+    .replace(/EXPS_URL_PLACEHOLDER/g, domain)
+    .replace(/APP_NAME_PLACEHOLDER/g, appName);
+
+  fs.writeFileSync(path.join(projectRoot, "static-build", "index.html"), html);
+}
+
+function getAppName() {
+  try {
+    const appJson = JSON.parse(
+      fs.readFileSync(path.join(projectRoot, "app.json"), "utf-8"),
+    );
+    return appJson.expo?.name || "App Landing Page";
+  } catch {
+    return "App Landing Page";
+  }
+}
+
+function isCompressibleFile(filePath) {
+  return new Set([".css", ".html", ".js", ".json", ".map", ".svg"]).has(
+    path.extname(filePath).toLowerCase(),
+  );
+}
+
+function walkFiles(directory) {
+  const files = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkFiles(entryPath));
+    } else if (entry.isFile()) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
+function precompressStaticFiles() {
+  const staticRoot = path.join(projectRoot, "static-build");
+  let compressedCount = 0;
+
+  for (const filePath of walkFiles(staticRoot)) {
+    if (
+      !isCompressibleFile(filePath) ||
+      filePath.endsWith(".br") ||
+      filePath.endsWith(".gz")
+    ) {
+      continue;
+    }
+
+    const source = fs.readFileSync(filePath);
+    if (source.length < 256) continue;
+
+    fs.writeFileSync(`${filePath}.br`, zlib.brotliCompressSync(source));
+    fs.writeFileSync(`${filePath}.gz`, zlib.gzipSync(source, { level: 9 }));
+    compressedCount++;
+  }
+
+  console.log(`Precompressed ${compressedCount} text asset(s)`);
 }
 
 async function main() {
@@ -562,11 +686,13 @@ async function main() {
   const assetCount = await downloadAssets(assets, timestamp);
 
   if (assetCount > 0) {
-    updateBundleUrls(timestamp, baseUrl);
+    writeBundleVariants(timestamp, baseUrl);
   }
 
   console.log("Updating manifests and creating landing page...");
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
+  writeStaticLandingPage(baseUrl, domain, getAppName());
+  precompressStaticFiles();
 
   console.log("Build complete! Deploy to:", baseUrl);
 

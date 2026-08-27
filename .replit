@@ -4,6 +4,31 @@ modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 router = "application"
 deploymentTarget = "autoscale"
 
+[[deployment.responseHeaders]]
+path = "/app-static/"
+name = "Cache-Control"
+value = "public, max-age=300, stale-while-revalidate=60"
+
+[[deployment.responseHeaders]]
+path = "/app-static/index.html"
+name = "Cache-Control"
+value = "public, max-age=300, stale-while-revalidate=60"
+
+[[deployment.responseHeaders]]
+path = "/app-static/ios/manifest.json"
+name = "Cache-Control"
+value = "no-store"
+
+[[deployment.responseHeaders]]
+path = "/app-static/android/manifest.json"
+name = "Cache-Control"
+value = "no-store"
+
+[[deployment.responseHeaders]]
+path = "/app-static/*"
+name = "Cache-Control"
+value = "public, max-age=31536000, immutable"
+
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
