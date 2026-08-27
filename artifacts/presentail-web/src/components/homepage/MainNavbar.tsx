@@ -113,6 +113,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
     items: [
       { label: "Gift Bundles",    href: "/category/bundles",         img: "/catalog/categories/bundles.webp" },
       { label: "Balloon Arrangements", href: "/category/balloon-arrangements", img: "/catalog/categories/balloons.webp" },
+      { label: "Table Arrangements", href: "/category/table-arrangements", emoji: "🌿" },
       { label: "Religious Gifts",  href: "/category/religious-gifts", emoji: "🕊️" },
       { label: "Cakes",           href: "/category/cakes",           img: "/catalog/categories/cakes.webp" },
       { label: "Single Balloons", href: "/category/single-balloons", img: "/catalog/categories/balloons.webp" },
