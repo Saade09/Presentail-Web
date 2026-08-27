@@ -38,7 +38,10 @@ async function fetchAndTransformCatalogImage(
   return withImageLoadLimit(async () => {
     const target = parseOsImageUrl(rawUrl);
     const upstream = await fetch(target.toString(), {
-      headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
+      // Send NO auth headers. The /api/storage/public-objects/ endpoint is
+      // publicly accessible and the OS API key causes the server to return
+      // different (non-image) bytes even when the HTTP status is 200. Verified
+      // by curl: the URL serves a real JPEG with no auth headers present.
       redirect: "manual",
       signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
     });
@@ -215,9 +218,11 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
   const osOccasions = getOsOccasions();
   // OS occasion ids may be numbers; the route param is always a string.
   const occasion = osOccasions?.find((o) => String(o.id) === id);
-  // Only use the public-objects URL. The private upload path (/objects/…) returns
-  // the OS web-app HTML shell instead of an image, so we never fall back to it.
-  const imageUrl = occasion?.imagePublicUrl ?? null;
+  // Prefer imagePublicUrl (public CDN); fall back to image (private upload with API-key auth).
+  // This mirrors the category-image proxy which uses the same fallback chain. The OS occasions
+  // API often omits image_public_url and only populates image_url, so without this fallback
+  // all occasion images 404 even when images are configured in the OS admin.
+  const imageUrl = occasion?.imagePublicUrl ?? occasion?.image ?? null;
   if (!imageUrl) {
     // Fall back to a bundled static asset when a known slug has one.
     // This benefits any consumer of the proxy (homepage carousel, all-occasions

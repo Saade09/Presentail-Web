@@ -4011,6 +4011,9 @@ components:
         count:
           type: integer
           description: Number of in-stock products tagged with this occasion across all supported countries.
+        featured:
+          type: boolean
+          description: Whether this occasion is marked as featured in the OS admin.
       required:
         - slug
         - name

@@ -18,7 +18,9 @@ export interface TransformResult {
 const MAX_WIDTH = 1600;
 const DEFAULT_WIDTH = 800;
 const DEFAULT_QUALITY = 82;
-export const MAX_INPUT_PIXELS = 12_000_000;
+// 25 MP covers the largest OS catalog images (e.g. 4500×4500 occasion photos).
+// 12 MP was too small and caused sharp to silently reject them.
+export const MAX_INPUT_PIXELS = 25_000_000;
 export const MAX_CONCURRENT_TRANSFORMS = 4;
 export const MAX_TRANSFORM_WAITERS = 32;
 

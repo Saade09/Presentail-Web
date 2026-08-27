@@ -12,4 +12,6 @@ export interface FeaturedOccasion {
   image?: string | null;
   /** Number of in-stock products tagged with this occasion across all supported countries. */
   count: number;
+  /** Whether this occasion is marked as featured in the OS admin. */
+  featured?: boolean;
 }
