@@ -14,11 +14,17 @@ import { OCCASION_OPTIONS } from "@/data/occasions";
 // Hoisted mock factories — declared before any import of the mocked modules
 // ---------------------------------------------------------------------------
 
-const { mockUseBrands, mockUseCatalogMetadata, mockUseCatalogOccasions } =
+const {
+  mockUseBrands,
+  mockUseCatalogMetadata,
+  mockUseCatalogOccasions,
+  mockUseLocationSelection,
+} =
   vi.hoisted(() => ({
     mockUseBrands: vi.fn(),
     mockUseCatalogMetadata: vi.fn(),
     mockUseCatalogOccasions: vi.fn(),
+    mockUseLocationSelection: vi.fn(),
   }));
 
 // ---------------------------------------------------------------------------
@@ -49,7 +55,7 @@ vi.mock("wouter", () => ({
 }));
 
 vi.mock("@/contexts/LocationContext", () => ({
-  useLocationSelection: vi.fn(() => ({ countryCode: "LB", cityId: "beirut" })),
+  useLocationSelection: mockUseLocationSelection,
 }));
 
 vi.mock("@/components/search/SearchOverlay", () => ({
@@ -150,7 +156,20 @@ function makeCatalogBrands(count: number): MockBrand[] {
   }));
 }
 
+const BALLOON_TILE_SLUGS = [
+  "birthday-balloons",
+  "balloon-bouquets",
+  "number-letter-balloons",
+  "balloon-arrangements",
+  "balloon-arches",
+  "new-baby-balloons",
+  "love-anniversary-balloons",
+  "kids-character-balloons",
+  "personalized-balloons",
+] as const;
+
 function setupDefaultMocks(brands: MockBrand[] = makeCatalogBrands(3)) {
+  mockUseLocationSelection.mockReturnValue({ countryCode: "LB", cityId: "beirut" });
   mockUseBrands.mockReturnValue({ data: { brands: [] }, isPending: false });
   mockUseCatalogMetadata.mockReturnValue({
     data: {
@@ -505,6 +524,61 @@ describe("MainNavbar — mobile brands sub-panel", () => {
 
     expect(screen.queryByRole("link", { name: /Balloon Arrangements/ })).toBeNull();
   });
+
+  it.each([
+    { market: "LB", cityId: "beirut" },
+    { market: "AE", cityId: "dubai" },
+    { market: "CY", cityId: "nicosia" },
+  ])(
+    "filters unavailable Balloons tiles and keeps Shop all Balloons for $market",
+    async ({ market, cityId }) => {
+      const user = userEvent.setup();
+      mockUseLocationSelection.mockReturnValue({ countryCode: market, cityId });
+      mockUseCatalogMetadata.mockReturnValue({
+        data: {
+          brands: [],
+          categories: [
+            {
+              id: "balloon-bouquets",
+              name: "Balloon Bouquets",
+              icon: "tag",
+              count: 4,
+            },
+            {
+              id: "birthday-balloons",
+              name: "Birthday Balloons",
+              icon: "tag",
+              count: 0,
+            },
+            // The remaining Balloons subcategories are intentionally absent
+            // from metadata and must be treated as unavailable too.
+          ],
+        },
+      });
+      renderWithProviders(<MainNavbar />);
+
+      await user.click(screen.getByTestId("button-mobile-menu"));
+      await user.click(
+        within(screen.getByTestId("sheet-content")).getByRole("button", {
+          name: /nav\.balloons/i,
+        }),
+      );
+
+      const panel = screen.getByTestId("mobile-sub-panel-balloons");
+      for (const slug of BALLOON_TILE_SLUGS) {
+        const tile = panel.querySelector(`a[href$="/category/${slug}"]`);
+        if (slug === "balloon-bouquets") {
+          expect(tile).not.toBeNull();
+        } else {
+          expect(tile).toBeNull();
+        }
+      }
+
+      const shopAllLink = screen.getByRole("link", { name: /nav\.viewAllBalloons/i });
+      expect(shopAllLink).toBeDefined();
+      expect((shopAllLink as HTMLAnchorElement).href).toContain("/category/balloons");
+    },
+  );
 
   it("hides OS taxonomy tags and occasion labels from the Gifts menu", async () => {
     const user = userEvent.setup();
