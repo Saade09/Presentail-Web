@@ -133,6 +133,7 @@ export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
   "candles",
   "luxury",
   "roses",
+  "tulips",
 ]);
 
 /**
