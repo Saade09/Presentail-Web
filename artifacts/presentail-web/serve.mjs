@@ -1207,6 +1207,15 @@ function isKnownLocaleSubRoute(rest, lang, country, city) {
   return false;
 }
 
+function isSupportedStorefrontLocaleTuple(lang, country, city) {
+  return (
+    SITEMAP_LANGS.includes(lang) &&
+    Object.prototype.hasOwnProperty.call(SITEMAP_CITIES, country) &&
+    SITEMAP_CITIES[country]?.includes(city) &&
+    (lang !== "el" || country === "cy")
+  );
+}
+
 // Per-locale sitemap caches — /sitemap.xml is a static <sitemapindex> pointing
 // at /sitemap-en.xml, /sitemap-ar.xml and /sitemap-fr.xml; each child sitemap
 // is generated and cached independently.
@@ -1886,6 +1895,20 @@ const server = http.createServer(async (req, res) => {
       const blogRest = blogCityMatch[2]; // "blog" or "blog/some-slug"
       res.writeHead(301, {
         location: `${BASE_PATH}/${lang}/${blogRest}${stripTrackingParams(url.search)}`,
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
+    // Greek editorial content is not published. Consolidate both the index and
+    // article fallback URLs on their English canonical equivalents rather than
+    // serving an orphaned /el/blog page that is absent from the sitemap and
+    // reciprocal hreflang cluster.
+    const greekBlogMatch = pathname.match(/^\/el\/(blog(?:\/[^/?#]*)?)$/);
+    if (greekBlogMatch) {
+      res.writeHead(301, {
+        location: `${BASE_PATH}/en/${greekBlogMatch[1]}${stripTrackingParams(url.search)}`,
         "cache-control": "public, max-age=31536000, immutable",
       });
       res.end();
@@ -2636,36 +2659,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Pagination /page/1 redirect → canonical base collection URL (301).
-    // e.g. /en-lb/beirut/category/flowers/page/1 → /en-lb/beirut/category/flowers
-    {
-      const PAGE_ONE_RE =
-        /^(\/[a-z]{2}-[a-z]{2}\/[^/]+\/(?:category|occasion|brand)\/[^/]+)\/page\/1\/?$/;
-      const pageOneMatch = pathname.match(PAGE_ONE_RE);
-      if (pageOneMatch) {
-        res.writeHead(301, {
-          location: `${BASE_PATH}${pageOneMatch[1]}`,
-          "cache-control": "public, max-age=31536000, immutable",
-        });
-        res.end();
-        return;
-      }
-    }
-
-    // SPA route guard: return a real 404 for locale-prefixed paths that have a
-    // recognised lang + country + city but an unknown sub-route.  Without this,
+    // SPA route guard: validate the complete locale tuple, then return a real
+    // 404 for unknown sub-routes. Without this,
     // crawlers see an indexable 200 shell with homepage-like metadata for junk
     // URLs such as /en-lb/beirut/not-a-real-page, creating soft-404 pollution.
-    // Paths with an unrecognised city are intentionally allowed through so the
-    // SPA's CityFallbackRedirect can handle them client-side.
     const localeRouteMatch = pathname.match(LOCALE_PATH_RE);
     if (localeRouteMatch) {
       const [, lang, country, city, rest = ""] = localeRouteMatch;
-      const supportedCountries = Object.keys(SITEMAP_CITIES);
       if (
-        SITEMAP_LANGS.includes(lang) &&
-        supportedCountries.includes(country) &&
-        SITEMAP_CITIES[country]?.includes(city) &&
+        !isSupportedStorefrontLocaleTuple(lang, country, city) ||
         !isKnownLocaleSubRoute(rest, lang, country, city)
       ) {
         res.writeHead(404, {
@@ -2683,6 +2685,29 @@ const server = http.createServer(async (req, res) => {
           `<body><h1>Page Not Found</h1><p>The requested page does not exist.</p>` + // i18n-ignore
           `<p><a href="/">Return to homepage</a></p></body></html>`, // i18n-ignore
         );
+        return;
+      }
+    }
+
+    // The storefront does not implement client-side category/occasion
+    // pagination: each base listing already loads the full matching catalog.
+    // Permanently consolidate every old /page/N URL on that working base page.
+    // The sitemap no longer emits these URLs, so server, crawler, and client
+    // route contracts all agree.
+    {
+      const COLLECTION_PAGE_RE =
+        /^(\/[a-z]{2}-[a-z]{2}\/[^/]+\/(?:category|occasion)\/[^/]+)\/page\/\d+\/?$/;
+      const collectionPageMatch = pathname.match(COLLECTION_PAGE_RE);
+      const BRAND_PAGE_ONE_RE =
+        /^(\/[a-z]{2}-[a-z]{2}\/[^/]+\/brand\/[^/]+)\/page\/1\/?$/;
+      const brandPageOneMatch = pathname.match(BRAND_PAGE_ONE_RE);
+      const paginationTarget = collectionPageMatch?.[1] ?? brandPageOneMatch?.[1];
+      if (paginationTarget) {
+        res.writeHead(301, {
+          location: `${BASE_PATH}${paginationTarget}`,
+          "cache-control": "public, max-age=31536000, immutable",
+        });
+        res.end();
         return;
       }
     }
@@ -2711,7 +2736,7 @@ const server = http.createServer(async (req, res) => {
       // valid SPA entry points — they render Blog/BlogPost in BlogShell without
       // a city/country prefix. Without this exception they 404 because they
       // don't match the /en-lb/... locale pattern checked above.
-      !pathname.match(/^\/(?:en|ar|fr|el)\/blog(?:\/[^/?#]*)?$/) &&
+      !pathname.match(/^\/(?:en|ar|fr)\/blog(?:\/[^/?#]*)?$/) &&
       // Bare /product or /product/ (no slug) passes through to the SPA shell so
       // the client can render a 404 page; the product redirect above only fires
       // when a slug is present.

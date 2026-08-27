@@ -29,6 +29,30 @@ const OPTS = {
   basePath: "",
 };
 
+describe("account-deletion server SEO identity", () => {
+  it("emits policy metadata, a self-canonical, crawlable fallback content, and WebPage/breadcrumb schema", () => {
+    const result = buildSeoHead("/en-lb/beirut/account-deletion", {
+      origin: "https://presentail.com",
+      basePath: "",
+    });
+
+    expect(result.titleTag).toBe("<title>Account Deletion Policy | Presentail</title>");
+    expect(result.headSnippet).toContain(
+      '<link rel="canonical" href="https://presentail.com/en-lb/beirut/account-deletion" />',
+    );
+    expect(result.headSnippet).not.toContain('<meta name="robots" content="noindex');
+    expect(result.bodyHtml).toContain("<h1>Delete Your Presentail Account and Personal Data</h1>");
+    expect(result.bodyHtml).toContain("which personal data is erased");
+
+    const jsonLdBlocks = [...result.headSnippet.matchAll(
+      /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+    )].map(([, content]) => JSON.parse(content));
+    const nodes = jsonLdBlocks.flatMap((graph) => graph["@graph"] ?? [graph]);
+    expect(nodes.some((node: { "@type"?: string }) => node["@type"] === "WebPage")).toBe(true);
+    expect(nodes.some((node: { "@type"?: string }) => node["@type"] === "BreadcrumbList")).toBe(true);
+  });
+});
+
 function extractAlternateLinks(snippet: string) {
   return [...snippet.matchAll(
     /<link rel="alternate" hreflang="([^"]+)" href="([^"]+)" \/>/g,

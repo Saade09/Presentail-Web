@@ -258,6 +258,7 @@ const ROUTE_KEYS = [
   { test: (r) => r === "/privacy", key: "privacy" },
   { test: (r) => r === "/return-policy", key: "return-policy" },
   { test: (r) => r === "/shipping-policy", key: "shipping-policy" },
+  { test: (r) => r === "/account-deletion", key: "account-deletion" },
   // Campaign landing — needs its own key so detectRouteKey does not fall
   // back to "home", which would set isUnknownSubRoute = true and suppress
   // the page's canonical / JSON-LD.
@@ -921,6 +922,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       faqs: "FAQs", terms: "Terms of Use", privacy: "Privacy Policy",
       blog: "Journal", careers: "Careers", partner: "Partner",
       "return-policy": "Return Policy", "shipping-policy": "Shipping Policy",
+      "account-deletion": "Account Deletion Policy",
     },
     ar: {
       home: "الرئيسية",
@@ -930,6 +932,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       privacy: "سياسة الخصوصية", blog: "المدونة", careers: "الوظائف",
       partner: "شريك",
       "return-policy": "سياسة الإرجاع", "shipping-policy": "سياسة الشحن",
+      "account-deletion": "سياسة حذف الحساب",
     },
     fr: {
       home: "Accueil",
@@ -939,6 +942,17 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       privacy: "Politique de confidentialité", blog: "Journal",
       careers: "Carrières", partner: "Partenariat",
       "return-policy": "Politique de retour", "shipping-policy": "Politique de livraison",
+      "account-deletion": "Politique de suppression de compte",
+    },
+    el: {
+      home: "Αρχική",
+      shop: "Κατάστημα", brands: "Μάρκες", occasions: "Περιστάσεις",
+      weddings: "Γάμοι", corporate: "Εταιρικά", contact: "Επικοινωνία",
+      faqs: "Συχνές ερωτήσεις", terms: "Όροι χρήσης",
+      privacy: "Πολιτική απορρήτου", blog: "Ημερολόγιο",
+      careers: "Καριέρα", partner: "Συνεργασία",
+      "return-policy": "Πολιτική επιστροφών", "shipping-policy": "Πολιτική αποστολής",
+      "account-deletion": "Πολιτική διαγραφής λογαριασμού",
     },
   };
   const crumbLabels = ROUTE_CRUMB_LABELS[lang] ?? ROUTE_CRUMB_LABELS.en;
@@ -959,8 +973,8 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     jsonLdNodes.push(buildBreadcrumbListSchema(navCrumbs));
   }
 
-  // WebPage (Terms / Privacy / Return Policy / Shipping Policy) and ContactPage (Contact) lightweight schema.
-  if (emitJsonLd && (routeKey === "terms" || routeKey === "privacy" || routeKey === "return-policy" || routeKey === "shipping-policy")) {
+  // WebPage schema for public policy pages, plus ContactPage for Contact.
+  if (emitJsonLd && (routeKey === "terms" || routeKey === "privacy" || routeKey === "return-policy" || routeKey === "shipping-policy" || routeKey === "account-deletion")) {
     jsonLdNodes.push(
       buildWebPageSchema({
         siteUrl,
@@ -1482,6 +1496,7 @@ const ROUTE_BODY_INTRO = {
   corporate: "Tailored corporate gifting programmes — branded hampers, premium flowers, and bulk delivery for your team, clients, and events.",
   terms: "By using Presentail you agree to our terms. Please read this page for the full terms governing orders, payments, and delivery.",
   privacy: "Presentail collects only the personal data needed to process your order. Read how we collect, use, store, and protect your information.",
+  "account-deletion": "Delete your Presentail account in the app or on the website, or request deletion by email. Learn which personal data is erased, which records must be retained, and when deletion is completed.",
 };
 
 // Distinct H1 text per page type — covers the same topic as <title> but

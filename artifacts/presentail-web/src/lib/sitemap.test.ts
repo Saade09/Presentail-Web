@@ -176,6 +176,20 @@ describe("buildSitemapXml — per-locale generation", () => {
     expect(xmlByLocale.el).not.toContain(`<loc>${ORIGIN}/el/blog</loc>`);
   });
 
+  it("does not submit unsupported category or occasion pagination URLs", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      locale: "en",
+      occasions: [{ id: "birthday", count: 72 }],
+      categories: [{ id: "bouquets", count: 72 }],
+    });
+    expect(xml).toContain("/en-lb/beirut/occasion/birthday");
+    expect(xml).toContain("/en-lb/beirut/category/bouquets");
+    expect(xml).not.toContain("/page/2");
+    expect(xml).not.toMatch(/\/(?:category|occasion)\/[^<]+\/page\/\d+/);
+  });
+
   it("product <image:image> blocks carry over into non-English locale sitemaps", () => {
     const xmlAr = buildSitemapXml({
       origin: ORIGIN,

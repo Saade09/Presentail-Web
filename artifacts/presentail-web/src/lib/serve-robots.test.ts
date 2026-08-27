@@ -226,6 +226,7 @@ describe("resolveXRobotsTag — public path + canonical host yields index, follo
     "/en-lb/beirut/brand/bloomingdale",
     "/en-lb/beirut/blog/valentines-day-gift-guide",
     "/en-lb/beirut/blog",
+    "/en-lb/beirut/account-deletion",
     "/product/favorites-bundle",
   ] as const;
 

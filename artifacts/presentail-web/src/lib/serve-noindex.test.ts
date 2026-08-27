@@ -73,6 +73,7 @@ function waitForReady(port: number, maxMs = 15_000): Promise<void> {
 interface GetResult {
   status: number;
   robotsHeader: string | undefined;
+  location: string | undefined;
   body: string;
 }
 
@@ -92,6 +93,7 @@ function get(
           resolve({
             status: res.statusCode ?? 0,
             robotsHeader: res.headers["x-robots-tag"] as string | undefined,
+            location: res.headers.location,
             body,
           }),
         );
@@ -173,6 +175,64 @@ describe("serve.mjs — X-Robots-Tag: index, follow on public pages", () => {
       expect(robotsHeader).toBe("index, follow");
     });
   }
+});
+
+describe("serve.mjs — crawlability route contract", () => {
+  it("serves account deletion with policy-specific indexable HTML", async () => {
+    const { status, robotsHeader, body } = await get(
+      serverPort,
+      "/en-lb/beirut/account-deletion",
+      { host: "presentail.com" },
+    );
+    expect(status).toBe(200);
+    expect(robotsHeader).toBe("index, follow");
+    expect(body).toContain("<title>Account Deletion Policy | Presentail</title>");
+    expect(body).toContain(
+      '<link rel="canonical" href="http://presentail.com/en-lb/beirut/account-deletion"',
+    );
+    expect(body).toContain("<h1>Delete Your Presentail Account and Personal Data</h1>");
+    expect(body).toContain('"@type":"WebPage"');
+    expect(body).toContain('"@type":"BreadcrumbList"');
+  });
+
+  it("redirects the unsupported Greek blog index to English in one hop", async () => {
+    const { status, location } = await get(serverPort, "/el/blog", {
+      host: "presentail.com",
+    });
+    expect(status).toBe(301);
+    expect(location).toBe("/en/blog");
+  });
+
+  it.each([
+    "/en-lb/not-a-city",
+    "/en-us/anywhere",
+    "/zz-lb/beirut",
+    "/en-us/anywhere/category/flowers",
+  ])("returns a crawler-safe 404 for invalid locale tuple %s", async (urlPath) => {
+    const { status, robotsHeader, body } = await get(serverPort, urlPath, {
+      host: "presentail.com",
+    });
+    expect(status).toBe(404);
+    expect(robotsHeader).toBe("noindex");
+    expect(body).toContain("<h1>Page Not Found</h1>");
+  });
+
+  it.each([
+    [
+      "/en-lb/beirut/category/flowers/page/2",
+      "/en-lb/beirut/category/flowers",
+    ],
+    [
+      "/en-lb/beirut/occasion/birthday/page/9",
+      "/en-lb/beirut/occasion/birthday",
+    ],
+  ])("redirects unsupported listing pagination %s to %s", async (urlPath, target) => {
+    const { status, location } = await get(serverPort, urlPath, {
+      host: "presentail.com",
+    });
+    expect(status).toBe(301);
+    expect(location).toBe(target);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -587,8 +587,14 @@ function RootRouter() {
   // Canonical lang-only blog routes: /en/blog, /en/blog/:slug, etc.
   // All city-prefixed blog URLs 301-redirect here (serve.mjs § 7c).
   // Mount BlogShell with base /{lang} — no city/country context needed for blog.
-  // Greek blog content doesn't exist; /el/blog renders EN-fallback articles.
-  const BLOG_LANG_SET = new Set<string>(["en", "ar", "fr", "el"]);
+  // Greek editorial content is not published. Mirror serve.mjs in Vite
+  // previews and client-side navigations so /el/blog never becomes an orphaned
+  // fallback page outside the production server.
+  const greekBlogMatch = path.match(/^\/el\/(blog(?:\/[^?#]*)?)(\?.*)?$/);
+  if (greekBlogMatch) {
+    return <Redirect to={`/en/${greekBlogMatch[1]}${greekBlogMatch[2] ?? ""}`} replace />;
+  }
+  const BLOG_LANG_SET = new Set<string>(["en", "ar", "fr"]);
   const blogLangMatch = path.match(/^\/([a-z]{2})\/(blog(?:\/[^?#]*)?)(\?.*)?$/);
   if (blogLangMatch && BLOG_LANG_SET.has(blogLangMatch[1])) {
     const lang = blogLangMatch[1];

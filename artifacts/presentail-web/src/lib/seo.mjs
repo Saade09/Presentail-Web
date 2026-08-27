@@ -819,6 +819,7 @@ export const ROUTE_H1 = {
     faqs: "Flower & Gift Delivery in {city} — Your Questions Answered",
     weddings: "Bridal Flowers, Table Arrangements & Wedding Gifts in {city}",
     corporate: "Hampers, Branded Gifts & Bulk Delivery for Teams in {city}",
+    "account-deletion": "Delete Your Presentail Account and Personal Data",
   },
   ar: {
     landing: "توصيل الزهور والهدايا والكيك في لبنان والإمارات وقبرص",
@@ -832,6 +833,7 @@ export const ROUTE_H1 = {
     faqs: "توصيل الزهور والهدايا في {city} — إجابات على أسئلتك",
     weddings: "زهور الزفاف وتنسيق الطاولات وهدايا الأعراس في {city}",
     corporate: "هدايا الشركات والتوصيل بالجملة للفرق في {city}",
+    "account-deletion": "حذف حساب Presentail وبياناتك الشخصية",
   },
   fr: {
     landing: "Fleurs, cadeaux et gâteaux livrés au Liban, aux Émirats et à Chypre",
@@ -845,6 +847,7 @@ export const ROUTE_H1 = {
     faqs: "Livraison de fleurs et cadeaux à {city} — vos questions",
     weddings: "Fleurs de mariage, compositions de table et cadeaux à {city}",
     corporate: "Coffrets, cadeaux de marque et livraisons groupées à {city}",
+    "account-deletion": "Supprimer votre compte Presentail et vos données personnelles",
   },
   el: {
     landing: "Λουλούδια, δώρα και τούρτες σε Λίβανο, ΗΑΕ και Κύπρο",
@@ -858,6 +861,7 @@ export const ROUTE_H1 = {
     faqs: "Παράδοση λουλουδιών και δώρων στην πόλη {city}",
     weddings: "Λουλούδια γάμου και δώρα στην πόλη {city}",
     corporate: "Εταιρικά δώρα και μαζική παράδοση στην πόλη {city}",
+    "account-deletion": "Διαγραφή λογαριασμού Presentail και προσωπικών δεδομένων",
   },
 };
 

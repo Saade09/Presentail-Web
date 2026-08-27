@@ -17,9 +17,6 @@ import {
 } from "./seo-inject.mjs";
 import { HUB_CITY, hreflangLangsForCountry } from "./src/lib/hreflang.mjs";
 
-const PAGINATION_PAGE_SIZE = 24;
-const PAGINATION_SITEMAP_MAX_PAGES = 10;
-
 // All cities per country — must mirror CITY_SLUGS_BY_COUNTRY in seo-inject.mjs.
 export const SITEMAP_CITIES = {
   lb: [
@@ -354,15 +351,6 @@ export function buildSitemapXml({
       recordEligibility("city-occasion", eligibility.eligible || hasCurated);
       if (!eligibility.eligible && !hasCurated) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/occasion/${encoded}`));
-      // Pagination: use this city's product count so we don't emit page/N
-      // entries for pages that have no products in this city.
-      const occasionPageCount = Math.min(
-        Math.ceil((occasion.count ?? 0) / PAGINATION_PAGE_SIZE),
-        PAGINATION_SITEMAP_MAX_PAGES + 1,
-      );
-      for (let pageNum = 2; pageNum <= occasionPageCount; pageNum++) {
-        urls.push(urlEntryWithAlternates("0.4", "weekly", country, city, `/occasion/${encoded}/page/${pageNum}`));
-      }
     }
   }
 
@@ -409,15 +397,6 @@ export function buildSitemapXml({
       recordEligibility("city-category", eligibility.eligible || hasCuratedCategory);
       if (!eligibility.eligible && !hasCuratedCategory) continue;
       urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
-      // Pagination: use this city's product count to avoid emitting page/N
-      // entries that would have no products and serve thin/noindex pages.
-      const categoryPageCount = Math.min(
-        Math.ceil((category.count ?? 0) / PAGINATION_PAGE_SIZE),
-        PAGINATION_SITEMAP_MAX_PAGES + 1,
-      );
-      for (let pageNum = 2; pageNum <= categoryPageCount; pageNum++) {
-        urls.push(urlEntryWithAlternates("0.4", "weekly", country, city, `/category/${encoded}/page/${pageNum}`));
-      }
     }
   }
 
