@@ -16,6 +16,13 @@ export declare function buildBlogArticleJsonLd(params: {
   image: string;
   publisherUrl: string;
   url: string;
+  author?: {
+    type: "Person" | "Organization";
+    name: string;
+    role?: string;
+    credential?: string;
+    url?: string;
+  };
 }): {
   "@context": string;
   "@type": string;
@@ -24,6 +31,16 @@ export declare function buildBlogArticleJsonLd(params: {
   datePublished: string;
   dateModified: string;
   image: string;
+  author: {
+    "@type": "Person" | "Organization";
+    name: string;
+    jobTitle?: string;
+    hasCredential?: {
+      "@type": "EducationalOccupationalCredential";
+      name: string;
+    };
+    url?: string;
+  };
   publisher: {
     "@type": string;
     name: string;

@@ -57,6 +57,33 @@ describe("BlogPost — hero image", () => {
   });
 });
 
+describe("BlogPost — authorship", () => {
+  it("gives every localized article an accountable author", () => {
+    const articles = Object.values(BLOG_POSTS).flatMap((articlesByLang) =>
+      Object.values(articlesByLang),
+    );
+
+    expect(articles.length).toBeGreaterThan(0);
+    expect(articles.every((article) => article.author?.name === "Presentail Editorial Team")).toBe(
+      true,
+    );
+  });
+
+  it("renders the visible byline and matching client Article author schema", () => {
+    renderWithProviders(<BlogPost />);
+
+    expect(screen.getByTestId("blog-post-author").textContent).toBe(
+      "By Presentail Editorial Team",
+    );
+
+    const json = JSON.parse(document.getElementById("blog-post-schema")!.textContent ?? "{}");
+    expect(json.author).toEqual({
+      "@type": "Organization",
+      name: "Presentail Editorial Team",
+    });
+  });
+});
+
 describe("BlogPost — editorial template (send-roses-to-lebanon)", () => {
   beforeEach(() => {
     mockSlug = "send-roses-to-lebanon";

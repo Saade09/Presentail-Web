@@ -11,6 +11,7 @@ import {
   getBlogPostExcerpt,
   getFeaturedBlogSlug,
   type BlogCategory,
+  type BlogPostContent,
 } from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
@@ -32,15 +33,7 @@ type Story = {
   ogImage?: OgImage;
 };
 
-type Article = {
-  slug: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  datePublished: string;
-  ogImage?: OgImage;
-  sections: { heading?: string; body?: string }[];
-};
+type Article = BlogPostContent;
 
 type Copy = {
   eyebrow: string;

@@ -82,6 +82,19 @@ export interface BlogRecommendation {
   image?: BlogInlineImage;
 }
 
+export interface BlogAuthor {
+  /** Schema.org author type. */
+  type: "Person" | "Organization";
+  /** Accountable author or editorial team name shown in the byline. */
+  name: string;
+  /** Optional role shown in the byline and mapped to Person.jobTitle. */
+  role?: string;
+  /** Optional credential, when explicitly supported by the business. */
+  credential?: string;
+  /** Optional author profile URL. */
+  url?: string;
+}
+
 export interface BlogPostContent {
   slug: string;
   eyebrow: string;
@@ -123,6 +136,8 @@ export interface BlogPostContent {
   sections: BlogSection[];
   /** Extra JSON-LD schema objects (e.g. FAQPage, LocalBusiness) emitted verbatim. */
   extraJsonLd?: object[];
+  /** Accountable author or editorial team for the article. */
+  author: BlogAuthor;
   /**
    * Optional CTA button href. When present, overrides the default "/shop" target
    * so a blog post can link directly to a relevant category or landing page.
@@ -139,6 +154,7 @@ export interface BlogPostContent {
 /** Map of article slug → per-language content. */
 export type BlogPostsBySlug = Record<string, Record<BlogLang, BlogPostContent>>;
 
+export const BLOG_EDITORIAL_TEAM: BlogAuthor;
 export const BLOG_POSTS: BlogPostsBySlug;
 
 /** Languages with dedicated copy; getter aliases to English are excluded. */

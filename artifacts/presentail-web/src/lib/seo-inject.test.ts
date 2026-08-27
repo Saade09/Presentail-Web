@@ -6615,6 +6615,30 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     },
   );
 
+  it("uses a concise French SEO title for the send-roses guide without changing its H1", () => {
+    const article = BLOG_POSTS["send-roses-to-lebanon"].fr;
+    const { title, headSnippet } = buildBlogPostHead({
+      article,
+      lang: "fr",
+      country: "lb",
+      basePath: "",
+      origin: "https://presentail.com",
+      pathname: "/fr/blog/send-roses-to-lebanon",
+    });
+
+    expect(article.seoTitle).toBe("Envoyer des roses au Liban | Livraison le jour même");
+    expect(article.h1).toBe(
+      "Envoyer des roses au Liban : livraison le jour même, partout au Liban",
+    );
+    expect(title).toBe("Envoyer des roses au Liban | Livraison le jour même");
+
+    const articleSchema = byType(extractJsonLd(headSnippet), "Article");
+    expect(articleSchema.author).toEqual({
+      "@type": "Organization",
+      name: "Presentail Editorial Team",
+    });
+  });
+
   it("renders Bouquet Delivery in Dubai with its canonical metadata and Article JSON-LD", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

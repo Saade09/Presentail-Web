@@ -44,6 +44,7 @@ type UiCopy = {
   inThisGuide: string;
   share: string;
   linkCopied: string;
+  by: string;
   updated: string;
   minRead: string; // template with {min}
   categories: Record<BlogCategory, string>;
@@ -58,6 +59,7 @@ const UI_COPY: Record<Language, UiCopy> = {
     inThisGuide: "In this guide",
     share: "Share",
     linkCopied: "Link copied",
+    by: "By",
     updated: "Updated",
     minRead: "{min} min read",
     categories: {
@@ -75,6 +77,7 @@ const UI_COPY: Record<Language, UiCopy> = {
     inThisGuide: "في هذا الدليل",
     share: "مشاركة",
     linkCopied: "تم نسخ الرابط",
+    by: "بقلم",
     updated: "آخر تحديث",
     minRead: "{min} دقائق قراءة",
     categories: {
@@ -92,6 +95,7 @@ const UI_COPY: Record<Language, UiCopy> = {
     inThisGuide: "Dans ce guide",
     share: "Partager",
     linkCopied: "Lien copié",
+    by: "Par",
     updated: "Mis à jour",
     minRead: "{min} min de lecture",
     categories: {
@@ -109,6 +113,7 @@ const UI_COPY: Record<Language, UiCopy> = {
     inThisGuide: "Σε αυτόν τον οδηγό",
     share: "Κοινοποίηση",
     linkCopied: "Ο σύνδεσμος αντιγράφηκε",
+    by: "Από",
     updated: "Ενημερώθηκε",
     minRead: "{min} λεπτά ανάγνωσης",
     categories: {
@@ -419,6 +424,7 @@ export default function BlogPost() {
         datePublished: article.datePublished,
         dateModified: article.dateModified,
         image: imageUrl,
+        author: article.author,
         publisherUrl: window.location.origin,
         url: window.location.href,
       }),
@@ -617,6 +623,28 @@ export default function BlogPost() {
               {dek}
             </p>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground mb-6">
+              <span
+                itemProp="author"
+                itemScope
+                itemType={`https://schema.org/${article.author.type}`}
+                data-testid="blog-post-author"
+              >
+                {ui.by}{" "}
+                <span itemProp="name">{article.author.name}</span>
+                {article.author.role && (
+                  <>
+                    <span aria-hidden="true"> · </span>
+                    <span itemProp="jobTitle">{article.author.role}</span>
+                  </>
+                )}
+                {article.author.credential && (
+                  <>
+                    <span aria-hidden="true"> · </span>
+                    <span itemProp="hasCredential">{article.author.credential}</span>
+                  </>
+                )}
+              </span>
+              <span aria-hidden="true">·</span>
               <span itemProp="datePublished" content={article.datePublished}>
                 {ui.updated} {formatDate(displayDate, language)}
               </span>

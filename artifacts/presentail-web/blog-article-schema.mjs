@@ -37,6 +37,13 @@ export const BLOG_OG_FALLBACK_IMAGE_PATH = "/opengraph.jpg?v=2";
  *   image:        string,
  *   publisherUrl: string,
  *   url:          string,
+ *   author?: {
+ *     type: "Person"|"Organization",
+ *     name: string,
+ *     role?: string,
+ *     credential?: string,
+ *     url?: string,
+ *   },
  * }} params
  * @returns {object} Plain object ready to be serialised with JSON.stringify.
  */
@@ -48,7 +55,28 @@ export function buildBlogArticleJsonLd({
   image,
   publisherUrl,
   url,
+  author,
 }) {
+  const authorType = author?.type === "Person" ? "Person" : "Organization";
+  const authorName =
+    typeof author?.name === "string" && author.name.trim()
+      ? author.name.trim()
+      : "Presentail Editorial Team";
+  const authorSchema = {
+    "@type": authorType,
+    name: authorName,
+    ...(author?.role && authorType === "Person" ? { jobTitle: author.role } : {}),
+    ...(author?.credential
+      ? {
+          hasCredential: {
+            "@type": "EducationalOccupationalCredential",
+            name: author.credential,
+          },
+        }
+      : {}),
+    ...(author?.url ? { url: author.url } : {}),
+  };
+
   return {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -60,6 +88,7 @@ export function buildBlogArticleJsonLd({
     // keeping the recommended Article freshness field present for every post.
     dateModified: dateModified ?? datePublished,
     image,
+    author: authorSchema,
     publisher: {
       "@type": "Organization",
       name: "Presentail",
