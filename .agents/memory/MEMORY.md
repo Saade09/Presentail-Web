@@ -86,3 +86,4 @@
 - [JazzHR job board iframe embed](job-board-iframe-embed.md) — presentail.applytojob.com has no cross-origin resize cooperation; use a generous static height, not a small "safe" default that clips under scrolling=no.
 - [Storefront HTML edge caching](storefront-html-edge-caching.md) — avoid public+no-cache edge rewrites; keep private HTML no-store and dynamic compression moderate.
 - [Shared H1/title policy](shared-h1-title-policy.md) — SEO builders own independent H1/title/description; sitemap audits must validate hreflang relationships, not just tag presence.
+- [Autoscale affinity cache checks](autoscale-affinity-cache-checks.md) — record cookie-less and affinity-established responses separately; never persist GAESA values.

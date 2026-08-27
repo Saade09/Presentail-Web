@@ -135,6 +135,58 @@ failures in delivery-slot fixtures, blog JSON-LD typing, city breadcrumbs, and
 Arabic homepage copy. Focused image suites and the production web typecheck
 pass.
 
+## Production verification after publication
+
+Captured on 27 August 2026 against `https://presentail.com` after the hardened
+API and web builds were live.
+
+| Production check | Result |
+| --- | --- |
+| Browser/curl/Semrush/Googlebot | 4/4 HTTP 200 with strong ETags and finite public caching |
+| Warm repeats | 316 ms MISS, then 35/35 ms HIT |
+| 1 identical cold request | 1/1 HTTP 200; 1 MISS; 317 ms |
+| 5 identical cold requests | 5/5 HTTP 200; 1 MISS + 4 COALESCED; 300 ms average |
+| 10 identical cold requests | 10/10 HTTP 200; 1 MISS + 9 COALESCED; 345 ms average |
+| 25 identical cold requests | 25/25 HTTP 200; 1 MISS + 24 COALESCED; 304 ms average, 318 ms max |
+| Semrush-reported pages available in the supplied report | 10/10 HTTP 200 |
+| Multilingual catalog APIs | 9/9 HTTP 200 across LB/AE/CY and en/ar/fr/el |
+| Cross-market catalog image sample | 69/69 HTTP 200; zero unexpected 5xx; 69/69 strong ETags |
+| Real-browser production pass | 4/4 pages HTTP 200; 88 image responses observed; zero `/api/img/proxy` 5xx |
+
+The production catalog sample covered 24 products per market/language catalog:
+Lebanon in English, Arabic, and French; UAE in English, Arabic, and French;
+and Cyprus in English, French, and Greek. Source URLs shared across locales
+were deduplicated before testing, producing 69 unique transformed image
+requests. All retained the intended policy:
+`public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400`.
+
+The browser pass visited English Lebanon, Arabic Lebanon, French UAE, and Greek
+Cyprus pages. Visible product images completed with non-zero natural
+dimensions. Four static logo requests were aborted by the browser, but no
+server error or product-image failure occurred.
+
+### Replit autoscale affinity-cookie observation
+
+A completely cookie-less first request receives Replit's `GAESA` autoscale
+affinity cookie. On that one response, the platform rewrites the otherwise
+public application cache policy to `private` while retaining the finite TTL,
+strong ETag, and HTTP 200 response. Once the platform cookie is established,
+the same browser, curl, Semrush, and Googlebot requests retain the application's
+public policy. The production checker now records both the anonymous first
+response and the affinity-established matrix without persisting the cookie
+value.
+
+This platform behavior does not affect image availability, warm in-process
+HITs, or cold-request coalescing, but it means a client's first cookie-less
+response is not shared-cache eligible. The production evidence therefore
+distinguishes that platform response from the public application behavior
+rather than hiding it.
+
+Machine-readable production evidence:
+
+- `image-delivery-after-production.json`
+- `catalog-image-crawl-after-production.json`
+
 ## External blocker / OS recommendation
 
 The OS uploader source is not in this workspace. OS should independently add

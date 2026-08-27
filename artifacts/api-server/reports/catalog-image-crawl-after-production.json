@@ -1,0 +1,1361 @@
+{
+  "ranAt": "2026-08-27T10:34:47.256Z",
+  "baseUrl": "https://presentail.com",
+  "platformAffinity": {
+    "status": 200,
+    "cookieAcquired": true,
+    "cookieName": "GAESA"
+  },
+  "anonymousCold": {
+    "productId": "chocolate-rocher-cake--899",
+    "markets": [
+      "LB-en",
+      "LB-ar",
+      "LB-fr"
+    ],
+    "sourceAsset": "/api/storage/public-objects/products/899/main.png",
+    "status": 200,
+    "bytes": 35982,
+    "durationMs": 289,
+    "contentType": "image/webp",
+    "cacheControl": "private, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+    "etag": "\"72b45df2027552311a5dae61e2b2bf154e5b8c4e1da2f2e7ca5bc4a495ed8d1f\"",
+    "age": null,
+    "xCache": "MISS"
+  },
+  "catalog": [
+    {
+      "countryCode": "LB",
+      "lang": "en",
+      "status": 200,
+      "products": 352,
+      "sampled": 24
+    },
+    {
+      "countryCode": "LB",
+      "lang": "ar",
+      "status": 200,
+      "products": 352,
+      "sampled": 24
+    },
+    {
+      "countryCode": "LB",
+      "lang": "fr",
+      "status": 200,
+      "products": 352,
+      "sampled": 24
+    },
+    {
+      "countryCode": "AE",
+      "lang": "en",
+      "status": 200,
+      "products": 359,
+      "sampled": 24
+    },
+    {
+      "countryCode": "AE",
+      "lang": "ar",
+      "status": 200,
+      "products": 359,
+      "sampled": 24
+    },
+    {
+      "countryCode": "AE",
+      "lang": "fr",
+      "status": 200,
+      "products": 359,
+      "sampled": 24
+    },
+    {
+      "countryCode": "CY",
+      "lang": "en",
+      "status": 200,
+      "products": 62,
+      "sampled": 24
+    },
+    {
+      "countryCode": "CY",
+      "lang": "fr",
+      "status": 200,
+      "products": 62,
+      "sampled": 24
+    },
+    {
+      "countryCode": "CY",
+      "lang": "el",
+      "status": 200,
+      "products": 62,
+      "sampled": 24
+    }
+  ],
+  "reportedPages": [
+    {
+      "page": "/en-lb/aley/shop",
+      "status": 200,
+      "bytes": 13407,
+      "durationMs": 32,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/en-lb/marjayoun/shop",
+      "status": 200,
+      "bytes": 13653,
+      "durationMs": 20,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/fr-lb/akkar/shop",
+      "status": 200,
+      "bytes": 13875,
+      "durationMs": 21,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/ar-lb/baabda/shop",
+      "status": 200,
+      "bytes": 15170,
+      "durationMs": 22,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/fr-lb/hermel/shop",
+      "status": 200,
+      "bytes": 13956,
+      "durationMs": 20,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/fr-ae/dubai/product/hallab-maamoul-mini-mixed",
+      "status": 200,
+      "bytes": 13747,
+      "durationMs": 81,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/ar-ae/dubai/product/hallab-maamoul-mini-mixed",
+      "status": 200,
+      "bytes": 14657,
+      "durationMs": 73,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/ar-lb/beirut/shop",
+      "status": 200,
+      "bytes": 15388,
+      "durationMs": 20,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/ar-lb/chouf/shop",
+      "status": 200,
+      "bytes": 15072,
+      "durationMs": 20,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "page": "/en-ae/sharjah/shop",
+      "status": 200,
+      "bytes": 13397,
+      "durationMs": 21,
+      "contentType": "text/html; charset=utf-8"
+    }
+  ],
+  "uniqueImages": 69,
+  "statuses": {
+    "200": 69
+  },
+  "unexpected5xx": 0,
+  "non200": [],
+  "cachePolicies": [
+    "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
+  ],
+  "etagCount": 69,
+  "hitCount": 0,
+  "missCount": 69,
+  "coalescedCount": 0,
+  "maxDurationMs": 1852,
+  "results": [
+    {
+      "productId": "chocolate-rocher-cake--899",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/899/main.png",
+      "status": 200,
+      "bytes": 35982,
+      "durationMs": 640,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"72b45df2027552311a5dae61e2b2bf154e5b8c4e1da2f2e7ca5bc4a495ed8d1f\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "blush-balloon-basket",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/584/main.jpg",
+      "status": 200,
+      "bytes": 32140,
+      "durationMs": 377,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"515c05273ec64543b845ec9a1140e9b6fb8a19397b7720c8dca881055fb1bd57\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "happy-birthday-bundle-rocher",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1030/main.jpg",
+      "status": 200,
+      "bytes": 34792,
+      "durationMs": 451,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"05d072e4da17a4203ec256568c7fb045e15b01ebb7a1d481948fd5da74cc7ee0\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "jungle-adventure-birthday",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1042/main.png",
+      "status": 200,
+      "bytes": 91478,
+      "durationMs": 760,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"a82a2e61452836ea9bfd47c93a0ae1ca480fa6faed14aa140154c0fe49f7124f\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "the-grand-gesture",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1025/main.png",
+      "status": 200,
+      "bytes": 21774,
+      "durationMs": 760,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"f9daef86c6bd59b81a9ec668b4fe393f0a1fb33df768c4ec14e662455db65adc\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "the-blush-muse-box",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/436/main.jpg",
+      "status": 200,
+      "bytes": 24984,
+      "durationMs": 730,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"df303fbd96a84a06b5aa5bae078e555c1c535606b91c230d5969ae6df0a9641e\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pink-wink",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/542/main.png",
+      "status": 200,
+      "bytes": 21950,
+      "durationMs": 453,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"973f7dd5accec74b9bbce4045cfa1ba59f38e8612e6e24d2616bdae2878dbe08\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pink-baby-rose-grande-bouquet",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/229/main.png",
+      "status": 200,
+      "bytes": 67424,
+      "durationMs": 635,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"3be3d261b86fc381d561103a6b5948fedc9036791918f023464453f1faff01cc\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "serenity",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/359/main.jpg",
+      "status": 200,
+      "bytes": 21546,
+      "durationMs": 676,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"83dbc1f3c04d26f54b336b2d7bf85ac7392a66e1c7b240cd63b881d6cd0d2034\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "red-bear",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/518/main.jpg",
+      "status": 200,
+      "bytes": 22152,
+      "durationMs": 493,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"72c431e622561cb7b1108e71cc681216c20a4d8e35cb2d69f910b0282fc15b33\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "heavenly-white-wreath-personalized-tribute",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/535/main.png",
+      "status": 200,
+      "bytes": 41072,
+      "durationMs": 474,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"30ba0b5782da9dc122a96a03cc604ef7a2b6b3c56ad376ed848027f100b3342b\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "flower-breeze",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/336/main.png",
+      "status": 200,
+      "bytes": 30628,
+      "durationMs": 477,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"1f504454aef645cc825a4afa80ead4a5f8eaf192d582b5a43f1ea301298f592a\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "colossal-white-roses-box",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/538/main.png",
+      "status": 200,
+      "bytes": 21936,
+      "durationMs": 594,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"d291f6de66ca8be5cd68e92739828a53724d9dc7d885b7fe5ff44459c6d405ee\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "fierce-love",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/398/main.png",
+      "status": 200,
+      "bytes": 35118,
+      "durationMs": 689,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"849612d65ed4d71ea60ce3bcee2a7a6f8ddc5125793b4703b5749179a4d99ca5\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "lush-garden-harmony",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/501/main.jpg",
+      "status": 200,
+      "bytes": 47232,
+      "durationMs": 471,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"281f793e37a376ae95a82d882173fbae7b7ef52c5c76d22567838159cc10ec6c\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "200-rose-royalty-bouquet",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/348/main.png",
+      "status": 200,
+      "bytes": 41990,
+      "durationMs": 685,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"75ba7a2912b0714d07fa2069638548e6b8abc8ce5c1af2489515b18b3e0f479d\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "best-mom-ever-balloon",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/317/main.jpg",
+      "status": 200,
+      "bytes": 25238,
+      "durationMs": 527,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"0b945b85aad1e4c71376bc9736d2369a00bd6e005c458e0e1c66c6ccf4868336\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "cheers-to-dad",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/423/main.jpg",
+      "status": 200,
+      "bytes": 22266,
+      "durationMs": 487,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"c9fe8faf5d8f15ebe6e96fe948c4c65e772b96f1f82c18a6c69ef049c134d40d\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "rose-bloom",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/400/main.png",
+      "status": 200,
+      "bytes": 16130,
+      "durationMs": 393,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"414ee42e202130d479632c54954b8c093ed174a64326125550a072256c7e6c50\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "large-yellow-heart-box",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr",
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/352/main.png",
+      "status": 200,
+      "bytes": 45408,
+      "durationMs": 533,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"1596658bea6448cae6a54ace80ae3eedf24539b08eb9a4baa9a815437088c39f\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "50-rose-grandeur-bouquet",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/326/main.png",
+      "status": 200,
+      "bytes": 24104,
+      "durationMs": 300,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"51f47b2a3060f74be67601e5bc55dbf6e0b9969290c4c998fd54b3c0035f87bc\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "6-silver-chrome-balloons--293",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/293/main.png",
+      "status": 200,
+      "bytes": 17968,
+      "durationMs": 304,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"d2c3d75af370e77112830321b3522ac24204ea630c109d7c2332e6397f6b4b4c\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "50-purple-balloons-bundle",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr",
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/262/main.png",
+      "status": 200,
+      "bytes": 31952,
+      "durationMs": 483,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"1616b29f37b3c376644fe52d50a9606679351c2ee70a05486361327f7eddf190\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "big-pink-baby-rose-bouquet",
+      "markets": [
+        "LB-en",
+        "LB-ar",
+        "LB-fr",
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/228/main.png",
+      "status": 200,
+      "bytes": 26810,
+      "durationMs": 378,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"867fd854becaea594d75d848e30c2b6cd10d13380a158dac78c2b54771bd830d\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "ferrero-rocher-chocolate-box-24-pieces",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/897/main.jpg",
+      "status": 200,
+      "bytes": 86272,
+      "durationMs": 378,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"3f4ac4bd6a0afbfb6c8279fa0b48a6da9010ac81ed1d6a66bf5db769df61a947\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "red-heart-balloon--306",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/306/main.png",
+      "status": 200,
+      "bytes": 16852,
+      "durationMs": 274,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"ec0d8dbc068e2ad7186cea27b15e7544cfe625b0a9d32dc79d1766b60c606dc4\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pink-lily-vase",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1014/main.png",
+      "status": 200,
+      "bytes": 14820,
+      "durationMs": 568,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"2c23aa23b5e3a29df7086670c500579056ceb857d4a3f1418adc1b2ebbcba215\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "blush-edit",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/911/main.png",
+      "status": 200,
+      "bytes": 28552,
+      "durationMs": 671,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"d0bfa6aa31e31a5ef1d7f7ce9311b058b41ca702033ea1a55171b0181b79b9a8\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pearl-lux-bundle",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1006/main.webp",
+      "status": 200,
+      "bytes": 13936,
+      "durationMs": 1215,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"db9645f66a2b2389891a10a6bbacf29ab2f66a10f11f85ffa698aadf288198ce\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pink-quran-arrangement",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/903/main.jpg",
+      "status": 200,
+      "bytes": 44254,
+      "durationMs": 373,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"0a717ae507a77f97cd3a576ef0c8396da797c0d528285549dd82d55e3c6c53ec\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "violet-whisper",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/500/main.jpg",
+      "status": 200,
+      "bytes": 24224,
+      "durationMs": 669,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"d37b5d389ca893d8885f9890cb74425abf27bcbee3ea7aa75321280180482b7c\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "25-rose-elegance-bouquet",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/343/main.png",
+      "status": 200,
+      "bytes": 15000,
+      "durationMs": 362,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"a652eb5b4a60b1c2204bd8d085aec4366bc463c53e076d693ca175ca670bb096\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "eternal-grace-tribute",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/585/main.png",
+      "status": 200,
+      "bytes": 46054,
+      "durationMs": 597,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"95008990ba1b0990354080fb8d4695f686faaa980161b05ffcaa894c68f165b4\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "super-you",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/488/main.jpg",
+      "status": 200,
+      "bytes": 34858,
+      "durationMs": 431,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"7bbb836ba88c7812b51bf30c41be96808dc186b6ac9500926d247ccfd9b344d5\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "ros-fever-bundle",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/450/main.jpg",
+      "status": 200,
+      "bytes": 34992,
+      "durationMs": 554,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"a2350feb5d5b27a0e9a7b1207223f360b256e7e31a4974c8e06d1ce713bf8da8\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "violet-dream",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/546/main.png",
+      "status": 200,
+      "bytes": 16346,
+      "durationMs": 427,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"6bc11d50f6d261fe0ed62ffb42496b647fd790477c3fcfd112911bce3fb1822d\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "yellow-roses-box-white-box",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/529/main.png",
+      "status": 200,
+      "bytes": 12732,
+      "durationMs": 458,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"0444872bc58b787bad6331bab3c9f831ee827e815ba2a9d5baba071247a755d6\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "giant-teddy-bear",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/514/main.jpg",
+      "status": 200,
+      "bytes": 47216,
+      "durationMs": 337,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"68fcda7146248969c8b2a9227a253cc0fed258b4360f93015e09164a77f2f0af\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pour-toi",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/489/main.jpg",
+      "status": 200,
+      "bytes": 19592,
+      "durationMs": 220,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"4ecd3a93adf77855736c07cdbb196bedb27e658bf991f871abb354c9c1eb0e56\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pink-baby-rose-letter",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/468/main.jpg",
+      "status": 200,
+      "bytes": 38400,
+      "durationMs": 261,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"3c5a0e000915ee1f852c1c1af0ff02a8a716be23bfa67c99a47f8c242322cb8b\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "gold-heart-balloon--313",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/313/main.png",
+      "status": 200,
+      "bytes": 18040,
+      "durationMs": 438,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"c4957e8ce5c5f9f0534c5e0dec277b6c1c69e3e0320275ed9d86ac36154920a0\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "25-yellow-roses-arrangement",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/358/main.png",
+      "status": 200,
+      "bytes": 24072,
+      "durationMs": 338,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"ac2572018f539d231c7989842a080cc5bd5343d627595675577455299ca07911\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "medium-white-heart-box",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/330/main.png",
+      "status": 200,
+      "bytes": 17630,
+      "durationMs": 656,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"5ea7f6060c5ea54797ea1ea87f6f2f76ea67d6911643a89f29079517116bf720\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "50-pink-roses-arrangement",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/325/main.png",
+      "status": 200,
+      "bytes": 22936,
+      "durationMs": 750,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"9aac93890300eb94d022d747f70276d9c550052b7104fde6ebe4ca771ebd50d8\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "love-balloon-in-silver--285",
+      "markets": [
+        "AE-en",
+        "AE-ar",
+        "AE-fr"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/285/main.png",
+      "status": 200,
+      "bytes": 16982,
+      "durationMs": 740,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"055e9309c33eaa74342f67ac37ae9b86f9c9cbc420390c9b05bf9a432f8f5a56\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "ivory-rose-vase",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1010/main.webp",
+      "status": 200,
+      "bytes": 11728,
+      "durationMs": 1747,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"0c1afb3827b9552e9c1181a5670569ef58c67f030a57568cc585420c59bbe5aa\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "blush-rose-vase",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1008/main.webp",
+      "status": 200,
+      "bytes": 15210,
+      "durationMs": 1852,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"078235552e4f2228c67796f71d53aeb289885ced0723b7f0df1dc5d404ff9e75\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "poinsettia",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1004/main.jpg",
+      "status": 200,
+      "bytes": 17202,
+      "durationMs": 437,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"84932ac6271ea57a3e49174906c52ca7e0996c6f0e574d88809bd3235a94ef0c\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "14-red-roses-bouquet",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/1001/main.jpg",
+      "status": 200,
+      "bytes": 11722,
+      "durationMs": 202,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"ac27bc0bdad3a8953ce4df4e01a4ae6043d4819a0b2d2ecfb500c554176b5fd7\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "21-yellow-roses-bouquet",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/998/main.jpg",
+      "status": 200,
+      "bytes": 12848,
+      "durationMs": 209,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"2b9a89c950d7d29135c96fd152de1535747de89ef1c9a7b8b3b8fb1515413cdf\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "14-yellow-roses-bouquet",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/996/main.jpg",
+      "status": 200,
+      "bytes": 12848,
+      "durationMs": 313,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"2b9a89c950d7d29135c96fd152de1535747de89ef1c9a7b8b3b8fb1515413cdf\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "7-yellow-roses-bouquet",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/993/main.jpg",
+      "status": 200,
+      "bytes": 12848,
+      "durationMs": 305,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"2b9a89c950d7d29135c96fd152de1535747de89ef1c9a7b8b3b8fb1515413cdf\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "always-yours",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/990/main.jpg",
+      "status": 200,
+      "bytes": 13436,
+      "durationMs": 310,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"06988fd9b1e33c2482ab906e3b9c88ec4eb2e879d98cfc195ea2f90fcc544cd8\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "red-hot",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/988/main.jpg",
+      "status": 200,
+      "bytes": 10536,
+      "durationMs": 201,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"2c7fec4fc6234a204e415cd6d7147a5eebfd502e79de622e706e8b969393d0b3\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "a-mothers-touch",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/985/main.jpg",
+      "status": 200,
+      "bytes": 15010,
+      "durationMs": 296,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"3a5674a501efa55ddbc29b8b0d3e75aaa720fd7fa4e92387dcdb642bd1bf8584\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "dear-mama",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/982/main.jpg",
+      "status": 200,
+      "bytes": 14784,
+      "durationMs": 278,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"7dfa0a5122215e1c7895b183a4a4bb916c64fc54de2ca80798231bcacdf50287\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "7-sunflower-bouquet",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/980/main.jpg",
+      "status": 200,
+      "bytes": 11480,
+      "durationMs": 285,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"7799bc48a2df5dc5e4c8a9c6ed0b8d27e331d8f7fef08b684bf3b8016e974659\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "rouge",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/977/main.jpg",
+      "status": 200,
+      "bytes": 14694,
+      "durationMs": 285,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"4d7cf85450a01f69f111188c28b3d81e54b70b73902334a477de4526b63e2138\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "pastel-pink",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/975/main.jpg",
+      "status": 200,
+      "bytes": 11168,
+      "durationMs": 375,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"e6b5940ed4fbdda47a588066fc3894fa77637fc206926f804ff58945b1292156\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "meadows",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/972/main.jpg",
+      "status": 200,
+      "bytes": 14758,
+      "durationMs": 289,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"6895e6156e8035f3283b8b31c2271cf1dc308d4770eb17939bba808b7c2301f7\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "single-orange-rose",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/968/main.jpg",
+      "status": 200,
+      "bytes": 8920,
+      "durationMs": 286,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"5acea6fa55827204ddc526508acb3afaf0d7d126c8c72f6d05c41cf20186ae0f\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "warrior-woman",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/966/main.jpg",
+      "status": 200,
+      "bytes": 14786,
+      "durationMs": 380,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"b89724dc815b3ff80e647e132aa8e02177b888426ff610b87e9ce6c652b11de7\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "more-than-a-woman",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/963/main.jpg",
+      "status": 200,
+      "bytes": 15628,
+      "durationMs": 406,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"5e8758a741230964311af9203b08221eba233c43f947cd5b6352a2e933491edb\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "great-dad-balloon",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/649/main.webp",
+      "status": 200,
+      "bytes": 39262,
+      "durationMs": 774,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"8ab847ee79225953faed9a9813f9ce1ff5835f603848956255ba72ef2dbc9ace\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "i-love-papa",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/576/main.png",
+      "status": 200,
+      "bytes": 27986,
+      "durationMs": 336,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"c5a9b0ad7524213f42472513507a2ff28e3f4def007771afc0fd828267363759\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "sabah-el-wared",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/434/main.jpg",
+      "status": 200,
+      "bytes": 42174,
+      "durationMs": 511,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"8eb2f315d38bbe34ea61001b74b2d0e6c116431a180cca9b14e3a3dfb44d2a3f\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "dad-s-sunny-surprise",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/430/main.jpg",
+      "status": 200,
+      "bytes": 56970,
+      "durationMs": 396,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"f5d58ab7dbb0f6b873589c5c003f5a183895497b6fe5c693cd8d7d78427623bf\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "florals-for-my-hero",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/426/main.jpg",
+      "status": 200,
+      "bytes": 44674,
+      "durationMs": 433,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"1d0cec924491b400ccffe053c0c72f3fcbeae92bab69a5f036237ffca46d5bb7\"",
+      "age": null,
+      "xCache": "MISS"
+    },
+    {
+      "productId": "30-pink-heart-foil-balloon",
+      "markets": [
+        "CY-en",
+        "CY-fr",
+        "CY-el"
+      ],
+      "sourceAsset": "/api/storage/public-objects/products/269/main.png",
+      "status": 200,
+      "bytes": 55952,
+      "durationMs": 542,
+      "contentType": "image/webp",
+      "cacheControl": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+      "etag": "\"e412e768b7327079fb031d6c52a2dac45dfd56a176bd646589d10b30ad40d942\"",
+      "age": null,
+      "xCache": "MISS"
+    }
+  ]
+}

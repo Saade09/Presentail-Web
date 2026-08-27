@@ -32,13 +32,14 @@ function withAuditQuery(raw, suffix) {
   return target.toString();
 }
 
-async function measuredFetch(url, userAgent) {
+async function measuredFetch(url, userAgent, cookie = "") {
   const started = performance.now();
   try {
     const response = await fetch(url, {
       headers: {
         "user-agent": userAgent,
         accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        ...(cookie ? { cookie } : {}),
       },
       redirect: "manual",
       signal: AbortSignal.timeout(20_000),
@@ -63,24 +64,62 @@ async function measuredFetch(url, userAgent) {
   }
 }
 
+async function acquirePlatformAffinityCookie() {
+  try {
+    const response = await fetch(baseUrl, {
+      headers: {
+        "user-agent": clients.browser,
+        accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "manual",
+      signal: AbortSignal.timeout(20_000),
+    });
+    await response.body?.cancel();
+    const setCookie = response.headers.get("set-cookie") ?? "";
+    const cookie = setCookie.split(";", 1)[0] ?? "";
+    const cookieName = cookie.split("=", 1)[0] ?? "";
+    return {
+      status: response.status,
+      cookie,
+      cookieAcquired: Boolean(cookie),
+      cookieName: cookieName || null,
+    };
+  } catch (error) {
+    return {
+      status: 0,
+      cookie: "",
+      cookieAcquired: false,
+      cookieName: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 const source = await measuredFetch(sourceUrl, clients.curl);
+const affinity = await acquirePlatformAffinityCookie();
+const anonymousCold = await measuredFetch(
+  proxyUrl(withAuditQuery(sourceUrl, "anonymous-cold")),
+  clients.curl,
+);
 const userAgents = {};
 for (const [name, userAgent] of Object.entries(clients)) {
   const target = withAuditQuery(sourceUrl, `ua-${name}`);
-  userAgents[name] = await measuredFetch(proxyUrl(target), userAgent);
+  userAgents[name] = await measuredFetch(proxyUrl(target), userAgent, affinity.cookie);
 }
 
 const warmTarget = withAuditQuery(sourceUrl, "warm");
 const warm = [];
 for (let i = 0; i < 3; i += 1) {
-  warm.push(await measuredFetch(proxyUrl(warmTarget), clients.browser));
+  warm.push(await measuredFetch(proxyUrl(warmTarget), clients.browser, affinity.cookie));
 }
 
 const concurrency = {};
 for (const level of concurrencyLevels) {
   const target = withAuditQuery(sourceUrl, `c${level}`);
   const results = await Promise.all(
-    Array.from({ length: level }, () => measuredFetch(proxyUrl(target), clients.semrush)),
+    Array.from({ length: level }, () =>
+      measuredFetch(proxyUrl(target), clients.semrush, affinity.cookie),
+    ),
   );
   concurrency[level] = {
     total: results.length,
@@ -104,6 +143,13 @@ const report = {
   baseUrl,
   sourceAsset: new URL(sourceUrl).pathname,
   source,
+  platformAffinity: {
+    status: affinity.status,
+    cookieAcquired: affinity.cookieAcquired,
+    cookieName: affinity.cookieName,
+    ...(affinity.error ? { error: affinity.error } : {}),
+  },
+  anonymousCold,
   userAgents,
   warm,
   concurrency,
