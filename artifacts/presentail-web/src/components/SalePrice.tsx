@@ -8,6 +8,7 @@ type Props = {
   discountPriceAed?: number | null;
   className?: string;
   symbolSize?: number | string;
+  currencyCodeOverride?: string;
 };
 
 /**
@@ -53,18 +54,31 @@ export function SalePrice({
   discountPriceAed,
   className,
   symbolSize = "0.75em",
+  currencyCodeOverride,
 }: Props) {
-  const { currencyCode } = useDisplayCurrency();
+  const { currencyCode: detectedCurrencyCode } = useDisplayCurrency();
+  const currencyCode = currencyCodeOverride ?? detectedCurrencyCode;
 
   const active = isDiscountActive(currencyCode, discountPriceValue, discountPriceAed);
 
   if (!active) {
-    return <FormattedPrice usdValue={priceValue} className={className} symbolSize={symbolSize} />;
+    return (
+      <FormattedPrice
+        usdValue={priceValue}
+        className={className}
+        symbolSize={symbolSize}
+        currencyCodeOverride={currencyCodeOverride}
+      />
+    );
   }
 
   const regularPrice = (
     <span className="text-muted-foreground line-through text-[0.8em]">
-      <FormattedPrice usdValue={priceValue} symbolSize={symbolSize} />
+      <FormattedPrice
+        usdValue={priceValue}
+        symbolSize={symbolSize}
+        currencyCodeOverride={currencyCodeOverride}
+      />
     </span>
   );
 
@@ -82,7 +96,11 @@ export function SalePrice({
 
   return (
     <span className={`inline-flex items-baseline gap-2 flex-wrap ${className ?? ""}`}>
-      <FormattedPrice usdValue={discountPriceValue!} symbolSize={symbolSize} />
+      <FormattedPrice
+        usdValue={discountPriceValue!}
+        symbolSize={symbolSize}
+        currencyCodeOverride={currencyCodeOverride}
+      />
       {regularPrice}
     </span>
   );

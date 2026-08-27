@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
-import { trackEvent, trackWebEvent } from "@/lib/analytics";
+import { trackEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { CAMPAIGN_SECTION_KEY } from "@/lib/campaign";
 import { type CampaignCatalogProduct, type CampaignAvailabilityState } from "@/lib/campaignLanding";
@@ -29,11 +29,13 @@ function CampaignProductCard({
   product,
   index,
   availabilityState,
+  currencyCodeOverride,
   onClickCapture,
 }: {
   product: CampaignCatalogProduct;
   index: number;
   availabilityState?: CampaignAvailabilityState;
+  currencyCodeOverride?: string;
   onClickCapture: () => void;
 }) {
   const { language, t } = useLocale();
@@ -95,6 +97,7 @@ function CampaignProductCard({
               priceValue={product.priceValue}
               discountPriceValue={product.discountPriceValue}
               discountPriceAed={product.discountPriceAed}
+              currencyCodeOverride={currencyCodeOverride}
             />
           </p>
         </div>
@@ -117,6 +120,7 @@ export function CampaignGrid({
   isLoading,
   id,
   availabilityState,
+  currencyCodeOverride,
   onViewAll,
 }: {
   section: "flowers" | "luxury";
@@ -128,6 +132,7 @@ export function CampaignGrid({
   isLoading: boolean;
   id?: string;
   availabilityState?: CampaignAvailabilityState;
+  currencyCodeOverride?: string;
   onViewAll?: () => void;
 }) {
   const { t } = useLocale();
@@ -194,6 +199,7 @@ export function CampaignGrid({
               product={product}
               index={i}
               availabilityState={availabilityState}
+              currencyCodeOverride={currencyCodeOverride}
               onClickCapture={() => {
                 trackEvent({
                   name: "product_card_click",
@@ -493,10 +499,12 @@ const MORE_FLOWERS_COUNT = 6;
 export function CampaignMoreFlowers({
   products,
   isLoading,
+  currencyCodeOverride,
   onViewAll,
 }: {
   products: CampaignCatalogProduct[];
   isLoading: boolean;
+  currencyCodeOverride?: string;
   onViewAll?: () => void;
 }) {
   const { t } = useLocale();
@@ -594,6 +602,7 @@ export function CampaignMoreFlowers({
                         priceValue={product.priceValue}
                         discountPriceValue={product.discountPriceValue}
                         discountPriceAed={product.discountPriceAed}
+                        currencyCodeOverride={currencyCodeOverride}
                       />
                     </p>
                   </Link>
@@ -613,15 +622,30 @@ export function CampaignFaq({
 }: {
   onExpand?: (questionKey: string) => void;
 }) {
-  const { t } = useLocale();
+  const { t, cityName } = useLocale();
+  const { countryCode, city } = useLocationSelection();
+  const isUae = countryCode === "AE";
+  const cityLabel = city ? cityName(city.id, city.name) : "";
+  const cityParams = { city: cityLabel };
 
-  const questions = [
-    { key: "q1", q: t("campaign.redesign.faq.q1"), a: t("campaign.redesign.faq.a1") },
-    { key: "q2", q: t("campaign.redesign.faq.q2"), a: t("campaign.redesign.faq.a2") },
-    { key: "q3", q: t("campaign.redesign.faq.q3"), a: t("campaign.redesign.faq.a3") },
-    { key: "q4", q: t("campaign.redesign.faq.q4"), a: t("campaign.redesign.faq.a4") },
-    { key: "q5", q: t("campaign.redesign.faq.q5"), a: t("campaign.redesign.faq.a5") },
-  ];
+  const questions = isUae
+    ? [
+        { key: "q1", q: t("campaign.redesign.uae.faq.q1", cityParams), a: t("campaign.redesign.uae.faq.a1", cityParams) },
+        { key: "q2", q: t("campaign.redesign.uae.faq.q2", cityParams), a: t("campaign.redesign.uae.faq.a2", cityParams) },
+        { key: "q3", q: t("campaign.redesign.uae.faq.q3", cityParams), a: t("campaign.redesign.uae.faq.a3", cityParams) },
+        { key: "q4", q: t("campaign.redesign.uae.faq.q4", cityParams), a: t("campaign.redesign.uae.faq.a4", cityParams) },
+        { key: "q5", q: t("campaign.redesign.uae.faq.q5", cityParams), a: t("campaign.redesign.uae.faq.a5", cityParams) },
+      ]
+    : [
+        { key: "q1", q: t("campaign.redesign.faq.q1"), a: t("campaign.redesign.faq.a1") },
+        { key: "q2", q: t("campaign.redesign.faq.q2"), a: t("campaign.redesign.faq.a2") },
+        { key: "q3", q: t("campaign.redesign.faq.q3"), a: t("campaign.redesign.faq.a3") },
+        { key: "q4", q: t("campaign.redesign.faq.q4"), a: t("campaign.redesign.faq.a4") },
+        { key: "q5", q: t("campaign.redesign.faq.q5"), a: t("campaign.redesign.faq.a5") },
+      ];
+  const heading = isUae
+    ? t("campaign.redesign.uae.faq.heading", cityParams)
+    : t("campaign.redesign.faq.heading");
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -646,7 +670,7 @@ export function CampaignFaq({
         id="campaign-faq-heading"
         className="font-serif text-2xl md:text-3xl mb-5"
       >
-        {t("campaign.redesign.faq.heading")}
+        {heading}
       </h2>
       <Accordion type="single" collapsible className="w-full">
         {questions.map(({ key, q, a }) => (
@@ -670,7 +694,25 @@ export function CampaignFaq({
 // ─── CampaignSeoEditorial ─────────────────────────────────────────────────────
 
 export function CampaignSeoEditorial() {
-  const { t } = useLocale();
+  const { t, cityName } = useLocale();
+  const { countryCode, city } = useLocationSelection();
+  const isUae = countryCode === "AE";
+  const cityLabel = city ? cityName(city.id, city.name) : "";
+  const cityParams = { city: cityLabel };
+  const heading = isUae
+    ? t("campaign.redesign.uae.seo.heading", cityParams)
+    : t("campaign.redesign.seo.heading");
+  const paragraphs = isUae
+    ? [
+        t("campaign.redesign.uae.seo.p1", cityParams),
+        t("campaign.redesign.uae.seo.p2", cityParams),
+        t("campaign.redesign.uae.seo.p3", cityParams),
+      ]
+    : [
+        t("campaign.redesign.seo.p1"),
+        t("campaign.redesign.seo.p2"),
+        t("campaign.redesign.seo.p3"),
+      ];
 
   return (
     <section
@@ -682,12 +724,12 @@ export function CampaignSeoEditorial() {
           id="campaign-seo-heading"
           className="font-serif text-xl md:text-2xl mb-4 text-neutral-900"
         >
-          {t("campaign.redesign.seo.heading")}
+          {heading}
         </h2>
         <div className="space-y-3 text-sm text-neutral-600 leading-relaxed">
-          <p>{t("campaign.redesign.seo.p1")}</p>
-          <p>{t("campaign.redesign.seo.p2")}</p>
-          <p>{t("campaign.redesign.seo.p3")}</p>
+          {paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
         </div>
       </div>
     </section>

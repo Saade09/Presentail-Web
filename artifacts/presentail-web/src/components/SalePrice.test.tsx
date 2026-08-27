@@ -194,6 +194,17 @@ describe("SalePrice — USD discount", () => {
 // ---------------------------------------------------------------------------
 
 describe("SalePrice — AED with native AED discount price", () => {
+  it("honours an AED override when the visitor currency is USD", () => {
+    mockUseFxRates.mockReturnValue({ data: { rates: { AED: 3.67 } } });
+    renderWithProviders(
+      <SalePrice priceValue={65} currencyCodeOverride="AED" />,
+      { currency: { currencyCode: "USD", formatPrice: (v: number) => `$${v}` } },
+    );
+
+    expect(document.body.textContent).toContain("240");
+    expect(document.body.textContent).not.toContain("$");
+  });
+
   it("displays the native AED amount (no FX conversion)", () => {
     // discountPriceAed=140 → rendered directly as "140" via aedFormatNum,
     // not converted from USD via the FX rate.

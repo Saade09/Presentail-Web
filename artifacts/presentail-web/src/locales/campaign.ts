@@ -301,8 +301,8 @@ export const campaignStrings: Dict = {
     ar: "محضّر محلياً",
   },
   "campaign.redesign.benefit.local.sub": {
-    en: "Hand-arranged by our Beirut florists",
-    ar: "منسّق يدوياً بواسطة بائعي الزهور لدينا في بيروت",
+    en: "Hand-arranged by local florists",
+    ar: "منسّق يدوياً بواسطة بائعي الزهور المحليين",
   },
   "campaign.redesign.benefit.payment.title": {
     en: "Secure payment",
@@ -442,6 +442,70 @@ export const campaignStrings: Dict = {
     en: "From classic roses and seasonal bouquets to luxury arrangements for special occasions, the Presentail catalog covers every mood and budget. All products shown are in stock and available for Beirut delivery today.",
     ar: "من الورود الكلاسيكية والباقات الموسمية إلى التنسيقات الفاخرة للمناسبات الخاصة، يغطّي كتالوج بريزانتيل كل مزاج وميزانية. جميع المنتجات المعروضة متوفرة وجاهزة للتوصيل في بيروت اليوم.",
   },
+
+  // ── Redesign: UAE FAQ and SEO copy ─────────────────────────────────────────
+  // UAE landing pages share the same rules but keep city-specific headings and
+  // copy through the {city} placeholder.
+  "campaign.redesign.uae.faq.heading": {
+    en: "Questions about flower delivery in {city}",
+    ar: "أسئلة حول توصيل الزهور في {city}",
+  },
+  "campaign.redesign.uae.faq.q1": {
+    en: "When is same-day flower delivery available in {city}?",
+    ar: "متى يتوفر توصيل الزهور في اليوم نفسه في {city}؟",
+  },
+  "campaign.redesign.uae.faq.a1": {
+    en: "Same-day delivery in {city} is available when you order before the live cut-off shown on this page. UAE cut-off times use UAE time (Asia/Dubai); orders placed after the cut-off move to the next available delivery window, confirmed at checkout.",
+    ar: "يتوفر التوصيل في اليوم نفسه في {city} عند الطلب قبل الموعد النهائي المباشر الظاهر في هذه الصفحة. تستخدم مواعيد الإغلاق توقيت الإمارات (آسيا/دبي)؛ وتُنقل الطلبات بعد الموعد النهائي إلى نافذة التوصيل التالية المتاحة، ويؤكدها الدفع.",
+  },
+  "campaign.redesign.uae.faq.q2": {
+    en: "Which districts in the UAE do you deliver to?",
+    ar: "إلى أي مناطق في الإمارات تقومون بالتوصيل؟",
+  },
+  "campaign.redesign.uae.faq.a2": {
+    en: "We deliver across Dubai, including Downtown Dubai, Dubai Marina, Jumeirah, Business Bay, and surrounding districts. In Abu Dhabi, delivery includes Abu Dhabi city, Al Reem Island, Al Raha, Khalifa City, and nearby areas. The full list of covered districts is confirmed when you enter the address at checkout.",
+    ar: "نوصّل في أنحاء دبي، بما في ذلك وسط مدينة دبي، ودبي مارينا، وجميرا، ومنطقة الخليج التجاري، والمناطق المحيطة. وفي أبوظبي، يشمل التوصيل مدينة أبوظبي، وجزيرة الريم، والراحة، ومدينة خليفة، والمناطق القريبة. يتم تأكيد القائمة الكاملة للمناطق المغطاة عند إدخال العنوان في الدفع.",
+  },
+  "campaign.redesign.uae.faq.q3": {
+    en: "Do I need the recipient's address to place an order in the UAE?",
+    ar: "هل أحتاج إلى عنوان المستلم لتقديم طلب في الإمارات؟",
+  },
+  "campaign.redesign.uae.faq.a3": {
+    en: "No — provide the recipient's name and phone number. Our team can contact them directly to collect the delivery address and arrange a suitable time, which is helpful when sending a surprise in Dubai or Abu Dhabi.",
+    ar: "لا — قدّم اسم المستلم ورقم هاتفه. يمكن لفريقنا التواصل معه مباشرةً لجمع عنوان التوصيل وترتيب وقت مناسب، وهذا مفيد عند إرسال مفاجأة في دبي أو أبوظبي.",
+  },
+  "campaign.redesign.uae.faq.q4": {
+    en: "How much does flower delivery cost in Dubai and Abu Dhabi?",
+    ar: "كم تبلغ تكلفة توصيل الزهور في دبي وأبوظبي؟",
+  },
+  "campaign.redesign.uae.faq.a4": {
+    en: "Delivery fees vary by UAE district and delivery time slot. The exact fee is calculated and shown in AED at checkout before you confirm the order. Free delivery is available on qualifying orders above the applicable minimum amount.",
+    ar: "تختلف رسوم التوصيل حسب المنطقة في الإمارات والفترة الزمنية للتوصيل. يتم احتساب الرسوم الدقيقة وعرضها بالدرهم الإماراتي عند الدفع قبل تأكيد الطلب. يتوفر التوصيل المجاني للطلبات المؤهلة التي تتجاوز الحد الأدنى المطبق.",
+  },
+  "campaign.redesign.uae.faq.q5": {
+    en: "Can I add a gift card or chocolates to my UAE flower order?",
+    ar: "هل يمكنني إضافة بطاقة هدية أو شوكولاتة إلى طلب الزهور في الإمارات؟",
+  },
+  "campaign.redesign.uae.faq.a5": {
+    en: "Yes — you can add a personalised card, chocolates, a balloon, or other gift add-ons during checkout. Available extras are delivered together with your flowers.",
+    ar: "نعم — يمكنك إضافة بطاقة شخصية، أو شوكولاتة، أو بالون، أو إضافات هدايا أخرى عند الدفع. يتم توصيل الإضافات المتاحة مع زهورك في الوقت نفسه.",
+  },
+  "campaign.redesign.uae.seo.heading": {
+    en: "Flower delivery in {city}",
+    ar: "توصيل الزهور في {city}",
+  },
+  "campaign.redesign.uae.seo.p1": {
+    en: "Presentail delivers fresh, hand-arranged flowers across {city}, from everyday bouquets to thoughtful gifts for birthdays, anniversaries, and other special moments. Our local delivery service helps your flowers arrive beautifully presented and on time.",
+    ar: "توصّل بريزانتيل زهوراً طازجة منسّقة يدوياً في أنحاء {city}، من الباقات اليومية إلى الهدايا الرائعة لأعياد الميلاد والذكرى السنوية وغيرها من اللحظات الخاصة. تساعد خدمة التوصيل المحلية لدينا زهورك على الوصول بتقديم أنيق وفي الوقت المحدد.",
+  },
+  "campaign.redesign.uae.seo.p2": {
+    en: "Choose a delivery date and time at checkout, with availability confirmed for your selected UAE district. Same-day options depend on the live cut-off and delivery schedule in UAE time, so the current availability message on this page is the best guide.",
+    ar: "اختر تاريخ ووقت التوصيل عند الدفع، حيث يتم تأكيد التوفر للمنطقة التي اخترتها في الإمارات. تعتمد خيارات التوصيل في اليوم نفسه على الموعد النهائي المباشر وجدول التوصيل بتوقيت الإمارات، لذلك تُعد رسالة التوفر الحالية في هذه الصفحة الدليل الأفضل.",
+  },
+  "campaign.redesign.uae.seo.p3": {
+    en: "From classic roses and seasonal bouquets to luxury arrangements, the Presentail catalog offers flowers for every mood and budget. Prices are shown in AED, and the products displayed are selected for delivery in {city}.",
+    ar: "من الورود الكلاسيكية والباقات الموسمية إلى التنسيقات الفاخرة، يقدّم كتالوج بريزانتيل زهوراً لكل ذوق وميزانية. الأسعار معروضة بالدرهم الإماراتي، والمنتجات الظاهرة مختارة للتوصيل في {city}.",
+  },
 };
 
 export const campaignStringsFr: Record<string, string> = {
@@ -540,7 +604,7 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.redesign.benefit.sameDay.title": "Livraison le jour même",
   "campaign.redesign.benefit.sameDay.sub": "Commandez avant l'heure limite — livré aujourd'hui",
   "campaign.redesign.benefit.local.title": "Préparé localement",
-  "campaign.redesign.benefit.local.sub": "Arrangé à la main par nos fleuristes de Beyrouth",
+  "campaign.redesign.benefit.local.sub": "Arrangé à la main par des fleuristes locaux",
   "campaign.redesign.benefit.payment.title": "Paiement sécurisé",
   "campaign.redesign.benefit.payment.sub": "Carte, Apple Pay et plus",
   "campaign.redesign.benefit.support.title": "Assistance humaine",
@@ -573,6 +637,21 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.redesign.seo.p1": "Presentail livre des fleurs fraîches, arrangées à la main dans tout Beyrouth le jour même de votre commande — d'Achrafieh et Hamra à Verdun et au-delà. Chaque bouquet est préparé par des fleuristes locaux et expédié rapidement pour arriver dans les meilleures conditions.",
   "campaign.redesign.seo.p2": "Notre service est conçu aussi bien pour les acheteurs locaux que pour ceux qui commandent depuis l'étranger. Vous n'avez pas besoin de l'adresse du destinataire à l'avance — fournissez simplement son numéro de téléphone et notre équipe se charge du reste, facilitant l'envoi d'une surprise attentionnée depuis n'importe où dans le monde.",
   "campaign.redesign.seo.p3": "Des roses classiques et des bouquets de saison aux compositions de luxe pour les occasions spéciales, le catalogue Presentail couvre toutes les envies et tous les budgets. Tous les produits affichés sont en stock et disponibles pour la livraison à Beyrouth aujourd'hui.",
+  "campaign.redesign.uae.faq.heading": "Questions sur la livraison de fleurs à {city}",
+  "campaign.redesign.uae.faq.q1": "Quand la livraison le jour même est-elle disponible à {city} ?",
+  "campaign.redesign.uae.faq.a1": "La livraison le jour même à {city} est disponible si vous commandez avant l'heure limite affichée sur cette page. Les heures limites des Émirats suivent l'heure des Émirats (Asie/Dubaï) ; les commandes passées après cette heure passent au prochain créneau disponible, confirmé au paiement.",
+  "campaign.redesign.uae.faq.q2": "Dans quels quartiers des Émirats livrez-vous ?",
+  "campaign.redesign.uae.faq.a2": "Nous livrons à Dubaï, notamment à Downtown Dubai, Dubai Marina, Jumeirah, Business Bay et dans les quartiers voisins. À Abu Dhabi, la livraison couvre la ville d'Abu Dhabi, l'île d'Al Reem, Al Raha, Khalifa City et les environs. La liste complète des quartiers couverts est confirmée lorsque vous saisissez l'adresse au paiement.",
+  "campaign.redesign.uae.faq.q3": "Ai-je besoin de l'adresse du destinataire pour commander aux Émirats ?",
+  "campaign.redesign.uae.faq.a3": "Non — indiquez le nom et le numéro de téléphone du destinataire. Notre équipe peut le contacter directement pour recueillir l'adresse et convenir d'un horaire, ce qui est pratique pour envoyer une surprise à Dubaï ou Abu Dhabi.",
+  "campaign.redesign.uae.faq.q4": "Combien coûte la livraison de fleurs à Dubaï et Abu Dhabi ?",
+  "campaign.redesign.uae.faq.a4": "Les frais varient selon le quartier des Émirats et le créneau de livraison. Le montant exact est calculé et affiché en AED au paiement avant la confirmation. La livraison gratuite est proposée pour les commandes éligibles dépassant le minimum applicable.",
+  "campaign.redesign.uae.faq.q5": "Puis-je ajouter une carte cadeau ou des chocolats à ma commande aux Émirats ?",
+  "campaign.redesign.uae.faq.a5": "Oui — vous pouvez ajouter une carte personnalisée, des chocolats, un ballon ou d'autres cadeaux au paiement. Les extras disponibles sont livrés avec vos fleurs.",
+  "campaign.redesign.uae.seo.heading": "Livraison de fleurs à {city}",
+  "campaign.redesign.uae.seo.p1": "Presentail livre des fleurs fraîches arrangées à la main dans tout {city}, des bouquets du quotidien aux cadeaux attentionnés pour les anniversaires, les fêtes et les autres moments spéciaux. Notre service de livraison local permet à vos fleurs d'arriver élégamment présentées et à temps.",
+  "campaign.redesign.uae.seo.p2": "Choisissez une date et une heure de livraison au paiement, avec une disponibilité confirmée pour le quartier sélectionné aux Émirats. Les options le jour même dépendent de l'heure limite et du planning de livraison aux heures des Émirats ; le message de disponibilité affiché sur cette page est donc le meilleur guide.",
+  "campaign.redesign.uae.seo.p3": "Des roses classiques et bouquets de saison aux compositions de luxe, le catalogue Presentail propose des fleurs pour toutes les envies et tous les budgets. Les prix sont affichés en AED et les produits présentés sont sélectionnés pour une livraison à {city}.",
 };
 
 export const campaignStringsEl: Record<string, string> = {

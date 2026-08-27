@@ -73,7 +73,7 @@ vi.mock("@/contexts/LocaleContext", () => ({
 }));
 
 vi.mock("@/lib/useDisplayCurrency", () => ({
-  useDisplayCurrency: () => ({ currencyCode: "AED" }),
+  useDisplayCurrency: () => ({ currencyCode: "USD" }),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -105,17 +105,17 @@ vi.mock("@/pages/CampaignSections", () => ({
       <h2>{title}</h2>
     </section>
   ),
-  CampaignOccasions: () => null,
-  CampaignBenefitBand: () => null,
-  CampaignLuxuryBanner: () => null,
-  CampaignWhyChoose: () => null,
-  CampaignMoreFlowers: () => null,
-  CampaignFaq: () => null,
-  CampaignSeoEditorial: () => null,
+  CampaignOccasions: () => <section data-testid="campaign-section-occasions" />,
+  CampaignBenefitBand: () => <section data-testid="campaign-section-benefits" />,
+  CampaignLuxuryBanner: () => <section data-testid="campaign-section-luxury-banner" />,
+  CampaignWhyChoose: () => <section data-testid="campaign-section-why-choose" />,
+  CampaignMoreFlowers: () => <section data-testid="campaign-section-more-flowers" />,
+  CampaignFaq: () => <section data-testid="campaign-section-faq" />,
+  CampaignSeoEditorial: () => <section data-testid="campaign-section-seo" />,
 }));
 
 vi.mock("@/components/homepage/TrustpilotCarousel", () => ({
-  TrustpilotCarousel: () => null,
+  TrustpilotCarousel: () => <div data-testid="campaign-section-trustpilot-carousel" />,
 }));
 
 vi.mock("./CampaignLandingLegacy", () => ({
@@ -162,6 +162,14 @@ describe("CampaignLanding UAE route parity", () => {
       "AED",
     );
     expect(screen.getByTestId("bar-campaign-sticky")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-occasions")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-benefits")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-luxury-banner")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-why-choose")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-trustpilot-carousel")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-more-flowers")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-faq")).toBeDefined();
+    expect(screen.getByTestId("campaign-section-seo")).toBeDefined();
 
     const sections = screen
       .getAllByTestId(/^campaign-grid-/)

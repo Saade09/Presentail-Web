@@ -90,8 +90,21 @@ function useCampaignImpressions(
   }, [products, section]);
 }
 
-function formatCutoff(hour: number, language: string): string {
-  const locale = language === "ar" ? "ar-LB" : language === "fr" ? "fr-FR" : "en-US";
+function formatCutoff(
+  hour: number,
+  language: string,
+  countryCode: string | null | undefined,
+): string {
+  const locale =
+    language === "ar"
+      ? countryCode === "AE"
+        ? "ar-AE"
+        : "ar-LB"
+      : language === "fr"
+        ? "fr-FR"
+        : countryCode === "AE"
+          ? "en-AE"
+          : "en-US";
   return new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: hour % 1 === 0 ? undefined : "2-digit",
@@ -199,7 +212,7 @@ function CampaignLandingRedesign() {
   const availabilityText =
     availabilityState === "same-day" && city?.sameDayCutoffHour != null
       ? t("campaign.redesign.status.sameDay", {
-          cutoff: formatCutoff(city.sameDayCutoffHour, language),
+          cutoff: formatCutoff(city.sameDayCutoffHour, language, countryCode),
         })
       : availabilityState === "next-available"
         ? t("campaign.redesign.status.nextAvailable")
@@ -213,8 +226,10 @@ function CampaignLandingRedesign() {
           speed: city.expressDeliveryLabel.trim(),
         })
       : t("campaign.redesign.status.speedNeutral");
+  const campaignCurrencyCode =
+    market?.countryCode === "AE" ? "AED" : currencyCode;
   const currencyText = t("campaign.redesign.status.currency", {
-    currency: currencyCode,
+    currency: campaignCurrencyCode,
   });
   const heroTitle =
     availabilityState === "same-day"
@@ -286,6 +301,7 @@ function CampaignLandingRedesign() {
           products={catalog.flowers}
           isLoading={catalogLoading}
           availabilityState={availabilityState}
+          currencyCodeOverride={campaignCurrencyCode}
           onViewAll={() => fireCampaignEvent("view_all_flowers")}
         />
       </div>
@@ -322,24 +338,24 @@ function CampaignLandingRedesign() {
         products={catalog.luxury}
         isLoading={catalogLoading}
         availabilityState={availabilityState}
+        currencyCodeOverride={campaignCurrencyCode}
       />
 
       {/* 12. "More flowers to love" rail */}
       <CampaignMoreFlowers
         products={catalog.flowers}
         isLoading={catalogLoading}
+        currencyCodeOverride={campaignCurrencyCode}
         onViewAll={() => fireCampaignEvent("browse_all_flowers")}
       />
 
-      {/* 13. FAQ accordion — Lebanon only; copy references Beirut districts */}
-      {countryCode === "LB" && (
-        <CampaignFaq
-          onExpand={(key) => fireCampaignEvent("faq_expand", key)}
-        />
-      )}
+      {/* 13. FAQ accordion — copy is market-aware for Beirut and the UAE */}
+      <CampaignFaq
+        onExpand={(key) => fireCampaignEvent("faq_expand", key)}
+      />
 
-      {/* 14. SEO editorial copy section — Lebanon only */}
-      {countryCode === "LB" && <CampaignSeoEditorial />}
+      {/* 14. SEO editorial copy section — copy is market-aware */}
+      <CampaignSeoEditorial />
 
       {/* Mobile sticky CTA */}
       <CampaignStickyBar

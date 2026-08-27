@@ -22,6 +22,7 @@ type Props = {
   usdValue: number;
   className?: string;
   symbolSize?: number | string;
+  currencyCodeOverride?: string;
 };
 
 /**
@@ -41,8 +42,14 @@ type Props = {
  * for non-display contexts (aria-label, document.title, analytics payloads,
  * i18n string params) where a plain string is required.
  */
-export function FormattedPrice({ usdValue, className, symbolSize = "0.75em" }: Props) {
-  const { currencyCode, formatPrice } = useDisplayCurrency();
+export function FormattedPrice({
+  usdValue,
+  className,
+  symbolSize = "0.75em",
+  currencyCodeOverride,
+}: Props) {
+  const { currencyCode: detectedCurrencyCode, formatPrice } = useDisplayCurrency();
+  const currencyCode = currencyCodeOverride ?? detectedCurrencyCode;
   const { data: fxData } = useFxRates();
   const rates = (fxData?.rates ?? {}) as Record<string, number>;
 
