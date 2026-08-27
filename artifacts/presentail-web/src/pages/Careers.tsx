@@ -1,5 +1,4 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
-import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { JobBoardEmbed } from "@/components/careers/JobBoardEmbed";
 
@@ -15,13 +14,7 @@ type Copy = {
   viewAllJobs: string;
   jobBoardUnavailable: string;
   generalPitch: string;
-  applyHeading: string;
-  applyBody: string;
-  applyCta: string;
-  applySubject: string;
 };
-
-const APPLY_EMAIL = "careers@presentail.com";
 
 const COPY: Record<Language, Copy> = {
   en: {
@@ -53,11 +46,6 @@ const COPY: Record<Language, Copy> = {
       "We couldn't load our live job board right now — use the link below to view all open roles, or reach out directly.",
     generalPitch:
       "Tell us a little about yourself, what you'd love to work on, and where you're based.",
-    applyHeading: "Get in touch",
-    applyBody:
-      "Send us your CV and a short note. We read every email and reply within a week.",
-    applyCta: "Email us your CV",
-    applySubject: "Joining Presentail",
   },
   ar: {
     eyebrow: "الوظائف في بريزانتيل",
@@ -88,11 +76,6 @@ const COPY: Record<Language, Copy> = {
       "تعذّر تحميل لوحة الوظائف المباشرة حالياً — استخدم الرابط أدناه لعرض جميع الوظائف المتاحة، أو تواصل معنا مباشرة.",
     generalPitch:
       "حدّثنا قليلاً عن نفسك، وعمّا تودّ العمل عليه، وأين تقيم.",
-    applyHeading: "تواصل معنا",
-    applyBody:
-      "أرسل لنا سيرتك الذاتية مع رسالة قصيرة. نقرأ كل بريد ونردّ خلال أسبوع.",
-    applyCta: "أرسل سيرتك الذاتية",
-    applySubject: "الانضمام إلى بريزانتيل",
   },
   fr: {
     eyebrow: "Carrières chez Presentail",
@@ -123,11 +106,6 @@ const COPY: Record<Language, Copy> = {
       "Nous n'avons pas pu charger notre offre d'emploi en direct — utilisez le lien ci-dessous pour voir tous les postes ouverts, ou contactez-nous directement.",
     generalPitch:
       "Parlez-nous un peu de vous, de ce sur quoi vous aimeriez travailler, et d'où vous êtes basé(e).",
-    applyHeading: "Contactez-nous",
-    applyBody:
-      "Envoyez-nous votre CV et un court message. Nous lisons chaque email et répondons sous une semaine.",
-    applyCta: "Envoyez-nous votre CV",
-    applySubject: "Rejoindre Presentail",
   },
   el: {
     eyebrow: "Καριέρα στο Presentail",
@@ -158,18 +136,12 @@ const COPY: Record<Language, Copy> = {
       "Δεν μπορέσαμε να φορτώσουμε τον πίνακα θέσεων εργασίας αυτή τη στιγμή — χρησιμοποιήστε τον παρακάτω σύνδεσμο για να δείτε όλες τις ανοιχτές θέσεις, ή επικοινωνήστε μαζί μας απευθείας.",
     generalPitch:
       "Πείτε μας λίγα λόγια για εσάς, με τι θα θέλατε να ασχοληθείτε και πού βρίσκεστε.",
-    applyHeading: "Επικοινωνήστε μαζί μας",
-    applyBody:
-      "Στείλτε μας το βιογραφικό σας και ένα σύντομο σημείωμα. Διαβάζουμε κάθε email και απαντάμε εντός μίας εβδομάδας.",
-    applyCta: "Στείλτε μας το βιογραφικό σας",
-    applySubject: "Ένταξη στο Presentail",
   },
 };
 
 export default function Careers() {
   const { language, t } = useLocale();
   const c = COPY[language] ?? COPY.en;
-  const mailto = `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent(c.applySubject)}`;
 
   return (
     <div className="bg-background" data-testid="careers-page" lang={language}>
@@ -228,18 +200,6 @@ export default function Careers() {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 pb-20 md:pb-24 max-w-4xl">
-        <div className="rounded-lg bg-primary text-primary-foreground p-8 md:p-12 text-center">
-          <h2 className="text-2xl md:text-3xl font-serif mb-3">
-            {c.applyHeading}
-          </h2>
-          <p className="opacity-90 mb-6 max-w-xl mx-auto">{c.applyBody}</p>
-          <a href={mailto} data-testid="careers-cta-email">
-            <Button variant="secondary">{c.applyCta}</Button>
-          </a>
-          <p className="mt-4 text-sm opacity-80">{APPLY_EMAIL}</p>
-        </div>
-      </section>
     </div>
   );
 }
