@@ -105,6 +105,17 @@ vi.mock("@/pages/CampaignSections", () => ({
       <h2>{title}</h2>
     </section>
   ),
+  CampaignOccasions: () => null,
+  CampaignBenefitBand: () => null,
+  CampaignLuxuryBanner: () => null,
+  CampaignWhyChoose: () => null,
+  CampaignMoreFlowers: () => null,
+  CampaignFaq: () => null,
+  CampaignSeoEditorial: () => null,
+}));
+
+vi.mock("@/components/homepage/TrustpilotCarousel", () => ({
+  TrustpilotCarousel: () => null,
 }));
 
 vi.mock("./CampaignLandingLegacy", () => ({

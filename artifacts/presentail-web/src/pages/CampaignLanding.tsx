@@ -25,8 +25,20 @@ import {
   CampaignHero,
   CampaignTrustBar,
   CampaignStickyBar,
+  CampaignLocationBar,
+  CampaignTrustpilotStrip,
 } from "@/pages/CampaignHero";
-import { CampaignGrid } from "@/pages/CampaignSections";
+import {
+  CampaignGrid,
+  CampaignOccasions,
+  CampaignBenefitBand,
+  CampaignLuxuryBanner,
+  CampaignWhyChoose,
+  CampaignMoreFlowers,
+  CampaignFaq,
+  CampaignSeoEditorial,
+} from "@/pages/CampaignSections";
+import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { CampaignLandingLegacy } from "./CampaignLandingLegacy";
 
 function fireCampaignEvent(
@@ -39,7 +51,15 @@ function fireCampaignEvent(
     | "campaign_support_click"
     | "campaign_pill_click"
     | "campaign_sticky_cta_impression"
-    | "campaign_sticky_cta_click",
+    | "campaign_sticky_cta_click"
+    | "delivery_location_change"
+    | "trustpilot_strip_click"
+    | "occasion_shortcut_click"
+    | "view_all_flowers"
+    | "luxury_collection_cta_click"
+    | "trustpilot_carousel_interaction"
+    | "faq_expand"
+    | "browse_all_flowers",
   detail?: string,
 ): void {
   trackEvent({ name, ...(detail ? { linkSlug: detail } : {}), sectionKey: CAMPAIGN_SECTION_KEY });
@@ -79,7 +99,7 @@ function formatCutoff(hour: number, language: string): string {
 }
 
 function CampaignLandingRedesign() {
-  const { countryCode, cityId, city, deliveryDataStatus } = useLocationSelection();
+  const { countryCode, cityId, city, deliveryDataStatus, openPicker } = useLocationSelection();
   const { dir, cityName, language, t } = useLocale();
   const { currencyCode } = useDisplayCurrency();
   const [now, setNow] = useState(() => new Date());
@@ -130,8 +150,7 @@ function CampaignLandingRedesign() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Contract-backed, market-scoped collection queries. The server's OS store
-  // cache has already applied country/city deliverability before ranking.
+  // Contract-backed, market-scoped collection queries.
   const catalogQueries = useQueries({
     queries: CAMPAIGN_QUERY_CATEGORY_SLUGS.map((categorySlug) =>
       getGetHomepageCollectionBestSellersQueryOptions({
@@ -207,10 +226,13 @@ function CampaignLandingRedesign() {
 
   return (
     <div dir={dir} className="min-h-screen bg-[#fffdf8] pb-28 md:pb-0">
+      {/* 1. Hero */}
       <CampaignHero
         cityLabel={cityLabel}
         title={heroTitle}
         availabilityText={availabilityText}
+        availabilityState={availabilityState}
+        cutoffHour={city?.sameDayCutoffHour}
         supportUrl={supportUrl}
         promoEligible={promoEligible}
         onPromoClick={() => fireCampaignEvent("campaign_promo_click")}
@@ -224,12 +246,35 @@ function CampaignLandingRedesign() {
         sectionRef={heroRef}
       />
 
+      {/* 2. Delivery-location selector */}
+      <CampaignLocationBar
+        cityLabel={cityLabel}
+        onLocationClick={() => {
+          fireCampaignEvent("delivery_location_change", cityId ?? undefined);
+          openPicker();
+        }}
+      />
+
+      {/* 3. Compact Trustpilot strip */}
+      <CampaignTrustpilotStrip
+        onStripClick={() => fireCampaignEvent("trustpilot_strip_click")}
+      />
+
+      {/* 4. Trust bar (availability / speed / currency) */}
       <CampaignTrustBar
         availabilityText={availabilityText}
         deliveryText={deliveryText}
         currencyText={currencyText}
       />
 
+      {/* 5. Occasion shortcuts carousel */}
+      <CampaignOccasions
+        onShortcutClick={(slug) =>
+          fireCampaignEvent("occasion_shortcut_click", slug)
+        }
+      />
+
+      {/* 6. Available-for-delivery-today product grid */}
       <div ref={firstGridRef}>
         <CampaignGrid
           id="campaign-flowers"
@@ -240,9 +285,33 @@ function CampaignLandingRedesign() {
           viewAllText={t("campaign.redesign.viewAll")}
           products={catalog.flowers}
           isLoading={catalogLoading}
+          availabilityState={availabilityState}
+          onViewAll={() => fireCampaignEvent("view_all_flowers")}
         />
       </div>
 
+      {/* 7. Customer-benefit band */}
+      <CampaignBenefitBand />
+
+      {/* 8. Luxury collection editorial banner */}
+      <CampaignLuxuryBanner
+        onCtaClick={() => fireCampaignEvent("luxury_collection_cta_click")}
+      />
+
+      {/* 9. Why-customers-choose section */}
+      <CampaignWhyChoose />
+
+      {/* 10. Full Trustpilot review carousel */}
+      <section
+        className="container mx-auto max-w-content px-page pt-10"
+        aria-label={t("campaign.redesign.trustpilotCarousel.ariaLabel")}
+      >
+        <TrustpilotCarousel
+          onVisible={() => fireCampaignEvent("trustpilot_carousel_interaction")}
+        />
+      </section>
+
+      {/* 11. Luxury grid */}
       <CampaignGrid
         id="campaign-lux"
         section="luxury"
@@ -252,8 +321,27 @@ function CampaignLandingRedesign() {
         viewAllText={t("campaign.redesign.viewAll")}
         products={catalog.luxury}
         isLoading={catalogLoading}
+        availabilityState={availabilityState}
       />
 
+      {/* 12. "More flowers to love" rail */}
+      <CampaignMoreFlowers
+        products={catalog.flowers}
+        isLoading={catalogLoading}
+        onViewAll={() => fireCampaignEvent("browse_all_flowers")}
+      />
+
+      {/* 13. FAQ accordion — Lebanon only; copy references Beirut districts */}
+      {countryCode === "LB" && (
+        <CampaignFaq
+          onExpand={(key) => fireCampaignEvent("faq_expand", key)}
+        />
+      )}
+
+      {/* 14. SEO editorial copy section — Lebanon only */}
+      {countryCode === "LB" && <CampaignSeoEditorial />}
+
+      {/* Mobile sticky CTA */}
       <CampaignStickyBar
         onCtaClick={() => {
           fireCampaignEvent("campaign_sticky_cta_click");

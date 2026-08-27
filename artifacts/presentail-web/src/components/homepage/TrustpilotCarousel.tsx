@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-export function TrustpilotCarousel() {
+export function TrustpilotCarousel({ onVisible }: { onVisible?: () => void } = {}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +37,7 @@ export function TrustpilotCarousel() {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             observer.disconnect();
+            onVisible?.();
             injectTrustpilotScript(tryLoad);
           }
         }

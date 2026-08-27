@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { CircleDollarSign, Clock3, Truck } from "lucide-react";
+import { CircleDollarSign, Clock3, ChevronDown, MapPin, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { injectTrustpilotScript } from "@/lib/trustpilot";
 
 const HERO_IMAGE_768 = `${import.meta.env.BASE_URL}campaign/flower-hero-768.webp`;
 const HERO_IMAGE_1440 = `${import.meta.env.BASE_URL}campaign/flower-hero-1440.webp`;
@@ -12,6 +14,8 @@ export function CampaignHero({
   cityLabel,
   title,
   availabilityText,
+  availabilityState,
+  cutoffHour,
   supportUrl,
   promoEligible,
   onPromoClick,
@@ -22,6 +26,8 @@ export function CampaignHero({
   cityLabel: string;
   title: string;
   availabilityText: string;
+  availabilityState?: "same-day" | "next-available" | "unverified";
+  cutoffHour?: number;
   supportUrl: string;
   promoEligible: boolean;
   onPromoClick: () => void;
@@ -30,6 +36,9 @@ export function CampaignHero({
   sectionRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useLocale();
+
+  // Only show the availability pill when same-day is confirmed AND cutoff is known.
+  const showPill = availabilityState === "same-day" && cutoffHour != null;
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -61,12 +70,14 @@ export function CampaignHero({
           aria-hidden="true"
         />
         <div className="relative z-10 flex h-full max-w-2xl flex-col justify-center px-6 py-8 text-[#fffaf0] sm:px-8 md:px-12 md:py-7">
-          <p
-            className="mb-3 w-fit rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide backdrop-blur-sm"
-            data-testid="text-campaign-availability"
-          >
-            {availabilityText}
-          </p>
+          {showPill && (
+            <p
+              className="mb-3 w-fit rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide backdrop-blur-sm"
+              data-testid="text-campaign-availability"
+            >
+              {availabilityText}
+            </p>
+          )}
           <h1
             className="max-w-xl font-serif text-3xl leading-[1.05] tracking-tight sm:text-4xl md:text-5xl"
             data-testid="text-campaign-headline"
@@ -88,11 +99,11 @@ export function CampaignHero({
             </Link>
           )}
 
-          <div className="mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
+          <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-5">
             <Button
               type="button"
               size="lg"
-              className="h-12 bg-[#fff8e9] px-7 font-semibold text-[#003f46] hover:bg-white"
+              className="h-12 w-full sm:w-auto bg-[#fff8e9] px-7 font-semibold text-[#003f46] hover:bg-white"
               onClick={onCtaClick}
               data-testid="button-campaign-hero-cta"
             >
@@ -103,7 +114,7 @@ export function CampaignHero({
               target="_blank"
               rel="noopener noreferrer"
               onClick={onSupportClick}
-              className="text-sm font-medium text-white underline decoration-white/60 underline-offset-4 hover:text-[#f4d9aa] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              className="text-sm font-medium text-white/70 underline decoration-white/40 underline-offset-4 hover:text-white hover:decoration-white/60 text-center sm:text-start focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
               data-testid="link-campaign-support"
             >
               {t("campaign.redesign.hero.support")}
@@ -146,6 +157,118 @@ export function CampaignTrustBar({
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── CampaignLocationBar ──────────────────────────────────────────────────────
+
+export function CampaignLocationBar({
+  cityLabel,
+  onLocationClick,
+}: {
+  cityLabel: string;
+  onLocationClick: () => void;
+}) {
+  const { t } = useLocale();
+
+  return (
+    <div className="container mx-auto max-w-content px-page pt-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 rounded-2xl border border-[#d9dfd8] bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={onLocationClick}
+          className="flex items-center gap-2 text-sm font-medium text-[#25373a] hover:text-[#003f46] transition-colors group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#003f46] rounded"
+          data-testid="button-campaign-location"
+          aria-label={`${t("campaign.redesign.location.delivering")} ${cityLabel}. ${t("campaign.redesign.location.change")}`}
+        >
+          <MapPin className="h-4 w-4 shrink-0 text-[#00515a]" aria-hidden="true" />
+          <span>
+            <span className="text-neutral-500">{t("campaign.redesign.location.delivering")}</span>
+            {" "}
+            <span className="font-semibold">{cityLabel || "—"}</span>
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 text-neutral-400 group-hover:text-[#003f46] transition-colors" aria-hidden="true" />
+        </button>
+        <span className="text-xs text-neutral-400 sm:text-right">
+          {t("campaign.redesign.location.checkoutHint")}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── CampaignTrustpilotStrip ──────────────────────────────────────────────────
+
+declare global {
+  interface Window {
+    Trustpilot?: {
+      loadFromElement: (element: Element, force?: boolean) => void;
+    };
+  }
+}
+
+const MAX_POLL_ATTEMPTS = 20;
+const POLL_INTERVAL_MS = 250;
+
+export function CampaignTrustpilotStrip({
+  onStripClick,
+}: {
+  onStripClick?: () => void;
+}) {
+  const { t } = useLocale();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollAttempts = 0;
+
+    const tryLoad = () => {
+      if (!window.Trustpilot) {
+        if (pollAttempts < MAX_POLL_ATTEMPTS) {
+          pollAttempts++;
+          pollTimer = setTimeout(tryLoad, POLL_INTERVAL_MS);
+        }
+        return;
+      }
+      window.Trustpilot.loadFromElement(el, true);
+    };
+
+    injectTrustpilotScript(tryLoad);
+
+    return () => {
+      if (pollTimer !== null) clearTimeout(pollTimer);
+    };
+  }, []);
+
+  return (
+    <div className="container mx-auto max-w-content px-page pt-3">
+      <a
+        href="https://www.trustpilot.com/review/presentail.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onStripClick}
+        className="block rounded-2xl border border-[#d9dfd8] bg-white px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#003f46]"
+        style={{ minHeight: "56px" }}
+        data-testid="link-campaign-trustpilot-strip"
+        aria-label={t("campaign.redesign.trustpilotStrip.ariaLabel")}
+      >
+        <div
+          ref={ref}
+          className="trustpilot-widget"
+          data-locale="en-US"
+          data-template-id="5419b637fa0340045cd0c936"
+          data-businessunit-id="5d1782b3588afe00012431d9"
+          data-style-height="24px"
+          data-style-width="100%"
+          data-theme="light"
+        >
+          <span className="text-sm text-neutral-500">{"Trustpilot" /* i18n-ignore */}</span>
+        </div>
+      </a>
     </div>
   );
 }

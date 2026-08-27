@@ -52,6 +52,8 @@ export type CircularCarouselItem = {
   imageUrl: string;
   fallbackImageUrl?: string;
   href: string;
+  /** Optional click callback; called before navigation for analytics. */
+  onClick?: () => void;
 };
 
 type Props = {
@@ -147,6 +149,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId, cl
                 <Link
                   key={item.id}
                   href={item.href}
+                  onClick={item.onClick}
                   className="flex-shrink-0 snap-start flex flex-col items-center gap-2 group"
                   data-carousel-card
                   data-testid={`carousel-item-${item.id}`}

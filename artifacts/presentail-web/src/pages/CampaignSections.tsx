@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -6,23 +7,33 @@ import { apiFetch } from "@/lib/api";
 import { ProductImage } from "@/components/ProductImage";
 import { SalePrice } from "@/components/SalePrice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { trackEvent } from "@/lib/analytics";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { CAMPAIGN_SECTION_KEY } from "@/lib/campaign";
-import { type CampaignCatalogProduct } from "@/lib/campaignLanding";
+import { type CampaignCatalogProduct, type CampaignAvailabilityState } from "@/lib/campaignLanding";
 import {
   CircularCollectionCarousel,
   type CircularCarouselItem,
 } from "@/components/homepage/CircularCollectionCarousel";
 import { OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
 
+// ─── CampaignProductCard ──────────────────────────────────────────────────────
+
 function CampaignProductCard({
   product,
   index,
+  availabilityState,
   onClickCapture,
 }: {
   product: CampaignCatalogProduct;
   index: number;
+  availabilityState?: CampaignAvailabilityState;
   onClickCapture: () => void;
 }) {
   const { language, t } = useLocale();
@@ -63,10 +74,14 @@ function CampaignProductCard({
           )}
 
           {product.isBestSeller && (
-            <div
-              className="absolute start-2 top-2 rounded-full bg-[#00414e] px-2.5 py-1 text-[10px] font-semibold leading-none tracking-wide text-white"
-            >
+            <div className="absolute start-2 top-2 rounded-full bg-[#00414e] px-2.5 py-1 text-[10px] font-semibold leading-none tracking-wide text-white">
               {t("campaign.redesign.bestSeller")}
+            </div>
+          )}
+
+          {availabilityState === "same-day" && (
+            <div className="absolute end-2 bottom-2 rounded-full bg-white/90 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium leading-none text-[#00414e]">
+              {t("campaign.redesign.arrivesToday")}
             </div>
           )}
         </div>
@@ -75,9 +90,6 @@ function CampaignProductCard({
           <h3 className="font-serif text-sm leading-snug line-clamp-2 text-neutral-900">
             {product.name}
           </h3>
-          <p className="text-xs font-medium text-[#577075]">
-            {t("campaign.redesign.availableToday")}
-          </p>
           <p className="text-sm font-medium text-neutral-900">
             <SalePrice
               priceValue={product.priceValue}
@@ -91,6 +103,8 @@ function CampaignProductCard({
   );
 }
 
+// ─── CampaignGrid ─────────────────────────────────────────────────────────────
+
 const GRID_SIZE = 8;
 
 export function CampaignGrid({
@@ -102,6 +116,8 @@ export function CampaignGrid({
   products,
   isLoading,
   id,
+  availabilityState,
+  onViewAll,
 }: {
   section: "flowers" | "luxury";
   title: string;
@@ -111,6 +127,8 @@ export function CampaignGrid({
   products: CampaignCatalogProduct[];
   isLoading: boolean;
   id?: string;
+  availabilityState?: CampaignAvailabilityState;
+  onViewAll?: () => void;
 }) {
   const { t } = useLocale();
   const displayProducts = products.slice(0, GRID_SIZE);
@@ -132,6 +150,7 @@ export function CampaignGrid({
           <Link
             href={viewAllLink}
             onClick={() => {
+              onViewAll?.();
               trackEvent({
                 name: "campaign_view_all_click",
                 sectionKey: `${CAMPAIGN_SECTION_KEY}:${section}`,
@@ -174,6 +193,7 @@ export function CampaignGrid({
               key={product.id}
               product={product}
               index={i}
+              availabilityState={availabilityState}
               onClickCapture={() => {
                 trackEvent({
                   name: "product_card_click",
@@ -202,6 +222,8 @@ export function CampaignGrid({
   );
 }
 
+// ─── CampaignOccasions ────────────────────────────────────────────────────────
+
 const OCCASION_SLUGS = [
   "birthday",
   "anniversary",
@@ -211,7 +233,11 @@ const OCCASION_SLUGS = [
   "im-sorry",
 ] as const;
 
-export function CampaignOccasions() {
+export function CampaignOccasions({
+  onShortcutClick,
+}: {
+  onShortcutClick?: (slug: string) => void;
+}) {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
 
@@ -246,17 +272,429 @@ export function CampaignOccasions() {
 
   if (!isLoading && items.length === 0) return null;
 
+  // Wrap items to emit analytics on click
+  const trackedItems = items.map((item) => ({
+    ...item,
+    onClick: () => onShortcutClick?.(item.slug ?? item.id),
+  }));
+
   return (
     <div className="container mx-auto max-w-content px-page mt-8">
       <CircularCollectionCarousel
         title={t("campaign.v2.occasions.title")}
-        items={items}
+        items={trackedItems}
         isLoading={isLoading}
         testId="section-campaign-occasions"
       />
     </div>
   );
 }
+
+// ─── CampaignBenefitBand ──────────────────────────────────────────────────────
+
+function SameDayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-7 w-7 shrink-0" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function LocalFloristIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-7 w-7 shrink-0" aria-hidden="true">
+      <path d="M12 22V11" />
+      <path d="M12 11C12 11 7 8.5 7 5a5 5 0 0 1 10 0c0 3.5-5 6-5 6z" />
+    </svg>
+  );
+}
+
+function SecurePayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-7 w-7 shrink-0" aria-hidden="true">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <polyline points="9 12 11 14 15 10" />
+    </svg>
+  );
+}
+
+function SupportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-7 w-7 shrink-0" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+export function CampaignBenefitBand() {
+  const { t } = useLocale();
+
+  const benefits = [
+    {
+      key: "sameDay",
+      Icon: SameDayIcon,
+      title: t("campaign.redesign.benefit.sameDay.title"),
+      sub: t("campaign.redesign.benefit.sameDay.sub"),
+    },
+    {
+      key: "local",
+      Icon: LocalFloristIcon,
+      title: t("campaign.redesign.benefit.local.title"),
+      sub: t("campaign.redesign.benefit.local.sub"),
+    },
+    {
+      key: "payment",
+      Icon: SecurePayIcon,
+      title: t("campaign.redesign.benefit.payment.title"),
+      sub: t("campaign.redesign.benefit.payment.sub"),
+    },
+    {
+      key: "support",
+      Icon: SupportIcon,
+      title: t("campaign.redesign.benefit.support.title"),
+      sub: t("campaign.redesign.benefit.support.sub"),
+    },
+  ];
+
+  return (
+    <section
+      className="mt-10 bg-[#003f46]"
+      aria-label={t("campaign.redesign.benefit.sameDay.title")}
+    >
+      <div className="container mx-auto max-w-content px-page py-8 md:py-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+          {benefits.map((b) => (
+            <div key={b.key} className="flex flex-col gap-2 text-[#fffaf0]">
+              <b.Icon />
+              <span className="font-semibold text-sm leading-snug">{b.title}</span>
+              <span className="text-xs text-white/70 leading-snug">{b.sub}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── CampaignLuxuryBanner ─────────────────────────────────────────────────────
+
+const LUXURY_BANNER_IMAGE = `${import.meta.env.BASE_URL}campaign/flower-hero-1440.webp`;
+
+export function CampaignLuxuryBanner({
+  onCtaClick,
+}: {
+  onCtaClick?: () => void;
+}) {
+  const { t } = useLocale();
+
+  return (
+    <section
+      className="container mx-auto max-w-content px-page mt-10"
+      aria-labelledby="luxury-banner-heading"
+    >
+      <div className="relative isolate overflow-hidden rounded-[1.75rem] bg-[#003f46] min-h-[280px] md:min-h-[320px] flex flex-col md:flex-row">
+        {/* Copy side */}
+        <div className="relative z-10 flex flex-col justify-center px-7 py-8 md:w-1/2 md:px-12 md:py-10">
+          <h2
+            id="luxury-banner-heading"
+            className="font-serif text-2xl md:text-3xl lg:text-4xl text-[#fffaf0] leading-[1.1] mb-3"
+          >
+            {t("campaign.redesign.luxBanner.title")}
+          </h2>
+          <p className="text-sm md:text-base text-white/80 leading-relaxed mb-6 max-w-sm">
+            {t("campaign.redesign.luxBanner.sub")}
+          </p>
+          <Link
+            href="/category/lux-arrangements"
+            onClick={onCtaClick}
+            className="inline-flex w-fit items-center gap-2 rounded-full bg-[#fff8e9] px-6 py-3 text-sm font-semibold text-[#003f46] hover:bg-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            data-testid="link-campaign-luxury-banner-cta"
+          >
+            {t("campaign.redesign.luxBanner.cta")}
+          </Link>
+        </div>
+
+        {/* Image side */}
+        <div className="relative md:absolute md:inset-y-0 md:end-0 md:w-1/2 h-48 md:h-auto overflow-hidden">
+          <div
+            className="absolute inset-0 bg-gradient-to-t from-[#003f46]/80 via-transparent to-transparent md:bg-gradient-to-l md:from-transparent md:via-transparent md:to-[#003f46]/60"
+            aria-hidden="true"
+          />
+          <img
+            src={LUXURY_BANNER_IMAGE}
+            alt={t("campaign.redesign.luxBanner.imageAlt")}
+            loading="lazy"
+            className="h-full w-full object-cover object-center"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── CampaignWhyChoose ────────────────────────────────────────────────────────
+
+export function CampaignWhyChoose() {
+  const { t } = useLocale();
+
+  const cards = [
+    {
+      key: "fresh",
+      emoji: "🌷",
+      title: t("campaign.redesign.why.fresh.title"),
+      body: t("campaign.redesign.why.fresh.body"),
+    },
+    {
+      key: "tracking",
+      emoji: "📍",
+      title: t("campaign.redesign.why.tracking.title"),
+      body: t("campaign.redesign.why.tracking.body"),
+    },
+    {
+      key: "support",
+      emoji: "💬",
+      title: t("campaign.redesign.why.support.title"),
+      body: t("campaign.redesign.why.support.body"),
+    },
+  ];
+
+  return (
+    <section
+      className="container mx-auto max-w-content px-page pt-10"
+      aria-labelledby="why-choose-heading"
+    >
+      <h2
+        id="why-choose-heading"
+        className="font-serif text-2xl md:text-3xl mb-6"
+      >
+        {t("campaign.redesign.why.heading")}
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+        {cards.map((c) => (
+          <div
+            key={c.key}
+            className="rounded-2xl border border-[#d9dfd8] bg-white px-6 py-6"
+          >
+            <span className="text-2xl mb-3 block" aria-hidden="true">{c.emoji}</span>
+            <h3 className="font-serif text-lg leading-snug mb-2">{c.title}</h3>
+            <p className="text-sm text-neutral-600 leading-relaxed">{c.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── CampaignMoreFlowers ──────────────────────────────────────────────────────
+
+const MORE_FLOWERS_COUNT = 6;
+
+export function CampaignMoreFlowers({
+  products,
+  isLoading,
+  onViewAll,
+}: {
+  products: CampaignCatalogProduct[];
+  isLoading: boolean;
+  onViewAll?: () => void;
+}) {
+  const { t } = useLocale();
+  const { city } = useLocationSelection();
+  const { language } = useLocale();
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const displayProducts = products.slice(0, MORE_FLOWERS_COUNT);
+
+  if (!isLoading && displayProducts.length === 0) return null;
+
+  return (
+    <section
+      className="container mx-auto max-w-content px-page pt-10"
+      aria-labelledby="more-flowers-heading"
+    >
+      <div className="flex items-end justify-between mb-4">
+        <h2
+          id="more-flowers-heading"
+          className="font-serif text-2xl md:text-3xl"
+        >
+          {t("campaign.redesign.more.title")}
+        </h2>
+        <Link
+          href="/category/flowers"
+          onClick={onViewAll}
+          className="text-sm text-primary hover:underline whitespace-nowrap py-2 shrink-0 ml-4"
+          data-testid="link-campaign-more-flowers-view-all"
+        >
+          {t("campaign.redesign.more.viewAll")}
+        </Link>
+      </div>
+
+      <div
+        ref={trackRef}
+        className="-mx-4 md:mx-0 pl-4 md:pl-0 scroll-pl-4 md:scroll-pl-0 flex gap-3 md:gap-4 overflow-x-auto snap-x snap-mandatory pb-2 [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex-shrink-0 snap-start w-[46%] sm:w-[31%] md:w-[calc((100%-3rem)/4)] space-y-2"
+              >
+                <Skeleton className="aspect-square w-full rounded-xl" />
+                <Skeleton className="h-3.5 w-3/4 rounded" />
+                <Skeleton className="h-3.5 w-1/3 rounded" />
+              </div>
+            ))
+          : displayProducts.map((product, i) => {
+              const imageUrl = product.image?.uri;
+              return (
+                <div
+                  key={product.id}
+                  className="flex-shrink-0 snap-start w-[46%] sm:w-[31%] md:w-[calc((100%-3rem)/4)] group"
+                  onClickCapture={() => {
+                    trackEvent({
+                      name: "product_card_click",
+                      productId: product.id,
+                      sectionKey: `${CAMPAIGN_SECTION_KEY}:more`,
+                      displayedPosition: i + 1,
+                    });
+                  }}
+                >
+                  <Link href={`/product/${product.id}`}>
+                    <div className="relative aspect-square overflow-hidden rounded-xl bg-stone-100 mb-2">
+                      {imageUrl ? (
+                        <ProductImage
+                          src={imageUrl}
+                          product={{ name: product.name }}
+                          locale={language}
+                          cityName={city?.name ?? ""}
+                          className="object-cover w-full h-full group-hover:scale-[1.02] transition-transform duration-500"
+                          sizes="(max-width: 760px) 46vw, 25vw"
+                          width={300}
+                          height={300}
+                          priority={false}
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center bg-stone-100">
+                              <span className="text-stone-400 text-xs px-2 text-center line-clamp-3">{product.name}</span>
+                            </div>
+                          }
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-stone-100">
+                          <span className="text-stone-400 text-xs px-2 text-center line-clamp-3">{product.name}</span>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-serif text-sm leading-snug line-clamp-2 text-neutral-900 mb-0.5">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm font-medium text-neutral-900">
+                      <SalePrice
+                        priceValue={product.priceValue}
+                        discountPriceValue={product.discountPriceValue}
+                        discountPriceAed={product.discountPriceAed}
+                      />
+                    </p>
+                  </Link>
+                </div>
+              );
+            })}
+        <div className="flex-shrink-0 w-4 md:hidden" aria-hidden />
+      </div>
+    </section>
+  );
+}
+
+// ─── CampaignFaq ──────────────────────────────────────────────────────────────
+
+export function CampaignFaq({
+  onExpand,
+}: {
+  onExpand?: (questionKey: string) => void;
+}) {
+  const { t } = useLocale();
+
+  const questions = [
+    { key: "q1", q: t("campaign.redesign.faq.q1"), a: t("campaign.redesign.faq.a1") },
+    { key: "q2", q: t("campaign.redesign.faq.q2"), a: t("campaign.redesign.faq.a2") },
+    { key: "q3", q: t("campaign.redesign.faq.q3"), a: t("campaign.redesign.faq.a3") },
+    { key: "q4", q: t("campaign.redesign.faq.q4"), a: t("campaign.redesign.faq.a4") },
+    { key: "q5", q: t("campaign.redesign.faq.q5"), a: t("campaign.redesign.faq.a5") },
+  ];
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: questions.map(({ q, a }) => ({
+      "@type": "Question",
+      name: q,
+      acceptedAnswer: { "@type": "Answer", text: a },
+    })),
+  };
+
+  return (
+    <section
+      className="container mx-auto max-w-content px-page pt-10 pb-4"
+      aria-labelledby="campaign-faq-heading"
+    >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <h2
+        id="campaign-faq-heading"
+        className="font-serif text-2xl md:text-3xl mb-5"
+      >
+        {t("campaign.redesign.faq.heading")}
+      </h2>
+      <Accordion type="single" collapsible className="w-full">
+        {questions.map(({ key, q, a }) => (
+          <AccordionItem key={key} value={key} className="border-[#d9dfd8]">
+            <AccordionTrigger
+              className="text-start text-base font-medium text-neutral-900 hover:no-underline py-4"
+              onClick={() => onExpand?.(key)}
+            >
+              {q}
+            </AccordionTrigger>
+            <AccordionContent className="text-sm text-neutral-600 leading-relaxed pb-5">
+              {a}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </section>
+  );
+}
+
+// ─── CampaignSeoEditorial ─────────────────────────────────────────────────────
+
+export function CampaignSeoEditorial() {
+  const { t } = useLocale();
+
+  return (
+    <section
+      className="container mx-auto max-w-content px-page pt-10 pb-6"
+      aria-labelledby="campaign-seo-heading"
+    >
+      <div className="rounded-2xl border border-[#d9dfd8] bg-white px-6 py-7 md:px-10 md:py-8">
+        <h2
+          id="campaign-seo-heading"
+          className="font-serif text-xl md:text-2xl mb-4 text-neutral-900"
+        >
+          {t("campaign.redesign.seo.heading")}
+        </h2>
+        <div className="space-y-3 text-sm text-neutral-600 leading-relaxed">
+          <p>{t("campaign.redesign.seo.p1")}</p>
+          <p>{t("campaign.redesign.seo.p2")}</p>
+          <p>{t("campaign.redesign.seo.p3")}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Legacy components (kept for backwards compat) ────────────────────────────
 
 export function CampaignAddressExplainer() {
   const { t } = useLocale();
@@ -266,19 +704,16 @@ export function CampaignAddressExplainer() {
       n: 1,
       title: t("campaign.v2.address.step1.title"),
       body: t("campaign.v2.address.step1.body"),
-      emphasisRange: null as null | [number, number],
     },
     {
       n: 2,
       title: t("campaign.v2.address.step2.title"),
       body: null as null | string,
-      emphasisRange: null as null | [number, number],
     },
     {
       n: 3,
       title: t("campaign.v2.address.step3.title"),
       body: t("campaign.v2.address.step3.body"),
-      emphasisRange: null as null | [number, number],
     },
   ];
 
