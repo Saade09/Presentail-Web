@@ -3,7 +3,7 @@ import express from "express";
 import request from "supertest";
 
 // ---------------------------------------------------------------------------
-// Route-level deduplication tests: POST /api/fb/events (mobile) + POST /api/pixel/event (web)
+// Route-level deduplication tests for public, non-purchase events.
 //
 // Meta's Conversions API deduplication relies on both signals carrying the
 // same event_id. These tests verify the full stack: HTTP request body →
@@ -43,13 +43,13 @@ describe("Deduplication end-to-end: /api/fb/events (mobile) + /api/pixel/event (
   });
 
   it("sends the same event_id to Meta when both routes fire concurrently with the same eventId", async () => {
-    const sharedEventId = "dedup-route-purchase-abc123";
+    const sharedEventId = "dedup-route-add-to-cart-abc123";
 
     // Fire both routes concurrently, mirroring a real dual-signal checkout where
     // the mobile app fires /fb/events and the web client fires /pixel/event.
     const [mobileRes, webRes] = await Promise.all([
       request(app).post("/fb/events").send({
-        event: "Purchase",
+        event: "AddToCart",
         countryCode: "LB",
         eventId: sharedEventId,
         value: 50,
@@ -57,7 +57,7 @@ describe("Deduplication end-to-end: /api/fb/events (mobile) + /api/pixel/event (
         contentIds: ["bouquet-1"],
       }),
       request(app).post("/pixel/event").send({
-        eventName: "Purchase",
+        eventName: "AddToCart",
         pixelId: PIXEL_ID,
         eventId: sharedEventId,
         value: 50,
@@ -95,14 +95,14 @@ describe("Deduplication end-to-end: /api/fb/events (mobile) + /api/pixel/event (
 
     await Promise.all([
       request(app).post("/fb/events").send({
-        event: "Purchase",
+        event: "AddToCart",
         countryCode: "LB",
         eventId: sharedEventId,
         value: 75,
         currency: "USD",
       }),
       request(app).post("/pixel/event").send({
-        eventName: "Purchase",
+        eventName: "AddToCart",
         pixelId: PIXEL_ID,
         eventId: sharedEventId,
         value: 75,
@@ -131,10 +131,10 @@ describe("Deduplication end-to-end: /api/fb/events (mobile) + /api/pixel/event (
     expect(sources).toContain("website");
   });
 
-  it("mobile route without an eventId still reaches Meta (event_id is auto-generated, not empty)", async () => {
+  it("mobile route without an eventId still reaches Meta for non-purchase events", async () => {
     const [mobileRes] = await Promise.all([
       request(app).post("/fb/events").send({
-        event: "Purchase",
+        event: "AddToCart",
         countryCode: "LB",
         value: 30,
         currency: "USD",
@@ -158,7 +158,7 @@ describe("Deduplication end-to-end: /api/fb/events (mobile) + /api/pixel/event (
     const explicitEventId = "route-level-dedup-xyz";
 
     const res = await request(app).post("/pixel/event").send({
-      eventName: "Purchase",
+      eventName: "AddToCart",
       pixelId: PIXEL_ID,
       eventId: explicitEventId,
       value: 99,
@@ -181,7 +181,7 @@ describe("Deduplication end-to-end: /api/fb/events (mobile) + /api/pixel/event (
     const explicitEventId = "mobile-route-level-dedup-xyz";
 
     const res = await request(app).post("/fb/events").send({
-      event: "Purchase",
+      event: "AddToCart",
       countryCode: "LB",
       eventId: explicitEventId,
       value: 45,

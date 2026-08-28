@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import { rateLimit } from "express-rate-limit";
-import { z } from "zod";
 import { getAuth } from "@clerk/express";
 import {
   RecordAnalyticsEventBody,
@@ -14,84 +13,6 @@ import {
   recordAnalyticsSamplingDecision,
   shouldLogAnalyticsEvent,
 } from "../lib/analyticsSampling";
-
-const ADS_CONVERSION_ID = "AW-18281774261"; // i18n-ignore
-const ADS_CONVERSION_LABEL = "XYi_CNabpMccELX5to1E"; // i18n-ignore
-
-/**
- * Fire a Google Ads purchase conversion server-side using the standard
- * Google conversion pixel endpoint. This mirrors what web gtag.js sends
- * for client-side conversions, allowing mobile (React Native) purchases to
- * be attributed in the same Google Ads campaign as web purchases.
- *
- * Google deduplicates conversions by `transaction_id`, so retries and
- * network races are safe — only the first hit for a given transaction ID
- * counts.
- */
-async function sendAdsConversionPing(
-  transactionId: string,
-  value: number,
-  currency: string,
-  log: { warn: (obj: Record<string, unknown>, msg: string) => void },
-  gclid?: string,
-): Promise<void> {
-  const paramEntries: Record<string, string> = {
-    cv: "9",
-    fst: String(Date.now()),
-    num: "1",
-    label: ADS_CONVERSION_LABEL,
-    guid: "ON",
-    script: "0",
-    value: String(value),
-    currency_code: currency.toUpperCase(),
-    transaction_id: transactionId,
-    is_iframe: "0",
-    fmt: "3",
-  };
-  if (gclid) {
-    paramEntries.gclaw = gclid;
-  }
-  const params = new URLSearchParams(paramEntries);
-  const url = `https://www.google.com/pagead/conversion/${ADS_CONVERSION_ID}/?${params.toString()}`; // i18n-ignore
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) {
-      log.warn(
-        { status: res.status, transactionId },
-        "ads-conversion: non-OK response from Google",
-      );
-      void db
-        .insert(analyticsEventsTable)
-        .values({ name: "ads_conversion_ping_failed", errorCode: String(res.status) })
-        .catch((dbErr: unknown) => {
-          log.warn(
-            { err: dbErr instanceof Error ? dbErr.message : String(dbErr) },
-            "ads-conversion: failed to record ping failure event",
-          );
-        });
-    }
-  } catch (err) {
-    log.warn(
-      { err: err instanceof Error ? err.message : String(err), transactionId },
-      "ads-conversion: ping failed",
-    );
-    void db
-      .insert(analyticsEventsTable)
-      .values({
-        name: "ads_conversion_ping_failed",
-        errorCode: err instanceof Error ? err.message.slice(0, 64) : "unknown",
-      })
-      .catch((dbErr: unknown) => {
-        log.warn(
-          { err: dbErr instanceof Error ? dbErr.message : String(dbErr) },
-          "ads-conversion: failed to record ping failure event",
-        );
-      });
-  }
-}
 
 const router: IRouter = Router();
 
@@ -115,62 +36,20 @@ const analyticsLimiter = rateLimit({
   },
 });
 
-const adsConversionBody = z.object({
-  transactionId: z.string().min(1).max(128),
-  value: z.number().nonnegative().finite(),
-  currency: z.string().min(1).max(8),
-  /** Google Click ID from the deep link that drove the session. */
-  gclid: z.string().min(1).max(512).optional(),
-});
-
-const adsConversionLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  limit: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (_req, res) => {
-    res.status(200).json({ ok: true });
-  },
-});
-
 /**
  * POST /api/analytics/ads-conversion
  *
- * Fires a Google Ads purchase conversion server-side on behalf of the mobile
- * app (React Native has no browser gtag). The web storefront fires conversions
- * client-side via window.gtag; this endpoint provides parity for iOS/Android.
- *
- * Google deduplicates by `transaction_id`, so retrying a failed request is safe.
+ * Retained as an explicit tombstone for older mobile clients. Purchase
+ * conversions are uploaded only from the confirmed-order webhook, using the
+ * order total and attribution persisted by the server. Never forward values
+ * from this unauthenticated compatibility endpoint to an advertising network.
  */
-router.post(
-  "/analytics/ads-conversion",
-  adsConversionLimiter,
-  (req, res, next) => {
-    const cl = Number(req.header("content-length") ?? 0);
-    if (Number.isFinite(cl) && cl > 2 * 1024) {
-      res.status(400).json({ ok: false, message: "Payload too large" }); // i18n-ignore
-      return;
-    }
-    next();
-  },
-  (req, res): void => {
-    const parsed = adsConversionBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        ok: false,
-        message: parsed.error.issues[0]?.message ?? "Invalid body", // i18n-ignore
-      });
-      return;
-    }
-    const { transactionId, value, currency, gclid } = parsed.data;
-    req.log.info(
-      { transactionId, value, currency, hasGclid: Boolean(gclid) },
-      "ads-conversion: firing server-side ping",
-    );
-    void sendAdsConversionPing(transactionId, value, currency, req.log, gclid);
-    res.status(200).json({ ok: true });
-  },
-);
+router.post("/analytics/ads-conversion", (_req, res): void => {
+  res.status(410).json({
+    ok: false,
+    message: "Purchase conversions are recorded from verified orders only", // i18n-ignore
+  });
+});
 
 router.post(
   "/analytics/events",

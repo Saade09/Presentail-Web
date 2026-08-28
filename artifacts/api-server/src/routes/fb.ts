@@ -11,17 +11,16 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-const FB_EVENT_NAMES: [CAPIEventName, ...CAPIEventName[]] = [
+const FB_EVENT_NAMES = [
   "PageView",
   "ViewContent",
   "AddToCart",
   "InitiateCheckout",
   "AddPaymentInfo",
-  "Purchase",
-];
+] as const satisfies readonly CAPIEventName[];
 
 const FbMobileEventBodySchema = z.object({
-  event: z.enum(["ViewContent", "AddToCart", "InitiateCheckout", "AddPaymentInfo", "Purchase"]),
+  event: z.enum(["ViewContent", "AddToCart", "InitiateCheckout", "AddPaymentInfo"]),
   countryCode: z.string().max(8),
   eventId: z.string().max(128).optional(),
   value: z.number().optional(),

@@ -30,11 +30,11 @@ describe("POST /api/fb/events", () => {
     app = await buildApp();
   });
 
-  it("returns 200 and fires sendCapiEvent with action_source='app' for a valid LB Purchase event", async () => {
+  it("returns 200 and fires sendCapiEvent with action_source='app' for a valid LB AddToCart event", async () => {
     const res = await request(app)
       .post("/api/fb/events")
       .send({
-        event: "Purchase",
+        event: "AddToCart",
         countryCode: "LB",
         value: 45.0,
         currency: "USD",
@@ -47,7 +47,7 @@ describe("POST /api/fb/events", () => {
 
     await vi.waitFor(() => expect(sendCapiEventMock).toHaveBeenCalledOnce());
     const call = sendCapiEventMock.mock.calls[0][0] as Record<string, unknown>;
-    expect(call.eventName).toBe("Purchase");
+    expect(call.eventName).toBe("AddToCart");
     expect(call.countryCode).toBe("LB");
     expect(call.value).toBe(45.0);
     expect(call.currency).toBe("USD");
@@ -100,6 +100,38 @@ describe("POST /api/fb/events", () => {
     expect(sendCapiEventMock).not.toHaveBeenCalled();
   });
 
+  it("rejects Purchase events without forwarding them to Meta", async () => {
+    const res = await request(app)
+      .post("/api/fb/events")
+      .send({
+        event: "Purchase",
+        countryCode: "LB",
+        eventId: "forged-order",
+        value: 999999,
+        currency: "USD",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(sendCapiEventMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects web Purchase events without forwarding them to Meta", async () => {
+    const res = await request(app)
+      .post("/api/pixel/event")
+      .send({
+        eventName: "Purchase",
+        pixelId: "1234567890",
+        eventId: "forged-order",
+        value: 999999,
+        currency: "USD",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(sendCapiEventMock).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when countryCode is missing", async () => {
     const res = await request(app)
       .post("/api/fb/events")
@@ -145,7 +177,7 @@ describe("POST /api/fb/events", () => {
     const largeContentName = "x".repeat(5000);
     const res = await request(app)
       .post("/api/fb/events")
-      .send({ event: "Purchase", countryCode: "LB", contentName: largeContentName });
+      .send({ event: "AddToCart", countryCode: "LB", contentName: largeContentName });
 
     expect(res.status).toBe(400);
     expect(res.body.ok).toBe(false);

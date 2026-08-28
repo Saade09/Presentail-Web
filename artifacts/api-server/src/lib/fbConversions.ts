@@ -434,12 +434,19 @@ type CAPIPurchaseParams = {
 };
 
 export async function sendCapiPurchase(params: CAPIPurchaseParams): Promise<void> {
-  await sendCapiEvent({
+  const countryKey = countryCodeToKey(params.countryCode);
+  if (!countryKey) return;
+
+  const config = configForCountry(countryKey);
+  if (!config) return;
+
+  await sendCapiPayload(config, {
     eventName: "Purchase",
-    countryCode: params.countryCode,
+    eventId: params.eventId,
+    actionSource: "website",
     value: params.value,
     currency: params.currency,
     userData: params.userData,
-    eventId: params.eventId,
+    countryKey,
   });
 }

@@ -14,9 +14,9 @@ describe("FbMobileEventBodySchema validation", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts a valid Purchase event with all fields", () => {
+  it("accepts a valid AddToCart event with all fields", () => {
     const result = FbMobileEventBodySchema.safeParse({
-      event: "Purchase",
+      event: "AddToCart",
       countryCode: "LB",
       value: 45.0,
       currency: "USD",
