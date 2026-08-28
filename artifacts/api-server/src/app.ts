@@ -17,6 +17,7 @@ import { logger } from "./lib/logger";
 import { resolveStoreLogContext } from "./lib/wooStore";
 import { adminTokenIpLimiter } from "./lib/auth-rate-limit";
 import { operationalMetricsMiddleware } from "./lib/operationalMetrics";
+import { getCyberSourceAllowedOrigins } from "./lib/cyberSource";
 import {
   getHttpLoggingConfig,
   recordHttpLogDecision,
@@ -163,7 +164,22 @@ app.use(
 );
 
 app.use(operationalMetricsMiddleware);
-app.use(cors());
+// Do not use cors() with its permissive "*" default. In particular, a
+// CyberSource capture context is a merchant capability and must never be
+// readable by an arbitrary website. Non-browser/native requests without an
+// Origin header remain supported, while browser origins must be explicitly
+// configured by the operator.
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || getCyberSourceAllowedOrigins().includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

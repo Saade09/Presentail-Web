@@ -25,6 +25,32 @@ export type CyberSourceConfig = {
 };
 
 /**
+ * Return the explicitly configured browser origins that may use the
+ * CyberSource Microform.
+ *
+ * This list is security-sensitive: it is used both for the CyberSource
+ * capture-context `targetOrigins` claim and for the API CORS policy. Never
+ * add a request's Origin header to this list.
+ */
+export function getCyberSourceAllowedOrigins(): string[] {
+  return (process.env.CYBERSOURCE_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((value) => {
+      let candidate = value.trim().replace(/\/$/, "");
+      if (candidate && !/^https?:\/\//i.test(candidate)) {
+        candidate = `https://${candidate}`;
+      }
+      try {
+        const parsed = new URL(candidate);
+        return parsed.origin;
+      } catch {
+        return null;
+      }
+    })
+    .filter((origin): origin is string => origin !== null);
+}
+
+/**
  * Read CyberSource credentials from environment variables and return a typed
  * config object. Throws a descriptive error when any required var is missing
  * so misconfiguration is caught at request time and surfaced clearly in logs.

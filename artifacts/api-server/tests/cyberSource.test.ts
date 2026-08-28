@@ -7,6 +7,8 @@
  *   - HTTP Signature header generation (structure, digest, GET vs POST, key change)
  *   - POST /payment/cybersource/capture-context
  *       · gate block (non-LB, non-USD)
+   *       · rejects an unconfigured browser origin before calling CyberSource
+   *       · targetOrigins contains only configured origins
  *       · raw JWT forwarded verbatim (not JSON-wrapped)
  *       · country:LB included in request body
  *       · 502 on CyberSource API error
@@ -357,6 +359,39 @@ describe("POST /payment/cybersource/capture-context", () => {
     expect(res.body.ok).toBe(true);
     // Must be the raw JWT string, not wrapped or parsed.
     expect(res.body.captureContext).toBe(rawJwt);
+  });
+
+  it("rejects an unconfigured browser origin before calling CyberSource", async () => {
+    mockLebanonGeo();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const res = await request(app)
+      .post("/payment/cybersource/capture-context")
+      .set("Origin", "https://attacker.example")
+      .send({ currency: "USD", amount: 50 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("cybersource_origin_not_allowed");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("uses only configured origins for the CyberSource targetOrigins claim", async () => {
+    mockLebanonGeo();
+    let capturedBody: Record<string, unknown> = {};
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(async (_url, init) => {
+      capturedBody = init?.body
+        ? (JSON.parse(init.body as string) as Record<string, unknown>)
+        : {};
+      return { status: 200, text: async () => "fake-jwt" } as unknown as Response;
+    });
+
+    const res = await request(app)
+      .post("/payment/cybersource/capture-context")
+      .set("Origin", "https://presentail.com")
+      .send({ currency: "USD", amount: 50 });
+
+    expect(res.status).toBe(200);
+    expect(capturedBody.targetOrigins).toEqual(["https://presentail.com"]);
   });
 
   it("includes country:LB in the body sent to CyberSource", async () => {

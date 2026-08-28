@@ -25,6 +25,7 @@ import {
   isCyberSourceRoute,
   CS_AUTHORIZED_STATUSES,
   CYBERSOURCE_REQUIRED_ENV_VARS,
+  getCyberSourceAllowedOrigins,
 } from "../lib/cyberSource";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import {
@@ -112,34 +113,13 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
         .filter(Boolean)
     : ["VISA", "MASTERCARD", "AMEX"];
 
-  // targetOrigins: required for the Microform CORS policy. Normalise each entry
-  // to a bare origin (scheme + host + optional port, no trailing slash or path).
-  // Also include the request's own Origin header so dev / preview environments
-  // work without having to enumerate every Replit domain in the env var.
-  const rawOrigins = process.env.CYBERSOURCE_ALLOWED_ORIGINS ?? "";
-  const configuredOrigins = rawOrigins
-    .split(",")
-    .map((o) => {
-      let candidate = o.trim().replace(/\/$/, "");
-      // If the entry has no scheme (e.g. "presentail.com"), prepend https://
-      // so it passes the URL constructor check.
-      if (candidate && !/^https?:\/\//i.test(candidate)) {
-        candidate = `https://${candidate}`;
-      }
-      return candidate;
-    })
-    .filter((o) => {
-      try { new URL(o); return true; } catch { return false; }
-    });
-
-  // Always include the caller's Origin so the Microform loads in the browser
-  // that made this request (covers dev, staging, and production preview URLs).
+  // The capture context is a merchant capability. Only origins explicitly
+  // configured by the operator may receive it or initialize the Microform.
+  // Do not trust or reflect the caller-controlled Origin header here.
+  const configuredOrigins = getCyberSourceAllowedOrigins();
   const requestOrigin = req.headers.origin;
-  const originSet = new Set(configuredOrigins);
-  if (requestOrigin) originSet.add(requestOrigin.replace(/\/$/, ""));
-  const targetOrigins = [...originSet];
 
-  if (targetOrigins.length === 0) {
+  if (configuredOrigins.length === 0) {
     req.log.error(
       "cybersource: no valid targetOrigins — set CYBERSOURCE_ALLOWED_ORIGINS to a comma-separated list of HTTPS origins",
     );
@@ -151,6 +131,19 @@ router.post("/payment/cybersource/capture-context", async (req, res) => {
     });
   }
 
+  if (requestOrigin && !configuredOrigins.includes(requestOrigin)) {
+    req.log.warn(
+      { requestOrigin },
+      "cybersource: capture-context request origin is not allowlisted",
+    );
+    return res.status(403).json({
+      ok: false,
+      code: "cybersource_origin_not_allowed",
+      message: "This payment origin is not allowed.", // i18n-ignore
+    });
+  }
+
+  const targetOrigins = configuredOrigins;
   req.log.info({ targetOrigins }, "cybersource: capture-context targetOrigins");
 
   // clientVersion must match the Flex Microform bundle version loaded on the
