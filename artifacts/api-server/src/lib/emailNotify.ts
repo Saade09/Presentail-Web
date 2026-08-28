@@ -17,6 +17,7 @@
 //                        email (default: "confirmed,delivered").
 
 import { createTransport } from "nodemailer";
+import { Resend } from "resend";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
 import type { OrderState } from "./orderEvents";
@@ -404,11 +405,15 @@ export type OpsOrderEmailInput = {
  * This is an ADDITIONAL step — it does not replace any existing flow.
  */
 export async function sendOpsNewOrderEmail(input: OpsOrderEmailInput): Promise<void> {
-  const transport = buildTransport();
-  if (!transport) return;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    logger.warn({ appOrderId: input.appOrderId }, "emailNotify: RESEND_API_KEY not set — skipping ops email"); // i18n-ignore
+    return;
+  }
 
+  const resend = new Resend(apiKey);
   const to = process.env.OPS_ORDER_EMAIL ?? "hello@presentail.com"; // i18n-ignore
-  const from = process.env.EMAIL_FROM ?? process.env.SMTP_USER ?? "orders@presentail.com"; // i18n-ignore
+  const from = process.env.OPS_EMAIL_FROM ?? "orders@presentail.com"; // i18n-ignore
 
   const amount =
     input.totalPaymentCents != null
@@ -448,13 +453,17 @@ export async function sendOpsNewOrderEmail(input: OpsOrderEmailInput): Promise<v
   }
 
   try {
-    await transport.sendMail({
+    const { error } = await resend.emails.send({
       from,
       to,
       subject: `New order ${input.appOrderId}${input.storeKey ? ` — ${input.storeKey}` : ""}`, // i18n-ignore
       text: lines.join("\n"),
     });
-    logger.info({ appOrderId: input.appOrderId, to }, "emailNotify: ops new-order email sent"); // i18n-ignore
+    if (error) {
+      logger.warn({ appOrderId: input.appOrderId, to, error: error.message }, "emailNotify: ops email Resend error (non-fatal)"); // i18n-ignore
+    } else {
+      logger.info({ appOrderId: input.appOrderId, to }, "emailNotify: ops new-order email sent via Resend"); // i18n-ignore
+    }
   } catch (err: unknown) {
     logger.warn(
       { appOrderId: input.appOrderId, to, error: (err as Error)?.message },
