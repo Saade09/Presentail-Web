@@ -16,6 +16,7 @@ import {
 import { logger } from "./lib/logger";
 import { resolveStoreLogContext } from "./lib/wooStore";
 import { adminTokenIpLimiter } from "./lib/auth-rate-limit";
+import { operationalMetricsMiddleware } from "./lib/operationalMetrics";
 import imgProxyRouter from "./routes/imgProxy";
 
 const app: Express = express();
@@ -133,6 +134,7 @@ app.use(
   }),
 );
 
+app.use(operationalMetricsMiddleware);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

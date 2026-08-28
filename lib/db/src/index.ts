@@ -10,6 +10,14 @@ type Schema = typeof schema;
 let _pool: pg.Pool | null = null;
 let _db: NodePgDatabase<Schema> | null = null;
 
+export type DbPoolStats = {
+  available: boolean;
+  totalCount: number;
+  idleCount: number;
+  waitingCount: number;
+  max: number | null;
+};
+
 function getLazyPool(): pg.Pool {
   if (!_pool) {
     if (!process.env.DATABASE_URL) {
@@ -44,5 +52,28 @@ function lazyProxy<T extends object>(getter: () => T): T {
 
 export const pool: pg.Pool = lazyProxy(getLazyPool);
 export const db: NodePgDatabase<Schema> = lazyProxy(getLazyDb);
+
+/**
+ * Return aggregate pool pressure without running a query or exposing
+ * connection details. A not-yet-initialized pool is reported as unavailable.
+ */
+export function getPoolStats(): DbPoolStats {
+  if (!_pool) {
+    return {
+      available: false,
+      totalCount: 0,
+      idleCount: 0,
+      waitingCount: 0,
+      max: null,
+    };
+  }
+  return {
+    available: true,
+    totalCount: _pool.totalCount,
+    idleCount: _pool.idleCount,
+    waitingCount: _pool.waitingCount,
+    max: _pool.options.max ?? null,
+  };
+}
 
 export * from "./schema";

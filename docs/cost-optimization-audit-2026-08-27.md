@@ -54,8 +54,23 @@ Confidence describes confidence in the quantity stated, not confidence that it m
 | U-AI-1 | Unavailable | OpenAI requests, model mix, input/output tokens, cache hit ratio, image/audio generation usage, latency, retry volume, and spend by feature. | Provider billing/usage unavailable; no complete internal cost ledger | Current and prior periods | High confidence that this is a data gap |
 | U-OBJ-1 | Unavailable | Object Storage capacity, object count, age distribution, duplicate/orphan objects, transfer, operations, and cost. A bucket is configured, but usage inventory was not available through the accessible authorization path. | Replit Object Storage surface | Current period | High confidence that this is a data gap |
 | U-EXT-1 | Unavailable | Presentail OS, WooCommerce, Stripe, Clerk, Google, Twilio/SMS, email, Meta, Slack, Expo, payment-provider, and other external-service invoices and request metrics. | Provider dashboards/invoices unavailable | Current and prior periods | High confidence that this is a data gap |
+| M-BAS-1 | Measured | A serial isolated baseline measured API/web/mobile build duration, artifact sizes, startup readiness, process memory, pool gauges, six fixed-route responses, and 13 regression checks: 12 passed, none failed, and the isolated catalog check was unavailable by design. | `docs/reports/optimization-baseline-2026-08-27.json` | 27 Aug 2026, 18:48:36–18:50:23 UTC | High for this workspace window |
+| M-BAS-2 | Measured/implemented | Admin-protected `/api/healthz/metrics` exposes bounded process-local aggregate request, worker, outbound, pool, and image-proxy counters without request bodies, query strings, prompts, payment data, credentials, or customer identifiers. | API source and focused tests | Repository state on 27 Aug 2026 | High |
+| U-BAS-1 | Unavailable by design | Worker and outbound counters were zero in the isolated baseline because startup integrations and workers were disabled to avoid database/provider side effects. An authorized normal-process snapshot can expose them in a future bounded window. | Baseline isolation mode | 107-second local window | High confidence that zero is not a production activity estimate |
 
 ---
+
+## Reproducible optimization baseline
+
+The executable architecture inventory, commands, privacy rules, raw results,
+regression budgets, override policy, and data gaps are documented in
+[`docs/optimization-baseline-2026-08-27.md`](optimization-baseline-2026-08-27.md).
+The machine-readable reference is
+[`docs/reports/optimization-baseline-2026-08-27.json`](reports/optimization-baseline-2026-08-27.json).
+
+The baseline collector defaults to isolated local services and six GET requests.
+Production URLs must be supplied explicitly; the collector does not run a load
+test, modify live traffic, change worker cadence, or mutate database data.
 
 # 1. Executive Summary
 

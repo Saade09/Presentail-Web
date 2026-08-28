@@ -12,6 +12,7 @@
     "check-translations": "pnpm --filter @workspace/scripts run check-translations",
     "check-codegen": "pnpm --filter @workspace/api-spec run check-codegen",
     "check-hardcoded-strings": "pnpm --filter @workspace/scripts run check-hardcoded-mobile-strings && pnpm --filter @workspace/scripts run check-hardcoded-web-strings && pnpm --filter @workspace/scripts run check-hardcoded-api-strings",
+    "baseline:optimization": "pnpm --filter @workspace/scripts run baseline:optimization",
     "typecheck:tests": "pnpm -r --filter \"./artifacts/**\" --if-present run typecheck:tests"
   },
   "private": true,

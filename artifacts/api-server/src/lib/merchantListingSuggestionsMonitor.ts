@@ -30,6 +30,7 @@
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
 import { hasOsProducts, getOsProducts } from "./osProductsCache";
+import { recordOutboundCall } from "./operationalMetrics";
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -105,11 +106,27 @@ async function fetchWithTimeout(
   url: string,
   options: RequestInit,
   timeoutMs: number,
+  service: string,
 ): Promise<Response> {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    recordOutboundCall({
+      service,
+      outcome: response.ok ? "success" : "failure",
+      statusCode: response.status,
+      durationMs: Date.now() - startedAt,
+    });
+    return response;
+  } catch (error) {
+    recordOutboundCall({
+      service,
+      outcome: "failure",
+      durationMs: Date.now() - startedAt,
+    });
+    throw error;
   } finally {
     clearTimeout(t);
   }
@@ -168,6 +185,7 @@ async function checkProductPage(
         body: JSON.stringify({ url }),
       },
       GOOGLE_API_TIMEOUT_MS,
+      "google-rich-results",
     );
     if (!res.ok) {
       const text = await res.text().catch(() => "");

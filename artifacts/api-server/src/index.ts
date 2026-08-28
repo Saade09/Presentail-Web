@@ -71,6 +71,12 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  if (process.env.BASELINE_DISABLE_WORKERS === "1") {
+    logger.info(
+      "Baseline isolation enabled; background workers and startup integrations are disabled",
+    );
+    return;
+  }
   void registerStripeApplePayDomains();
   validateOsEnv();
   validateFbPixelEnv();

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { recordWorkerRun, recordWorkerSkip } from "./operationalMetrics";
 
 export type DistributedJobContext = {
   jobName: string;
@@ -399,7 +400,15 @@ export function createDistributedJobRunner(
         generation: 0,
         signal: new AbortController().signal,
       };
-      return { status: "ran", value: await task(context), context };
+      const startedAt = Date.now();
+      try {
+        const value = await task(context);
+        recordWorkerRun(jobName, "success", Date.now() - startedAt);
+        return { status: "ran", value, context };
+      } catch (error) {
+        recordWorkerRun(jobName, "failure", Date.now() - startedAt);
+        throw error;
+      }
     }
 
     const current = now();
@@ -411,6 +420,7 @@ export function createDistributedJobRunner(
     try {
       runtimeLock = await store.acquireRuntimeLock(jobName);
     } catch (error) {
+      recordWorkerSkip(jobName, "database-error");
       logger.error(
         {
           jobName,
@@ -448,6 +458,7 @@ export function createDistributedJobRunner(
           "background job runtime-lock skip metric failed",
         );
       }
+      recordWorkerSkip(jobName, "claimed");
       return {
         status: "skipped",
         reason: "claimed",
@@ -466,6 +477,7 @@ export function createDistributedJobRunner(
         now: current,
       });
     } catch (error) {
+      recordWorkerSkip(jobName, "database-error");
       await runtimeLock.release();
       logger.error(
         {
@@ -502,6 +514,7 @@ export function createDistributedJobRunner(
           "background job skip metric failed",
         );
       }
+      recordWorkerSkip(jobName, "claimed");
       logger.info(
         { jobName, windowStart: windowStart.toISOString() },
         "background job skipped; due window already claimed",
@@ -580,6 +593,7 @@ export function createDistributedJobRunner(
           "background job failure metric could not be recorded",
         );
       }
+      recordWorkerRun(jobName, "failure", durationMs);
       logger.error(
         {
           jobName,
@@ -619,6 +633,11 @@ export function createDistributedJobRunner(
         "background job completed but success metric could not be recorded",
       );
     }
+    recordWorkerRun(
+      jobName,
+      finishRecorded ? "success" : "unowned",
+      durationMs,
+    );
     logger.info(
       {
         jobName,

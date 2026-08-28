@@ -27,6 +27,7 @@
     "backup-before-migration": "tsx ./src/backupBeforeMigration.ts",
     "import-wc-customers": "tsx ./src/importWcCustomers.ts",
     "test-os-order": "tsx ./src/testOsOrder.ts",
+    "baseline:optimization": "tsx ./src/optimizationBaseline.ts",
     "compute-affinity": "tsx ./src/computeProductAffinity.ts",
     "submit-sitemap": "tsx ./src/submitSitemap.ts",
     "compress-app-tile-images": "tsx ./src/compressAppTileImages.ts",

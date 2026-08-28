@@ -1,0 +1,654 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-27T18:50:23.554Z",
+  "observationWindow": {
+    "startedAt": "2026-08-27T18:48:36.646Z",
+    "endedAt": "2026-08-27T18:50:23.554Z",
+    "mode": "isolated-local-services",
+    "lowVolume": true,
+    "productionTrafficGenerated": false,
+    "suppliedTargets": []
+  },
+  "classification": {
+    "measured": [
+      "serial local build durations",
+      "artifact and bundle file sizes",
+      "bounded fixed-route response timing, bytes, compression, and cache headers",
+      "isolated service readiness time and process snapshot",
+      "API aggregate request, worker, outbound, database-pool, and image-proxy counters when reachable"
+    ],
+    "estimated": [
+      "future cost or savings are not calculated by this report",
+      "a comparison failure threshold is a regression heuristic, not provider billing"
+    ],
+    "unavailable": [
+      "Replit compute units, instance-hours, autoscale events, requests, egress, and charges",
+      "provider invoices and external-service usage",
+      "real-user browser vitals unless separately collected by the storefront benchmark"
+    ]
+  },
+  "environment": {
+    "node": "v24.13.0",
+    "pnpm": "10.26.1",
+    "cwd": "/home/runner/workspace",
+    "ci": false
+  },
+  "builds": {
+    "api": {
+      "command": "pnpm --filter @workspace/api-server run build",
+      "durationMs": 2069.84,
+      "status": "measured"
+    },
+    "web": {
+      "command": "pnpm --filter @workspace/presentail-web run build",
+      "durationMs": 19187.58,
+      "status": "measured"
+    },
+    "mobile": {
+      "command": "pnpm --filter @workspace/presentail run build",
+      "durationMs": 76858.04,
+      "status": "measured"
+    }
+  },
+  "artifacts": {
+    "api": {
+      "directory": "artifacts/api-server/dist",
+      "exists": true,
+      "files": 11,
+      "bytes": 18596542,
+      "byExtension": {
+        ".mjs": {
+          "files": 5,
+          "bytes": 5708207
+        },
+        ".map": {
+          "files": 5,
+          "bytes": 11664667
+        },
+        ".png": {
+          "files": 1,
+          "bytes": 1223668
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "artifacts/api-server/dist/index.mjs.map",
+          "bytes": 10945950
+        },
+        {
+          "path": "artifacts/api-server/dist/index.mjs",
+          "bytes": 5280605
+        },
+        {
+          "path": "artifacts/api-server/dist/public/hero-summer-collection.png",
+          "bytes": 1223668
+        },
+        {
+          "path": "artifacts/api-server/dist/pino-worker.mjs.map",
+          "bytes": 263037
+        },
+        {
+          "path": "artifacts/api-server/dist/pino-file.mjs.map",
+          "bytes": 234545
+        },
+        {
+          "path": "artifacts/api-server/dist/pino-pretty.mjs.map",
+          "bytes": 208811
+        },
+        {
+          "path": "artifacts/api-server/dist/pino-worker.mjs",
+          "bytes": 157154
+        },
+        {
+          "path": "artifacts/api-server/dist/pino-file.mjs",
+          "bytes": 145516
+        },
+        {
+          "path": "artifacts/api-server/dist/pino-pretty.mjs",
+          "bytes": 117379
+        },
+        {
+          "path": "artifacts/api-server/dist/thread-stream-worker.mjs.map",
+          "bytes": 12324
+        }
+      ]
+    },
+    "web": {
+      "directory": "artifacts/presentail-web/dist",
+      "exists": true,
+      "files": 421,
+      "bytes": 19219082,
+      "byExtension": {
+        ".json": {
+          "files": 2,
+          "bytes": 43313
+        },
+        "[none]": {
+          "files": 1,
+          "bytes": 153
+        },
+        ".txt": {
+          "files": 2,
+          "bytes": 2087
+        },
+        ".png": {
+          "files": 11,
+          "bytes": 314782
+        },
+        ".js": {
+          "files": 90,
+          "bytes": 2870116
+        },
+        ".br": {
+          "files": 91,
+          "bytes": 732968
+        },
+        ".gz": {
+          "files": 91,
+          "bytes": 876332
+        },
+        ".avif": {
+          "files": 24,
+          "bytes": 4848877
+        },
+        ".webp": {
+          "files": 81,
+          "bytes": 7656850
+        },
+        ".css": {
+          "files": 1,
+          "bytes": 229558
+        },
+        ".woff2": {
+          "files": 10,
+          "bytes": 314324
+        },
+        ".svg": {
+          "files": 2,
+          "bytes": 18729
+        },
+        ".jpg": {
+          "files": 12,
+          "bytes": 1291764
+        },
+        ".ico": {
+          "files": 1,
+          "bytes": 15086
+        },
+        ".html": {
+          "files": 1,
+          "bytes": 3721
+        },
+        ".webmanifest": {
+          "files": 1,
+          "bytes": 422
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "artifacts/presentail-web/dist/public/assets/index-DLDDo_jc.js",
+          "bytes": 642131
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/glowing-hue.webp",
+          "bytes": 626752
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/fierce-love.webp",
+          "bytes": 583976
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/a-little-tenderness.webp",
+          "bytes": 527810
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/rural-love.avif",
+          "bytes": 485879
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/hallab-maamoul-mini-mixed.avif",
+          "bytes": 344510
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/sweet-scarlet-affair.avif",
+          "bytes": 340656
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/pastel-bliss-bouquet.avif",
+          "bytes": 338854
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/birthday-bear.avif",
+          "bytes": 331908
+        },
+        {
+          "path": "artifacts/presentail-web/dist/public/catalog/products/pink-indulgence-bundle.avif",
+          "bytes": 320217
+        }
+      ]
+    },
+    "mobile": {
+      "directory": "artifacts/presentail/static-build",
+      "exists": true,
+      "files": 130,
+      "bytes": 56077194,
+      "byExtension": {
+        ".ttf": {
+          "files": 53,
+          "bytes": 13325160
+        },
+        ".png": {
+          "files": 24,
+          "bytes": 4114098
+        },
+        ".js": {
+          "files": 4,
+          "bytes": 27157060
+        },
+        ".br": {
+          "files": 9,
+          "bytes": 4763131
+        },
+        ".gz": {
+          "files": 9,
+          "bytes": 6342190
+        },
+        ".webp": {
+          "files": 25,
+          "bytes": 327764
+        },
+        ".avif": {
+          "files": 1,
+          "bytes": 6581
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 28670
+        },
+        ".html": {
+          "files": 1,
+          "bytes": 12540
+        }
+      },
+      "largestFiles": [
+        {
+          "path": "artifacts/presentail/static-build/1787856538361-2436/_expo/static/js/android/bundle.js",
+          "bytes": 6789340
+        },
+        {
+          "path": "artifacts/presentail/static-build/static/1787856538361-2436/_expo/static/js/android/bundle.js",
+          "bytes": 6789340
+        },
+        {
+          "path": "artifacts/presentail/static-build/1787856538361-2436/_expo/static/js/ios/bundle.js",
+          "bytes": 6789190
+        },
+        {
+          "path": "artifacts/presentail/static-build/static/1787856538361-2436/_expo/static/js/ios/bundle.js",
+          "bytes": 6789190
+        },
+        {
+          "path": "artifacts/presentail/static-build/1787856538361-2436/_expo/static/js/android/bundle.js.gz",
+          "bytes": 1583246
+        },
+        {
+          "path": "artifacts/presentail/static-build/static/1787856538361-2436/_expo/static/js/android/bundle.js.gz",
+          "bytes": 1583246
+        },
+        {
+          "path": "artifacts/presentail/static-build/1787856538361-2436/_expo/static/js/ios/bundle.js.gz",
+          "bytes": 1581891
+        },
+        {
+          "path": "artifacts/presentail/static-build/static/1787856538361-2436/_expo/static/js/ios/bundle.js.gz",
+          "bytes": 1581891
+        },
+        {
+          "path": "artifacts/presentail/static-build/1787856538361-2436/_expo/node_modules/.pnpm/@expo+vector-icons@15.1.1_expo-font@14.0.11_expo@54.0.34_react-native@0.81.5_@babel+cor_837ef4730b47f86fb483a602368ad94a/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf",
+          "bytes": 1307660
+        },
+        {
+          "path": "artifacts/presentail/static-build/1787856538361-2436/_expo/static/js/assets/images/hero-slide3.png",
+          "bytes": 1248733
+        }
+      ]
+    }
+  },
+  "services": [
+    {
+      "name": "api",
+      "baseUrl": "http://127.0.0.1:19280",
+      "localPort": 19280,
+      "healthPath": "/api/healthz",
+      "startupMs": 8270.07,
+      "startupStatus": "measured",
+      "command": "node artifacts/api-server/dist/index.mjs"
+    },
+    {
+      "name": "web",
+      "baseUrl": "http://127.0.0.1:19281",
+      "localPort": 19281,
+      "healthPath": "/",
+      "startupMs": 95.75,
+      "startupStatus": "measured",
+      "command": "node artifacts/presentail-web/serve.mjs"
+    },
+    {
+      "name": "mobile",
+      "baseUrl": "http://127.0.0.1:19282",
+      "localPort": 19282,
+      "healthPath": "/app/",
+      "startupMs": 37.49,
+      "startupStatus": "measured",
+      "command": "node artifacts/presentail/server/serve.js"
+    }
+  ],
+  "network": [
+    {
+      "service": "api",
+      "route": "/api/healthz",
+      "method": "GET",
+      "status": 200,
+      "durationMs": 7.03,
+      "responseBytes": 15,
+      "contentEncoding": null,
+      "cacheControl": null,
+      "age": 0,
+      "vary": "Accept-Encoding",
+      "finalUrl": "/api/healthz",
+      "statusType": "measured"
+    },
+    {
+      "service": "api",
+      "route": "/api/woo/products?countryCode=LB",
+      "method": "GET",
+      "status": 503,
+      "durationMs": 9.04,
+      "responseBytes": 93,
+      "contentEncoding": null,
+      "cacheControl": null,
+      "age": 0,
+      "vary": "Accept-Encoding",
+      "finalUrl": "/api/woo/products",
+      "statusType": "measured"
+    },
+    {
+      "service": "web",
+      "route": "/",
+      "method": "GET",
+      "status": 200,
+      "durationMs": 16.26,
+      "responseBytes": 10021,
+      "contentEncoding": "br",
+      "cacheControl": "public, max-age=0, s-maxage=300, stale-while-revalidate=60",
+      "age": 0,
+      "vary": "Accept-Encoding",
+      "finalUrl": "/",
+      "statusType": "measured"
+    },
+    {
+      "service": "web",
+      "route": "/en-lb/beirut",
+      "method": "GET",
+      "status": 200,
+      "durationMs": 10.96,
+      "responseBytes": 14318,
+      "contentEncoding": "br",
+      "cacheControl": "public, max-age=0, s-maxage=300, stale-while-revalidate=60",
+      "age": 0,
+      "vary": "Accept-Encoding",
+      "finalUrl": "/en-lb/beirut",
+      "statusType": "measured"
+    },
+    {
+      "service": "mobile",
+      "route": "/app/",
+      "method": "GET",
+      "status": 200,
+      "durationMs": 4.46,
+      "responseBytes": 12540,
+      "contentEncoding": "br",
+      "cacheControl": "public, max-age=300, stale-while-revalidate=60",
+      "age": 0,
+      "vary": "Accept-Encoding",
+      "finalUrl": "/app/",
+      "statusType": "measured"
+    },
+    {
+      "service": "mobile",
+      "route": "/app/manifest",
+      "method": "GET",
+      "status": 200,
+      "durationMs": 21.14,
+      "responseBytes": 7158,
+      "contentEncoding": "gzip",
+      "cacheControl": "no-store",
+      "age": 0,
+      "vary": "Expo-Platform, Accept-Encoding",
+      "finalUrl": "/app/manifest",
+      "statusType": "measured"
+    }
+  ],
+  "apiMetrics": {
+    "schemaVersion": 1,
+    "capturedAt": "2026-08-27T18:50:23.287Z",
+    "process": {
+      "pid": 2550,
+      "startedAt": "2026-08-27T18:50:22.231Z",
+      "uptimeSeconds": 8.42,
+      "memoryBytes": {
+        "rss": 326443008,
+        "heapTotal": 272785408,
+        "heapUsed": 141175880,
+        "external": 9123145,
+        "arrayBuffers": 45559
+      }
+    },
+    "requests": {
+      "GET /api/healthz": {
+        "count": 2,
+        "status": {
+          "200": 2
+        },
+        "totalDurationMs": 22.584527,
+        "maxDurationMs": 18.699144,
+        "responseBytes": 30,
+        "bytesKnown": 2,
+        "cache": {
+          "hit": 0,
+          "miss": 0,
+          "bypass": 0,
+          "unknown": 2
+        },
+        "averageDurationMs": 11.29
+      },
+      "GET /api/woo/products": {
+        "count": 1,
+        "status": {
+          "503": 1
+        },
+        "totalDurationMs": 5.075839,
+        "maxDurationMs": 5.075839,
+        "responseBytes": 93,
+        "bytesKnown": 1,
+        "cache": {
+          "hit": 0,
+          "miss": 0,
+          "bypass": 0,
+          "unknown": 1
+        },
+        "averageDurationMs": 5.08
+      }
+    },
+    "workers": {},
+    "outbound": {},
+    "database": {
+      "capturedAt": "2026-08-27T18:50:23.287Z",
+      "pool": {
+        "available": true,
+        "totalCount": 0,
+        "idleCount": 0,
+        "waitingCount": 0,
+        "max": 10
+      }
+    },
+    "imageProxy": {
+      "started": 0,
+      "completed": 0,
+      "cacheHits": 0,
+      "cacheMisses": 0,
+      "coalesced": 0,
+      "queueRejected": 0,
+      "activeLoads": 0,
+      "waitingLoads": 0,
+      "activeTransforms": 0,
+      "waitingTransforms": 0,
+      "maxActiveLoads": 0,
+      "maxWaitingLoads": 0,
+      "maxActiveTransforms": 0,
+      "maxWaitingTransforms": 0,
+      "upstreamStatus": {},
+      "outcomes": {},
+      "totalDurationMs": 0,
+      "maxDurationMs": 0,
+      "last5xxAt": null,
+      "averageDurationMs": 0
+    }
+  },
+  "process": {
+    "host": {
+      "platform": "linux",
+      "arch": "x64",
+      "node": "v24.13.0",
+      "cpus": 8,
+      "totalMemoryBytes": 16794472448
+    },
+    "activeProcesses": {
+      "pid0": 1,
+      "pid1": 1,
+      "node": 1,
+      "MainThread": 14,
+      "esbuild": 1,
+      "ps": 1
+    }
+  },
+  "budgets": {
+    "startupMs": 30000,
+    "requestTtfbOrTotalMs": 1500,
+    "apiArtifactBytes": 25000000,
+    "webArtifactBytes": 30000000,
+    "mobileArtifactBytes": 65000000,
+    "apiRssBytes": 512000000,
+    "comparisonDurationMultiplier": 1.2,
+    "comparisonBytesMultiplier": 1.25
+  },
+  "source": {
+    "command": "pnpm baseline:optimization",
+    "script": "scripts/src/optimizationBaseline.ts",
+    "routesAreFixed": true,
+    "requestBodiesSent": false,
+    "responseBytesSource": "decoded response body observed by Node fetch",
+    "queryStrings": [
+      "countryCode=LB"
+    ],
+    "credentialsCaptured": false,
+    "customerIdentifiersCaptured": false
+  },
+  "budgetResults": [
+    {
+      "metric": "api./api/healthz.durationMs",
+      "value": 7.03,
+      "budget": 1500,
+      "expectedStatus": 200,
+      "observedStatus": 200,
+      "status": "pass"
+    },
+    {
+      "metric": "api./api/woo/products?countryCode=LB.durationMs",
+      "value": 9.04,
+      "budget": 1500,
+      "expectedStatus": "unavailable-in-isolation",
+      "observedStatus": 503,
+      "status": "unavailable"
+    },
+    {
+      "metric": "web./.durationMs",
+      "value": 16.26,
+      "budget": 1500,
+      "expectedStatus": 200,
+      "observedStatus": 200,
+      "status": "pass"
+    },
+    {
+      "metric": "web./en-lb/beirut.durationMs",
+      "value": 10.96,
+      "budget": 1500,
+      "expectedStatus": 200,
+      "observedStatus": 200,
+      "status": "pass"
+    },
+    {
+      "metric": "mobile./app/.durationMs",
+      "value": 4.46,
+      "budget": 1500,
+      "expectedStatus": 200,
+      "observedStatus": 200,
+      "status": "pass"
+    },
+    {
+      "metric": "mobile./app/manifest.durationMs",
+      "value": 21.14,
+      "budget": 1500,
+      "expectedStatus": 200,
+      "observedStatus": 200,
+      "status": "pass"
+    },
+    {
+      "metric": "api.artifactBytes",
+      "value": 18596542,
+      "budget": 25000000,
+      "status": "pass"
+    },
+    {
+      "metric": "web.artifactBytes",
+      "value": 19219082,
+      "budget": 30000000,
+      "status": "pass"
+    },
+    {
+      "metric": "mobile.artifactBytes",
+      "value": 56077194,
+      "budget": 65000000,
+      "status": "pass"
+    },
+    {
+      "metric": "api.startupMs",
+      "value": 8270.07,
+      "budget": 30000,
+      "status": "pass"
+    },
+    {
+      "metric": "web.startupMs",
+      "value": 95.75,
+      "budget": 30000,
+      "status": "pass"
+    },
+    {
+      "metric": "mobile.startupMs",
+      "value": 37.49,
+      "budget": 30000,
+      "status": "pass"
+    },
+    {
+      "metric": "api.process.rssBytes",
+      "value": 326443008,
+      "budget": 512000000,
+      "status": "pass"
+    }
+  ],
+  "budgetSummary": {
+    "pass": 12,
+    "fail": 0,
+    "unavailable": 1
+  }
+}
