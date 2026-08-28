@@ -180,6 +180,16 @@ export function FrequentlyBoughtTogether({ slug, anchor }: Props) {
                     <div className="w-full h-full" />
                   )}
                 </div>
+                <input
+                  id={`fbt-select-${c.id}`}
+                  type="checkbox"
+                  checked={sel.checked && c.inStock}
+                  disabled={!c.inStock}
+                  aria-label={c.name}
+                  onChange={() => toggle(c.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-1.5 left-1.5 z-10 h-5 w-5 cursor-pointer appearance-none rounded-full border-2 border-transparent bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+                />
                 <div className={cn(
                   "absolute top-1.5 left-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
                   sel.checked && c.inStock ? "bg-foreground border-foreground" : "bg-background border-border",
