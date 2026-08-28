@@ -7,6 +7,21 @@ out-tsc
 *.tsbuildinfo
 .expo
 .expo-shared
+**/dist-web-review/
+
+# Generated audit exports
+/presentail_audit_summary.md
+/presentail_full_site_audit.csv
+/presentail_full_site_audit.xlsx
+
+# Generated optimization snapshots (dated baselines stay reviewable)
+/docs/reports/optimization-baseline-latest.json
+
+# Agent/merge scratch files
+/dot-replit.backup
+/conflict_region.txt
+/resolved_tests.ts
+/patch_promo.js
 
 # dependencies
 node_modules
