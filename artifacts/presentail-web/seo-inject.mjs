@@ -2584,9 +2584,9 @@ async function fetchImageDimensions(url) {
   }
 }
 
-function extractSlugFor(prefix, rest) {
-  if (!rest || !rest.startsWith(prefix)) return null;
-  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/([^/?#]+)`);
+export function extractSlugFor(prefix, rest) {
+  if (!rest || !rest.startsWith(`${prefix}/`)) return null;
+  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/([^/?#]+)$`);
   const m = rest.match(re);
   if (!m) return null;
   try {

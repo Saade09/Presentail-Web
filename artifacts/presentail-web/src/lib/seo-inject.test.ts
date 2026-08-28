@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __resetSeoFailureAggregationForTest } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __resetSeoFailureAggregationForTest } from "../../seo-inject.mjs";
 import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 
 // Seed the per-country available-category cache so the shop-route body
@@ -71,6 +71,16 @@ function mockFetchOnce(body: unknown, ok = true) {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+});
+
+describe("entity route slug extraction", () => {
+  for (const prefix of ["/product", "/brand", "/category", "/occasion", "/blog"]) {
+    it(`requires the ${prefix} slug to complete the route`, () => {
+      expect(extractSlugFor(prefix, `${prefix}/rose`)).toBe("rose");
+      expect(extractSlugFor(prefix, `${prefix}/rose/anything`)).toBeNull();
+      expect(extractSlugFor(prefix, `${prefix}/rose/page/2`)).toBeNull();
+    });
+  }
 });
 
 describe("injectSeoTagsAsync — /product/<slug>", () => {

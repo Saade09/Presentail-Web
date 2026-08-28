@@ -1256,16 +1256,25 @@ function isPaidOnlyLocaleSubRoute(rest, lang, country, city) {
   );
 }
 
+const ENTITY_LOCALE_SUBROUTE_RE =
+  /^\/(?:product|brand|occasion|category|blog)\/[^/]+$/;
+const COLLECTION_PAGINATION_SUBROUTE_RE =
+  /^\/(?:category|occasion)\/[^/]+\/page\/\d+$/;
+const BRAND_PAGE_ONE_SUBROUTE_RE = /^\/brand\/[^/]+\/page\/1$/;
+
 function isKnownLocaleSubRoute(rest, lang, country, city) {
   if (!rest || rest === "/" || rest === "") return true;
   if (KNOWN_LOCALE_SUBROUTES_EXACT.has(rest)) return true;
   if (isPaidOnlyLocaleSubRoute(rest, lang, country, city)) return true;
+  // Entity routes mirror the exact one-slug-segment contract in src/App.tsx.
+  // Collection pagination and brand page 1 are recognised only because the
+  // server consolidates those legacy forms before the SPA shell is served.
   if (
-    rest.startsWith("/product/") ||
-    rest.startsWith("/brand/") ||
-    rest.startsWith("/occasion/") ||
-    rest.startsWith("/category/") ||
-    rest.startsWith("/blog/") ||
+    ENTITY_LOCALE_SUBROUTE_RE.test(rest) ||
+    COLLECTION_PAGINATION_SUBROUTE_RE.test(rest) ||
+    BRAND_PAGE_ONE_SUBROUTE_RE.test(rest)
+  ) return true;
+  if (
     rest.startsWith("/sign-in/") ||
     rest.startsWith("/sign-up/") ||
     rest.startsWith("/account/")
