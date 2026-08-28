@@ -1585,10 +1585,11 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
  */
 function getBlogIndexEntries(lang, { localeBase }) {
   if (!localeBase) return [];
+  const blogLang = lang === "el" ? "en" : lang;
   return Object.entries(BLOG_POSTS ?? {})
     .map(([slug, byLang]) => {
-      if (!slug || !getBlogPostLanguages(byLang).includes(lang)) return null;
-      const article = byLang?.[lang];
+      if (!slug || !getBlogPostLanguages(byLang).includes(blogLang)) return null;
+      const article = byLang?.[blogLang];
       if (!article?.title || !article?.datePublished) return null;
       return {
         slug,
@@ -2085,17 +2086,20 @@ function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
     }
   }
 
-  // Related articles — up to 3 other posts in the same language (falling back
-  // to English when a translation is absent), sorted newest-first. Emitted in
-  // the display:none fragment so crawlers can follow cross-post internal links
-  // even before client-side React hydrates the visible related-articles section.
+  // Related articles — up to 3 other posts in the same language, sorted
+  // newest-first. Emitted in the display:none fragment so crawlers can follow
+  // cross-post internal links even before client-side React hydrates the
+  // visible related-articles section. Do not link to English fallback pages
+  // from a translated Journal.
   if (localeBase && currentSlug) {
-    const effectiveLang = lang && RELATED_ARTICLES_LABEL[lang] ? lang : "en";
+    const effectiveLang = lang === "el" ? "en" : (lang && RELATED_ARTICLES_LABEL[lang] ? lang : "en");
     const relatedLabel = RELATED_ARTICLES_LABEL[effectiveLang];
     const relatedPosts = Object.entries(BLOG_POSTS)
       .filter(([s]) => s !== currentSlug)
       .map(([s, byLang]) => {
-        const post = byLang?.[effectiveLang] ?? byLang?.en;
+        const post = getBlogPostLanguages(byLang).includes(effectiveLang)
+          ? byLang?.[effectiveLang]
+          : undefined;
         return post?.title ? { slug: s, title: post.title, datePublished: post.datePublished ?? "" } : null;
       })
       .filter(Boolean)

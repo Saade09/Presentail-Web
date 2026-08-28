@@ -7,6 +7,7 @@ import {
   BLOG_POSTS,
   BLOG_CATEGORIES,
   getBlogPostMeta,
+  getBlogPostLanguages,
   getBlogPostReadingTime,
   getBlogPostExcerpt,
   getFeaturedBlogSlug,
@@ -140,7 +141,8 @@ function getStories(language: Language): Story[] {
   const blogLang = language === "el" ? "en" : language;
   return Object.keys(ARTICLES)
     .map<Story | null>((slug) => {
-      const a = ARTICLES[slug][blogLang] ?? ARTICLES[slug].en;
+      const byLang = ARTICLES[slug];
+      const a = getBlogPostLanguages(byLang).includes(blogLang) ? byLang[blogLang] : undefined;
       // Some editorial posts are intentionally published in one language
       // first. Keep them out of other locale listings until a translation
       // exists rather than rendering an undefined article card.

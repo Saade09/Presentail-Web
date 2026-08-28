@@ -483,12 +483,16 @@ export default function BlogPost() {
   }, [language, articlesByLang]);
 
   // Related articles — explicit overrides first, else up to 3 other posts in
-  // the same language (falling back to English), sorted newest-first.
+  // the same language, sorted newest-first. Do not link to English fallback
+  // pages from a translated Journal.
   const relatedPosts = useMemo(() => {
     if (!articlesByLang) return [];
+    const blogLang = language === "el" ? "en" : language;
     const resolve = (s: string) => {
       const byLang = ARTICLES[s];
-      const post = byLang?.[language] ?? byLang?.["en"];
+      const post = byLang && getBlogPostLanguages(byLang).includes(blogLang)
+        ? byLang[blogLang]
+        : undefined;
       return post ? { slug: s, post } : null;
     };
     const curatedSlugs = BLOG_RELATED_SLUGS[slug] ?? article?.relatedSlugs ?? [];
