@@ -28,6 +28,7 @@
 //       enabled. Omit to skip the monitor entirely (graceful degradation).
 
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 import { hasOsProducts, getOsProducts } from "./osProductsCache";
 import { recordOutboundCall } from "./operationalMetrics";
@@ -71,6 +72,7 @@ const PRODUCT_RICH_RESULT_TYPE = "Products";
 // ── Module state ─────────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 /** Tracks the last ISO week (YYYY-WNN) we've evaluated so we fire once per week. */
 let lastEvaluatedWeek: string | null = null;
@@ -517,18 +519,19 @@ export function startMerchantListingSuggestionsMonitor(): void {
   if (timer) return;
 
   // Initial delayed run so we don't add startup latency.
-  const baseline = setTimeout(() => {
-    runOnce().catch((err: unknown) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("merchant-listing-suggestions", runOnce()).catch((err: unknown) => {
       logger.warn(
         { err: (err as Error)?.message },
         "merchantListingSuggestionsMonitor: baseline run failed",
       );
     });
   }, 120_000); // 2 min after startup
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err: unknown) => {
+    trackWorkerExecution("merchant-listing-suggestions", runOnce()).catch((err: unknown) => {
       logger.warn(
         { err: (err as Error)?.message },
         "merchantListingSuggestionsMonitor: tick failed",
@@ -544,6 +547,10 @@ export function startMerchantListingSuggestionsMonitor(): void {
 }
 
 export function stopMerchantListingSuggestionsMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

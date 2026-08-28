@@ -1,6 +1,7 @@
 import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 
 // Monitors `clerk_session_fallback` events written by resolveClerkSession()
@@ -40,6 +41,7 @@ const MIN_FALLBACKS = (() => {
 // ── Module state ───────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -55,18 +57,19 @@ export function startClerkSessionFallbackMonitor(): void {
 
   // Run shortly after startup so a cold boot just after midnight UTC still
   // alerts promptly rather than waiting a full hour.
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("clerk-session-fallback", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "clerkSessionFallbackMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("clerk-session-fallback", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "clerkSessionFallbackMonitor: tick failed",
@@ -82,6 +85,10 @@ export function startClerkSessionFallbackMonitor(): void {
 }
 
 export function stopClerkSessionFallbackMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

@@ -20,6 +20,7 @@ import { eq, sql, gte, and } from "drizzle-orm";
 import { getOsProducts } from "./osProductsCache";
 import { setMetricsCache } from "./productRankingService";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 
 const ENGAGEMENT_INTERVAL_MS = 30 * 60 * 1000; // 30 min
 const OS_INTERVAL_MS = 45 * 60 * 1000;         // 45 min
@@ -442,6 +443,7 @@ async function runSync(): Promise<void> {
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
 let _engagementTimer: ReturnType<typeof setInterval> | null = null;
+let _startupTimer: ReturnType<typeof setTimeout> | null = null;
 let _running = false;
 
 async function safeRunSync(): Promise<void> {
@@ -462,10 +464,27 @@ async function safeRunSync(): Promise<void> {
  * Also loads the initial metrics cache from DB immediately.
  */
 export function startProductMetricsSyncJob(): void {
-  if (_engagementTimer) return;
+  if (_engagementTimer || _startupTimer) return;
+  // Cache hydration is per-replica and is started by workerRuntime. Only the
+  // write-heavy recurring sync is single-owner.
 
-  // Load existing metrics into cache immediately (no waiting for first interval)
-  db.select()
+  // Run first sync after a 2-minute delay (let OS cache warm up first)
+  _startupTimer = setTimeout(() => {
+    _startupTimer = null;
+    void trackWorkerExecution("product-metrics-sync", safeRunSync());
+    _engagementTimer = setInterval(() => {
+      void trackWorkerExecution("product-metrics-sync", safeRunSync());
+    }, ENGAGEMENT_INTERVAL_MS);
+  }, 2 * 60 * 1000);
+
+  logger.info(
+    { intervalMs: ENGAGEMENT_INTERVAL_MS },
+    "productMetricsSyncJob: scheduler started",
+  );
+}
+
+export async function hydrateProductMetricsCache(): Promise<void> {
+  await db.select()
     .from(productRankingMetricsTable)
     .then((rows) => {
       setMetricsCache(rows);
@@ -474,19 +493,13 @@ export function startProductMetricsSyncJob(): void {
     .catch((err: unknown) => {
       logger.warn({ err }, "productMetricsSyncJob: failed to load initial metrics from DB");
     });
+}
 
-  // Run first sync after a 2-minute delay (let OS cache warm up first)
-  setTimeout(() => {
-    void safeRunSync();
-    _engagementTimer = setInterval(() => {
-      void safeRunSync();
-    }, ENGAGEMENT_INTERVAL_MS);
-  }, 2 * 60 * 1000);
-
-  logger.info(
-    { intervalMs: ENGAGEMENT_INTERVAL_MS },
-    "productMetricsSyncJob: scheduler started",
-  );
+export function stopProductMetricsSyncJob(): void {
+  if (_startupTimer) clearTimeout(_startupTimer);
+  if (_engagementTimer) clearInterval(_engagementTimer);
+  _startupTimer = null;
+  _engagementTimer = null;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable, appOrdersTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert, type AlertField } from "./alerts";
 import { loadDailyUpsellItemBuckets } from "./upsellAggregator";
 import { getOsProducts } from "./osProductsCache";
@@ -93,6 +94,7 @@ const REVENUE_PCT_TRAILING_DAYS = 7;
 // ── Module state ───────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -106,18 +108,19 @@ export function startUpsellFunnelMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("upsell-funnel", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "upsellFunnelMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("upsell-funnel", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "upsellFunnelMonitor: tick failed",
@@ -140,6 +143,10 @@ export function startUpsellFunnelMonitor(): void {
 }
 
 export function stopUpsellFunnelMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

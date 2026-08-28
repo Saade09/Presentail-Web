@@ -4,12 +4,14 @@ import { inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import { getOsProducts } from "./osProductsCache";
 import { classifyPlantProducts, computeContentHash } from "./plantEnvironmentInference";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 
 const DEFAULT_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 const PLANTS_CATEGORY_SLUG = "plants";
 
 let jobTimer: ReturnType<typeof setTimeout> | null = null;
+let stopped = true;
 
 /**
  * Fetches plant products from the OS cache, computes content hashes,
@@ -109,6 +111,7 @@ async function runClassificationCycle(): Promise<void> {
  */
 export function startPlantClassificationJob(): void {
   if (jobTimer !== null) return;
+  stopped = false;
 
   const rawInterval = process.env.PLANT_CLASSIFICATION_INTERVAL_MS;
   const interval = rawInterval ? parseInt(rawInterval, 10) : DEFAULT_INTERVAL_MS;
@@ -121,21 +124,24 @@ export function startPlantClassificationJob(): void {
 
   function scheduleNext(): void {
     jobTimer = setTimeout(() => {
-      void runClassificationCycle().finally(() => {
-        scheduleNext();
+      jobTimer = null;
+      void trackWorkerExecution("plant-classification", runClassificationCycle()).finally(() => {
+        if (!stopped) scheduleNext();
       });
     }, safeInterval);
   }
 
   // Run an initial cycle shortly after startup to populate classifications fast
   jobTimer = setTimeout(() => {
-    void runClassificationCycle().finally(() => {
-      scheduleNext();
+    jobTimer = null;
+    void trackWorkerExecution("plant-classification", runClassificationCycle()).finally(() => {
+      if (!stopped) scheduleNext();
     });
   }, 30_000); // 30 seconds after startup
 }
 
 export function stopPlantClassificationJob(): void {
+  stopped = true;
   if (jobTimer !== null) {
     clearTimeout(jobTimer);
     jobTimer = null;

@@ -13,6 +13,7 @@
 import { sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 
 const ENABLED = (() => {
@@ -31,6 +32,7 @@ function envPositiveInt(name: string, fallback: number): number {
 const FAILURE_MAX = envPositiveInt("GOOGLE_ADS_CONVERSION_FAILURE_MAX", 10);
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 // Track the UTC hour string of the last alert so we only fire once per hour.
 let lastAlertedHour: string | null = null;
@@ -132,18 +134,19 @@ export function startGoogleAdsConversionMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("google-ads-conversion", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "googleAdsConversionMonitor: baseline run failed",
       );
     });
   }, 90_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("google-ads-conversion", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "googleAdsConversionMonitor: tick failed",
@@ -159,6 +162,10 @@ export function startGoogleAdsConversionMonitor(): void {
 }
 
 export function stopGoogleAdsConversionMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

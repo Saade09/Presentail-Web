@@ -205,6 +205,7 @@ let cachedProductOccasions: Map<string, OSProductOccasion> = new Map();
 
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
+let workerStopped = false;
 const SHARED_PRODUCTS_SNAPSHOT = "os-products-cache";
 
 /** Timestamp of the most recent successful `fetchAndStore()` completion. */
@@ -414,7 +415,7 @@ export function registerPricingEnrichmentListener(fn: () => void): void {
  * empty → populated for the first time after startup (or after a reset).
  * Cleared immediately after firing so it cannot run twice.
  */
-let onFirstPopulatedCallback: (() => void) | null = null;
+const onFirstPopulatedCallbacks: Array<() => void> = [];
 
 /**
  * Whether the first-populated callback has already fired. Once set to true
@@ -438,21 +439,26 @@ let firstPopulatedFired = false;
  * immediately after the first successful OS fetch, without relying on a
  * fixed-interval timer.
  */
-export function registerOnFirstPopulatedCallback(fn: () => void): void {
-  if (firstPopulatedFired) {
+export function registerOnFirstPopulatedCallback(fn: () => void): () => void {
+  if (firstPopulatedFired || storeCache.size > 0) {
+    firstPopulatedFired = true;
     // Cache already warm — fire asynchronously so callers don't need to
     // handle synchronous execution ordering.
     Promise.resolve().then(fn).catch(() => undefined);
-    return;
+    return () => undefined;
   }
-  onFirstPopulatedCallback = fn;
+  onFirstPopulatedCallbacks.push(fn);
+  return () => {
+    const index = onFirstPopulatedCallbacks.indexOf(fn);
+    if (index >= 0) onFirstPopulatedCallbacks.splice(index, 1);
+  };
 }
 
 /**
  * Reset first-populated callback state. Only call from tests.
  */
 export function __resetFirstPopulatedForTest(): void {
-  onFirstPopulatedCallback = null;
+  onFirstPopulatedCallbacks.length = 0;
   firstPopulatedFired = false;
 }
 
@@ -505,9 +511,8 @@ export async function __enrichProductPricingForTest(
 export function __triggerFirstPopulatedForTest(): void {
   if (firstPopulatedFired) return;
   firstPopulatedFired = true;
-  const fn = onFirstPopulatedCallback;
-  onFirstPopulatedCallback = null;
-  fn?.();
+  const callbacks = onFirstPopulatedCallbacks.splice(0);
+  for (const fn of callbacks) fn();
 }
 
 /** UTC date (YYYY-MM-DD) of the most recently persisted daily snapshot, or null. */
@@ -1634,11 +1639,10 @@ async function fetchAndStore(signal?: AbortSignal): Promise<boolean> {
     // after all store and taxonomy updates so the callback sees a fully
     // consistent cache state (hasOsProducts(), getOsBrands(), etc. all
     // reflect the current fetch before the callback runs).
-    if (!firstPopulatedFired && storeCache.size > 0 && onFirstPopulatedCallback) {
+    if (!firstPopulatedFired && storeCache.size > 0 && onFirstPopulatedCallbacks.length > 0) {
       firstPopulatedFired = true;
-      const fn = onFirstPopulatedCallback;
-      onFirstPopulatedCallback = null;
-      fn();
+      const callbacks = onFirstPopulatedCallbacks.splice(0);
+      for (const fn of callbacks) fn();
     }
 
     // Record successful refresh timestamp for the diagnostic endpoint.
@@ -2269,11 +2273,10 @@ function applySharedProductsSnapshot(
       logger.warn({ err }, "osProductsCache: pricingEnrichmentListener threw");
     }
   }
-  if (!firstPopulatedFired && storeCache.size > 0 && onFirstPopulatedCallback) {
+  if (!firstPopulatedFired && storeCache.size > 0 && onFirstPopulatedCallbacks.length > 0) {
     firstPopulatedFired = true;
-    const fn = onFirstPopulatedCallback;
-    onFirstPopulatedCallback = null;
-    fn();
+    const callbacks = onFirstPopulatedCallbacks.splice(0);
+    for (const fn of callbacks) fn();
   }
   logger.info(
     { storeCount: storeCache.size, refreshedAt: snapshot.refreshedAt },
@@ -2330,6 +2333,7 @@ async function runScheduledProductsSync(): Promise<void> {
 export function startOsProductsSync(): void {
   if (process.env.NODE_ENV === "test") return;
   if (timer) return;
+  workerStopped = false;
 
   const config = getOsConfig();
   if (!config.apiKey) {
@@ -2352,7 +2356,10 @@ export function startOsProductsSync(): void {
   // for readiness, and starting immediately minimizes that wait after a
   // server restart.
   Promise.all([seedStartupSnapshotFromDb(), seedPriceAlertDedupeFromDb()])
-    .then(() => runScheduledProductsSync())
+    .then(() => {
+      if (workerStopped) return undefined;
+      return runScheduledProductsSync();
+    })
     .catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ err: msg }, "osProductsCache: initial fetch failed");
@@ -2379,6 +2386,7 @@ export function startOsProductsSync(): void {
 }
 
 export function stopOsProductsSync(): void {
+  workerStopped = true;
   if (timer) {
     clearInterval(timer);
     timer = null;

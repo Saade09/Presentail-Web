@@ -40,6 +40,18 @@ type DistributedJobRuntimeLock = {
   release(): Promise<void>;
 };
 
+type DistributedScheduleOptions = {
+  jobName: string;
+  intervalMs: number;
+  startupDelayMs?: number;
+  timeoutMs?: number;
+  task: (context: DistributedJobContext) => Promise<unknown>;
+};
+
+export type DistributedSchedule = {
+  stop(): void;
+};
+
 export interface BackgroundJobLeaseStore {
   acquireRuntimeLock(jobName: string): Promise<DistributedJobRuntimeLock | null>;
   claim(input: ClaimInput): Promise<{ generation: number } | null>;
@@ -357,11 +369,27 @@ class PostgresBackgroundJobLeaseStore implements BackgroundJobLeaseStore {
 }
 
 const postgresStore = new PostgresBackgroundJobLeaseStore();
+const runtimeShutdown = new AbortController();
+const activeRuns = new Set<Promise<unknown>>();
+
+function trackActiveRun<T>(promise: Promise<T>): Promise<T> {
+  activeRuns.add(promise);
+  promise.then(
+    () => activeRuns.delete(promise),
+    () => activeRuns.delete(promise),
+  );
+  return promise;
+}
+
+export function isDistributedJobRuntimeShuttingDown(): boolean {
+  return runtimeShutdown.signal.aborted;
+}
 
 type RunnerDependencies = {
   store?: BackgroundJobLeaseStore;
   now?: () => Date;
   ownerToken?: () => string;
+  onFatalOwnershipLoss?: (jobName: string, reason: unknown) => void;
 };
 
 export function createDistributedJobRunner(
@@ -372,14 +400,28 @@ export function createDistributedJobRunner(
   const ownerToken =
     dependencies.ownerToken ??
     (() => `${process.pid}:${randomUUID()}`);
+  const onFatalOwnershipLoss =
+    dependencies.onFatalOwnershipLoss ??
+    ((jobName: string, reason: unknown) => {
+      logger.fatal(
+        {
+          jobName,
+          reason: reason instanceof Error ? reason.message : String(reason),
+        },
+        "distributed job runtime lock lost while task remained active; exiting to fence side effects",
+      );
+      process.exit(1);
+    });
 
-  return async function runDistributedJob<T>(options: {
+  const run = async function runDistributedJob<T>(options: {
     jobName: string;
     intervalMs: number;
     leaseMs?: number;
+    timeoutMs?: number;
     task: (context: DistributedJobContext) => Promise<T>;
   }): Promise<DistributedJobResult<T>> {
     const { jobName, intervalMs, task } = options;
+    runtimeShutdown.signal.throwIfAborted();
     const leaseMs = options.leaseMs ?? Math.max(intervalMs, 5 * 60_000);
     if (!Number.isFinite(intervalMs) || intervalMs < 1_000) {
       throw new Error(`Invalid distributed job interval for ${jobName}`);
@@ -529,12 +571,28 @@ export function createDistributedJobRunner(
     }
 
     const ownership = new AbortController();
+    const deadline = new AbortController();
+    const timeoutMs = options.timeoutMs ?? leaseMs;
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 1_000) {
+      await runtimeLock.release();
+      throw new Error(`Invalid distributed job timeout for ${jobName}`);
+    }
+    const deadlineTimer = setTimeout(
+      () => deadline.abort(new Error(`Distributed job timed out: ${jobName}`)),
+      timeoutMs,
+    );
+    deadlineTimer.unref?.();
     const context: DistributedJobContext = {
       jobName,
       windowStart,
       ownerToken: token,
       generation: claim.generation,
-      signal: AbortSignal.any([ownership.signal, runtimeLock.signal]),
+      signal: AbortSignal.any([
+        ownership.signal,
+        runtimeLock.signal,
+        runtimeShutdown.signal,
+        deadline.signal,
+      ]),
     };
     const startedAt = Date.now();
     let renewal = Promise.resolve();
@@ -565,16 +623,109 @@ export function createDistributedJobRunner(
       });
     }, heartbeatMs);
     heartbeat.unref?.();
+    context.signal.addEventListener("abort", () => clearInterval(heartbeat), {
+      once: true,
+    });
 
     let value: T;
+    let taskSettled = false;
+    const taskPromise = Promise.resolve()
+      .then(() => {
+        context.signal.throwIfAborted();
+        return task(context);
+      })
+      .then(
+        (result) => {
+          taskSettled = true;
+          return result;
+        },
+        (error) => {
+          taskSettled = true;
+          throw error;
+        },
+      );
+    const aborted = new Promise<never>((_resolve, reject) => {
+      if (context.signal.aborted) {
+        reject(context.signal.reason);
+        return;
+      }
+      context.signal.addEventListener(
+        "abort",
+        () => reject(context.signal.reason),
+        { once: true },
+      );
+    });
     try {
-      value = await task(context);
+      value = await Promise.race([taskPromise, aborted]);
       context.signal.throwIfAborted();
     } catch (error) {
       clearInterval(heartbeat);
+      clearTimeout(deadlineTimer);
       await renewal;
+      // Give a cancellation-aware task's rejection handler one microtask to
+      // settle before classifying it as non-cooperative.
+      await Promise.resolve();
       const durationMs = Date.now() - startedAt;
       const message = error instanceof Error ? error.message : String(error);
+      const fatalOwnershipLoss =
+        (runtimeLock.signal.aborted || ownership.signal.aborted) &&
+        !runtimeShutdown.signal.aborted &&
+        !taskSettled;
+      if (fatalOwnershipLoss) {
+        // The PostgreSQL session lock is already gone, so only the still-live
+        // durable lease and process termination can fence a non-cooperative
+        // task. Do not mark the row failed: that would make it immediately
+        // claimable by a replacement while this task may still side-effect.
+        recordWorkerRun(jobName, "failure", durationMs);
+        onFatalOwnershipLoss(
+          jobName,
+          runtimeLock.signal.aborted
+            ? runtimeLock.signal.reason
+            : ownership.signal.reason,
+        );
+        throw error;
+      }
+      if (context.signal.aborted && !taskSettled) {
+        // Deadline/shutdown cancellation cannot safely make the durable row
+        // claimable while work is still running. Keep both fences until the
+        // task settles. If the session fence disappears first, terminate the
+        // process while the durable lease still blocks immediate takeover.
+        runtimeLock.signal.addEventListener(
+          "abort",
+          () => {
+            if (!taskSettled && !runtimeShutdown.signal.aborted) {
+              onFatalOwnershipLoss(jobName, runtimeLock.signal.reason);
+            }
+          },
+          { once: true },
+        );
+        const cleanup = taskPromise
+          .catch(() => undefined)
+          .then(async () => {
+            try {
+              await store.finish(context, {
+                status: "failed",
+                durationMs: Date.now() - startedAt,
+                error: message.slice(0, 1_000),
+              });
+            } finally {
+              await runtimeLock.release();
+            }
+          });
+        trackActiveRun(cleanup);
+        recordWorkerRun(jobName, "failure", durationMs);
+        logger.error(
+          {
+            jobName,
+            windowStart: windowStart.toISOString(),
+            generation: context.generation,
+            durationMs,
+            err: message,
+          },
+          "background job failed",
+        );
+        throw error;
+      }
       try {
         await store.finish(context, {
           status: "failed",
@@ -609,6 +760,7 @@ export function createDistributedJobRunner(
     }
 
     clearInterval(heartbeat);
+    clearTimeout(deadlineTimer);
     await renewal;
     const durationMs = Date.now() - startedAt;
     let finishRecorded = false;
@@ -651,9 +803,113 @@ export function createDistributedJobRunner(
     await runtimeLock.release();
     return { status: "ran", value, context };
   };
+
+  return async function runDistributedJob<T>(options: {
+    jobName: string;
+    intervalMs: number;
+    leaseMs?: number;
+    timeoutMs?: number;
+    task: (context: DistributedJobContext) => Promise<T>;
+  }): Promise<DistributedJobResult<T>> {
+    return trackActiveRun(run<T>(options));
+  };
 }
 
 export const runDistributedJob = createDistributedJobRunner();
+
+/**
+ * Schedule a recurring, durably-owned job. The timer is local to a replica,
+ * while the due-window lease makes the side effect global across replicas.
+ * Every execution is tracked by runDistributedJob, so shutdown can abort its
+ * context and wait for bounded cleanup.
+ */
+export function startDistributedJobSchedule(
+  options: DistributedScheduleOptions,
+): DistributedSchedule {
+  if (!Number.isFinite(options.intervalMs) || options.intervalMs < 1_000) {
+    throw new Error(`Invalid distributed schedule interval for ${options.jobName}`);
+  }
+  let stopped = false;
+  let startupTimer: ReturnType<typeof setTimeout> | null = null;
+  let intervalTimer: ReturnType<typeof setInterval> | null = null;
+  let running = false;
+
+  const invoke = async () => {
+    if (stopped || running) return;
+    running = true;
+    try {
+      await runDistributedJob({
+        jobName: options.jobName,
+        intervalMs: options.intervalMs,
+        timeoutMs: options.timeoutMs,
+        task: options.task,
+      });
+    } finally {
+      running = false;
+    }
+  };
+
+  const startupDelayMs = options.startupDelayMs ?? 0;
+  if (startupDelayMs > 0) {
+    startupTimer = setTimeout(() => {
+      startupTimer = null;
+      void invoke().catch((error: unknown) => {
+        logger.warn(
+          { jobName: options.jobName, err: error instanceof Error ? error.message : String(error) },
+          "background job scheduled run failed",
+        );
+      });
+    }, startupDelayMs);
+    startupTimer.unref?.();
+  } else {
+    void invoke().catch((error: unknown) => {
+      logger.warn(
+        { jobName: options.jobName, err: error instanceof Error ? error.message : String(error) },
+        "background job scheduled run failed",
+      );
+    });
+  }
+
+  intervalTimer = setInterval(() => {
+    void invoke().catch((error: unknown) => {
+      logger.warn(
+        { jobName: options.jobName, err: error instanceof Error ? error.message : String(error) },
+        "background job scheduled run failed",
+      );
+    });
+  }, options.intervalMs);
+  intervalTimer.unref?.();
+
+  return {
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      if (startupTimer) clearTimeout(startupTimer);
+      if (intervalTimer) clearInterval(intervalTimer);
+      startupTimer = null;
+      intervalTimer = null;
+    },
+  };
+}
+
+/**
+ * Stop accepting new background work and abort all tracked contexts. Callers
+ * should close HTTP before this function and end the DB pool after it returns.
+ * A non-cooperative external call is bounded by the timeout; process shutdown
+ * must not wait indefinitely for it.
+ */
+export async function shutdownDistributedJobs(timeoutMs = 20_000): Promise<void> {
+  runtimeShutdown.abort(new Error("API worker runtime is shutting down"));
+  const pending = [...activeRuns];
+  if (pending.length === 0) return;
+  await Promise.race([
+    Promise.allSettled(pending).then(() => undefined),
+    new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, timeoutMs);
+      timer.unref?.();
+    }),
+  ]);
+}
 
 export async function saveBackgroundJobSnapshot(
   context: DistributedJobContext,

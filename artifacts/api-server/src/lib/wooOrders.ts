@@ -1912,6 +1912,7 @@ export async function runReconcileTick(signal?: AbortSignal): Promise<{
 }
 
 let reconcileTimer: NodeJS.Timeout | null = null;
+let reconcileStartupTimer: NodeJS.Timeout | null = null;
 
 export function startReconcileWorker(): void {
   if (reconcileTimer) return;
@@ -1945,10 +1946,18 @@ export function startReconcileWorker(): void {
   );
   // Kick off one tick shortly after startup so any rows queued before a
   // restart get processed without waiting a full interval.
-  setTimeout(tick, 10_000).unref?.();
+  reconcileStartupTimer = setTimeout(() => {
+    reconcileStartupTimer = null;
+    void tick();
+  }, 10_000);
+  reconcileStartupTimer.unref?.();
 }
 
 export function stopReconcileWorker(): void {
+  if (reconcileStartupTimer) {
+    clearTimeout(reconcileStartupTimer);
+    reconcileStartupTimer = null;
+  }
   if (reconcileTimer) {
     clearInterval(reconcileTimer);
     reconcileTimer = null;

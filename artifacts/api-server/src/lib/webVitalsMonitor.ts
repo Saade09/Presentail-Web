@@ -1,6 +1,7 @@
 import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 
 // ── Configuration ──────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ const TTID_MIN_SAMPLES = (() => {
 // ── Module state ───────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -117,18 +119,19 @@ export function startWebVitalsMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err: unknown) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("web-vitals", runOnce()).catch((err: unknown) => {
       logger.warn(
         { err: (err as Error)?.message },
         "webVitalsMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err: unknown) => {
+    trackWorkerExecution("web-vitals", runOnce()).catch((err: unknown) => {
       logger.warn(
         { err: (err as Error)?.message },
         "webVitalsMonitor: tick failed",
@@ -152,6 +155,10 @@ export function startWebVitalsMonitor(): void {
 }
 
 export function stopWebVitalsMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

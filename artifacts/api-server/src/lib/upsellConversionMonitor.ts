@@ -6,6 +6,7 @@ import {
   type UpsellToOrderSummaryBucket,
 } from "./upsellAggregator";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert, type AlertField } from "./alerts";
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ const MIN_ORDER_DAY_RATE = (() => {
 // ── Module state ─────────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -76,18 +78,19 @@ export function startUpsellConversionMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("upsell-conversion", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "upsellConversionMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("upsell-conversion", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "upsellConversionMonitor: tick failed",
@@ -108,6 +111,10 @@ export function startUpsellConversionMonitor(): void {
 }
 
 export function stopUpsellConversionMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

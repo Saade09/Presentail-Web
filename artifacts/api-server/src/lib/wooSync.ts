@@ -10,6 +10,7 @@ import {
   persistDailySnapshotIfNeeded,
 } from "./osProductsCache";
 import { consumeLocationsChanged } from "./osLocationsCache";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ type Snapshot = {
 };
 const lastSnapshot = new Map<StoreSpec["key"], Snapshot>();
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -127,15 +129,16 @@ export function startWooSyncWorker(): void {
   // Baseline run shortly after startup, with pushes suppressed so we
   // don't spam every device on a cold boot. Subsequent ticks honor
   // WOO_SYNC_PUSH_ON_CHANGE.
-  const baselineTimer = setTimeout(() => {
-    runWooSyncOnce({ pushOnChange: false }).catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("woo-sync", runWooSyncOnce({ pushOnChange: false })).catch((err) => {
       logger.warn({ err: err?.message }, "wooSync: baseline run failed");
     });
   }, 30_000);
-  baselineTimer.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runWooSyncOnce().catch((err) => {
+    trackWorkerExecution("woo-sync", runWooSyncOnce()).catch((err) => {
       logger.warn({ err: err?.message }, "wooSync: scheduled tick failed");
     });
   }, INTERVAL_MS);
@@ -148,6 +151,10 @@ export function startWooSyncWorker(): void {
 }
 
 export function stopWooSyncWorker(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

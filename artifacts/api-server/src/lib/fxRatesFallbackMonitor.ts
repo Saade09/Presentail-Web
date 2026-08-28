@@ -16,6 +16,7 @@
 //                                          consecutiveFailures ≥ this value.
 
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 import { getFxStatus } from "./fx";
 
@@ -37,6 +38,7 @@ function envPositiveInt(name: string, fallback: number): number {
 const CONSECUTIVE_MAX = envPositiveInt("FX_FALLBACK_CONSECUTIVE_FAILURES_MAX", 12);
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 // Track the consecutiveFailures value at the time of the last alert so we
 // only fire once per failure run, not on every hourly tick while it persists.
@@ -56,18 +58,19 @@ export function startFxRatesFallbackMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("fx-rates-fallback", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "fxRatesFallbackMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("fx-rates-fallback", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "fxRatesFallbackMonitor: tick failed",
@@ -83,6 +86,10 @@ export function startFxRatesFallbackMonitor(): void {
 }
 
 export function stopFxRatesFallbackMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

@@ -16,6 +16,7 @@
 import { gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 
 const ENABLED = (() => {
@@ -34,6 +35,7 @@ function envPositiveInt(name: string, fallback: number): number {
 const COUNT_MAX = envPositiveInt("GEO_CURRENCY_FALLBACK_COUNT_MAX", 50);
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 // Track the UTC hour string of the last alert so we only fire once per hour.
 let lastAlertedHour: string | null = null;
@@ -134,18 +136,19 @@ export function startGeoCurrencyFallbackMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("geo-currency-fallback", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "geoCurrencyFallbackMonitor: baseline run failed",
       );
     });
   }, 90_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("geo-currency-fallback", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "geoCurrencyFallbackMonitor: tick failed",
@@ -161,6 +164,10 @@ export function startGeoCurrencyFallbackMonitor(): void {
 }
 
 export function stopGeoCurrencyFallbackMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

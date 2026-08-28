@@ -1,6 +1,7 @@
 import { and, gte, lt, sql, inArray } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -104,6 +105,7 @@ const FUNNEL_EVENT_CONFIGS: FunnelEventConfig[] = [
 // ── Module state ─────────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -117,18 +119,19 @@ export function startSessionCoverageMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("session-coverage", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "sessionCoverageMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("session-coverage", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "sessionCoverageMonitor: tick failed",
@@ -152,6 +155,10 @@ export function startSessionCoverageMonitor(): void {
 }
 
 export function stopSessionCoverageMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

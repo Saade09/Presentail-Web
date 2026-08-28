@@ -1,6 +1,7 @@
 import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert, type AlertField } from "./alerts";
 
 // Monitors the structured `auth_exists_outcome` rows persisted by
@@ -45,6 +46,7 @@ const INCONCLUSIVE_RATE_MAX = envRatio(
 );
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -56,18 +58,19 @@ export function startAuthExistsLookupMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("auth-exists-lookup", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "authExistsLookupMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("auth-exists-lookup", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "authExistsLookupMonitor: tick failed",
@@ -83,6 +86,10 @@ export function startAuthExistsLookupMonitor(): void {
 }
 
 export function stopAuthExistsLookupMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

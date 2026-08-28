@@ -13,6 +13,7 @@
 import { sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert } from "./alerts";
 
 const ENABLED = (() => {
@@ -23,6 +24,7 @@ const ENABLED = (() => {
 const TICK_MS = 60 * 60 * 1000; // check hourly, run once per UTC day
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastAlertedDay: string | null = null;
 
@@ -138,18 +140,19 @@ export function startProductLifecycle410Monitor(): void {
   if (timer) return;
 
   // Delay baseline run by 2 min so it doesn't race with startup I/O.
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("product-lifecycle-410", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "productLifecycle410Monitor: baseline run failed",
       );
     });
   }, 2 * 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("product-lifecycle-410", runOnce()).catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
         "productLifecycle410Monitor: tick failed",
@@ -165,6 +168,10 @@ export function startProductLifecycle410Monitor(): void {
 }
 
 export function stopProductLifecycle410Monitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

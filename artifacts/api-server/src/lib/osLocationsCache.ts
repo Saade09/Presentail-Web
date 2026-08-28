@@ -178,6 +178,7 @@ const HARDCODED_BY_CODE = new Map(
 let cachedCountries: CachedCountry[] | null = null;
 let cityIndex = new Map<string, CachedCity>();
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let fetching = false;
 let locationsDataStatus: "live" | "stale" | "fallback" = "fallback";
 const SHARED_LOCATIONS_SNAPSHOT = "os-locations-cache";
@@ -1169,13 +1170,14 @@ export function startOsLocationSync(): void {
 
   // Initial fetch shortly after startup (stagger slightly to avoid
   // hammering the OS API at the same time as other workers).
-  const initTimer = setTimeout(() => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
     runScheduledLocationsSync().catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ err: msg }, "osLocationsCache: initial fetch failed");
     });
   }, 5_000);
-  initTimer.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
     if (fetching) return;
@@ -1195,6 +1197,10 @@ export function startOsLocationSync(): void {
 }
 
 export function stopOsLocationSync(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

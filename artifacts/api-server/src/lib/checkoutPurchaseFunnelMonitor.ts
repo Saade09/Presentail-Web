@@ -1,6 +1,7 @@
 import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable, appOrdersTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert, type AlertField } from "./alerts";
 import {
   loadDailyUpsellTabBuckets,
@@ -73,6 +74,7 @@ type FunnelEventName = (typeof FUNNEL_EVENT_NAMES)[number];
 // ── Module state ───────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -86,18 +88,19 @@ export function startCheckoutPurchaseFunnelMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("checkout-purchase-funnel", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "checkoutPurchaseFunnelMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("checkout-purchase-funnel", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "checkoutPurchaseFunnelMonitor: tick failed",
@@ -119,6 +122,10 @@ export function startCheckoutPurchaseFunnelMonitor(): void {
 }
 
 export function stopCheckoutPurchaseFunnelMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

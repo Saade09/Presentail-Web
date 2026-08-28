@@ -2,6 +2,7 @@ import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert, type AlertField } from "./alerts";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ const RETENTION_DAYS = 30;
 // ── Module state ───────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 // Tracks the last UTC date (YYYY-MM-DD) we've already evaluated, so we don't
 // re-alert every hour. Resets on process restart, which is acceptable: the
@@ -57,18 +59,19 @@ export function startCheckoutLoginFunnelMonitor(): void {
 
   // First check shortly after startup so we don't wait an hour on a cold
   // boot that happens just after midnight UTC.
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("checkout-login-funnel", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "checkoutLoginFunnelMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("checkout-login-funnel", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "checkoutLoginFunnelMonitor: tick failed",
@@ -90,6 +93,10 @@ export function startCheckoutLoginFunnelMonitor(): void {
 }
 
 export function stopCheckoutLoginFunnelMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

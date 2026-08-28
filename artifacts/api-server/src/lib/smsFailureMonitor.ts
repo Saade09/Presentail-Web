@@ -14,6 +14,7 @@
 import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert, type AlertField } from "./alerts";
 
 const ENABLED = (() => {
@@ -39,6 +40,7 @@ const FAILURE_RATE_MAX = envRatio("SMS_FAILURE_RATE_MAX", 0.2);
 const FAILURE_MIN_SENDS = envPositiveInt("SMS_FAILURE_MIN_SENDS", 5);
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -50,15 +52,16 @@ export function startSmsFailureMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("sms-failure", runOnce()).catch((err) => {
       logger.warn({ err: (err as Error)?.message }, "smsFailureMonitor: baseline run failed");
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("sms-failure", runOnce()).catch((err) => {
       logger.warn({ err: (err as Error)?.message }, "smsFailureMonitor: tick failed");
     });
   }, TICK_MS);
@@ -71,6 +74,10 @@ export function startSmsFailureMonitor(): void {
 }
 
 export function stopSmsFailureMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

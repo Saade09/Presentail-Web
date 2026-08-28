@@ -1,6 +1,7 @@
 import { and, asc, gt, ne, or, isNull } from "drizzle-orm";
 import { db, customersTable, type Customer } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import {
   ensureClerkUserForCustomer,
   isClerkConfigured,
@@ -40,6 +41,7 @@ const MAX_PER_RUN = (() => {
 })();
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 // Day-of-last-FULL-sweep. We only advance this when a pass reaches the
 // end of the table — partial passes (capped by MAX_PER_RUN) leave the
@@ -67,18 +69,19 @@ export function startClerkCatchupSync(): void {
   // Same warm-up cadence as the funnel monitors — first pass shortly
   // after boot so cold-start right after the previous UTC day still
   // sweeps yesterday's signups quickly.
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("clerk-catchup", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "clerkCatchupSync: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("clerk-catchup", runOnce()).catch((err) => {
       logger.warn({ err: err?.message }, "clerkCatchupSync: tick failed");
     });
   }, TICK_MS);
@@ -91,6 +94,10 @@ export function startClerkCatchupSync(): void {
 }
 
 export function stopClerkCatchupSync(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

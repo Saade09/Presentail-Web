@@ -180,6 +180,7 @@ let catalogCoverageAlerted = false;
 // ── Module state ────────────────────────────────────────────────────────────
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 // Tracks the last UTC date (YYYY-MM-DD) we've evaluated so we fire once per
 // day. Resets on process restart (a duplicate alert on cold boot is fine).
@@ -979,7 +980,8 @@ export function startSeoAuditMonitor(): void {
   // the coverage check will log "not yet populated" (no alert), and the
   // hourly tick will retry. If the cache is warm by 90 s this call is a
   // harmless no-op (dedup flag prevents a duplicate alert).
-  const baseline = setTimeout(() => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
     scheduledTick().catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
@@ -987,7 +989,7 @@ export function startSeoAuditMonitor(): void {
       );
     });
   }, 90_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
     scheduledTick().catch((err) => {
@@ -1003,6 +1005,10 @@ export function startSeoAuditMonitor(): void {
 }
 
 export function stopSeoAuditMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

@@ -181,6 +181,7 @@ export async function runCatalogImageHealthCheck(
 }
 
 let monitorTimer: NodeJS.Timeout | null = null;
+let initialTimer: ReturnType<typeof setTimeout> | null = null;
 let lastAlertFingerprint = "";
 let lastAlertAt = 0;
 
@@ -247,8 +248,18 @@ export function startCatalogImageHealthMonitor(): void {
     }
   };
 
-  const initialTimer = setTimeout(() => void run(), 5 * 60 * 1000);
+  initialTimer = setTimeout(() => {
+    initialTimer = null;
+    void run();
+  }, 5 * 60 * 1000);
   initialTimer.unref?.();
   monitorTimer = setInterval(() => void run(), 24 * 60 * 60 * 1000);
   monitorTimer.unref?.();
+}
+
+export function stopCatalogImageHealthMonitor(): void {
+  if (initialTimer) clearTimeout(initialTimer);
+  if (monitorTimer) clearInterval(monitorTimer);
+  initialTimer = null;
+  monitorTimer = null;
 }

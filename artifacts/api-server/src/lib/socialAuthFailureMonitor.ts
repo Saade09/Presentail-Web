@@ -1,6 +1,7 @@
 import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 import { sendAlert, type AlertField } from "./alerts";
 import {
   aggregateBuckets as aggregateFailureBuckets,
@@ -87,6 +88,7 @@ const NEW_ERROR_BASELINE_DAYS = envPositiveInt(
 type SocialProvider = "google" | "apple";
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
@@ -98,18 +100,19 @@ export function startSocialAuthFailureMonitor(): void {
   }
   if (timer) return;
 
-  const baseline = setTimeout(() => {
-    runOnce().catch((err) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("social-auth-failure", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "socialAuthFailureMonitor: baseline run failed",
       );
     });
   }, 60_000);
-  baseline.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runOnce().catch((err) => {
+    trackWorkerExecution("social-auth-failure", runOnce()).catch((err) => {
       logger.warn(
         { err: err?.message },
         "socialAuthFailureMonitor: tick failed",
@@ -132,6 +135,10 @@ export function startSocialAuthFailureMonitor(): void {
 }
 
 export function stopSocialAuthFailureMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

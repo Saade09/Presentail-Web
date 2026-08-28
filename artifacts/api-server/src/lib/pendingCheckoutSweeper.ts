@@ -33,6 +33,8 @@ const MAX_AGE_MS = 24 * 60 * 60_000;
 const BATCH_LIMIT = 50;
 
 let sweeping = false;
+let startupTimer: ReturnType<typeof setTimeout> | null = null;
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function sweepPendingCheckoutsOnce(
   signal?: AbortSignal,
@@ -165,6 +167,7 @@ export async function sweepPendingCheckoutsOnce(
 }
 
 export function startPendingCheckoutSweeper(): void {
+  if (sweepTimer) return;
   const tick = async () => {
     await runDistributedJob({
       jobName: "pending-checkout-sweeper",
@@ -174,7 +177,8 @@ export function startPendingCheckoutSweeper(): void {
     });
   };
   // First sweep shortly after boot so a restart doesn't delay rescues.
-  setTimeout(() => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
     void tick().catch((err: unknown) => {
       logger.warn(
         { err: err instanceof Error ? err.message : String(err) },
@@ -182,7 +186,7 @@ export function startPendingCheckoutSweeper(): void {
       );
     });
   }, 30_000).unref?.();
-  const timer = setInterval(() => {
+  sweepTimer = setInterval(() => {
     void tick().catch((err: unknown) => {
       logger.warn(
         { err: err instanceof Error ? err.message : String(err) },
@@ -190,6 +194,13 @@ export function startPendingCheckoutSweeper(): void {
       );
     });
   }, SWEEP_INTERVAL_MS);
-  timer.unref?.();
+  sweepTimer.unref?.();
   logger.info("pendingCheckoutSweeper: started"); // i18n-ignore
+}
+
+export function stopPendingCheckoutSweeper(): void {
+  if (startupTimer) clearTimeout(startupTimer);
+  if (sweepTimer) clearInterval(sweepTimer);
+  startupTimer = null;
+  sweepTimer = null;
 }

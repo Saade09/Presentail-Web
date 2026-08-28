@@ -1,39 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
-import { startReconcileWorker } from "./lib/wooOrders";
-import { seedRankingConfigDefaults } from "./routes/adminCollectionRanking";
-import { startWooSyncWorker } from "./lib/wooSync";
-import { validateOsEnv, startOsLocationSync } from "./lib/osLocationsCache";
-import { startOsProductsSync } from "./lib/osProductsCache";
-import { startCheckoutLoginFunnelMonitor } from "./lib/checkoutLoginFunnelMonitor";
-import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnelMonitor";
-import { startClerkCatchupSync } from "./lib/clerkCatchupSync";
-import { startAuthExistsLookupMonitor } from "./lib/authExistsLookupMonitor";
-import { startSocialAuthFailureMonitor } from "./lib/socialAuthFailureMonitor";
-import { startUpsellConversionMonitor } from "./lib/upsellConversionMonitor";
-import { startUpsellFunnelMonitor } from "./lib/upsellFunnelMonitor";
-import { startSessionCoverageMonitor } from "./lib/sessionCoverageMonitor";
-import { startClerkSessionFallbackMonitor } from "./lib/clerkSessionFallbackMonitor";
-import { startSmsFailureMonitor } from "./lib/smsFailureMonitor";
-import { startFxRatesFallbackMonitor } from "./lib/fxRatesFallbackMonitor";
-import { startPendingCheckoutSweeper } from "./lib/pendingCheckoutSweeper";
-import { startSeoAuditMonitor } from "./lib/seoAuditMonitor";
-import { startWebVitalsMonitor } from "./lib/webVitalsMonitor";
-import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonitor";
-import { startGoogleAdsConversionMonitor } from "./lib/googleAdsConversionMonitor";
-import { startProductAffinityMonitor } from "./lib/productAffinityMonitor";
-import { startProductMetricsSyncJob } from "./lib/productMetricsSyncJob";
-import { startProductLifecycle410Monitor } from "./lib/productLifecycle410Monitor";
-import { startPlantClassificationJob } from "./lib/plantClassificationJob";
-import { startProductTranslationWarmJob } from "./lib/productTranslationWarmJob";
-import { startMerchantListingSuggestionsMonitor } from "./lib/merchantListingSuggestionsMonitor";
-import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
-import { registerOnFirstPopulatedCallback } from "./lib/osProductsCache";
-import { enqueueBulkSeed } from "./lib/pageDescriptionQueue";
-import { validateFbPixelEnv } from "./lib/fbConversions";
-import { warmActiveProductSocialCards } from "./lib/productSocialBackfillJob";
-import { startCatalogImageHealthMonitor } from "./lib/catalogImageHealth";
+import { startWorkerRuntime, stopWorkerRuntime } from "./lib/workerRuntime";
 // Prevent unhandled 'error' events on idle pg pool clients from crashing the
 // process. pg emits these when a connection is terminated unexpectedly (e.g. a
 // database restart or transient network drop). The pool will automatically
@@ -64,7 +32,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -77,51 +45,24 @@ app.listen(port, (err) => {
     );
     return;
   }
-  void registerStripeApplePayDomains();
-  validateOsEnv();
-  validateFbPixelEnv();
-  startOsLocationSync();
-  startOsProductsSync();
-  startReconcileWorker();
-  void seedRankingConfigDefaults();
-  startWooSyncWorker();
+  startWorkerRuntime();
+});
 
-  startCheckoutLoginFunnelMonitor();
-  startCheckoutPurchaseFunnelMonitor();
-  startClerkCatchupSync();
-  startAuthExistsLookupMonitor();
-  startSocialAuthFailureMonitor();
-  startUpsellConversionMonitor();
-  startUpsellFunnelMonitor();
-  startSessionCoverageMonitor();
-  startClerkSessionFallbackMonitor();
-  startSmsFailureMonitor();
-  startFxRatesFallbackMonitor();
-  startPendingCheckoutSweeper();
-  startSeoAuditMonitor();
-  startWebVitalsMonitor();
-  startGeoCurrencyFallbackMonitor();
-  startGoogleAdsConversionMonitor();
-  startProductAffinityMonitor();
-  startProductMetricsSyncJob();
-  startProductLifecycle410Monitor();
-  startPlantClassificationJob();
-  startProductTranslationWarmJob();
-  startMerchantListingSuggestionsMonitor();
-  startCatalogImageHealthMonitor();
+let shuttingDown = false;
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "shutdown: stopping API worker runtime");
+  try {
+    await stopWorkerRuntime(server);
+  } finally {
+    await pool.end();
+  }
+}
 
-  // Seed contextual descriptions for all category/occasion × area × language
-  // combinations once the OS product catalog is first populated. Runs in the
-  // background — never blocks startup. Skips already-done and manual rows.
-  registerOnFirstPopulatedCallback(() => {
-    void enqueueBulkSeed().catch((err: unknown) => {
-      logger.warn({ err: (err as Error)?.message }, "startup: pageDescription bulk seed failed (non-fatal)");
-    });
-    // A deployment/catalog refresh should not depend on an operator remembering
-    // to run the backfill CLI. This bounded, idempotent warm starts once the
-    // catalog cache is ready and leaves the CLI available for explicit retries.
-    void warmActiveProductSocialCards().catch((err: unknown) => {
-      logger.warn({ err: (err as Error)?.message }, "startup: product social backfill failed (non-fatal)");
-    });
-  });
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM").then(() => process.exit(0));
+});
+process.once("SIGINT", () => {
+  void shutdown("SIGINT").then(() => process.exit(0));
 });

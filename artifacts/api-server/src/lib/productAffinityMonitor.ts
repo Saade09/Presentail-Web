@@ -10,6 +10,7 @@
 import { db, appOrdersTable, productPairAffinityTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { trackWorkerExecution } from "./inFlightWorkerExecutions";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ type LineItem = {
 // ── Module state ───────────────────────────────────────────────────────────
 
 let timer: ReturnType<typeof setInterval> | null = null;
+let startupTimer: ReturnType<typeof setTimeout> | null = null;
 let lastComputedDay: string | null = null;
 
 const TICK_MS = 60 * 60 * 1000; // 1 h
@@ -143,18 +145,19 @@ async function runCompute(): Promise<void> {
 
 export function startProductAffinityMonitor(): void {
   // Run shortly after boot so the table is warm within the first startup window.
-  const startup = setTimeout(() => {
-    runCompute().catch((err: unknown) => {
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    trackWorkerExecution("product-affinity", runCompute()).catch((err: unknown) => {
       logger.warn(
         { err: err instanceof Error ? err.message : String(err) },
         "productAffinityMonitor: startup run failed",
       );
     });
   }, 30_000);
-  startup.unref?.();
+  startupTimer.unref?.();
 
   timer = setInterval(() => {
-    runCompute().catch((err: unknown) => {
+    trackWorkerExecution("product-affinity", runCompute()).catch((err: unknown) => {
       logger.warn(
         { err: err instanceof Error ? err.message : String(err) },
         "productAffinityMonitor: tick failed",
@@ -167,6 +170,10 @@ export function startProductAffinityMonitor(): void {
 }
 
 export function stopProductAffinityMonitor(): void {
+  if (startupTimer) {
+    clearTimeout(startupTimer);
+    startupTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;

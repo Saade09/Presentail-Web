@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createDistributedJobRunner,
+  shutdownDistributedJobs,
   type BackgroundJobLeaseStore,
   type BackgroundJobSnapshot,
   type DistributedJobContext,
@@ -332,5 +333,185 @@ describe("distributed background jobs", () => {
       reason: "database-error",
     });
     expect(executed).toBe(false);
+  });
+
+  it("aborts a job at its explicit deadline and releases ownership", async () => {
+    const store = new InMemoryLeaseStore();
+    const runner = createDistributedJobRunner({ store });
+    const run = runner({
+      jobName: "deadline-job",
+      intervalMs: 60_000,
+      timeoutMs: 1_000,
+      task: async (context) => {
+        await new Promise<void>((_resolve, reject) => {
+          context.signal.addEventListener("abort", () => reject(context.signal.reason), {
+            once: true,
+          });
+        });
+      },
+    });
+
+    await expect(run).rejects.toThrow("Distributed job timed out");
+    expect(store.runtimeLocks.size).toBe(0);
+    expect(store.rows.get("deadline-job")?.status).toBe("failed");
+  });
+
+  it("keeps the ownership fence while a timed-out task is still settling", async () => {
+    const store = new InMemoryLeaseStore();
+    const runner = createDistributedJobRunner({ store });
+    let settleTask!: () => void;
+    const run = runner({
+      jobName: "non-cooperative-job",
+      intervalMs: 60_000,
+      timeoutMs: 1_000,
+      task: () => new Promise<void>((resolve) => {
+        settleTask = resolve;
+      }),
+    });
+
+    await expect(run).rejects.toThrow("Distributed job timed out");
+    expect(store.runtimeLocks.size).toBe(1);
+
+    settleTask();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.runtimeLocks.size).toBe(0);
+    expect(store.rows.get("non-cooperative-job")?.status).toBe("failed");
+  });
+
+  it("fences the process if the retained timeout lock is later lost", async () => {
+    const store = new InMemoryLeaseStore();
+    let settleTask!: () => void;
+    const fatalLosses: string[] = [];
+    const runner = createDistributedJobRunner({
+      store,
+      onFatalOwnershipLoss: (jobName) => fatalLosses.push(jobName),
+    });
+    const run = runner({
+      jobName: "timeout-then-session-loss",
+      intervalMs: 60_000,
+      timeoutMs: 1_000,
+      task: () => new Promise<void>((resolve) => {
+        settleTask = resolve;
+      }),
+    });
+
+    await expect(run).rejects.toThrow("Distributed job timed out");
+    expect(store.rows.get("timeout-then-session-loss")?.status).toBe("running");
+    store.loseRuntimeLock("timeout-then-session-loss");
+    expect(fatalLosses).toEqual(["timeout-then-session-loss"]);
+
+    const replacement = await runner({
+      jobName: "timeout-then-session-loss",
+      intervalMs: 60_000,
+      task: async () => {
+        throw new Error("replacement must remain fenced");
+      },
+    });
+    expect(replacement.status).toBe("skipped");
+    settleTask();
+  });
+
+  it("keeps the durable lease and fences the process on non-cooperative session loss", async () => {
+    const store = new InMemoryLeaseStore();
+    let settleTask!: () => void;
+    const fatalLosses: string[] = [];
+    const runner = createDistributedJobRunner({
+      store,
+      now: () => new Date("2026-08-27T10:00:01.000Z"),
+      onFatalOwnershipLoss: (jobName) => fatalLosses.push(jobName),
+    });
+    const run = runner({
+      jobName: "lost-session-job",
+      intervalMs: 60_000,
+      leaseMs: 60_000,
+      task: () => new Promise<void>((resolve) => {
+        settleTask = resolve;
+      }),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    store.loseRuntimeLock("lost-session-job");
+
+    await expect(run).rejects.toThrow("simulated PostgreSQL session loss");
+    expect(fatalLosses).toEqual(["lost-session-job"]);
+    expect(store.rows.get("lost-session-job")?.status).toBe("running");
+
+    let replacementRan = false;
+    const immediateReplacement = await runner({
+      jobName: "lost-session-job",
+      intervalMs: 60_000,
+      leaseMs: 60_000,
+      task: async () => {
+        replacementRan = true;
+      },
+    });
+    expect(immediateReplacement.status).toBe("skipped");
+    expect(replacementRan).toBe(false);
+    settleTask();
+  });
+
+  it.each(["returned false", "threw"] as const)(
+    "fences the process when heartbeat renewal %s during non-cooperative work",
+    async (failureMode) => {
+      const store = new InMemoryLeaseStore();
+      let settleTask!: () => void;
+      const fatalLosses: string[] = [];
+      store.renew = async () => {
+        if (failureMode === "threw") throw new Error("renewal unavailable");
+        return false;
+      };
+      const runner = createDistributedJobRunner({
+        store,
+        onFatalOwnershipLoss: (jobName) => fatalLosses.push(jobName),
+      });
+      const run = runner({
+        jobName: `renewal-${failureMode}`,
+        intervalMs: 60_000,
+        leaseMs: 3_000,
+        timeoutMs: 5_000,
+        task: () => new Promise<void>((resolve) => {
+          settleTask = resolve;
+        }),
+      });
+
+      await expect(run).rejects.toThrow(
+        failureMode === "threw" ? "renewal unavailable" : "Distributed lease lost",
+      );
+      expect(fatalLosses).toEqual([`renewal-${failureMode}`]);
+      expect(store.rows.get(`renewal-${failureMode}`)?.status).toBe("running");
+
+      let replacementRan = false;
+      const replacement = await runner({
+        jobName: `renewal-${failureMode}`,
+        intervalMs: 60_000,
+        leaseMs: 3_000,
+        task: async () => {
+          replacementRan = true;
+        },
+      });
+      expect(replacement.status).toBe("skipped");
+      expect(replacementRan).toBe(false);
+      settleTask();
+    },
+  );
+
+  it("aborts in-flight work and releases locks during runtime shutdown", async () => {
+    const store = new InMemoryLeaseStore();
+    const runner = createDistributedJobRunner({ store });
+    const run = runner({
+      jobName: "shutdown-job",
+      intervalMs: 60_000,
+      task: async (context) => {
+        await new Promise<void>((_resolve, reject) => {
+          context.signal.addEventListener("abort", () => reject(context.signal.reason), {
+            once: true,
+          });
+        });
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await shutdownDistributedJobs(1_000);
+    await expect(run).rejects.toThrow("shutting down");
+    expect(store.runtimeLocks.size).toBe(0);
   });
 });
