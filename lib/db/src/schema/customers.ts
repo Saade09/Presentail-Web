@@ -83,6 +83,12 @@ export const customersTable = pgTable(
       "password_reset_token_expires_at",
       { withTimezone: true },
     ),
+    // Incremented when credentials change. Server-issued bearer tokens carry
+    // the version they were issued under and are rejected after a reset.
+    sessionVersion: integer("session_version").notNull().default(0),
+    // WordPress JWTs cannot carry our session version. Their signed `iat`
+    // claim is compared with this reset boundary instead.
+    sessionRevokedAt: timestamp("session_revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

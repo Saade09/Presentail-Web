@@ -91,3 +91,4 @@
 - [Expo static delivery canary](expo-static-delivery-canary.md) — keep header-negotiated manifests on Node; generate same-build Node/static cohorts so rollback never needs a rebuild.
 - [Catalog AI request bounds](catalog-ai-request-bounds.md) — custom retry policy must disable SDK retries; never evict active dedupe work; capacity must preserve each caller’s fallback.
 - [Advertising purchase integrity](advertising-purchase-integrity.md) — privileged Google/Meta Purchase conversions must originate from verified server-side order state, never public analytics payloads.
+- [Password-reset session revocation](password-reset-session-revocation.md) — use per-customer session versions, not timestamps; consume reset tokens and increment versions atomically.

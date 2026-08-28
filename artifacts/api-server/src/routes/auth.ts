@@ -7,7 +7,7 @@ import { authenticate, signServerToken, isWcAuthEnabled } from "../lib/auth";
 import { reconcileGuestOrders } from "../lib/orderReconciliation";
 import { logger } from "../lib/logger";
 import { requireUserType } from "../lib/requireUserType";
-import { and, eq, isNull, isNotNull, gt } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, gt, sql } from "drizzle-orm";
 import { db, customersTable, CUSTOMER_GENDERS, phoneOtpsTable } from "@workspace/db";
 import { upsertCustomer, getCustomerByWcId, getCustomerById, getCustomerByAppleSub, normalizePhoneE164 } from "../lib/customers";
 import { validateStoredPhone } from "../lib/phoneValidation";
@@ -2138,10 +2138,9 @@ async function issueSocialSession(
   try {
     const customer = await ensureCustomerForSocial(profile, req);
     const mapped = mapCustomer(customer);
-    // Best-effort mirror to local DB AND propagate to Clerk so a new
-    // mobile/web social signup is reachable from the web sign-in
-    // email-lookup flow within seconds.
-    mirrorAndPropagateToClerk(
+    // Session issuance depends on the local session-version row, so this
+    // mirror must complete before the token is signed.
+    const localCustomer = await mirrorWcCustomerLocally(
       mapped.id,
       {
         email: mapped.email,
@@ -2154,11 +2153,24 @@ async function issueSocialSession(
       },
       req.log,
     );
+    if (!localCustomer) {
+      throw new Error("Could not persist session identity");
+    }
+    if (isClerkConfigured()) {
+      ensureClerkUserInBackground({
+        email: mapped.email,
+        firstName: mapped.firstName || null,
+        lastName: mapped.lastName || null,
+        localCustomerId: localCustomer.id,
+        log: req.log,
+      });
+    }
     const token = await signServerToken({
       customerId: mapped.id,
       email: mapped.email,
       provider,
       storeBaseUrl: store.baseUrl,
+      localCustomerId: localCustomer.id,
     });
     return res.json({ ok: true, token, user: mapped });
   } catch (e: any) {
@@ -2417,15 +2429,31 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
         });
       }
       const newHash = await hashPassword(password);
-      await db
+      const [updated] = await db
         .update(customersTable)
         .set({
           passwordHash: newHash,
           passwordResetToken: null,
           passwordResetTokenExpiresAt: null,
+          sessionVersion: sql`${customersTable.sessionVersion} + 1`,
+          sessionRevokedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(customersTable.id, customer.id));
+        .where(
+          and(
+            eq(customersTable.id, customer.id),
+            eq(customersTable.passwordResetToken, keyHash),
+            gt(customersTable.passwordResetTokenExpiresAt, now),
+          ),
+        )
+        .returning({ id: customersTable.id });
+      if (!updated) {
+        return res.status(400).json({
+          ok: false,
+          code: "expired_link",
+          message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
+        });
+      }
       return res.json({ ok: true });
     } catch (e: any) {
       req.log?.warn?.({ err: e?.message }, "auth.reset.confirm: local DB error");
@@ -2475,6 +2503,55 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
         code: "expired_link",
         message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
       });
+    }
+
+    // Resolve and mirror the exact WordPress identity before changing the
+    // upstream password. Revoking first is intentionally conservative: if
+    // WordPress later rejects the new password, old bearer sessions remain
+    // signed out and the customer can log in again with valid credentials.
+    const wcLookup = await wcFetch(
+      `/customers?search=${encodeURIComponent(login)}&role=all&per_page=100`,
+      {},
+      req,
+    );
+    if (!wcLookup.ok) {
+      throw new Error(`Could not resolve reset account (status ${wcLookup.status})`);
+    }
+    const wcCustomers = (await wcLookup.json().catch(() => [])) as any[];
+    const normalizedLogin = login.trim().toLowerCase();
+    const wcCustomer = Array.isArray(wcCustomers)
+      ? wcCustomers.find((candidate) =>
+          String(candidate?.email ?? "").trim().toLowerCase() === normalizedLogin ||
+          String(candidate?.username ?? "").trim().toLowerCase() === normalizedLogin)
+      : null;
+    const wcCustomerId = Number(wcCustomer?.id);
+    if (!Number.isFinite(wcCustomerId) || wcCustomerId <= 0) {
+      throw new Error("Could not resolve reset account");
+    }
+    const localCustomer = await mirrorWcCustomerLocally(
+      wcCustomerId,
+      {
+        email: String(wcCustomer.email ?? "").trim().toLowerCase(),
+        firstName: wcCustomer.first_name ?? "",
+        lastName: wcCustomer.last_name ?? "",
+        phone: wcCustomer.billing?.phone ?? "",
+      },
+      req.log,
+    );
+    if (!localCustomer) {
+      throw new Error("Could not persist reset account");
+    }
+    const [revokedCustomer] = await db
+      .update(customersTable)
+      .set({
+        sessionVersion: sql`${customersTable.sessionVersion} + 1`,
+        sessionRevokedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(customersTable.id, localCustomer.id))
+      .returning({ id: customersTable.id });
+    if (!revokedCustomer) {
+      throw new Error("Could not revoke existing sessions");
     }
 
     // Step 2: POST the new password to `?action=resetpass` with the cookie.

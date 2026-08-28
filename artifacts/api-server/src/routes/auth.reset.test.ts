@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   // DB mock state
   dbSelectRows: [] as any[],
   dbUpdateResult: [] as any[],
+  dbUpdateSets: [] as any[],
   // Limiter state
   resetEmailLimiterAllowed: true,
   // Helpers
@@ -138,6 +139,7 @@ vi.mock("drizzle-orm", () => ({
   isNotNull: (_col: unknown) => ({}),
   gt: (_col: unknown, _val: unknown) => ({}),
   desc: (_col: unknown) => ({}),
+  sql: () => ({}),
 }));
 
 // DB: select chain returns mocks.dbSelectRows; update chain is recorded.
@@ -152,7 +154,14 @@ vi.mock("@workspace/db", () => ({
     }),
     insert: () => ({ values: () => ({ returning: () => Promise.resolve([]) }) }),
     update: () => ({
-      set: () => ({ where: () => Promise.resolve(mocks.dbUpdateResult) }),
+      set: (values: any) => {
+        mocks.dbUpdateSets.push(values);
+        return {
+          where: () => ({
+            returning: () => Promise.resolve(mocks.dbUpdateResult),
+          }),
+        };
+      },
     }),
     delete: () => ({ where: () => Promise.resolve() }),
   },
@@ -168,6 +177,8 @@ vi.mock("@workspace/db", () => ({
     passwordHash: "password_hash",
     passwordResetToken: "password_reset_token",
     passwordResetTokenExpiresAt: "password_reset_token_expires_at",
+    sessionVersion: "session_version",
+    sessionRevokedAt: "session_revoked_at",
   },
   phoneOtpsTable: {
     phoneE164: "phone_e164",
@@ -216,6 +227,8 @@ describe("POST /auth/reset/request — local-only (WC_AUTH_ENABLED=false)", () =
     mocks.isWcAuthEnabled.mockReturnValue(false);
     mocks.resetEmailLimiterAllowed = true;
     mocks.dbSelectRows = [];
+    mocks.dbUpdateSets = [];
+    mocks.dbUpdateResult = [];
     mocks.nodemailerSendMail.mockResolvedValue({});
     // SMTP_HOST must be set so sendPasswordResetEmail doesn't skip.
     process.env.SMTP_HOST = "smtp.test";
@@ -303,11 +316,14 @@ describe("POST /auth/reset/confirm — local-only (WC_AUTH_ENABLED=false)", () =
     vi.clearAllMocks();
     mocks.isWcAuthEnabled.mockReturnValue(false);
     mocks.dbSelectRows = [];
+    mocks.dbUpdateSets = [];
+    mocks.dbUpdateResult = [];
   });
 
   it("accepts valid key+login+password and returns ok:true", async () => {
     // DB returns a customer row matching the token + email + valid expiry.
     mocks.dbSelectRows = [{ id: 42 }];
+    mocks.dbUpdateResult = [{ id: 42 }];
     const app = buildApp();
     const res = await request(app)
       .post("/auth/reset/confirm")
@@ -316,6 +332,8 @@ describe("POST /auth/reset/confirm — local-only (WC_AUTH_ENABLED=false)", () =
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
+    expect(mocks.dbUpdateSets.at(-1)?.sessionVersion).toBeDefined();
+    expect(mocks.dbUpdateSets.at(-1)?.sessionRevokedAt).toBeInstanceOf(Date);
   });
 
   it("returns 400 with code expired_link when no matching DB row is found (expired or wrong token)", async () => {

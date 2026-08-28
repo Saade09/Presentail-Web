@@ -82,11 +82,24 @@ export async function signServerToken(input: {
       "SOCIAL_JWT_SECRET (or JWT_SECRET) must be set to issue session tokens",
     );
   }
+  const customerWhere = input.localCustomerId != null
+    ? eq(customersTable.id, input.localCustomerId)
+    : eq(customersTable.wcCustomerId, input.customerId);
+  const [customer] = await db
+    .select({ sessionVersion: customersTable.sessionVersion })
+    .from(customersTable)
+    .where(customerWhere)
+    .limit(1);
+  if (!customer) {
+    throw new Error("Cannot issue a session for an unknown customer");
+  }
+
   const payload: Record<string, unknown> = {
     email: input.email,
     provider: input.provider,
     customer_id: input.customerId,
     store_base_url: input.storeBaseUrl,
+    session_version: customer.sessionVersion,
   };
   if (input.localCustomerId != null) {
     payload.local_customer_id = input.localCustomerId;
@@ -104,7 +117,7 @@ export async function signServerToken(input: {
     .sign(key);
 }
 
-async function verifyServerToken(token: string, req?: { query: any; headers: any }): Promise<AuthResult> {
+async function verifyServerToken(token: string, _req?: { query: any; headers: any }): Promise<AuthResult> {
   const key = getServerJwtSecret();
   if (!key) {
     return { ok: false, status: 503, message: "Social auth not configured" }; // i18n-ignore
@@ -290,6 +303,20 @@ async function resolveClerkSession(
     }
     return { ok: false, status: 401, message: "This account has been deleted" }; // i18n-ignore
   }
+  if (resolvedCustomer?.sessionRevokedAt) {
+    const issuedAtSeconds = Number(claims?.iat);
+    if (
+      !Number.isInteger(issuedAtSeconds) ||
+      issuedAtSeconds <=
+        Math.floor(resolvedCustomer.sessionRevokedAt.getTime() / 1000)
+    ) {
+      req.log?.warn?.(
+        { localCustomerId, userId },
+        "auth.clerk: session predates credential reset — rejecting",
+      );
+      return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
+    }
+  }
 
   // When WC auth is disabled (default for new deployments), skip the
   // WooCommerce sync entirely — the local customer ID is the canonical
@@ -389,22 +416,46 @@ export async function authenticate(
     const result = await verifyServerToken(token, req);
     if (result.ok) {
       // Enforce account deletion centrally: a pre-deletion bearer token must
-      // not grant access after the account row is tombstoned.
+      // not grant access after the account row is tombstoned. Password-reset
+      // session revocation is enforced in the same lookup.
       // localCustomerId is set for WC-mode social tokens; for local-only tokens
       // customerId IS the local DB row id.
-      const localId = result.localCustomerId ?? result.customerId;
       try {
+        // Tokens issued for local customers carry localCustomerId. Legacy
+        // WC-issued tokens carry the WooCommerce customer ID instead.
+        const customerWhere = result.localCustomerId != null
+          ? eq(customersTable.id, result.localCustomerId)
+          : eq(customersTable.wcCustomerId, result.customerId);
         const [row] = await db
-          .select({ deletedAt: customersTable.deletedAt })
+          .select({
+            deletedAt: customersTable.deletedAt,
+            sessionVersion: customersTable.sessionVersion,
+          })
           .from(customersTable)
-          .where(eq(customersTable.id, localId))
+          .where(customerWhere)
           .limit(1);
         if (row?.deletedAt != null) {
           return { ok: false, status: 401, message: "Account has been deleted. Please sign up again." }; // i18n-ignore
         }
+        if (!row) {
+          return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
+        }
+        // Tokens minted before session-versioning have no claim and therefore
+        // belong to version 0. The first password reset increments the row to
+        // version 1 and invalidates all of those legacy tokens.
+        const tokenSessionVersion =
+          payload.session_version == null ? 0 : Number(payload.session_version);
+        if (
+          !Number.isInteger(tokenSessionVersion) ||
+          tokenSessionVersion < 0 ||
+          tokenSessionVersion !== row.sessionVersion
+        ) {
+          return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
+        }
       } catch {
-        // DB lookup failure — fail open to avoid a liveness outage. Per-route
-        // checks (resolveCustomerId, resolveClerkSession) still enforce deletedAt.
+        // DB lookup failure — fail closed because bypassing this check would
+        // allow a pre-reset bearer token to remain active.
+        return { ok: false, status: 503, message: "Unable to validate session" }; // i18n-ignore
       }
     }
     return result;
@@ -441,15 +492,32 @@ export async function authenticate(
   // by WC customer ID and reject deleted accounts before returning the auth result.
   try {
     const [row] = await db
-      .select({ deletedAt: customersTable.deletedAt })
+      .select({
+        deletedAt: customersTable.deletedAt,
+        sessionRevokedAt: customersTable.sessionRevokedAt,
+      })
       .from(customersTable)
       .where(eq(customersTable.wcCustomerId, id))
       .limit(1);
+    if (!row) {
+      return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
+    }
     if (row?.deletedAt != null) {
       return { ok: false, status: 401, message: "Account has been deleted. Please sign up again." }; // i18n-ignore
     }
+    if (row.sessionRevokedAt != null) {
+      const issuedAtSeconds = Number(payload?.iat);
+      if (
+        !Number.isInteger(issuedAtSeconds) ||
+        issuedAtSeconds <= Math.floor(row.sessionRevokedAt.getTime() / 1000)
+      ) {
+        return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
+      }
+    }
   } catch {
-    // DB lookup failure — fail open; per-route checks still enforce deletedAt.
+    // DB lookup failure — fail closed because bypassing this check would allow
+    // a pre-reset WordPress bearer token to remain active.
+    return { ok: false, status: 503, message: "Unable to validate session" }; // i18n-ignore
   }
 
   return { ok: true, customerId: id, token };
