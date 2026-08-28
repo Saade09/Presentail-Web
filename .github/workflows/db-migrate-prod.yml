@@ -66,10 +66,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Restore composite library outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/dist
+            lib/*/tsconfig.tsbuildinfo
+          key: libs-v2-${{ runner.os }}-node24-${{ hashFiles('lib/**', 'tsconfig*.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
       - name: Push schema to production database
-        run: pnpm --filter @workspace/db run push-force
+        run: |
+          started=$(date +%s%3N)
+          pnpm --filter @workspace/db run push-force-prod-locked
+          duration_ms=$(( $(date +%s%3N) - started ))
+          echo "### Production schema stage" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Duration: ${duration_ms} ms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cancellation: disabled" >> "$GITHUB_STEP_SUMMARY"
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}

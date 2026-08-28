@@ -10,6 +10,7 @@
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "push-force-prod-locked": "node ./scripts/pushForceLocked.mjs",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

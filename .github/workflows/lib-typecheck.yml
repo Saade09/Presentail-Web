@@ -10,6 +10,19 @@ on:
     paths:
       - "lib/**"
       - ".github/workflows/lib-typecheck.yml"
+  schedule:
+    - cron: "0 5 * * 0"
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: "Ignore reusable declarations and run tsc from a clean state"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: lib-typecheck-${{ github.event.pull_request.head.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lib-typecheck:
@@ -33,8 +46,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Restore composite library outputs
+        if: github.event_name != 'schedule' && inputs.clean_build != true
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/dist
+            lib/*/tsconfig.tsbuildinfo
+          key: libs-v2-${{ runner.os }}-node24-${{ hashFiles('lib/**', 'tsconfig*.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+
       - name: Build & type-check all composite libs
-        run: pnpm run typecheck:libs
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.clean_build }}" = "true" ]; then
+            pnpm run typecheck:libs:clean
+          else
+            pnpm run typecheck:libs
+          fi
 
       - name: Per-lib type-check (composite libs)
         run: pnpm -r --filter "./lib/**" --if-present run typecheck

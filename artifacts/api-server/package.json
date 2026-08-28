@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
+    "release-build": "node ./scripts/release-build.mjs",
+    "verify-build": "node ../../scripts/build-artifact-provenance.mjs --name api --artifact-dir dist --verify --max-bytes 25000000",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "pnpm -w run typecheck:libs && tsc -p tsconfig.json --noEmit",
     "typecheck:tests": "pnpm -w run typecheck:libs && tsc -p tsconfig.test.json --noEmit",

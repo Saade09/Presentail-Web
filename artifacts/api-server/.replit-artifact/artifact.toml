@@ -29,10 +29,11 @@ run = "pnpm --filter @workspace/api-server run dev"
 #                            PAT with repo scope) on this repository.
 #   GITHUB_REPOSITORY      — owner/repo slug, e.g. presentail/presentail
 # The dispatch call is non-fatal: if either secret is absent the build still succeeds.
-args = ["sh", "-c", "pnpm --filter @workspace/db run push-force && pnpm --filter @workspace/api-server run build && (sh scripts/post-deploy-seo-trigger.sh || true)"]
+args = ["sh", "-c", "pnpm --filter @workspace/api-server run release-build && (sh scripts/post-deploy-seo-trigger.sh || true)"]
 
 [services.production.build.env]
 NODE_ENV = "production"
+API_RELEASE_STAGED = "1"
 
 [services.production.run]
 # we don't run through pnpm to make startup faster in production

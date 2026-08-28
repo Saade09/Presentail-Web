@@ -47,6 +47,11 @@ on:
       - "artifacts/presentail-web/serve.mjs"
       - "artifacts/presentail-web/sitemap.mjs"
       - "artifacts/presentail-web/llms.mjs"
+      - "artifacts/presentail-web/package.json"
+      - "artifacts/presentail-web/vite.config.ts"
+      - "lib/**"
+      - "scripts/build-artifact-provenance.mjs"
+      - "pnpm-lock.yaml"
       - ".github/workflows/seo-regression.yml"
 
 concurrency:
@@ -154,13 +159,62 @@ jobs:
           fi
 
       # ── Local build path (skipped when SEO_PREVIEW_URL is set) ─────────────
+      - name: Restore composite library outputs
+        if: steps.preview.outputs.use_local == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/dist
+            lib/*/tsconfig.tsbuildinfo
+          key: libs-v2-${{ runner.os }}-node24-${{ hashFiles('lib/**', 'tsconfig*.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+
       - name: Build shared libs
         if: steps.preview.outputs.use_local == 'true'
         run: pnpm run typecheck:libs
 
-      - name: Build web app
+      - name: Restore verified web build
         if: steps.preview.outputs.use_local == 'true'
-        run: pnpm --filter @workspace/presentail-web run build
+        id: web-dist-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/presentail-web/dist
+          key: web-dist-v2-${{ runner.os }}-node24-${{ hashFiles('artifacts/presentail-web/**', 'lib/**', 'attached_assets/**', 'scripts/build-artifact-provenance.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig*.json') }}
+
+      - name: Build web app
+        id: web-build
+        if: steps.preview.outputs.use_local == 'true' && steps.web-dist-cache.outputs.cache-hit != 'true'
+        run: |
+          started=$(date +%s%3N)
+          pnpm --filter @workspace/presentail-web run build
+          echo "duration_ms=$(( $(date +%s%3N) - started ))" >> "$GITHUB_OUTPUT"
+
+      - name: Skip web build on verified cache hit
+        if: steps.preview.outputs.use_local == 'true' && steps.web-dist-cache.outputs.cache-hit == 'true'
+        run: echo "Using verified web build cache entry; source and output hashes are checked below."
+
+      - name: Verify web provenance, integrity, and size budget
+        if: steps.preview.outputs.use_local == 'true'
+        env:
+          BUILD_CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
+        run: pnpm --filter @workspace/presentail-web run verify-build
+
+      - name: Report web build reuse
+        if: steps.preview.outputs.use_local == 'true'
+        env:
+          CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
+          BUILD_DURATION_MS: ${{ steps.web-build.outputs.duration_ms }}
+        run: |
+          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const manifest = require("./artifacts/presentail-web/dist/public/.build-provenance.json");
+          const hit = process.env.CACHE_HIT === "true";
+          console.log("### SEO preview web output");
+          console.log(`- Cache hit: ${hit}`);
+          console.log(`- Full builds avoided: ${hit ? 1 : 0}`);
+          console.log(`- Build duration: ${hit ? "0 ms (reused)" : `${process.env.BUILD_DURATION_MS || "unavailable"} ms`}`);
+          console.log(`- Artifact size: ${manifest.output.bytes} bytes`);
+          console.log(`- Source hash: \`${manifest.source.hash}\``);
+          console.log(`- Output hash: \`${manifest.output.sha256}\``);
+          NODE
 
       - name: Start SEO entity fixture API
         # Provides synthetic product/brand/category/occasion responses so

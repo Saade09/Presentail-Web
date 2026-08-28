@@ -5,13 +5,39 @@ on:
     branches: [main]
     paths:
       - "artifacts/presentail-web/**"
+      - "attached_assets/**"
+      - "lib/**"
       - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig*.json"
       - ".github/workflows/web-serve-check.yml"
   pull_request:
     paths:
       - "artifacts/presentail-web/**"
+      - "attached_assets/**"
+      - "lib/**"
       - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig*.json"
       - ".github/workflows/web-serve-check.yml"
+  schedule:
+    # A weekly cache-bypassing run detects poisoned or incomplete cache entries.
+    - cron: "30 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: "Ignore reusable outputs and run a clean build"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: web-serve-check-${{ github.event.pull_request.head.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   web-serve-check:
@@ -34,6 +60,15 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Restore composite library outputs
+        if: github.event_name != 'schedule' && inputs.clean_build != true
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/dist
+            lib/*/tsconfig.tsbuildinfo
+          key: libs-v2-${{ runner.os }}-node24-${{ hashFiles('lib/**', 'tsconfig*.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
 
       - name: Build shared libs
         run: pnpm run typecheck:libs
@@ -86,11 +121,43 @@ jobs:
       - name: Check image alt text (no <img> missing alt or using empty alt without annotation)
         run: pnpm --filter @workspace/scripts run check-image-alt
 
-      - name: Build web app (vite + compress-assets)
-        run: pnpm --filter @workspace/presentail-web run build
+      - name: Restore verified web build
+        if: github.event_name != 'schedule' && inputs.clean_build != true
+        id: web-dist-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/presentail-web/dist
+          key: web-dist-v2-${{ runner.os }}-node24-${{ hashFiles('artifacts/presentail-web/**', 'lib/**', 'attached_assets/**', 'scripts/build-artifact-provenance.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig*.json') }}
 
-      - name: Verify dist is present and fresh
-        run: node artifacts/presentail-web/scripts/check-dist-fresh.mjs artifacts/presentail-web/dist/public
+      - name: Build web app (vite + compress-assets)
+        id: web-build
+        if: github.event_name == 'schedule' || inputs.clean_build == true || steps.web-dist-cache.outputs.cache-hit != 'true'
+        run: |
+          started=$(date +%s%3N)
+          pnpm --filter @workspace/presentail-web run build
+          echo "duration_ms=$(( $(date +%s%3N) - started ))" >> "$GITHUB_OUTPUT"
+
+      - name: Verify web provenance, integrity, and size budget
+        env:
+          BUILD_CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
+        run: pnpm --filter @workspace/presentail-web run verify-build
+
+      - name: Report web build reuse
+        env:
+          CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
+          BUILD_DURATION_MS: ${{ steps.web-build.outputs.duration_ms }}
+        run: |
+          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const manifest = require("./artifacts/presentail-web/dist/public/.build-provenance.json");
+          const hit = process.env.CACHE_HIT === "true";
+          console.log("### Web build output");
+          console.log(`- Cache hit: ${hit}`);
+          console.log(`- Full builds avoided: ${hit ? 1 : 0}`);
+          console.log(`- Build duration: ${hit ? "0 ms (reused)" : `${process.env.BUILD_DURATION_MS || "unavailable"} ms`}`);
+          console.log(`- Artifact size: ${manifest.output.bytes} bytes`);
+          console.log(`- Source hash: \`${manifest.source.hash}\``);
+          console.log(`- Output hash: \`${manifest.output.sha256}\``);
+          NODE
 
       - name: Check logo preload tag survives critters rewrite
         run: node artifacts/presentail-web/scripts/check-logo-preload.mjs artifacts/presentail-web/dist/public
@@ -209,14 +276,14 @@ jobs:
           node-version: 24
           cache: "pnpm"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Download dist artifact
         uses: actions/download-artifact@v4
         with:
           name: web-dist
           path: artifacts/presentail-web/dist/public
+
+      - name: Verify downloaded artifact provenance and size
+        run: node scripts/build-artifact-provenance.mjs --name web --artifact-dir artifacts/presentail-web/dist/public --verify --max-bytes 30000000
 
       - name: Web Vitals budget (no blocking scripts, font preload present)
         run: node artifacts/presentail-web/scripts/check-web-vitals-budget.mjs artifacts/presentail-web/dist/public
@@ -256,4 +323,3 @@ jobs:
 
       - name: Check Apple Pay domain association file on production
         run: node artifacts/presentail-web/scripts/check-apple-pay-domain.mjs https://presentail.com
-

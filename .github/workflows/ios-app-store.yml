@@ -95,12 +95,31 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Restore composite library outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/dist
+            lib/*/tsconfig.tsbuildinfo
+          key: libs-v2-${{ runner.os }}-node20-${{ hashFiles('lib/**', 'tsconfig*.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
+      - name: Restore verified web build
+        id: web-dist-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/presentail-web/dist
+          key: web-dist-v2-${{ runner.os }}-node20-${{ hashFiles('artifacts/presentail-web/**', 'lib/**', 'attached_assets/**', 'scripts/build-artifact-provenance.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig*.json') }}
+
       - name: Build web app (vite + compress-assets)
         # Required so the Brotli sidecars exist for the chunk budget check below.
+        if: steps.web-dist-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @workspace/presentail-web run build
+
+      - name: Verify web provenance, integrity, and size budget
+        run: pnpm --filter @workspace/presentail-web run verify-build
 
       - name: Chunk budget check (≤200 kB brotli per chunk)
         # Blocks the App Store promotion when any JS chunk exceeds the budget,
