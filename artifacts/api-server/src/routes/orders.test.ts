@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { countryToPrefix } from "./orders";
 
 // ---------------------------------------------------------------------------
@@ -36,6 +36,7 @@ vi.mock("@workspace/db", () => ({
     }),
   },
   orderIdSequencesTable: { prefix: "prefix", nextVal: "next_val" },
+  checkoutAttemptsTable: {},
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -100,8 +101,7 @@ describe("POST /orders/next-id — request validation", () => {
   it("falls back to LB- for an unknown country code", async () => {
     const app = buildApp();
     const res = await request(app).post("/orders/next-id").send({ countryCode: "FR" });
-    expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-    expect(res.body.orderId).toMatch(/^LB-\d+$/);
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
   });
 });

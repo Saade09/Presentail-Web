@@ -12,6 +12,8 @@
  */
 
 import { Router, type IRouter, type Request, type Response } from "express";
+import { rateLimit } from "express-rate-limit";
+import { z } from "zod";
 import { checkAdminToken } from "../lib/admin-auth";
 import { db } from "@workspace/db";
 import { pageContextualDescriptionsTable } from "@workspace/db";
@@ -21,31 +23,76 @@ import {
   enqueueDescriptionGeneration,
   enqueueBulkSeed,
 } from "../lib/pageDescriptionQueue";
+import {
+  getOsCategories,
+  getOsOccasions,
+  getOsProductEmbeddedCategories,
+  getOsProductOccasions,
+} from "../lib/osProductsCache";
+import { DELIVERY_COUNTRIES } from "@workspace/catalog-data";
 
 const router: IRouter = Router();
+const publicDescriptionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const ACTIVE_DELIVERY_AREA_IDS = new Set(
+  DELIVERY_COUNTRIES
+    .filter((country) => country.isActive !== false)
+    .flatMap((country) =>
+      country.cities
+        .filter((city) => city.isActive !== false)
+        .map((city) => city.id),
+    ),
+);
+const PublicDescriptionQuerySchema = z.object({
+  page_type: z.enum(["category", "occasion"]),
+  slug: z.string().trim().min(1).max(160),
+  delivery_area_id: z.string().trim().min(1).max(100),
+  language: z.enum(["en", "ar", "fr"]).default("en"),
+});
 
 function requireAdmin(req: Request, res: Response): boolean {
   return checkAdminToken(req, res);
 }
 
-// ── GET /api/page-descriptions ──────────────────────────────────────────────
-router.get("/page-descriptions", async (req, res) => {
-  const pageType = req.query.page_type as string | undefined;
-  const slug = req.query.slug as string | undefined;
-  const deliveryAreaId = req.query.delivery_area_id as string | undefined;
-  const language = (req.query.language as string | undefined) ?? "en";
+function isKnownCatalogPage(
+  pageType: "category" | "occasion",
+  slug: string,
+): boolean {
+  if (pageType === "category") {
+    return (
+      (getOsCategories() ?? []).some((category) => category.slug === slug) ||
+      getOsProductEmbeddedCategories().has(slug)
+    );
+  }
+  return (
+    (getOsOccasions() ?? []).some((occasion) => occasion.slug === slug) ||
+    getOsProductOccasions().has(slug)
+  );
+}
 
-  if (!pageType || (pageType !== "category" && pageType !== "occasion")) {
-    return res.status(400).json({ ok: false, message: "page_type must be 'category' or 'occasion'" }); // i18n-ignore
+// ── GET /api/page-descriptions ──────────────────────────────────────────────
+router.get("/page-descriptions", publicDescriptionLimiter, async (req, res) => {
+  const parsed = PublicDescriptionQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "Invalid page description query" }); // i18n-ignore
   }
-  if (!slug || typeof slug !== "string" || !slug.trim()) {
-    return res.status(400).json({ ok: false, message: "slug is required" }); // i18n-ignore
-  }
-  if (!deliveryAreaId || typeof deliveryAreaId !== "string" || !deliveryAreaId.trim()) {
-    return res.status(400).json({ ok: false, message: "delivery_area_id is required" }); // i18n-ignore
-  }
-  if (!["en", "ar", "fr"].includes(language)) {
-    return res.status(400).json({ ok: false, message: "language must be 'en', 'ar', or 'fr'" }); // i18n-ignore
+
+  const {
+    page_type: pageType,
+    slug,
+    delivery_area_id: deliveryAreaId,
+    language,
+  } = parsed.data;
+
+  if (
+    !ACTIVE_DELIVERY_AREA_IDS.has(deliveryAreaId) ||
+    !isKnownCatalogPage(pageType, slug)
+  ) {
+    return res.status(404).json({ ok: false, message: "Catalog page not found" }); // i18n-ignore
   }
 
   try {
@@ -54,10 +101,10 @@ router.get("/page-descriptions", async (req, res) => {
       .from(pageContextualDescriptionsTable)
       .where(
         and(
-          eq(pageContextualDescriptionsTable.pageType, pageType as "category" | "occasion"),
+          eq(pageContextualDescriptionsTable.pageType, pageType),
           eq(pageContextualDescriptionsTable.pageSlug, slug),
           eq(pageContextualDescriptionsTable.deliveryAreaId, deliveryAreaId),
-          eq(pageContextualDescriptionsTable.language, language as "en" | "ar" | "fr"),
+          eq(pageContextualDescriptionsTable.language, language),
         ),
       )
       .limit(1);
@@ -73,24 +120,13 @@ router.get("/page-descriptions", async (req, res) => {
       });
     }
 
-    // Not ready — enqueue generation and return fallback immediately
-    void enqueueDescriptionGeneration({
-      pageType: pageType as "category" | "occasion",
-      pageSlug: slug,
-      deliveryAreaId,
-      language: language as "en" | "ar" | "fr",
-    }).catch((err: unknown) => {
-      req.log.warn(
-        { err: (err as Error)?.message },
-        "pageDescriptions: enqueue failed (non-fatal)",
-      );
-    });
-
+    // Public reads are deliberately side-effect free. Generation is admitted
+    // only through authenticated admin routes and the finite startup seed.
     const fallback = buildFallbackDescription(
-      pageType as "category" | "occasion",
+      pageType,
       slug,
       deliveryAreaId,
-      language as "en" | "ar" | "fr",
+      language,
     );
 
     return res.json({ ok: true, description: fallback, is_fallback: true });

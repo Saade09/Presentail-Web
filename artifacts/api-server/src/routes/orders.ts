@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { db, orderIdSequencesTable, checkoutAttemptsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
@@ -6,6 +7,12 @@ import { eq, sql } from "drizzle-orm";
 const router: IRouter = Router();
 
 const VALID_PREFIXES = new Set(["LB", "AE", "CY"]);
+const nextOrderIdLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 export function countryToPrefix(countryCode: string): string {
   const upper = countryCode.toUpperCase();
@@ -13,13 +20,13 @@ export function countryToPrefix(countryCode: string): string {
 }
 
 const NextOrderIdBody = z.object({
-  countryCode: z.string().min(1),
+  countryCode: z.string().trim().toUpperCase().pipe(z.enum(["LB", "AE", "CY"])),
 });
 
-router.post("/orders/next-id", async (req, res) => {
+router.post("/orders/next-id", nextOrderIdLimiter, async (req, res) => {
   const parsed = NextOrderIdBody.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ ok: false, message: "countryCode is required" }); // i18n-ignore
+    return res.status(400).json({ ok: false, message: "countryCode must be LB, AE, or CY" }); // i18n-ignore
   }
 
   const prefix = countryToPrefix(parsed.data.countryCode);

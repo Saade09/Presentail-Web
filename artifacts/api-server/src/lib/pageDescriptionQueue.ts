@@ -12,12 +12,11 @@
 
 import { db } from "@workspace/db";
 import { pageContextualDescriptionsTable } from "@workspace/db";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { DELIVERY_COUNTRIES } from "@workspace/catalog-data";
 import { getOsCategories, getOsOccasions } from "./osProductsCache";
-import { generateDescription, buildFallbackDescription } from "./pageDescriptionGenerator";
+import { generateDescription } from "./pageDescriptionGenerator";
 import { logger } from "./logger";
-import type { PageContextualDescriptionRow } from "@workspace/db";
 
 const LANGUAGES = ["en", "ar", "fr"] as const;
 type Language = (typeof LANGUAGES)[number];
@@ -30,15 +29,43 @@ export type DescriptionJob = {
   force?: boolean;
 };
 
-// Simple in-memory FIFO queue
+const MAX_QUEUED_JOBS = 5_000;
+
+// Bounded in-memory FIFO queue. The key set includes the actively processing
+// job, preventing duplicate work from being admitted while it is in flight.
 const queue: DescriptionJob[] = [];
+const queuedJobKeys = new Set<string>();
 let isProcessing = false;
+
+function descriptionJobKey(job: DescriptionJob): string {
+  return `${job.pageType}::${job.pageSlug}::${job.deliveryAreaId}::${job.language}`;
+}
+
+function reserveQueueSlot(job: DescriptionJob): string | null {
+  const key = descriptionJobKey(job);
+  if (queuedJobKeys.has(key)) return null;
+  if (queuedJobKeys.size >= MAX_QUEUED_JOBS) {
+    logger.warn(
+      { queueSize: queuedJobKeys.size },
+      "pageDescriptionQueue: queue capacity reached; rejecting new job",
+    );
+    return null;
+  }
+  queuedJobKeys.add(key);
+  return key;
+}
+
+function pushReservedJob(job: DescriptionJob, key: string): void {
+  queue.push(job);
+  if (!queuedJobKeys.has(key)) queuedJobKeys.add(key);
+}
 
 async function processNext(): Promise<void> {
   if (isProcessing || queue.length === 0) return;
   isProcessing = true;
 
   const job = queue.shift()!;
+  const key = descriptionJobKey(job);
   try {
     await processJob(job);
   } catch (err: unknown) {
@@ -47,6 +74,7 @@ async function processNext(): Promise<void> {
       "pageDescriptionQueue: unexpected error processing job",
     );
   } finally {
+    queuedJobKeys.delete(key);
     isProcessing = false;
     if (queue.length > 0) {
       setImmediate(processNext);
@@ -213,60 +241,68 @@ async function processJob(job: DescriptionJob): Promise<void> {
  */
 export async function enqueueDescriptionGeneration(job: DescriptionJob): Promise<void> {
   const { pageType, pageSlug, deliveryAreaId, language, force } = job;
+  const key = reserveQueueSlot(job);
+  if (!key) return;
+  let queued = false;
 
-  // Check existing row before any upsert to avoid clobbering manual overrides
-  // or unnecessarily re-queuing already-done rows.
-  const existingRows = await db
-    .select({
-      id: pageContextualDescriptionsTable.id,
-      isManualOverride: pageContextualDescriptionsTable.isManualOverride,
-      generationStatus: pageContextualDescriptionsTable.generationStatus,
-    })
-    .from(pageContextualDescriptionsTable)
-    .where(
-      and(
-        eq(pageContextualDescriptionsTable.pageType, pageType),
-        eq(pageContextualDescriptionsTable.pageSlug, pageSlug),
-        eq(pageContextualDescriptionsTable.deliveryAreaId, deliveryAreaId),
-        eq(pageContextualDescriptionsTable.language, language),
-      ),
-    )
-    .limit(1);
-
-  const existing = existingRows[0];
-
-  if (existing) {
-    // Never downgrade a manual override row unless explicitly forced
-    if (existing.isManualOverride && !force) {
-      return;
-    }
-    // Skip if already done and not forced
-    if (existing.generationStatus === "done" && !force) {
-      return;
-    }
-    // Update status to pending for this row (manual override flag stays unchanged
-    // until the actual job runs — force=true will clear it there)
-    await db
-      .update(pageContextualDescriptionsTable)
-      .set({ generationStatus: "pending", updatedAt: new Date() })
-      .where(eq(pageContextualDescriptionsTable.id, existing.id));
-  } else {
-    // First time seeing this combination — insert
-    await db
-      .insert(pageContextualDescriptionsTable)
-      .values({
-        pageType,
-        pageSlug,
-        deliveryAreaId,
-        language,
-        generationStatus: "pending",
-        isManualOverride: false,
+  try {
+    // Check existing row before any upsert to avoid clobbering manual overrides
+    // or unnecessarily re-queuing already-done rows.
+    const existingRows = await db
+      .select({
+        id: pageContextualDescriptionsTable.id,
+        isManualOverride: pageContextualDescriptionsTable.isManualOverride,
+        generationStatus: pageContextualDescriptionsTable.generationStatus,
       })
-      .onConflictDoNothing();
-  }
+      .from(pageContextualDescriptionsTable)
+      .where(
+        and(
+          eq(pageContextualDescriptionsTable.pageType, pageType),
+          eq(pageContextualDescriptionsTable.pageSlug, pageSlug),
+          eq(pageContextualDescriptionsTable.deliveryAreaId, deliveryAreaId),
+          eq(pageContextualDescriptionsTable.language, language),
+        ),
+      )
+      .limit(1);
 
-  queue.push(job);
-  setImmediate(processNext);
+    const existing = existingRows[0];
+
+    if (existing) {
+      // Never downgrade a manual override row unless explicitly forced
+      if (existing.isManualOverride && !force) {
+        return;
+      }
+      // Skip if already done and not forced
+      if (existing.generationStatus === "done" && !force) {
+        return;
+      }
+      // Update status to pending for this row (manual override flag stays unchanged
+      // until the actual job runs — force=true will clear it there)
+      await db
+        .update(pageContextualDescriptionsTable)
+        .set({ generationStatus: "pending", updatedAt: new Date() })
+        .where(eq(pageContextualDescriptionsTable.id, existing.id));
+    } else {
+      // First time seeing this combination — insert
+      await db
+        .insert(pageContextualDescriptionsTable)
+        .values({
+          pageType,
+          pageSlug,
+          deliveryAreaId,
+          language,
+          generationStatus: "pending",
+          isManualOverride: false,
+        })
+        .onConflictDoNothing();
+    }
+
+    pushReservedJob(job, key);
+    queued = true;
+    setImmediate(processNext);
+  } finally {
+    if (!queued) queuedJobKeys.delete(key);
+  }
 }
 
 /**
@@ -350,8 +386,12 @@ export async function enqueueBulkSeed(options: {
     if (!options.pageType || options.pageType === pageType) {
       const key = `${pageType}::${pageSlug}::${deliveryAreaId}::${language}`;
       if (!doneKey.has(key)) {
-        queue.push({ pageType, pageSlug, deliveryAreaId, language });
-        count++;
+        const job = { pageType, pageSlug, deliveryAreaId, language };
+        const key = reserveQueueSlot(job);
+        if (key) {
+          pushReservedJob(job, key);
+          count++;
+        }
       }
     }
   };
