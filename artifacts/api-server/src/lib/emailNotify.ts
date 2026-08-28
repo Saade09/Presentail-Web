@@ -413,7 +413,7 @@ export async function sendOpsNewOrderEmail(input: OpsOrderEmailInput): Promise<v
 
   const resend = new Resend(apiKey);
   const to = ["hello@presentail.com", "ahmad@presentail.com"]; // i18n-ignore
-  const from = "noreply@presentail.com"; // i18n-ignore
+  const from = "Presentail Orders <onboarding@resend.dev>"; // i18n-ignore
 
   const amount =
     input.totalPaymentCents != null
