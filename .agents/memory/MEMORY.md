@@ -90,5 +90,6 @@
 - [Distributed job ownership](distributed-job-ownership.md) — leases alone cannot prevent paused-owner overlap; pair durable due windows with a full-run DB session lock and cancellation.
 - [Expo static delivery canary](expo-static-delivery-canary.md) — keep header-negotiated manifests on Node; generate same-build Node/static cohorts so rollback never needs a rebuild.
 - [Catalog AI request bounds](catalog-ai-request-bounds.md) — custom retry policy must disable SDK retries; never evict active dedupe work; capacity must preserve each caller’s fallback.
+- [pnpm deploy and TypeScript workspace packages](pnpm-deploy-ts-workspaces.md) — Node 24 will not type-strip workspace TypeScript copied under node_modules by pnpm deploy.
 - [Advertising purchase integrity](advertising-purchase-integrity.md) — privileged Google/Meta Purchase conversions must originate from verified server-side order state, never public analytics payloads.
 - [Password-reset session revocation](password-reset-session-revocation.md) — use per-customer session versions, not timestamps; consume reset tokens and increment versions atomically.
