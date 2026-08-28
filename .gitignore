@@ -71,3 +71,30 @@ artifacts/presentail/google-service-account.json
 
 # Playwright test artifacts
 **/test-results/
+
+# Deployment context: historical uploads stay in the workspace/repository, but
+# only the attachment assets imported by the web build and store-release media
+# are uploaded when publishing.
+/attached_assets/*
+!/attached_assets/Elegant-dark-teal-stationery-design_1778742277420.avif
+!/attached_assets/Presentail-Arabic-Logo-white.png
+!/attached_assets/Presentail-Arabic-Logo-white.webp
+!/attached_assets/Presentail-Arabic-Logo.png
+!/attached_assets/Presentail-Arabic-Logo.webp
+!/attached_assets/Presentail_PNG-01_1777795626872.png
+!/attached_assets/Presentail_PNG-01_1777795626872.webp
+!/attached_assets/Presentail_PNG-01_white.png
+!/attached_assets/Presentail_PNG-01_white.webp
+!/attached_assets/play-store/
+!/attached_assets/play-store/**
+
+# Generated and temporary deployment output. Publish/build commands recreate
+# these from source; committed snapshots must not be uploaded as build inputs.
+/artifacts/presentail/static-build/
+/artifacts/presentail-web/public/blog/*-480.webp
+/artifacts/presentail-web/public/blog/*-768.webp
+/tmp-dist/
+
+# Historical visual QA evidence is not a runtime or release input.
+/screenshots/
+/artifacts/presentail-web/screenshots/
