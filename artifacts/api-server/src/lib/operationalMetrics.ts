@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import { getPoolStats } from "@workspace/db";
 import { getImageProxyMetrics } from "./imageProxyMetrics";
+import { getAnalyticsSamplingStats } from "./analyticsSampling";
+import { getHttpLoggingStats } from "./httpLoggingPolicy";
 
 type CacheResult = "hit" | "miss" | "bypass" | "unknown";
 
@@ -272,6 +274,10 @@ export function getOperationalMetrics() {
     database: {
       capturedAt: new Date().toISOString(),
       pool: getPoolStats(),
+    },
+    analyticsSampling: getAnalyticsSamplingStats(),
+    logging: {
+      httpRequests: getHttpLoggingStats(),
     },
     imageProxy: getImageProxyMetrics(),
   };

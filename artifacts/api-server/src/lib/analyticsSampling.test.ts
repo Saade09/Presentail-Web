@@ -38,6 +38,7 @@ describe("analytics sampling policy", () => {
       selected: false,
       reason: "sampled_out",
       mode: "shadow",
+      sampleWeight: 1,
     });
   });
 

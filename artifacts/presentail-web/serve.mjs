@@ -120,6 +120,18 @@ const WWW_REDIRECT_TARGET_ORIGIN = (
 // link equity is permanently lost.
 // ---------------------------------------------------------------------------
 const product410Limiter = new WindowedKeyRateLimiter(24 * 60 * 60 * 1000);
+const product410FailureLogLimiter = new WindowedKeyRateLimiter(5 * 60 * 1000);
+
+function warnProduct410Failure(key, message) {
+  if (!product410FailureLogLimiter.shouldAllow(key)) return;
+  const suppressed =
+    product410FailureLogLimiter.takeSuppressedCount(key);
+  console.warn(
+    suppressed > 0
+      ? `${message}; ${suppressed} identical failure(s) suppressed in the prior window`
+      : message,
+  );
+}
 
 function recordProduct410Event(productSlug) {
   if (!productSlug) return;
@@ -134,8 +146,23 @@ function recordProduct410Event(productSlug) {
     body,
     signal: ctrl.signal,
   })
-    .then((res) => { clearTimeout(t); if (!res.ok) console.warn(`WARN: product_lifecycle_410 event POST responded ${res.status}`); })
-    .catch((err) => { clearTimeout(t); console.warn(`WARN: product_lifecycle_410 event POST failed: ${err?.message}`); });
+    .then((res) => {
+      clearTimeout(t);
+      if (!res.ok) {
+        warnProduct410Failure(
+          `status:${res.status}`,
+          `WARN: product_lifecycle_410 event POST responded ${res.status}`,
+        );
+      }
+    })
+    .catch((err) => {
+      clearTimeout(t);
+      const errorName = err?.name || "Error";
+      warnProduct410Failure(
+        `error:${errorName}`,
+        `WARN: product_lifecycle_410 event POST failed: ${err?.message}`,
+      );
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -338,12 +365,41 @@ try {
 // and cold-start crawler spikes pay only one CDN Range-fetch per URL per day.
 // ---------------------------------------------------------------------------
 const IMAGE_DIMS_L2_TTL_MS = 24 * 60 * 60 * 1000;
+let imageDimsPool = null;
+
+function positiveIntegerEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
 
 if (process.env.DATABASE_URL) {
   try {
     const pg = await import("pg");
     const Pool = pg.default?.Pool ?? pg.Pool;
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: positiveIntegerEnv("WEB_IMAGE_DIMS_DB_POOL_MAX", 2),
+      connectionTimeoutMillis: positiveIntegerEnv(
+        "DB_POOL_CONNECTION_TIMEOUT_MS",
+        5_000,
+      ),
+      idleTimeoutMillis: positiveIntegerEnv("DB_POOL_IDLE_TIMEOUT_MS", 30_000),
+      statement_timeout: positiveIntegerEnv(
+        "DB_POOL_STATEMENT_TIMEOUT_MS",
+        15_000,
+      ),
+      query_timeout: positiveIntegerEnv("DB_POOL_QUERY_TIMEOUT_MS", 20_000),
+      application_name: "presentail-web-image-dims",
+    });
+    imageDimsPool = pool;
+    pool.on("error", (err) => {
+      console.error("Image dims L2 cache: idle PostgreSQL client error", {
+        message: err.message,
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount,
+      });
+    });
 
     initImageDimsDb({
       async get(url) {
@@ -407,7 +463,14 @@ if (process.env.DATABASE_URL) {
       setInterval(pruneImageDims, IMAGE_DIMS_PRUNE_INTERVAL_MS).unref();
     }, 30_000).unref();
 
-    console.log("Image dims L2 cache: PostgreSQL adapter active (daily prune after 30 s)");
+    console.log("Image dims L2 cache: bounded PostgreSQL adapter active", {
+      max: pool.options.max,
+      connectionTimeoutMillis: pool.options.connectionTimeoutMillis,
+      idleTimeoutMillis: pool.options.idleTimeoutMillis,
+      statementTimeoutMillis: pool.options.statement_timeout,
+      queryTimeoutMillis: pool.options.query_timeout,
+      dailyPruneAfterMs: 30_000,
+    });
   } catch (err) {
     console.warn("Image dims L2 cache: failed to initialise DB adapter —", err.message);
   }
@@ -2979,6 +3042,25 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(500, { "content-type": "text/plain" });
     res.end("Internal Server Error");
   }
+});
+
+async function shutdown(signal) {
+  console.log(`Received ${signal}; closing web server and database pool`);
+  server.close();
+  if (imageDimsPool) {
+    await imageDimsPool.end().catch((err) => {
+      console.error("Image dims L2 cache: pool shutdown failed", {
+        message: err.message,
+      });
+    });
+  }
+}
+
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
 });
 
 server.listen(PORT, "0.0.0.0", () => {

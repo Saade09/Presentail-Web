@@ -8,11 +8,13 @@ export class WindowedKeyRateLimiter {
     this.windowMs = windowMs;
     this.maxKeys = maxKeys;
     this.entries = new Map();
+    this.suppressed = new Map();
   }
 
   shouldAllow(key, now = Date.now()) {
     const lastAllowedAt = this.entries.get(key);
     if (lastAllowedAt !== undefined && now - lastAllowedAt < this.windowMs) {
+      this.suppressed.set(key, (this.suppressed.get(key) ?? 0) + 1);
       return false;
     }
     this.entries.delete(key);
@@ -23,6 +25,13 @@ export class WindowedKeyRateLimiter {
 
   reset() {
     this.entries.clear();
+    this.suppressed.clear();
+  }
+
+  takeSuppressedCount(key) {
+    const count = this.suppressed.get(key) ?? 0;
+    this.suppressed.delete(key);
+    return count;
   }
 
   prune() {
@@ -30,6 +39,7 @@ export class WindowedKeyRateLimiter {
       const oldestKey = this.entries.keys().next().value;
       if (oldestKey === undefined) break;
       this.entries.delete(oldestKey);
+      this.suppressed.delete(oldestKey);
     }
   }
 }

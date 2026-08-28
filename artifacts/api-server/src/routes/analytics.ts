@@ -11,6 +11,8 @@ import {
   analyticsSamplingMetadata,
   decideWebVitalSampling,
   getAnalyticsSamplingConfig,
+  recordAnalyticsSamplingDecision,
+  shouldLogAnalyticsEvent,
 } from "../lib/analyticsSampling";
 
 const ADS_CONVERSION_ID = "AW-18281774261"; // i18n-ignore
@@ -234,44 +236,47 @@ router.post(
             samplingConfig,
           )
         : null;
+    recordAnalyticsSamplingDecision(name, samplingDecision);
 
-    req.log.info(
-      {
-        analytics: true,
-        event: name,
-        surface,
-        action,
-        platform,
-        appVersion: clippedAppVersion,
-        errorCode: clippedErrorCode,
-        productId: clippedProductId,
-        sessionId: clippedSessionId,
-        campaignIdentity: clippedCampaignIdentity,
-        state: clippedState,
-        appOrderId: clippedAppOrderId,
-        wcOrderId: clippedWcOrderId,
-        metricValue: clampedMetricValue,
-        bannerId: clippedBannerId,
-        linkKind: clippedLinkKind,
-        linkSlug: clippedLinkSlug,
-        linkUrl: clippedLinkUrl,
-        locale: clippedLocale,
-        country: clippedCountry,
-        userId,
-        signedIn: Boolean(userId),
-        analyticsSampling: samplingDecision
-          ? {
-              mode: samplingDecision.mode,
-              rate: samplingDecision.sampleRate,
-              selected: samplingDecision.selected,
-              retainedByException: samplingDecision.retainedByException,
-              persisted: samplingDecision.persist,
-              reason: samplingDecision.reason,
-            }
-          : { mode: "full_fidelity", persisted: true },
-      },
-      "analytics event",
-    );
+    if (shouldLogAnalyticsEvent(name, samplingDecision)) {
+      req.log.info(
+        {
+          analytics: true,
+          event: name,
+          surface,
+          action,
+          platform,
+          appVersion: clippedAppVersion,
+          errorCode: clippedErrorCode,
+          productId: clippedProductId,
+          sessionId: clippedSessionId,
+          campaignIdentity: clippedCampaignIdentity,
+          state: clippedState,
+          appOrderId: clippedAppOrderId,
+          wcOrderId: clippedWcOrderId,
+          metricValue: clampedMetricValue,
+          bannerId: clippedBannerId,
+          linkKind: clippedLinkKind,
+          linkSlug: clippedLinkSlug,
+          linkUrl: clippedLinkUrl,
+          locale: clippedLocale,
+          country: clippedCountry,
+          userId,
+          signedIn: Boolean(userId),
+          analyticsSampling: samplingDecision
+            ? {
+                mode: samplingDecision.mode,
+                rate: samplingDecision.sampleRate,
+                selected: samplingDecision.selected,
+                retainedByException: samplingDecision.retainedByException,
+                persisted: samplingDecision.persist,
+                reason: samplingDecision.reason,
+              }
+            : { mode: "full_fidelity", persisted: true },
+        },
+        "analytics event",
+      );
+    }
 
     // Persist the event so the scheduled funnel monitor can compute
     // platform/surface ratios after the fact. Best-effort: a DB outage

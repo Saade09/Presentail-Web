@@ -112,8 +112,10 @@ const {
   buildUpsellToOrderBySession,
 } = await import("../src/lib/upsellAggregator");
 const { getOsProducts } = await import("../src/lib/osProductsCache");
-const adminFunnelsRouter = (await import("../src/routes/adminFunnels"))
-  .default;
+const {
+  default: adminFunnelsRouter,
+  toDailyWebVitalResponseRow,
+} = await import("../src/routes/adminFunnels");
 
 // Relative-date helpers — keeps tests green on any calendar date.
 function daysAgo(n: number): string {
@@ -123,6 +125,34 @@ function daysAgo(n: number): string {
 // They sort correctly as YYYY-MM-DD strings (DAY_A < DAY_B).
 const DAY_A = daysAgo(2);
 const DAY_B = daysAgo(1);
+
+describe("web-vitals admin response", () => {
+  it("preserves weighted counts and retained exception counts", () => {
+    expect(
+      toDailyWebVitalResponseRow({
+        day: DAY_B,
+        platform: null,
+        metric: "LCP",
+        count: 120,
+        outlierCount: 3,
+        unattributedCount: 2,
+        p50: 2100,
+        p75: 2800,
+        p95: 4300,
+      }),
+    ).toEqual({
+      day: DAY_B,
+      platform: null,
+      metric: "LCP",
+      count: 120,
+      outlierCount: 3,
+      unattributedCount: 2,
+      p50: 2100,
+      p75: 2800,
+      p95: 4300,
+    });
+  });
+});
 
 describe("aggregateDailyPurchaseBuckets", () => {
   it("groups counts by day + platform and reuses the per-day aggregator", () => {

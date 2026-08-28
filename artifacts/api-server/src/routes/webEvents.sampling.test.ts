@@ -80,4 +80,31 @@ describe("POST /web-events sampling", () => {
     const rows = mockValues.mock.calls[0][0] as Array<{ name: string }>;
     expect(rows[0].name).toBe("payment_completed");
   });
+
+  it("preserves a protected payment failure even without a session ID", async () => {
+    const app = await buildApp();
+    const res = await request(app).post("/web-events").send({
+      type: "payment_failed",
+      value: 120,
+      currency: "USD",
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, accepted: 1, dropped: 0 });
+    expect(mockValues).toHaveBeenCalledOnce();
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it("uses the stable visitor ID when a sampled view has no session ID", async () => {
+    process.env.ANALYTICS_VIEW_SAMPLE_RATE = "1";
+    const app = await buildApp();
+    const res = await request(app).post("/web-events").send({
+      type: "product_view",
+      visitorId: "visitor-123",
+      path: "/product/example",
+    });
+
+    expect(res.body).toEqual({ ok: true, accepted: 1, dropped: 0 });
+    expect(mockValues).toHaveBeenCalledOnce();
+  });
 });

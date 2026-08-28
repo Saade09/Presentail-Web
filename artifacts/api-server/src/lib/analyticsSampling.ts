@@ -25,6 +25,59 @@ export type AnalyticsSamplingDecision = {
   bucket: number | null;
 };
 
+type SamplingCounter = {
+  evaluated: number;
+  persisted: number;
+  sampledOut: number;
+  retainedByException: number;
+};
+
+const samplingCounters = new Map<string, SamplingCounter>();
+
+export function recordAnalyticsSamplingDecision(
+  name: string,
+  decision?: AnalyticsSamplingDecision | null,
+): void {
+  const counter = samplingCounters.get(name) ?? {
+    evaluated: 0,
+    persisted: 0,
+    sampledOut: 0,
+    retainedByException: 0,
+  };
+  counter.evaluated += 1;
+  if (!decision || decision.persist) counter.persisted += 1;
+  else counter.sampledOut += 1;
+  if (decision?.retainedByException) counter.retainedByException += 1;
+  samplingCounters.set(name, counter);
+}
+
+export function getAnalyticsSamplingStats() {
+  return {
+    config: getAnalyticsSamplingConfig(),
+    events: Object.fromEntries(samplingCounters),
+  };
+}
+
+export function isFullFidelityAnalyticsEvent(name: string): boolean {
+  return name !== "web_vital" && name !== "page_view" && name !== "product_view";
+}
+
+export function shouldLogAnalyticsEvent(
+  name: string,
+  decision?: AnalyticsSamplingDecision | null,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (
+    env.DEBUG_ANALYTICS_LOGGING === "1" ||
+    env.DEBUG_ANALYTICS_LOGGING === "true"
+  ) {
+    return true;
+  }
+  if (isFullFidelityAnalyticsEvent(name)) return true;
+  if (!decision) return true;
+  return decision.selected || decision.retainedByException;
+}
+
 const DEFAULT_WEB_VITAL_RATE = 0.1;
 const DEFAULT_VIEW_RATE = 0.5;
 
@@ -117,7 +170,11 @@ export function decideViewSampling(
     mode: config.mode,
     sampleRate: config.viewRate,
     sampleWeight:
-      cohort.selected && config.viewRate > 0 ? 1 / config.viewRate : 1,
+      config.mode === "enforce" &&
+      cohort.selected &&
+      config.viewRate > 0
+        ? 1 / config.viewRate
+        : 1,
     bucket: cohort.bucket,
   };
 }
@@ -168,7 +225,11 @@ export function decideWebVitalSampling(
     mode: config.mode,
     sampleRate: config.webVitalRate,
     sampleWeight:
-      cohort.selected && config.webVitalRate > 0 ? 1 / config.webVitalRate : 1,
+      config.mode === "enforce" &&
+      cohort.selected &&
+      config.webVitalRate > 0
+        ? 1 / config.webVitalRate
+        : 1,
     bucket: cohort.bucket,
   };
 }

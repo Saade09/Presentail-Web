@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   runOnce,
+  loadDailyWebVitalSummaries,
   loadWebVitalSummaries,
   loadMobileTtidSummaries,
   __resetForTest,
@@ -38,10 +39,14 @@ type MobileDbRow = Omit<MobileTtidSummary, "platform" | "screen"> & { platform: 
 
 let mockDbRows: Array<DbRow | MobileDbRow> = [];
 
-const groupByMock = vi.fn(() => Promise.resolve(mockDbRows));
+const { groupByMock, executeMock } = vi.hoisted(() => ({
+  groupByMock: vi.fn(),
+  executeMock: vi.fn(),
+}));
 
 vi.mock("@workspace/db", () => ({
   db: {
+    execute: executeMock,
     select: () => ({
       from: () => ({
         where: () => ({
@@ -84,6 +89,8 @@ function makeLcpRow(overrides: Partial<WebVitalSummary> = {}): WebVitalSummary {
 
 function setMockRows(rows: Array<DbRow | MobileDbRow>): void {
   mockDbRows = rows;
+  groupByMock.mockResolvedValue(mockDbRows);
+  executeMock.mockResolvedValue({ rows: mockDbRows });
 }
 
 function makeTtidRow(overrides: Partial<MobileDbRow> = {}): MobileDbRow {
@@ -209,6 +216,7 @@ describe("webVitalsMonitor — loadMobileTtidSummaries", () => {
 describe("webVitalsMonitor — loadWebVitalSummaries", () => {
   beforeEach(() => {
     groupByMock.mockClear();
+    executeMock.mockClear();
     setMockRows([]);
   });
 
@@ -220,7 +228,7 @@ describe("webVitalsMonitor — loadWebVitalSummaries", () => {
       new Date("2026-05-30T00:00:00Z"),
       new Date("2026-05-31T00:00:00Z"),
     );
-    expect(groupByMock).toHaveBeenCalledOnce();
+    expect(executeMock).toHaveBeenCalledOnce();
     expect(results).toHaveLength(1);
     expect(results[0].metric).toBe("LCP");
     expect(results[0].count).toBe(50);
@@ -290,6 +298,21 @@ describe("webVitalsMonitor — loadWebVitalSummaries", () => {
     expect(results[0].p75).toBeCloseTo(0.456);
     expect(results[0].p95).toBeCloseTo(0.789);
   });
+
+  it("uses null-safe joins for legacy daily rows without a platform", async () => {
+    setMockRows([]);
+    await loadDailyWebVitalSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    const query = String(executeMock.mock.calls[0]?.[0]);
+    expect(query).toContain(
+      "sample_summaries.platform is not distinct from dimensions.platform",
+    );
+    expect(query).toContain(
+      "exceptions.platform is not distinct from dimensions.platform",
+    );
+  });
 });
 
 // ── runOnce — alert dispatch ──────────────────────────────────────────────────
@@ -298,6 +321,7 @@ describe("webVitalsMonitor — runOnce", () => {
   beforeEach(() => {
     sendAlertMock.mockReset();
     groupByMock.mockClear();
+    executeMock.mockClear();
     __resetForTest();
     setMockRows([]);
   });
@@ -412,6 +436,22 @@ describe("webVitalsMonitor — runOnce", () => {
     expect(sendAlertMock.mock.calls[0][0].severity).toBe("warn");
   });
 
+  it("warns on retained outliers even without a percentile cohort", async () => {
+    setMockRows([
+      makeLcpRow({
+        count: 0,
+        p50: null,
+        p75: null,
+        p95: null,
+        outlierCount: 1,
+      }),
+    ]);
+    await runOnce(NOW);
+    const alert = sendAlertMock.mock.calls[0][0];
+    expect(alert.severity).toBe("warn");
+    expect(alert.body).toMatch("retained 1 poor/error outlier");
+  });
+
   // ── No events for the day — skip silently ────────────────────────────────
 
   it("does not send an alert when there are no web_vital events", async () => {
@@ -427,7 +467,8 @@ describe("webVitalsMonitor — runOnce", () => {
     expect(sendAlertMock).not.toHaveBeenCalled();
     // Two DB queries from the first call (web vitals + mobile TTID); the
     // dedup guard prevents the second runOnce from issuing any further queries.
-    expect(groupByMock).toHaveBeenCalledTimes(2);
+    expect(executeMock).toHaveBeenCalledOnce();
+    expect(groupByMock).toHaveBeenCalledOnce();
   });
 
   // ── Same-day deduplication ────────────────────────────────────────────────
@@ -560,9 +601,12 @@ describe("webVitalsMonitor — runOnce", () => {
   });
 
   it("mobile TTID fields appear alongside web vitals fields", async () => {
-    groupByMock
-      .mockResolvedValueOnce([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })])
-      .mockResolvedValueOnce([makeTtidRow({ platform: "ios", screen: "home" })]);
+    executeMock.mockResolvedValueOnce({
+      rows: [makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })],
+    });
+    groupByMock.mockResolvedValueOnce([
+      makeTtidRow({ platform: "ios", screen: "home" }),
+    ]);
     await runOnce(NOW);
     const fields: Array<{ title: string }> = sendAlertMock.mock.calls[0][0].fields;
     expect(fields.some((f) => f.title === "web · LCP")).toBe(true);
@@ -574,9 +618,10 @@ describe("webVitalsMonitor — runOnce", () => {
   it("digest body includes 'No mobile TTID samples.' when no mobile rows", async () => {
     setMockRows([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })]);
     // Force mobile call to return empty: mockResolvedValueOnce for web, then empty for mobile.
-    groupByMock
-      .mockResolvedValueOnce([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })])
-      .mockResolvedValueOnce([]);
+    executeMock.mockResolvedValueOnce({
+      rows: [makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })],
+    });
+    groupByMock.mockResolvedValueOnce([]);
     await runOnce(NOW);
     const body: string = sendAlertMock.mock.calls[0][0].body;
     expect(body).toMatch(/No mobile TTID samples/i);
@@ -605,9 +650,12 @@ describe("webVitalsMonitor — runOnce", () => {
   });
 
   it("warn alert body does not contain mobile TTID lines — mobile data appears only in fields", async () => {
-    groupByMock
-      .mockResolvedValueOnce([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS + 1 })])
-      .mockResolvedValueOnce([makeTtidRow({ platform: "ios", screen: "home" })]);
+    executeMock.mockResolvedValueOnce({
+      rows: [makeLcpRow({ p50: DEFAULT_LCP_WARN_MS + 1 })],
+    });
+    groupByMock.mockResolvedValueOnce([
+      makeTtidRow({ platform: "ios", screen: "home" }),
+    ]);
     await runOnce(NOW);
     const alert = sendAlertMock.mock.calls[0][0];
     expect(alert.severity).toBe("warn");

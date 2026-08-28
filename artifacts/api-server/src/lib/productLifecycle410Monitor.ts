@@ -116,7 +116,12 @@ export async function runOnce(
     });
 
     logger.info(
-      { day: priorDayKey, slugCount: slugs.length, slugs },
+      {
+        day: priorDayKey,
+        slugCount: slugs.length,
+        slugSample: slugs.slice(0, 20),
+        slugSampleTruncated: slugs.length > 20,
+      },
       "productLifecycle410Monitor: alerted on unredirected 410 slugs",
     );
   } finally {

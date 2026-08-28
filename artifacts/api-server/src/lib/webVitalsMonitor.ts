@@ -62,6 +62,12 @@ const MIN_SAMPLES = (() => {
   return Math.floor(raw);
 })();
 
+const OUTLIER_WARN_COUNT = (() => {
+  const raw = Number(process.env.WEB_VITALS_OUTLIER_WARN_COUNT);
+  if (!Number.isFinite(raw) || raw <= 0) return 1;
+  return Math.floor(raw);
+})();
+
 // ── Mobile TTID threshold config ────────────────────────────────────────────
 
 const TTID_SCREENS = ["home", "product", "brand", "category", "occasion"] as const;
@@ -165,10 +171,15 @@ function previousUtcDay(now: Date): { iso: string; start: Date; end: Date } {
 
 export type WebVitalSummary = {
   metric: string;
+  /** Estimated population count after applying the stored sample weight. */
   count: number;
-  p50: number;
-  p75: number;
-  p95: number;
+  /** Number of retained poor/error rows excluded from percentile calculations. */
+  outlierCount?: number;
+  /** Sessionless rows retained for diagnostics and excluded from percentiles. */
+  unattributedCount?: number;
+  p50: number | null;
+  p75: number | null;
+  p95: number | null;
 };
 
 export type DailyWebVitalSummary = WebVitalSummary & {
@@ -176,28 +187,6 @@ export type DailyWebVitalSummary = WebVitalSummary & {
   /** `mobile_web`, `desktop_web`, `web`, or `null` for rows without a platform value. */
   platform: string | null;
 };
-
-// ── Shared query internals ──────────────────────────────────────────────────
-
-// The shared aggregate SELECT columns used by both public load functions.
-// Keeping them in one place ensures both functions compute percentiles the
-// same way — adding a p99 or changing a percentile level only needs one edit.
-const VITAL_AGGREGATES = {
-  metric: analyticsEventsTable.action,
-  count: sql<number>`count(*)::int`,
-  p50: sql<number>`percentile_cont(0.5) within group (order by ${analyticsEventsTable.metricValue})::float`,
-  p75: sql<number>`percentile_cont(0.75) within group (order by ${analyticsEventsTable.metricValue})::float`,
-  p95: sql<number>`percentile_cont(0.95) within group (order by ${analyticsEventsTable.metricValue})::float`,
-} as const;
-
-function vitalWhere(start: Date, end: Date) {
-  return and(
-    sql`${analyticsEventsTable.name} = 'web_vital'`,
-    sql`${analyticsEventsTable.metricValue} is not null`,
-    gte(analyticsEventsTable.createdAt, start),
-    lt(analyticsEventsTable.createdAt, end),
-  )!;
-}
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -215,19 +204,116 @@ export async function loadDailyWebVitalSummaries(
     platform: string | null;
     metric: string;
     count: number;
-    p50: number;
-    p75: number;
-    p95: number;
+    outlierCount: number;
+    unattributedCount: number;
+    p50: number | null;
+    p75: number | null;
+    p95: number | null;
   };
 
-  const DAY_EXPR = sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`;
-  const DAY_TRUNC = sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`;
-
-  const rows = (await db
-    .select({ day: DAY_EXPR, platform: analyticsEventsTable.platform, ...VITAL_AGGREGATES })
-    .from(analyticsEventsTable)
-    .where(vitalWhere(start, end))
-    .groupBy(DAY_TRUNC, analyticsEventsTable.platform, analyticsEventsTable.action)) as Array<
+  const result = await db.execute<Row>(sql`
+    with sample_rows as (
+      select
+        to_char(date_trunc('day', created_at at time zone 'UTC'), 'YYYY-MM-DD') as day,
+        platform,
+        action as metric,
+        metric_value,
+        case
+          when properties_json::jsonb #>> '{analyticsSampling,mode}' = 'shadow'
+            then 1::double precision
+          else greatest(
+            1,
+            coalesce(
+              nullif(
+                properties_json::jsonb #>> '{analyticsSampling,weight}',
+                ''
+              )::double precision,
+              1
+            )
+          )
+        end as sample_weight
+      from analytics_events
+      where name = 'web_vital'
+        and metric_value is not null
+        and created_at >= ${start}
+        and created_at < ${end}
+    ),
+    value_weights as (
+      select day, platform, metric, metric_value, sum(sample_weight) as sample_weight
+      from sample_rows
+      group by day, platform, metric, metric_value
+    ),
+    ranked as (
+      select
+        *,
+        sum(sample_weight) over (
+          partition by day, platform, metric
+          order by metric_value
+          rows between unbounded preceding and current row
+        ) as cumulative_weight,
+        sum(sample_weight) over (
+          partition by day, platform, metric
+        ) as total_weight
+      from value_weights
+    ),
+    sample_summaries as (
+      select
+        day,
+        platform,
+        metric,
+        round(max(total_weight))::int as count,
+        min(metric_value) filter (
+          where cumulative_weight >= total_weight * 0.50
+        )::float as p50,
+        min(metric_value) filter (
+          where cumulative_weight >= total_weight * 0.75
+        )::float as p75,
+        min(metric_value) filter (
+          where cumulative_weight >= total_weight * 0.95
+        )::float as p95
+      from ranked
+      group by day, platform, metric
+    ),
+    exceptions as (
+      select
+        to_char(date_trunc('day', created_at at time zone 'UTC'), 'YYYY-MM-DD') as day,
+        platform,
+        action as metric,
+        count(*) filter (where name = 'web_vital_outlier')::int as "outlierCount",
+        count(*) filter (where name = 'web_vital_unattributed')::int as "unattributedCount"
+      from analytics_events
+      where name in ('web_vital_outlier', 'web_vital_unattributed')
+        and created_at >= ${start}
+        and created_at < ${end}
+      group by day, platform, metric
+    ),
+    dimensions as (
+      select day, platform, metric from sample_summaries
+      union
+      select day, platform, metric from exceptions
+    )
+    select
+      dimensions.day,
+      dimensions.platform,
+      dimensions.metric,
+      coalesce(sample_summaries.count, 0)::int as count,
+      coalesce(exceptions."outlierCount", 0)::int as "outlierCount",
+      coalesce(exceptions."unattributedCount", 0)::int as "unattributedCount",
+      sample_summaries.p50,
+      sample_summaries.p75,
+      sample_summaries.p95
+    from dimensions
+    left join sample_summaries
+      on sample_summaries.day = dimensions.day
+      and sample_summaries.platform is not distinct from dimensions.platform
+      and sample_summaries.metric = dimensions.metric
+    left join exceptions
+      on exceptions.day = dimensions.day
+      and exceptions.platform is not distinct from dimensions.platform
+      and exceptions.metric = dimensions.metric
+    order by dimensions.day, dimensions.platform nulls first, dimensions.metric
+  `);
+  const rows = result.rows as Array<
     Row & { day: string | null; metric: string | null }
   >;
 
@@ -250,13 +336,95 @@ export async function loadWebVitalSummaries(
   start: Date,
   end: Date,
 ): Promise<WebVitalSummary[]> {
-  type Row = { metric: string; count: number; p50: number; p75: number; p95: number };
+  type Row = WebVitalSummary;
 
-  const rows = (await db
-    .select(VITAL_AGGREGATES)
-    .from(analyticsEventsTable)
-    .where(vitalWhere(start, end))
-    .groupBy(analyticsEventsTable.action)) as Array<Row & { metric: string | null }>;
+  const result = await db.execute<Row>(sql`
+    with sample_rows as (
+      select
+        action as metric,
+        metric_value,
+        case
+          when properties_json::jsonb #>> '{analyticsSampling,mode}' = 'shadow'
+            then 1::double precision
+          else greatest(
+            1,
+            coalesce(
+              nullif(
+                properties_json::jsonb #>> '{analyticsSampling,weight}',
+                ''
+              )::double precision,
+              1
+            )
+          )
+        end as sample_weight
+      from analytics_events
+      where name = 'web_vital'
+        and metric_value is not null
+        and created_at >= ${start}
+        and created_at < ${end}
+    ),
+    value_weights as (
+      select metric, metric_value, sum(sample_weight) as sample_weight
+      from sample_rows
+      group by metric, metric_value
+    ),
+    ranked as (
+      select
+        *,
+        sum(sample_weight) over (
+          partition by metric
+          order by metric_value
+          rows between unbounded preceding and current row
+        ) as cumulative_weight,
+        sum(sample_weight) over (partition by metric) as total_weight
+      from value_weights
+    ),
+    sample_summaries as (
+      select
+        metric,
+        round(max(total_weight))::int as count,
+        min(metric_value) filter (
+          where cumulative_weight >= total_weight * 0.50
+        )::float as p50,
+        min(metric_value) filter (
+          where cumulative_weight >= total_weight * 0.75
+        )::float as p75,
+        min(metric_value) filter (
+          where cumulative_weight >= total_weight * 0.95
+        )::float as p95
+      from ranked
+      group by metric
+    ),
+    exceptions as (
+      select
+        action as metric,
+        count(*) filter (where name = 'web_vital_outlier')::int as "outlierCount",
+        count(*) filter (where name = 'web_vital_unattributed')::int as "unattributedCount"
+      from analytics_events
+      where name in ('web_vital_outlier', 'web_vital_unattributed')
+        and created_at >= ${start}
+        and created_at < ${end}
+      group by metric
+    ),
+    dimensions as (
+      select metric from sample_summaries
+      union
+      select metric from exceptions
+    )
+    select
+      dimensions.metric,
+      coalesce(sample_summaries.count, 0)::int as count,
+      coalesce(exceptions."outlierCount", 0)::int as "outlierCount",
+      coalesce(exceptions."unattributedCount", 0)::int as "unattributedCount",
+      sample_summaries.p50,
+      sample_summaries.p75,
+      sample_summaries.p95
+    from dimensions
+    left join sample_summaries using (metric)
+    left join exceptions using (metric)
+    order by dimensions.metric
+  `);
+  const rows = result.rows as Array<Row & { metric: string | null }>;
 
   return rows
     .filter((r): r is Row => typeof r.metric === "string")
@@ -422,25 +590,55 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
     // Collect any threshold breaches so we can send one consolidated alert.
     const regressions: string[] = [];
 
-    if (lcp && lcp.count >= MIN_SAMPLES && lcp.p50 > LCP_WARN_MS) {
+    if (
+      lcp &&
+      lcp.count >= MIN_SAMPLES &&
+      lcp.p50 !== null &&
+      lcp.p75 !== null &&
+      lcp.p95 !== null &&
+      lcp.p50 > LCP_WARN_MS
+    ) {
       regressions.push(
         `LCP p50=${Math.round(lcp.p50)} ms > ${LCP_WARN_MS} ms threshold ` +
           `(n=${lcp.count}, p75=${Math.round(lcp.p75)} ms, p95=${Math.round(lcp.p95)} ms)`,
       );
     }
 
-    if (inp && inp.count >= MIN_SAMPLES && inp.p75 > INP_WARN_MS) {
+    if (
+      inp &&
+      inp.count >= MIN_SAMPLES &&
+      inp.p50 !== null &&
+      inp.p75 !== null &&
+      inp.p95 !== null &&
+      inp.p75 > INP_WARN_MS
+    ) {
       regressions.push(
         `INP p75=${Math.round(inp.p75)} ms > ${INP_WARN_MS} ms threshold ` +
           `(n=${inp.count}, p50=${Math.round(inp.p50)} ms, p95=${Math.round(inp.p95)} ms)`,
       );
     }
 
-    if (cls && cls.count >= MIN_SAMPLES && cls.p75 > CLS_WARN) {
+    if (
+      cls &&
+      cls.count >= MIN_SAMPLES &&
+      cls.p50 !== null &&
+      cls.p75 !== null &&
+      cls.p95 !== null &&
+      cls.p75 > CLS_WARN
+    ) {
       regressions.push(
         `CLS p75=${cls.p75.toFixed(3)} > ${CLS_WARN} threshold ` +
           `(n=${cls.count}, p50=${cls.p50.toFixed(3)}, p95=${cls.p95.toFixed(3)})`,
       );
+    }
+
+    for (const summary of summaries) {
+      if ((summary.outlierCount ?? 0) >= OUTLIER_WARN_COUNT) {
+        regressions.push(
+          `${summary.metric} retained ${summary.outlierCount} poor/error outlier(s) ` +
+            `outside the weighted percentile cohort`,
+        );
+      }
     }
 
     // ── Mobile TTID threshold checks ──────────────────────────────────────
@@ -494,17 +692,17 @@ function buildDigestBody(
   day: string,
 ): string {
   const lcpLine =
-    !lcp || lcp.count < MIN_SAMPLES
+    !lcp || lcp.count < MIN_SAMPLES || lcp.p50 === null
       ? `Insufficient LCP samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
       : `LCP p50=${Math.round(lcp.p50)} ms within the ${LCP_WARN_MS} ms threshold (n=${lcp.count}).`;
 
   const inpLine =
-    !inp || inp.count < MIN_SAMPLES
+    !inp || inp.count < MIN_SAMPLES || inp.p75 === null
       ? `Insufficient INP samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
       : `INP p75=${Math.round(inp.p75)} ms within the ${INP_WARN_MS} ms threshold (n=${inp.count}).`;
 
   const clsLine =
-    !cls || cls.count < MIN_SAMPLES
+    !cls || cls.count < MIN_SAMPLES || cls.p75 === null
       ? `Insufficient CLS samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
       : `CLS p75=${cls.p75.toFixed(3)} within the ${CLS_WARN} threshold (n=${cls.count}).`;
 
@@ -533,7 +731,9 @@ function formatSummaryFields(summaries: WebVitalSummary[]) {
   return summaries.map((s) => ({
     title: `web · ${s.metric}`,
     value:
-      `n=${s.count} · p50=${fmtVal(s.metric, s.p50)} · ` +
+      `weighted n=${s.count} · retained outliers=${s.outlierCount ?? 0} · ` +
+      `unattributed=${s.unattributedCount ?? 0} · ` +
+      `p50=${fmtVal(s.metric, s.p50)} · ` +
       `p75=${fmtVal(s.metric, s.p75)} · p95=${fmtVal(s.metric, s.p95)}`,
   }));
 }
@@ -547,7 +747,8 @@ function formatMobileTtidFields(summaries: MobileTtidSummary[]) {
   }));
 }
 
-function fmtVal(metric: string, val: number): string {
+function fmtVal(metric: string, val: number | null): string {
+  if (val === null) return "n/a";
   if (metric === "CLS") return val.toFixed(3);
   return `${Math.round(val)} ms`;
 }

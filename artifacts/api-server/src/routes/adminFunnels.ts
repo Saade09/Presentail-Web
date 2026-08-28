@@ -274,15 +274,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       // for older events). Sourced from `web_vital` analytics events via the
       // same `loadDailyWebVitalSummaries` helper that the webVitalsMonitor
       // uses so the dashboard and Slack alerts can never disagree.
-      webVitals: webVitalsDaily.map((r: DailyWebVitalSummary) => ({
-        day: r.day,
-        platform: r.platform,
-        metric: r.metric,
-        count: r.count,
-        p50: r.p50,
-        p75: r.p75,
-        p95: r.p95,
-      })),
+      webVitals: webVitalsDaily.map(toDailyWebVitalResponseRow),
       // Last completed SEO audit summary (from nightly scheduler or on-demand
       // /run call). Included here so the dashboard can render the compact OG
       // health status card without a second round-trip. null when no audit has
@@ -321,15 +313,7 @@ router.get("/admin/funnels/web-vitals", async (req, res) => {
       days,
       rangeStartUtc: start.toISOString(),
       rangeEndUtc: end.toISOString(),
-      daily: daily.map((r: DailyWebVitalSummary) => ({
-        day: r.day,
-        platform: r.platform,
-        metric: r.metric,
-        count: r.count,
-        p50: r.p50,
-        p75: r.p75,
-        p95: r.p95,
-      })),
+      daily: daily.map(toDailyWebVitalResponseRow),
     });
   } catch (err: any) {
     logger.warn(
@@ -353,6 +337,20 @@ router.get("/admin/funnels", (_req, res) => {
 function pct(num: number, denom: number): number | null {
   if (!denom) return null;
   return Math.round((num / denom) * 1000) / 10;
+}
+
+export function toDailyWebVitalResponseRow(r: DailyWebVitalSummary) {
+  return {
+    day: r.day,
+    platform: r.platform,
+    metric: r.metric,
+    count: r.count,
+    outlierCount: r.outlierCount ?? 0,
+    unattributedCount: r.unattributedCount ?? 0,
+    p50: r.p50,
+    p75: r.p75,
+    p95: r.p95,
+  };
 }
 
 function toPurchaseRow(b: PurchaseDailyBucket) {
@@ -1069,14 +1067,15 @@ const DASHBOARD_HTML = `<!doctype html>
   </table>
 
   <h2>Web Vitals</h2>
-  <div class="sub">Per-day p50 / p75 / p95 for LCP, INP, and CLS from <code>web_vital</code> analytics events. LCP and INP are in milliseconds; CLS is unitless. Google&#x2019;s &#x201C;good&#x201D; thresholds: LCP ≤ 2500 ms, INP ≤ 200 ms, CLS ≤ 0.1. Loaded separately from the main funnel data so the endpoint stays composable.</div>
+  <div class="sub">Weighted per-day p50 / p75 / p95 for LCP, INP, and CLS from the sampled <code>web_vital</code> cohort. Retained poor/error outliers and unattributed observations are shown separately and do not bias percentiles. LCP and INP are in milliseconds; CLS is unitless. Google&#x2019;s &#x201C;good&#x201D; thresholds: LCP ≤ 2500 ms, INP ≤ 200 ms, CLS ≤ 0.1.</div>
   <div id="webVitalsCharts" class="trends"></div>
   <div id="webVitalsLegend" class="legend"></div>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
   <table id="webVitalsDaily">
     <thead>
       <tr>
-        <th>Day</th><th>Metric</th><th>Samples</th>
+        <th>Day</th><th>Platform</th><th>Metric</th><th>Weighted samples</th>
+        <th>Outliers</th><th>Unattributed</th>
         <th>p50</th><th>p75</th><th>p95</th>
       </tr>
     </thead>
@@ -2379,7 +2378,7 @@ const DASHBOARD_HTML = `<!doctype html>
     if (!daily || !daily.length) {
       webVitalsCharts.innerHTML = '<div class="muted">No web_vital events in range.</div>';
       webVitalsLegend.innerHTML = '';
-      webVitalsDailyBody.innerHTML = '<tr><td colspan="6" class="muted">No events in range.</td></tr>';
+      webVitalsDailyBody.innerHTML = '<tr><td colspan="9" class="muted">No events in range.</td></tr>';
       return;
     }
 
@@ -2451,8 +2450,11 @@ const DASHBOARD_HTML = `<!doctype html>
       var hi = vitalIsHigh(r.metric, r.p50);
       return '<tr' + (hi ? ' style="color:#b00020"' : '') + '>' +
         '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.platform || 'legacy / unknown') + '</td>' +
         '<td>' + escapeHtml(r.metric) + '</td>' +
         '<td>' + num(r.count) + '</td>' +
+        '<td>' + num(r.outlierCount || 0) + '</td>' +
+        '<td>' + num(r.unattributedCount || 0) + '</td>' +
         '<td>' + fmtVital(r.metric, r.p50) + '</td>' +
         '<td>' + fmtVital(r.metric, r.p75) + '</td>' +
         '<td>' + fmtVital(r.metric, r.p95) + '</td>' +

@@ -17,9 +17,22 @@ import { logger } from "./lib/logger";
 import { resolveStoreLogContext } from "./lib/wooStore";
 import { adminTokenIpLimiter } from "./lib/auth-rate-limit";
 import { operationalMetricsMiddleware } from "./lib/operationalMetrics";
+import {
+  getHttpLoggingConfig,
+  recordHttpLogDecision,
+  resolveHttpLogLevel,
+} from "./lib/httpLoggingPolicy";
 import imgProxyRouter from "./routes/imgProxy";
 
 const app: Express = express();
+const httpLoggingConfig = getHttpLoggingConfig();
+const requestStartedAt = new WeakMap<object, number>();
+
+function requestDurationMs(response: unknown): number {
+  if (typeof response !== "object" || response === null) return 0;
+  const startedAt = requestStartedAt.get(response);
+  return startedAt === undefined ? 0 : Math.max(0, Date.now() - startedAt);
+}
 
 // Trust the single reverse-proxy hop in front of this service (Replit's
 // shared proxy). This ensures req.ip reflects the real client IP taken from
@@ -28,6 +41,10 @@ const app: Express = express();
 // one rate-limit bucket; with it, clients cannot spoof the header to bypass
 // per-IP limits (only the proxy-appended rightmost hop is trusted).
 app.set("trust proxy", 1);
+app.use((_req, res, next) => {
+  requestStartedAt.set(res, Date.now());
+  next();
+});
 
 // Universal noindex protection — the first middleware mounted so it applies to
 // every HTTP response without exception, including the Clerk proxy, webhook
@@ -55,6 +72,17 @@ app.use(
     customProps: (req) => ({
       store: resolveStoreLogContext(req),
     }),
+    customLogLevel: (req, res, error) =>
+      recordHttpLogDecision(resolveHttpLogLevel(
+        {
+          requestId: String(req.id),
+          url: req.url ?? "",
+          statusCode: res.statusCode,
+          durationMs: requestDurationMs(res),
+          error: error ?? undefined,
+        },
+        httpLoggingConfig,
+      )),
     serializers: {
       req(req) {
         return {

@@ -21,6 +21,16 @@ describe("WindowedKeyRateLimiter", () => {
     expect(limiter.shouldAllow("product", 10)).toBe(true);
     expect(limiter.shouldAllow("brand", 11)).toBe(true);
   });
+
+  it("reports how many identical occurrences were suppressed", () => {
+    const limiter = new WindowedKeyRateLimiter(1_000);
+
+    expect(limiter.shouldAllow("provider:503", 1_000)).toBe(true);
+    expect(limiter.shouldAllow("provider:503", 1_100)).toBe(false);
+    expect(limiter.shouldAllow("provider:503", 1_200)).toBe(false);
+    expect(limiter.takeSuppressedCount("provider:503")).toBe(2);
+    expect(limiter.takeSuppressedCount("provider:503")).toBe(0);
+  });
 });
 
 describe("buildProductLifecycle410Event", () => {

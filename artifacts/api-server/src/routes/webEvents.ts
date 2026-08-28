@@ -6,6 +6,9 @@ import {
   analyticsSamplingMetadata,
   decideViewSampling,
   getAnalyticsSamplingConfig,
+  isFullFidelityAnalyticsEvent,
+  recordAnalyticsSamplingDecision,
+  shouldLogAnalyticsEvent,
   type AnalyticsSamplingDecision,
 } from "../lib/analyticsSampling";
 
@@ -316,7 +319,10 @@ router.post(
     }
 
     const acceptedEvents = events
-      .filter((e) => e.sessionId && e.sessionId.trim().length > 0)
+      .filter((event) => {
+        if (isFullFidelityAnalyticsEvent(event.type)) return true;
+        return Boolean(event.sessionId?.trim() || event.visitorId?.trim());
+      })
       .map(sanitizeSavedAddressEvent);
     const dropped = events.length - acceptedEvents.length;
     const samplingConfig = getAnalyticsSamplingConfig();
@@ -324,9 +330,15 @@ router.post(
       event,
       samplingDecision:
         event.type === "page_view" || event.type === "product_view"
-          ? decideViewSampling(event.sessionId, samplingConfig)
+          ? decideViewSampling(
+              event.sessionId?.trim() || event.visitorId?.trim(),
+              samplingConfig,
+            )
           : undefined,
     }));
+    for (const { event, samplingDecision } of evaluated) {
+      recordAnalyticsSamplingDecision(event.type, samplingDecision);
+    }
     const toInsert = evaluated.filter(
       ({ samplingDecision }) => !samplingDecision || samplingDecision.persist,
     );
@@ -351,24 +363,30 @@ router.post(
     // local PostgreSQL copy that is responsible for the database growth.
     forwardToOs(acceptedEvents, req.log);
 
-    req.log.info(
-      {
-        accepted: acceptedEvents.length,
-        persisted: toInsert.length,
-        sampledOut,
-        dropped,
-        types: acceptedEvents.map((e) => e.type),
-        analyticsSampling: {
-          mode: samplingConfig.mode,
-          viewRate: samplingConfig.viewRate,
-          shadowWouldPersist: evaluated.filter(
-            ({ samplingDecision }) =>
-              !samplingDecision || samplingDecision.selected,
-          ).length,
+    const shouldLogBatch =
+      evaluated.some(({ event, samplingDecision }) =>
+        shouldLogAnalyticsEvent(event.type, samplingDecision),
+      );
+    if (shouldLogBatch) {
+      req.log.info(
+        {
+          accepted: acceptedEvents.length,
+          persisted: toInsert.length,
+          sampledOut,
+          dropped,
+          types: acceptedEvents.map((e) => e.type),
+          analyticsSampling: {
+            mode: samplingConfig.mode,
+            viewRate: samplingConfig.viewRate,
+            shadowWouldPersist: evaluated.filter(
+              ({ samplingDecision }) =>
+                !samplingDecision || samplingDecision.selected,
+            ).length,
+          },
         },
-      },
-      "web-events ingested",
-    );
+        "web-events ingested",
+      );
+    }
 
     res.status(200).json({
       ok: true,
