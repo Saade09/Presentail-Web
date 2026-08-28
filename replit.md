@@ -10,7 +10,7 @@ pnpm workspaces · Node 24 · TypeScript 5.9 · Expo Router (mobile) · React + 
 
 - Mobile: `artifacts/presentail` · Web: `artifacts/presentail-web` · API: `artifacts/api-server`
 - DB schema: `lib/db/src/schema/` · Delivery rules: `lib/delivery` · Display currency: `lib/display-currency`
-- Auth: `artifacts/api-server/src/routes/auth.ts`, `src/lib/auth.ts`, mobile `artifacts/presentail/src/contexts/AuthContext.tsx`
+- Auth: API `artifacts/api-server/src/routes/auth.ts` + `src/lib/auth.ts`; web `artifacts/presentail-web/src/contexts/AuthContext.tsx`; mobile `artifacts/presentail/src/contexts/AuthContext.tsx`
 - iOS CI/CD: `.github/workflows/ios-testflight.yml`, `ios-app-store.yml`
 - WooCommerce store resolver: `artifacts/api-server/src/lib/wooStore.ts`
 
@@ -20,6 +20,7 @@ Core:
 - `pnpm run typecheck` / `pnpm run build` — full workspace typecheck / build.
 - `pnpm run typecheck:libs` — rebuild composite lib `.d.ts`. Run when `tsc -p artifacts/<x>` reports phantom missing-property errors on lib types (stale `lib/*/dist/*.d.ts`).
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod schemas from OpenAPI.
+- `pnpm run baseline:optimization` — rebuild the local performance/size snapshot at `docs/reports/optimization-baseline-latest.json` (ignored generated output).
 - `pnpm run check-codegen` — fails on drift in generated client/zod files; run after editing `lib/api-spec/openapi.yaml`. Pre-push hook: `cp .husky/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push`.
 - `pnpm --filter @workspace/db run push` — push schema to **dev** DB. Prod migrations are automated: (1) API server `artifact.toml` prod build runs `push-force` before build (deploy aborts if migration fails; needs `DATABASE_URL` Replit secret); (2) GitHub Actions `db-migrate-prod.yml` runs `push-force` when `lib/db/**` lands on main (needs `PROD_DATABASE_URL` GH secret; manual trigger available). Emergency: `DATABASE_URL=<prod-url> pnpm --filter @workspace/db run push-force`.
 - `pnpm --filter @workspace/api-server run dev` — run API server locally.
@@ -44,7 +45,7 @@ Web build checks (run after `pnpm --filter @workspace/presentail-web run build`;
 Ops & admin:
 - `GET /api/admin/funnels` (HTML) and `/api/admin/funnels/data?days=N` (JSON, `x-push-admin-token`) — purchase + login-prompt funnels; shares `aggregateBuckets` with the Slack monitors.
 - `GET /api/auth/diagnostics` (`x-push-admin-token`) — pings WC customers + WP JWT upstreams and runs the exists-classifier; use when shoppers are mis-routed to sign-up.
-- `pnpm --filter @workspace/scripts run import-customers-to-clerk` — idempotent import of local customers into Clerk (needs `CLERK_SECRET_KEY`, `DATABASE_URL`).
+- `pnpm --filter @workspace/scripts run import-customers-to-clerk` — idempotent import of local customers into Clerk (needs `CLERK_SECRET_KEY`, `DATABASE_URL`); server-side migration utility only.
 - TestFlight → App Store promotion: GitHub Actions "iOS – Promote TestFlight build to App Store" (dry-run then submit; details in `ios-app-store.yml` + `scripts/src/promoteToAppStore.ts`).
 
 ## Environment variables
@@ -53,7 +54,7 @@ Required:
 - Presentail OS (primary catalog + orders): `PRESENTAIL_OS_API_URL`, `PRESENTAIL_OS_API_KEY` (write perms for `POST /api/orders`), `PRESENTAIL_OS_WORKSPACE` (default `presentail`).
 - WooCommerce (deprecated — mobile JWT auth only): `WC_CONSUMER_KEY`/`WC_CONSUMER_SECRET` (LB), `WC_DUBAI_*`, `WC_ABUDHABI_*`, `WC_CYPRUS_*`.
 - Push & webhooks: `PUSH_ADMIN_TOKEN`; `PRESENTAIL_OS_WEBHOOK_SECRET` (HMAC-SHA256 over `{delivery-id}.{timestamp}.{rawBody}`, 5-min replay window; webhook 503s when unset). Optional: `WOO_SYNC_ENABLED`, `WOO_SYNC_INTERVAL_MS` (default 900000), `WOO_SYNC_PUSH_ON_CHANGE`. `BANNERS_REMOTE_URL` is retired (banners come via OS `banner.updated` webhook).
-- API server auth: `GOOGLE_CLIENT_IDS` (comma-separated; iOS + Android + Web ids), `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`; `APPLE_SERVICE_IDS` (JWT audience for Apple web sign-in).
+- API server auth: `GOOGLE_CLIENT_IDS` (comma-separated; iOS + Android + Web ids), optional server-side `CLERK_SECRET_KEY`/`CLERK_WEBHOOK_SECRET`, and `APPLE_SERVICE_IDS` (JWT audience for Apple web sign-in).
 - CI/CD: `EXPO_TOKEN`, `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `ASC_API_KEY_P8`. Optional: `SITEMAP_URL`, `INDEXNOW_KEY` (both have safe defaults).
 
 Payments:
@@ -63,7 +64,7 @@ Payments:
 - Tabby BNPL (AED/UAE only; off when unset): `TABBY_SECRET_KEY`, `TABBY_PUBLIC_KEY`. Webhook → `POST /api/payment/tabby/webhook`; refunds via admin token.
 
 Web (Vite):
-- `VITE_GOOGLE_WEB_CLIENT_ID`, `VITE_APPLE_SERVICE_ID` (both optional — buttons toast when unset). `VITE_CLERK_*` no longer used.
+- `VITE_GOOGLE_WEB_CLIENT_ID`, `VITE_APPLE_SERVICE_ID` (both optional — buttons toast when unset). Web auth uses the local JWT token in `presentail_web_token`; there are no `VITE_CLERK_*` settings.
 - Web OS catalog direct access: `VITE_OS_API_URL` (default `https://os.presentail.com`), `VITE_OS_API_KEY` (read-only key; product browsing bypasses the API server).
 - Canonical redirect (serve.mjs): `WEB_CANONICAL_REDIRECT_FROM_HOST` (default `www.presentail.com`) → `WEB_CANONICAL_REDIRECT_TARGET_ORIGIN` (default `https://presentail.com`); set either to empty string to disable.
 
@@ -89,7 +90,7 @@ Monitors & alerting (all optional; Slack via `ALERTS_SLACK_WEBHOOK_URL`, WARN lo
 
 - **Presentail OS catalog**: all product listings/categories/occasions/brands come from `os.presentail.com`; `osProductsCache` is the sole in-memory product store. WC is used only for order submission and mobile JWT auth.
 - **Multi-store WooCommerce**: store config resolved per request from `countryCode`/`cityId`, Lebanon fallback. Server caches keyed `${baseUrl}::${lang}`; client React Query keys include country/city.
-- **In-app accounts**: native sign-in via `expo-secure-store` + WP JWT / WC REST. Clerk handles web auth. `/auth/exists` checks local `customers` table first.
+- **In-app accounts**: web sign-in uses local JWTs issued by `/api/auth/register`, `/api/auth/login`, and `/api/auth/web-bridge`; native sign-in uses `expo-secure-store` + WP JWT / WC REST. Server-side Clerk support remains for legacy/native propagation, webhooks, and monitoring. `/auth/exists` checks local `customers` first.
 - **WC_AUTH_ENABLED flag** (default false): gates all remaining WC/WP auth calls; when off, login returns `410 login_deprecated`, register/exists/me are local-only. Migration log: `wp_customer_id_map`; scripts `import-wc-customers` / `audit-wc-customers`.
 - **Currency**: all `priceValue` stored in USD; conversion is display-only (`CurrencyContext`, `data/currencies.ts`). Mobile display-currency precedence: manual → GPS (`/api/geo/currency-by-coords`) → IP (`/api/geo/currency`) → USD.
 - **Push notifications**: Expo Push; tokens scoped to user id; admin webhook triggers order-state pushes.
@@ -115,11 +116,9 @@ Luxury flower & gift delivery across Lebanon, UAE, Cyprus. Multi-step checkout (
 - **Google Sign-In**: needs an EAS build (native module, not Expo Go). Android needs an Android OAuth client matching (package, signing SHA-1) for every keystore — mismatch symptom: `DEVELOPER_ERROR` (code 10) after account picker. Android client id must be in `GOOGLE_CLIENT_IDS`. iOS needs the Keychain Sharing entitlement (`keychain-access-groups` in app.json) — missing symptom: native `-61440` before the picker.
 - **iOS `CFBundleLocalizations`** in `app.json` must mirror App Store Connect locales, and a fresh EAS build must ship the change.
 - **IP-based currency**: `routes/geo.ts` walks `x-forwarded-for` for the leftmost public IP, prefers `cf-ipcountry`; ipapi.co + ipwho.is fallback. Rate-limiter `keyGenerator` must wrap through `ipKeyGenerator` (IPv6). Don't widen `trust proxy` casually.
-- **Clerk dev vs prod keys**: `pk_live_…` is domain-locked to presentail.com — use `pk_test_…` on Replit dev. Each instance has its own `whsec_…`.
-- **Clerk middleware is fail-closed**: mounted only when `CLERK_SECRET_KEY` matches `^sk_(test|live)_`; otherwise a signed-out shim keeps public routes at 200 (see `tests/clerkShim.test.ts`).
-- **Clerk session token template** must include `email`, `first_name`, `last_name`, `public_metadata` (Dashboard → Sessions → Customize session token) on BOTH instances, else every request round-trips to the Clerk API (WARN: `session claims missing email/name`).
+- **Server-side Clerk is optional and fail-closed**: the API mounts Clerk middleware only when `CLERK_SECRET_KEY` matches `^sk_(test|live)_`; otherwise its signed-out shim keeps public routes at 200. Do not add Clerk frontend dependencies back to the web app.
 - **`/auth/exists` must consult WP users, not just WC customers**: falls back to a JWT-plugin probe; `lookup_failed`/`lookup_unavailable` must surface an error, never silently advance to sign-up. SignupStep renders an "I already have an account" escape hatch. Verify upstreams via `GET /api/auth/diagnostics`.
-- **Web sign-in JIT-creates Clerk users** (`POST /api/auth/web-bridge`): same hard-error contract on `lookup_failed`/`lookup_unavailable` — advancing silently would create a duplicate Clerk account divorced from WP order history. Mobile signups mirror to Clerk via `mirrorAndPropagateToClerk`; catch-up worker `clerkCatchupSync.ts` gated on `CLERK_CATCHUP_SYNC_ENABLED` (default off).
+- **Web sign-in bridge** (`POST /api/auth/web-bridge`) resolves an existing local/WP account before issuing a local JWT; `lookup_failed`/`lookup_unavailable` must remain hard errors so sign-in cannot create a duplicate account. Mobile signups may mirror to Clerk via `mirrorAndPropagateToClerk`; `clerkCatchupSync.ts` is server-side and gated off by default.
 - **Native Apple Pay (iOS app)**: `merchant.presentail` Merchant ID + Apple Pay capability on `com.presentail.lb` + Stripe cert upload + fresh EAS build; runtime `console.warn` names any missing step.
 - **Category filtering**: homepage categories filtered by `PRODUCT_TYPE_SLUGS` allowlist; `BestSellersPreview` degrades gracefully.
 - **Stripe `API_BASE`** (mobile `lib/stripe.ts`) must be `https://${EXPO_PUBLIC_DOMAIN}` so `/api/...` proxies same-origin.

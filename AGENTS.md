@@ -27,13 +27,13 @@ Presentail lets shoppers browse curated floral arrangements, gift boxes, chocola
 pnpm install
 ```
 
-**Required environment variables** (set as Replit secrets or in a local `.env`):
+**Required environment variables** (set as Replit secrets or in a local `.env`; never commit secret values):
 
 ```
 PRESENTAIL_OS_API_URL=<os-api-base-url>
-PRESENTAIL_OS_API_KEY=<os-api-key-with-write-access>
+PRESENTAIL_OS_API_KEY=<os-api-key-with-write-access> # secret
 PRESENTAIL_OS_WORKSPACE=presentail
-DATABASE_URL=<postgres-connection-string>
+DATABASE_URL=<postgres-connection-string> # Replit-managed secret
 ```
 
 **Run the web storefront (development)**
@@ -82,6 +82,11 @@ pnpm --filter @workspace/api-spec run codegen
 | Sitemap | Auto-generated at `/sitemap.xml`; covers all locale × city × entity combinations | — |
 
 All API keys, database credentials, admin tokens, and private URLs must be supplied via environment variables or Replit secrets and must never be committed to the repository.
+
+Web sign-in uses the app's local JWT flow: `/api/auth/register`, `/api/auth/login`, and
+`/api/auth/web-bridge` issue the token stored by `AuthContext`. The web app does not
+load Clerk's frontend SDK. Clerk remains an optional server-side integration for
+legacy/native propagation, webhooks, and related monitoring.
 
 ## Usage
 

@@ -133,8 +133,6 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@clerk/react": "^6.6.2",
-    "@clerk/themes": "^2.4.57",
     "@stripe/react-stripe-js": "^6.6.0",
     "@stripe/stripe-js": "^9.7.0",
     "@tanstack/query-async-storage-persister": "^5.101.1",

@@ -695,7 +695,6 @@ export default defineConfig(async ({ command, mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes("node_modules/@clerk/")) return "vendor-clerk";
             if (
               id.includes("node_modules/@tanstack/react-query-persist-client") ||
               id.includes("node_modules/@tanstack/query-async-storage-persister") ||
