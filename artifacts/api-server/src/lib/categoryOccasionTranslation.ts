@@ -19,8 +19,15 @@
  */
 
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import { getOpenAIClient } from "@workspace/integrations-openai-ai-server";
 import { logger } from "./logger";
+import {
+  recordCatalogAiCacheStatus,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+  dedupeCatalogAiRequest,
+  runCatalogAiRequest,
+} from "./aiRequest";
 
 export type CategoryOccasionLang = "ar" | "fr" | "el";
 
@@ -37,26 +44,6 @@ const LANG_NAMES: Record<CategoryOccasionLang, string> = {
 // mismatched translations.
 type NameCacheEntry = { translated: string; expiresAt: number };
 const nameCache = new Map<string, NameCacheEntry>();
-
-// In-flight deduplication keyed on the sorted unique set of names being
-// translated. Value is a map of englishName → translatedName.
-const inFlight = new Map<string, Promise<Map<string, string>>>();
-
-function buildClient(): OpenAI | null {
-  const replitKey = process.env.REPLIT_AI_API_KEY;
-  if (replitKey) {
-    return new OpenAI({
-      apiKey: replitKey,
-      baseURL: "https://openai-proxy.replit.com/v1",
-    });
-  }
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
-}
 
 function inFlightKey(lang: CategoryOccasionLang, sortedUniqueNames: string[]): string {
   const payload = lang + "|" + sortedUniqueNames.join("|");
@@ -77,6 +64,7 @@ export async function translateCategoryOccasionNames(
   englishNames: string[],
   lang: CategoryOccasionLang,
 ): Promise<string[]> {
+  recordCatalogAiInvocation("category_occasion_translation");
   if (englishNames.length === 0) return [];
 
   const now = Date.now();
@@ -85,30 +73,38 @@ export async function translateCategoryOccasionNames(
   // Partition into cached (fills result immediately) and uncached.
   const uncachedIndices: number[] = [];
   const uncachedNames: string[] = [];
+  let cacheHits = 0;
   for (let i = 0; i < englishNames.length; i++) {
     const name = englishNames[i];
     const hit = nameCache.get(`${lang}:${name}`);
     if (hit && hit.expiresAt > now) {
       result[i] = hit.translated;
+      cacheHits++;
     } else {
       uncachedIndices.push(i);
       uncachedNames.push(name);
     }
   }
 
+  recordCatalogAiCacheStatus(
+    "category_occasion_translation",
+    cacheHits,
+    uncachedIndices.length,
+  );
   if (uncachedIndices.length === 0) return result;
 
   // Deduplicate and sort uncached names for a stable in-flight key.
   const uniqueUncached = [...new Set(uncachedNames)].sort();
   const key = inFlightKey(lang, uniqueUncached);
+  const identityMap = new Map(uniqueUncached.map((name) => [name, name]));
 
-  let translationPromise = inFlight.get(key);
-  if (!translationPromise) {
-    translationPromise = (async (): Promise<Map<string, string>> => {
-      const identityMap = new Map(uniqueUncached.map((n) => [n, n]));
+  const translationPromise = dedupeCatalogAiRequest(
+    `category-occasion:${key}`,
+    async (): Promise<Map<string, string>> => {
       try {
-        const client = buildClient();
+        const client = getOpenAIClient();
         if (!client) {
+          recordCatalogAiFallback("category_occasion_translation", "client_unavailable");
           logger.warn(
             "categoryOccasionTranslation: OpenAI client not configured; returning English", // i18n-ignore
           );
@@ -124,13 +120,23 @@ export async function translateCategoryOccasionNames(
           `- Do NOT translate brand names (e.g. Presentail).\n` + // i18n-ignore
           `- Return ONLY a valid JSON array of strings with the same length and order. No extra text.`; // i18n-ignore
 
-        const resp = await client.chat.completions.create({
+        const resp = await runCatalogAiRequest({
+          workflow: "category_occasion_translation",
           model: "gpt-4o-mini",
-          max_completion_tokens: 4096,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: JSON.stringify(uniqueUncached) },
-          ],
+          client,
+          policy: { timeoutMs: 15_000, maxRetries: 2 },
+          request: (requestClient, signal) =>
+            requestClient.chat.completions.create(
+              {
+                model: "gpt-4o-mini",
+                max_completion_tokens: 4096,
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: JSON.stringify(uniqueUncached) },
+                ],
+              },
+              { signal },
+            ),
         });
 
         const raw = (resp.choices[0]?.message?.content ?? "")
@@ -164,17 +170,22 @@ export async function translateCategoryOccasionNames(
         );
         return translationMap;
       } catch (err) {
+        recordCatalogAiFallback("category_occasion_translation", "request_or_parse_failed");
         logger.warn(
           { err: (err as Error)?.message, lang },
           "categoryOccasionTranslation: translation failed; returning English", // i18n-ignore
         );
         return identityMap;
-      } finally {
-        inFlight.delete(key);
       }
-    })();
-    inFlight.set(key, translationPromise);
-  }
+    },
+    () => {
+      recordCatalogAiFallback(
+        "category_occasion_translation",
+        "in_flight_capacity",
+      );
+      return identityMap;
+    },
+  );
 
   const translationMap = await translationPromise;
 

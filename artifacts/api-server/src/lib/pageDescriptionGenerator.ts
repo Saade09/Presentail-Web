@@ -7,28 +7,20 @@
  * the OpenAI response is invalid.
  */
 
-import OpenAI from "openai";
+import { getOpenAIClient } from "@workspace/integrations-openai-ai-server";
 import { getOsProducts, getOsCategories, getOsOccasions } from "./osProductsCache";
 import { getExpressConfig } from "./osLocationsCache";
 import { DELIVERY_COUNTRIES } from "@workspace/catalog-data";
 import { logger } from "./logger";
+import {
+  dedupeCatalogAiRequest,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+  runCatalogAiRequest,
+} from "./aiRequest";
 import type { OSProduct, OSProductCategory, OSProductOccasion } from "@workspace/presentail-os";
 
-const REPLIT_PROXY_BASE_URL = "https://openai-proxy.replit.com/v1";
 const MAX_DESCRIPTION_LENGTH = 300;
-
-function buildOpenAiClient(): OpenAI | null {
-  const replitApiKey = process.env.REPLIT_AI_API_KEY;
-  if (replitApiKey) {
-    return new OpenAI({ apiKey: replitApiKey, baseURL: REPLIT_PROXY_BASE_URL });
-  }
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
-}
 
 /**
  * Occasion-specific context hints that describe the emotional intent behind
@@ -300,8 +292,10 @@ export async function generateDescription(
   deliveryAreaId: string,
   language: "en" | "ar" | "fr",
 ): Promise<string | null> {
-  const client = buildOpenAiClient();
+  recordCatalogAiInvocation("page_description");
+  const client = getOpenAIClient();
   if (!client) {
+    recordCatalogAiFallback("page_description", "client_unavailable");
     logger.warn("pageDescriptionGenerator: no OpenAI client available — using fallback");
     return null;
   }
@@ -357,12 +351,25 @@ export async function generateDescription(
   const prompt = promptLines.join("\n");
 
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-5.4-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.6,
-      max_completion_tokens: 200,
-    });
+    const requestKey = `page-description:${pageType}:${pageSlug}:${deliveryAreaId}:${language}`;
+    const response = await dedupeCatalogAiRequest(requestKey, () =>
+      runCatalogAiRequest({
+        workflow: "page_description",
+        model: "gpt-5.4-mini",
+        client,
+        policy: { timeoutMs: 15_000, maxRetries: 2 },
+        request: (requestClient, signal) =>
+          requestClient.chat.completions.create(
+            {
+              model: "gpt-5.4-mini",
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0.6,
+              max_completion_tokens: 200,
+            },
+            { signal },
+          ),
+      }),
+    );
 
     const text = response.choices[0]?.message?.content?.trim() ?? "";
 
@@ -375,6 +382,7 @@ export async function generateDescription(
 
     return text;
   } catch (err: unknown) {
+    recordCatalogAiFallback("page_description", "request_or_validation_failed");
     logger.warn({ err: (err as Error)?.message }, "pageDescriptionGenerator: OpenAI call failed");
     return null;
   }

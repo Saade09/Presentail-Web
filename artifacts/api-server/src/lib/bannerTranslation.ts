@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import { getOpenAIClient } from "@workspace/integrations-openai-ai-server";
 import { logger } from "./logger";
+import {
+  dedupeCatalogAiRequest,
+  recordCatalogAiCacheStatus,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+  runCatalogAiRequest,
+} from "./aiRequest";
 
 export type BannerLang = "ar" | "fr" | "el";
 
@@ -22,21 +29,6 @@ const LANG_NAMES: Record<BannerLang, string> = {
 // TTL of 1 hour avoids staleness after banner copy is edited in the OS admin.
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const cache = new Map<string, { fields: BannerTextFields; expiresAt: number }>();
-
-const REPLIT_PROXY_BASE_URL = "https://openai-proxy.replit.com/v1";
-
-function buildClient(): OpenAI | null {
-  const replitApiKey = process.env.REPLIT_AI_API_KEY;
-  if (replitApiKey) {
-    return new OpenAI({ apiKey: replitApiKey, baseURL: REPLIT_PROXY_BASE_URL });
-  }
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
-}
 
 function contentHash(lang: BannerLang, fields: BannerTextFields): string {
   const payload = lang + JSON.stringify([fields.title, fields.headline, fields.subtitle, fields.ctaText]);
@@ -63,9 +55,11 @@ export async function translateBanners(
   lang: BannerLang,
   banners: BannerTextFields[],
 ): Promise<BannerTextFields[]> {
+  recordCatalogAiInvocation("banner_translation");
   const results: BannerTextFields[] = banners.map((b) => ({ ...b }));
   const toTranslateIndices: number[] = [];
   const translationInputs: Record<string, string>[] = [];
+  let cacheHits = 0;
 
   for (let i = 0; i < banners.length; i++) {
     const b = banners[i];
@@ -75,16 +69,19 @@ export async function translateBanners(
     const cached = cache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
       Object.assign(results[i], cached.fields);
+      cacheHits++;
       continue;
     }
     toTranslateIndices.push(i);
     translationInputs.push(onlyTextFields(b));
   }
 
+  recordCatalogAiCacheStatus("banner_translation", cacheHits, toTranslateIndices.length);
   if (toTranslateIndices.length === 0) return results;
 
-  const client = buildClient();
+  const client = getOpenAIClient();
   if (!client) {
+    recordCatalogAiFallback("banner_translation", "client_unavailable");
     logger.warn("bannerTranslation: OpenAI client not configured; returning English text");
     return results;
   }
@@ -100,14 +97,27 @@ export async function translateBanners(
     `- Return ONLY a valid JSON array with the same length and same keys — no extra text.`;
 
   try {
-    const resp = await client.chat.completions.create({
-      model: "gpt-5-nano",
-      max_completion_tokens: 4096,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: JSON.stringify(translationInputs) },
-      ],
-    });
+    const requestKey = `banner:${contentHash(lang, { title: JSON.stringify(translationInputs) })}`;
+    const resp = await dedupeCatalogAiRequest(requestKey, () =>
+      runCatalogAiRequest({
+        workflow: "banner_translation",
+        model: "gpt-5-nano",
+        client,
+        policy: { timeoutMs: 15_000, maxRetries: 2 },
+        request: (requestClient, signal) =>
+          requestClient.chat.completions.create(
+            {
+              model: "gpt-5-nano",
+              max_completion_tokens: 4096,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: JSON.stringify(translationInputs) },
+              ],
+            },
+            { signal },
+          ),
+      }),
+    );
 
     const raw = (resp.choices[0]?.message?.content ?? "").trim()
       .replace(/^```(?:json)?\n?/, "")
@@ -130,6 +140,7 @@ export async function translateBanners(
       cache.set(contentHash(lang, banners[idx]), { fields: merged, expiresAt: Date.now() + CACHE_TTL_MS });
     }
   } catch (err) {
+    recordCatalogAiFallback("banner_translation", "request_or_parse_failed");
     logger.warn({ err: (err as Error)?.message }, "bannerTranslation: translation failed; returning English");
   }
 

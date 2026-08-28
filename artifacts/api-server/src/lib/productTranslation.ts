@@ -15,11 +15,19 @@
  *   cause the JSON to be truncated mid-stream and fail to parse.
  */
 
-import OpenAI from "openai";
+import crypto from "node:crypto";
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { productTranslationCacheTable } from "@workspace/db/schema";
 import { logger } from "./logger";
+import { getOpenAIClient } from "@workspace/integrations-openai-ai-server";
+import {
+  dedupeCatalogAiRequest,
+  runCatalogAiRequest,
+  recordCatalogAiCacheStatus,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+} from "./aiRequest";
 
 export type TranslationLang = "ar" | "fr" | "el";
 
@@ -40,56 +48,11 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const cache = new Map<string, { data: ProductTranslation; expiresAt: number }>();
 
-// In-flight deduplication — prevents thundering herd when many SSR requests
-// arrive simultaneously for the same cold-cache product+language pair.
-const inFlight = new Map<string, Promise<ProductTranslation>>();
-
 const LANG_NAMES: Record<TranslationLang, string> = {
   ar: "Modern Standard Arabic",
   fr: "French",
   el: "Modern Greek",
 };
-
-// ── Retry + concurrency control ───────────────────────────────────────────
-//
-// Under crawl load (e.g. Semrush auditing every fr-lb product page) hundreds
-// of distinct cold-cache products can hit the OpenAI API in a burst. Without
-// a cap, the burst trips rate limits, every call fails, and every page
-// silently falls back to English while its hreflang still claims French.
-// A small concurrency gate + per-call retries makes the fallback path rare.
-
-const MAX_ATTEMPTS = 3;
-const ATTEMPT_TIMEOUT_MS = 15_000;
-const RETRY_BACKOFF_MS = [500, 2_000];
-const MAX_CONCURRENT_CALLS = 4;
-
-let activeCalls = 0;
-const waitQueue: Array<() => void> = [];
-
-async function acquireSlot(): Promise<void> {
-  if (activeCalls < MAX_CONCURRENT_CALLS) {
-    activeCalls++;
-    return;
-  }
-  // The releaser hands its slot directly to the waiter (activeCalls is NOT
-  // decremented when a waiter exists), so a concurrent new acquirer can never
-  // sneak in between release and wake-up and push us over the cap.
-  await new Promise<void>((resolve) => waitQueue.push(resolve));
-}
-
-function releaseSlot(): void {
-  const next = waitQueue.shift();
-  if (next) {
-    // Transfer the slot to the waiter without touching activeCalls.
-    next();
-  } else {
-    activeCalls--;
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
 
 const SYSTEM_PROMPT =
   `You are a professional translator for a luxury flower and gift delivery brand. ` + // i18n-ignore
@@ -98,23 +61,6 @@ const SYSTEM_PROMPT =
   `- Keep the warm, elegant tone of a premium gifting brand.\n` + // i18n-ignore
   `- Do NOT translate brand names (e.g. Presentail) or units (e.g. cm).\n` + // i18n-ignore
   `- Return ONLY a valid JSON object with exactly two string keys: "name" and "description". No extra text.`; // i18n-ignore
-
-function buildClient(): OpenAI | null {
-  // Support both the Replit AI proxy and the standard AI Integrations key.
-  const replitKey = process.env.REPLIT_AI_API_KEY;
-  if (replitKey) {
-    return new OpenAI({
-      apiKey: replitKey,
-      baseURL: "https://openai-proxy.replit.com/v1",
-    });
-  }
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
-}
 
 function cacheKey(osNumericId: number | string, lang: TranslationLang): string {
   return `${osNumericId}:${lang}`;
@@ -206,6 +152,7 @@ export async function translateProductContent(
   englishName: string,
   englishDescription: string,
 ): Promise<ProductTranslation> {
+  recordCatalogAiInvocation("product_translation");
   const fallback: ProductTranslation = {
     name: englishName,
     description: englishDescription,
@@ -220,23 +167,25 @@ export async function translateProductContent(
   // L1 (in-memory) cache hit
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) {
+    recordCatalogAiCacheStatus("product_translation", 1, 0);
     return hit.data;
   }
 
-  // In-flight deduplication
-  const existing = inFlight.get(key);
-  if (existing) return existing;
-
-  const promise = (async (): Promise<ProductTranslation> => {
-    try {
+  return dedupeCatalogAiRequest(
+    `product-translation:${key}`,
+    async () => {
+      try {
       // L2 (Postgres) cache hit — survives restarts, shared across replicas.
       const persisted = await loadPersistedTranslation(osNumericId, lang);
       if (persisted) {
         cache.set(key, { data: persisted.data, expiresAt: persisted.expiresAtMs });
+        recordCatalogAiCacheStatus("product_translation", 1, 0);
         return persisted.data;
       }
-      const client = buildClient();
+      recordCatalogAiCacheStatus("product_translation", 0, 1);
+      const client = getOpenAIClient();
       if (!client) {
+        recordCatalogAiFallback("product_translation", "client_unavailable");
         logger.warn("productTranslation: OpenAI client not configured; returning English"); // i18n-ignore
         return fallback;
       }
@@ -247,35 +196,39 @@ export async function translateProductContent(
         description: englishDescription.trim(),
       };
 
-      let lastErr: unknown = null;
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        await acquireSlot();
-        try {
-          const resp = await client.chat.completions.create(
-            {
-              model: "gpt-4o-mini",
-              max_completion_tokens: 4096,
-              messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                {
-                  role: "user",
-                  content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
-                },
-              ],
-            },
-            { signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) },
-          );
+      try {
+        const resp = await runCatalogAiRequest({
+          workflow: "product_translation",
+          model: "gpt-4o-mini",
+          client,
+          policy: { timeoutMs: 15_000, maxRetries: 2 },
+          request: (requestClient, signal) =>
+            requestClient.chat.completions.create(
+              {
+                model: "gpt-4o-mini",
+                max_completion_tokens: 4096,
+                messages: [
+                  { role: "system", content: SYSTEM_PROMPT },
+                  {
+                    role: "user",
+                    content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
+                  },
+                ],
+              },
+              { signal },
+            ),
+        });
 
-          const raw = (resp.choices[0]?.message?.content ?? "")
+        const raw = (resp.choices[0]?.message?.content ?? "")
             .trim()
             .replace(/^```(?:json)?\n?/, "")
             .replace(/\n?```$/, "");
 
-          const parsed = JSON.parse(raw) as { name?: string; description?: string };
+        const parsed = JSON.parse(raw) as { name?: string; description?: string };
 
-          const gotName =
+        const gotName =
             typeof parsed.name === "string" && parsed.name.trim().length > 0;
-          const gotDescription =
+        const gotDescription =
             typeof parsed.description === "string" &&
             parsed.description.trim().length > 0;
 
@@ -286,13 +239,13 @@ export async function translateProductContent(
           // against downstream.
           const nameOk = !englishName.trim() || gotName;
           const descriptionOk = !englishDescription.trim() || gotDescription;
-          if (!nameOk || !descriptionOk) {
-            throw new Error(
-              `incomplete translation (name: ${gotName}, description: ${gotDescription})`,
-            );
-          }
+        if (!nameOk || !descriptionOk) {
+          throw new Error(
+            `incomplete translation (name: ${gotName}, description: ${gotDescription})`,
+          );
+        }
 
-          const result: ProductTranslation = {
+        const result: ProductTranslation = {
             name: gotName ? parsed.name!.trim() : englishName,
             description: gotDescription
               ? parsed.description!.trim()
@@ -300,46 +253,35 @@ export async function translateProductContent(
             translated: true,
           };
 
-          const expiresAt = Date.now() + CACHE_TTL_MS;
-          cache.set(key, { data: result, expiresAt });
-          void persistTranslation(osNumericId, lang, result, expiresAt);
-          logger.info(
-            { osNumericId, lang, nameLen: result.name.length, attempt },
-            "productTranslation: cached translation", // i18n-ignore
-          );
-          return result;
-        } catch (err) {
-          lastErr = err;
-          logger.warn(
-            { err: (err as Error)?.message, osNumericId, lang, attempt },
-            "productTranslation: attempt failed", // i18n-ignore
-          );
-        } finally {
-          releaseSlot();
-        }
-        if (attempt < MAX_ATTEMPTS) {
-          await sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 2_000);
-        }
+        const expiresAt = Date.now() + CACHE_TTL_MS;
+        cache.set(key, { data: result, expiresAt });
+        void persistTranslation(osNumericId, lang, result, expiresAt);
+        logger.info(
+          { osNumericId, lang, nameLen: result.name.length },
+          "productTranslation: cached translation", // i18n-ignore
+        );
+        return result;
+      } catch (err) {
+        recordCatalogAiFallback("product_translation", "request_or_parse_failed");
+        logger.warn(
+          { err: (err as Error)?.message, osNumericId, lang },
+          "productTranslation: translation failed; returning English", // i18n-ignore
+        );
+        return fallback;
       }
-
-      logger.warn(
-        { err: (lastErr as Error)?.message, osNumericId, lang },
-        "productTranslation: all attempts failed; returning English", // i18n-ignore
-      );
-      return fallback;
     } catch (err) {
       logger.warn(
         { err: (err as Error)?.message, osNumericId, lang },
         "productTranslation: translation failed; returning English", // i18n-ignore
       );
       return fallback;
-    } finally {
-      inFlight.delete(key);
-    }
-  })();
-
-  inFlight.set(key, promise);
-  return promise;
+      }
+    },
+    () => {
+      recordCatalogAiFallback("product_translation", "in_flight_capacity");
+      return fallback;
+    },
+  );
 }
 
 /**
@@ -405,8 +347,10 @@ export async function translateProductNamesBatch(
   items: Array<{ osNumericId: number | string; name: string }>,
   lang: TranslationLang,
 ): Promise<Map<string, string>> {
+  recordCatalogAiInvocation("product_name_translation");
   const result = new Map<string, string>();
   const uncached: Array<{ osNumericId: number | string; name: string }> = [];
+  let cacheHits = 0;
 
   for (const item of items) {
     const key = cacheKey(item.osNumericId, lang);
@@ -414,21 +358,25 @@ export async function translateProductNamesBatch(
     const fullHit = cache.get(key);
     if (fullHit && fullHit.expiresAt > Date.now()) {
       result.set(String(item.osNumericId), fullHit.data.name);
+      cacheHits++;
       continue;
     }
     // Name-only cache hit.
     const nameHit = nameCache.get(key);
     if (nameHit && nameHit.expiresAt > Date.now()) {
       result.set(String(item.osNumericId), nameHit.data);
+      cacheHits++;
       continue;
     }
     uncached.push(item);
   }
 
+  recordCatalogAiCacheStatus("product_name_translation", cacheHits, uncached.length);
   if (uncached.length === 0) return result;
 
-  const client = buildClient();
+  const client = getOpenAIClient();
   if (!client) {
+    recordCatalogAiFallback("product_name_translation", "client_unavailable");
     logger.warn("productTranslation: OpenAI client not configured; returning English names"); // i18n-ignore
     for (const item of uncached) result.set(String(item.osNumericId), item.name);
     return result;
@@ -455,19 +403,32 @@ export async function translateProductNamesBatch(
         if (item.name.trim()) payload[String(item.osNumericId)] = item.name.trim();
       }
 
-      const resp = await client.chat.completions.create(
-        {
+      const batchKey = `product-names:${crypto
+        .createHash("sha256")
+        .update(JSON.stringify([lang, chunk]))
+        .digest("hex")}`;
+      const resp = await dedupeCatalogAiRequest(batchKey, () =>
+        runCatalogAiRequest({
+          workflow: "product_name_translation",
           model: "gpt-4o-mini",
-          max_completion_tokens: 4096,
-          messages: [
-            { role: "system", content: BATCH_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
-            },
-          ],
-        },
-        { signal: AbortSignal.timeout(15_000) },
+          client,
+          policy: { timeoutMs: 15_000, maxRetries: 2 },
+          request: (requestClient, signal) =>
+            requestClient.chat.completions.create(
+              {
+                model: "gpt-4o-mini",
+                max_completion_tokens: 4096,
+                messages: [
+                  { role: "system", content: BATCH_SYSTEM_PROMPT },
+                  {
+                    role: "user",
+                    content: `Translate into ${langName}:\n${JSON.stringify(payload)}`, // i18n-ignore
+                  },
+                ],
+              },
+              { signal },
+            ),
+        }),
       );
 
       const raw = (resp.choices[0]?.message?.content ?? "")
@@ -494,6 +455,7 @@ export async function translateProductNamesBatch(
         "productTranslation: batch names cached", // i18n-ignore
       );
     } catch (err) {
+      recordCatalogAiFallback("product_name_translation", "request_or_parse_failed");
       logger.warn(
         { err: (err as Error)?.message, lang, count: chunk.length },
         "productTranslation: batch translation chunk failed; returning English names", // i18n-ignore

@@ -1,9 +1,19 @@
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import {
+  getOpenAIClient,
+  type ManagedOpenAIClient,
+} from "@workspace/integrations-openai-ai-server";
 import { db } from "@workspace/db";
 import { productColorCacheTable } from "@workspace/db/schema";
 import { inArray } from "drizzle-orm";
 import { logger } from "./logger";
+import {
+  dedupeCatalogAiRequest,
+  recordCatalogAiCacheStatus,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+  runCatalogAiRequest,
+} from "./aiRequest";
 
 const KNOWN_COLORS = [
   "red",
@@ -29,23 +39,6 @@ const BATCH_SIZE = 50;
 
 function nameHash(name: string): string {
   return crypto.createHash("sha256").update(name).digest("hex").slice(0, 16);
-}
-
-const REPLIT_PROXY_BASE_URL = "https://openai-proxy.replit.com/v1";
-
-function buildClient(): OpenAI | null {
-  // Primary: REPLIT_AI_API_KEY with Replit's proxy URL (auto-provisioned by Replit)
-  const replitApiKey = process.env.REPLIT_AI_API_KEY;
-  if (replitApiKey) {
-    return new OpenAI({ apiKey: replitApiKey, baseURL: REPLIT_PROXY_BASE_URL });
-  }
-  // Fallback: AI Integrations env vars (set by setupReplitAIIntegrations)
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
 }
 
 function buildPrompt(products: { slug: string; name: string }[]): string {
@@ -82,14 +75,27 @@ Output only valid JSON. No markdown, no explanation.`;
  * whether to skip upsert (preserving the ability to retry later).
  */
 async function callLlm(
-  client: OpenAI,
+  client: ManagedOpenAIClient,
   batch: { slug: string; name: string }[],
 ): Promise<Record<string, KnownColor | null>> {
-  const response = await client.chat.completions.create({
-    model: "gpt-5-nano",
-    max_completion_tokens: 8192,
-    messages: [{ role: "user", content: buildPrompt(batch) }],
-  });
+  const key = `product-color:${crypto.createHash("sha256").update(JSON.stringify(batch)).digest("hex")}`;
+  const response = await dedupeCatalogAiRequest(key, () =>
+    runCatalogAiRequest({
+      workflow: "product_color_inference",
+      model: "gpt-5-nano",
+      client,
+      policy: { timeoutMs: 15_000, maxRetries: 2 },
+      request: (requestClient, signal) =>
+        requestClient.chat.completions.create(
+          {
+            model: "gpt-5-nano",
+            max_completion_tokens: 8192,
+            messages: [{ role: "user", content: buildPrompt(batch) }],
+          },
+          { signal },
+        ),
+    }),
+  );
 
   const finishReason = response.choices[0]?.finish_reason;
   const raw = response.choices[0]?.message?.content ?? "";
@@ -108,7 +114,7 @@ async function callLlm(
   try {
     parsed = JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    logger.warn({ raw }, "productColorInference: LLM returned unparseable JSON; skipping upsert");
+    logger.warn("productColorInference: LLM returned unparseable JSON; skipping upsert");
     throw new Error("LLM returned unparseable JSON");
   }
 
@@ -139,6 +145,7 @@ async function callLlm(
 export async function inferProductColors(
   products: { slug: string; name: string }[],
 ): Promise<Record<string, KnownColor | null>> {
+  recordCatalogAiInvocation("product_color_inference");
   if (products.length === 0) return {};
 
   // 1. Always read the cache first regardless of AI availability
@@ -153,21 +160,25 @@ export async function inferProductColors(
   // 2. Partition into cache hits and slugs that need inference
   const result: Record<string, KnownColor | null> = {};
   const toInfer: { slug: string; name: string }[] = [];
+  let cacheHits = 0;
 
   for (const p of products) {
     const row = cacheBySlug.get(p.slug);
     if (row && row.productNameHash === nameHash(p.name)) {
       result[p.slug] = row.inferredColor as KnownColor | null;
+      cacheHits++;
     } else {
       toInfer.push(p);
     }
   }
 
+  recordCatalogAiCacheStatus("product_color_inference", cacheHits, toInfer.length);
   if (toInfer.length === 0) return result;
 
   // 3. Build OpenAI client — if unavailable return null for unresolved slugs
-  const client = buildClient();
+  const client = getOpenAIClient();
   if (!client) {
+    recordCatalogAiFallback("product_color_inference", "client_unavailable");
     logger.warn(
       "productColorInference: AI client not configured; returning null for unresolved slugs",
     );
@@ -212,6 +223,7 @@ export async function inferProductColors(
           });
       }
     } catch (err) {
+      recordCatalogAiFallback("product_color_inference", "request_or_parse_failed");
       // LLM call or JSON parse failed — do NOT upsert null so the products
       // can be retried on the next request. Return null in the response only.
       logger.error({ err }, "productColorInference: LLM call failed for batch; skipping upsert");

@@ -1,6 +1,16 @@
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import {
+  getOpenAIClient,
+  type ManagedOpenAIClient,
+} from "@workspace/integrations-openai-ai-server";
 import { logger } from "./logger";
+import {
+  dedupeCatalogAiRequest,
+  recordCatalogAiCacheStatus,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+  runCatalogAiRequest,
+} from "./aiRequest";
 
 export type BearSize = "small" | "medium" | "life-size";
 
@@ -42,27 +52,12 @@ const LIFE_SIZE_MIN_CM = 120;
 const BATCH_SIZE = 50;
 const MAX_DESC_CHARS = 300;
 
-const REPLIT_PROXY_BASE_URL = "https://openai-proxy.replit.com/v1";
-
 function nameHash(name: string, description?: string | null): string {
   return crypto
     .createHash("sha256")
     .update(`${name}|||${description ?? ""}`)
     .digest("hex")
     .slice(0, 16);
-}
-
-function buildClient(): OpenAI | null {
-  const replitApiKey = process.env.REPLIT_AI_API_KEY;
-  if (replitApiKey) {
-    return new OpenAI({ apiKey: replitApiKey, baseURL: REPLIT_PROXY_BASE_URL });
-  }
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
 }
 
 /** Strip HTML tags and truncate description for the prompt. */
@@ -153,14 +148,27 @@ Output only valid JSON. No markdown, no explanation.`;
 }
 
 async function callLlm(
-  client: OpenAI,
+  client: ManagedOpenAIClient,
   batch: { id: string; name: string; description?: string | null }[],
 ): Promise<Record<string, BearSize>> {
-  const response = await client.chat.completions.create({
-    model: "gpt-5-nano",
-    max_completion_tokens: 4096,
-    messages: [{ role: "user", content: buildPrompt(batch) }],
-  });
+  const key = `bear-size:${crypto.createHash("sha256").update(JSON.stringify(batch)).digest("hex")}`;
+  const response = await dedupeCatalogAiRequest(key, () =>
+    runCatalogAiRequest({
+      workflow: "bear_size_inference",
+      model: "gpt-5-nano",
+      client,
+      policy: { timeoutMs: 15_000, maxRetries: 2 },
+      request: (requestClient, signal) =>
+        requestClient.chat.completions.create(
+          {
+            model: "gpt-5-nano",
+            max_completion_tokens: 4096,
+            messages: [{ role: "user", content: buildPrompt(batch) }],
+          },
+          { signal },
+        ),
+    }),
+  );
 
   const raw = response.choices[0]?.message?.content ?? "";
 
@@ -176,7 +184,7 @@ async function callLlm(
   try {
     parsed = JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    logger.warn({ raw }, "bearSizeInference: LLM returned unparseable JSON");
+    logger.warn("bearSizeInference: LLM returned unparseable JSON");
     throw new Error("LLM returned unparseable JSON");
   }
 
@@ -221,12 +229,14 @@ function pruneCache(): void {
 export async function getBearSizeMap(
   products: { id: string; name: string; description?: string | null }[],
 ): Promise<Record<string, BearSize>> {
+  recordCatalogAiInvocation("bear_size_inference");
   if (products.length === 0) return {};
   pruneCache();
 
   const result: Record<string, BearSize> = {};
   const toInfer: { id: string; name: string; description?: string | null }[] = [];
   const now = Date.now();
+  let cacheHits = 0;
 
   for (const p of products) {
     // 1. Keyword heuristic (name + description)
@@ -241,16 +251,19 @@ export async function getBearSizeMap(
     const cached = sizeCache.get(p.id);
     if (cached && cached.contentHash === hash && now - cached.cachedAt < CACHE_TTL_MS) {
       result[p.id] = cached.size;
+      cacheHits++;
       continue;
     }
 
     toInfer.push(p);
   }
 
+  recordCatalogAiCacheStatus("bear_size_inference", cacheHits, toInfer.length);
   if (toInfer.length === 0) return result;
 
-  const client = buildClient();
+  const client = getOpenAIClient();
   if (!client) {
+    recordCatalogAiFallback("bear_size_inference", "client_unavailable");
     logger.warn(
       "bearSizeInference: AI client not configured; defaulting unclassified bears to medium",
     );
@@ -274,6 +287,7 @@ export async function getBearSizeMap(
         });
       }
     } catch (err) {
+      recordCatalogAiFallback("bear_size_inference", "request_or_parse_failed");
       logger.error({ err }, "bearSizeInference: LLM call failed; defaulting batch to medium");
       for (const item of batch) {
         result[item.id] = "medium";

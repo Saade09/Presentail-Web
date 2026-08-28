@@ -1,16 +1,24 @@
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import {
+  getOpenAIClient,
+  type ManagedOpenAIClient,
+} from "@workspace/integrations-openai-ai-server";
 import { db } from "@workspace/db";
 import { plantEnvironmentCacheTable } from "@workspace/db/schema";
 import { inArray } from "drizzle-orm";
 import { logger } from "./logger";
+import {
+  dedupeCatalogAiRequest,
+  recordCatalogAiCacheStatus,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+  runCatalogAiRequest,
+} from "./aiRequest";
 
 export type PlantEnvironment = "indoor" | "outdoor";
 
 const BATCH_SIZE = 50;
 const MAX_DESC_CHARS = 300;
-
-const REPLIT_PROXY_BASE_URL = "https://openai-proxy.replit.com/v1";
 
 // Plants that are strongly associated with indoor environments
 const INDOOR_KEYWORDS = [
@@ -78,19 +86,6 @@ const OUTDOOR_KEYWORDS = [
   "topiary",
 ];
 
-function buildClient(): OpenAI | null {
-  const replitApiKey = process.env.REPLIT_AI_API_KEY;
-  if (replitApiKey) {
-    return new OpenAI({ apiKey: replitApiKey, baseURL: REPLIT_PROXY_BASE_URL });
-  }
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
-}
-
 function cleanDescription(description?: string | null): string {
   if (!description) return "";
   const stripped = description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -151,14 +146,27 @@ Output only valid JSON. No markdown, no explanation.`;
 }
 
 async function callLlm(
-  client: OpenAI,
+  client: ManagedOpenAIClient,
   batch: { id: string; name: string; imageUrl?: string | null; description?: string | null }[],
 ): Promise<Record<string, PlantEnvironment>> {
-  const response = await client.chat.completions.create({
-    model: "gpt-5-nano",
-    max_completion_tokens: 4096,
-    messages: [{ role: "user", content: buildPrompt(batch) }],
-  });
+  const key = `plant-environment:${crypto.createHash("sha256").update(JSON.stringify(batch)).digest("hex")}`;
+  const response = await dedupeCatalogAiRequest(key, () =>
+    runCatalogAiRequest({
+      workflow: "plant_environment_inference",
+      model: "gpt-5-nano",
+      client,
+      policy: { timeoutMs: 15_000, maxRetries: 2 },
+      request: (requestClient, signal) =>
+        requestClient.chat.completions.create(
+          {
+            model: "gpt-5-nano",
+            max_completion_tokens: 4096,
+            messages: [{ role: "user", content: buildPrompt(batch) }],
+          },
+          { signal },
+        ),
+    }),
+  );
 
   const raw = response.choices[0]?.message?.content ?? "";
 
@@ -174,7 +182,7 @@ async function callLlm(
   try {
     parsed = JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    logger.warn({ raw }, "plantEnvironmentInference: LLM returned unparseable JSON");
+    logger.warn("plantEnvironmentInference: LLM returned unparseable JSON");
     throw new Error("LLM returned unparseable JSON");
   }
 
@@ -223,10 +231,12 @@ export async function classifyPlantProducts(
   products: ProductInput[],
   options: { forceReclassify?: boolean } = {},
 ): Promise<Map<string, ClassificationResult>> {
+  recordCatalogAiInvocation("plant_environment_inference");
   if (products.length === 0) return new Map();
 
   const results = new Map<string, ClassificationResult>();
   let toClassify: ProductInput[] = [];
+  let cacheHits = 0;
 
   if (!options.forceReclassify) {
     const ids = products.map((p) => p.id);
@@ -247,6 +257,7 @@ export async function classifyPlantProducts(
         row.source !== "fallback" &&
         !row.needsReview
       ) {
+        cacheHits++;
         results.set(p.id, {
           classification: row.classification as PlantEnvironment,
           source: row.source as "ai" | "admin" | "fallback",
@@ -261,6 +272,7 @@ export async function classifyPlantProducts(
     toClassify = products;
   }
 
+  recordCatalogAiCacheStatus("plant_environment_inference", cacheHits, toClassify.length);
   if (toClassify.length === 0) return results;
 
   const heuristicResolved: ProductInput[] = [];
@@ -282,9 +294,10 @@ export async function classifyPlantProducts(
     }
   }
 
-  const client = buildClient();
+  const client = getOpenAIClient();
 
   if (needsLlm.length > 0 && !client) {
+    recordCatalogAiFallback("plant_environment_inference", "client_unavailable");
     logger.warn(
       "plantEnvironmentInference: AI client not configured; defaulting unclassified plants to indoor with needs_review",
     );
@@ -313,6 +326,7 @@ export async function classifyPlantProducts(
           });
         }
       } catch (err) {
+        recordCatalogAiFallback("plant_environment_inference", "request_or_parse_failed");
         logger.error(
           { err },
           "plantEnvironmentInference: LLM call failed; defaulting batch to indoor with needs_review",

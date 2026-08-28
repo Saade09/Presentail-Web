@@ -89,3 +89,4 @@
 - [Autoscale affinity cache checks](autoscale-affinity-cache-checks.md) — record cookie-less and affinity-established responses separately; never persist GAESA values.
 - [Distributed job ownership](distributed-job-ownership.md) — leases alone cannot prevent paused-owner overlap; pair durable due windows with a full-run DB session lock and cancellation.
 - [Expo static delivery canary](expo-static-delivery-canary.md) — keep header-negotiated manifests on Node; generate same-build Node/static cohorts so rollback never needs a rebuild.
+- [Catalog AI request bounds](catalog-ai-request-bounds.md) — custom retry policy must disable SDK retries; never evict active dedupe work; capacity must preserve each caller’s fallback.

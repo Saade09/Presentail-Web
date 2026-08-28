@@ -1,25 +1,22 @@
-import OpenAI from "openai";
+import crypto from "node:crypto";
+import {
+  getOpenAIClient,
+  type ManagedOpenAIClient,
+} from "@workspace/integrations-openai-ai-server";
 import { db } from "@workspace/db";
 import { personalisationRequirementCacheTable } from "@workspace/db/schema";
 import { inArray } from "drizzle-orm";
 import { logger } from "./logger";
+import {
+  dedupeCatalogAiRequest,
+  recordCatalogAiCacheStatus,
+  recordCatalogAiFallback,
+  recordCatalogAiInvocation,
+  runCatalogAiRequest,
+} from "./aiRequest";
 
 const BATCH_SIZE = 50;
 const MAX_DESC_CHARS = 300;
-const REPLIT_PROXY_BASE_URL = "https://openai-proxy.replit.com/v1";
-
-function buildClient(): OpenAI | null {
-  const replitApiKey = process.env.REPLIT_AI_API_KEY;
-  if (replitApiKey) {
-    return new OpenAI({ apiKey: replitApiKey, baseURL: REPLIT_PROXY_BASE_URL });
-  }
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (baseURL && apiKey) {
-    return new OpenAI({ apiKey, baseURL });
-  }
-  return null;
-}
 
 function cleanDescription(description?: string | null): string {
   if (!description) return "";
@@ -61,14 +58,27 @@ Output only valid JSON. No markdown, no explanation.`;
 }
 
 async function callLlm(
-  client: OpenAI,
+  client: ManagedOpenAIClient,
   batch: { osNumericId: string; name: string; description?: string | null; categories?: string[] }[],
 ): Promise<Record<string, boolean>> {
-  const response = await client.chat.completions.create({
-    model: "gpt-5-nano",
-    max_completion_tokens: 4096,
-    messages: [{ role: "user", content: buildPrompt(batch) }],
-  });
+  const key = `personalisation:${crypto.createHash("sha256").update(JSON.stringify(batch)).digest("hex")}`;
+  const response = await dedupeCatalogAiRequest(key, () =>
+    runCatalogAiRequest({
+      workflow: "personalisation_requirement_inference",
+      model: "gpt-5-nano",
+      client,
+      policy: { timeoutMs: 15_000, maxRetries: 2 },
+      request: (requestClient, signal) =>
+        requestClient.chat.completions.create(
+          {
+            model: "gpt-5-nano",
+            max_completion_tokens: 4096,
+            messages: [{ role: "user", content: buildPrompt(batch) }],
+          },
+          { signal },
+        ),
+    }),
+  );
 
   const raw = response.choices[0]?.message?.content ?? "";
 
@@ -85,7 +95,7 @@ async function callLlm(
     parsed = JSON.parse(raw) as Record<string, unknown>;
   } catch {
     logger.warn(
-      { raw },
+      {},
       "personalisationRequirementInference: LLM returned unparseable JSON; skipping upsert",
     );
     throw new Error("LLM returned unparseable JSON");
@@ -124,6 +134,7 @@ export type PersonalisationProduct = {
 export async function inferPersonalisationRequirements(
   products: PersonalisationProduct[],
 ): Promise<Record<string, boolean>> {
+  recordCatalogAiInvocation("personalisation_requirement_inference");
   if (products.length === 0) return {};
 
   const result: Record<string, boolean> = {};
@@ -157,20 +168,28 @@ export async function inferPersonalisationRequirements(
   const cacheById = new Map(cached.map((row) => [row.osNumericId, row]));
 
   const toInfer: PersonalisationProduct[] = [];
+  let cacheHits = 0;
   for (const p of nonHeuristic) {
     const row = cacheById.get(p.osNumericId);
     if (row) {
       result[p.osNumericId] = row.required;
+      cacheHits++;
     } else {
       toInfer.push(p);
     }
   }
 
+  recordCatalogAiCacheStatus(
+    "personalisation_requirement_inference",
+    cacheHits,
+    toInfer.length,
+  );
   if (toInfer.length === 0) return result;
 
   // 3. Build OpenAI client — if unavailable return false (optional) for uncached
-  const client = buildClient();
+  const client = getOpenAIClient();
   if (!client) {
+    recordCatalogAiFallback("personalisation_requirement_inference", "client_unavailable");
     logger.warn(
       "personalisationRequirementInference: AI client not configured; defaulting uncached products to optional",
     );
@@ -212,6 +231,7 @@ export async function inferPersonalisationRequirements(
           });
       }
     } catch (err) {
+      recordCatalogAiFallback("personalisation_requirement_inference", "request_or_parse_failed");
       logger.error(
         { err },
         "personalisationRequirementInference: LLM call failed for batch; defaulting to optional",
