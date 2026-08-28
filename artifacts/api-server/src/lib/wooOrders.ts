@@ -92,6 +92,7 @@ import {
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
 import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 import { appendOrderToSheet } from "./ordersSheet.js";
+import { sendOpsNewOrderEmail } from "./emailNotify.js";
 import { runDistributedJob } from "./distributedJob";
 
 async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
@@ -951,6 +952,29 @@ export async function recordSuccessfulWcOrder(input: {
     cardMessage,
     osOrderId: osOrderId ?? null,
   });
+
+  // Ops new-order email to hello@presentail.com — best-effort, never blocks.
+  void sendOpsNewOrderEmail({
+    appOrderId: body.orderId,
+    platform: platform ?? null,
+    storeKey: storeKey ?? null,
+    senderName,
+    senderEmail,
+    senderPhone: senderPhone ?? null,
+    recipientName: recipientName || null,
+    recipientPhone,
+    deliveryDate: body.deliveryDate ?? null,
+    deliverySlot: body.deliverySlot ?? null,
+    deliveryDistrict,
+    deliveryAddress,
+    cardMessage,
+    paymentMethod,
+    currencyCode: currencyCode ?? null,
+    totalPaymentCents: totalPaymentCents ?? null,
+    couponCode,
+    lineItems: lineItems?.map((it) => ({ name: it.name, quantity: it.quantity })) ?? null,
+    osOrderId: osOrderId ?? null,
+  }).catch(() => { /* best-effort */ });
 
   // Push notification is best-effort and must not block the caller from
   // returning a response. Fire-and-forget; errors are still logged.

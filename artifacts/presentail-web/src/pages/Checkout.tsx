@@ -3595,6 +3595,20 @@ function CheckoutForm() {
               void maybeSaveNewAddress();
               void maybeSaveProfilePhone();
               const payload = buildOrderPayload({ paymentRef: finalIntent.id, orderId });
+
+              // Persist payload server-side so the Stripe webhook / sweeper can
+              // rescue the order if iOS Safari clears sessionStorage on navigation
+              // (a well-known iOS behavior). Fire-and-forget — the card is already
+              // charged; the sessionStorage stash below is the primary browser path.
+              {
+                const pendingBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+                void fetch(`${pendingBase}/api/checkout/klarna-pending`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ orderId, piId: finalIntent.id, orderPayload: payload }),
+                }).catch(() => { /* best-effort */ });
+              }
+
               // Try to stash for OrderConfirmed's seamless display. If storage
               // is unavailable (Safari private, quota exceeded, iOS app-state
               // kill), fall back to submitting directly with the payload we

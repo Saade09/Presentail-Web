@@ -371,6 +371,98 @@ export type EmailNotifyResult = {
   emailSkipped: boolean;
 };
 
+// ---------------------------------------------------------------------------
+// Ops new-order notification (internal team email to hello@presentail.com)
+// ---------------------------------------------------------------------------
+
+export type OpsOrderEmailInput = {
+  appOrderId: string;
+  platform: string | null;
+  storeKey: string | null;
+  senderName: string | null;
+  senderEmail: string | null;
+  senderPhone: string | null;
+  recipientName: string | null;
+  recipientPhone: string | null;
+  deliveryDate: string | null;
+  deliverySlot: string | null;
+  deliveryDistrict: string | null;
+  deliveryAddress: string | null;
+  cardMessage: string | null;
+  paymentMethod: string | null;
+  currencyCode: string | null;
+  totalPaymentCents: number | null;
+  couponCode: string | null;
+  lineItems: { name: string; quantity: number }[] | null;
+  osOrderId: string | number | null;
+};
+
+/**
+ * Send a new-order notification email to the ops inbox (hello@presentail.com).
+ *
+ * Best-effort: never throws. A missing SMTP config results in a silent skip.
+ * This is an ADDITIONAL step — it does not replace any existing flow.
+ */
+export async function sendOpsNewOrderEmail(input: OpsOrderEmailInput): Promise<void> {
+  const transport = buildTransport();
+  if (!transport) return;
+
+  const to = process.env.OPS_ORDER_EMAIL ?? "hello@presentail.com"; // i18n-ignore
+  const from = process.env.EMAIL_FROM ?? process.env.SMTP_USER ?? "orders@presentail.com"; // i18n-ignore
+
+  const amount =
+    input.totalPaymentCents != null
+      ? formatAmount(input.totalPaymentCents, input.currencyCode)
+      : "—"; // i18n-ignore
+
+  const itemLines = (input.lineItems ?? [])
+    .map((it) => `  - ${it.name} × ${it.quantity}`) // i18n-ignore
+    .join("\n");
+
+  const lines: string[] = [
+    `New order: ${input.appOrderId}`, // i18n-ignore
+    `Platform: ${input.platform ?? "—"} | Store: ${input.storeKey ?? "—"} | Payment: ${input.paymentMethod ?? "—"}`, // i18n-ignore
+    `Amount: ${amount}${input.couponCode ? ` (coupon: ${input.couponCode})` : ""}`, // i18n-ignore
+    `OS Order: ${input.osOrderId ?? "pending"}`, // i18n-ignore
+    ``,
+    `── Sender ──`, // i18n-ignore
+    `Name:  ${input.senderName ?? "—"}`, // i18n-ignore
+    `Email: ${input.senderEmail ?? "—"}`, // i18n-ignore
+    `Phone: ${input.senderPhone ?? "—"}`, // i18n-ignore
+    ``,
+    `── Recipient ──`, // i18n-ignore
+    `Name:  ${input.recipientName ?? "—"}`, // i18n-ignore
+    `Phone: ${input.recipientPhone ?? "—"}`, // i18n-ignore
+    ``,
+    `── Delivery ──`, // i18n-ignore
+    `Date:     ${input.deliveryDate ?? "—"}  |  Slot: ${input.deliverySlot ?? "—"}`, // i18n-ignore
+    `District: ${input.deliveryDistrict ?? "—"}`, // i18n-ignore
+    `Address:  ${input.deliveryAddress ?? "—"}`, // i18n-ignore
+    ``,
+    `── Items ──`, // i18n-ignore
+    itemLines || "  (none)", // i18n-ignore
+  ];
+
+  if (input.cardMessage) {
+    lines.push(``, `Card message: "${input.cardMessage}"`); // i18n-ignore
+  }
+
+  try {
+    await transport.sendMail({
+      from,
+      to,
+      subject: `New order ${input.appOrderId}${input.storeKey ? ` — ${input.storeKey}` : ""}`, // i18n-ignore
+      text: lines.join("\n"),
+    });
+    logger.info({ appOrderId: input.appOrderId, to }, "emailNotify: ops new-order email sent"); // i18n-ignore
+  } catch (err: unknown) {
+    logger.warn(
+      { appOrderId: input.appOrderId, to, error: (err as Error)?.message },
+      "emailNotify: ops new-order email failed (non-fatal)", // i18n-ignore
+    );
+  }
+}
+
 /**
  * Send a transactional order-event email to the customer.
  *
