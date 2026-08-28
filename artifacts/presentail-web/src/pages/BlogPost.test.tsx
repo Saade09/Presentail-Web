@@ -35,6 +35,7 @@ const ARTICLE = BLOG_POSTS[SLUG_WITH_IMAGE].en;
 
 beforeEach(() => {
   mockSlug = SLUG_WITH_IMAGE;
+  window.history.replaceState({}, "", "/");
 });
 
 afterEach(() => {
@@ -256,6 +257,25 @@ describe("BlogPost — shared-link preview metadata", () => {
     expect(typeof json.image).toBe("string");
     expect(json.image).toContain(ARTICLE.ogImage!.url);
     expect(json.dateModified).toBe(ARTICLE.dateModified ?? ARTICLE.datePublished);
+  });
+
+  it("keeps the Article schema URL canonical when the page has tracking parameters", () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/en/blog/${SLUG_WITH_IMAGE}?utm_source=newsletter&utm_campaign=spring&gclid=test`,
+    );
+
+    renderWithProviders(<BlogPost />);
+
+    const json = JSON.parse(
+      document.getElementById("blog-post-schema")!.textContent ?? "{}",
+    );
+    expect(json.url).toBe(
+      `${window.location.origin}/en/blog/${encodeURIComponent(SLUG_WITH_IMAGE)}`,
+    );
+    expect(json.url).not.toContain("utm_");
+    expect(json.url).not.toContain("gclid");
   });
 });
 

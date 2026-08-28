@@ -1549,25 +1549,22 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
     "behind-the-scenes": "Behind the Scenes", // i18n-ignore
     makers: "Makers", // i18n-ignore
   };
-  const entryHtml = ([slug, byLang]) => {
-    const article = byLang?.[lang] ?? byLang?.en;
-    const title = article?.title;
-    if (!slug || !title) return "";
+  const entries = getBlogIndexEntries(lang, { localeBase });
+  const entryHtml = ({ slug, article, url }) => {
     const category =
       CATEGORY_LABELS[getBlogPostMeta(slug).category] ?? "";
     const minutes = getBlogPostReadingTime(slug, lang);
     return (
-      `<li><a href="${localeBase}/blog/${escapeAttr(encodeURIComponent(slug))}">${escapeHtml(title)}</a>` +
+      `<li><a href="${escapeAttr(url)}">${escapeHtml(article.title)}</a>` +
       (category ? ` — ${escapeHtml(category)}` : "") +
       ` · ${minutes} min read</li>` // i18n-ignore — crawler-facing metadata
     );
   };
-  const entries = Object.entries(BLOG_POSTS ?? {});
   const featuredSlug = getFeaturedBlogSlug();
-  const featuredEntry = entries.find(([slug]) => slug === featuredSlug);
+  const featuredEntry = entries.find(({ slug }) => slug === featuredSlug);
   const featuredItem = featuredEntry ? entryHtml(featuredEntry) : "";
   const items = entries
-    .filter(([slug]) => slug !== featuredSlug || !featuredItem)
+    .filter(({ slug }) => slug !== featuredSlug || !featuredItem)
     .map(entryHtml)
     .filter(Boolean);
   if (items.length === 0 && !featuredItem) return "";
@@ -1576,6 +1573,110 @@ export function buildBlogIndexBodyHtml(lang, { localeBase }) {
     ? `<h2>Featured story</h2><ul>${featuredItem}</ul>` // i18n-ignore
     : "";
   return `${featuredHtml}<h2>Recent stories</h2><ul>${items.join("")}</ul>`; // i18n-ignore
+}
+
+/**
+ * Dedicated-language articles exposed by the canonical blog index.
+ *
+ * getBlogPostLanguages() rejects getter aliases that return English fallback
+ * content. Those fallback routes are intentionally noindex, so neither the
+ * crawlable index nor its structured data should advertise them as published
+ * translations.
+ */
+function getBlogIndexEntries(lang, { localeBase }) {
+  if (!localeBase) return [];
+  return Object.entries(BLOG_POSTS ?? {})
+    .map(([slug, byLang]) => {
+      if (!slug || !getBlogPostLanguages(byLang).includes(lang)) return null;
+      const article = byLang?.[lang];
+      if (!article?.title || !article?.datePublished) return null;
+      return {
+        slug,
+        article,
+        url: `${localeBase}/blog/${encodeURIComponent(slug)}`,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) =>
+      a.article.datePublished < b.article.datePublished
+        ? 1
+        : a.article.datePublished > b.article.datePublished
+          ? -1
+          : 0,
+    );
+}
+
+/**
+ * Server-rendered JSON-LD graph for the canonical /{lang}/blog index.
+ */
+function buildBlogIndexJsonLd({
+  lang,
+  blogIndexHref,
+  blogLocaleBase,
+  siteUrl,
+  name,
+  description,
+}) {
+  const articles = getBlogIndexEntries(lang, { localeBase: blogLocaleBase });
+  const featuredSlug = getFeaturedBlogSlug();
+  const featured = articles.find(({ slug }) => slug === featuredSlug);
+  const orderedArticles = featured
+    ? [featured, ...articles.filter(({ slug }) => slug !== featuredSlug)]
+    : articles;
+  const itemListId = `${blogIndexHref}#articles`;
+  const blogId = `${blogIndexHref}#blog`;
+
+  const blogSchema = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "@id": blogId,
+    url: blogIndexHref,
+    name,
+    description,
+    inLanguage: lang,
+    isPartOf: {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      name: "Presentail",
+      url: siteUrl,
+    },
+    mainEntity: { "@id": itemListId },
+  };
+  const breadcrumbSchema = buildBreadcrumbListSchema([
+    { name: "Home", url: siteUrl || "/" },
+    { name: name || "Journal" },
+  ]);
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": itemListId,
+    name: `${name || "Journal"} articles`,
+    numberOfItems: orderedArticles.length,
+    itemListElement: orderedArticles.map(({ article, url }, index) => {
+      const imagePath =
+        typeof article.ogImage?.url === "string" ? article.ogImage.url : "";
+      const image = imagePath
+        ? /^https?:\/\//i.test(imagePath)
+          ? imagePath
+          : `${siteUrl}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`
+        : null;
+      return {
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "BlogPosting",
+          "@id": url,
+          url,
+          name: article.title,
+          headline: article.title,
+          datePublished: article.datePublished,
+          ...(image ? { image } : {}),
+        },
+      };
+    }),
+  };
+
+  return jsonLdGraphTag([blogSchema, breadcrumbSchema, itemListSchema]);
 }
 
 function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined, campaignLanding = null }) {
@@ -5360,6 +5461,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         const ogImage = `${siteOrigin}${cleanBase}/opengraph.jpg?v=2`;
         const alternateHref = (alternateLang) =>
           `${siteOrigin}${cleanBase}/${alternateLang}/blog`;
+        const siteUrl = `${siteOrigin}${cleanBase}`;
         const indexLines = [
           `<meta name="description" content="${escapeAttr(blogSeo.description)}" />`,
           `<link rel="canonical" href="${escapeAttr(blogIndexHref)}" />`,
@@ -5382,7 +5484,15 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           `<meta name="twitter:title" content="${escapeAttr(blogSeo.twitterTitle)}" />`,
           `<meta name="twitter:description" content="${escapeAttr(blogSeo.twitterDescription)}" />`,
           `<meta name="twitter:image" content="${escapeAttr(ogImage)}" />`,
-          jsonLdTag(buildOrganizationSchema(`${siteOrigin}${cleanBase}`)),
+          jsonLdTag(buildOrganizationSchema(siteUrl)),
+          buildBlogIndexJsonLd({
+            lang: blogLang,
+            blogIndexHref,
+            blogLocaleBase,
+            siteUrl,
+            name: blogSeo.h1,
+            description: blogSeo.description,
+          }),
         ];
         return assembleHtml(html, {
           lang: blogLang,

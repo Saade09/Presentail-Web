@@ -414,6 +414,8 @@ export default function BlogPost() {
     const imageUrl = article.ogImage
       ? new URL(article.ogImage.url, window.location.origin).href
       : new URL(BLOG_OG_FALLBACK_IMAGE_PATH, window.location.origin).href;
+    const canonicalArticleUrl =
+      `${window.location.origin}${basePath}/${language}/blog/${encodeURIComponent(article.slug)}`;
     // Use buildBlogArticleJsonLd — the shared builder from blog-article-schema.mjs
     // that seo-inject.mjs also calls, so server-rendered and JS-patched schemas
     // can never silently diverge.
@@ -426,7 +428,7 @@ export default function BlogPost() {
         image: imageUrl,
         author: article.author,
         publisherUrl: window.location.origin,
-        url: window.location.href,
+        url: canonicalArticleUrl,
       }),
     );
 

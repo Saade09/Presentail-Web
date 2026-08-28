@@ -6541,6 +6541,72 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
   });
 
+  it("canonical blog index emits Blog, BreadcrumbList, and dedicated-language ItemList schema", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(HTML, "/fr/blog", OPTS);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain('"@graph"');
+    const blocks = assertAllJsonLdValid(out, "French blog index");
+    const blog = byType(blocks, "Blog");
+    const breadcrumb = byType(blocks, "BreadcrumbList");
+    const itemList = byType(blocks, "ItemList");
+
+    expect(blog).toMatchObject({
+      url: "https://presentail.test/fr/blog",
+      inLanguage: "fr",
+    });
+    expect(breadcrumb.itemListElement).toEqual([
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://presentail.test",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: expect.any(String),
+      },
+    ]);
+
+    const expectedFrenchPosts = Object.entries(BLOG_POSTS)
+      .filter(([, byLang]) => getBlogPostLanguages(byLang).includes("fr"));
+    expect(itemList.numberOfItems).toBe(expectedFrenchPosts.length);
+    expect(itemList.itemListElement).toHaveLength(expectedFrenchPosts.length);
+
+    const listedByUrl = new Map(
+      itemList.itemListElement.map((entry: any) => [entry.item.url, entry.item]),
+    );
+    for (const [slug, byLang] of expectedFrenchPosts) {
+      const article = byLang.fr!;
+      const url = `https://presentail.test/fr/blog/${encodeURIComponent(slug)}`;
+      expect(listedByUrl.get(url)).toMatchObject({
+        "@type": "BlogPosting",
+        "@id": url,
+        url,
+        name: article.title,
+        headline: article.title,
+        datePublished: article.datePublished,
+        ...(article.ogImage
+          ? { image: `https://presentail.test${article.ogImage.url}` }
+          : {}),
+      });
+    }
+
+    const englishOnlySlug = Object.keys(BLOG_POSTS).find(
+      (slug) =>
+        getBlogPostLanguages(BLOG_POSTS[slug]).includes("en") &&
+        !getBlogPostLanguages(BLOG_POSTS[slug]).includes("fr"),
+    );
+    expect(englishOnlySlug).toBeTruthy();
+    expect(out).not.toContain(
+      `https://presentail.test/fr/blog/${encodeURIComponent(englishOnlySlug!)}`,
+    );
+  });
+
   it("serves the optimized French corporate article as visible semantic fallback HTML", async () => {
     const articleSource = BLOG_POSTS["corporate-gifting-lebanon"].fr!;
     const rootHtml =
