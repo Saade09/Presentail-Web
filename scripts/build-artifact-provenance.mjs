@@ -24,6 +24,45 @@ const ROOT_INPUTS = [
   "tsconfig.base.json",
   "scripts/build-artifact-provenance.mjs",
 ];
+const WEB_ARTIFACT_INPUTS = [
+  "artifacts/presentail-web/src/",
+  "artifacts/presentail-web/public/",
+  "artifacts/presentail-web/index.html",
+  "artifacts/presentail-web/package.json",
+  "artifacts/presentail-web/tsconfig.json",
+  "artifacts/presentail-web/vite.config.ts",
+  "artifacts/presentail-web/blog-hero-variants.config.mjs",
+  "artifacts/presentail-web/blog-hero-variants.mjs",
+  "artifacts/presentail-web/check-build-integrity.mjs",
+  "artifacts/presentail-web/compress-assets.mjs",
+  "artifacts/presentail-web/logo-assets.mjs",
+  "artifacts/presentail-web/markdown.mjs",
+  "artifacts/presentail-web/seo-inject.mjs",
+  "artifacts/presentail-web/server-analytics-policy.mjs",
+  "artifacts/presentail-web/scripts/generate-blog-hero-variants.mjs",
+  "artifacts/presentail-web/scripts/pageEligibility.mjs",
+  "attached_assets/Elegant-dark-teal-stationery-design_1778742277420.avif",
+  "attached_assets/Presentail-Arabic-Logo-white.png",
+  "attached_assets/Presentail-Arabic-Logo-white.webp",
+  "attached_assets/Presentail-Arabic-Logo.png",
+  "attached_assets/Presentail-Arabic-Logo.webp",
+  "attached_assets/Presentail_PNG-01_1777795626872.png",
+  "attached_assets/Presentail_PNG-01_1777795626872.webp",
+  "attached_assets/Presentail_PNG-01_white.png",
+  "attached_assets/Presentail_PNG-01_white.webp",
+];
+const WEB_LIBRARY_INPUTS = [
+  "lib/api-client-react/",
+  "lib/blog-content/",
+  "lib/catalog-data/",
+  "lib/clerk-types/",
+  "lib/delivery/",
+  "lib/display-currency/",
+  "lib/homepage-icons/",
+  "lib/pay-methods/",
+  "lib/presentail-os/",
+  "lib/suggested-messages/",
+];
 
 const argv = process.argv.slice(2);
 const arg = (name, fallback = null) => {
@@ -33,13 +72,11 @@ const arg = (name, fallback = null) => {
 const hasFlag = (name) => argv.includes(`--${name}`);
 
 function artifactDefaults(name) {
+  if (name === "web") {
+    return [...WEB_ARTIFACT_INPUTS, ...WEB_LIBRARY_INPUTS, ...ROOT_INPUTS];
+  }
   const artifactPrefix = `artifacts/${name === "web" ? "presentail-web" : name === "api" ? "api-server" : "presentail"}/`;
-  return [
-    artifactPrefix,
-    "lib/",
-    ...ROOT_INPUTS,
-    ...(name === "web" ? ["attached_assets/"] : []),
-  ];
+  return [artifactPrefix, "lib/", ...ROOT_INPUTS];
 }
 
 function relative(value) {
@@ -53,6 +90,14 @@ function isGenerated(relativePath) {
     relativePath.includes("/static-build/") ||
     relativePath.includes("/.expo/") ||
     relativePath.includes("/coverage/") ||
+    relativePath.includes("/__tests__/") ||
+    /(?:^|\/)[^/]+\.test\.[cm]?[jt]sx?$/.test(relativePath) ||
+    /^artifacts\/presentail-web\/src\/test-(setup|utils)\.tsx?$/.test(
+      relativePath,
+    ) ||
+    /^artifacts\/presentail-web\/public\/blog\/.+-(480|768)\.webp$/.test(
+      relativePath,
+    ) ||
     relativePath.startsWith(".git/") ||
     relativePath === MANIFEST_NAME
   );

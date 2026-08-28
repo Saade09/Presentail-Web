@@ -115,7 +115,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: artifacts/presentail-web/dist
-          key: web-dist-v2-${{ runner.os }}-node20-${{ hashFiles('artifacts/presentail-web/**', 'lib/**', 'attached_assets/**', 'scripts/build-artifact-provenance.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig*.json') }}
+          key: web-dist-v3-${{ runner.os }}-node20-${{ hashFiles('artifacts/presentail-web/src/**', 'artifacts/presentail-web/public/**', '!artifacts/presentail-web/public/blog/*-480.webp', '!artifacts/presentail-web/public/blog/*-768.webp', 'artifacts/presentail-web/index.html', 'artifacts/presentail-web/package.json', 'artifacts/presentail-web/tsconfig.json', 'artifacts/presentail-web/vite.config.ts', 'artifacts/presentail-web/*.mjs', 'artifacts/presentail-web/scripts/generate-blog-hero-variants.mjs', 'artifacts/presentail-web/scripts/pageEligibility.mjs', 'lib/**', 'attached_assets/Elegant-dark-teal-stationery-design_1778742277420.avif', 'attached_assets/Presentail-Arabic-Logo*', 'attached_assets/Presentail_PNG-01*', 'scripts/build-artifact-provenance.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig*.json') }}
 
       - name: Build web app (vite + compress-assets)
         # Required so the Brotli sidecars exist for the chunk budget check below.
