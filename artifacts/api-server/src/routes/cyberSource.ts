@@ -37,7 +37,11 @@ import {
 } from "../lib/catalog";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
 import { resolveStoreFromRequest } from "../lib/wooStore";
-import { validateCoupon } from "../lib/couponValidation";
+import {
+  acquireFirst10Lock,
+  FIRST_ORDER_COUPON_CODE,
+  validateCoupon,
+} from "../lib/couponValidation";
 
 // Re-export for consumers that need the auth helper directly (e.g. tests).
 export { signCyberSourceRequest };
@@ -586,13 +590,31 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
         cartTotalUsd: preTaxUsd,
       });
       if (couponResult.valid) {
-        couponDiscountUsd = couponResult.discountAmountUsd;
-        validatedCouponCode = couponCodeTrimmed;
-        validatedCouponId = couponResult.couponId ?? null;
-        req.log.info(
-          { couponCode: couponCodeTrimmed, couponDiscountUsd },
-          "cybersource: coupon validated successfully",
-        );
+        // Eligibility is checked against app_orders, which is written only
+        // after payment is captured. Claim FIRST10 before capturing so two
+        // concurrent CyberSource authorizations cannot both receive the
+        // first-order discount.
+        let applyCoupon = true;
+        if (couponCodeTrimmed.toUpperCase() === FIRST_ORDER_COUPON_CODE) {
+          const emailForLock = (rawCustomerEmail ?? "").trim().toLowerCase();
+          if (!(await acquireFirst10Lock(emailForLock, orderId))) {
+            req.log.warn(
+              { email: emailForLock, orderId },
+              "FIRST10: concurrent claim detected — denying coupon for this CyberSource payment", // i18n-ignore
+            );
+            applyCoupon = false;
+          }
+        }
+
+        if (applyCoupon) {
+          couponDiscountUsd = couponResult.discountAmountUsd;
+          validatedCouponCode = couponCodeTrimmed;
+          validatedCouponId = couponResult.couponId ?? null;
+          req.log.info(
+            { couponCode: couponCodeTrimmed, couponDiscountUsd },
+            "cybersource: coupon validated successfully",
+          );
+        }
       } else {
         req.log.warn(
           { couponCode: couponCodeTrimmed, reason: couponResult.error },

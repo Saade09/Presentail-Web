@@ -230,20 +230,36 @@ export function verifyCartMatchesSnapshot(
     return `Cart item count mismatch: submitted ${submitted.length}, paid for ${snapshot.items.length}`; // i18n-ignore
   }
 
-  const snapshotMap = new Map<string, number>();
+  // Keep every paid line for a key instead of collapsing the snapshot to one
+  // value. A Map<string, number> lets the same paid line satisfy multiple
+  // submitted lines, so [cheap, expensive] could incorrectly become
+  // [expensive, expensive]. Matching consumes one quantity from the remaining
+  // paid lines for each submitted item.
+  const snapshotQuantities = new Map<string, number[]>();
   for (const si of snapshot.items) {
     const key = si.wcId > 0 ? String(si.wcId) : (si.osSlug ?? String(si.wcId));
-    snapshotMap.set(key, si.quantity);
+    const quantities = snapshotQuantities.get(key);
+    if (quantities) {
+      quantities.push(si.quantity);
+    } else {
+      snapshotQuantities.set(key, [si.quantity]);
+    }
   }
 
   for (const item of submitted) {
-    const expected = snapshotMap.get(item.key);
-    if (expected === undefined) {
+    const remainingQuantities = snapshotQuantities.get(item.key);
+    if (!remainingQuantities) {
       return `Product ${item.key} was not part of the paid-for cart`; // i18n-ignore
     }
-    if (item.quantity !== expected) {
-      return `Quantity mismatch for product ${item.key}: submitted ${item.quantity}, paid for ${expected}`; // i18n-ignore
+    if (remainingQuantities.length === 0) {
+      return `Product ${item.key} was submitted more times than it was paid for`; // i18n-ignore
     }
+
+    const matchingIndex = remainingQuantities.indexOf(item.quantity);
+    if (matchingIndex === -1) {
+      return `Quantity mismatch for product ${item.key}: submitted ${item.quantity}, paid for ${remainingQuantities.join(", ")}`; // i18n-ignore
+    }
+    remainingQuantities.splice(matchingIndex, 1);
   }
 
   // Delivery context is charged in full for all Stripe, Mamo, and PayPal flows.

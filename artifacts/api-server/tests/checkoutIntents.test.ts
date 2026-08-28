@@ -21,6 +21,7 @@ import {
   peekAndValidatePaymentIntent,
   markPaymentIntentConsumed,
   peekPaymentIntent,
+  verifyCartMatchesSnapshot,
 } from "../src/lib/checkoutIntents";
 
 function makeSnapshot() {
@@ -176,5 +177,49 @@ describe("markPaymentIntentConsumed", () => {
     markPaymentIntentConsumed("cs_mark_2");
     expect(() => markPaymentIntentConsumed("cs_mark_2")).not.toThrow();
     expect(peekAndValidatePaymentIntent("cs_mark_2", "order_mk2")).toBeNull();
+  });
+});
+
+describe("verifyCartMatchesSnapshot", () => {
+  it("rejects duplicate substitution of a paid item", () => {
+    const snapshot = {
+      items: [
+        { wcId: 1, quantity: 1, priceUsd: 5 },
+        { wcId: 2, quantity: 1, priceUsd: 100 },
+      ],
+      district: "Beirut",
+      expressDelivery: false,
+    };
+
+    expect(
+      verifyCartMatchesSnapshot(
+        [
+          { wcId: 2, quantity: 1 },
+          { wcId: 2, quantity: 1 },
+        ],
+        snapshot,
+      ),
+    ).toMatch(/submitted more times than it was paid for/);
+  });
+
+  it("matches duplicate paid lines one-to-one", () => {
+    const snapshot = {
+      items: [
+        { wcId: 2, quantity: 1, priceUsd: 100 },
+        { wcId: 2, quantity: 2, priceUsd: 100 },
+      ],
+      district: "Beirut",
+      expressDelivery: false,
+    };
+
+    expect(
+      verifyCartMatchesSnapshot(
+        [
+          { wcId: 2, quantity: 2 },
+          { wcId: 2, quantity: 1 },
+        ],
+        snapshot,
+      ),
+    ).toBeNull();
   });
 });

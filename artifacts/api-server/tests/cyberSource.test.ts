@@ -66,6 +66,8 @@ vi.mock("../src/lib/wooStore", () => ({
 
 vi.mock("../src/lib/couponValidation", () => ({
   validateCoupon: vi.fn().mockResolvedValue({ valid: false, error: "not_found" }),
+  acquireFirst10Lock: vi.fn().mockResolvedValue(true),
+  FIRST_ORDER_COUPON_CODE: "FIRST10",
 }));
 
 // ---------------------------------------------------------------------------
@@ -81,7 +83,10 @@ import {
   checkSubmittedSlotBookable,
   resolveCartItems,
 } from "../src/lib/catalog";
-import { validateCoupon } from "../src/lib/couponValidation";
+import {
+  acquireFirst10Lock,
+  validateCoupon,
+} from "../src/lib/couponValidation";
 import {
   signCyberSourceRequest,
   isCyberSourceRoute,
@@ -94,6 +99,7 @@ const mockResolveCartItems = resolveCartItems as ReturnType<typeof vi.fn>;
 const mockCheckSubmittedSlotBookable =
   checkSubmittedSlotBookable as ReturnType<typeof vi.fn>;
 const mockValidateCoupon = validateCoupon as ReturnType<typeof vi.fn>;
+const mockAcquireFirst10Lock = acquireFirst10Lock as ReturnType<typeof vi.fn>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -563,6 +569,75 @@ describe("POST /payment/cybersource/authorize", () => {
     expect(stored.snapshot.items.length).toBeGreaterThan(0);
     expect(stored.snapshot.district).toBe("Beirut");
     expect(stored.paymentMeta.csStatus).toBe("AUTHORIZED");
+  });
+
+  it("claims FIRST10 before authorizing a discounted CyberSource payment", async () => {
+    mockLebanonGeo();
+    mockValidateCoupon.mockResolvedValue({
+      valid: true,
+      couponId: "first-order-10",
+      discountType: "percent",
+      discountValue: 10,
+      discountAmountUsd: 5.5,
+      finalTotalUsd: 49.5,
+    });
+    mockAcquireFirst10Lock.mockResolvedValue(true);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      status: 201,
+      text: async () => JSON.stringify({ id: "cs_first10", status: "AUTHORIZED" }),
+    } as unknown as Response);
+
+    const res = await request(app).post("/payment/cybersource/authorize").send({
+      transientToken: "tok_first10",
+      orderId: "order-first10",
+      currency: "USD",
+      items: SAMPLE_ITEMS,
+      couponCode: "FIRST10",
+      customerEmail: " Shopper@Example.com ",
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockAcquireFirst10Lock).toHaveBeenCalledWith(
+      "shopper@example.com",
+      "order-first10",
+    );
+    expect(res.body.couponCode).toBe("FIRST10");
+  });
+
+  it("does not apply FIRST10 when its concurrent claim is unavailable", async () => {
+    mockLebanonGeo();
+    mockValidateCoupon.mockResolvedValue({
+      valid: true,
+      couponId: "first-order-10",
+      discountType: "percent",
+      discountValue: 10,
+      discountAmountUsd: 5.5,
+      finalTotalUsd: 49.5,
+    });
+    mockAcquireFirst10Lock.mockResolvedValue(false);
+    let capturedBody: Record<string, unknown> = {};
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(async (_url, init) => {
+      capturedBody = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : {};
+      return {
+        status: 201,
+        text: async () => JSON.stringify({ id: "cs_first10_denied", status: "AUTHORIZED" }),
+      } as unknown as Response;
+    });
+
+    const res = await request(app).post("/payment/cybersource/authorize").send({
+      transientToken: "tok_first10_denied",
+      orderId: "order-first10-denied",
+      currency: "USD",
+      items: SAMPLE_ITEMS,
+      couponCode: "FIRST10",
+      customerEmail: "shopper@example.com",
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.couponCode).toBeUndefined();
+    const orderInformation = capturedBody.orderInformation as Record<string, unknown>;
+    const amountDetails = orderInformation.amountDetails as Record<string, unknown>;
+    expect(amountDetails.totalAmount).toBe("55.00");
   });
 
   it("accepts AUTHORIZED_PENDING_REVIEW as a successful authorization", async () => {
