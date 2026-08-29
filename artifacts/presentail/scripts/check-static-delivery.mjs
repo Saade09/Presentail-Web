@@ -56,9 +56,9 @@ function hasVary(response, name) {
 }
 
 function expectedManifestPath(platform) {
-  const filename =
-    expectedDelivery === "static" ? "manifest-static.json" : "manifest.json";
-  return path.join(staticRoot, platform, filename);
+  return expectedDelivery === "static"
+    ? path.join(staticRoot, "static", platform, "manifest.json")
+    : path.join(staticRoot, platform, "manifest.json");
 }
 
 function localPathForAsset(assetUrl) {
@@ -67,7 +67,9 @@ function localPathForAsset(assetUrl) {
   if (!pathname.startsWith(prefix)) {
     throw new Error(`Asset URL ${pathname} does not start with ${prefix}`);
   }
-  return path.join(staticRoot, pathname.slice(prefix.length));
+  return expectedDelivery === "static"
+    ? path.join(staticRoot, "static", pathname.slice(prefix.length))
+    : path.join(staticRoot, pathname.slice(prefix.length));
 }
 
 const checks = [];

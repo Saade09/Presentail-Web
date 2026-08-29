@@ -18,6 +18,9 @@ const zlib = require("zlib");
 const STATIC_ROOT = path.resolve(__dirname, "..", "static-build");
 const TEMPLATE_PATH = path.resolve(__dirname, "templates", "landing-page.html");
 const basePath = (process.env.BASE_PATH || "/").replace(/\/+$/, "");
+const staticAssetBasePath = (
+  process.env.STATIC_ASSET_BASE_PATH || "/"
+).replace(/\/+$/, "");
 const staticAssetCanaryPercent = Math.min(
   100,
   Math.max(0, Number(process.env.STATIC_ASSET_CANARY_PERCENT || "0") || 0),
@@ -225,6 +228,7 @@ function serveGeneratedHtml(req, res, html) {
 }
 
 function isStaticCanaryRequest(req, platform) {
+  if (process.env.STATIC_DELIVERY === "true") return true;
   if (staticAssetCanaryPercent <= 0) return false;
   if (staticAssetCanaryPercent >= 100) return true;
 
@@ -316,6 +320,15 @@ function stripBasePath(pathname) {
   return pathname;
 }
 
+function stripConfiguredPath(pathname, configuredPath) {
+  if (!configuredPath) return pathname;
+  if (pathname === configuredPath) return "/";
+  if (pathname.startsWith(`${configuredPath}/`)) {
+    return pathname.slice(configuredPath.length) || "/";
+  }
+  return null;
+}
+
 function serveStaticFile(req, res, urlPath) {
   const safePath = path.posix.normalize(`/${urlPath}`).replace(/^\/+/, "");
   const filePath = path.resolve(STATIC_ROOT, safePath);
@@ -342,7 +355,40 @@ const appName = getAppName();
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
+  const staticPath = stripConfiguredPath(url.pathname, staticAssetBasePath);
   const pathname = stripBasePath(url.pathname);
+
+  if (staticPath !== null && staticAssetBasePath) {
+    const explicitManifest = staticPath.match(
+      /^\/(ios|android)\/manifest\.json$/,
+    );
+    if (explicitManifest) {
+      return serveManifest(req, explicitManifest[1], res);
+    }
+
+    if (staticPath === "/" || staticPath === "/manifest") {
+      const platform = req.headers["expo-platform"];
+      if (platform === "ios" || platform === "android") {
+        return serveManifest(req, platform, res);
+      }
+
+      if (staticPath === "/") {
+        const staticLandingPath = path.join(STATIC_ROOT, "static", "index.html");
+        if (fs.existsSync(staticLandingPath)) {
+          return serveFile(req, res, staticLandingPath, {
+            urlPath: `static${staticPath}`,
+            cacheControl: "public, max-age=300, stale-while-revalidate=60",
+          });
+        }
+      }
+    }
+
+    return serveStaticFile(
+      req,
+      res,
+      path.posix.join("static", staticPath),
+    );
+  }
 
   if (pathname === "/" || pathname === "/manifest") {
     const platform = req.headers["expo-platform"];

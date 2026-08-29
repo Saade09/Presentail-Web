@@ -93,3 +93,4 @@
 - [pnpm deploy and TypeScript workspace packages](pnpm-deploy-ts-workspaces.md) — Node 24 will not type-strip workspace TypeScript copied under node_modules by pnpm deploy.
 - [Advertising purchase integrity](advertising-purchase-integrity.md) — privileged Google/Meta Purchase conversions must originate from verified server-side order state, never public analytics payloads.
 - [Password-reset session revocation](password-reset-session-revocation.md) — use per-customer session versions, not timestamps; consume reset tokens and increment versions atomically.
+- [Mobile publish cache ownership](mobile-publish-cache-ownership.md) — one service owns shared output; cache only on disk, and isolate Metro processes so clean builds cannot inherit memory.

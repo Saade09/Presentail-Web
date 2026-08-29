@@ -20,9 +20,39 @@ name = "Cache-Control"
 value = "no-store"
 
 [[deployment.responseHeaders]]
+path = "/app-static/ios/manifest.json"
+name = "Expo-Protocol-Version"
+value = "1"
+
+[[deployment.responseHeaders]]
+path = "/app-static/ios/manifest.json"
+name = "Expo-SFV-Version"
+value = "0"
+
+[[deployment.responseHeaders]]
+path = "/app-static/ios/manifest.json"
+name = "X-Presentail-Asset-Delivery"
+value = "static"
+
+[[deployment.responseHeaders]]
 path = "/app-static/android/manifest.json"
 name = "Cache-Control"
 value = "no-store"
+
+[[deployment.responseHeaders]]
+path = "/app-static/android/manifest.json"
+name = "Expo-Protocol-Version"
+value = "1"
+
+[[deployment.responseHeaders]]
+path = "/app-static/android/manifest.json"
+name = "Expo-SFV-Version"
+value = "0"
+
+[[deployment.responseHeaders]]
+path = "/app-static/android/manifest.json"
+name = "X-Presentail-Asset-Delivery"
+value = "static"
 
 [[deployment.responseHeaders]]
 path = "/app-static/*"

@@ -1,4 +1,5 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
 const { Readable } = require("stream");
@@ -28,6 +29,34 @@ const staticAssetBasePath = (
 const staticAssetBaseUrl = (
   process.env.STATIC_ASSET_BASE_URL || ""
 ).replace(/\/+$/, "");
+const configuredMetroPort = Number(process.env.MOBILE_BUILD_METRO_PORT);
+const metroPort =
+  Number.isInteger(configuredMetroPort) && configuredMetroPort > 0
+    ? configuredMetroPort
+    : 18000 + (process.pid % 1000);
+const metroBaseUrl = `http://localhost:${metroPort}`;
+const METRO_CACHE_VERSION = 1;
+const metroCacheMetadataPath = path.join(
+  projectRoot,
+  "node_modules",
+  ".cache",
+  "presentail-mobile-metro.json",
+);
+const metroCacheDirectories = [
+  path.join(os.tmpdir(), "metro-cache"),
+  path.join(projectRoot, ".metro-cache"),
+  path.join(projectRoot, "node_modules/.cache/metro"),
+];
+const metroCacheInputFiles = [
+  "pnpm-workspace.yaml",
+  "pnpm-lock.yaml",
+  "artifacts/presentail/package.json",
+  "artifacts/presentail/app.json",
+  "artifacts/presentail/app.config.js",
+  "artifacts/presentail/babel.config.js",
+  "artifacts/presentail/metro.config.js",
+  "artifacts/presentail/tsconfig.json",
+];
 
 function exitWithError(message) {
   console.error(message);
@@ -49,6 +78,25 @@ function setupSignalHandlers() {
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
   process.on("SIGHUP", cleanup);
+}
+
+function phaseTimer() {
+  return process.hrtime.bigint();
+}
+
+function phaseDurationMs(startedAt) {
+  return Math.round(Number(process.hrtime.bigint() - startedAt) / 1e6);
+}
+
+function reportPhase(phase, startedAt, details = {}) {
+  console.log(
+    JSON.stringify({
+      event: "mobile_build_phase",
+      phase,
+      durationMs: phaseDurationMs(startedAt),
+      ...details,
+    }),
+  );
 }
 
 function stripProtocol(domain) {
@@ -102,15 +150,10 @@ function prepareDirectories(timestamp) {
   console.log("Build:", timestamp);
 }
 
-function clearMetroCache() {
-  console.log("Clearing Metro cache...");
+function clearMetroCache(reason) {
+  console.log(`Clearing Metro cache (${reason})...`);
 
-  const cacheDirs = [
-    path.join(projectRoot, ".metro-cache"),
-    path.join(projectRoot, "node_modules/.cache/metro"),
-  ];
-
-  for (const dir of cacheDirs) {
+  for (const dir of metroCacheDirectories) {
     if (fs.existsSync(dir)) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -119,9 +162,111 @@ function clearMetroCache() {
   console.log("Cache cleared");
 }
 
+function isTruthy(value) {
+  return ["1", "true", "yes"].includes(String(value || "").toLowerCase());
+}
+
+function metroCacheFingerprint(expoPublicDomain, expoPublicReplId) {
+  const hash = require("crypto").createHash("sha256");
+
+  for (const relativePath of metroCacheInputFiles) {
+    const inputPath = path.join(workspaceRoot, relativePath);
+    hash.update(relativePath);
+    hash.update("\0");
+    if (fs.existsSync(inputPath)) {
+      hash.update(fs.readFileSync(inputPath));
+    } else {
+      hash.update("<missing>");
+    }
+    hash.update("\0");
+  }
+
+  const relevantEnvironment = Object.keys(process.env)
+    .filter(
+      (key) =>
+        key.startsWith("EXPO_PUBLIC_") ||
+        ["BASE_PATH", "NODE_ENV", "STATIC_ASSET_BASE_PATH"].includes(key),
+    )
+    .sort();
+  for (const key of relevantEnvironment) {
+    hash.update(key);
+    hash.update("\0");
+    hash.update(process.env[key] || "");
+    hash.update("\0");
+  }
+  hash.update(`EXPO_PUBLIC_DOMAIN\0${expoPublicDomain || ""}\0`);
+  hash.update(`EXPO_PUBLIC_REPL_ID\0${expoPublicReplId || ""}\0`);
+
+  return hash.digest("hex");
+}
+
+function prepareMetroCache(fingerprint) {
+  const startedAt = phaseTimer();
+  const forceClean = isTruthy(
+    process.env.MOBILE_BUILD_CLEAN || process.env.EXPO_BUILD_CLEAN,
+  );
+  const hasCache = metroCacheDirectories.some((dir) => fs.existsSync(dir));
+  let previous = null;
+
+  if (fs.existsSync(metroCacheMetadataPath)) {
+    try {
+      previous = JSON.parse(
+        fs.readFileSync(metroCacheMetadataPath, "utf-8"),
+      );
+    } catch {
+      previous = null;
+    }
+  }
+
+  const cacheReuse =
+    !forceClean &&
+    hasCache &&
+    previous?.version === METRO_CACHE_VERSION &&
+    previous?.fingerprint === fingerprint;
+
+  if (forceClean) {
+    clearMetroCache("MOBILE_BUILD_CLEAN requested");
+  } else if (cacheReuse) {
+    console.log("Reusing Metro cache (inputs unchanged)");
+  } else if (hasCache) {
+    clearMetroCache(
+      previous ? "build inputs changed" : "cache has no successful build marker",
+    );
+  } else {
+    console.log("Metro cache not found; starting a cold build");
+  }
+
+  // A marker is written only after every build stage succeeds. A failed or
+  // interrupted build therefore cannot make a partial cache look reusable.
+  if (fs.existsSync(metroCacheMetadataPath)) {
+    fs.rmSync(metroCacheMetadataPath, { force: true });
+  }
+
+  reportPhase("metro-cache", startedAt, {
+    cacheReuse,
+    cleanRequested: forceClean,
+    cachePresent: hasCache,
+  });
+  return cacheReuse;
+}
+
+function recordSuccessfulMetroCache(fingerprint) {
+  fs.mkdirSync(path.dirname(metroCacheMetadataPath), { recursive: true });
+  const tempPath = `${metroCacheMetadataPath}.tmp-${process.pid}`;
+  fs.writeFileSync(
+    tempPath,
+    JSON.stringify(
+      { version: METRO_CACHE_VERSION, fingerprint },
+      null,
+      2,
+    ),
+  );
+  fs.renameSync(tempPath, metroCacheMetadataPath);
+}
+
 async function checkMetroHealth() {
   try {
-    const response = await fetch("http://localhost:8081/status", {
+    const response = await fetch(`${metroBaseUrl}/status`, {
       signal: AbortSignal.timeout(5000),
     });
     return response.ok;
@@ -135,13 +280,15 @@ function getExpoPublicReplId() {
 }
 
 async function startMetro(expoPublicDomain, expoPublicReplId) {
+  const startedAt = phaseTimer();
   const isRunning = await checkMetroHealth();
   if (isRunning) {
-    console.log("Metro already running");
-    return;
+    throw new Error(
+      `Dedicated mobile build port ${metroPort} is already in use; set MOBILE_BUILD_METRO_PORT to another free port`,
+    );
   }
 
-  console.log("Starting Metro...");
+  console.log(`Starting Metro on dedicated build port ${metroPort}...`);
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
   const env = {
     ...process.env,
@@ -162,6 +309,8 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
       "--no-dev",
       "--minify",
       "--localhost",
+      "--port",
+      String(metroPort),
     ],
     {
       stdio: ["ignore", "pipe", "pipe"],
@@ -202,6 +351,10 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     const healthy = await checkMetroHealth();
     if (healthy) {
       console.log("Metro ready");
+      reportPhase("metro-startup", startedAt, {
+        reusedProcess: false,
+        port: metroPort,
+      });
       return;
     }
   }
@@ -247,9 +400,10 @@ async function downloadFile(url, outputPath) {
 }
 
 async function downloadBundle(platform, timestamp) {
+  const startedAt = phaseTimer();
   const entryPath = path.resolve(projectRoot, "node_modules", "expo-router", "entry");
   const bundlePath = path.relative(workspaceRoot, entryPath);
-  const url = new URL(`http://localhost:8081/${bundlePath}.bundle`);
+  const url = new URL(`${metroBaseUrl}/${bundlePath}.bundle`);
   url.searchParams.set("platform", platform);
   url.searchParams.set("dev", "false");
   url.searchParams.set("hot", "false");
@@ -269,15 +423,17 @@ async function downloadBundle(platform, timestamp) {
   console.log(`Fetching ${platform} bundle...`);
   await downloadFile(url.toString(), output);
   console.log(`${platform} bundle ready`);
+  reportPhase(`bundle-${platform}`, startedAt);
 }
 
 async function downloadManifest(platform) {
+  const startedAt = phaseTimer();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 300_000);
 
   try {
     console.log(`Fetching ${platform} manifest...`);
-    const response = await fetch("http://localhost:8081/manifest", {
+    const response = await fetch(`${metroBaseUrl}/manifest`, {
       headers: { "expo-platform": platform },
       signal: controller.signal,
     });
@@ -288,6 +444,7 @@ async function downloadManifest(platform) {
 
     const manifest = await response.json();
     console.log(`${platform} manifest ready`);
+    reportPhase(`manifest-${platform}`, startedAt);
     return manifest;
   } catch (error) {
     if (error.name === "AbortError") {
@@ -345,7 +502,7 @@ function extractAssets(timestamp) {
       const originalPath = match[1];
       const filename = match[3] + "." + match[4];
 
-      const tempUrl = new URL(`http://localhost:8081${originalPath}`);
+      const tempUrl = new URL(`${metroBaseUrl}${originalPath}`);
       const unstablePath = tempUrl.searchParams.get("unstable_path");
 
       if (!unstablePath) {
@@ -387,7 +544,7 @@ async function downloadAssets(assets, timestamp) {
   const failures = [];
 
   const downloadPromises = assets.map(async (asset) => {
-    const tempUrl = new URL(`http://localhost:8081${asset.originalPath}`);
+    const tempUrl = new URL(`${metroBaseUrl}${asset.originalPath}`);
     const unstablePath = tempUrl.searchParams.get("unstable_path");
 
     if (!unstablePath) {
@@ -395,18 +552,6 @@ async function downloadAssets(assets, timestamp) {
     }
 
     const decodedPath = decodeURIComponent(unstablePath);
-
-    const outputDir = path.join(
-      projectRoot,
-      "static-build",
-      timestamp,
-      "_expo",
-      "static",
-      "js",
-      asset.relativePath,
-    );
-    fs.mkdirSync(outputDir, { recursive: true });
-    const output = path.join(outputDir, asset.filename);
 
     try {
       const candidates = [
@@ -417,7 +562,21 @@ async function downloadAssets(assets, timestamp) {
       if (!found) {
         throw new Error(`Asset not found on disk: ${asset.filename}`);
       }
-      fs.copyFileSync(found, output);
+
+      for (const outputPrefix of ["", "static"]) {
+        const outputDir = path.join(
+          projectRoot,
+          "static-build",
+          outputPrefix,
+          timestamp,
+          "_expo",
+          "static",
+          "js",
+          asset.relativePath,
+        );
+        fs.mkdirSync(outputDir, { recursive: true });
+        fs.copyFileSync(found, path.join(outputDir, asset.filename));
+      }
       successCount++;
     } catch (error) {
       failures.push({
@@ -447,7 +606,7 @@ function rewriteBundleAssetUrls(bundle, timestamp, assetUrlBase, assetBasePath) 
   return bundle.replace(
     /httpServerLocation:"(\/[^"]+)"/g,
     (_match, capturedPath) => {
-      const tempUrl = new URL(`http://localhost:8081${capturedPath}`);
+      const tempUrl = new URL(`${metroBaseUrl}${capturedPath}`);
       const unstablePath = tempUrl.searchParams.get("unstable_path");
 
       if (!unstablePath) {
@@ -509,17 +668,16 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   const writeVariant = (
     platform,
     sourceManifest,
-    filename,
+    outputPath,
     assetUrlBase,
     assetBasePath,
-    bundlePathPrefix,
   ) => {
     const manifest = structuredClone(sourceManifest);
     if (!manifest.launchAsset || !manifest.extra) {
       exitWithError(`Malformed manifest for ${platform}`);
     }
 
-    manifest.launchAsset.url = `${assetUrlBase}${assetBasePath}/${bundlePathPrefix}${timestamp}/_expo/static/js/${platform}/bundle.js`;
+    manifest.launchAsset.url = `${assetUrlBase}${assetBasePath}/${timestamp}/_expo/static/js/${platform}/bundle.js`;
     manifest.launchAsset.key = `bundle-${timestamp}`;
     manifest.createdAt = new Date(
       Number(timestamp.split("-")[0]),
@@ -544,28 +702,32 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
       });
     }
 
-    fs.writeFileSync(
-      path.join(projectRoot, "static-build", platform, filename),
-      JSON.stringify(manifest, null, 2),
-    );
+    const manifestPath = path.join(projectRoot, "static-build", outputPath);
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   };
 
   for (const platform of ["ios", "android"]) {
     writeVariant(
       platform,
       manifests[platform],
-      "manifest.json",
+      path.join(platform, "manifest.json"),
       baseUrl,
       basePath,
-      "",
     );
     writeVariant(
       platform,
       manifests[platform],
-      "manifest-static.json",
+      path.join(platform, "manifest-static.json"),
       staticAssetBaseUrl || baseUrl,
       staticAssetBasePath,
-      "static/",
+    );
+    writeVariant(
+      platform,
+      manifests[platform],
+      path.join("static", platform, "manifest.json"),
+      staticAssetBaseUrl || baseUrl,
+      staticAssetBasePath,
     );
   }
   console.log("Wrote Node and static manifest variants");
@@ -584,7 +746,13 @@ function writeStaticLandingPage(baseUrl, domain, appName) {
     .replace(/EXPS_URL_PLACEHOLDER/g, domain)
     .replace(/APP_NAME_PLACEHOLDER/g, appName);
 
-  fs.writeFileSync(path.join(projectRoot, "static-build", "index.html"), html);
+  for (const outputPath of [
+    path.join(projectRoot, "static-build", "index.html"),
+    path.join(projectRoot, "static-build", "static", "index.html"),
+  ]) {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, html);
+  }
 }
 
 function getAppName() {
@@ -643,6 +811,7 @@ function precompressStaticFiles() {
 
 async function main() {
   console.log("Building static Expo Go deployment...");
+  const buildStartedAt = phaseTimer();
 
   setupSignalHandlers();
 
@@ -650,9 +819,12 @@ async function main() {
   const expoPublicReplId = getExpoPublicReplId();
   const baseUrl = `https://${domain}`;
   const timestamp = `${Date.now()}-${process.pid}`;
+  const cacheFingerprint = metroCacheFingerprint(domain, expoPublicReplId);
+  const cacheReuse = prepareMetroCache(cacheFingerprint);
 
+  let startedAt = phaseTimer();
   prepareDirectories(timestamp);
-  clearMetroCache();
+  reportPhase("prepare-output", startedAt);
 
   await startMetro(domain, expoPublicReplId);
 
@@ -671,6 +843,7 @@ async function main() {
 
   const manifests = await Promise.race([downloadPromise, timeoutPromise]);
 
+  startedAt = phaseTimer();
   console.log("Processing assets...");
   const assets = extractAssets(timestamp);
   console.log("Found", assets.length, "unique asset(s)");
@@ -684,15 +857,25 @@ async function main() {
   }
 
   const assetCount = await downloadAssets(assets, timestamp);
+  writeBundleVariants(timestamp, baseUrl);
+  reportPhase("asset-processing", startedAt, { assetCount });
 
-  if (assetCount > 0) {
-    writeBundleVariants(timestamp, baseUrl);
-  }
-
+  startedAt = phaseTimer();
   console.log("Updating manifests and creating landing page...");
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
   writeStaticLandingPage(baseUrl, domain, getAppName());
+  reportPhase("manifest-generation", startedAt);
+
+  startedAt = phaseTimer();
   precompressStaticFiles();
+  reportPhase("compression", startedAt);
+
+  recordSuccessfulMetroCache(cacheFingerprint);
+  reportPhase("mobile-build", buildStartedAt, {
+    cacheReuse,
+    assetCount,
+    status: "complete",
+  });
 
   console.log("Build complete! Deploy to:", baseUrl);
 
