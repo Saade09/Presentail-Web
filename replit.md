@@ -19,6 +19,7 @@ pnpm workspaces · Node 24 · TypeScript 5.9 · Expo Router (mobile) · React + 
 Core:
 - `pnpm run typecheck` / `pnpm run build` — full workspace typecheck / build.
 - `pnpm run typecheck:libs` — rebuild composite lib `.d.ts`. Run when `tsc -p artifacts/<x>` reports phantom missing-property errors on lib types (stale `lib/*/dist/*.d.ts`).
+- `pnpm run publish:artifacts -- --artifacts api,web,mobile` — one shared library validation followed by verified, content-addressed artifact builds. Add `--clean` to force and refresh outputs or `--no-cache` for a complete cache bypass.
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod schemas from OpenAPI.
 - `pnpm run baseline:optimization` — rebuild the local performance/size snapshot at `docs/reports/optimization-baseline-latest.json` (ignored generated output).
 - `pnpm run check-codegen` — fails on drift in generated client/zod files; run after editing `lib/api-spec/openapi.yaml`. Pre-push hook: `cp .husky/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push`.

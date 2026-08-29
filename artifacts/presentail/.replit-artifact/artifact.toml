@@ -24,7 +24,7 @@ run = [ "pnpm", "--filter", "@workspace/presentail", "run", "serve" ]
 [services.production.build]
 # The Node service owns the shared mobile publish output. The static service
 # consumes static-build/static from this same verified build.
-args = ["pnpm", "--filter", "@workspace/presentail", "run", "publish-build"]
+args = ["pnpm", "-w", "run", "publish:artifacts", "--", "--artifact", "mobile"]
 
 [services.env]
 PORT = "20808"

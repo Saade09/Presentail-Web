@@ -14,7 +14,10 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { createManifest } from "../../scripts/build-artifact-provenance.mjs";
+import {
+  artifactDefaults,
+  createManifest,
+} from "../../scripts/build-artifact-provenance.mjs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -267,16 +270,7 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   await createManifest({
     name: "api",
     artifactDir: distDir,
-    prefixes: [
-      "artifacts/api-server/",
-      "lib/",
-      "package.json",
-      "pnpm-lock.yaml",
-      "pnpm-workspace.yaml",
-      "tsconfig.json",
-      "tsconfig.base.json",
-      "scripts/build-artifact-provenance.mjs",
-    ],
+    prefixes: artifactDefaults("api"),
     outputPolicy: {
       forbiddenExtensions: [".map"],
     },

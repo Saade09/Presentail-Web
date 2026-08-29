@@ -40,6 +40,7 @@ const WEB_ARTIFACT_INPUTS = [
   "artifacts/presentail-web/seo-inject.mjs",
   "artifacts/presentail-web/server-analytics-policy.mjs",
   "artifacts/presentail-web/scripts/generate-blog-hero-variants.mjs",
+  "artifacts/presentail-web/scripts/generate-blog-index.mjs",
   "artifacts/presentail-web/scripts/pageEligibility.mjs",
   "attached_assets/Elegant-dark-teal-stationery-design_1778742277420.avif",
   "attached_assets/Presentail-Arabic-Logo-white.png",
@@ -63,6 +64,26 @@ const WEB_LIBRARY_INPUTS = [
   "lib/presentail-os/",
   "lib/suggested-messages/",
 ];
+const API_LIBRARY_INPUTS = [
+  "lib/api-zod/",
+  "lib/catalog-data/",
+  "lib/clerk-types/",
+  "lib/db/",
+  "lib/delivery/",
+  "lib/display-currency/",
+  "lib/integrations-openai-ai-server/",
+  "lib/presentail-os/",
+];
+const MOBILE_LIBRARY_INPUTS = [
+  "lib/api-client-react/",
+  "lib/blog-content/",
+  "lib/catalog-data/",
+  "lib/delivery/",
+  "lib/display-currency/",
+  "lib/homepage-icons/",
+  "lib/pay-methods/",
+  "lib/suggested-messages/",
+];
 
 const argv = process.argv.slice(2);
 const arg = (name, fallback = null) => {
@@ -71,12 +92,13 @@ const arg = (name, fallback = null) => {
 };
 const hasFlag = (name) => argv.includes(`--${name}`);
 
-function artifactDefaults(name) {
+export function artifactDefaults(name) {
   if (name === "web") {
     return [...WEB_ARTIFACT_INPUTS, ...WEB_LIBRARY_INPUTS, ...ROOT_INPUTS];
   }
-  const artifactPrefix = `artifacts/${name === "web" ? "presentail-web" : name === "api" ? "api-server" : "presentail"}/`;
-  return [artifactPrefix, "lib/", ...ROOT_INPUTS];
+  const artifactPrefix = `artifacts/${name === "api" ? "api-server" : "presentail"}/`;
+  const libraryInputs = name === "api" ? API_LIBRARY_INPUTS : MOBILE_LIBRARY_INPUTS;
+  return [artifactPrefix, ...libraryInputs, ...ROOT_INPUTS];
 }
 
 function relative(value) {
@@ -174,6 +196,54 @@ async function hashFiles(files) {
   return hash.digest("hex");
 }
 
+export async function getArtifactSourceHash(name) {
+  return hashFiles(await inputFiles(artifactDefaults(name)));
+}
+
+export function buildCacheKey({
+  name,
+  sourceHash,
+  environment = process.env,
+  buildConfiguration = {},
+}) {
+  const commonKeys = new Set(["NODE_ENV"]);
+  const webKeys = new Set(["BASE_PATH"]);
+  const mobileKeys = new Set([
+    "BASE_PATH",
+    "STATIC_ASSET_BASE_PATH",
+    "STATIC_ASSET_BASE_URL",
+    "REPLIT_INTERNAL_APP_DOMAIN",
+    "REPLIT_DEV_DOMAIN",
+    "REPL_ID",
+  ]);
+  const relevantEnvironment = Object.fromEntries(
+    Object.entries(environment)
+      .filter(
+        ([key]) =>
+          commonKeys.has(key) ||
+          (name === "web" && (webKeys.has(key) || key.startsWith("VITE_"))) ||
+          (name === "mobile" &&
+            (mobileKeys.has(key) || key.startsWith("EXPO_PUBLIC_"))),
+      )
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        schemaVersion: 1,
+        name,
+        sourceHash,
+        node: process.version,
+        nodeMajor: Number(process.versions.node.split(".")[0]),
+        platform: process.platform,
+        arch: process.arch,
+        environment: relevantEnvironment,
+        buildConfiguration,
+      }),
+    )
+    .digest("hex");
+}
+
 async function outputInventory(directory) {
   const files = (await walk(directory))
     .filter((file) => path.basename(file) !== MANIFEST_NAME)
@@ -249,7 +319,7 @@ export async function createManifest({
   );
   const output = await outputInventory(artifactDir);
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: "verified-build-artifact",
     name,
     source: {
@@ -265,6 +335,10 @@ export async function createManifest({
     },
     output,
     outputPolicy: normalizedOutputPolicy,
+    cacheKey: buildCacheKey({
+      name,
+      sourceHash: await hashFiles(files),
+    }),
     cacheHit: process.env.BUILD_CACHE_HIT === "true",
     generatedAt: new Date().toISOString(),
   };
@@ -303,6 +377,18 @@ async function verifyManifest({
   if (currentSourceHash !== manifest.source?.hash) {
     throw new Error(
       `[${name}] Build provenance mismatch: cached source hash ${manifest.source?.hash ?? "missing"} does not match ${currentSourceHash}. Rebuild instead of serving stale output.`,
+    );
+  }
+  if (
+    manifest.cacheKey &&
+    manifest.cacheKey !==
+      buildCacheKey({
+        name,
+        sourceHash: currentSourceHash,
+      })
+  ) {
+    throw new Error(
+      `[${name}] Build cache key mismatch: cached environment or build configuration does not match the current publish.`,
     );
   }
   const expectedMajor = Number(process.versions.node.split(".")[0]);
@@ -383,7 +469,16 @@ async function main() {
       },
     });
   } else {
-    const manifest = await createManifest({ name, artifactDir, prefixes });
+    const manifest = await createManifest({
+      name,
+      artifactDir,
+      prefixes,
+      outputPolicy: {
+        forbiddenExtensions: (arg("forbidden-extensions", "") || "")
+          .split(",")
+          .filter(Boolean),
+      },
+    });
     console.log(
       `[${name}] wrote provenance revision=${manifest.source.revision ?? "unknown"} source=${manifest.source.hash} output=${manifest.output.sha256} files=${manifest.output.files} bytes=${manifest.output.bytes} cache_hit=${manifest.cacheHit}`,
     );

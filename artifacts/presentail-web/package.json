@@ -17,6 +17,7 @@
     "start": "test -f dist/public/index.html || { echo 'ERROR: dist/public/index.html is missing — run the Vite build step before starting the server' >&2; exit 1; } && node serve.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "pnpm -w run typecheck:libs && tsc -p tsconfig.json --noEmit",
+    "typecheck:artifact": "tsc -p tsconfig.json --noEmit",
     "typecheck:tests": "pnpm -w run typecheck:libs && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",

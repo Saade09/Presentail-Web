@@ -51,7 +51,12 @@ function run(command, args) {
 }
 
 async function main() {
-  await run("pnpm", ["--filter", "@workspace/presentail", "run", "typecheck"]);
+  await run("pnpm", [
+    "--filter",
+    "@workspace/presentail",
+    "run",
+    "typecheck:artifact",
+  ]);
 
   const startedAt = process.hrtime.bigint();
   const build = spawn("node", ["scripts/build.js"], {
