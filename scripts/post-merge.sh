@@ -12,4 +12,7 @@ else
   echo "pnpm-lock.yaml unchanged — skipping pnpm install"
 fi
 
-pnpm --filter @workspace/db run push-force
+# Schema application is intentionally not automatic here. Development changes
+# use `pnpm --filter @workspace/db run push`; production changes run only in the
+# protected db-migrate-prod GitHub Actions gate.
+echo "Database schema push skipped — use the explicit development or production migration command"

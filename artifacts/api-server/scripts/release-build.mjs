@@ -2,10 +2,10 @@
 /**
  * Production release stages for the API.
  *
- * Migration remains before compilation so a failed schema push prevents a new
- * server from being promoted. The stages are separate and timed for release
- * reporting. The legacy combined command is available only with an explicit
- * opt-in for rollback while this gate is proven.
+ * Production migration is deliberately not performed here. It runs in the
+ * protected db-migrate-prod workflow before an operator starts publishing.
+ * Keeping this command read-only with respect to the database prevents schema
+ * locks from making an otherwise healthy serving image fail promotion.
  */
 
 import { spawn } from "node:child_process";
@@ -43,35 +43,11 @@ function run(label, command, args) {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error(
-      "RELEASE_STAGE migration blocked: DATABASE_URL is required; refusing to compile a production release without the schema gate.",
-    );
-  }
-
-  const allowLegacy = process.env.API_RELEASE_ALLOW_LEGACY_PIPELINE === "1";
-  const staged = process.env.API_RELEASE_STAGED !== "0";
-  if (!staged) {
-    if (!allowLegacy) {
-      throw new Error(
-        "Legacy API release pipeline is disabled. Set API_RELEASE_ALLOW_LEGACY_PIPELINE=1 only for an approved rollback.",
-      );
-    }
-    console.warn(
-      "RELEASE_STAGE fallback=legacy enabled by explicit API_RELEASE_ALLOW_LEGACY_PIPELINE=1",
-    );
-    await run("migration-and-api-build-legacy", "sh", [
-      "-c",
-      "pnpm --filter @workspace/db run push-force-prod-locked && pnpm --filter @workspace/api-server run build",
-    ]);
-    return;
-  }
-
-  await run("schema-migration", "pnpm", [
+  await run("migration-gate-verification", "pnpm", [
     "--filter",
-    "@workspace/db",
+    "@workspace/api-server",
     "run",
-    "push-force-prod-locked",
+    "verify-migration-gate",
   ]);
   await run("api-compilation", "pnpm", [
     "--filter",

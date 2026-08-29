@@ -15,11 +15,10 @@ run = "pnpm --filter @workspace/api-server run dev"
 [services.production]
 
 [services.production.build]
-# Run the DB schema migration before building so that:
-# (a) the production database is always up to date before the new binary starts,
-# (b) a failed migration aborts the deploy and keeps the previous server running.
-# DATABASE_URL must be set as a Replit secret for the production environment.
-# push-force is required because CI/build steps have no TTY for the interactive prompt.
+# Production schema changes run only in .github/workflows/db-migrate-prod.yml.
+# This build is intentionally database-read-only so schema locks cannot disrupt
+# promotion. The release command verifies that workflow passed for the exact
+# commit through GitHub Actions; GITHUB_TOKEN needs Actions read access.
 #
 # After a successful build, scripts/post-deploy-seo-trigger.sh fires a GitHub
 # repository_dispatch event (type: "production-deployed") so the SEO audit workflow
@@ -33,7 +32,7 @@ args = ["sh", "-c", "pnpm --filter @workspace/api-server run release-build && (s
 
 [services.production.build.env]
 NODE_ENV = "production"
-API_RELEASE_STAGED = "1"
+API_REQUIRE_MIGRATION_GATE = "1"
 
 [services.production.run]
 # we don't run through pnpm to make startup faster in production

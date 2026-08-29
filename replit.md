@@ -22,7 +22,7 @@ Core:
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod schemas from OpenAPI.
 - `pnpm run baseline:optimization` — rebuild the local performance/size snapshot at `docs/reports/optimization-baseline-latest.json` (ignored generated output).
 - `pnpm run check-codegen` — fails on drift in generated client/zod files; run after editing `lib/api-spec/openapi.yaml`. Pre-push hook: `cp .husky/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push`.
-- `pnpm --filter @workspace/db run push` — push schema to **dev** DB. Prod migrations are automated: (1) API server `artifact.toml` prod build runs `push-force` before build (deploy aborts if migration fails; needs `DATABASE_URL` Replit secret); (2) GitHub Actions `db-migrate-prod.yml` runs `push-force` when `lib/db/**` lands on main (needs `PROD_DATABASE_URL` GH secret; manual trigger available). Emergency: `DATABASE_URL=<prod-url> pnpm --filter @workspace/db run push-force`.
+- `pnpm --filter @workspace/db run push` — push schema to **dev** DB. Production migration is a deliberate pre-publish gate: every main commit runs GitHub Actions `db-migrate-prod.yml`, which compiles/verifies the API, stores protected source maps, then runs the locked `push-force` (needs the production environment's `PROD_DATABASE_URL`; manual trigger available). The Replit build verifies that workflow passed for its exact commit and fails closed otherwise; it never mutates the database.
 - `pnpm --filter @workspace/api-server run dev` — run API server locally.
 
 Repo checks (each script's header comment documents details/annotations):

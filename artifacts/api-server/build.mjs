@@ -1,18 +1,130 @@
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { cp, rm, stat } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { createManifest } from "../../scripts/build-artifact-provenance.mjs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+const defaultSourceMapDir = path.resolve(artifactDir, "debug-source-maps");
+
+function revision() {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: path.resolve(artifactDir, "../.."),
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+async function walk(directory, files = []) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) await walk(fullPath, files);
+    else files.push(fullPath);
+  }
+  return files;
+}
+
+async function splitSourceMapsFromRuntime(distDir, sourceMapDir) {
+  if (path.resolve(sourceMapDir) === path.resolve(distDir)) {
+    throw new Error(
+      "API_SOURCE_MAP_DIR must be outside dist so source maps cannot enter the runtime artifact.",
+    );
+  }
+
+  await rm(sourceMapDir, { recursive: true, force: true });
+  await mkdir(sourceMapDir, { recursive: true });
+
+  const emittedFiles = await walk(distDir);
+  const sourceMaps = emittedFiles.filter((file) => file.endsWith(".map"));
+  if (sourceMaps.length === 0) {
+    throw new Error(
+      "API build emitted no source maps; refusing to create an undebuggable release.",
+    );
+  }
+
+  const manifestFiles = [];
+  for (const sourceMap of sourceMaps) {
+    const relativePath = path.relative(distDir, sourceMap);
+    const target = path.join(sourceMapDir, relativePath);
+    const contents = await readFile(sourceMap);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, contents);
+    await rm(sourceMap);
+    manifestFiles.push({
+      path: relativePath.replaceAll(path.sep, "/"),
+      bytes: contents.byteLength,
+      sha256: createHash("sha256").update(contents).digest("hex"),
+    });
+  }
+
+  for (const runtimeFile of emittedFiles.filter((file) =>
+    file.endsWith(".mjs"),
+  )) {
+    const contents = await readFile(runtimeFile, "utf8");
+    const withoutMapReference = contents.replace(
+      /\n?\/\/# sourceMappingURL=.*$/gm,
+      "",
+    );
+    if (withoutMapReference !== contents) {
+      await writeFile(runtimeFile, withoutMapReference, "utf8");
+    }
+  }
+
+  for (const entry of manifestFiles) {
+    const runtimeRelativePath = entry.path.slice(0, -".map".length);
+    const runtimeContents = await readFile(
+      path.join(distDir, runtimeRelativePath),
+    );
+    entry.runtimePath = runtimeRelativePath;
+    entry.runtimeSha256 = createHash("sha256")
+      .update(runtimeContents)
+      .digest("hex");
+  }
+
+  await writeFile(
+    path.join(sourceMapDir, ".source-map-manifest.json"),
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        kind: "protected-source-map-artifact",
+        name: "api",
+        sourceRevision: revision(),
+        files: manifestFiles.sort((left, right) =>
+          left.path.localeCompare(right.path),
+        ),
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
+  const sourceMapDir = path.resolve(
+    process.env.API_SOURCE_MAP_DIR || defaultSourceMapDir,
+  );
   await rm(distDir, { recursive: true, force: true });
 
   // Copy static asset directory (served at /api/assets) into dist so the
@@ -137,7 +249,7 @@ async function buildAll() {
     sourcemap: "linked",
     plugins: [
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
-      esbuildPluginPino({ transports: ["pino-pretty"] })
+      esbuildPluginPino({ transports: ["pino-pretty"] }),
     ],
     // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
     banner: {
@@ -151,6 +263,7 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+  await splitSourceMapsFromRuntime(distDir, sourceMapDir);
   await createManifest({
     name: "api",
     artifactDir: distDir,
@@ -164,6 +277,9 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
       "tsconfig.base.json",
       "scripts/build-artifact-provenance.mjs",
     ],
+    outputPolicy: {
+      forbiddenExtensions: [".map"],
+    },
   });
 }
 

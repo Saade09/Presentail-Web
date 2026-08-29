@@ -1,7 +1,9 @@
 name: DB – Apply schema to production
 
-# Runs automatically whenever lib/db schema files land on main, guaranteeing
-# the production database is migrated before the next Replit publish goes live.
+# This is the deliberate pre-deploy gate for the API. It compiles and verifies
+# the exact revision, stores its source maps as a protected Actions artifact,
+# then applies the production schema under an advisory lock. Replit publishing
+# must start only after this workflow succeeds for the same commit.
 # Can also be triggered manually via "Run workflow" for emergency migrations or
 # when the automatic trigger is bypassed (e.g. force-push, squash-merge).
 #
@@ -24,10 +26,6 @@ name: DB – Apply schema to production
 on:
   push:
     branches: [main]
-    paths:
-      - "lib/db/**"
-      - "pnpm-lock.yaml"
-      - ".github/workflows/db-migrate-prod.yml"
   workflow_dispatch:
     inputs:
       force_run:
@@ -46,11 +44,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
-    # For manual runs, require the operator to explicitly confirm by setting
-    # force_run: true so an accidental click does not push to production.
-    if: github.event_name != 'workflow_dispatch' || inputs.force_run == true
-
     steps:
+      - name: Require manual migration confirmation
+        if: github.event_name == 'workflow_dispatch' && inputs.force_run != true
+        run: |
+          echo "Manual production migration was not confirmed; refusing to create a green gate."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -77,14 +77,40 @@ jobs:
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
+      - name: Compile and verify API/schema compatibility
+        run: |
+          set +e
+          started=$(date +%s%3N)
+          pnpm --filter @workspace/api-server run release-build
+          status=$?
+          duration_ms=$(( $(date +%s%3N) - started ))
+          echo "### API compatibility stage" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Duration: ${duration_ms} ms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: $([ "$status" -eq 0 ] && echo passed || echo failed)" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+        env:
+          NODE_ENV: production
+          API_REQUIRE_MIGRATION_GATE: "0"
+
+      - name: Store protected API source maps
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-source-maps-${{ github.sha }}
+          path: artifacts/api-server/debug-source-maps/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Push schema to production database
         run: |
+          set +e
           started=$(date +%s%3N)
           pnpm --filter @workspace/db run push-force-prod-locked
+          status=$?
           duration_ms=$(( $(date +%s%3N) - started ))
           echo "### Production schema stage" >> "$GITHUB_STEP_SUMMARY"
           echo "- Duration: ${duration_ms} ms" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Result: passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: $([ "$status" -eq 0 ] && echo passed || echo failed)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Cancellation: disabled" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}

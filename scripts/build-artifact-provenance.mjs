@@ -191,6 +191,38 @@ async function outputInventory(directory) {
   return { files: files.length, bytes, sha256: hash.digest("hex") };
 }
 
+function normalizeOutputPolicy(policy = {}) {
+  return {
+    forbiddenExtensions: [
+      ...new Set(
+        (policy.forbiddenExtensions ?? [])
+          .map((value) => String(value).trim())
+          .filter(Boolean)
+          .map((value) => (value.startsWith(".") ? value : `.${value}`)),
+      ),
+    ].sort(),
+  };
+}
+
+async function verifyOutputPolicy(directory, policy, name) {
+  const normalized = normalizeOutputPolicy(policy);
+  if (normalized.forbiddenExtensions.length === 0) return normalized;
+  const violations = (await walk(directory))
+    .map((file) => path.relative(directory, file).replaceAll(path.sep, "/"))
+    .filter((file) =>
+      normalized.forbiddenExtensions.some((extension) =>
+        file.endsWith(extension),
+      ),
+    )
+    .sort();
+  if (violations.length > 0) {
+    throw new Error(
+      `[${name}] Runtime output policy violation: forbidden files ${violations.join(", ")}.`,
+    );
+  }
+  return normalized;
+}
+
 function revision() {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
   try {
@@ -203,8 +235,18 @@ function revision() {
   }
 }
 
-export async function createManifest({ name, artifactDir, prefixes }) {
+export async function createManifest({
+  name,
+  artifactDir,
+  prefixes,
+  outputPolicy,
+}) {
   const files = await inputFiles(prefixes);
+  const normalizedOutputPolicy = await verifyOutputPolicy(
+    artifactDir,
+    outputPolicy,
+    name,
+  );
   const output = await outputInventory(artifactDir);
   const manifest = {
     schemaVersion: 1,
@@ -222,6 +264,7 @@ export async function createManifest({ name, artifactDir, prefixes }) {
       arch: process.arch,
     },
     output,
+    outputPolicy: normalizedOutputPolicy,
     cacheHit: process.env.BUILD_CACHE_HIT === "true",
     generatedAt: new Date().toISOString(),
   };
@@ -233,7 +276,13 @@ export async function createManifest({ name, artifactDir, prefixes }) {
   return manifest;
 }
 
-async function verifyManifest({ name, artifactDir, prefixes, maxBytes }) {
+async function verifyManifest({
+  name,
+  artifactDir,
+  prefixes,
+  maxBytes,
+  outputPolicy,
+}) {
   const manifestPath = path.join(artifactDir, MANIFEST_NAME);
   let manifest;
   try {
@@ -268,6 +317,25 @@ async function verifyManifest({ name, artifactDir, prefixes, maxBytes }) {
   }
 
   const output = await outputInventory(artifactDir);
+  const requiredPolicy = normalizeOutputPolicy(outputPolicy);
+  const recordedPolicy = normalizeOutputPolicy(manifest.outputPolicy);
+  for (const extension of requiredPolicy.forbiddenExtensions) {
+    if (!recordedPolicy.forbiddenExtensions.includes(extension)) {
+      throw new Error(
+        `[${name}] Build provenance policy mismatch: manifest does not forbid ${extension}. Rebuild with the current output policy.`,
+      );
+    }
+  }
+  await verifyOutputPolicy(
+    artifactDir,
+    {
+      forbiddenExtensions: [
+        ...recordedPolicy.forbiddenExtensions,
+        ...requiredPolicy.forbiddenExtensions,
+      ],
+    },
+    name,
+  );
   if (
     output.files !== manifest.output?.files ||
     output.bytes !== manifest.output?.bytes ||
@@ -308,6 +376,11 @@ async function main() {
       artifactDir,
       prefixes,
       maxBytes: arg("max-bytes"),
+      outputPolicy: {
+        forbiddenExtensions: (arg("forbidden-extensions", "") || "")
+          .split(",")
+          .filter(Boolean),
+      },
     });
   } else {
     const manifest = await createManifest({ name, artifactDir, prefixes });
