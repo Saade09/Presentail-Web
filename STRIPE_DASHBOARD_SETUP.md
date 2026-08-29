@@ -15,12 +15,12 @@ based on the shopper's billing country, currency, and cart value.
 The server-side `KLARNA_ROLLOUT` feature flag controls whether a given checkout
 session allows redirect-based methods like Klarna:
 
-| `KLARNA_ROLLOUT` value | Effect |
-|---|---|
-| `off` (default) | Klarna is blocked for all sessions (`allow_redirects: "never"`) |
-| `test` | Klarna is allowed only when using a `sk_test_` key |
-| `percentage` | Deterministic cohort rollout; percentage set by `KLARNA_ROLLOUT_PERCENTAGE` |
-| `on` | Klarna is allowed for all eligible sessions |
+| `KLARNA_ROLLOUT` value | Effect                                                                      |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `off` (default)        | Klarna is blocked for all sessions (`allow_redirects: "never"`)             |
+| `test`                 | Klarna is allowed only when using a `sk_test_` key                          |
+| `percentage`           | Deterministic cohort rollout; percentage set by `KLARNA_ROLLOUT_PERCENTAGE` |
+| `on`                   | Klarna is allowed for all eligible sessions                                 |
 
 **Full production rollout (`KLARNA_ROLLOUT=on`) must not be set until Ahmad
 explicitly approves it.**
@@ -69,14 +69,14 @@ https://presentail.com/api/stripe/webhook
 
 Select the following events:
 
-| Event | Purpose |
-|---|---|
-| `payment_intent.processing` | Klarna deferred-approval alert |
-| `payment_intent.payment_failed` | Failed payment logging |
-| `charge.dispute.created` | Dispute ops alert (critical) |
-| `charge.dispute.updated` | Dispute escalation alert |
-| `charge.dispute.closed` | Dispute outcome alert |
-| `charge.refund.updated` | Refund failure alert |
+| Event                           | Purpose                        |
+| ------------------------------- | ------------------------------ |
+| `payment_intent.processing`     | Klarna deferred-approval alert |
+| `payment_intent.payment_failed` | Failed payment logging         |
+| `charge.dispute.created`        | Dispute ops alert (critical)   |
+| `charge.dispute.updated`        | Dispute escalation alert       |
+| `charge.dispute.closed`         | Dispute outcome alert          |
+| `charge.refund.updated`         | Refund failure alert           |
 
 ### Retrieve the signing secret
 
@@ -95,12 +95,17 @@ and accepts the first valid signature.
 
 In the Replit Secrets panel, add or update:
 
-| Secret name | Value |
-|---|---|
-| `STRIPE_WEBHOOK_SECRET` | Signing secret from the main Stripe account webhook |
-| `STRIPE_WEBHOOK_SECRET_GULF` | Signing secret from the Gulf (UAE) Stripe account webhook |
-| `KLARNA_ROLLOUT` | Start with `test`, then `percentage`, then `on` when approved |
-| `KLARNA_ROLLOUT_PERCENTAGE` | (Only needed in `percentage` mode) e.g. `10` for 10% |
+| Secret name                  | Value                                                         |
+| ---------------------------- | ------------------------------------------------------------- |
+| `STRIPE_WEBHOOK_SECRET`      | Signing secret from the main Stripe account webhook           |
+| `STRIPE_WEBHOOK_SECRET_GULF` | Signing secret from the Gulf (UAE) Stripe account webhook     |
+| `KLARNA_ROLLOUT`             | Start with `test`, then `percentage`, then `on` when approved |
+| `KLARNA_ROLLOUT_PERCENTAGE`  | (Only needed in `percentage` mode) e.g. `10` for 10%          |
+
+`KLARNA_ROLLOUT_PERCENTAGE` is the canonical percentage setting. Do not configure
+the deprecated `KLARNA_ROLLOUT_PCT` name on new deployments. Existing deployments
+may use it temporarily as a fallback, but the API logs a migration warning; when
+both names exist, `KLARNA_ROLLOUT_PERCENTAGE` takes precedence.
 
 ---
 
@@ -121,11 +126,11 @@ Before enabling Klarna in production:
 
 Use these in the Klarna authorisation page during testing:
 
-| Scenario | Action |
-|---|---|
-| Approved | Click "Confirm purchase" |
-| Declined | Click "Reject" |
-| Pending (processing) | Click "Pending" |
+| Scenario             | Action                   |
+| -------------------- | ------------------------ |
+| Approved             | Click "Confirm purchase" |
+| Declined             | Click "Reject"           |
+| Pending (processing) | Click "Pending"          |
 
 ---
 
@@ -150,27 +155,27 @@ After QA sign-off:
 Klarna eligibility is determined server-side by Stripe. The following is a
 high-level summary; Stripe's authoritative list takes precedence.
 
-| Country | Currencies typically supported |
-|---|---|
-| Germany (DE) | EUR |
-| Sweden (SE) | SEK, EUR |
-| Norway (NO) | NOK |
-| Denmark (DK) | DKK |
-| Finland (FI) | EUR |
-| Netherlands (NL) | EUR |
-| Belgium (BE) | EUR |
-| Austria (AT) | EUR |
-| Switzerland (CH) | CHF |
-| Spain (ES) | EUR |
-| France (FR) | EUR |
-| Italy (IT) | EUR |
-| Portugal (PT) | EUR |
-| Ireland (IE) | EUR |
-| United Kingdom (GB) | GBP |
-| United States (US) | USD |
-| Canada (CA) | CAD |
-| Australia (AU) | AUD |
-| New Zealand (NZ) | NZD |
+| Country             | Currencies typically supported |
+| ------------------- | ------------------------------ |
+| Germany (DE)        | EUR                            |
+| Sweden (SE)         | SEK, EUR                       |
+| Norway (NO)         | NOK                            |
+| Denmark (DK)        | DKK                            |
+| Finland (FI)        | EUR                            |
+| Netherlands (NL)    | EUR                            |
+| Belgium (BE)        | EUR                            |
+| Austria (AT)        | EUR                            |
+| Switzerland (CH)    | CHF                            |
+| Spain (ES)          | EUR                            |
+| France (FR)         | EUR                            |
+| Italy (IT)          | EUR                            |
+| Portugal (PT)       | EUR                            |
+| Ireland (IE)        | EUR                            |
+| United Kingdom (GB) | GBP                            |
+| United States (US)  | USD                            |
+| Canada (CA)         | CAD                            |
+| Australia (AU)      | AUD                            |
+| New Zealand (NZ)    | NZD                            |
 
 > UAE (AED) is **not** currently supported by Klarna. The Gulf Stripe account
 > uses `allow_redirects: "never"` by default to prevent redirect-based methods

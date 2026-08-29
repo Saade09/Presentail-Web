@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { logger } from "./logger";
 
 /**
  * Klarna payment method rollout control.
@@ -7,8 +8,9 @@ import { createHash } from "node:crypto";
  *   off        — Klarna never surfaced (safe default; full rollout waits for approval).
  *   test       — Klarna surfaced only when the request uses the Stripe test key
  *                (STRIPE_SECRET_KEY starts with sk_test_). Safe for QA in prod infra.
- *   percentage — Klarna surfaced for KLARNA_ROLLOUT_PCT % of sessions (deterministic
- *                hash of sessionId so the same shopper stays in/out for the session).
+ *   percentage — Klarna surfaced for KLARNA_ROLLOUT_PERCENTAGE % of sessions
+ *                (deterministic hash of sessionId so the same shopper stays in/out
+ *                for the session).
  *   on         — Klarna surfaced for all eligible payer countries.
  *
  * Country gate: Klarna requires the *payer's* country (from IP geolocation, NOT
@@ -45,24 +47,37 @@ export function getKlarnaRolloutMode(): KlarnaRolloutMode {
 }
 
 /**
- * Internal helper to read rollout percentage from KLARNA_ROLLOUT_PCT.
+ * KLARNA_ROLLOUT_PERCENTAGE is the canonical percentage setting. The shorter
+ * KLARNA_ROLLOUT_PCT name remains a one-way compatibility fallback for existing
+ * deployments and is intentionally ignored when both names are configured.
  */
-function getRolloutPct(): number {
-  const raw = process.env.KLARNA_ROLLOUT_PCT;
-  if (!raw) return 0;
-  const n = parseInt(raw, 10);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(100, n));
-}
+const CANONICAL_ROLLOUT_PERCENTAGE = "KLARNA_ROLLOUT_PERCENTAGE";
+const LEGACY_ROLLOUT_PERCENTAGE = "KLARNA_ROLLOUT_PCT";
+let hasWarnedAboutLegacyPercentage = false;
 
-/**
- * Exported version to read percentage from KLARNA_ROLLOUT_PERCENTAGE.
- */
-export function getKlarnaRolloutPercentage(): number {
-  const raw = process.env.KLARNA_ROLLOUT_PERCENTAGE ?? "";
-  const n = parseFloat(raw);
+function parseRolloutPercentage(raw: string | undefined): number {
+  const n = parseFloat(raw ?? "");
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.min(100, n);
+}
+
+export function getKlarnaRolloutPercentage(): number {
+  const canonical = process.env[CANONICAL_ROLLOUT_PERCENTAGE];
+  const legacy = process.env[LEGACY_ROLLOUT_PERCENTAGE];
+
+  if (legacy !== undefined && !hasWarnedAboutLegacyPercentage) {
+    logger.warn(
+      {
+        canonicalVariable: CANONICAL_ROLLOUT_PERCENTAGE,
+        legacyVariable: LEGACY_ROLLOUT_PERCENTAGE,
+        canonicalConfigured: canonical !== undefined,
+      },
+      `${LEGACY_ROLLOUT_PERCENTAGE} is deprecated; use ${CANONICAL_ROLLOUT_PERCENTAGE}`,
+    );
+    hasWarnedAboutLegacyPercentage = true;
+  }
+
+  return parseRolloutPercentage(canonical ?? legacy);
 }
 
 /**
@@ -149,8 +164,7 @@ export function isKlarnaEnabled({
     case "test":
       return isTestMode;
     case "percentage": {
-      // Check both potential env vars for percentage mode
-      const pct = Math.max(getRolloutPct(), getKlarnaRolloutPercentage());
+      const pct = getKlarnaRolloutPercentage();
       if (pct <= 0) return false;
       if (pct >= 100) return true;
       return cohortBucket(sessionId) < pct;
@@ -180,7 +194,7 @@ export function klarnaRolloutAllowed(
   if (mode === "on") return true;
 
   // mode === "percentage"
-  const pct = Math.max(getRolloutPct(), getKlarnaRolloutPercentage());
+  const pct = getKlarnaRolloutPercentage();
   if (pct <= 0) return false;
   if (pct >= 100) return true;
   return klarnaHashBucket(checkoutId) < pct;
@@ -197,4 +211,3 @@ export function klarnaCohortLabel(
   if (mode === "off") return "off";
   return klarnaRolloutAllowed(checkoutId, stripeKey) ? "exposed" : "excluded";
 }
-

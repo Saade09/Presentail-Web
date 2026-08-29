@@ -10,10 +10,14 @@ import {
   klarnaRolloutAllowed,
   klarnaCohortLabel,
 } from "./klarnaRollout";
+import { logger } from "./logger";
 
 // ── Env helpers ─────────────────────────────────────────────────────────────
 
-function withEnv(vars: Record<string, string | undefined>, fn: () => void): void {
+function withEnv(
+  vars: Record<string, string | undefined>,
+  fn: () => void,
+): void {
   const saved: Record<string, string | undefined> = {};
   for (const [k, v] of Object.entries(vars)) {
     saved[k] = process.env[k];
@@ -90,11 +94,14 @@ describe("getKlarnaRolloutMode", () => {
     });
   });
 
-  it.each(["test", "percentage", "on"])("returns '%s' when set to '%s'", (mode) => {
-    withEnv({ KLARNA_ROLLOUT: mode }, () => {
-      expect(getKlarnaRolloutMode()).toBe(mode);
-    });
-  });
+  it.each(["test", "percentage", "on"])(
+    "returns '%s' when set to '%s'",
+    (mode) => {
+      withEnv({ KLARNA_ROLLOUT: mode }, () => {
+        expect(getKlarnaRolloutMode()).toBe(mode);
+      });
+    },
+  );
 
   it("is case-insensitive (upper-case ON)", () => {
     withEnv({ KLARNA_ROLLOUT: "ON" }, () => {
@@ -113,9 +120,12 @@ describe("getKlarnaRolloutMode", () => {
 
 describe("getKlarnaRolloutPercentage", () => {
   it("returns 0 when unset", () => {
-    withEnv({ KLARNA_ROLLOUT_PERCENTAGE: undefined }, () => {
-      expect(getKlarnaRolloutPercentage()).toBe(0);
-    });
+    withEnv(
+      { KLARNA_ROLLOUT_PERCENTAGE: undefined, KLARNA_ROLLOUT_PCT: undefined },
+      () => {
+        expect(getKlarnaRolloutPercentage()).toBe(0);
+      },
+    );
   });
 
   it("returns 0 for non-numeric value", () => {
@@ -147,13 +157,51 @@ describe("getKlarnaRolloutPercentage", () => {
       expect(getKlarnaRolloutPercentage()).toBe(10.5);
     });
   });
+
+  it("uses the legacy name as a compatibility fallback and warns", () => {
+    const warnSpy = vi.spyOn(logger, "warn");
+    withEnv(
+      { KLARNA_ROLLOUT_PERCENTAGE: undefined, KLARNA_ROLLOUT_PCT: "25" },
+      () => {
+        expect(getKlarnaRolloutPercentage()).toBe(25);
+      },
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        canonicalVariable: "KLARNA_ROLLOUT_PERCENTAGE",
+        legacyVariable: "KLARNA_ROLLOUT_PCT",
+        canonicalConfigured: false,
+      }),
+      expect.stringContaining("KLARNA_ROLLOUT_PCT is deprecated"),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("always prefers the canonical name when both names are configured", () => {
+    withEnv(
+      { KLARNA_ROLLOUT_PERCENTAGE: "10.5", KLARNA_ROLLOUT_PCT: "90" },
+      () => {
+        expect(getKlarnaRolloutPercentage()).toBe(10.5);
+      },
+    );
+  });
 });
 
 // ── klarnaHashBucket / cohortBucket ──────────────────────────────────────────
 
 describe("klarnaHashBucket / cohortBucket", () => {
   it("returns a number in [0, 100)", () => {
-    const ids = ["order-1", "abc", "test", "uuid-1234", "xyz-9999", "order-abc", "order-def", "order-xyz", "session-001"];
+    const ids = [
+      "order-1",
+      "abc",
+      "test",
+      "uuid-1234",
+      "xyz-9999",
+      "order-abc",
+      "order-def",
+      "order-xyz",
+      "session-001",
+    ];
     for (const id of ids) {
       const bucketHash = klarnaHashBucket(id);
       expect(bucketHash).toBeGreaterThanOrEqual(0);
@@ -205,6 +253,7 @@ describe("isKlarnaEnabled", () => {
     process.env = { ...origEnv };
     delete process.env.KLARNA_ROLLOUT;
     delete process.env.KLARNA_ROLLOUT_PCT;
+    delete process.env.KLARNA_ROLLOUT_PERCENTAGE;
   });
 
   afterEach(() => {
@@ -214,17 +263,29 @@ describe("isKlarnaEnabled", () => {
   describe('mode: "off" (default)', () => {
     it("returns false regardless of country", () => {
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "US", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "US",
+          isTestMode: false,
+        }),
       ).toBe(false);
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "GB", isTestMode: true }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "GB",
+          isTestMode: true,
+        }),
       ).toBe(false);
     });
 
     it("returns false for ineligible country", () => {
       process.env.KLARNA_ROLLOUT = "off";
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "LB", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "LB",
+          isTestMode: false,
+        }),
       ).toBe(false);
     });
   });
@@ -236,25 +297,45 @@ describe("isKlarnaEnabled", () => {
 
     it("returns true for eligible payer countries", () => {
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "US", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "US",
+          isTestMode: false,
+        }),
       ).toBe(true);
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "DE", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "DE",
+          isTestMode: false,
+        }),
       ).toBe(true);
     });
 
     it("returns false for ineligible countries (LB, AE, CY)", () => {
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "LB", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "LB",
+          isTestMode: false,
+        }),
       ).toBe(false);
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "AE", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "AE",
+          isTestMode: false,
+        }),
       ).toBe(false);
     });
 
     it("returns false when payerCountry is null", () => {
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: null, isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: null,
+          isTestMode: false,
+        }),
       ).toBe(false);
     });
   });
@@ -266,43 +347,63 @@ describe("isKlarnaEnabled", () => {
 
     it("returns true for eligible country when isTestMode=true", () => {
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "US", isTestMode: true }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "US",
+          isTestMode: true,
+        }),
       ).toBe(true);
     });
 
     it("returns false for eligible country when isTestMode=false", () => {
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "US", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "US",
+          isTestMode: false,
+        }),
       ).toBe(false);
     });
 
     it("returns false for ineligible country even in test mode", () => {
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "LB", isTestMode: true }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "LB",
+          isTestMode: true,
+        }),
       ).toBe(false);
     });
   });
 
   describe('mode: "percentage"', () => {
-    it("returns false when KLARNA_ROLLOUT_PCT=0", () => {
+    it("returns false when KLARNA_ROLLOUT_PERCENTAGE=0", () => {
       process.env.KLARNA_ROLLOUT = "percentage";
-      process.env.KLARNA_ROLLOUT_PCT = "0";
+      process.env.KLARNA_ROLLOUT_PERCENTAGE = "0";
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "US", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "US",
+          isTestMode: false,
+        }),
       ).toBe(false);
     });
 
-    it("returns true when KLARNA_ROLLOUT_PCT=100", () => {
+    it("returns true when KLARNA_ROLLOUT_PERCENTAGE=100", () => {
       process.env.KLARNA_ROLLOUT = "percentage";
-      process.env.KLARNA_ROLLOUT_PCT = "100";
+      process.env.KLARNA_ROLLOUT_PERCENTAGE = "100";
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "US", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "US",
+          isTestMode: false,
+        }),
       ).toBe(true);
     });
 
     it("is deterministic — same sessionId always returns same result", () => {
       process.env.KLARNA_ROLLOUT = "percentage";
-      process.env.KLARNA_ROLLOUT_PCT = "50";
+      process.env.KLARNA_ROLLOUT_PERCENTAGE = "50";
       const result = isKlarnaEnabled({
         sessionId: "deterministic-session",
         payerCountry: "US",
@@ -319,7 +420,7 @@ describe("isKlarnaEnabled", () => {
 
     it("distributes roughly 50/50 at 50%", () => {
       process.env.KLARNA_ROLLOUT = "percentage";
-      process.env.KLARNA_ROLLOUT_PCT = "50";
+      process.env.KLARNA_ROLLOUT_PERCENTAGE = "50";
       let enabled = 0;
       for (let i = 0; i < 1000; i++) {
         if (
@@ -339,9 +440,13 @@ describe("isKlarnaEnabled", () => {
 
     it("returns false for ineligible country regardless of pct", () => {
       process.env.KLARNA_ROLLOUT = "percentage";
-      process.env.KLARNA_ROLLOUT_PCT = "100";
+      process.env.KLARNA_ROLLOUT_PERCENTAGE = "100";
       expect(
-        isKlarnaEnabled({ sessionId: "s1", payerCountry: "LB", isTestMode: false }),
+        isKlarnaEnabled({
+          sessionId: "s1",
+          payerCountry: "LB",
+          isTestMode: false,
+        }),
       ).toBe(false);
     });
   });
@@ -384,43 +489,55 @@ describe("klarnaRolloutAllowed", () => {
 
   describe("mode: percentage", () => {
     it("returns false for 0% rollout", () => {
-      withEnv({ KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "0" }, () => {
-        for (let i = 0; i < 20; i++) {
-          expect(klarnaRolloutAllowed(`order-${i}`)).toBe(false);
-        }
-      });
+      withEnv(
+        { KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "0" },
+        () => {
+          for (let i = 0; i < 20; i++) {
+            expect(klarnaRolloutAllowed(`order-${i}`)).toBe(false);
+          }
+        },
+      );
     });
 
     it("returns true for 100% rollout", () => {
-      withEnv({ KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "100" }, () => {
-        for (let i = 0; i < 20; i++) {
-          expect(klarnaRolloutAllowed(`order-${i}`)).toBe(true);
-        }
-      });
+      withEnv(
+        { KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "100" },
+        () => {
+          for (let i = 0; i < 20; i++) {
+            expect(klarnaRolloutAllowed(`order-${i}`)).toBe(true);
+          }
+        },
+      );
     });
 
     it("is deterministic: same ID stays in/out of cohort", () => {
-      withEnv({ KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "50" }, () => {
-        for (const id of ["alpha", "beta", "gamma", "delta"]) {
-          const first = klarnaRolloutAllowed(id);
-          expect(klarnaRolloutAllowed(id)).toBe(first);
-          expect(klarnaRolloutAllowed(id)).toBe(first);
-        }
-      });
+      withEnv(
+        { KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "50" },
+        () => {
+          for (const id of ["alpha", "beta", "gamma", "delta"]) {
+            const first = klarnaRolloutAllowed(id);
+            expect(klarnaRolloutAllowed(id)).toBe(first);
+            expect(klarnaRolloutAllowed(id)).toBe(first);
+          }
+        },
+      );
     });
 
     it("approximately respects percentage (statistical check over 1000 samples)", () => {
-      withEnv({ KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "30" }, () => {
-        let allowed = 0;
-        const N = 1000;
-        for (let i = 0; i < N; i++) {
-          if (klarnaRolloutAllowed(`sample-order-${i}`)) allowed++;
-        }
-        // With 30% rollout over 1000 samples we expect ~300 in the cohort.
-        // Allow ±10% tolerance.
-        expect(allowed).toBeGreaterThanOrEqual(200);
-        expect(allowed).toBeLessThanOrEqual(400);
-      });
+      withEnv(
+        { KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "30" },
+        () => {
+          let allowed = 0;
+          const N = 1000;
+          for (let i = 0; i < N; i++) {
+            if (klarnaRolloutAllowed(`sample-order-${i}`)) allowed++;
+          }
+          // With 30% rollout over 1000 samples we expect ~300 in the cohort.
+          // Allow ±10% tolerance.
+          expect(allowed).toBeGreaterThanOrEqual(200);
+          expect(allowed).toBeLessThanOrEqual(400);
+        },
+      );
     });
   });
 });
@@ -453,11 +570,14 @@ describe("klarnaCohortLabel", () => {
   });
 
   it("returns 'exposed' or 'excluded' in percentage mode, never 'off'", () => {
-    withEnv({ KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "50" }, () => {
-      for (let i = 0; i < 20; i++) {
-        const label = klarnaCohortLabel(`order-${i}`);
-        expect(["exposed", "excluded"]).toContain(label);
-      }
-    });
+    withEnv(
+      { KLARNA_ROLLOUT: "percentage", KLARNA_ROLLOUT_PERCENTAGE: "50" },
+      () => {
+        for (let i = 0; i < 20; i++) {
+          const label = klarnaCohortLabel(`order-${i}`);
+          expect(["exposed", "excluded"]).toContain(label);
+        }
+      },
+    );
   });
 });

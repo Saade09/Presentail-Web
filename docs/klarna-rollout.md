@@ -48,12 +48,12 @@ Klarna's eligibility is based on the **shopper's billing country** (determined b
 
 Set via `KLARNA_ROLLOUT` environment variable (default: `off`):
 
-| Value | Behaviour |
-|-------|-----------|
-| `off` | Klarna never surfaced. Safe default. |
-| `test` | Klarna surfaced only when the active Stripe key is a test key (`sk_test_…`). Use for QA on staging or Replit dev environment. |
-| `percentage` | Klarna surfaced for `KLARNA_ROLLOUT_PCT`% of sessions, determined by a deterministic hash of the shopper's session ID. The same shopper sees the same result across reloads. |
-| `on` | Klarna surfaced for all shoppers in eligible payer countries. Full rollout. |
+| Value        | Behaviour                                                                                                                                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off`        | Klarna never surfaced. Safe default.                                                                                                                                                |
+| `test`       | Klarna surfaced only when the active Stripe key is a test key (`sk_test_…`). Use for QA on staging or Replit dev environment.                                                       |
+| `percentage` | Klarna surfaced for `KLARNA_ROLLOUT_PERCENTAGE`% of sessions, determined by a deterministic hash of the shopper's session ID. The same shopper sees the same result across reloads. |
+| `on`         | Klarna surfaced for all shoppers in eligible payer countries. Full rollout.                                                                                                         |
 
 ### Environment Variables
 
@@ -62,12 +62,17 @@ Set via `KLARNA_ROLLOUT` environment variable (default: `off`):
 KLARNA_ROLLOUT=off             # off | test | percentage | on
 
 # Optional: percentage target (0-100), used only when KLARNA_ROLLOUT=percentage
-KLARNA_ROLLOUT_PCT=10          # e.g. 10 = 10% of sessions
+KLARNA_ROLLOUT_PERCENTAGE=10   # e.g. 10 = 10% of sessions
 
 # Required: Stripe webhook secrets (needed for dispute/refund handling)
 STRIPE_WEBHOOK_SECRET=whsec_… # main account (LB, CY)
 STRIPE_WEBHOOK_SECRET_GULF=whsec_… # gulf account (AE)
 ```
+
+`KLARNA_ROLLOUT_PERCENTAGE` is the canonical percentage setting. The deprecated
+`KLARNA_ROLLOUT_PCT` name is accepted only as a compatibility fallback and logs
+a migration warning. If both names are present, `KLARNA_ROLLOUT_PERCENTAGE`
+always wins; remove the old name after migrating.
 
 ### Eligible Payer Countries
 
@@ -89,10 +94,10 @@ Lebanon (LB), UAE (AE), and Cyprus (CY) are **not** on this list — Klarna does
 4. Confirm the order lands in Presentail OS after the Klarna redirect.
 5. Trigger a test dispute via Stripe dashboard and confirm the Slack alert fires.
 
-### Phase 2 — 10% rollout (`KLARNA_ROLLOUT=percentage`, `KLARNA_ROLLOUT_PCT=10`)
+### Phase 2 — 10% rollout (`KLARNA_ROLLOUT=percentage`, `KLARNA_ROLLOUT_PERCENTAGE=10`)
 
 1. Ahmad approves rollout.
-2. Set `KLARNA_ROLLOUT=percentage` + `KLARNA_ROLLOUT_PCT=10` and redeploy.
+2. Set `KLARNA_ROLLOUT=percentage` + `KLARNA_ROLLOUT_PERCENTAGE=10` and redeploy.
 3. Monitor for 48h: check Klarna payment success rates in `analytics_events` (`stripe_payment_succeeded` where `action='klarna'`), dispute rate in `stripe_webhook_events`, and Slack for alerts.
 4. If no issues, increase to 25%, then 50%.
 
@@ -149,12 +154,12 @@ See Stripe docs: https://stripe.com/docs/testing#klarna
 
 After enabling, watch these signals:
 
-| Signal | Source | Check |
-|--------|--------|-------|
+| Signal                   | Source                                                                                          | Check        |
+| ------------------------ | ----------------------------------------------------------------------------------------------- | ------------ |
 | Klarna payment successes | `analytics_events` WHERE `name='stripe_payment_succeeded'` AND `properties->>'method'='klarna'` | Rising count |
-| Klarna payment failures | `analytics_events` WHERE `name='stripe_payment_failed'` | Low rate |
-| Disputes | `stripe_webhook_events` WHERE `event_type='charge.dispute.created'` + Slack alert | Zero or low |
-| Refunds | `stripe_webhook_events` WHERE `event_type='charge.refunded'` | Monitor |
+| Klarna payment failures  | `analytics_events` WHERE `name='stripe_payment_failed'`                                         | Low rate     |
+| Disputes                 | `stripe_webhook_events` WHERE `event_type='charge.dispute.created'` + Slack alert               | Zero or low  |
+| Refunds                  | `stripe_webhook_events` WHERE `event_type='charge.refunded'`                                    | Monitor      |
 
 ---
 

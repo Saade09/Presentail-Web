@@ -14,10 +14,14 @@ Klarna eligibility is based on the **payer's IP-detected country** (from `resolv
 ## Rollout Env Vars
 
 - `KLARNA_ROLLOUT` = off | test | percentage | on (default: off)
-- `KLARNA_ROLLOUT_PCT` = 0-100 (used by HEAD's getRolloutPct(), percentage mode)
-- `KLARNA_ROLLOUT_PERCENTAGE` = 0-100 (used by 0987e255's getKlarnaRolloutPercentage(), percentage mode)
+- `KLARNA_ROLLOUT_PERCENTAGE` = 0-100 is the canonical percentage setting.
+- Deprecated `KLARNA_ROLLOUT_PCT` is a warning-emitting compatibility fallback only; the canonical name wins when both exist.
 - Gulf (AED/UAE) stores always block Klarna regardless of the flag — Klarna does not support AED.
 - Full rollout requires Ahmad's explicit approval.
+
+**Why:** Combining both percentage names allowed a stale setting to silently increase the live cohort.
+
+**How to apply:** Configure only `KLARNA_ROLLOUT_PERCENTAGE` for percentage mode and remove `KLARNA_ROLLOUT_PCT` after any migration window.
 
 ## confirmPayment + redirect:'if_required' Type Cast
 
