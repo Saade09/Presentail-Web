@@ -91,6 +91,7 @@ artifacts/presentail/google-service-account.json
 # Generated and temporary deployment output. Publish/build commands recreate
 # these from source; committed snapshots must not be uploaded as build inputs.
 /artifacts/presentail/static-build/
+/artifacts/api-server/debug-source-maps/
 /artifacts/presentail-web/public/blog/*-480.webp
 /artifacts/presentail-web/public/blog/*-768.webp
 /tmp-dist/
