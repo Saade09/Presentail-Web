@@ -265,6 +265,7 @@ export default function OrderConfirmed() {
     purchaseFiredRef.current = true;
     let value = 0;
     let currency = "USD";
+    let deliveryCountryInline: string | undefined;
     let ga4Items: { item_id: string; item_name: string; price: number; quantity: number }[] = [];
     try {
       const stashed = sessionStorage.getItem(PENDING_ORDER_KEY);
@@ -272,6 +273,7 @@ export default function OrderConfirmed() {
         const parsed = JSON.parse(stashed) as { payload?: Record<string, unknown> };
         if (typeof parsed?.payload?.totalUsd === "number") value = parsed.payload.totalUsd;
         if (typeof parsed?.payload?.currencyCode === "string") currency = parsed.payload.currencyCode;
+        if (typeof parsed?.payload?.deliveryCountry === "string") deliveryCountryInline = parsed.payload.deliveryCountry;
         if (Array.isArray(parsed?.payload?.items)) {
           ga4Items = (parsed.payload.items as OrderItem[]).map((item) => ({
             item_id: item.osSlug ?? item.name,
@@ -296,7 +298,7 @@ export default function OrderConfirmed() {
           }
         : {}),
     });
-    fireAdsPurchaseConversion({ transactionId: state.ref, value, currency });
+    fireAdsPurchaseConversion({ transactionId: state.ref, value, currency, countryCode: deliveryCountryInline });
     fireGA4PurchaseEvent({ transactionId: state.ref, value, currency, items: ga4Items });
     try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
   // state is included so the effect re-runs if the FinalizeState reference changes.
@@ -438,7 +440,8 @@ export default function OrderConfirmed() {
               event_id: `fbpurchase-${orderRef}`,
               ...(user?.email ? { userData: { em: user.email } } : {}),
             });
-            fireAdsPurchaseConversion({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency });
+            const deliveryCountryFinalize = typeof payload.deliveryCountry === "string" ? payload.deliveryCountry : undefined;
+            fireAdsPurchaseConversion({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency, countryCode: deliveryCountryFinalize });
             const ga4ItemsFinalize = Array.isArray(payload.items)
               ? (payload.items as OrderItem[]).map((item) => ({
                   item_id: item.osSlug ?? item.name,
