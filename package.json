@@ -6,6 +6,7 @@
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "publish:artifacts": "node scripts/publish-artifacts.mjs",
+    "test:publish-provenance": "pnpm --filter @workspace/scripts exec vitest run src/buildArtifactProvenance.test.ts",
     "typecheck:libs": "tsc --build",
     "typecheck:libs:clean": "tsc --build --clean && tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck && pnpm --filter @workspace/presentail-web run test && pnpm --filter @workspace/delivery run test && pnpm --filter @workspace/presentail run lint && pnpm --filter @workspace/presentail-web run lint && pnpm run check-translations",

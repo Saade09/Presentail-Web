@@ -39,3 +39,6 @@ jobs:
 
       - name: Type-check test files
         run: pnpm run typecheck:tests
+
+      - name: Run publish provenance regression tests
+        run: pnpm run test:publish-provenance
