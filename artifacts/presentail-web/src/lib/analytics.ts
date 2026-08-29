@@ -535,6 +535,33 @@ function detectWebPlatform(): "mobile_web" | "desktop_web" {
   return "desktop_web";
 }
 
+declare global {
+  interface Window {
+    umami?: {
+      track(name: string, data?: Record<string, string | number | boolean>): void;
+    };
+  }
+}
+
+/**
+ * Fire a custom event on Replit's injected Umami analytics tracker.
+ * Safe to call anywhere — a no-op when the tracker is absent (local dev,
+ * before analytics is enabled in Publishing settings, or before the
+ * injected script has loaded). Failures are swallowed so analytics
+ * never breaks the app.
+ */
+export function umamiTrack(
+  name: string,
+  data?: Record<string, string | number | boolean>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.umami?.track(name, data);
+  } catch {
+    // Analytics must never break the app.
+  }
+}
+
 /**
  * Register web-vitals reporters. Call once from the app entry point.
  * Each metric is reported at most once per page load. The function is

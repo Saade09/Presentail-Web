@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Logo } from "@/components/Logo";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, umamiTrack } from "@/lib/analytics";
 import { CheckoutField } from "@/components/checkout/CheckoutField";
 
 type Step = "name-password" | "phone";
@@ -229,6 +229,7 @@ export default function SignUpPage() {
       }
       if (data.token && data.user) {
         login(data.token, mapApiUser(data.user), "password");
+        umamiTrack("sign_up", { method: "password" });
         setLocation(redirectAfterAuth);
       } else {
         // Registered but no JWT returned (WP JWT plugin not installed) — go to sign-in

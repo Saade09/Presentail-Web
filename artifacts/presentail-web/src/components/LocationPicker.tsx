@@ -7,6 +7,7 @@ import {
 import { useLocale } from "@/contexts/LocaleContext";
 import { CountryFlag } from "@/components/CountryFlag";
 import { sortLbActiveCities } from "@/lib/lbCityOrder";
+import { umamiTrack } from "@/lib/analytics";
 
 type Props = {
   onComplete?: (selection: { countryCode: string; cityId: string }) => void;
@@ -52,6 +53,7 @@ export function LocationPicker({
 
   const handleCitySelect = (cityId: string) => {
     if (!selectedCountry) return;
+    umamiTrack("city_selected", { country: selectedCountry.code, city_id: cityId });
     setLocation(selectedCountry.code, cityId);
     onComplete?.({ countryCode: selectedCountry.code, cityId });
   };

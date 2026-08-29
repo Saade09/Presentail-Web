@@ -49,7 +49,7 @@ import { useNow } from "@/lib/useNow";
 import { resolveProductBreadcrumbCategory } from "@/lib/productCategory";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
-import { trackWebEvent, trackEvent } from "@/lib/analytics";
+import { trackWebEvent, trackEvent, umamiTrack } from "@/lib/analytics";
 import { buildProductSeo } from "@/lib/seo";
 import { CompleteYourGift } from "@/components/product/CompleteYourGift";
 import { calcCheckoutFees } from "@/pages/checkoutFees";
@@ -675,6 +675,7 @@ export default function ProductDetail() {
     if (nav?.share) {
       try {
         await nav.share({ title: product.name, url });
+        umamiTrack("product_shared", { method: "native_share" });
         return;
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -683,6 +684,7 @@ export default function ProductDetail() {
     try {
       if (nav && "clipboard" in nav && nav.clipboard?.writeText) {
         await nav.clipboard.writeText(url);
+        umamiTrack("product_shared", { method: "clipboard" });
         toast({
           title: t("product.share.copied.title"),
           description: t("product.share.copied.desc"),

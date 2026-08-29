@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useToast } from "@/hooks/use-toast";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, umamiTrack } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { CompleteProfileDialog } from "@/components/auth/CompleteProfileDialog";
@@ -451,6 +451,7 @@ export default function SignInPage() {
         return;
       }
       handleAuthSuccess(data.token, mapApiUser(data.user), "password");
+      umamiTrack("login", { method: "password" });
     } catch (err: any) {
       toast({
         title: t("auth.toast.error"),

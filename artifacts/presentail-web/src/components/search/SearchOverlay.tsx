@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocation } from "wouter";
-import { trackWebEvent } from "@/lib/analytics";
+import { trackWebEvent, umamiTrack } from "@/lib/analytics";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import { useSearch } from "@/lib/queries";
@@ -86,9 +86,12 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
     if (isFetching || q.length < 2) return;
     const hasAnyResult = hasProducts || hasCategories || hasOccasions || hasBrands;
     if (hasAnyResult) {
-      trackWebEvent({ type: "search", properties: { searchQuery: q, resultCount: (data?.products?.length ?? 0) + (data?.categories?.length ?? 0) + (data?.occasions?.length ?? 0) + (data?.brands?.length ?? 0) } });
+      const resultCount = (data?.products?.length ?? 0) + (data?.categories?.length ?? 0) + (data?.occasions?.length ?? 0) + (data?.brands?.length ?? 0);
+      trackWebEvent({ type: "search", properties: { searchQuery: q, resultCount } });
+      umamiTrack("search", { result_count: resultCount });
     } else {
       trackWebEvent({ type: "search_no_result", properties: { searchQuery: q } });
+      umamiTrack("search_no_result", { result_count: 0 });
     }
   // Intentionally depend only on isFetching to fire once per completed fetch
   // eslint-disable-next-line react-hooks/exhaustive-deps

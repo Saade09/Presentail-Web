@@ -64,7 +64,7 @@ import { cn } from "@/lib/utils";
 import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlotValidation";
 import { joinRecipientName } from "@/lib/recipientName";
 import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
-import { trackEvent, trackWebEvent } from "@/lib/analytics";
+import { trackEvent, trackWebEvent, umamiTrack } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
@@ -1007,6 +1007,7 @@ function CheckoutForm() {
           surface: "checkout",
           action: m as WebPaymentMethodId,
         });
+        umamiTrack("payment_method_selected", { method: m });
       }
       return m;
     });
@@ -3197,6 +3198,7 @@ function CheckoutForm() {
         surface: "checkout",
         action: paymentMethod as WebPaymentMethodId,
       });
+      umamiTrack("order_placed", { payment_method: paymentMethod, currency: checkoutCurrency, value: total });
       trackWebEvent({
         type: "payment_completed",
         value: total,
@@ -3559,6 +3561,7 @@ function CheckoutForm() {
                 ev.complete("fail");
                 trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
                 trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: paymentMethod, errorCode: stripeError.code ?? undefined } });
+                umamiTrack("payment_failed", { method: paymentMethod, error_code: stripeError.code ?? "unknown" });
                 setPaymentMethodState("card");
                 setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
                 resolve();
@@ -3899,6 +3902,7 @@ function CheckoutForm() {
             if (stripeError) {
               trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
               trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "card", errorCode: stripeError.code ?? undefined } });
+              umamiTrack("payment_failed", { method: "card", error_code: stripeError.code ?? "unknown" });
               setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
               return;
             }
@@ -3913,6 +3917,7 @@ function CheckoutForm() {
               if (actionError) {
                 trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
                 trackWebEvent({ type: "payment_failed", currency: checkoutCurrency, properties: { method: "card", errorCode: actionError.code ?? undefined } });
+                umamiTrack("payment_failed", { method: "card", error_code: actionError.code ?? "unknown" });
                 setStripeCardError(stripeDeclineMsg(actionError, t) ?? actionError.message ?? t("checkout.toast.cardPaymentFailed"));
                 return;
               }

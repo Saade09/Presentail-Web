@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useCart, effectivePrice } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
-import { trackEvent, trackWebEvent } from "@/lib/analytics";
+import { trackEvent, trackWebEvent, umamiTrack } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -959,6 +959,7 @@ export default function Cart() {
         ? { deliveryMethod: deliveryPromise.type, deliveryPromise: deliveryPromise.summary }
         : {}),
     });
+    umamiTrack("checkout_started", { item_count: items.length });
     // Frictionless checkout flag: everyone goes straight to /checkout — no
     // popup interception, no ?guest=1 (the checkout page no longer gates).
     const decision = cartCheckoutCtaDecision({

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Product } from "@/lib/queries";
 import { trackFbEvent } from "@/lib/fbPixel";
-import { trackWebEvent } from "@/lib/analytics";
+import { trackWebEvent, umamiTrack } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { AuthOverrideContext } from "@/contexts/AuthContext";
 import { LocationContext } from "@/contexts/LocationContext";
@@ -134,6 +134,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // Recommendation tracking token — lets the upsell funnel attribute
       // purchases back to the exact Complete-Your-Gift recommendation.
       ...(deliveryOptions?.upsellToken ? { properties: { upsellToken: deliveryOptions.upsellToken } } : {}),
+    });
+    umamiTrack("add_to_cart", {
+      product_name: product.name,
+      price: effectivePrice(product),
+      quantity,
     });
   };
 
