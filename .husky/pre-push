@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
-# Pre-push hook: fail if committed OpenAPI spec changes produced codegen drift,
-# and catch TypeScript errors in test files before they reach CI.
+# Pre-push hook: reject credentials left in upload/scratch locations, fail if
+# committed OpenAPI spec changes produced codegen drift, and catch TypeScript
+# errors in test files before they reach CI.
 # To install: cp .husky/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
-pnpm run check-codegen && pnpm run typecheck:tests
+pnpm run check-upload-credentials && pnpm run check-codegen && pnpm run typecheck:tests

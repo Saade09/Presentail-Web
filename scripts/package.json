@@ -10,6 +10,7 @@
     "backfill-address-lines": "tsx ./src/backfillAddressLines.ts",
     "import-customers-to-clerk": "tsx ./src/importCustomersToClerk.ts",
     "check-presentail-native-modules": "tsx ./src/checkPresentailNativeModules.ts",
+    "check-upload-credentials": "tsx ./src/checkUploadCredentials.ts",
     "write-presentail-native-modules": "tsx ./src/checkPresentailNativeModules.ts --write",
     "promote-ios-to-app-store": "tsx ./src/promoteToAppStore.ts",
     "bump-app-version": "tsx ./src/bumpAppVersion.ts",
