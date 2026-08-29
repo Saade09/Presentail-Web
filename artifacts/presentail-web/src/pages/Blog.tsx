@@ -4,16 +4,11 @@ import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowLeft, Clock } from "lucide-react";
 import {
-  BLOG_POSTS,
   BLOG_CATEGORIES,
-  getBlogPostMeta,
-  getBlogPostLanguages,
-  getBlogPostReadingTime,
-  getBlogPostExcerpt,
-  getFeaturedBlogSlug,
+  BLOG_INDEX,
+  FEATURED_BLOG_SLUG,
   type BlogCategory,
-  type BlogPostContent,
-} from "@workspace/blog-content";
+} from "@workspace/blog-content/index";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -34,8 +29,6 @@ type Story = {
   ogImage?: OgImage;
 };
 
-type Article = BlogPostContent;
-
 type Copy = {
   eyebrow: string;
   title: string;
@@ -50,8 +43,6 @@ type Copy = {
   categories: Record<BlogCategory, string>;
   noStories: string;
 };
-
-const ARTICLES = BLOG_POSTS as unknown as Record<string, Record<Language, Article>>;
 
 const COPY: Record<Language, Copy> = {
   en: {
@@ -133,29 +124,27 @@ const COPY: Record<Language, Copy> = {
   },
 };
 
-// Stories derive from the shared blog source of truth so the index can never
-// drift from the article pages or the server-side crawlable index.
+// Listing cards use generated compact metadata. Full article sections remain
+// exclusive to BlogPost so the Journal route never downloads every article body.
 function getStories(language: Language): Story[] {
   // Blog article content exists only in EN/AR/FR; Greek visitors fall back to
   // English article content (intended). The page UI copy is still localised.
   const blogLang = language === "el" ? "en" : language;
-  return Object.keys(ARTICLES)
-    .map<Story | null>((slug) => {
-      const byLang = ARTICLES[slug];
-      const a = getBlogPostLanguages(byLang).includes(blogLang) ? byLang[blogLang] : undefined;
+  return Object.entries(BLOG_INDEX)
+    .map<Story | null>(([slug, entry]) => {
+      const article = entry.localized[blogLang];
       // Some editorial posts are intentionally published in one language
       // first. Keep them out of other locale listings until a translation
       // exists rather than rendering an undefined article card.
-      if (!a) return null;
-      const meta = getBlogPostMeta(slug);
+      if (!article) return null;
       return {
         slug,
-        title: a.title,
-        excerpt: getBlogPostExcerpt(a),
-        category: meta.category,
-        readingTime: getBlogPostReadingTime(slug, blogLang),
-        datePublished: a.datePublished,
-        ogImage: a.ogImage,
+        title: article.title,
+        excerpt: article.excerpt,
+        category: entry.category,
+        readingTime: article.readingTime,
+        datePublished: article.datePublished,
+        ogImage: article.ogImage,
       };
     })
     .filter((story): story is Story => story !== null)
@@ -201,8 +190,7 @@ export default function Blog() {
   const [activeCategory, setActiveCategory] = useState<BlogCategory | "all">("all");
 
   const stories = useMemo(() => getStories(language), [language]);
-  const featuredSlug = getFeaturedBlogSlug();
-  const featured = stories.find((s) => s.slug === featuredSlug) ?? stories[0];
+  const featured = stories.find((s) => s.slug === FEATURED_BLOG_SLUG) ?? stories[0];
 
   const showFeatured = activeCategory === "all" && featured;
   const gridStories =

@@ -629,7 +629,7 @@ export default defineConfig(async ({ command, mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      runtimeErrorOverlay(),
+      ...(command === "serve" ? [runtimeErrorOverlay()] : []),
       markdownMirrorDevPlugin(basePath),
       seoInjectPlugin(basePath),
       logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
@@ -666,6 +666,7 @@ export default defineConfig(async ({ command, mode }) => {
       cssCodeSplit: true,
       minify: "esbuild",
       manifest: true,
+      sourcemap: false,
       modulePreload: { polyfill: true },
       // Never inline logo WebP files as base64 data URLs — they need to be
       // separate assets in the Vite manifest so logoPreloadPlugin can inject

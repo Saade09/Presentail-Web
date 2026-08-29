@@ -2,7 +2,7 @@
  * Post-build pre-compression script.
  *
  * Compresses every .js and .css file in dist/public/assets/ with both Brotli
- * (max quality) and gzip (max level), writing <file>.br and <file>.gz sidecars
+ * (quality 10) and gzip (level 6), writing <file>.br and <file>.gz sidecars
  * alongside the originals.  serve.mjs then serves the pre-built sidecar
  * directly instead of compressing on every request.
  *
@@ -18,14 +18,18 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { performance } from "node:perf_hooks";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const gzipCompress = promisify(zlib.gzip);
 
+export const BROTLI_QUALITY = 10;
+export const GZIP_LEVEL = 6;
+
 const BROTLI_OPTS = {
-  params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+  params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
 };
-const GZIP_OPTS = { level: 9 };
+const GZIP_OPTS = { level: GZIP_LEVEL };
 
 async function compressFile(filePath) {
   const data = fs.readFileSync(filePath);
@@ -70,9 +74,24 @@ export async function compressAssets(assetsDir) {
     );
   }
 
-  console.log(`compress-assets: pre-compressing ${files.length} JS/CSS files…`);
+  const startedAt = performance.now();
+  console.log(
+    `compress-assets: pre-compressing ${files.length} JS/CSS files ` +
+      `(Brotli q${BROTLI_QUALITY}, gzip ${GZIP_LEVEL})…`,
+  );
   const results = await Promise.all(files.map(compressFile));
-  console.log("compress-assets: done.");
+  const rawBytes = files.reduce(
+    (total, filePath) => total + fs.statSync(filePath).size,
+    0,
+  );
+  const brBytes = results.reduce((total, result) => total + result.brSize, 0);
+  const gzBytes = results.reduce((total, result) => total + result.gzSize, 0);
+  console.log(
+    `compress-assets: done in ${((performance.now() - startedAt) / 1000).toFixed(2)}s — ` +
+      `raw ${(rawBytes / 1024).toFixed(1)}KB, ` +
+      `br ${(brBytes / 1024).toFixed(1)}KB (${((brBytes / rawBytes) * 100).toFixed(1)}%), ` +
+      `gz ${(gzBytes / 1024).toFixed(1)}KB (${((gzBytes / rawBytes) * 100).toFixed(1)}%).`,
+  );
   return results;
 }
 

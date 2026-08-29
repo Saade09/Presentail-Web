@@ -83,6 +83,52 @@ function requireAtLeastOne(subdir, pattern, desc) {
   }
 }
 
+function rejectProductionWaste() {
+  const forbidden = [];
+  const stack = [DIST];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(abs);
+        continue;
+      }
+      const rel = path.relative(DIST, abs).replaceAll(path.sep, "/");
+      if (
+        rel.endsWith(".map") ||
+        /(?:^|\/)(?:__tests__|tests?|specs?)(?:\/|$)/i.test(rel) ||
+        /\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(rel)
+      ) {
+        forbidden.push(rel);
+      }
+    }
+  }
+
+  const browserJs = path.join(DIST, "assets");
+  if (fs.existsSync(browserJs)) {
+    const forbiddenModulePatterns = [
+      ["Node builtin", /\bnode:(?:fs|path|url|child_process|zlib|util|perf_hooks)\b/],
+      ["development plugin", /@replit\/vite-plugin-(?:runtime-error-modal|cartographer|dev-banner)/],
+      ["Node-only pg package", /node_modules\/pg(?:\/|["'])/],
+    ];
+    for (const name of fs.readdirSync(browserJs).filter((file) => file.endsWith(".js"))) {
+      const source = fs.readFileSync(path.join(browserJs, name), "utf8");
+      for (const [label, pattern] of forbiddenModulePatterns) {
+        if (pattern.test(source)) forbidden.push(`${name} (${label})`);
+      }
+    }
+  }
+
+  if (forbidden.length > 0) {
+    console.error(
+      "BUILD INTEGRITY ERROR: production-only waste was emitted:\n" +
+        forbidden.map((entry) => `  ${entry}`).join("\n"),
+    );
+    failed = true;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Required outputs
 // ---------------------------------------------------------------------------
@@ -100,6 +146,10 @@ requireAtLeastOne(
   /\.js$/,
   "dist/public/assets/*.js (at least one hashed JS chunk)",
 );
+
+// 5. Production output must not contain source maps, tests, development
+// plugins, or Node-only modules.
+rejectProductionWaste();
 
 // 4. At least one hashed CSS chunk — Vite emits these as assets/<name>-<hash>.css.
 requireAtLeastOne(

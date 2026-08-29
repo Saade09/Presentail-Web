@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "node scripts/generate-blog-hero-variants.mjs && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && vite build --config vite.config.ts && node compress-assets.mjs && node check-build-integrity.mjs && node ../../scripts/build-artifact-provenance.mjs --name web --artifact-dir dist/public",
+    "build": "node scripts/generate-blog-hero-variants.mjs && node scripts/generate-blog-index.mjs && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && vite build --config vite.config.ts && node compress-assets.mjs && node check-build-integrity.mjs && node ../../scripts/build-artifact-provenance.mjs --name web --artifact-dir dist/public",
     "verify-build": "node check-build-integrity.mjs && node ../../scripts/build-artifact-provenance.mjs --name web --artifact-dir dist/public --verify --max-bytes 30000000",
     "check-build-integrity": "node check-build-integrity.mjs",
     "generate-blog-hero-variants": "node scripts/generate-blog-hero-variants.mjs",
+    "generate-blog-index": "node scripts/generate-blog-index.mjs",
     "check-blog-hero-variants": "node scripts/check-blog-hero-variants.mjs",
     "check-product-jsonld-schema": "node scripts/check-product-jsonld-schema.mjs",
     "check-nonproduct-jsonld-schema": "node scripts/check-nonproduct-jsonld-schema.mjs",

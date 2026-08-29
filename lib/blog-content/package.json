@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/blogPostsCopy.d.ts",
       "default": "./src/blogPostsCopy.js"
+    },
+    "./index": {
+      "types": "./src/blogIndex.generated.d.ts",
+      "default": "./src/blogIndex.generated.js"
     }
   },
   "scripts": {
