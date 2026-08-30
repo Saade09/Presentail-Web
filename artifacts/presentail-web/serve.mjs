@@ -1900,6 +1900,13 @@ const server = http.createServer(async (req, res) => {
       // redirect, which stripped the slash but pointed at a path that was never
       // migrated, creating a self-redirect-into-404 loop (Aug 2026).
       "/birthday-gift-ideas-lebanon": `${BASE_PATH}/en-lb/beirut/occasion/birthday`,
+      // Legacy WooCommerce product-category page for Father's Day (/lebanon/product-category/fathers-day)
+      // ranked #1 for "Father's Day Lebanon" queries but landed on the generic shop page
+      // because fathers-day is not a WC category slug. 301 to the dedicated occasion page (Aug 2026).
+      "/lebanon/product-category/fathers-day": `${BASE_PATH}/en-lb/beirut/occasion/fathers-day`,
+      // Legacy WP/WC Father's Day archive page that fell through to the bare-country fallback
+      // and redirected to the generic Beirut home instead of the occasion page (Aug 2026).
+      "/lebanon/fathers-day-lebanon": `${BASE_PATH}/en-lb/beirut/occasion/fathers-day`,
       // Legacy WP balloon-delivery blog post that holds organic rankings for
       // "balloon delivery beirut lebanon". Redirect to the new blog post at its
       // canonical URL so link equity is preserved and the informational

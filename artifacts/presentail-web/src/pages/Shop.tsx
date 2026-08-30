@@ -723,10 +723,24 @@ export default function Shop() {
         catalogOccasion?.name ||
         slugToTitle(occasion)
       );
+      // Curated occasion pages: expand breadcrumb to Home › Country › City › Occasions › OccasionName
+      // so the visible trail matches the BreadcrumbList JSON-LD emitted by seo-inject. {/* i18n-ignore — curated EN-only pages */}
+      if (curatedSeo && country && city) {
+        const entityCountryLabel = countryName(country.code, country.name);
+        const entityCityLabel = cityName(city.id, city.name);
+        const locBase = `/${language}-${country.code}/${city.id}`;
+        return [
+          home,
+          { label: entityCountryLabel, href: `/${language}-${country.code}` },
+          { label: entityCityLabel, href: locBase },
+          { label: "Occasions", href: `${locBase}/occasions` }, // i18n-ignore — curated EN breadcrumb
+          { label },
+        ];
+      }
       return [home, { label }];
     }
     return [home, { label: brandDisplayName }];
-  }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName, categoryLabelKey, occasionLabelKey]);
+  }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName, categoryLabelKey, occasionLabelKey, curatedSeo, country, city, language, countryName, cityName]);
 
   const shopFiltersProps = {
     priceBuckets,
@@ -1098,7 +1112,31 @@ export default function Shop() {
               {activeCuratedContent.sections.map((s) => (
                 <div key={s.heading} className="max-w-[720px]">
                   <h2 className="text-2xl font-serif mb-3">{s.heading}</h2> {/* i18n-ignore — curated EN-only SEO copy */}
-                  <p className="text-sm text-muted-foreground leading-relaxed">{s.body}</p> {/* i18n-ignore */}
+                  {s.body && (
+                    <p className="text-sm text-muted-foreground leading-relaxed">{s.body}</p> /* i18n-ignore */
+                  )}
+                  {/* H3 subsections — used for Gift Ideas and similar multi-block sections */}
+                  {s.subsections && s.subsections.length > 0 && (
+                    <div className="mt-4 space-y-5">
+                      {s.subsections.map((sub) => (
+                        <div key={sub.h3}>
+                          <h3 className="text-base font-semibold mb-1">{sub.h3}</h3> {/* i18n-ignore */}
+                          <p className="text-sm text-muted-foreground leading-relaxed">{sub.body}</p> {/* i18n-ignore */}
+                          {sub.links && sub.links.length > 0 && (
+                            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                              {sub.links.map((l) => (
+                                <li key={l.href}>
+                                  <a href={l.href} className="text-sm underline underline-offset-4 text-foreground/80 hover:text-foreground">
+                                    {l.label}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {s.links && s.links.length > 0 && (
                     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
                       {s.links.map((l) => (

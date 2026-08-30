@@ -4845,6 +4845,17 @@ function buildShopEntityHead({
   });
   const requestLocBase = localeBaseUrl(pathname, origin, basePath);
   const crumbItems = [{ name: "Home", url: siteRoot }];
+  // For curated occasion pages insert a country crumb between Home and City so
+  // the trail reads: Home > Lebanon > Beirut > Occasions > OccasionName.
+  // This mirrors the visible breadcrumb rendered client-side by Shop.tsx and
+  // matches the national-level targeting of curated pages like fathers-day.
+  if (curated && entityKind === "occasion" && countryLabel) {
+    const _ep = parseLocalePath(pathname);
+    if (_ep.lang && _ep.country) {
+      const countryUrl = `${origin}${cleanBase}/${_ep.lang}-${_ep.country}`;
+      crumbItems.push({ name: countryLabel, url: countryUrl });
+    }
+  }
   if (cityLabel && locBase !== siteRoot) {
     crumbItems.push({ name: cityLabel, url: locBase });
   }
@@ -4860,13 +4871,13 @@ function buildShopEntityHead({
   if (Array.isArray(items) && items.length > 0) {
     graphNodes.push(buildItemListSchema(items, rawName || altText, locBase));
   }
-  // CollectionPage + Service nodes for curated city-category pages.
+  // CollectionPage + Service nodes for curated city-category AND curated occasion pages.
   // These carry hand-written unique content so they deserve richer structured
   // data — a CollectionPage node explicitly describes the listing, and a
   // Service node signals the areaServed geography to local-search systems.
   // Both are scoped to curated pages only; template pages already get
   // BreadcrumbList + ItemList which is sufficient for non-curated listings.
-  if (curated && entityKind === "category" && locBase) {
+  if (curated && (entityKind === "category" || entityKind === "occasion") && locBase) {
     const selfHref = canonicalUrl;
     graphNodes.push({
       "@type": "CollectionPage",
@@ -5025,6 +5036,24 @@ function buildShopEntityHead({
   if (curated) {
     const sectionsHtml = curated.sections
       .map((s) => {
+        // Subsections (H3 blocks within a section, e.g. Gift Ideas)
+        let subsectionsHtml = "";
+        if (Array.isArray(s.subsections) && s.subsections.length > 0) {
+          subsectionsHtml = s.subsections
+            .map((sub) => {
+              let subLinksHtml = "";
+              if (locBase && Array.isArray(sub.links) && sub.links.length > 0) {
+                subLinksHtml =
+                  `<ul>` +
+                  sub.links
+                    .map((l) => `<li><a href="${l.absolute ? escapeAttr(l.href) : locBase + escapeAttr(l.href)}">${escapeHtml(l.label)}</a></li>`)
+                    .join("") +
+                  `</ul>`;
+              }
+              return `<h3>${escapeHtml(sub.h3)}</h3><p>${escapeHtml(sub.body)}</p>${subLinksHtml}`;
+            })
+            .join("");
+        }
         let linksHtml = "";
         if (locBase && Array.isArray(s.links) && s.links.length > 0) {
           linksHtml =
@@ -5036,7 +5065,8 @@ function buildShopEntityHead({
               .join("") +
             `</ul>`;
         }
-        return `<h2>${escapeHtml(s.heading)}</h2><p>${escapeHtml(s.body)}</p>${linksHtml}`;
+        const bodyHtml = s.body ? `<p>${escapeHtml(s.body)}</p>` : "";
+        return `<h2>${escapeHtml(s.heading)}</h2>${bodyHtml}${subsectionsHtml}${linksHtml}`;
       })
       .join("");
     const curatedFaqHtml =

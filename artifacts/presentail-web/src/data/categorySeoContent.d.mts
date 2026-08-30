@@ -1,6 +1,16 @@
+export type CategorySeoSubsection = {
+  h3: string;
+  body: string;
+  /** When `absolute` is true seo-inject does NOT prepend locBase to href. */
+  links?: Array<{ label: string; href: string; absolute?: boolean }>;
+};
+
 export type CategorySeoSection = {
   heading: string;
-  body: string;
+  /** Optional when `subsections` carries the body content instead. */
+  body?: string;
+  /** H3-level blocks within the section. */
+  subsections?: CategorySeoSubsection[];
   /** When `absolute` is true seo-inject does NOT prepend locBase to href. */
   links?: Array<{ label: string; href: string; absolute?: boolean }>;
 };

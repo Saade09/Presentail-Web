@@ -1,6 +1,16 @@
+export type OccasionSeoSubsection = {
+  h3: string;
+  body: string;
+  /** When `absolute` is true seo-inject does NOT prepend locBase to href. */
+  links?: Array<{ label: string; href: string; absolute?: boolean }>;
+};
+
 export type OccasionSeoSection = {
   heading: string;
-  body: string;
+  /** Optional when `subsections` carries the body content instead. */
+  body?: string;
+  /** H3-level blocks within the section (e.g. gift-type breakdowns). */
+  subsections?: OccasionSeoSubsection[];
   /** When `absolute` is true seo-inject does NOT prepend locBase to href. */
   links?: Array<{ label: string; href: string; absolute?: boolean }>;
 };
