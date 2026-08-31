@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { CircleDollarSign, Clock3, ChevronDown, MapPin, Truck } from "lucide-react";
+import { CircleDollarSign, Clock3, ChevronDown, MapPin, Truck, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -18,6 +18,7 @@ export function CampaignHero({
   cutoffHour,
   supportUrl,
   promoEligible,
+  couponCode,
   onPromoClick,
   onCtaClick,
   onSupportClick,
@@ -30,12 +31,24 @@ export function CampaignHero({
   cutoffHour?: number;
   supportUrl: string;
   promoEligible: boolean;
+  /** Coupon code shown on the badge — copies to clipboard and auto-applies at checkout. */
+  couponCode?: string;
   onPromoClick: () => void;
   onCtaClick: () => void;
   onSupportClick: () => void;
   sectionRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useLocale();
+  const [copied, setCopied] = useState(false);
+
+  const handleCouponBadgeClick = () => {
+    if (couponCode) {
+      navigator.clipboard.writeText(couponCode).catch(() => {/* best-effort */});
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+    onPromoClick();
+  };
 
   // Only show the availability pill when same-day is confirmed AND cutoff is known.
   const showPill = availabilityState === "same-day" && cutoffHour != null;
@@ -89,14 +102,25 @@ export function CampaignHero({
           </p>
 
           {promoEligible && (
-            <Link
-              href="/best-sellers"
-              onClick={onPromoClick}
-              className="mt-3 w-fit text-xs font-semibold text-[#f4d9aa] underline decoration-[#f4d9aa]/60 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-              data-testid="banner-first-order-promo"
-            >
-              {t("campaign.hero.promoTitle")} · {t("campaign.hero.promoSubtitle")}
-            </Link>
+            <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="banner-first-order-promo">
+              <span className="text-xs font-semibold text-[#f4d9aa]">
+                {t("campaign.hero.promoTitle")}
+              </span>
+              {couponCode && (
+                <button
+                  type="button"
+                  onClick={handleCouponBadgeClick}
+                  className="flex items-center gap-1.5 rounded-full border border-[#f4d9aa]/40 bg-[#f4d9aa]/10 px-2.5 py-0.5 text-xs font-mono font-semibold text-[#f4d9aa] hover:bg-[#f4d9aa]/20 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                  aria-label={copied ? t("campaign.hero.promoCopied") : `${t("campaign.hero.promoTitle")} — ${couponCode}`}
+                >
+                  {copied
+                    ? <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    : <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  }
+                  {copied ? t("campaign.hero.promoCopied") : couponCode /* i18n-ignore */}
+                </button>
+              )}
+            </div>
           )}
 
           <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-5">

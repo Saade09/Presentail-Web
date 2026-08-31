@@ -18,6 +18,15 @@ export const LATE_NIGHT_CAMPAIGN_SECTION_KEY = "campaign-beirut-late-night";
 /** Reserved code for the campaign first-order promotion (see api-server couponValidation). */
 export const FIRST_ORDER_COUPON_CODE = "FIRST10";
 
+/**
+ * Coupon code shown on the flower-delivery landing page hero badge.
+ * Clicking the badge copies this code to the clipboard and marks it as
+ * pending so the checkout auto-apply effect pre-validates and applies it.
+ */
+export const BIENVENUE_DIX_CODE = "bienvenueDIX"; /* i18n-ignore */
+
+const PENDING_COUPON_KEY = "@presentail/campaign_pending_coupon_v1";
+
 const PROMO_FLAG_KEY = "@presentail/campaign_first10_v1";
 const HAS_ORDERED_KEY = "@presentail/has_ordered_v1";
 const CAMPAIGN_IDENTITY_KEY = "@presentail/campaign_identity_v1";
@@ -78,6 +87,33 @@ const DEFAULT_THRESHOLD_USD = 50;
 export function getCampaignThresholdUsd(countryCode: string | null | undefined): number {
   if (!countryCode) return DEFAULT_THRESHOLD_USD;
   return MARKET_THRESHOLD_USD[countryCode.toUpperCase()] ?? DEFAULT_THRESHOLD_USD;
+}
+
+/** Store a coupon code from the landing page so checkout auto-applies it. */
+export function markPendingCampaignCoupon(code: string): void {
+  try {
+    localStorage.setItem(PENDING_COUPON_KEY, code);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Returns the pending campaign coupon code, or null if none. */
+export function getPendingCampaignCoupon(): string | null {
+  try {
+    return localStorage.getItem(PENDING_COUPON_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Clear the pending campaign coupon after it has been applied or rejected. */
+export function clearPendingCampaignCoupon(): void {
+  try {
+    localStorage.removeItem(PENDING_COUPON_KEY);
+  } catch {
+    /* best-effort */
+  }
 }
 
 /** Record that the first-order promo was shown to this visitor. */

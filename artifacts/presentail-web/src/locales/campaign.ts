@@ -19,6 +19,7 @@ export const campaignStrings: Dict = {
     en: "Applied automatically at checkout — no code needed",
     ar: "يُطبّق تلقائياً عند الدفع — بدون رمز خصم",
   },
+  "campaign.hero.promoCopied": { en: "Copied!", ar: "تم النسخ!" },
   "campaign.hero.cta": { en: "Shop Best Sellers", ar: "تسوّق الأكثر مبيعاً" },
   "campaign.hero.ctaUnder": { en: "Shop Under {amount}", ar: "تسوّق بأقل من {amount}" },
   "campaign.hero.imageAlt": {

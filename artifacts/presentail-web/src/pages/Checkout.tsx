@@ -16,6 +16,8 @@ import {
   isFirstOrderPromoActive,
   clearFirstOrderPromo,
   markHasOrdered,
+  getPendingCampaignCoupon,
+  clearPendingCampaignCoupon,
 } from "@/lib/campaign";
 import {
   useCreateOrder,
@@ -1261,6 +1263,49 @@ function CheckoutForm() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPromoEmail, couponApplied, couponValidating, items.length, subtotal]);
+
+  // ── Campaign coupon auto-apply (e.g. bienvenueDIX badge click) ────────────
+  // When the landing-page hero badge was clicked, the code was stored under
+  // PENDING_COUPON_KEY. Validate and apply it once cart and fees are ready.
+  const autoCampaignCouponAttemptedRef = useRef(false);
+  useEffect(() => {
+    const pending = getPendingCampaignCoupon();
+    if (!pending) return;
+    if (couponApplied || couponValidating) return;
+    if (items.length === 0 || subtotal <= 0) return;
+    if (autoCampaignCouponAttemptedRef.current) return;
+    autoCampaignCouponAttemptedRef.current = true;
+    let cancelled = false;
+    apiFetch<{ ok: boolean; error?: string; discountAmountUsd?: number }>("/coupons/validate", {
+      method: "POST",
+      body: JSON.stringify({
+        code: pending,
+        cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: effectivePrice(i.product), quantity: i.quantity })),
+        cartTotalUsd: subtotal + checkoutFeesRef.current.districtFee + checkoutFeesRef.current.expressFee + checkoutFeesRef.current.slotFee,
+      }),
+    })
+      .then((res) => {
+        if (cancelled) return;
+        clearPendingCampaignCoupon();
+        if (res.ok) {
+          const discount = res.discountAmountUsd ?? 0;
+          try {
+            localStorage.setItem(COUPON_STORAGE_KEY, pending);
+            localStorage.setItem(COUPON_DISCOUNT_KEY, String(discount));
+          } catch { /* best-effort */ }
+          setCouponInput(pending);
+          setCouponApplied(true);
+          setConfirmedCouponDiscount(discount);
+          setCouponError(null);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        clearPendingCampaignCoupon();
+      });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [couponApplied, couponValidating, items.length, subtotal]);
 
   const handleCouponApply = async (codeOverride?: string) => {
     const code = (codeOverride !== undefined ? codeOverride : couponInput).trim().toUpperCase();

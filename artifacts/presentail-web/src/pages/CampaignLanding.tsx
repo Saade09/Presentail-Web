@@ -9,8 +9,10 @@ import { fireGtagEvent } from "@/lib/gtag";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import {
   CAMPAIGN_SECTION_KEY,
+  BIENVENUE_DIX_CODE,
   hasOrderedLocally,
   markFirstOrderPromoShown,
+  markPendingCampaignCoupon,
 } from "@/lib/campaign";
 import {
   buildCampaignSupportUrl,
@@ -250,7 +252,12 @@ function CampaignLandingRedesign() {
         cutoffHour={city?.sameDayCutoffHour}
         supportUrl={supportUrl}
         promoEligible={promoEligible}
-        onPromoClick={() => fireCampaignEvent("campaign_promo_click")}
+        couponCode={BIENVENUE_DIX_CODE}
+        onPromoClick={() => {
+          markPendingCampaignCoupon(BIENVENUE_DIX_CODE);
+          markFirstOrderPromoShown();
+          fireCampaignEvent("campaign_promo_click");
+        }}
         onCtaClick={() => {
           fireCampaignEvent("campaign_hero_cta_click", cityId ?? undefined);
           scrollToProducts();
