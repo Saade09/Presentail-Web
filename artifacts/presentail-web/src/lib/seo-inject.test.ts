@@ -1663,6 +1663,18 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
     );
   });
 
+  it("FR Beirut uses the same seven override FAQs in JSON-LD and visible fallback HTML", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/fr-lb/beirut", ORIGIN_OPTS);
+    const nodes = extractJsonLd(out);
+    const faq = byType(nodes, "FAQPage");
+    expect(faq.mainEntity).toHaveLength(7);
+    const { bodyHtml } = buildSeoHead("/fr-lb/beirut", ORIGIN_OPTS);
+    for (const item of faq.mainEntity) {
+      expect(bodyHtml).toContain(`<h3>${item.name}</h3>`);
+      expect(bodyHtml).toContain(`<p>${item.acceptedAnswer.text}</p>`);
+    }
+  });
+
   it("soft-404 sub-route (/en-lb/beirut/<unknown>) falls back to the page title/description, NOT the dedicated home copy", () => {
     const { headSnippet, title } = buildSeoHead(
       "/en-lb/beirut/some-unknown-route",
@@ -8954,10 +8966,12 @@ describe("Prerender body — category/occasion page product count and links", ()
 });
 
 describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
-  const TRIPOLI_TITLE = "Same-Day Flower Delivery in Tripoli | Presentail";
+  const TRIPOLI_TITLE = "Flower & Gift Delivery in Tripoli | Presentail";
+  const TRIPOLI_TITLE_HTML = "Flower &amp; Gift Delivery in Tripoli | Presentail";
   const TRIPOLI_DESC =
     "Order fresh flowers online for delivery in Tripoli, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.";
-  const TRIPOLI_H1 = "Flower Delivery in Tripoli, Lebanon";
+  const TRIPOLI_H1 = "Flower & Gift Delivery in Tripoli";
+  const TRIPOLI_H1_HTML = "Flower &amp; Gift Delivery in Tripoli";
   const T_OPTS = { origin: "https://presentail.test", basePath: "" };
 
   beforeEach(() => genericSeoCache.clear());
@@ -8965,21 +8979,21 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
   it("title is the hand-written Tripoli value", () => {
     const { title, titleTag } = buildSeoHead("/en-lb/tripoli", T_OPTS);
     expect(title).toBe(TRIPOLI_TITLE);
-    expect(titleTag).toBe(`<title>${TRIPOLI_TITLE}</title>`);
+    expect(titleTag).toBe(`<title>${TRIPOLI_TITLE_HTML}</title>`);
   });
 
   it("meta description, OG and Twitter copy all match the Tripoli value", () => {
     const { headSnippet } = buildSeoHead("/en-lb/tripoli", T_OPTS);
     expect(headSnippet).toContain(`<meta name="description" content="${TRIPOLI_DESC}"`);
-    expect(headSnippet).toContain(`<meta property="og:title" content="${TRIPOLI_TITLE}"`);
+    expect(headSnippet).toContain(`<meta property="og:title" content="${TRIPOLI_TITLE_HTML}"`);
     expect(headSnippet).toContain(`<meta property="og:description" content="${TRIPOLI_DESC}"`);
-    expect(headSnippet).toContain(`<meta name="twitter:title" content="${TRIPOLI_TITLE}"`);
+    expect(headSnippet).toContain(`<meta name="twitter:title" content="${TRIPOLI_TITLE_HTML}"`);
     expect(headSnippet).toContain(`<meta name="twitter:description" content="${TRIPOLI_DESC}"`);
   });
 
   it("body H1 is visible (no sr-only) and matches the spec text", () => {
     const { bodyHtml } = buildSeoHead("/en-lb/tripoli", T_OPTS);
-    expect(bodyHtml).toContain(`<h1>${TRIPOLI_H1}</h1>`);
+    expect(bodyHtml).toContain(`<h1>${TRIPOLI_H1_HTML}</h1>`);
     expect(bodyHtml).not.toContain("sr-only");
   });
 
@@ -9041,15 +9055,15 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
     expect(crumb["@id"]).toBe(`${canonical}#breadcrumb`);
   });
 
-  it("other city pages are not regressed (Beirut keeps template title, 3 FAQs, no CollectionPage)", async () => {
+  it("Beirut now has its own matching title, expanded FAQs and CollectionPage", async () => {
     const { title: beirutTitle } = buildSeoHead("/en-lb/beirut", T_OPTS);
     expect(beirutTitle).not.toBe(TRIPOLI_TITLE);
     expect(beirutTitle).toContain("Beirut");
     const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", T_OPTS);
     const nodes = extractJsonLd(out);
-    expect(byType(nodes, "CollectionPage")).toBeUndefined();
+    expect(byType(nodes, "CollectionPage")).toBeTruthy();
     const faq = byType(nodes, "FAQPage");
-    expect(faq.mainEntity).toHaveLength(3);
+    expect(faq.mainEntity).toHaveLength(7);
   });
 
   it("Tripoli sub-routes keep template titles (override is home-only)", () => {
@@ -9064,10 +9078,12 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
 });
 
 describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
-  const BATROUN_TITLE = "Same-Day Flower Delivery in Batroun | Presentail";
+  const BATROUN_TITLE = "Flower & Gift Delivery in Batroun | Presentail";
+  const BATROUN_TITLE_HTML = "Flower &amp; Gift Delivery in Batroun | Presentail";
   const BATROUN_DESC =
     "Order fresh flowers online for delivery in Batroun, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.";
-  const BATROUN_H1 = "Flower Delivery in Batroun, Lebanon";
+  const BATROUN_H1 = "Flower & Gift Delivery in Batroun";
+  const BATROUN_H1_HTML = "Flower &amp; Gift Delivery in Batroun";
   const B_OPTS = { origin: "https://presentail.test", basePath: "" };
 
   beforeEach(() => genericSeoCache.clear());
@@ -9075,21 +9091,21 @@ describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
   it("title is the hand-written Batroun value", () => {
     const { title, titleTag } = buildSeoHead("/en-lb/batroun", B_OPTS);
     expect(title).toBe(BATROUN_TITLE);
-    expect(titleTag).toBe(`<title>${BATROUN_TITLE}</title>`);
+    expect(titleTag).toBe(`<title>${BATROUN_TITLE_HTML}</title>`);
   });
 
   it("meta description, OG and Twitter copy all match the Batroun value", () => {
     const { headSnippet } = buildSeoHead("/en-lb/batroun", B_OPTS);
     expect(headSnippet).toContain(`<meta name="description" content="${BATROUN_DESC}"`);
-    expect(headSnippet).toContain(`<meta property="og:title" content="${BATROUN_TITLE}"`);
+    expect(headSnippet).toContain(`<meta property="og:title" content="${BATROUN_TITLE_HTML}"`);
     expect(headSnippet).toContain(`<meta property="og:description" content="${BATROUN_DESC}"`);
-    expect(headSnippet).toContain(`<meta name="twitter:title" content="${BATROUN_TITLE}"`);
+    expect(headSnippet).toContain(`<meta name="twitter:title" content="${BATROUN_TITLE_HTML}"`);
     expect(headSnippet).toContain(`<meta name="twitter:description" content="${BATROUN_DESC}"`);
   });
 
   it("body H1 is visible (no sr-only) and matches the spec text", () => {
     const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);
-    expect(bodyHtml).toContain(`<h1>${BATROUN_H1}</h1>`);
+    expect(bodyHtml).toContain(`<h1>${BATROUN_H1_HTML}</h1>`);
     expect(bodyHtml).not.toContain("sr-only");
   });
 
@@ -9180,7 +9196,7 @@ describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
 
   it("other city pages are not regressed (Tripoli and Beirut unaffected)", async () => {
     const { title: tripoliTitle } = buildSeoHead("/en-lb/tripoli", B_OPTS);
-    expect(tripoliTitle).toBe("Same-Day Flower Delivery in Tripoli | Presentail");
+    expect(tripoliTitle).toBe("Flower & Gift Delivery in Tripoli | Presentail");
     const { title: beirutTitle } = buildSeoHead("/en-lb/beirut", B_OPTS);
     expect(beirutTitle).toContain("Beirut");
     expect(beirutTitle).not.toBe(BATROUN_TITLE);

@@ -7,7 +7,11 @@ import {
   parseLocalePath,
   type Lang,
 } from "@/lib/locale-route";
-import { NONINDEX_ROUTE_KEYS } from "@/lib/seo";
+import {
+  CITY_NAMES,
+  getCityHomeSeoOverride,
+  NONINDEX_ROUTE_KEYS,
+} from "@/lib/seo";
 import { buildHreflangSet, HUB_CITY } from "@/lib/hreflang";
 
 const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
@@ -104,21 +108,34 @@ export function SeoHead() {
     if (routeKey === "blogPost" || routeKey === "entityPage" || isProductDetailPath) return;
     if (path.startsWith("/favorites/share/")) return;
 
-    const cityLabel = city
-      ? cityName(city.id, city.name)
-      : hasValidCity && parsed.city
-        ? parsed.city
+    const cityKey =
+      hasValidCity && parsed.country && parsed.city
+        ? `${parsed.country}-${parsed.city}`
+        : null;
+    const cityLabel = cityKey
+      ? CITY_NAMES[language]?.[cityKey] ??
+        CITY_NAMES.en[cityKey] ??
+        (parsed.city ?? "")
             .split("-")
             .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
             .join(" ")
+      : city
+        ? cityName(city.id, city.name)
         : "";
     const countryLabel = country
       ? countryName(country.code, country.name)
       : "";
 
     const params = { city: cityLabel, country: countryLabel };
-    const title = t(`seo.${routeKey}.title`, params);
-    const description = t(`seo.${routeKey}.description`, params);
+    const cityHomeOverride =
+      routeKey === "home" &&
+      cityKey &&
+      (parsed.rest === "" || parsed.rest === "/")
+        ? getCityHomeSeoOverride(cityKey, language)
+        : null;
+    const title = cityHomeOverride?.title ?? t(`seo.${routeKey}.title`, params);
+    const description =
+      cityHomeOverride?.description ?? t(`seo.${routeKey}.description`, params);
     const siteName = t("seo.siteName");
 
     // Landing and locale-prefixed home pages use distinct, shorter OG and
@@ -163,10 +180,23 @@ export function SeoHead() {
       twitterTitle = t("seo.landing.twitterTitle");
       twitterDescription = t("seo.landing.twitterDescription");
     } else if (isHome) {
-      ogTitle = t("seo.home.ogTitle", params);
-      ogDescription = t("seo.home.ogDescription", params);
-      twitterTitle = t("seo.home.twitterTitle", params);
-      twitterDescription = t("seo.home.twitterDescription", params);
+      // Mirror the server injector exactly: Tripoli/Batroun and Arabic Beirut
+      // share their override metadata, while English/French Beirut retain the
+      // shorter generic social-card copy.
+      const useOverrideShareCopy =
+        Boolean(cityHomeOverride) &&
+        (cityKey !== "lb-beirut" || language === "ar");
+      if (useOverrideShareCopy) {
+        ogTitle = title;
+        ogDescription = description;
+        twitterTitle = title;
+        twitterDescription = description;
+      } else {
+        ogTitle = t("seo.home.ogTitle", params);
+        ogDescription = t("seo.home.ogDescription", params);
+        twitterTitle = t("seo.home.twitterTitle", params);
+        twitterDescription = t("seo.home.twitterDescription", params);
+      }
     } else if (hasGenericShareCopy) {
       ogTitle = t(`seo.${routeKey}.ogTitle`, params);
       ogDescription = t(`seo.${routeKey}.ogDescription`, params);

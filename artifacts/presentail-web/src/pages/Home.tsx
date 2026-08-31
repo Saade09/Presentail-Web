@@ -178,6 +178,10 @@ export default function Home() {
     ? (CITY_SEO[cityId.toLowerCase()]?.[language] ?? CITY_SEO[cityId.toLowerCase()]?.en ?? "")
     : "";
   const h1Text = cityOverride?.h1 ?? (cityLabel ? t("home.h1", { city: cityLabel }) : "");
+  const cityIntroText =
+    cityOverride?.intro && cityOverride.intro !== cityCoverageText
+      ? cityOverride.intro
+      : "";
 
   const trustpilotTitle =
     ipCountry === "LB"
@@ -193,9 +197,9 @@ export default function Home() {
       {h1Text && (
         <h1 className="px-4 md:px-0 pt-4 pb-2 font-serif text-xl md:text-2xl text-primary">{h1Text}</h1>
       )}
-      {cityOverride?.intro && (
+      {cityIntroText && (
         <p className="px-4 md:px-0 pb-4 text-sm md:text-base text-muted-foreground max-w-3xl">
-          {cityOverride.intro}
+          {cityIntroText}
         </p>
       )}
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
@@ -326,7 +330,7 @@ export default function Home() {
         into the initial HTML — rendered here too so it stays visible after
         hydration (server/client content parity). Placed below the product
         grid so the hero and shopping content appear immediately above the fold. */}
-    {cityOverride && cityCoverageText && (
+    {cityCoverageText && (
       <p
         data-testid="city-coverage-text"
         className="container mx-auto px-4 pb-4 max-w-content text-sm md:text-base text-muted-foreground"

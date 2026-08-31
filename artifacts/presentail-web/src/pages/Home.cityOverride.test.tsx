@@ -68,8 +68,7 @@ describe("Home — Tripoli city override hydration parity", () => {
     expect(h1.textContent).toBe(override!.h1);
 
     // Intro + delivery-coverage paragraph (same CITY_SEO copy the server injects).
-    expect(screen.getByText(override!.intro)).toBeTruthy();
-    expect(screen.getByText(coverage)).toBeTruthy();
+    expect(screen.getAllByText(coverage)).toHaveLength(1);
 
     // "Why Presentail" heading + every point.
     expect(screen.getByText(override!.whyHeading!)).toBeTruthy();

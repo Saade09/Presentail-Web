@@ -1359,20 +1359,115 @@ export function normalizeSeoText(value) {
  */
 export const CITY_HOME_SEO_OVERRIDES = {
   "lb-beirut": {
+    en: {
+      title: "Flower & Gift Delivery in Beirut | Presentail", // i18n-ignore — crawler-facing EN copy
+      description:
+        "Send flowers, cakes, balloons, plants, chocolates and gifts online in Beirut. Express same-day delivery available with Presentail.", // i18n-ignore — crawler-facing EN copy
+      h1: "Flower & Gift Delivery in Beirut", // i18n-ignore — crawler-facing EN copy
+      intro:
+        "Presentail serves every corner of the Lebanese capital, delivering across Hamra, Achrafieh, Gemmayzeh, Verdun, Badaro, Mar Mikhael, Ras Beirut, and the wider metropolitan area. Beirut's vibrant blend of historic neighbourhoods, waterfront promenades, and contemporary dining districts makes it a city in constant creative motion. From a surprise birthday bouquet in Sassine Square to a luxury hamper delivered to a Sodeco penthouse, our same-day service keeps pace with the capital's energy.", // i18n-ignore — crawler-facing EN copy
+      whyHeading: "Why Presentail", // i18n-ignore — crawler-facing EN copy
+      whyPoints: [
+        "Same-day flower delivery in Beirut on eligible orders", // i18n-ignore — crawler-facing EN copy
+        "Hand-arranged bouquets from trusted local florists", // i18n-ignore — crawler-facing EN copy
+        "Free personalised card message with every order", // i18n-ignore — crawler-facing EN copy
+        "Order from anywhere in the world and pay in your own currency", // i18n-ignore — crawler-facing EN copy
+      ],
+      // Shared FAQ source of truth: rendered visibly in the server-injected
+      // body AND in the hydrated React page (SEOContentSection overrides),
+      // and mirrored 1:1 into FAQPage JSON-LD — all three must stay identical.
+      // i18n-ignore-block — crawler-facing EN copy for the Beirut landing page
+      faqs: [
+        {
+          question: "Is same-day flower delivery available in Beirut?",
+          answer: "Yes. Same-day flower delivery is available in Beirut on eligible orders placed early enough in the day. Orders placed later are delivered the next day.",
+        },
+        {
+          question: "Which areas of Beirut does Presentail deliver to?",
+          answer: "Presentail delivers across Beirut, including Hamra, Achrafieh, Gemmayzeh, Verdun, Badaro, Mar Mikhael and Ras Beirut.",
+        },
+        {
+          question: "Can I schedule a flower delivery in Beirut for a future date?",
+          answer: "Yes. During checkout you can choose a future delivery date, so your flowers arrive exactly on the birthday, anniversary or occasion you are celebrating.",
+        },
+        {
+          question: "Can I include a personalised card message with my Beirut order?",
+          answer: "Yes. Every order can include a free personalised card message — add it at checkout and it is delivered with your flowers.",
+        },
+        {
+          question: "What payment methods are accepted for Beirut orders?",
+          answer: `We accept ${LOCATION_DATA.lb.paymentAccepted} for all orders delivered in Beirut.`,
+        },
+        {
+          question: "Can I order flowers for Beirut from outside Lebanon?",
+          answer: "Yes. Presentail is built for sending gifts from abroad — order online from anywhere in the world, pay in your own currency, and we deliver to your recipient in Beirut.",
+        },
+        {
+          question: "What happens if the recipient is unavailable at delivery time?",
+          answer: "Our team will contact the recipient to arrange delivery. If they cannot be reached, we coordinate with you to redeliver or leave the order with someone at the address.",
+        },
+      ],
+    },
     ar: {
       title: "توصيل هدايا في لبنان وبيروت | Presentail",
       description:
         "اطلب توصيل هدايا في لبنان وبيروت: ورد، كيك، بالونات، شوكولاتة ونباتات. توصيل سريع في نفس اليوم إلى جميع المناطق مع Presentail.",
       h1: "توصيل الزهور والهدايا في لبنان وبيروت",
+      // TODO: ar intro/faqs not yet authored — client renders generic FAQ set for ar-lb/beirut
+    },
+    fr: {
+      title: "Livraison de fleurs et cadeaux à Beyrouth | Presentail",
+      description:
+        "Envoyez fleurs, gâteaux, ballons, plantes, chocolats et cadeaux en ligne à Beyrouth. Livraison express le jour même disponible avec Presentail.",
+      h1: "Livraison de fleurs et cadeaux à Beyrouth",
+      intro:
+        "Presentail dessert chaque recoin de la capitale libanaise, livrant à Hamra, Achrafieh, Gemmayzeh, Verdun, Badaro, Mar Mikhael, Ras Beirut et la grande région métropolitaine. Le mélange vibrant de Beyrouth entre quartiers historiques, promenades en bord de mer et districts gastronomiques contemporains en fait une ville en perpétuel mouvement créatif. D'un bouquet-surprise à Sassine à un luxueux panier livré dans un penthouse à Sodeco, notre service du jour suit l'énergie de la capitale.",
+      whyHeading: "Pourquoi Presentail",
+      whyPoints: [
+        "Livraison de fleurs le jour même à Beyrouth pour les commandes éligibles",
+        "Bouquets composés à la main par des fleuristes locaux de confiance",
+        "Carte personnalisée gratuite avec chaque commande",
+        "Commandez depuis le monde entier et payez dans votre propre devise",
+      ],
+      faqs: [
+        {
+          question: "La livraison de fleurs le jour même est-elle disponible à Beyrouth ?",
+          answer: "Oui. La livraison de fleurs le jour même est disponible à Beyrouth pour les commandes éligibles passées suffisamment tôt. Les commandes passées plus tard sont livrées le lendemain.",
+        },
+        {
+          question: "Dans quels quartiers de Beyrouth Presentail livre-t-il ?",
+          answer: "Presentail livre dans tout Beyrouth, notamment à Hamra, Achrafieh, Gemmayzeh, Verdun, Badaro, Mar Mikhael et Ras Beirut.",
+        },
+        {
+          question: "Puis-je programmer une livraison de fleurs à Beyrouth à une date ultérieure ?",
+          answer: "Oui. Lors du paiement, vous pouvez choisir une date de livraison ultérieure afin que vos fleurs arrivent précisément le jour de l'anniversaire ou de l'occasion célébrée.",
+        },
+        {
+          question: "Puis-je ajouter un message personnalisé à ma commande pour Beyrouth ?",
+          answer: "Oui. Chaque commande peut inclure gratuitement un message personnalisé sur une carte — ajoutez-le lors du paiement et il sera livré avec vos fleurs.",
+        },
+        {
+          question: "Quels moyens de paiement sont acceptés pour les commandes à Beyrouth ?",
+          answer: `Nous acceptons ${LOCATION_DATA.lb.paymentAccepted} pour toutes les commandes livrées à Beyrouth.`,
+        },
+        {
+          question: "Puis-je commander des fleurs pour Beyrouth depuis l'étranger ?",
+          answer: "Oui. Presentail est conçu pour envoyer des cadeaux depuis l'étranger — commandez en ligne depuis n'importe où dans le monde, payez dans votre propre devise et nous livrons votre destinataire à Beyrouth.",
+        },
+        {
+          question: "Que se passe-t-il si le destinataire est absent au moment de la livraison ?",
+          answer: "Notre équipe contactera le destinataire pour organiser la livraison. S'il reste injoignable, nous nous coordonnerons avec vous pour effectuer une nouvelle livraison ou confier la commande à une personne présente à l'adresse.",
+        },
+      ],
     },
   },
 
   "lb-batroun": {
     en: {
-      title: "Same-Day Flower Delivery in Batroun | Presentail", // i18n-ignore — crawler-facing EN SEO copy
+      title: "Flower & Gift Delivery in Batroun | Presentail", // i18n-ignore — crawler-facing EN SEO copy
       description:
         "Order fresh flowers online for delivery in Batroun, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.", // i18n-ignore
-      h1: "Flower Delivery in Batroun, Lebanon", // i18n-ignore
+      h1: "Flower & Gift Delivery in Batroun", // i18n-ignore
       intro:
         "Send fresh flowers to Batroun, Lebanon from anywhere in the world. Hand-arranged bouquets, roses and thoughtful gifts delivered across Batroun, Hamat, Douma, Tannourine and Rachkida, with same-day delivery available on eligible orders.", // i18n-ignore
       whyHeading: "Why Presentail", // i18n-ignore
@@ -1429,10 +1524,10 @@ export const CITY_HOME_SEO_OVERRIDES = {
 
   "lb-tripoli": {
     en: {
-      title: "Same-Day Flower Delivery in Tripoli | Presentail", // i18n-ignore — crawler-facing EN SEO copy
+      title: "Flower & Gift Delivery in Tripoli | Presentail", // i18n-ignore — crawler-facing EN SEO copy
       description:
         "Order fresh flowers online for delivery in Tripoli, Lebanon. Shop bouquets, roses and thoughtful gifts with same-day delivery available on eligible orders.", // i18n-ignore
-      h1: "Flower Delivery in Tripoli, Lebanon", // i18n-ignore
+      h1: "Flower & Gift Delivery in Tripoli", // i18n-ignore
       intro:
         "Send fresh flowers to Tripoli, Lebanon from anywhere in the world. Hand-arranged bouquets, roses and thoughtful gifts delivered across El Mina, Bab El Tabbaneh, Qobbeh, Beddawi and Zahrieh, with same-day delivery available on eligible orders.", // i18n-ignore
       whyHeading: "Why Presentail", // i18n-ignore

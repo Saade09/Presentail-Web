@@ -727,7 +727,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     twitterTitle = twLang.title;
     twitterDescription = twLang.description;
   } else if (isHome) {
-    if (cityHomeOverride) {
+    if (cityHomeOverride && (cityKey !== "lb-beirut" || lang === "ar")) {
       // Overridden city homes share the exact page title/description so the
       // OG/Twitter share cards agree with the SERP snippet.
       ogTitle = title;
@@ -1028,6 +1028,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       cityLabel || "",
       (parsed.country || "").toUpperCase(),
       lang,
+      cityKey,
     );
     const mainEntity = cityFaqs.map(({ question, answer }) => ({
       "@type": "Question",
@@ -1144,6 +1145,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
         cityLabel || "",
         (parsed.country || "").toUpperCase(),
         lang,
+        cityKey,
       );
       // Emit the FULL city FAQ set (not a slice) so the visible FAQ block in
       // the initial HTML matches the FAQPage JSON-LD above exactly — Google
@@ -1681,7 +1683,13 @@ function buildBlogIndexJsonLd({
 }
 
 function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined, campaignLanding = null }) {
-  const intro = introOverride ?? ROUTE_BODY_INTRO[routeKey] ?? "";
+  // When a city override intentionally reuses its CITY_SEO coverage paragraph
+  // as the intro, emit that prose only once. The hydrated Home page applies the
+  // same equality check so server and client keep exact paragraph parity.
+  const intro =
+    introOverride && introOverride === cityContent
+      ? ""
+      : introOverride ?? ROUTE_BODY_INTRO[routeKey] ?? "";
   const h1Text = h1Override ?? h1;
   const safeH1 = escapeHtml(h1Text);
   const safeDesc = escapeHtml(description);
@@ -3438,7 +3446,7 @@ export function buildLocalBusinessSchema({ siteUrl, cityName, countryName, count
  * Replaces the generic HOMEPAGE_FAQ_COPY for city home pages in JSON-LD and
  * the prerendered body fragment so each of the 37 city pages has distinct Q&A.
  */
-export function buildCityFaqSchema(cityName, countryCode, locale) {
+export function buildCityFaqSchema(cityName, countryCode, locale, cityKey = null) {
   const cc = (countryCode || "").toUpperCase();
   const lang = locale === "ar" || locale === "fr" ? locale : "en";
 
@@ -3451,7 +3459,7 @@ export function buildCityFaqSchema(cityName, countryCode, locale) {
   // hydrated React page (SEOContentSection overrides), keeping all three
   // exactly in sync. Other cities and locales keep the generic set below.
   const overrideFaqs = getCityHomeSeoOverride(
-    `${cc.toLowerCase()}-${String(cityName).toLowerCase()}`,
+    cityKey ?? `${cc.toLowerCase()}-${String(cityName).toLowerCase()}`,
     lang,
   )?.faqs;
   if (overrideFaqs) return overrideFaqs;

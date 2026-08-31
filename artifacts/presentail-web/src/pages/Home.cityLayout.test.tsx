@@ -217,8 +217,8 @@ describe("Home — shared city landing-page layout order", () => {
     expect(isBefore(coverageEl, seoWrapper!)).toBe(true);
   });
 
-  // [9a] Arabic locale for Tripoli: no AR override exists, so no coverage
-  // paragraph is shown. Verify the page renders without errors (no layout crash).
+  // [9a] Arabic locale for Tripoli: no AR override exists, but the shared
+  // CITY_SEO coverage paragraph still renders.
   it("Tripoli in Arabic (ar) locale: page renders without layout errors", () => {
     vi.mocked(useLocationSelection).mockReturnValue({
       country: { code: "LB" } as never,
@@ -232,16 +232,17 @@ describe("Home — shared city landing-page layout order", () => {
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s).toHaveLength(1);
 
-    // Coverage paragraph is absent (no AR override → cityOverride is null).
+    // Coverage paragraph does not depend on a hand-written city override.
     const coverageEl = document.querySelector("[data-testid='city-coverage-text']");
-    expect(coverageEl).toBeNull();
+    expect(coverageEl?.textContent).toBe(CITY_SEO["lb-tripoli"].ar);
 
     // Hero section wrapper is always rendered.
     const heroSection = document.querySelector("[data-testid='hero-section']");
     expect(heroSection).not.toBeNull();
   });
 
-  // [9b] French locale for Batroun: same as AR — no FR override exists, no crash.
+  // [9b] French locale for Batroun: no FR override exists, but CITY_SEO copy
+  // remains visible after hydration.
   it("Batroun in French (fr) locale: page renders without layout errors", () => {
     vi.mocked(useLocationSelection).mockReturnValue({
       country: { code: "LB" } as never,
@@ -254,17 +255,18 @@ describe("Home — shared city landing-page layout order", () => {
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s).toHaveLength(1);
     const coverageEl = document.querySelector("[data-testid='city-coverage-text']");
-    expect(coverageEl).toBeNull();
+    expect(coverageEl?.textContent).toBe(CITY_SEO["lb-batroun"].fr);
     const heroSection = document.querySelector("[data-testid='hero-section']");
     expect(heroSection).not.toBeNull();
   });
 
-  // [1] Generic city (no override): exactly one H1, hero present, no coverage text.
-  it("generic city without override: exactly one H1, hero present, no coverage paragraph", () => {
+  // [1] Generic LB city (no override): exactly one H1, hero present, and its
+  // CITY_SEO paragraph remains visible after hydration.
+  it("generic LB city without override renders its coverage paragraph", () => {
     vi.mocked(useLocationSelection).mockReturnValue({
       country: { code: "LB" } as never,
-      city: null, // use cityId fallback so cityLabel = "Beirut" and H1 renders
-      cityId: "lb-beirut",
+      city: null, // use cityId fallback so cityLabel = "Aley" and H1 renders
+      cityId: "lb-aley",
     } as never);
 
     renderWithProviders(<Home />, { locale: EN_LOCALE });
@@ -272,9 +274,8 @@ describe("Home — shared city landing-page layout order", () => {
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s).toHaveLength(1);
 
-    // No coverage paragraph for cities without a CITY_HOME_SEO_OVERRIDES entry.
     const coverageEl = document.querySelector("[data-testid='city-coverage-text']");
-    expect(coverageEl).toBeNull();
+    expect(coverageEl?.textContent).toBe(CITY_SEO["lb-aley"].en);
 
     // Hero section wrapper is always present.
     const heroSection = document.querySelector("[data-testid='hero-section']");
