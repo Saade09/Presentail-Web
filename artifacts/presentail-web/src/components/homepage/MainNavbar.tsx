@@ -120,6 +120,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Plants",             href: "/category/plants",              img: "/catalog/categories/plants.webp" },
       { label: "Hand-Tied Bouquets", href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
       { label: "Luxury Arrangements", href: "/category/lux-arrangements",   img: "/catalog/categories/lux-arrangements.avif" },
+      { label: "Table Arrangements", href: "/category/table-arrangements",  emoji: "🌿" },
       { label: "Artificial Flowers", href: "/category/artificial-flowers",  emoji: "🌺" },
     ],
     footer: { label: "Shop all Flowers & Plants", labelKey: "nav.viewAllFlowers", href: "/category/flowers" },
@@ -145,7 +146,6 @@ const STATIC_MENUS: MegaMenuDef[] = [
     labelKey: "nav.gifts",
     items: [
       { label: "Gift Bundles",       href: "/category/bundles",            img: "/catalog/categories/bundles.webp" },
-      { label: "Table Arrangements", href: "/category/table-arrangements", emoji: "🌿" },
       { label: "Religious Gifts",    href: "/category/religious-gifts",    emoji: "🕊️" },
       { label: "Cakes",              href: "/category/cakes",              img: "/catalog/categories/cakes.webp" },
       { label: "Stuffed Animals",    href: "/category/stuffed-animals",    img: "/catalog/categories/stuffed-animals.webp" },

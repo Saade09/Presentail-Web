@@ -46,7 +46,7 @@ export const CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   "single-balloons": "balloons",
   "balloon-bundles": "balloons",
   "balloon-deco": "balloons",
-  "table-arrangements": "gifts",
+  "table-arrangements": "flowers",
   "religious-gifts": "gifts",
   "cakes": "gifts",
   "chocolate": "gifts",
