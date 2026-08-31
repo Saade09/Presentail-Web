@@ -14,6 +14,7 @@
  */
 
 import { createRequire } from "node:module";
+import { HUB_CITY } from "../src/lib/hreflang.mjs";
 const _require = createRequire(import.meta.url);
 
 /**
@@ -58,6 +59,10 @@ export const UNIQUENESS_RATIO_MIN = 0.15;
  *     — skipped when parentProductCount is 0 or null/undefined.
  *  5. Not identical to parent: if productCount === parentProductCount and
  *     parentProductCount > 0, the page adds no unique value.
+ *     — skipped when city is the hub city for its country (HUB_CITY[country]),
+ *       because the hub city's catalogue IS the parent catalogue by definition;
+ *       comparing them always yields equal counts and the rule would produce a
+ *       guaranteed false negative for every hub-city entity page.
  *
  * @param {object} params
  * @param {string} params.pageType          - one of the MIN_PRODUCTS_BY_TYPE keys
@@ -158,7 +163,12 @@ export function isPageEligible({
     // Skipped when parentEligible is explicitly false: if the parent page
     // is itself ineligible, the city page is already excluded by Rule 3
     // (min-count), so flagging identical inventory is redundant.
-    if (productCount === parentProductCount && parentEligible !== false) {
+    // Also skipped when city is the hub city for its country: the hub
+    // city's catalogue IS the parent catalogue by definition, so the
+    // identical-inventory check always fires and produces a guaranteed
+    // false negative for every hub-city entity page.
+    const isHubCity = !!(city && country && HUB_CITY[country] === city);
+    if (productCount === parentProductCount && parentEligible !== false && !isHubCity) {
       return {
         eligible: false,
         reason: `productCount (${productCount}) equals parentProductCount — identical inventory, no value add`,
@@ -210,7 +220,7 @@ if (isMain) {
       { pageType: "city",           city: "akkar",     productCount: 2,  parentProductCount: 0 },
       { pageType: "city-category",  city: "beirut",    categorySlug: "flowers",    productCount: 8, parentProductCount: 40 },
       { pageType: "city-category",  city: "beirut",    categorySlug: "hampers",    productCount: 2, parentProductCount: 40 },
-      { pageType: "city-category",  city: "beirut",    categorySlug: "chocolates", productCount: 20, parentProductCount: 20 },
+      { pageType: "city-category",  city: "beirut",    categorySlug: "chocolates", productCount: 20, parentProductCount: 20, country: "lb" },
       { pageType: "city-occasion",  city: "dubai",     occasionSlug: "birthday",   productCount: 5, parentProductCount: 30 },
       { pageType: "city-occasion",  city: "dubai",     occasionSlug: "graduation", productCount: 1, parentProductCount: 30 },
       { pageType: "city-brand",     city: "nicosia",   brandSlug: "fleurop",       productCount: 4, parentProductCount: 0 },
